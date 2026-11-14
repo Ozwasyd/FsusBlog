@@ -1,0 +1,2902 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "startedAtUtc": "2026-11-14T17:28:53+00:00",
+  "finishedAtUtc": "2026-11-14T17:31:08+00:00",
+  "batches": [
+    {
+      "observedAtUtc": "2026-11-14T17:28:57+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:28:55 GMT",
+      "requestId": "ED66:25E273:67B251:A47C04:6AF89A56",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4924
+      },
+      "targets": [
+        {
+          "number": 1066,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1066,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1066",
+            "title": "[Test Performance] 解耦后端 testhost 数、处理器配额与 rolling partitions，按机器校准 Production 分片拓扑",
+            "state": "CLOSED",
+            "createdAt": "2026-07-14T02:43:14Z",
+            "updatedAt": "2026-07-25T07:05:37Z",
+            "closedAt": "2026-07-25T07:05:37Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1072,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1072,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1072",
+            "title": "[Test Performance] 用 cgroup v2/容器配额强制 Production 动态资源 Grant，防止子进程越权与过度订阅",
+            "state": "CLOSED",
+            "createdAt": "2026-07-14T02:45:45Z",
+            "updatedAt": "2026-07-25T07:05:44Z",
+            "closedAt": "2026-07-25T07:05:44Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1073,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1073,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1073",
+            "title": "[Test Performance] 让 Production Vitest 按 live resource grant 滚动增加 Host，消除固定单进程并发上限",
+            "state": "CLOSED",
+            "createdAt": "2026-07-14T03:04:29Z",
+            "updatedAt": "2026-07-25T07:05:45Z",
+            "closedAt": "2026-07-25T07:05:45Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1077,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1077,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1077",
+            "title": "[Test Performance] 让长生命周期 Manifest/Collect Pool 按 Live Grant 动态扩缩 Worker",
+            "state": "CLOSED",
+            "createdAt": "2026-07-14T03:06:40Z",
+            "updatedAt": "2026-07-19T16:58:11Z",
+            "closedAt": "2026-07-19T16:58:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1083,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1083,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1083",
+            "title": "[Test Performance] 将 Frontend Release Build 拆为 Live-Grant Stage DAG，避免启动配额固化",
+            "state": "CLOSED",
+            "createdAt": "2026-07-14T03:46:35Z",
+            "updatedAt": "2026-07-25T07:05:53Z",
+            "closedAt": "2026-07-25T07:05:53Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1313,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1313,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1313",
+            "title": "test(layout-governance): verify archetypes, FsusUI ownership, and representative visual states",
+            "state": "CLOSED",
+            "createdAt": "2026-07-19T14:00:02Z",
+            "updatedAt": "2026-07-19T19:09:42Z",
+            "closedAt": "2026-07-19T19:09:42Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1490,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1490,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1490",
+            "title": "为 public-preview 生成可审计的几何、触控、焦点与语言一致性证据",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T11:09:41Z",
+            "updatedAt": "2026-07-24T21:04:46Z",
+            "closedAt": "2026-07-24T21:04:46Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1524,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1524,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1524",
+            "title": "fix(i18n): 删除二元语言 API、LocaleToggle 与中英专用文案回归",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:36:47Z",
+            "updatedAt": "2026-07-27T15:51:56Z",
+            "closedAt": "2026-07-27T15:51:56Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1525,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1525,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1525",
+            "title": "fix(i18n): 删除中文显示文案驱动的路由标题映射",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:37:04Z",
+            "updatedAt": "2026-07-27T15:51:58Z",
+            "closedAt": "2026-07-27T15:51:58Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1526,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1526,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1526",
+            "title": "perf(i18n): 建立 locale × domain 按需加载并删除整包预装",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:37:21Z",
+            "updatedAt": "2026-07-27T15:52:01Z",
+            "closedAt": "2026-07-27T15:52:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1527,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1527,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1527",
+            "title": "refactor(i18n): 建立唯一 LocaleRuntime 原子事务并删除同步旁路",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:37:43Z",
+            "updatedAt": "2026-07-27T18:43:50Z",
+            "closedAt": "2026-07-27T18:43:50Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1528,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1528,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1528",
+            "title": "feat(i18n): 实现十语言 LocaleSelector 最终组件并删除二态入口语法",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:38:04Z",
+            "updatedAt": "2026-07-27T19:31:12Z",
+            "closedAt": "2026-07-27T19:31:12Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1529,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1529,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1529",
+            "title": "feat(i18n): 接入 PublicShell 十语言入口并删除 hydration 后置切换",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:38:22Z",
+            "updatedAt": "2026-07-27T19:58:45Z",
+            "closedAt": "2026-07-27T19:58:45Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1530,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1530,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1530",
+            "title": "feat(i18n): 接入 Auth/Recover 十语言入口并保持认证流程状态",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:38:40Z",
+            "updatedAt": "2026-07-27T20:14:19Z",
+            "closedAt": "2026-07-27T20:14:19Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1531,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1531,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1531",
+            "title": "feat(i18n): 接入 Account/Admin 十语言入口与统一偏好设置导航",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:38:56Z",
+            "updatedAt": "2026-07-27T20:14:22Z",
+            "closedAt": "2026-07-27T20:14:22Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": []
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:28:59+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:28:58 GMT",
+      "requestId": "B60A:3B67C5:68D587:A660F7:6AF89A5A",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4939
+      },
+      "targets": [
+        {
+          "number": 1533,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1533,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1533",
+            "title": "fix(i18n): 建立可判别 plural node 与精确普通/复数 key 类型",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:39:39Z",
+            "updatedAt": "2026-07-27T15:52:03Z",
+            "closedAt": "2026-07-27T15:52:03Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1534,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1534,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1534",
+            "title": "fix(i18n): 实现唯一类型化 plural resolver 并删除字符串运行时旁路",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:39:57Z",
+            "updatedAt": "2026-07-27T19:31:09Z",
+            "closedAt": "2026-07-27T19:31:09Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1535,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1535,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1535",
+            "title": "refactor(i18n): 迁移全部数量文案到 plural API 并删除组件级语法分支",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:40:20Z",
+            "updatedAt": "2026-07-27T19:58:48Z",
+            "closedAt": "2026-07-27T19:58:48Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1537,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1537,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1537",
+            "title": "test(i18n): 建立十语言 × domain fail-closed 静态门禁",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:40:57Z",
+            "updatedAt": "2026-07-27T20:30:56Z",
+            "closedAt": "2026-07-27T20:30:56Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1540,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1540,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1540",
+            "title": "perf(i18n): 按 resolved locale 准备字体并删除 idle 全语言字体预载",
+            "state": "CLOSED",
+            "createdAt": "2026-07-24T13:41:59Z",
+            "updatedAt": "2026-07-27T17:58:32Z",
+            "closedAt": "2026-07-27T17:58:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1592,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1592,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1592",
+            "title": "test(matrix): 拒绝无效 summary/aggregate 与空证据投影声明",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T05:48:31Z",
+            "updatedAt": "2026-07-26T12:37:32Z",
+            "closedAt": "2026-07-26T12:37:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1593,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1593,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1593",
+            "title": "refactor(release-projection): 为发布逻辑域建立逐项 assertion catalog 与真实 canonical projection",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T05:49:27Z",
+            "updatedAt": "2026-07-27T06:17:44Z",
+            "closedAt": "2026-07-27T06:17:44Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1594,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1594,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1594",
+            "title": "refactor(release-final): 建立 finalizer-only execution graph，彻底分离执行依赖与证据依赖",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T05:50:18Z",
+            "updatedAt": "2026-10-06T02:47:03Z",
+            "closedAt": "2026-07-26T12:59:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1595,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1595,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1595",
+            "title": "fix(release-final): 强制绑定唯一 Release Reliability qualified receipt",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T05:51:03Z",
+            "updatedAt": "2026-07-30T14:29:59Z",
+            "closedAt": "2026-07-30T14:29:59Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1596,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1596,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1596",
+            "title": "tracking(release-final): 全量 required-evidence catalog 与 exact-one 身份绑定",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T05:52:16Z",
+            "updatedAt": "2026-09-21T08:55:53Z",
+            "closedAt": "2026-09-21T08:55:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1598,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1598,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1598",
+            "title": "feat(test-runtime): 建立 runtime state-domain 读写目录与冲突声明协议",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T06:14:56Z",
+            "updatedAt": "2026-07-27T04:20:37Z",
+            "closedAt": "2026-07-27T04:20:37Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1599,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1599,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1599",
+            "title": "tracking(test-runtime): state-domain 隔离与 production runtime 排列等价",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T06:16:14Z",
+            "updatedAt": "2026-10-06T15:27:08Z",
+            "closedAt": "2026-09-20T15:51:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1608,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1608,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1608",
+            "title": "fix(release-reliability): 禁止单场景路径绕过完整 qualified receipt",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T07:34:31Z",
+            "updatedAt": "2026-07-30T15:25:22Z",
+            "closedAt": "2026-07-30T15:25:22Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1609,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1609,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1609",
+            "title": "fix(release-reliability): 执行并验证真实 precondition/reset/postcondition",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T07:35:26Z",
+            "updatedAt": "2026-07-30T17:13:54Z",
+            "closedAt": "2026-07-30T17:13:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1617,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1617,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1617",
+            "title": "fix(data-scale): 在专用一次性 runtime 中离线 seed，禁止共享开发或候选数据库",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T07:43:56Z",
+            "updatedAt": "2026-09-15T06:03:53Z",
+            "closedAt": "2026-09-15T06:03:53Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": []
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:01+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:00 GMT",
+      "requestId": "B614:34794D:650EBE:A21AFB:6AF89A5B",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4937
+      },
+      "targets": [
+        {
+          "number": 1618,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1618,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1618",
+            "title": "fix(data-scale): 解码响应并证明 seeded 数据进入 cache、search、AOT 与 HotRead",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T07:45:07Z",
+            "updatedAt": "2026-10-06T02:02:12Z",
+            "closedAt": "2026-09-15T06:31:55Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1629,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1629,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1629",
+            "title": "fix(public-hot): 必需更新不得因队列满而静默丢失",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:27:23Z",
+            "updatedAt": "2026-07-26T13:22:13Z",
+            "closedAt": "2026-07-26T13:22:13Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1630,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1630,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1630",
+            "title": "fix(public-hot): 重建失败必须保留 obligation 并可幂等重放",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:28:08Z",
+            "updatedAt": "2026-07-27T05:19:54Z",
+            "closedAt": "2026-07-27T05:19:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1631,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1631,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1631",
+            "title": "fix(release-drain): PublicHot 必须等待 queue、in-flight、publish 与 revocation 全部静止",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:28:52Z",
+            "updatedAt": "2026-08-08T23:37:38Z",
+            "closedAt": "2026-08-08T23:37:38Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1632,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1632,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1632",
+            "title": "fix(local-profile): summary-only tier 不得使 correctness projection 标记成功",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:29:37Z",
+            "updatedAt": "2026-07-27T02:29:29Z",
+            "closedAt": "2026-07-27T02:29:29Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1633,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1633,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1633",
+            "title": "test(perf): Load 与 Soak 必须验证逐路由响应契约而非仅接受 2xx/3xx",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:30:19Z",
+            "updatedAt": "2026-07-27T05:41:11Z",
+            "closedAt": "2026-07-27T05:41:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1638,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1638,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1638",
+            "title": "fix(data-scale): 构建并验证 taxonomy 派生投影与 frame version",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:33:22Z",
+            "updatedAt": "2026-09-14T21:40:10Z",
+            "closedAt": "2026-09-14T21:40:10Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1639,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1639,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1639",
+            "title": "fix(data-scale): 删除伪 searchPath 覆盖并绑定真实搜索索引证据",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T08:34:08Z",
+            "updatedAt": "2026-09-15T06:33:04Z",
+            "closedAt": "2026-09-15T06:33:04Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1659,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1659,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1659",
+            "title": "fix(comment-outbox): Claim lease 必须持续续租并逐事件验证 ownership",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T09:49:36Z",
+            "updatedAt": "2026-07-27T01:12:35Z",
+            "closedAt": "2026-07-27T01:12:35Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1661,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1661,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1661",
+            "title": "fix(comment-outbox): MarkProcessed/MarkFailed 必须检查 claim owner 与更新行数",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T09:50:41Z",
+            "updatedAt": "2026-07-27T07:29:00Z",
+            "closedAt": "2026-07-27T07:29:00Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1673,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1673,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1673",
+            "title": "fix(scheduler): Run lock 必须绑定进程创建时间、命令与 candidate identity",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T09:57:08Z",
+            "updatedAt": "2026-07-27T04:54:38Z",
+            "closedAt": "2026-07-27T04:54:38Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1678,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1678,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1678",
+            "title": "fix(production-fresh): 以原子 port lease 取代探测空闲后延迟 bind",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T10:43:07Z",
+            "updatedAt": "2026-08-09T02:56:12Z",
+            "closedAt": "2026-08-09T02:56:12Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1682,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1682,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1682",
+            "title": "fix(scheduler): runAfterSettled 的失败 join 必须传播为 scheduler terminal failure",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T11:11:53Z",
+            "updatedAt": "2026-07-26T14:13:11Z",
+            "closedAt": "2026-07-26T14:13:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1687,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1687,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1687",
+            "title": "refactor(release-final): 将 correctness consumers 切换到 current-run locator",
+            "state": "CLOSED",
+            "createdAt": "2026-07-26T12:02:55Z",
+            "updatedAt": "2026-08-28T13:23:27Z",
+            "closedAt": "2026-08-28T13:23:27Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1704,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1704,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1704",
+            "title": "refactor(i18n): 建立跨栈 LocaleCatalog 唯一权威并删除重复注册表",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T06:53:29Z",
+            "updatedAt": "2026-07-27T10:12:23Z",
+            "closedAt": "2026-07-27T10:12:23Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 1618,
+          "observedAtUtc": "2026-11-14T17:29:02+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:02 GMT",
+          "requestId": "B620:320788:6588D1:A2EF56:6AF89A5D",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/1618",
+          "state": "closed",
+          "stateReason": "completed"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:04+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:03 GMT",
+      "requestId": "B630:271A38:66AA53:A3F7CC:6AF89A5F",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4935
+      },
+      "targets": [
+        {
+          "number": 1705,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1705,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1705",
+            "title": "feat(i18n): 实现服务端 LocaleResolver 与 Public AOT 首帧语言协商",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T06:54:25Z",
+            "updatedAt": "2026-07-27T15:05:32Z",
+            "closedAt": "2026-07-27T15:05:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1706,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1706,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1706",
+            "title": "feat(i18n): 建立账户与设备语言偏好合同及独立设置页",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T06:55:16Z",
+            "updatedAt": "2026-07-27T17:40:27Z",
+            "closedAt": "2026-07-27T17:40:27Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1707,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1707,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1707",
+            "title": "feat(test-fixtures): 建立 FixtureCapability 与 ProfileCatalog 唯一权威",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T07:54:39Z",
+            "updatedAt": "2026-07-27T20:14:17Z",
+            "closedAt": "2026-07-27T20:14:17Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1708,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1708,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1708",
+            "title": "refactor(test-bootstrap): 显式选择 fixture profile 并删除启动期隐藏注入",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T07:55:51Z",
+            "updatedAt": "2026-07-27T20:59:55Z",
+            "closedAt": "2026-07-27T20:59:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1709,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1709,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1709",
+            "title": "refactor(test-fixtures): 建立唯一 FixtureOrchestrator 与窄 producer ports",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T07:56:59Z",
+            "updatedAt": "2026-07-27T21:45:49Z",
+            "closedAt": "2026-07-27T21:45:49Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1710,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1710,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1710",
+            "title": "feat(test-fixtures): 建立绑定数据库、Redis 与缓存事实的 FixtureReceipt",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T07:58:06Z",
+            "updatedAt": "2026-07-27T22:04:10Z",
+            "closedAt": "2026-07-27T22:04:10Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1711,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1711,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1711",
+            "title": "fix(test-fixtures): run-once 复用前验证真实 fixture postconditions",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T07:59:08Z",
+            "updatedAt": "2026-07-27T22:26:46Z",
+            "closedAt": "2026-07-27T22:26:46Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1716,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1716,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1716",
+            "title": "tracking(test-fixtures): messages、notifications、stream 与 resume producer",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T08:05:28Z",
+            "updatedAt": "2026-08-28T07:10:01Z",
+            "closedAt": "2026-08-28T07:10:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1717,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1717,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "title": "tracking(test-fixtures): public profile、locale preference 与 device projection producer",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T08:06:38Z",
+            "updatedAt": "2026-08-28T07:24:43Z",
+            "closedAt": "2026-08-28T07:24:43Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1718,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1718,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1718",
+            "title": "refactor(dev-fixtures): 将 demo 数据迁入独立 profile 并禁止 correctness 消费",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T08:08:05Z",
+            "updatedAt": "2026-07-28T12:18:43Z",
+            "closedAt": "2026-07-28T12:18:43Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1722,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1722,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1722",
+            "title": "feat(test-fixtures): 建立 FixtureVariantCatalog 与数据有效性分级唯一权威",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T09:22:25Z",
+            "updatedAt": "2026-08-08T21:57:45Z",
+            "closedAt": "2026-08-08T21:57:45Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1727,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1727,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1727",
+            "title": "tracking(test-fixtures): audit production ports、canonical chains、retention 与 tamper governance",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T09:27:10Z",
+            "updatedAt": "2026-08-28T10:43:52Z",
+            "closedAt": "2026-08-28T10:43:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1737,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1737,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1737",
+            "title": "feat(docs-governance): 建立 BehaviorContractCatalog 唯一行为事实索引",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:02:39Z",
+            "updatedAt": "2026-07-27T16:53:13Z",
+            "closedAt": "2026-07-27T16:53:13Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1738,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1738,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1738",
+            "title": "feat(docs-governance): 建立可执行 DocClaim 协议并禁止自证基线",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:03:33Z",
+            "updatedAt": "2026-07-27T17:08:37Z",
+            "closedAt": "2026-07-27T17:08:37Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1739,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1739,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1739",
+            "title": "feat(docs-governance): 建立实现事实 ExtractorRegistry 与 source-bound observation receipt",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:04:28Z",
+            "updatedAt": "2026-07-27T17:40:34Z",
+            "closedAt": "2026-07-27T17:40:34Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 1722,
+          "observedAtUtc": "2026-11-14T17:29:06+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:05 GMT",
+          "requestId": "B63E:1F14C9:6B200B:A87EBA:6AF89A60",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/1722",
+          "state": "closed",
+          "stateReason": "completed"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:09+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:07 GMT",
+      "requestId": "A4D4:112D9F:6353AF:A07C78:6AF89A63",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4923
+      },
+      "targets": [
+        {
+          "number": 1740,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1740,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1740",
+            "title": "fix(api-contract): 从当前编译后端生成 OpenAPI/AEDS 事实并删除 checked-in 自证链",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:05:25Z",
+            "updatedAt": "2026-07-27T18:22:40Z",
+            "closedAt": "2026-07-27T18:22:40Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1741,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1741,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1741",
+            "title": "feat(docs-governance): 提取认证、会话、MFA 与管理员权限当前事实",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:06:14Z",
+            "updatedAt": "2026-07-27T18:43:52Z",
+            "closedAt": "2026-07-27T18:43:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1742,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1742,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1742",
+            "title": "feat(docs-governance): 提取配置默认值、错误码与安全策略当前事实",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:07:00Z",
+            "updatedAt": "2026-07-27T19:08:20Z",
+            "closedAt": "2026-07-27T19:08:20Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1743,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1743,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1743",
+            "title": "feat(docs-governance): 提取文章与评论生命周期、可见性和 outbox 当前事实",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:07:49Z",
+            "updatedAt": "2026-07-27T19:16:46Z",
+            "closedAt": "2026-07-27T19:16:46Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1744,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1744,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1744",
+            "title": "feat(docs-governance): 提取测试矩阵、候选门禁与 release-final 拓扑当前事实",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:08:46Z",
+            "updatedAt": "2026-07-27T19:31:39Z",
+            "closedAt": "2026-07-27T19:31:39Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1745,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1745,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1745",
+            "title": "feat(docs-governance): 从 FactObservation 生成精确 Markdown 事实区块",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:09:32Z",
+            "updatedAt": "2026-07-27T19:31:54Z",
+            "closedAt": "2026-07-27T19:31:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1746,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1746,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1746",
+            "title": "feat(docs-governance): 验证解释性正文中的 scalar、关系与 failure-mode 声明",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:10:30Z",
+            "updatedAt": "2026-07-27T19:55:04Z",
+            "closedAt": "2026-07-27T19:55:04Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1747,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1747,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1747",
+            "title": "feat(docs-governance): 将实现 owner 绑定到 Behavior ID 并验证唯一职责",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:11:29Z",
+            "updatedAt": "2026-07-27T17:18:26Z",
+            "closedAt": "2026-07-27T17:18:26Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1748,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1748,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1748",
+            "title": "feat(test-governance): 将实际执行测试绑定到 Behavior ID 与证明类型",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:12:25Z",
+            "updatedAt": "2026-07-27T18:00:20Z",
+            "closedAt": "2026-07-27T18:00:20Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1749,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1749,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1749",
+            "title": "feat(docs-governance): 建立实现－事实－测试－正文 BehaviorGraph 一致性 join",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:13:16Z",
+            "updatedAt": "2026-07-27T20:14:24Z",
+            "closedAt": "2026-07-27T20:14:24Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1750,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1750,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1750",
+            "title": "test(docs-governance): 建立正文过时与 baseline-only 更新的单点变异矩阵",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:14:09Z",
+            "updatedAt": "2026-07-28T04:02:08Z",
+            "closedAt": "2026-07-28T04:02:08Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1751,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1751,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1751",
+            "title": "test(mutation): 将 changed-critical Stryker 证据绑定到 Behavior ID 与文档 claim",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:15:02Z",
+            "updatedAt": "2026-07-28T05:52:02Z",
+            "closedAt": "2026-07-28T05:36:04Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1752,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1752,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1752",
+            "title": "fix(test-matrix): 在候选 bundle 启动前增加 BehaviorDoc 静态 admission gate",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:16:25Z",
+            "updatedAt": "2026-07-28T10:11:45Z",
+            "closedAt": "2026-07-28T10:06:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1753,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1753,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1753",
+            "title": "fix(test-matrix): 在 runtime candidate 前封存完整 BehaviorGraph 测试证据",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:17:34Z",
+            "updatedAt": "2026-08-08T11:55:15Z",
+            "closedAt": "2026-08-08T11:55:15Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1754,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1754,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1754",
+            "title": "refactor(docs-governance): 从文档资格判定中彻底移除 lastVerifiedCommit 基线",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:18:30Z",
+            "updatedAt": "2026-07-28T10:37:23Z",
+            "closedAt": "2026-07-28T10:31:54Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": []
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:13+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:12 GMT",
+      "requestId": "A4DC:299965:64D1FB:A1B1C5:6AF89A67",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4922
+      },
+      "targets": [
+        {
+          "number": 1755,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1755,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1755",
+            "title": "tracking(docs): auth、security、configuration、admin 与 error current claims",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:23:53Z",
+            "updatedAt": "2026-08-28T11:50:51Z",
+            "closedAt": "2026-08-28T11:50:51Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1756,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1756,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1756",
+            "title": "tracking(docs): content lifecycle、outbox、privacy 与 notification current claims",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:24:30Z",
+            "updatedAt": "2026-08-28T12:06:05Z",
+            "closedAt": "2026-08-28T12:06:05Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1757,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1757,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1757",
+            "title": "tracking(docs): API protocol、error、release 与 deployment current claims",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T10:25:15Z",
+            "updatedAt": "2026-08-29T02:58:57Z",
+            "closedAt": "2026-08-29T02:58:57Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1778,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1778,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1778",
+            "title": "统一资产存储拓扑：让 ReleaseStoragePaths 成为公共、私有与临时文件根目录的唯一真源",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T13:07:55Z",
+            "updatedAt": "2026-07-27T17:30:58Z",
+            "closedAt": "2026-07-27T17:30:58Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1781,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1781,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1781",
+            "title": "建立静态管线外的私有资产存储类并默认拒绝暴露",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T13:11:28Z",
+            "updatedAt": "2026-09-08T03:54:40Z",
+            "closedAt": "2026-09-08T03:54:40Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1782,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1782,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1782",
+            "title": "统一私有资产授权交付：短期用途绑定票据与 X-Accel-Redirect",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T13:12:33Z",
+            "updatedAt": "2026-09-08T04:47:52Z",
+            "closedAt": "2026-09-08T04:47:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1783,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1783,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1783",
+            "title": "收口上传协议：绑定管理员主体与令牌并删除旧单文件入口和 v1-v3 会话兼容",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T13:13:51Z",
+            "updatedAt": "2026-07-28T06:58:37Z",
+            "closedAt": "2026-07-28T06:58:37Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1785,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1785,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1785",
+            "title": "将 index.html 设为唯一 viewport meta 来源，启用 viewport-fit=cover 并删除运行时/后端兜底副本",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T16:27:51Z",
+            "updatedAt": "2026-07-27T21:07:19Z",
+            "closedAt": "2026-07-27T21:07:19Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1786,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1786,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1786",
+            "title": "全站改用 FsusUI canonical safe-area / dynamic viewport 变量，删除 Blog 直接 env() 与 vh 兼容双写",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T16:28:43Z",
+            "updatedAt": "2026-07-27T21:46:13Z",
+            "closedAt": "2026-07-27T21:46:13Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1787,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1787,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1787",
+            "title": "删除 FsusDialog 的 Blog-owned overlay 几何与 class 桥接，纯消费 FsusUI Dialog contract",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T16:30:45Z",
+            "updatedAt": "2026-07-27T22:05:00Z",
+            "closedAt": "2026-07-27T22:05:00Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1788,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1788,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1788",
+            "title": "将 ArticleImageLightbox 的 scrim/viewport 几何迁移到 FsusUI Overlay，保留文章媒体业务层",
+            "state": "CLOSED",
+            "createdAt": "2026-07-27T16:31:59Z",
+            "updatedAt": "2026-07-27T22:05:41Z",
+            "closedAt": "2026-07-27T22:05:41Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1802,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1802,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1802",
+            "title": "refactor(article-editor): 合并标题与正文为连续文档画布并删除重复 chrome",
+            "state": "CLOSED",
+            "createdAt": "2026-07-30T16:49:25Z",
+            "updatedAt": "2026-09-14T11:00:15Z",
+            "closedAt": "2026-09-14T11:00:14Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1803,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1803,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1803",
+            "title": "refactor(article-editor): 固定正文列宽并将检查器改为不触发重排的 rail/drawer",
+            "state": "CLOSED",
+            "createdAt": "2026-07-30T16:50:24Z",
+            "updatedAt": "2026-07-30T20:47:51Z",
+            "closedAt": "2026-07-30T20:47:51Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1804,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1804,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1804",
+            "title": "fix(article-editor): 收敛正文 heading 层级与默认格式工具，禁止正文 H1",
+            "state": "CLOSED",
+            "createdAt": "2026-07-30T16:51:03Z",
+            "updatedAt": "2026-09-14T11:05:21Z",
+            "closedAt": "2026-09-14T11:05:21Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1813,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1813,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1813",
+            "title": "tracking(article-editor): crash journal implementation 与 external recovery evidence",
+            "state": "CLOSED",
+            "createdAt": "2026-07-30T16:57:08Z",
+            "updatedAt": "2026-09-14T14:22:04Z",
+            "closedAt": "2026-09-14T14:22:04Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 1782,
+          "observedAtUtc": "2026-11-14T17:29:15+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:14 GMT",
+          "requestId": "A4E6:638B1:63A5A0:A0FDFD:6AF89A6A",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/1782",
+          "state": "closed",
+          "stateReason": "completed"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:18+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:17 GMT",
+      "requestId": "A4F2:3C306:62F1A4:A02978:6AF89A6C",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4921
+      },
+      "targets": [
+        {
+          "number": 1888,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1888,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1888",
+            "title": "refactor(admin): 删除本地 AdminSegmentedControl 并单向消费 FsusUI 分段控件",
+            "state": "CLOSED",
+            "createdAt": "2026-08-02T15:38:40Z",
+            "updatedAt": "2026-08-06T10:34:46Z",
+            "closedAt": "2026-08-06T10:11:40Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1890,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1890,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1890",
+            "title": "refactor(account): 将 AccountHeaderMenu 触发器委托给 FsusUI Button",
+            "state": "CLOSED",
+            "createdAt": "2026-08-02T15:39:33Z",
+            "updatedAt": "2026-08-06T10:27:27Z",
+            "closedAt": "2026-08-06T10:11:37Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1893,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1893,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1893",
+            "title": "fix(settings): 收敛品牌资产上传触发器并证明 FsusUI 最终 DOM 合法性",
+            "state": "CLOSED",
+            "createdAt": "2026-08-02T15:41:20Z",
+            "updatedAt": "2026-09-14T11:02:50Z",
+            "closedAt": "2026-09-14T11:02:50Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1896,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1896,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1896",
+            "title": "refactor(ops): 将 OpsHealth 失败与重试状态收敛到 FsusUI Result/Button",
+            "state": "CLOSED",
+            "createdAt": "2026-08-02T15:44:17Z",
+            "updatedAt": "2026-08-06T06:36:17Z",
+            "closedAt": "2026-08-06T06:36:17Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1898,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1898,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1898",
+            "title": "refactor(account): 将移动导航 Drawer 触发器委托给 FsusUI Button",
+            "state": "CLOSED",
+            "createdAt": "2026-08-02T15:46:06Z",
+            "updatedAt": "2026-08-06T10:27:28Z",
+            "closedAt": "2026-08-06T10:11:38Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1970,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1970,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1970",
+            "title": "feat(assets): 定义 AssetId、AssetStorageKey 与统一 content asset schema",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:09:38Z",
+            "updatedAt": "2026-08-08T20:12:23Z",
+            "closedAt": "2026-08-08T20:12:23Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1971,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1971,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1971",
+            "title": "refactor(assets): 实现 article、draft、revision 的唯一事务引用账本",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:09:59Z",
+            "updatedAt": "2026-08-30T07:05:11Z",
+            "closedAt": "2026-08-30T07:05:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1972,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1972,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1972",
+            "title": "refactor(assets): 将 cleanup queue 与物理删除统一为 AssetId",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:11:11Z",
+            "updatedAt": "2026-09-08T05:40:41Z",
+            "closedAt": "2026-09-08T05:40:41Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1973,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1973,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1973",
+            "title": "refactor(admin-assets): 从唯一 content asset ledger 生成资产库投影",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:11:24Z",
+            "updatedAt": "2026-08-30T07:24:11Z",
+            "closedAt": "2026-08-30T07:24:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1974,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1974,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1974",
+            "title": "refactor(assets): 将公共 URL 与删除 endpoint 收敛到 AssetId 边界",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:11:41Z",
+            "updatedAt": "2026-09-08T03:07:32Z",
+            "closedAt": "2026-09-08T03:07:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1979,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1979,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1979",
+            "title": "deps: 为 FsusBlog 建立依赖 freshness 三态与到期例外合同",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:13:47Z",
+            "updatedAt": "2026-08-30T13:39:22Z",
+            "closedAt": "2026-08-30T13:39:22Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1982,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1982,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1982",
+            "title": "release: 定义并独立验证 fsusui-npm-published-v1 事件合同",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:16:34Z",
+            "updatedAt": "2026-10-06T02:02:04Z",
+            "closedAt": "2026-09-20T18:01:28Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1983,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1983,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1983",
+            "title": "release: 用单一分支和 PR 编排 FsusUI 精确版本持续升级",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:16:55Z",
+            "updatedAt": "2026-10-06T02:02:05Z",
+            "closedAt": "2026-09-20T18:02:40Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1986,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1986,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1986",
+            "title": "test(release-train): 用本地 registry fixture 验证 FsusUI 跨仓发布列车全链",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:18:13Z",
+            "updatedAt": "2026-10-06T02:02:08Z",
+            "closedAt": "2026-09-20T18:07:16Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 1995,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 1995,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/1995",
+            "title": "fix(test-runtime): 以真实 postcondition 封锁 runtime reset barriers",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:22:47Z",
+            "updatedAt": "2026-09-20T15:52:47Z",
+            "closedAt": "2026-09-20T15:52:47Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": []
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:20+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:19 GMT",
+      "requestId": "8AC6:112D9F:6356F1:A081A9:6AF89A6F",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4920
+      },
+      "targets": [
+        {
+          "number": 2009,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2009,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2009",
+            "title": "feat(test-evidence): 建立统一 attempt runner 并封存每次命令与 artifact provenance",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:30:56Z",
+            "updatedAt": "2026-08-28T06:33:04Z",
+            "closedAt": "2026-08-28T06:33:04Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2059,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2059,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2059",
+            "title": "feat(release-final): 定义 required-evidence catalog schema 与 authority disposition ledger",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T17:55:49Z",
+            "updatedAt": "2026-08-08T20:44:12Z",
+            "closedAt": "2026-08-08T20:44:12Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2081,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2081,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2081",
+            "title": "test(i18n): 定义十语言 PublicShell browser matrix 的 catalog、typed copy 与 evidence identity",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:18:47Z",
+            "updatedAt": "2026-10-05T14:17:14Z",
+            "closedAt": "2026-09-06T07:05:38Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2082,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2082,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2082",
+            "title": "test(i18n): 建立真实 task-scoped PublicAOT host 与 public-content fixture browser harness",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:19:17Z",
+            "updatedAt": "2026-10-05T11:06:36Z",
+            "closedAt": "2026-09-08T02:54:28Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2083,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2083,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2083",
+            "title": "test(i18n): 覆盖十语言服务端协商与 PublicAOT 首响应一致性",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:19:40Z",
+            "updatedAt": "2026-10-05T11:06:38Z",
+            "closedAt": "2026-09-08T02:54:28Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2084,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2084,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2084",
+            "title": "test(i18n): 验证十语言无切换首帧 hydration、selector 与 Header geometry",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:20:03Z",
+            "updatedAt": "2026-10-05T11:06:41Z",
+            "closedAt": "2026-09-08T02:54:29Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2085,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2085,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2085",
+            "title": "test(i18n): 验证 Public 首入 locale domain、font 与无关请求预算",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:20:28Z",
+            "updatedAt": "2026-10-05T11:06:43Z",
+            "closedAt": "2026-09-08T02:54:29Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2086,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2086,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2086",
+            "title": "test(i18n): 验证 selector locale transaction、preference persistence 与 latest-wins",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:20:52Z",
+            "updatedAt": "2026-10-05T11:06:46Z",
+            "closedAt": "2026-09-08T02:54:29Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2087,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2087,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2087",
+            "title": "test(i18n): 注入 domain、font、preference、revision 与 artifact 失败并验证原子回滚",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:21:19Z",
+            "updatedAt": "2026-10-05T11:06:49Z",
+            "closedAt": "2026-09-08T02:54:30Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2103,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2103,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2103",
+            "title": "feat(article-vault): 定义 Vault、article binding 与 sync coordinate closed schemas",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:30:42Z",
+            "updatedAt": "2026-09-08T03:58:53Z",
+            "closedAt": "2026-09-08T03:58:53Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2104,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2104,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2104",
+            "title": "feat(article-vault): 构建 immutable base/local/server three-way sync plans",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:31:06Z",
+            "updatedAt": "2026-09-08T04:32:53Z",
+            "closedAt": "2026-09-08T04:32:53Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2105,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2105,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2105",
+            "title": "feat(article-vault): 通过 canonical article writer 执行 sealed sync plans",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T18:31:30Z",
+            "updatedAt": "2026-09-11T11:54:51Z",
+            "closedAt": "2026-09-11T11:54:51Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2158,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2158,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2158",
+            "title": "feat(test-fixtures): 定义 comment actor、thread、moderation 与 evidence state inventory",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:05:58Z",
+            "updatedAt": "2026-09-15T05:01:54Z",
+            "closedAt": "2026-09-15T05:01:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2159,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2159,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2159",
+            "title": "feat(test-fixtures): 暴露 comment thread、version 与 soft-delete lifecycle fixture ports",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:07:12Z",
+            "updatedAt": "2026-09-16T10:54:39Z",
+            "closedAt": "2026-09-16T10:54:39Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2160,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2160,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2160",
+            "title": "feat(test-fixtures): 暴露 moderation、region、signal、evidence 与 queue fixture ports",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:07:31Z",
+            "updatedAt": "2026-10-06T02:02:02Z",
+            "closedAt": "2026-09-17T10:19:00Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": []
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:22+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:22 GMT",
+      "requestId": "8ACC:3D3B6F:68A59B:A5F90B:6AF89A70",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4919
+      },
+      "targets": [
+        {
+          "number": 2161,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2161,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2161",
+            "title": "feat(test-fixtures): 组合 thread、version、delete 与 moderation states 的唯一 comment producer",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:07:51Z",
+            "updatedAt": "2026-09-17T10:19:09Z",
+            "closedAt": "2026-09-17T10:19:09Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2200,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2200,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2200",
+            "title": "feat(behavior-catalog): 注册 protocol、release、deployment domains 与跨域 document ownership",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:30:35Z",
+            "updatedAt": "2026-08-29T02:56:59Z",
+            "closedAt": "2026-08-29T02:56:59Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2202,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2202,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2202",
+            "title": "feat(behavior-observation): 补齐 release-final aggregate、blue-green 与 runtime-role facts",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:31:26Z",
+            "updatedAt": "2026-08-29T02:57:01Z",
+            "closedAt": "2026-08-29T02:57:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2205,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2205,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2205",
+            "title": "test(docs): 封口 protocol、error、release 与 deployment exactness ledger",
+            "state": "CLOSED",
+            "createdAt": "2026-08-03T19:32:40Z",
+            "updatedAt": "2026-08-29T02:57:02Z",
+            "closedAt": "2026-08-29T02:57:02Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2209,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2209,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2209",
+            "title": "feat(behavior-graph): join application 与 release post-runtime observations 并封存 Behavior receipt",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T02:37:15Z",
+            "updatedAt": "2026-10-06T10:24:48Z",
+            "closedAt": "2026-09-21T08:01:20Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2210,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2210,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2210",
+            "title": "test(release-final): 依赖 post-runtime seal 并删除 finalizer 内发现、重跑与历史 fallback",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T02:37:47Z",
+            "updatedAt": "2026-09-21T08:55:56Z",
+            "closedAt": "2026-09-21T08:55:56Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2211,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2211,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2211",
+            "title": "fix(schema): 统一 CurrentSchemaProjection 与 runtime entity mapping 的语义物化",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T02:40:26Z",
+            "updatedAt": "2026-08-30T08:55:02Z",
+            "closedAt": "2026-08-30T08:55:02Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2212,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2212,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2212",
+            "title": "refactor(db-migration): 提取独立 migration-only assembly 与 legacy input model",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T02:41:03Z",
+            "updatedAt": "2026-10-05T18:10:23Z",
+            "closedAt": "2026-08-30T13:16:40Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2213,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2213,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2213",
+            "title": "refactor(server): 切断 runtime 对 migration assembly、DI 与 legacy schema symbols 的依赖",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T02:41:39Z",
+            "updatedAt": "2026-08-30T13:16:41Z",
+            "closedAt": "2026-08-30T13:16:41Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2243,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2243,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2243",
+            "title": "feat(article-editor): 建立 opaque article document epoch 与 async task invalidation adapter",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T03:04:24Z",
+            "updatedAt": "2026-10-06T02:02:09Z",
+            "closedAt": "2026-09-20T16:52:34Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2293,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2293,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2293",
+            "title": "feat(authoring-workspace): 定义 OpenArticleDocumentRegistry 与 unique open-or-activate contract",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T03:28:59Z",
+            "updatedAt": "2026-08-28T08:45:03Z",
+            "closedAt": "2026-08-28T08:45:03Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2294,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2294,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2294",
+            "title": "feat(authoring-workspace): 托管多文章 editor sessions 并实现 inactive suspension 与 exact restoration",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T03:29:34Z",
+            "updatedAt": "2026-08-28T09:04:14Z",
+            "closedAt": "2026-08-28T09:04:14Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2311,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2311,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2311",
+            "title": "feat(article-pins): 建立 user/site-scoped pin authority、bounded ordering 与 CAS commands",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T03:42:59Z",
+            "updatedAt": "2026-09-12T13:20:01Z",
+            "closedAt": "2026-09-12T13:20:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2332,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2332,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2332",
+            "title": "feat(saved-views): 定义 closed AuthorSavedView schema、operator refs 与 CAS authority",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T03:59:34Z",
+            "updatedAt": "2026-09-08T06:40:44Z",
+            "closedAt": "2026-09-08T06:40:44Z",
+            "stateReason": "NOT_PLANNED"
+          }
+        },
+        {
+          "number": 2348,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2348,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2348",
+            "title": "test(auth-login): 删除手写 AuthState 表并验证真实 MFA 登录阶段",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:03:32Z",
+            "updatedAt": "2026-10-05T13:14:22Z",
+            "closedAt": "2026-09-13T08:32:43Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 2293,
+          "observedAtUtc": "2026-11-14T17:29:24+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:23 GMT",
+          "requestId": "8AD6:1F075A:65370B:A225DC:6AF89A73",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/2293",
+          "state": "closed",
+          "stateReason": "completed"
+        },
+        {
+          "number": 2332,
+          "observedAtUtc": "2026-11-14T17:31:08+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:31:08 GMT",
+          "requestId": "ACF2:33388:647558:A17F34:6AF89ADC",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/2332",
+          "state": "closed",
+          "stateReason": "not_planned"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:26+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:25 GMT",
+      "requestId": "8ADE:35FB24:67F9D5:A4B9B0:6AF89A75",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4933
+      },
+      "targets": [
+        {
+          "number": 2360,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2360,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2360",
+            "title": "feat(article-templates): 建立 TemplateDefinition、immutable versions 与 permission-scoped authority",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:05:47Z",
+            "updatedAt": "2026-09-12T04:22:14Z",
+            "closedAt": "2026-09-12T04:22:14Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2363,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2363,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2363",
+            "title": "feat(article-templates): 实现 closed variable expansion 与 taxonomy/property/asset reference validation",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:06:18Z",
+            "updatedAt": "2026-09-12T04:22:15Z",
+            "closedAt": "2026-09-12T04:22:15Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2365,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2365,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2365",
+            "title": "feat(article-create): 统一 blank Draft 与 explicit template instantiation canonical transaction",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:07:00Z",
+            "updatedAt": "2026-09-12T04:22:15Z",
+            "closedAt": "2026-09-12T04:22:15Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2440,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2440,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2440",
+            "title": "feat(block-links): 建立 canonical anchor identity、URL codec 与 standard Markdown contract",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:31:48Z",
+            "updatedAt": "2026-09-15T12:26:58Z",
+            "closedAt": "2026-09-15T12:26:58Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2454,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2454,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2454",
+            "title": "feat(article-embeds): 定义 exact target codec、provider contracts 与 stable dependency identities",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:36:50Z",
+            "updatedAt": "2026-09-11T13:21:54Z",
+            "closedAt": "2026-09-11T13:21:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2455,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2455,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2455",
+            "title": "feat(article-embeds): 解析 authoring current targets、safe projections 与 cycle/depth/size/time budgets",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:37:23Z",
+            "updatedAt": "2026-09-11T13:21:55Z",
+            "closedAt": "2026-09-11T13:21:55Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2456,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2456,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2456",
+            "title": "feat(article-embeds): 冻结 public target revisions 并阻断 non-public dependencies before publish",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:38:01Z",
+            "updatedAt": "2026-09-11T13:21:55Z",
+            "closedAt": "2026-09-11T13:21:55Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2457,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2457,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2457",
+            "title": "feat(article-embeds): 投影 embed edges、frozen dependency receipts 与 bounded cache/AOT invalidation",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:38:30Z",
+            "updatedAt": "2026-09-11T13:21:56Z",
+            "closedAt": "2026-09-11T13:21:56Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2482,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2482,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2482",
+            "title": "feat(authoring-canvas): 建立 closed document、node/edge schemas、server storage 与 revision CAS",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:49:30Z",
+            "updatedAt": "2026-08-28T09:05:03Z",
+            "closedAt": "2026-08-28T09:05:03Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2484,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2484,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2484",
+            "title": "feat(authoring-canvas): 定义 closed canvas document、node/edge schemas 与 server CAS authority",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T04:50:10Z",
+            "updatedAt": "2026-08-28T09:05:03Z",
+            "closedAt": "2026-08-28T09:05:03Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2504,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2504,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2504",
+            "title": "feat(test-fixtures): 定义 ContentShapeCatalog、field contracts 与 Unicode boundary schema",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:02:41Z",
+            "updatedAt": "2026-08-28T06:07:54Z",
+            "closedAt": "2026-08-28T06:07:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2506,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2506,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2506",
+            "title": "feat(test-fixtures): 实现 deterministic Unicode/length generator 与 char-byte statistics verifier",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:03:12Z",
+            "updatedAt": "2026-08-28T06:07:57Z",
+            "closedAt": "2026-08-28T06:07:57Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2518,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2518,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2518",
+            "title": "test(test-fixtures): 建立 single-fault media corruption、missing、MIME 与 path negative corpus",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:07:29Z",
+            "updatedAt": "2026-08-28T08:11:12Z",
+            "closedAt": "2026-08-28T08:11:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2523,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2523,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2523",
+            "title": "feat(test-fixtures): 定义 TemporalShapeCatalog、semantic roles 与 cross-field invariants",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:10:05Z",
+            "updatedAt": "2026-08-28T06:07:43Z",
+            "closedAt": "2026-08-28T06:07:43Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2526,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2526,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2526",
+            "title": "feat(test-fixtures): 实现 temporal role resolver、plan projection 与 cross-runtime identity",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:10:40Z",
+            "updatedAt": "2026-10-08T05:51:39Z",
+            "closedAt": "2026-08-28T06:07:46Z",
+            "stateReason": "COMPLETED"
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 2440,
+          "observedAtUtc": "2026-11-14T17:29:28+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:27 GMT",
+          "requestId": "810E:4068E:6485F4:A193A4:6AF89A77",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/2440",
+          "state": "closed",
+          "stateReason": "completed"
+        },
+        {
+          "number": 2482,
+          "observedAtUtc": "2026-11-14T17:29:30+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:29 GMT",
+          "requestId": "8112:D2A2C:662DA7:A38E8D:6AF89A79",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/2482",
+          "state": "closed",
+          "stateReason": "completed"
+        },
+        {
+          "number": 2484,
+          "observedAtUtc": "2026-11-14T17:29:32+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:32 GMT",
+          "requestId": "8118:271CDD:6511E9:A2204F:6AF89A7A",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/2484",
+          "state": "closed",
+          "stateReason": "completed"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:35+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:34 GMT",
+      "requestId": "8124:38CF9F:67ED69:A577AE:6AF89A7D",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4932
+      },
+      "targets": [
+        {
+          "number": 2530,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2530,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "title": "refactor(test-fixtures): 迁移 auth、security、messages 与 account producers 到 semantic temporal roles",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:11:48Z",
+            "updatedAt": "2026-08-28T06:07:51Z",
+            "closedAt": "2026-08-28T06:07:51Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2539,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2539,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2539",
+            "title": "feat(data-scale): 定义 ArticleScalePlan、state distribution 与 canonical graph row schema",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:14:18Z",
+            "updatedAt": "2026-10-06T03:37:20Z",
+            "closedAt": "2026-09-08T06:41:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2541,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2541,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2541",
+            "title": "feat(data-scale): 实现 CanonicalArticleGraphFactory 与 production-shared normalizers",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:14:50Z",
+            "updatedAt": "2026-10-06T03:37:21Z",
+            "closedAt": "2026-09-15T05:41:54Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2557,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2557,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2557",
+            "title": "test(unified-cache): 删除 RemoveManyAsync 的重复 wrapper 测试",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:28:28Z",
+            "updatedAt": "2026-08-22T12:25:28Z",
+            "closedAt": "2026-08-22T12:25:28Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2558,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2558,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2558",
+            "title": "test(unified-cache): 删除 RemoveByPrefix 的重复 wrapper 测试",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:28:52Z",
+            "updatedAt": "2026-08-23T13:19:21Z",
+            "closedAt": "2026-08-23T13:19:21Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2567,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2567,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2567",
+            "title": "feat(test-fixtures): 定义 MutationEnvelopeCatalog、profile targets 与 perturbation contracts",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:31:37Z",
+            "updatedAt": "2026-08-08T21:22:04Z",
+            "closedAt": "2026-08-08T21:22:04Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2568,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2568,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2568",
+            "title": "feat(test-fixtures): 建立 profile semantic snapshot、owned-state diff 与 exact recovery verifier",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:32:16Z",
+            "updatedAt": "2026-08-28T07:51:23Z",
+            "closedAt": "2026-08-28T07:51:23Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2569,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2569,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2569",
+            "title": "feat(test-fixtures): 实现 PostgreSQL、MySQL、SQLite、Redis 与 filesystem mutation adapters",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:33:35Z",
+            "updatedAt": "2026-08-28T07:51:29Z",
+            "closedAt": "2026-08-28T07:51:29Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2570,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2570,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2570",
+            "title": "test(test-fixtures): 执行 mutate→same-profile reprepare→exact recovery without restart",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T05:34:14Z",
+            "updatedAt": "2026-08-28T07:51:33Z",
+            "closedAt": "2026-08-28T07:51:33Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2626,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2626,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2626",
+            "title": "test(test-governance): 将测试删除与合并升级为原子 replacement transaction",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T06:25:41Z",
+            "updatedAt": "2026-08-30T04:02:32Z",
+            "closedAt": "2026-08-30T04:02:32Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2636,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 2636,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/2636",
+            "title": "feat(test-runtime): 实现 topology/网络 observer 与 owner 对齐",
+            "state": "CLOSED",
+            "createdAt": "2026-08-04T06:43:18Z",
+            "updatedAt": "2026-10-06T15:27:12Z",
+            "closedAt": "2026-09-20T15:53:09Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 2699,
+          "metadata": null
+        },
+        {
+          "number": 2700,
+          "metadata": null
+        },
+        {
+          "number": 2701,
+          "metadata": null
+        },
+        {
+          "number": 2702,
+          "metadata": null
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 2699,
+          "observedAtUtc": "2026-11-14T17:29:36+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:35 GMT",
+          "requestId": "812A:3DD04A:651788:A237A8:6AF89A7F",
+          "httpStatus": 410,
+          "message": "This issue was deleted"
+        },
+        {
+          "number": 2700,
+          "observedAtUtc": "2026-11-14T17:29:38+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:37 GMT",
+          "requestId": "E6DA:1AC90D:686C17:A5929B:6AF89A81",
+          "httpStatus": 410,
+          "message": "This issue was deleted"
+        },
+        {
+          "number": 2701,
+          "observedAtUtc": "2026-11-14T17:29:39+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:39 GMT",
+          "requestId": "E6E6:3ADEED:66807B:A380A4:6AF89A83",
+          "httpStatus": 410,
+          "message": "This issue was deleted"
+        },
+        {
+          "number": 2702,
+          "observedAtUtc": "2026-11-14T17:29:42+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:42 GMT",
+          "requestId": "E6EC:21D15C:67D42D:A4F416:6AF89A86",
+          "httpStatus": 410,
+          "message": "This issue was deleted"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:44+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:44 GMT",
+      "requestId": "E6F6:3F4622:670098:A414CC:6AF89A87",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4930
+      },
+      "targets": [
+        {
+          "number": 2918,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 2918,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/2918",
+            "title": "feat(test): enforce current runtime state equivalence",
+            "state": "CLOSED",
+            "createdAt": "2026-08-28T08:48:41Z",
+            "updatedAt": "2026-10-06T15:29:08Z",
+            "closedAt": "2026-09-20T15:53:13Z",
+            "mergedAt": null,
+            "headRefOid": "3ee964c2de31a0ec77562fea958c6b5f162cca82",
+            "baseRefOid": "3dace0d040cf31371954f6a5029f5125f6dcc6d5",
+            "mergeCommit": null
+          }
+        },
+        {
+          "number": 3052,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3052,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3052",
+            "title": "feat(governance): close runtime-role and blue-green authority gaps",
+            "state": "CLOSED",
+            "createdAt": "2026-08-30T08:30:26Z",
+            "updatedAt": "2026-09-20T23:27:39Z",
+            "closedAt": "2026-09-20T23:27:39Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3247,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3247,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3247",
+            "title": "docs: compress current documentation without semantic drift",
+            "state": "CLOSED",
+            "createdAt": "2026-09-05T10:26:30Z",
+            "updatedAt": "2026-09-05T10:43:00Z",
+            "closedAt": "2026-09-05T10:43:00Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3525,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3525,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3525",
+            "title": "governance: 复核并重新绑定当前 fixture evidence selector 分类",
+            "state": "CLOSED",
+            "createdAt": "2026-09-23T17:42:45Z",
+            "updatedAt": "2026-10-06T02:02:13Z",
+            "closedAt": "2026-09-25T11:26:11Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3529,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3529,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3529",
+            "title": "test(governance): type registry-derived behavior IDs in receipt schema fixtures",
+            "state": "CLOSED",
+            "createdAt": "2026-09-24T21:54:09Z",
+            "updatedAt": "2026-10-06T02:02:15Z",
+            "closedAt": "2026-09-25T12:41:16Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3530,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3530,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3530",
+            "title": "test(governance): align release-final receipt fixture with closed zero-legacy scan",
+            "state": "CLOSED",
+            "createdAt": "2026-09-24T21:57:38Z",
+            "updatedAt": "2026-10-06T02:02:16Z",
+            "closedAt": "2026-09-25T12:15:52Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3539,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3539,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3539",
+            "title": "fix(tooling): seal OpenAPI digest boundary and style admission",
+            "state": "CLOSED",
+            "createdAt": "2026-09-25T00:18:02Z",
+            "updatedAt": "2026-10-05T12:42:12Z",
+            "closedAt": "2026-10-05T12:31:13Z",
+            "mergedAt": null,
+            "headRefOid": "b5bac73368c08b4f675603434f31884405428642",
+            "baseRefOid": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
+            "mergeCommit": null
+          }
+        },
+        {
+          "number": 3558,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3558,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3558",
+            "title": "test(backend): replace contract-slice source reads with compiled evidence",
+            "state": "CLOSED",
+            "createdAt": "2026-09-25T18:45:09Z",
+            "updatedAt": "2026-10-05T18:10:23Z",
+            "closedAt": "2026-10-01T15:36:44Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3559,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3559,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3559",
+            "title": "test(backend): replace contract-slice source reads with compiled evidence",
+            "state": "MERGED",
+            "createdAt": "2026-09-25T18:57:08Z",
+            "updatedAt": "2026-10-05T12:17:10Z",
+            "closedAt": "2026-10-05T11:46:44Z",
+            "mergedAt": "2026-10-05T11:46:44Z",
+            "headRefOid": "77abb37fb17445b496b8acbcc240a4f9ac828891",
+            "baseRefOid": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
+            "mergeCommit": {
+              "oid": "8d42b2d5da3ace962299aafd3ac63d2a11134305"
+            }
+          }
+        },
+        {
+          "number": 3579,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3579,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3579",
+            "title": "test(backend): bind Document Export sandbox source lock to runtime builder",
+            "state": "MERGED",
+            "createdAt": "2026-09-25T21:54:50Z",
+            "updatedAt": "2026-10-05T12:17:11Z",
+            "closedAt": "2026-10-05T11:56:34Z",
+            "mergedAt": "2026-10-05T11:56:34Z",
+            "headRefOid": "7653d26dab36f155ef2d581639d735d56e0e227e",
+            "baseRefOid": "d9d0d68d5af06ebf6f87b7b663a776a1c1a1ebf6",
+            "mergeCommit": {
+              "oid": "abeb0bb3082aabc0162525a2c983d51d938d7d23"
+            }
+          }
+        },
+        {
+          "number": 3585,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3585,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3585",
+            "title": "fix(security): enforce private asset topology in production baseline",
+            "state": "MERGED",
+            "createdAt": "2026-09-26T03:41:52Z",
+            "updatedAt": "2026-10-05T12:17:12Z",
+            "closedAt": "2026-10-05T11:50:27Z",
+            "mergedAt": "2026-10-05T11:50:27Z",
+            "headRefOid": "c8babd6b7dd2fde856611b5a5f055ec0fcc19959",
+            "baseRefOid": "d1e0adda704f6043b0e285bc5cd895429637ddfa",
+            "mergeCommit": {
+              "oid": "11afa8b16de7ecfc7c0814c4d96898914c3632f9"
+            }
+          }
+        },
+        {
+          "number": 3598,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3598,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3598",
+            "title": "fix(governance): preserve Landlock header and error compatibility",
+            "state": "MERGED",
+            "createdAt": "2026-09-26T12:04:47Z",
+            "updatedAt": "2026-10-05T18:10:25Z",
+            "closedAt": "2026-10-05T11:51:06Z",
+            "mergedAt": "2026-10-05T11:51:06Z",
+            "headRefOid": "0fbeb33844cf8cf037d33e54af60911af38e417f",
+            "baseRefOid": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
+            "mergeCommit": {
+              "oid": "f4e6f9f4af75f977cc900c84886bd4328c2a0f24"
+            }
+          }
+        },
+        {
+          "number": 3624,
+          "metadata": {
+            "__typename": "Issue",
+            "number": 3624,
+            "url": "https://github.com/Ozwasyd/FsusBlog/issues/3624",
+            "title": "governance: 精确登记压缩 dependency overlay 的归属",
+            "state": "CLOSED",
+            "createdAt": "2026-09-28T06:19:17Z",
+            "updatedAt": "2026-10-08T11:29:01Z",
+            "closedAt": "2026-10-08T11:29:01Z",
+            "stateReason": "COMPLETED"
+          }
+        },
+        {
+          "number": 3625,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3625,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3625",
+            "title": "fix(governance): register exact dependency input owners",
+            "state": "MERGED",
+            "createdAt": "2026-09-28T06:30:19Z",
+            "updatedAt": "2026-10-05T12:17:13Z",
+            "closedAt": "2026-10-05T12:15:44Z",
+            "mergedAt": "2026-10-05T12:15:44Z",
+            "headRefOid": "444683e98d10ff9f34bfc6366dacd305d6616f2b",
+            "baseRefOid": "493abaedad77df5f301222405d7904268bb32e75",
+            "mergeCommit": {
+              "oid": "a9aa0ed5b7c599944d0e90d477d9059f8948b192"
+            }
+          }
+        },
+        {
+          "number": 3633,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3633,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3633",
+            "title": "fix(backend): preserve first export failure during cleanup cancellation",
+            "state": "CLOSED",
+            "createdAt": "2026-09-30T06:47:10Z",
+            "updatedAt": "2026-10-06T17:46:08Z",
+            "closedAt": "2026-10-05T12:17:09Z",
+            "mergedAt": null,
+            "headRefOid": "639b81ca5833b50bb01ff288195382168f416336",
+            "baseRefOid": "cdae3cea94e9820f17c1807fe929fee14d89d4ee",
+            "mergeCommit": null
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 3052,
+          "observedAtUtc": "2026-11-14T17:29:47+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:46 GMT",
+          "requestId": "E6F8:9E8E2:67B70A:A52CCD:6AF89A8A",
+          "httpStatus": 200,
+          "kind": "Issue",
+          "url": "https://github.com/Ozwasyd/FsusBlog/issues/3052",
+          "state": "closed",
+          "stateReason": "completed"
+        },
+        {
+          "number": 3559,
+          "observedAtUtc": "2026-11-14T17:29:51+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:49 GMT",
+          "requestId": "E4F8:302AD5:62AC62:9F5244:6AF89A8C",
+          "httpStatus": 200,
+          "kind": "PullRequest",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/3559",
+          "state": "closed",
+          "mergedAt": "2026-10-05T11:46:44Z"
+        },
+        {
+          "number": 3585,
+          "observedAtUtc": "2026-11-14T17:29:53+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:29:52 GMT",
+          "requestId": "E50E:3D3B6F:68AE82:A606CB:6AF89A90",
+          "httpStatus": 200,
+          "kind": "PullRequest",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/3585",
+          "state": "closed",
+          "mergedAt": "2026-10-05T11:50:27Z"
+        }
+      ]
+    },
+    {
+      "observedAtUtc": "2026-11-14T17:29:57+00:00",
+      "serverDate": "Sat, 14 Nov 2026 17:29:56 GMT",
+      "requestId": "E512:F6C1F:651F83:A1E768:6AF89A93",
+      "rateLimit": {
+        "cost": 1,
+        "remaining": 4929
+      },
+      "targets": [
+        {
+          "number": 3642,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 3642,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/3642",
+            "title": "ci(governance): align release-final refusal fixtures",
+            "state": "MERGED",
+            "createdAt": "2026-10-01T10:57:47Z",
+            "updatedAt": "2026-10-05T13:01:44Z",
+            "closedAt": "2026-10-05T13:01:07Z",
+            "mergedAt": "2026-10-05T13:01:07Z",
+            "headRefOid": "9348087e59c1383457f75a7667e8091e5cd4b856",
+            "baseRefOid": "dc3469e42525672d9bc3d4e26b7c576ab982707f",
+            "mergeCommit": {
+              "oid": "a4148c624fd7c1cc21a231e9f501356dbccb0f53"
+            }
+          }
+        },
+        {
+          "number": 4221,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 4221,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4221",
+            "title": "fix(frontend): resolve local SFC types in canonical style lint",
+            "state": "OPEN",
+            "createdAt": "2026-10-11T19:37:07Z",
+            "updatedAt": "2026-10-11T20:34:14Z",
+            "closedAt": null,
+            "mergedAt": null,
+            "headRefOid": "69992a0769a896434028d2b16776423f31c6c7d0",
+            "baseRefOid": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+            "mergeCommit": null
+          }
+        },
+        {
+          "number": 4762,
+          "metadata": {
+            "__typename": "PullRequest",
+            "number": 4762,
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4762",
+            "title": "fix(ci): restore reproducible quality gate toolchain",
+            "state": "OPEN",
+            "createdAt": "2026-11-05T05:20:04Z",
+            "updatedAt": "2026-11-14T11:32:04Z",
+            "closedAt": null,
+            "mergedAt": null,
+            "headRefOid": "156a2d9be83c8f0c32640b4d5561358af897fa9a",
+            "baseRefOid": "1e6e38141e484439bb1277710ea1f5635e5a423f",
+            "mergeCommit": null
+          }
+        }
+      ],
+      "restChecks": [
+        {
+          "number": 4762,
+          "observedAtUtc": "2026-11-14T17:30:06+00:00",
+          "serverDate": "Sat, 14 Nov 2026 17:30:04 GMT",
+          "requestId": "B96E:1A692F:649C4D:A1AC3B:6AF89A9B",
+          "httpStatus": 200,
+          "kind": "PullRequest",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4762",
+          "state": "open",
+          "mergedAt": null
+        }
+      ]
+    }
+  ]
+}

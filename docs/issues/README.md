@@ -11,6 +11,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [open-issues.ndjson.gz](open-issues.ndjson.gz)：开放 issue 正文与评论快照。只存公开可见读取结果，不保存登录凭据。不是测试 fixture、命令或运行配置。
 - [text-reference-candidates.tsv](text-reference-candidates.tsv)：正文/评论中显式 `Depends on:`、`Parent:`、`Implementation DAG:` 等行的候选。候选带正文/评论 URL 和文本行号；目标可能是 PR、关闭 issue、跨仓 issue 或历史引用。在段落、表格或自由文本里的依赖仍需人工回查。正式关系与文本提及不能混用。
 - [同仓显式引用核对](text-reference-review.md) 说明文本声明、定向正式关系、逐行语境复核和未核对范围。
+- [冻结档外目标的独立核验](target-observation-review.md) 记录 183 个编号后续查询的当前状态、PR 提交和待决语义，原冻结状态按原时间保留。
 - [review-queue.tsv](review-queue.tsv)：按开放 issue 索引处置台账；`dependencies` 是原候选编号的检索索引，具体语义见显式引用台账。没有映射的主题路由只是分工建议，`acceptanceCase` 的 ID 关联下方的现有条款。若一个 issue 对应多种处置，按分项台账判断。去重覆盖和剩余条款见 [review-progress.json](review-progress.json)。
 - [accepted-priority.tsv](accepted-priority.tsv) 与 [priority-review.md](priority-review.md)：附件九项的子条款、测试映射和剩余边界。
 - `review-<起始编号>-<结束编号>.tsv` 各文件是 issue 范围处置及验收草案；评论没有完成逐条裁决的范围在各表列明。
