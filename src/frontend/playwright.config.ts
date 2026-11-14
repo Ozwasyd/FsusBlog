@@ -3,13 +3,15 @@ import { readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineConfig, type BrowserName } from '@playwright/test'
+import { defineConfig, type PlaywrightWorkerOptions } from '@playwright/test'
 import { playwrightScreenshotPathTemplate } from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'
 import {
   correctnessProjectUse,
   createCorrectnessBrowserPlan,
   serializableBrowserPlan
 } from '../../tools/test/playwright-browser-identity.mjs'
+
+type BrowserName = PlaywrightWorkerOptions['browserName']
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))

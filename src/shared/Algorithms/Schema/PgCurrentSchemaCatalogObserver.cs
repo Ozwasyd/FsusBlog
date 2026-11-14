@@ -323,6 +323,11 @@ public static class PgCurrentSchemaCatalogObserver
                 table_rel.relname AS table_name,
                 constraint_meta.conname AS constraint_name,
                 constraint_meta.contype AS constraint_type,
+                current_setting('server_version_num')::integer AS catalog_server_version,
+                (constraint_meta.conindid = 0 AND constraint_meta.confrelid = 0
+                    AND constraint_meta.confkey IS NULL AND constraint_meta.conbin IS NULL
+                    AND constraint_meta.conparentid = 0 AND cardinality(constraint_meta.conkey) = 1
+                    AND COALESCE((to_jsonb(constraint_meta)->>'conenforced')::boolean, FALSE)) AS exact_not_null_shape,
                 COALESCE((
                     SELECT string_agg(column_meta.attname, ',' ORDER BY constraint_column.ordinality)
                     FROM unnest(constraint_meta.conkey) WITH ORDINALITY AS constraint_column(attnum, ordinality)
@@ -371,6 +376,8 @@ public static class PgCurrentSchemaCatalogObserver
                 OR table_rel.relname = '{CurrentSchemaControlShape.ApplyJournalTableName}');
             """, cancellationToken, tableScope).ConfigureAwait(false);
 
+        var controlNotNullColumns = new HashSet<string>(StringComparer.Ordinal);
+        int controlCatalogVersion = 0;
         foreach (DataRow row in constraintRows.Rows)
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
@@ -380,6 +387,27 @@ public static class PgCurrentSchemaCatalogObserver
             }
 
             string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
+            {
+                controlCatalogVersion = Convert.ToInt32(row["catalog_server_version"]);
+                if (Convert.ToString(row["constraint_type"]) == "n")
+                {
+                    string[] notNullColumns = ParseIdentifierList(Convert.ToString(row["columns"]));
+                    // PostgreSQL 18 repeats attnotnull as a physical constraint. Fold only
+                    // its complete, validated native representation into the measured column.
+                    if (controlCatalogVersion < 180000 || !Convert.ToBoolean(row["exact_not_null_shape"])
+                        || Convert.ToBoolean(row["is_deferrable"]) || Convert.ToBoolean(row["is_initially_deferred"])
+                        || !Convert.ToBoolean(row["is_validated"]) || Convert.ToBoolean(row["no_inherit"])
+                        || !Convert.ToBoolean(row["is_local"]) || Convert.ToInt32(row["inheritance_count"]) != 0
+                        || notNullColumns.Length != 1
+                        || !table.Columns.TryGetValue(notNullColumns[0], out SchemaColumnModel? notNullColumn)
+                        || notNullColumn.IsNullable || !controlNotNullColumns.Add(notNullColumns[0]))
+                    {
+                        throw new InvalidOperationException("current_schema_control_not_null_constraint_unavailable");
+                    }
+                    continue;
+                }
+            }
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                 && (Convert.ToString(row["constraint_type"]) is "p" or "u")
                 && (!Convert.ToBoolean(row["backing_index_owned"])
@@ -439,6 +467,14 @@ public static class PgCurrentSchemaCatalogObserver
                     foreignKeyDeleteAction,
                     foreignKeyMatchType,
                     referencedSchema));
+        }
+
+        if (controlCatalogVersion >= 180000
+            && tables.TryGetValue(CurrentSchemaControlShape.ApplyJournalTableName, out SchemaTableModel? controlTable)
+            && !controlNotNullColumns.SetEquals(controlTable.Columns.Values.Where(static column => !column.IsNullable)
+                .Select(static column => column.Name)))
+        {
+            throw new InvalidOperationException("current_schema_control_not_null_constraint_unavailable");
         }
 
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())

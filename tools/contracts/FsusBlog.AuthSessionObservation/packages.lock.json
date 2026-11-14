@@ -1,745 +1,752 @@
 {
-    "version": 2,
-    "dependencies": {
-        "net10.0": {
-            "Acornima": {
-                "type": "Transitive",
-                "resolved": "1.6.2",
-                "contentHash": "laakpDHzMwHr5C8+q5RlRf0XJJshUvghNeo4xDerICrYR3iEuGvwfpauCmXuU3RE437XDaQO5ZxieWDpADuD+w=="
-            },
-            "Azure.Core": {
-                "type": "Transitive",
-                "resolved": "1.38.0",
-                "contentHash": "IuEgCoVA0ef7E4pQtpC3+TkPbzaoQfa77HlfJDmfuaJUCVJmn7fT0izamZiryW5sYUFKizsftIxMkXKbgIcPMQ==",
-                "dependencies": {
-                    "Microsoft.Bcl.AsyncInterfaces": "1.1.1",
-                    "System.ClientModel": "1.0.0",
-                    "System.Memory.Data": "1.0.2"
-                }
-            },
-            "Azure.Identity": {
-                "type": "Transitive",
-                "resolved": "1.11.4",
-                "contentHash": "Sf4BoE6Q3jTgFkgBkx7qztYOFELBCo+wQgpYDwal/qJ1unBH73ywPztIJKXBXORRzAeNijsuxhk94h0TIMvfYg==",
-                "dependencies": {
-                    "Azure.Core": "1.38.0",
-                    "Microsoft.Identity.Client": "4.61.3",
-                    "Microsoft.Identity.Client.Extensions.Msal": "4.61.3",
-                    "System.Security.Cryptography.ProtectedData": "4.7.0"
-                }
-            },
-            "Fido2.Models": {
-                "type": "Transitive",
-                "resolved": "4.0.1",
-                "contentHash": "SepPhuYlDEWFwObg39xea9e5Ck5a7qpUP0vjIWzkEOCXDWsKQaW9sdN+m+h9phiCzb0r3w1yauypnHN11CozIw==",
-                "dependencies": {
-                    "Microsoft.Bcl.Memory": "9.0.14"
-                }
-            },
-            "Konscious.Security.Cryptography.Blake2": {
-                "type": "Transitive",
-                "resolved": "1.1.1",
-                "contentHash": "odwOyzj/J/lHJZNwFWJGU/LRecBShupAJ2S8TQqZfhUe9niHzu/voBYK5wuVKsvSpzbfupKQYZguVyIk1sgOkQ=="
-            },
-            "libsodium": {
-                "type": "Transitive",
-                "resolved": "1.0.20.1",
-                "contentHash": "pkiceEqJDQFHjbga3k/oPfTVX9g+GKJZ1VrkuiLhaymt9YNw1Dr7cX9hNuZuNaWcr9WD0moW55k4pMwzQ7JaZQ=="
-            },
-            "MessagePack.Annotations": {
-                "type": "Transitive",
-                "resolved": "2.5.301",
-                "contentHash": "3PyBiSeKTfvtyzUv3+9eXGIw7vBBZ0GAc4k3+RVT0tz2vKv3l0pviiA2b6DrmHyDvj1Au8lSVDDw/wKPMxUQ4A=="
-            },
-            "Microsoft.Bcl.AsyncInterfaces": {
-                "type": "Transitive",
-                "resolved": "1.1.1",
-                "contentHash": "yuvf07qFWFqtK3P/MRkEKLhn5r2UbSpVueRziSqj0yJQIKFwG1pq9mOayK3zE5qZCTs0CbrwL9M6R8VwqyGy2w=="
-            },
-            "Microsoft.Bcl.Memory": {
-                "type": "Transitive",
-                "resolved": "9.0.14",
-                "contentHash": "laQCcjTM2FnbyznkAu9hwBuQh3z2/OtJKwjGkJOUevylFpFXZIUVq/+MU2jM0HQm1n5wsjjwtLIDOiWJ6Nai3A=="
-            },
-            "Microsoft.Bcl.TimeProvider": {
-                "type": "Transitive",
-                "resolved": "8.0.1",
-                "contentHash": "C7kWHJnMRY7EvJev2S8+yJHZ1y7A4ZlLbA4NE+O23BDIAN5mHeqND1m+SKv1ChRS5YlCDW7yAMUe7lttRsJaAA=="
-            },
-            "Microsoft.Data.SqlClient": {
-                "type": "Transitive",
-                "resolved": "5.2.2",
-                "contentHash": "mtoeRMh7F/OA536c/Cnh8L4H0uLSKB5kSmoi54oN7Fp0hNJDy22IqyMhaMH4PkDCqI7xL//Fvg9ldtuPHG0h5g==",
-                "dependencies": {
-                    "Azure.Identity": "1.11.4",
-                    "Microsoft.Data.SqlClient.SNI.runtime": "5.2.0",
-                    "Microsoft.Identity.Client": "4.61.3",
-                    "Microsoft.IdentityModel.JsonWebTokens": "6.35.0",
-                    "Microsoft.IdentityModel.Protocols.OpenIdConnect": "6.35.0",
-                    "Microsoft.SqlServer.Server": "1.0.0",
-                    "System.Configuration.ConfigurationManager": "8.0.0",
-                    "System.Runtime.Caching": "8.0.0"
-                }
-            },
-            "Microsoft.Data.SqlClient.SNI.runtime": {
-                "type": "Transitive",
-                "resolved": "5.2.0",
-                "contentHash": "po1jhvFd+8pbfvJR/puh+fkHi0GRanAdvayh/0e47yaM6CXWZ6opUjCMFuYlAnD2LcbyvQE7fPJKvogmaUcN+w=="
-            },
-            "Microsoft.Extensions.Configuration": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "H4SWETCh/cC5L1WtWchHR6LntGk3rDTTznZMssr4cL8IbDmMWBxY+MOGDc/ASnqNolLKPIWHWeuC1ddiL/iNPw==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Primitives": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Configuration.Binder": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "tMF9wNh+hlyYDWB8mrFCQHQmWHlRosol1b/N2Jrefy1bFLnuTlgSYmPyHNmz8xVQgs7DpXytBRWxGhG+mSTp0g==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration": "10.0.0",
-                    "Microsoft.Extensions.Configuration.Abstractions": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.DependencyInjection": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "f0RBabswJq+gRu5a+hWIobrLWiUYPKMhCD9WO3sYBAdSy3FFH14LMvLVFZc2kPSCimBLxSuitUhsd6tb0TAY6A==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.DependencyModel": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "RFYJR7APio/BiqdQunRq6DB+nDB6nc2qhHr77mlvZ0q0BT8PubMXN7XicmfzCbrDE/dzhBnUKBRXLTcqUiZDGg=="
-            },
-            "Microsoft.Extensions.Diagnostics": {
-                "type": "Transitive",
-                "resolved": "9.0.0",
-                "contentHash": "0CF9ZrNw5RAlRfbZuVIvzzhP8QeWqHiUmMBU/2H7Nmit8/vwP3/SbHeEctth7D4Gz2fBnEbokPc1NU8/j/1ZLw==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration": "9.0.0",
-                    "Microsoft.Extensions.Diagnostics.Abstractions": "9.0.0",
-                    "Microsoft.Extensions.Options.ConfigurationExtensions": "9.0.0"
-                }
-            },
-            "Microsoft.Extensions.Diagnostics.Abstractions": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "SfK89ytD61S7DgzorFljSkUeluC1ncn6dtZgwc0ot39f/BEYWBl5jpgvodxduoYAs1d9HG8faCDRZxE95UMo2A==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Options": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.FileProviders.Abstractions": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "/ppSdehKk3fuXjlqCDgSOtjRK/pSHU8eWgzSHfHdwVm5BP4Dgejehkw+PtxKG2j98qTDEHDst2Y99aNsmJldmw==",
-                "dependencies": {
-                    "Microsoft.Extensions.Primitives": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Hosting.Abstractions": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "KrN6TGFwCwqOkLLk/idW/XtDQh+8In+CL9T4M1Dx+5ScsjTq4TlVbal8q532m82UYrMr6RiQJF2HvYCN0QwVsA==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.FileProviders.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Http": {
-                "type": "Transitive",
-                "resolved": "9.0.0",
-                "contentHash": "DqI4q54U4hH7bIAq9M5a/hl5Odr/KBAoaZ0dcT4OgutD8dook34CbkvAfAIzkMVjYXiL+E5ul9etwwqiX4PHGw==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration.Abstractions": "9.0.0",
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
-                    "Microsoft.Extensions.Diagnostics": "9.0.0",
-                    "Microsoft.Extensions.Logging": "9.0.0",
-                    "Microsoft.Extensions.Logging.Abstractions": "9.0.0",
-                    "Microsoft.Extensions.Options": "9.0.0"
-                }
-            },
-            "Microsoft.Extensions.Logging": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "BStFkd5CcnEtarlcgYDBcFzGYCuuNMzPs02wN3WBsOFoYIEmYoUdAiU+au6opzoqfTYJsMTW00AeqDdnXH2CvA==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection": "10.0.0",
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Options": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Logging.Abstractions": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Logging.Configuration": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "j8zcwhS6bYB6FEfaY3nYSgHdpiL2T+/V3xjpHtslVAegyI1JUbB9yAt/BFdvZdsNbY0Udm4xFtvfT/hUwcOOOg==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration": "10.0.0",
-                    "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Configuration.Binder": "10.0.0",
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Logging": "10.0.0",
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Options": "10.0.0",
-                    "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Options": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "8oCAgXOow5XDrY9HaXX1QmH3ORsyZO/ANVHBlhLyCeWTH5Sg4UuqZeOTWJi6484M+LqSx0RqQXDJtdYy2BNiLQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Primitives": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Options.ConfigurationExtensions": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "tL9cSl3maS5FPzp/3MtlZI21ExWhni0nnUCF8HY4npTsINw45n9SNDbkKXBMtFyUFGSsQep25fHIDN4f/Vp3AQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Configuration.Binder": "10.0.0",
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Options": "10.0.0",
-                    "Microsoft.Extensions.Primitives": "10.0.0"
-                }
-            },
-            "Microsoft.Extensions.Primitives": {
-                "type": "Transitive",
-                "resolved": "10.0.7",
-                "contentHash": "D5M0Jr551iTgwkZMN9rm0pSkgNLj5quUWQUmQPMZh7k/bnvZTnXRGfE2KuvXf1EEjt/ofD9yw9IumpgdP9QCnw=="
-            },
-            "Microsoft.Identity.Client": {
-                "type": "Transitive",
-                "resolved": "4.61.3",
-                "contentHash": "naJo/Qm35Caaoxp5utcw+R8eU8ZtLz2ALh8S+gkekOYQ1oazfCQMWVT4NJ/FnHzdIJlm8dMz0oMpMGCabx5odA==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.Abstractions": "6.35.0"
-                }
-            },
-            "Microsoft.Identity.Client.Extensions.Msal": {
-                "type": "Transitive",
-                "resolved": "4.61.3",
-                "contentHash": "PWnJcznrSGr25MN8ajlc2XIDW4zCFu0U6FkpaNLEWLgd1NgFCp5uDY3mqLDgM8zCN8hqj8yo5wHYfLB2HjcdGw==",
-                "dependencies": {
-                    "Microsoft.Identity.Client": "4.61.3",
-                    "System.Security.Cryptography.ProtectedData": "4.5.0"
-                }
-            },
-            "Microsoft.IdentityModel.Abstractions": {
-                "type": "Transitive",
-                "resolved": "8.2.0",
-                "contentHash": "27ClfnelIu92kLGOaz0vjdXR1Jv7hAdLffxxNgR8T0+IMWmxeVyO3cU8oohmuTrWUFOfd2tsSGaRNewnuClIZw=="
-            },
-            "Microsoft.IdentityModel.JsonWebTokens": {
-                "type": "Transitive",
-                "resolved": "8.2.0",
-                "contentHash": "/DAx+9HeqfkH/PccwHx7cUtQe9fYM6AxEmTla8WXUT+w+mapKLnigWmdKtF55hNvxiSnmGhSSCcG7XrvkpGKFA==",
-                "dependencies": {
-                    "Microsoft.Bcl.TimeProvider": "8.0.1",
-                    "Microsoft.IdentityModel.Tokens": "8.2.0"
-                }
-            },
-            "Microsoft.IdentityModel.Logging": {
-                "type": "Transitive",
-                "resolved": "8.2.0",
-                "contentHash": "mZsjOZlbmCZfM71y8Fyo+D5UJ1RZFvmKXkxTfE2llQ0/CrfEeWmbpoew51w++EWs+G8B/peZqR1DQtbX3bB6Fg==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.Abstractions": "8.2.0"
-                }
-            },
-            "Microsoft.IdentityModel.Tokens": {
-                "type": "Transitive",
-                "resolved": "8.2.0",
-                "contentHash": "/I+6D3SwW8hQh5wznGzQCrS4L5y5Re/0AEKKfXXAduWzz4WKqJzY8RmjwZ6W66bIFUhPrqOy6zsLKPik4Ppnbw==",
-                "dependencies": {
-                    "Microsoft.Bcl.TimeProvider": "8.0.1",
-                    "Microsoft.IdentityModel.Logging": "8.2.0"
-                }
-            },
-            "Microsoft.NET.StringTools": {
-                "type": "Transitive",
-                "resolved": "17.6.3",
-                "contentHash": "N0ZIanl1QCgvUumEL1laasU0a7sOE5ZwLZVTn0pAePnfhq8P7SvTjF8Axq+CnavuQkmdQpGNXQ1efZtu5kDFbA=="
-            },
-            "Microsoft.SqlServer.Server": {
-                "type": "Transitive",
-                "resolved": "1.0.0",
-                "contentHash": "N4KeF3cpcm1PUHym1RmakkzfkEv3GRMyofVv40uXsQhCQeglr2OHNcUk2WOG51AKpGO8ynGpo9M/kFXSzghwug=="
-            },
-            "Newtonsoft.Json": {
-                "type": "Transitive",
-                "resolved": "13.0.2",
-                "contentHash": "R2pZ3B0UjeyHShm9vG+Tu0EBb2lC8b0dFzV9gVn50ofHXh9Smjk6kTn7A/FdAsC8B5cKib1OnGYOXxRBz5XQDg=="
-            },
-            "NSec.Cryptography": {
-                "type": "Transitive",
-                "resolved": "25.4.0",
-                "contentHash": "Z3wPpG0xefMLmhn9T+Ka/EzAmMQPT0THL/5E4lf9cXI/N9rbGH0G23ZFpRcPnD0ast2k7ieG6QSVNIjmfPCXBQ==",
-                "dependencies": {
-                    "libsodium": "[1.0.20.1, 1.0.21)"
-                }
-            },
-            "OpenTelemetry": {
-                "type": "Transitive",
-                "resolved": "1.15.3",
-                "contentHash": "N0i6WjPoHPbZyms1ugbDIFAJFuGlpeExJMU/+XSL0lQRUkg/D0utFkDoLXf8Z1km5B+xVZ2GyMXXiX8qdeNmPg==",
-                "dependencies": {
-                    "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Logging.Configuration": "10.0.0",
-                    "OpenTelemetry.Api.ProviderBuilderExtensions": "1.15.3"
-                }
-            },
-            "OpenTelemetry.Api": {
-                "type": "Transitive",
-                "resolved": "1.15.3",
-                "contentHash": "fX+fkCysfPut+qCcT3bKqyX4QN9Saf4CgX8HLOHywEVD+Xr7sULtfuypITpoDysjx8R59dn/3mWhgimMH8cm/g=="
-            },
-            "OpenTelemetry.Api.ProviderBuilderExtensions": {
-                "type": "Transitive",
-                "resolved": "1.15.3",
-                "contentHash": "SYn0lqYDwLMWhv/zlNGsQcl2yX++yTumanX46bmOZE/ZDOd1WjPBO2kZaZgKLEZTZk48pavIFGJ6vOvxXgWVFQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "OpenTelemetry.Api": "1.15.3"
-                }
-            },
-            "Pipelines.Sockets.Unofficial": {
-                "type": "Transitive",
-                "resolved": "2.2.8",
-                "contentHash": "zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ=="
-            },
-            "Serilog.Extensions.Hosting": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "E7juuIc+gzoGxgzFooFgAV8g9BfiSXNKsUok9NmEpyAXg2odkcPsMa/Yo4axkJRlh0se7mkYQ1GXDaBemR+b6w==",
-                "dependencies": {
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
-                    "Serilog": "4.3.0",
-                    "Serilog.Extensions.Logging": "10.0.0"
-                }
-            },
-            "Serilog.Extensions.Logging": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "vx0kABKl2dWbBhhqAfTOk53/i8aV/5VaT3a6il9gn72Wqs2pM7EK2OB6No6xdqK2IaY6Zf9gdjLuK9BVa2rT+Q==",
-                "dependencies": {
-                    "Microsoft.Extensions.Logging": "10.0.0",
-                    "Serilog": "4.2.0"
-                }
-            },
-            "Serilog.Formatting.Compact": {
-                "type": "Transitive",
-                "resolved": "3.0.0",
-                "contentHash": "wQsv14w9cqlfB5FX2MZpNsTawckN4a8dryuNGbebB/3Nh1pXnROHZov3swtu3Nj5oNG7Ba+xdu7Et/ulAUPanQ==",
-                "dependencies": {
-                    "Serilog": "4.0.0"
-                }
-            },
-            "Serilog.Settings.Configuration": {
-                "type": "Transitive",
-                "resolved": "10.0.0",
-                "contentHash": "LNq+ibS1sbhTqPV1FIE69/9AJJbfaOhnaqkzcjFy95o+4U+STsta9mi97f1smgXsWYKICDeGUf8xUGzd/52/uA==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration.Binder": "10.0.0",
-                    "Microsoft.Extensions.DependencyModel": "10.0.0",
-                    "Serilog": "4.3.0"
-                }
-            },
-            "Serilog.Sinks.Debug": {
-                "type": "Transitive",
-                "resolved": "3.0.0",
-                "contentHash": "4BzXcdrgRX7wde9PmHuYd9U6YqycCC28hhpKonK7hx0wb19eiuRj16fPcPSVp0o/Y1ipJuNLYQ00R3q2Zs8FDA==",
-                "dependencies": {
-                    "Serilog": "4.0.0"
-                }
-            },
-            "System.ClientModel": {
-                "type": "Transitive",
-                "resolved": "1.0.0",
-                "contentHash": "I3CVkvxeqFYjIVEP59DnjbeoGNfo/+SZrCLpRz2v/g0gpCHaEMPtWSY0s9k/7jR1rAsLNg2z2u1JRB76tPjnIw==",
-                "dependencies": {
-                    "System.Memory.Data": "1.0.2"
-                }
-            },
-            "System.Configuration.ConfigurationManager": {
-                "type": "Transitive",
-                "resolved": "8.0.0",
-                "contentHash": "JlYi9XVvIREURRUlGMr1F6vOFLk7YSY4p1vHo4kX3tQ0AGrjqlRWHDi66ImHhy6qwXBG3BJ6Y1QlYQ+Qz6Xgww==",
-                "dependencies": {
-                    "System.Diagnostics.EventLog": "8.0.0",
-                    "System.Security.Cryptography.ProtectedData": "8.0.0"
-                }
-            },
-            "System.Diagnostics.EventLog": {
-                "type": "Transitive",
-                "resolved": "8.0.0",
-                "contentHash": "fdYxcRjQqTTacKId/2IECojlDSFvp7LP5N78+0z/xH7v/Tuw5ZAxu23Y6PTCRinqyu2ePx+Gn1098NC6jM6d+A=="
-            },
-            "System.Formats.Cbor": {
-                "type": "Transitive",
-                "resolved": "9.0.0",
-                "contentHash": "v8LmGrvD0thxFBn5/SaMc5Y0AecfOeoKlAcek1X0fIta8Eb0+fZA3kGelUNE9HhOAe1J1h/tDKjKxh88DWBMjA=="
-            },
-            "System.Memory.Data": {
-                "type": "Transitive",
-                "resolved": "1.0.2",
-                "contentHash": "JGkzeqgBsiZwKJZ1IxPNsDFZDhUvuEdX8L8BDC8N3KOj+6zMcNU28CNN59TpZE/VJYy9cP+5M+sbxtWJx3/xtw=="
-            },
-            "System.Runtime.Caching": {
-                "type": "Transitive",
-                "resolved": "8.0.0",
-                "contentHash": "4TmlmvGp4kzZomm7J2HJn6IIx0UUrQyhBDyb5O1XiunZlQImXW+B8b7W/sTPcXhSf9rp5NR5aDtQllwbB5elOQ==",
-                "dependencies": {
-                    "System.Configuration.ConfigurationManager": "8.0.0"
-                }
-            },
-            "System.Security.Cryptography.ProtectedData": {
-                "type": "Transitive",
-                "resolved": "8.0.0",
-                "contentHash": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg=="
-            },
-            "SystemCommon": {
-                "type": "Transitive",
-                "resolved": "8.5.0",
-                "contentHash": "W6KjogxGYORmvU82YbOTXGX6ZiaeIvtkJ5kMtowGyGa8WAJFZr0awS3ddwsnDLSovIQ9IKJ4F1y5L34ouh2tmw==",
-                "dependencies": {
-                    "Microsoft.Data.SqlClient": "5.2.2",
-                    "System.IdentityModel.Tokens.Jwt": "7.6.3"
-                }
-            },
-            "fsusblog.core": {
-                "type": "Project",
-                "dependencies": {
-                    "FsusBlog.Shared": "[1.0.0, )",
-                    "Microsoft.Extensions.Configuration.Abstractions": "[10.0.7, )",
-                    "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )"
-                }
-            },
-            "fsusblog.server": {
-                "type": "Project",
-                "dependencies": {
-                    "BCrypt.Net-Next": "[4.1.0, )",
-                    "BouncyCastle.Cryptography": "[2.6.2, )",
-                    "Fido2": "[4.0.1, )",
-                    "FsusBlog.Core": "[1.0.0, )",
-                    "FsusBlog.Shared": "[1.0.0, )",
-                    "Jint": "[4.13.0, )",
-                    "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
-                    "MessagePack": "[2.5.301, )",
-                    "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
-                    "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
-                    "Microsoft.OpenApi": "[2.7.5, )",
-                    "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
-                    "Nethermind.MclBindings": "[1.0.5, )",
-                    "Npgsql": "[10.0.3, )",
-                    "Npgsql.OpenTelemetry": "[10.0.2, )",
-                    "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
-                    "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
-                    "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
-                    "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
-                    "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
-                    "Serilog": "[4.3.1, )",
-                    "Serilog.AspNetCore": "[10.0.0, )",
-                    "Serilog.Sinks.Async": "[2.1.0, )",
-                    "Serilog.Sinks.Console": "[6.1.1, )",
-                    "Serilog.Sinks.File": "[7.0.0, )",
-                    "SqlSugarCoreNoDrive": "[5.1.4.213, )",
-                    "StackExchange.Redis": "[2.7.27, )"
-                }
-            },
-            "fsusblog.shared": {
-                "type": "Project"
-            },
-            "BCrypt.Net-Next": {
-                "type": "CentralTransitive",
-                "requested": "[4.1.0, )",
-                "resolved": "4.1.0",
-                "contentHash": "5YT3DKllmtkyW68PjURu/V1TOe4MKiByKwsRNVcfYE1S5KuFTeozdmKzyNzolKiQF391OXCaQtINvYT3j1ERzQ=="
-            },
-            "BouncyCastle.Cryptography": {
-                "type": "CentralTransitive",
-                "requested": "[2.6.2, )",
-                "resolved": "2.6.2",
-                "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
-            },
-            "Fido2": {
-                "type": "CentralTransitive",
-                "requested": "[4.0.1, )",
-                "resolved": "4.0.1",
-                "contentHash": "k/+JLt4J4k4zccYwtV1yiRMZEphwj+GacQeVj1p7foEp787a8vJFkHtLnyzSRsnbf9JDYEh7SF8VBWlTTbdsdQ==",
-                "dependencies": {
-                    "Fido2.Models": "4.0.1",
-                    "Microsoft.Extensions.Http": "9.0.0",
-                    "Microsoft.IdentityModel.JsonWebTokens": "8.2.0",
-                    "NSec.Cryptography": "25.4.0",
-                    "System.Formats.Cbor": "9.0.0"
-                }
-            },
-            "Jint": {
-                "type": "CentralTransitive",
-                "requested": "[4.13.0, )",
-                "resolved": "4.13.0",
-                "contentHash": "UfHAhT/d1oRFdf8QLH3tNXypVZVP3lEw9Fi5+oy7UCeLVAp/0toUSRzq8ApdxYecr09U7ngDk416Nobg4L5Vkg==",
-                "dependencies": {
-                    "Acornima": "1.6.2"
-                }
-            },
-            "Konscious.Security.Cryptography.Argon2": {
-                "type": "CentralTransitive",
-                "requested": "[1.3.1, )",
-                "resolved": "1.3.1",
-                "contentHash": "T+OAGwzYYXftahpOxO7J4xA5K6urxwGnWQf3M+Jpi+76Azv/0T3M5SuN+h7/QvXuiqNw3ZEZ5QqVLI5ygDAylw==",
-                "dependencies": {
-                    "Konscious.Security.Cryptography.Blake2": "1.1.1"
-                }
-            },
-            "MessagePack": {
-                "type": "CentralTransitive",
-                "requested": "[2.5.301, )",
-                "resolved": "2.5.301",
-                "contentHash": "WUnJgmYc06ngIxZxLe9sa0P6rOTyOZIQn8SuDvJSjyMn7e8/AdlNAdt81WPUhWKeQ7hDkgxKU1vTrJqX/4L79A==",
-                "dependencies": {
-                    "MessagePack.Annotations": "2.5.301",
-                    "Microsoft.NET.StringTools": "17.6.3"
-                }
-            },
-            "Microsoft.AspNetCore.Authentication.JwtBearer": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.7, )",
-                "resolved": "10.0.7",
-                "contentHash": "g8klpd7OFJfJOq1EJKcBO8C8I8Dp0QUWoKDPUvvJYe+xunVyBHq6YxfF2CAc6+rkniV25iaWl+6RK87c25n4lA==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.0.1"
-                }
-            },
-            "Microsoft.AspNetCore.OpenApi": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.9, )",
-                "resolved": "10.0.9",
-                "contentHash": "1ihb8FO9cGgEK1/m3CTtT/SfnynwmiZib0W2pcDVj3KSWk/Sca4VOXEtaptKQc582zpFrzTFiwkGRCglt6H+WQ==",
-                "dependencies": {
-                    "Microsoft.OpenApi": "2.0.0"
-                }
-            },
-            "Microsoft.Extensions.Configuration.Abstractions": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.7, )",
-                "resolved": "10.0.7",
-                "contentHash": "t56nEgvECcyLPojZIUFWJknQQDAbgfTf9J+QMYJE1YYvVgz69vN6B/AKL8Grvj3Lcnp8kTpNqwmwFhb3YLJmtQ==",
-                "dependencies": {
-                    "Microsoft.Extensions.Primitives": "10.0.7"
-                }
-            },
-            "Microsoft.Extensions.DependencyInjection.Abstractions": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.7, )",
-                "resolved": "10.0.7",
-                "contentHash": "Z6mfFEaFcwCfSboxJwOLfu7/31npCY9q70WUamHW/vRQhDvBKOT4Vf9YkZj5J6hLvJpb0oDEYfHunQZj0xxvKw=="
-            },
-            "Microsoft.IdentityModel.Protocols": {
-                "type": "CentralTransitive",
-                "requested": "[8.2.0, )",
-                "resolved": "8.0.1",
-                "contentHash": "uA2vpKqU3I2mBBEaeJAWPTjT9v1TZrGWKdgK6G5qJd03CLx83kdiqO9cmiK8/n1erkHzFBwU/RphP83aAe3i3g==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.Tokens": "8.0.1"
-                }
-            },
-            "Microsoft.IdentityModel.Protocols.OpenIdConnect": {
-                "type": "CentralTransitive",
-                "requested": "[8.2.0, )",
-                "resolved": "8.0.1",
-                "contentHash": "AQDbfpL+yzuuGhO/mQhKNsp44pm5Jv8/BI4KiFXR7beVGZoSH35zMV3PrmcfvSTsyI6qrcR898NzUauD6SRigg==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.Protocols": "8.0.1",
-                    "System.IdentityModel.Tokens.Jwt": "8.0.1"
-                }
-            },
-            "Microsoft.OpenApi": {
-                "type": "CentralTransitive",
-                "requested": "[2.7.5, )",
-                "resolved": "2.7.5",
-                "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
-            },
-            "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": {
-                "type": "CentralTransitive",
-                "requested": "[1.23.0, )",
-                "resolved": "1.23.0",
-                "contentHash": "2wDnb4umupJZ/1ikgWozFVpggH1mlHQFc0odXVv2ZagL3RYwXgW9zmC15fiqIBzmaC0vLZUnLGwDY+p8ZR7Syw=="
-            },
-            "Nethermind.MclBindings": {
-                "type": "CentralTransitive",
-                "requested": "[1.0.5, )",
-                "resolved": "1.0.5",
-                "contentHash": "GVzsykooi0PAydDuhdWB7ugFyHPYYkwiBFGy5sVMlKeXsqBqUdvOgqnT/29bf74b3Uhm76gfC6fiW9nEW0xA3Q=="
-            },
-            "Npgsql": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.3, )",
-                "resolved": "10.0.3",
-                "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
-                "dependencies": {
-                    "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
-                }
-            },
-            "Npgsql.OpenTelemetry": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.2, )",
-                "resolved": "10.0.2",
-                "contentHash": "kjc+3DzqjaFk0L3cmR92emyJd7GAgwSiiyuzvumHFEp0EVp6GbrtdIe0jD8NANdPVqYM8prH9ND8GQsQAFXCKA==",
-                "dependencies": {
-                    "Npgsql": "10.0.2",
-                    "OpenTelemetry.API": "1.14.0"
-                }
-            },
-            "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
-                "type": "CentralTransitive",
-                "requested": "[1.15.3, )",
-                "resolved": "1.15.3",
-                "contentHash": "FEXJepcseTGbATiCkUfP7ipoFEYYfl/0UmmUwi0KxCPg9PaUA8ab2P1LGopK+/HExasJ1ZutFhZrN6WvUIR23g==",
-                "dependencies": {
-                    "OpenTelemetry": "1.15.3"
-                }
-            },
-            "OpenTelemetry.Extensions.Hosting": {
-                "type": "CentralTransitive",
-                "requested": "[1.15.3, )",
-                "resolved": "1.15.3",
-                "contentHash": "u8n/W8yIlqv0BXZmvId1iVaeWXG42tGKdTkuLYg5g57Y/r9CeUNzqtrSHNdG5IoO8iPX79w3v+WsbAHgUQbfeg==",
-                "dependencies": {
-                    "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
-                    "OpenTelemetry": "1.15.3"
-                }
-            },
-            "OpenTelemetry.Instrumentation.AspNetCore": {
-                "type": "CentralTransitive",
-                "requested": "[1.15.2, )",
-                "resolved": "1.15.2",
-                "contentHash": "2nPd7r0ug/gd6/CNFL6Rlu+RSQ9WYGSGHAYQ1ssbSqyzKJpqTunfx2I/1O0WB5k+L0cyXbG4XVZpoSoUc3M7wg==",
-                "dependencies": {
-                    "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
-                }
-            },
-            "OpenTelemetry.Instrumentation.Http": {
-                "type": "CentralTransitive",
-                "requested": "[1.15.1, )",
-                "resolved": "1.15.1",
-                "contentHash": "vFO4Fj/dXkoVNGo/nhoGpO2zYQmZwr4jTID7oRGo+XlQ8LqksyZjUXQ4p39RfUvTID7IzzL8Qe71tW7CcAFymA==",
-                "dependencies": {
-                    "Microsoft.Extensions.Configuration": "10.0.0",
-                    "Microsoft.Extensions.Options": "10.0.0",
-                    "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
-                }
-            },
-            "OpenTelemetry.Instrumentation.Runtime": {
-                "type": "CentralTransitive",
-                "requested": "[1.15.1, )",
-                "resolved": "1.15.1",
-                "contentHash": "cpPwlUT5HXcLGPaIgsbSy0W9eFYAPGVbTP1p8/uyQ4Osvf5BJuPpEXE7crL09SmEd44r0DGNKDtsqxaAz0HxQw==",
-                "dependencies": {
-                    "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
-                }
-            },
-            "Serilog": {
-                "type": "CentralTransitive",
-                "requested": "[4.3.1, )",
-                "resolved": "4.3.1",
-                "contentHash": "savYe7h5yRlkqBVOwP8cIRDOdqKiPmYCU4W87JH38sBmcKD5EBoXvQIw6bNEvZ/pTe1gsiye3VFCzBsoppGkXQ=="
-            },
-            "Serilog.AspNetCore": {
-                "type": "CentralTransitive",
-                "requested": "[10.0.0, )",
-                "resolved": "10.0.0",
-                "contentHash": "a/cNa1mY4On1oJlfGG1wAvxjp5g7OEzk/Jf/nm7NF9cWoE7KlZw1GldrifUBWm9oKibHkR7Lg/l5jy3y7ACR8w==",
-                "dependencies": {
-                    "Serilog": "4.3.0",
-                    "Serilog.Extensions.Hosting": "10.0.0",
-                    "Serilog.Formatting.Compact": "3.0.0",
-                    "Serilog.Settings.Configuration": "10.0.0",
-                    "Serilog.Sinks.Console": "6.1.1",
-                    "Serilog.Sinks.Debug": "3.0.0",
-                    "Serilog.Sinks.File": "7.0.0"
-                }
-            },
-            "Serilog.Sinks.Async": {
-                "type": "CentralTransitive",
-                "requested": "[2.1.0, )",
-                "resolved": "2.1.0",
-                "contentHash": "SnmRknWsSMgyo9wDXeZZCqSp48kkQYy44taSM6vcpxfiRICzSf09oLKEmVr0RCwQnfd8mJQ2WNN6nvhqf0RowQ==",
-                "dependencies": {
-                    "Serilog": "4.1.0"
-                }
-            },
-            "Serilog.Sinks.Console": {
-                "type": "CentralTransitive",
-                "requested": "[6.1.1, )",
-                "resolved": "6.1.1",
-                "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
-                "dependencies": {
-                    "Serilog": "4.0.0"
-                }
-            },
-            "Serilog.Sinks.File": {
-                "type": "CentralTransitive",
-                "requested": "[7.0.0, )",
-                "resolved": "7.0.0",
-                "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
-                "dependencies": {
-                    "Serilog": "4.2.0"
-                }
-            },
-            "SqlSugarCoreNoDrive": {
-                "type": "CentralTransitive",
-                "requested": "[5.1.4.213, )",
-                "resolved": "5.1.4.213",
-                "contentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
-                "dependencies": {
-                    "Newtonsoft.Json": "13.0.2",
-                    "SystemCommon": "8.5.0"
-                }
-            },
-            "StackExchange.Redis": {
-                "type": "CentralTransitive",
-                "requested": "[2.7.27, )",
-                "resolved": "2.7.27",
-                "contentHash": "Uqc2OQHglqj9/FfGQ6RkKFkZfHySfZlfmbCl+hc+u2I/IqunfelQ7QJi7ZhvAJxUtu80pildVX6NPLdDaUffOw==",
-                "dependencies": {
-                    "Microsoft.Extensions.Logging.Abstractions": "6.0.0",
-                    "Pipelines.Sockets.Unofficial": "2.2.8"
-                }
-            },
-            "System.IdentityModel.Tokens.Jwt": {
-                "type": "CentralTransitive",
-                "requested": "[8.2.0, )",
-                "resolved": "8.0.1",
-                "contentHash": "GJw3bYkWpOgvN3tJo5X4lYUeIFA2HD293FPUhKmp7qxS+g5ywAb34Dnd3cDAFLkcMohy5XTpoaZ4uAHuw0uSPQ==",
-                "dependencies": {
-                    "Microsoft.IdentityModel.JsonWebTokens": "8.0.1",
-                    "Microsoft.IdentityModel.Tokens": "8.0.1"
-                }
-            }
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Acornima": {
+        "type": "Transitive",
+        "resolved": "1.6.2",
+        "contentHash": "laakpDHzMwHr5C8+q5RlRf0XJJshUvghNeo4xDerICrYR3iEuGvwfpauCmXuU3RE437XDaQO5ZxieWDpADuD+w=="
+      },
+      "Azure.Core": {
+        "type": "Transitive",
+        "resolved": "1.38.0",
+        "contentHash": "IuEgCoVA0ef7E4pQtpC3+TkPbzaoQfa77HlfJDmfuaJUCVJmn7fT0izamZiryW5sYUFKizsftIxMkXKbgIcPMQ==",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "1.1.1",
+          "System.ClientModel": "1.0.0",
+          "System.Memory.Data": "1.0.2"
         }
+      },
+      "Azure.Identity": {
+        "type": "Transitive",
+        "resolved": "1.11.4",
+        "contentHash": "Sf4BoE6Q3jTgFkgBkx7qztYOFELBCo+wQgpYDwal/qJ1unBH73ywPztIJKXBXORRzAeNijsuxhk94h0TIMvfYg==",
+        "dependencies": {
+          "Azure.Core": "1.38.0",
+          "Microsoft.Identity.Client": "4.61.3",
+          "Microsoft.Identity.Client.Extensions.Msal": "4.61.3",
+          "System.Security.Cryptography.ProtectedData": "4.7.0"
+        }
+      },
+      "Fido2.Models": {
+        "type": "Transitive",
+        "resolved": "4.0.1",
+        "contentHash": "SepPhuYlDEWFwObg39xea9e5Ck5a7qpUP0vjIWzkEOCXDWsKQaW9sdN+m+h9phiCzb0r3w1yauypnHN11CozIw==",
+        "dependencies": {
+          "Microsoft.Bcl.Memory": "9.0.14"
+        }
+      },
+      "Konscious.Security.Cryptography.Blake2": {
+        "type": "Transitive",
+        "resolved": "1.1.1",
+        "contentHash": "odwOyzj/J/lHJZNwFWJGU/LRecBShupAJ2S8TQqZfhUe9niHzu/voBYK5wuVKsvSpzbfupKQYZguVyIk1sgOkQ=="
+      },
+      "libsodium": {
+        "type": "Transitive",
+        "resolved": "1.0.20.1",
+        "contentHash": "pkiceEqJDQFHjbga3k/oPfTVX9g+GKJZ1VrkuiLhaymt9YNw1Dr7cX9hNuZuNaWcr9WD0moW55k4pMwzQ7JaZQ=="
+      },
+      "MessagePack.Annotations": {
+        "type": "Transitive",
+        "resolved": "2.5.307",
+        "contentHash": "kIGiwydfCKWRim1ZoFbZ1qVHDHrQfXdJ+FEFVPEqse/XzvPT7lVUjIb1LOuocP3Tx1+PtFEdEandRhxB64Xd4A=="
+      },
+      "Microsoft.Bcl.AsyncInterfaces": {
+        "type": "Transitive",
+        "resolved": "1.1.1",
+        "contentHash": "yuvf07qFWFqtK3P/MRkEKLhn5r2UbSpVueRziSqj0yJQIKFwG1pq9mOayK3zE5qZCTs0CbrwL9M6R8VwqyGy2w=="
+      },
+      "Microsoft.Bcl.Memory": {
+        "type": "Transitive",
+        "resolved": "9.0.14",
+        "contentHash": "laQCcjTM2FnbyznkAu9hwBuQh3z2/OtJKwjGkJOUevylFpFXZIUVq/+MU2jM0HQm1n5wsjjwtLIDOiWJ6Nai3A=="
+      },
+      "Microsoft.Bcl.TimeProvider": {
+        "type": "Transitive",
+        "resolved": "8.0.1",
+        "contentHash": "C7kWHJnMRY7EvJev2S8+yJHZ1y7A4ZlLbA4NE+O23BDIAN5mHeqND1m+SKv1ChRS5YlCDW7yAMUe7lttRsJaAA=="
+      },
+      "Microsoft.Data.SqlClient": {
+        "type": "Transitive",
+        "resolved": "5.2.2",
+        "contentHash": "mtoeRMh7F/OA536c/Cnh8L4H0uLSKB5kSmoi54oN7Fp0hNJDy22IqyMhaMH4PkDCqI7xL//Fvg9ldtuPHG0h5g==",
+        "dependencies": {
+          "Azure.Identity": "1.11.4",
+          "Microsoft.Data.SqlClient.SNI.runtime": "5.2.0",
+          "Microsoft.Identity.Client": "4.61.3",
+          "Microsoft.IdentityModel.JsonWebTokens": "6.35.0",
+          "Microsoft.IdentityModel.Protocols.OpenIdConnect": "6.35.0",
+          "Microsoft.SqlServer.Server": "1.0.0",
+          "System.Configuration.ConfigurationManager": "8.0.0",
+          "System.Runtime.Caching": "8.0.0"
+        }
+      },
+      "Microsoft.Data.SqlClient.SNI.runtime": {
+        "type": "Transitive",
+        "resolved": "5.2.0",
+        "contentHash": "po1jhvFd+8pbfvJR/puh+fkHi0GRanAdvayh/0e47yaM6CXWZ6opUjCMFuYlAnD2LcbyvQE7fPJKvogmaUcN+w=="
+      },
+      "Microsoft.Extensions.Configuration": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "H4SWETCh/cC5L1WtWchHR6LntGk3rDTTznZMssr4cL8IbDmMWBxY+MOGDc/ASnqNolLKPIWHWeuC1ddiL/iNPw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Primitives": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Configuration.Binder": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "tMF9wNh+hlyYDWB8mrFCQHQmWHlRosol1b/N2Jrefy1bFLnuTlgSYmPyHNmz8xVQgs7DpXytBRWxGhG+mSTp0g==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.0",
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "f0RBabswJq+gRu5a+hWIobrLWiUYPKMhCD9WO3sYBAdSy3FFH14LMvLVFZc2kPSCimBLxSuitUhsd6tb0TAY6A==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.DependencyModel": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "RFYJR7APio/BiqdQunRq6DB+nDB6nc2qhHr77mlvZ0q0BT8PubMXN7XicmfzCbrDE/dzhBnUKBRXLTcqUiZDGg=="
+      },
+      "Microsoft.Extensions.Diagnostics": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "0CF9ZrNw5RAlRfbZuVIvzzhP8QeWqHiUmMBU/2H7Nmit8/vwP3/SbHeEctth7D4Gz2fBnEbokPc1NU8/j/1ZLw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "9.0.0",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "9.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "9.0.0"
+        }
+      },
+      "Microsoft.Extensions.Diagnostics.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "SfK89ytD61S7DgzorFljSkUeluC1ncn6dtZgwc0ot39f/BEYWBl5jpgvodxduoYAs1d9HG8faCDRZxE95UMo2A==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.FileProviders.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "/ppSdehKk3fuXjlqCDgSOtjRK/pSHU8eWgzSHfHdwVm5BP4Dgejehkw+PtxKG2j98qTDEHDst2Y99aNsmJldmw==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Hosting.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "KrN6TGFwCwqOkLLk/idW/XtDQh+8In+CL9T4M1Dx+5ScsjTq4TlVbal8q532m82UYrMr6RiQJF2HvYCN0QwVsA==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
+          "Microsoft.Extensions.FileProviders.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Http": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "DqI4q54U4hH7bIAq9M5a/hl5Odr/KBAoaZ0dcT4OgutD8dook34CbkvAfAIzkMVjYXiL+E5ul9etwwqiX4PHGw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "9.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
+          "Microsoft.Extensions.Diagnostics": "9.0.0",
+          "Microsoft.Extensions.Logging": "9.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.0",
+          "Microsoft.Extensions.Options": "9.0.0"
+        }
+      },
+      "Microsoft.Extensions.Logging": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "BStFkd5CcnEtarlcgYDBcFzGYCuuNMzPs02wN3WBsOFoYIEmYoUdAiU+au6opzoqfTYJsMTW00AeqDdnXH2CvA==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection": "10.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Logging.Configuration": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "j8zcwhS6bYB6FEfaY3nYSgHdpiL2T+/V3xjpHtslVAegyI1JUbB9yAt/BFdvZdsNbY0Udm4xFtvfT/hUwcOOOg==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.0",
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Logging": "10.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Options": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "8oCAgXOow5XDrY9HaXX1QmH3ORsyZO/ANVHBlhLyCeWTH5Sg4UuqZeOTWJi6484M+LqSx0RqQXDJtdYy2BNiLQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Primitives": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Options.ConfigurationExtensions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "tL9cSl3maS5FPzp/3MtlZI21ExWhni0nnUCF8HY4npTsINw45n9SNDbkKXBMtFyUFGSsQep25fHIDN4f/Vp3AQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0",
+          "Microsoft.Extensions.Primitives": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.Primitives": {
+        "type": "Transitive",
+        "resolved": "10.0.7",
+        "contentHash": "D5M0Jr551iTgwkZMN9rm0pSkgNLj5quUWQUmQPMZh7k/bnvZTnXRGfE2KuvXf1EEjt/ofD9yw9IumpgdP9QCnw=="
+      },
+      "Microsoft.Identity.Client": {
+        "type": "Transitive",
+        "resolved": "4.61.3",
+        "contentHash": "naJo/Qm35Caaoxp5utcw+R8eU8ZtLz2ALh8S+gkekOYQ1oazfCQMWVT4NJ/FnHzdIJlm8dMz0oMpMGCabx5odA==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Abstractions": "6.35.0"
+        }
+      },
+      "Microsoft.Identity.Client.Extensions.Msal": {
+        "type": "Transitive",
+        "resolved": "4.61.3",
+        "contentHash": "PWnJcznrSGr25MN8ajlc2XIDW4zCFu0U6FkpaNLEWLgd1NgFCp5uDY3mqLDgM8zCN8hqj8yo5wHYfLB2HjcdGw==",
+        "dependencies": {
+          "Microsoft.Identity.Client": "4.61.3",
+          "System.Security.Cryptography.ProtectedData": "4.5.0"
+        }
+      },
+      "Microsoft.IdentityModel.Abstractions": {
+        "type": "Transitive",
+        "resolved": "8.2.0",
+        "contentHash": "27ClfnelIu92kLGOaz0vjdXR1Jv7hAdLffxxNgR8T0+IMWmxeVyO3cU8oohmuTrWUFOfd2tsSGaRNewnuClIZw=="
+      },
+      "Microsoft.IdentityModel.JsonWebTokens": {
+        "type": "Transitive",
+        "resolved": "8.2.0",
+        "contentHash": "/DAx+9HeqfkH/PccwHx7cUtQe9fYM6AxEmTla8WXUT+w+mapKLnigWmdKtF55hNvxiSnmGhSSCcG7XrvkpGKFA==",
+        "dependencies": {
+          "Microsoft.Bcl.TimeProvider": "8.0.1",
+          "Microsoft.IdentityModel.Tokens": "8.2.0"
+        }
+      },
+      "Microsoft.IdentityModel.Logging": {
+        "type": "Transitive",
+        "resolved": "8.2.0",
+        "contentHash": "mZsjOZlbmCZfM71y8Fyo+D5UJ1RZFvmKXkxTfE2llQ0/CrfEeWmbpoew51w++EWs+G8B/peZqR1DQtbX3bB6Fg==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Abstractions": "8.2.0"
+        }
+      },
+      "Microsoft.IdentityModel.Tokens": {
+        "type": "Transitive",
+        "resolved": "8.2.0",
+        "contentHash": "/I+6D3SwW8hQh5wznGzQCrS4L5y5Re/0AEKKfXXAduWzz4WKqJzY8RmjwZ6W66bIFUhPrqOy6zsLKPik4Ppnbw==",
+        "dependencies": {
+          "Microsoft.Bcl.TimeProvider": "8.0.1",
+          "Microsoft.IdentityModel.Logging": "8.2.0"
+        }
+      },
+      "Microsoft.NET.StringTools": {
+        "type": "Transitive",
+        "resolved": "17.6.3",
+        "contentHash": "N0ZIanl1QCgvUumEL1laasU0a7sOE5ZwLZVTn0pAePnfhq8P7SvTjF8Axq+CnavuQkmdQpGNXQ1efZtu5kDFbA=="
+      },
+      "Microsoft.SqlServer.Server": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "N4KeF3cpcm1PUHym1RmakkzfkEv3GRMyofVv40uXsQhCQeglr2OHNcUk2WOG51AKpGO8ynGpo9M/kFXSzghwug=="
+      },
+      "Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.2",
+        "contentHash": "R2pZ3B0UjeyHShm9vG+Tu0EBb2lC8b0dFzV9gVn50ofHXh9Smjk6kTn7A/FdAsC8B5cKib1OnGYOXxRBz5XQDg=="
+      },
+      "NSec.Cryptography": {
+        "type": "Transitive",
+        "resolved": "25.4.0",
+        "contentHash": "Z3wPpG0xefMLmhn9T+Ka/EzAmMQPT0THL/5E4lf9cXI/N9rbGH0G23ZFpRcPnD0ast2k7ieG6QSVNIjmfPCXBQ==",
+        "dependencies": {
+          "libsodium": "[1.0.20.1, 1.0.21)"
+        }
+      },
+      "OpenTelemetry": {
+        "type": "Transitive",
+        "resolved": "1.15.3",
+        "contentHash": "N0i6WjPoHPbZyms1ugbDIFAJFuGlpeExJMU/+XSL0lQRUkg/D0utFkDoLXf8Z1km5B+xVZ2GyMXXiX8qdeNmPg==",
+        "dependencies": {
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Logging.Configuration": "10.0.0",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.15.3"
+        }
+      },
+      "OpenTelemetry.Api": {
+        "type": "Transitive",
+        "resolved": "1.15.3",
+        "contentHash": "fX+fkCysfPut+qCcT3bKqyX4QN9Saf4CgX8HLOHywEVD+Xr7sULtfuypITpoDysjx8R59dn/3mWhgimMH8cm/g=="
+      },
+      "OpenTelemetry.Api.ProviderBuilderExtensions": {
+        "type": "Transitive",
+        "resolved": "1.15.3",
+        "contentHash": "SYn0lqYDwLMWhv/zlNGsQcl2yX++yTumanX46bmOZE/ZDOd1WjPBO2kZaZgKLEZTZk48pavIFGJ6vOvxXgWVFQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "OpenTelemetry.Api": "1.15.3"
+        }
+      },
+      "Pipelines.Sockets.Unofficial": {
+        "type": "Transitive",
+        "resolved": "2.2.8",
+        "contentHash": "zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ=="
+      },
+      "Serilog.Extensions.Hosting": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "E7juuIc+gzoGxgzFooFgAV8g9BfiSXNKsUok9NmEpyAXg2odkcPsMa/Yo4axkJRlh0se7mkYQ1GXDaBemR+b6w==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
+          "Serilog": "4.3.0",
+          "Serilog.Extensions.Logging": "10.0.0"
+        }
+      },
+      "Serilog.Extensions.Logging": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "vx0kABKl2dWbBhhqAfTOk53/i8aV/5VaT3a6il9gn72Wqs2pM7EK2OB6No6xdqK2IaY6Zf9gdjLuK9BVa2rT+Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging": "10.0.0",
+          "Serilog": "4.2.0"
+        }
+      },
+      "Serilog.Formatting.Compact": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "wQsv14w9cqlfB5FX2MZpNsTawckN4a8dryuNGbebB/3Nh1pXnROHZov3swtu3Nj5oNG7Ba+xdu7Et/ulAUPanQ==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Settings.Configuration": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "LNq+ibS1sbhTqPV1FIE69/9AJJbfaOhnaqkzcjFy95o+4U+STsta9mi97f1smgXsWYKICDeGUf8xUGzd/52/uA==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyModel": "10.0.0",
+          "Serilog": "4.3.0"
+        }
+      },
+      "Serilog.Sinks.Debug": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "4BzXcdrgRX7wde9PmHuYd9U6YqycCC28hhpKonK7hx0wb19eiuRj16fPcPSVp0o/Y1ipJuNLYQ00R3q2Zs8FDA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "System.ClientModel": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "I3CVkvxeqFYjIVEP59DnjbeoGNfo/+SZrCLpRz2v/g0gpCHaEMPtWSY0s9k/7jR1rAsLNg2z2u1JRB76tPjnIw==",
+        "dependencies": {
+          "System.Memory.Data": "1.0.2"
+        }
+      },
+      "System.Configuration.ConfigurationManager": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "JlYi9XVvIREURRUlGMr1F6vOFLk7YSY4p1vHo4kX3tQ0AGrjqlRWHDi66ImHhy6qwXBG3BJ6Y1QlYQ+Qz6Xgww==",
+        "dependencies": {
+          "System.Diagnostics.EventLog": "8.0.0",
+          "System.Security.Cryptography.ProtectedData": "8.0.0"
+        }
+      },
+      "System.Diagnostics.EventLog": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "fdYxcRjQqTTacKId/2IECojlDSFvp7LP5N78+0z/xH7v/Tuw5ZAxu23Y6PTCRinqyu2ePx+Gn1098NC6jM6d+A=="
+      },
+      "System.Formats.Cbor": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "v8LmGrvD0thxFBn5/SaMc5Y0AecfOeoKlAcek1X0fIta8Eb0+fZA3kGelUNE9HhOAe1J1h/tDKjKxh88DWBMjA=="
+      },
+      "System.Memory.Data": {
+        "type": "Transitive",
+        "resolved": "1.0.2",
+        "contentHash": "JGkzeqgBsiZwKJZ1IxPNsDFZDhUvuEdX8L8BDC8N3KOj+6zMcNU28CNN59TpZE/VJYy9cP+5M+sbxtWJx3/xtw=="
+      },
+      "System.Runtime.Caching": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "4TmlmvGp4kzZomm7J2HJn6IIx0UUrQyhBDyb5O1XiunZlQImXW+B8b7W/sTPcXhSf9rp5NR5aDtQllwbB5elOQ==",
+        "dependencies": {
+          "System.Configuration.ConfigurationManager": "8.0.0"
+        }
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg=="
+      },
+      "SystemCommon": {
+        "type": "Transitive",
+        "resolved": "8.5.0",
+        "contentHash": "W6KjogxGYORmvU82YbOTXGX6ZiaeIvtkJ5kMtowGyGa8WAJFZr0awS3ddwsnDLSovIQ9IKJ4F1y5L34ouh2tmw==",
+        "dependencies": {
+          "Microsoft.Data.SqlClient": "5.2.2",
+          "System.IdentityModel.Tokens.Jwt": "7.6.3"
+        }
+      },
+      "fsusblog.core": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.Shared": "[1.0.0, )",
+          "Microsoft.Extensions.Configuration.Abstractions": "[10.0.7, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )"
+        }
+      },
+      "fsusblog.server": {
+        "type": "Project",
+        "dependencies": {
+          "AngleSharp": "[1.5.0, )",
+          "BCrypt.Net-Next": "[4.1.0, )",
+          "BouncyCastle.Cryptography": "[2.6.2, )",
+          "Fido2": "[4.0.1, )",
+          "FsusBlog.Core": "[1.0.0, )",
+          "FsusBlog.Shared": "[1.0.0, )",
+          "Jint": "[4.13.0, )",
+          "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+          "MessagePack": "[2.5.307, )",
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+          "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+          "Microsoft.OpenApi": "[2.7.5, )",
+          "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+          "Nethermind.MclBindings": "[1.0.5, )",
+          "Npgsql": "[10.0.3, )",
+          "Npgsql.OpenTelemetry": "[10.0.2, )",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+          "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+          "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+          "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+          "Serilog": "[4.3.1, )",
+          "Serilog.AspNetCore": "[10.0.0, )",
+          "Serilog.Sinks.Async": "[2.1.0, )",
+          "Serilog.Sinks.Console": "[6.1.1, )",
+          "Serilog.Sinks.File": "[7.0.0, )",
+          "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+          "StackExchange.Redis": "[2.7.27, )"
+        }
+      },
+      "fsusblog.shared": {
+        "type": "Project"
+      },
+      "AngleSharp": {
+        "type": "CentralTransitive",
+        "requested": "[1.5.0, )",
+        "resolved": "1.5.0",
+        "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+      },
+      "BCrypt.Net-Next": {
+        "type": "CentralTransitive",
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "5YT3DKllmtkyW68PjURu/V1TOe4MKiByKwsRNVcfYE1S5KuFTeozdmKzyNzolKiQF391OXCaQtINvYT3j1ERzQ=="
+      },
+      "BouncyCastle.Cryptography": {
+        "type": "CentralTransitive",
+        "requested": "[2.6.2, )",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
+      },
+      "Fido2": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.1, )",
+        "resolved": "4.0.1",
+        "contentHash": "k/+JLt4J4k4zccYwtV1yiRMZEphwj+GacQeVj1p7foEp787a8vJFkHtLnyzSRsnbf9JDYEh7SF8VBWlTTbdsdQ==",
+        "dependencies": {
+          "Fido2.Models": "4.0.1",
+          "Microsoft.Extensions.Http": "9.0.0",
+          "Microsoft.IdentityModel.JsonWebTokens": "8.2.0",
+          "NSec.Cryptography": "25.4.0",
+          "System.Formats.Cbor": "9.0.0"
+        }
+      },
+      "Jint": {
+        "type": "CentralTransitive",
+        "requested": "[4.13.0, )",
+        "resolved": "4.13.0",
+        "contentHash": "UfHAhT/d1oRFdf8QLH3tNXypVZVP3lEw9Fi5+oy7UCeLVAp/0toUSRzq8ApdxYecr09U7ngDk416Nobg4L5Vkg==",
+        "dependencies": {
+          "Acornima": "1.6.2"
+        }
+      },
+      "Konscious.Security.Cryptography.Argon2": {
+        "type": "CentralTransitive",
+        "requested": "[1.3.1, )",
+        "resolved": "1.3.1",
+        "contentHash": "T+OAGwzYYXftahpOxO7J4xA5K6urxwGnWQf3M+Jpi+76Azv/0T3M5SuN+h7/QvXuiqNw3ZEZ5QqVLI5ygDAylw==",
+        "dependencies": {
+          "Konscious.Security.Cryptography.Blake2": "1.1.1"
+        }
+      },
+      "MessagePack": {
+        "type": "CentralTransitive",
+        "requested": "[2.5.307, )",
+        "resolved": "2.5.307",
+        "contentHash": "P9LNJ2bz/wx8J5W0EQW4Bh7G5BiEikXiiDqGvw/WOMRyRI0QcxVvRM4XkqhidGJG6uzMT7iF89o0uYGLwmGifQ==",
+        "dependencies": {
+          "MessagePack.Annotations": "2.5.307",
+          "Microsoft.NET.StringTools": "17.6.3"
+        }
+      },
+      "Microsoft.AspNetCore.Authentication.JwtBearer": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.7, )",
+        "resolved": "10.0.7",
+        "contentHash": "g8klpd7OFJfJOq1EJKcBO8C8I8Dp0QUWoKDPUvvJYe+xunVyBHq6YxfF2CAc6+rkniV25iaWl+6RK87c25n4lA==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.0.1"
+        }
+      },
+      "Microsoft.AspNetCore.OpenApi": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "1ihb8FO9cGgEK1/m3CTtT/SfnynwmiZib0W2pcDVj3KSWk/Sca4VOXEtaptKQc582zpFrzTFiwkGRCglt6H+WQ==",
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        }
+      },
+      "Microsoft.Extensions.Configuration.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.7, )",
+        "resolved": "10.0.7",
+        "contentHash": "t56nEgvECcyLPojZIUFWJknQQDAbgfTf9J+QMYJE1YYvVgz69vN6B/AKL8Grvj3Lcnp8kTpNqwmwFhb3YLJmtQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.7"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.7, )",
+        "resolved": "10.0.7",
+        "contentHash": "Z6mfFEaFcwCfSboxJwOLfu7/31npCY9q70WUamHW/vRQhDvBKOT4Vf9YkZj5J6hLvJpb0oDEYfHunQZj0xxvKw=="
+      },
+      "Microsoft.IdentityModel.Protocols": {
+        "type": "CentralTransitive",
+        "requested": "[8.2.0, )",
+        "resolved": "8.0.1",
+        "contentHash": "uA2vpKqU3I2mBBEaeJAWPTjT9v1TZrGWKdgK6G5qJd03CLx83kdiqO9cmiK8/n1erkHzFBwU/RphP83aAe3i3g==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "8.0.1"
+        }
+      },
+      "Microsoft.IdentityModel.Protocols.OpenIdConnect": {
+        "type": "CentralTransitive",
+        "requested": "[8.2.0, )",
+        "resolved": "8.0.1",
+        "contentHash": "AQDbfpL+yzuuGhO/mQhKNsp44pm5Jv8/BI4KiFXR7beVGZoSH35zMV3PrmcfvSTsyI6qrcR898NzUauD6SRigg==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Protocols": "8.0.1",
+          "System.IdentityModel.Tokens.Jwt": "8.0.1"
+        }
+      },
+      "Microsoft.OpenApi": {
+        "type": "CentralTransitive",
+        "requested": "[2.7.5, )",
+        "resolved": "2.7.5",
+        "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
+      },
+      "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": {
+        "type": "CentralTransitive",
+        "requested": "[1.23.0, )",
+        "resolved": "1.23.0",
+        "contentHash": "2wDnb4umupJZ/1ikgWozFVpggH1mlHQFc0odXVv2ZagL3RYwXgW9zmC15fiqIBzmaC0vLZUnLGwDY+p8ZR7Syw=="
+      },
+      "Nethermind.MclBindings": {
+        "type": "CentralTransitive",
+        "requested": "[1.0.5, )",
+        "resolved": "1.0.5",
+        "contentHash": "GVzsykooi0PAydDuhdWB7ugFyHPYYkwiBFGy5sVMlKeXsqBqUdvOgqnT/29bf74b3Uhm76gfC6fiW9nEW0xA3Q=="
+      },
+      "Npgsql": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
+        }
+      },
+      "Npgsql.OpenTelemetry": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.2, )",
+        "resolved": "10.0.2",
+        "contentHash": "kjc+3DzqjaFk0L3cmR92emyJd7GAgwSiiyuzvumHFEp0EVp6GbrtdIe0jD8NANdPVqYM8prH9ND8GQsQAFXCKA==",
+        "dependencies": {
+          "Npgsql": "10.0.2",
+          "OpenTelemetry.API": "1.14.0"
+        }
+      },
+      "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
+        "type": "CentralTransitive",
+        "requested": "[1.15.3, )",
+        "resolved": "1.15.3",
+        "contentHash": "FEXJepcseTGbATiCkUfP7ipoFEYYfl/0UmmUwi0KxCPg9PaUA8ab2P1LGopK+/HExasJ1ZutFhZrN6WvUIR23g==",
+        "dependencies": {
+          "OpenTelemetry": "1.15.3"
+        }
+      },
+      "OpenTelemetry.Extensions.Hosting": {
+        "type": "CentralTransitive",
+        "requested": "[1.15.3, )",
+        "resolved": "1.15.3",
+        "contentHash": "u8n/W8yIlqv0BXZmvId1iVaeWXG42tGKdTkuLYg5g57Y/r9CeUNzqtrSHNdG5IoO8iPX79w3v+WsbAHgUQbfeg==",
+        "dependencies": {
+          "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
+          "OpenTelemetry": "1.15.3"
+        }
+      },
+      "OpenTelemetry.Instrumentation.AspNetCore": {
+        "type": "CentralTransitive",
+        "requested": "[1.15.2, )",
+        "resolved": "1.15.2",
+        "contentHash": "2nPd7r0ug/gd6/CNFL6Rlu+RSQ9WYGSGHAYQ1ssbSqyzKJpqTunfx2I/1O0WB5k+L0cyXbG4XVZpoSoUc3M7wg==",
+        "dependencies": {
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.Http": {
+        "type": "CentralTransitive",
+        "requested": "[1.15.1, )",
+        "resolved": "1.15.1",
+        "contentHash": "vFO4Fj/dXkoVNGo/nhoGpO2zYQmZwr4jTID7oRGo+XlQ8LqksyZjUXQ4p39RfUvTID7IzzL8Qe71tW7CcAFymA==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.Runtime": {
+        "type": "CentralTransitive",
+        "requested": "[1.15.1, )",
+        "resolved": "1.15.1",
+        "contentHash": "cpPwlUT5HXcLGPaIgsbSy0W9eFYAPGVbTP1p8/uyQ4Osvf5BJuPpEXE7crL09SmEd44r0DGNKDtsqxaAz0HxQw==",
+        "dependencies": {
+          "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
+        }
+      },
+      "Serilog": {
+        "type": "CentralTransitive",
+        "requested": "[4.3.1, )",
+        "resolved": "4.3.1",
+        "contentHash": "savYe7h5yRlkqBVOwP8cIRDOdqKiPmYCU4W87JH38sBmcKD5EBoXvQIw6bNEvZ/pTe1gsiye3VFCzBsoppGkXQ=="
+      },
+      "Serilog.AspNetCore": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.0, )",
+        "resolved": "10.0.0",
+        "contentHash": "a/cNa1mY4On1oJlfGG1wAvxjp5g7OEzk/Jf/nm7NF9cWoE7KlZw1GldrifUBWm9oKibHkR7Lg/l5jy3y7ACR8w==",
+        "dependencies": {
+          "Serilog": "4.3.0",
+          "Serilog.Extensions.Hosting": "10.0.0",
+          "Serilog.Formatting.Compact": "3.0.0",
+          "Serilog.Settings.Configuration": "10.0.0",
+          "Serilog.Sinks.Console": "6.1.1",
+          "Serilog.Sinks.Debug": "3.0.0",
+          "Serilog.Sinks.File": "7.0.0"
+        }
+      },
+      "Serilog.Sinks.Async": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.0, )",
+        "resolved": "2.1.0",
+        "contentHash": "SnmRknWsSMgyo9wDXeZZCqSp48kkQYy44taSM6vcpxfiRICzSf09oLKEmVr0RCwQnfd8mJQ2WNN6nvhqf0RowQ==",
+        "dependencies": {
+          "Serilog": "4.1.0"
+        }
+      },
+      "Serilog.Sinks.Console": {
+        "type": "CentralTransitive",
+        "requested": "[6.1.1, )",
+        "resolved": "6.1.1",
+        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Sinks.File": {
+        "type": "CentralTransitive",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
+        "dependencies": {
+          "Serilog": "4.2.0"
+        }
+      },
+      "SqlSugarCoreNoDrive": {
+        "type": "CentralTransitive",
+        "requested": "[5.1.4.213, )",
+        "resolved": "5.1.4.213",
+        "contentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.2",
+          "SystemCommon": "8.5.0"
+        }
+      },
+      "StackExchange.Redis": {
+        "type": "CentralTransitive",
+        "requested": "[2.7.27, )",
+        "resolved": "2.7.27",
+        "contentHash": "Uqc2OQHglqj9/FfGQ6RkKFkZfHySfZlfmbCl+hc+u2I/IqunfelQ7QJi7ZhvAJxUtu80pildVX6NPLdDaUffOw==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "6.0.0",
+          "Pipelines.Sockets.Unofficial": "2.2.8"
+        }
+      },
+      "System.IdentityModel.Tokens.Jwt": {
+        "type": "CentralTransitive",
+        "requested": "[8.2.0, )",
+        "resolved": "8.0.1",
+        "contentHash": "GJw3bYkWpOgvN3tJo5X4lYUeIFA2HD293FPUhKmp7qxS+g5ywAb34Dnd3cDAFLkcMohy5XTpoaZ4uAHuw0uSPQ==",
+        "dependencies": {
+          "Microsoft.IdentityModel.JsonWebTokens": "8.0.1",
+          "Microsoft.IdentityModel.Tokens": "8.0.1"
+        }
+      }
     }
+  }
 }

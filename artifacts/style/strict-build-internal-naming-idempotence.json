@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace FsusBlog.slnx --no-restore --include src/migration/CurrentSchemaOwnedTargetProducer.cs src/migration/OfflineMigrationBackupAdmission.cs src/migration/OfflineMigrationSourceObserver.Providers.cs src/migration/OfflineMigrationSourceObserver.cs src/migration/PgLegacyNonArticlePreparation.cs src/shared/Algorithms/IO/NativeRegularFileGuard.cs src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs tests/backend/Unit/ProductionQueueDiagnosticProjectionTests.cs"
+    },
+    "paths": [
+        "src/migration/CurrentSchemaOwnedTargetProducer.cs",
+        "src/migration/OfflineMigrationBackupAdmission.cs",
+        "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+        "src/migration/OfflineMigrationSourceObserver.cs",
+        "src/migration/PgLegacyNonArticlePreparation.cs",
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+        "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+        "tests/backend/Unit/ProductionQueueDiagnosticProjectionTests.cs"
+    ],
+    "firstPassTreeSha256": "459bae65eb66a1bdb592c0128657ae9888c2b4ec1a9e95de00a382f1763e58da",
+    "secondPassTreeSha256": "459bae65eb66a1bdb592c0128657ae9888c2b4ec1a9e95de00a382f1763e58da",
+    "idempotent": true
+}

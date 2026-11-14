@@ -186,6 +186,8 @@ function verifyFile(held)
     }
 }
 
+export { bindFile as bindSourceFile, verifyFile as verifySourceFileBinding };
+
 function pythonIdentity(directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean))
 {
     for (const directory of directories)
