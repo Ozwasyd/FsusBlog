@@ -23,11 +23,12 @@ internal sealed class PublicSnapshot
     internal long Watermark { get; }
     internal byte[] Home { get; }
     internal TaxonomyProjection Taxonomy { get; }
+    internal DistributionSnapshot? Distribution { get; }
     internal int IndexPageCount => _index.Length;
     internal int CorpusPageCount => _corpus?.Count ?? 0;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
-        PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, CancellationToken cancellationToken)
+        PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken)
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
@@ -40,10 +41,11 @@ internal sealed class PublicSnapshot
         var first = articles.Take(10).ToArray();
         Home = pages.Page("<main><h1>FsusBlog</h1>" + (first.Length > 0
             ? "<ol>" + string.Concat(first.Select(article => $"<li><a href=\"/article/{article.Id}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>")) + "</ol>"
-            : "<p>暂无文章</p>") + "</main>");
+            : "<p>暂无文章</p>") + "</main>", publicPath: "/");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
             .Select(part => PublicArticles.EncodeSearch(part, part.Length)).ToArray();
         _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
+        Distribution = DistributionSnapshot.Build(distribution, articles, cancellationToken);
     }
 
     internal Article? Article(int id) => _byId.GetValueOrDefault(id);
@@ -93,7 +95,7 @@ internal sealed class PublicSnapshot
 }
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
-    RuntimeEvidence? evidence = null)
+    RuntimeEvidence? evidence = null, DistributionSettings? distribution = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
@@ -194,7 +196,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, ct);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution, ct);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
@@ -206,9 +208,10 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     }
 }
 
-internal sealed class WebPages(string template)
+internal sealed class WebPages(string template, string? origin = null)
 {
-    internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null, bool noIndex = false)
+    internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
+        bool noIndex = false, string? publicPath = null)
     {
         var document = template.Replace("<!--fsus-public-content-->", content, StringComparison.Ordinal);
         if (title is not null)
@@ -219,6 +222,17 @@ internal sealed class WebPages(string template)
             document = document.Replace("<html lang=\"en\">", $"<html lang=\"{HtmlEncoder.Default.Encode(language)}\">", StringComparison.Ordinal);
         if (noIndex)
             document = document.Replace("</head>", "<meta name=\"robots\" content=\"noindex, follow\"></head>", StringComparison.Ordinal);
+        if (origin is not null && publicPath is not null && !noIndex)
+        {
+            var canonical = HtmlEncoder.Default.Encode(origin + publicPath);
+            document = document.Replace("</head>", $"""
+                <link rel="canonical" href="{canonical}">
+                <link rel="alternate" type="application/rss+xml" title="RSS" href="{DistributionSnapshot.RssPath}">
+                <link rel="alternate" type="application/atom+xml" title="Atom" href="{DistributionSnapshot.AtomPath}">
+                <link rel="alternate" type="application/feed+json" title="JSON Feed" href="{DistributionSnapshot.JsonPath}">
+                </head>
+                """, StringComparison.Ordinal);
+        }
         return Encoding.UTF8.GetBytes(document);
     }
 }

@@ -31,7 +31,13 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
 }
-builder.Services.AddSingleton(new WebPages(template));
+var publicOrigin = FsusBlog.V2.Server.Content.DistributionSettings.ParseOrigin(
+    builder.Configuration[FsusBlog.V2.Server.Content.DistributionSettings.OriginKey]);
+builder.Services.AddSingleton(new WebPages(template, publicOrigin));
+builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
+    services.GetRequiredService<WebPages>()));
+builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicOrigin,
+    services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
@@ -156,7 +162,9 @@ FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
-FsusBlog.V2.Server.Content.SitePages.Map(app, app.Services.GetRequiredService<WebPages>());
+app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
+FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
+    app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
@@ -228,10 +236,13 @@ Mutation(WireRoutes.Publish, ArticleAction.Publish);
 Mutation(WireRoutes.Retract, ArticleAction.Retract);
 Mutation(WireRoutes.Delete, ArticleAction.Delete);
 
-var shell = app.Services.GetRequiredService<WebPages>().Page();
+var webPages = app.Services.GetRequiredService<WebPages>();
+var shell = webPages.Page();
+var archiveShell = webPages.Page(publicPath: "/archive");
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
-foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox",
+app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
+foreach (var route in new[] { "/search", "/login", "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });

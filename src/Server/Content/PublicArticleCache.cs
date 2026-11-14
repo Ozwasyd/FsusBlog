@@ -163,7 +163,8 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
     }
 
     private PublicArticleBytes Encode(Article article) => new(PublicArticles.EncodeDetail(article),
-        pages.Page(PublicArticleHtml.Render(article), article.Title, article.Summary));
+        pages.Page(PublicArticleHtml.Render(article), article.Title, article.Summary,
+            publicPath: $"/article/{DistributionSettings.Number(article.Id)}"));
 
     private void Add(int id, PublicArticleBytes value)
     {

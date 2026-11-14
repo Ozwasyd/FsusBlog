@@ -41,6 +41,8 @@ const router = createRouter({
   ],
 })
 router.afterEach((to, from) => {
+  // Canonical metadata belongs to the verified HTML response for its original route.
+  if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
   document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')

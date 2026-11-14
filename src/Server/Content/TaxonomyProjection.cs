@@ -24,8 +24,8 @@ internal sealed class TaxonomyProjection
         var categoryMembers = articles.Where(item => item.Category is not null).ToLookup(item => item.Category!.Id);
         var tagMembers = articles.SelectMany(article => (article.Tags ?? []).Select(tag => (tag.Id, Article: article)))
             .ToLookup(item => item.Id, item => item.Article);
-        _categories = Project(rows.Categories, categoryMembers, pages);
-        _tags = Project(rows.Tags, tagMembers, pages);
+        _categories = Project(rows.Categories, categoryMembers, pages, "category");
+        _tags = Project(rows.Tags, tagMembers, pages, "tag");
         _tagIds = rows.Tags.Select(tag => (NameKey: TaxonomyNames.TagLookupKey(tag.Name), TagId: tag.Id))
             .Concat(rows.Aliases.Select(alias => (NameKey: (string?)alias.NameKey, alias.TagId)))
             .Where(item => item.NameKey is not null)
@@ -60,7 +60,7 @@ internal sealed class TaxonomyProjection
         items.Select(item => new TaxonomyListItem(item.Id, item.Name, members[item.Id].Count())).ToArray();
 
     private static FrozenDictionary<int, TaxonomyPage> Project(IReadOnlyList<TaxonomyMetadata> items,
-        ILookup<int, Article> members, WebPages pages) => items.ToFrozenDictionary(item => item.Id, item =>
+        ILookup<int, Article> members, WebPages pages, string prefix) => items.ToFrozenDictionary(item => item.Id, item =>
         {
             var name = HtmlEncoder.Default.Encode(item.Name);
             var description = item.Description is null ? "" : $"<p>{HtmlEncoder.Default.Encode(item.Description)}</p>";
@@ -68,6 +68,7 @@ internal sealed class TaxonomyProjection
                 .ThenByDescending(article => article.Id).Take(10).Select(article =>
                     $"<li><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>"));
             var html = $"<main><h1>{name}</h1>{description}{(links.Length == 0 ? "<p>暂无文章</p>" : $"<ol>{links}</ol>")}</main>";
-            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item), pages.Page(html, item.Name));
+            var path = $"/{prefix}/{DistributionSettings.Number(item.Id)}";
+            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item), pages.Page(html, item.Name, publicPath: path));
         });
 }

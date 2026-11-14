@@ -8,7 +8,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal static class SitePages
+internal sealed class SitePages
 {
     private const string Html = "text/html; charset=utf-8";
     private const string Unconfigured = "页面内容正在准备中，请稍后再试。";
@@ -19,13 +19,21 @@ internal static class SitePages
 
     private sealed record Page(byte[] Html, byte[] Frame, bool Configured);
 
-    internal static void Map(WebApplication app, WebPages renderer)
-    {
-        var configuredRoot = app.Configuration["FSUSBLOG_SITE_PAGES"];
-        var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
-        var current = Definitions.ToFrozenDictionary(spec => spec.Slug,
-            spec => Build(spec, root, renderer), StringComparer.OrdinalIgnoreCase);
+    private readonly FrozenDictionary<string, Page> current;
+    internal IReadOnlyList<string> ConfiguredPaths { get; }
 
+    internal SitePages(IConfiguration configuration, WebPages renderer)
+    {
+        var configuredRoot = configuration["FSUSBLOG_SITE_PAGES"];
+        var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
+        current = Definitions.ToFrozenDictionary(spec => spec.Slug,
+            spec => Build(spec, root, renderer), StringComparer.OrdinalIgnoreCase);
+        ConfiguredPaths = Definitions.Where(spec => current[spec.Slug].Configured)
+            .Select(spec => "/" + spec.Slug).ToArray();
+    }
+
+    internal void Map(WebApplication app)
+    {
         foreach (var (slug, page) in current)
         {
             app.MapMethods("/" + slug, ReadMethods, (HttpContext context) =>
@@ -52,7 +60,7 @@ internal static class SitePages
         var state = root is null ? "unconfigured" : "published";
         var content = $"<main><article data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header><h1>{title}</h1></header>" +
             $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(markdown)}</div></article></main>";
-        return new(renderer.Page(content, spec.Title, language: "zh-CN", noIndex: root is null),
+        return new(renderer.Page(content, spec.Title, language: "zh-CN", noIndex: root is null, publicPath: "/" + spec.Slug),
             SitePageWire.Encode(spec.Slug, markdown), root is not null);
     }
 

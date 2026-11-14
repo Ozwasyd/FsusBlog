@@ -28,7 +28,7 @@ internal sealed class ServerProcess : IAsyncDisposable
         try
         {
             await File.WriteAllTextAsync(Path.Combine(dist, "index.html"),
-                "<!doctype html><html><body><!--fsus-public-content--></body></html>", cancellationToken);
+                "<!doctype html><html lang=\"en\"><head><title>Fsu's Blog</title></head><body><!--fsus-public-content--></body></html>", cancellationToken);
 
             var start = new ProcessStartInfo(host)
             {
