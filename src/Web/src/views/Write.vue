@@ -5,9 +5,12 @@ import { ElAlert, ElButton, ElInput, ElMarkdownEditor, ElMessageBox } from '@ozw
 import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
+import { rollbackDraft } from '../../../Contracts/revision-history'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
+import EditorInspector from '../authoring/EditorInspector.vue'
+import RevisionHistory from '../authoring/RevisionHistory.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
@@ -21,7 +24,8 @@ import {
 } from '../authoring/workspaceRegistry'
 
 type ArticleAction = 'save' | 'publish' | 'retract'
-type Action = ArticleAction | 'assign-taxonomy'
+type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history'
+type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
@@ -127,6 +131,11 @@ const saveTaxonomy = (selection: TaxonomySelection) => (draft: Draft, signal: Ab
     }, signal)
     return { ...draft, id: stored.id, revision: stored.revision }
   }, signal)
+
+const restoreRevision = (selection: RestoreSelection) => (draft: Draft, signal: AbortSignal, idempotencyKey: string) =>
+  mutationResult(() => rollbackDraft({
+    id: draft.id, expectedRevision: draft.revision, idempotencyKey, ...selection,
+  }, signal), signal)
 
 const registry = new WorkspaceRegistry<Draft>({
   async load(articleId, signal) {
@@ -394,7 +403,7 @@ async function restoreDraft(candidate: RecoveryCandidate) {
   }
 }
 
-async function submit(action: Action, selection?: TaxonomySelection) {
+async function submit(action: Action, selection?: TaxonomySelection, restore?: RestoreSelection) {
   const current = tab.value
   const document = original.value
   if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
@@ -402,6 +411,8 @@ async function submit(action: Action, selection?: TaxonomySelection) {
     if (action !== current.retry) return
   } else if (action === 'assign-taxonomy') {
     if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value) return
+  } else if (action === 'rollback-history') {
+    if (!restore || current.risk !== 'clean' || cannotWrite.value) return
   } else if (cannotWrite.value || action === 'publish' && !document.body.trim()) {
     return
   }
@@ -415,12 +426,18 @@ async function submit(action: Action, selection?: TaxonomySelection) {
       ? registry.save(current)
       : action === 'publish' || action === 'retract'
         ? registry.commit(current, action, send(action))
-        : selection && registry.commit(current, action, saveTaxonomy(selection))
+        : action === 'assign-taxonomy' && selection
+          ? registry.commit(current, action, saveTaxonomy(selection))
+          : action === 'rollback-history' && restore
+            ? registry.commit(current, action, restoreRevision(restore)) : undefined
   if (!requested) return
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
   if (result.kind === 'saved') {
-    notice.value = { save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.', 'assign-taxonomy': 'Classification saved.' }[action]
+    notice.value = {
+      save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.',
+      'assign-taxonomy': 'Classification saved.', 'rollback-history': 'Revision restored to a new draft.',
+    }[action]
     if (!document.id) await router.replace({ name: 'edit', params: { id: result.articleId } })
   } else if (result.kind === 'conflict') {
     failure.value = 'The server has a newer revision. Copy your changes before loading it.'
@@ -531,24 +548,31 @@ async function reloadDraft() {
         </div>
       </section>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
-      <ArticleTaxonomy
-        v-if="original && original.id > 0"
-        :article-id="original.id"
-        :revision="original.revision"
-        :identity="identityEpoch"
-        :disabled="articleDirty || pending || recoveryBlocked || !!retry || hasConflict"
-        @change="taxonomyDirty = $event"
-        @save="submit('assign-taxonomy', $event)"
-        @stale="taxonomyStale = true"
-      />
-      <ArticleProperties
-        v-if="original && original.id > 0"
-        :article-id="original.id"
-        :revision="original.revision"
-        :identity="identityEpoch"
-        :disabled="articleDirty || taxonomyDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
-        @pending="propertyPending = $event"
-      />
+      <EditorInspector v-if="original && original.id > 0">
+        <ArticleTaxonomy
+          :article-id="original.id"
+          :revision="original.revision"
+          :identity="identityEpoch"
+          :disabled="articleDirty || pending || recoveryBlocked || !!retry || hasConflict"
+          @change="taxonomyDirty = $event"
+          @save="submit('assign-taxonomy', $event)"
+          @stale="taxonomyStale = true"
+        />
+        <ArticleProperties
+          :article-id="original.id"
+          :revision="original.revision"
+          :identity="identityEpoch"
+          :disabled="articleDirty || taxonomyDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
+          @pending="propertyPending = $event"
+        />
+        <RevisionHistory
+          :key="identityEpoch"
+          :article-id="original.id"
+          :revision="original.revision"
+          :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
+          @restore="submit('rollback-history', undefined, $event)"
+        />
+      </EditorInspector>
     </section>
   </main>
 </template>

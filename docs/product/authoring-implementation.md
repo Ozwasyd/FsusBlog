@@ -6,11 +6,11 @@
 
 真实 Chrome 已验证在已登录编辑器关闭页面后重新打开、显式恢复、保存并确认对应 journal 已清理。独立浏览器测试验证有序退出及重启、过期边界和跨标签注销隔离。崩溃终止和操作系统重启仍待完整验收。 [编辑器浏览器证据](../../artifacts/native-e2e-fsusv2-e2e.ZDTHdh/browser-result.json)
 
-`createInspectorFocus` 让单个焦点所有者跨断点接收抽屉关闭事件。旧宿主的回调失效，关闭后优先回到仍可用的原触发按钮，再使用当前宿主的外部按钮。生命周期单元测试和真实 DOM 焦点冒烟已验证。响应式 Inspector 页面和真实 FsusUI Drawer 的组合仍待实现和验收。 [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
+`EditorInspector` 在桌面非模态侧栏和 1023px 以下的实际 FsusUI Drawer 之间移动同一棵内容树。分类和属性表单保持原组件与原输入。一个焦点所有者处理宿主切换与关闭，旧宿主的回调失效，Escape 关闭后优先恢复可用的原触发按钮，否则聚焦当前外部按钮。真实 Chrome 与 PostgreSQL 验证覆盖双向断点切换、同一输入保留、Escape 焦点回归、桌面按钮关闭、日期保存与重新加载。修订历史在同一侧栏显示，确认后通过现有工作区命令生成新的私有草稿，保留公开修订。 [浏览器证据](../../artifacts/native-inspector-revision/run-3/browser-result.json) · [修订历史](article-revision-history.md) · [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
 
 八种封闭属性类型已接入数据库、授权 API 和编辑页。服务端校验稳定字段与选项 ID、schema 及定义版本、引用和约束。完整属性管理界面、查询投影及 v1 导入仍待交付。 [文章属性](properties.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
 
-Canvas 的显式文章链接确认已通过原生 PostgreSQL 验证。该路径支持同作者的公开目标、文末插入和保留边。完整 Canvas 界面、关系查询、标题及块引用和编辑器撤销仍待交付。 [Canvas 事务](canvas-transaction.md) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。完整 Canvas 界面、关系查询、标题及块引用解析和撤销／重做仍待交付。 [Canvas 事务](canvas-transaction.md) · [原生测试](../../artifacts/canvas-graph-20261114/verification.log) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 
 ```sh
 node --test tests/Authoring/*.test.ts

@@ -10,6 +10,8 @@ import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-readi
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
+import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
+import { exerciseDraftRevision } from './revision-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -229,6 +231,7 @@ try {
   observations.push('The author inspects and restores an unconfirmed IndexedDB draft in a new page. Server acknowledgement purges it.')
 
   await exerciseWorkspace({ page: publisher, origin, article: { id: writtenId, title, body }, screenshot: screen, monitor, token, observations })
+  await exerciseInspector({ page: publisher, screenshot: screen, token, observations })
 
   if (config.publicFixture) {
     await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()
@@ -275,13 +278,19 @@ try {
   await approval.getByText('False', { exact: true }).click()
   assert.equal(await approval.getByRole('radio', { name: 'False', exact: true }).isChecked(), true)
   await button(publisher, 'Save property').click()
+  await visible(publisher.getByText('False', { exact: true }))
+  await exerciseInspectorDate(publisher, observations)
 
   await publisher.reload()
+  await button(publisher, 'Inspector').click()
   await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
   await visible(publisher.getByText(exactScore, { exact: true }))
   await visible(publisher.getByText('False', { exact: true }))
+  await visible(publisher.getByText('2024-02-29T17:06:01.150Z', { exact: true }))
   await screen(publisher, 'editor-properties')
   observations.push('The editor reloads a private text value, an exact decimal and a false Boolean without coercion.')
+
+  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))
@@ -385,6 +394,10 @@ try {
   await stale.waitForFunction(() => document.querySelector('#article-body')?.value?.includes('Newer saved revision.'))
   await stale.close()
 
+  await exerciseDraftRevision({
+    page: publisher, origin, articleId: writtenId, sourceRevision: publicArticle.revision,
+    originalBody: body, publicArticle: api.publicArticle, screenshot: screen, observations,
+  })
   await button(publisher, 'Withdraw').click()
   await visible(publisher.getByText('Article withdrawn.', { exact: true }))
   const withdrawn = await api.publicIndex()
