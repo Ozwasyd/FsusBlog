@@ -2,6 +2,7 @@ import { ApiError, decodeApiError, decodeFrame, ProtocolError } from './aeds.ts'
 import { decodeUtf8 } from './binary.ts';
 import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
+import lexicon from './search-lexicon.json' with { type: 'json' };
 
 type Term = { offset: number; end: number; idf: number; hasPositions: boolean };
 type SearchArticle = ArticleCard & { length: number };
@@ -18,6 +19,10 @@ const tf = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30, 50, 100, 140];
 const titleField = 1;
 const bodyField = 4;
 const phraseBonus = 1.25;
+const cjk = /^[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+$/u;
+const weights = new Map(Object.entries(lexicon.words).filter(([word]) => cjk.test(word)));
+for (const word of lexicon.stopwords) if (!weights.has(word)) weights.set(word, 1);
+const maxWord = Math.max(...[...weights.keys()].map(word => word.length));
 
 function requireWire(condition: boolean, field: string): asserts condition {
   if (!condition) throw new ProtocolError(`Invalid local search ${field}`);
@@ -94,8 +99,32 @@ export function searchTerms(query: string): readonly number[] {
   requireWire(query.length <= Limit.SearchQueryChars, 'query length');
   const normalized = query.normalize('NFKC');
   requireWire(normalized.length <= Limit.SearchQueryChars, 'normalized query length');
-  const words = normalized.match(/[a-zA-Z0-9]+|[\p{Letter}\p{Decimal_Number}\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/gu) ?? [];
-  return words.map(word => murmur(utf8.encode(word.replace(/[A-Z]/g, letter => letter.toLowerCase()))));
+  const words = normalized.match(/[a-zA-Z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|[\p{Letter}\p{Decimal_Number}]/gu) ?? [];
+  const tokens = words.flatMap(word => cjk.test(word) ? segmentCjk(word) : [word.replace(/[A-Z]/g, letter => letter.toLowerCase())]);
+  return tokens.map(word => murmur(utf8.encode(word)));
+}
+
+function segmentCjk(text: string) {
+  if (text.length === 1) return [text];
+  const next = new Uint8Array(text.length);
+  const scores = new Int32Array(text.length + 1);
+  for (let at = text.length - 1; at >= 0; at--) {
+    let score = 4 + scores[at + 1];
+    let best = 1;
+    for (let width = Math.min(maxWord, text.length - at); width >= 1; width--) {
+      const weight = weights.get(text.slice(at, at + width));
+      if (weight === undefined) continue;
+      const candidate = 4 * weight + width + scores[at + width];
+      if (candidate < score || (candidate === score && width <= best)) continue;
+      score = candidate;
+      best = width;
+    }
+    next[at] = best;
+    scores[at] = score;
+  }
+  const words: string[] = [];
+  for (let at = 0; at < text.length; at += next[at]) words.push(text.slice(at, at + next[at]));
+  return words;
 }
 
 function dictionary(bytes: Bytes, start: number, count: number, strings: number, end: number): Taxon[] {
@@ -152,11 +181,12 @@ function readPostings(
     const body = tf[bytes.u8(offset++)];
     requireWire(title !== undefined && meta !== undefined && body !== undefined && title + meta + body > 0, 'term frequency');
     const positions = vint();
-    requireWire((term.hasPositions || positions === 0) && positions <= doc.length &&
+    requireWire((term.hasPositions || positions === 0) && positions <= doc.length * maxWord &&
       positions * 3 <= term.end - offset, 'posting position count');
     hasPositions ||= positions > 0;
     let position = 0;
     let previousField = 0;
+    let previousWidth = 0;
     let titlePositions = 0;
     let bodyPositions = 0;
     for (let j = 0; j < positions; j++) {
@@ -164,16 +194,19 @@ function readPostings(
       const width = vint();
       const field = vint();
       position += delta;
-      requireWire(width === 1 && position < doc.length && (field === titleField || field === bodyField) &&
-        (delta > 0 || field > previousField), 'posting position');
+      requireWire(width > 0 && width <= maxWord && position + width <= doc.length &&
+        (field === titleField || field === bodyField) &&
+        (delta > 0 || field > previousField || field === previousField && width > previousWidth), 'posting position');
       previousField = field;
+      previousWidth = width;
       if (field === titleField) titlePositions++;
       else bodyPositions++;
       if (wordMask !== 0n) {
         let docHits = phraseHits.get(id);
         if (!docHits) phraseHits.set(id, docHits = new Map());
         const lane = position * 2 + (field === bodyField ? 1 : 0);
-        docHits.set(lane, (docHits.get(lane) ?? 0n) | wordMask);
+        const coordinate = lane * maxWord + width - 1;
+        docHits.set(coordinate, (docHits.get(coordinate) ?? 0n) | wordMask);
       }
     }
     requireWire((titlePositions === 0 || title > 0) && (bodyPositions === 0 || body > 0), 'posting position fields');
@@ -187,15 +220,22 @@ function readPostings(
 }
 
 function hasPhrase(hits: Map<number, bigint>, expected: bigint): boolean {
-  // Bit N represents a run matching the first N+1 query tokens at this field offset.
-  const masks = [0n, 0n];
-  const previous = [-2, -1];
-  for (const [lane, words] of [...hits].sort((a, b) => a[0] - b[0])) {
-    const field = lane % 2;
-    const prefix = previous[field] + 2 === lane ? masks[field] : 0n;
-    masks[field] = ((prefix << 1n) | 1n) & words;
-    previous[field] = lane;
-    if ((masks[field] & expected) !== 0n) return true;
+  // Each lane encodes one field and offset. A matching word advances by its stored width.
+  const lanes = (maxWord + 1) * 2;
+  const endpoints = new Array<number>(lanes).fill(-1);
+  const prefixes = new Array<bigint>(lanes).fill(0n);
+  for (const [coordinate, words] of [...hits].sort((a, b) => a[0] - b[0])) {
+    const lane = Math.floor(coordinate / maxWord);
+    const slot = lane % lanes;
+    const prefix = endpoints[slot] === lane ? prefixes[slot] : 0n;
+    const matched = ((prefix << 1n) | 1n) & words;
+    if ((matched & expected) !== 0n) return true;
+    if (matched === 0n) continue;
+    const width = (coordinate % maxWord) + 1;
+    const end = lane + width * 2;
+    const next = end % lanes;
+    prefixes[next] = (endpoints[next] === end ? prefixes[next] : 0n) | matched;
+    endpoints[next] = end;
   }
   return false;
 }

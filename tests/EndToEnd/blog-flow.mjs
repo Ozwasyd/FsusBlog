@@ -38,7 +38,7 @@ const token = `fsusv2${Date.now()}`
 const title = `Browser flow ${token}`
 const bodyTerm = `publicationneedle${Date.now()}`
 const padding = 'Padding paragraph. '.repeat(15)
-const body = `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n${bodyTerm} 雪原.\n`
+const body = `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n${bodyTerm} 博客搜索.\n`
 const origin = new URL(config.origin).origin
 const nativeFetch = globalThis.fetch
 const repository = fileURLToPath(new URL('../../', import.meta.url))
@@ -383,19 +383,19 @@ try {
 
   const reversedTitle = `Reverse order ${token}`
   const reversed = await articleCommand(WireRoutes.Save, 0, 0n, reversedTitle,
-    `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n雪原 ${bodyTerm}.\n`)
+    `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n搜索博客 ${bodyTerm}.\n`)
   const comparison = await articleCommand(WireRoutes.Publish, reversed.id, reversed.revision)
   const orderedLinks = visitor.locator('ol.article-list h2 a')
   const normalizedTerm = [...bodyTerm].map(letter => String.fromCodePoint(letter.codePointAt(0) + 0xfee0)).join('')
-  await search(visitor, `${normalizedTerm}　雪原`)
+  await search(visitor, `${normalizedTerm}　博客搜索`)
   await visible(orderedLinks.getByText(title, { exact: true }))
   await visible(orderedLinks.getByText(reversedTitle, { exact: true }))
   assert.equal(await orderedLinks.first().textContent(), title)
-  await search(visitor, `雪原 ${bodyTerm}`)
+  await search(visitor, `搜索博客 ${bodyTerm}`)
   await visible(orderedLinks.getByText(reversedTitle, { exact: true }))
   assert.equal(await orderedLinks.first().textContent(), reversedTitle)
   await articleCommand(WireRoutes.Delete, comparison.id, comparison.revision, '', '', FrameType.EmptySuccess)
-  observations.push('The local worker normalizes fullwidth Latin and ranks mixed Latin/CJK phrases by stored body positions. Reversing query order reverses the order of otherwise equivalent articles.')
+  observations.push('The local worker normalizes fullwidth Latin and ranks mixed Latin/CJK dictionary phrases by stored word widths. Reversing query order reverses the order of otherwise equivalent articles.')
 
   const stale = await desktop.newPage()
   monitor(stale, 'stale-editor')

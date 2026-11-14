@@ -29,6 +29,12 @@ internal static class LocalSearchVectors
             if (BinaryPrimitives.ReadUInt32LittleEndian(tokenShard[(termOffset + i * WireLayouts.SearchTermRecordSize)..]) != hashes[i])
                 throw new InvalidOperationException("FSPK token hash differs from independent Murmur3 vectors");
 
+        var dictionaryArticle = tokenArticle with { Title = "ABC", Body = "博客搜索的公开页" };
+        var dictionary = LocalSearchCorpus.Build([dictionaryArticle])![0];
+        var dictionaryFixture = File.ReadAllText(Path.Combine(fixtures, "search-cjk-v4.hex")).Trim();
+        if (!dictionary.AsSpan().SequenceEqual(Convert.FromHexString(dictionaryFixture)))
+            throw new InvalidOperationException("FSPK dictionary frequencies or positions differ from the independent fixture");
+
         var articlePage = Enumerable.Range(1, WireLimits.SearchIndexPageSize + 1)
             .Select(id => article with { Id = id }).ToArray();
         var split = LocalSearchCorpus.Build(articlePage);

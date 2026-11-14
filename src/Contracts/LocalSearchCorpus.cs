@@ -66,7 +66,8 @@ public static class LocalSearchCorpus
 
     private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int EstimatedBytes);
     private record struct Frequencies(int Title, int Meta, int Body, List<Position>? Positions);
-    private readonly record struct Position(int Offset, byte Field);
+    private readonly record struct Position(int Offset, byte Field, int Width);
+    private readonly record struct Token(uint Hash, int Width, int Advance, bool Stopword = false);
     private readonly record struct Posting(int ArticleId, Frequencies Tf);
     private readonly record struct Term(uint Hash, float Idf, int Offset, int Length, bool HasPositions);
     private readonly record struct TextSlice(int Offset, int Length);
@@ -93,6 +94,7 @@ public static class LocalSearchCorpus
         var terms = new Dictionary<uint, Frequencies>();
         var length = 0;
         var positions = 0;
+        var tokens = 0;
         if (!Field(article.Title, TitleField) || !Field(summary, 0) ||
             !Field(article.Category?.Name ?? string.Empty, 0) ||
             tags.Any(tag => !Field(tag.Name, 0)) || !Field(article.Body, BodyField))
@@ -108,15 +110,15 @@ public static class LocalSearchCorpus
             var offset = 0;
             foreach (var token in Tokens(text))
             {
-                if ((length & 1023) == 0) ct.ThrowIfCancellationRequested();
-                length++;
-                terms.TryGetValue(token, out var old);
-                if (field is TitleField or BodyField)
+                if ((tokens++ & 1023) == 0) ct.ThrowIfCancellationRequested();
+                terms.TryGetValue(token.Hash, out var old);
+                if (!token.Stopword && (field is TitleField or BodyField))
                 {
-                    (old.Positions ??= []).Add(new Position(offset++, field));
+                    (old.Positions ??= []).Add(new Position(offset, field, token.Width));
                     positions++;
                 }
-                terms[token] = field switch
+                offset += token.Advance;
+                terms[token.Hash] = field switch
                 {
                     TitleField => old with { Title = old.Title + 1 },
                     BodyField => old with { Body = old.Body + 1 },
@@ -124,6 +126,7 @@ public static class LocalSearchCorpus
                 };
                 if (Estimate() > PageBytes - 512) return false;
             }
+            length += offset;
             return true;
         }
     }
@@ -158,17 +161,26 @@ public static class LocalSearchCorpus
                 postingBytes.WriteByte(Quantize(posting.Tf.Meta));
                 postingBytes.WriteByte(Quantize(posting.Tf.Body));
                 var positions = posting.Tf.Positions;
-                Varint(postingBytes, positions?.Count ?? 0);
-                if (positions is not { Count: > 0 }) continue;
+                if (positions is not { Count: > 0 })
+                {
+                    Varint(postingBytes, 0);
+                    continue;
+                }
                 hasPositions = true;
-                positions.Sort(static (first, second) => first.Offset != second.Offset
-                    ? first.Offset.CompareTo(second.Offset) : first.Field.CompareTo(second.Field));
+                positions.Sort(static (first, second) => (first.Offset, first.Field, first.Width)
+                    .CompareTo((second.Offset, second.Field, second.Width)));
+                var distinct = 1;
+                for (var i = 1; i < positions.Count; i++)
+                    if (positions[i] != positions[i - 1]) distinct++;
+                Varint(postingBytes, distinct);
                 var priorPosition = 0;
-                foreach (var position in positions)
+                for (var i = 0; i < positions.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
+                    var position = positions[i];
+                    if (i > 0 && position == positions[i - 1]) continue;
                     Varint(postingBytes, position.Offset - priorPosition);
-                    Varint(postingBytes, 1);
+                    Varint(postingBytes, position.Width);
                     Varint(postingBytes, position.Field);
                     priorPosition = position.Offset;
                 }
@@ -317,7 +329,7 @@ public static class LocalSearchCorpus
         <= 30 => 14, <= 50 => 15, <= 100 => 16, _ => 17
     });
 
-    private static IEnumerable<uint> Tokens(string text)
+    private static IEnumerable<Token> Tokens(string text)
     {
         text = text.Normalize(NormalizationForm.FormKC);
         for (var index = 0; index < text.Length;)
@@ -326,18 +338,60 @@ public static class LocalSearchCorpus
             {
                 var start = index++;
                 while (index < text.Length && char.IsAsciiLetterOrDigit(text[index])) index++;
-                yield return HashAscii(text.AsSpan(start, index - start));
+                yield return new Token(HashAscii(text.AsSpan(start, index - start)), 1, 1);
+            }
+            else if (SearchLexicon.IsCjk(text[index]))
+            {
+                var start = index++;
+                while (index < text.Length && SearchLexicon.IsCjk(text[index])) index++;
+                foreach (var (at, width) in SearchLexicon.Segment(text, start, index))
+                {
+                    if (width > 1)
+                    {
+                        // Keep character matches for readers searching for a name or a fragment.
+                        // Dictionary subtokens share the source offsets used by phrase matching.
+                        for (var relative = 0; relative < width; relative++)
+                        {
+                            var available = width - relative;
+                            for (var subWidth = Math.Min(width - 1, available); subWidth >= 2; subWidth--)
+                            {
+                                var subword = text.AsSpan(at + relative, subWidth);
+                                if (SearchLexicon.IsWord(subword))
+                                    yield return DictionaryToken(subword, 0);
+                            }
+                            if (relative == 0)
+                                yield return DictionaryToken(text.AsSpan(at, width), 0);
+                            yield return DictionaryToken(text.AsSpan(at + relative, 1), 1);
+                        }
+                    }
+                    else yield return DictionaryToken(text.AsSpan(at, 1), 1);
+                }
             }
             else
             {
                 var scalar = Rune.GetRuneAt(text, index);
                 index += scalar.Utf16SequenceLength;
-                if (scalar.Value >= 0x80 && (Rune.IsLetterOrDigit(scalar) ||
-                    scalar.Value is >= 0x4e00 and <= 0x9fff or >= 0x3400 and <= 0x4dbf or
-                    >= 0x3040 and <= 0x30ff or >= 0xac00 and <= 0xd7af))
-                    yield return HashRune(scalar);
+                if (scalar.Value >= 0x80 && Rune.IsLetterOrDigit(scalar))
+                    yield return new Token(HashRune(scalar), 1, 1);
             }
         }
+    }
+
+    private static Token DictionaryToken(ReadOnlySpan<char> word, int advance) =>
+        new(HashWord(word), word.Length, advance, SearchLexicon.IsStopword(word));
+
+    private static uint HashWord(ReadOnlySpan<char> word)
+    {
+        if (word.Length == 1) return HashRune(new Rune(word[0]));
+        Span<byte> bytes = stackalloc byte[word.Length * 3];
+        var length = Utf8.GetBytes(word, bytes);
+        uint hash = 0;
+        var offset = 0;
+        for (; length - offset >= 4; offset += 4)
+            hash = MixWord(hash, BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]));
+        uint tail = 0;
+        for (var i = 0; offset + i < length; i++) tail |= (uint)bytes[offset + i] << (8 * i);
+        return FinishHash(hash, tail, length);
     }
 
     private static uint HashAscii(ReadOnlySpan<char> token)

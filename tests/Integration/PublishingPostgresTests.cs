@@ -10,6 +10,70 @@ using System.Net;
 public sealed class PublishingPostgresTests
 {
     [PostgresFact]
+    public async Task APreviousEncodingGenerationCannotReadCurrentSearchPagesAtIdenticalPublicationCoordinates()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var actor = await store.SignIn((await IssueTicket(fixture.DataSource, "search owner", true, ct)).Token, ct);
+        (int Id, long Revision, long Publication) coordinate;
+        string generation;
+        byte[] bytes;
+        await using (var first = await ServerProcess.Start(fixture.ConnectionString, ct))
+        {
+            var saved = Wire.DecodeDraft(await Write(first.Client, actor.Token, WireRoutes.Save,
+                new(0, 0, Guid.NewGuid(), "Stable coordinates", "博客搜索的公开页"), ct));
+            var article = Wire.DecodeDraft(await Write(first.Client, actor.Token, WireRoutes.Publish,
+                new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct));
+            using var detail = await first.Client.GetAsync(WireRoutes.PublicArticle.Replace("{id}",
+                article.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)), ct);
+            using var corpus = await first.Client.GetAsync(WireRoutes.PublicSearchCorpus, ct);
+            generation = Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration));
+            Assert.Equal(generation, Assert.Single(detail.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+            bytes = await corpus.Content.ReadAsByteArrayAsync(ct);
+            await using var database = await fixture.DataSource.OpenConnectionAsync(ct);
+            await using var publication = Store.Sql(database, null,
+                "select publication_id from public.article_publication where article_id=$1 and revision=$2", article.Id, article.Revision);
+            coordinate = (article.Id, article.Revision, (long)(await publication.ExecuteScalarAsync(ct))!);
+        }
+
+        // Model a previous artifact encoder with the same persisted article and release:
+        // hashing an alternative page's bytes must yield a distinct snapshot coordinate.
+        var immutable = new Article(25, 30, 31, 2, 1, "Stable coordinates", "博客搜索的公开页",
+            DateTimeOffset.UnixEpoch.AddDays(1), DateTimeOffset.UnixEpoch.AddDays(1), DateTimeOffset.UnixEpoch.AddDays(1));
+        var time = TimeProvider.System;
+        var alternate = new PublicSnapshot(1, [immutable with { Body = "博客的搜索公开页" }], new([], [], []), new WebPages(""),
+            new PublicListCursor(time), null, NullLogger.Instance, null, null, ct);
+        var actual = new PublicSnapshot(1, [immutable], new([], [], []), new WebPages(""), new PublicListCursor(time),
+            null, NullLogger.Instance, null, null, ct);
+        Assert.NotEqual(alternate.GenerationHeader, actual.GenerationHeader);
+
+        await using var restarted = await ServerProcess.Start(fixture.ConnectionString, ct);
+        using var current = await restarted.Client.GetAsync(WireRoutes.PublicSearchCorpus, ct);
+        Assert.Equal(generation, Assert.Single(current.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+        Assert.Equal(bytes, await current.Content.ReadAsByteArrayAsync(ct));
+        var old = PreviousGeneration();
+        using var head = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={old}");
+        using var rejectedHead = await restarted.Client.SendAsync(head, ct);
+        using var rejectedPage = await restarted.Client.GetAsync($"{WireRoutes.PublicSearchCorpus}?page=2&generation={old}", ct);
+        Assert.Equal(HttpStatusCode.Conflict, rejectedHead.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, rejectedPage.StatusCode);
+
+        string PreviousGeneration()
+        {
+            var (id, revision, publication) = coordinate;
+            Span<byte> legacy = stackalloc byte[20];
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(legacy, id);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(legacy[4..], revision);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(legacy[12..], publication);
+            var oldDigest = System.Security.Cryptography.SHA256.HashData(legacy);
+            return (System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(oldDigest) & long.MaxValue)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    [PostgresFact]
     public async Task LostBackendDisablesPublicationAndWritesUntilAReplacementAcquiresOwnership()
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));

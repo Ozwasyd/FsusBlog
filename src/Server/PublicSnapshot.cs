@@ -38,7 +38,8 @@ internal sealed class PublicSnapshot
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
-        Generation = PublicGeneration(articles, taxonomyEpoch);
+        _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
+        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus, cancellationToken);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
@@ -53,7 +54,6 @@ internal sealed class PublicSnapshot
             : "<p>暂无文章</p>") + "</main>", publicPath: "/");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
             .Select(part => PublicArticles.EncodeSearch(part, part.Length)).ToArray();
-        _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
         Distribution = DistributionSnapshot.Build(distribution, articles, cancellationToken);
     }
 
@@ -77,12 +77,28 @@ internal sealed class PublicSnapshot
         return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
     }
 
-    private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch)
+    private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch,
+        IReadOnlyList<byte[]>? corpus, CancellationToken ct)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> coordinates = stackalloc byte[20];
+        // One coordinate covers every HTTP representation. A restart with unchanged
+        // article rows still cannot serve changed corpus bytes at the old coordinate.
+        hash.AppendData("public-generation-corpus-v1\0"u8);
+        AppendNumber(corpus?.Count ?? -1);
+        if (corpus is not null)
+        {
+            foreach (var page in corpus)
+            {
+                ct.ThrowIfCancellationRequested();
+                AppendNumber(page.Length);
+                hash.AppendData(page);
+            }
+        }
+        AppendNumber(articles.Count);
         foreach (var article in articles)
         {
+            ct.ThrowIfCancellationRequested();
             BinaryPrimitives.WriteInt32LittleEndian(coordinates, article.Id);
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], article.Revision);
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
@@ -96,6 +112,13 @@ internal sealed class PublicSnapshot
             hash.AppendData(coordinates[..sizeof(long)]);
         }
         return BinaryPrimitives.ReadInt64LittleEndian(hash.GetHashAndReset()) & long.MaxValue;
+
+        void AppendNumber(int value)
+        {
+            Span<byte> number = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(number, value);
+            hash.AppendData(number);
+        }
     }
 
     private Article[] Match(string? keyword)

@@ -46,6 +46,26 @@ test('position ranges reward contiguous ordered tokens in one field, including r
   assert.throws(() => searchTerms('㍿'.repeat(128)), /normalized query length/);
 });
 
+test('weighted CJK words preserve width, scalar matches, and non-positional stopwords', () => {
+  const dictionary = fixtures('search-cjk-v4');
+  const query = (input: string) => queryCorpusPage(dictionary, searchTerms(input));
+  const score = (input: string) => query(input).matches.get(42)!;
+  assert.deepEqual(searchTerms('Ａ１博客搜索的公开页'), [0x3494977a, 0xfa0b7541, 0xd1f52d91, 0xa3270e1f, 0x4c2850fa]);
+  assert.equal(score('博客搜索'), score('搜索 博客') + 1.25);
+  assert.equal(score('博客 搜索'), score('博客搜索'));
+  assert.equal(score('搜索 公开页'), score('公开页 搜索'));
+  assert.equal(score('的 搜索'), score('搜索 的'));
+  assert.equal(score('ABC 博客'), score('博客 ABC'));
+  assert.deepEqual([...query('公开').matches.keys()], [42]);
+  assert.deepEqual([...query('客').matches.keys()], [42]);
+  assert.deepEqual([...query('的').matches.keys()], [42]);
+  const shard = new DataView(dictionary.buffer, L.SearchPackagePayloadOffset);
+  const term = shard.getUint32(36, true); // First sorted hash is 公开页.
+  const posting = shard.getUint32(60, true) + shard.getUint32(term + 8, true);
+  shard.setUint8(posting + 7, 4); // Width would advance beyond the body and document.
+  assert.throws(() => query('absent'), /posting position/);
+});
+
 test('admission rejects incorrect package versions, offsets, invalid postings and wrong result contracts', () => {
   for (const end of [0, 12, 104, packageBytes.length - 1]) {
     assert.throws(() => queryCorpusPage(packageBytes.subarray(0, end), []), ProtocolError);
