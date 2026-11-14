@@ -40,8 +40,13 @@ CREATE TABLE tag_url_alias (
     normalized_name varchar(256) PRIMARY KEY, tag_id integer NOT NULL,
     original_name varchar(128) NOT NULL, created_at_utc timestamp NOT NULL
 );
-CREATE TABLE admin_principal (id bigint PRIMARY KEY, handle varchar(64) NOT NULL UNIQUE);
-INSERT INTO admin_principal VALUES (7, 'fixture-editor');
+CREATE TABLE admin_principal (
+    id bigint PRIMARY KEY, handle varchar(64) NOT NULL UNIQUE,
+    status varchar(32) NOT NULL, validationversion bigint NOT NULL,
+    isroot boolean NOT NULL, permissions text NOT NULL, totpenabled boolean NOT NULL,
+    totpsecretencrypted text
+);
+INSERT INTO admin_principal VALUES (7, 'fixture-editor', 'active', 1, false, '[]', false, NULL);
 INSERT INTO category VALUES
     (11, 'Published category', 'Visible in the published revision'),
     (12, 'Current category', NULL);

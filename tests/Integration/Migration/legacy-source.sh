@@ -152,6 +152,7 @@ assert len(rehearsal['ownerMapSha256']) == 64
 assert rehearsal['sourceAdminIdentitySha256'] == report['sourceAdminIdentitySha256']
 assert {entry['table']: entry['rows'] for entry in rehearsal['counts']} == {
     'shadow_article': 1, 'shadow_revision': 3, 'shadow_publication': 2,
+    'shadow_article_revision_content_block': 3,
     'shadow_category': 2, 'shadow_tag': 3, 'shadow_article_tag': 2, 'shadow_tag_url_alias': 2,
     'shadow_article_rights_policy': 1, 'shadow_article_rights_snapshot': 2,
     'shadow_article_responsibility_snapshot': 3, 'shadow_revision_tag': 4,

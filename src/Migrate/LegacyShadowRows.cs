@@ -90,11 +90,13 @@ internal static partial class Migration
 
             INSERT INTO shadow_article
             SELECT a.id, m.legacy_admin_id, m.v2_user_id, r.id, r.revision_no,
-                a.title, body.markdown_content, a.status, a.categoryid, a.isdeleted, p.id,
+                a.title, body.markdown_content, a.summary, a.coverimageurl, a.status, a.categoryid, a.isdeleted,
+                a.scheduled_publish_at,a.pending_publication_at,a.published_at,a.last_published_at,a.public_updated_at,
+                a.archived_at,a.deleted_at,p.id,
                 CASE WHEN a.status = 2 AND a.isdeleted = 0 THEN p.revision_no END,
                 COALESCE((SELECT MAX(history.publication_no) FROM source_article_publication history
                           WHERE history.article_id = a.id), 0),
-                a.createtime, MAX(a.metadata_updated_at, body.updated_at)
+                a.createtime, MAX(a.metadata_updated_at, body.updated_at), a.metadata_updated_at, body.updated_at
             FROM source_article a
             JOIN owner_map m ON a.id = m.article_id
             JOIN source_article_revision r ON r.id = a.current_revision_id AND r.article_id = a.id
@@ -102,8 +104,9 @@ internal static partial class Migration
             LEFT JOIN source_article_publication p ON p.id = a.current_publication_id AND p.article_id = a.id;
 
             INSERT INTO shadow_revision
-            SELECT r.id, r.article_id, r.revision_no, r.title, x.markdown_content, r.categoryid,
-                x.id, lower(x.content_hash), r.created_by_admin_principal_id, r.rollback_source_revision_id, r.created_at
+            SELECT r.id, r.article_id, r.revision_no, r.title, x.markdown_content,r.summary,r.cover_image_url,r.categoryid,
+                r.tag_ids,x.id,lower(x.content_hash),r.markdown_content,r.diff_summary,
+                r.created_by_admin_principal_id,r.rollback_source_revision_id,r.rollback_reason,r.created_at
             FROM source_article_revision r
             JOIN source_article_revision_content_block x ON x.id = r.content_block_id;
 
@@ -116,7 +119,7 @@ internal static partial class Migration
         await using var transform = CreateLegacyCommand(transaction, """
             INSERT INTO shadow_publication
             SELECT p.id, p.article_id, p.article_revision_id, p.revision_no, p.publication_no,
-                p.rights_snapshot_id, p.responsibility_snapshot_id, p.transition_kind, p.published_at
+                p.rights_snapshot_id, p.responsibility_snapshot_id, p.transition_kind, p.published_at,p.created_at
             FROM source_article_publication p
             """);
         await transform.ExecuteNonQueryAsync(token);
@@ -130,6 +133,7 @@ internal static partial class Migration
             ("shadow_article", Article, "id"),
             ("shadow_revision", Revision, "source_revision_id"),
             ("shadow_publication", Publication, "source_publication_id"),
+            ("shadow_article_revision_content_block", Block, "id"),
             ("shadow_category", Category, "id"),
             ("shadow_tag", Tag, "id"),
             ("shadow_tag_url_alias", TagAlias, "normalized_name COLLATE BINARY"),
@@ -173,6 +177,11 @@ internal static partial class Migration
                OR a.current_source_revision_id IS NOT s.current_revision_id
                OR a.current_publication_id IS NOT s.current_publication_id
                OR a.title IS NOT s.title OR a.body IS NOT b.markdown_content OR a.owner_id IS NOT m.v2_user_id
+               OR a.summary IS NOT s.summary OR a.cover_image_url IS NOT s.coverimageurl
+               OR a.scheduled_publish_at IS NOT s.scheduled_publish_at OR a.pending_publication_at IS NOT s.pending_publication_at
+               OR a.published_at IS NOT s.published_at OR a.last_published_at IS NOT s.last_published_at
+               OR a.public_updated_at IS NOT s.public_updated_at OR a.archived_at IS NOT s.archived_at OR a.deleted_at IS NOT s.deleted_at
+               OR a.source_metadata_updated_at IS NOT s.metadata_updated_at OR a.source_body_updated_at IS NOT b.updated_at
                OR a.legacy_admin_id IS NOT m.legacy_admin_id OR a.deleted IS NOT s.isdeleted
                OR a.source_status IS NOT s.status OR a.source_category_id IS NOT s.categoryid OR a.created_at IS NOT s.createtime
                OR a.updated_at IS NOT CASE WHEN s.metadata_updated_at > b.updated_at
@@ -191,6 +200,9 @@ internal static partial class Migration
             JOIN source_article_revision_content_block c ON s.content_block_id = c.id
             WHERE r.article_id IS NOT s.article_id OR r.revision IS NOT s.revision_no OR r.title IS NOT s.title
                OR r.source_content_block_id IS NOT s.content_block_id OR r.source_category_id IS NOT s.categoryid
+               OR r.summary IS NOT s.summary OR r.cover_image_url IS NOT s.cover_image_url OR r.source_tag_ids IS NOT s.tag_ids
+               OR r.source_inline_markdown IS NOT s.markdown_content OR r.source_diff_summary IS NOT s.diff_summary
+               OR r.source_rollback_reason IS NOT s.rollback_reason
                OR r.body IS NOT c.markdown_content OR r.source_content_sha256 IS NOT lower(c.content_hash)
                OR r.source_admin_id IS NOT s.created_by_admin_principal_id
                OR r.source_rollback_revision_id IS NOT s.rollback_source_revision_id OR r.happened_at IS NOT s.created_at
@@ -203,6 +215,7 @@ internal static partial class Migration
                OR p.source_rights_snapshot_id IS NOT s.rights_snapshot_id
                OR p.source_responsibility_snapshot_id IS NOT s.responsibility_snapshot_id
                OR p.source_transition IS NOT s.transition_kind OR p.published_at IS NOT s.published_at
+               OR p.source_created_at IS NOT s.created_at
             """;
         if (await CountAsync(brokenRevision, transaction, token) != 0 ||
             await CountAsync(brokenPublication, transaction, token) != 0)

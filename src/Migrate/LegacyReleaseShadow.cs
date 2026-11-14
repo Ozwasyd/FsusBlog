@@ -4,7 +4,7 @@ using FsusBlog.V2.Core.Content;
 internal static partial class Migration
 {
     private static readonly string[] ReleaseTables =
-        [Category, Tag, TagAlias, ArticleTag, RightsPolicy, RightsSnapshot, Responsibility];
+        [Block, Category, Tag, TagAlias, ArticleTag, RightsPolicy, RightsSnapshot, Responsibility];
 
     private static async Task<long> BuildShadowReleaseAsync(DbTransaction transaction, CancellationToken token)
     {
@@ -53,6 +53,7 @@ internal static partial class Migration
 
     private static string ReleaseConstraints(string source) => source switch
     {
+        Block => ", CHECK (id > 0 AND content_hash IS NOT NULL AND markdown_content IS NOT NULL AND byte_length >= 0 AND created_at IS NOT NULL)",
             Category or Tag => ", CHECK (id BETWEEN 1 AND 2147483647 AND name IS NOT NULL AND length(name) > 0)",
         TagAlias => """
             , CHECK (normalized_name IS NOT NULL AND original_name IS NOT NULL AND tag_id IS NOT NULL)

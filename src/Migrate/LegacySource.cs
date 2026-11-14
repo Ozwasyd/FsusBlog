@@ -51,36 +51,7 @@ internal static partial class Migration
         await connection.OpenAsync(token);
         await using var transaction = await BeginLegacyReadAsync(connection, token);
         var catalog = await ReadLegacyCatalogAsync(source, transaction, token);
-        var blockers = new List<string>();
-        if (catalog.Any(table => table.Name.Equals("v2_schema", StringComparison.OrdinalIgnoreCase)))
-        {
-            blockers.Add("expected v1 source, found a v2 schema marker");
-        }
-
-        var tables = new Dictionary<string, LegacyTable>(StringComparer.Ordinal);
-        foreach (var (name, columns) in LegacyColumns)
-        {
-            var matches = catalog.Where(table => table.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (matches is not [var table])
-            {
-                blockers.Add($"{name}: required v1 table missing or ambiguous");
-                continue;
-            }
-
-            if (!source.IsSnapshotTable(table.Kind))
-            {
-                blockers.Add($"{name}: relation is not a supported transactional base table");
-                continue;
-            }
-
-            foreach (var column in columns)
-            {
-                if (table.Columns.Count(field => field.Name.Equals(column, StringComparison.OrdinalIgnoreCase)) != 1)
-                    blockers.Add($"{name}.{column}: required v1 column missing or ambiguous");
-            }
-
-            tables.Add(name, table);
-        }
+        var (tables, blockers) = SelectLegacyTables(source, catalog);
 
         var audit = blockers.Count == 0
             ? await AuditLegacyAsync(source, transaction, tables, mode != "inventory", token)
@@ -138,6 +109,36 @@ internal static partial class Migration
         }, Json));
         if (mode == "rehearse" && rehearsed) return 0;
         return blockers.Count == 0 ? 0 : 2;
+    }
+
+    private static (Dictionary<string, LegacyTable> Tables, List<string> Blockers) SelectLegacyTables(
+        LegacySource source, LegacyTable[] catalog)
+    {
+        var blockers = new List<string>();
+        if (catalog.Any(table => table.Name.Equals("v2_schema", StringComparison.OrdinalIgnoreCase)))
+            blockers.Add("expected v1 source, found a v2 schema marker");
+        var tables = new Dictionary<string, LegacyTable>(StringComparer.Ordinal);
+        foreach (var (name, columns) in LegacyColumns)
+        {
+            var matches = catalog.Where(table => table.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches is not [var table])
+            {
+                blockers.Add($"{name}: required v1 table missing or ambiguous");
+                continue;
+            }
+            if (!source.IsSnapshotTable(table.Kind))
+            {
+                blockers.Add($"{name}: relation is not a supported transactional base table");
+                continue;
+            }
+            foreach (var column in columns)
+            {
+                if (table.Columns.Count(field => field.Name.Equals(column, StringComparison.OrdinalIgnoreCase)) != 1)
+                    blockers.Add($"{name}.{column}: required v1 column missing or ambiguous");
+            }
+            tables.Add(name, table);
+        }
+        return (tables, blockers);
     }
 
     private static LegacySource ParseLegacySource(string provider)

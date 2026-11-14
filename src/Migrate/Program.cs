@@ -72,6 +72,9 @@ internal static partial class Migration
                                         Audit v1 article coordinates and report import blockers
                   legacy rehearse postgres|mysql|sqlite OWNER_MAP.json
                                         Transform and verify article rows in a disposable offline database
+                  legacy import plan PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256
+                  legacy import apply PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256 PLAN.json
+                                        Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
                 """);
             return 0;
         }
@@ -85,6 +88,10 @@ internal static partial class Migration
         Console.CancelKeyPress += cancel;
         try
         {
+            if (arguments is ["legacy", "import", .. var importArguments])
+            {
+                return await RunLegacyImportAsync(importArguments, cancelled.Token);
+            }
             if (arguments is ["backup", "measure"] or ["backup", "measure", "--hold-snapshot"])
             {
                 return await MeasureBackupAsync(arguments.Length == 3, cancelled.Token);

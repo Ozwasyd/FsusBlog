@@ -49,6 +49,23 @@ SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧
 
 2026-11-14 22:47 使用 .NET SDK 10.0.404 在 SQLite、PostgreSQL 18.7 和 MySQL 8.4.13 的隔离旧字段样本通过第二版演练。三个提供方重复演练摘要一致，拒绝过期身份映射、别名冲突、重复历史标签、错修订快照、未知哈希格式和非法责任前驱。临时库和实例已清理，运行基准、工作树输入摘要与原始输出在本地 `artifacts/native-migration/release-shadow-20261114T144640.log`。
 
+### 导入隔离的 PostgreSQL 候选库
+
+`legacy import` 将通过影子演练的记录写入一次性 PostgreSQL 候选库。目标由独立的 `FSUSBLOG_IMPORT_DB` 指定，须为本机 Unix socket，库名以 `fsusv2_import_` 开头。先用当前 v2 CLI 建立空库并单独预置映射需要的作者身份；导入从不创建或修改授权。目标只允许这些账号和当前结构标记。按[离线备份流程](migration.md)生成目标的导入前备份并独立保管清单 SHA-256。
+
+```bash
+dotnet run --no-build --project src/Migrate -- legacy import plan sqlite \
+  "$owner_map" "$verified_backup_dir" "$manifest_sha256" > "$plan"
+dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
+  "$owner_map" "$verified_backup_dir" "$manifest_sha256" "$plan"
+```
+
+计划绑定全部支持的源投影、所有者映射、源管理员摘要、目标标识、结构和备份。应用重新对照这些内容，取得 PostgreSQL 独占写者锁，写入禁止启动的结构标记，再分三个事务保存文章谱系、分类标签、权利责任。各事务在记录检查点前独立回读行数和摘要。中断后用原始计划重跑，工具逐段重新验证现有数据并续跑；改过的计划、源数据、目标数据、备份或阶段都被拒绝。恢复需在另一个独立空库运行原备份的 `pg_restore` 和回读检查。候选保留在 `fsus_legacy_candidate` 中，现有公开业务表不接收导入数据。
+
+候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
+
+2026-11-15 00:17 用 .NET SDK 10.0.404 验证了 SQLite 源到原生 PostgreSQL 18.7 候选的实写、禁止启动、模拟阶段中断续跑、检查点数据变更拒绝和原备份隔离恢复；三种源的只读影子演练也重新通过。独立确认临时库和目录已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/import-20261114T161718.log`。MySQL 和 PostgreSQL 源从只读盘点和内存影子可用，完整导入端到端跑的是 SQLite 源样本。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql

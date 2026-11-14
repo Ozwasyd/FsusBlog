@@ -79,6 +79,13 @@ internal static partial class CurrentSchema
             }
         }
 
+        await using (var import = new NpgsqlCommand(
+            "SELECT EXISTS (SELECT FROM pg_catalog.pg_namespace WHERE nspname='fsus_legacy_candidate')", connection, transaction))
+        {
+            if (await import.ExecuteScalarAsync(cancellationToken) is true)
+                throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
+        }
+
         await VerifyCatalogAsync(connection, transaction, cancellationToken);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);

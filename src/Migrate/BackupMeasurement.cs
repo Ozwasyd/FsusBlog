@@ -34,31 +34,8 @@ internal static partial class Migration
         await CurrentSchema.VerifyAsync(connection, deadline.Token);
         await VerifyPublicationsAsync(connection, deadline.Token);
         await using var transaction = await BeginReadOnlyAsync(connection, deadline.Token);
-        await ExecuteAsync(connection, transaction, """
-            SET LOCAL TimeZone = 'UTC';
-            SET LOCAL datestyle = 'ISO, YMD';
-            SET LOCAL intervalstyle = 'iso_8601';
-            SET LOCAL bytea_output = 'hex';
-            SET LOCAL extra_float_digits = 3
-            """, deadline.Token);
-        var relations = await RelationsAsync(connection, transaction, deadline.Token);
-        if (relations.Count > BackupRelationLimit || relations.Any(row => row.Kind is not ("r" or "S") || row.Schema != "public"))
-            throw new InvalidOperationException("Backup measurement needs only supported public tables and sequences.");
-        await RejectUnmeasuredDatabaseStateAsync(connection, transaction, deadline.Token);
-        if (relations.Any(relation => relation.Name == "private_media_upload_part"))
-        {
-            await using var unfinished = new NpgsqlCommand(
-                "SELECT EXISTS (SELECT FROM public.private_media_upload_part)", connection, transaction);
-            if (await unfinished.ExecuteScalarAsync(deadline.Token) is true)
-                throw new InvalidOperationException("Finish or cancel staged media parts before backup.");
-        }
-
-        var measured = new List<BackupRelation>(relations.Count);
-        foreach (var relation in relations)
-        {
-            measured.Add(await MeasureBackupRelationAsync(connection, transaction, relation, deadline.Token));
-        }
-        var media = await BackupMediaAsync(connection, transaction, deadline.Token);
+        await SetBackupRepresentationAsync(connection, transaction, deadline.Token);
+        var (measured, media) = await ReadBackupSiteAsync(connection, transaction, deadline.Token);
         string? exportedSnapshot = null;
         if (holdSnapshot)
         {
@@ -83,6 +60,40 @@ internal static partial class Migration
             throw new InvalidOperationException("The backup snapshot holder was not finished by its capture operation.");
         await transaction.RollbackAsync(deadline.Token);
         return 0;
+    }
+
+    private static Task SetBackupRepresentationAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken token)
+        => ExecuteAsync(connection, transaction, """
+            SET LOCAL TimeZone = 'UTC';
+            SET LOCAL datestyle = 'ISO, YMD';
+            SET LOCAL intervalstyle = 'iso_8601';
+            SET LOCAL bytea_output = 'hex';
+            SET LOCAL extra_float_digits = 3
+            """, token);
+
+    private static async Task<(List<BackupRelation> Relations, List<BackupMedia> Media)> ReadBackupSiteAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token, string? excludedSchema = null)
+    {
+        var relations = (await RelationsAsync(connection, transaction, token))
+            .Where(relation => relation.Schema != excludedSchema).ToList();
+        if (relations.Count > BackupRelationLimit || relations.Any(row => row.Kind is not ("r" or "S") || row.Schema != "public"))
+            throw new InvalidOperationException("Backup measurement needs only supported public tables and sequences.");
+        await RejectUnmeasuredDatabaseStateAsync(connection, transaction, token);
+        if (relations.Any(relation => relation.Name == "private_media_upload_part"))
+        {
+            await using var unfinished = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT FROM public.private_media_upload_part)", connection, transaction);
+            if (await unfinished.ExecuteScalarAsync(token) is true)
+                throw new InvalidOperationException("Finish or cancel staged media parts before backup.");
+        }
+
+        var measured = new List<BackupRelation>(relations.Count);
+        foreach (var relation in relations)
+        {
+            measured.Add(await MeasureBackupRelationAsync(connection, transaction, relation, token));
+        }
+        return (measured, await BackupMediaAsync(connection, transaction, token));
     }
 
     private static async Task RequireBackupDatabaseLockAsync(NpgsqlConnection connection, CancellationToken token)

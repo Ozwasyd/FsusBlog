@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 internal static partial class Migration
 {
-    private const int RehearsalVersion = 2;
+    private const int RehearsalVersion = 3;
     private const int RehearsalLimit = 5_000;
     private const int RehearsalMapBytes = 1_000_000;
     private const long RehearsalTextBytes = 128_000_000;
@@ -29,9 +29,13 @@ internal static partial class Migration
     private static async Task<ShadowReport> RehearseLegacyAsync(LegacySource source, DbTransaction transaction,
         Dictionary<string, LegacyTable> tables, LegacyTable principals, LegacyAudit audit, string ownerMapPath, CancellationToken token)
     {
-        if (audit.Projections.Any(projection => projection.Rows > RehearsalLimit))
-            throw new InvalidOperationException($"The shadow rehearsal supports up to {RehearsalLimit} rows per table.");
+        var map = await ReadLegacyOwnerMapAsync(ownerMapPath, token);
+        await using var shadow = await MaterializeLegacyShadowAsync(source, transaction, tables, principals, audit, map, token);
+        return shadow.Report;
+    }
 
+    private static async Task<(OwnerMap Map, string Digest)> ReadLegacyOwnerMapAsync(string ownerMapPath, CancellationToken token)
+    {
         await using var file = new FileStream(ownerMapPath, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (file.Length is < 1 or > RehearsalMapBytes)
             throw new InvalidOperationException("An owner map within the rehearsal size limit is required.");
@@ -48,7 +52,16 @@ internal static partial class Migration
         {
             throw new InvalidOperationException("Expected a valid owner map.");
         }
+        return (map, Convert.ToHexStringLower(SHA256.HashData(mapBytes)));
+    }
 
+    private static async Task<LegacyShadow> MaterializeLegacyShadowAsync(LegacySource source, DbTransaction transaction,
+        Dictionary<string, LegacyTable> tables, LegacyTable principals, LegacyAudit audit,
+        (OwnerMap Map, string Digest) ownerMap, CancellationToken token)
+    {
+        if (audit.Projections.Any(projection => projection.Rows > RehearsalLimit))
+            throw new InvalidOperationException($"The shadow rehearsal supports up to {RehearsalLimit} rows per table.");
+        var (map, ownerDigest) = ownerMap;
         var articleProjection = audit.Projections.Single(projection => projection.Table == Article);
         if (!string.Equals(map.SourceArticleSha256, articleProjection.Sha256, StringComparison.OrdinalIgnoreCase) ||
             map.Owners is null || map.Owners.LongLength != articleProjection.Rows)
@@ -58,8 +71,24 @@ internal static partial class Migration
         if (!string.Equals(map.SourceAdminIdentitySha256, adminIdentitySha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The owner map was prepared for a different legacy administrator identity set.");
 
-        await using var shadow = new SqliteConnection("Data Source=:memory:;Foreign Keys=True;Pooling=False");
-        await shadow.OpenAsync(token);
+        var shadow = new SqliteConnection("Data Source=:memory:;Foreign Keys=True;Pooling=False");
+        try
+        {
+            await shadow.OpenAsync(token);
+            return await PopulateLegacyShadowAsync(source, transaction, tables, audit, shadow, owners, ownerDigest,
+                adminIdentitySha256, token);
+        }
+        catch
+        {
+            await shadow.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<LegacyShadow> PopulateLegacyShadowAsync(LegacySource source, DbTransaction transaction,
+        Dictionary<string, LegacyTable> tables, LegacyAudit audit, SqliteConnection shadow,
+        Dictionary<int, ArticleOwner> owners, string ownerDigest, string adminIdentitySha256, CancellationToken token)
+    {
         await using var shadowTransaction = shadow.BeginTransaction();
         await using (var ddl = CreateLegacyCommand(shadowTransaction, ShadowDdl))
             await ddl.ExecuteNonQueryAsync(token);
@@ -81,7 +110,12 @@ internal static partial class Migration
         await using var readBack = shadow.BeginTransaction(deferred: true);
         var checkedRows = await VerifyShadowRowsAsync(readBack, audit, revisionTagRows, token);
         await readBack.RollbackAsync(token);
-        return new ShadowReport(RehearsalVersion, Convert.ToHexStringLower(SHA256.HashData(mapBytes)), adminIdentitySha256, checkedRows);
+        return new LegacyShadow(shadow, new ShadowReport(RehearsalVersion, ownerDigest, adminIdentitySha256, checkedRows), owners.Values.ToArray());
+    }
+
+    private sealed record LegacyShadow(SqliteConnection Database, ShadowReport Report, ArticleOwner[] Owners) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 
     private static Dictionary<int, ArticleOwner> ValidateOwnerMap(ArticleOwner[] mapping)
@@ -151,14 +185,25 @@ internal static partial class Migration
             current_revision INTEGER NOT NULL,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
+            summary TEXT,
+            cover_image_url TEXT,
             source_status INTEGER NOT NULL,
             source_category_id INTEGER NOT NULL,
             deleted INTEGER NOT NULL CHECK (deleted IN (0, 1)),
+            scheduled_publish_at TEXT,
+            pending_publication_at TEXT,
+            published_at TEXT,
+            last_published_at TEXT,
+            public_updated_at TEXT,
+            archived_at TEXT,
+            deleted_at TEXT,
             current_publication_id INTEGER,
             current_public_revision_candidate INTEGER,
             last_publication_number INTEGER NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            source_metadata_updated_at TEXT NOT NULL,
+            source_body_updated_at TEXT NOT NULL,
             FOREIGN KEY (id, current_revision) REFERENCES shadow_revision (article_id, revision) DEFERRABLE INITIALLY DEFERRED
         ) STRICT;
         CREATE TABLE shadow_revision (
@@ -167,11 +212,17 @@ internal static partial class Migration
             revision INTEGER NOT NULL,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
+            summary TEXT,
+            cover_image_url TEXT,
             source_category_id INTEGER NOT NULL,
+            source_tag_ids TEXT NOT NULL,
             source_content_block_id INTEGER NOT NULL,
             source_content_sha256 TEXT NOT NULL,
+            source_inline_markdown TEXT NOT NULL,
+            source_diff_summary TEXT,
             source_admin_id INTEGER NOT NULL,
             source_rollback_revision_id INTEGER,
+            source_rollback_reason TEXT,
             happened_at TEXT NOT NULL,
             UNIQUE (article_id, revision), UNIQUE (source_revision_id, article_id, revision)
         ) STRICT;
@@ -185,6 +236,7 @@ internal static partial class Migration
             source_responsibility_snapshot_id INTEGER,
             source_transition TEXT NOT NULL,
             published_at TEXT NOT NULL,
+            source_created_at TEXT NOT NULL,
             UNIQUE (article_id, publication_number),
             FOREIGN KEY (source_rights_snapshot_id, source_revision_id, article_id, revision)
                 REFERENCES shadow_article_rights_snapshot (id, article_revision_id, article_id, revision_no)
