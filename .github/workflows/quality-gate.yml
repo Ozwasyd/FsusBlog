@@ -23,7 +23,7 @@ env:
     FSUSBLOG_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
     FSUSBLOG_CI_STAGE: ${{ github.event_name == 'pull_request' && (vars.FSUSBLOG_CI_STAGE || 'qualification') || 'qualification' }}
     FSUSBLOG_TEST_RUN_ID: quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
-    GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+    GITHUB_PACKAGES_TOKEN: ${{ github.token }}
 
 jobs:
     validate-declarations:
@@ -521,10 +521,21 @@ jobs:
         env:
             FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
+            FSUSBLOG_USE_LOCAL_FSUSUI: "1"
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ github.token }}
+                  persist-credentials: false
+                  path: .tmp/local-fsusui
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: quality-gate-pr-smart-gate-plan
@@ -551,6 +562,9 @@ jobs:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tests/browser-diagnostics/local-fsusui-identity.mjs
             - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
               env:
                   FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS: ${{ needs.plan-pr-risk.outputs.production_build_domains }}
@@ -756,7 +770,7 @@ jobs:
               with:
                   repository: Ozwasyd/FsusUI
                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  token: ${{ github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -814,7 +828,7 @@ jobs:
               with:
                   repository: Ozwasyd/FsusUI
                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  token: ${{ github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -873,7 +887,7 @@ jobs:
               with:
                   repository: Ozwasyd/FsusUI
                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  token: ${{ github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -929,7 +943,7 @@ jobs:
               with:
                   repository: Ozwasyd/FsusUI
                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  token: ${{ github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -1537,7 +1551,7 @@ jobs:
                   repository: Ozwasyd/FsusUI
                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
                   path: .tmp/local-fsusui
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  token: ${{ github.token }}
                   persist-credentials: false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
