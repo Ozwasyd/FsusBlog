@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/perf/production-fresh-cli.mjs",
+                "tools/perf/production-fresh-cohort.mjs",
+                "tools/perf/production-fresh-comparator.mjs",
+                "tools/perf/production-fresh-contract.mjs",
+                "tools/perf/production-fresh-disposition.mjs",
+                "tools/perf/production-fresh-verdict.mjs",
+                "tools/perf/production-fresh-native-adapter.mjs",
+                "tools/test/cpu-calibration-contract.mjs",
+                "tools/test/machine-cpu-topology.mjs",
+                "tools/test/effective-cpu-fallback.mjs",
+                "tools/test/cpu-calibration-cohort.mjs",
+                "tools/test/cpu-calibration-selection.mjs",
+                "tools/test/cpu-calibration-loader.mjs",
+                "tools/perf/production-fresh-native-cpu-binding.mjs"
+            ],
+            "reason": "Declare the existing tools/**/*.mjs environment naming surface for the eight owned performance modules and six unchanged CPU capability modules consumed from exact tested commit 3726bae1d1fc3b0969850c90342ef16f7bfb8a2a. Preserve caller environment spelling and the CPU owner source lineage; internal options and exports remain camelCase, with no new registry permissions."
+        }
+    ]
+}
