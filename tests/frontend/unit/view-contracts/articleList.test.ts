@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createArticleListCardViewContract, createArticleListViewContract } from '@/view-contracts/articleList'
 import { PUBLIC_SEO_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry'
+import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
 
 const mockArticle = {
   id: 10,
@@ -89,8 +90,19 @@ describe('createArticleListViewContract', () => {
     expect(vc.pagination.previous.disabled).toBe(false)
     expect(vc.pagination.next.disabled).toBe(false)
     expect(vc.pagination.previous.href).toBe('/')
-    expect(vc.pagination.next.href).toBe('/?page=3')
+    expect(vc.pagination.next.href).toBe('/')
     expect(vc.showPagination).toBe(true)
+  })
+
+  it('uses the canonical cursor when supplied for the next page', () => {
+    const vc = createArticleListViewContract(response as never, {
+      currentPage: 2,
+      pageSize: 10,
+      pageHref: page => buildPublicHomePaginationHref(page, page === 3 ? 'cursor_home_3' : null)
+    })
+    expect(vc.pagination.previous.href).toBe('/')
+    expect(vc.pagination.next.href).toBe('/?page=3&cursor=cursor_home_3')
+    expect(vc.pagination.next.disabled).toBe(false)
   })
 
   it('uses the caller canonical route for pagination hrefs', () => {
