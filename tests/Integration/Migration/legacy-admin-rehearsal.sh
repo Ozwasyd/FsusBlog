@@ -120,6 +120,8 @@ migrate=("$dotnet" "$FSUSBLOG_MIGRATE_DLL")
 "$dotnet" build "$project" --no-restore
 "${migrate[@]}" plan > "$scratch/bootstrap.json"
 "${migrate[@]}" apply "$scratch/bootstrap.json"
+[[ "$("${target[@]}" -Atc "SELECT singleton,revision,
+    (SELECT count(*) FROM public.admin_tag_metadata_command) FROM public.taxonomy_epoch")" == 't|0|0' ]]
 target_site="$("${target[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')"
 source_site=800f43ec-3c0a-43e9-8ee0-30e2b79fa162
 target_first=0672a1fe-2eb5-4a8a-b213-784494f64811
@@ -271,6 +273,23 @@ expect_refused "${migrate[@]}" verify
 rg -F 'isolated legacy import candidate and cannot serve' "$scratch/error.log"
 expect_refused "${migrate[@]}" admin-identity bootstrap do-not-activate admin.manage
 [[ "$(candidate_state)" == '-1|2|0|0|0|0|0|0|t' ]]
+
+"${target[@]}" -c 'UPDATE public.taxonomy_epoch SET revision=1 WHERE singleton'
+expect_refused "${verify[@]}"
+rg -Fx 'The taxonomy epoch and durable command history do not agree.' "$scratch/error.log"
+"${target[@]}" -c "INSERT INTO public.tag (id,name,description) VALUES (41,'Fixture tag','Updated description');
+    INSERT INTO public.tag_url_name (name_key,tag_id) VALUES ('FIXTURE TAG',41);
+    INSERT INTO public.admin_tag_metadata_command (principal_id,request_id,tag_id,revision,old_name,old_description,
+        name,description,changed,fingerprint,session_reference,happened_at)
+    VALUES ('$target_first','4ebd2ccb-f588-492c-94cb-f14d0ac890e5',41,1,'Fixture tag','',
+        'Fixture tag','Updated description',true,decode(repeat('c8',32),'hex'),decode(repeat('ac',32),'hex'),now())"
+expect_refused "${verify[@]}"
+rg -Fx 'Candidate relation admin_tag_metadata_command differs from the verified empty backup.' "$scratch/error.log"
+"${target[@]}" -c 'DELETE FROM public.admin_tag_metadata_command WHERE tag_id=41;
+    DELETE FROM public.tag_url_name WHERE tag_id=41;
+    DELETE FROM public.tag WHERE id=41;
+    UPDATE public.taxonomy_epoch SET revision=0 WHERE singleton'
+"${verify[@]}" > /dev/null
 
 "${target[@]}" -c "UPDATE public.admin_principal SET enabled=true WHERE id='$target_first'"
 expect_refused "${verify[@]}"

@@ -67,6 +67,9 @@ internal static partial class Migration
                 SELECT count(*)=1 AND bool_and(singleton AND revision=0 AND theme_digest='' AND font_digest='')
                 FROM public.appearance_activation
                 """,
+            "taxonomy_epoch" => """
+                SELECT count(*)=1 AND bool_and(singleton AND revision=0) FROM public.taxonomy_epoch
+                """,
             _ => null
         };
         if (sql is null) return false;
