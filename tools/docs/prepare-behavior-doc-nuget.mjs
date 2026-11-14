@@ -4,10 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const { behaviorDocNugetClosure, behaviorDocNugetFeedConfiguration, inventoryNugetOfflineFeed, inventoryPreparedNuget, validatePreparedNugetPackages } = await import(new URL('../test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const { behaviorDocNugetClosure, behaviorDocNugetFeedConfiguration, inventoryNugetOfflineFeed, inventoryPreparedNuget, matrixNativeNugetClosure, nugetPreparationCommand, nugetPreparationEnvironment, observeMatrixNativeNugetToolInputs, validatePreparedNugetPackages } = await import(new URL('../test/behavior-doc-nuget-preparation.mjs', import.meta.url));
 const { finalizeRunOwnedDirectories, prepareRunOwnedDirectories } = await import(new URL('../test/execution-envelope-directories.mjs', import.meta.url));
 const { observeExecutableIdentity, prepareCorrectnessEnvironment, verifyExecutableIdentity } = await import(new URL('../test/execution-envelope-environment.mjs', import.meta.url));
 const { finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox } = await import(new URL('../test/execution-envelope-network.mjs', import.meta.url));
+const { createExecutionFailureOwner, executionFailureDataProperty, observeExecutionFailure, retainExecutionFailure, retainExecutionFailureCompatibility, retainExecutionRecovery } = await import(new URL('../test/execution-failure-diagnostic.mjs', import.meta.url));
 const { runPhysicalExecution } = await import(new URL('../test/physical-execution-process-tree.mjs', import.meta.url));
 const { fingerprintPaths, runBoundExecution, validateRunBoundProjection } = await import(new URL('../test/run-once.mjs', import.meta.url));
 const { sealSourceIdentity } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
@@ -20,15 +21,28 @@ const { snapshotSourceState } = await import(new URL('../test-matrix/scheduler.m
 const digest = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 /** Independent, offline dependency preparation only; no correctness admission is generated here. */
-export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFile, feedRoot, feedDigest })
+export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFile, feedRoot, feedDigest, purpose = 'behavior-doc' })
 {
+    if (!['behavior-doc', 'matrix-native'].includes(purpose))
+    {
+        throw new Error('Unknown NuGet preparation purpose');
+    }
     if (!String(runId ?? '').trim())
     {
         throw new Error('NuGet preparation requires an explicit scheduler run');
     }
     const root = fs.realpathSync(repositoryRoot);
     const source = sealSourceIdentity(root);
-    const closure = behaviorDocNugetClosure(root);
+    const closure = purpose === 'matrix-native' ? matrixNativeNugetClosure(root) : behaviorDocNugetClosure(root);
+    const matrixNativeToolInputs = purpose === 'matrix-native' ? observeMatrixNativeNugetToolInputs(root) : null;
+    const consumerId = purpose === 'matrix-native' ? 'matrix-native-nuget-transfer' : 'behavior-doc-nuget-transfer';
+    const verifyNativeTools = () =>
+    {
+        if (matrixNativeToolInputs && JSON.stringify(observeMatrixNativeNugetToolInputs(root)) !== JSON.stringify(matrixNativeToolInputs))
+        {
+            throw new Error('Matrix native SDK/compiler/runtime input bytes drifted');
+        }
+    };
     const preparationParent = path.join(root, '.tmp/behavior-doc-nuget-preparation');
     const output = path.resolve(outputFile);
     if (!output.startsWith(preparationParent + path.sep))
@@ -57,6 +71,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     let directories;
     let attemptRoot;
     let firstFailure = null;
+    const diagnosticOwner = createExecutionFailureOwner();
     let physicalStarted = false;
     let terminalEvidence = null;
     let complete = false;
@@ -118,19 +133,14 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         }
         fs.writeFileSync(configFile, behaviorDocNugetFeedConfiguration({ feedRoot: stagedFeed, packagesRoot }),
             { flag: 'wx', mode: 0o400 });
-        const command = ['dotnet', 'restore', 'tools/contracts/BehaviorDocRestore.slnx',
-            '--locked-mode', '--packages', packagesRoot, '--artifacts-path', artifactsRoot,
-            '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', stagedFeed,
-            '--configfile', configFile];
+        const command = nugetPreparationCommand({ purpose, packagesRoot, artifactsRoot, feedRoot: stagedFeed, configFile });
         const outputContract = [artifactsRoot, stagedFeed, packagesRoot, configFile].sort();
-        const key = 'behavior-doc-nuget-transfer-' + randomUUID();
+        const key = consumerId + '-' + randomUUID();
         directories = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root, runId,
             producerId: 'behavior-doc-static-admission', attemptId: key, outputs: [packagesRoot, artifactsRoot] });
         const environment = prepareCorrectnessEnvironment({ command, parentEnvironment: process.env,
             producerAllowlist: ['DOTNET_ROOT', 'PATH'],
-            injectedEnvironment: { ...directories.environment, NUGET_PACKAGES: packagesRoot,
-                FSUSBLOG_TEST_RUN_ID: runId, FSUSBLOG_TEST_SOURCE_COMMIT: source.sourceCommit,
-                FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint },
+            injectedEnvironment: nugetPreparationEnvironment({ directories, packagesRoot, runId, source }),
             policy: loadExecutionEnvelopePolicy(), catalog: loadExecutionEnvelopeApplicability() });
         const network = prepareNetworkSandbox({ command: environment.command, cwd: root,
             ownedDirectoryEnvelope: directories,
@@ -140,20 +150,21 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         const physicalRoot = path.join(root, '.tmp/physical-executions');
         const inputDigest = await fingerprintPaths(
             [...closure.sourceClosureDigests.map((value) => value.path),
-                'tools/contracts/BehaviorDocRestore.slnx', 'tools/docs/prepare-behavior-doc-nuget.mjs',
+                command[2], 'tools/docs/prepare-behavior-doc-nuget.mjs',
                 'tools/test/behavior-doc-nuget-preparation.mjs', feed.root, configFile],
             { root, values: [JSON.stringify(source), JSON.stringify(command), JSON.stringify(toolchain),
-                feed.treeDigest, digest(directories.fragment), digest(network.fragment), environment.fragmentDigest,
+                feed.treeDigest, JSON.stringify(matrixNativeToolInputs), digest(directories.fragment), digest(network.fragment), environment.fragmentDigest,
                 plan.planDigest] });
         const result = await runBoundExecution({ root: physicalRoot, runId, key, command, cwd: root, inputDigest,
             environmentDigest: digest({ environment: environment.fragment, directories: directories.fragment, network: network.fragment }),
             outputContract, requiredOutputs: outputContract,
             commit: source.sourceCommit, worktreeFingerprint: source.worktreeFingerprint,
-            consumerId: 'behavior-doc-nuget-transfer', signal: controller.signal
+            consumerId, signal: controller.signal
         }, async () =>
         {
             let physicalExecution;
             let failure = null;
+            let failed = false;
             let actualNetwork;
             let actualDirectories;
             try
@@ -168,6 +179,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 {
                     throw new Error('Source or offline feed drifted before physical restore');
                 }
+                verifyNativeTools();
                 physicalStarted = true;
                 physicalExecution = await runPhysicalExecution({ command: network.command, cwd: root,
                     env: environment.environment, signal: controller.signal,
@@ -177,8 +189,9 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
             catch (error)
             {
-                failure = error;
-                physicalExecution = error.physicalExecution;
+                failed = true;
+                failure = retainExecutionFailure(diagnosticOwner, error);
+                physicalExecution = executionFailureDataProperty(error, 'physicalExecution');
             }
             terminalEvidence = physicalExecution;
             try
@@ -187,12 +200,14 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
             catch (error)
             {
-                if (failure)
+                retainExecutionFailure(diagnosticOwner, error);
+                if (failed)
                 {
-                    failure.cleanupError = error;
+                    retainExecutionFailureCompatibility(failure, 'cleanupError', error);
                 }
                 else
                 {
+                    failed = true;
                     failure = error;
                 }
             }
@@ -204,26 +219,39 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 }
                 catch (error)
                 {
-                    if (failure)
+                    retainExecutionFailure(diagnosticOwner, error);
+                    if (failed)
                     {
-                        failure.cleanupError ??= error;
+                        retainExecutionFailureCompatibility(failure, 'cleanupError', error);
                     }
                     else
                     {
+                        failed = true;
                         failure = error;
                     }
                 }
             }
             else
             {
-                failure ??= Object.assign(new Error('NuGet preparation has no verified zero-residue terminal'), { physicalExecution });
+                const terminalFailure = Object.assign(new Error('NuGet preparation has no verified zero-residue terminal'), { physicalExecution });
+                failure = retainExecutionFailure(diagnosticOwner, terminalFailure);
+                failed = true;
             }
-            if (failure)
+            if (failed)
             {
-                failure.physicalExecution ??= physicalExecution;
+                retainExecutionFailureCompatibility(failure, 'physicalExecution', physicalExecution);
                 throw failure;
             }
             verifyExecutableIdentity(toolchain, observeExecutableIdentity('dotnet', { pathValue: process.env.PATH }));
+            try
+            {
+                verifyNativeTools();
+            }
+            catch (error)
+            {
+                error.physicalExecution = physicalExecution;
+                throw error;
+            }
             if (JSON.stringify(sealSourceIdentity(root)) !== JSON.stringify(source)
                 || inventoryNugetOfflineFeed(feed.root, closure).treeDigest !== feed.treeDigest
                 || inventoryNugetOfflineFeed(stagedFeed, closure).treeDigest !== feed.treeDigest)
@@ -263,12 +291,13 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
             reservation.completeProducer('behavior-doc-nuget-preparation');
             return { ...physicalExecution, phase: 'independent-dependency-transfer', qualificationEligible: false,
-                command, toolchain, offlineFeed: { root: stagedFeed, sourceRoot: feed.root, treeDigest: feed.treeDigest,
+                command, toolchain, ...(matrixNativeToolInputs ? { matrixNativeToolInputs } : {}),
+                offlineFeed: { root: stagedFeed, sourceRoot: feed.root, treeDigest: feed.treeDigest,
                     allocatedBytes: feed.allocatedBytes, expandedAllocatedBytes: feed.expandedAllocatedBytes },
                 executionEnvelopeFragments: { environment: environment.fragment, network: actualNetwork, directories: actualDirectories },
                 capacityPlanDigest: plan.planDigest };
         });
-        const transfer = { root: physicalRoot, runId, key, consumerId: 'behavior-doc-nuget-transfer',
+        const transfer = { root: physicalRoot, runId, key, consumerId,
             projectionFile: result.projectionFile, receiptFile: result.receiptFile };
         const verified = await validateRunBoundProjection({ ...transfer, verifyOutputs: true });
         const seed = inventoryPreparedNuget(packagesRoot);
@@ -285,7 +314,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     }
     catch (error)
     {
-        firstFailure = error;
+        firstFailure = retainExecutionFailure(diagnosticOwner, error);
         operationFailed = true;
     }
     {
@@ -302,13 +331,15 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
         };
         const mayCleanup = !physicalStarted || terminalEvidence?.postObservation === 'zero-members';
-        if (!mayCleanup && firstFailure)
+        if (!mayCleanup && operationFailed)
         {
-            firstFailure.recoveryObligation = { attemptRoot, ownedRoot: directories?.fragment.ownedRoot,
+            const recoveryObligation = { attemptRoot, ownedRoot: directories?.fragment.ownedRoot,
                 capacityReservationFile: reservation?.activeFile,
                 capacityReservationId: reservation?.receipt.reservationId,
                 repositoryLeasePath: lease?.leasePath,
                 reason: 'physical terminal does not verify zero residue; active resources preserved' };
+            retainExecutionRecovery(diagnosticOwner, recoveryObligation);
+            retainExecutionFailureCompatibility(firstFailure, 'recoveryObligation', recoveryObligation);
         }
         if (mayCleanup && directories && !directories.fragment.cleanup.removedOwnedRoot)
         {
@@ -346,9 +377,10 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         process.removeListener('SIGTERM', onSigterm);
         if (cleanupFailure)
         {
-            if (firstFailure)
+            retainExecutionFailure(diagnosticOwner, cleanupFailure);
+            if (operationFailed)
             {
-                firstFailure.cleanupError ??= cleanupFailure;
+                retainExecutionFailureCompatibility(firstFailure, 'cleanupError', cleanupFailure);
             }
             else
             {
@@ -358,7 +390,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     }
     if (operationFailed)
     {
-        throw firstFailure;
+        throw observeExecutionFailure(diagnosticOwner).reason;
     }
     return preparationResult;
 }
@@ -366,11 +398,16 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     const args = process.argv.slice(2);
+    let purpose = 'behavior-doc';
+    if (args.length === 10 && args[8] === '--purpose')
+    {
+        purpose = args.splice(8)[1];
+    }
     if (args.length !== 8 || args[0] !== '--run-id' || args[2] !== '--out'
         || args[4] !== '--feed-root' || args[6] !== '--feed-digest')
     {
-        throw new Error('Usage: prepare-behavior-doc-nuget.mjs --run-id id --out input.json --feed-root sealed-flat-nupkg-feed --feed-digest sha256');
+        throw new Error('Usage: prepare-behavior-doc-nuget.mjs --run-id id --out input.json --feed-root sealed-flat-nupkg-feed --feed-digest sha256 [--purpose behavior-doc|matrix-native]');
     }
     await prepareBehaviorDocNuget({ repositoryRoot: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
-        runId: args[1], outputFile: args[3], feedRoot: args[5], feedDigest: args[7] });
+        runId: args[1], outputFile: args[3], feedRoot: args[5], feedDigest: args[7], purpose });
 }

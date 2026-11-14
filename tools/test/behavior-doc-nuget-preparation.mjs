@@ -1,13 +1,17 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hostDeclarations } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
-import { resolveDotnetProjectSourceClosure, sealSourceIdentity } from '../fact-extractors/identity.mjs';
-import { validateRunBoundProjection } from './run-once.mjs';
+
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import { retainExecutionFailureCompatibility } from './execution-failure-diagnostic.mjs';
+import { validateRunBoundProjection } from './run-once.mjs';
+
+const { hostDeclarations } = await import(new URL('../docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
+const { resolveDotnetProjectSourceClosure, sealSourceIdentity } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+const { matrixNativeProjects } = await import(new URL('../testing/content-shape-catalog.mjs', import.meta.url));
 
 function regular(file)
 {
@@ -79,6 +83,40 @@ export function inventoryPreparedNuget(root, allocationBlockSize = 4096)
 export function behaviorDocNugetClosure(repositoryRoot)
 {
     const projects = Object.values(hostDeclarations).map((value) => value.project).sort();
+    return lockedNugetClosure(repositoryRoot, projects);
+}
+
+/** Bind the actual matrix semantic extractor and backend through their existing owner. */
+export function matrixNativeNugetClosure(repositoryRoot)
+{
+    const projects = Object.values(matrixNativeProjects).sort();
+    const solution = 'FsusBlog.MatrixNativeRestore.slnx';
+    const text = regular(path.join(repositoryRoot, solution)).toString('utf8');
+    const expected = '<Solution>\n' + projects.map((project) =>
+        `    <Project Path="${path.posix.relative(path.posix.dirname(solution), project)}" />\n`).join('')
+        + '</Solution>\n';
+    if (text !== expected)
+    {
+        throw new Error('Matrix native restore solution differs from the actual project owners');
+    }
+    const closure = lockedNugetClosure(repositoryRoot, projects);
+    for (const project of closure.sourceClosureDigests.filter((entry) => entry.path.endsWith('.csproj')))
+    {
+        const lock = path.posix.join(path.posix.dirname(project.path), 'packages.lock.json');
+        if (!closure.sourceClosureDigests.some((entry) => entry.path === lock))
+        {
+            throw new Error('Matrix native preparation requires every referenced project lock');
+        }
+    }
+    const bindings = [solution, 'ops/docker/FsusBlog.Server.Dockerfile', 'tools/testing/content-shape-catalog.mjs'];
+    return { purpose: 'matrix-native', ...closure,
+        sourceClosureDigests: [...closure.sourceClosureDigests,
+            ...bindings.map((file) => ({ path: file, sha256: digest(regular(path.join(repositoryRoot, file))) }))]
+            .sort((left, right) => left.path.localeCompare(right.path)) };
+}
+
+function lockedNugetClosure(repositoryRoot, projects)
+{
     const closure = resolveDotnetProjectSourceClosure(repositoryRoot, projects);
     const sourceClosureDigests = closure.map((file) => ({
         path: file, sha256: digest(regular(path.join(repositoryRoot, file)))
@@ -91,7 +129,10 @@ export function behaviorDocNugetClosure(repositoryRoot)
         {
             for (const [id, dependency] of Object.entries(dependencies))
             {
-                if (dependency.type === 'Project') continue;
+                if (dependency.type === 'Project')
+                {
+                    continue;
+                }
                 const version = dependency.resolved;
                 if (!/^[A-Za-z0-9_.+-]+$/u.test(id) || !/^[A-Za-z0-9_.+-]+$/u.test(version ?? '')
                     || !/^[A-Za-z0-9+/]{86}==$/u.test(dependency.contentHash ?? ''))
@@ -108,9 +149,95 @@ export function behaviorDocNugetClosure(repositoryRoot)
             }
         }
     }
-    if (packages.size === 0) throw new Error('NuGet preparation requires a nonempty locked graph');
+    if (packages.size === 0)
+    {
+        throw new Error('NuGet preparation requires a nonempty locked graph');
+    }
     return { projects, sourceClosureDigests,
         packages: [...packages.values()].sort((left, right) => left.path.localeCompare(right.path)) };
+}
+
+/** Observe immutable SDK/compiler/runtime bytes without launching an SDK process. */
+export function observeMatrixNativeNugetToolInputs(repositoryRoot)
+{
+    const dockerfile = regular(path.join(repositoryRoot, 'ops/docker/FsusBlog.Server.Dockerfile')).toString('utf8');
+    const sdkVersion = dockerfile.match(/^ARG DOTNET_SDK_VERSION=([^\r\n]+)$/mu)?.[1];
+    const runtimeVersion = dockerfile.match(/^ARG DOTNET_RUNTIME_VERSION=([^\r\n]+)$/mu)?.[1];
+    if (![sdkVersion, runtimeVersion].every((value) => /^\d+\.\d+\.\d+$/u.test(value ?? '')))
+    {
+        throw new Error('Matrix native SDK/runtime pins are missing');
+    }
+    const executable = resolveExecutablePath('dotnet', { pathValue: process.env.PATH });
+    const root = path.dirname(executable);
+    if (fs.realpathSync(root) !== root || fs.realpathSync(executable) !== executable
+        || process.env.DOTNET_ROOT !== root || process.env.FSUSBLOG_CONTENT_FIELD_DOTNET !== executable
+        || !equal(fs.readdirSync(path.join(root, 'sdk')).sort(), [sdkVersion])
+        || !equal(fs.readdirSync(path.join(root, 'shared/Microsoft.NETCore.App')).sort(), [runtimeVersion])
+        || !equal(fs.readdirSync(path.join(root, 'shared/Microsoft.AspNetCore.App')).sort(), [runtimeVersion]))
+    {
+        throw new Error('Matrix native tool inputs differ from the single pinned SDK/runtime owner');
+    }
+    const required = [`sdk/${sdkVersion}/Roslyn/bincore/csc.dll`,
+        `sdk/${sdkVersion}/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll`,
+        `shared/Microsoft.NETCore.App/${runtimeVersion}/System.Private.CoreLib.dll`,
+        `shared/Microsoft.AspNetCore.App/${runtimeVersion}/Microsoft.AspNetCore.dll`];
+    for (const file of required)
+    {
+        regular(path.join(root, file));
+    }
+    const entries = [];
+    const visit = (directory) =>
+    {
+        for (const name of fs.readdirSync(directory).sort())
+        {
+            const file = path.join(directory, name);
+            const stat = fs.lstatSync(file);
+            if (fs.realpathSync(file) !== file || stat.isSymbolicLink())
+            {
+                throw new Error('Matrix native SDK input has a physical alias');
+            }
+            const relative = path.relative(root, file).replaceAll(path.sep, '/');
+            if (stat.isDirectory())
+            {
+                visit(file);
+            }
+            else
+            {
+                entries.push({ path: relative, sha256: digest(regular(file)) });
+            }
+        }
+    };
+    visit(root);
+    return { root, executable, sdkVersion, runtimeVersion, entries, treeDigest: digest(JSON.stringify(entries)) };
+}
+
+/** Bind the owned restore environment and prevent idle MSBuild nodes from surviving. */
+export function nugetPreparationEnvironment({ directories, packagesRoot, runId, source })
+{
+    return {
+        ...directories.environment,
+        NUGET_PACKAGES: packagesRoot,
+        MSBUILDDISABLENODEREUSE: '1',
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+        DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true',
+        FSUSBLOG_TEST_RUN_ID: runId,
+        FSUSBLOG_TEST_SOURCE_COMMIT: source.sourceCommit,
+        FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint
+    };
+}
+
+/** One ordered restore command shared by the producer and strict ingress. */
+export function nugetPreparationCommand({ purpose = 'behavior-doc', packagesRoot, artifactsRoot, feedRoot, configFile })
+{
+    if (!['behavior-doc', 'matrix-native'].includes(purpose))
+    {
+        throw new Error('Unknown NuGet preparation purpose');
+    }
+    return ['dotnet', 'restore', purpose === 'matrix-native'
+        ? 'FsusBlog.MatrixNativeRestore.slnx' : 'tools/contracts/BehaviorDocRestore.slnx',
+    '--locked-mode', '--packages', packagesRoot, '--artifacts-path', artifactsRoot,
+    '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', feedRoot,
+    '--configfile', configFile];
 }
 
 export function validatePreparedNugetPackages(seed, closure, feed)
@@ -156,35 +283,51 @@ export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4
     });
     if (!equal(feed.entries.map((entry) => entry.path).sort(), expected.map((record) => record.file).sort())
         || feed.entries.some((entry) => entry.kind !== 'file'))
-    { throw new Error('Offline feed must contain only the complete finite locked archive roster'); }
+    {
+        throw new Error('Offline feed must contain only the complete finite locked archive roster');
+    }
     let expandedAllocatedBytes = allocationBlockSize;
     for (const record of expected)
     {
         const bytes = regular(path.join(feed.root, record.file));
         if (!/^[A-Za-z0-9+/]{86}==$/u.test(record.contentHash ?? ''))
-        { throw new Error('Offline feed requires an exact package lock content hash'); }
+        {
+            throw new Error('Offline feed requires an exact package lock content hash');
+        }
         record.archiveSha512 = createHash('sha512').update(bytes).digest('base64');
         let footer = -1;
         for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset--)
         {
             if (bytes.readUInt32LE(offset) === 0x06054b50
                 && offset + 22 + bytes.readUInt16LE(offset + 20) === bytes.length)
-            { footer = offset; break; }
+            {
+                footer = offset;
+                break;
+            }
         }
         if (footer < 0 || bytes.readUInt16LE(footer + 4) || bytes.readUInt16LE(footer + 6)
             || bytes.readUInt16LE(footer + 8) !== bytes.readUInt16LE(footer + 10))
-        { throw new Error('Offline feed has no bounded single-volume ZIP resource directory'); }
+        {
+            throw new Error('Offline feed has no bounded single-volume ZIP resource directory');
+        }
         const count = bytes.readUInt16LE(footer + 10);
         const start = bytes.readUInt32LE(footer + 16);
         if (count === 0xffff || start + bytes.readUInt32LE(footer + 12) !== footer)
-        { throw new Error('Offline feed ZIP64 resource sizes are unsupported'); }
+        {
+            throw new Error('Offline feed ZIP64 resource sizes are unsupported');
+        }
         let cursor = start;
         for (let index = 0; index < count; index++)
         {
             if (cursor + 46 > footer || bytes.readUInt32LE(cursor) !== 0x02014b50)
-            { throw new Error('Offline feed ZIP resource directory is incomplete'); }
+            {
+                throw new Error('Offline feed ZIP resource directory is incomplete');
+            }
             const size = bytes.readUInt32LE(cursor + 24);
-            if (size === 0xffffffff) throw new Error('Offline feed ZIP64 entry resource sizes are unsupported');
+            if (size === 0xffffffff)
+            {
+                throw new Error('Offline feed ZIP64 entry resource sizes are unsupported');
+            }
             // Each file and each possible ancestor gets a full additional allocation block.
             const nameLength = bytes.readUInt16LE(cursor + 28);
             const name = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
@@ -192,13 +335,21 @@ export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4
                 + 2 + name.split('/').length) * allocationBlockSize;
             cursor += 46 + nameLength + bytes.readUInt16LE(cursor + 30) + bytes.readUInt16LE(cursor + 32);
             if (cursor > footer || !Number.isSafeInteger(expandedAllocatedBytes))
-            { throw new Error('Offline feed expanded resource bound is invalid'); }
+            {
+                throw new Error('Offline feed expanded resource bound is invalid');
+            }
         }
-        if (cursor !== footer) throw new Error('Offline feed ZIP resource directory is not fully consumed');
+        if (cursor !== footer)
+        {
+            throw new Error('Offline feed ZIP resource directory is not fully consumed');
+        }
     }
     // NuGet retains each archive, hash and metadata in addition to expanded entries.
     expandedAllocatedBytes += feed.allocatedBytes + expected.length * 4 * allocationBlockSize;
-    if (!Number.isSafeInteger(expandedAllocatedBytes)) throw new Error('Offline feed expanded resource bound overflow');
+    if (!Number.isSafeInteger(expandedAllocatedBytes))
+    {
+        throw new Error('Offline feed expanded resource bound overflow');
+    }
     return { ...feed, archives: expected, expandedAllocatedBytes };
 }
 
@@ -216,7 +367,20 @@ export function behaviorDocNugetFeedConfiguration({ feedRoot, packagesRoot })
 /** Validate a completed independent transfer using the existing run-bound authority. */
 export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file })
 {
-    if (!file) throw new Error('BehaviorDoc correctness requires explicit offline NuGet preparation');
+    return readPreparedNuget({ repositoryRoot, runId, file, purpose: 'behavior-doc' });
+}
+
+export async function readPreparedMatrixNativeNuget({ repositoryRoot, runId, file })
+{
+    return readPreparedNuget({ repositoryRoot, runId, file, purpose: 'matrix-native' });
+}
+
+async function readPreparedNuget({ repositoryRoot, runId, file, purpose })
+{
+    if (!file)
+    {
+        throw new Error(`${purpose} correctness requires explicit offline NuGet preparation`);
+    }
     const input = path.resolve(file);
     const bytes = regular(input);
     const preparation = JSON.parse(bytes);
@@ -229,33 +393,39 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         || preparation.artifactsRoot !== path.join(attempt, 'artifacts')
         || preparation.feedRoot !== path.join(attempt, 'feed')
         || preparation.configFile !== path.join(attempt, 'NuGet.Config'))
-    { throw new Error('NuGet preparation paths escape the exact task-owned transfer'); }
+    {
+        throw new Error('NuGet preparation paths escape the exact task-owned transfer');
+    }
     const source = sealSourceIdentity(repositoryRoot);
-    const closure = behaviorDocNugetClosure(repositoryRoot);
+    const closure = purpose === 'matrix-native' ? matrixNativeNugetClosure(repositoryRoot) : behaviorDocNugetClosure(repositoryRoot);
     if (!equal(preparation.source, source) || !equal(preparation.closure, closure))
     {
         throw new Error('NuGet preparation source or locked graph drifted');
     }
     const transfer = preparation.transfer;
-    if (transfer?.runId !== runId || transfer.consumerId !== 'behavior-doc-nuget-transfer'
-        || !/^behavior-doc-nuget-transfer-[a-f0-9-]{36}$/u.test(transfer.key ?? '')
+    const consumerId = purpose === 'matrix-native' ? 'matrix-native-nuget-transfer' : 'behavior-doc-nuget-transfer';
+    if (transfer?.runId !== runId || transfer.consumerId !== consumerId
+        || !new RegExp(`^${consumerId}-[a-f0-9-]{36}$`, 'u').test(transfer.key ?? '')
         || transfer.root !== path.join(path.resolve(repositoryRoot), '.tmp/physical-executions'))
-    { throw new Error('NuGet transfer is foreign to this scheduler run or original producer'); }
+    {
+        throw new Error('NuGet transfer is foreign to this scheduler run or original producer');
+    }
     const verified = await validateRunBoundProjection({ ...transfer, verifyOutputs: true });
     const receipt = verified.receipt;
     let allocationRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned');
     while (!fs.existsSync(allocationRoot))
     {
         const parent = path.dirname(allocationRoot);
-        if (parent === allocationRoot) throw new Error('NuGet attempt filesystem is unknown');
+        if (parent === allocationRoot)
+        {
+            throw new Error('NuGet attempt filesystem is unknown');
+        }
         allocationRoot = parent;
     }
     const allocationBlockSize = Number(fs.statfsSync(allocationRoot).bsize);
     const seed = inventoryPreparedNuget(preparation.root, allocationBlockSize);
-    const expectedCommand = ['dotnet', 'restore', 'tools/contracts/BehaviorDocRestore.slnx',
-        '--locked-mode', '--packages', seed.root, '--artifacts-path', preparation.artifactsRoot,
-        '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', preparation.feedRoot,
-        '--configfile', preparation.configFile];
+    const expectedCommand = nugetPreparationCommand({ purpose, packagesRoot: seed.root,
+        artifactsRoot: preparation.artifactsRoot, feedRoot: preparation.feedRoot, configFile: preparation.configFile });
     const physical = receipt.physicalExecution;
     const feed = inventoryNugetOfflineFeed(preparation.feedRoot, closure);
     const toolchain = receipt.physicalExecution?.toolchain;
@@ -312,6 +482,11 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     {
         throw new Error('NuGet transfer command, source, output or payload binding drifted');
     }
+    if (purpose === 'matrix-native'
+        && !equal(physical.matrixNativeToolInputs, observeMatrixNativeNugetToolInputs(repositoryRoot)))
+    {
+        throw new Error('Matrix native SDK/compiler/runtime input bytes drifted');
+    }
     validatePreparedNugetPackages(seed, closure, feed);
     return { ...seed, file: input, preparation, closure,
         inputPaths: [input, verified.receiptFile, verified.projectionFile],
@@ -328,6 +503,8 @@ export function seedPreparedNuget(prepared, destination)
         throw new Error('NuGet preparation drifted or destination is not a fresh canonical cache');
     }
     let firstFailure = null;
+    let failed = false;
+    let cleanupFailure = null;
     try
     {
         for (const entry of before.entries)
@@ -351,8 +528,14 @@ export function seedPreparedNuget(prepared, destination)
         const rootMode = fs.statSync(destination).mode & 0o777;
         fs.chmodSync(destination, 0o500);
         let after;
-        try { after = inventoryPreparedNuget(destination); }
-        finally { fs.chmodSync(destination, rootMode); }
+        try
+        {
+            after = inventoryPreparedNuget(destination);
+        }
+        finally
+        {
+            fs.chmodSync(destination, rootMode);
+        }
         if (after.treeDigest !== before.treeDigest
             || inventoryPreparedNuget(prepared.root).treeDigest !== before.treeDigest)
         {
@@ -362,12 +545,12 @@ export function seedPreparedNuget(prepared, destination)
     catch (error)
     {
         firstFailure = error;
+        failed = true;
         throw error;
     }
     finally
     {
         // A partial copy must also remain removable. No child has started at this preparation boundary.
-        let cleanupFailure = null;
         for (const entry of [...before.entries].reverse())
         {
             const target = path.join(destination, entry.path);
@@ -378,12 +561,21 @@ export function seedPreparedNuget(prepared, destination)
                     fs.chmodSync(target, entry.kind === 'directory' ? 0o700 : 0o600);
                 }
             }
-            catch (error) { cleanupFailure ??= error; }
+            catch (error)
+            {
+                cleanupFailure ??= error;
+            }
         }
         if (cleanupFailure)
         {
-            if (firstFailure) firstFailure.cleanupError = cleanupFailure;
-            else throw cleanupFailure;
+            if (failed)
+            {
+                retainExecutionFailureCompatibility(firstFailure, 'cleanupError', cleanupFailure);
+            }
         }
+    }
+    if (cleanupFailure)
+    {
+        throw cleanupFailure;
     }
 }

@@ -1,0 +1,9 @@
+{
+    "name": "@fsusblog/markdownlint-toolchain",
+    "version": "0.0.0",
+    "private": true,
+    "packageManager": "npm@11.13.0",
+    "devDependencies": {
+        "markdownlint-cli2": "0.23.1"
+    }
+}

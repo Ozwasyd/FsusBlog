@@ -2180,8 +2180,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:497c4eb52b90f39a463105cd128e25c2e2b412902589e19afe723c6a1af6298f",
-            "indexDigest": "sha256:497c4eb52b90f39a463105cd128e25c2e2b412902589e19afe723c6a1af6298f"
+            "contentDigest": "sha256:d372eefa381618beddcfe2b9162ba33ffeae6753d51d7f38960955a380755185",
+            "indexDigest": "sha256:d372eefa381618beddcfe2b9162ba33ffeae6753d51d7f38960955a380755185"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/behavior-doc-nuget-preparation.mjs",
-            "contentDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33",
-            "indexDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33"
+            "contentDigest": "sha256:1f2ea5e3480b444470791d9dd71ade9a59af28e660cb4ac76265af29cbaefffa",
+            "indexDigest": "sha256:1f2ea5e3480b444470791d9dd71ade9a59af28e660cb4ac76265af29cbaefffa"
         },
         {
             "path": "tools/test/build-migration-tests.mjs",
@@ -5080,8 +5080,8 @@
         },
         {
             "path": "tools/test/execution-envelope-directories.mjs",
-            "contentDigest": "sha256:edf30afadffc6712d50a15785baeca384f143bdceedd62c5bec10e1f834a1a6d",
-            "indexDigest": "sha256:edf30afadffc6712d50a15785baeca384f143bdceedd62c5bec10e1f834a1a6d"
+            "contentDigest": "sha256:25414e4ee3f0f17351150102b9c4f19e31094ad63de4f5bc6d88be929cc9adfa",
+            "indexDigest": "sha256:25414e4ee3f0f17351150102b9c4f19e31094ad63de4f5bc6d88be929cc9adfa"
         },
         {
             "path": "tools/test/execution-envelope-environment.mjs",
@@ -5185,8 +5185,8 @@
         },
         {
             "path": "tools/test/lanes/production-build-artifacts.sh",
-            "contentDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
-            "indexDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa"
+            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
+            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a"
         },
         {
             "path": "tools/test/lanes/project-privacy-zk-prebuild.mjs",
@@ -5450,8 +5450,8 @@
         },
         {
             "path": "tools/test/run-deterministic-command.mjs",
-            "contentDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7",
-            "indexDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7"
+            "contentDigest": "sha256:8587a212ad41037e33abc48c3bae5a390e410887c3f56f30180e013b9072eca2",
+            "indexDigest": "sha256:8587a212ad41037e33abc48c3bae5a390e410887c3f56f30180e013b9072eca2"
         },
         {
             "path": "tools/test/run-frontend-vitest-rolling-shards.mjs",
@@ -5465,8 +5465,8 @@
         },
         {
             "path": "tools/test/run-matrix-governance-once.sh",
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42"
+            "contentDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
+            "indexDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4"
         },
         {
             "path": "tools/test/run-migration-tests.mjs",
@@ -5720,8 +5720,8 @@
         },
         {
             "path": "tools/testing/content-shape-catalog.mjs",
-            "contentDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d",
-            "indexDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d"
+            "contentDigest": "sha256:8656a12695943878ae708958bfad2dad80efdb6d4b0e4248c5adf8f66c4d5887",
+            "indexDigest": "sha256:8656a12695943878ae708958bfad2dad80efdb6d4b0e4248c5adf8f66c4d5887"
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
@@ -33528,8 +33528,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
-            "indexDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
+            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
+            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
@@ -45676,8 +45676,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
+            "contentDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
+            "indexDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
             "dependencyClosure": [
                 "tools/ci/production-build-artifacts.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
