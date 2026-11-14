@@ -17,6 +17,8 @@ FsusBlog v2 沿用 v1 的 Vue 组件接口，业务代码继续从 `@ozwasyd/ele
 
 V2 严格 `vue-tsc` 与生产构建均通过，默认 alias 直接打包了本轮从源码构建的资源，没有设置预构建目录覆盖。Chrome 在 1280×800 和 375×850 渲染实际 FsusUI `ElPublicShell`、点击真实 `ElButton`、切换主题，并验证 `ElMarkdownEditor` 编辑后 `ElMarkdownRenderer` 更新标题。两种尺寸均无控制台错误、构建覆盖层或横向溢出。该探针验证组件和资源；数据库闭环单列在 [Web 验证](web-validation.md)。
 
+[发布构建](../README.md)核对六个原生输入的源码指纹及摘要，并逐字节比较打包后的三份 Wasm。Vite 将检出的相邻位置解析为真实路径，允许通过指向同一 checkout 的符号链接执行隔离构建。
+
 重建命令，在相邻的 FsusUI 仓库运行（使用其锁定的 pnpm 10.33.0）：
 
 ```sh
