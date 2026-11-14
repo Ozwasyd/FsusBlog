@@ -25,3 +25,4 @@ echo 'AEDS native C++ frame checks passed'
 
 tools/protocol-wasm.sh "$work/aeds.wasm"
 node tests/Protocol/wasm-contract.mjs "$work/aeds.wasm"
+node tests/Protocol/frame-corpus.mjs "$work/aeds.wasm"
