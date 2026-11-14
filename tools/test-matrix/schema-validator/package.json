@@ -6,5 +6,10 @@
     "type": "module",
     "dependencies": {
         "ajv": "8.17.1"
+    },
+    "overrides": {
+        "ajv": {
+            "fast-uri": "3.1.9"
+        }
     }
 }
