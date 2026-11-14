@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/fixture-switch-evidence.mjs",
+                "tools/test-matrix/fixture-switch-scheduler-adapter.mjs",
+                "tools/test/check-fixture-matrix-governance.mjs",
+                "tools/test/fixture-matrix-governance.mjs"
+            ],
+            "reason": "Preserve registered tooling environment spellings and detect forbidden fixture profile environment inputs at the source scanner boundary; internal context, event and receipt fields retain camelCase naming. These modules do not introduce environment override or runtime mutation authority."
+        }
+    ]
+}
