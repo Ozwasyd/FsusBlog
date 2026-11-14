@@ -22,7 +22,7 @@
 
 **私有附件与旧治理。** PR #3559 的真实合并提交是 `8d42b2d5da3ace962299aafd3ac63d2a11134305`，只证明旧编译检查整合。PR #3585 的真实合并提交是 `11afa8b16de7ecfc7c0814c4d96898914c3632f9`，为生产拓扑源证据。#1782 已关闭为完成，固定 v1 票据仍使用统一空 404，C9 的候选状态、HEAD/取消和跨实例消费待决。#3052 的状态为关闭 issue，不能填写 #3053 L2 要求的精确合并 SHA。 [PR #3559 固定合并](https://github.com/Ozwasyd/FsusBlog/commit/8d42b2d5da3ace962299aafd3ac63d2a11134305) · [PR #3585 固定合并](https://github.com/Ozwasyd/FsusBlog/commit/11afa8b16de7ecfc7c0814c4d96898914c3632f9) · [#1782](https://github.com/Ozwasyd/FsusBlog/issues/1782) · [#3052](https://github.com/Ozwasyd/FsusBlog/issues/3052) · [#3053](https://github.com/Ozwasyd/FsusBlog/issues/3053) · [C9](conflicts.md)
 
-逐号核验只覆盖类型、状态及可取得的提交定位。P0 尚需复核冻结正文之外目标的完整条款和开放消费者的真实语义，将采用要求落实到 v2 模块、测试及预算。可用以下命令离线复算本次证据：
+逐号核验覆盖类型、状态及可取得的提交定位。后续已用 [开放议题语义核对](semantic-scope-review.md) 确认查询职责和保存视图执行归属，保留逐案实现与验证缺口。P0 尚需复核其他冻结正文之外的条款，将采用要求落实到 v2 模块、测试及预算。可用以下命令离线复算本次证据：
 
 ```sh
 python3 tools/issue-target-check.py

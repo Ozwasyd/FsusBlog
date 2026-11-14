@@ -32,7 +32,7 @@ sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
 #1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6051952411	2026-10-08T05:32:38Z	仅吸收教训	规模查询源码与真正原生数据库计划/索引验收分开，未运行不能视为容量结论。	R-1640-R1
 #1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053283046	2026-10-08T05:48:42Z	仅吸收教训	规模数据分布只消费完整实际 query case registry，测试必须记录适用和拒绝条件。	R-1640-R1
 #1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053326075	2026-10-08T05:51:59Z	仅吸收教训	旧可读取 case registry 未导出所需分布适用，不能从名称或通用函数推断对应规则。	R-1640-R1
-#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	2026-10-08T05:52:15Z	仅吸收教训	预期结果须来源于独立输入/算法并关联真实 production caller 与 provider，不能拿实际查询自证。	R-1640-R1 R-1734-R1
+#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	2026-10-08T05:52:15Z	仅吸收教训	L1、4–5 固定历史 6d7c648… 原 registry 与调度器，记录缺失 case metadata 和详情路由差异。合并保留独立 expected 必须关联真实产品生产者的验收；历史候选仍不授予完整验收。	R-1640-R1 R-1734-R1 R-2555-01 R-2561-01
 #1653	https://github.com/Ozwasyd/FsusBlog/issues/1653#issuecomment-5169838728	2026-08-03T17:47:24Z	合并采用	有界队列按安全审核、通知和后台工作等语义独立交付并排空，必要事件需持久并可重放。	R-1653-R1
 #1669	https://github.com/Ozwasyd/FsusBlog/issues/1669#issuecomment-6053371128	2026-10-08T05:55:12Z	旧工程限定，不适用	原调度器仍可 Fallback 到最近运行，旧文件修补边界独立。	R-1669-R1
 #1670	https://github.com/Ozwasyd/FsusBlog/issues/1670#issuecomment-6053371918	2026-10-08T05:55:16Z	仅吸收教训	旧跨源码复用默认通过不合验收语义，v2 正式报告应以当前候选独立运行。	R-1670-R1

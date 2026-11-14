@@ -37,7 +37,7 @@ sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
 #2556	https://github.com/Ozwasyd/FsusBlog/issues/2556#issuecomment-6053023149	2026-10-08T05:28:41Z	仅吸收教训	文章预期从规范图、分配和政策生成，不从被测数据库、Redis 或 AOT 查询反向编造。	P6 将独立 expected 与实际顺序、检索投影和可见性对账。
 #2556	https://github.com/Ozwasyd/FsusBlog/issues/2556#issuecomment-6053564702	2026-10-08T06:09:03Z	仅吸收教训	旧 schema 可用，但 mapped IDs 和整数组输出不证明稳定语义角色、完整坐标和规模。	P6 比较固定角色、搜索 token/source-range、流式规模以及权限语义。
 #2559	https://github.com/Ozwasyd/FsusBlog/issues/2559#issuecomment-6053023815	2026-10-08T05:28:44Z	仅吸收教训	评论预期独立派生并精确检查有序 ID、数目、游标、状态及权限。	P6 对包含、顺序错误、游标和越权结果分别设失败判定。
-#2561	https://github.com/Ozwasyd/FsusBlog/issues/2561#issuecomment-6053024742	2026-10-08T05:28:49Z	待决冲突	评论 runner 引用 #1619 与分配器实际职责不符，当前生成产物仍缺。	P0 裁决查询入口先决关系，P6 原样运行正式查询并比精确预期。
+#2561	https://github.com/Ozwasyd/FsusBlog/issues/2561#issuecomment-6053024742	2026-10-08T05:28:49Z	待决冲突	冻结评论明确 #1619 是 allocator；当前完整生成产物和 query owner 仍缺。	C13 已校正职责；P6 仍要以同一场景跑正式查询并比独立预期。
 #2563	https://github.com/Ozwasyd/FsusBlog/issues/2563#issuecomment-6053025401	2026-10-08T05:28:52Z	待决冲突	#2557/#2558 是缓存测试删减，#2560 是 MFA 测试删减，关闭状态没有提供预期生成器或撤旧证据。	P0 查明真实先决关系；实际查询覆盖成立后才结束历史用例替换。
 #2571	https://github.com/Ozwasyd/FsusBlog/issues/2571#issuecomment-6053256196	2026-10-08T05:46:37Z	仅吸收教训	固定五个 profile 的同进程顺序，用实际进程、数据库、缓存和清理边界绑定资源。历史 DATA_ONLY 测试是拒绝控制。	P6 真环境按明确顺序切换，验证隔离、回滚、清理及缺少证据拒绝。
 #2571	https://github.com/Ozwasyd/FsusBlog/issues/2571#issuecomment-6053308793	2026-10-08T05:50:42Z	旧工程限定，不适用	旧候选补充了命名与精确 SHA 关联，31 项控制不改变真实 provider 及上游权威缺口。	只作历史归档，实际当前 runtime 独立执行。
