@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -191,6 +192,14 @@ public sealed class CommentThreadFixtureRecoveryException(
 
 public interface ICommentThreadFixturePort
 {
+    Task<CommentFixtureMutationResult> ExecuteMutationAsync(
+        CommentFixtureMutationPlan plan,
+        CancellationToken cancellationToken = default);
+
+    Task<CommentFixtureDeliveryObservation> ObserveDeliveryAsync(
+        CommentFixtureMutationResult authority,
+        CancellationToken cancellationToken = default);
+
     Task<CommentThreadFixtureResult> ExecuteAsync(
         CommentThreadFixturePlan plan,
         CancellationToken cancellationToken = default);
@@ -214,7 +223,7 @@ public interface ICommentThreadFixturePort
 /// Test-only typed composition port. All mutations delegate to the production
 /// comment command and author-management services; the database is read only.
 /// </summary>
-public sealed class CommentThreadFixturePort(
+public sealed partial class CommentThreadFixturePort(
     ICommentEndpointService comments,
     ICommentAnonymousFixtureProvider anonymousComments,
     ICommentAnonymousFixtureCapabilityVault anonymousCapabilities,
@@ -224,7 +233,11 @@ public sealed class CommentThreadFixturePort(
     ICommentQueryService publicQueries,
     ICommentGovernanceService governance,
     CommentFixtureCacheProbe cacheProbe,
-    ISqlSugarClient db) : ICommentThreadFixturePort
+    ISqlSugarClient db,
+    IAuthoringModerationCommands moderationCommands,
+    TimeProvider timeProvider,
+    IAuthoringModerationQueue moderationQueue,
+    IMessageQueryService messageQueries) : ICommentThreadFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
     private const string ResultSchema = "fsusblog.comment-thread-fixture-result.v1";
@@ -829,7 +842,7 @@ public sealed class CommentThreadFixturePort(
                 throw new InvalidOperationException($"Comment role {role} has incomplete outbox evidence.");
             CommentModerationTimelineResult? timeline = await governance.ReadTimelineAsync(row.Id, cancellationToken)
                 .ConfigureAwait(false);
-            if (timeline is null || !timeline.Consistent || timeline.Events.Count == 0)
+            if (timeline is null || !CommentFixtureTimelineVerifier.IsConsistent(timeline, row.Id, row.ModerationStatus))
                 throw new InvalidOperationException(
                     $"Comment role {role} has incomplete moderation audit evidence (comment={row.Id}, events={timeline?.Events.Count.ToString(CultureInfo.InvariantCulture) ?? "null"}, consistent={timeline?.Consistent.ToString() ?? "null"}, projected={timeline?.ProjectedStatus.ToString() ?? "null"}, current={row.ModerationStatus}).");
             string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";
@@ -893,7 +906,9 @@ public sealed class CommentThreadFixturePort(
         string role,
         FixtureIdentity identity,
         Comment row,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? initialContent = null,
+        bool restoreCapabilityCustody = true)
     {
         string? custodySecret = anonymousCapabilities.TryGet(
             binding.Owner,
@@ -921,7 +936,8 @@ public sealed class CommentThreadFixturePort(
             row.IsDeleted,
             identity.OperationPlanDigest);
         if (!IsExactAnonymousOperationReference(reference, binding, expected)
-            || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(row.Content))
+            || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(initialContent ?? row.Content))
+            || !managementCapabilities.VerifyCapability(reference.ManagementSecret, row.ManagementCapabilityHash!)
             || reference.ParentId != row.ParentId?.ToString(CultureInfo.InvariantCulture)
             || (reference.RootId ?? reference.CommentId.ToString(CultureInfo.InvariantCulture))
                 != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
@@ -932,7 +948,7 @@ public sealed class CommentThreadFixturePort(
                 Encoding.UTF8.GetBytes(custodySecret),
                 Encoding.UTF8.GetBytes(reference.ManagementSecret)))
             throw new InvalidOperationException($"Anonymous comment role {role} has conflicting capability custody.");
-        if (custodySecret is null)
+        if (custodySecret is null && restoreCapabilityCustody)
             anonymousCapabilities.Store(binding.Owner, binding.TestSession, row.Id, reference.ManagementSecret);
     }
 
