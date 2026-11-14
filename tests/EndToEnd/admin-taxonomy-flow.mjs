@@ -7,7 +7,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAdminTaxonomyPage } from '../../src/Contracts/admin-taxonomy.ts'
 import {
   decodeDraft, decodeDraftTaxonomy, encodeArticleCommand, encodeArticleScheduleCommand, encodeTaxonomyAssignment,
-  FrameType, WireRoutes,
+  FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const run = promisify(execFile)
@@ -77,6 +77,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   assert(await scrollRegion.evaluate(element => element.scrollWidth > element.clientWidth), 'Narrow taxonomy tables must expose horizontal scrolling.')
   await panel.getByRole('heading', { name: 'Taxonomy usage', exact: true }).evaluate(heading => heading.scrollIntoView({ block: 'start' }))
   await page.screenshot({ path: join(evidence, 'administrator-taxonomy-mobile.png'), animations: 'disabled' })
+  if (process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
+    await editUnusedTag()
 
   await run(revoke, [], { timeout: 8_000 })
   await probe(tagEndpoint, adminCookieName, grantedCookie.value, 401)
@@ -101,6 +103,38 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     const row = panel.getByRole('table', { name: caption, exact: true }).getByRole('row').filter({ hasText: name })
     await row.getByRole('rowheader', { name, exact: true }).waitFor()
     assert.deepEqual(await row.getByRole('cell').allTextContents(), values)
+  }
+  async function editUnusedTag() {
+    const current = 'Taxonomy QA filler 3'
+    const renamed = 'Taxonomy renamed Café'
+    const state = WireRoutes.AdminTagMetadata.replace('{id:int}', '3')
+    const route = WireRoutes.TagMetadata.replace('{id:int}', '3')
+    const before = await context.request.get(siteOrigin.origin + route)
+    assert.equal(before.status(), 200)
+    const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
+    const generation = before.headers()[generationHeader]
+    assert(generation)
+    const authorization = await context.request.get(adminOrigin.origin + WireRoutes.AdminTagMetadataAvailability)
+    assert.equal(authorization.status(), 204)
+    await panel.getByLabel('Tag to edit').selectOption('3')
+    await panel.getByRole('button', { name: 'Edit selected tag', exact: true }).click()
+    const editor = panel.getByRole('region', { name: 'Edit tag metadata', exact: true })
+    const name = editor.getByLabel('Tag name', { exact: true })
+    await name.fill(renamed)
+    await editor.getByLabel('Tag description', { exact: true }).fill('Verified for an unused tag.')
+    const saved = page.waitForResponse(response => new URL(response.url()).pathname === state && response.request().method() === 'PUT')
+    await editor.getByRole('button', { name: 'Save tag metadata', exact: true }).click()
+    assert.equal((await saved).status(), 200)
+    await panel.getByText('Tag metadata saved.', { exact: true }).waitFor()
+    await assertRow('Tag usage', renamed, ['0', '0', '0', '0', '0', '0'])
+    const shorthand = await context.request.get(siteOrigin.origin + '/tag/' + encodeURIComponent(current) + '?page=2', { maxRedirects: 0 })
+    assert.equal(shorthand.status(), 301)
+    assert.equal(shorthand.headers().location, '/tag/3?page=2')
+    const html = await context.request.get(siteOrigin.origin + '/tag/3')
+    assert.equal(html.status(), 200)
+    assert.match(await html.text(), /Verified for an unused tag\./)
+    assert.notEqual(html.headers()[generationHeader], generation)
+    await page.screenshot({ path: join(evidence, 'administrator-tag-metadata-mobile.png'), animations: 'disabled' })
   }
 }
 

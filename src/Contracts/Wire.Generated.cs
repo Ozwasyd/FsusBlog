@@ -68,6 +68,8 @@ public enum FrameType : ushort
     AdminInboxPage = 32896,
     AdminInboxThread = 32897,
     AdminInboxNotice = 32942,
+    AdminTagMetadataCommand = 32944,
+    AdminTagMetadata = 32945,
     AdminModerationIntent = 32866,
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
@@ -170,6 +172,8 @@ public static class WireLimits
     public const int TaxonomyNameBytes = 512;
     public const int AdminTaxonomyPageSize = 24;
     public const int TaxonomyDescriptionBytes = 2000;
+    public const int AdminTagNameBytes = 128;
+    public const int AdminTagMetadataFrameBytes = 2180;
     public const int TaxonomyTagCount = 32;
     public const int AuthoringWorkspaceTabs = 100;
     public const int MaxAuthoringWorkspaceFrameBytes = 436;
@@ -533,6 +537,9 @@ public static class WireRoutes
     public const string AdminAppearanceApply = "/api/v2/admin/identity/appearance/apply.aeds";
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
+    public const string AdminTagMetadataAvailability = "/api/v2/admin/identity/taxonomy/tags/edit/available.aeds";
+    public const string AdminTagMetadata = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata.aeds";
+    public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";

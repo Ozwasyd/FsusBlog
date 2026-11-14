@@ -8,6 +8,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server;
@@ -23,6 +24,7 @@ internal sealed class PublicSnapshot
     internal long Generation { get; }
     internal string GenerationHeader { get; }
     internal long Watermark { get; }
+    internal long TaxonomyEpoch { get; }
     internal byte[] Home { get; }
     internal TaxonomyProjection Taxonomy { get; }
     internal RelatedReadingProjection RelatedReading { get; }
@@ -31,10 +33,12 @@ internal sealed class PublicSnapshot
     internal int CorpusPageCount => _corpus?.Count ?? 0;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
-        PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken)
+        PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
+        long taxonomyEpoch = 0)
     {
         Watermark = watermark;
-        Generation = PublicGeneration(articles);
+        TaxonomyEpoch = taxonomyEpoch;
+        Generation = PublicGeneration(articles, taxonomyEpoch);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
@@ -73,7 +77,7 @@ internal sealed class PublicSnapshot
         return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
     }
 
-    private static long PublicGeneration(IReadOnlyList<Article> articles)
+    private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> coordinates = stackalloc byte[20];
@@ -84,6 +88,12 @@ internal sealed class PublicSnapshot
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
             hash.AppendData(coordinates);
             TaxonomyProjection.AppendGeneration(hash, article);
+        }
+        if (taxonomyEpoch != 0)
+        {
+            hash.AppendData("taxonomy-epoch-v1"u8);
+            BinaryPrimitives.WriteInt64LittleEndian(coordinates, taxonomyEpoch);
+            hash.AppendData(coordinates[..sizeof(long)]);
         }
         return BinaryPrimitives.ReadInt64LittleEndian(hash.GetHashAndReset()) & long.MaxValue;
     }
@@ -106,6 +116,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private PublicSnapshot? _snapshot;
     private PublicSnapshot? _lastProjection;
+    private bool? _taxonomyEpochInstalled;
     internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : Volatile.Read(ref _snapshot);
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
@@ -190,11 +201,9 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct, System.Data.IsolationLevel.RepeatableRead);
-        long maxEvent;
-        await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')"))
-            maxEvent = (long)(await watermark.ExecuteScalarAsync(ct))!;
+        var (maxEvent, taxonomyEpoch) = await ReadWatermarks(connection, tx, ct);
         var next = Snapshot;
-        var rebuilt = next is null || next.Watermark != maxEvent;
+        var rebuilt = next is null || next.Watermark != maxEvent || next.TaxonomyEpoch != taxonomyEpoch;
         if (rebuilt)
         {
             var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
@@ -244,7 +253,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags, rights));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution, ct);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution, ct, taxonomyEpoch);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
@@ -253,6 +262,17 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         _lastProjection = next;
         Volatile.Write(ref _snapshot, next);
         evidence?.CountRefresh(rebuilt);
+    }
+
+    private async Task<(long Article, long Taxonomy)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        _taxonomyEpochInstalled ??= await CurrentSchema.HasAdminTagMetadataAsync(connection, tx, ct);
+        const string articles = "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')";
+        var sql = _taxonomyEpochInstalled.Value ? "select (" + articles + "),(select revision from public.taxonomy_epoch where singleton)" : articles;
+        await using var command = Store.Sql(connection, tx, sql);
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The public watermarks are missing.");
+        return (row.GetInt64(0), _taxonomyEpochInstalled.Value ? row.GetInt64(1) : 0);
     }
 }
 

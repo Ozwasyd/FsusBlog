@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -89,7 +89,7 @@ internal static partial class CurrentSchema
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
-            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation);
+            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -111,7 +111,7 @@ internal static partial class CurrentSchema
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null)
+        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null)
     {
         if (requireArticleMedia is null)
         {
@@ -163,6 +163,9 @@ internal static partial class CurrentSchema
         var hasSavedViewPlacement = await HasSavedViewPlacementAsync(connection, transaction, cancellationToken);
         if ((hasSavedViewPlacement && !hasSavedViews) || (requireSavedViewPlacement.HasValue && requireSavedViewPlacement.Value != hasSavedViewPlacement))
             throw new InvalidOperationException("The saved view placement schema presence does not match the requested operation.");
+        var hasAdminTagMetadata = await HasAdminTagMetadataAsync(connection, transaction, cancellationToken);
+        if (requireAdminTagMetadata.HasValue && requireAdminTagMetadata.Value != hasAdminTagMetadata)
+            throw new InvalidOperationException("The administrator tag metadata schema presence does not match the requested operation.");
         var hasAdminArticleRollback = await HasAdminArticleRollbackSchemaAsync(connection, transaction, cancellationToken);
         if (requireAdminArticleRollback.HasValue && requireAdminArticleRollback.Value != hasAdminArticleRollback)
             throw new InvalidOperationException("The administrator article rollback schema presence does not match the requested operation.");
@@ -187,6 +190,7 @@ internal static partial class CurrentSchema
             .Concat(hasAppearanceActivation ? AppearanceActivationColumns : [])
             .Concat(hasSavedViews ? SavedViewColumns : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
+            .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
@@ -212,6 +216,7 @@ internal static partial class CurrentSchema
             .Concat(hasAppearanceActivation ? AppearanceActivationConstraints : [])
             .Concat(hasSavedViews ? SavedViewConstraints : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
+            .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
@@ -299,6 +304,7 @@ internal static partial class CurrentSchema
         AssertShape("relation/column", expectedColumns, columns);
         AssertShape("constraint", expectedConstraints, constraints);
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
+        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
     }
 

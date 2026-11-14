@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
+import { nextTick, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminTaxonomy, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
+import { tagMetadataAvailable } from '../../../Contracts/admin-tag-metadata'
+import AdminTagMetadata from './AdminTagMetadata.vue'
 
 type TaxonomyKind = Parameters<typeof readAdminTaxonomy>[0]
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
@@ -12,6 +14,12 @@ const cursors = shallowRef<readonly (number | null)[]>([null])
 const pageNumber = ref(0)
 const pending = ref(false)
 const failure = ref<'forbidden' | 'request'>()
+const canEditTag = ref(false)
+const target = ref<number>()
+const edited = ref<number>()
+const notice = ref(false)
+const heading = ref<HTMLElement>()
+let opener: HTMLElement | undefined
 let request: AbortController | undefined
 
 function reset(next: TaxonomyKind) {
@@ -25,12 +33,19 @@ async function load(index: number) {
   const current = new AbortController()
   request = current
   page.value = undefined
+  edited.value = undefined
+  target.value = undefined
+  canEditTag.value = false
   failure.value = undefined
   pageNumber.value = index
   pending.value = true
   try {
     const data = await readAdminTaxonomy(kind.value, cursors.value[index] ?? null, current.signal)
     if (!current.signal.aborted) page.value = data
+    if (kind.value === 'tags' && data.items.length && !current.signal.aborted) {
+      const enabled = await tagMetadataAvailable(current.signal).catch(() => false)
+      if (!current.signal.aborted) canEditTag.value = enabled
+    }
   } catch (error) {
     if (current.signal.aborted) return
     if (error instanceof ApiError && error.status === 401) emit('session-lost', error)
@@ -41,6 +56,23 @@ async function load(index: number) {
       pending.value = false
     }
   }
+}
+
+function editTag(event: Event) {
+  edited.value = target.value
+  notice.value = false
+  opener = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+}
+
+async function closeTag(saved: boolean) {
+  edited.value = undefined
+  if (saved) {
+    notice.value = true
+    await load(pageNumber.value)
+  }
+  await nextTick()
+  if (opener?.isConnected) opener.focus()
+  else heading.value?.focus()
 }
 
 function next() {
@@ -54,7 +86,7 @@ onBeforeUnmount(() => request?.abort())
 
 <template>
   <section class="admin-taxonomy" aria-labelledby="admin-taxonomy-heading" :aria-busy="pending">
-    <h2 id="admin-taxonomy-heading">Taxonomy usage</h2>
+    <h2 id="admin-taxonomy-heading" ref="heading" tabindex="-1">Taxonomy usage</h2>
     <div class="taxonomy-actions" role="group" aria-label="Taxonomy type">
       <ElButton native-type="button" :type="kind === 'categories' ? 'primary' : undefined"
         v-bind="{ 'aria-pressed': kind === 'categories' }" @click="reset('categories')">Categories</ElButton>
@@ -67,6 +99,9 @@ onBeforeUnmount(() => request?.abort())
       <ElButton native-type="button" text @click="load(pageNumber)">Try again</ElButton>
     </ElAlert>
     <template v-else-if="page">
+      <p v-if="notice" role="status">Tag metadata saved.</p>
+      <AdminTagMetadata v-if="edited" :key="edited" :id="edited" @close="closeTag(false)" @saved="closeTag(true)"
+        @session-lost="emit('session-lost', $event)" />
       <ElEmptyState v-if="page.items.length === 0" :title="kind === 'categories' ? 'No categories found' : 'No tags found'" />
       <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" aria-label="Taxonomy usage table" aria-describedby="taxonomy-count-notes">
         <table>
@@ -94,6 +129,14 @@ onBeforeUnmount(() => request?.abort())
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="canEditTag" class="taxonomy-actions" role="group" aria-label="Edit tags on this page">
+        <label for="admin-tag-target">Tag to edit</label>
+        <select id="admin-tag-target" v-model="target">
+          <option :value="undefined" disabled>Choose a tag</option>
+          <option v-for="item in page.items" :key="item.id" :value="item.id">{{ item.name }}</option>
+        </select>
+        <ElButton native-type="button" text :disabled="!target || !!edited" @click="editTag">Edit selected tag</ElButton>
       </div>
       <p v-if="page.items.length" id="taxonomy-count-notes" class="taxonomy-notes">
         <span class="taxonomy-scroll-note">Scroll the table to see all counts. </span>

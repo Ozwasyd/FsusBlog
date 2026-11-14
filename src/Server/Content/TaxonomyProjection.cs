@@ -69,6 +69,7 @@ internal sealed class TaxonomyProjection
                     $"<li><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>"));
             var html = $"<main><h1>{name}</h1>{description}{(links.Length == 0 ? "<p>暂无文章</p>" : $"<ol>{links}</ol>")}</main>";
             var path = $"/{prefix}/{DistributionSettings.Number(item.Id)}";
-            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item), pages.Page(html, item.Name, publicPath: path), members[item.Id].Count());
+            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item),
+                pages.Page(html, item.Name, description: item.Description, publicPath: path), members[item.Id].Count());
         });
 }

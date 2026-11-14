@@ -116,6 +116,8 @@ internal static class AdminIdentityEndpoints
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);
+        if (app.Configuration.GetValue(AdminTagMetadataEndpoints.Setting, false))
+            AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
         if (app.Configuration.GetValue(AdminArticleRollbackEndpoints.Setting, false))
             AdminArticleRollbackEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         if (app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().EditorEnabled)
