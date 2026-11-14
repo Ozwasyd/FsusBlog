@@ -1,0 +1,5 @@
+sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
+https://github.com/Ozwasyd/FsusBlog/issues/2258	https://github.com/Ozwasyd/FsusBlog/issues/2258#issuecomment-6876422364	2026-11-14T11:13:06Z	旧工程限定，不适用	旧 locale type bridge 的源码保全，未授予真实切换、缓存或窄屏证据。 按明确标记及叙述范围核对；内嵌原始历史对象仅作回溯。	V2S-2258
+https://github.com/Ozwasyd/FsusBlog/issues/3521	https://github.com/Ozwasyd/FsusBlog/issues/3521#issuecomment-6876424644	2026-11-14T11:13:19Z	旧工程限定，不适用	旧 ledger conflict review 的准确 Git path/parent 保全，并非 v2 运行证据。 按明确标记及叙述范围核对；内嵌原始历史对象仅作回溯。	R-3521-01
+https://github.com/Ozwasyd/FsusBlog/issues/3549	https://github.com/Ozwasyd/FsusBlog/issues/3549#issuecomment-6876421208	2026-11-14T11:12:59Z	旧工程限定，不适用	code-intent 固定旧范围的 Git 来源与续作保全，运行和发布条件未变。 按明确标记及叙述范围核对；内嵌原始历史对象仅作回溯。	R-3549-01
+https://github.com/Ozwasyd/FsusBlog/issues/3652	https://github.com/Ozwasyd/FsusBlog/issues/3652#issuecomment-6876421866	2026-11-14T11:13:03Z	旧工程限定，不适用	原 protected SDK 执行能力的源码手交，未重新核验真实隔离或离线运行。 按明确标记及叙述范围核对；内嵌原始历史对象仅作回溯。	R-3652-01

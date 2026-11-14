@@ -1,0 +1,434 @@
+sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
+#1541	https://github.com/Ozwasyd/FsusBlog/issues/1541#issuecomment-5101679116	2026-07-28T08:17:58Z	仅吸收教训	旧 PublicAOT 就绪与 fixture 受阻。v2 首帧须经真实页面交互和服务端观察，内部 test hook 不算产品验收。	R-1541-R1
+#1541	https://github.com/Ozwasyd/FsusBlog/issues/1541#issuecomment-5170172758	2026-08-03T18:22:05Z	合并采用	拆分确认首响应、水合、资源和切换失败为同一业务验收矩阵，v1 runner 及父子执行顺序只用于追溯。	R-1541-R1
+#1541	https://github.com/Ozwasyd/FsusBlog/issues/1541#issuecomment-6051696578	2026-10-08T03:41:04Z	仅吸收教训	旧源组件和规则测试没有实际服务器观察。v2 保留真实首帧、网络、geometry 及失败用例。	R-1541-R1
+#1542	https://github.com/Ozwasyd/FsusBlog/issues/1542#issuecomment-5170209360	2026-08-03T18:26:02Z	合并采用	复确认七类状态与多表面业务不重取，OCR、截图单证据及本地存储恢复不足以通过行为验收。	R-1542-R1
+#1542	https://github.com/Ozwasyd/FsusBlog/issues/1542#issuecomment-6051698242	2026-10-08T03:41:14Z	仅吸收教训	旧 risk-rule 测试未运行五类场景，v2 需要真实浏览器字体、几何和状态观察。	R-1542-R1
+#1583	https://github.com/Ozwasyd/FsusBlog/issues/1583#issuecomment-5070643484	2026-07-24T13:56:57Z	采用	追加 #1584：十个已启用语言都须具备通过 schema 校验的术语表，并验收本地和交付术语一致性。	R-1583-C1
+#1583	https://github.com/Ozwasyd/FsusBlog/issues/1583#issuecomment-6051698364	2026-10-08T03:41:15Z	仅吸收教训	旧录得文案扫描告警，静态通过不替代端到端与 #1584 术语表；验收保留实际告警和缺项。	R-1583-C1
+#1583	https://github.com/Ozwasyd/FsusBlog/issues/1583#issuecomment-6052028189	2026-10-08T04:10:53Z	仅吸收教训	中文文案替换补丁仍留历史文案和 glossary 缺口，原始内容与译文资源要分开验收。	R-1583-C1
+#1590	https://github.com/Ozwasyd/FsusBlog/issues/1590#issuecomment-5082520066	2026-07-26T07:21:18Z	旧工程限定，不适用	快照含编码缺损。可辨认为 v1 Dockerfile/Wasm builder Node 工具链修理，余文含义未验。	R-1590-R1
+#1590	https://github.com/Ozwasyd/FsusBlog/issues/1590#issuecomment-5138610491	2026-07-31T02:37:45Z	仅吸收教训	历史可靠性组终态未资格化，分类到达阶段的证据不等于已通过各成员场景。	R-1590-R1
+#1591	https://github.com/Ozwasyd/FsusBlog/issues/1591#issuecomment-5138610560	2026-07-31T02:37:46Z	仅吸收教训	旧批次证据在关键条目失败后不能获得 qualified，不能将局部成功重签为整体结论。	R-1591-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-5096282362	2026-07-27T20:10:39Z	仅吸收教训	旧部分落地了业务和墙钟来源清单，完整生产和数据库时间验证仍单列。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-5107670485	2026-07-28T17:43:58Z	旧工程限定，不适用	历史候选曾独审与测试通过，随后的实际时钟归属变化使旧结果不可沿用。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-5780159964	2026-09-22T16:29:45Z	仅吸收教训	当前代码新增 16 处未登记时间读取导致旧资格重开。v2 业务时钟与测量时钟要在实际调用处持续核对。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-5995134208	2026-10-05T13:10:55Z	合并采用	实际业务 TimeProvider 与精确 UTC 时间作为观察源，回放拒绝用旧或替换的时间身份冒充。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-6008507762	2026-10-06T03:07:02Z	旧工程限定，不适用	旧时钟 source 合并候选精确树与原 controls，当前未验收。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-6017736280	2026-10-06T13:51:13Z	旧工程限定，不适用	v1 时间源码 WIP 进入主干，仍需真实 provider/runtime 的时区语义检查。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-6051953165	2026-10-08T04:04:21Z	仅吸收教训	真实 compiler/SQLite 前置整合后仍须证明完整时钟注入和实际时区；锁文件与旧局部复验不是当前业务结果。	R-1601-R1
+#1601	https://github.com/Ozwasyd/FsusBlog/issues/1601#issuecomment-6053182583	2026-10-08T05:51:14Z	仅吸收教训	调度入口、规模 ID 和 teardown 的源代码改动分开，v2 对业务 clock 行为运行验收。	R-1601-R1
+#1605	https://github.com/Ozwasyd/FsusBlog/issues/1605#issuecomment-5169753966	2026-08-03T17:38:55Z	旧工程限定，不适用	v1 对 semantic outcome/fingerprint 的子工作拆分，旧 collector 和发布口径不复制。	R-1605-R1
+#1605	https://github.com/Ozwasyd/FsusBlog/issues/1605#issuecomment-6053371779	2026-10-08T05:55:15Z	仅吸收教训	旧领域 material 不等于真实 producer 观测，须保留实际退出、运行与各领域缺项。	R-1605-R1
+#1606	https://github.com/Ozwasyd/FsusBlog/issues/1606#issuecomment-5169775767	2026-08-03T17:41:09Z	旧工程限定，不适用	旧 candidate identity 和 append-only ledger 子链，资格编排由不同 owner 负责。	R-1606-R1
+#1606	https://github.com/Ozwasyd/FsusBlog/issues/1606#issuecomment-6053354993	2026-10-08T05:53:59Z	仅吸收教训	候选内容及各次运行保留实际身份和账本，未覆盖的实体/环境身份不能从 SHA 推出。	R-1606-R1
+#1607	https://github.com/Ozwasyd/FsusBlog/issues/1607#issuecomment-5169803472	2026-08-03T17:44:01Z	旧工程限定，不适用	原三轮发布资格 DAG 与 GitHub 凭证门禁限定 v1。	R-1607-R1
+#1607	https://github.com/Ozwasyd/FsusBlog/issues/1607#issuecomment-6053141012	2026-10-08T05:37:42Z	旧工程限定，不适用	旧三轮策略和资源计划部分源码 work in progress，未取得真实运行。	R-1607-R1
+#1607	https://github.com/Ozwasyd/FsusBlog/issues/1607#issuecomment-6053286553	2026-10-08T05:48:58Z	旧工程限定，不适用	旧真实身份 verifier 接入后的可用范围更新，不宣称三轮已验收。	R-1607-R1
+#1610	https://github.com/Ozwasyd/FsusBlog/issues/1610#issuecomment-5135281539	2026-07-30T19:21:18Z	仅吸收教训	旧取消与进程树本地结果仅限已运行平台，v2 对资源归属、后代终止和未测平台明示。	R-1610-R1
+#1619	https://github.com/Ozwasyd/FsusBlog/issues/1619#issuecomment-6053182975	2026-10-08T05:51:16Z	合并采用	规模标识与生产算法一致，固定时钟和唯一运行坐标。真正服务端组装和碰撞负向在 v2 实测。	R-1619-R1
+#1620	https://github.com/Ozwasyd/FsusBlog/issues/1620#issuecomment-6053183546	2026-10-08T05:51:18Z	合并采用	清理按本次 exact owned 标识与真实后置观察，父进程完成不等于子进程、数据或文件全部清除。	R-1620-R1
+#1624	https://github.com/Ozwasyd/FsusBlog/issues/1624#issuecomment-6053355420	2026-10-08T05:54:01Z	仅吸收教训	候选绑定实际内容与支持的本地源码 alias；历史工作树元数据不足以复核真实输入。	R-1624-R1
+#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6051952411	2026-10-08T05:32:38Z	仅吸收教训	规模查询源码与真正原生数据库计划/索引验收分开，未运行不能视为容量结论。	R-1640-R1
+#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053283046	2026-10-08T05:48:42Z	仅吸收教训	规模数据分布只消费完整实际 query case registry，测试必须记录适用和拒绝条件。	R-1640-R1
+#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053326075	2026-10-08T05:51:59Z	仅吸收教训	旧可读取 case registry 未导出所需分布适用，不能从名称或通用函数推断对应规则。	R-1640-R1
+#1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	2026-10-08T05:52:15Z	仅吸收教训	预期结果须来源于独立输入/算法并关联真实 production caller 与 provider，不能拿实际查询自证。	R-1640-R1 R-1734-R1
+#1653	https://github.com/Ozwasyd/FsusBlog/issues/1653#issuecomment-5169838728	2026-08-03T17:47:24Z	合并采用	有界队列按安全审核、通知和后台工作等语义独立交付并排空，必要事件需持久并可重放。	R-1653-R1
+#1669	https://github.com/Ozwasyd/FsusBlog/issues/1669#issuecomment-6053371128	2026-10-08T05:55:12Z	旧工程限定，不适用	原调度器仍可 Fallback 到最近运行，旧文件修补边界独立。	R-1669-R1
+#1670	https://github.com/Ozwasyd/FsusBlog/issues/1670#issuecomment-6053371918	2026-10-08T05:55:16Z	仅吸收教训	旧跨源码复用默认通过不合验收语义，v2 正式报告应以当前候选独立运行。	R-1670-R1
+#1671	https://github.com/Ozwasyd/FsusBlog/issues/1671#issuecomment-6053372939	2026-10-08T05:55:20Z	旧工程限定，不适用	旧依赖闭包函数只完成部分 verifier，不赋予原调度器恢复资格。	R-1671-R1
+#1672	https://github.com/Ozwasyd/FsusBlog/issues/1672#issuecomment-6053373917	2026-10-08T05:55:25Z	旧工程限定，不适用	旧可变 checkpoint 与 content address store 的权威切换问题。	R-1672-R1
+#1679	https://github.com/Ozwasyd/FsusBlog/issues/1679#issuecomment-6051366097	2026-10-08T03:09:17Z	仅吸收教训	真实 readiness 必须绑定当前 listener/context 和业务内容；旧探针和 API 核查尚未满足。	R-1679-R1
+#1679	https://github.com/Ozwasyd/FsusBlog/issues/1679#issuecomment-6052176380	2026-10-08T04:23:34Z	仅吸收教训	旧组件 readiness 源码与真实服务进程/数据库握手的资格分离。	R-1679-R1
+#1679	https://github.com/Ozwasyd/FsusBlog/issues/1679#issuecomment-6052994692	2026-10-08T05:26:24Z	仅吸收教训	当前实例身份和真实业务 canary 均须实测，原 draft 不能代表整体前置。	R-1679-R1
+#1683	https://github.com/Ozwasyd/FsusBlog/issues/1683#issuecomment-5169970435	2026-08-03T18:00:49Z	合并采用	静止判断和测量消费者都复用唯一 observation authority，明确每域 high watermark 和 pending/in-flight。	R-1683-R1
+#1686	https://github.com/Ozwasyd/FsusBlog/issues/1686#issuecomment-6052498627	2026-10-08T04:49:09Z	旧工程限定，不适用	旧有限解析/API 冲突由原工具所有者处理，测试绑定原候选不改写。	R-1686-R1
+#1686	https://github.com/Ozwasyd/FsusBlog/issues/1686#issuecomment-6052955778	2026-10-08T05:23:22Z	旧工程限定，不适用	旧有限解析器开发能力和来源交接。	R-1686-R1
+#1686	https://github.com/Ozwasyd/FsusBlog/issues/1686#issuecomment-6053126398	2026-10-08T05:36:33Z	旧工程限定，不适用	旧有限解析器当前通过局部验证，父范围验收仍缺。	R-1686-R1
+#1686	https://github.com/Ozwasyd/FsusBlog/issues/1686#issuecomment-6051386505	2026-10-08T05:54:07Z	旧工程限定，不适用	旧 catalog 投影和候选源交付，不改变产品验证规则。	R-1686-R1
+#1688	https://github.com/Ozwasyd/FsusBlog/issues/1688#issuecomment-6052390478	2026-10-08T04:40:38Z	旧工程限定，不适用	旧授权范围只提供 #3665 最小编译支持，未覆盖场景真实 reset。	R-1688-R1
+#1688	https://github.com/Ozwasyd/FsusBlog/issues/1688#issuecomment-6051992288	2026-10-08T05:24:07Z	仅吸收教训	性能前置真实读取 DB schema、关系、内容与 sequence，缓存清理仅限确权对象。	R-1688-R1
+#1693	https://github.com/Ozwasyd/FsusBlog/issues/1693#issuecomment-5169443577	2026-08-03T17:09:04Z	旧工程限定，不适用	旧正确性证据 terminal/candidate 的固定两阶段子任务，不进入 v2 业务。	R-1693-R1
+#1693	https://github.com/Ozwasyd/FsusBlog/issues/1693#issuecomment-6053375116	2026-10-08T05:55:30Z	仅吸收教训	原两阶段证据源码需要真实终态集成，当前一份中间记录不能误判最终通过。	R-1693-R1
+#1715	https://github.com/Ozwasyd/FsusBlog/issues/1715#issuecomment-5170617538	2026-08-03T19:08:25Z	合并采用	确认评论线程、审核、地区信号、证据和私有派生的独立场景，不能只涵盖一个 actor。	R-1715-R1 R-1725-R1
+#1715	https://github.com/Ozwasyd/FsusBlog/issues/1715#issuecomment-6051770844	2026-10-08T03:48:24Z	仅吸收教训	旧评论 fixture 部分测试失败，既有 child closed 不等于真实评论合同通过。	R-1715-R1
+#1715	https://github.com/Ozwasyd/FsusBlog/issues/1715#issuecomment-6052127365	2026-10-08T04:19:20Z	仅吸收教训	真实编译和评论测试恢复仍缺部分 scene / 能力绑定，生产权限、审核和通知 E2E 保留。	R-1715-R1
+#1719	https://github.com/Ozwasyd/FsusBlog/issues/1719#issuecomment-5169883669	2026-08-03T17:51:53Z	仅吸收教训	各域真实 fixture 及私密消费者需确认 capability/role，旧 reader 切换计划只作来源。	R-1719-R1
+#1720	https://github.com/Ozwasyd/FsusBlog/issues/1720#issuecomment-5169910353	2026-08-03T17:54:42Z	仅吸收教训	正式验证显式记录数据前置与当前运行，旧复杂 matrix DAG 不作为新产品要求。	R-1720-R1
+#1724	https://github.com/Ozwasyd/FsusBlog/issues/1724#issuecomment-5170692036	2026-08-03T19:15:54Z	合并采用	文章真实写者、状态变化及 outbox 跨投影都纳入验收，选用实际生产等价文章。	R-1724-R1
+#1725	https://github.com/Ozwasyd/FsusBlog/issues/1725#issuecomment-5170710045	2026-08-03T19:17:43Z	合并采用	评论从创建到编辑、审核、举报、申诉及通知，经同一真实作者权限和事件链。	R-1725-R1 R-2178-R1
+#1725	https://github.com/Ozwasyd/FsusBlog/issues/1725#issuecomment-6053411689	2026-10-08T05:58:11Z	仅吸收教训	旧评论纯规划供规模准备，不代表真实生产交易或后台/通知投影验收。	R-1725-R1
+#1726	https://github.com/Ozwasyd/FsusBlog/issues/1726#issuecomment-5170731699	2026-08-03T19:19:52Z	合并采用	认证正向/旁路/旧迁移明确区分，真 Passkey/TOTP/Recovery/step-up 与会话语义保留。	R-1726-R1
+#1728	https://github.com/Ozwasyd/FsusBlog/issues/1728#issuecomment-5174835861	2026-08-04T05:05:32Z	合并采用	内容样本规则覆盖 Unicode 字符和 bytes 边界，实际 Markdown/搜索结果核对。	R-1728-R1
+#1728	https://github.com/Ozwasyd/FsusBlog/issues/1728#issuecomment-6052688103	2026-10-08T05:03:51Z	仅吸收教训	旧内容 field projection 候选非实际 AEDS、AOT 或本地化展示资格。	R-1728-R1
+#1729	https://github.com/Ozwasyd/FsusBlog/issues/1729#issuecomment-5174859181	2026-08-04T05:09:15Z	合并采用	媒体 QA 用真实 codec/字节和图片形状，故障样本分类，覆盖生产流中的 AssetId 及元信息。	R-1729-R1
+#1730	https://github.com/Ozwasyd/FsusBlog/issues/1730#issuecomment-5174887806	2026-08-04T05:13:30Z	合并采用	业务时间合同覆盖角色、时区、文章、评论、token 等时间关系，而非只固定整机时钟。	R-1730-R1
+#1731	https://github.com/Ozwasyd/FsusBlog/issues/1731#issuecomment-5174912732	2026-08-04T05:17:06Z	合并采用	规模文章图、状态和数据库真实性、读回与生产语义等价均取证。	R-1731-R1
+#1731	https://github.com/Ozwasyd/FsusBlog/issues/1731#issuecomment-6052966310	2026-10-08T05:24:09Z	仅吸收教训	真实 article projection transport 组件完整并不证明整个数据库 provider 实际写入、读回和等价。	R-1731-R1
+#1732	https://github.com/Ozwasyd/FsusBlog/issues/1732#issuecomment-5174939844	2026-08-04T05:20:32Z	合并采用	评论规模图保留线程、分布、审核和隐私，统一生产定义。	R-1732-R1
+#1732	https://github.com/Ozwasyd/FsusBlog/issues/1732#issuecomment-6052967159	2026-10-08T05:24:13Z	仅吸收教训	仍须从真实限深、限回复、角色、隐私和实际审核来源生成规模图。	R-1732-R1
+#1733	https://github.com/Ozwasyd/FsusBlog/issues/1733#issuecomment-5174988733	2026-08-04T05:26:52Z	合并采用	数据分布、确定化 assignment、真实统计和 query case 准入同一来源。	R-1733-R1
+#1733	https://github.com/Ozwasyd/FsusBlog/issues/1733#issuecomment-6052968099	2026-10-08T05:24:17Z	仅吸收教训	旧分布验收尚缺多类内容/媒体/时间与当前实际 query scope，不用固定标题或随机行伪造。	R-1733-R1
+#1734	https://github.com/Ozwasyd/FsusBlog/issues/1734#issuecomment-5175012617	2026-08-04T05:30:37Z	待决冲突	拆分留言的 generated-query 范围和引用与当前 #1734 正文不一致，子任务归属需核。	R-1734-R1
+#1734	https://github.com/Ozwasyd/FsusBlog/issues/1734#issuecomment-6052968921	2026-10-08T05:24:21Z	待决冲突	#1734 正文是夹具质量消费者规则，拆分留言却引用不同主题的 #2557/#2558/#2560；#1619 也不是 query runner。用真实生产查询和独立预期来源重新核归属。	R-1734-R1 R-1640-R1
+#1735	https://github.com/Ozwasyd/FsusBlog/issues/1735#issuecomment-5175059836	2026-08-04T05:38:13Z	仅吸收教训	同一实例上的夹具切换须真实记录状态差异与精确恢复；v1 固定 mutation DAG 留在旧工程。	R-1735-R1
+#1758	https://github.com/Ozwasyd/FsusBlog/issues/1758#issuecomment-5173968172	2026-08-04T02:38:08Z	仅吸收教训	发布检查按真实 route、AOT、browser、cache、session 结果关联；具体旧 DAG 层次不复制。	R-1758-R1
+#1758	https://github.com/Ozwasyd/FsusBlog/issues/1758#issuecomment-5769900043	2026-09-22T01:23:11Z	仅吸收教训	旧定向测试与已关闭子票无法覆盖完整当前业务证据，保持当前真实验收。	R-1758-R1
+#1758	https://github.com/Ozwasyd/FsusBlog/issues/1758#issuecomment-6051632962	2026-10-08T03:34:55Z	仅吸收教训	旧拒绝 early-spawn 与历史 owner 证据的源码测试只验证工具。	R-1758-R1
+#1758	https://github.com/Ozwasyd/FsusBlog/issues/1758#issuecomment-6052112862	2026-10-08T04:18:05Z	旧工程限定，不适用	旧语义证据提议的 WIP 集成候选、未给完整产品结果。	R-1758-R1
+#1758	https://github.com/Ozwasyd/FsusBlog/issues/1758#issuecomment-6053296251	2026-10-08T05:49:44Z	仅吸收教训	当前实际合入源码与 native observation 缺项须分别记录，不把前置存在当业务通过。	R-1758-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5450245465	2026-08-28T08:27:31Z	旧工程限定，不适用	旧 PR 的历史关闭记录。当前 OPEN 和新的验收缺项独立。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5451247445	2026-08-28T10:09:22Z	仅吸收教训	旧流程重开时发现发布要求与实际 post-runtime evidence 不齐；当前 v2 验收不能依赖历史合并。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5994526146	2026-10-05T12:33:28Z	旧工程限定，不适用	旧扫描器提案源码已由实际 owner 吸收的来源交接。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5995002784	2026-10-05T13:03:11Z	旧工程限定，不适用	旧治理扫描器控制源码整合 WIP，非产品输入。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5995034659	2026-10-05T13:05:03Z	旧工程限定，不适用	旧扫描器 proposal 退出，原源码 owner 已实际合并。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-5995395047	2026-10-05T13:25:45Z	仅吸收教训	协议公开状态的实现、独立 OpenAPI 观测和文档必须一致，旧 43 文件源码合入不代表对外兼容接受。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-6051532504	2026-10-08T03:25:05Z	仅吸收教训	旧候选真实验证结果按首因和终态分别保留，不能用整链 WIP 替代业务证据。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-6051737451	2026-10-08T03:45:07Z	仅吸收教训	旧 TS AST 来源和重复声明边界的局部能力只作证据，实际消费者仍要验证。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-6052342914	2026-10-08T04:36:38Z	旧工程限定，不适用	旧治理与证据链候选交接仍 OPEN，不改变产品需求。	R-1759-R1
+#1759	https://github.com/Ozwasyd/FsusBlog/issues/1759#issuecomment-6052829795	2026-10-08T05:14:47Z	仅吸收教训	缺真实 post-runtime receipt 的旧最终验证明确拒绝，真实配置/构建/业务结果为 v2 必备。	R-1759-R1
+#1760	https://github.com/Ozwasyd/FsusBlog/issues/1760#issuecomment-5099824712	2026-07-28T04:08:03Z	仅吸收教训	模型 schema 和运行映射不等价使旧冷启动测试拒绝。v2 需单一 schema 准入并针对真实目标数据库证明等价。	R-1760-R1
+#1760	https://github.com/Ozwasyd/FsusBlog/issues/1760#issuecomment-5173993821	2026-08-04T02:42:36Z	合并采用	确认四项旧拆分，v2 保留 current schema 权威、隔离迁移项目、Server 无迁移依赖及真实 provider 验证。	R-1760-R1 R-2214-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5100212959	2026-07-28T05:09:59Z	旧工程限定，不适用	旧 #1761 重新执行条件是 #1760 schema 权威等价。旧阻塞不是 v2 产品运行许可。	R-1760-R1 R-2215-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5174009203	2026-08-04T02:45:16Z	合并采用	确认 v2 离线计划、三 provider apply、校验与准入，以及仅未激活回退、已验证备份恢复和前向修复。	R-2215-R1 R-2216-R1 R-2217-R1 R-2218-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5994148580	2026-10-05T12:09:30Z	旧工程限定，不适用	旧迁移来源合并 WIP，没有真实 provider/数据库结论。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5998694148	2026-10-05T16:30:59Z	旧工程限定，不适用	原生迁移功能的 draft 源码和编译门槛，历史候选结果仅供追溯。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5998925047	2026-10-05T16:45:07Z	仅吸收教训	历史 SQLite 真实验证揭示 schema catalog 不等价。v2 目标 schema 要以真实 provider 观察验证，静态输出不足。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-5999181540	2026-10-05T17:08:53Z	旧工程限定，不适用	旧原生迁移编译接口适配续交，未改变迁移产品语义。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6016141350	2026-10-06T12:23:11Z	旧工程限定，不适用	旧 PR #3706 源码合并及保全证据。provider 原生验收仍待完成。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6017193359	2026-10-06T13:21:30Z	仅吸收教训	SQLite catalog 修复合并与本轮数据库资格分开。v2 仍须数据库、迁移及恢复取证。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6038515253	2026-10-07T13:04:08Z	旧工程限定，不适用	旧原始代码合并和 93 项 SOURCE 静态控制，保留原生验证缺项。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6039414363	2026-10-07T13:51:47Z	旧工程限定，不适用	旧维护候选源与 master 等价只证明历史整合，不证明 v2。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6040370876	2026-10-07T14:41:59Z	仅吸收教训	旧 nonarticle 恢复控制静态交付，v2 仍实测非文章数据回滚及原生事务。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6040796714	2026-10-07T15:04:08Z	旧工程限定，不适用	历史分支源码所有权保全与条件映射，native 资格未取得。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6041027773	2026-10-07T15:24:33Z	旧工程限定，不适用	旧 #457 source 交接。评论引用的 #225/#226 兼容决策未在 v2 结案。	R-1761-R1
+#1761	https://github.com/Ozwasyd/FsusBlog/issues/1761#issuecomment-6041030228	2026-10-07T15:24:41Z	旧工程限定，不适用	旧 #454 source 交接与旧分支保全。独有备份提交不代表验收或生产备份。	R-1761-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5174027163	2026-08-04T02:48:29Z	合并采用	确认 legacy reader、本地媒体库存、保全图、恢复和逐文章语义证据对应各独立责任。	R-1762-R1 R-2219-R1 R-2220-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5996720388	2026-10-05T14:38:57Z	仅吸收教训	哈希/状态/写入权威应复用核心语义。v1 Shared 82 路径搬移及历史合并不复制。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5996863436	2026-10-05T14:46:48Z	旧工程限定，不适用	旧 SDK 产生的 v1 Migration/Shared lock 及 restore 证据不证明 v2 的离线恢复。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5996963784	2026-10-05T14:52:22Z	仅吸收教训	旧候选最终汇报纠正了源码合入与已运行检查的混算，v2 保留准确的候选和终态身份。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5998694399	2026-10-05T16:31:00Z	旧工程限定，不适用	旧原生迁移编译来源补丁候选，并非文章数据保全验收。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5999181959	2026-10-05T17:08:54Z	旧工程限定，不适用	旧原生迁移编译适配续交，无新增产品约束。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-5999183360	2026-10-05T17:08:57Z	仅吸收教训	旧 MySQL 清理交接的真实 provider 缺口，v2 的 MySQL 路径仍要以实际 DB 测试证明等价。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6008504448	2026-10-06T03:06:44Z	旧工程限定，不适用	旧迁移 native 源码 / provider 保全 PR，完整语义验证未做。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6016141755	2026-10-06T12:23:12Z	旧工程限定，不适用	旧 #3706 source 正常合入，历史合并记录与当前产品证据各自保留。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6016143177	2026-10-06T12:23:17Z	旧工程限定，不适用	旧 #3713 MySQL 清理 source 合并，不替代实际迁移与清理。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6017465136	2026-10-06T13:36:27Z	旧工程限定，不适用	旧 #3748 native source 局部整合，资格场景不随历史子任务完成。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6020440393	2026-10-06T16:11:32Z	旧工程限定，不适用	旧 #3787 MySQL 五文件合入，保留所有实际 provider 验收未完成。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6038515877	2026-10-07T13:04:10Z	旧工程限定，不适用	旧 provider 源码合并及局部验证，尚不能验证 v2 文章图。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6039415002	2026-10-07T13:51:49Z	旧工程限定，不适用	旧原始源码第二次合并与 SOURCE 结果，非真实 v2 provider 证据。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6040371589	2026-10-07T14:42:01Z	仅吸收教训	旧文章恢复单元 SOURCE 交接，v2 用真实 provider 证明文章关系与 checksum 在回滚后复原。	R-1762-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6053457225	2026-10-08T06:01:31Z	仅吸收教训	媒体聚焦测试与 wider journal 的失败须保留。v2 对 MIME、范围、媒体与数据库原生事务联合验收。	R-2220-R1
+#1762	https://github.com/Ozwasyd/FsusBlog/issues/1762#issuecomment-6053557961	2026-10-08T06:08:33Z	合并采用	明确媒体保全须验证 HTML 属性与 srcset 原始范围、CRLF、引用、AssetId/MIME 和文件/DB 恢复。	R-2220-R1
+#1763	https://github.com/Ozwasyd/FsusBlog/issues/1763#issuecomment-5174043085	2026-08-04T02:51:07Z	合并采用	单一当前版本清单、原子激活、不可变发布资产和存储清理依赖当轮真实证据。	R-1763-R1
+#1763	https://github.com/Ozwasyd/FsusBlog/issues/1763#issuecomment-6053412723	2026-10-08T05:58:16Z	仅吸收教训	旧资源 source 及隐私 controls 通过不证明真实 SW、GC、备份恢复或主版本激活。	R-1763-R1
+#1764	https://github.com/Ozwasyd/FsusBlog/issues/1764#issuecomment-5100256272	2026-07-28T05:17:10Z	旧工程限定，不适用	#1764 的旧迁移权威阻塞记录没有批准外部旧布局退役。列表兼容性冲突保持。	R-1764-R1
+#1765	https://github.com/Ozwasyd/FsusBlog/issues/1765#issuecomment-5100256563	2026-07-28T05:17:13Z	旧工程限定，不适用	#1765 的旧迁移权威阻塞记录未改变无 magic / v3 搜索布局的冲突。	R-1765-R1
+#1767	https://github.com/Ozwasyd/FsusBlog/issues/1767#issuecomment-5100256937	2026-07-28T05:17:17Z	旧工程限定，不适用	旧 #1767 等待迁移程序集权威，与 packed 评论策略新合同的取证分开。	R-1767-R1
+#1768	https://github.com/Ozwasyd/FsusBlog/issues/1768#issuecomment-5100257188	2026-07-28T05:17:19Z	旧工程限定，不适用	旧 #1768 等待迁移程序集权威，没有放宽评论回复目标由服务端推导。	R-1768-R1
+#1770	https://github.com/Ozwasyd/FsusBlog/issues/1770#issuecomment-6051646947	2026-10-08T03:36:13Z	合并采用	澄清普通账号历史角色迁移不可把旧 role=admin 当作实际提权；typed MFA proof 绑定账户、会话、动作。	R-1770-R1
+#1770	https://github.com/Ozwasyd/FsusBlog/issues/1770#issuecomment-6051946850	2026-10-08T04:03:48Z	仅吸收教训	旧编译通过仍有权限合同和 provider 资格缺口。v2 验收实际普通/管理员授权、Passkey 和 MFA 失败。	R-1770-R1
+#1771	https://github.com/Ozwasyd/FsusBlog/issues/1771#issuecomment-6051647096	2026-10-08T03:36:14Z	合并采用	MFA 会话保留原凭据和 auth_time，离线撤销旧 admin/user session、refresh family 并校验旧凭据拒绝且无副作用。	R-1771-R1
+#1771	https://github.com/Ozwasyd/FsusBlog/issues/1771#issuecomment-6051947014	2026-10-08T04:03:49Z	仅吸收教训	旧编译通过未覆盖 JWT 拒绝、Cookie 清除、刷新副作用和性能。v2 留真实负向用例。	R-1771-R1
+#1772	https://github.com/Ozwasyd/FsusBlog/issues/1772#issuecomment-5100257557	2026-07-28T05:17:23Z	旧工程限定，不适用	旧风险策略修补受旧 schema DAG 阻塞。当前策略规则与 PoW 验收不变。	R-1772-R1
+#1773	https://github.com/Ozwasyd/FsusBlog/issues/1773#issuecomment-5100210097	2026-07-28T05:09:31Z	旧工程限定，不适用	旧手工二进制 route 淘汰受旧迁移权威阻塞，不改变 v2 统一 descriptor 目标。	R-1773-R1
+#1776	https://github.com/Ozwasyd/FsusBlog/issues/1776#issuecomment-6173044259	2026-10-14T16:23:36Z	合并采用	消息原始管理员会话字段的离线验证先检查两类数据存在性再事务变更，日志不得复制值。	R-1776-R1
+#1776	https://github.com/Ozwasyd/FsusBlog/issues/1776#issuecomment-6174418462	2026-10-14T17:35:08Z	合并采用	验证消息旧数据检查与迁移处在同一实际锁和事务，并证明视图不暴露旧字段；局部 preflight 不代表物理退役。	R-1776-R1
+#1779	https://github.com/Ozwasyd/FsusBlog/issues/1779#issuecomment-5100209847	2026-07-28T05:09:28Z	待决冲突	旧 Expand、双写、Backfill、Contract 政策与单向离线资产切换冲突。v2 计划明确选择离线，仍需被支持旧输入的备份、完整库存及恢复试验。	R-1761-R1 R-1779-R1
+#1779	https://github.com/Ozwasyd/FsusBlog/issues/1779#issuecomment-5169477763	2026-08-03T17:12:43Z	合并采用	保留唯一账本、AssetId 清理、资产库投影和一次性离线切换。v1 中具体 PR 排队与部署许可仅为旧范围。	R-1779-R1
+#1779	https://github.com/Ozwasyd/FsusBlog/issues/1779#issuecomment-6051706664	2026-10-08T03:42:02Z	合并采用	URL 只投影存储键，不能证明资产身份或登记，真实 PostgreSQL 与文件场景验证上传重试与文章同事务引用。	R-1779-R1 R-2077-R1
+#1779	https://github.com/Ozwasyd/FsusBlog/issues/1779#issuecomment-6052927214	2026-10-08T05:21:14Z	合并采用	Vault 资产读、上传和账本回执均由真实授权协调。固定 plan/operation/AssetId/digest/修订，避免二次 URL 推断。	R-2125-R1
+#1779	https://github.com/Ozwasyd/FsusBlog/issues/1779#issuecomment-6053198106	2026-10-08T05:42:10Z	合并采用	已有 upload session 观察不等于通用 Vault 资产授权。v2 必须依正式 grant、可验证服务端 writer 和持久幂等结果。	R-2125-R1
+#1780	https://github.com/Ozwasyd/FsusBlog/issues/1780#issuecomment-6052555818	2026-10-08T04:53:14Z	仅吸收教训	原 Kestrel 和 OpenResty 配置检查不证明双栈交付行为。v2 实际网关和进程直连分别取证。	R-1780-R1 R-2075-R1
+#1784	https://github.com/Ozwasyd/FsusBlog/issues/1784#issuecomment-5170135605	2026-08-03T18:18:12Z	合并采用	资产验收有独立静态、公开、私有、上传、清理与总体验证边界，废弃 v1 误归属的子票不纳入。	R-1784-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-5097485382	2026-07-27T22:27:47Z	仅吸收教训	旧部分实现可作参考，真实 Chromium/WebKit 和真机 iOS Safari 仍需分别验证。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-5174054870	2026-08-04T02:53:15Z	合并采用	明确同一 build 的自动 Chromium/WebKit 与真机 iOS 17+ Safari，任一缺失均不匹配另一类证据。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6051532704	2026-10-08T03:25:06Z	待决冲突	上游 FsusUI #262 评论把真机列可选、正文要求真机。v2 沿 Blog 明确要求留真机和自动矩阵；旧上游资格不能继承。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6051676500	2026-10-08T03:39:07Z	仅吸收教训	旧 evidence-only PR 有未观测项目，v2 检查实际 dist/AOT/深路由和交互。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6051791678	2026-10-08T03:50:29Z	旧工程限定，不适用	历史证据精确 HEAD 修订不改变产品约束和真实运行缺口。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6051823200	2026-10-08T03:53:35Z	仅吸收教训	旧支持候选维持 rejected UX，不能作为真机和实际 FsusUI 证据。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6052341189	2026-10-08T04:36:29Z	旧工程限定，不适用	旧 FsusBlog 与 FsusUI 成对 draft 的源码和证据交接，v2 不沿用其验收结果。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6052364792	2026-10-08T04:38:30Z	旧工程限定，不适用	旧分支 drift 核验只证明源范围稳定，不能重签前次浏览器资格。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6052988100	2026-10-08T05:25:51Z	仅吸收教训	旧 evidence-only 后续列真实 owner 和未通过项，v2 按 UI、WebKit 和真机分别追证。	R-1789-R1
+#1789	https://github.com/Ozwasyd/FsusBlog/issues/1789#issuecomment-6053562853	2026-10-08T06:08:54Z	仅吸收教训	旧 root 聚合未完成实际端到端，采用场景范围和候选身份核对经验。	R-1789-R1
+#1795	https://github.com/Ozwasyd/FsusBlog/issues/1795#issuecomment-5138610697	2026-07-31T02:37:47Z	仅吸收教训	旧整体可靠性运行没有完成空缓存撤回故障的定向验收，需要单独真实复现正确路径。	R-1795-R1
+#1925	https://github.com/Ozwasyd/FsusBlog/issues/1925#issuecomment-5169538851	2026-08-03T17:19:04Z	旧工程限定，不适用	旧跨仓 release train 与首次发布事件/自动 PR 的唯一执行 DAG，当前本地 FsusUI 消费不依赖其发布。	R-1925-R1
+#1925	https://github.com/Ozwasyd/FsusBlog/issues/1925#issuecomment-6051641580	2026-10-08T03:43:51Z	旧工程限定，不适用	旧支持 fixture 与实际 npm 发布资格严格区分；验证仅适用历史 release train。	R-1925-R1
+#1927	https://github.com/Ozwasyd/FsusBlog/issues/1927#issuecomment-6053318293	2026-10-08T05:51:24Z	仅吸收教训	运行的可写范围须绑定真实目录、卷/设备和进程所有权，原 Windows/native 资格仍缺。	R-1927-R1
+#1927	https://github.com/Ozwasyd/FsusBlog/issues/1927#issuecomment-6228205949	2026-10-17T01:56:16Z	旧工程限定，不适用	物理访问域 SOURCE 代码已在旧 master 合入，不据此证明完整生产运行。	R-1927-R1
+#1927	https://github.com/Ozwasyd/FsusBlog/issues/1927#issuecomment-6876189951	2026-11-14T10:52:48Z	旧工程限定，不适用	旧物理文件域分支 custody、历史上下文与 ref 回收条件。	R-1927-R1
+#1928	https://github.com/Ozwasyd/FsusBlog/issues/1928#issuecomment-6053319829	2026-10-08T05:51:31Z	仅吸收教训	清理依赖应按实际共享对象计算，对仍被读者使用的产物不提前清理。	R-1928-R1
+#1929	https://github.com/Ozwasyd/FsusBlog/issues/1929#issuecomment-6053321788	2026-10-08T05:51:40Z	旧工程限定，不适用	旧本地管线的 fixed exactly-five 与 inventory source 冲突，未形成 v2 产品需求。	R-1929-R1
+#1930	https://github.com/Ozwasyd/FsusBlog/issues/1930#issuecomment-6053323087	2026-10-08T05:51:46Z	旧工程限定，不适用	旧 coverage-merge 的已有来源和拓扑细化，不复制 v1 执行顺序。	R-1930-R1
+#1932	https://github.com/Ozwasyd/FsusBlog/issues/1932#issuecomment-6051660351	2026-10-08T03:37:31Z	仅吸收教训	曾有 timing-sensitive 相互争用，当前测量需要可核对的独占边界。	R-1932-R1
+#1934	https://github.com/Ozwasyd/FsusBlog/issues/1934#issuecomment-6053376191	2026-10-08T05:55:35Z	旧工程限定，不适用	旧 nested scheduler 的 elastic admission 来源核对，仅适用旧任务编排。	R-1934-R1
+#1935	https://github.com/Ozwasyd/FsusBlog/issues/1935#issuecomment-6051769402	2026-10-08T03:48:15Z	旧工程限定，不适用	旧 live-grant adapter 发布及局部测试，仍待原平台运行资格。	R-1935-R1
+#1936	https://github.com/Ozwasyd/FsusBlog/issues/1936#issuecomment-6053255268	2026-10-08T05:46:33Z	仅吸收教训	真实 CPU 拓扑区分 allowed 线程、物理核心与 SMT，不能把静态候选当生产取证。	R-1936-R1
+#1937	https://github.com/Ozwasyd/FsusBlog/issues/1937#issuecomment-6053256027	2026-10-08T05:46:37Z	旧工程限定，不适用	旧 scheduler deterministic fallback 精确版本和测试交接。	R-1937-R1
+#1938	https://github.com/Ozwasyd/FsusBlog/issues/1938#issuecomment-6053256645	2026-10-08T05:46:39Z	旧工程限定，不适用	旧校准 runner 的确切源码与样本合同，真实测量仍待执行。	R-1938-R1
+#1939	https://github.com/Ozwasyd/FsusBlog/issues/1939#issuecomment-6053257280	2026-10-08T05:46:42Z	旧工程限定，不适用	旧 p50 校准选择和 guardrails 候选交接，锁定真实当前资源的原则保留。	R-1939-R1
+#1940	https://github.com/Ozwasyd/FsusBlog/issues/1940#issuecomment-6053257926	2026-10-08T05:46:45Z	旧工程限定，不适用	旧机器绑定 calibration 接线与 active 证据边界。	R-1940-R1
+#1940	https://github.com/Ozwasyd/FsusBlog/issues/1940#issuecomment-6053317422	2026-10-08T05:51:20Z	旧工程限定，不适用	旧端到端性能链对 calendar/CPU calibration 的候选联动，保留来历与适用范围。	R-1940-R1
+#1941	https://github.com/Ozwasyd/FsusBlog/issues/1941#issuecomment-6053170047	2026-10-08T05:39:57Z	仅吸收教训	性能候选须以真实同输入 clean run 建立可比 baseline，不把模型或源码作为观察。	R-1941-R1
+#1942	https://github.com/Ozwasyd/FsusBlog/issues/1942#issuecomment-6053171068	2026-10-08T05:40:02Z	仅吸收教训	生产慢路径与诊断性能分类分别记度量，未知指标应显式报告。	R-1942-R1
+#1943	https://github.com/Ozwasyd/FsusBlog/issues/1943#issuecomment-6053172647	2026-10-08T05:40:10Z	仅吸收教训	显式比较候选身份、实际样本和运行边界，静态 comparator 合同不证明实测。	R-1943-R1
+#1944	https://github.com/Ozwasyd/FsusBlog/issues/1944#issuecomment-6052987955	2026-10-08T05:25:50Z	旧工程限定，不适用	旧自适应模型消费端请求性能数据的源码位置和权限边界。	R-1944-R1
+#1944	https://github.com/Ozwasyd/FsusBlog/issues/1944#issuecomment-6053173668	2026-10-08T05:40:14Z	仅吸收教训	汇总执行使用当轮真实 verdict，未知/未测应保留，历史纯测试不能填通过。	R-1944-R1
+#1944	https://github.com/Ozwasyd/FsusBlog/issues/1944#issuecomment-6053326268	2026-10-08T05:52:00Z	旧工程限定，不适用	旧 adaptive 公共接口及依赖方 source handoff。	R-1944-R1
+#1945	https://github.com/Ozwasyd/FsusBlog/issues/1945#issuecomment-6053307194	2026-10-08T05:50:34Z	旧工程限定，不适用	旧自适应样本账本的候选源码与测试边界。	R-1945-R1
+#1946	https://github.com/Ozwasyd/FsusBlog/issues/1946#issuecomment-6053308342	2026-10-08T05:50:40Z	旧工程限定，不适用	旧按 CPU 历史负载生成 weight/minimum 的候选源工作。	R-1946-R1
+#1947	https://github.com/Ozwasyd/FsusBlog/issues/1947#issuecomment-6053311683	2026-10-08T05:50:55Z	旧工程限定，不适用	旧内存资源窗口和 reserve 建议的候选源工作。	R-1947-R1
+#1948	https://github.com/Ozwasyd/FsusBlog/issues/1948#issuecomment-6053309219	2026-10-08T05:50:44Z	旧工程限定，不适用	旧启动优先级评分策略的 source increment。	R-1948-R1
+#1949	https://github.com/Ozwasyd/FsusBlog/issues/1949#issuecomment-6053310514	2026-10-08T05:50:49Z	旧工程限定，不适用	旧 adaptive shadow/active pointer 的源码增量、非生产行为证明。	R-1949-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-5643585801	2026-09-12T04:56:32Z	仅吸收教训	旧 E2E 因磁盘容量未执行，证据中必须明确资源容量门槛和未测结果。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-5665966913	2026-09-14T14:56:10Z	合并采用	实际独占运行应关联本次数据库、运行、构建、资源生命周期、清理、负向和原始结果。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6008822221	2026-10-06T03:37:19Z	旧工程限定，不适用	旧 #3752 source 原样整合只反映开发历史。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6017001271	2026-10-06T13:10:50Z	旧工程限定，不适用	旧规模链源码合入，独占运行与终态清理仍未资格化。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6051385788	2026-10-08T03:11:07Z	仅吸收教训	旧草稿与 cgroup/embedded manifest 等多个前置缺口要分别报告，不能合并为产品失败。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6051693113	2026-10-08T03:40:44Z	仅吸收教训	旧 cgroup 真拒绝发生于 producer spawn 前，保留环境失败而不签实际规模测量。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6051946319	2026-10-08T04:03:45Z	仅吸收教训	独立 bounded 源码审查候选不包括真实 native/current-attempt/cleanup 运行。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6052128384	2026-10-08T04:19:25Z	仅吸收教训	源码检查保留全部拒绝控制和稳定 case ID，局部修复不覆盖实际终态时序。	R-1950-R1
+#1950	https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6876907923	2026-11-14T11:57:05Z	旧工程限定，不适用	旧 release branch 的精确来源与保留，当前 v2 验收不继承。	R-1950-R1
+#1951	https://github.com/Ozwasyd/FsusBlog/issues/1951#issuecomment-6051637997	2026-10-08T03:35:23Z	仅吸收教训	原变异链源码接入后仍需当前隔离和不修改候选原件的真实写入取证。	R-1951-R1
+#1951	https://github.com/Ozwasyd/FsusBlog/issues/1951#issuecomment-6052030743	2026-10-08T04:11:07Z	仅吸收教训	Debug/Release 的 Stryker 运行性质和 parity 单列，源码候选及产物不相互替代。	R-1951-R1
+#1952	https://github.com/Ozwasyd/FsusBlog/issues/1952#issuecomment-6052031080	2026-10-08T04:11:08Z	仅吸收教训	保留按成员的 not-reached、noisy、取消和真实产品失败，产品结论须有可信测量窗口。	R-1952-R1
+#1954	https://github.com/Ozwasyd/FsusBlog/issues/1954#issuecomment-6052031376	2026-10-08T04:11:10Z	仅吸收教训	真实子进程写入受控材料只能验证证据链；模拟 containment 不能证明实测业务资格。	R-1954-R1
+#1964	https://github.com/Ozwasyd/FsusBlog/issues/1964#issuecomment-6053037462	2026-10-08T05:29:49Z	旧工程限定，不适用	旧 provisional builder 的变更范围和 8 项当时控制，仅审 stage/feed 合同。	R-1964-R1
+#1964	https://github.com/Ozwasyd/FsusBlog/issues/1964#issuecomment-6053377151	2026-10-08T05:55:39Z	旧工程限定，不适用	旧 provisional 与 dependency closure rebind source，最终成功仍分开。	R-1964-R1
+#1965	https://github.com/Ozwasyd/FsusBlog/issues/1965#issuecomment-6053378242	2026-10-08T05:55:45Z	仅吸收教训	实际聚合缺失应保持 null 或未达，不自动赋 terminal authority。	R-1965-R1
+#1966	https://github.com/Ozwasyd/FsusBlog/issues/1966#issuecomment-6053379520	2026-10-08T05:55:50Z	旧工程限定，不适用	旧 terminal receipt 版本及 child reverse verifier 工具交接。	R-1966-R1
+#1967	https://github.com/Ozwasyd/FsusBlog/issues/1967#issuecomment-6053380343	2026-10-08T05:55:54Z	仅吸收教训	终态记录未完成则预备状态不得签过，人工重跑需保留原样失败及独立当前结果。	R-1967-R1
+#1968	https://github.com/Ozwasyd/FsusBlog/issues/1968#issuecomment-6053381290	2026-10-08T05:55:58Z	旧工程限定，不适用	旧 terminal receipt verifier 提供给已存在领域消费者，未改 v2 资格。	R-1968-R1
+#1969	https://github.com/Ozwasyd/FsusBlog/issues/1969#issuecomment-6053382215	2026-10-08T05:56:02Z	仅吸收教训	终态和 tamper 组件测试通过不等于实际聚合、持久化及部署链完成。	R-1969-R1
+#1975	https://github.com/Ozwasyd/FsusBlog/issues/1975#issuecomment-5714914237	2026-09-17T13:11:45Z	旧工程限定，不适用	旧分支 WIP handoff，待真实数据库和可验证恢复。	R-1975-R1
+#1975	https://github.com/Ozwasyd/FsusBlog/issues/1975#issuecomment-5776140311	2026-09-22T12:03:52Z	仅吸收教训	旧切换使用历史候选与矩阵，v2 在相同数据与实际目标 schema 核验一次性迁移。	R-1975-R1
+#1975	https://github.com/Ozwasyd/FsusBlog/issues/1975#issuecomment-5994282037	2026-10-05T12:18:00Z	旧工程限定，不适用	原 case-exact AssetId cutover 源码整合为历史 WIP。	R-1975-R1
+#1975	https://github.com/Ozwasyd/FsusBlog/issues/1975#issuecomment-6052554857	2026-10-08T04:53:09Z	合并采用	真实备份应覆盖旧 PostgreSQL/文件/加密 key ring，独立恢复并核对身份与篡改拒绝；恢复可用仍需服务验证。	R-1975-R1 R-2215-R1
+#1984	https://github.com/Ozwasyd/FsusBlog/issues/1984#issuecomment-5751636012	2026-09-20T18:07:32Z	旧工程限定，不适用	原 npm 迁移源合入后局部 fixture 取证，不改变 v2 的真实源码依赖。	R-1984-R1
+#1984	https://github.com/Ozwasyd/FsusBlog/issues/1984#issuecomment-5993334450	2026-10-05T11:15:57Z	旧工程限定，不适用	旧 FsusUI 本地 alias 来源保全与 npm 不发布边界。	R-1984-R1
+#1984	https://github.com/Ozwasyd/FsusBlog/issues/1984#issuecomment-6007799567	2026-10-06T02:02:06Z	旧工程限定，不适用	旧远端 source custody 与收尾条件，不构成当前 gate 通过。	R-1984-R1
+#1984	https://github.com/Ozwasyd/FsusBlog/issues/1984#issuecomment-6051641021	2026-10-08T03:35:40Z	旧工程限定，不适用	实际 registry 迁移还依赖旧 stable event 授权，用户 v2 范围仅从本地源构建。	R-1984-R1
+#1985	https://github.com/Ozwasyd/FsusBlog/issues/1985#issuecomment-5751636232	2026-09-20T18:07:34Z	旧工程限定，不适用	旧 npm 唯一更新 manager 的配置供旧工程迁移。	R-1985-R1
+#1985	https://github.com/Ozwasyd/FsusBlog/issues/1985#issuecomment-5993335438	2026-10-05T11:16:01Z	旧工程限定，不适用	旧 source-alias 交接保留，自动更新 manager 等待历史稳定发布。	R-1985-R1
+#1985	https://github.com/Ozwasyd/FsusBlog/issues/1985#issuecomment-6007799745	2026-10-06T02:02:07Z	旧工程限定，不适用	旧自动更新分支 custody，验收与新项目分开。	R-1985-R1
+#1985	https://github.com/Ozwasyd/FsusBlog/issues/1985#issuecomment-6051641226	2026-10-08T03:35:41Z	旧工程限定，不适用	真实 manager transition 未达到历史发布条件，v2 不使用这一流程。	R-1985-R1
+#1987	https://github.com/Ozwasyd/FsusBlog/issues/1987#issuecomment-5710729610	2026-09-17T07:33:46Z	旧工程限定，不适用	旧真实 npm publish 缺凭据，fixture 无法证明公共事件，状态只适用原发布链。	R-1987-R1
+#1987	https://github.com/Ozwasyd/FsusBlog/issues/1987#issuecomment-5993336575	2026-10-05T11:16:05Z	旧工程限定，不适用	旧 source-alias WIP 合入不构成公共 npm event 或自动升级完成，v2 采用单一本地源。	R-1987-R1
+#1987	https://github.com/Ozwasyd/FsusBlog/issues/1987#issuecomment-6051641422	2026-10-08T03:35:42Z	旧工程限定，不适用	收集旧 release train 实际事件，未发布包和未完成真实终态。	R-1987-R1
+#2012	https://github.com/Ozwasyd/FsusBlog/issues/2012#issuecomment-6053162178	2026-10-08T05:39:22Z	仅吸收教训	第一次真实失败、测试取消和后续恢复须保留为独立状态，合格摘要不可以为同一次。	R-2012-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-5996771693	2026-10-05T14:41:45Z	旧工程限定，不适用	旧 DATA_ONLY schema 和领域策略的 source 整合，非 runtime evidence。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-5996966564	2026-10-05T14:52:32Z	仅吸收教训	历史验证纠正错把未运行的测试当本轮执行，v2 对真实命令/退出与不同范围分别记录。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6051686593	2026-10-08T03:40:07Z	仅吸收教训	旧 data-only 重新验源与真实 producer 资格分开，保留独立环境取证。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6053092283	2026-10-08T05:33:53Z	旧工程限定，不适用	旧 semantic policy 与实际集成 owner 的源码职责，限当前已查看旧 SHA。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6053153536	2026-10-08T05:38:40Z	仅吸收教训	旧后端诊断 source adapter 可继续接入，须验证实际控制台/runner/资源输出。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6053325599	2026-10-08T05:51:57Z	仅吸收教训	实际 bounded reporter 应读取真实运行输入，不能停留在纯 adapter 后自证。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6053387618	2026-10-08T05:56:25Z	旧工程限定，不适用	旧 browser/reliability 运行桥接的独立源码分工与权威 API 交接。	R-2020-R1
+#2020	https://github.com/Ozwasyd/FsusBlog/issues/2020#issuecomment-6053530307	2026-10-08T06:06:40Z	仅吸收教训	native runner 的真实数据与集成 schema 差异保留，篡改/非当前结果应拒绝。	R-2020-R1
+#2021	https://github.com/Ozwasyd/FsusBlog/issues/2021#issuecomment-6053365738	2026-10-08T05:54:48Z	仅吸收教训	旧前后端测试 semantic adapters 需与实际用例和 assertions 验证，不能用计划代替执行。	R-2021-R1
+#2022	https://github.com/Ozwasyd/FsusBlog/issues/2022#issuecomment-6053092552	2026-10-08T05:33:54Z	旧工程限定，不适用	旧 runtime outcome 与 state source 增量，尚无目标真实运行。	R-2022-R1
+#2022	https://github.com/Ozwasyd/FsusBlog/issues/2022#issuecomment-6228007622	2026-10-17T01:34:06Z	旧工程限定，不适用	历史 runtime outcome 源码实际合入主干，验证只属已审原候选。	R-2022-R1
+#2022	https://github.com/Ozwasyd/FsusBlog/issues/2022#issuecomment-6876190487	2026-11-14T10:52:51Z	旧工程限定，不适用	旧 runtime outcome 最后源 ref/PR 保全，不变更公开行为。	R-2022-R1
+#2023	https://github.com/Ozwasyd/FsusBlog/issues/2023#issuecomment-6053366827	2026-10-08T05:54:53Z	仅吸收教训	真实 browser 与可靠性中的成员状态来自实际执行，缺完整 observation 不能升格。	R-2023-R1
+#2024	https://github.com/Ozwasyd/FsusBlog/issues/2024#issuecomment-6053367664	2026-10-08T05:54:56Z	仅吸收教训	旧构建产物域材料 maps 验证非真实 build/projection/finalizer 终态。	R-2024-R1
+#2025	https://github.com/Ozwasyd/FsusBlog/issues/2025#issuecomment-5996772627	2026-10-05T14:41:48Z	旧工程限定，不适用	旧 canonicalizer 与领域 policy source 整合，没有当前 producer 运行证明。	R-2025-R1
+#2025	https://github.com/Ozwasyd/FsusBlog/issues/2025#issuecomment-5996967900	2026-10-05T14:52:36Z	仅吸收教训	旧小批源合并和最终实际检查严格区别，不把早期摘要认作当前执行。	R-2025-R1
+#2025	https://github.com/Ozwasyd/FsusBlog/issues/2025#issuecomment-6053348198	2026-10-08T05:53:29Z	旧工程限定，不适用	旧 build outcome 接口/fixture 交接给原聚合 owner，非新对外要求。	R-2025-R1
+#2025	https://github.com/Ozwasyd/FsusBlog/issues/2025#issuecomment-6053368905	2026-10-08T05:55:02Z	仅吸收教训	hash 只是 business result 的关联，实际当前生产语义及独立验证要同时记录。	R-2025-R1
+#2026	https://github.com/Ozwasyd/FsusBlog/issues/2026#issuecomment-5996084735	2026-10-05T14:04:26Z	旧工程限定，不适用	旧 run-lock/CAS/journal 和 aggregate attachment 源码整合路径。	R-2026-R1
+#2026	https://github.com/Ozwasyd/FsusBlog/issues/2026#issuecomment-6053369893	2026-10-08T05:55:06Z	仅吸收教训	聚合从真实准备、运行状态及成员失败产生；局部 producer 可用不能代替完整 run。	R-2026-R1
+#2027	https://github.com/Ozwasyd/FsusBlog/issues/2027#issuecomment-6053370709	2026-10-08T05:55:10Z	仅吸收教训	比较结果必须检查原始用例和业务状态的漂移；模型单测不等同真实跨 run 回放。	R-2027-R1
+#2028	https://github.com/Ozwasyd/FsusBlog/issues/2028#issuecomment-6053351293	2026-10-08T05:53:43Z	仅吸收教训	旧候选身份材料提供精确 digest 核对，v2 仍需证明实际依赖/构建/fixture 身份。	R-2028-R1
+#2029	https://github.com/Ozwasyd/FsusBlog/issues/2029#issuecomment-6053353826	2026-10-08T05:53:54Z	旧工程限定，不适用	旧 candidate collector 聚合的各子 owner 的来源和缺失列表。	R-2029-R1
+#2030	https://github.com/Ozwasyd/FsusBlog/issues/2030#issuecomment-6053354149	2026-10-08T05:53:56Z	旧工程限定，不适用	旧不可变 cohort 创建逻辑和空账本的候选交接。	R-2030-R1
+#2031	https://github.com/Ozwasyd/FsusBlog/issues/2031#issuecomment-6053354447	2026-10-08T05:53:57Z	仅吸收教训	运行账本由实际每次运行和持久记录组成，原失败不能替换。	R-2031-R1
+#2032	https://github.com/Ozwasyd/FsusBlog/issues/2032#issuecomment-6053354772	2026-10-08T05:53:58Z	仅吸收教训	跨运行差异需指明具体候选/输入问题，测试与部署范围尚待实际追证。	R-2032-R1
+#2033	https://github.com/Ozwasyd/FsusBlog/issues/2033#issuecomment-6053141796	2026-10-08T05:37:46Z	旧工程限定，不适用	旧三轮发布流程的 schema 和分类策略源码，仅适用原控制。	R-2033-R1
+#2033	https://github.com/Ozwasyd/FsusBlog/issues/2033#issuecomment-6053287556	2026-10-08T05:49:03Z	旧工程限定，不适用	三轮旧语义 ID 接到现行 configurationDigests 的维护交接。	R-2033-R1
+#2034	https://github.com/Ozwasyd/FsusBlog/issues/2034#issuecomment-6053142485	2026-10-08T05:37:49Z	旧工程限定，不适用	旧三轮计划的独立实际资源创建、共享构建和 manifest 合同。	R-2034-R1
+#2034	https://github.com/Ozwasyd/FsusBlog/issues/2034#issuecomment-6053288269	2026-10-08T05:49:06Z	旧工程限定，不适用	旧 immutable identity 前置已有 source verifier 的状态更新。	R-2034-R1
+#2035	https://github.com/Ozwasyd/FsusBlog/issues/2035#issuecomment-6053143573	2026-10-08T05:37:54Z	旧工程限定，不适用	旧 ordinal runner 等待原账本和实际端到端生产执行。	R-2035-R1
+#2035	https://github.com/Ozwasyd/FsusBlog/issues/2035#issuecomment-6053289272	2026-10-08T05:49:11Z	旧工程限定，不适用	旧三轮资源与 producer 组成的可用前置更新，实际并未证明 release。	R-2035-R1
+#2036	https://github.com/Ozwasyd/FsusBlog/issues/2036#issuecomment-6053144473	2026-10-08T05:37:59Z	旧工程限定，不适用	旧恰好三轮以及 exact equality 检查，拒绝历史过度陈述。	R-2036-R1
+#2036	https://github.com/Ozwasyd/FsusBlog/issues/2036#issuecomment-6053291139	2026-10-08T05:49:20Z	旧工程限定，不适用	旧比较输入接入真实 aggregate analysis API 的维护交接。	R-2036-R1
+#2037	https://github.com/Ozwasyd/FsusBlog/issues/2037#issuecomment-6053145212	2026-10-08T05:38:02Z	旧工程限定，不适用	旧 publish credential 因缺合格独立验证而没有授权，不扩至 v2。	R-2037-R1
+#2037	https://github.com/Ozwasyd/FsusBlog/issues/2037#issuecomment-6053290155	2026-10-08T05:49:15Z	仅吸收教训	相同元数据不代表相同有效聚合，实际成果/失败须可核查。	R-2037-R1
+#2038	https://github.com/Ozwasyd/FsusBlog/issues/2038#issuecomment-6053146205	2026-10-08T05:38:07Z	旧工程限定，不适用	旧三轮计划与策略的 literal-registration 局部控制，非运行证据。	R-2038-R1
+#2038	https://github.com/Ozwasyd/FsusBlog/issues/2038#issuecomment-6053169950	2026-10-08T05:39:56Z	仅吸收教训	原矩阵真实拒绝发生在 parser/input-closure 前置，不能把未执行测量计作通过或产品退化。	R-2038-R1
+#2038	https://github.com/Ozwasyd/FsusBlog/issues/2038#issuecomment-6053291946	2026-10-08T05:49:24Z	旧工程限定，不适用	旧三轮控制数增加，尚未实际端到端执行；保持旧记录边界。	R-2038-R1
+#2060	https://github.com/Ozwasyd/FsusBlog/issues/2060#issuecomment-6051939085	2026-10-08T04:46:58Z	仅吸收教训	各验收域必须验证真正领域结果与本轮 output，不靠文件或宽泛身份通过。	R-2060-R1
+#2061	https://github.com/Ozwasyd/FsusBlog/issues/2061#issuecomment-6051943711	2026-10-08T05:03:34Z	旧工程限定，不适用	旧 aggregate/finalizer 的 immutable v2 接线源，未消费完整当前实际场景。	R-2061-R1
+#2061	https://github.com/Ozwasyd/FsusBlog/issues/2061#issuecomment-6053082329	2026-10-08T05:33:06Z	旧工程限定，不适用	旧 #1686 来源整合与最终 manifest 机制，实际本地和生产结论另列。	R-2061-R1
+#2062	https://github.com/Ozwasyd/FsusBlog/issues/2062#issuecomment-6051944357	2026-10-08T05:03:40Z	仅吸收教训	历史组件测试与最终 required-evidence 全域矩阵分开，v2 缺证据的 item 独立标记。	R-2062-R1
+#2062	https://github.com/Ozwasyd/FsusBlog/issues/2062#issuecomment-6053083115	2026-10-08T05:33:10Z	仅吸收教训	原 migration 声明 225 条与实得 226 条不匹配属于运行前置计数冲突，须核实际覆盖，不擅改计数。	R-2062-R1 R-2217-R1
+#2074	https://github.com/Ozwasyd/FsusBlog/issues/2074#issuecomment-6052556905	2026-10-08T04:53:19Z	待决冲突	旧 Compose 的 WebRoot AOT 挂载与更严资产规则冲突。v2 采用隔离派生缓存根，验证受控公开投影。	R-2074-R1
+#2074	https://github.com/Ozwasyd/FsusBlog/issues/2074#issuecomment-6052902108	2026-10-08T05:19:18Z	合并采用	布局须同时涵盖预渲染 shell、hydration sidecar、启动、失效及备份恢复，保持公开 URL 投影与专用派生物理根。	R-2074-R1 R-1763-R1
+#2076	https://github.com/Ozwasyd/FsusBlog/issues/2076#issuecomment-6052163064	2026-10-08T04:22:26Z	待决冲突	#1782 的不泄露存在性的统一 404 与 #2076 的统一 403、单次消费及真实 claims 义务不兼容。v2 必须选唯一协定与清楚的验收。	R-2076-R1
+#2076	https://github.com/Ozwasyd/FsusBlog/issues/2076#issuecomment-6052891632	2026-10-08T05:18:28Z	待决冲突	同一私有读取入口的错误码、票据格式与 HEAD/Range/发送中断消费语义须统一裁决，任何私有权限或文件打开都须回查真实授权。	R-2076-R1
+#2088	https://github.com/Ozwasyd/FsusBlog/issues/2088#issuecomment-6051696421	2026-10-08T03:41:03Z	仅吸收教训	旧二语言清理聚合缺完整构建与机器证据，不能按 child 状态重签首帧通过。	R-2088-R1
+#2088	https://github.com/Ozwasyd/FsusBlog/issues/2088#issuecomment-6052028345	2026-10-08T04:10:54Z	仅吸收教训	网络合同测试与真实 cold/warm、字体、缓存和 Service Worker 行为区别记录。	R-2088-R1
+#2089	https://github.com/Ozwasyd/FsusBlog/issues/2089#issuecomment-6051696741	2026-10-08T03:41:05Z	仅吸收教训	风险投影合格只覆盖规则；v2 仍按实际表面、地域字体和境况数据执行。	R-2089-R1
+#2090	https://github.com/Ozwasyd/FsusBlog/issues/2090#issuecomment-6051696882	2026-10-08T03:41:06Z	仅吸收教训	旧 runner 计划不能代替五表面的 current-run 登录和语言初始化。	R-2090-R1
+#2091	https://github.com/Ozwasyd/FsusBlog/issues/2091#issuecomment-6051697007	2026-10-08T03:41:07Z	仅吸收教训	文本几何需要真实 viewport/font/zoom 及交互探测，旧合成探针单列。	R-2091-R1
+#2092	https://github.com/Ozwasyd/FsusBlog/issues/2092#issuecomment-6051697149	2026-10-08T03:41:08Z	仅吸收教训	实际加载本地字体和字形归属须验证，静态 font manifest 不足。	R-2092-R1
+#2093	https://github.com/Ozwasyd/FsusBlog/issues/2093#issuecomment-6051697303	2026-10-08T03:41:08Z	仅吸收教训	选择菜单须有实际十项可达、窄屏、zoom、键盘和焦点运行结果。	R-2093-R1
+#2094	https://github.com/Ozwasyd/FsusBlog/issues/2094#issuecomment-6051697461	2026-10-08T03:41:09Z	仅吸收教训	各业务 state 在语言切换前后的身份及内容须通过真实操作观察。	R-2094-R1
+#2095	https://github.com/Ozwasyd/FsusBlog/issues/2095#issuecomment-6051697612	2026-10-08T03:41:10Z	仅吸收教训	按路由和语言成功加载语料要由真实请求、字体和数据不重取证明。	R-2095-R1
+#2096	https://github.com/Ozwasyd/FsusBlog/issues/2096#issuecomment-6051698064	2026-10-08T03:41:13Z	仅吸收教训	五类完整风险矩阵仍缺当轮浏览器结果，终态不由模型或 child 状态填绿。	R-2096-R1
+#2097	https://github.com/Ozwasyd/FsusBlog/issues/2097#issuecomment-6051824570	2026-10-08T03:53:43Z	合并采用	旧设计矩阵是 12 个代表 archetype、8 个 critical，保留设置四 tab 动作互斥且媒体无额外提交。	R-2097-R1
+#2098	https://github.com/Ozwasyd/FsusBlog/issues/2098#issuecomment-6051722758	2026-10-08T05:25:55Z	仅吸收教训	旧 composition analyzer 集成未运行真实组件，候选冲突和静态合同不能记为 v2 界面验收。	R-2098-R1
+#2099	https://github.com/Ozwasyd/FsusBlog/issues/2099#issuecomment-6052836345	2026-10-08T05:15:13Z	仅吸收教训	补充 mobile 375px、tablet 768px；矩阵声明不能算已渲染，浏览器 zoom 要实测。	R-2099-R1
+#2100	https://github.com/Ozwasyd/FsusBlog/issues/2100#issuecomment-6051823468	2026-10-08T03:53:37Z	仅吸收教训	旧十字段视觉证据 schema 与 synthetic 负例在产品证据未达到时不能资格化。	R-2100-R1
+#2100	https://github.com/Ozwasyd/FsusBlog/issues/2100#issuecomment-6052684132	2026-10-08T05:03:32Z	仅吸收教训	真实浏览器探针只验证身份及当前载荷，仍需真实页面状态和独立视觉判断。	R-2100-R1
+#2101	https://github.com/Ozwasyd/FsusBlog/issues/2101#issuecomment-6052684499	2026-10-08T05:03:34Z	仅吸收教训	确认 12 representative/8 critical，规划计数及筛选后 demand 数与真实渲染覆盖分别记录。	R-2101-R1
+#2102	https://github.com/Ozwasyd/FsusBlog/issues/2102#issuecomment-6052232651	2026-10-08T04:28:22Z	仅吸收教训	旧汇总 preflight 拒绝缺少实际产品与变异观察，v2 保留可重算真实性。	R-2102-R1
+#2102	https://github.com/Ozwasyd/FsusBlog/issues/2102#issuecomment-6052753342	2026-10-08T05:09:07Z	旧工程限定，不适用	旧配置/文件接线冲突及候选回退，只保留历史范围。	R-2102-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6052912417	2026-10-08T05:20:08Z	合并采用	Vault 原子落盘必须从已接收的真实服务端坐标及固定字节取得，不读所谓最新数据来猜测。	R-2106-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6052946121	2026-10-08T05:22:39Z	合并采用	物化指令固定当前 root/agent/plan/result、预期旧摘要、必需 bytes 和权限，无法重验时拒绝。	R-2106-R1 R-2110-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6053119830	2026-10-08T05:36:02Z	仅吸收教训	旧 PostgreSQL checkpoint 与静态证明不覆盖机器写入。v2 对 native fsync、回读、崩溃恢复单独取证。	R-2106-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6053192587	2026-10-08T05:41:43Z	仅吸收教训	只读 assessment 不能推进 local base，仍需当前身份、原子写入和后续回读。	R-2106-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6053216082	2026-10-08T05:43:36Z	旧工程限定，不适用	旧 namespace 静态控制误伤异常类型，保留源码检验范围与原失败。	R-2106-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6053327354	2026-10-08T05:52:05Z	旧工程限定，不适用	旧异常边界修复未改变持久化、原生写入或接受条件。	R-2106-R1
+#2106	https://github.com/Ozwasyd/FsusBlog/issues/2106#issuecomment-6053391000	2026-10-08T05:56:40Z	旧工程限定，不适用	旧异常类型修改通过诊断项目，但原正式项目依赖锁仍报错，作为历史记录。	R-2106-R1
+#2107	https://github.com/Ozwasyd/FsusBlog/issues/2107#issuecomment-6053052492	2026-10-08T05:30:59Z	仅吸收教训	持久 DB checkpoint 不足以证明离线恢复。v2 验证 native 和 base 的实际最终状态。	R-2107-R1
+#2107	https://github.com/Ozwasyd/FsusBlog/issues/2107#issuecomment-6053286406	2026-10-08T05:48:58Z	仅吸收教训	旧 operation 契约只完成稳定 checkpoint 局部，恢复、再次接入和正式运行取证保留。	R-2107-R1
+#2107	https://github.com/Ozwasyd/FsusBlog/issues/2107#issuecomment-6053414217	2026-10-08T05:58:23Z	仅吸收教训	旧独立崩溃重放验证有限，不能签发文件/服务端恢复通过。	R-2107-R1
+#2108	https://github.com/Ozwasyd/FsusBlog/issues/2108#issuecomment-6053224237	2026-10-08T05:44:12Z	仅吸收教训	合并验证 authorities 应沿计划、事务、物化和操作链，SAT 文件测试不能替代真实整合。	R-2108-R1
+#2109	https://github.com/Ozwasyd/FsusBlog/issues/2109#issuecomment-6052697962	2026-10-08T05:04:39Z	仅吸收教训	旧路径显示与扫描只读保留，根的真实 native 授权须另证。	R-2109-R1
+#2109	https://github.com/Ozwasyd/FsusBlog/issues/2109#issuecomment-6052946952	2026-10-08T05:22:43Z	合并采用	观察到根路径不等于获得写入授权，使用真实 root-bound identity 与当前用途校验。	R-2109-R1
+#2110	https://github.com/Ozwasyd/FsusBlog/issues/2110#issuecomment-6052983383	2026-10-08T05:25:28Z	旧工程限定，不适用	旧 materialization 负责人对精确 API 和能力交接的要求，属于旧协调。	R-2110-R1
+#2110	https://github.com/Ozwasyd/FsusBlog/issues/2110#issuecomment-6053034309	2026-10-08T05:29:34Z	仅吸收教训	可稳定读取字节不证明 native 替换、数据持久与 base 提交。	R-2110-R1
+#2110	https://github.com/Ozwasyd/FsusBlog/issues/2110#issuecomment-6053188891	2026-10-08T05:41:25Z	旧工程限定，不适用	旧 callable source 交接给相邻 owner，原生资格仍未完成。	R-2110-R1
+#2110	https://github.com/Ozwasyd/FsusBlog/issues/2110#issuecomment-6053269314	2026-10-08T05:47:38Z	仅吸收教训	旧 snapshot 合同与通知模型仅局部，v2 用真实文件、错误和重扫三类场景证明。	R-2110-R1
+#2112	https://github.com/Ozwasyd/FsusBlog/issues/2112#issuecomment-6053139929	2026-10-08T05:37:37Z	仅吸收教训	规范化观察源代码交接不覆盖自动发布，v2 以当前时间线与重新扫描实际结果为准。	R-2112-R1
+#2112	https://github.com/Ozwasyd/FsusBlog/issues/2112#issuecomment-6053269994	2026-10-08T05:47:41Z	仅吸收教训	旧合同和验证没有运行完整生产文件变更，真实原生守护进程须测。	R-2112-R1
+#2112	https://github.com/Ozwasyd/FsusBlog/issues/2112#issuecomment-6053386062	2026-10-08T05:56:19Z	仅吸收教训	旧 Linux watcher 过渡已出现实际问题，三平台测试须确认文件替换与断线后的当前序列。	R-2112-R1
+#2113	https://github.com/Ozwasyd/FsusBlog/issues/2113#issuecomment-6052973296	2026-10-08T05:24:41Z	仅吸收教训	进程 lease 声明不足以证明跨进程唯一 writer 和 native 真实归属。	R-2113-R1
+#2114	https://github.com/Ozwasyd/FsusBlog/issues/2114#issuecomment-6052915813	2026-10-08T05:20:24Z	旧工程限定，不适用	旧 agent 生命周期开始工作的分支范围和 source custody。	R-2114-R1
+#2114	https://github.com/Ozwasyd/FsusBlog/issues/2114#issuecomment-6053075854	2026-10-08T05:32:37Z	旧工程限定，不适用	旧产品作者请求 lifecycle/lease handoff 具体文件，按旧协调范围保留。	R-2114-R1
+#2114	https://github.com/Ozwasyd/FsusBlog/issues/2114#issuecomment-6053206784	2026-10-08T05:42:52Z	仅吸收教训	原生 Linux 候选允许继续开发，未证明完整 IPC 安装、解绑和三平台实际运行。	R-2114-R1
+#2114	https://github.com/Ozwasyd/FsusBlog/issues/2114#issuecomment-6053344851	2026-10-08T05:53:14Z	合并采用	必要重扫必须保持阻塞或等待状态，服务再次可用不代表本地数据已经同步。	R-2112-R1 R-2114-R1
+#2114	https://github.com/Ozwasyd/FsusBlog/issues/2114#issuecomment-6053519318	2026-10-08T06:05:54Z	仅吸收教训	真实 Linux 生命周期组件可用，签名安装、更新、操作系统等价与产品验收仍需单独确认。	R-2114-R1
+#2116	https://github.com/Ozwasyd/FsusBlog/issues/2116#issuecomment-6052258754	2026-10-08T04:30:13Z	仅吸收教训	旧 conflict taxonomy 合同不代替真实写入决策与三方来源。	R-2116-R1
+#2117	https://github.com/Ozwasyd/FsusBlog/issues/2117#issuecomment-6052698590	2026-10-08T05:04:42Z	仅吸收教训	复制字节验证和三方合并本体及实际同步各有边界。v2 需真实持久化完整场景。	R-2117-R1
+#2118	https://github.com/Ozwasyd/FsusBlog/issues/2118#issuecomment-6052699211	2026-10-08T05:04:45Z	仅吸收教训	旧 scalar Title/Summary/Slug 合并覆盖有限，所支持 metadata 属性需按封闭合同验收。	R-2118-R1
+#2118	https://github.com/Ozwasyd/FsusBlog/issues/2118#issuecomment-6053405852	2026-10-08T06:30:23Z	合并采用	属性以稳定身份、schema revision 和明确类型校验，未知值及 tombstone 状态须可解释。	R-2118-R1 R-2322-01
+#2119	https://github.com/Ozwasyd/FsusBlog/issues/2119#issuecomment-6053060162	2026-10-08T05:31:35Z	仅吸收教训	本地 Git 状态的只读观察不能授权写入或发布，须经过当前服务端权限。	R-2119-R1
+#2120	https://github.com/Ozwasyd/FsusBlog/issues/2120#issuecomment-6053083308	2026-10-08T05:33:11Z	仅吸收教训	解析当前计划来源只属前置，陈旧或部分结果仍阻塞实际写入。	R-2120-R1
+#2121	https://github.com/Ozwasyd/FsusBlog/issues/2121#issuecomment-6052919107	2026-10-08T05:20:39Z	旧工程限定，不适用	旧 Git/recovery 来源合并与分支所有权交接范围。	R-2121-R1
+#2121	https://github.com/Ozwasyd/FsusBlog/issues/2121#issuecomment-6053079252	2026-10-08T05:32:52Z	旧工程限定，不适用	旧产品导航对 checkpoint/plan 的特定 owner 调用需求，保持其历史协调范围。	R-2121-R1
+#2121	https://github.com/Ozwasyd/FsusBlog/issues/2121#issuecomment-6053430324	2026-10-08T05:59:35Z	仅吸收教训	只读 journal / crash 测试不足以证明恢复真实远端/本地。v2 核验实际提交边界。	R-2121-R1
+#2122	https://github.com/Ozwasyd/FsusBlog/issues/2122#issuecomment-6052962145	2026-10-08T05:23:51Z	仅吸收教训	旧 UI 状态模型不等同真实冲突解决，实时决策和恢复须调用正式权威。	R-2122-R1
+#2122	https://github.com/Ozwasyd/FsusBlog/issues/2122#issuecomment-6053075102	2026-10-08T05:32:34Z	旧工程限定，不适用	旧冲突导航 presentation source 交接，仅作参考。	R-2122-R1
+#2122	https://github.com/Ozwasyd/FsusBlog/issues/2122#issuecomment-6053203773	2026-10-08T05:42:37Z	仅吸收教训	局部 UI 支持不能证明动态权限、已核对 plan 和真实恢复执行。	R-2122-R1
+#2122	https://github.com/Ozwasyd/FsusBlog/issues/2122#issuecomment-6053409592	2026-10-08T05:58:02Z	仅吸收教训	旧冲突 UI 最终源交接未实测真实产品全链，v2 验收 keyboard、focus、真实数据和写入。	R-2122-R1
+#2123	https://github.com/Ozwasyd/FsusBlog/issues/2123#issuecomment-6053414329	2026-10-08T05:58:23Z	仅吸收教训	独立合并/冲突的狭窄测试不能覆盖 Vault 全链，保留缺项。	R-2123-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6052931951	2026-10-08T05:21:37Z	旧工程限定，不适用	旧链接与嵌入 owner 建立分支并请求真实依赖权威，历史协调。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053005166	2026-10-08T05:27:15Z	仅吸收教训	旧图 source API 是计划层前置，不能冒称有授权写入或完成资产搬运。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053052833	2026-10-08T05:31:01Z	旧工程限定，不适用	旧消费者正在锁定 graph bytes，待 owner 固定 API 与证据。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053189704	2026-10-08T05:41:29Z	合并采用	依赖图的计划和 expected source 坐标要同一来源，拒绝非 canonical ID/摘要与过期范围。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053287490	2026-10-08T05:49:02Z	旧工程限定，不适用	旧 graph API 不兼容造成分支间不能直接消费，v2 以共享权威取代。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053360651	2026-10-08T05:54:26Z	仅吸收教训	旧 graph 集成调度不证明真实用户完成授权资源读写，验证时须消费诚实的执行结果。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053399152	2026-10-08T05:57:16Z	仅吸收教训	真实 strict source 组合通过部分边界，不满足落盘、依赖图和业务收尾。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053482093	2026-10-08T06:03:18Z	仅吸收教训	旧 graph/asset 展开仍零写权，v2 分别证明真实授权、scope 和账本事务。	R-2124-R1
+#2124	https://github.com/Ozwasyd/FsusBlog/issues/2124#issuecomment-6053560960	2026-10-08T06:08:46Z	合并采用	当前服务端坐标变化时须拒绝旧存储依赖图和字节，实际 pull 不执行陈旧计划。	R-2124-R1 R-2128-R1
+#2125	https://github.com/Ozwasyd/FsusBlog/issues/2125#issuecomment-6053482495	2026-10-08T06:03:20Z	合并采用	资产内容的身份/摘要、主体授权和源修订须统一验证。只读 bytes 对照和计划计算不代表持久化完成。	R-2125-R1 R-2128-R1
+#2126	https://github.com/Ozwasyd/FsusBlog/issues/2126#issuecomment-6053398335	2026-10-08T05:57:12Z	仅吸收教训	独立测试组合仅证明合同层能力，真实字节与用户行为另验。	R-2126-R1
+#2126	https://github.com/Ozwasyd/FsusBlog/issues/2126#issuecomment-6053412185	2026-10-08T05:58:14Z	合并采用	链接重构须用当前、解析器确认的出现位置与稳定目标绑定，不能从字面或路由投影推断。	R-2126-R1
+#2126	https://github.com/Ozwasyd/FsusBlog/issues/2126#issuecomment-6053412199	2026-10-08T05:58:14Z	仅吸收教训	旧 API 被后续版本取代，v2 以同一正式 parser 与 canonical graph 进行集成。	R-2126-R1
+#2126	https://github.com/Ozwasyd/FsusBlog/issues/2126#issuecomment-6053501303	2026-10-08T06:04:38Z	仅吸收教训	后继版本检查仍是只读准入；真实作者入口、持久关系及回滚正负测试仍缺。	R-2126-R1
+#2128	https://github.com/Ozwasyd/FsusBlog/issues/2128#issuecomment-6053041096	2026-10-08T05:30:07Z	合并采用	article-only writer 不能代替依赖图全事务，真实资产账本、关系、搜索、缓存和恢复均需各自当前结果。	R-2128-R1
+#2130	https://github.com/Ozwasyd/FsusBlog/issues/2130#issuecomment-6053307171	2026-10-08T05:50:34Z	合并采用	选择 root、隐私范围变更、取消后重新确认。checkbox 支持真实连接/初始化/解绑，局部 privacy UI 不等于操作完成。	R-2130-R1
+#2131	https://github.com/Ozwasyd/FsusBlog/issues/2131#issuecomment-6053307802	2026-10-08T05:50:37Z	合并采用	当前没匹配真实 lease/会话 scope 时隐藏细节并表达 unknown，不推断健康或已同步。	R-2131-R1
+#2132	https://github.com/Ozwasyd/FsusBlog/issues/2132#issuecomment-6053308534	2026-10-08T05:50:41Z	合并采用	计划审阅、方向、确认、取消及进度须贯通正式执行 authority，作用范围与当前结果不符时拒绝。	R-2132-R1
+#2133	https://github.com/Ozwasyd/FsusBlog/issues/2133#issuecomment-6053309164	2026-10-08T05:50:44Z	合并采用	冲突恢复入口消费正式计划和恢复命令，真实键盘焦点和返回路径作为验收项。	R-2133-R1
+#2134	https://github.com/Ozwasyd/FsusBlog/issues/2134#issuecomment-6053309949	2026-10-08T05:50:47Z	仅吸收教训	活动 lease 不代表当前 agent 健康，真实 install/update/reconnect 传输需单独验证。	R-2134-R1
+#2134	https://github.com/Ozwasyd/FsusBlog/issues/2134#issuecomment-6053384291	2026-10-08T05:56:11Z	合并采用	生命周期 DTO 与重扫义务可是真实只读输入，安装/更新/离线/重连和跨平台成功需要真实命令结果。	R-2134-R1
+#2135	https://github.com/Ozwasyd/FsusBlog/issues/2135#issuecomment-6053310565	2026-10-08T05:50:50Z	合并采用	Vault publication admission 由实际服务端公开命令授权并审计。绕过 UI 调用仍拒绝，未启用 Vault 的普通写作可发布。	R-2135-R1
+#2137	https://github.com/Ozwasyd/FsusBlog/issues/2137#issuecomment-5679315011	2026-09-15T11:19:25Z	旧工程限定，不适用	旧 manifest 议题重新打开记录，声明缺前置关闭及实际证据，不增加 v2 流程约束。	R-2137-R1
+#2137	https://github.com/Ozwasyd/FsusBlog/issues/2137#issuecomment-5995729819	2026-10-05T13:44:39Z	仅吸收教训	实际 package 签名、manifest 整输入校验和 sandbox 拒绝须用真实运行取证，不从 MySQL 源交接推断。	R-2137-R1
+#2137	https://github.com/Ozwasyd/FsusBlog/issues/2137#issuecomment-5999215091	2026-10-05T17:03:12Z	旧工程限定，不适用	旧扩展 manifest 分支保全和已合来源检查，无新产品条款。	R-2137-R1
+#2137	https://github.com/Ozwasyd/FsusBlog/issues/2137#issuecomment-6052604277	2026-10-08T05:09:44Z	仅吸收教训	manifest 单元验证与生产 package/install 及所有 host 执行入口资格分开。	R-2137-R1
+#2138	https://github.com/Ozwasyd/FsusBlog/issues/2138#issuecomment-5679315635	2026-09-15T11:19:29Z	旧工程限定，不适用	旧 package trust 资格重开记录，历史源码仍保留。	R-2138-R1
+#2138	https://github.com/Ozwasyd/FsusBlog/issues/2138#issuecomment-5993662423	2026-10-05T11:37:58Z	合并采用	插件信任门槛按实际签名、时效、撤销和清楚的拒绝证据验收，不以旧受信成功推断新授权。	R-2138-R1
+#2138	https://github.com/Ozwasyd/FsusBlog/issues/2138#issuecomment-5995728855	2026-10-05T13:44:36Z	仅吸收教训	旧信任门槛源码与实际签名、撤销和升级恢复的完整产品资格区别。	R-2138-R1
+#2138	https://github.com/Ozwasyd/FsusBlog/issues/2138#issuecomment-6052604446	2026-10-08T05:09:45Z	仅吸收教训	原 package 拒绝和 trust 控件已局部跑过，支持全链签名和真实管理入口待验。	R-2138-R1
+#2139	https://github.com/Ozwasyd/FsusBlog/issues/2139#issuecomment-5679316155	2026-09-15T11:19:32Z	旧工程限定，不适用	旧 hybrid resolver 议题重开及历史前置要求。	R-2139-R1
+#2139	https://github.com/Ozwasyd/FsusBlog/issues/2139#issuecomment-6052604641	2026-10-08T05:09:46Z	仅吸收教训	旧 resolver 局部校验未覆盖实际所有 execution class，v2 独立验证统一映射。	R-2139-R1
+#2140	https://github.com/Ozwasyd/FsusBlog/issues/2140#issuecomment-5679317012	2026-09-15T11:19:37Z	旧工程限定，不适用	旧 Worker/Wasm 依赖未闭环的状态纠正。	R-2140-R1
+#2140	https://github.com/Ozwasyd/FsusBlog/issues/2140#issuecomment-6052604915	2026-10-08T05:09:47Z	仅吸收教训	Worker/Wasm 的 managed 控制与实际平台隔离不同，固定 Node 路径和可观测性缺口须保留。	R-2140-R1
+#2141	https://github.com/Ozwasyd/FsusBlog/issues/2141#issuecomment-5679317469	2026-09-15T11:19:39Z	旧工程限定，不适用	旧 broker 隔离范围的方案状态纠正。	R-2141-R1
+#2141	https://github.com/Ozwasyd/FsusBlog/issues/2141#issuecomment-5994562018	2026-10-05T12:35:44Z	仅吸收教训	broker/lifetime source 交接不证明实际隔离进程和 IO 所属。	R-2141-R1
+#2141	https://github.com/Ozwasyd/FsusBlog/issues/2141#issuecomment-5996446672	2026-10-05T14:24:01Z	合并采用	broker 响应应重新核对实际请求/权限及返回时效，过期或错误投影拒绝。	R-2141-R1 R-2142-R1
+#2141	https://github.com/Ozwasyd/FsusBlog/issues/2141#issuecomment-6052605063	2026-10-08T05:09:48Z	仅吸收教训	进程、命名空间与文件身份隔离还需真实平台观察，managed 通过不能替代。	R-2141-R1
+#2142	https://github.com/Ozwasyd/FsusBlog/issues/2142#issuecomment-5679318191	2026-09-15T11:19:43Z	旧工程限定，不适用	旧 RPC/授权议题缺实际矩阵的重开记录。	R-2142-R1
+#2142	https://github.com/Ozwasyd/FsusBlog/issues/2142#issuecomment-5994561373	2026-10-05T12:35:42Z	仅吸收教训	RPC 本地实现的历史整合不证明正式当前 grant 与往返完成。	R-2142-R1
+#2142	https://github.com/Ozwasyd/FsusBlog/issues/2142#issuecomment-6052605215	2026-10-08T05:09:49Z	仅吸收教训	旧 RPC 初步通过未覆盖真实授权生命周期、生产 transport 和全矩阵。	R-2142-R1
+#2143	https://github.com/Ozwasyd/FsusBlog/issues/2143#issuecomment-5679318727	2026-09-15T11:19:46Z	旧工程限定，不适用	旧 extension lifecycle 尚缺依赖与实际证据的状态纠正。	R-2143-R1
+#2143	https://github.com/Ozwasyd/FsusBlog/issues/2143#issuecomment-6052605413	2026-10-08T05:09:50Z	仅吸收教训	部件修复不证明 durable state store 和真实卸载恢复，v2 验收故障继续保留原数据和正确 grant。	R-2143-R1
+#2143	https://github.com/Ozwasyd/FsusBlog/issues/2143#issuecomment-6230468478	2026-10-17T06:02:48Z	合并采用	状态存储需版本隔离、范围归属、单调 revision、CAS 和明确批准的迁移/删除，旧哈希不得赋新含义。	R-2143-R1
+#2144	https://github.com/Ozwasyd/FsusBlog/issues/2144#issuecomment-5679319232	2026-09-15T11:19:49Z	旧工程限定，不适用	旧资源预算前置与验收状态重开。	R-2144-R1
+#2144	https://github.com/Ozwasyd/FsusBlog/issues/2144#issuecomment-5996546095	2026-10-05T14:29:21Z	合并采用	取消信号贯穿预算采集和遥测，状态按其真实 schema 复核，失败后同名资源保留。	R-2144-R1
+#2144	https://github.com/Ozwasyd/FsusBlog/issues/2144#issuecomment-6052605609	2026-10-08T05:09:51Z	仅吸收教训	局部预算测试不代表真实进程树停止、资源归属和 telemetry 全链资格。	R-2144-R1
+#2145	https://github.com/Ozwasyd/FsusBlog/issues/2145#issuecomment-5679319737	2026-09-15T11:19:51Z	旧工程限定，不适用	旧 terminal 安全矩阵作为仍缺前置执行的 v1 状态记录。	R-2145-R1
+#2145	https://github.com/Ozwasyd/FsusBlog/issues/2145#issuecomment-5996952709	2026-10-05T14:51:47Z	仅吸收教训	只有真实当轮 producer 与完整安全观察能证明插件隔离资格，旧 terminal gate 小控制提供边界信号。	R-2145-R1
+#2145	https://github.com/Ozwasyd/FsusBlog/issues/2145#issuecomment-5997028813	2026-10-05T14:56:03Z	旧工程限定，不适用	旧合并 footer 失败及 SOURCE 结果校正，v2 不承接相同历史提交门禁。	R-2145-R1
+#2145	https://github.com/Ozwasyd/FsusBlog/issues/2145#issuecomment-6052605763	2026-10-08T05:09:52Z	仅吸收教训	旧组件测试与生产 grant/transport/物理隔离证据分开，全域资格证据仍缺。	R-2145-R1
+#2151	https://github.com/Ozwasyd/FsusBlog/issues/2151#issuecomment-6052195153	2026-10-08T04:25:12Z	仅吸收教训	真实 issuer 的静态及组件测试不足以证明私密派生资料实际授权与浏览器导入。	R-2151-R1
+#2162	https://github.com/Ozwasyd/FsusBlog/issues/2162#issuecomment-6051770099	2026-10-08T03:48:19Z	仅吸收教训	真实模型 clock contract 和 fixture catalog 的失败须分开；使用旧已关闭票不能复用资格。	R-2162-R1
+#2162	https://github.com/Ozwasyd/FsusBlog/issues/2162#issuecomment-6051946432	2026-10-08T04:03:46Z	仅吸收教训	模型 fixture 缺业务 epoch、文化与数据库时区观测，v2 实际时钟语义和生产 provider 测试独立。	R-1601-R1 R-2162-R1
+#2162	https://github.com/Ozwasyd/FsusBlog/issues/2162#issuecomment-6052837460	2026-10-08T05:15:17Z	仅吸收教训	纯 temporal fixture 修复仅证明模型检查，评论产物需经真实生产事务及读模型。	R-2162-R1
+#2170	https://github.com/Ozwasyd/FsusBlog/issues/2170#issuecomment-6052193852	2026-10-08T04:25:05Z	仅吸收教训	旧真实 PostgreSQL 证据供偏好优先级参考，private entitlement 和实际浏览器 Cookie 保留验收。	R-2170-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5714915316	2026-09-17T13:11:50Z	旧工程限定，不适用	旧 article lifecycle 分支源 checkpoint，仅用于历史恢复。	R-2174-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5772973900	2026-09-22T07:49:50Z	旧工程限定，不适用	旧生产验证关闭及标准合入记录后被真实反例推翻范围，不继承旧关闭。	R-2174-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5779534712	2026-09-22T15:47:32Z	合并采用	计划发布到期前不得推进公开 publication pointer；用真实 PostgreSQL 和业务时钟检查旧公开版本仍有效。	R-2174-R1 R-1601-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5994577883	2026-10-05T12:36:42Z	仅吸收教训	旧业务时钟和 projection edge source 局部整合不能替代真实生产事务及跨投影验证。	R-2174-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5994766156	2026-10-05T12:48:39Z	旧工程限定，不适用	旧 source proposal 实际被当前原 owner 吸收的出处记录。	R-2174-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-5995135178	2026-10-05T13:10:59Z	合并采用	调度验收用真实业务时钟与明确 UTC 精度，拒绝 lossy 时间转换及过期 replay context。	R-2174-R1 R-1601-R1
+#2174	https://github.com/Ozwasyd/FsusBlog/issues/2174#issuecomment-6053183989	2026-10-08T05:51:20Z	合并采用	不明确或非合法 UTC 的调度时间在占用写入/排队资源前拒绝，正式事务依旧遵循生命周期。	R-2174-R1
+#2175	https://github.com/Ozwasyd/FsusBlog/issues/2175#issuecomment-5994578656	2026-10-05T12:36:45Z	仅吸收教训	旧投影与调度源码 WIP，真实 outbox 和产物不重复采信早期证据。	R-2175-R1
+#2175	https://github.com/Ozwasyd/FsusBlog/issues/2175#issuecomment-5995136112	2026-10-05T13:11:02Z	仅吸收教训	业务 temporal replay owner 取证与实际生成 article projection 正确性分别检查。	R-2175-R1
+#2175	https://github.com/Ozwasyd/FsusBlog/issues/2175#issuecomment-6000289977	2026-10-05T18:09:09Z	合并采用	同一发布坐标须绑定实际投影 invocation 与结果，重读和 duplicate handling 不从最新状态猜测。	R-2175-R1
+#2175	https://github.com/Ozwasyd/FsusBlog/issues/2175#issuecomment-6016582732	2026-10-06T12:47:28Z	旧工程限定，不适用	旧 #3724 真实合入的源码及原 CI 边界，不构成 v2 运行验收。	R-2175-R1
+#2175	https://github.com/Ozwasyd/FsusBlog/issues/2175#issuecomment-6051478412	2026-10-08T03:19:48Z	仅吸收教训	治理负例成功不能遮盖原 C# 编译诊断和零执行，真实数据库、outbox 与 AOT 仍需取证。	R-2175-R1
+#2177	https://github.com/Ozwasyd/FsusBlog/issues/2177#issuecomment-6053286808	2026-10-08T05:48:59Z	仅吸收教训	旧 #3576 并非 canonical comment graph，生产等价评论不能用文章 fixture 或假 factory 填补。	R-2177-R1
+#2177	https://github.com/Ozwasyd/FsusBlog/issues/2177#issuecomment-6053300540	2026-10-08T05:50:04Z	仅吸收教训	纯评论规划能力可支撑规模准备，真实事务写入和审核/隐私端到端仍需验证。	R-2177-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5995305736	2026-10-05T13:20:42Z	旧工程限定，不适用	旧原生 DDL 与 discovery 接线源码整合，真实独立迁移验收须另做。	R-2214-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5995728118	2026-10-05T13:44:34Z	旧工程限定，不适用	旧原生 MySQL 生命周期和隔离运行接线交接，实际数据库资格并未由此建立。	R-2214-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5995895167	2026-10-05T13:53:59Z	旧工程限定，不适用	旧 Migration lane 执行源绑定原始范围，未批准用于当前 v2 验收。	R-2214-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5996165111	2026-10-05T14:08:52Z	旧工程限定，不适用	旧 Migration producer 与 provenance 检查整合，不改变 v2 迁移权威设计。	R-2214-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5996272580	2026-10-05T14:14:33Z	仅吸收教训	逻辑数据库测试和物理包须实际是同一 MySQL provider，缺任一证据不能宣称真实集成。	R-2214-R1
+#2214	https://github.com/Ozwasyd/FsusBlog/issues/2214#issuecomment-5996352709	2026-10-05T14:18:55Z	仅吸收教训	finalizer 记录第一次失败并用真实锁和构建输入定位，避免静默缓存和结果覆盖。	R-2214-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-5994149747	2026-10-05T12:09:35Z	旧工程限定，不适用	旧 native source union 整合，不构成离线 plan 或数据库备份验收。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-5996167037	2026-10-05T14:08:59Z	旧工程限定，不适用	旧 plan/producer 源与身份输入治理交接，非实际备份验证。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6020441275	2026-10-06T16:11:35Z	旧工程限定，不适用	旧 MySQL migration source 已进入原主干，完整三 provider 验收仍缺。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6033350101	2026-10-07T07:41:34Z	旧工程限定，不适用	旧 #3797 核心源码整合，scope 限已验历史候选。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6040372405	2026-10-07T14:42:04Z	仅吸收教训	备份准入和计划来源需独立负向验证，旧静态交接不能替代恢复实跑。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6040797468	2026-10-07T15:04:10Z	旧工程限定，不适用	旧分支完整 source-purpose 保全，原生备份等证据待验。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6041028288	2026-10-07T15:24:35Z	旧工程限定，不适用	旧 #457 历史 SOURCE WIP，不把旧许可或 source 相等当业务验收。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6041030676	2026-10-07T15:24:42Z	旧工程限定，不适用	旧 #454 历史 SOURCE WIP 与精确图关系，仅作来历证明。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6219366814	2026-10-16T15:56:52Z	仅吸收教训	旧两处编译失效修正仍没有承诺新 plan。v2 校验未知和 partial fingerprint、备份 tamper、三 provider 及正式验证。	R-2215-R1
+#2215	https://github.com/Ozwasyd/FsusBlog/issues/2215#issuecomment-6876420690	2026-11-14T11:12:57Z	旧工程限定，不适用	旧 source ref 回收前的 ancestry/hold 记录，不改变迁移合同。	R-2215-R1
+#2216	https://github.com/Ozwasyd/FsusBlog/issues/2216#issuecomment-5994150367	2026-10-05T12:09:37Z	旧工程限定，不适用	旧 native migration source union 的 apply 资格待实测。	R-2216-R1
+#2216	https://github.com/Ozwasyd/FsusBlog/issues/2216#issuecomment-6012103000	2026-10-06T08:07:48Z	仅吸收教训	旧 apply/checkpoint 来源局部交接，v2 间断与已提交的 provider 操作须由当前数据库重验。	R-2216-R1
+#2216	https://github.com/Ozwasyd/FsusBlog/issues/2216#issuecomment-6040798166	2026-10-07T15:04:12Z	旧工程限定，不适用	旧源码和 STORE API 保全，仅适用于历史 refs。	R-2216-R1
+#2216	https://github.com/Ozwasyd/FsusBlog/issues/2216#issuecomment-6041028766	2026-10-07T15:24:36Z	旧工程限定，不适用	旧 #457 源码条件交接，不改 durable checkpoint 产品要求。	R-2216-R1
+#2216	https://github.com/Ozwasyd/FsusBlog/issues/2216#issuecomment-6041031126	2026-10-07T15:24:44Z	旧工程限定，不适用	旧 #454 源码保全，不作为 v2 原生 apply 成功。	R-2216-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-5994151028	2026-10-05T12:09:40Z	旧工程限定，不适用	旧 provider 源码整合不能签发真实 current schema。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-5996166325	2026-10-05T14:08:56Z	旧工程限定，不适用	旧治理相关 source 路径合并，非 real verify。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-5998925326	2026-10-05T16:45:08Z	仅吸收教训	SQLite 源码交接揭露实际现行 catalog 矛盾，verify 须从可执行 provider 观察得到。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6000290749	2026-10-05T18:09:11Z	仅吸收教训	旧 current-schema proof 尚需真实 native evidence，标准文档或元数据类型检查不足。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6007973042	2026-10-06T02:16:59Z	仅吸收教训	receipt 文件在只读局部被验证不等同当前数据库和服务器可接受的可信结果。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6011052106	2026-10-06T06:54:25Z	旧工程限定，不适用	旧 remote-source 保存和合并界面，保留历史 run 和接手条件。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6017193613	2026-10-06T13:21:31Z	旧工程限定，不适用	原 #3708 SQLite 相关源代码修复实际合入；当前 v2 原生 verify 单列。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6038516548	2026-10-07T13:04:11Z	旧工程限定，不适用	旧 #3806 SOURCE 与真实未运行项分开，原 provider 报告仍不能通过。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6040373162	2026-10-07T14:42:06Z	仅吸收教训	旧非文章回滚支持未完成真实 DB。新 verify 核对业务语义与稳定完整恢复。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6040798780	2026-10-07T15:04:14Z	旧工程限定，不适用	旧 API/source 历史保全与 refs，不能代替 verify。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6041029240	2026-10-07T15:24:38Z	旧工程限定，不适用	旧 #457 原始源码交接及 provider 资格未做。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6041031549	2026-10-07T15:24:45Z	旧工程限定，不适用	旧 #454 原始源码交接及 provider 资格未做。	R-2217-R1
+#2217	https://github.com/Ozwasyd/FsusBlog/issues/2217#issuecomment-6041174013	2026-10-07T15:32:25Z	仅吸收教训	旧 SOURCE 通过仍没有签正式 DB/运行 receipt，Verify 按实际目标、源、schema 及事务独立证明。	R-2217-R1
+#2218	https://github.com/Ozwasyd/FsusBlog/issues/2218#issuecomment-6000290352	2026-10-05T18:09:10Z	仅吸收教训	旧兼容去除源码尚需真实 Server 只读拒绝、证据与当前 schema 启动结果。	R-2218-R1
+#2218	https://github.com/Ozwasyd/FsusBlog/issues/2218#issuecomment-6007972802	2026-10-06T02:16:57Z	仅吸收教训	native receipt 原始读/写能力不等于运行服务完全没有旧兼容。	R-2218-R1
+#2218	https://github.com/Ozwasyd/FsusBlog/issues/2218#issuecomment-6041173365	2026-10-07T15:32:23Z	仅吸收教训	保留原三类旧路径 RED，只有真实服务启动与发布资产矩阵能接受兼容退役。	R-2218-R1
+#2220	https://github.com/Ozwasyd/FsusBlog/issues/2220#issuecomment-6053238029	2026-10-08T05:45:15Z	合并采用	媒体库存保留非本地引用字节、稳定摘要及实际 ownership，失败清理不认领旧文件或目录。	R-2220-R1
+#2220	https://github.com/Ozwasyd/FsusBlog/issues/2220#issuecomment-6053452876	2026-10-08T06:01:13Z	合并采用	跨大小写、NFC、文件目录冲突和符号链接需拒绝，文件与真实 journal/事务绑定。	R-2220-R1
+#2220	https://github.com/Ozwasyd/FsusBlog/issues/2220#issuecomment-6053554081	2026-10-08T06:08:17Z	合并采用	精确记录 HTML 与 srcset 原文范围，实际 AssetId/MIME 与原生数据库、媒体 rollback 一起验证。	R-2220-R1

@@ -4,7 +4,7 @@
 
 | 待核对的边界 | 两种处理及其影响 | 阻塞的验收 |
 | --- | --- | --- |
-| PostgreSQL 是默认数据库。[#2218](https://github.com/Ozwasyd/FsusBlog/issues/2218) 明确要求 PostgreSQL、MySQL、SQLite 的实际结构准入检查。 | 若三种均为产品持久层，要验证三个真实运行 provider 并保持同一业务访问模型。若 MySQL 和 SQLite 仅为离线导入源，则需确认减少运行时支持符合 v1 兼容范围，并验证各自读取、拒绝和转换路径。 | P5 全部 provider 和迁移覆盖。 |
+| [#2218](https://github.com/Ozwasyd/FsusBlog/issues/2218) 明确要求 PostgreSQL、MySQL、SQLite 的真实结构准入检查。固定 v1 Server 只注册 PostgreSQL。 | v2 保持 PostgreSQL 服务准入，MySQL 和 SQLite 保持有来源证明的离线职责。对各真实输入和 PostgreSQL 目标分别执行旧结构、未知结构、转换和恢复用例。见 [C3](conflicts.md)。 | P5 全部离线来源、provider 迁移和数据保全。 |
 | [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322) 只负责定义。父项 [#1860](https://github.com/Ozwasyd/FsusBlog/issues/1860) 要求值、投影、Inspector 和迁移。 | 保留单一定义权威，独立实现并连接 [#2323](https://github.com/Ozwasyd/FsusBlog/issues/2323) 值、[#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324) 检索、[#2325](https://github.com/Ozwasyd/FsusBlog/issues/2325) Inspector、[#2326](https://github.com/Ozwasyd/FsusBlog/issues/2326) 迁移；#2327 负责端到端验收。引用的环、自引用和归档策略以及 URL scheme、相对路径等规则须在定义、值和查询间统一。 | P4 真实属性交互及 P5 旧数据迁移。 |
 | [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738) 的真实转换同时依赖 [#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) 传输与 [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736) 界面。 | 基于稳定授权和修订提交 HTTP/AEDS、数据库事务和界面。历史候选通过的原始数据库测试覆盖该候选的部分事务行为。v2 同一候选需补齐全部运行证据。 | P4 Canvas 闭环，协议向量与实际 Provider。 |
 | [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) 的局部责任边界与完整恢复能力不同；[#4234](https://github.com/Ozwasyd/FsusBlog/issues/4234) 的绝对期限由服务端执行。 | 标签、关闭保护、分组和恢复共享 Registry；确认 #1854、#1855、#2233 和 #2235 对应条款。服务端按绝对期限、空闲期限和撤销验证。浏览器用生命周期代次拒绝晚到结果。 | P4 跨组导航、恢复及真实权限撤销。 |

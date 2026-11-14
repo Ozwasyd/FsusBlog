@@ -1,0 +1,28 @@
+sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
+#2312	https://github.com/Ozwasyd/FsusBlog/issues/2312#issuecomment-5579455990	2026-09-08T04:53:57Z	旧工程限定，不适用	旧 #3243 合并仅含 projection slice 与定向控制，原 UI 和本地存储迁移未覆盖。	V2S-2312
+#2312	https://github.com/Ozwasyd/FsusBlog/issues/2312#issuecomment-5580581283	2026-09-08T06:49:41Z	旧工程限定，不适用	原 Master 的严格完成审查发现旧验收不全，重开状态不增 v2 产品条件。	V2S-2312
+#2312	https://github.com/Ozwasyd/FsusBlog/issues/2312#issuecomment-5679320307	2026-09-15T11:19:54Z	旧工程限定，不适用	旧 pin projection 依赖及 tracking parent 未完成的资格重开记录。	V2S-2312
+#2312	https://github.com/Ozwasyd/FsusBlog/issues/2312#issuecomment-6007800227	2026-10-06T02:02:10Z	旧工程限定，不适用	历史分支精确源码保全，不视为当前 pin/projector、视觉或生产资格。	V2S-2312
+#2312	https://github.com/Ozwasyd/FsusBlog/issues/2312#issuecomment-6052152849	2026-10-08T04:21:33Z	仅吸收教训	原 Release 21 项真实单元已执行，仍不能证明真实 PostgreSQL reconciliation、会话、Rail/Quick Switcher、浏览器可访问性或规模。	V2S-2312
+#2316	https://github.com/Ozwasyd/FsusBlog/issues/2316#issuecomment-6229990385	2026-10-17T05:09:23Z	合并采用	查询按 DefinitionId 查阅属性定义时，结果应非空且身份相同；不接纳存在但指向另一字段的目录项。	V2S-2316 R-2322-01
+#2316	https://github.com/Ozwasyd/FsusBlog/issues/2316#issuecomment-6230142579	2026-10-17T05:24:00Z	仅吸收教训	实际编译和模块检查不证明真实索引 source adapter、持久 checkpoint、typed operands 或浏览器行为。	V2S-2316 V2S-2317
+#2317	https://github.com/Ozwasyd/FsusBlog/issues/2317#issuecomment-6053036405	2026-10-08T05:29:44Z	仅吸收教训	普通 tokenizer 控制保留，但索引 lifecycle 必须来自权威 parse facts 和真实 typed snapshots，而非 fixture。	V2S-2317
+#2317	https://github.com/Ozwasyd/FsusBlog/issues/2317#issuecomment-6053302621	2026-10-08T05:50:13Z	合并采用	搜索快照绑定主体、站点、索引/来源代次和可重算契约，查询 AST 与 cursor 同源，拒绝旧/未来 schema。	V2S-2317 V2S-2318
+#2317	https://github.com/Ozwasyd/FsusBlog/issues/2317#issuecomment-6230489061	2026-10-17T06:05:03Z	合并采用	跨全局源代次必须完成有界全源刷新再发布；cursor/request/snapshot 同时绑定 IndexInstanceId 和代次，拒绝重启后相同数字的旧实例。	V2S-2317 V2S-2318
+#2317	https://github.com/Ozwasyd/FsusBlog/issues/2317#issuecomment-6245204210	2026-10-18T03:30:09Z	合并采用	八种 typed 属性索引值从真实 revision、站点、owner、DefinitionId/schema、snapshot/value digest 得到，并由实际 query 消费；只构造空 Matches 不算交付。	V2S-2317 V2S-2324 R-2322-01
+#2319	https://github.com/Ozwasyd/FsusBlog/issues/2319#issuecomment-6052914881	2026-10-08T05:20:19Z	旧工程限定，不适用	旧 search UI owner 场景拆分、独立分支和真实 transport 接口请求，非可用侧写或 acceptance。	V2S-2319
+#2319	https://github.com/Ozwasyd/FsusBlog/issues/2319#issuecomment-6053150169	2026-10-08T05:38:25Z	仅吸收教训	源码定位 UI 需真实权限/代次、transport 用户态和可解释位置精度，不可由局部 contract 猜测。	V2S-2319 V2S-2318
+#2320	https://github.com/Ozwasyd/FsusBlog/issues/2320#issuecomment-6053046096	2026-10-08T05:30:29Z	待决冲突	旧 List.vue UI 明示标题筛选，而后台用标题或摘要；须确认编辑 collection filter 的实际产品含义，独立于 Full Text 与 Quick Switcher。	V2S-2320
+#2321	https://github.com/Ozwasyd/FsusBlog/issues/2321#issuecomment-6053380065	2026-10-08T05:55:53Z	仅吸收教训	真实 FsusUI 位置揭示用例通过仅证明组件投影，万级语料、访问权限和持久检索仍需产品验收。	V2S-2321
+#2322	https://github.com/Ozwasyd/FsusBlog/issues/2322#issuecomment-5714919130	2026-09-17T13:12:07Z	旧工程限定，不适用	旧 PropertyDefinition 分支保存及原作用范围，不能作为 schema CAS 或真实产品资格。	R-2322-01
+#2322	https://github.com/Ozwasyd/FsusBlog/issues/2322#issuecomment-6000289947	2026-10-05T18:12:40Z	仅吸收教训	实际 UTC/洛杉矶属性日期和原正反控制已有旧 SOURCE 证据，但完整 v2 schema CAS、数据库、请求与权限仍需运行。	R-2322-08 R-2322-11
+#2322	https://github.com/Ozwasyd/FsusBlog/issues/2322#issuecomment-6017966655	2026-10-06T14:03:18Z	旧工程限定，不适用	历史 #3703 已真实合并但原产品及 native/DB 条件仍开放，不继承验收。	R-2322-01
+#2341	https://github.com/Ozwasyd/FsusBlog/issues/2341#issuecomment-5580581983	2026-09-08T06:49:45Z	旧工程限定，不适用	旧 saved query AST 状态重新打开，原全部行为与权限验收未得到证明。	V2S-2341
+#2341	https://github.com/Ozwasyd/FsusBlog/issues/2341#issuecomment-5679320813	2026-09-15T11:19:57Z	旧工程限定，不适用	旧 AST 依赖及父 ticket 未完整资格化的状态纠正。	V2S-2341
+#2341	https://github.com/Ozwasyd/FsusBlog/issues/2341#issuecomment-6007800422	2026-10-06T02:02:11Z	旧工程限定，不适用	旧 saved-query 精确源文件保全及 owner 转交，实际 scope/权限验收独立。	V2S-2341
+#2343	https://github.com/Ozwasyd/FsusBlog/issues/2343#issuecomment-5579482633	2026-09-08T04:57:02Z	仅吸收教训	旧 #3245 的 AST/储存和迁移符合局部测试，缺真实 provider 仍 fail closed，且未含 UI。	V2S-2343 V2S-2346
+#2343	https://github.com/Ozwasyd/FsusBlog/issues/2343#issuecomment-5580582628	2026-09-08T06:49:49Z	旧工程限定，不适用	旧 saved-view 持久化整体关闭被 completion audit 纠正。	V2S-2343
+#2343	https://github.com/Ozwasyd/FsusBlog/issues/2343#issuecomment-5679321410	2026-09-15T11:20:00Z	旧工程限定，不适用	旧 saved-view storage 依赖/父 ticket 尚缺实际资格的状态纠正。	V2S-2343
+#2343	https://github.com/Ozwasyd/FsusBlog/issues/2343#issuecomment-5996840668	2026-10-05T14:45:33Z	合并采用	执行保存视图 mutation 时在真实 PostgreSQL 事务内复核 user/site 所有者与冲突，准确覆盖两种并发对照。	V2S-2343
+#2343	https://github.com/Ozwasyd/FsusBlog/issues/2343#issuecomment-5996968810	2026-10-05T14:52:39Z	旧工程限定，不适用	旧合并 commit 的五项 metadata 失败及 XML binding 诊断，产品改动和独立运行结果各守范围。	V2S-2343
+#2346	https://github.com/Ozwasyd/FsusBlog/issues/2346#issuecomment-6052899563	2026-10-08T05:19:05Z	合并采用	saved view 用真实权威编译且条件不遗漏，写入和回读可识别 view/dependency/permission/index 漂移；等待期间撤权、丢依赖和 cursor 过期均拒绝。	V2S-2346 V2S-2341 V2S-2343

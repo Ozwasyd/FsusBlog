@@ -1,2 +1,3 @@
 # Generated TSV inventory uses trailing tab delimiters for empty fields.
 docs/issues/inventory.tsv whitespace=-blank-at-eol
+docs/issues/comments-*.tsv whitespace=-blank-at-eol
