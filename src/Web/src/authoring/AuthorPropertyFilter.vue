@@ -9,6 +9,7 @@ import {
 } from '../../../Contracts/property-query'
 import { normalizePropertyDecimal, type PropertyValue } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import SavedViewPanel from './SavedViewPanel.vue'
 import { identityEpoch, invalidateSession } from '../session'
 
 const open = ref(false)
@@ -32,6 +33,7 @@ const flag = ref(false)
 const busy = ref(false)
 const error = ref('')
 const submitted = shallowRef<PropertyQuery>()
+const savable = computed(() => submitted.value ? { ...submitted.value, cursor: '' } : undefined)
 const result = shallowRef<PropertyMatches>()
 const field = computed(() => catalog.value?.fields.find(item => item.id === selection.value))
 const rangeComparisons = computed(() => {
@@ -292,6 +294,7 @@ async function search(more = false) {
       </section>
     </template>
   </details>
+  <SavedViewPanel :query="savable" />
 </template>
 
 <style scoped>

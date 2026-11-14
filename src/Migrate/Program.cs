@@ -51,6 +51,7 @@ internal static partial class Migration
                                         Add private resumable upload staging with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
                   authoring-workspace Add private workspace layout storage with the server stopped
+                  saved-views          Add private author saved views with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
                   site-subscription schema
                                         Add optional subscription storage with the server stopped
@@ -224,6 +225,9 @@ internal static partial class Migration
                 case ["authoring-workspace"]:
                     await InitializeAuthoringWorkspaceAsync(connection, token);
                     break;
+                case ["saved-views"]:
+                    await InitializeSavedViewsAsync(connection, token);
+                    break;
                 case ["admin-inbox-replies"]:
                     await InitializeAdminInboxRepliesAsync(connection, token);
                     break;
@@ -323,7 +327,7 @@ internal static partial class Migration
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireSiteRefresh: true,
-            requireSitePageEditor: true, requireAdminArticleRollback: true);
+            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

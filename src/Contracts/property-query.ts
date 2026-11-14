@@ -55,7 +55,7 @@ export function setPropertyFilterable(input: PropertyFilterabilityCommand, signa
     'POST', encodeFrame(FrameType.PropertyFilterabilityCommand, encodePropertyFilterabilityCommand(input)))
 }
 
-export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal): Promise<PropertyMatches> {
+export function encodePropertyQuery(query: PropertyQuery) {
   if (!query.conditions.length || query.conditions.length > WireLimits.PropertyQueryConditionCount)
     throw new ProtocolError('Invalid property condition count')
   const output = new PodWriter()
@@ -68,20 +68,27 @@ export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal
     writeValue(output, condition.value)
   }
   output.text(query.cursor, WireLimits.PropertyQueryCursorChars)
-  return request(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, bytes => {
-    const input = new PodReader(bytes)
-    const nextCursor = input.text(WireLimits.PropertyQueryCursorChars), count = input.i32()
-    if (count < 0 || count > WireLimits.PropertyPageSize || nextCursor &&
-        (count !== WireLimits.PropertyPageSize || !/^[A-Za-z0-9_-]{48}$/.test(nextCursor)))
-      throw new ProtocolError('Invalid property query page')
-    const rows: { id: number; revision: bigint; title: string }[] = []
-    for (let i = 0; i < count; ++i) {
-      const id = input.i32(), revision = input.i64(), title = input.text(WireLimits.TitleBytes)
-      if (id <= 0 || (i > 0 && id >= rows[i - 1].id) || revision <= 0n || !title)
-        throw new ProtocolError('Invalid property query entry')
-      rows.push({ id, revision, title })
-    }
-    input.finish()
-    return { nextCursor, rows }
-  }, signal, 'POST', encodeFrame(FrameType.PropertyArticleQueryGroup, output.finish()))
+  return encodeFrame(FrameType.PropertyArticleQueryGroup, output.finish())
+}
+
+export function decodePropertyMatches(bytes: Uint8Array): PropertyMatches {
+  const input = new PodReader(bytes)
+  const nextCursor = input.text(WireLimits.PropertyQueryCursorChars), count = input.i32()
+  if (count < 0 || count > WireLimits.PropertyPageSize || nextCursor &&
+      (count !== WireLimits.PropertyPageSize || !/^[A-Za-z0-9_-]{48}$/.test(nextCursor)))
+    throw new ProtocolError('Invalid property query page')
+  const rows: { id: number; revision: bigint; title: string }[] = []
+  for (let i = 0; i < count; ++i) {
+    const id = input.i32(), revision = input.i64(), title = input.text(WireLimits.TitleBytes)
+    if (id <= 0 || (i > 0 && id >= rows[i - 1].id) || revision <= 0n || !title)
+      throw new ProtocolError('Invalid property query entry')
+    rows.push({ id, revision, title })
+  }
+  input.finish()
+  return { nextCursor, rows }
+}
+
+export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal): Promise<PropertyMatches> {
+  return request(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, decodePropertyMatches,
+    signal, 'POST', encodePropertyQuery(query))
 }

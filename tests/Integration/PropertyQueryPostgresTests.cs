@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -119,16 +120,65 @@ public sealed class PropertyQueryPostgresTests
         Assert.Throws<ProtocolException>(() => Wire.EncodePropertyArticleQueryGroup(new(schema, [lower, lower], "")));
         Assert.Throws<ProtocolException>(() => Wire.EncodePropertyArticleQueryGroup(new(schema, [], "")));
 
+        var viewId = Guid.NewGuid();
+        var save = new SavedViewCommand(SavedViewAction.Save, viewId, 0, 0, Guid.NewGuid(), "  Re\u0301vision  ",
+            new(schema, [upper, lower], ""));
+        var packet = Wire.EncodeSavedViewCommand(save);
+        var (handle, peerHandle) = (SiteSessions.Id(ownerId, Store.TokenDigest(owner)!),
+            SiteSessions.Id(ownerId, Store.TokenDigest(anotherOwnerSession)!));
+        var firstSave = await Saved(WireRoutes.SavedViews, packet);
+        Assert.Equal(firstSave, await Saved(WireRoutes.SavedViews, packet));
+        Assert.Equal(new SavedViewReceipt(viewId, 1, 1, false), Wire.DecodeSavedViewReceipt(firstSave));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(save with { Name = "Changed replay" }), HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(save with { Id = Guid.NewGuid(),
+            RequestId = Guid.NewGuid(), CollectionRevision = 1, Name = "RÉVISION" }), HttpStatusCode.Conflict);
+        var saved = Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews));
+        Assert.Equal(new SavedViewSummary(viewId, 1, "Révision"), Assert.Single(saved.Views));
+        var started = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute,
+            Wire.EncodeSavedViewExecute(new(viewId, 1, ""))));
+        Assert.Equal(groupPage.Rows.Select(row => row.Id), started.Rows.Select(row => row.Id));
+        var continuation = Wire.EncodeSavedViewExecute(new(viewId, 1, started.NextCursor));
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.BadRequest, anotherOwnerSession, peerHandle);
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict, anotherOwnerSession, handle);
+        await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(viewId, 1, groupPage.NextCursor)), HttpStatusCode.BadRequest);
+        var outsiderId = await store.WithSession(outsider, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
+        var outsiderHandle = SiteSessions.Id(outsiderId, Store.TokenDigest(outsider)!);
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.NotFound, outsider, outsiderHandle);
+        Assert.Empty(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews, session: outsider, sessionId: outsiderHandle)).Views);
+        Assert.Equal(primary.Id, Assert.Single(Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, continuation)).Rows).Id);
+
+        var editedName = new SavedViewCommand(SavedViewAction.Rename, viewId, 1, 1, Guid.NewGuid(), "Range review", null);
+        var attempts = await Task.WhenAll(
+            Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName), session: owner, sessionId: handle),
+            Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName), session: anotherOwnerSession, sessionId: peerHandle));
+        Assert.Equal(attempts[0], attempts[1]);
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName with { RequestId = Guid.NewGuid() }), HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(viewId, 2, started.NextCursor)), HttpStatusCode.BadRequest);
+        var currentRun = Wire.EncodeSavedViewExecute(new(viewId, 2, ""));
+        var renamedProperty = Wire.EncodePropertySchemaInput(new(new(2, fields[1], Guid.NewGuid(), schema++, 2, "", "New score label"),
+            PropertyFieldKind.Text, []));
+        await Send(WireRoutes.PropertySchemaCommand, renamedProperty, owner);
+        Assert.NotEmpty(Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, currentRun)).Rows);
+
         await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Retract,
             new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct);
         await Filter(6, definitions[6].Item2, HttpStatusCode.NotFound);
-        await Group([lower, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
-        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[1], Guid.NewGuid(), schema, 2, false)), owner);
+        await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[1], Guid.NewGuid(), schema, 3, false)), owner);
         await Filter(1, definitions[1].Item2, HttpStatusCode.Conflict, firstPage.NextCursor);
         schema++;
-        await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQuery(new(schema, fields[1], 3,
+        await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQuery(new(schema, fields[1], 4,
             new PropertyFieldValue.Missing(), "")), owner, HttpStatusCode.NotFound);
-        await Group([date, lower with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
+        await Group([date, lower with { DefinitionRevision = 4 }], status: HttpStatusCode.NotFound);
+        await Saved(WireRoutes.SavedViewExecute, currentRun, HttpStatusCode.Conflict);
+        var removal = new SavedViewCommand(SavedViewAction.Retire, viewId, 2, 2, Guid.NewGuid(), "", null);
+        Assert.True(Wire.DecodeSavedViewReceipt(await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(removal))).Retired);
+        await Saved(WireRoutes.SavedViewExecute, currentRun, HttpStatusCode.NotFound);
+        Assert.Empty(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews)).Views);
+
+        Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
+            string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
 
         async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
         {
@@ -163,7 +213,7 @@ public sealed class PropertyQueryPostgresTests
             await ticket.ExecuteNonQueryAsync(ct);
             return (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
         }
-        async Task<byte[]> Send(string route, byte[]? packet, string? session, HttpStatusCode status = HttpStatusCode.OK)
+        async Task<byte[]> Send(string route, byte[]? packet, string? session, HttpStatusCode status = HttpStatusCode.OK, string? sessionId = null)
         {
             using var request = new HttpRequestMessage(packet is null ? HttpMethod.Get : HttpMethod.Post, route);
             if (packet is not null)
@@ -172,6 +222,7 @@ public sealed class PropertyQueryPostgresTests
                 request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
             }
             if (session is not null) request.Headers.Add("Cookie", $"fsus-v2-session={session}");
+            if (sessionId is not null) request.Headers.Add(WireHeaders.CurrentSession, sessionId);
             using var result = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, result.StatusCode);
             Assert.True(result.Headers.CacheControl?.NoStore);

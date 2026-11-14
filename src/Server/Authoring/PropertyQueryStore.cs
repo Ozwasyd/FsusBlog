@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
@@ -40,20 +41,61 @@ internal sealed partial class PropertyStore
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
-        if (schema.Revision != input.SchemaRevision) throw Conflict();
-        var conditions = input.Conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
-            .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
+        var conditions = Resolve(schema, input);
+        await ValidateQueryReferences(conditions, ct);
+        return await Filter(conditions, schema.Revision, session, input.Cursor, ct);
+    }
+
+    internal async Task<byte[]> CaptureSavedView(PropertyArticleQueryGroup input, CancellationToken ct)
+    {
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        var conditions = Resolve(schema, input);
+        await ValidateQueryReferences(conditions, ct);
+        var references = conditions.SelectMany(item => ReferenceIds(item.Value)).ToHashSet();
+        return Wire.EncodeSavedViewDefinition(conditions.Select(item => new SavedViewCondition(item.DefinitionId, item.Kind,
+            item.Comparison, item.Value is null ? new PropertyFieldValue.Missing() : VisibleValue(item.Value, references))).ToArray());
+    }
+
+    internal async Task<PropertyArticlePage> OpenSavedView(SavedViewCondition[] saved, string session, SavedViewExecute request, CancellationToken ct)
+    {
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        var conditions = saved.Select(item =>
+        {
+            var definition = schema.Find(item.DefinitionId) ?? throw SavedViewDependency();
+            if (FieldKind(definition.Settings.Kind) != item.Kind) throw SavedViewDependency();
+            return Normalize(definition, new(item.DefinitionId, definition.Revision, item.Comparison, item.Value));
+        }).ToArray();
+        await ValidateQueryReferences(conditions, ct);
+        return await Filter(conditions, schema.Revision, $"saved:{request.Id:D}:{request.Revision}:{session}", request.Cursor, ct);
+    }
+
+    internal static BusinessException SavedViewDependency() => new(Rejection.Conflict, "A saved view dependency is unavailable. Update its conditions.");
+
+    private async Task ValidateQueryReferences(Condition[] conditions, CancellationToken ct)
+    {
         var referenceIds = conditions.SelectMany(item => ReferenceIds(item.Value)).Distinct().ToArray();
         if (referenceIds.Length != 0 && !(await ReadReferences(referenceIds, ct)).SetEquals(referenceIds)) throw Missing();
+    }
 
-        var binding = CursorBinding(session, input.SchemaRevision, conditions);
+    private static Condition[] Resolve(PropertySchema schema, PropertyArticleQueryGroup input)
+    {
+        if (schema.Revision != input.SchemaRevision) throw Conflict();
+        return input.Conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+            .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
+    }
+
+    private async Task<PropertyArticlePage> Filter(Condition[] conditions, long schema, string session, string cursor, CancellationToken ct)
+    {
+        var binding = CursorBinding(session, schema, conditions);
         var before = 0;
-        if (input.Cursor.Length != 0)
+        if (cursor.Length != 0)
         {
-            var bytes = WebEncoders.Base64UrlDecode(input.Cursor);
+            var bytes = WebEncoders.Base64UrlDecode(cursor);
             before = BinaryPrimitives.ReadInt32LittleEndian(bytes);
             if (before <= 0 || !CryptographicOperations.FixedTimeEquals(
-                    Encoding.ASCII.GetBytes(Cursor(binding, before)), Encoding.ASCII.GetBytes(input.Cursor))) throw Invalid();
+                    Encoding.ASCII.GetBytes(Cursor(binding, before)), Encoding.ASCII.GetBytes(cursor))) throw Invalid();
         }
         var sql = new StringBuilder("select a.id,a.revision,a.title from public.article a where a.owner_id=$1 and not a.deleted");
         var parameters = new List<object> { actor.Id, before, WireLimits.PropertyPageSize + 1 };
@@ -70,7 +112,7 @@ internal sealed partial class PropertyStore
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);
     }
 
-    private sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyValue? Value);
+    private sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
 
     private static byte[] CursorBinding(string session, long revision, Condition[] conditions)
     {
@@ -103,7 +145,7 @@ internal sealed partial class PropertyStore
             (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
             _ => throw Invalid(),
         };
-        return new(condition.DefinitionId, condition.DefinitionRevision, condition.Comparison, normalized);
+        return new(condition.DefinitionId, condition.DefinitionRevision, FieldKind(definition.Settings.Kind), condition.Comparison, normalized);
     }
 
     private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)

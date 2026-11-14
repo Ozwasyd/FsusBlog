@@ -107,6 +107,11 @@ inline constexpr uint32_t PropertyPageSize = 25;
 inline constexpr uint32_t PropertyQueryCursorChars = 48;
 inline constexpr uint32_t PropertyQueryConditionCount = 4;
 inline constexpr uint32_t PropertyQueryGroupFrameBytes = 262368;
+inline constexpr uint32_t SavedViewNameBytes = 512;
+inline constexpr uint32_t SavedViewPageSize = 25;
+inline constexpr uint32_t SavedViewMaxCount = 1000;
+inline constexpr uint32_t SavedViewCommandFrameBytes = 262976;
+inline constexpr uint32_t SavedViewExecuteFrameBytes = 92;
 inline constexpr uint32_t PropertyOptionCount = 32;
 inline constexpr uint32_t PropertyDecimalBytes = 64;
 inline constexpr uint32_t PropertyDateBytes = 40;
@@ -392,6 +397,10 @@ enum class FrameType : uint16_t {
     PropertyArticleQuery = 32882,
     PropertyArticlePage = 32883,
     PropertyArticleQueryGroup = 32912,
+    SavedViewCatalog = 32930,
+    SavedViewCommand = 32931,
+    SavedViewReceipt = 32932,
+    SavedViewExecute = 32933,
     DraftRecoveryScope = 32787,
     AuthoringWorkspaceSnapshot = 32910,
     AuthoringWorkspaceCommand = 32911,
@@ -510,6 +519,10 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertyArticleQuery:
         case FrameType::PropertyArticlePage:
         case FrameType::PropertyArticleQueryGroup:
+        case FrameType::SavedViewCatalog:
+        case FrameType::SavedViewCommand:
+        case FrameType::SavedViewReceipt:
+        case FrameType::SavedViewExecute:
         case FrameType::DraftRecoveryScope:
         case FrameType::AuthoringWorkspaceSnapshot:
         case FrameType::AuthoringWorkspaceCommand:

@@ -103,6 +103,10 @@ public enum FrameType : ushort
     PropertyArticleQuery = 32882,
     PropertyArticlePage = 32883,
     PropertyArticleQueryGroup = 32912,
+    SavedViewCatalog = 32930,
+    SavedViewCommand = 32931,
+    SavedViewReceipt = 32932,
+    SavedViewExecute = 32933,
     DraftRecoveryScope = 32787,
     AuthoringWorkspaceSnapshot = 32910,
     AuthoringWorkspaceCommand = 32911,
@@ -224,6 +228,11 @@ public static class WireLimits
     public const int PropertyQueryCursorChars = 48;
     public const int PropertyQueryConditionCount = 4;
     public const int PropertyQueryGroupFrameBytes = 262368;
+    public const int SavedViewNameBytes = 512;
+    public const int SavedViewPageSize = 25;
+    public const int SavedViewMaxCount = 1000;
+    public const int SavedViewCommandFrameBytes = 262976;
+    public const int SavedViewExecuteFrameBytes = 92;
     public const int PropertyOptionCount = 32;
     public const int PropertyDecimalBytes = 64;
     public const int PropertyDateBytes = 40;
@@ -551,6 +560,8 @@ public static class WireRoutes
     public const string PropertyFilterCatalog = "/api/v2/authoring/properties/filter/catalog.aeds";
     public const string PropertyFilterability = "/api/v2/authoring/properties/filter/definition.aeds";
     public const string PropertyArticleQuery = "/api/v2/authoring/properties/filter/articles.aeds";
+    public const string SavedViews = "/api/v2/authoring/saved-views.aeds";
+    public const string SavedViewExecute = "/api/v2/authoring/saved-views/run.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string AuthoringWorkspace = "/api/v2/authoring/workspace.aeds";
     public const string AuthoringWorkspaceLayout = "/api/v2/authoring/workspace/layout.aeds";

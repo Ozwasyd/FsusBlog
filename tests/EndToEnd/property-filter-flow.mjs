@@ -49,6 +49,7 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     assert.equal(await result.getByRole('link').count(), 1)
     if (process.env.FSUSBLOG_TEST_EVIDENCE)
       await page.screenshot({ path: join(process.env.FSUSBLOG_TEST_EVIDENCE, 'property-range-mobile.png') })
+    await verifySavedView(page, article, observations)
     await comparison('大于')
     await result.waitFor({ state: 'detached' })
     await page.getByRole('button', { name: '匹配全部条件', exact: true }).click()
@@ -63,6 +64,42 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
   } finally {
     await page.close()
   }
+}
+
+async function verifySavedView(page, article, observations) {
+  const label = 'Editorial checklist'
+  const renamed = 'Editorial review'
+  const section = page.getByRole('region', { name: '保存视图结果' })
+  const toggle = page.getByText('保存视图', { exact: true })
+  const name = page.getByLabel('保存视图名称', { exact: true })
+  const view = page.getByRole('combobox', { name: '选择保存视图', exact: true })
+  await toggle.click()
+  await name.fill(label)
+  await page.getByRole('button', { name: '保存当前筛选', exact: true }).click()
+  await page.getByRole('button', { name: '打开保存视图', exact: true }).waitFor()
+  await toggle.click()
+  await view.waitFor({ state: 'hidden' })
+  await toggle.click()
+  await view.click()
+  await page.getByRole('option', { name: label, exact: true }).click()
+  await page.getByRole('button', { name: '打开保存视图', exact: true }).click()
+  await section.getByRole('link', { name: article.title, exact: true }).waitFor()
+  assert.equal(await section.getByRole('link').count(), 1)
+  assert.equal(await section.getByRole('link').getAttribute('href'), `/user/manage/article/edit/${article.id}`)
+  if (process.env.FSUSBLOG_TEST_EVIDENCE)
+    await page.screenshot({ path: join(process.env.FSUSBLOG_TEST_EVIDENCE, 'saved-views-mobile.png') })
+  await name.fill(renamed)
+  await page.getByRole('button', { name: '重命名保存视图', exact: true }).click()
+  await name.waitFor()
+  await page.getByRole('button', { name: '打开保存视图', exact: true }).click()
+  await section.getByRole('link', { name: article.title, exact: true }).waitFor()
+  await page.getByRole('button', { name: '移除保存视图', exact: true }).click()
+  await page.getByRole('button', { name: '确认移除视图', exact: true }).click()
+  await section.waitFor({ state: 'detached' })
+  await view.click()
+  assert.equal(await page.getByRole('option', { name: renamed, exact: true }).count(), 0)
+  await page.keyboard.press('Escape')
+  observations.push('At 375px, a real private saved view reopens the exact date/decimal intersection after its panel closes, survives rename, and retires from the live catalog.')
 }
 
 async function verifyLateReply(publisher, origin, exactScore, replacement, observations) {
