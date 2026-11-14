@@ -63,13 +63,14 @@ function hasDomReferenceAuthority(source, isCSharp = false)
     // Keep literals/comments opaque and analyze each expression separately so a DOM
     // measurement beside a canonical target does not turn that target into DOM identity.
     const tokens = [...source.matchAll(
-        /\/\*[\s\S]*?\*\/|\/\/[^\n]*|@?"(?:""|\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|===|!==|==|!=|=>|&&|\|\||\?\?|\?\.|[^\s]/gu
+        /\/\*[\s\S]*?\*\/|\/\/[^\n]*|@?"(?:""|\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|>>>=|<<=|>>=|\*\*=|&&=|\|\|=|\?\?=|[+\-*/%&|^]=|===|!==|==|!=|=>|&&|\|\||\?\?|\?\.|[^\s]/gu
     )].filter(([token]) => !token.startsWith('//') && !token.startsWith('/*'))
         .map(([token]) => /^(?:@?"|'|`)/u.test(token) ? '<literal>' : token);
     const identity = /^(?:Target)?(?:ArticleId|HeadingIdentity|BlockIdentity|AnchorId)$/iu;
     const domRead = /^(?:querySelector(?:All)?|getElementById|getElementsBy(?:Name|ClassName|TagName)|elements?FromPoint|getSelection|getRangeAt|createRange|getAttribute(?:NS)?|SelectSingleNode|SelectNodes|GetElementById|QuerySelector(?:All)?|GetAttribute(?:Value|Node)?)$/u;
     const selection = /^(?:find|filter|some|every|First|Single|FirstOrDefault|SingleOrDefault|Find|FindAll|Where|Any|All)$/u;
     const scalarType = /^(?:string|bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|decimal|char|object|dynamic)$/u;
+    const compoundAssignment = /^(?:>>>=|<<=|>>=|\*\*=|&&=|\|\|=|\?\?=|[+\-*/%&|^]=)$/u;
     const opening = new Map([['(', ')'], ['[', ']'], ['{', '}']]);
     const matching = new Map();
     const conditionalColons = new Set();
@@ -144,6 +145,7 @@ function hasDomReferenceAuthority(source, isCSharp = false)
         {
             const token = tokens[index];
             if (depth === 0 && (closing.includes(token) || [',', ';', '=', '=>'].includes(token)
+                || compoundAssignment.test(token)
                 || (token === ':' && !conditionalColons.has(index))
                 || (comparison && ['&&', '||', '==', '===', '!=', '!==', '?', ':'].includes(token))))
             {
@@ -471,7 +473,7 @@ function hasDomReferenceAuthority(source, isCSharp = false)
                 return true;
             }
         }
-        else if (token === '=' || (token === ':' && !conditionalColons.has(index))
+        else if (token === '=' || compoundAssignment.test(token) || (token === ':' && !conditionalColons.has(index))
             || (token === '=>' && (tokens[index - 2] === 'string'
                 || (tokens[index - 2] === '?' && tokens[index - 3] === 'string'))))
         {
@@ -480,12 +482,12 @@ function hasDomReferenceAuthority(source, isCSharp = false)
             const nameIndex = typed ? index - 3 : index - 1;
             const name = tokens[nameIndex];
             const expression = expressionAt(index + 1);
-            const derived = domDerived(expression);
+            const derived = domDerived(expression) || (compoundAssignment.test(token) && alias(name));
             if (identity.test(name) && derived)
             {
                 return true;
             }
-            if (token === '=' && /^[A-Za-z_$][\w$]*$/u.test(name)
+            if ((token === '=' || compoundAssignment.test(token)) && /^[A-Za-z_$][\w$]*$/u.test(name)
                 && !['.', '?.'].includes(tokens[nameIndex - 1]))
             {
                 // Object fields are checked individually; do not taint the whole

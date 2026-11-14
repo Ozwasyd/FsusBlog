@@ -146,6 +146,93 @@ export const canvasReference = references.filter(reference => reference.permissi
 
 const domAuthorityViolation = /DOM-derived canvas reference identity or selection authority is forbidden/u;
 
+for (const operator of ['||=', '??=', '&&=', '+='])
+{
+    test(`rejects DOM identity propagated by ${operator}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement) {
+    let observed = '';
+    observed ${operator} element.getAttribute('id') ?? '';
+    return { targetHeadingIdentity: observed };
+}
+`);
+        assert.match(violations(repositoryRoot), domAuthorityViolation);
+    });
+}
+
+for (const operator of ['-=', '*=', '/=', '%=', '**=', '&=', '|=', '^=', '<<=', '>>=', '>>>='])
+{
+    test(`rejects numeric DOM identity propagated by ${operator}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement) {
+    let observed = 0;
+    observed ${operator} Number(element.getAttribute('data-article-id'));
+    return { targetArticleId: observed };
+}
+`);
+        assert.match(violations(repositoryRoot), domAuthorityViolation);
+    });
+}
+
+test('rejects a compound DOM update to an identity property', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    target.targetHeadingIdentity ||= element.getAttribute('id') ?? '';
+    return target;
+}
+`);
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('rejects backend DOM identity propagated by compound assignment', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceCompoundFlow.cs', `
+public class AuthoringCanvasReferenceCompoundFlow
+{
+    public object Find(System.Xml.XmlElement element)
+    {
+        var observed = "";
+        observed += element.GetAttribute("id");
+        return new { TargetHeadingIdentity = observed };
+    }
+}
+`);
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('compound assignment preserves existing DOM taint', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement) {
+    let observed = element.getAttribute('id') ?? '';
+    observed += '-suffix';
+    return { targetHeadingIdentity: observed };
+}
+`);
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('canonical compound assignment without DOM input remains accepted', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(target: { targetHeadingIdentity: string }) {
+    let observed = target.targetHeadingIdentity;
+    observed += '-suffix';
+    return { targetHeadingIdentity: observed };
+}
+`);
+    assert.equal(violations(repositoryRoot), '');
+});
+
 for (const [name, field, expression] of [
     ['article attribute', 'targetArticleId', 'Number(document.querySelector("[data-article-id]")?.getAttribute("data-article-id"))'],
     ['heading DOM id', 'targetHeadingIdentity', 'document.querySelector("[data-anchor]")?.id'],
