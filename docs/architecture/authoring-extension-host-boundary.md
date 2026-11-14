@@ -57,6 +57,100 @@ and security-policy authority IDs; collisions across any extension or core
 authority fail closed. This registry validates contracts only. It does not install,
 persist, grant, activate, dispatch, or execute an extension.
 
+### Prepublish diagnostic category contract
+
+`AuthoringPrepublishDiagnosticRegistry` is a pure category join over the existing
+`AuthoringExtensionRegistrySnapshot`, not another manifest, capability registry or
+RPC entry point. Its constructor requires the exact diagnostic declarations,
+host policies and an explicit current core result collection. It revalidates the
+original extension registry and requires one category declaration per manifest
+diagnostic contribution. Category schema version 1 binds diagnostic ID/version,
+entrypoint content digest, execution class, minimal input schema, permissions,
+policy reference and diagnostic resource ceilings to that original manifest.
+
+The category join rejects an intersection between the complete manifest identity
+roster (every extension and every contribution, including other categories) and
+the supplied core check IDs. A different diagnostic alias cannot hide a manifest
+collision. Identity comparison retains the original ordinal semantics: manifest
+IDs follow their strict lowercase ASCII grammar, core references retain their
+exact accepted spelling, and neither is trimmed, case-folded or Unicode-normalized.
+
+`ExpectedDiagnostics` exposes the complete canonical immutable registration
+roster, ordered by ordinal diagnostic ID. Each registration carries host-owned
+requiredness and declaration/policy digests; the roster binds its schema version,
+registry identity and complete ordered membership through `RosterSha256`. This
+is a projection of the original registry, not a caller-owned authority or another
+registry. A digest alone and `Get(id)` cannot establish complete membership.
+
+`ValidateOutcomeCoverage(expectedDiagnostics, outcomes, now)` compares the supplied
+roster with that exact current projection, rejects missing/duplicate/unknown or
+tampered roster entries, and independently revalidates every supplied outcome's
+input, facts, status and requiredness. Its immutable `Slots` account for every
+registration in canonical order. An absent required outcome has
+`RequiredUnavailable`; an absent optional outcome has `OptionalNotEvaluable`.
+Both have `IsAbsent=true` and `Outcome=null`: no input, failure reason, fact or
+successful evaluation is invented. An explicitly empty outcome array therefore
+differs from an actually empty registry; an uninitialized array is rejected.
+`HasAllOutcomes` describes presence only, including explicit unavailable outcomes.
+The caller must still bind outcomes to one current invocation and recheck live
+authority. Coverage supplies no core combination, publication decision or receipt,
+and does not change the existing version-1 plugin input/output fields or digests.
+
+The existing `RuntimeIdentity` is a package/configuration identity, not a running
+incarnation witness. `AuthoringExtensionLifecycleCoordinator.RecordAsync` owns
+receipt generation advancement and `AuthoringExtensionLifecycleResources` tracks
+workers/services under that generation. However, the diagnostic contract has no
+owner-issued observation that binds the current generation, a particular live
+runtime instance and the diagnostic result. The worker's existing
+`ComputeInstanceIdentity` also hashes target/request coordinates without a lifecycle
+generation or unique launch identity; its receipt cannot distinguish restarting
+the same request. The service result has no equivalent incarnation binding.
+`AcceptResultAsync` checks a supplied generation against a receipt store; a receipt
+or generation number constructed by a caller is not that missing witness. A real
+lifecycle/runtime owner must issue and revalidate the binding before a diagnostic
+consumer can prove same-package restart or cross-runtime-instance rejection.
+No self-reported `LifecycleGeneration` field is added to pretend this capability
+exists; current host-context fields and their structural validation remain unchanged.
+
+The host supplies each code's exact severity, requiredness, inert fix command
+references and effective budgets. Unknown, duplicate, conflicting or core-owned
+identities fail closed. Runtime output cannot supply requiredness, core results,
+pass overrides, patches, executable payloads or HTML. Fact identifiers stay in
+their diagnostic namespace, ranges stay inside admitted source ranges, evidence
+is a bounded reference plus digest, and fix references carry no execution power.
+`Findings` requires nonempty facts; `NoFindings` is an explicit completion with no
+facts and says nothing about core checks passing. Host unavailability produces
+`RequiredUnavailable` or `OptionalNotEvaluable`, preserving requiredness and the
+failure reason instead of manufacturing a successful evaluation.
+
+`CreateInput` consumes host-admitted metadata and exact source ranges. It does
+not acquire permission or verify a live grant: the caller must first use the
+original canonical read/grant owners. The input binds article, document epoch,
+source revision/digest, node/range/read-model scope, configuration, grant,
+runtime/version, host API, request/deadline, category/extension/content identity,
+host policy and complete core result set digest. `ValidateResult`/`ParseResult`
+recompute that binding and enforce deadlines, payload bounds, exact code severity
+and the closed result vocabulary. Only bounded plain text facts are accepted.
+Missing, duplicate and unknown JSON members fail closed at every nesting level.
+
+Version 1 supports named metadata and partial document ranges only. Whole-document
+reads, including a whole document split across ranges, related-article queries,
+network/AI, filesystem, state and mutation capabilities are refused by this
+category contract. A diagnostic category never implies broader read authority.
+Their future admission requires the real original broker/grant policy and explicit
+disclosure rather than a boolean permission inside diagnostic metadata.
+
+These APIs provide immutable structural outcomes for later consumers. They do
+not activate a sandbox, register production services, run core publication checks,
+combine outcomes, cache results or issue publication receipts. The original core
+owner remains responsible for providing its complete current result set; the
+future integration must recheck live grants, lifecycle/current source and execution
+completion, exclude unavailable outcomes from receipts, and preserve core failures.
+The bounds checked here are admission and payload limits, not runtime CPU, memory
+or concurrency measurements. The backend contract tests cover actual category
+registration and result parsing, including malicious controls and 0/1/100/1000
+registrations; full diagnostic runtime and issue acceptance remain open.
+
 ## Verified package and atomic version switch
 
 An authoring package enters production composition only through an exact opaque
