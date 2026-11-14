@@ -165,6 +165,7 @@ DO $empty$
 DECLARE
     relation record;
     contains_rows boolean;
+    valid_bootstrap boolean;
 BEGIN
     IF (SELECT count(*) FROM public.v2_schema) <> 1 OR
         NOT EXISTS (SELECT FROM public.v2_schema WHERE singleton AND version = {SCHEMA}) THEN
@@ -176,6 +177,14 @@ BEGIN
         ORDER BY c.relname
     LOOP
         EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE NOWAIT', relation.relname);
+        IF relation.relname = 'authoring_recovery_site' THEN
+            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND site_id <> ''00000000-0000-0000-0000-000000000000'') FROM public.authoring_recovery_site'
+                INTO valid_bootstrap;
+            IF valid_bootstrap IS DISTINCT FROM true THEN
+                RAISE EXCEPTION 'Fixture target has an invalid authoring recovery bootstrap marker';
+            END IF;
+            CONTINUE;
+        END IF;
         EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
         IF contains_rows THEN
             RAISE EXCEPTION 'Fixture target contains business data in %', relation.relname;
