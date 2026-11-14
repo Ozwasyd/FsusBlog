@@ -25,7 +25,8 @@ NAMES = {
     'dockerfile': '.sh', 'containerfile': '.sh', 'cmakelists.txt': '.cmake',
     '.editorconfig': '.toml', '.clang-format': '.yaml', '.clang-tidy': '.yaml',
     '.shellcheckrc': '.conf', '.npmrc': '.npmrc', '.gitattributes': '.conf',
-    '.gitignore': '.conf', '.dockerignore': '.conf', '.git-blame-ignore-revs': '.conf', 'caddyfile': '.conf',
+    '.gitignore': '.conf', '.dockerignore': '.conf', '.git-blame-ignore-revs': '.conf',
+    'caddyfile': '.conf', 'caddyfile.admin': '.conf',
     '.ignore': '.conf', 'nuget.config': '.xml', 'codeowners': '.conf',
 }
 LOCKS = {'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'packages.lock.json', 'dependencies.lock.json'}
