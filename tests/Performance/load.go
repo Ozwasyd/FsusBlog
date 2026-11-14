@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -108,6 +109,9 @@ type workload struct {
 	generation string
 	wire       contract
 	fixture    string
+	tlsConfig  *tls.Config
+	protocol   string
+	tlsVersion string
 }
 
 func readWorkload(fixturePath, wirePath string) (workload, error) {
@@ -204,9 +208,10 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 // One outstanding request per connection avoids hidden HTTP client retries and pipelining.
 // ReadResponse still handles Content-Length and chunked bodies using the standard parser.
 type connection struct {
-	origin *url.URL
-	conn   net.Conn
-	reader *bufio.Reader
+	origin    *url.URL
+	tlsConfig *tls.Config
+	conn      net.Conn
+	reader    *bufio.Reader
 }
 
 func (c *connection) close() {
@@ -222,7 +227,7 @@ func (c *connection) request(path string, deadline time.Time, inspect func(*http
 		var socket net.Conn
 		var err error
 		if c.origin.Scheme == "https" {
-			socket, err = tls.DialWithDialer(dialer, "tcp", c.origin.Host, &tls.Config{MinVersion: tls.VersionTLS12})
+			socket, err = tls.DialWithDialer(dialer, "tcp", c.origin.Host, c.tlsConfig)
 		} else {
 			socket, err = dialer.Dial("tcp", c.origin.Host)
 		}
@@ -277,7 +282,7 @@ func metadata(response *http.Response, class route, generation, header string) (
 }
 
 func preflight(ctx context.Context, origin *url.URL, w *workload) error {
-	c := connection{origin: origin}
+	c := connection{origin: origin, tlsConfig: w.tlsConfig}
 	defer c.close()
 	header := w.wire.Headers["SearchIndexGeneration"]
 	for class := route(0); class < routeCount; class++ {
@@ -287,6 +292,13 @@ func preflight(ctx context.Context, origin *url.URL, w *workload) error {
 			}
 			expected := &w.paths[class][index]
 			status, err := c.request(expected.path, time.Now().Add(requestLimit), func(response *http.Response) error {
+				if response.Proto != "HTTP/1.1" {
+					return errors.New("expected HTTP/1.1")
+				}
+				w.protocol = response.Proto
+				if secure, ok := c.conn.(*tls.Conn); ok {
+					w.tlsVersion = tls.VersionName(secure.ConnectionState().Version)
+				}
 				if _, err := metadata(response, class, w.generation, header); err != nil {
 					return err
 				}
@@ -657,7 +669,7 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 		}
 	})
 	for i := 0; i < maxInFlight; i++ {
-		workers.Go(func() { worker(&connection{origin: origin}, jobs, permits, results, w) })
+		workers.Go(func() { worker(&connection{origin: origin, tlsConfig: w.tlsConfig}, jobs, permits, results, w) })
 	}
 	started := time.Now().Add(20 * time.Millisecond)
 	for i := 0; i < rate*seconds && ctx.Err() == nil; i++ {
@@ -686,6 +698,7 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 
 func run() int {
 	target := flag.String("target", "", "explicit loopback HTTP or TLS origin with port")
+	authority := flag.String("ca", "", "optional PEM authority for an isolated TLS run")
 	fixture := flag.String("fixture", "", "seed.py manifest")
 	wire := flag.String("wire", "src/Contracts/wire.schema.json", "checked-in wire contract")
 	rate := flag.Int("rate", 0, "scheduled requests per second (0 performs preflight only)")
@@ -703,6 +716,14 @@ func run() int {
 	if err != nil {
 		return fail(err)
 	}
+	if origin.Scheme == "https" {
+		w.tlsConfig, err = loadTLSConfig(*authority)
+		if err != nil {
+			return fail(err)
+		}
+	} else if *authority != "" {
+		return fail(errors.New("a certificate authority requires an HTTPS target"))
+	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return fail(err)
@@ -714,7 +735,7 @@ func run() int {
 	err = preflight(ctx, origin, &w)
 	report := map[string]any{
 		"startedAt": started, "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture,
-		"requestedRate": *rate, "seconds": *seconds, "preflight": "pass",
+		"requestedRate": *rate, "seconds": *seconds, "preflight": "pass", "protocol": w.protocol, "tlsVersion": w.tlsVersion,
 	}
 	code := 0
 	if err != nil {
@@ -762,6 +783,22 @@ func run() int {
 		return fail(err)
 	}
 	return 0
+}
+
+func loadTLSConfig(authority string) (*tls.Config, error) {
+	config := &tls.Config{MinVersion: tls.VersionTLS12, NextProtos: []string{"http/1.1"}}
+	if authority == "" {
+		return config, nil
+	}
+	certificates, err := os.ReadFile(authority)
+	if err != nil {
+		return nil, err
+	}
+	config.RootCAs = x509.NewCertPool()
+	if !config.RootCAs.AppendCertsFromPEM(certificates) {
+		return nil, errors.New("no usable certificate in the supplied authority PEM")
+	}
+	return config, nil
 }
 
 func main() { os.Exit(run()) }
