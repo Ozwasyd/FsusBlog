@@ -4,6 +4,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.DataProtection;
 
+using NSubstitute;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class ArticleListCursorCodecTests
@@ -73,6 +75,40 @@ public sealed class ArticleListCursorCodecTests
     {
         (ArticleListCursorCodec codec, _) = CreateCodec();
         Assert.False(codec.TryDecode(encoded, null, null, string.Empty, 10, 0, ArticleListSortMode.Latest, out _));
+    }
+
+    [Theory]
+    [InlineData("A")]
+    [InlineData("AAAAA")]
+    [InlineData("AB")]
+    [InlineData("AAB")]
+    public void Cursor_RejectsNonCanonicalEncodingBeforeUnprotect(string encoded)
+    {
+        var provider = Substitute.For<IDataProtectionProvider>();
+        var protector = Substitute.For<IDataProtector>();
+        provider.CreateProtector(Arg.Any<string>()).Returns(protector);
+        var time = new TestBusinessTimeProvider(new DateTimeOffset(2026, 7, 20, 8, 30, 0, TimeSpan.Zero));
+        var codec = new ArticleListCursorCodec(provider, time);
+
+        Assert.False(codec.TryDecode(encoded, null, null, string.Empty, 10, 0, ArticleListSortMode.Latest, out _));
+        protector.DidNotReceive().Unprotect(Arg.Any<byte[]>());
+    }
+
+    [Theory]
+    [InlineData("AA", 1)]
+    [InlineData("AAA", 2)]
+    [InlineData("AAAA", 3)]
+    public void Cursor_DelegatesCanonicalBytesToAuthenticatedPayloadValidation(string encoded, int byteCount)
+    {
+        var provider = Substitute.For<IDataProtectionProvider>();
+        var protector = Substitute.For<IDataProtector>();
+        provider.CreateProtector(Arg.Any<string>()).Returns(protector);
+        protector.Unprotect(Arg.Any<byte[]>()).Returns(Array.Empty<byte>());
+        var time = new TestBusinessTimeProvider(new DateTimeOffset(2026, 7, 20, 8, 30, 0, TimeSpan.Zero));
+        var codec = new ArticleListCursorCodec(provider, time);
+
+        Assert.False(codec.TryDecode(encoded, null, null, string.Empty, 10, 0, ArticleListSortMode.Latest, out _));
+        protector.Received(1).Unprotect(Arg.Is<byte[]>(bytes => bytes.Length == byteCount && bytes.All(value => value == 0)));
     }
 
     private static (ArticleListCursorCodec Codec, TestBusinessTimeProvider Time) CreateCodec()

@@ -1,6 +1,6 @@
-using FsusBlog.Contracts.Articles;
 using System.Collections.Concurrent;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -312,9 +312,9 @@ public sealed partial class ArticleEndpointServiceTests
     public async Task GetHotArticlesAsync_GenerationDrift_DoesNotPublishStaleFrame()
     {
         var core = Substitute.For<IArticleCoreService>();
-        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
         var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
         int generation = 1;
+        using var ownedFrameCache = new GenerationAwareFrameCache(() => Volatile.Read(ref generation));
         hotVersion.CurrentHotArticlesVersion.Returns(_ => Volatile.Read(ref generation));
         int coreLoads = 0;
         core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
@@ -332,13 +332,13 @@ public sealed partial class ArticleEndpointServiceTests
 
         Assert.True(result.HasCachedFrame);
         Assert.Equal(2, Volatile.Read(ref coreLoads));
-        await ownedFrameCache.Received(1).TrySetOwnedFrameAsync(
-            CachePolicyId.ArticleHotFrame,
-            "v2:frame:article-hot:aeds-v2:ranking-v1:count:10",
-            Arg.Any<OwnedAedsFrame>(),
-            Arg.Is<OwnedFramePublicationGuard>(guard => guard.ExpectedValue == 2),
-            null,
-            Arg.Any<CancellationToken>());
+        var publication = Assert.Single(ownedFrameCache.Publications);
+        Assert.Equal(CachePolicyId.ArticleHotFrame, publication.Policy);
+        Assert.Equal("v2:frame:article-hot:aeds-v2:ranking-v1:count:10", publication.Identity);
+        Assert.Equal(CachePolicyId.AdminStats, publication.Guard.PolicyId);
+        Assert.Equal(IHotArticlesCacheVersionProvider.AuthorityCounterIdentity, publication.Guard.Identity);
+        Assert.Equal(2, publication.Guard.ExpectedValue);
+        Assert.True(publication.Accepted);
         result.CachedFrame!.Dispose();
     }
 
@@ -346,33 +346,18 @@ public sealed partial class ArticleEndpointServiceTests
     public async Task GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame()
     {
         var core = Substitute.For<IArticleCoreService>();
-        var ownedFrameCache = Substitute.For<IOwnedFrameCache>();
         var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
         int generation = 1;
-        int publications = 0;
-        hotVersion.CurrentHotArticlesVersion.Returns(_ => Volatile.Read(ref generation));
-        ownedFrameCache.TryGetOwnedFrameAsync(
-                Arg.Any<CachePolicyId>(),
-                Arg.Any<string>(),
-                Arg.Any<AedsFrameType>(),
-                Arg.Any<CancellationToken>())
-            .Returns(default(OwnedFrameCacheReadResult));
-        ownedFrameCache.TrySetOwnedFrameAsync(
-                Arg.Any<CachePolicyId>(),
-                Arg.Any<string>(),
-                Arg.Any<OwnedAedsFrame>(),
-                Arg.Any<OwnedFramePublicationGuard>(),
-                Arg.Any<TimeSpan?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(call =>
+        using var ownedFrameCache = new GenerationAwareFrameCache(
+            () => Volatile.Read(ref generation),
+            attempt =>
             {
-                call.Arg<OwnedAedsFrame>().Retire();
-                if (Interlocked.Increment(ref publications) == 1)
+                if (attempt == 1)
                 {
                     Volatile.Write(ref generation, 2);
                 }
-                return Volatile.Read(ref publications) > 1;
             });
+        hotVersion.CurrentHotArticlesVersion.Returns(_ => Volatile.Read(ref generation));
         core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
             .Returns(Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]));
         var service = Create(core, ownedFrameCache: ownedFrameCache, hotVersion: hotVersion);
@@ -380,14 +365,29 @@ public sealed partial class ArticleEndpointServiceTests
         ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>> result = await service.GetHotArticlesAsync(10);
 
         Assert.True(result.HasCachedFrame);
-        Assert.Equal(2, Volatile.Read(ref publications));
-        await ownedFrameCache.Received(1).TrySetOwnedFrameAsync(
+        Assert.Collection(ownedFrameCache.Publications,
+            first =>
+            {
+                Assert.Equal(CachePolicyId.ArticleHotFrame, first.Policy);
+                Assert.Equal("v1:frame:article-hot:aeds-v2:ranking-v1:count:10", first.Identity);
+                Assert.Equal(CachePolicyId.AdminStats, first.Guard.PolicyId);
+                Assert.Equal(IHotArticlesCacheVersionProvider.AuthorityCounterIdentity, first.Guard.Identity);
+                Assert.Equal(1, first.Guard.ExpectedValue);
+                Assert.False(first.Accepted);
+            },
+            second =>
+            {
+                Assert.Equal(CachePolicyId.ArticleHotFrame, second.Policy);
+                Assert.Equal("v2:frame:article-hot:aeds-v2:ranking-v1:count:10", second.Identity);
+                Assert.Equal(CachePolicyId.AdminStats, second.Guard.PolicyId);
+                Assert.Equal(IHotArticlesCacheVersionProvider.AuthorityCounterIdentity, second.Guard.Identity);
+                Assert.Equal(2, second.Guard.ExpectedValue);
+                Assert.True(second.Accepted);
+            });
+        Assert.False((await ownedFrameCache.TryGetOwnedFrameAsync(
             CachePolicyId.ArticleHotFrame,
             "v1:frame:article-hot:aeds-v2:ranking-v1:count:10",
-            Arg.Any<OwnedAedsFrame>(),
-            Arg.Is<OwnedFramePublicationGuard>(guard => guard.ExpectedValue == 1),
-            null,
-            Arg.Any<CancellationToken>());
+            AedsFrameType.ArticleHot)).Hit);
         result.CachedFrame!.Dispose();
     }
 
@@ -883,6 +883,61 @@ public sealed partial class ArticleEndpointServiceTests
                 return true;
             });
         return cache;
+    }
+
+    private sealed class GenerationAwareFrameCache(Func<long> currentGeneration, Action<int>? beforePublication = null)
+        : IOwnedFrameCache, IDisposable
+    {
+        private readonly Dictionary<string, OwnedAedsFrame> _frames = new(StringComparer.Ordinal);
+        public List<(CachePolicyId Policy, string Identity, OwnedFramePublicationGuard Guard, bool Accepted)> Publications { get; } = [];
+
+        public Task<OwnedFrameCacheReadResult> TryGetOwnedFrameAsync(
+            CachePolicyId policyId, string identity, AedsFrameType expectedFrameType, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_frames.TryGetValue(identity, out OwnedAedsFrame? frame)
+                && frame.TryAcquireReadLease(out OwnedAedsFrameReadLease? lease)
+                    ? new OwnedFrameCacheReadResult(true, lease)
+                    : default);
+        }
+
+        public Task<bool> TrySetOwnedFrameAsync(
+            CachePolicyId policyId, string identity, OwnedAedsFrame frame,
+            OwnedFramePublicationGuard publicationGuard, TimeSpan? l2TtlOverride = null,
+            CancellationToken cancellationToken = default)
+        {
+            beforePublication?.Invoke(Publications.Count + 1);
+            bool accepted = currentGeneration() == publicationGuard.ExpectedValue;
+            Publications.Add((policyId, identity, publicationGuard, accepted));
+            if (accepted)
+            {
+                if (_frames.Remove(identity, out OwnedAedsFrame? old))
+                {
+                    old.Retire();
+                }
+                _frames.Add(identity, frame);
+            }
+            else
+            {
+                frame.Retire();
+            }
+            return Task.FromResult(accepted);
+        }
+
+        public Task SetOwnedFrameAsync(CachePolicyId policyId, string identity, OwnedAedsFrame frame,
+            TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public OwnedFrameCacheResidencySnapshot GetOwnedFrameResidencySnapshot() => throw new NotSupportedException();
+
+        public void Dispose()
+        {
+            foreach (OwnedAedsFrame frame in _frames.Values)
+            {
+                frame.Retire();
+            }
+            _frames.Clear();
+        }
     }
 
     private sealed class PassthroughCacheMissCoordinator : ICacheMissCoordinator

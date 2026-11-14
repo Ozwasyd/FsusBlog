@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createArticleListCardViewContract, createArticleListViewContract } from '@/view-contracts/articleList'
-import { PUBLIC_SEO_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry'
+import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
 
 const mockArticle = {
   id: 10,
@@ -83,14 +83,44 @@ describe('createArticleListViewContract', () => {
     expect(vc.items[0].id).toBe(10)
   })
 
-  it('calculates pagination correctly', () => {
-    const vc = createArticleListViewContract(response as never, { currentPage: 2, pageSize: 10 })
+  it('calculates pagination with the response cursor and canonical home route', () => {
+    const nextCursor = 'cursor_page_3'
+    const vc = createArticleListViewContract(response as never, {
+      currentPage: 2,
+      pageSize: 10,
+      pageHref: (page) => buildPublicHomePaginationHref(page, page === 3 ? nextCursor : null),
+      canGoPrev: true,
+      canGoNext: true
+    })
     expect(vc.pagination.indicator).toBe('2 / 3')
     expect(vc.pagination.previous.disabled).toBe(false)
     expect(vc.pagination.next.disabled).toBe(false)
     expect(vc.pagination.previous.href).toBe('/')
-    expect(vc.pagination.next.href).toBe('/?page=3')
+    expect(vc.pagination.next.href).toBe('/?page=3&cursor=cursor_page_3')
     expect(vc.showPagination).toBe(true)
+  })
+
+  it('does not invent a cursorless deep home href', () => {
+    const vc = createArticleListViewContract(response as never, {
+      currentPage: 2,
+      pageSize: 10,
+      canGoNext: false
+    })
+    expect(vc.pagination.next.href).toBe('/')
+    expect(vc.pagination.next.disabled).toBe(true)
+  })
+
+  it('preserves known previous cursors and disables a terminal next page despite a stale total', () => {
+    const vc = createArticleListViewContract({ ...response, total: 100 } as never, {
+      currentPage: 3,
+      pageSize: 10,
+      pageHref: (page) => buildPublicHomePaginationHref(page, page === 2 ? 'cursor_page_2' : null),
+      canGoPrev: true,
+      canGoNext: false
+    })
+    expect(vc.pagination.previous.href).toBe('/?page=2&cursor=cursor_page_2')
+    expect(vc.pagination.previous.disabled).toBe(false)
+    expect(vc.pagination.next.disabled).toBe(true)
   })
 
   it('uses the caller canonical route for pagination hrefs', () => {
