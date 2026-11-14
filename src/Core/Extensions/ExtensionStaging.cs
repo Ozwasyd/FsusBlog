@@ -1,13 +1,15 @@
 using System.Buffers;
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
+using static FsusBlog.V2.Core.Extensions.ExtensionDisk;
 
 namespace FsusBlog.V2.Core.Extensions;
 
 /// <summary>A private host scratch root. A package can propose data but cannot choose a pathname.</summary>
 public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
 {
-    private readonly string _path = ValidateRoot(rootId, privateRoot);
+    private readonly string _path = ExtensionManifestReader.IsIdentifier(rootId) ? ValidatePrivateRoot(privateRoot) :
+        throw new ExtensionRejectedException("staging-root-unavailable");
 
     public async Task<string> Stage(ExtensionAuthority.Operation operation, Stream data, CancellationToken cancellationToken = default)
     {
@@ -27,7 +29,7 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
         string? digest = null;
         try
         {
-            ValidateRoot(rootId, new DirectoryInfo(_path));
+            ValidatePrivateRoot(new DirectoryInfo(_path));
             operation.RequireActive(timeout.Token);
             // CreateNew is the authority for creation. A failed open never enters the cleanup path.
             owned = new FileStream(file, new FileStreamOptions
@@ -82,22 +84,5 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
         var receipt = digest ?? throw new InvalidOperationException("Staging completed without a digest.");
         operation.Complete(static () => { }, timeout.Token);
         return receipt;
-    }
-
-    private static string ValidateRoot(string rootId, DirectoryInfo root)
-    {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
-            throw new PlatformNotSupportedException();
-        if (!ExtensionManifestReader.IsIdentifier(rootId) || !root.Exists)
-            throw new ExtensionRejectedException("staging-root-unavailable");
-        for (DirectoryInfo? component = root; component is not null; component = component.Parent)
-        {
-            if ((component.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new ExtensionRejectedException("staging-root-link");
-        }
-        var mode = File.GetUnixFileMode(root.FullName);
-        var required = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
-        if (mode != required) throw new ExtensionRejectedException("staging-root-not-exclusive");
-        return root.FullName;
     }
 }

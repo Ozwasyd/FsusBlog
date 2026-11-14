@@ -33,18 +33,30 @@ public abstract class ExtensionProposal
     }
 }
 
-public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock)
+public sealed class ExtensionAuthority
 {
-    private readonly object _gate = new();
+    private readonly object _gate;
+    private readonly Action<VerifiedExtensionPackage, CancellationToken, bool>? _verifyInstalled;
     private readonly Dictionary<string, VerifiedExtensionPackage> _packages = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, VerifiedExtensionPackage> _lastActivated = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ExtensionInstalledVersion> _lastActivated = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, ExtensionOwner> _owners = new();
     private readonly Dictionary<Guid, Grant> _grants = new();
     private readonly HashSet<Guid> _requests = new();
     private readonly Dictionary<VerifiedExtensionPackage, int> _active = new();
-    private ExtensionPackageVerifier _verifier = verifier;
-    private readonly TimeProvider _clock = clock;
+    private ExtensionPackageVerifier _verifier;
+    private readonly TimeProvider _clock;
     private long _trustRevision;
+
+    public ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock) : this(verifier, clock, new(), null) { }
+
+    internal ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock, object gate,
+        Action<VerifiedExtensionPackage, CancellationToken, bool>? verifyInstalled)
+    {
+        _verifier = verifier;
+        _clock = clock;
+        _gate = gate;
+        _verifyInstalled = verifyInstalled;
+    }
 
     public void ReplaceTrust(ExtensionPackageVerifier updated)
     {
@@ -66,24 +78,39 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
         var package = selected.Verify(approvedSource, archive, signature, platform, cancellationToken);
         lock (_gate)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             if (_trustRevision != trustRevision) throw Deny("trust-configuration-changed");
+            return ActivateVerified(package, null, cancellationToken);
+        }
+    }
+
+    internal void RestoreVersion(string id, ExtensionInstalledVersion version)
+    {
+        lock (_gate) _lastActivated.Add(id, version);
+    }
+
+    internal VerifiedExtensionPackage ActivateVerified(VerifiedExtensionPackage package, Action<ExtensionInstalledVersion>? persist,
+        CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             RequireCurrentTrust(package);
-            if (_packages.TryGetValue(package.Manifest.Id, out var active) && active.Identity == package.Identity) return active;
-            if (_lastActivated.TryGetValue(package.Manifest.Id, out var prior))
+            var id = package.Manifest.Id;
+            if (_packages.TryGetValue(id, out var active) && active.Identity == package.Identity)
             {
-                var before = prior.Manifest;
-                var after = package.Manifest;
-                var version = Version.Parse(after.Version).CompareTo(Version.Parse(before.Version));
-                var sameArchive = package.ArchiveDigest == prior.ArchiveDigest;
-                if (before.Publisher != after.Publisher || version < 0 || (version == 0 && !sameArchive) ||
-                    before.StateSchemaVersion != after.StateSchemaVersion || before.DataSchemaVersion != after.DataSchemaVersion)
-                    throw Deny("package-version-switch");
-                RemoveGrants(after.Id);
+                _verifyInstalled?.Invoke(active, cancellationToken, true);
+                RequireCurrentTrust(active);
+                return active;
             }
+            var installed = ExtensionInstalledVersion.From(package);
+            if (_lastActivated.TryGetValue(id, out var prior)) prior.RequireCompatible(installed);
             else if (_lastActivated.Count >= 1024) throw Deny("active-package-limit");
-            _packages[package.Manifest.Id] = package;
-            _lastActivated[package.Manifest.Id] = package;
+            persist?.Invoke(installed);
+            RemoveGrants(id);
+            _packages.Remove(id);
+            _lastActivated[id] = installed;
+            RequireCurrentTrust(package);
+            _packages[id] = package;
             return package;
         }
     }
@@ -133,7 +160,9 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
 
             if (!_owners.TryGetValue(scope.Owner.Actor, out var owner) || owner != scope.Owner ||
                 !_packages.TryGetValue(scope.ExtensionId, out var package)) throw Deny("consent-owner-or-package");
+            _verifyInstalled?.Invoke(package, CancellationToken.None, true);
             RequireCurrentTrust(package);
+            now = _clock.GetUtcNow();
             var contribution = package.Manifest.Contributions.SingleOrDefault(item => item.Id == scope.ContributionId);
             if (contribution is null || contribution.ExecutionClass == 0 || !contribution.Capabilities.Contains(scope.Capability) || scope.ExpiresAt <= now ||
                 scope.ExpiresAt - now > TimeSpan.FromMinutes(5) || scope.ExpiresAt > package.ValidUntil ||
@@ -155,13 +184,14 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!_grants.TryGetValue(proposal.ConsentId, out var grant)) throw Deny("unknown-consent");
-            Recheck(proposal.ConsentId, grant, cancellationToken);
             var scope = grant.Scope;
             var active = _active.GetValueOrDefault(grant.Package);
             if (scope.Owner != caller || scope.ContributionId != contributionId || scope.Purpose != purpose ||
                 !ProposalMatches(proposal, grant) || proposal.RequestId == Guid.Empty || _requests.Count >= 65_536 ||
                 active >= grant.Package.Manifest.Limits.MaximumConcurrentCalls ||
-                !_requests.Add(proposal.RequestId)) throw Deny("proposal-scope");
+                _requests.Contains(proposal.RequestId)) throw Deny("proposal-scope");
+            Recheck(proposal.ConsentId, grant, cancellationToken, verifyInstalled: true);
+            _requests.Add(proposal.RequestId);
             _active[grant.Package] = active + 1;
             return new(this, proposal, grant);
         }
@@ -177,13 +207,16 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
         _ => false
     };
 
-    private void Recheck(Guid consentId, Grant grant, CancellationToken cancellationToken)
+    private void Recheck(Guid consentId, Grant grant, CancellationToken cancellationToken, bool verifyInstalled)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!_grants.TryGetValue(consentId, out var current) || !ReferenceEquals(current, grant) ||
             !_owners.TryGetValue(grant.Scope.Owner.Actor, out var owner) || owner != grant.Scope.Owner ||
             !_packages.TryGetValue(grant.Scope.ExtensionId, out var package) || !ReferenceEquals(package, grant.Package) ||
             grant.Scope.ExpiresAt <= _clock.GetUtcNow()) throw Deny("operation-no-longer-current");
+        _verifyInstalled?.Invoke(package, cancellationToken, verifyInstalled);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (grant.Scope.ExpiresAt <= _clock.GetUtcNow()) throw Deny("operation-no-longer-current");
         RequireCurrentTrust(package);
     }
 
@@ -248,7 +281,7 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
             {
                 try
                 {
-                    Check(cancellationToken);
+                    Check(cancellationToken, verifyInstalled: true);
                     publish();
                 }
                 finally { Close(); }
@@ -260,10 +293,12 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
             lock (_authority._gate) Close();
         }
 
-        private void Check(CancellationToken cancellationToken)
+        private void Check(CancellationToken cancellationToken, bool verifyInstalled = false)
         {
             if (_closed) throw Deny("operation-closed");
-            _authority.Recheck(Proposal.ConsentId, _grant, cancellationToken);
+            if (_authority._clock.GetElapsedTime(_started) >= _grant.Package.Manifest.Limits.WallClock)
+                throw Deny("operation-deadline");
+            _authority.Recheck(Proposal.ConsentId, _grant, cancellationToken, verifyInstalled);
             if (_authority._clock.GetElapsedTime(_started) >= _grant.Package.Manifest.Limits.WallClock)
                 throw Deny("operation-deadline");
         }
@@ -276,5 +311,19 @@ public sealed class ExtensionAuthority(ExtensionPackageVerifier verifier, TimePr
             if (left == 0) _authority._active.Remove(_grant.Package);
             else _authority._active[_grant.Package] = left;
         }
+    }
+}
+
+internal sealed record ExtensionInstalledVersion(string Publisher, string Version, string ArchiveDigest, int StateSchema, int DataSchema)
+{
+    internal static ExtensionInstalledVersion From(VerifiedExtensionPackage package) => new(package.Manifest.Publisher,
+        package.Manifest.Version, package.ArchiveDigest, package.Manifest.StateSchemaVersion, package.Manifest.DataSchemaVersion);
+
+    internal void RequireCompatible(ExtensionInstalledVersion next)
+    {
+        var version = System.Version.Parse(next.Version).CompareTo(System.Version.Parse(Version));
+        if (Publisher != next.Publisher || version < 0 || (version == 0 && ArchiveDigest != next.ArchiveDigest) ||
+            StateSchema != next.StateSchema || DataSchema != next.DataSchema)
+            throw new ExtensionRejectedException("package-version-switch");
     }
 }

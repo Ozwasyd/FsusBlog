@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Core.Extensions;
 
-public sealed class ExtensionAuthorityTests
+public sealed partial class ExtensionAuthorityTests
 {
     private const string PathInArchive = "bin/worker.wasm";
     private const string Source = "approved-source/fixture";
@@ -238,7 +238,7 @@ public sealed class ExtensionAuthorityTests
     private sealed class Clock : TimeProvider
     {
         private int _reads;
-        public DateTimeOffset? Next { get; init; }
+        public DateTimeOffset? Next { get; set; }
         public override DateTimeOffset GetUtcNow() => _reads++ == 0 ? Now : Next ?? Now;
     }
 

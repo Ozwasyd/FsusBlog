@@ -34,7 +34,8 @@ public sealed class VerifiedExtensionPackage
 
 public sealed class ExtensionPackageVerifier
 {
-    private const int MaxArchiveBytes = 128 * 1024 * 1024;
+    internal const int MaxArchiveBytes = 128 * 1024 * 1024;
+    internal const int MaxSignatureBytes = 1024;
     private const int MaxEntryBytes = 16 * 1024 * 1024;
     private const int MaxExpandedBytes = 64 * 1024 * 1024;
     private const int MaxEntries = 4096;
@@ -75,18 +76,29 @@ public sealed class ExtensionPackageVerifier
         ExtensionPlatform platform, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_sources.TryGetValue(sourceReference, out var source)) throw new ExtensionRejectedException("source-not-approved");
-        if (archive.Length is < 1 or > MaxArchiveBytes || signature.Length is < 1 or > 1024)
+        RequirePackageSize(archive.Length, signature.Length);
+        return VerifySnapshot(sourceReference, archive.ToArray(), signature.ToArray(), platform, cancellationToken);
+    }
+
+    internal static void RequirePackageSize(int archiveLength, int signatureLength)
+    {
+        if (archiveLength is < 1 or > MaxArchiveBytes || signatureLength is < 1 or > MaxSignatureBytes)
             throw new ExtensionRejectedException("archive-or-signature-size");
+    }
+
+    // The caller owns these snapshots. The digest, signature and ZIP parser consume the same bytes.
+    internal VerifiedExtensionPackage VerifySnapshot(string sourceReference, byte[] data, byte[] signed,
+        ExtensionPlatform platform, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_sources.TryGetValue(sourceReference, out var source)) throw new ExtensionRejectedException("source-not-approved");
+        RequirePackageSize(data.Length, signed.Length);
 
         var checkedAt = _clock.GetUtcNow();
         var key = _keys[(source.Publisher, source.KeyId)];
         var validUntil = key.RevokedAt is { } cutoff && cutoff < key.ValidUntil ? cutoff : key.ValidUntil;
         if (checkedAt < key.ValidFrom || checkedAt >= validUntil) throw new ExtensionRejectedException("publisher-key-not-current");
 
-        // The digest, signature and ZIP parser consume the same byte snapshot.
-        var data = archive.ToArray();
-        var signed = signature.ToArray();
         RequireDigest(SHA256.HashData(data), source.ArchiveSha256, "archive-digest");
         VerifySignature(key, data, signed);
         var manifest = VerifyEntries(data, platform, cancellationToken);
@@ -204,5 +216,5 @@ public sealed class ExtensionPackageVerifier
     }
 
     private static string Ticks(DateTimeOffset value) => value.UtcTicks.ToString(CultureInfo.InvariantCulture);
-    private static string Digest(ReadOnlySpan<byte> data) => Convert.ToHexStringLower(SHA256.HashData(data));
+    internal static string Digest(ReadOnlySpan<byte> data) => Convert.ToHexStringLower(SHA256.HashData(data));
 }

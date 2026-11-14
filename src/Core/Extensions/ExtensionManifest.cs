@@ -45,7 +45,7 @@ internal static partial class ExtensionManifestReader
 {
     internal const int ManifestBytes = 256 * 1024;
 
-    private static readonly JsonSerializerOptions Json = new()
+    internal static readonly JsonSerializerOptions Json = new()
     {
         MaxDepth = 16,
         RespectNullableAnnotations = true,
@@ -64,7 +64,7 @@ internal static partial class ExtensionManifestReader
         if (manifest.SchemaVersion != 1 || manifest.RegistryVersion != 1 || manifest.AllowExecutionFallback ||
             !IsIdentifier(manifest.Id) || !IsIdentifier(manifest.Publisher) ||
             !IsReference(manifest.SignatureReference) || !IsReference(manifest.TrustPolicyReference) ||
-            manifest.Version.Length > 64 || !NumericVersion().IsMatch(manifest.Version) || !Version.TryParse(manifest.Version, out _) ||
+            !IsVersion(manifest.Version) ||
             !IsDigest(manifest.ContentSha256) || !IsDigest(manifest.PackageSha256) ||
             manifest.HostApi.Minimum != 1 || manifest.HostApi.Maximum is < 1 or > 1_000_000 ||
             manifest.StateSchemaVersion is < 1 or > 1_000_000 || manifest.DataSchemaVersion is < 1 or > 1_000_000 ||
@@ -107,6 +107,7 @@ internal static partial class ExtensionManifestReader
     }
 
     internal static bool IsIdentifier(string value) => value.Length <= 128 && Identifier().IsMatch(value);
+    internal static bool IsVersion(string value) => value.Length <= 64 && NumericVersion().IsMatch(value) && Version.TryParse(value, out _);
     internal static bool IsDigest(string value) => value.Length == 64 && value.All(char.IsAsciiHexDigitLower);
     internal static bool IsPackagePath(string value) => value.Length is > 0 and <= 256 && PackagePath().IsMatch(value) &&
         value.Split('/').All(part => part is not ("" or "." or "..") &&
