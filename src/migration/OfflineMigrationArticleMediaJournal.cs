@@ -75,11 +75,13 @@ internal sealed class OfflineMigrationArticleMediaJournal : IArticleMediaPreserv
         OfflineMigrationApplyJournalVerifier next = _staged.Fork();
         next.Accept(entry);
         await OfflineMigrationStateStore.AppendApplyJournalAsync(_connection, _transaction, entry, token).ConfigureAwait(false);
+        RequireOriginalTransaction();
         _staged.Accept(entry);
     }
 
     internal OfflineMigrationMediaJournalEvidence RequirePublished()
     {
+        RequireOriginalTransaction();
         if (_staged.PendingMedia?.State != OfflineMigrationApplyJournalState.MediaPublished
             || _staged.PendingMedia.Media?.GenerationIdentity is null)
             throw new InvalidOperationException("offline_apply_media_not_published");
@@ -88,8 +90,18 @@ internal sealed class OfflineMigrationArticleMediaJournal : IArticleMediaPreserv
 
     private void RequireBinding(ArticleMediaBinding binding)
     {
+        RequireOriginalTransaction();
         if (binding != _prepared.Media!.Binding || _staged.PendingMedia?.Media?.Binding != binding
             || _staged.PendingMedia.Media.InvocationId != _prepared.InvocationId)
             throw new InvalidOperationException("offline_apply_media_binding_changed");
+    }
+
+    private void RequireOriginalTransaction()
+    {
+        if (_transaction.Connection != _connection || _connection.State != ConnectionState.Open
+            || _transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
+        {
+            throw new InvalidOperationException("offline_apply_media_original_transaction_required");
+        }
     }
 }
