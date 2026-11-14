@@ -48,6 +48,9 @@ public enum FrameType : ushort
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminModerationIntent = 32866,
+    AdminModerationClaimRequest = 32867,
+    AdminModerationClaim = 32868,
+    AdminModerationDecision = 32869,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -82,6 +85,10 @@ public enum FrameType : ushort
     PropertySchemaCommand = 32784,
     PropertyValueCommand = 32785,
     PropertyEditor = 32786,
+    PropertyFilterCatalog = 32880,
+    PropertyFilterabilityCommand = 32881,
+    PropertyArticleQuery = 32882,
+    PropertyArticlePage = 32883,
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
@@ -152,6 +159,10 @@ public static class WireLimits
     public const int AdminCommentQueueBodyBytes = 12288;
     public const int AdminModerationReasonBytes = 1024;
     public const int AdminModerationFrameBytes = 1064;
+    public const int AdminModerationClaimTokenBytes = 43;
+    public const int AdminModerationClaimRequestFrameBytes = 28;
+    public const int AdminModerationClaimFrameBytes = 107;
+    public const int AdminModerationDecisionFrameBytes = 1135;
     public const int MaxCommandFrameBytes = 1048884;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
@@ -182,6 +193,7 @@ public static class WireLimits
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
     public const int PropertyPageSize = 25;
+    public const int PropertyQueryCursorChars = 48;
     public const int PropertyOptionCount = 32;
     public const int PropertyDecimalBytes = 64;
     public const int PropertyDateBytes = 40;
@@ -436,6 +448,11 @@ public static class WireRoutes
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
+    public const string AdminModerationClaim = "/api/v2/admin/identity/comments/claim.aeds";
+    public const string AdminModerationRenew = "/api/v2/admin/identity/comments/claim/renew.aeds";
+    public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";
+    public const string AdminModerationStepUpBegin = "/api/v2/admin/identity/comments/step-up/begin.aeds";
+    public const string AdminModerationDecision = "/api/v2/admin/identity/comments/decision.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
@@ -472,6 +489,9 @@ public static class WireRoutes
     public const string PropertySchemaCommand = "/api/v2/authoring/properties/schema.aeds";
     public const string PropertyValueCommand = "/api/v2/authoring/properties/values.aeds";
     public const string PropertyEditor = "/api/v2/authoring/properties/editor.aeds";
+    public const string PropertyFilterCatalog = "/api/v2/authoring/properties/filter/catalog.aeds";
+    public const string PropertyFilterability = "/api/v2/authoring/properties/filter/definition.aeds";
+    public const string PropertyArticleQuery = "/api/v2/authoring/properties/filter/articles.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
@@ -502,6 +522,9 @@ public static class WireHeaders
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
 }
 
+public sealed record AdminModerationClaimRequest(int ArticleId, long CommentId);
+public sealed record AdminModerationClaim(int ArticleId, long CommentId, long CommentVersion, string ClaimToken, long ClaimGeneration, long ClaimVersion, long ExpiresAt);
+public sealed record AdminModerationDecision(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason, long CommentVersion, string ClaimToken, long ClaimGeneration, long ClaimVersion);
 public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
@@ -530,11 +553,78 @@ public sealed record CanvasConfirm(Guid PlanId);
 public sealed record CanvasLinked(Guid PlanId, int ArticleId, long ArticleRevision, long CanvasRevision);
 public sealed record PropertyDefinitionCommand(int Operation, Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, string MachineKey, string Label);
 public sealed record PropertyWorkspaceRequest(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, string AfterKey);
+public sealed record PropertyFilterabilityCommand(Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, bool Enabled);
 public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
 public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
 
 public static partial class Wire
 {
+    public static byte[] EncodeAdminModerationClaimRequest(AdminModerationClaimRequest value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CommentId);
+        return Aeds.Encode(FrameType.AdminModerationClaimRequest, writer.Written);
+    }
+
+    public static AdminModerationClaimRequest DecodeAdminModerationClaimRequest(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationClaimRequest));
+        var value = new AdminModerationClaimRequest(reader.I32(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminModerationClaim(AdminModerationClaim value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CommentId);
+        writer.I64(value.CommentVersion);
+        writer.Text(value.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
+        writer.I64(value.ClaimGeneration);
+        writer.I64(value.ClaimVersion);
+        writer.I64(value.ExpiresAt);
+        return Aeds.Encode(FrameType.AdminModerationClaim, writer.Written);
+    }
+
+    public static AdminModerationClaim DecodeAdminModerationClaim(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationClaim));
+        var value = new AdminModerationClaim(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminModerationDecision(AdminModerationDecision value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CommentId);
+        writer.I32(value.ExpectedStatus);
+        writer.I32(value.Decision);
+        writer.Text(value.Reason, WireLimits.AdminModerationReasonBytes);
+        writer.I64(value.CommentVersion);
+        writer.Text(value.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
+        writer.I64(value.ClaimGeneration);
+        writer.I64(value.ClaimVersion);
+        return Aeds.Encode(FrameType.AdminModerationDecision, writer.Written);
+    }
+
+    public static AdminModerationDecision DecodeAdminModerationDecision(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationDecision));
+        var value = new AdminModerationDecision(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeAdminModerationIntent(AdminModerationIntent value)
     {
         Validate(value);
@@ -1117,6 +1207,27 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyWorkspaceRequest));
         var value = new PropertyWorkspaceRequest(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyFilterabilityCommand(PropertyFilterabilityCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.DefinitionId);
+        writer.Uuid(value.RequestId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.DefinitionRevision);
+        writer.Bool(value.Enabled);
+        return Aeds.Encode(FrameType.PropertyFilterabilityCommand, writer.Written);
+    }
+
+    public static PropertyFilterabilityCommand DecodePropertyFilterabilityCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyFilterabilityCommand));
+        var value = new PropertyFilterabilityCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;

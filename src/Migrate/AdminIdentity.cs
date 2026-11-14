@@ -152,8 +152,9 @@ internal static partial class Migration
                 requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
             await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
+            await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
         }
-        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2 or 3 or 4) and var previousVersion)
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (>= 1 and <= 5) and var previousVersion)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
@@ -165,11 +166,13 @@ internal static partial class Migration
                     alter table public.admin_permission add constraint admin_permission_permission_check
                         check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate' or permission = 'article.write');
                     """, ct);
-            await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
+            if (previousVersion < 5)
+                await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
+            await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
             await ExecuteAsync(connection, tx, """
                 alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
-                update public.admin_identity_schema set version=5 where singleton and version in (1,2,3,4);
-                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=5);
+                update public.admin_identity_schema set version=6 where singleton and version between 1 and 5;
+                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=6);
                 """, ct);
         }
 

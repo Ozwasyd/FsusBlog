@@ -262,3 +262,22 @@ node tests/EndToEnd/admin-identity-flow.mjs
   union all select 'offline_taxonomy_permission_changes=' || count(*) from public.admin_identity_audit
     where actor=session_user and action in ('grant:article.write','revoke:article.write')
 " > "$evidence/after-counts.txt"
+if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'approved=' || count(*) from public.admin_comment_moderation where next_status=1
+    union all select 'rejected=' || count(*) from public.admin_comment_moderation where next_status=2
+    union all select 'attributed_decisions=' || count(*)
+      from public.admin_comment_moderation m
+      join public.admin_principal p on p.id=m.principal_id
+      join public.comment c on c.article_id=m.article_id and c.id=m.comment_id
+      join public.admin_comment_claim claim on claim.article_id=m.article_id and claim.comment_id=m.comment_id
+      where p.handle='tls-admin-fixture' and m.reason='Moderation integration fixture'
+        and m.previous_status=0 and c.moderation_status=m.next_status
+        and claim.principal_id=p.id and claim.state=3
+    union all select 'active_claims=' || count(*) from public.admin_comment_claim where state=1
+  " > "$evidence/moderation-audit-counts.txt"
+  grep -Fxq 'approved=1' "$evidence/moderation-audit-counts.txt"
+  grep -Fxq 'rejected=1' "$evidence/moderation-audit-counts.txt"
+  grep -Fxq 'attributed_decisions=2' "$evidence/moderation-audit-counts.txt"
+  grep -Fxq 'active_claims=0' "$evidence/moderation-audit-counts.txt"
+fi

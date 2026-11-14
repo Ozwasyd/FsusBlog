@@ -59,6 +59,9 @@
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
     "AdminModerationIntent": 32866,
+    "AdminModerationClaimRequest": 32867,
+    "AdminModerationClaim": 32868,
+    "AdminModerationDecision": 32869,
     "Draft": 32770,
     "ArticleCommand": 32771,
     "RevisionHistory": 32800,
@@ -93,6 +96,10 @@
     "PropertySchemaCommand": 32784,
     "PropertyValueCommand": 32785,
     "PropertyEditor": 32786,
+    "PropertyFilterCatalog": 32880,
+    "PropertyFilterabilityCommand": 32881,
+    "PropertyArticleQuery": 32882,
+    "PropertyArticlePage": 32883,
     "DraftRecoveryScope": 32787,
     "DraftTaxonomy": 32790,
     "TaxonomyAssignment": 32791,
@@ -172,6 +179,11 @@
     "AdminCategories": "/api/v2/admin/identity/taxonomy/categories.aeds",
     "AdminTags": "/api/v2/admin/identity/taxonomy/tags.aeds",
     "AdminCommentQueue": "/api/v2/admin/identity/comments/queue.aeds",
+    "AdminModerationClaim": "/api/v2/admin/identity/comments/claim.aeds",
+    "AdminModerationRenew": "/api/v2/admin/identity/comments/claim/renew.aeds",
+    "AdminModerationRelease": "/api/v2/admin/identity/comments/claim/release.aeds",
+    "AdminModerationStepUpBegin": "/api/v2/admin/identity/comments/step-up/begin.aeds",
+    "AdminModerationDecision": "/api/v2/admin/identity/comments/decision.aeds",
     "PasskeyLoginBegin": "/api/binary/auth/passkey/login/begin",
     "PasskeyLoginComplete": "/api/binary/auth/passkey/login/complete",
     "PasskeyProvisionBegin": "/api/v2/identity/passkey/register/begin.aeds",
@@ -208,6 +220,9 @@
     "PropertySchemaCommand": "/api/v2/authoring/properties/schema.aeds",
     "PropertyValueCommand": "/api/v2/authoring/properties/values.aeds",
     "PropertyEditor": "/api/v2/authoring/properties/editor.aeds",
+    "PropertyFilterCatalog": "/api/v2/authoring/properties/filter/catalog.aeds",
+    "PropertyFilterability": "/api/v2/authoring/properties/filter/definition.aeds",
+    "PropertyArticleQuery": "/api/v2/authoring/properties/filter/articles.aeds",
     "DraftRecoveryScope": "/api/v2/authoring/recovery-scope.aeds",
     "MfaSetupStart": "/api/binary/auth/mfa/setup/start",
     "MfaSetupVerify": "/api/binary/auth/mfa/setup/verify",
@@ -277,6 +292,10 @@
     "AdminCommentQueueBodyBytes": 12288,
     "AdminModerationReasonBytes": 1024,
     "AdminModerationFrameBytes": 1064,
+    "AdminModerationClaimTokenBytes": 43,
+    "AdminModerationClaimRequestFrameBytes": 28,
+    "AdminModerationClaimFrameBytes": 107,
+    "AdminModerationDecisionFrameBytes": 1135,
     "MaxCommandFrameBytes": 1048884,
     "RevisionHistoryPageSize": 20,
     "RevisionHistoryCursorChars": 54,
@@ -307,6 +326,7 @@
     "PropertyValueBytes": 65536,
     "PropertyMaxCommandBytes": 65792,
     "PropertyPageSize": 25,
+    "PropertyQueryCursorChars": 48,
     "PropertyOptionCount": 32,
     "PropertyDecimalBytes": 64,
     "PropertyDateBytes": 40,
@@ -490,6 +510,18 @@
     "MfaChallengeProofOffset": 168
   },
   "records": {
+    "AdminModerationClaimRequest": {
+      "frame": "AdminModerationClaimRequest",
+      "fields": [["ArticleId", "i32"], ["CommentId", "i64"]]
+    },
+    "AdminModerationClaim": {
+      "frame": "AdminModerationClaim",
+      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"], ["ExpiresAt", "i64"]]
+    },
+    "AdminModerationDecision": {
+      "frame": "AdminModerationDecision",
+      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ExpectedStatus", "i32"], ["Decision", "i32"], ["Reason", "text", "AdminModerationReasonBytes"], ["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"]]
+    },
     "AdminModerationIntent": {
       "frame": "AdminModerationIntent",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ExpectedStatus", "i32"], ["Decision", "i32"], ["Reason", "text", "AdminModerationReasonBytes"]]
@@ -601,6 +633,10 @@
     "PropertyWorkspaceRequest": {
       "frame": "PropertyWorkspaceRequest",
       "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["AfterKey", "text", "PropertyKeyBytes"]]
+    },
+    "PropertyFilterabilityCommand": {
+      "frame": "PropertyFilterabilityCommand",
+      "fields": [["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Enabled", "bool"]]
     },
     "PropertyTextCommand": {
       "frame": "PropertyTextCommand",

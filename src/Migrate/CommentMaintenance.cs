@@ -55,7 +55,7 @@ internal static class CommentMaintenance
         await CurrentSchema.VerifyAsync(db, ct);
         await using var command = Sql(db, """
             with changed as (
-                update public.comment set moderation_status=$4
+                update public.comment set moderation_status=$4,moderation_version=moderation_version+1
                 where article_id=$1 and id=$2 and moderation_status=$3 and not deleted
                 returning article_id,id
             )

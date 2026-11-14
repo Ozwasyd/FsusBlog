@@ -52,4 +52,12 @@ internal static partial class CurrentSchema
         "scoped_pow_consumed p digest",
         "scoped_pow_consumed c digest octet_length(digest)=32"
     ];
+
+    private static string[] GetCommentColumns(bool requireModerationVersion) => requireModerationVersion
+        ? [CommentColumns[0] + " moderation_version:int8=1", .. CommentColumns[1..]]
+        : CommentColumns;
+
+    private static string[] GetCommentConstraints(bool requireModerationVersion) => requireModerationVersion
+        ? [.. CommentConstraints, "comment c moderation_version moderation_version>0"]
+        : CommentConstraints;
 }

@@ -32,18 +32,20 @@ try {
   execFileSync(dotnet, [migrate, 'comment', 'policy', String(articleId), 'enable'])
   execFileSync(dotnet, [migrate, 'comment', 'handle', user, displayName])
 
-  const key = randomUUID()
-  const payload = encodePublicCommentSubmission({ articleId, publication, displayName, body, idempotencyKey: key, explicitPublic: true })
-  const clientNonce = randomBytes(16).toString('hex')
-  const challenge = decodePowChallenge(await post(WireRoutes.PublicCommentPowChallenge, FrameType.PublicCommentSubmission,
-    payload, FrameType.PowChallenge, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowClientNonce]: clientNonce }))
-  const nonce = solve(challenge, clientNonce)
-  const receipt = decodePublicCommentSubmissionResult(await post(WireRoutes.SubmitPublicComment, FrameType.PublicCommentSubmission,
-    payload, FrameType.PublicCommentSubmissionResult, { [WireHeaders.ClientMutationId]: key,
-      [WireHeaders.PowProof]: encodePowProof(challenge, nonce, clientNonce) }))
-  assert.equal(receipt.articleId, articleId)
-  assert.equal(receipt.moderationStatus, 0)
-  assert(receipt.commentId > 0n)
+  for (const comment of [body, body + ' [reject fixture]']) {
+    const key = randomUUID()
+    const payload = encodePublicCommentSubmission({ articleId, publication, displayName, body: comment, idempotencyKey: key, explicitPublic: true })
+    const clientNonce = randomBytes(16).toString('hex')
+    const challenge = decodePowChallenge(await post(WireRoutes.PublicCommentPowChallenge, FrameType.PublicCommentSubmission,
+      payload, FrameType.PowChallenge, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowClientNonce]: clientNonce }))
+    const nonce = solve(challenge, clientNonce)
+    const receipt = decodePublicCommentSubmissionResult(await post(WireRoutes.SubmitPublicComment, FrameType.PublicCommentSubmission,
+      payload, FrameType.PublicCommentSubmissionResult, { [WireHeaders.ClientMutationId]: key,
+        [WireHeaders.PowProof]: encodePowProof(challenge, nonce, clientNonce) }))
+    assert.equal(receipt.articleId, articleId)
+    assert.equal(receipt.moderationStatus, 0)
+    assert(receipt.commentId > 0n)
+  }
   assert.equal((await session.post(WireRoutes.SignOut)).status(), 200)
   console.log(articleId)
 } finally { await session.dispose() }

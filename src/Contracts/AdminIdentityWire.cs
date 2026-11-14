@@ -9,6 +9,31 @@ public static partial class Wire
             throw new ProtocolException("Invalid pending comment moderation intent.");
     }
 
+    internal static void Validate(AdminModerationClaimRequest value)
+    {
+        if (value.ArticleId <= 0 || value.CommentId <= 0) throw new ProtocolException("Invalid pending comment coordinates.");
+    }
+
+    internal static void Validate(AdminModerationClaim value)
+    {
+        Validate(new AdminModerationClaimRequest(value.ArticleId, value.CommentId));
+        ValidateClaim(value.CommentVersion, value.ClaimGeneration, value.ClaimVersion, value.ClaimToken);
+        if (value.ExpiresAt <= 0) throw new ProtocolException("Invalid comment claim expiry.");
+    }
+
+    internal static void Validate(AdminModerationDecision value)
+    {
+        Validate(new AdminModerationIntent(value.ArticleId, value.CommentId, value.ExpectedStatus, value.Decision, value.Reason));
+        ValidateClaim(value.CommentVersion, value.ClaimGeneration, value.ClaimVersion, value.ClaimToken);
+    }
+
+    private static void ValidateClaim(long commentVersion, long generation, long version, string token)
+    {
+        if (commentVersion <= 0 || generation <= 0 || version <= 0 || token.Length != WireLimits.AdminModerationClaimTokenBytes ||
+            !token.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+            throw new ProtocolException("Invalid comment claim coordinates.");
+    }
+
     internal static void Validate(AdminSessionSnapshot value)
     {
         if (value.Handle.Length is < 1 or > 64 || value.Generation <= 0 || value.ExpiresAt <= 0)

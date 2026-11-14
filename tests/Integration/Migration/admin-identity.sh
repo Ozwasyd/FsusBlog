@@ -32,6 +32,12 @@ query=("${pg[@]}" -d "$database" -qAtc)
 
 # Retain a site account with the same name across the additive admin upgrade.
 "${migrate[@]}" operator identity-fixture > /dev/null
+remove_moderation_component() {
+    "${query[@]}" 'DROP TABLE public.admin_comment_claim, public.admin_comment_moderation;
+        ALTER TABLE public.comment DROP COLUMN moderation_version'
+}
+
+remove_moderation_component
 "${query[@]}" 'DROP TABLE public.admin_step_up, public.admin_identity_audit, public.admin_session, public.admin_challenge,
     public.admin_invitation, public.admin_passkey_credential, public.admin_permission, public.admin_principal,
     public.admin_identity_schema'
@@ -57,6 +63,7 @@ fi
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_principal') == 1 ]]
 
 # Restore the exact v1 component contract as published before audit.read, with existing administrator state.
+remove_moderation_component
 "${query[@]}" "DROP TABLE public.admin_step_up;
     ALTER TABLE public.admin_permission DROP CONSTRAINT admin_permission_permission_check;
     ALTER TABLE public.admin_permission ADD CONSTRAINT admin_permission_permission_check CHECK (permission='admin.manage');
@@ -79,7 +86,7 @@ rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
-[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 5 ]]
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 6 ]]
 [[ $("${query[@]}" "SELECT count(*) FROM public.admin_invitation WHERE encode(digest, 'hex') = '$first_digest'") == 1 ]]
 [[ $("${query[@]}" "SELECT count(*) FROM public.admin_permission WHERE permission='admin.manage'") == 1 ]]
 
@@ -125,6 +132,7 @@ fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal'
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_challenge') == 1 ]]
 
 # Recreate the exact v2 constraints while an audit grant and active administrator session exist.
+remove_moderation_component
 "${query[@]}" "DROP TABLE public.admin_step_up;
     ALTER TABLE public.admin_permission DROP CONSTRAINT admin_permission_permission_check;
     ALTER TABLE public.admin_permission ADD CONSTRAINT admin_permission_permission_check CHECK (permission='admin.manage' OR permission='audit.read');
@@ -139,7 +147,7 @@ rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
-[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 5 ]]
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 6 ]]
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,audit.read' ]]
 [[ $("${query[@]}" "SELECT generation=3 AND generation_changed_at='$fence'::timestamptz FROM public.admin_principal") == t ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 1 ]]
@@ -166,6 +174,7 @@ fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal'
 [[ $("${query[@]}" 'SELECT generation FROM public.admin_principal') == 5 ]]
 
 # Upgrade an exact v3 registry while an authenticated administrator generation remains unchanged.
+remove_moderation_component
 "${query[@]}" "DROP TABLE public.admin_step_up;
     ALTER TABLE public.admin_permission DROP CONSTRAINT admin_permission_permission_check;
     ALTER TABLE public.admin_permission ADD CONSTRAINT admin_permission_permission_check
@@ -182,7 +191,7 @@ rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
-[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 5 ]]
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 6 ]]
 [[ $("${query[@]}" "SELECT generation=5 AND generation_changed_at='$fence'::timestamptz FROM public.admin_principal") == t ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 1 ]]
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,audit.read' ]]
@@ -195,13 +204,14 @@ rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 
 add_pending_session_and_challenge
 fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal')
+remove_moderation_component
 "${query[@]}" 'DROP TABLE public.admin_step_up;
     ALTER TABLE public.admin_identity_schema DROP CONSTRAINT admin_identity_schema_version_check;
     UPDATE public.admin_identity_schema SET version=4;
     ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=4)'
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
-[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 5 ]]
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 6 ]]
 [[ $("${query[@]}" "SELECT generation=6 AND generation_changed_at='$fence'::timestamptz FROM public.admin_principal") == t ]]
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,article.write,audit.read' ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 1 ]]
@@ -226,6 +236,41 @@ if "${query[@]}" "UPDATE public.admin_step_up SET options='{}' WHERE kind=2" > "
 fi
 rg -qF 'check constraint' "$scratch/rejection.log"
 
+# Build the exact v5 shape while step-up rows and already persisted comments exist.
+remove_moderation_component
+"${query[@]}" "ALTER TABLE public.admin_identity_schema DROP CONSTRAINT admin_identity_schema_version_check;
+    UPDATE public.admin_identity_schema SET version=5;
+    ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=5);
+    INSERT INTO public.article(owner_id,revision,title,body,deleted)
+    SELECT id,1,'Moderation fixture','Fixture text',false FROM public.blog_user;
+    INSERT INTO public.article_revision(article_id,revision,title,body,happened_at)
+    VALUES(1,1,'Moderation fixture','Fixture text',clock_timestamp());
+    INSERT INTO public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
+    VALUES(1,1,1,0,0,false,'queue fixture',1,'reader','en',clock_timestamp()),
+          (1,2,2,0,1,false,'standalone fixture',1,'reader','en',clock_timestamp());
+    INSERT INTO public.comment_submit_command(user_id,command_id,fingerprint,article_id,comment_id)
+    SELECT id,'88888888-8888-8888-8888-888888888888',decode(repeat('06',32),'hex'),1,1 FROM public.blog_user"
+"${migrate[@]}" admin-identity schema
+"${migrate[@]}" admin-identity schema
+"${migrate[@]}" verify
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 6 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_step_up') == 2 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.comment WHERE moderation_version=1') == 2 ]]
+if "${query[@]}" "INSERT INTO public.admin_comment_claim
+    SELECT 1,2,principal_id,digest,generation,decode(repeat('ee',32),'hex'),1,1,1,clock_timestamp()+interval '1 minute',1
+    FROM public.admin_session" > "$scratch/rejection.log" 2>&1; then
+    printf '%s\n' 'Expected claims to require a real public comment submission.' >&2
+    exit 1
+fi
+rg -qF 'foreign key constraint' "$scratch/rejection.log"
+"${query[@]}" "INSERT INTO public.admin_comment_claim
+    SELECT 1,1,principal_id,digest,generation,decode(repeat('ee',32),'hex'),1,1,1,clock_timestamp()+interval '1 minute',1
+    FROM public.admin_session"
+"${migrate[@]}" comment moderate 1 1 0 reject 'Trusted operator moderation fixture'
+[[ $("${query[@]}" 'SELECT moderation_status=2 AND moderation_version=2 FROM public.comment WHERE article_id=1 AND id=1') == t ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.comment_moderation_log WHERE article_id=1 AND comment_id=1') == 1 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_comment_moderation') == 0 ]]
+
 "${migrate[@]}" admin-identity grant identity-fixture article.write
 [[ $("${query[@]}" "SELECT generation=6 AND generation_changed_at='$fence'::timestamptz FROM public.admin_principal") == t ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 1 ]]
@@ -236,6 +281,7 @@ rg -qF 'check constraint' "$scratch/rejection.log"
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 0 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_challenge') == 0 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_step_up') == 0 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_comment_claim WHERE claim_generation=1 AND claim_version=1') == 1 ]]
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,audit.read' ]]
 fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal')
 
@@ -258,4 +304,4 @@ fi
 [[ $("${query[@]}" 'SELECT count(*) FROM public.blog_user WHERE enabled AND can_author AND generation=1') == 1 ]]
 audit=$("${query[@]}" "SELECT string_agg(action, ',' ORDER BY id) FROM public.admin_identity_audit WHERE actor=session_user::text")
 [[ "$audit" == 'bootstrap,rotate-passkey,grant:audit.read,grant:comment.moderate,revoke:comment.moderate,grant:article.write,revoke:article.write,revoke:audit.read,revoke-all,disable' ]]
-printf '%s\n' 'Verified v1 through v4 administrator schema upgrades, scoped step-up constraints and cascade, independent permission changes, credential rotation, and database actor audit.'
+printf '%s\n' 'Verified v1 through v5 administrator schema upgrades, scoped step-up cascade, revisioned comments and claim custody, independent permissions, credential rotation, and database actor audit.'

@@ -47,6 +47,9 @@ export const FrameType = {
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
   AdminModerationIntent: 32866,
+  AdminModerationClaimRequest: 32867,
+  AdminModerationClaim: 32868,
+  AdminModerationDecision: 32869,
   Draft: 32770,
   ArticleCommand: 32771,
   RevisionHistory: 32800,
@@ -81,6 +84,10 @@ export const FrameType = {
   PropertySchemaCommand: 32784,
   PropertyValueCommand: 32785,
   PropertyEditor: 32786,
+  PropertyFilterCatalog: 32880,
+  PropertyFilterabilityCommand: 32881,
+  PropertyArticleQuery: 32882,
+  PropertyArticlePage: 32883,
   DraftRecoveryScope: 32787,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
@@ -149,6 +156,10 @@ export const WireLimits = {
   AdminCommentQueueBodyBytes: 12288,
   AdminModerationReasonBytes: 1024,
   AdminModerationFrameBytes: 1064,
+  AdminModerationClaimTokenBytes: 43,
+  AdminModerationClaimRequestFrameBytes: 28,
+  AdminModerationClaimFrameBytes: 107,
+  AdminModerationDecisionFrameBytes: 1135,
   MaxCommandFrameBytes: 1048884,
   RevisionHistoryPageSize: 20,
   RevisionHistoryCursorChars: 54,
@@ -179,6 +190,7 @@ export const WireLimits = {
   PropertyValueBytes: 65536,
   PropertyMaxCommandBytes: 65792,
   PropertyPageSize: 25,
+  PropertyQueryCursorChars: 48,
   PropertyOptionCount: 32,
   PropertyDecimalBytes: 64,
   PropertyDateBytes: 40,
@@ -431,6 +443,11 @@ export const WireRoutes = {
   AdminCategories: "/api/v2/admin/identity/taxonomy/categories.aeds",
   AdminTags: "/api/v2/admin/identity/taxonomy/tags.aeds",
   AdminCommentQueue: "/api/v2/admin/identity/comments/queue.aeds",
+  AdminModerationClaim: "/api/v2/admin/identity/comments/claim.aeds",
+  AdminModerationRenew: "/api/v2/admin/identity/comments/claim/renew.aeds",
+  AdminModerationRelease: "/api/v2/admin/identity/comments/claim/release.aeds",
+  AdminModerationStepUpBegin: "/api/v2/admin/identity/comments/step-up/begin.aeds",
+  AdminModerationDecision: "/api/v2/admin/identity/comments/decision.aeds",
   PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
   PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
   PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
@@ -467,6 +484,9 @@ export const WireRoutes = {
   PropertySchemaCommand: "/api/v2/authoring/properties/schema.aeds",
   PropertyValueCommand: "/api/v2/authoring/properties/values.aeds",
   PropertyEditor: "/api/v2/authoring/properties/editor.aeds",
+  PropertyFilterCatalog: "/api/v2/authoring/properties/filter/catalog.aeds",
+  PropertyFilterability: "/api/v2/authoring/properties/filter/definition.aeds",
+  PropertyArticleQuery: "/api/v2/authoring/properties/filter/articles.aeds",
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
@@ -497,6 +517,108 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface AdminModerationClaimRequest {
+  articleId: number;
+  commentId: bigint;
+}
+
+export function encodeAdminModerationClaimRequest(value: AdminModerationClaimRequest): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.commentId);
+  return writer.finish();
+}
+
+export function decodeAdminModerationClaimRequest(payload: Uint8Array): AdminModerationClaimRequest {
+  const reader = new PodReader(payload);
+  const value: AdminModerationClaimRequest = {
+    articleId: reader.i32(),
+    commentId: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminModerationClaim {
+  articleId: number;
+  commentId: bigint;
+  commentVersion: bigint;
+  claimToken: string;
+  claimGeneration: bigint;
+  claimVersion: bigint;
+  expiresAt: bigint;
+}
+
+export function encodeAdminModerationClaim(value: AdminModerationClaim): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.commentId);
+  writer.i64(value.commentVersion);
+  writer.text(value.claimToken, WireLimits.AdminModerationClaimTokenBytes);
+  writer.i64(value.claimGeneration);
+  writer.i64(value.claimVersion);
+  writer.i64(value.expiresAt);
+  return writer.finish();
+}
+
+export function decodeAdminModerationClaim(payload: Uint8Array): AdminModerationClaim {
+  const reader = new PodReader(payload);
+  const value: AdminModerationClaim = {
+    articleId: reader.i32(),
+    commentId: reader.i64(),
+    commentVersion: reader.i64(),
+    claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
+    claimGeneration: reader.i64(),
+    claimVersion: reader.i64(),
+    expiresAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminModerationDecision {
+  articleId: number;
+  commentId: bigint;
+  expectedStatus: number;
+  decision: number;
+  reason: string;
+  commentVersion: bigint;
+  claimToken: string;
+  claimGeneration: bigint;
+  claimVersion: bigint;
+}
+
+export function encodeAdminModerationDecision(value: AdminModerationDecision): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.commentId);
+  writer.i32(value.expectedStatus);
+  writer.i32(value.decision);
+  writer.text(value.reason, WireLimits.AdminModerationReasonBytes);
+  writer.i64(value.commentVersion);
+  writer.text(value.claimToken, WireLimits.AdminModerationClaimTokenBytes);
+  writer.i64(value.claimGeneration);
+  writer.i64(value.claimVersion);
+  return writer.finish();
+}
+
+export function decodeAdminModerationDecision(payload: Uint8Array): AdminModerationDecision {
+  const reader = new PodReader(payload);
+  const value: AdminModerationDecision = {
+    articleId: reader.i32(),
+    commentId: reader.i64(),
+    expectedStatus: reader.i32(),
+    decision: reader.i32(),
+    reason: reader.text(WireLimits.AdminModerationReasonBytes),
+    commentVersion: reader.i64(),
+    claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
+    claimGeneration: reader.i64(),
+    claimVersion: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface AdminModerationIntent {
   articleId: number;
@@ -1358,6 +1480,37 @@ export function decodePropertyWorkspaceRequest(payload: Uint8Array): PropertyWor
     schemaRevision: reader.i64(),
     valueRevision: reader.i64(),
     afterKey: reader.text(WireLimits.PropertyKeyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyFilterabilityCommand {
+  definitionId: string;
+  requestId: string;
+  schemaRevision: bigint;
+  definitionRevision: bigint;
+  enabled: boolean;
+}
+
+export function encodePropertyFilterabilityCommand(value: PropertyFilterabilityCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.definitionId);
+  writer.uuid(value.requestId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.definitionRevision);
+  writer.bool(value.enabled);
+  return writer.finish();
+}
+
+export function decodePropertyFilterabilityCommand(payload: Uint8Array): PropertyFilterabilityCommand {
+  const reader = new PodReader(payload);
+  const value: PropertyFilterabilityCommand = {
+    definitionId: reader.uuid(),
+    requestId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    definitionRevision: reader.i64(),
+    enabled: reader.bool(),
   };
   reader.finish();
   return value;

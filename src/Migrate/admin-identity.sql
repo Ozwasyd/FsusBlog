@@ -1,8 +1,8 @@
 CREATE TABLE public.admin_identity_schema (
     singleton boolean PRIMARY KEY CHECK (singleton),
-    version integer NOT NULL CHECK (version = 5)
+    version integer NOT NULL CHECK (version = 6)
 );
-INSERT INTO public.admin_identity_schema (singleton, version) VALUES (true, 5);
+INSERT INTO public.admin_identity_schema (singleton, version) VALUES (true, 6);
 
 CREATE TABLE public.admin_principal (
     id uuid PRIMARY KEY,

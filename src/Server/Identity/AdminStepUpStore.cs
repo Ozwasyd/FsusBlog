@@ -15,10 +15,13 @@ internal sealed partial class AdminPasskeyStore
     private const short StepUpProof = 2;
 
     internal Task<byte[]> BeginModerationStepUp(string? session, AdminModerationIntent intent, CancellationToken ct) =>
+        BeginStepUp(session, IntentDigest(intent), (db, tx, _) => CheckPendingComment(db, tx, intent, locked: false, ct), ct);
+
+    private Task<byte[]> BeginStepUp(string? session, byte[] bodyDigest,
+        Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task> verifyTarget, CancellationToken ct) =>
         WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
         {
-            var bodyDigest = IntentDigest(intent);
-            await CheckPendingComment(db, tx, intent, locked: false, ct);
+            await verifyTarget(db, tx, admin);
             await using var query = Store.Sql(db, tx, """
                 select credential_id from public.admin_passkey_credential where principal_id=$1
                 """, admin.Id);
@@ -62,23 +65,28 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
     }
 
-    // Only the eventual moderated write may call this. A failure in its transaction restores the proof.
+    // The original intent proof remains separate from the claim-bound HTTP decision.
     internal Task<T> WithModerationProof<T>(string? session, string? proof, AdminModerationIntent intent,
         Func<NpgsqlConnection, NpgsqlTransaction, Guid, Task<T>> apply, CancellationToken ct) =>
         WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
         {
-            var bodyDigest = IntentDigest(intent);
-            await using var consume = Store.Sql(db, tx, """
-                delete from public.admin_step_up
-                where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
-                  and body_digest=$7 and expires_at>clock_timestamp()
-                """, ChallengeDigest(proof, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, ModerateComment, bodyDigest);
-            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Denied();
+            if (!await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), IntentDigest(intent), ct)) throw Denied();
             await CheckPendingComment(db, tx, intent, locked: true, ct);
             return await apply(db, tx, admin.Id);
         }, ct);
 
     internal static byte[] IntentDigest(AdminModerationIntent intent) => SHA256.HashData(Wire.EncodeAdminModerationIntent(intent));
+
+    private static async Task<bool> ConsumeStepUpProof(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin,
+        byte[] proofDigest, byte[] bodyDigest, CancellationToken ct)
+    {
+        await using var consume = Store.Sql(db, tx, """
+            delete from public.admin_step_up
+            where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
+              and body_digest=$7 and expires_at>clock_timestamp()
+            """, proofDigest, admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, ModerateComment, bodyDigest);
+        return await consume.ExecuteNonQueryAsync(ct) == 1;
+    }
 
     private static async Task CheckPendingComment(NpgsqlConnection db, NpgsqlTransaction tx, AdminModerationIntent intent,
         bool locked, CancellationToken ct)

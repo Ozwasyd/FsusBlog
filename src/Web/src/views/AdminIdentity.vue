@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
-  readAdminCommentQueue,
   readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
-  type AdminCommentCursor,
-  type AdminCommentQueue,
   type AdminOperationsStatus,
 } from '../../../Contracts/admin-identity'
 
@@ -29,17 +27,15 @@ const notice = ref('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
 const operationsFailure = ref('')
-const moderationQueue = shallowRef<AdminCommentQueue | null>(null)
-const moderationBusy = ref(false)
-const moderationFailure = ref('')
+const moderationAuthority = shallowRef(new AbortController())
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let operationsRequest: AbortController | undefined
-let moderationRequest: AbortController | undefined
 
 function setAuthority(next: AdminAuthority | null) {
   clearTimeout(expiryTimer)
   clearOperations()
-  clearModeration()
+  moderationAuthority.value.abort()
+  moderationAuthority.value = new AbortController()
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
@@ -81,7 +77,7 @@ onUnmounted(() => {
   lifetime.abort()
   clearTimeout(expiryTimer)
   clearOperations()
-  clearModeration()
+  moderationAuthority.value.abort()
   document.removeEventListener('visibilitychange', whenVisible)
 })
 
@@ -122,38 +118,6 @@ function handleSessionLoss(error: unknown): boolean {
   setAuthority({ status: 'signed-out' })
   failure.value = 'Your administrator session expired or was revoked. Log in again.'
   return true
-}
-
-function clearModeration() {
-  moderationRequest?.abort()
-  moderationRequest = undefined
-  moderationQueue.value = null
-  moderationBusy.value = false
-  moderationFailure.value = ''
-}
-
-async function loadModeration(after: AdminCommentCursor | null = null) {
-  if (authority.value?.status !== 'active' || busy.value || moderationBusy.value) return
-  clearModeration()
-  const request = new AbortController()
-  moderationRequest = request
-  moderationBusy.value = true
-  try {
-    const queue = await readAdminCommentQueue(after, request.signal)
-    if (!request.signal.aborted) moderationQueue.value = queue
-  } catch (error) {
-    if (request.signal.aborted) return
-    if (!handleSessionLoss(error)) {
-      moderationFailure.value = error instanceof ApiError && error.status === 403
-        ? 'You do not have permission to view the moderation queue.'
-        : 'Could not load the moderation queue. Try again.'
-    }
-  } finally {
-    if (moderationRequest === request) {
-      moderationRequest = undefined
-      moderationBusy.value = false
-    }
-  }
 }
 
 function closeBootstrap() {
@@ -211,29 +175,7 @@ function logOut() {
       </dl>
       <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
     </section>
-    <section v-if="authority?.status === 'active'" class="auth-form admin-moderation" aria-labelledby="admin-moderation-heading">
-      <h2 id="admin-moderation-heading">Moderation queue</h2>
-      <ElButton native-type="button" :disabled="busy" :loading="moderationBusy" @click="loadModeration()">Load moderation queue</ElButton>
-      <ElAlert v-if="moderationFailure" :title="moderationFailure" type="error" :closable="false" show-icon />
-      <template v-if="moderationQueue">
-        <p v-if="moderationQueue.comments.length === 0" role="status">No comments are waiting for moderation.</p>
-        <ol v-else class="moderation-comments">
-          <li v-for="item in moderationQueue.comments" :key="`${item.articleId}-${item.commentId}`">
-            <article>
-              <h3>{{ item.displayName }}</h3>
-              <p>
-                Article {{ item.articleId }} · Comment {{ item.commentId.toString() }}
-                · <time :datetime="new Date(item.createdAt).toISOString()">{{ new Date(item.createdAt).toLocaleString() }}</time>
-              </p>
-              <p class="moderation-body">{{ item.body }}</p>
-            </article>
-          </li>
-        </ol>
-        <ElButton v-if="moderationQueue.next" native-type="button" :disabled="busy || moderationBusy" @click="loadModeration(moderationQueue.next)">
-          Next page
-        </ElButton>
-      </template>
-    </section>
+    <AdminModerationControls v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
     <section v-if="authority?.status === 'active'" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
       <h2 id="admin-operations-heading">Operations status</h2>
       <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>
@@ -282,8 +224,5 @@ function logOut() {
 .admin-setup-button { margin-inline-start: 0; }
 .admin-workspace { width: min(68rem, calc(100% - 2 * var(--fsusblog-page-gutter))); }
 .admin-workspace .auth-form { max-width: 40rem; }
-.admin-operations, .admin-moderation { margin-block-start: 1.5rem; }
-.moderation-comments { display: grid; gap: 1.5rem; padding-inline-start: 1.5rem; }
-.moderation-comments h3, .moderation-body { overflow-wrap: anywhere; }
-.moderation-body { white-space: pre-wrap; }
+.admin-operations { margin-block-start: 1.5rem; }
 </style>

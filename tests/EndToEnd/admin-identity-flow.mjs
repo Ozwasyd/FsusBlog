@@ -7,10 +7,11 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
 import {
-  decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
+  decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
@@ -56,6 +57,8 @@ const {
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
   AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
   AdminStepUpBegin: stepUpBegin, AdminStepUpComplete: stepUpComplete,
+  AdminModerationClaim: moderationClaim, AdminModerationRenew: moderationRenew, AdminModerationRelease: moderationRelease,
+  AdminModerationDecision: moderationDecision, AdminModerationStepUpBegin: moderationStepUpBegin,
   CommentRoots: commentRoots,
   Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
 } = WireRoutes
@@ -215,6 +218,8 @@ try {
     checks.moderationBodyIsTextAndPendingIsPrivate = true
     checks.moderationGrantAndRevokeInvalidateOldSessions = true
     checks.adminSensitivePasskeyProofIsScopedAndOneUse = true
+    checks.onlineModerationClaimGenerationsAndVisibility = true
+    checks.onlineModerationDecisionProofCannotReplay = true
   }
 
   if (taxonomyGrant) {
@@ -412,6 +417,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal(await section.locator('[data-moderation-fixture]').count(), 0, 'Pending markup must render as plain text.')
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
+  await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
@@ -425,6 +431,115 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await denied.waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+}
+
+async function verifyOnlineModeration(page, context, section, publicRoute, expectedComment, checkQueue) {
+  const card = body => section.getByRole('article').filter({ has: page.getByText(body, { exact: true }) })
+  const approveCard = card(moderatorBody)
+  const rejectBody = moderatorBody + ' [reject fixture]'
+  const rejectCard = card(rejectBody)
+  const claimButton = 'Claim comment for review'
+  const firstResponse = await clickModeration(page, approveCard, moderationClaim, claimButton)
+  const first = await readClaim(firstResponse)
+  assert.equal(first.commentId, expectedComment.commentId)
+  await approveCard.getByText('Claimed for review', { exact: true }).waitFor()
+  await expectRepeatedPost(context, firstResponse, 409)
+
+  const renewal = await clickModeration(page, approveCard, moderationRenew, 'Renew claim')
+  const renewed = await readClaim(renewal)
+  assert.equal(renewed.commentId, first.commentId)
+  assert.equal(renewed.commentVersion, first.commentVersion)
+  assert.equal(renewed.claimGeneration, first.claimGeneration)
+  assert(renewed.claimVersion > first.claimVersion && renewed.expiresAt > first.expiresAt)
+  await expectRepeatedPost(context, renewal, 409)
+
+  const release = await clickModeration(page, approveCard, moderationRelease, 'Release claim')
+  await assertEmpty(release)
+  await expectRepeatedPost(context, release, 409)
+  const reclaimed = await readClaim(await clickModeration(page, approveCard, moderationClaim, claimButton))
+  assert.equal(reclaimed.commentId, first.commentId)
+  assert(reclaimed.claimGeneration > renewed.claimGeneration)
+  assert(reclaimed.claimToken !== renewed.claimToken, 'Reacquisition must replace the original claim credential.')
+  await expectRepeatedPost(context, renewal, 409)
+  await page.screenshot({ path: join(evidence, 'administrator-moderation-claimed.png') })
+
+  await applyModerationDecision(page, context, approveCard, reclaimed, 1, 'Approve with Passkey', 'Comment approved.')
+  await approveCard.waitFor({ state: 'hidden' })
+  assert.equal((await checkQueue()).status(), 200)
+  await rejectCard.getByRole('button', { name: claimButton, exact: true }).waitFor()
+  const rejected = await readClaim(await clickModeration(page, rejectCard, moderationClaim, claimButton))
+  await applyModerationDecision(page, context, rejectCard, rejected, 2, 'Reject with Passkey', 'Comment rejected.')
+  await rejectCard.waitFor({ state: 'hidden' })
+  assert.equal((await checkQueue()).status(), 200)
+  await section.getByText('No comments are waiting for moderation.', { exact: true }).waitFor()
+
+  const anonymous = await request.newContext()
+  try {
+    const publicComments = await anonymous.get(publicRoute)
+    assert.equal(publicComments.status(), 200)
+    const comments = decodeCommentRoots(decodeFrame(await publicComments.body(), FrameType.CommentTreeRootCursor).payload)
+    assert(comments.items.some(row => row.node.id === first.commentId.toString() && row.node.content === moderatorBody),
+      'The online approval must make the original comment visible publicly.')
+    assert(!comments.items.some(row => row.node.content === rejectBody), 'The online rejection must keep its comment private.')
+  } finally { await anonymous.dispose() }
+  await page.screenshot({ path: join(evidence, 'administrator-moderation-complete.png') })
+}
+
+async function applyModerationDecision(page, context, card, claim, targetState, label, notice) {
+  await card.getByLabel('Reason for moderation decision', { exact: true }).fill('Moderation integration fixture')
+  const [begin, complete, applied] = await Promise.all([
+    waitPost(page, adminOrigin, moderationStepUpBegin),
+    waitPost(page, adminOrigin, stepUpComplete),
+    clickModeration(page, card, moderationDecision, label),
+  ])
+  assert.equal(await frameType(begin), FrameType.PasskeyLoginBegin)
+  assert.equal(await frameType(complete), FrameType.MfaChallengeResult)
+  const decisionRequest = applied.request()
+  const proof = await decisionRequest.headerValue(WireHeaders.MfaProof)
+  assert(/^[A-Za-z0-9_-]{43}$/.test(proof ?? ''), 'The online decision must carry the fresh Passkey proof.')
+  const assertionProof = readMfaProof(decodeFrame(await complete.body(), FrameType.MfaChallengeResult).payload, 'admin-sensitive', true)
+  assert(proof === assertionProof, 'The decision must use the proof from that same real assertion.')
+  assert(Buffer.from(begin.request().postDataBuffer()).equals(decisionRequest.postDataBuffer()),
+    'The UI must submit the exact intent that was confirmed by Passkey.')
+  const decision = decodeAdminModerationDecision(decodeFrame(decisionRequest.postDataBuffer(), FrameType.AdminModerationDecision).payload)
+  assert(decision.articleId === claim.articleId && decision.commentId === claim.commentId &&
+    decision.commentVersion === claim.commentVersion && decision.claimToken === claim.claimToken &&
+    decision.claimGeneration === claim.claimGeneration && decision.claimVersion === claim.claimVersion &&
+    decision.expectedStatus === 0 && decision.decision === targetState,
+  'The authorized decision must bind the claimed comment and both versions.')
+  await assertEmpty(applied)
+  await page.getByText(notice, { exact: true }).waitFor()
+  await expectRepeatedPost(context, applied, 428, proof)
+  await expectRepeatedPost(context, applied, 428)
+}
+
+async function clickModeration(page, card, path, name) {
+  const [response] = await Promise.all([
+    waitPost(page, adminOrigin, path),
+    card.getByRole('button', { name, exact: true }).click(),
+  ])
+  return response
+}
+
+async function readClaim(response) {
+  assert.equal(response.status(), 200)
+  const claim = decodeAdminModerationClaim(decodeFrame(await response.body(), FrameType.AdminModerationClaim).payload)
+  assert(claim.articleId > 0 && claim.commentId > 0n && claim.commentVersion > 0n && claim.claimGeneration > 0n && claim.claimVersion > 0n)
+  assert(claim.expiresAt > BigInt(Date.now()) && /^[A-Za-z0-9_-]{43}$/.test(claim.claimToken))
+  return claim
+}
+
+async function expectRepeatedPost(context, original, status, proof) {
+  const response = await context.request.post(original.url(), {
+    headers: { 'Content-Type': 'application/octet-stream', Origin: adminOrigin.origin,
+      ...(proof ? { [WireHeaders.MfaProof]: proof } : {}) },
+    data: original.request().postDataBuffer(),
+  })
+  assert.equal(response.status(), status)
+  if (status === 428) {
+    const error = decodeFrame(await response.body(), FrameType.ApiError)
+    assert(Buffer.from(error.payload).includes('MFA_PROOF_REQUIRED'), 'Invalid or missing proof must return MFA_PROOF_REQUIRED.')
+  }
 }
 
 async function verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue) {

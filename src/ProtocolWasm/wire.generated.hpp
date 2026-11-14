@@ -60,6 +60,10 @@ inline constexpr uint32_t AdminCommentQueueSize = 24;
 inline constexpr uint32_t AdminCommentQueueBodyBytes = 12288;
 inline constexpr uint32_t AdminModerationReasonBytes = 1024;
 inline constexpr uint32_t AdminModerationFrameBytes = 1064;
+inline constexpr uint32_t AdminModerationClaimTokenBytes = 43;
+inline constexpr uint32_t AdminModerationClaimRequestFrameBytes = 28;
+inline constexpr uint32_t AdminModerationClaimFrameBytes = 107;
+inline constexpr uint32_t AdminModerationDecisionFrameBytes = 1135;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
@@ -90,6 +94,7 @@ inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
 inline constexpr uint32_t PropertyPageSize = 25;
+inline constexpr uint32_t PropertyQueryCursorChars = 48;
 inline constexpr uint32_t PropertyOptionCount = 32;
 inline constexpr uint32_t PropertyDecimalBytes = 64;
 inline constexpr uint32_t PropertyDateBytes = 40;
@@ -320,6 +325,9 @@ enum class FrameType : uint16_t {
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminModerationIntent = 32866,
+    AdminModerationClaimRequest = 32867,
+    AdminModerationClaim = 32868,
+    AdminModerationDecision = 32869,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -354,6 +362,10 @@ enum class FrameType : uint16_t {
     PropertySchemaCommand = 32784,
     PropertyValueCommand = 32785,
     PropertyEditor = 32786,
+    PropertyFilterCatalog = 32880,
+    PropertyFilterabilityCommand = 32881,
+    PropertyArticleQuery = 32882,
+    PropertyArticlePage = 32883,
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
@@ -413,6 +425,9 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
         case FrameType::AdminModerationIntent:
+        case FrameType::AdminModerationClaimRequest:
+        case FrameType::AdminModerationClaim:
+        case FrameType::AdminModerationDecision:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
         case FrameType::RevisionHistory:
@@ -447,6 +462,10 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertySchemaCommand:
         case FrameType::PropertyValueCommand:
         case FrameType::PropertyEditor:
+        case FrameType::PropertyFilterCatalog:
+        case FrameType::PropertyFilterabilityCommand:
+        case FrameType::PropertyArticleQuery:
+        case FrameType::PropertyArticlePage:
         case FrameType::DraftRecoveryScope:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
