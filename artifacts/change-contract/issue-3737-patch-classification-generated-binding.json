@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/authoritative-development-docs.json"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "51ac6b7415b1e4ed58ba2020838b64249cc35021612658e2ac6f66e317c2e550"
+        }
+    ]
+}

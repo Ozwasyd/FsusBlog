@@ -35,8 +35,8 @@
         },
         {
             "path": "config/development/authoritative-development-docs.json",
-            "contentDigest": "sha256:7dbcae5d4b2f9270cf2ed27f1b402f46210dd9001f333cd79d13dd8470258f78",
-            "indexDigest": "sha256:7dbcae5d4b2f9270cf2ed27f1b402f46210dd9001f333cd79d13dd8470258f78"
+            "contentDigest": "sha256:f27ba27fb9cd4d825eb24dca5b1d40085e2f24620890308900ec403b1f30a04f",
+            "indexDigest": "sha256:f27ba27fb9cd4d825eb24dca5b1d40085e2f24620890308900ec403b1f30a04f"
         },
         {
             "path": "config/development/canonical-digest-edge.json",

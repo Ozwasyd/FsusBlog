@@ -232,7 +232,6 @@
         ".hex",
         ".ico",
         ".png",
-        ".patch",
         ".proof",
         ".public_inputs",
         ".r1cs",
@@ -275,6 +274,8 @@
             "owner": "DependencyOwner",
             "patterns": [
                 "tools/vcpkg-overlays/**",
+                "tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch",
+                "tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch",
                 "**/vendor/**",
                 "**/node_modules/**"
             ],
