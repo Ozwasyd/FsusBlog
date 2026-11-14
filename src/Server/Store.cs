@@ -140,12 +140,14 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
     }
 
     private static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
-        ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null)
+        ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
+        ArticleScheduleCommand? schedule = null)
     {
-        var fingerprint = rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
+        var fingerprint = schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
+            rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
             taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
-        var current = taxonomy is not null || rollback is not null ? await Find(db, tx, actor, edit.Id, true, ct) : null;
+        var current = taxonomy is not null || rollback is not null || schedule is not null ? await Find(db, tx, actor, edit.Id, true, ct) : null;
         await using (var existing = Sql(db, tx, """
             select fingerprint,article_id,revision,title,body,published from public.article_command where actor_id=$1 and command_id=$2
             """, actor.Id, edit.Key))
@@ -171,6 +173,12 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         {
             current ??= await Find(db, tx, actor, edit.Id, true, ct);
             if (taxonomy is not null) edit = edit with { Title = current.Title, Body = current.Body };
+            if (schedule is not null)
+            {
+                Authoring.RevisionHistoryStore.RequireRevision(current.Revision, schedule.ExpectedRevision);
+                await Authoring.ArticleScheduleStore.Validate(db, tx, current, schedule, ct);
+                edit = edit with { Title = current.Title, Body = current.Body };
+            }
             if (rollback is not null)
             {
                 Authoring.RevisionHistoryStore.RequireRevision(current.Revision, rollback.ExpectedRevision);
@@ -200,10 +208,23 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             await Authoring.PublicationHistoryStore.Apply(db, tx, actor.Id, edit.Key, action, current!, state, ct);
         if (rollback is not null)
             await Authoring.RevisionHistoryStore.RecordRollback(db, tx, actor, state.Revision, rollback, ct);
+        if (schedule is not null)
+            await Authoring.ArticleScheduleStore.Record(db, tx, actor, state, schedule, ct);
+        else if (edit.Id != 0)
+            await Authoring.ArticleScheduleStore.Clear(db, tx, state.Id, ct);
         await using (var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
-            state.Id, state.Revision, rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback"))
+            state.Id, state.Revision, schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
+                rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback"))
             await enqueue.ExecuteNonQueryAsync(ct);
         return (state, true);
+    }
+
+    internal static async Task<ArticleSchedule> Schedule(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleScheduleCommand input, CancellationToken ct)
+    {
+        var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
+        var saved = await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, schedule: input);
+        return await Authoring.ArticleScheduleStore.ReadReceipt(db, tx, actor.Id, input.IdempotencyKey, saved.Article, ct);
     }
 
     internal static byte[]? TokenDigest(string? token)

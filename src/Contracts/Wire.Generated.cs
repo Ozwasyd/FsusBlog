@@ -45,6 +45,8 @@ public enum FrameType : ushort
     RevisionHistory = 32800,
     RevisionComparison = 32801,
     DraftRollback = 32802,
+    ArticleSchedule = 32825,
+    ArticleScheduleCommand = 32826,
     InboxReplay = 32772,
     CanvasCreate = 32773,
     CanvasCreated = 32774,
@@ -129,6 +131,7 @@ public static class WireLimits
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;
     public const int MaxDraftRollbackFrameBytes = 2056;
+    public const int MaxArticleScheduleFrameBytes = 52;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
     public const int CanvasGraphCommandBytes = 1048576;
@@ -389,6 +392,8 @@ public static class WireRoutes
     public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
     public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";
     public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
+    public const string DraftSchedule = "/api/v2/authoring/draft/{id:int}/schedule.aeds";
+    public const string DraftScheduleCommand = "/api/v2/authoring/schedule.aeds";
     public const string Save = "/api/v2/authoring/save.aeds";
     public const string Publish = "/api/v2/authoring/publish.aeds";
     public const string Retract = "/api/v2/authoring/retract.aeds";
@@ -443,6 +448,8 @@ public sealed record SignIn(string Ticket);
 public sealed record Session(string Name, long Generation, bool CanAuthor);
 public sealed record Draft(int Id, long Revision, string Title, string Body, bool Published);
 public sealed record DraftRollback(int Id, long ExpectedRevision, long SourceRevision, Guid IdempotencyKey, string Reason);
+public sealed record ArticleSchedule(int Id, long Revision, long DueUnixMs, long PublishedRevision);
+public sealed record ArticleScheduleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, long DueUnixMs);
 public sealed record RevisionComparison(int Id, long Revision, long SourceRevision, string Title, string Body, string SourceTitle, string SourceBody);
 public sealed record ArticleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, string Title, string Body);
 public sealed record CanvasCreate(Guid CanvasId, Guid EdgeId, int HostArticleId, int TargetArticleId);
@@ -670,6 +677,46 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRollback));
         var value = new DraftRollback(reader.I32(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeArticleSchedule(ArticleSchedule value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.Revision);
+        writer.I64(value.DueUnixMs);
+        writer.I64(value.PublishedRevision);
+        return Aeds.Encode(FrameType.ArticleSchedule, writer.Written);
+    }
+
+    public static ArticleSchedule DecodeArticleSchedule(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleSchedule));
+        var value = new ArticleSchedule(reader.I32(), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeArticleScheduleCommand(ArticleScheduleCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.ExpectedRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.I64(value.DueUnixMs);
+        return Aeds.Encode(FrameType.ArticleScheduleCommand, writer.Written);
+    }
+
+    public static ArticleScheduleCommand DecodeArticleScheduleCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleScheduleCommand));
+        var value = new ArticleScheduleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

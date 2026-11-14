@@ -56,6 +56,8 @@
     "RevisionHistory": 32800,
     "RevisionComparison": 32801,
     "DraftRollback": 32802,
+    "ArticleSchedule": 32825,
+    "ArticleScheduleCommand": 32826,
     "InboxReplay": 32772,
     "CanvasCreate": 32773,
     "CanvasCreated": 32774,
@@ -146,6 +148,8 @@
     "DraftRevisionHistory": "/api/v2/authoring/draft/{id:int}/revisions.aeds",
     "DraftRevisionComparison": "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
     "DraftRollback": "/api/v2/authoring/rollback.aeds",
+    "DraftSchedule": "/api/v2/authoring/draft/{id:int}/schedule.aeds",
+    "DraftScheduleCommand": "/api/v2/authoring/schedule.aeds",
     "Save": "/api/v2/authoring/save.aeds",
     "Publish": "/api/v2/authoring/publish.aeds",
     "Retract": "/api/v2/authoring/retract.aeds",
@@ -223,6 +227,7 @@
     "RevisionHistoryCursorChars": 54,
     "RollbackReasonBytes": 2000,
     "MaxDraftRollbackFrameBytes": 2056,
+    "MaxArticleScheduleFrameBytes": 52,
     "CanvasInsertionBytes": 560,
     "CanvasRequestBytes": 76,
     "CanvasGraphCommandBytes": 1048576,
@@ -463,6 +468,14 @@
     "DraftRollback": {
       "frame": "DraftRollback",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+    },
+    "ArticleSchedule": {
+      "frame": "ArticleSchedule",
+      "fields": [["Id", "i32"], ["Revision", "i64"], ["DueUnixMs", "i64"], ["PublishedRevision", "i64"]]
+    },
+    "ArticleScheduleCommand": {
+      "frame": "ArticleScheduleCommand",
+      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["DueUnixMs", "i64"]]
     },
     "RevisionComparison": {
       "frame": "RevisionComparison",

@@ -33,7 +33,7 @@ export interface EditorTransport<Draft> {
 }
 
 type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string) => Promise<DraftSave<Draft>>
-type WriteCommand = 'save' | 'publish' | 'retract' | 'assign-taxonomy' | 'rollback-history'
+type WriteCommand = 'save' | 'publish' | 'retract' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication'
 
 export interface EditorSessionRef {
   readonly articleId: number

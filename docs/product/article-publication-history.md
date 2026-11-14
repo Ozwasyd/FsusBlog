@@ -10,4 +10,4 @@
 
 直接导入显式发布 ID 时，导入工具应将 `article_publication_publication_id_seq` 的下一值置于所有已使用发布 ID 之后。正常发布继续使用该序列分配 ID。
 
-v1 将立即发布、定时发布、恢复及回滚各自记为新发布。撤回和软删除保留原发布记录，通过文章状态隐藏。v2 本节实现实际在线操作的发布沿革，定时发布、可见发布回滚、删除恢复、Rights V3 快照及签名审计仍属后续范围。 [v1 固定发布契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/article-publication-revisions.md)
+v1 将立即发布、定时发布、恢复及回滚各自记为新发布。撤回和软删除保留原发布记录，通过文章状态隐藏。v2 的定时发布沿革绑定原计划的幂等命令和作者，实际到期后记录新公开坐标。可见发布回滚、删除恢复、Rights V3 快照及签名审计仍属后续范围。 [定时发布](article-schedule.md) · [v1 固定发布契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/article-publication-revisions.md)

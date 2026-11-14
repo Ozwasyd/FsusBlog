@@ -6,11 +6,13 @@ import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
 import { rollbackDraft } from '../../../Contracts/revision-history'
+import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
+import ArticleSchedule from '../authoring/ArticleSchedule.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
@@ -25,7 +27,7 @@ import {
 } from '../authoring/workspaceRegistry'
 
 type ArticleAction = 'save' | 'publish' | 'retract'
-type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history'
+type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication'
 type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
@@ -137,6 +139,14 @@ const restoreRevision = (selection: RestoreSelection) => (draft: Draft, signal: 
   mutationResult(() => rollbackDraft({
     id: draft.id, expectedRevision: draft.revision, idempotencyKey, ...selection,
   }, signal), signal)
+
+const updateSchedule = (dueUnixMs: bigint) => (draft: Draft, signal: AbortSignal, idempotencyKey: string) =>
+  mutationResult(async () => {
+    const result = await setArticleSchedule({
+      id: draft.id, expectedRevision: draft.revision, idempotencyKey, dueUnixMs,
+    }, signal)
+    return { ...draft, revision: result.revision, published: result.publishedRevision !== 0n }
+  }, signal)
 
 const registry = new WorkspaceRegistry<Draft>({
   async load(articleId, signal) {
@@ -404,7 +414,7 @@ async function restoreDraft(candidate: RecoveryCandidate) {
   }
 }
 
-async function submit(action: Action, selection?: TaxonomySelection, restore?: RestoreSelection) {
+async function submit(action: Action, selection?: TaxonomySelection, restore?: RestoreSelection, due?: bigint) {
   const current = tab.value
   const document = original.value
   if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
@@ -414,6 +424,8 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
     if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value) return
   } else if (action === 'rollback-history') {
     if (!restore || current.risk !== 'clean' || cannotWrite.value) return
+  } else if (action === 'schedule-publication') {
+    if (due === undefined || current.risk !== 'clean' || cannotWrite.value) return
   } else if (cannotWrite.value || action === 'publish' && !document.body.trim()) {
     return
   }
@@ -430,7 +442,9 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
         : action === 'assign-taxonomy' && selection
           ? registry.commit(current, action, saveTaxonomy(selection))
           : action === 'rollback-history' && restore
-            ? registry.commit(current, action, restoreRevision(restore)) : undefined
+            ? registry.commit(current, action, restoreRevision(restore))
+            : action === 'schedule-publication' && due !== undefined
+              ? registry.commit(current, action, updateSchedule(due)) : undefined
   if (!requested) return
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
@@ -438,6 +452,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
     notice.value = {
       save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.',
       'assign-taxonomy': 'Classification saved.', 'rollback-history': 'Revision restored to a new draft.',
+      'schedule-publication': 'Publication schedule updated.',
     }[action]
     if (!document.id) await router.replace({ name: 'edit', params: { id: result.articleId } })
   } else if (result.kind === 'conflict') {
@@ -575,6 +590,13 @@ async function reloadDraft() {
           :revision="original.revision"
           :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @restore="submit('rollback-history', undefined, $event)"
+        />
+        <ArticleSchedule
+          :key="`schedule-${identityEpoch}`"
+          :article-id="original.id"
+          :revision="original.revision"
+          :can-change="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
+          @schedule="submit('schedule-publication', undefined, undefined, $event)"
         />
       </EditorInspector>
     </section>

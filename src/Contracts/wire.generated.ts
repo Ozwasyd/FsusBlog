@@ -44,6 +44,8 @@ export const FrameType = {
   RevisionHistory: 32800,
   RevisionComparison: 32801,
   DraftRollback: 32802,
+  ArticleSchedule: 32825,
+  ArticleScheduleCommand: 32826,
   InboxReplay: 32772,
   CanvasCreate: 32773,
   CanvasCreated: 32774,
@@ -126,6 +128,7 @@ export const WireLimits = {
   RevisionHistoryCursorChars: 54,
   RollbackReasonBytes: 2000,
   MaxDraftRollbackFrameBytes: 2056,
+  MaxArticleScheduleFrameBytes: 52,
   CanvasInsertionBytes: 560,
   CanvasRequestBytes: 76,
   CanvasGraphCommandBytes: 1048576,
@@ -384,6 +387,8 @@ export const WireRoutes = {
   DraftRevisionHistory: "/api/v2/authoring/draft/{id:int}/revisions.aeds",
   DraftRevisionComparison: "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
   DraftRollback: "/api/v2/authoring/rollback.aeds",
+  DraftSchedule: "/api/v2/authoring/draft/{id:int}/schedule.aeds",
+  DraftScheduleCommand: "/api/v2/authoring/schedule.aeds",
   Save: "/api/v2/authoring/save.aeds",
   Publish: "/api/v2/authoring/publish.aeds",
   Retract: "/api/v2/authoring/retract.aeds",
@@ -722,6 +727,62 @@ export function decodeDraftRollback(payload: Uint8Array): DraftRollback {
     sourceRevision: reader.i64(),
     idempotencyKey: reader.uuid(),
     reason: reader.text(WireLimits.RollbackReasonBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface ArticleSchedule {
+  id: number;
+  revision: bigint;
+  dueUnixMs: bigint;
+  publishedRevision: bigint;
+}
+
+export function encodeArticleSchedule(value: ArticleSchedule): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.revision);
+  writer.i64(value.dueUnixMs);
+  writer.i64(value.publishedRevision);
+  return writer.finish();
+}
+
+export function decodeArticleSchedule(payload: Uint8Array): ArticleSchedule {
+  const reader = new PodReader(payload);
+  const value: ArticleSchedule = {
+    id: reader.i32(),
+    revision: reader.i64(),
+    dueUnixMs: reader.i64(),
+    publishedRevision: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface ArticleScheduleCommand {
+  id: number;
+  expectedRevision: bigint;
+  idempotencyKey: string;
+  dueUnixMs: bigint;
+}
+
+export function encodeArticleScheduleCommand(value: ArticleScheduleCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.expectedRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.i64(value.dueUnixMs);
+  return writer.finish();
+}
+
+export function decodeArticleScheduleCommand(payload: Uint8Array): ArticleScheduleCommand {
+  const reader = new PodReader(payload);
+  const value: ArticleScheduleCommand = {
+    id: reader.i32(),
+    expectedRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    dueUnixMs: reader.i64(),
   };
   reader.finish();
   return value;

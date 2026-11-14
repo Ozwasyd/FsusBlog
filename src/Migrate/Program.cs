@@ -35,6 +35,7 @@ internal static partial class Migration
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
+                  article-schedule      Add pending publication and command receipts with the server stopped
                   admin-identity schema Add the independent administrator schema with the server stopped
                   admin-identity bootstrap HANDLE admin.manage
                                         Create an administrator and issue a one-use Passkey invitation
@@ -138,6 +139,9 @@ internal static partial class Migration
                 case ["publication-history"]:
                     await InitializePublicationHistoryAsync(connection, token);
                     break;
+                case ["article-schedule"]:
+                    await InitializeArticleScheduleAsync(connection, token);
+                    break;
                 case ["admin-identity", .. var adminArguments]:
                     await AdminIdentityAsync(connection, adminArguments, token);
                     break;
@@ -236,6 +240,7 @@ internal static partial class Migration
         await using var transaction = await BeginReadOnlyAsync(connection, token);
         await VerifyActivePublicationsAsync(connection, transaction, token);
         await VerifyPublicationHistoryAsync(connection, transaction, token);
+        await VerifyArticleScheduleAsync(connection, transaction, token);
         await using (var pending = new NpgsqlCommand("""
             select count(*) from public.article a where a.publication_count>0 and not exists (
                 select from public.article_publication_history h where h.article_id=a.id

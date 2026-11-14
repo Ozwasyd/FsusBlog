@@ -147,8 +147,26 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     {
         lease?.RequireCurrent();
         await _writers.WaitAsync(ct);
-        try { await Rebuild(ct); }
+        try
+        {
+            try { await PublishScheduled(ct); }
+            catch (NpgsqlException error) when (LeaseCurrent && !ct.IsCancellationRequested)
+            {
+                log.LogError(error, "Scheduled publication batch rolled back or awaits outbox recovery.");
+            }
+            await Rebuild(ct);
+        }
         finally { _writers.Release(); }
+    }
+
+    private async Task PublishScheduled(CancellationToken ct)
+    {
+        using var attribution = evidence?.PublicationWork();
+        await using var connection = await db.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
+        if (await Authoring.ArticleScheduleStore.PublishDue(connection, tx, ct) != 0)
+            Volatile.Write(ref _snapshot, null);
+        await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
     private async Task Rebuild(CancellationToken ct)

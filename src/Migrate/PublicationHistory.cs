@@ -10,14 +10,16 @@ internal static partial class Migration
         await PrepareSchemaAddition(connection, tx, ct);
         var hasRecoveryScope = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
         var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var hasAdminIdentity = await HasRelation(connection, tx, "public.admin_identity_schema", ct);
+        var hasAdminIdentity = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
+        var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
         if (!await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
-                requirePublicationHistory: false);
+                requirePublicationHistory: false, requireArticleSchedule: hasArticleSchedule);
             await ApplySchemaAddition(connection, tx, "publication-history.sql", ct);
         }
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity);
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
+            requireArticleSchedule: hasArticleSchedule);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await VerifyActivePublicationsAsync(connection, tx, ct);
@@ -32,14 +34,17 @@ internal static partial class Migration
                 select from public.article_publication_history h where h.article_id=a.id
             )
             """, ct);
-        await VerifyPublicationHistoryAsync(connection, tx, ct);
+        await VerifyPublicationHistoryAsync(connection, tx, ct, hasArticleSchedule);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified durable publication history and retained boundaries.");
     }
 
-    private static async Task VerifyPublicationHistoryAsync(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
+    private static async Task VerifyPublicationHistoryAsync(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct,
+        bool hasArticleSchedule = true)
     {
-        await using var command = new NpgsqlCommand("""
+        var scheduleJoin = hasArticleSchedule ? "public.article_schedule_receipt" :
+            "(select null::uuid actor_id,null::uuid command_id,null::timestamptz due_at where false)";
+        await using var command = new NpgsqlCommand($"""
             with links as (
                 select h.*,
                        coalesce(lag(event_no) over w,0) as previous_event,
@@ -54,9 +59,10 @@ internal static partial class Migration
             join public.article a on a.id=h.article_id
             left join public.article_publication p on p.article_id=h.article_id
             left join public.article_command c on c.actor_id=h.actor_id and c.command_id=h.command_id
+            left join {scheduleJoin} s on s.actor_id=h.actor_id and s.command_id=h.command_id
             where h.event_no<>h.previous_event+1 or h.revision<=h.previous_revision
                or h.revision>a.revision
-               or h.supersedes_id is distinct from h.previous_active
+                or h.supersedes_id is distinct from h.previous_active
                or (h.next_event is null and (
                     h.publication_no<>a.publication_count or h.publication_id is distinct from p.publication_id
                     or (h.kind<>'retained-hidden' and a.deleted<>(h.kind='delete'))
@@ -74,13 +80,15 @@ internal static partial class Migration
                  else
                     h.actor_id is distinct from a.owner_id or c.article_id is distinct from h.article_id
                     or c.revision is distinct from h.revision or h.happened_at is null
-                    or h.reason<>case h.kind when 'publish' then 'author-published' when 'replace' then 'author-replaced'
+                    or (s.command_id is not null and (s.due_at is null or h.kind not in ('publish','replace')))
+                    or h.reason<>case h.kind when 'publish' then case when s.command_id is null then 'author-published' else 'scheduled-published' end
+                         when 'replace' then case when s.command_id is null then 'author-replaced' else 'scheduled-replaced' end
                          when 'retract' then 'author-withdrew' when 'delete' then 'author-deleted' end
                     or (h.kind='delete' and (h.next_event is not null or not a.deleted))
                     or (h.kind='publish' and h.previous_active is not null)
                     or (h.kind='replace' and h.previous_active is null)
                     or (h.kind in ('publish','replace') and
-                         (h.publication_id is null or not c.published or h.publication_no<>h.previous_count+1))
+                         (h.publication_id is null or (s.command_id is null and not c.published) or h.publication_no<>h.previous_count+1))
                     or (h.kind in ('retract','delete') and
                          (h.publication_id is not null or c.published or h.publication_no<>h.previous_count))
                     or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision

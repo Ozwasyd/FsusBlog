@@ -13,6 +13,7 @@ import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
 import { exerciseCanvas } from './canvas-flow.mjs'
+import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -239,6 +240,7 @@ try {
 
   await exerciseWorkspace({ page: publisher, origin, article: { id: writtenId, title, body }, screenshot: screen, monitor, token, observations })
   await exerciseInspector({ page: publisher, screenshot: screen, token, observations })
+  await exerciseArticleSchedule(publisher, screen, observations)
 
   if (config.publicFixture) {
     await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()

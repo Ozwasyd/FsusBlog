@@ -164,6 +164,14 @@ active=$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_p
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 "${psql_restore[@]}" -c "UPDATE public.article_publication_history SET reason = 'changed' WHERE kind = 'retained-active'"
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'inconsistent publication history' "${migrate[@]}" verify
+"${psql_restore[@]}" -c "UPDATE public.article_publication_history SET reason = 'pre-history' WHERE kind = 'retained-active'"
+"${psql_restore[@]}" -c 'DROP TABLE public.article_schedule, public.article_schedule_receipt'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" article-schedule
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" article-schedule
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_schedule')" == 0 ]]
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
 
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
 expect_failure 'unexpected-identity-sequence' "${migrate[@]}" verify
