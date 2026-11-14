@@ -6,6 +6,7 @@ import { api, ApiError } from '../../../Contracts/client'
 import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow, type AuthorArticleState } from '../../../Contracts/author-articles'
 import { taxonomyList } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyListItem } from '../../../Contracts/taxonomy'
+import AuthorPropertyFilter from '../authoring/AuthorPropertyFilter.vue'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const route = useRoute()
@@ -256,6 +257,7 @@ onBeforeUnmount(() => {
         </div>
         <p v-if="taxonomyError" class="author-articles-note" role="status">部分分类或标签暂不可用。</p>
       </form>
+      <AuthorPropertyFilter v-if="!trash" />
       <section aria-labelledby="author-list-heading" :aria-busy="pending">
         <header class="author-list-heading">
           <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? '已删除文章' : '文章列表' }}</h2>

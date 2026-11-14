@@ -17,6 +17,7 @@ import { exerciseCanvas } from './canvas-flow.mjs'
 import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
+import { exercisePropertyFilter } from './property-filter-flow.mjs'
 import { readMarkdownDownload, readWordDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -307,6 +308,7 @@ try {
   observations.push('The editor reloads a private text value, an exact decimal and a false Boolean without coercion.')
 
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations)
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))

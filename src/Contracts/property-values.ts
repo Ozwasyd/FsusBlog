@@ -170,7 +170,7 @@ function decodeKind(tag: number): PropertyKind {
   return kind
 }
 
-function writeValue(output: PodWriter, property: PropertyValue): void {
+export function writeValue(output: PodWriter, property: PropertyValue): void {
   if (property.kind === 'missing' || property.kind === 'null') {
     output.i32(property.kind === 'missing' ? -2 : -1)
     return

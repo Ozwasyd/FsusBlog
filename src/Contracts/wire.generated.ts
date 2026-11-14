@@ -84,6 +84,10 @@ export const FrameType = {
   PropertySchemaCommand: 32784,
   PropertyValueCommand: 32785,
   PropertyEditor: 32786,
+  PropertyFilterCatalog: 32880,
+  PropertyFilterabilityCommand: 32881,
+  PropertyArticleQuery: 32882,
+  PropertyArticlePage: 32883,
   DraftRecoveryScope: 32787,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
@@ -186,6 +190,7 @@ export const WireLimits = {
   PropertyValueBytes: 65536,
   PropertyMaxCommandBytes: 65792,
   PropertyPageSize: 25,
+  PropertyQueryCursorChars: 48,
   PropertyOptionCount: 32,
   PropertyDecimalBytes: 64,
   PropertyDateBytes: 40,
@@ -479,6 +484,9 @@ export const WireRoutes = {
   PropertySchemaCommand: "/api/v2/authoring/properties/schema.aeds",
   PropertyValueCommand: "/api/v2/authoring/properties/values.aeds",
   PropertyEditor: "/api/v2/authoring/properties/editor.aeds",
+  PropertyFilterCatalog: "/api/v2/authoring/properties/filter/catalog.aeds",
+  PropertyFilterability: "/api/v2/authoring/properties/filter/definition.aeds",
+  PropertyArticleQuery: "/api/v2/authoring/properties/filter/articles.aeds",
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
@@ -1472,6 +1480,37 @@ export function decodePropertyWorkspaceRequest(payload: Uint8Array): PropertyWor
     schemaRevision: reader.i64(),
     valueRevision: reader.i64(),
     afterKey: reader.text(WireLimits.PropertyKeyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyFilterabilityCommand {
+  definitionId: string;
+  requestId: string;
+  schemaRevision: bigint;
+  definitionRevision: bigint;
+  enabled: boolean;
+}
+
+export function encodePropertyFilterabilityCommand(value: PropertyFilterabilityCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.definitionId);
+  writer.uuid(value.requestId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.definitionRevision);
+  writer.bool(value.enabled);
+  return writer.finish();
+}
+
+export function decodePropertyFilterabilityCommand(payload: Uint8Array): PropertyFilterabilityCommand {
+  const reader = new PodReader(payload);
+  const value: PropertyFilterabilityCommand = {
+    definitionId: reader.uuid(),
+    requestId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    definitionRevision: reader.i64(),
+    enabled: reader.bool(),
   };
   reader.finish();
   return value;

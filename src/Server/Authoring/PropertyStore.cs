@@ -10,7 +10,7 @@ using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed class PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
+internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
 {
     private const int SchemaStorageBudget = 8 * 1024 * 1024;
     private static readonly Guid PropertyScopeLock = new("c6143d07-094d-4a49-8ca8-6e3d4fa547ce");
@@ -72,13 +72,7 @@ internal sealed class PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, I
     {
         var input = details.Command;
         await ScopeLock(ct);
-        await using (var initialize = Store.Sql(db, tx, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", actor.Id))
-            await initialize.ExecuteNonQueryAsync(ct);
         var schema = await ReadSchema(ct);
-        var replay = await ReadReceipt(input.RequestId, ct);
-        var impact = await Revision("""
-            select count(*) from public.property_value where owner_id=$1 and definition_id=$2
-            """, ct, actor.Id, input.DefinitionId);
         var kind = DomainKind(details.Kind);
         var command = new PropertyCommand(actor.Id, input.RequestId, input.SchemaRevision, input.DefinitionRevision, input.Operation switch
         {
@@ -93,23 +87,34 @@ internal sealed class PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, I
             _ => throw Invalid(),
         });
         if (textOnly && schema.Find(input.DefinitionId) is { Settings.Kind: not PropertyKind.Text }) throw Missing();
+        return await ApplyChange(schema, command, ct);
+    }
+
+    private async Task<PropertyCommandReceipt> ApplyChange(PropertySchema schema, PropertyCommand command, CancellationToken ct)
+    {
+        var replay = await ReadReceipt(command.RequestId, ct);
+        var impact = await Revision("""
+            select count(*) from public.property_value where owner_id=$1 and definition_id=$2
+            """, ct, actor.Id, command.Change.DefinitionId);
         var transition = schema.Apply(command, replay, (_, _) => impact);
         var receipt = transition.Receipt;
         if (!transition.Replayed)
         {
-            var definition = transition.Schema.Find(input.DefinitionId)!;
+            await using (var initialize = Store.Sql(db, tx, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", actor.Id))
+                await initialize.ExecuteNonQueryAsync(ct);
+            var definition = transition.Schema.Find(command.Change.DefinitionId)!;
             await using var write = Store.Sql(db, tx, """
                 insert into public.property_definition(owner_id,id,machine_key,revision,digest,shape)
                 values($1,$2,$3,$4,$5,$6)
                 on conflict(owner_id,id) do update set revision=excluded.revision,digest=excluded.digest,shape=excluded.shape
                 where property_definition.revision=$7
                 """, actor.Id, definition.Id, definition.MachineKey, definition.Revision, definition.Digest,
-                Json(definition), input.DefinitionRevision);
+                Json(definition), command.ExpectedDefinitionRevision);
             if (await write.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
             if (!await VerifyStorageBudget(ct)) throw Invalid();
 
             await using var advance = Store.Sql(db, tx, "update public.property_schema set revision=$2 where owner_id=$1 and revision=$3",
-                actor.Id, receipt.SchemaRevision, input.SchemaRevision);
+                actor.Id, receipt.SchemaRevision, command.ExpectedSchemaRevision);
             if (await advance.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
 
             await using var journal = Store.Sql(db, tx, "insert into public.property_schema_command(owner_id,request_id,receipt) values($1,$2,$3)",
@@ -230,6 +235,8 @@ internal sealed class PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, I
         if (ids.Length == 0) return visible;
         await using var command = Store.Sql(db, tx, """
             select a.id from public.article a join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
+            join public.article_publication_rights w
+                on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
             where a.id=any($1) and a.owner_id=$2 and not a.deleted order by a.id for share of a
             """, ids, actor.Id);
         await using var reader = await command.ExecuteReaderAsync(ct);

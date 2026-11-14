@@ -16,9 +16,14 @@
 | POST `/api/v2/authoring/properties/workspace.aeds` | PropertyWorkspaceRequest (32780) → PropertyWorkspace (32783)，文本字段投影 |
 | POST `/api/v2/authoring/properties/definition.aeds` | PropertyDefinitionCommand (32779) → PropertyCommandReceipt (32782)，文本定义 |
 | POST `/api/v2/authoring/properties/text.aeds` | PropertyTextCommand (32781) → PropertyCommandReceipt (32782)，文本值 |
+| GET `/api/v2/authoring/properties/filter/catalog.aeds` | PropertyFilterCatalog (32880)，按机器键分页 |
+| POST `/api/v2/authoring/properties/filter/definition.aeds` | PropertyFilterabilityCommand (32881) → PropertyCommandReceipt (32782) |
+| POST `/api/v2/authoring/properties/filter/articles.aeds` | PropertyArticleQuery (32882) → PropertyArticlePage (32883) |
 
 每页最多 25 个字段。数值、布尔值和时间的载荷形态固定。每条选择定义或选择集合最多 32 个选项标识。三套独立字节向量对照 C# 和 TypeScript，覆盖八种属性值、空值与未设置、稳定身份、UTF-8、十进制和 64 位版本坐标。
 
 真实 Kestrel 和 PostgreSQL 测试已覆盖八种类型的保存及读取、精确小数、假布尔值、无效选项、同键并发重试、请求内容冲突、过期版本、改名及弃用保护。未发布引用、自引用、环和不允许的 URL 会被拒绝。参考文章撤回后返回不可用状态。原生 Chrome 经 FsusUI 编辑页创建并刷新读取了文本、超出 JavaScript 安全整数精度的小数和 False。公开首页及文章页未显示私有值。证据见本机 `artifacts/native-e2e-fsusv2-e2e.ZDTHdh/browser-result.json`。
 
-定义管理界面、查询和搜索投影、旧库导入以及完整 Inspector 交互仍待交付。属性类型及其约束由领域层控制。 [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
+作者从文章管理的「按文章属性筛选」入口选择字段，显式启用精确筛选，再用属性值、未设置或显式空值检索自己的非删除文章。启用和停用校验 schema 和定义版本，保留现有属性值。停用、弃用、越权、引用不可用和过期条件会返回错误，不扩大查询范围。存储值直接参与相等运算，精确十进制、UTC 日期、空字符串、空多选集合、False 和 0 独立。引用只匹配当前作者可访问的、仍公开的目标。结果按文章 ID 倒序分页，续页游标绑定同一会话、版本和规范化条件。每页反映该次数据库读取，可见性和属性值变化时重新核对。
+
+冻结 v1 定义权威含八种类型和操作符描述，已注册的批处理属性查询权威仍为不可用。v2 本节交付单字段精确相等及区分未设置和显式空值，属性范围、全文、分面、排序、组合筛选、保存视图、专用值索引及旧库导入仍待交付。 [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322) · [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324)

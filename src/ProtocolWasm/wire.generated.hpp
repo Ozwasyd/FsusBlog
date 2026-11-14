@@ -94,6 +94,7 @@ inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
 inline constexpr uint32_t PropertyPageSize = 25;
+inline constexpr uint32_t PropertyQueryCursorChars = 48;
 inline constexpr uint32_t PropertyOptionCount = 32;
 inline constexpr uint32_t PropertyDecimalBytes = 64;
 inline constexpr uint32_t PropertyDateBytes = 40;
@@ -361,6 +362,10 @@ enum class FrameType : uint16_t {
     PropertySchemaCommand = 32784,
     PropertyValueCommand = 32785,
     PropertyEditor = 32786,
+    PropertyFilterCatalog = 32880,
+    PropertyFilterabilityCommand = 32881,
+    PropertyArticleQuery = 32882,
+    PropertyArticlePage = 32883,
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
@@ -457,6 +462,10 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertySchemaCommand:
         case FrameType::PropertyValueCommand:
         case FrameType::PropertyEditor:
+        case FrameType::PropertyFilterCatalog:
+        case FrameType::PropertyFilterabilityCommand:
+        case FrameType::PropertyArticleQuery:
+        case FrameType::PropertyArticlePage:
         case FrameType::DraftRecoveryScope:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:

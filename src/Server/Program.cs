@@ -194,7 +194,7 @@ if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publi
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame, Query);
 FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Authoring.RevisionHistoryEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, ReadFrame);

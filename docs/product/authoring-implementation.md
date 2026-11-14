@@ -8,7 +8,7 @@
 
 `EditorInspector` 在桌面非模态侧栏和 1023px 以下的实际 FsusUI Drawer 之间移动同一棵内容树。分类和属性表单保持原组件与原输入。一个焦点所有者处理宿主切换与关闭，旧宿主的回调失效，Escape 关闭后优先恢复可用的原触发按钮，否则聚焦当前外部按钮。真实 Chrome 与 PostgreSQL 验证覆盖双向断点切换、同一输入保留、Escape 焦点回归、桌面按钮关闭、日期保存与重新加载。修订历史在同一侧栏显示，确认后通过现有工作区命令生成新的私有草稿，保留公开修订。 [浏览器证据](../../artifacts/native-inspector-revision/run-3/browser-result.json) · [修订历史](article-revision-history.md) · [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
 
-八种封闭属性类型已接入数据库、授权 API 和编辑页。服务端校验稳定字段与选项 ID、schema 及定义版本、引用和约束。完整属性管理界面、查询投影及 v1 导入仍待交付。 [文章属性](properties.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
+八种封闭属性类型已接入数据库、授权 API 和编辑页。服务端校验稳定字段与选项 ID、schema 及定义版本、引用和约束。文章管理支持显式启用字段及基于已存值的作者私有精确筛选。完整属性管理界面、范围和组合搜索及 v1 导入仍待交付。 [文章属性](properties.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
 
 Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。作者可在真实图形工作区与大纲间切换，使用五种节点和两种边。撤销与重做由同一数据库事务提交，支持刷新后继续、新编辑关闭旧重做分支。文章、标题和块引用解析绑定作者及确切目标修订，关系查询和精确坐标跳转仍待交付。 [Canvas 工作区](canvas-workspace.md) · [Canvas 事务](canvas-transaction.md) · [原生测试](../../artifacts/canvas-graph-20261114/verification.log) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 

@@ -168,6 +168,13 @@ public static class PropertyValues
         return normalized;
     }
 
+    public static PropertyValue NormalizeFilter(PropertyDefinition definition, PropertyValue value)
+    {
+        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable)
+            throw Invalid("filter-unavailable");
+        return NormalizePresent(definition.Settings, value);
+    }
+
     private static PropertyValue NormalizePresent(PropertySettings settings, PropertyValue value)
     {
         bool empty = (settings.Kind, value) switch

@@ -20,6 +20,7 @@ public abstract record PropertyChange(Guid DefinitionId)
         : PropertyChange(DefinitionId);
     public sealed record Rename(Guid DefinitionId, ImmutableArray<PropertyName> Names) : PropertyChange(DefinitionId);
     public sealed record ChangeSettings(Guid DefinitionId, PropertySettings Settings) : PropertyChange(DefinitionId);
+    public sealed record SetFilterable(Guid DefinitionId, bool Enabled) : PropertyChange(DefinitionId);
     public sealed record Deprecate(Guid DefinitionId) : PropertyChange(DefinitionId);
     public sealed record Delete(Guid DefinitionId) : PropertyChange(DefinitionId);
 }
@@ -163,7 +164,7 @@ public sealed partial class PropertySchema
             affected = countAffected?.Invoke(before, after);
             if (affected is null or < 0)
                 throw new PropertySchemaException("impact-unavailable");
-            if (affected > 0 && command.Change is not PropertyChange.Deprecate)
+            if (affected > 0 && command.Change is not (PropertyChange.Deprecate or PropertyChange.SetFilterable))
                 throw new PropertySchemaException("reconciliation-required", affected);
         }
 
@@ -195,6 +196,8 @@ public sealed partial class PropertySchema
             PropertyChange.Rename rename => before with { Names = rename.Names },
             PropertyChange.ChangeSettings settings when before.Status == PropertyStatus.Active =>
                 before with { Settings = ApplySettings(before.Settings, settings.Settings) },
+            PropertyChange.SetFilterable filter when before.Status == PropertyStatus.Active =>
+                before with { Settings = before.Settings with { Filterable = filter.Enabled } },
             PropertyChange.Deprecate when before.Status == PropertyStatus.Active =>
                 before with { Status = PropertyStatus.Deprecated },
             PropertyChange.Delete when before.Status == PropertyStatus.Deprecated =>
@@ -214,7 +217,7 @@ public sealed partial class PropertySchema
         },
         PropertyChange.Rename rename => rename with { Names = NormalizeNames(rename.Names) },
         PropertyChange.ChangeSettings settings => settings with { Settings = PropertyValues.NormalizeSettings(settings.Settings) },
-        PropertyChange.Deprecate or PropertyChange.Delete => change,
+        PropertyChange.Deprecate or PropertyChange.Delete or PropertyChange.SetFilterable => change,
         _ => throw PropertyValues.Invalid("command-kind")
     };
 
@@ -302,6 +305,7 @@ internal static class PropertyDigests
             PropertyChange.Create create => new { Kind = "create", create.MachineKey, create.Names, Settings = Settings(create.Settings) },
             PropertyChange.Rename rename => new { Kind = "rename", rename.Names },
             PropertyChange.ChangeSettings change => new { Kind = "change-settings", Settings = Settings(change.Settings) },
+            PropertyChange.SetFilterable filter => new { Kind = "set-filterable", filter.Enabled },
             PropertyChange.Deprecate => new { Kind = "deprecate" },
             PropertyChange.Delete => new { Kind = "delete" },
             _ => throw PropertyValues.Invalid("command-kind")

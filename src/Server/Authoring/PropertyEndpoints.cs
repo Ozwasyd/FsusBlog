@@ -1,3 +1,4 @@
+using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
@@ -6,7 +7,8 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal static class PropertyEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
+        Func<HttpContext, string, int, string?> query)
     {
         Map(WireRoutes.PropertyWorkspace, async (store, frame, ct) =>
             Wire.EncodePropertyWorkspace(await store.Read(Wire.DecodePropertyWorkspaceRequest(frame), ct)));
@@ -20,16 +22,38 @@ internal static class PropertyEndpoints
             Wire.EncodePropertyCommandReceipt(await store.Change(Wire.DecodePropertySchemaInput(frame), textOnly: false, ct)));
         Map(WireRoutes.PropertyValueCommand, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.Write(Wire.DecodePropertyValueInput(frame), textOnly: false, frame, ct)));
+        Map(WireRoutes.PropertyFilterability, async (store, frame, ct) =>
+            Wire.EncodePropertyCommandReceipt(await store.SetFilterable(Wire.DecodePropertyFilterabilityCommand(frame), ct)));
 
-        void Map(string path, Func<PropertyStore, byte[], CancellationToken, Task<byte[]>> operation)
+        app.MapGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            var after = query(ctx, "after", WireLimits.PropertyKeyBytes);
+            var schema = query(ctx, "schema", 19);
+            long version = 0;
+            if (after is not null && (after.Length == 0 ||
+                !long.TryParse(schema, NumberStyles.None, CultureInfo.InvariantCulture, out version) || version <= 0) ||
+                after is null && schema is not null)
+                throw new BusinessException(Rejection.Invalid, "Invalid property catalog page.");
+            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+                Results.Bytes(Wire.EncodePropertyFilterCatalog(await new PropertyStore(db, tx, actor).Catalog(after, version, ct)),
+                    Aeds.ContentType), ct);
+        }).RequireRateLimiting("command");
+        MapSession(WireRoutes.PropertyArticleQuery, async (store, frame, session, ct) =>
+            Wire.EncodePropertyArticlePage(await store.Filter(Wire.DecodePropertyArticleQuery(frame), session, ct)));
+
+        void Map(string path, Func<PropertyStore, byte[], CancellationToken, Task<byte[]>> operation) =>
+            MapSession(path, (store, frame, _, ct) => operation(store, frame, ct));
+
+        void MapSession(string path, Func<PropertyStore, byte[], string, CancellationToken, Task<byte[]>> operation)
         {
             app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
             {
                 var frame = await readFrame(ctx, WireLimits.PropertyMaxCommandBytes, ct);
+                var session = ctx.Request.Cookies[cookie];
                 try
                 {
-                    var result = await store.WithSession(ctx.Request.Cookies[cookie], true,
-                        (db, tx, actor) => operation(new PropertyStore(db, tx, actor), frame, ct), ct);
+                    var result = await store.WithSession(session, true,
+                        (db, tx, actor) => operation(new PropertyStore(db, tx, actor), frame, session!, ct), ct);
                     return Results.Bytes(result, Aeds.ContentType);
                 }
                 catch (PropertyValidationException)
