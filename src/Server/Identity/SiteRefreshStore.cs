@@ -100,12 +100,12 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
-    internal static async Task<bool> IsPersistent(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
+    internal static async Task<Guid?> FindCurrentFamily(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
     {
         await using var query = Store.Sql(db, tx, """
-            select exists (select from public.site_session_refresh where access_digest=$1 and idle_expires_at>clock_timestamp())
+            select family_id from public.site_session_refresh where access_digest=$1 and idle_expires_at>clock_timestamp()
             """, access);
-        return await query.ExecuteScalarAsync(ct) is true;
+        return await query.ExecuteScalarAsync(ct) as Guid?;
     }
 
     private static async Task<Family?> Resolve(NpgsqlConnection db, NpgsqlTransaction tx, byte[] digest, CancellationToken ct)

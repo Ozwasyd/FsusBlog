@@ -336,6 +336,32 @@ public sealed class PublishingPostgresTests
     }
 
     [PostgresFact]
+    public async Task AStaleAuthoringHandleCannotCreateAnArticleInAnotherAccount()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var first = await store.SignIn((await IssueTicket(fixture.DataSource, "first author", true, ct)).Token, ct);
+        var second = await store.SignIn((await IssueTicket(fixture.DataSource, "another author", true, ct)).Token, ct);
+        var handle = FsusBlog.V2.Server.Sessions.SiteSessions.Id(first.User.Id, Store.TokenDigest(first.Token)!);
+        var edit = new Edit(0, 0, Guid.NewGuid(), "Private draft", "Owner-only content.");
+
+        var conflict = await Assert.ThrowsAsync<BusinessException>(() =>
+            publications.Command(store, second.Token, ArticleAction.Save, edit, ct, handle));
+        Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using (var verify = Store.Sql(db, null, """
+            select (select count(*) from public.article) + (select count(*) from public.article_command)
+                + (select count(*) from public.blog_outbox)
+            """)) Assert.Equal(0L, await verify.ExecuteScalarAsync(ct));
+
+        var saved = await publications.Command(store, first.Token, ArticleAction.Save, edit, ct, handle);
+        Assert.Equal(first.User.Id, saved.Article.Owner);
+    }
+
+    [PostgresFact]
     public async Task PublicationOrdinalsArePerArticleAndSurviveWithdrawal()
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));

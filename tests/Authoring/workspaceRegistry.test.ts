@@ -309,6 +309,30 @@ test('observed expiry revokes pending operations and is sticky even if the clock
   assert.deepEqual(await registry.openOrActivate(2), { kind: 'blocked', reason: 'expired' })
 })
 
+test('extending the current authority retains dirty content and the same retry request', async () => {
+  let time = 4
+  const requestKeys: string[] = []
+  const registry = setup({
+    save: async (_, __, key) => {
+      requestKeys.push(key)
+      return { kind: 'blocked', reason: 'unavailable' }
+    },
+  }, 100, () => time)
+  registry.setIdentity({ ...author, expiresAt: 5 })
+  const tab = await activate(registry, 1)
+  registry.updateDraft(tab, draft(1, 1n, 'local text'))
+  await registry.save(tab)
+  registry.updateIdentityExpiry(8)
+  time = 6
+  assert.equal(registry.activeDraft?.body, 'local text')
+  assert.equal(registry.activeTab?.retry, 'save')
+  await registry.retry(tab)
+  assert.equal(requestKeys.length, 2)
+  assert.equal(requestKeys[0], requestKeys[1])
+  registry.setIdentity({ ...author, principalId: 'other', expiresAt: 8 })
+  assert.deepEqual(registry.tabs, [])
+})
+
 test('revoking a session hides its content and ignores an old save result', async () => {
   const pending = deferred<DraftSave<Draft>>()
   const registry = setup({ save: () => pending.promise })

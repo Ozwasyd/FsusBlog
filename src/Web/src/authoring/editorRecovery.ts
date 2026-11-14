@@ -35,7 +35,7 @@ export function editorRecovery() {
     if (current && current.tab.risk === 'clean' && journal && checked !== current.tab.sessionId) void inspect(current)
   }
 
-  async function attach(epoch: number, valid: () => boolean) {
+  async function attach(epoch: number, valid: () => boolean, currentHandle: () => string | undefined) {
     close()
     failure.value = false
     attaching.value = true
@@ -47,7 +47,7 @@ export function editorRecovery() {
       failure.value = true
     }, recoveryTimeoutMs)
     try {
-      const scope = await verifyDraftScope(epoch, valid, request.signal)
+      const scope = await verifyDraftScope(epoch, valid, currentHandle, request.signal)
       if (!scope) return
       const opened = await DraftJournal.open(scope)
       if (request.signal.aborted || !valid()) {

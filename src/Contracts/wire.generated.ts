@@ -592,6 +592,7 @@ export const WireHeaders = {
   MfaProof: "X-Fsus-Mfa-Proof",
   CurrentSession: "X-Fsus-Current-Session",
   SiteRefresh: "X-Fsus-Site-Refresh",
+  SiteSessionContinuity: "X-Fsus-Site-Session-Continuity",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
   AdminSitePageEditor: "X-Fsus-Admin-Site-Page-Editor",
 } as const;

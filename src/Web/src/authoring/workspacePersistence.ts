@@ -10,6 +10,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
   let lifetime = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
   let session: string | undefined
+  let currentHandle: string | undefined
   let revision = 0n
   let legacy = false
   let stored = ''
@@ -22,10 +23,12 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
     clearTimeout(timer)
     writing = undefined
     session = undefined
+    currentHandle = undefined
     notice.value = ''
   }
 
-  async function restore(handle: string, restoreLayout: (layout: SavedWorkspaceLayout, signal: AbortSignal) => Promise<number | undefined>) {
+  async function restore(handle: string, restoreLayout: (layout: SavedWorkspaceLayout, signal: AbortSignal) => Promise<number | undefined>): Promise<void> {
+    currentHandle = handle
     const scope = lifetime.signal
     const signal = AbortSignal.any([scope, AbortSignal.timeout(5_000)])
     try {
@@ -35,14 +38,23 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
       if (scope.aborted) return
       if (skipped === undefined) throw new Error('Workspace restoration was interrupted')
       revision = value.revision
-      session = handle
+      session = currentHandle
       legacy = value.schemaVersion === 1
       stored = layoutKey(layout(), legacy)
       if (skipped + value.skipped > 0) notice.value = 'Some articles from the saved workspace are unavailable.'
       else if (legacy) notice.value = 'The Inspector setting stays in this tab until workspace storage is upgraded.'
     } catch {
-      if (!scope.aborted) notice.value = 'The saved workspace could not be restored. Layout changes stay in this tab.'
+      if (scope.aborted) return
+      if (currentHandle && currentHandle !== handle)
+        return restore(currentHandle, restoreLayout)
+      notice.value = 'The saved workspace could not be restored. Layout changes stay in this tab.'
     }
+  }
+
+  function rebind(handle: string) {
+    currentHandle = handle
+    if (session) session = handle
+    changed()
   }
 
   function changed() {
@@ -74,7 +86,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
         stored = layoutKey(desired, legacy)
         if (saved.skipped) notice.value = 'Some articles could not be included in the saved workspace.'
       } catch (error) {
-        if (scope.aborted) return
+        if (scope.aborted || session !== handle) return
         session = undefined
         notice.value = error instanceof ApiError && error.status === 409
           ? 'The saved workspace changed elsewhere. Reload the workspace to use that layout.'
@@ -89,5 +101,5 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
     await writing
   }
 
-  return { reset, restore, changed, flush, notice }
+  return { reset, restore, rebind, changed, flush, notice }
 }

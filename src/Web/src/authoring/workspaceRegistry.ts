@@ -207,6 +207,12 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#changed()
   }
 
+  updateIdentityExpiry(expiresAt: number): void {
+    if (!this.#identity || this.#expired || !Number.isFinite(expiresAt) || expiresAt <= this.#now()
+        || this.#identity.expiresAt === expiresAt) return
+    this.#identity = Object.freeze({ ...this.#identity, expiresAt })
+  }
+
   async restoreLayout(layout: SavedWorkspaceLayout, signal: AbortSignal): Promise<number | undefined> {
     if (signal.aborted || !this.#currentIdentity() || this.#sessions.size !== 0 || layout.tabs.length > this.#limit)
       return undefined

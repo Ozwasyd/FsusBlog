@@ -23,15 +23,20 @@ export type { Article, ArticleCard } from './public-articles.ts';
 export type { ArticleCommand, Draft } from './wire.generated.ts';
 export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
 export type { InboxFilter, InboxListItem, InboxListPage, InboxMessage, InboxThread } from './inbox.ts';
-export type Session = Readonly<WireSession & { expiresAt: number; siteSessionId?: string; siteRefresh?: 'persistent' }>;
+export type Session = Readonly<WireSession & {
+  expiresAt: number;
+  siteSessionId?: string;
+  siteRefresh?: 'persistent';
+  siteSessionContinuity?: string;
+}>;
 
 export function validSiteSessionId(value: string): boolean {
   return value.length === WireLimits.SiteSessionIdBytes && /^[0-9a-f]+$/.test(value);
 }
 
-function inboxSession(session?: string): HeadersInit | undefined {
+export function siteSessionHeader(session?: string): HeadersInit | undefined {
   if (session === undefined) return;
-  if (!validSiteSessionId(session)) throw new ProtocolError('Invalid inbox session');
+  if (!validSiteSessionId(session)) throw new ProtocolError('Invalid site session.');
   return { [WireHeaders.CurrentSession]: session };
 }
 
@@ -100,8 +105,8 @@ function commandFrame(command: ArticleCommand): Uint8Array<ArrayBuffer> {
   return encodeFrame(FrameType.ArticleCommand, encodeArticleCommand(command));
 }
 
-function command(path: string, value: ArticleCommand, signal?: AbortSignal): Promise<Draft> {
-  return request(path, FrameType.Draft, readDraft, signal, 'POST', commandFrame(value));
+function command(path: string, value: ArticleCommand, signal?: AbortSignal, session?: string): Promise<Draft> {
+  return request(path, FrameType.Draft, readDraft, signal, 'POST', commandFrame(value), siteSessionHeader(session));
 }
 
 function readSession(payload: Uint8Array, headers: Headers): Session {
@@ -112,11 +117,14 @@ function readSession(payload: Uint8Array, headers: Headers): Session {
     : NaN;
   const handle = headers.get(WireHeaders.CurrentSession);
   const refresh = headers.get(WireHeaders.SiteRefresh);
+  const continuity = headers.get(WireHeaders.SiteSessionContinuity);
   if (session.name.length === 0 || session.generation <= 0n || !Number.isFinite(expiresAt) ||
-      (handle !== null && !validSiteSessionId(handle)) || (refresh !== null && refresh !== 'persistent'))
+      (handle !== null && !validSiteSessionId(handle)) || (refresh !== null && refresh !== 'persistent') ||
+      (continuity !== null && (refresh !== 'persistent' || handle === null || !validSiteSessionId(continuity))))
     throw new ProtocolError('Invalid operator session');
   return { ...session, expiresAt, ...(handle !== null ? { siteSessionId: handle } : {}),
-    ...(refresh === 'persistent' ? { siteRefresh: refresh } : {}) };
+    ...(refresh === 'persistent' ? { siteRefresh: refresh } : {}),
+    ...(continuity !== null ? { siteSessionContinuity: continuity } : {}) };
 }
 
 function readDraft(payload: Uint8Array): Draft {
@@ -199,19 +207,19 @@ export const api = {
   inboxReplay(after?: string, signal?: AbortSignal, session?: string) {
     if (after !== undefined && !validReplayCursor(after)) throw new ProtocolError('Invalid inbox replay cursor');
     const path = after === undefined ? WireRoutes.InboxReplay : `${WireRoutes.InboxReplay}?${new URLSearchParams({ after })}`;
-    return request(path, FrameType.InboxReplay, decodeInboxReplay, signal, 'GET', undefined, inboxSession(session));
+    return request(path, FrameType.InboxReplay, decodeInboxReplay, signal, 'GET', undefined, siteSessionHeader(session));
   },
 
   inboxList(filter: InboxFilter, cursor?: string, signal?: AbortSignal, session?: string) {
     const query = new URLSearchParams({ size: '20', filter });
     if (cursor) query.set('cursor', cursor);
-    return request(`${WireRoutes.InboxList}?${query}`, FrameType.ConversationList, decodeInboxList, signal, 'GET', undefined, inboxSession(session));
+    return request(`${WireRoutes.InboxList}?${query}`, FrameType.ConversationList, decodeInboxList, signal, 'GET', undefined, siteSessionHeader(session));
   },
 
   inboxThread(id: bigint, before?: bigint, signal?: AbortSignal, session?: string) {
     const path = WireRoutes.InboxDetail.replace('{id:long}', String(id));
     return request(before ? `${path}?beforeMessageId=${before}` : path, FrameType.ConversationDetailV3, decodeInboxThread,
-      signal, 'GET', undefined, inboxSession(session));
+      signal, 'GET', undefined, siteSessionHeader(session));
   },
 
   inboxRead(id: bigint, through: bigint, signal?: AbortSignal, session?: string) {
@@ -219,7 +227,7 @@ export const api = {
     const fields = new PodWriter();
     fields.i64(through);
     return request(path, FrameType.EmptySuccess, decodeSuccess, signal, 'POST',
-      encodeFrame(FrameType.ConversationReadRequest, fields.finish()), inboxSession(session));
+      encodeFrame(FrameType.ConversationReadRequest, fields.finish()), siteSessionHeader(session));
   },
 
   signIn(ticket: string, signal?: AbortSignal): Promise<Session> {
@@ -235,21 +243,21 @@ export const api = {
     return request(WireRoutes.SignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
   },
 
-  draft(id: number, signal?: AbortSignal): Promise<Draft> {
+  draft(id: number, signal?: AbortSignal, session?: string): Promise<Draft> {
     const path = WireRoutes.Draft.replace('{id:int}', String(id));
-    return request(path, FrameType.Draft, readDraft, signal);
+    return request(path, FrameType.Draft, readDraft, signal, 'GET', undefined, siteSessionHeader(session));
   },
 
-  save(value: ArticleCommand, signal?: AbortSignal) {
-    return command(WireRoutes.Save, value, signal);
+  save(value: ArticleCommand, signal?: AbortSignal, session?: string) {
+    return command(WireRoutes.Save, value, signal, session);
   },
 
-  publish(value: ArticleCommand, signal?: AbortSignal) {
-    return command(WireRoutes.Publish, value, signal);
+  publish(value: ArticleCommand, signal?: AbortSignal, session?: string) {
+    return command(WireRoutes.Publish, value, signal, session);
   },
 
-  retract(value: ArticleCommand, signal?: AbortSignal) {
-    return command(WireRoutes.Retract, value, signal);
+  retract(value: ArticleCommand, signal?: AbortSignal, session?: string) {
+    return command(WireRoutes.Retract, value, signal, session);
   },
 
   delete(value: ArticleCommand, signal?: AbortSignal): Promise<void> {

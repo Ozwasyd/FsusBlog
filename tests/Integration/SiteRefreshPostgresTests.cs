@@ -23,6 +23,9 @@ public sealed class SiteRefreshPostgresTests
         var original = await Issue(db, owner, credential, persistent: true, ct);
         var other = await Issue(db, owner, credential, persistent: true, ct);
         var ordinary = await Issue(db, owner, credential, persistent: false, ct);
+        var family = await ReadCurrentFamily(access, original.Access, ct);
+        var continuity = SiteSessions.Continuity(owner, Assert.IsType<Guid>(family));
+        var handle = SiteSessions.Id(owner, Store.TokenDigest(original.Access)!);
         Assert.Null(ordinary.Refresh);
         Assert.Null(ordinary.RefreshExpires);
 
@@ -47,6 +50,9 @@ public sealed class SiteRefreshPostgresTests
         var rotated = Assert.IsType<SiteRefreshStore.Issued>(winner.Cookies);
         Assert.Null(Assert.Single(responses, result => result.Kind == SiteRefreshStore.ResultKind.Contention).Cookies);
         Assert.NotEqual(original.Access, rotated.Access);
+        Assert.NotEqual(handle, SiteSessions.Id(owner, Store.TokenDigest(rotated.Access)!));
+        Assert.Equal(continuity, SiteSessions.Continuity(owner, Assert.IsType<Guid>(await ReadCurrentFamily(access, rotated.Access, ct))));
+        Assert.NotEqual(continuity, SiteSessions.Continuity(owner, Assert.IsType<Guid>(await ReadCurrentFamily(access, other.Access, ct))));
         Assert.NotEqual(original.Refresh, rotated.Refresh);
         await NoAccess(access, original.Access, ct);
         Assert.Equal(owner, (await ReadOwner(access, rotated.Access, ct)).Id);
@@ -68,6 +74,9 @@ public sealed class SiteRefreshPostgresTests
         Assert.Equal(owner, (await ReadOwner(access, ordinary.Access, ct)).Id);
         Assert.Equal((1L, 0L), await RefreshCounts(db, ct));
     }
+
+    private static Task<Guid?> ReadCurrentFamily(Store store, string token, CancellationToken ct) =>
+        store.WithSession(token, false, (db, tx, _) => SiteRefreshStore.FindCurrentFamily(db, tx, Store.TokenDigest(token)!, ct), ct);
 
     [PostgresFact]
     public async Task RenewsPastAccessExpiryAndCapsIdleExpiryAtTheAbsoluteDeadline()

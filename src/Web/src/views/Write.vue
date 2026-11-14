@@ -21,7 +21,7 @@ import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
-import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
+import { currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 import {
   WorkspaceRegistry,
   type DraftSave,
@@ -102,37 +102,46 @@ const failureByReason: Record<WorkspaceBlock, string> = {
   unavailable: 'The server could not confirm this change. Try again.',
 }
 
-function workspaceBlock(error: unknown): WorkspaceBlock {
+async function workspaceBlock(error: unknown, handle: string | undefined, signal: AbortSignal): Promise<WorkspaceBlock> {
   if (!(error instanceof ApiError)) return 'unavailable'
-  if (error.status === 401) {
-    invalidateSession()
-    return 'expired'
+  if (error.status === 401 || sessionMismatch(error)) {
+    if (!handle || signal.aborted) return 'unavailable'
+    await recheckCredential(handle, signal)
+    return currentSession.value ? 'unavailable' : 'expired'
   }
   if (error.status === 403) return 'forbidden'
   if (error.status === 404) return 'missing'
   return 'unavailable'
 }
 
+function sessionMismatch(error: ApiError): boolean {
+  return error.status === 409 && error.message === 'The current browser session changed. Reload before making changes.'
+}
+
 async function mutationResult(operation: () => Promise<Draft>, signal: AbortSignal): Promise<DraftSave<Draft>> {
+  const handle = currentSession.value?.siteSessionId
   try {
     return { kind: 'saved', draft: await operation() }
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 409) return { kind: 'conflict' }
+      if (error.status === 409 && !sessionMismatch(error)) return { kind: 'conflict' }
       if (error.status === 400) return { kind: 'rejected' }
     }
-    return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : workspaceBlock(error) }
+    return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : await workspaceBlock(error, handle, signal) }
   }
 }
 
-const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> =>
-  mutationResult(() => api[action]({
+const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> => {
+  const handle = currentSession.value?.siteSessionId
+  if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
+  return mutationResult(() => api[action]({
     id: draft.id,
     expectedRevision: draft.revision,
     title: action === 'save' ? draft.title.trim() : '',
     body: action === 'save' ? draft.body : '',
     idempotencyKey,
-  }, signal), signal)
+  }, signal, handle), signal)
+}
 
 const saveTaxonomy = (selection: TaxonomySelection) => (draft: Draft, signal: AbortSignal, idempotencyKey: string) =>
   mutationResult(async () => {
@@ -162,15 +171,20 @@ const updateRights = (policy: RightsEdit) => (draft: Draft, signal: AbortSignal,
     return { ...draft, revision: result.revision }
   }, signal)
 
-const updateAttachment = (edit: AttachmentEdit, current: string) => (draft: Draft, signal: AbortSignal, key: string) =>
-  mutationResult(() => editArticleMedia(draft.id, draft.revision, key, edit, current, signal), signal)
+const updateAttachment = (edit: AttachmentEdit) => (draft: Draft, signal: AbortSignal, key: string) => {
+  const handle = currentSession.value?.siteSessionId
+  if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' } as const)
+  return mutationResult(() => editArticleMedia(draft.id, draft.revision, key, edit, handle, signal), signal)
+}
 
 const registry = new WorkspaceRegistry<Draft>({
   async load(articleId, signal) {
+    const handle = currentSession.value?.siteSessionId
+    if (!handle) return { kind: 'blocked', reason: 'unavailable' }
     try {
-      return { kind: 'ready', draft: await api.draft(articleId, signal) }
+      return { kind: 'ready', draft: await api.draft(articleId, signal, handle) }
     } catch (error) {
-      return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : workspaceBlock(error) }
+      return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : await workspaceBlock(error, handle, signal) }
     }
   },
   save: send('save'),
@@ -182,7 +196,8 @@ const inspectorOpen = ref(false)
 const workspaceState = { articleWorkspace: true }
 const persistentWorkspace = ref(route.name === 'article-workspace' || history.state?.articleWorkspace === true)
 let layoutStarted = false
-let persistedSession = currentSession.value?.siteSessionId
+let workspaceIdentity: number | undefined
+let persistedSession: string | undefined
 const unsubscribe = registry.subscribe(() => {
   const next = registry.activeDraft
   if (next?.id !== original.value?.id || next?.revision !== original.value?.revision) {
@@ -199,24 +214,25 @@ const unsubscribe = registry.subscribe(() => {
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
   const handle = session?.siteSessionId
-  if (handle !== persistedSession || !session?.canAuthor) {
+  if (workspaceIdentity !== epoch || !session?.canAuthor) {
     persistence.reset()
     layoutStarted = false
     layoutRestoring.value = false
     persistedSession = handle
+    workspaceIdentity = epoch
+    registry.setIdentity(session?.canAuthor
+      ? { site: location.origin, principalId: String(epoch), generation: session.generation, expiresAt: session.expiresAt }
+      : null)
+    return
   }
-  registry.setIdentity(session?.canAuthor
-    ? { site: location.origin, principalId: String(epoch), generation: session.generation, expiresAt: session.expiresAt }
-    : null)
+  registry.updateIdentityExpiry(session.expiresAt)
+  if (handle && handle !== persistedSession) persistence.rebind(handle)
+  persistedSession = handle
 }, { immediate: true, flush: 'sync' })
-watch(identityEpoch, () => {
-  persistence.reset()
-  layoutStarted = false
-  layoutRestoring.value = false
-}, { flush: 'sync' })
 watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
   if (!author) recovery.close()
-  else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true)
+  else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true,
+    () => currentSession.value?.siteSessionId)
 }, { immediate: true })
 
 onMounted(() => {
@@ -538,7 +554,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
               : action === 'save-rights' && rights
                 ? registry.commit(current, action, updateRights(rights))
                 : action === 'save-attachment' && media && siteSession
-                  ? registry.commit(current, action, updateAttachment(media, siteSession)) : undefined
+                  ? registry.commit(current, action, updateAttachment(media)) : undefined
   if (!requested) return
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
@@ -670,7 +686,7 @@ async function reloadDraft() {
           :disabled="pending || hasConflict" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" format="docx" />
-        <ArticleMedia :article-id="original.id" :revision="original.revision" :identity="identityEpoch"
+        <ArticleMedia :article-id="original.id" :revision="original.revision"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" />
         <ArticleTaxonomy

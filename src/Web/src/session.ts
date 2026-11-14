@@ -1,4 +1,4 @@
-import { readonly, ref, shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
 import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
 import { completeMfaLogin, type Factor } from '../../Contracts/mfa'
@@ -6,30 +6,36 @@ import { hasSiteRefreshCookie, signOutSiteRefresh } from '../../Contracts/site-r
 import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
 import { announceSiteAuthChange, readSiteAuthority, refreshSiteAuthority, withSiteAuthMutation } from './site-refresh-coordination'
 
-const session = shallowRef<Session | null>(null)
-const sessionEpoch = ref(0)
+const authority = shallowRef<{ session: Session | null; identity: number; credential: number }>({
+  session: null, identity: 0, credential: 0,
+})
 let requestEpoch = 0
 let mutation: number | undefined
 let pendingMfa: string | undefined
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let sessionRead: { completion: Promise<void>; signal?: AbortSignal } | undefined
 
-export const currentSession = readonly(session)
-export const identityEpoch = readonly(sessionEpoch)
+export const currentSession = computed(() => authority.value.session)
+export const identityEpoch = computed(() => authority.value.identity)
+export const credentialEpoch = computed(() => authority.value.credential)
 
 function updateSession(value: Session | null, newLogin = false) {
-  const previous = session.value
+  const observed = authority.value
+  const previous = observed.session
   const next = value && value.expiresAt > Date.now() ? value : null
-  session.value = next
-  if (newLogin || previous?.generation !== next?.generation || previous?.name !== next?.name ||
-      previous?.canAuthor !== next?.canAuthor || previous?.expiresAt !== next?.expiresAt || previous?.siteSessionId !== next?.siteSessionId ||
-      previous?.siteRefresh !== next?.siteRefresh) {
-    sessionEpoch.value++
+  const changed = newLogin || previous?.generation !== next?.generation || previous?.name !== next?.name ||
+    previous?.canAuthor !== next?.canAuthor || previous?.siteRefresh !== next?.siteRefresh ||
+    (previous?.siteSessionContinuity ?? previous?.siteSessionId) !== (next?.siteSessionContinuity ?? next?.siteSessionId)
+  const replacedCredential = previous?.siteSessionId !== next?.siteSessionId
+  authority.value = {
+    session: next,
+    identity: observed.identity + Number(changed),
+    credential: observed.credential + Number(changed || replacedCredential),
   }
   clearTimeout(expiryTimer)
   if (next) {
     const expire = () => {
-      if (session.value !== next) return
+      if (authority.value.session !== next) return
       const remaining = next.expiresAt - Date.now()
       if (remaining > 0) expiryTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
       else invalidateSession()
@@ -39,8 +45,18 @@ function updateSession(value: Session | null, newLogin = false) {
 }
 
 export function invalidateSession() {
-  requestEpoch++
-  updateSession(null)
+  const session = authority.value.session
+  if (session?.siteRefresh === 'persistent' && session.siteSessionId && session.expiresAt > Date.now()) {
+    void recheckCredential(session.siteSessionId, AbortSignal.timeout(5000))
+  } else {
+    requestEpoch++
+    updateSession(null)
+  }
+}
+
+export async function recheckCredential(handle: string, signal: AbortSignal): Promise<void> {
+  if (signal.aborted || handle !== authority.value.session?.siteSessionId) return
+  await refreshSession(signal, false).catch(() => {})
 }
 
 export async function refreshSession(signal?: AbortSignal, rotate = true): Promise<void> {
@@ -57,7 +73,7 @@ export async function refreshSession(signal?: AbortSignal, rotate = true): Promi
       const value = rotate ? await refreshSiteAuthority(admissible, signal) : await readSiteAuthority(signal)
       if (admissible()) updateSession(value)
     } catch (error) {
-      if (admissible()) updateSession(null)
+      if (admissible() && (authority.value.session?.expiresAt ?? 0) <= Date.now()) updateSession(null)
       throw error
     }
   })()
@@ -119,9 +135,9 @@ async function mutateLogin(perform: () => Promise<Session | null>, signal?: Abor
 
 export async function signOut(signal?: AbortSignal) {
   pendingMfa = undefined
-  const epoch = sessionEpoch.value
-  const author = session.value?.canAuthor === true
-  const persistent = session.value?.siteRefresh === 'persistent'
+  const epoch = authority.value.identity
+  const author = authority.value.session?.canAuthor === true
+  const persistent = authority.value.session?.siteRefresh === 'persistent'
   const request = ++requestEpoch
   mutation = request
   try {
@@ -129,7 +145,10 @@ export async function signOut(signal?: AbortSignal) {
       if (request !== requestEpoch || signal?.aborted) return
       let recoveryError: unknown
       if (author) {
-        try { await verifyDraftScope(epoch, () => request === requestEpoch, signal) }
+        try {
+          await verifyDraftScope(epoch, () => request === requestEpoch && epoch === identityEpoch.value,
+            () => currentSession.value?.siteSessionId, signal)
+        }
         catch (error) {
           if (!(error instanceof ApiError && error.status === 401)) recoveryError = error
         }

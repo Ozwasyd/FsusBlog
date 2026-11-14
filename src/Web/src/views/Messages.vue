@@ -5,7 +5,7 @@ import { ElAlert, ElButton, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleto
 import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, type InboxThread } from '../../../Contracts/client'
 import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
 import { watchInboxWake } from '../../../Contracts/inbox-wake'
-import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 
 const filters: ReadonlyArray<{ value: InboxFilter; label: string }> = [
   { value: 'all', label: '全部' }, { value: 'unread', label: '未读' }, { value: 'system', label: '系统' },
@@ -57,11 +57,16 @@ function current(signal: AbortSignal, identity: number) {
 
 function report(failure: unknown, signal: AbortSignal, identity: number, fallback: string) {
   if (!current(signal, identity)) return
-  if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) invalidateSession()
+  if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) recheck(signal)
   else {
     if (failure instanceof ApiError && failure.status === 409) void refreshSession(signal).catch(() => {})
     error.value = fallback
   }
+}
+
+function recheck(signal: AbortSignal) {
+  const handle = currentSession.value?.siteSessionId
+  if (handle) void recheckCredential(handle, signal)
 }
 
 async function loadList(append = false): Promise<boolean> {
@@ -276,28 +281,34 @@ function resume() {
   if (document.visibilityState === 'visible') wake(scope.signal, identityEpoch.value)
 }
 
-watch(identityEpoch, identity => {
+let ownerEpoch: number | undefined
+watch(credentialEpoch, () => {
+  const identity = identityEpoch.value
+  const changedIdentity = ownerEpoch !== identity
+  ownerEpoch = identity
   scope.abort()
   scope = new AbortController()
   clearTimeout(pollTimer)
   polling = false
   wakePending = false
   streamOpen = false
-  selected.value = null
+  if (changedIdentity) {
+    selected.value = null
+    composing.value = false
+    subject.value = ''
+    ticket.value = ''
+    reply.value = ''
+    notice.value = ''
+    createAttempt = undefined
+    replies.clear()
+    opener = undefined
+  }
   thread.value = null
   rows.value = []
   nextPage.value = null
   writable.value = false
   sending.value = false
-  composing.value = false
-  subject.value = ''
-  ticket.value = ''
-  reply.value = ''
-  notice.value = ''
-  createAttempt = undefined
-  replies.clear()
   cursor = undefined
-  opener = undefined
   error.value = ''
   listPending.value = false
   threadPending.value = false
@@ -307,7 +318,8 @@ watch(identityEpoch, identity => {
     void inboxComposeEnabled(signal).then(enabled => {
       if (current(signal, identity)) writable.value = enabled
     }).catch(() => {})
-    void loadList().then(() => {
+    const active = selected.value
+    void Promise.all([loadList(), active === null ? undefined : loadThread(active)]).then(() => {
       if (!current(signal, identity)) return
       watchInboxWake(signal, () => wake(signal, identity), connected => {
         if (!current(signal, identity)) return
@@ -317,7 +329,7 @@ watch(identityEpoch, identity => {
           clearTimeout(pollTimer)
           pollTimer = setTimeout(() => { void poll(signal, identity) }, 4000)
         }
-      }, () => { if (current(signal, identity)) invalidateSession() })
+      }, () => { if (current(signal, identity)) recheck(signal) })
       void poll(signal, identity)
     })
   }

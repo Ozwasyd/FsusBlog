@@ -4,9 +4,10 @@ import { RouterLink } from 'vue-router'
 import { ElButton, ElOption, ElSelect, ElSettingsSection } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { articleMedia, privateArticlePreview, type ArticleAttachment, type AttachmentEdit } from '../../../Contracts/article-media'
+import { credentialEpoch } from '../session'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
 
-const props = defineProps<{ articleId: number; revision: bigint; identity: number; canChange: boolean }>()
+const props = defineProps<{ articleId: number; revision: bigint; canChange: boolean }>()
 const emit = defineEmits<{ save: [edit: AttachmentEdit] }>()
 const available = ref(true)
 const expanded = ref(false)
@@ -81,7 +82,7 @@ function closePreview() {
   preview.value = undefined
 }
 
-watch([() => props.articleId, () => props.revision, () => props.identity, expanded], () => {
+watch([() => props.articleId, () => props.revision, credentialEpoch, expanded], () => {
   task.abort()
   task = new AbortController()
   attached.value = []

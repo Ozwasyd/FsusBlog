@@ -598,6 +598,7 @@ public static class WireHeaders
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string SiteRefresh = "X-Fsus-Site-Refresh";
+    public const string SiteSessionContinuity = "X-Fsus-Site-Session-Continuity";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
     public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
 }

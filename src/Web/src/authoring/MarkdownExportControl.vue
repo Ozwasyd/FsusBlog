@@ -3,7 +3,7 @@ import { onScopeDispose, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
-import { currentSession, identityEpoch, invalidateSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
 
 const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat }>(), {
   format: 'md',
@@ -44,7 +44,8 @@ async function download() {
     }
   } catch (error) {
     if (controller.signal.aborted || epoch !== identityEpoch.value) return
-    if (error instanceof ApiError && error.status === 401) invalidateSession()
+    if (error instanceof ApiError && error.status === 401 && session.siteSessionId)
+      await recheckCredential(session.siteSessionId, controller.signal)
     else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
     else failure.value = format === 'docx' ? 'Could not download Word. Try again.' : 'Could not download Markdown. Try again.'
@@ -56,7 +57,7 @@ async function download() {
   }
 }
 
-watch(() => [props.article, props.revision, props.selected, props.disabled, props.format, identityEpoch.value], reset, { flush: 'sync' })
+watch(() => [props.article, props.revision, props.selected, props.disabled, props.format, credentialEpoch.value], reset, { flush: 'sync' })
 onScopeDispose(reset)
 </script>
 

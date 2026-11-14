@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { createHmac } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { decodeApiError, decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
-import { decodeSession, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeApiError, decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
+import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium, request } = packages('@playwright/test')
+const { chromium, expect, request } = packages('@playwright/test')
 const exec = promisify(execFile)
 const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
 const origin = url.origin
@@ -105,13 +106,20 @@ try {
   await owner.context.close()
   const restored = await browser.newContext({ storageState: persisted })
   observe(restored, 'restored')
+  const writer = await restored.newPage()
   const first = await restored.newPage()
   const second = await restored.newPage()
+  const workspace = await openDirtyWorkspace(writer, active.handle)
   const stale = await request.newContext({ storageState: { cookies: [oldAccess, oldRefresh], origins: [] } })
   await probeRow('expire-access')
   await checkSession(restored, 401)
   assert((await cookie(restored, 'refresh')).value === oldRefresh.value, 'Reopened browser did not retain its persistent credential.')
   await holdBothExpiredReads(first, second)
+  const rotation = Promise.withResolvers()
+  await writer.route(origin + WireRoutes.Session, async route => {
+    await rotation.promise
+    await route.continue()
+  })
   const fired = []
   restored.on('response', response => {
     if (isApi(response, rotate, 'POST')) fired.push(response)
@@ -125,11 +133,15 @@ try {
     await refreshError(concurrent, 409, 'REFRESH_ROTATION_CONFLICT')
     assert(!concurrent.headers()['set-cookie'], 'A concurrent request changed browser credentials.')
     checks.concurrentGenerationRejected = concurrent.status()
+    const writerObserved = writer.waitForResponse(response => isApi(response, WireRoutes.Session, 'GET') && response.status() === 200)
+    rotation.resolve()
     await Promise.all([first, second].map(page => page.getByRole('link', { name: 'Continue to writing', exact: true }).waitFor()))
     assert.equal(fired.length, 1, 'Expected one rotation for both tabs sharing the persistent cookie jar.')
     const fresh = await checkSession(restored, 200)
     assert(fresh.name === active.name && fresh.generation === active.generation && fresh.persistent,
       'Rotation changed identity, account generation or session policy.')
+    assert(fresh.handle !== active.handle && fresh.continuity === active.continuity,
+      'The access identifier did not rotate within the same session family.')
     const newAccess = await cookie(restored, 'access')
     const newRefresh = await cookie(restored, 'refresh')
     assertCookieOptions(newAccess, newRefresh)
@@ -137,6 +149,30 @@ try {
     assert(newAccess.value !== oldAccess.value && newRefresh.value !== oldRefresh.value,
       'Rotation did not replace both opaque credential values.')
     checks.twoTabsRestoredViaOneRotation = true
+
+    phase = 'same-family-editor-continuity'
+    const writerSession = await writerObserved
+    assert((await writerSession.allHeaders())[WireHeaders.CurrentSession.toLowerCase()] === fresh.handle,
+      'The open workspace did not fetch the newly rotated credential.')
+    await verifyDirtyWorkspace(writer, workspace)
+    checks.sameFamilyRetainedDirtyWorkspaceAndInspector = true
+    phase = 'persist-dirty-workspace'
+    await writer.bringToFront()
+    await writer.getByRole('complementary', { name: 'Article inspector', exact: true })
+      .getByRole('button', { name: 'Close', exact: true }).click()
+    const saved = await saveFromEditor(writer)
+    assert.equal(saved.status(), 200)
+    const sent = await saved.request().allHeaders()
+    assert(sent[WireHeaders.CurrentSession.toLowerCase()] === fresh.handle,
+      'The preserved workspace did not write using the rotated credential identifier.')
+    const retained = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+    assert(retained.title === workspace.title && retained.body === workspace.body,
+      'The preserved dirty inputs were not saved byte for byte.')
+    checks.dirtyWorkspaceSavedUsingRotatedCredential = true
+
+    phase = 'stale-editor-create-rejected'
+    await rejectStaleDraftCreate([newAccess, newRefresh], fresh.handle, peer, peerCookie)
+    checks.staleCreateRejectedAfterAccountSwitch = true
 
     phase = 'rotation-replay'
     await probeRow('expire-grace')
@@ -146,6 +182,7 @@ try {
     assert.equal((await rotateVia(restored.request)).status(), 401)
     checks.retiredTokenReplayRevokedFamily = true
   } finally {
+    rotation.resolve()
     await stale.dispose()
   }
   const peerAfter = await checkSession(peer.context, 200)
@@ -256,8 +293,12 @@ async function checkSession(context, status) {
     const headers = reply.headers()
     const expiresAt = Date.parse(headers[WireHeaders.AccessExpiresAtUtc.toLowerCase()])
     const persistent = headers[WireHeaders.SiteRefresh.toLowerCase()] === 'persistent'
+    const handle = headers[WireHeaders.CurrentSession.toLowerCase()]
+    const continuity = headers[WireHeaders.SiteSessionContinuity.toLowerCase()]
     assert(Number.isFinite(expiresAt) && expiresAt > Date.now(), 'Live session response lacked its actual access expiry.')
-    return { ...decodeSession(decodeFrame(await reply.body(), FrameType.OperatorSession).payload), expiresAt, persistent }
+    assert(/^[a-f0-9]{64}$/.test(handle) && (!persistent || /^[a-f0-9]{64}$/.test(continuity)),
+      'Live session response lacked its credential identifier or persistent continuity.')
+    return { ...decodeSession(decodeFrame(await reply.body(), FrameType.OperatorSession).payload), expiresAt, persistent, handle, continuity }
   }
 }
 
@@ -310,6 +351,93 @@ async function holdBothExpiredReads(first, second) {
     await both.promise
     await route.fulfill({ response: expired })
   }, { times: 1 })))
+}
+
+async function openDirtyWorkspace(writer, handle) {
+  const savedTitle = 'Persistent workspace baseline'
+  const draft = encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({
+    id: 0, expectedRevision: 0n, idempotencyKey: randomUUID(), title: savedTitle, body: 'Saved Markdown.',
+  }))
+  const stored = await writer.context().request.post(origin + WireRoutes.Save, {
+    headers: { 'Content-Type': 'application/octet-stream', Origin: origin, [WireHeaders.CurrentSession]: handle },
+    data: Buffer.from(draft),
+  })
+  assert.equal(stored.status(), 200)
+  const { id } = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
+  await writer.goto(origin + '/user/manage/article/workspace')
+  await writer.getByLabel('Article ID', { exact: true }).fill(String(id))
+  await button(writer, 'Open article').click()
+  await writer.waitForURL(origin + '/user/manage/article/edit/' + id)
+  await expect(writer.getByLabel('Title', { exact: true })).toHaveValue(savedTitle)
+  await button(writer, 'Pin ' + savedTitle).click()
+  const title = 'Unsaved title spanning session rotation'
+  const body = 'Unsaved Markdown spanning session rotation.\n\nSecond paragraph.'
+  await writer.getByLabel('Title', { exact: true }).fill(title)
+  await writer.getByLabel('Body', { exact: true }).fill(body)
+  await button(writer, 'Inspector').click()
+  await verifyDirtyWorkspace(writer, { title, body })
+  return { title, body }
+}
+
+async function verifyDirtyWorkspace(writer, workspace) {
+  const selected = writer.getByRole('tablist', { name: 'Open articles', exact: true }).getByRole('tab', { selected: true })
+  await expect(selected).toContainText(workspace.title)
+  await expect(button(writer, 'Unpin ' + workspace.title)).toHaveAttribute('aria-pressed', 'true')
+  await expect(writer.getByLabel('Title', { exact: true })).toHaveValue(workspace.title)
+  await expect(writer.getByLabel('Body', { exact: true })).toHaveValue(workspace.body)
+  await expect(writer.getByRole('complementary', { name: 'Article inspector', exact: true })).toBeVisible()
+}
+
+async function saveFromEditor(page) {
+  await page.bringToFront()
+  const save = button(page, 'Save draft')
+  await expect(save).toBeEnabled()
+  return clickApi(page, WireRoutes.Save, 'Save draft')
+}
+
+async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
+  const swapped = await browser.newContext({ storageState: { cookies, origins: [] } })
+  observe(swapped, 'stale-writer')
+  const page = await swapped.newPage()
+  const title = 'Stale author cross-account fixture'
+  try {
+    await page.goto(origin + '/user/manage/article/write')
+    await page.getByLabel('Title', { exact: true }).fill(title)
+    await page.getByLabel('Body', { exact: true }).fill('This draft belongs to the originally authenticated account.')
+    const submitted = Promise.withResolvers()
+    await page.route(origin + WireRoutes.Save, async route => {
+      try {
+        const outgoing = route.request()
+        const headers = await outgoing.allHeaders()
+        assert(headers[WireHeaders.CurrentSession.toLowerCase()] === handle,
+          'The editor did not submit its original credential identifier.')
+        await swapped.clearCookies({ name: cookieNames.refresh })
+        await swapped.addCookies([peerCookie])
+        const response = await swapped.request.post(outgoing.url(), {
+          headers: {
+            Origin: origin, 'Content-Type': headers['content-type'],
+            [WireHeaders.CurrentSession]: headers[WireHeaders.CurrentSession.toLowerCase()],
+          },
+          data: outgoing.postDataBuffer(),
+        })
+        await route.fulfill({ response })
+        submitted.resolve()
+      } catch (error) {
+        await route.abort('failed').catch(() => {})
+        submitted.reject(error)
+      }
+    }, { times: 1 })
+    const [rejected] = await Promise.all([saveFromEditor(page), submitted.promise])
+    await refreshError(rejected, 409, 'The current browser session changed. Reload before making changes.')
+    assert((await checkSession(swapped, 200)).name === (await checkSession(peer.context, 200)).name,
+      'The stale write fixture was not using the peer account’s actual access credential.')
+    const inventory = await peer.context.request.get(origin + WireRoutes.AuthorArticles, { params: { keyword: title } })
+    assert.equal(inventory.status(), 200)
+    assert.equal(decodeAuthorArticlePage(decodeFrame(await inventory.body(), FrameType.AuthorArticlePage).payload).total, 0,
+      'A cross-account write created an article in the peer inventory.')
+  } finally {
+    await swapped.close()
+  }
 }
 
 function readSeed(seed) {

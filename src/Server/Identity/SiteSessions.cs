@@ -7,6 +7,7 @@ namespace FsusBlog.V2.Server.Sessions;
 internal static class SiteSessions
 {
     private static readonly byte[] IdDomain = "FsusBlog v2 site session v1"u8.ToArray();
+    private static readonly byte[] ContinuityDomain = "FsusBlog v2 site session continuity v1"u8.ToArray();
     internal static Task<SiteSessionList> List(Store store, string? token, string? expectedCurrent, CancellationToken ct,
         bool persistent = false) =>
         store.WithSession(token, false, async (db, tx, actor) =>
@@ -70,6 +71,23 @@ internal static class SiteSessions
         digest.AsSpan().CopyTo(input[(IdDomain.Length + 16)..]);
         return Convert.ToHexStringLower(SHA256.HashData(input));
     }
+
+    internal static string Continuity(Guid account, Guid family)
+    {
+        Span<byte> input = stackalloc byte[ContinuityDomain.Length + 32];
+        ContinuityDomain.CopyTo(input);
+        account.TryWriteBytes(input[ContinuityDomain.Length..], bigEndian: true, out _);
+        family.TryWriteBytes(input[(ContinuityDomain.Length + 16)..], bigEndian: true, out _);
+        return Convert.ToHexStringLower(SHA256.HashData(input));
+    }
+
+    internal static void IfCurrent(Guid account, string? token, string? expected)
+    {
+        if (expected is not null) RequireCurrent(account, Store.TokenDigest(token)!, expected);
+    }
+
+    internal static string? Requested(HttpContext ctx) => ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var header)
+        ? header.Count == 1 ? header[0] ?? "" : "" : null;
 
     internal static void RequireCurrent(Guid account, byte[] digest, string? expected)
     {

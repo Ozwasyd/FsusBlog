@@ -7,6 +7,7 @@ import {
 } from '../../../Contracts/revision-history'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
+import { credentialEpoch } from '../session'
 
 const props = defineProps<{ articleId: number; revision: bigint; canRollback: boolean }>()
 const emit = defineEmits<{
@@ -146,6 +147,19 @@ function restore() {
 
 watch(() => [open.value, props.articleId, props.revision], () => {
   reset()
+  if (open.value && props.articleId > 0) void load()
+}, { flush: 'sync' })
+watch(credentialEpoch, () => {
+  historyRequest?.abort()
+  compareRequest?.abort()
+  if (comparisonOpen.value && comparing.value) {
+    comparing.value = false
+    comparisonError.value = 'The session renewed while loading. Close the comparison and try again.'
+  }
+  items.value = []
+  cursor.value = null
+  published.value = null
+  loading.value = false
   if (open.value && props.articleId > 0) void load()
 }, { flush: 'sync' })
 onScopeDispose(() => {

@@ -297,8 +297,11 @@ app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, Cancellation
     var token = ctx.Request.Cookies[Cookie];
     return await store.WithSession(token, false, async (db, tx, actor) =>
     {
-        if (persistentSite && await FsusBlog.V2.Server.Passkeys.SiteRefreshStore.IsPersistent(db, tx, Store.TokenDigest(token)!, ct))
+        if (persistentSite && await FsusBlog.V2.Server.Passkeys.SiteRefreshStore.FindCurrentFamily(db, tx, Store.TokenDigest(token)!, ct) is { } family)
+        {
             ctx.Response.Headers[WireHeaders.SiteRefresh] = "persistent";
+            ctx.Response.Headers[WireHeaders.SiteSessionContinuity] = FsusBlog.V2.Server.Sessions.SiteSessions.Continuity(actor.Id, family);
+        }
         return SessionResponse(ctx, actor, token!);
     }, ct);
 });
@@ -311,8 +314,15 @@ app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, Cancellatio
     return Results.Bytes(Wire.EncodeEmptySuccess(), Binary);
 }).RequireRateLimiting("command");
 app.MapGet(WireRoutes.Draft, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
-    store.WithSession(ctx.Request.Cookies[Cookie], true, async (db, tx, actor) =>
-        DraftResponse(await Store.Find(db, tx, actor, id, false, ct)), ct)).RequireRateLimiting("command");
+{
+    var token = ctx.Request.Cookies[Cookie];
+    var expected = FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx);
+    return store.WithSession(token, true, async (db, tx, actor) =>
+    {
+        FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expected);
+        return DraftResponse(await Store.Find(db, tx, actor, id, false, ct));
+    }, ct);
+}).RequireRateLimiting("command");
 Mutation(WireRoutes.Save, ArticleAction.Save);
 Mutation(WireRoutes.Publish, ArticleAction.Publish);
 Mutation(WireRoutes.Retract, ArticleAction.Retract);
@@ -386,7 +396,8 @@ void Mutation(string path, ArticleAction action)
             (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
             return Error(ctx, 400, "Command key does not match its request header.");
         var edit = Publishing.Validate(action, new(input.Id, input.ExpectedRevision, input.IdempotencyKey, input.Title, input.Body));
-        var result = await publications.Command(store, ctx.Request.Cookies[Cookie], action, edit, ct);
+        var result = await publications.Command(store, ctx.Request.Cookies[Cookie], action, edit, ct,
+            FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx));
         return action == ArticleAction.Delete ? Results.Bytes(Wire.EncodeEmptySuccess(), Binary) : DraftResponse(result.Article);
     }).RequireRateLimiting("command");
 }
