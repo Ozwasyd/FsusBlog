@@ -21,16 +21,17 @@ export async function passkeyAvailable(signal?: AbortSignal): Promise<boolean> {
 
 export type PasskeyLogin = { status: 'signed-in'; session: Session } | { status: 'mfa'; token: string };
 
-export async function loginWithPasskey(signal?: AbortSignal): Promise<PasskeyLogin> {
-  const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyLoginBegin, signal);
+export async function loginWithPasskey(signal?: AbortSignal, rememberMe = false): Promise<PasskeyLogin> {
+  const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyLoginBegin, signal, undefined, false, rememberMe);
   const pending = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
   return pending ? { status: 'mfa', token: pending } : { status: 'signed-in', session: await api.session(signal) };
 }
 
-export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>, restricted = false) {
+export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>,
+  restricted = false, rememberMe = false) {
   const { token, options } = await request(beginPath, FrameType.PasskeyLoginBegin,
     payload => decodeLoginBegin(payload, restricted), signal, 'POST', body);
-  return getAssertion(token, options, signal);
+  return getAssertion(token, options, signal, rememberMe);
 }
 
 export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
@@ -39,7 +40,7 @@ export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
     payload => readMfaProof(payload, mfaAction.setup, true), signal, 'POST', assertion);
 }
 
-async function getAssertion(token: string, options: PublicKeyCredentialRequestOptions, signal?: AbortSignal) {
+async function getAssertion(token: string, options: PublicKeyCredentialRequestOptions, signal?: AbortSignal, rememberMe = false) {
   const result = await navigator.credentials.get({ publicKey: options, ...(signal ? { signal } : {}) });
   if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAssertionResponse))
     throw new ProtocolError('No Passkey assertion was returned.');
@@ -50,6 +51,7 @@ async function getAssertion(token: string, options: PublicKeyCredentialRequestOp
   const payload = complete(WireLayouts.PasskeyLoginCompleteSize, token, [encoder.encode(result.id), new Uint8Array(result.rawId),
     new Uint8Array(response.clientDataJSON), new Uint8Array(response.authenticatorData), new Uint8Array(response.signature),
     handle ? new Uint8Array(handle) : new Uint8Array(0)], [], true);
+  payload[0] = rememberMe ? 1 : 0;
   return encodeFrame(FrameType.PasskeyLoginCompleteRequest, payload);
 }
 

@@ -1,0 +1,337 @@
+import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { createHmac } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
+import { decodeApiError, decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
+import { decodeSession, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+
+const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
+const { chromium, request } = packages('@playwright/test')
+const exec = promisify(execFile)
+const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
+const origin = url.origin
+const ownerTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
+const peerTicket = process.env.FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
+const probe = process.env.FSUSBLOG_TEST_SITE_REFRESH_PROBE
+const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
+assert(url.hostname === 'localhost' && url.protocol === 'https:' && ownerTicket && peerTicket &&
+  ownerTicket !== peerTicket && probe && /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins),
+  'Provide the isolated native TLS runner with two separate accounts and the PostgreSQL fixture probe.')
+const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-refresh-browser')
+await mkdir(evidence, { recursive: true })
+
+const cookieNames = { access: 'fsus-v2-session', refresh: '__Secure-FsusSiteRefresh' }
+const refreshPath = '/api/v2/identity/refresh'
+const {
+  SiteRefreshAvailability: refreshAvailability,
+  SiteRefreshStatus: refreshStatus,
+  SiteRefreshRotate: rotate,
+  SiteRefreshSignOut: refreshSignOut,
+} = WireRoutes
+const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
+  args: [`--ignore-certificate-errors-spki-list=${pins}`] })
+const startedAt = new Date().toISOString()
+const checks = {}
+const responses = []
+const faults = []
+const sensitive = [ownerTicket, peerTicket]
+let phase = 'configure-mfa'
+let failure
+try {
+  const owner = await openBrowser('owner')
+  const peer = await openBrowser('peer')
+  const document = await owner.page.goto(origin + '/login')
+  const security = await document?.securityDetails()
+  assert(security?.protocol.startsWith('TLS') && await owner.page.evaluate(() => window.isSecureContext),
+    'Persistent session acceptance requires a real TLS browser context.')
+  checks.tlsWebAuthn = security.protocol
+  assert.equal((await owner.context.request.get(origin + refreshAvailability)).status(), 200)
+  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 401)
+  await enroll(owner.page, ownerTicket)
+  await passkey(owner.page, false, 1)
+  const original = await checkSession(owner.context, 200)
+  await owner.page.goto(origin + '/user/identity/mfa')
+  await button(owner.page, 'Set up authenticator').click()
+  const seed = await owner.page.getByTestId('mfa-seed').textContent()
+  assert(/^[A-Z2-7]{32}$/.test(seed), 'The fixture authenticator seed was unavailable.')
+  sensitive.push(seed)
+  const secret = readSeed(seed)
+  const setupStep = Math.floor(Date.now() / 30_000)
+  const setupCode = totp(secret, setupStep)
+  sensitive.push(setupCode)
+  await owner.page.getByLabel('Authenticator code', { exact: true }).fill(setupCode)
+  assert.equal((await clickApi(owner.page, WireRoutes.MfaSetupVerify, 'Enable verification')).status(), 200)
+  await button(owner.page, 'Hide recovery codes').click()
+  assert.equal((await clickApi(owner.page, WireRoutes.SignOut, 'Log out')).status(), 200)
+  await owner.page.waitForURL(origin + '/')
+
+  phase = 'ordinary-browser-session'
+  await peer.page.goto(origin + '/login')
+  await enroll(peer.page, peerTicket)
+  await passkey(peer.page, false, 1)
+  const peerState = await checkSession(peer.context, 200)
+  const peerCookie = await cookie(peer.context, 'access')
+  assert(peerState.name !== original.name && !peerState.persistent && peerCookie.expires === -1,
+    'The separate non-opted-in Passkey session should be a browser cookie.')
+  assert.equal((await peer.context.request.get(origin + refreshStatus)).status(), 401)
+  assert.equal((await rotateVia(peer.context.request)).status(), 401)
+  await checkSession(peer.context, 200)
+  checks.nonOptedInOwnSession = true
+
+  phase = 'persistent-mfa'
+  await passkey(owner.page, true, 2)
+  await checkSession(owner.context, 401)
+  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 401)
+  assert(!(await cookie(owner.context, 'refresh', false)), 'MFA-pending login received a persistent credential.')
+  const loginCode = totp(secret, Math.max(setupStep + 1, Math.floor(Date.now() / 30_000)))
+  sensitive.push(loginCode)
+  await owner.page.getByLabel('Authenticator or recovery code', { exact: true }).fill(loginCode)
+  assert.equal((await clickApi(owner.page, WireRoutes.MfaChallengeVerify, 'Verify and log in')).status(), 200)
+  const active = await checkSession(owner.context, 200)
+  assert(active.name === original.name && active.persistent, 'MFA completion did not establish the same account’s persistent session.')
+  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 200)
+  const oldAccess = await cookie(owner.context, 'access')
+  const oldRefresh = await cookie(owner.context, 'refresh')
+  assertCookieOptions(oldAccess, oldRefresh)
+  checks.persistentCredentialsFollowMfa = true
+
+  phase = 'two-tab-restoration'
+  // Keep the persistent cookie jar in memory and discard the original browser context.
+  const persisted = await owner.context.storageState()
+  persisted.cookies = persisted.cookies.filter(cookie => cookie.expires > Date.now() / 1000)
+  await owner.context.close()
+  const restored = await browser.newContext({ storageState: persisted })
+  observe(restored, 'restored')
+  const first = await restored.newPage()
+  const second = await restored.newPage()
+  const stale = await request.newContext({ storageState: { cookies: [oldAccess, oldRefresh], origins: [] } })
+  await probeRow('expire-access')
+  await checkSession(restored, 401)
+  assert((await cookie(restored, 'refresh')).value === oldRefresh.value, 'Reopened browser did not retain its persistent credential.')
+  await holdBothExpiredReads(first, second)
+  const fired = []
+  restored.on('response', response => {
+    if (isApi(response, rotate, 'POST')) fired.push(response)
+  })
+  try {
+    const [rotated] = await Promise.all([
+      waitApi(restored, rotate, 'POST'), first.goto(origin + '/login'), second.goto(origin + '/login'),
+    ])
+    await emptySuccess(rotated)
+    const concurrent = await rotateVia(stale)
+    await refreshError(concurrent, 409, 'REFRESH_ROTATION_CONFLICT')
+    assert(!concurrent.headers()['set-cookie'], 'A concurrent request changed browser credentials.')
+    checks.concurrentGenerationRejected = concurrent.status()
+    await Promise.all([first, second].map(page => page.getByRole('link', { name: 'Continue to writing', exact: true }).waitFor()))
+    assert.equal(fired.length, 1, 'Expected one rotation for both tabs sharing the persistent cookie jar.')
+    const fresh = await checkSession(restored, 200)
+    assert(fresh.name === active.name && fresh.generation === active.generation && fresh.persistent,
+      'Rotation changed identity, account generation or session policy.')
+    const newAccess = await cookie(restored, 'access')
+    const newRefresh = await cookie(restored, 'refresh')
+    assertCookieOptions(newAccess, newRefresh)
+    assert(fresh.expiresAt < newRefresh.expires * 1000, 'The active session was given the refresh credential’s longer expiry.')
+    assert(newAccess.value !== oldAccess.value && newRefresh.value !== oldRefresh.value,
+      'Rotation did not replace both opaque credential values.')
+    checks.twoTabsRestoredViaOneRotation = true
+
+    phase = 'rotation-replay'
+    await probeRow('expire-grace')
+    const replay = await rotateVia(stale)
+    await refreshError(replay, 401, 'REFRESH_FAMILY_COMPROMISED')
+    await checkSession(restored, 401)
+    assert.equal((await rotateVia(restored.request)).status(), 401)
+    checks.retiredTokenReplayRevokedFamily = true
+  } finally {
+    await stale.dispose()
+  }
+  const peerAfter = await checkSession(peer.context, 200)
+  assert(peerAfter.name === peerState.name && peerAfter.generation === peerState.generation &&
+    (await cookie(peer.context, 'access')).value === peerCookie.value, 'An independent session changed during another account’s rotation.')
+  checks.independentAccountUnaffected = true
+
+  phase = 'persistent-sign-out'
+  await emptySuccess(await clickApi(peer.page, WireRoutes.SignOut, 'Log out'))
+  await peer.page.waitForURL(origin + '/')
+  await checkSession(peer.context, 401)
+  await passkey(peer.page, true, 1)
+  const signedOutAccess = await cookie(peer.context, 'access')
+  const signedOutRefresh = await cookie(peer.context, 'refresh')
+  await emptySuccess(await clickApi(peer.page, refreshSignOut, 'Log out'))
+  await checkSession(peer.context, 401)
+  assert(!(await cookie(peer.context, 'refresh', false)) && !(await cookie(peer.context, 'access', false)),
+    'Sign-out left authentication cookies in the browser.')
+  const beforeLogout = await request.newContext({
+    storageState: { cookies: [signedOutAccess, signedOutRefresh], origins: [] },
+  })
+  try {
+    assert.equal((await beforeLogout.get(origin + WireRoutes.Session)).status(), 401)
+    assert.equal((await rotateVia(beforeLogout)).status(), 401)
+  } finally { await beforeLogout.dispose() }
+  checks.persistentSignOutRevokedBothCredentials = true
+  assert.deepEqual(faults, [])
+  phase = 'passed'
+} catch (error) {
+  failure = sensitive.reduce((value, secret) => value.replaceAll(secret, '[fixture secret]'), String(error))
+    .replace(/\b[A-Za-z0-9_-]{43}\b|\b[a-f0-9]{64}\b/g, '[fixture token]')
+} finally {
+  await browser.close()
+  await writeFile(join(evidence, 'site-refresh-result.json'), JSON.stringify({
+    startedAt, finishedAt: new Date().toISOString(), origin, chromium: browser.version(), phase, checks, responses, faults, failure,
+  }, null, 2))
+}
+if (failure) throw new Error(`${phase}: ${failure}`)
+
+function observe(context, role) {
+  context.setDefaultTimeout(12_000)
+  context.on('page', page => page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' })))
+  context.on('response', response => {
+    const url = new URL(response.url())
+    if (url.origin !== origin || !url.pathname.startsWith('/api/')) return
+    responses.push({ role, path: url.pathname, status: response.status() })
+    if (response.status() >= 500) faults.push({ role, path: url.pathname, status: response.status() })
+  })
+}
+
+async function openBrowser(role) {
+  const context = await browser.newContext()
+  observe(context, role)
+  const page = await context.newPage()
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('WebAuthn.enable')
+  await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
+    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
+    isUserVerified: true, automaticPresenceSimulation: true,
+  } })
+  return { context, page }
+}
+
+function button(page, name) {
+  return page.getByRole('button', { name, exact: true })
+}
+
+function isApi(reply, path, method) {
+  return reply.url() === origin + path && reply.request().method() === method
+}
+
+function waitApi(target, path, method) {
+  return target.waitForEvent('response', { predicate: reply => isApi(reply, path, method), timeout: 12_000 })
+}
+
+async function clickApi(page, path, label) {
+  const [reply] = await Promise.all([waitApi(page, path, 'POST'), button(page, label).click()])
+  return reply
+}
+
+async function enroll(page, ticket) {
+  await page.getByLabel('Owner access key').fill(ticket)
+  await emptySuccess(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'))
+  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
+}
+
+async function passkey(page, remember, phase) {
+  await page.goto(origin + '/login')
+  const choice = page.getByRole('checkbox', { name: 'Keep me signed in', exact: true })
+  const label = page.getByText('Keep me signed in', { exact: true })
+  await label.waitFor()
+  assert.equal(await choice.isChecked(), false, 'Persistent sign-in must be an explicit choice.')
+  if (remember) {
+    await label.click()
+    assert.equal(await choice.isChecked(), true)
+  }
+  const reply = await clickApi(page, WireRoutes.PasskeyLoginComplete, 'Log in with Passkey')
+  assert.equal(reply.status(), 200)
+  const login = decodeFrame(await reply.body(), FrameType.AuthLoginFlow)
+  assert.equal(login.payload[4], phase)
+  if (phase === 1) await page.waitForURL(origin + '/user/manage/article/write')
+}
+
+async function checkSession(context, status) {
+  const reply = await context.request.get(origin + WireRoutes.Session)
+  assert.equal(reply.status(), status)
+  if (status === 200) {
+    const headers = reply.headers()
+    const expiresAt = Date.parse(headers[WireHeaders.AccessExpiresAtUtc.toLowerCase()])
+    const persistent = headers[WireHeaders.SiteRefresh.toLowerCase()] === 'persistent'
+    assert(Number.isFinite(expiresAt) && expiresAt > Date.now(), 'Live session response lacked its actual access expiry.')
+    return { ...decodeSession(decodeFrame(await reply.body(), FrameType.OperatorSession).payload), expiresAt, persistent }
+  }
+}
+
+async function cookie(context, kind, required = true) {
+  const path = kind === 'refresh' ? rotate : WireRoutes.Session
+  const value = (await context.cookies(origin + path)).find(candidate => candidate.name === cookieNames[kind])
+  if (required) assert(value?.value, `Expected a ${kind} cookie.`)
+  return value
+}
+
+function assertCookieOptions(access, refresh) {
+  assert(access.httpOnly && refresh.httpOnly && access.secure && refresh.secure &&
+    access.sameSite === 'Strict' && refresh.sameSite === 'Strict', 'Persistent credentials lacked protected cookie options.')
+  assert.equal(access.path, '/', 'The access cookie path changed.')
+  assert.equal(refresh.path, refreshPath, 'The refresh cookie path is broader than expected.')
+  const lifetime = refresh.expires - Date.now() / 1000
+  assert(lifetime > 0 && lifetime <= 30 * 86400 + 5, `Refresh cookie lifetime was outside 30 days (${Math.round(lifetime)} seconds).`)
+  assert(Math.abs(access.expires - refresh.expires) <= 1, 'Persistent cookie expirations differed by more than one second.')
+}
+
+function rotateVia(api) {
+  return api.post(origin + rotate, { headers: { Origin: origin }, maxRedirects: 0 })
+}
+
+async function emptySuccess(reply) {
+  assert.equal(reply.status(), 200)
+  const headers = 'allHeaders' in reply ? await reply.allHeaders() : reply.headers()
+  assert(headers['cache-control']?.includes('no-store'), 'Authentication response may be stored.')
+  decodeSuccess(decodeFrame(await reply.body(), FrameType.EmptySuccess).payload)
+}
+
+async function refreshError(reply, status, message) {
+  assert.equal(reply.status(), status)
+  const frame = decodeFrame(await reply.body(), FrameType.ApiError)
+  assert.equal(decodeApiError(frame.payload, status).message, message)
+}
+
+async function probeRow(action) {
+  const { stdout } = await exec(probe, [action], { timeout: 5000 })
+  assert.equal(stdout.trim(), '1', 'Expected one fixture row to move its expiry boundary.')
+}
+
+async function holdBothExpiredReads(first, second) {
+  // Each tab observes the expired access before either can elect a rotation leader.
+  const both = Promise.withResolvers()
+  let ready = 0
+  await Promise.all([first, second].map(page => page.route(origin + WireRoutes.Session, async route => {
+    const expired = await route.fetch({ maxRedirects: 0 })
+    if (++ready === 2) both.resolve()
+    await both.promise
+    await route.fulfill({ response: expired })
+  }, { times: 1 })))
+}
+
+function readSeed(seed) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = 0
+  let value = 0
+  const bytes = []
+  for (const letter of seed) {
+    bits += 5
+    value = (value << 5) | alphabet.indexOf(letter)
+    if (bits >= 8) {
+      bits -= 8
+      bytes.push((value >> bits) & 255)
+    }
+  }
+  return Buffer.from(bytes)
+}
+
+function totp(secret, step) {
+  const interval = Buffer.alloc(8)
+  interval.writeBigUInt64BE(BigInt(step))
+  const mac = createHmac('sha1', secret).update(interval).digest()
+  const offset = mac.at(-1) & 15
+  return ((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0')
+}

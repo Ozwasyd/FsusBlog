@@ -18,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
 var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
+var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
 var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
@@ -102,7 +103,7 @@ var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
 await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
     requireRecoveryKey: recoveryKey is null ? null : true,
-    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null);
+    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
@@ -183,9 +184,9 @@ app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream, branch => branch.
 }));
 app.UseRateLimiter();
 appearance?.Map(app);
-FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recoveryKey);
+FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recoveryKey, persistentSite);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
-FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);
+FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
@@ -271,18 +272,26 @@ app.MapPost(WireRoutes.SignIn, async (HttpContext ctx, Store store, Cancellation
     var signIn = Wire.DecodeSignIn(await ReadFrame(ctx, WireLimits.MaxSignInFrameBytes, ct));
     var issued = await store.SignIn(signIn.Ticket, ct);
     ctx.Response.Cookies.Append(Cookie, issued.Token, CookieSettings(ctx, issued.User.ExpiresAt));
+    if (persistentSite)
+        FsusBlog.V2.Server.Passkeys.SiteRefreshEndpoints.ClearRefreshCookie(ctx);
     return SessionResponse(ctx, issued.User, issued.Token);
 }).RequireRateLimiting("sign-in");
 app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
     var token = ctx.Request.Cookies[Cookie];
-    var actor = await store.WithSession(token, false, (_, _, actor) => Task.FromResult(actor), ct);
-    return SessionResponse(ctx, actor, token!);
+    return await store.WithSession(token, false, async (db, tx, actor) =>
+    {
+        if (persistentSite && await FsusBlog.V2.Server.Passkeys.SiteRefreshStore.IsPersistent(db, tx, Store.TokenDigest(token)!, ct))
+            ctx.Response.Headers[WireHeaders.SiteRefresh] = "persistent";
+        return SessionResponse(ctx, actor, token!);
+    }, ct);
 });
 app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
     await store.SignOut(ctx.Request.Cookies[Cookie], ct);
     ctx.Response.Cookies.Delete(Cookie, CookieSettings(ctx));
+    if (persistentSite)
+        FsusBlog.V2.Server.Passkeys.SiteRefreshEndpoints.ClearRefreshCookie(ctx);
     return Results.Bytes(Wire.EncodeEmptySuccess(), Binary);
 }).RequireRateLimiting("command");
 app.MapGet(WireRoutes.Draft, (HttpContext ctx, Store store, int id, CancellationToken ct) =>

@@ -104,12 +104,12 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 
-    internal async Task<(string? SessionToken, int AccountNumber, DateTimeOffset? ExpiresAt, string? MfaToken, string? MfaBinding)> CompleteLogin(
-        PasskeyLoginRequest request, bool mfaEnabled, CancellationToken ct)
+    internal async Task<(SiteRefreshStore.Issued? Session, int AccountNumber, string? MfaToken, string? MfaBinding)> CompleteLogin(
+        PasskeyLoginRequest request, bool mfaEnabled, bool persistentEnabled, CancellationToken ct)
     {
         await using var db = await _source.OpenConnectionAsync(ct);
         var challenge = await ConsumeChallenge(db, request.Token, null, ct);
-        if (request.RememberMe)
+        if (request.RememberMe && !persistentEnabled)
             throw new BusinessException(Rejection.Invalid, "Persistent Passkey sessions are not available.");
         CheckId(request.CredentialId, request.RawId);
 
@@ -133,13 +133,13 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             if (!mfaEnabled) throw new PublicUnavailableException();
             var binding = NewToken();
             var actor = new MfaStore.Subject(userId, userGeneration, number, [.. MfaStore.FlowDigest(binding), .. request.RawId]);
-            var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, "", ct);
+            var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, request.RememberMe ? "persistent" : "", ct);
             await InstanceLease.CommitProtected(tx, _lease, ct);
-            return (null, number, null, mfa, binding);
+            return (null, number, mfa, binding);
         }
-        var (token, expiry) = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, ct);
+        var session = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, request.RememberMe, ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return (token, number, expiry, null, null);
+        return (session, number, null, null);
     }
 
     internal async Task<byte[]> BeginSetupProof(string? session, CancellationToken ct)

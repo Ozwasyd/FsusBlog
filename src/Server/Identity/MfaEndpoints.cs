@@ -9,7 +9,7 @@ internal static class MfaEndpoints
 
     internal static void Map(WebApplication app, MfaStore store, PasskeyStore passkeys, string sessionName,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, Action<HttpContext> origin,
-        Action<HttpContext, string, DateTimeOffset> issueSession, Func<string, CookieOptions> cookie)
+        Action<HttpContext, SiteRefreshStore.Issued> issueSession, Func<string, CookieOptions> cookie, bool persistentEnabled)
     {
         app.MapGet(WireRoutes.MfaProfile, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -44,7 +44,7 @@ internal static class MfaEndpoints
             try
             {
                 var (frame, token, expiry) = await store.CompleteSetup(Session(ctx), code, ct);
-                issueSession(ctx, token, expiry);
+                issueSession(ctx, new(token, expiry));
                 return Frame(frame);
             }
             catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
@@ -67,9 +67,9 @@ internal static class MfaEndpoints
             if (attempt.Action == MfaWire.Disable)
                 return Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
             if (attempt.Action != MfaWire.Login) throw Forbidden();
-            var (token, number, expiry) = await store.FinishLogin(attempt, ctx.Request.Cookies[LoginCookie], ct);
+            var (session, number) = await store.FinishLogin(attempt, ctx.Request.Cookies[LoginCookie], persistentEnabled, ct);
             ctx.Response.Cookies.Delete(LoginCookie, cookie(WireRoutes.MfaChallengeVerify));
-            issueSession(ctx, token, expiry);
+            issueSession(ctx, session);
             return Frame(MfaWire.EncodeChallenge(true, MfaWire.Login, account: number));
         }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.MfaDisable, async (HttpContext ctx, CancellationToken ct) =>
@@ -79,7 +79,7 @@ internal static class MfaEndpoints
             try
             {
                 var (token, expiry) = await store.Disable(Session(ctx), proof, ct);
-                issueSession(ctx, token, expiry);
+                issueSession(ctx, new(token, expiry));
                 return Frame(Wire.EncodeEmptySuccess());
             }
             catch (MfaProofRequiredException) { return Precondition(ctx); }

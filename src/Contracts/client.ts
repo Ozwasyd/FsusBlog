@@ -23,7 +23,7 @@ export type { Article, ArticleCard } from './public-articles.ts';
 export type { ArticleCommand, Draft } from './wire.generated.ts';
 export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
 export type { InboxFilter, InboxListItem, InboxListPage, InboxMessage, InboxThread } from './inbox.ts';
-export type Session = Readonly<WireSession & { expiresAt: number; siteSessionId?: string }>;
+export type Session = Readonly<WireSession & { expiresAt: number; siteSessionId?: string; siteRefresh?: 'persistent' }>;
 
 export function validSiteSessionId(value: string): boolean {
   return value.length === WireLimits.SiteSessionIdBytes && /^[0-9a-f]+$/.test(value);
@@ -111,10 +111,12 @@ function readSession(payload: Uint8Array, headers: Headers): Session {
     ? Date.parse(rawExpiry)
     : NaN;
   const handle = headers.get(WireHeaders.CurrentSession);
+  const refresh = headers.get(WireHeaders.SiteRefresh);
   if (session.name.length === 0 || session.generation <= 0n || !Number.isFinite(expiresAt) ||
-      (handle !== null && !validSiteSessionId(handle)))
+      (handle !== null && !validSiteSessionId(handle)) || (refresh !== null && refresh !== 'persistent'))
     throw new ProtocolError('Invalid operator session');
-  return { ...session, expiresAt, ...(handle !== null ? { siteSessionId: handle } : {}) };
+  return { ...session, expiresAt, ...(handle !== null ? { siteSessionId: handle } : {}),
+    ...(refresh === 'persistent' ? { siteRefresh: refresh } : {}) };
 }
 
 function readDraft(payload: Uint8Array): Draft {

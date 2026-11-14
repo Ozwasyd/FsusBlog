@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import { currentSession, refreshSession, signOut } from './session'
+import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { siteTitle } from './siteBrand'
 import { getSiteCompliance, type SiteCompliance } from '../../Contracts/site-config.ts'
@@ -57,6 +58,13 @@ function contactLink(value: string) {
 }
 const sync = () => { if (route.name !== 'admin-identity') void refreshSession(lifetime.signal).catch(() => {}) }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
+let stopSiteRefresh: (() => void) | undefined
+watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => route.name === 'admin-identity'],
+  ([mode, expiresAt, admin], _, cleanup) => {
+    if (mode !== 'persistent' || expiresAt === undefined || admin) return
+    const timer = setTimeout(whenVisible, siteRenewalDelay(expiresAt))
+    cleanup(() => clearTimeout(timer))
+  })
 watch(() => route.name, (name, _, cleanup) => {
   if (!name || accountArea.value || name === 'login' || name === 'admin-identity' || compliance.value) return
   const request = new AbortController()
@@ -66,12 +74,16 @@ watch(() => route.name, (name, _, cleanup) => {
   }).catch(() => {})
 }, { immediate: true })
 onMounted(() => {
+  stopSiteRefresh = observeSiteRefresh(() => {
+    if (route.name !== 'admin-identity') void refreshSession(lifetime.signal, false).catch(() => {})
+  })
   sync()
   window.addEventListener('pageshow', sync)
   document.addEventListener('visibilitychange', whenVisible)
 })
 onUnmounted(() => {
   lifetime.abort()
+  stopSiteRefresh?.()
   window.removeEventListener('pageshow', sync)
   document.removeEventListener('visibilitychange', whenVisible)
 })

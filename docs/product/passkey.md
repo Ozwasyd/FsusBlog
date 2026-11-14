@@ -1,6 +1,6 @@
 # Passkey 登录与首次绑定
 
-V2 的站点账号可以通过可发现的 Passkey 登录。管理员角色、MFA、恢复和二次确认属于独立流程，仍待实现。现有 `/api/binary/auth/passkey/login/begin` 和 `/api/binary/auth/passkey/login/complete` 使用 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 的 POST 路径与当前 AEDS 帧 64、67 和 18。完成响应返回正整数 `AccountId` 和 `anonymous_account`。普通会话使用浏览器会话 cookie，服务端限 8 小时。v1 的 `rememberMe` 依赖旋转刷新与 30 天持久策略，此处明确拒绝 `rememberMe=true`，直到该策略实现。
+V2 的站点账号可以通过可发现的 Passkey 登录。现有 `/api/binary/auth/passkey/login/begin` 和 `/api/binary/auth/passkey/login/complete` 使用 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 的 POST 路径与当前 AEDS 帧 64、67 和 18。完成响应返回正整数 `AccountId` 和 `anonymous_account`。普通会话使用浏览器会话 Cookie，服务端限八小时。启用持久策略后，登录页允许选择保持登录。 [站点账号保持登录](site-persistent-refresh.md) · [独立管理员身份](admin-identity.md) · [站点账号 Recovery Key](site-recovery-key.md)
 
 在应用环境配置 `FSUSBLOG_PASSKEY_ORIGIN` 和 `FSUSBLOG_PASSKEY_RP_ID` 后启用。RP ID 使用来源的 DNS 主机名，来源包含实际端口。生产来源必须使用 HTTPS。仅接受直接配置的来源与请求地址，部署于 TLS 代理后时应先接入可信代理配置。开发验证使用 `FSUSBLOG_PASSKEY_ORIGIN=http://localhost:54822` 和 `FSUSBLOG_PASSKEY_RP_ID=localhost`。
 

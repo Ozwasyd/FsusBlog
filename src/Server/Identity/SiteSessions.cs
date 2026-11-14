@@ -7,16 +7,18 @@ namespace FsusBlog.V2.Server.Sessions;
 internal static class SiteSessions
 {
     private static readonly byte[] IdDomain = "FsusBlog v2 site session v1"u8.ToArray();
-    internal static Task<SiteSessionList> List(Store store, string? token, string? expectedCurrent, CancellationToken ct) =>
+    internal static Task<SiteSessionList> List(Store store, string? token, string? expectedCurrent, CancellationToken ct,
+        bool persistent = false) =>
         store.WithSession(token, false, async (db, tx, actor) =>
         {
             var digest = Store.TokenDigest(token)!;
             RequireCurrent(actor.Id, digest, expectedCurrent);
-            await using var query = Store.Sql(db, tx, """
-                select digest,expires_at,passkey_credential_id is not null,totp_verified_at is not null
-                from public.user_session
-                where user_id=$1 and generation=$2 and (digest=$3 or expires_at>statement_timestamp())
-                order by (digest=$3) desc,expires_at desc,digest
+            var expiry = Lifetime(persistent);
+            await using var query = Store.Sql(db, tx, $"""
+                select s.digest,{expiry} as expires,s.passkey_credential_id is not null,s.totp_verified_at is not null
+                from public.user_session s
+                where s.user_id=$1 and s.generation=$2 and (s.digest=$3 or {expiry}>statement_timestamp())
+                order by (s.digest=$3) desc,expires desc,s.digest
                 limit $4
                 """, actor.Id, actor.Generation, digest, WireLimits.SiteSessionListSize + 1);
             var rows = new List<SiteSessionRow>();
@@ -31,7 +33,8 @@ internal static class SiteSessions
             return new SiteSessionList(rows, false);
         }, ct);
 
-    internal static Task Revoke(Store store, string? token, string? expectedCurrent, string? target, CancellationToken ct) =>
+    internal static Task Revoke(Store store, string? token, string? expectedCurrent, string? target, CancellationToken ct,
+        bool persistent = false) =>
         store.WithSessionForAccountUpdate(token, async (db, tx, actor) =>
         {
             var digest = Store.TokenDigest(token)!;
@@ -46,14 +49,18 @@ internal static class SiteSessions
 
             if (!Wire.ValidSiteSessionId(target)) throw NotFound();
             if (target == expectedCurrent) throw new BusinessException(Rejection.Conflict, "Use log out to end this browser session.");
-            await using var revoke = Store.Sql(db, tx, """
-                delete from public.user_session where user_id=$1 and generation=$2 and expires_at>clock_timestamp()
-                and pg_catalog.sha256($3 || pg_catalog.uuid_send(user_id) || digest)=$4
+            await using var revoke = Store.Sql(db, tx, $"""
+                delete from public.user_session s where s.user_id=$1 and s.generation=$2 and {Lifetime(persistent)}>clock_timestamp()
+                and pg_catalog.sha256($3 || pg_catalog.uuid_send(s.user_id) || s.digest)=$4
                 """, actor.Id, actor.Generation, IdDomain, Convert.FromHexString(target));
             var removed = await revoke.ExecuteNonQueryAsync(ct);
             if (removed != 1) throw NotFound();
             return removed;
         }, ct);
+
+    private static string Lifetime(bool persistent) => persistent
+        ? "coalesce((select idle_expires_at from public.site_session_refresh where access_digest=s.digest),s.expires_at)"
+        : "s.expires_at";
 
     internal static string Id(Guid account, byte[] digest)
     {

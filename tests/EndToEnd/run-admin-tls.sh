@@ -78,7 +78,7 @@ public_host=127.0.0.1
 admin_host=localhost
 public_san=IP:127.0.0.1
 admin_san=DNS:localhost
-if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 || ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   public_host=localhost
   admin_host=127.0.0.1
   public_san=DNS:localhost
@@ -205,6 +205,47 @@ exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSB
 "
 EOF
   chmod 700 "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE"
+elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
+  export FSUSBLOG_SITE_PERSISTENT_REFRESH=true FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
+  FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET=$("$dotnet" "$migrate" operator tls-site-refresh-peer)
+  export FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
+  export FSUSBLOG_TEST_SITE_REFRESH_DATABASE="$database"
+  export FSUSBLOG_TEST_SITE_REFRESH_PROBE="$scratch/refresh-boundary"
+  cat > "$FSUSBLOG_TEST_SITE_REFRESH_PROBE" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $FSUSBLOG_TEST_SITE_REFRESH_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
+case $1 in
+  expire-access)
+    statement="
+      with expired as (
+        update public.user_session s set expires_at=clock_timestamp()-interval '1 second'
+        from public.blog_user u, public.site_session_refresh r
+        where u.name='tls-site-fixture' and s.user_id=u.id and s.digest=r.access_digest
+        returning 1
+      )
+      select count(*) from expired
+    " ;;
+  expire-grace)
+    statement="
+      with aged as (
+        update public.site_session_refresh r set rotated_at=clock_timestamp()-interval '6 seconds'
+        from public.user_session s, public.blog_user u
+        where r.access_digest=s.digest and s.user_id=u.id and u.name='tls-site-fixture'
+        returning r.family_id
+      ), tombstoned as (
+        update public.site_session_refresh_tombstone t set used_at=clock_timestamp()-interval '6 seconds'
+        from aged where t.family_id=aged.family_id
+        returning 1
+      )
+      select count(*) from tombstoned
+    " ;;
+  *) exit 2 ;;
+esac
+exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 \
+  -d "$FSUSBLOG_TEST_SITE_REFRESH_DATABASE" -Atc "$statement"
+EOF
+  chmod 700 "$FSUSBLOG_TEST_SITE_REFRESH_PROBE"
 elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT="$scratch/grant-system-config" FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE="$scratch/revoke-system-config"
@@ -287,7 +328,7 @@ expect() {
   expect public-host-administrator-denied 404 "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
   expect forged-forwarded-host-denied 404 -H "X-Forwarded-Host: $admin_host:$public_port" \
     "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
-  if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 ]]; then
+  if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 && ${FSUSBLOG_TEST_SITE_REFRESH:-0} != 1 ]]; then
     expect administrator-shell 200 "$FSUSBLOG_ADMIN_ADDRESS/admin/identity"
     expect anonymous-administrator-session 401 "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
     expect administrator-host-public-denied 404 "$FSUSBLOG_ADMIN_ADDRESS/"
@@ -315,6 +356,8 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   for check in own_key_rotated_and_spent own_rebind_completed own_replacement_credential own_totp_preserved; do
     grep -Fxq "$check=1" "$evidence/site-recovery-counts.txt"
   done
+elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
+  node tests/EndToEnd/site-refresh-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
 fi

@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -88,7 +88,7 @@ internal static partial class CurrentSchema
         }
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
-            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply);
+            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -109,7 +109,7 @@ internal static partial class CurrentSchema
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
-        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null)
+        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null)
     {
         if (requireArticleMedia is null)
         {
@@ -136,6 +136,9 @@ internal static partial class CurrentSchema
             relation.Parameters.AddWithValue(AuthoringWorkspaceRelation);
             requireAuthoringWorkspace = await relation.ExecuteScalarAsync(cancellationToken) is true;
         }
+        var hasSiteRefresh = await HasSiteRefreshSchemaAsync(connection, transaction, cancellationToken);
+        if (requireSiteRefresh.HasValue && requireSiteRefresh.Value != hasSiteRefresh)
+            throw new InvalidOperationException("The site refresh schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
@@ -147,6 +150,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
+            .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
@@ -162,6 +166,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
+            .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
@@ -206,10 +211,15 @@ internal static partial class CurrentSchema
                          (SELECT string_agg(a.attname, ',' ORDER BY i)
                           FROM unnest(k.confkey) WITH ORDINALITY AS keys(attnum, i)
                           JOIN pg_attribute a ON a.attrelid = target.oid AND a.attnum = keys.attnum) ||
-                         CASE WHEN k.confupdtype <> 'a' OR k.confmatchtype <> 's' THEN ' unexpected-action'
-                              WHEN k.confdeltype = 'a' THEN ''
-                              WHEN k.confdeltype = 'c' AND c.relname = 'admin_step_up' AND n.nspname = 'public'
-                                   AND target.relname = 'admin_session' THEN ' delete-cascade'
+                         CASE WHEN k.confmatchtype <> 's' THEN ' unexpected-action'
+                              WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
+                              WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
+                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up') AND target.relname = 'admin_session')
+                                     OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
+                                   THEN ' delete-cascade'
+                              WHEN k.confdeltype = 'c' AND k.confupdtype = 'c' AND n.nspname = 'public'
+                                   AND c.relname = 'site_session_refresh' AND target.relname = 'user_session'
+                                   THEN ' delete-cascade update-cascade'
                               ELSE ' unexpected-action' END
                      ELSE '' END ||
                 CASE WHEN NOT k.convalidated OR NOT k.conislocal

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { ElAlert, ElButton, ElInput, ElThemeModeToggle } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElInput, ElThemeModeToggle } from '@ozwasyd/element-plus'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { ApiError } from '../../../Contracts/client'
 import { passkeyAvailable } from '../../../Contracts/passkey'
 import { validMfaFactor } from '../../../Contracts/mfa'
-import { currentSession, registerFirstPasskey, signIn, signInWithMfa, signInWithPasskey } from '../session'
+import { siteRefreshAvailable } from '../../../Contracts/site-refresh'
+import { cancelMfaLogin, currentSession, registerFirstPasskey, signIn, signInWithMfa, signInWithPasskey } from '../session'
 import SiteRecoveryLogin from './SiteRecoveryLogin.vue'
 
 const props = defineProps<{ themeMode?: ThemeMode }>()
@@ -19,15 +20,25 @@ const recoveryBusy = ref(false)
 const failure = ref('')
 const registered = ref(false)
 const hasPasskeys = ref(false)
+const hasPersistentPasskeys = ref(false)
+const rememberMe = ref(false)
 const pending = ref<string | null>(null)
 const factor = ref('')
 const canContinue = computed(() => currentSession.value?.canAuthor)
 const router = useRouter()
 const lifetime = new AbortController()
-onUnmounted(() => lifetime.abort())
+onUnmounted(() => {
+  lifetime.abort()
+  if (pending.value) cancelMfaLogin(pending.value)
+})
 onMounted(async () => {
   try { hasPasskeys.value = await passkeyAvailable(lifetime.signal) }
   catch { hasPasskeys.value = false }
+  if (!hasPasskeys.value || lifetime.signal.aborted) return
+  try {
+    const available = await siteRefreshAvailable(lifetime.signal)
+    if (!lifetime.signal.aborted) hasPersistentPasskeys.value = available
+  } catch { hasPersistentPasskeys.value = false }
 })
 
 async function submit() {
@@ -63,7 +74,7 @@ async function usePasskey(register: boolean) {
       await registerFirstPasskey(oneTimeKey, lifetime.signal)
       if (!lifetime.signal.aborted) registered.value = true
     } else {
-      pending.value = await signInWithPasskey(lifetime.signal)
+      pending.value = await signInWithPasskey(lifetime.signal, hasPersistentPasskeys.value && rememberMe.value)
       if (!lifetime.signal.aborted && currentSession.value)
         await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
     }
@@ -94,6 +105,7 @@ async function verifyFactor() {
 }
 
 function cancelFactor() {
+  if (pending.value) cancelMfaLogin(pending.value)
   pending.value = null
   factor.value = ''
   failure.value = ''
@@ -124,6 +136,10 @@ function cancelFactor() {
       <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || recoveryBusy" @click="usePasskey(false)">
         Log in with Passkey
       </ElButton>
+      <ElCheckbox v-if="hasPersistentPasskeys" :model-value="rememberMe" :disabled="busy || recoveryBusy"
+        @update:model-value="rememberMe = $event === true">
+        Keep me signed in
+      </ElCheckbox>
       <ElAlert v-if="registered" title="Passkey created. Log in with your Passkey." type="success" :closable="false" show-icon />
       <label for="owner-key">Owner access key</label>
       <ElInput

@@ -136,7 +136,8 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         return result;
     }
 
-    internal async Task<(string Token, int Number, DateTimeOffset Expires)> FinishLogin(MfaAttempt attempt, string? binding, CancellationToken ct)
+    internal async Task<(SiteRefreshStore.Issued Session, int Number)> FinishLogin(MfaAttempt attempt, string? binding,
+        bool persistentEnabled, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
@@ -156,20 +157,21 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         }
         if (actor.Scope.Length <= bound.Length || !CryptographicOperations.FixedTimeEquals(actor.Scope.AsSpan(0, bound.Length), bound))
             throw Denied();
-        await ReadFlow(db, tx, actor, Purpose.Login, attempt.Token, consume: false, ct);
+        var options = await ReadFlow(db, tx, actor, Purpose.Login, attempt.Token, consume: false, ct);
+        var persistent = options switch { "" => false, "persistent" when persistentEnabled => true, _ => throw Denied() };
         if (!await VerifyFactor(db, tx, actor.Id, attempt, ct))
         {
             await InstanceLease.CommitProtected(tx, lease, ct);
             throw Denied();
         }
         await ReadFlow(db, tx, actor, Purpose.Login, attempt.Token, consume: true, ct);
-        var (token, expiry) = await IssueSession(db, tx, actor.Id, actor.Generation, actor.Scope[bound.Length..], mfa: true, ct);
+        var session = await IssueSession(db, tx, actor.Id, actor.Generation, actor.Scope[bound.Length..], mfa: true, persistent, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return (token, actor.Number, expiry);
+        return (session, actor.Number);
     }
 
-    internal static async Task<(string Token, DateTimeOffset Expires)> IssueSession(NpgsqlConnection db,
-        NpgsqlTransaction tx, Guid id, long generation, byte[] credential, bool mfa, CancellationToken ct)
+    internal static async Task<SiteRefreshStore.Issued> IssueSession(NpgsqlConnection db,
+        NpgsqlTransaction tx, Guid id, long generation, byte[] credential, bool mfa, bool persistent, CancellationToken ct)
     {
         var (token, digest) = NewSession();
         await using var session = Store.Sql(db, tx, """
@@ -177,7 +179,8 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             values($1,$2,$3,clock_timestamp()+interval '8 hours',$4,case when $5 then clock_timestamp() else null end)
             returning expires_at
             """, digest, id, generation, credential, mfa);
-        return (token, (DateTime)(await session.ExecuteScalarAsync(ct))!);
+        var expires = new DateTimeOffset((DateTime)(await session.ExecuteScalarAsync(ct))!);
+        return persistent ? await SiteRefreshStore.Start(db, tx, token, expires, ct) : new(token, expires);
     }
 
     internal static async Task<Subject> RequireSession(NpgsqlConnection db, NpgsqlTransaction tx, string? token, CancellationToken ct)

@@ -446,6 +446,10 @@ export const WireRoutes = {
   SignIn: "/api/v2/identity/sign-in.aeds",
   Session: "/api/v2/identity/session.aeds",
   SignOut: "/api/v2/identity/sign-out.aeds",
+  SiteRefreshAvailability: "/api/v2/identity/refresh/available.aeds",
+  SiteRefreshStatus: "/api/v2/identity/refresh/status.aeds",
+  SiteRefreshRotate: "/api/v2/identity/refresh/rotate.aeds",
+  SiteRefreshSignOut: "/api/v2/identity/refresh/sign-out.aeds",
   SiteSessions: "/api/v2/identity/sessions.aeds",
   SiteSessionRevoke: "/api/v2/identity/sessions/{id}/revoke.aeds",
   SiteSessionsRevokeOthers: "/api/v2/identity/sessions/revoke-others.aeds",
@@ -548,6 +552,7 @@ export const WireHeaders = {
   PrivateMediaResumable: "X-Fsus-Private-Media-Resumable",
   MfaProof: "X-Fsus-Mfa-Proof",
   CurrentSession: "X-Fsus-Current-Session",
+  SiteRefresh: "X-Fsus-Site-Refresh",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
 } as const;
 

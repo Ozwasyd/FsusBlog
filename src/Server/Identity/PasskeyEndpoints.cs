@@ -1,4 +1,3 @@
-using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -12,7 +11,7 @@ internal static class PasskeyEndpoints
     private const string ProvisionCookiePath = "/api/v2/identity/passkey/register";
 
     internal static void Map(WebApplication app, string sessionCookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, RecoveryKeySecret? recoveryKey)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, RecoveryKeySecret? recoveryKey, bool persistentEnabled)
     {
         var configuration = PasskeyConfiguration.Read(app.Configuration);
         var secrets = TotpSecret.Read(app.Configuration);
@@ -22,6 +21,8 @@ internal static class PasskeyEndpoints
                 throw new InvalidOperationException("A Passkey relying party is required to enable TOTP.");
             if (recoveryKey is not null)
                 throw new InvalidOperationException("A Passkey relying party is required to enable Recovery Keys.");
+            if (persistentEnabled)
+                throw new InvalidOperationException("A Passkey relying party is required to enable persistent site sessions.");
             return;
         }
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
@@ -29,6 +30,9 @@ internal static class PasskeyEndpoints
         var passkeys = new PasskeyStore(database, configuration, lease);
         var expectedOrigin = configuration.Origin.GetLeftPart(UriPartial.Authority);
         var secure = configuration.Origin.Scheme == "https";
+        var refresh = persistentEnabled
+            ? new SiteRefreshEndpoints(new SiteRefreshStore(database, lease), sessionCookie, secure, RequireHost, Cookie) : null;
+        refresh?.Map(app);
 
         app.MapGet(WireRoutes.PasskeyAvailability, (HttpContext ctx) =>
         {
@@ -44,8 +48,8 @@ internal static class PasskeyEndpoints
         {
             RequireHost(ctx);
             var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
-            var (token, number, expires, pending, binding) = await passkeys.CompleteLogin(request, secrets is not null, ct);
-            if (token is not null && expires.HasValue) IssueSession(ctx, token, expires.Value);
+            var (session, number, pending, binding) = await passkeys.CompleteLogin(request, secrets is not null, persistentEnabled, ct);
+            if (session is not null) IssueSession(ctx, session);
             if (binding is not null)
             {
                 var options = Cookie(WireRoutes.MfaChallengeVerify);
@@ -77,14 +81,19 @@ internal static class PasskeyEndpoints
         }).RequireRateLimiting("sign-in");
 
         if (secrets is not null)
-            MfaEndpoints.Map(app, new MfaStore(database, secrets, lease), passkeys, sessionCookie, readFrame, RequireHost, IssueSession, Cookie);
+            MfaEndpoints.Map(app, new MfaStore(database, secrets, lease), passkeys, sessionCookie, readFrame, RequireHost,
+                IssueSession, Cookie, persistentEnabled);
         if (recoveryKey is not null)
             RecoveryKeyEndpoints.Map(app, passkeys, recoveryKey, sessionCookie, readFrame, RequireHost, Cookie);
 
-        void IssueSession(HttpContext ctx, string token, DateTimeOffset expires)
+        void IssueSession(HttpContext ctx, SiteRefreshStore.Issued session)
         {
-            ctx.Response.Cookies.Append(sessionCookie, token, Cookie("/"));
-            ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = expires.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+            if (refresh is not null) refresh.Issue(ctx, session);
+            else
+            {
+                ctx.Response.Cookies.Append(sessionCookie, session.Access, Cookie("/"));
+                SiteRefreshEndpoints.SetAccessExpiry(ctx, session.AccessExpires);
+            }
         }
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = path };

@@ -451,6 +451,10 @@ public static class WireRoutes
     public const string SignIn = "/api/v2/identity/sign-in.aeds";
     public const string Session = "/api/v2/identity/session.aeds";
     public const string SignOut = "/api/v2/identity/sign-out.aeds";
+    public const string SiteRefreshAvailability = "/api/v2/identity/refresh/available.aeds";
+    public const string SiteRefreshStatus = "/api/v2/identity/refresh/status.aeds";
+    public const string SiteRefreshRotate = "/api/v2/identity/refresh/rotate.aeds";
+    public const string SiteRefreshSignOut = "/api/v2/identity/refresh/sign-out.aeds";
     public const string SiteSessions = "/api/v2/identity/sessions.aeds";
     public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
     public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
@@ -554,6 +558,7 @@ public static class WireHeaders
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
+    public const string SiteRefresh = "X-Fsus-Site-Refresh";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
 }
 

@@ -6,6 +6,7 @@ import { beginMfaSetup, completeMfaSetup, disableMfa, mfaProfile, validMfaFactor
 import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
+import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
 import SiteRecoveryKey from './SiteRecoveryKey.vue'
 import SiteSessions from './SiteSessions.vue'
 
@@ -60,13 +61,14 @@ async function verify() {
   if (!setup.value || !/^\d{6}$/.test(code.value.trim())) return
   await run(async () => {
     const epoch = identityEpoch.value
-    const codes = await completeMfaSetup(code.value.trim(), lifetime.signal)
+    const entered = code.value.trim()
+    const codes = await changeSecuritySession(epoch, signal => completeMfaSetup(entered, signal))
     if (lifetime.signal.aborted || identityEpoch.value !== epoch) return
     recovery.value = codes
     code.value = ''
     setup.value = null
     profile.value = await mfaProfile(lifetime.signal)
-    await refreshSession(lifetime.signal)
+    await refreshSession(lifetime.signal, false)
   })
 }
 
@@ -74,11 +76,27 @@ async function disable() {
   const method = validMfaFactor(code.value)
   if (!method) return
   await run(async () => {
-    await disableMfa(method, lifetime.signal)
+    const epoch = identityEpoch.value
+    await changeSecuritySession(epoch, signal => disableMfa(method, signal))
+    if (lifetime.signal.aborted || identityEpoch.value !== epoch) return
     code.value = ''
     recovery.value = []
     profile.value = await mfaProfile(lifetime.signal)
-    await refreshSession(lifetime.signal)
+    await refreshSession(lifetime.signal, false)
+  })
+}
+
+function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const expected = currentSession.value?.siteSessionId
+  const signal = lifetime.signal
+  return withSiteAuthMutation(signal, async () => {
+    signal.throwIfAborted()
+    const current = await readSiteAuthority(signal)
+    if (identityEpoch.value !== epoch || !expected || current?.siteSessionId !== expected)
+      throw new ApiError('The current browser session changed.', 409)
+    const result = await change(signal)
+    announceSiteAuthChange()
+    return result
   })
 }
 </script>

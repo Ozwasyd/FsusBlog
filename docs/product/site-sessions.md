@@ -6,4 +6,4 @@
 
 撤销经当前实例租约保护。事务先锁定站点账号，再复核 cookie 对应会话、账号代次和有效期，最后删除目标并提交。当前会话和账号代次保持有效，已撤销的 cookie 随后不能访问账号接口。其他标签页切换账号或变更登录后，旧页面的操作会失败并清空旧列表。跨站 POST 由同源检查、SameSite cookie 和会话标识共同限制。
 
-固定 v1 站点会话入口使用 `/api/binary/auth/sessions` 与帧 25。它返回会话创建时间和设备标签等 v2 当前库未记录的字段。独立管理端入口 `/api/binary/auth/admin/sessions` 使用管理员主体、`admin.manage` 权限与帧 170。设备历史、管理员会话、持久刷新及 v1 会话迁移仍待完成。 [v1 认证端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs) · [v1 契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/shared/Contracts/Validation/aeds-endpoint-contracts.json)
+固定 v1 站点会话入口使用 `/api/binary/auth/sessions` 与帧 25。它返回会话创建时间和设备标签。v2 的可选持久会话在访问凭据过期后仍可从会话列表撤销。管理端 v1 的 `/api/binary/auth/admin/sessions` 则使用独立管理员主体、`admin.manage` 权限与帧 170。设备历史、管理端会话列表与 v1 会话迁移仍待完成。 [站点账号保持登录](site-persistent-refresh.md) · [v1 认证端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs)
