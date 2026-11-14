@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/fixture-scale-inventory-truth.test.mjs",
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tools/testing/fixture-catalog.mjs",
+        "tools/testing/generate-fixture-catalog-artifacts.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/fixture-consumer-inventory.generated.json",
+            "sha256": "747c795a6190a529a669a0c1675a97425f05bd2a23df0f68345640ec2e175384"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8b13d9dea025ed59348e9f7b0c3e3a5c17c23e7abfbc5e99ecb49b472714a3de"
+        }
+    ]
+}

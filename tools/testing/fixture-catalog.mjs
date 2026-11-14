@@ -961,7 +961,7 @@ export function validateFixtureSentinelRegistry({
  * Observe truthful current source / fallback semantics from consumer source text.
  * Must not hardcode "no fallback" when Playwright or bootstrap reuses env data.
  */
-export function observeFixtureConsumerSource(sourcePath, content)
+export function observeFixtureConsumerSource(sourcePath, content, { directContent = content, plannedProducerOwners = [] } = {})
 {
     const observations = new Set();
     const text = String(content ?? '');
@@ -1035,9 +1035,21 @@ export function observeFixtureConsumerSource(sourcePath, content)
         observations.add('rejects legacy multi-worker session prep in browser-contract mode');
     }
 
-    if (/data-scale|scale\.article-comment/u.test(pathHint + text) && /seed|cleanup|probe/u.test(pathHint + text))
+    const directText = String(directContent ?? '').replace(/\\\r?\n/gu, '');
+    const joinedCommands = text.replace(/\\\r?\n/gu, '');
+    if (/^tools\/data-scale\/(?:seed|cleanup|probe)[^/]*\.(?:sh|mjs)$/u.test(pathHint)
+        || /^tools\/test\/lanes\/data-scale\.sh$/u.test(pathHint)
+        || /tools\/data-scale\/(?:seed|cleanup|probe)[^/\s"']*\.(?:sh|mjs)\b/u.test(directText)
+        || /(?:tools\/data-scale(?:\/|\b)|tools\/test\/lanes\/data-scale\.sh)/u.test(directText)
+        || /(?:tools\/data-scale(?:\/|\b)|tools\/test\/lanes\/data-scale\.sh)/u.test(joinedCommands)
+        || (/scale\.article-comment/u.test(directText) && /seed|cleanup|probe/u.test(directText))
+        || /scale\.article-comment[^\n]*(?:seed|cleanup|probe)|(?:seed|cleanup|probe)[^\n]*scale\.article-comment/u.test(joinedCommands))
     {
-        observations.add('scale data is produced by the scale-data generator for the selected scale profile only');
+        observations.add('observed source references a scale-data execution path');
+    }
+    if (plannedProducerOwners.includes('scale-data'))
+    {
+        observations.add('sealed profile plans scale data through the scale-data producer');
     }
 
     if (/demo-seed\.sql|seed-demo-data/u.test(pathHint) || /development\.demo\.dataset/u.test(text))
@@ -1930,7 +1942,7 @@ export function resolveMatrixFixturePrerequisiteEnvironment(env, primaryPlan, ca
     return sealed.prerequisites;
 }
 
-function validateInventoryTruthfulness(consumer, content, errors)
+function validateInventoryTruthfulness(consumer, content, errors, observation = {})
 {
     const fallback = String(consumer.currentFallback ?? '');
     const implicit = String(consumer.implicitSource ?? '');
@@ -1946,7 +1958,7 @@ function validateInventoryTruthfulness(consumer, content, errors)
             errors.push(`consumer ${consumer.consumerId} inventory uses incomplete environment-default phrasing`);
         }
     }
-    const expectedFallback = observeFixtureConsumerSource(consumer.source, content);
+    const expectedFallback = observeFixtureConsumerSource(consumer.source, content, observation);
     if (fallback !== expectedFallback)
     {
         errors.push(`consumer ${consumer.consumerId} currentFallback is stale or untruthful`);
@@ -2327,17 +2339,40 @@ export function validateFixtureCatalogs({
             }
             const expectedVariants = resolveFixtureVariants(
                 requiredCapabilities,
-                entry?.executionClass ?? inferFixtureExecutionClass(tier, catalogs),
+                tier.executionClass ?? inferFixtureExecutionClass(tier, catalogs),
                 catalogs,
                 { requestedVariantIds: entry?.requiredVariantIds }
             );
-            if (entry && (entry.profileId !== tier.fixtureProfile || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(requiredCapabilities) || JSON.stringify(entry.requiredVariantIds) !== JSON.stringify(expectedVariants)))
+            if (entry && (entry.profileId !== tier.fixtureProfile
+                || entry.executionClass !== (tier.executionClass ?? inferFixtureExecutionClass(tier, catalogs))
+                || JSON.stringify(entry.profileIds) !== JSON.stringify([tier.fixtureProfile])
+                || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(requiredCapabilities)
+                || JSON.stringify(entry.requiredVariantIds) !== JSON.stringify(expectedVariants)))
             {
                 errors.push(`matrix tier ${tier.id} and generated inventory declaration differ`);
             }
             if (entry)
             {
-                validateInventoryTruthfulness(entry, matrixConsumerObservationContent(tier, { repositoryRoot }), errors);
+                const commandPath = String(tier.command ?? '').match(/\b(tools\/[a-zA-Z0-9_./-]+\.(?:mjs|sh))\b/u)?.[1] ?? String(tier.command ?? '');
+                if (entry.source !== commandPath)
+                {
+                    errors.push(`matrix tier ${tier.id} and generated inventory source differ`);
+                }
+                if (entry.requiredBusinessFact !== (requiredCapabilities.join(', ') || 'none')
+                    || entry.implicitSource !== observeFixtureImplicitSource(commandPath,
+                        matrixConsumerObservationContent(tier, { repositoryRoot }), { kind: 'matrix', tierId: tier.id }))
+                {
+                    errors.push(`matrix tier ${tier.id} and generated inventory facts differ`);
+                }
+                const plannedProducerOwners = [...new Set(requiredCapabilities.map((id) =>
+                    capability.capabilities.find((item) => item.id === id)?.ownerProducerId))].filter(Boolean).sort();
+                if (JSON.stringify(entry.producerOwners) !== JSON.stringify(plannedProducerOwners))
+                {
+                    errors.push(`matrix tier ${tier.id} and generated inventory producer owners differ`);
+                }
+                validateInventoryTruthfulness(entry, matrixConsumerObservationContent(tier, { repositoryRoot }), errors, {
+                    directContent: readOptionalSource(repositoryRoot, commandPath), plannedProducerOwners
+                });
             }
         }
     }
@@ -2372,10 +2407,16 @@ export function validateFixtureCatalogs({
                 continue;
             }
             const expectedProfiles = declaration.profileId === 'matrix'
-                ? entry.profileIds
+                ? [...new Set(parseMatrix(fs.readFileSync(matrixFile, 'utf8')).tiers.filter(isFixtureMatrixConsumer)
+                    .filter((tier) => String(tier.command ?? '').includes(declaration.source)
+                        || (declaration.source === 'tools/test/lanes/data-scale.sh' && /data-scale/u.test(tier.id)))
+                    .map((tier) => tier.fixtureProfile))].sort()
                 : [declaration.profileId];
+            const expectedExecutionClass = expectedProfiles.flatMap((id) =>
+                profiles.find((item) => item.id === id)?.allowedExecutionClasses ?? [])[0] ?? 'runtime';
             if (JSON.stringify(entry.profileIds) !== JSON.stringify(expectedProfiles)
-        || entry.profileId !== (expectedProfiles.length === 1 ? expectedProfiles[0] : null))
+        || entry.profileId !== (expectedProfiles.length === 1 ? expectedProfiles[0] : null)
+        || entry.executionClass !== expectedExecutionClass)
             {
                 errors.push(`fixture source ${declaration.id} and generated inventory profile binding differ`);
             }
@@ -2388,7 +2429,25 @@ export function validateFixtureCatalogs({
                 }
             }
             const content = fs.readFileSync(path.join(repositoryRoot, declaration.source), 'utf8');
-            validateInventoryTruthfulness(entry, content, errors);
+            const expectedCapabilities = [...new Set(expectedProfiles.filter((id) => profileIds.has(id))
+                .flatMap((id) => expandFixtureProfile(id, catalogs).capabilities))].sort();
+            if (entry.requiredBusinessFact !== (expectedCapabilities.join(', ') || 'none')
+                || entry.implicitSource !== observeFixtureImplicitSource(declaration.source, content, { kind: 'source' }))
+            {
+                errors.push(`fixture source ${declaration.id} and generated inventory facts differ`);
+            }
+            const plannedProducerOwners = [...new Set(expectedProfiles.filter((id) => profileIds.has(id))
+                .flatMap((id) => expandFixtureProfile(id, catalogs).capabilities)
+                .map((id) => capability.capabilities.find((item) => item.id === id)?.ownerProducerId))].filter(Boolean).sort();
+            if (JSON.stringify(entry.producerOwners) !== JSON.stringify(plannedProducerOwners))
+            {
+                errors.push(`fixture source ${declaration.id} and generated inventory producer owners differ`);
+            }
+            if (entry.source !== declaration.source)
+            {
+                errors.push(`fixture source ${declaration.id} and generated inventory source differ`);
+            }
+            validateInventoryTruthfulness(entry, content, errors, { plannedProducerOwners });
         }
         if (JSON.stringify(inventory.producerImplementations ?? []) !== JSON.stringify(declaredImplementations))
         {

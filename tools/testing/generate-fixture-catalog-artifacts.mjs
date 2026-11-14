@@ -62,18 +62,22 @@ export function generateFixtureInventory({ repositoryRoot = root } = {})
         const commandPath = String(tier.command ?? '').match(/\b(tools\/[a-zA-Z0-9_./-]+\.(?:mjs|sh))\b/u)?.[1] ?? String(tier.command ?? '');
         const content = matrixConsumerObservationContent(tier, { repositoryRoot });
         const requiredCapabilities = expandFixtureProfile(tier.fixtureProfile, catalogs).capabilities;
+        const producerOwners = [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort();
+        const directFile = path.join(repositoryRoot, commandPath);
+        const directContent = fs.existsSync(directFile) && fs.statSync(directFile).isFile()
+            ? fs.readFileSync(directFile, 'utf8') : '';
         return {
             consumerId: `matrix:${tier.id}`,
             executionClass: tier.executionClass ?? executionClass(tier),
             source: commandPath,
             requiredBusinessFact: requiredCapabilities.join(', ') || 'none',
             implicitSource: observeFixtureImplicitSource(commandPath, content, { kind: 'matrix', tierId: tier.id }),
-            currentFallback: observeFixtureConsumerSource(commandPath, content),
+            currentFallback: observeFixtureConsumerSource(commandPath, content, { directContent, plannedProducerOwners: producerOwners }),
             profileId: tier.fixtureProfile,
             profileIds: [tier.fixtureProfile],
             requiredCapabilities,
             requiredVariantIds: resolveFixtureVariants(requiredCapabilities, tier.executionClass ?? executionClass(tier), catalogs),
-            producerOwners: [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort(),
+            producerOwners,
             ...(Object.hasOwn(tier, 'fixturePrerequisites') ? { fixturePrerequisites: matrixFixturePrerequisites(tier) } : {})
         };
     });
@@ -92,6 +96,7 @@ export function generateFixtureInventory({ repositoryRoot = root } = {})
             throw new Error(`fixture source declaration ${declaration.id} has no matrix profile binding`);
         }
         const requiredCapabilities = [...new Set(profileIds.flatMap((profileId) => expandFixtureProfile(profileId, catalogs).capabilities))].sort();
+        const producerOwners = [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort();
         const selectedExecutionClass = profileIds.flatMap((profileId) => catalogs.profile.profiles.find((item) => item.id === profileId)?.allowedExecutionClasses ?? [])[0] ?? 'runtime';
         return {
             consumerId: `source:${declaration.id}`,
@@ -99,12 +104,12 @@ export function generateFixtureInventory({ repositoryRoot = root } = {})
             source: declaration.source,
             requiredBusinessFact: requiredCapabilities.join(', ') || 'none',
             implicitSource: observeFixtureImplicitSource(declaration.source, content, { kind: 'source' }),
-            currentFallback: observeFixtureConsumerSource(declaration.source, content),
+            currentFallback: observeFixtureConsumerSource(declaration.source, content, { plannedProducerOwners: producerOwners }),
             profileId: profileIds.length === 1 ? profileIds[0] : null,
             profileIds,
             requiredCapabilities,
             requiredVariantIds: resolveFixtureVariants(requiredCapabilities, selectedExecutionClass, catalogs),
-            producerOwners: [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort()
+            producerOwners
         };
     });
     return {
