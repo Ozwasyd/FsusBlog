@@ -275,7 +275,9 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   export FSUSBLOG_APPEARANCE_ROOT=$(cd "$scratch" && pwd -P)/appearance FSUSBLOG_APPEARANCE_ACTIVATION=true
   fontsource=src/Web/node_modules/@fontsource/google-sans
   font_fixture="$fontsource/files/google-sans-latin-400-normal.woff2"
-  python3 tests/EndToEnd/appearance-fixture.py "$FSUSBLOG_APPEARANCE_ROOT" "$font_fixture" "$fontsource/LICENSE" online > "$evidence/appearance-baseline.log"
+  appearance_format=zip
+  if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT:-0} == 1 ]]; then appearance_format=fsfont-v1; fi
+  python3 tests/EndToEnd/appearance-fixture.py "$FSUSBLOG_APPEARANCE_ROOT" "$font_fixture" "$fontsource/LICENSE" online "$appearance_format" > "$evidence/appearance-baseline.log"
   "$dotnet" "$migrate" appearance schema > "$evidence/appearance-schema.log"
   "$dotnet" "$migrate" appearance schema >> "$evidence/appearance-schema.log"
   appearance_before=$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")

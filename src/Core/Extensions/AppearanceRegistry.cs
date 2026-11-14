@@ -13,6 +13,7 @@ public sealed partial class AppearanceRegistry
     private const int MaxFont = 1024 * 1024;
     private const int MaxTheme = 4096;
     private const int MaxLicense = 32 * 1024;
+    private const int MaxRegistryArchive = MaxFont + MaxLicense + 8192;
     private readonly Theme? _theme;
     private readonly Font? _font;
     private readonly TimeProvider _clock;
@@ -40,12 +41,18 @@ public sealed partial class AppearanceRegistry
         {
             if (descriptor is null || !IsOpaqueReference(descriptor.Source, "approved-source/") || !loadedSources.Add(descriptor.Source) ||
                 !IsDigest(descriptor.ArchiveSha256) || !IsDigest(descriptor.SignatureSha256)) throw Reject("appearance-package-reference");
-            var archive = ExtensionDisk.Read(path, descriptor.ArchiveSha256 + ".zip", MaxFont + MaxLicense + 8192, default);
+            var archiveName = descriptor.Format switch
+            {
+                null => descriptor.ArchiveSha256 + ".zip",
+                "fsfont-v1" => descriptor.ArchiveSha256 + ".fsfont",
+                _ => throw Reject("appearance-package-format")
+            };
+            var archive = ExtensionDisk.Read(path, archiveName, MaxRegistryArchive, default);
             var signed = ExtensionDisk.Read(path, descriptor.SignatureSha256 + ".signature", MaxSignatureBytes, default);
             if (Digest(signed) != descriptor.SignatureSha256) throw Reject("appearance-signature-digest");
             var trust = verifier.VerifyArchive(descriptor.Source, archive, signed, default, requireCurrent: false);
             if (trust.Source.ArchiveSha256 != descriptor.ArchiveSha256) throw Reject("appearance-archive-reference");
-            var item = Read(archive, trust);
+            var item = Read(archive, trust, legacyFont: descriptor.Format == "fsfont-v1");
             if (!byId.TryAdd(item.Id, item)) throw Reject("appearance-package-id-duplicate");
         }
         var theme = Select<Theme>(byId, configuration.ActiveTheme);
@@ -104,11 +111,12 @@ public sealed partial class AppearanceRegistry
         return entries.GetValueOrDefault(id) as T ?? throw Reject("appearance-active-reference");
     }
 
-    private static Entry Read(byte[] bytes, SignedArchiveTrust trust)
+    private static Entry Read(byte[] bytes, SignedArchiveTrust trust, bool legacyFont)
     {
         try
         {
             using var archive = new ZipArchive(new MemoryStream(bytes, writable: false), ZipArchiveMode.Read);
+            if (legacyFont) return ReadLegacyFont(archive, trust);
             if (archive.Entries.Count is not (1 or 3)) throw Reject("appearance-package-entries");
             var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
             foreach (var entry in archive.Entries)
@@ -132,22 +140,28 @@ public sealed partial class AppearanceRegistry
                 throw Reject("appearance-manifest");
             var license = ReadEntry(entries, "LICENSE.txt", MaxLicense);
             var content = ReadEntry(entries, "font.woff2", MaxFont);
-            var licenseText = new UTF8Encoding(false, true).GetString(license);
-            if (string.IsNullOrWhiteSpace(licenseText) || licenseText.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t')) ||
-                Digest(license) != font.LicenseSha256 || Digest(content) != font.FontSha256) throw Reject("appearance-font-provenance");
-            if (content.Length < 48 || !content.AsSpan(0, 4).SequenceEqual("wOF2"u8) ||
-                BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(4, 4)) is not (0x00010000 or 0x4f54544f) ||
-                BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(8, 4)) != content.Length ||
-                BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(12, 2)) is < 1 or > 128 ||
-                BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(14, 2)) != 0 ||
-                BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(16, 4)) > 4 * MaxFont)
-                throw Reject("appearance-font-container");
+            if (Digest(license) != font.LicenseSha256) throw Reject("appearance-font-provenance");
+            ValidateFontPayload(license, content, font.FontSha256);
             return new Font(manifest.Id, manifest.Version, trust, font.FontSha256, content);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or DecoderFallbackException or NotSupportedException)
         {
             throw Reject("appearance-archive-invalid");
         }
+    }
+
+    private static void ValidateFontPayload(byte[] license, byte[] content, string expectedDigest)
+    {
+        var licenseText = new UTF8Encoding(false, true).GetString(license);
+        if (string.IsNullOrWhiteSpace(licenseText) || licenseText.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t')) ||
+            Digest(content) != expectedDigest) throw Reject("appearance-font-provenance");
+        if (content.Length < 48 || !content.AsSpan(0, 4).SequenceEqual("wOF2"u8) ||
+            BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(4, 4)) is not (0x00010000 or 0x4f54544f) ||
+            BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(8, 4)) != content.Length ||
+            BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(12, 2)) is < 1 or > 128 ||
+            BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(14, 2)) != 0 ||
+            BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(16, 4)) > 4 * MaxFont)
+            throw Reject("appearance-font-container");
     }
 
     private static void ValidatePalette(Palette value)
@@ -176,14 +190,14 @@ public sealed partial class AppearanceRegistry
         """;
 
     private static string FontCss(Font? font, string? versionPrefix = null) => font is null ? "" : $$"""
-        @font-face{font-family:FsusBlogSiteFont;src:url('/site-appearance/font/{{versionPrefix}}{{font.Hash}}.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
+        @font-face{font-family:FsusBlogSiteFont;src:url('/site-appearance/font/{{versionPrefix}}{{font.Hash}}.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap{{(font.UnicodeRange is null ? "" : ";unicode-range:" + font.UnicodeRange)}}}
         html:root{--el-font-family:FsusBlogSiteFont,'Google Sans',ui-sans-serif,system-ui,sans-serif}
         html:root .fsus-prose{font-family:var(--el-font-family)}
         """;
 
-    private static T Decode<T>(byte[] bytes) where T : class
+    private static T Decode<T>(byte[] bytes, JsonSerializerOptions? options = null) where T : class
     {
-        try { return JsonSerializer.Deserialize<T>(bytes, Json) ?? throw Reject("appearance-json-shape"); }
+        try { return JsonSerializer.Deserialize<T>(bytes, options ?? Json) ?? throw Reject("appearance-json-shape"); }
         catch (JsonException) { throw Reject("appearance-json-shape"); }
     }
 
@@ -201,12 +215,13 @@ public sealed partial class AppearanceRegistry
 
     private sealed record Registry(ImmutableArray<ExtensionPublisherKey> Keys, ImmutableArray<ApprovedExtensionSource> Sources,
         ImmutableArray<Descriptor> Packages, string? ActiveTheme, string? ActiveFont);
-    private sealed record Descriptor(string Source, string ArchiveSha256, string SignatureSha256);
+    private sealed record Descriptor(string Source, string ArchiveSha256, string SignatureSha256, string? Format = null);
     private sealed record Manifest(int Format, string Id, string Version, string Kind, string Publisher, string SignatureReference,
         string TrustPolicyReference, Palette? Theme = null, FontManifest? Font = null);
     private sealed record Palette(string LightAccent, string LightHover, string DarkAccent, string DarkHover);
     private sealed record FontManifest(string License, string FontSha256, string LicenseSha256);
     private abstract record Entry(string Id, string Version, SignedArchiveTrust Trust);
     private sealed record Theme(string Id, string Version, SignedArchiveTrust Trust, Palette Palette) : Entry(Id, Version, Trust);
-    private sealed record Font(string Id, string Version, SignedArchiveTrust Trust, string Hash, byte[] Bytes) : Entry(Id, Version, Trust);
+    private sealed record Font(string Id, string Version, SignedArchiveTrust Trust, string Hash, byte[] Bytes, string? UnicodeRange = null)
+        : Entry(Id, Version, Trust);
 }

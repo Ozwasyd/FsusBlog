@@ -89,6 +89,103 @@ public sealed class AppearanceRegistryTests
         Assert.True(registry.IsCurrent(registry.Default));
     }
 
+    [Fact]
+    public void LegacyFontUsesApprovedArchiveAndExactFaceBytes()
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
+        using var disk = new AppearanceDirectory();
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var font = LegacyFontBytes();
+        var descriptor = disk.Add(signer, LegacyFont(font), "legacy", "fsfont-v1");
+        disk.Configure(signer, [descriptor], null, activeFont: "fsusblog.font.fixture");
+        var clock = new TestClock();
+        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        var listed = Assert.Single(registry.Available());
+        Assert.Equal(new AppearancePackage("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, true), listed);
+        Assert.Equal(font, registry.ReadFont(Hash(font)));
+        var style = Assert.IsType<byte[]>(registry.SelectedStyle(registry.Default, 7));
+        Assert.Contains("unicode-range:U+0000-00FF", System.Text.Encoding.UTF8.GetString(style));
+        Assert.Contains("/font/7/" + Hash(font), System.Text.Encoding.UTF8.GetString(style));
+
+        var path = Path.Combine(disk.Root.FullName, descriptor.ArchiveSha256 + ".fsfont");
+        var data = File.ReadAllBytes(path);
+        data[0] ^= 1;
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        File.WriteAllBytes(path, data);
+        File.SetUnixFileMode(path, UnixFileMode.UserRead);
+        Assert.Equal("archive-digest", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+    }
+
+    [Theory]
+    [InlineData("range", "appearance-fsfont-unsupported")]
+    [InlineData("preload", "appearance-fsfont-unsupported")]
+    [InlineData("critical", "appearance-fsfont-unsupported")]
+    [InlineData("category", "appearance-fsfont-unsupported")]
+    [InlineData("locale", "appearance-fsfont-unsupported")]
+    [InlineData("compatibility", "appearance-fsfont-unsupported")]
+    [InlineData("source", "appearance-font-provenance")]
+    [InlineData("hash", "appearance-font-provenance")]
+    [InlineData("extra", "appearance-entry-shape")]
+    [InlineData("link", "appearance-entry-shape")]
+    [InlineData("budget", "appearance-entry-size")]
+    public void SignedLegacyFontRejectsUnsupportedOrMismatchedContents(string variation, string expected)
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
+        using var disk = new AppearanceDirectory();
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var source = disk.Add(signer, LegacyFont(LegacyFontBytes(), variation), "legacy", "fsfont-v1");
+        disk.Configure(signer, [source], null);
+        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
+    }
+
+    private static byte[] LegacyFontBytes()
+    {
+        var bytes = new byte[48];
+        "wOF2"u8.CopyTo(bytes);
+        bytes[5] = 1;  // SFNT flavor 0x00010000.
+        bytes[11] = 48;
+        bytes[13] = 1;
+        return bytes;
+    }
+
+    private static byte[] LegacyFont(byte[] font, string variation = "")
+    {
+        var source = new { kind = "npm-fontsource", package = "@fontsource/google-sans", version = "5.2.1", upstream = "Google Fonts" };
+        const string path = "fonts/body-regular.woff2";
+        var manifest = new
+        {
+            id = "fsusblog.font.fixture", name = "Fixture Sans", family = "Fixture Sans", version = "1.0.0",
+            fsusblog = variation == "compatibility" ? ">=1.4.0 <2.0.0" : ">=1.3.0 <1.4.0", type = "font",
+            category = variation == "category" ? "prose-sans" : "ui-sans",
+            scripts = Array.Empty<string>(), locales = variation == "locale" ? new[] { "en-US" } : [],
+            faces = new[] { new { weight = 400, style = "normal", file = path, contentHash = Hash(variation == "hash" ? [] : font),
+                unicodeRange = variation == "range" ? "U+0000-00FF;background:red" : "U+0000-00FF", critical = variation == "critical" } },
+            license = new { name = "OFL-1.1", file = "license/LICENSE.txt", source = "license/source.json" },
+            source, budgets = new { criticalBytes = 0, totalBytes = variation == "budget" ? 4 : 1_048_576, maxFaces = 1 },
+            loading = new { display = "swap", preload = variation == "preload" ? new[] { "400" } : [], defer = Array.Empty<string>() }
+        };
+        using var output = new MemoryStream();
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            if (variation != "extra") Add("fonts/", []);
+            Add("license/", []);
+            Add("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest));
+            Add("license/LICENSE.txt", "Fixture license."u8);
+            Add("license/source.json", JsonSerializer.SerializeToUtf8Bytes(variation == "source" ? source with { upstream = "Other" } : source));
+            Add(path, font, link: variation == "link");
+            if (variation == "extra") Add("fonts/other.woff2", []);
+
+            void Add(string name, ReadOnlySpan<byte> bytes, bool link = false)
+            {
+                var entry = archive.CreateEntry(name);
+                if (link) entry.ExternalAttributes = unchecked((int)0xa1ff0000);
+                using var stream = entry.Open();
+                stream.Write(bytes);
+            }
+        }
+        return output.ToArray();
+    }
+
     private static byte[] Theme(string color = "#225533", string? member = null, bool link = false)
     {
         using var result = new MemoryStream();
@@ -119,7 +216,7 @@ public sealed class AppearanceRegistryTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed record Descriptor(string Source, string ArchiveSha256, string SignatureSha256);
+    private sealed record Descriptor(string Source, string ArchiveSha256, string SignatureSha256, string? Format = null);
 
     private sealed class AppearanceDirectory : IDisposable
     {
@@ -131,16 +228,16 @@ public sealed class AppearanceRegistryTests
             if (OperatingSystem.IsMacOS() && Root.FullName.StartsWith("/var/", StringComparison.Ordinal)) Root = new("/private" + Root.FullName);
         }
 
-        internal Descriptor Add(ECDsa signer, byte[] zip, string id)
+        internal Descriptor Add(ECDsa signer, byte[] zip, string id, string? format = null)
         {
             var signed = signer.SignData(zip, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-            var manifest = new Descriptor($"approved-source/{id}", Hash(zip), Hash(signed));
-            Put(manifest.ArchiveSha256 + ".zip", zip);
+            var manifest = new Descriptor($"approved-source/{id}", Hash(zip), Hash(signed), format);
+            Put(manifest.ArchiveSha256 + (format is null ? ".zip" : ".fsfont"), zip);
             Put(manifest.SignatureSha256 + ".signature", signed);
             return manifest;
         }
 
-        internal void Configure(ECDsa signer, Descriptor[] packages, string? activeTheme, DateTimeOffset? cutoff = null)
+        internal void Configure(ECDsa signer, Descriptor[] packages, string? activeTheme, DateTimeOffset? cutoff = null, string? activeFont = null)
         {
             var config = new
             {
@@ -148,7 +245,7 @@ public sealed class AppearanceRegistryTests
                 Sources = packages.Select(p => new ApprovedExtensionSource(p.Source, "provenance/reviewed", "site.operator", "first", p.ArchiveSha256, "signature/one", "trust/policy")),
                 Packages = packages,
                 ActiveTheme = activeTheme,
-                ActiveFont = (string?)null
+                ActiveFont = activeFont
             };
             Put("appearance.json", JsonSerializer.SerializeToUtf8Bytes(config));
         }

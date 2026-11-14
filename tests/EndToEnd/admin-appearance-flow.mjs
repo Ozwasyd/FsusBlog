@@ -15,6 +15,8 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const catalogUrl = admin(WireRoutes.AdminAppearanceCatalog)
   const applyUrl = admin(WireRoutes.AdminAppearanceApply)
   const alias = '/site-appearance/current.css'
+  const legacyFont = process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT === '1'
+  const fontName = legacyFont ? 'fsusblog.font.fixture' : 'fixture.font'
   const section = page.getByRole('region', { name: 'Site appearance', exact: true })
   const check = () => section.getByRole('button', { name: 'Check active appearance', exact: true }).click()
   assert.equal(await page.locator('link[href^="/site-appearance/"]').count(), 0)
@@ -32,7 +34,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
   await logIn(page)
   await check()
-  await section.getByText('Active theme: fixture.theme · Active font: fixture.font').waitFor()
+  await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
 
   const sites = await context.newPage()
   await sites.emulateMedia({ colorScheme: 'light' })
@@ -48,6 +50,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     assert.equal(styles.headers()['cache-control'], 'no-store')
     assert.match(styles.headers()['content-type'], /^text\/css/)
     const cssText = await styles.text()
+    if (legacyFont) assert(cssText.includes(';unicode-range:U+0000-00FF}'))
     assert.equal(createHash('sha256').update(cssText).digest('hex'), css.split('/').at(-1).slice(0, -4))
     const font = cssText.match(/\/site-appearance\/font\/\d+\/[a-f0-9]{64}\.woff2/)?.[0]
     assert(font)
@@ -107,7 +110,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   assert.deepEqual(observations, [403, 400, 200, 409])
   const alternate = await current(1, '#663322')
   for (const path of Object.values(initial)) assert.equal((await context.request.get(pub(path))).status(), 404)
-  await section.getByRole('button', { name: 'Restore fixture.theme / fixture.font with Passkey' }).click()
+  await section.getByRole('button', { name: `Restore fixture.theme / ${fontName} with Passkey` }).click()
   await section.getByText('Previous appearance restored.', { exact: true }).waitFor()
   const restored = await current(2, '#225533')
   for (const path of [...Object.values(initial), ...Object.values(alternate)])
