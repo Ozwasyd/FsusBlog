@@ -100,14 +100,15 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
-    internal static async Task<ArticleState> Find(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int id, bool locking, CancellationToken ct)
+    internal static async Task<ArticleState> Find(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int id, bool locking,
+        CancellationToken ct, bool includeDeleted = false)
     {
         await using var cmd = Sql(db, tx, """
-            select revision,title,body,published_revision from public.article where id=$1 and owner_id=$2 and not deleted
-            """ + (locking ? " for update" : ""), id, actor.Id);
+            select revision,title,body,published_revision,deleted from public.article where id=$1 and owner_id=$2 and ($3 or not deleted)
+            """ + (locking ? " for update" : ""), id, actor.Id, includeDeleted);
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Article not found.");
-        return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2), row.IsDBNull(3) ? null : row.GetInt64(3), false);
+        return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2), row.IsDBNull(3) ? null : row.GetInt64(3), row.GetBoolean(4));
     }
 
     internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
@@ -171,7 +172,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         }
         else
         {
-            current ??= await Find(db, tx, actor, edit.Id, true, ct);
+            current ??= await Find(db, tx, actor, edit.Id, true, ct, includeDeleted: action == ArticleAction.Restore);
             if (taxonomy is not null) edit = edit with { Title = current.Title, Body = current.Body };
             if (schedule is not null)
             {

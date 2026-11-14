@@ -265,6 +265,7 @@ Mutation(WireRoutes.Save, ArticleAction.Save);
 Mutation(WireRoutes.Publish, ArticleAction.Publish);
 Mutation(WireRoutes.Retract, ArticleAction.Retract);
 Mutation(WireRoutes.Delete, ArticleAction.Delete);
+Mutation(WireRoutes.Restore, ArticleAction.Restore);
 
 var webPages = app.Services.GetRequiredService<WebPages>();
 var shell = webPages.Page();

@@ -405,6 +405,7 @@ export const WireRoutes = {
   Publish: "/api/v2/authoring/publish.aeds",
   Retract: "/api/v2/authoring/retract.aeds",
   Delete: "/api/v2/authoring/delete.aeds",
+  Restore: "/api/v2/authoring/restore.aeds",
   CanvasCreate: "/api/v2/authoring/canvas/create.aeds",
   CanvasPreview: "/api/v2/authoring/canvas/link/preview.aeds",
   CanvasConfirm: "/api/v2/authoring/canvas/link/confirm.aeds",

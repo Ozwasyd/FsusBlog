@@ -244,4 +244,8 @@ export const api = {
   delete(value: ArticleCommand, signal?: AbortSignal): Promise<void> {
     return request(WireRoutes.Delete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', commandFrame(value));
   },
+
+  restore(value: ArticleCommand, signal?: AbortSignal) {
+    return command(WireRoutes.Restore, value, signal);
+  },
 };

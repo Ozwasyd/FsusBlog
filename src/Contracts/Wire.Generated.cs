@@ -410,6 +410,7 @@ public static class WireRoutes
     public const string Publish = "/api/v2/authoring/publish.aeds";
     public const string Retract = "/api/v2/authoring/retract.aeds";
     public const string Delete = "/api/v2/authoring/delete.aeds";
+    public const string Restore = "/api/v2/authoring/restore.aeds";
     public const string CanvasCreate = "/api/v2/authoring/canvas/create.aeds";
     public const string CanvasPreview = "/api/v2/authoring/canvas/link/preview.aeds";
     public const string CanvasConfirm = "/api/v2/authoring/canvas/link/confirm.aeds";

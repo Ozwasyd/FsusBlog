@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FsusBlog.V2.Core;
 
-public enum ArticleAction { Save, Publish, Retract, Delete }
+public enum ArticleAction { Save, Publish, Retract, Delete, Restore }
 public enum Rejection { Invalid, NotFound, Conflict, Unauthorized, Forbidden }
 public sealed class BusinessException(Rejection rejection, string message) : Exception(message)
 {
@@ -51,7 +51,7 @@ public static class Publishing
     {
         if (!actor.CanAuthor)
             throw new BusinessException(Rejection.Forbidden, "This account cannot write articles.");
-        if (current.Id != edit.Id || current.Owner != actor.Id || current.Deleted)
+        if (current.Id != edit.Id || current.Owner != actor.Id || current.Deleted && action != ArticleAction.Restore)
             throw new BusinessException(Rejection.NotFound, "Article not found.");
         if (current.Revision != edit.ExpectedRevision)
             throw new BusinessException(Rejection.Conflict, "The article changed. Reload its current revision.");
@@ -63,6 +63,8 @@ public static class Publishing
             ArticleAction.Publish => current with { Revision = revision, PublishedRevision = revision },
             ArticleAction.Retract => current with { Revision = revision, PublishedRevision = null },
             ArticleAction.Delete => current with { Revision = revision, PublishedRevision = null, Deleted = true },
+            ArticleAction.Restore when current.Deleted => current with { Revision = revision, PublishedRevision = null, Deleted = false },
+            ArticleAction.Restore => throw new BusinessException(Rejection.Conflict, "Only a deleted article can be restored."),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
     }

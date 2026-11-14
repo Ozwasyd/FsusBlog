@@ -8,7 +8,7 @@ using Npgsql;
 public sealed class AuthorArticleInventoryPostgresTests
 {
     [PostgresFact]
-    public async Task InventoryPagesRevealOnlyCurrentOwnerRowsAndTrashRemainsReadOnly()
+    public async Task InventoryPagesRevealOnlyCurrentOwnerRowsAndHideDeletedDrafts()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var ct = timeout.Token;

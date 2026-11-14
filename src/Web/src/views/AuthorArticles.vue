@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ElAlert, ElButton, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader } from '@ozwasyd/element-plus'
-import { ApiError } from '../../../Contracts/client'
-import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleState } from '../../../Contracts/author-articles'
+import { ElAlert, ElButton, ElDialog, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader } from '@ozwasyd/element-plus'
+import { api, ApiError } from '../../../Contracts/client'
+import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow, type AuthorArticleState } from '../../../Contracts/author-articles'
 import { taxonomyList } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyListItem } from '../../../Contracts/taxonomy'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
@@ -38,8 +38,14 @@ const taxonomyError = ref(false)
 const checkingSession = ref(!currentSession.value)
 const sessionError = ref(false)
 const canRead = computed(() => currentSession.value?.canAuthor === true && !forbidden.value)
+const heading = ref<HTMLElement>()
+const selected = shallowRef<AuthorArticleRow>()
+const changing = ref(false)
+const actionNotice = shallowRef<{ text: string, type: 'success' | 'error' | 'warning' }>()
+const actionLabel = computed(() => trash.value ? '恢复文章' : '移至回收站')
 const dateFormat = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
 let sessionCheck: AbortController | undefined
+let changeRequest: AbortController | undefined
 
 function formatDate(value: number) { return dateFormat.format(value) }
 function isoDate(value: number) { return new Date(value).toISOString() }
@@ -90,7 +96,56 @@ async function checkSession() {
   finally { if (!request.signal.aborted) checkingSession.value = false }
 }
 
+function selectArticle(entry: AuthorArticleRow) {
+  if (!canRead.value || changing.value || selected.value) return
+  actionNotice.value = undefined
+  selected.value = entry
+}
+
+function closeConfirmation(visible: boolean) {
+  if (!visible && !changing.value) selected.value = undefined
+}
+
+async function confirmArticleChange() {
+  const entry = selected.value
+  if (!entry || !canRead.value || changing.value) return
+  const restore = trash.value
+  const request = new AbortController()
+  changeRequest = request
+  changing.value = true
+  try {
+    const command = { id: entry.id, expectedRevision: entry.revision, idempotencyKey: crypto.randomUUID(), title: '', body: '' }
+    if (restore) await api.restore(command, request.signal)
+    else await api.delete(command, request.signal)
+    if (request.signal.aborted) return
+    actionNotice.value = { type: 'success', text: restore ? '文章已恢复，可在文章列表继续编辑。' : '文章已移至回收站。' }
+  } catch (reason) {
+    if (request.signal.aborted) return
+    if (reason instanceof ApiError && reason.status === 401) { invalidateSession(); return }
+    if (reason instanceof ApiError && reason.status === 403) { forbidden.value = true; return }
+    if (reason instanceof ApiError && (reason.status === 409 || reason.status === 404))
+      actionNotice.value = { type: 'warning', text: '文章状态已变更。请在更新后的列表中确认后再操作。' }
+    else actionNotice.value = { type: 'error', text: '无法确认操作结果，请查看更新后的文章列表。' }
+  } finally {
+    if (changeRequest === request) {
+      changeRequest = undefined
+      changing.value = false
+      selected.value = undefined
+      if (canRead.value) {
+        firstPage({ ...filters.value })
+        await nextTick()
+        heading.value?.focus()
+      }
+    }
+  }
+}
+
 watch([identityEpoch, trash], () => {
+  changeRequest?.abort()
+  changeRequest = undefined
+  changing.value = false
+  selected.value = undefined
+  actionNotice.value = undefined
   error.value = false
   forbidden.value = false
   resetFilters()
@@ -143,7 +198,11 @@ onMounted(async () => {
   else checkingSession.value = false
 })
 
-onBeforeUnmount(() => sessionCheck?.abort())
+onBeforeUnmount(() => {
+  sessionCheck?.abort()
+  changeRequest?.abort()
+  changeRequest = undefined
+})
 </script>
 
 <template>
@@ -163,7 +222,7 @@ onBeforeUnmount(() => sessionCheck?.abort())
         <RouterLink v-if="!trash" :to="{ name: 'article-workspace' }">工作区</RouterLink>
         <RouterLink v-if="!trash" :to="{ name: 'write' }">写新文章</RouterLink>
       </nav>
-      <p v-if="trash" class="author-articles-note">此处显示已删除的文章记录。</p>
+      <ElAlert v-if="actionNotice" :title="actionNotice.text" :type="actionNotice.type" :closable="false" show-icon />
       <form class="author-filter" aria-label="筛选文章" @submit.prevent="applyFilters">
         <div class="author-filter-fields">
           <label class="author-keyword">
@@ -199,7 +258,7 @@ onBeforeUnmount(() => sessionCheck?.abort())
       </form>
       <section aria-labelledby="author-list-heading" :aria-busy="pending">
         <header class="author-list-heading">
-          <h2 id="author-list-heading">{{ trash ? '已删除文章' : '文章列表' }}</h2>
+          <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? '已删除文章' : '文章列表' }}</h2>
           <p v-if="page" role="status">共 {{ page.total }} 篇</p>
         </header>
         <ElSkeleton v-if="pending" :rows="5" animated />
@@ -222,8 +281,12 @@ onBeforeUnmount(() => sessionCheck?.abort())
               <time :datetime="isoDate(entry.modifiedAt)">{{ formatDate(entry.modifiedAt) }}</time>
               <span v-if="entry.scheduledAt !== null">定于 <time :datetime="isoDate(entry.scheduledAt)">{{ formatDate(entry.scheduledAt) }}</time></span>
             </div>
-            <RouterLink v-if="!trash && entry.state !== 'deleted'" :to="{ name: 'edit', params: { id: entry.id } }"
-              :aria-label="`编辑 ${entry.title}`" class="author-article-edit">编辑</RouterLink>
+            <div class="author-article-actions">
+              <RouterLink v-if="!trash" :to="{ name: 'edit', params: { id: entry.id } }"
+                :aria-label="`编辑 ${entry.title}`" class="author-article-edit">编辑</RouterLink>
+              <ElButton native-type="button" :disabled="changing" v-bind="{ 'aria-label': `${actionLabel} ${entry.title}` }"
+                @click="selectArticle(entry)">{{ actionLabel }}</ElButton>
+            </div>
           </li>
         </ul>
         <nav v-if="page && (pageNumber > 0 || page.nextId)" class="author-page-controls" aria-label="文章分页">
@@ -232,6 +295,16 @@ onBeforeUnmount(() => sessionCheck?.abort())
           <ElButton :disabled="!page.nextId || pending" @click="next">下一页</ElButton>
         </nav>
       </section>
+      <ElDialog :model-value="!!selected" :title="actionLabel" width="min(28rem, calc(100% - 2rem))" append-to-body
+        :show-close="false" :close-on-press-escape="!changing" :close-on-click-modal="false" @update:model-value="closeConfirmation">
+        <p v-if="selected" class="author-article-confirmation">「{{ selected.title }}」</p>
+        <p v-if="trash">恢复后可继续编辑，文章保持非公开状态。</p>
+        <p v-else>移入回收站后，公开文章将撤回，文章历史将保留。</p>
+        <template #footer>
+          <ElButton :disabled="changing" @click="closeConfirmation(false)">取消</ElButton>
+          <ElButton :loading="changing" :type="trash ? 'primary' : 'danger'" @click="confirmArticleChange">{{ actionLabel }}</ElButton>
+        </template>
+      </ElDialog>
     </template>
   </main>
 </template>
@@ -255,6 +328,8 @@ onBeforeUnmount(() => sessionCheck?.abort())
 .author-article-state { color: var(--fsus-ink); }
 .author-article-taxonomy { margin-block: var(--fsus-space-2) 0; }
 .author-article-edit { min-width: 2.75rem; justify-content: center; }
+.author-article-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: var(--fsus-space-2); }
+.author-article-confirmation { font-weight: 650; overflow-wrap: anywhere; }
 .author-page-controls { justify-content: flex-end; margin-block-start: var(--fsus-space-4); }
 @media (max-width: 44rem) {
   .author-filter-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
