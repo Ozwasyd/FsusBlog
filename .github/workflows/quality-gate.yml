@@ -116,6 +116,7 @@ jobs:
         env:
             FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
+            FSUSBLOG_BEHAVIOR_DOC_NUGET_PREPARATION: .tmp/behavior-doc-nuget-preparation/quality-gate-${{ github.run_id }}-${{ github.run_attempt }}.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
@@ -135,6 +136,14 @@ jobs:
               with:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - id: behavior_feed
+              name: Acquire locked BehaviorDoc feed
+              run: node tools/docs/acquire-behavior-doc-feed.mjs
+            - name: Prepare offline BehaviorDoc dependencies
+              env:
+                  FEED_ROOT: ${{ steps.behavior_feed.outputs.feed_root }}
+                  FEED_DIGEST: ${{ steps.behavior_feed.outputs.feed_digest }}
+              run: node tools/docs/prepare-behavior-doc-nuget.mjs --run-id "$FSUSBLOG_TEST_RUN_ID" --out "$FSUSBLOG_BEHAVIOR_DOC_NUGET_PREPARATION" --feed-root "$FEED_ROOT" --feed-digest "$FEED_DIGEST"
             - run: ./tools/test.sh ci-tier behavior-doc-static-admission --no-deps
             - id: receipt
               name: Export sealed admission identity
@@ -151,7 +160,10 @@ jobs:
                   if-no-files-found: error
                   retention-days: 14
                   include-hidden-files: true
-                  path: .tmp/behavior-doc-static-admission/**
+                  path: |
+                      .tmp/behavior-doc-static-admission/**
+                      .tmp/behavior-doc-feed-acquisition/**/acquisition.json
+                      .tmp/behavior-doc-nuget-preparation/*.json
 
     test-inventory:
         name: Compiled Test Inventory
