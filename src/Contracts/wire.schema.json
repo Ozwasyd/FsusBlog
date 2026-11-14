@@ -48,6 +48,7 @@
     "OperatorSignIn": 32768,
     "OperatorSession": 32769,
     "SiteSessionList": 32796,
+    "AdminSessionSnapshot": 32830,
     "Draft": 32770,
     "ArticleCommand": 32771,
     "RevisionHistory": 32800,
@@ -123,6 +124,12 @@
     "SiteSessions": "/api/v2/identity/sessions.aeds",
     "SiteSessionRevoke": "/api/v2/identity/sessions/{id}/revoke.aeds",
     "SiteSessionsRevokeOthers": "/api/v2/identity/sessions/revoke-others.aeds",
+    "AdminBootstrapBegin": "/api/v2/admin/identity/bootstrap/begin.aeds",
+    "AdminBootstrapComplete": "/api/v2/admin/identity/bootstrap/complete.aeds",
+    "AdminPasskeyBegin": "/api/v2/admin/identity/passkey/begin.aeds",
+    "AdminPasskeyComplete": "/api/v2/admin/identity/passkey/complete.aeds",
+    "AdminSession": "/api/v2/admin/identity/session.aeds",
+    "AdminSignOut": "/api/v2/admin/identity/sign-out.aeds",
     "PasskeyLoginBegin": "/api/binary/auth/passkey/login/begin",
     "PasskeyLoginComplete": "/api/binary/auth/passkey/login/complete",
     "PasskeyProvisionBegin": "/api/v2/identity/passkey/register/begin.aeds",
@@ -168,7 +175,8 @@
     "SearchIndexPages": "X-Fsus-Search-Index-Pages",
     "InboxReplayCursor": "X-Fsus-Inbox-Replay-Cursor",
     "MfaProof": "X-Fsus-Mfa-Proof",
-    "CurrentSession": "X-Fsus-Current-Session"
+    "CurrentSession": "X-Fsus-Current-Session",
+    "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token"
   },
   "limits": {
     "PowProofHeaderChars": 416,
@@ -361,6 +369,10 @@
     "MfaChallengeProofOffset": 168
   },
   "records": {
+    "AdminSessionSnapshot": {
+      "frame": "AdminSessionSnapshot",
+      "fields": [["Handle", "text", "NameBytes"], ["Generation", "i64"], ["ExpiresAt", "i64"]]
+    },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",
       "fields": [["SiteId", "uuid"], ["UserId", "uuid"]]

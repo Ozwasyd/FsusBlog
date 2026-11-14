@@ -32,7 +32,7 @@ watch(() => route.query.q, value => {
 }, { immediate: true })
 
 const lifetime = new AbortController()
-const sync = () => { void refreshSession(lifetime.signal).catch(() => {}) }
+const sync = () => { if (route.name !== 'admin-identity') void refreshSession(lifetime.signal).catch(() => {}) }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
 onMounted(() => {
   sync()
@@ -64,6 +64,7 @@ async function leave() {
   <RouterView v-if="route.name === 'login'" v-slot="{ Component }">
     <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
   </RouterView>
+  <RouterView v-else-if="route.name === 'admin-identity'" />
   <div v-else-if="accountArea" class="workspace">
     <ElSiteHeader max-width="64rem">
       <template #brand><RouterLink class="workspace-brand" to="/">Fsu's Blog</RouterLink></template>

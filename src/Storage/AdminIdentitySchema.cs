@@ -1,0 +1,75 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Npgsql;
+
+namespace FsusBlogV2.Storage;
+
+internal static partial class CurrentSchema
+{
+    internal const string AdminIdentityMarker = "public.admin_identity_schema";
+    internal const string AdminManagePermission = "admin.manage";
+
+    private static readonly string[] AdminIdentityColumns =
+    [
+        "admin_identity_schema singleton:bool version:int4",
+        "admin_principal id:uuid handle:text user_handle:bytea enabled:bool generation:int8 generation_changed_at:timestamptz=clock_timestamp",
+        "admin_permission principal_id:uuid permission:text",
+        "admin_passkey_credential credential_id:bytea principal_id:uuid public_key:bytea sign_count:int8 backup_eligible:bool backed_up:bool",
+        "admin_invitation digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz",
+        "admin_challenge digest:bytea principal_id:uuid? generation:int8? binding_digest:bytea kind:int4 options:text expires_at:timestamptz started_at:timestamptz=clock_timestamp",
+        "admin_session digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz",
+        "admin_identity_audit id:int8:a principal_id:uuid action:text happened_at:timestamptz actor:text"
+    ];
+
+    private static readonly string[] AdminIdentityConstraints =
+    [
+        "admin_identity_schema p singleton",
+        "admin_identity_schema c singleton singleton",
+        "admin_identity_schema c version version=1",
+        "admin_principal p id",
+        "admin_principal u handle",
+        "admin_principal c handle handle~'^[a-z][a-z0-9_.-]{0,63}$'::text",
+        "admin_principal u user_handle",
+        "admin_principal c user_handle octet_length(user_handle)=32",
+        "admin_principal c generation generation>0",
+        "admin_permission p principal_id,permission",
+        "admin_permission f principal_id public.admin_principal:id",
+        "admin_permission c permission permission='admin.manage'::text",
+        "admin_passkey_credential p credential_id",
+        "admin_passkey_credential u principal_id",
+        "admin_passkey_credential f principal_id public.admin_principal:id",
+        "admin_passkey_credential c credential_id octet_length(credential_id)>=1ANDoctet_length(credential_id)<=1023",
+        "admin_passkey_credential c public_key octet_length(public_key)>=1ANDoctet_length(public_key)<=16384",
+        "admin_passkey_credential c sign_count sign_count>=0ANDsign_count<='4294967295'::bigint",
+        "admin_passkey_credential c backed_up,backup_eligible NOTbacked_upORbackup_eligible",
+        "admin_invitation p digest",
+        "admin_invitation u principal_id",
+        "admin_invitation f principal_id public.admin_principal:id",
+        "admin_invitation c digest octet_length(digest)=32",
+        "admin_invitation c generation generation>0",
+        "admin_challenge p digest",
+        "admin_challenge f principal_id public.admin_principal:id",
+        "admin_challenge c digest octet_length(digest)=32",
+        "admin_challenge c binding_digest octet_length(binding_digest)=32",
+        "admin_challenge c options octet_length(options)>=1ANDoctet_length(options)<=8192",
+        "admin_challenge c kind,principal_id,generation kind=1ANDprincipal_idISNULLANDgenerationISNULLORkind=2ANDprincipal_idISNOTNULLANDgenerationISNOTNULLANDgeneration>0",
+        "admin_session p digest",
+        "admin_session u principal_id",
+        "admin_session f principal_id public.admin_principal:id",
+        "admin_session c digest octet_length(digest)=32",
+        "admin_session c generation generation>0",
+        "admin_identity_audit p id",
+        "admin_identity_audit f principal_id public.admin_principal:id",
+        "admin_identity_audit c action octet_length(action)>=1ANDoctet_length(action)<=48",
+        "admin_identity_audit c actor octet_length(actor)>=1ANDoctet_length(actor)<=255"
+    ];
+
+    internal static async Task VerifyAdminIdentityMarkerAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand("select version from public.admin_identity_schema", db, tx);
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct) || row.GetInt32(0) != 1 || await row.ReadAsync(ct))
+            throw new InvalidOperationException("Expected a single admin identity schema marker at version 1.");
+    }
+}

@@ -37,6 +37,7 @@ public enum FrameType : ushort
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     SiteSessionList = 32796,
+    AdminSessionSnapshot = 32830,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -323,6 +324,12 @@ public static class WireRoutes
     public const string SiteSessions = "/api/v2/identity/sessions.aeds";
     public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
     public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
+    public const string AdminBootstrapBegin = "/api/v2/admin/identity/bootstrap/begin.aeds";
+    public const string AdminBootstrapComplete = "/api/v2/admin/identity/bootstrap/complete.aeds";
+    public const string AdminPasskeyBegin = "/api/v2/admin/identity/passkey/begin.aeds";
+    public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
+    public const string AdminSession = "/api/v2/admin/identity/session.aeds";
+    public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
@@ -371,8 +378,10 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
+    public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
 }
 
+public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
@@ -398,6 +407,25 @@ public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevisi
 
 public static partial class Wire
 {
+    public static byte[] EncodeAdminSessionSnapshot(AdminSessionSnapshot value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Handle, WireLimits.NameBytes);
+        writer.I64(value.Generation);
+        writer.I64(value.ExpiresAt);
+        return Aeds.Encode(FrameType.AdminSessionSnapshot, writer.Written);
+    }
+
+    public static AdminSessionSnapshot DecodeAdminSessionSnapshot(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSessionSnapshot));
+        var value = new AdminSessionSnapshot(reader.Text(WireLimits.NameBytes), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeDraftRecoveryScope(DraftRecoveryScope value)
     {
         Validate(value);

@@ -1,0 +1,292 @@
+import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
+import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
+import { decodeAdminSessionSnapshot, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+
+const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
+const { chromium, request } = packages('@playwright/test')
+const adminUrl = process.env.FSUSBLOG_TEST_ADMIN_URL
+const siteUrl = process.env.FSUSBLOG_TEST_SITE_URL
+const adminTicket = process.env.FSUSBLOG_TEST_ADMIN_TICKET
+const siteTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
+const revokeExecutable = process.env.FSUSBLOG_TEST_ADMIN_REVOKE
+assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
+  'Provide isolated site/admin origins and two unused one-time fixture keys.')
+assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
+const adminOrigin = new URL(adminUrl)
+const siteOrigin = new URL(siteUrl)
+assert.equal(adminOrigin.hostname, 'localhost', 'The admin WebAuthn fixture uses localhost as its relying party.')
+assert.equal(siteOrigin.hostname, '127.0.0.1', 'The site account fixture uses a different loopback host.')
+const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/admin-identity-browser')
+await mkdir(evidence, { recursive: true })
+
+const adminPath = '/api/v2/admin/identity'
+const adminPage = adminOrigin.origin + '/admin/identity'
+const {
+  AdminBootstrapBegin: bootstrapBegin, AdminBootstrapComplete: bootstrapComplete, AdminPasskeyBegin: passkeyBegin,
+  AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
+  Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
+} = WireRoutes
+const secureAdmin = adminOrigin.protocol === 'https:'
+const adminCookieName = secureAdmin ? '__Host-FsusAdminSession' : 'fsus-v2-admin-session'
+const siteCookieName = 'fsus-v2-session'
+const checks = {}
+const responses = []
+const faults = []
+const startedAt = new Date().toISOString()
+const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+let phase = 'site-session'
+let failure
+try {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  context.on('response', response => {
+    const url = new URL(response.url())
+    if (!url.pathname.startsWith(adminPath + '/') && !url.pathname.startsWith('/api/v2/identity/')) return
+    responses.push({ host: url.hostname, path: url.pathname, status: response.status() })
+    if (response.status() >= 500) faults.push({ path: url.pathname, status: response.status() })
+  })
+  const site = await context.newPage()
+  const admin = await context.newPage()
+  for (const page of [site, admin]) page.on('pageerror', () => faults.push({ kind: 'uncaught-page-error' }))
+  const authenticator = await context.newCDPSession(admin)
+  await authenticator.send('WebAuthn.enable')
+  await authenticator.send('WebAuthn.addVirtualAuthenticator', { options: {
+    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
+    isUserVerified: true, automaticPresenceSimulation: true,
+  } })
+
+  const rejectedSiteTicket = await context.request.post(adminOrigin.origin + bootstrapBegin, {
+    headers: { [WireHeaders.AdminBootstrapToken]: siteTicket },
+  })
+  assert(rejectedSiteTicket.status() >= 400 && rejectedSiteTicket.status() < 500, 'An unspent site fixture key cannot bootstrap an administrator.')
+  await site.goto(siteOrigin.origin + '/login')
+  await site.getByLabel('Owner access key').fill(siteTicket)
+  const siteLogin = await clickAndWait(site, siteOrigin, siteSignIn, 'Log in')
+  assert.equal(siteLogin.status(), 200)
+  await site.waitForURL(siteOrigin.origin + '/user/manage/article/write')
+  const siteCookie = await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)
+  assert.equal(siteCookie.httpOnly, true)
+  const siteState = await context.request.get(siteOrigin.origin + siteSession)
+  assert.equal(decodeFrame(await siteState.body()).type, FrameType.OperatorSession)
+  await credentialProbe(adminOrigin.origin + adminSession, siteCookieName, siteCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, siteCookie.value, 401)
+  checks.siteSessionCannotAuthorizeAdmin = true
+
+  phase = 'bootstrap'
+  await admin.goto(adminPage)
+  await admin.getByRole('heading', { name: 'Administrator access', exact: true }).waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+  await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
+  await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
+  const registrationBegin = waitPost(admin, adminOrigin, bootstrapBegin)
+  const registration = await clickAndWait(admin, adminOrigin, bootstrapComplete, 'Create administrator Passkey')
+  assert.equal(await frameType(await registrationBegin), FrameType.PasskeyRegisterBegin)
+  await assertEmpty(registration)
+  await admin.getByText('Administrator Passkey created. Log in with it to continue.', { exact: true }).waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+  assert(!(await context.cookies(adminOrigin.origin + adminSession)).some(cookie => cookie.name === adminCookieName))
+  await rejectReplay(context, registration)
+  const reusedTicket = await context.request.post(adminOrigin.origin + bootstrapBegin, {
+    headers: { [WireHeaders.AdminBootstrapToken]: adminTicket },
+  })
+  assert(reusedTicket.status() >= 400 && reusedTicket.status() < 500, 'Completed registration must consume the bootstrap key.')
+  checks.bootstrapRequiresPasskeyAndDoesNotSignIn = true
+  checks.bootstrapCompletionCannotReplay = true
+
+  phase = 'admin-login'
+  const firstLogin = await logIn(admin)
+  const initial = await snapshot(context)
+  const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assert.equal(oldCookie.httpOnly, true)
+  assert.equal(oldCookie.sameSite, 'Strict')
+  assert.equal(oldCookie.path, secureAdmin ? '/' : adminPath)
+  assert.equal(oldCookie.secure, secureAdmin)
+  assertNoCredential(initial.body, oldCookie.value)
+  await rejectReplay(context, firstLogin)
+  assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === oldCookie.value,
+    'A replay must leave the current admin browser credential unchanged.')
+  const wrongHost = await context.request.get(siteOrigin.origin + adminSession)
+  assert.equal(wrongHost.status(), 404, 'Admin endpoints are unavailable on the site host.')
+  assert.equal((await context.request.get(adminOrigin.origin + siteSession)).status(), 404,
+    'The dedicated admin origin does not expose site identity routes.')
+  assert.equal((await context.request.get(adminOrigin.origin + '/')).status(), 404,
+    'The dedicated admin origin does not serve the public home page.')
+  await credentialProbe(siteOrigin.origin + siteSession, adminCookieName, oldCookie.value, 401)
+  await credentialProbe(siteOrigin.origin + siteSession, siteCookieName, oldCookie.value, 401)
+  const crossOriginLogout = await context.request.post(adminOrigin.origin + adminLogout, { headers: { Origin: siteOrigin.origin } })
+  assert.equal(crossOriginLogout.status(), 403)
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 200)
+  checks.adminSessionCannotAuthorizeSite = true
+  checks.dedicatedOriginRoutesAreIsolated = true
+  checks.assertionReplayDoesNotRotateSession = true
+  checks.crossOriginLogoutDenied = true
+
+  phase = 'rotation'
+  // Removing the local cookie leaves its server-side session active until fresh WebAuthn succeeds.
+  await context.clearCookies({ name: adminCookieName })
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 200)
+  await admin.reload()
+  await logIn(admin)
+  const renewed = await snapshot(context)
+  const newCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assert(newCookie.value !== oldCookie.value, 'Fresh administrator authentication must issue a different session credential.')
+  assert.equal(renewed.principal.handle, initial.principal.handle)
+  assert(renewed.principal.generation >= initial.principal.generation)
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 401)
+  assertNoCredential(renewed.body, newCookie.value)
+  await admin.screenshot({ path: join(evidence, 'administrator-session.png') })
+  checks.freshPasskeyRotatesPriorAdminSession = true
+
+  let finalCookie = newCookie
+  if (revokeExecutable) {
+    phase = 'offline-revocation'
+    await context.clearCookies({ name: adminCookieName })
+    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 200)
+    await admin.reload()
+    await revokeDuringLogin(admin, revokeExecutable)
+    assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 401)
+
+    await logIn(admin)
+    const fresh = await snapshot(context)
+    finalCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+    assert.equal(fresh.principal.handle, renewed.principal.handle)
+    assert(fresh.principal.generation > renewed.principal.generation, 'A new challenge must see the advanced generation.')
+    assert(finalCookie.value !== newCookie.value, 'A new challenge must establish a different session credential.')
+    checks.offlineRevocationInvalidatesPendingChallenge = true
+  }
+
+  phase = 'logout'
+  // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
+  await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
+  await assertEmpty(await clickAndWait(admin, adminOrigin, adminLogout, 'Log out of administrator session'))
+  await admin.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
+  const stillSignedIn = await context.request.get(siteOrigin.origin + siteSession)
+  assert.equal(stillSignedIn.status(), 200)
+  assert((await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,
+    'Administrator logout must preserve the existing site cookie.')
+  assert((await readCookie(context, adminOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,
+    'Administrator logout must also leave the site cookie name alone on its own host.')
+  await assertEmpty(await context.request.post(siteOrigin.origin + siteSignOut))
+  await admin.screenshot({ path: join(evidence, 'administrator-logged-out.png') })
+  checks.adminLogoutPreservesSiteSession = true
+  assert.deepEqual(faults, [])
+  phase = 'passed'
+} catch (error) {
+  failure = error
+} finally {
+  const chromiumVersion = browser.version()
+  await browser.close()
+  await writeFile(join(evidence, 'admin-identity-result.json'), JSON.stringify({
+    adminOrigin: adminOrigin.origin, siteOrigin: siteOrigin.origin, startedAt, endedAt: new Date().toISOString(),
+    chromium: chromiumVersion, phase, checks, responses, faults, exitCode: failure ? 1 : 0,
+  }, null, 2))
+}
+if (failure) throw failure
+
+async function logIn(page) {
+  const beginning = waitPost(page, adminOrigin, passkeyBegin)
+  const completed = await clickAndWait(page, adminOrigin, passkeyComplete, 'Log in as administrator')
+  assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
+  await assertEmpty(completed)
+  await page.getByRole('heading', { name: 'Administrator session', exact: true }).waitFor()
+  return completed
+}
+
+async function revokeDuringLogin(page, executable) {
+  const completedUrl = adminOrigin.origin + passkeyComplete
+  const beginning = waitPost(page, adminOrigin, passkeyBegin)
+  const offlineRevocation = Promise.withResolvers()
+  await page.route(completedUrl, async route => {
+    try {
+      assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
+      await promisify(execFile)(executable, [], { timeout: 8_000 })
+      await route.continue()
+      offlineRevocation.resolve()
+    } catch {
+      await route.abort().catch(() => {})
+      offlineRevocation.reject(new Error('The isolated offline revocation fixture did not complete.'))
+    }
+  }, { times: 1 })
+  const [response] = await Promise.all([
+    clickAndWait(page, adminOrigin, passkeyComplete, 'Log in as administrator'),
+    offlineRevocation.promise,
+  ])
+  assert.equal(response.status(), 401, 'An assertion begun before the offline revocation must not establish a session.')
+  await page.getByRole('alert').filter({ hasText: 'Could not log in with this administrator Passkey. Try again.' }).waitFor()
+}
+
+function waitPost(page, origin, path) {
+  return page.waitForResponse(response => response.url() === origin.origin + path && response.request().method() === 'POST',
+    { timeout: 12_000 })
+}
+
+async function clickAndWait(page, origin, path, label) {
+  const [response] = await Promise.all([
+    waitPost(page, origin, path),
+    page.getByRole('button', { name: label, exact: true }).click(),
+  ])
+  return response
+}
+
+async function frameType(response) {
+  assert.equal(response.status(), 200)
+  return decodeFrame(await response.body()).type
+}
+
+async function assertEmpty(response) {
+  assert.equal(response.status(), 200)
+  decodeSuccess(decodeFrame(await response.body(), FrameType.EmptySuccess).payload)
+}
+
+async function rejectReplay(context, original) {
+  const payload = original.request().postDataBuffer()
+  assert(payload?.length > 0)
+  const headers = { 'Content-Type': 'application/octet-stream' }
+  const ticket = await original.request().headerValue(WireHeaders.AdminBootstrapToken)
+  if (ticket !== null) headers[WireHeaders.AdminBootstrapToken] = ticket
+  const browserCookies = await original.request().headerValue('Cookie')
+  if (browserCookies) headers.Cookie = browserCookies
+  const replay = await context.request.post(original.url(), { headers, data: payload, maxRedirects: 0 })
+  assert(replay.status() >= 400 && replay.status() < 500, 'A completed browser ceremony must be one-use.')
+}
+
+async function credentialProbe(url, name, value, expectedStatus) {
+  const probe = await request.newContext()
+  try {
+    const response = await probe.get(url, { headers: { Cookie: name + '=' + value }, maxRedirects: 0 })
+    assert.equal(response.status(), expectedStatus, 'The explicitly selected credential must have its own scoped authority.')
+  } finally { await probe.dispose() }
+}
+
+async function readCookie(context, url, name) {
+  const cookie = (await context.cookies(url)).find(item => item.name === name)
+  assert(cookie, 'Expected authenticated browser credential is missing.')
+  return cookie
+}
+
+async function snapshot(context) {
+  const response = await context.request.get(adminOrigin.origin + adminSession)
+  assert.equal(response.status(), 200)
+  assert(response.headers()['cache-control']?.includes('no-store'))
+  const body = await response.body()
+  const principal = decodeAdminSessionSnapshot(decodeFrame(body, FrameType.AdminSessionSnapshot).payload)
+  assert(principal.handle.length > 0 && principal.generation > 0n && principal.expiresAt > BigInt(Date.now()),
+    'A real administrator session must have an active principal, generation, and expiration.')
+  return { principal, body }
+}
+
+function assertNoCredential(frame, token) {
+  const value = Buffer.from(token, 'hex')
+  const digest = createHash('sha256').update(value).digest()
+  assert(value.length === 32 && !frame.includes(value) && !frame.includes(token) && !frame.includes(digest) &&
+    !frame.includes(digest.toString('hex')), 'The session frame must omit all raw credentials and their stored digests.')
+  value.fill(0)
+}

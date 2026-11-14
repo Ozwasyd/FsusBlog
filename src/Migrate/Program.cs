@@ -34,6 +34,15 @@ internal static partial class Migration
                   verify                 Check the current marker, shape and publication coordinates
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
+                  admin-identity schema Add the independent administrator schema with the server stopped
+                  admin-identity bootstrap HANDLE admin.manage
+                                        Create an administrator and issue a one-use Passkey invitation
+                  admin-identity rotate-passkey HANDLE
+                                        Revoke existing administrator access and issue a replacement invitation
+                  admin-identity revoke-all HANDLE
+                                        End administrator sessions and cancel pending invitations
+                  admin-identity disable HANDLE
+                                        Disable an administrator and remove authentication credentials
                   operator NAME         Create an author and issue an expiring one-use login ticket
                   operator NAME --reader
                                         Create a reader and issue an expiring one-use login ticket
@@ -119,6 +128,9 @@ internal static partial class Migration
                     break;
                 case ["revision-history"]:
                     await InitializeRevisionHistoryAsync(connection, token);
+                    break;
+                case ["admin-identity", .. var adminArguments]:
+                    await AdminIdentityAsync(connection, adminArguments, token);
                     break;
                 case ["operator", var name]:
                     await IssueAsync(connection, name, create: true, author: true, token);

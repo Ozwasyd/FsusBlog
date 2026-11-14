@@ -80,6 +80,7 @@ internal static partial class CurrentSchema
         }
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken);
+        await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
         await using (var row = await marker.ExecuteReaderAsync(cancellationToken))
@@ -94,15 +95,18 @@ internal static partial class CurrentSchema
     }
 
     internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true)
+        CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
+        bool requireAdminIdentity = true)
     {
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
+            .Concat(requireAdminIdentity ? AdminIdentityColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(CommentConstraints).Concat(MediaConstraints)
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
+            .Concat(requireAdminIdentity ? AdminIdentityConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """
             WITH owned AS (

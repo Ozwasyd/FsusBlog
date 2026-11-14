@@ -14,6 +14,7 @@ const string Binary = "application/octet-stream";
 const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
+var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
@@ -64,6 +65,7 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
 });
 
@@ -114,6 +116,11 @@ app.Use(async (ctx, next) =>
             NoStore(ctx);
             throw new PublicUnavailableException();
         }
+        if (!FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.IsAllowed(ctx, adminIdentity))
+        {
+            NoStore(ctx);
+            throw new BusinessException(Rejection.NotFound, "This route is unavailable on the current origin.");
+        }
         if (ctx.Request.Path.StartsWithSegments("/api"))
         {
             ctx.Response.Headers[WireHeaders.TraceId] = ctx.TraceIdentifier;
@@ -159,6 +166,7 @@ foreach (var asset in new[] { "assets", "dist" })
 }
 app.UseRateLimiter();
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)

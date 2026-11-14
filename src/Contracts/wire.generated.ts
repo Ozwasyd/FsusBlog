@@ -36,6 +36,7 @@ export const FrameType = {
   OperatorSignIn: 32768,
   OperatorSession: 32769,
   SiteSessionList: 32796,
+  AdminSessionSnapshot: 32830,
   Draft: 32770,
   ArticleCommand: 32771,
   RevisionHistory: 32800,
@@ -318,6 +319,12 @@ export const WireRoutes = {
   SiteSessions: "/api/v2/identity/sessions.aeds",
   SiteSessionRevoke: "/api/v2/identity/sessions/{id}/revoke.aeds",
   SiteSessionsRevokeOthers: "/api/v2/identity/sessions/revoke-others.aeds",
+  AdminBootstrapBegin: "/api/v2/admin/identity/bootstrap/begin.aeds",
+  AdminBootstrapComplete: "/api/v2/admin/identity/bootstrap/complete.aeds",
+  AdminPasskeyBegin: "/api/v2/admin/identity/passkey/begin.aeds",
+  AdminPasskeyComplete: "/api/v2/admin/identity/passkey/complete.aeds",
+  AdminSession: "/api/v2/admin/identity/session.aeds",
+  AdminSignOut: "/api/v2/admin/identity/sign-out.aeds",
   PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
   PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
   PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
@@ -365,9 +372,35 @@ export const WireHeaders = {
   InboxReplayCursor: "X-Fsus-Inbox-Replay-Cursor",
   MfaProof: "X-Fsus-Mfa-Proof",
   CurrentSession: "X-Fsus-Current-Session",
+  AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface AdminSessionSnapshot {
+  handle: string;
+  generation: bigint;
+  expiresAt: bigint;
+}
+
+export function encodeAdminSessionSnapshot(value: AdminSessionSnapshot): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.handle, WireLimits.NameBytes);
+  writer.i64(value.generation);
+  writer.i64(value.expiresAt);
+  return writer.finish();
+}
+
+export function decodeAdminSessionSnapshot(payload: Uint8Array): AdminSessionSnapshot {
+  const reader = new PodReader(payload);
+  const value: AdminSessionSnapshot = {
+    handle: reader.text(WireLimits.NameBytes),
+    generation: reader.i64(),
+    expiresAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface DraftRecoveryScope {
   siteId: string;

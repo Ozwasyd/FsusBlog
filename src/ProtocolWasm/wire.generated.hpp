@@ -245,6 +245,7 @@ enum class FrameType : uint16_t {
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     SiteSessionList = 32796,
+    AdminSessionSnapshot = 32830,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -317,6 +318,7 @@ constexpr bool known(FrameType type) {
         case FrameType::OperatorSignIn:
         case FrameType::OperatorSession:
         case FrameType::SiteSessionList:
+        case FrameType::AdminSessionSnapshot:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
         case FrameType::RevisionHistory:

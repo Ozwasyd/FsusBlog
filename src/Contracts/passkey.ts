@@ -22,11 +22,15 @@ export async function passkeyAvailable(signal?: AbortSignal): Promise<boolean> {
 export type PasskeyLogin = { status: 'signed-in'; session: Session } | { status: 'mfa'; token: string };
 
 export async function loginWithPasskey(signal?: AbortSignal): Promise<PasskeyLogin> {
-  const { token, options } = await request(WireRoutes.PasskeyLoginBegin, FrameType.PasskeyLoginBegin,
-    payload => decodeLoginBegin(payload, false), signal, 'POST');
-  const assertion = await getAssertion(token, options, signal);
+  const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyLoginBegin, signal);
   const pending = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
   return pending ? { status: 'mfa', token: pending } : { status: 'signed-in', session: await api.session(signal) };
+}
+
+export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal) {
+  const { token, options } = await request(beginPath, FrameType.PasskeyLoginBegin,
+    payload => decodeLoginBegin(payload, false), signal, 'POST');
+  return getAssertion(token, options, signal);
 }
 
 export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
@@ -52,8 +56,15 @@ async function getAssertion(token: string, options: PublicKeyCredentialRequestOp
 }
 
 export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
-  const { token, options } = await request(WireRoutes.PasskeyProvisionBegin, FrameType.PasskeyRegisterBegin,
-    decodeProvisionBegin, signal, 'POST', encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket })));
+  const attestation = await requestPasskeyAttestation(WireRoutes.PasskeyProvisionBegin, signal,
+    encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket })));
+  await request(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
+}
+
+export async function requestPasskeyAttestation(beginPath: string, signal?: AbortSignal,
+  body?: Uint8Array<ArrayBuffer>, headers?: HeadersInit) {
+  const { token, options } = await request(beginPath, FrameType.PasskeyRegisterBegin,
+    decodeProvisionBegin, signal, 'POST', body, headers);
   const result = await navigator.credentials.create({ publicKey: options, ...(signal ? { signal } : {}) });
   if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAttestationResponse))
     throw new ProtocolError('No Passkey attestation was returned.');
@@ -61,8 +72,7 @@ export async function provisionPasskey(ticket: string, signal?: AbortSignal): Pr
   const hints = [...new Set(response.getTransports().map(hint => transports.indexOf(hint)).filter(hint => hint >= 0))];
   const payload = complete(WireLayouts.PasskeyRegisterCompleteSize, token, [encoder.encode(result.id), new Uint8Array(result.rawId),
     new Uint8Array(response.clientDataJSON), new Uint8Array(response.attestationObject), new Uint8Array(0), new Uint8Array(0)], hints, false);
-  await request(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST',
-    encodeFrame(FrameType.PasskeyRegisterCompleteRequest, payload));
+  return encodeFrame(FrameType.PasskeyRegisterCompleteRequest, payload);
 }
 
 function decodeLoginBegin(payload: Uint8Array, restricted: boolean): { token: string; options: PublicKeyCredentialRequestOptions } {

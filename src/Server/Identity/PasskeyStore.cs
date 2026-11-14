@@ -105,28 +105,11 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         RegisteredPublicKeyCredential credential;
         try
         {
-            credential = await _verifier.MakeNewCredentialAsync(new MakeNewCredentialParams
+            credential = await PasskeyVerification.Attest(_verifier, request, options, async (candidate, token) =>
             {
-                AttestationResponse = new AuthenticatorAttestationRawResponse
-                {
-                    Id = request.CredentialId,
-                    RawId = request.RawId,
-                    Type = PublicKeyCredentialType.PublicKey,
-                    Response = new AuthenticatorAttestationRawResponse.AttestationResponse
-                    {
-                        ClientDataJson = request.ClientData,
-                        AttestationObject = request.Attestation,
-                        Transports = request.Transports.Select(value => (AuthenticatorTransport)value).ToArray()
-                    },
-                    ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
-                },
-                OriginalOptions = options,
-                IsCredentialIdUniqueToUserCallback = async (candidate, token) =>
-                {
-                    await using var unique = Store.Sql(db, tx,
-                        "select not exists(select 1 from public.passkey_credential where credential_id=$1)", candidate.CredentialId);
-                    return (bool)(await unique.ExecuteScalarAsync(token))!;
-                }
+                await using var unique = Store.Sql(db, tx,
+                    "select not exists(select 1 from public.passkey_credential where credential_id=$1)", candidate.CredentialId);
+                return (bool)(await unique.ExecuteScalarAsync(token))!;
             }, ct);
         }
         catch (Fido2VerificationException) { throw Denied(); }
@@ -260,29 +243,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         VerifyAssertionResult verification;
         try
         {
-            verification = await _verifier.MakeAssertionAsync(new MakeAssertionParams
-            {
-                AssertionResponse = new AuthenticatorAssertionRawResponse
-                {
-                    Id = request.CredentialId,
-                    RawId = request.RawId,
-                    Type = PublicKeyCredentialType.PublicKey,
-                    Response = new AuthenticatorAssertionRawResponse.AssertionResponse
-                    {
-                        ClientDataJson = request.ClientData,
-                        AuthenticatorData = request.AuthenticatorData,
-                        Signature = request.Signature,
-                        UserHandle = request.UserHandle
-                    },
-                    ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
-                },
-                OriginalOptions = options,
-                StoredPublicKey = key,
-                StoredSignatureCounter = counter,
-                IsUserHandleOwnerOfCredentialIdCallback = (candidate, _) => Task.FromResult(
-                    CryptographicOperations.FixedTimeEquals(candidate.UserHandle, handle) &&
-                    CryptographicOperations.FixedTimeEquals(candidate.CredentialId, request.RawId))
-            }, ct);
+            verification = await PasskeyVerification.Assert(_verifier, request, options, handle, key, counter, ct);
         }
         catch (Fido2VerificationException) { throw Denied(); }
 
