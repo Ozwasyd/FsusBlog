@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve external FsusUI component and CSS terminology in current consumer-boundary documents; this isolated renderer does not rename external interfaces or extend the registered exception scope."
+        }
+    ]
+}
