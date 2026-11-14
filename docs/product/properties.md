@@ -18,7 +18,7 @@
 | POST `/api/v2/authoring/properties/text.aeds` | PropertyTextCommand (32781) → PropertyCommandReceipt (32782)，文本值 |
 | GET `/api/v2/authoring/properties/filter/catalog.aeds` | PropertyFilterCatalog (32880)，按机器键分页 |
 | POST `/api/v2/authoring/properties/filter/definition.aeds` | PropertyFilterabilityCommand (32881) → PropertyCommandReceipt (32782) |
-| POST `/api/v2/authoring/properties/filter/articles.aeds` | PropertyArticleQuery (32882) → PropertyArticlePage (32883) |
+| POST `/api/v2/authoring/properties/filter/articles.aeds` | PropertyArticleQueryGroup (32912) 或单条件 PropertyArticleQuery (32882) → PropertyArticlePage (32883) |
 
 每页最多 25 个字段。数值、布尔值和时间的载荷形态固定。每条选择定义或选择集合最多 32 个选项标识。三套独立字节向量对照 C# 和 TypeScript，覆盖八种属性值、空值与未设置、稳定身份、UTF-8、十进制和 64 位版本坐标。
 
@@ -26,4 +26,6 @@
 
 作者从文章管理的「按文章属性筛选」入口选择字段，显式启用精确筛选，再用属性值、未设置或显式空值检索自己的非删除文章。启用和停用校验 schema 和定义版本，保留现有属性值。停用、弃用、越权、引用不可用和过期条件会返回错误，不扩大查询范围。存储值直接参与相等运算，精确十进制、UTC 日期、空字符串、空多选集合、False 和 0 独立。引用只匹配当前作者可访问的、仍公开的目标。结果按文章 ID 倒序分页，续页游标绑定同一会话、版本和规范化条件。每页反映该次数据库读取，可见性和属性值变化时重新核对。
 
-冻结 v1 定义权威含八种类型和操作符描述，已注册的批处理属性查询权威仍为不可用。v2 本节交付单字段精确相等及区分未设置和显式空值，属性范围、全文、分面、排序、组合筛选、保存视图、专用值索引及旧库导入仍待交付。 [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322) · [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324)
+同一查询入口支持最多四条条件，文章须同时满足每条条件。数值使用精确十进制，日期使用毫秒精度 UTC。两者都支持小于、小于或等于、大于和大于或等于。可给同一字段分别设置上下限，各端点独立选择是否包含。缺失和空值不会落入有序范围，同一字段上的重复操作符会拒绝。续页游标绑定当前会话和规范化后的完整条件组，交换条件次序不影响续页。PostgreSQL 通过作者、字段及文章顺序缩小候选，再执行类型化数值和时间比较；新建数据库扩展该键索引，已有数据库保留字节协议和查询行为。
+
+冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。全文、分面、按属性排序、同字段 OR、专用值索引、保存视图、独立 1,000 字段 / 10,000 文章规模验收及旧库导入仍待交付。保存视图的 AST/CAS 和执行器按 #1861 后续依赖链跟踪。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)

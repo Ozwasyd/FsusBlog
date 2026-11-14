@@ -12,7 +12,10 @@ export type FilterField = Readonly<{
   enabled: boolean; deprecated: boolean; options: readonly PropertyOption[]
 }>
 export type FilterCatalog = Readonly<{ revision: bigint; nextKey: string; fields: readonly FilterField[] }>
-export type PropertyQuery = Readonly<{ schema: bigint; field: FilterField; value: PropertyValue; cursor: string }>
+export const propertyComparisons = ['equal', 'less-than', 'at-most', 'greater-than', 'at-least'] as const
+export type PropertyComparison = typeof propertyComparisons[number]
+export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
+export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string }>
 export type PropertyMatches = Readonly<{
   nextCursor: string; rows: readonly Readonly<{ id: number; revision: bigint; title: string }>[]
 }>
@@ -53,11 +56,17 @@ export function setPropertyFilterable(input: PropertyFilterabilityCommand, signa
 }
 
 export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal): Promise<PropertyMatches> {
+  if (!query.conditions.length || query.conditions.length > WireLimits.PropertyQueryConditionCount)
+    throw new ProtocolError('Invalid property condition count')
   const output = new PodWriter()
   output.i64(query.schema)
-  output.uuid(query.field.id)
-  output.i64(query.field.revision)
-  writeValue(output, query.value)
+  output.i32(query.conditions.length)
+  for (const condition of query.conditions) {
+    output.uuid(condition.field.id)
+    output.i64(condition.field.revision)
+    output.i32(propertyComparisons.indexOf(condition.comparison))
+    writeValue(output, condition.value)
+  }
   output.text(query.cursor, WireLimits.PropertyQueryCursorChars)
   return request(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, bytes => {
     const input = new PodReader(bytes)
@@ -74,5 +83,5 @@ export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal
     }
     input.finish()
     return { nextCursor, rows }
-  }, signal, 'POST', encodeFrame(FrameType.PropertyArticleQuery, output.finish()))
+  }, signal, 'POST', encodeFrame(FrameType.PropertyArticleQueryGroup, output.finish()))
 }

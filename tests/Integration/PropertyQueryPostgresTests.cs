@@ -91,14 +91,51 @@ public sealed class PropertyQueryPostgresTests
         await Filter(1, definitions[1].Item2, HttpStatusCode.BadRequest,
             (firstPage.NextCursor[0] == 'A' ? "B" : "A") + firstPage.NextCursor[1..]);
 
+        var score = ((PropertyFieldValue.Number)definitions[1].Item2).Value;
+        var time = ((PropertyFieldValue.Date)definitions[3].Item2).Value;
+        var lower = new PropertyCondition(fields[1], 2, PropertyComparison.AtLeast, new PropertyFieldValue.Number(score));
+        var upper = new PropertyCondition(fields[1], 2, PropertyComparison.LessThan, new PropertyFieldValue.Number(score + 0.0000001m));
+        var date = new PropertyCondition(fields[3], 2, PropertyComparison.AtMost, new PropertyFieldValue.Date(time.ToOffset(TimeSpan.FromHours(8))));
+        Assert.Equal(primary.Id, Assert.Single((await Group([lower, upper, date])).Rows).Id);
+        Assert.Empty((await Group([lower, upper, date with { Comparison = PropertyComparison.LessThan }])).Rows);
+        Assert.Empty((await Group([lower with { Comparison = PropertyComparison.GreaterThan }, upper])).Rows);
+        Assert.Equal(empty.Id, Assert.Single((await Group([lower with { Comparison = PropertyComparison.LessThan }])).Rows).Id);
+        Assert.Equal(primary.Id, Assert.Single((await Group([date with { Comparison = PropertyComparison.GreaterThan,
+            Value = new PropertyFieldValue.Date(time.AddMilliseconds(-1)) }])).Rows).Id);
+        Assert.Equal(primary.Id, Assert.Single((await Group([lower, new(fields[2], 2, PropertyComparison.Equal,
+            new PropertyFieldValue.Boolean(false))])).Rows).Id);
+        var groupPage = await Group([lower, upper]);
+        Assert.Equal(firstPage.Rows.Select(row => row.Id), groupPage.Rows.Select(row => row.Id));
+        Assert.NotEmpty(groupPage.NextCursor);
+        Assert.Equal(primary.Id, Assert.Single((await Group([upper, lower], groupPage.NextCursor)).Rows).Id);
+        await Group([lower], groupPage.NextCursor, HttpStatusCode.BadRequest);
+        await Group([lower, upper with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
+        await Group([lower with { DefinitionId = fields[2] }], status: HttpStatusCode.BadRequest);
+        var ownerId = await store.WithSession(owner, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
+        var anotherOwnerSession = await Ticket(ownerId);
+        var groupContinuation = Wire.EncodePropertyArticleQueryGroup(new(schema, [lower, upper], groupPage.NextCursor));
+        await Send(WireRoutes.PropertyArticleQuery, groupContinuation, anotherOwnerSession, HttpStatusCode.BadRequest);
+        await Send(WireRoutes.PropertyArticleQuery, groupContinuation, null, HttpStatusCode.Unauthorized);
+        Assert.Throws<ProtocolException>(() => Wire.EncodePropertyArticleQueryGroup(new(schema, [lower, lower], "")));
+        Assert.Throws<ProtocolException>(() => Wire.EncodePropertyArticleQueryGroup(new(schema, [], "")));
+
         await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Retract,
             new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct);
         await Filter(6, definitions[6].Item2, HttpStatusCode.NotFound);
+        await Group([lower, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
         await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[1], Guid.NewGuid(), schema, 2, false)), owner);
         await Filter(1, definitions[1].Item2, HttpStatusCode.Conflict, firstPage.NextCursor);
         schema++;
         await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQuery(new(schema, fields[1], 3,
             new PropertyFieldValue.Missing(), "")), owner, HttpStatusCode.NotFound);
+        await Group([date, lower with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
+
+        async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
+        {
+            var packet = await Send(WireRoutes.PropertyArticleQuery,
+                Wire.EncodePropertyArticleQueryGroup(new(schema, conditions, cursor)), owner, status);
+            return status == HttpStatusCode.OK ? Wire.DecodePropertyArticlePage(packet) : new("", []);
+        }
 
         async Task<PropertyArticlePage> Filter(int index, PropertyFieldValue value, HttpStatusCode status = HttpStatusCode.OK, string cursor = "")
         {
@@ -113,10 +150,15 @@ public sealed class PropertyQueryPostgresTests
         async Task<string> SignIn(string name)
         {
             var id = Guid.NewGuid();
-            var key = RandomNumberGenerator.GetBytes(32);
             await using var conn = await db.DataSource.OpenConnectionAsync(ct);
             await using (var create = Store.Sql(conn, null, "insert into public.blog_user values($1,$2,true,true,1)", id, name))
                 await create.ExecuteNonQueryAsync(ct);
+            return await Ticket(id);
+        }
+        async Task<string> Ticket(Guid id)
+        {
+            var key = RandomNumberGenerator.GetBytes(32);
+            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
             await using var ticket = Store.Sql(conn, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(key), id);
             await ticket.ExecuteNonQueryAsync(ct);
             return (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;

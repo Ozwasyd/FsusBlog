@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core.Authoring;
 using Microsoft.AspNetCore.WebUtilities;
@@ -35,46 +36,31 @@ internal sealed partial class PropertyStore
             new PropertyChange.SetFilterable(input.DefinitionId, input.Enabled)), ct);
     }
 
-    internal async Task<PropertyArticlePage> Filter(PropertyArticleQuery input, string session, CancellationToken ct)
+    internal async Task<PropertyArticlePage> Filter(PropertyArticleQueryGroup input, string session, CancellationToken ct)
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
         if (schema.Revision != input.SchemaRevision) throw Conflict();
-        var definition = schema.Find(input.DefinitionId) ?? throw Missing();
-        if (definition.Revision != input.DefinitionRevision) throw Conflict();
-        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable) throw Missing();
-        var normalized = DomainValue(input.Value) is { } value ? PropertyValues.NormalizeFilter(definition, value) : null;
-        var referenceIds = ReferenceIds(normalized);
+        var conditions = input.Conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+            .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
+        var referenceIds = conditions.SelectMany(item => ReferenceIds(item.Value)).Distinct().ToArray();
         if (referenceIds.Length != 0 && !(await ReadReferences(referenceIds, ct)).SetEquals(referenceIds)) throw Missing();
 
-        var canonical = normalized is null ? "" : Json(normalized).Value!.ToString()!;
-        var binding = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
-            FormattableString.Invariant($"{session}:{input.DefinitionId:D}:{input.SchemaRevision}:{input.DefinitionRevision}:{canonical}")));
+        var binding = CursorBinding(session, input.SchemaRevision, conditions);
         var before = 0;
         if (input.Cursor.Length != 0)
         {
             var bytes = WebEncoders.Base64UrlDecode(input.Cursor);
             before = BinaryPrimitives.ReadInt32LittleEndian(bytes);
             if (before <= 0 || !CryptographicOperations.FixedTimeEquals(
-                    System.Text.Encoding.ASCII.GetBytes(Cursor(binding, before)),
-                    System.Text.Encoding.ASCII.GetBytes(input.Cursor))) throw Invalid();
+                    Encoding.ASCII.GetBytes(Cursor(binding, before)), Encoding.ASCII.GetBytes(input.Cursor))) throw Invalid();
         }
-        var json = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Jsonb, Value = normalized is null ? DBNull.Value : canonical };
-        await using var query = Store.Sql(db, tx, """
-            select a.id,a.revision,a.title from public.article a
-            left join public.property_value v on v.article_id=a.id and v.owner_id=$1 and v.definition_id=$2
-            where a.owner_id=$1 and not a.deleted and ($3=0 or a.id<$3)
-                and (case when $4::jsonb is null then v.article_id is null else v.data=$4 end)
-                and not exists (
-                    select from unnest(v.references_ids) target(id)
-                    where not exists (select from public.article r join public.article_publication p
-                        on p.article_id=r.id and p.revision=r.published_revision
-                        join public.article_publication_rights w
-                        on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
-                        where r.id=target.id and r.owner_id=$1 and not r.deleted)
-                )
-            order by a.id desc limit $5
-            """, actor.Id, definition.Id, before, json, WireLimits.PropertyPageSize + 1);
+        var sql = new StringBuilder("select a.id,a.revision,a.title from public.article a where a.owner_id=$1 and not a.deleted");
+        var parameters = new List<object> { actor.Id, before, WireLimits.PropertyPageSize + 1 };
+        sql.Append(before != 0 ? " and a.id<$2" : " and a.id>$2");
+        foreach (var condition in conditions) AppendCondition(sql, parameters, condition);
+        sql.Append(" order by a.id desc limit $3");
+        await using var query = Store.Sql(db, tx, sql.ToString(), parameters.ToArray());
         var matches = new List<PropertyArticleRow>(WireLimits.PropertyPageSize + 1);
         await using var reader = await query.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -82,6 +68,86 @@ internal sealed partial class PropertyStore
         var more = matches.Count > WireLimits.PropertyPageSize;
         if (more) matches.RemoveAt(matches.Count - 1);
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);
+    }
+
+    private sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyValue? Value);
+
+    private static byte[] CursorBinding(string session, long revision, Condition[] conditions)
+    {
+        using var data = new MemoryStream();
+        using var writer = new BinaryWriter(data, Encoding.UTF8, leaveOpen: true);
+        writer.Write(session);
+        writer.Write(revision);
+        writer.Write(conditions.Length);
+        foreach (var condition in conditions)
+        {
+            writer.Write(condition.DefinitionId.ToByteArray());
+            writer.Write(condition.DefinitionRevision);
+            writer.Write((int)condition.Comparison);
+            writer.Write(condition.Value is null ? "" : (string)Json(condition.Value).Value!);
+        }
+        writer.Flush();
+        return SHA256.HashData(data.GetBuffer().AsSpan(0, (int)data.Length));
+    }
+
+    private static Condition Normalize(PropertyDefinition definition, PropertyCondition condition)
+    {
+        if (definition.Revision != condition.DefinitionRevision) throw Conflict();
+        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable) throw Missing();
+        var value = DomainValue(condition.Value);
+        var normalized = (condition.Comparison, definition.Settings.Kind, value) switch
+        {
+            (PropertyComparison.Equal, _, null) => null,
+            (PropertyComparison.Equal, _, { } present) => PropertyValues.NormalizeFilter(definition, present),
+            (_, PropertyKind.Number, PropertyValue.Number number) => number,
+            (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
+            _ => throw Invalid(),
+        };
+        return new(condition.DefinitionId, condition.DefinitionRevision, condition.Comparison, normalized);
+    }
+
+    private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
+    {
+        parameters.Add(condition.DefinitionId);
+        sql.Append(condition.Value is null ? " and not exists (" : " and exists (");
+        sql.Append("select from public.property_value v where v.article_id=a.id and v.owner_id=$1 and v.definition_id=$")
+            .Append(parameters.Count);
+        if (condition.Value is not null)
+        {
+            if (condition.Comparison == PropertyComparison.Equal)
+            {
+                parameters.Add(Json(condition.Value));
+                sql.Append(" and v.data=$").Append(parameters.Count);
+            }
+            else
+            {
+                var (expression, operand) = condition.Value switch
+                {
+                    PropertyValue.Number number => ("case when v.data->>'$type'='number' then (v.data->>'Value')::numeric end", (object)number.Value),
+                    PropertyValue.Date date => ("case when v.data->>'$type'='date' then (v.data->>'Value')::timestamptz end", (object)date.Value),
+                    _ => throw Invalid(),
+                };
+                parameters.Add(operand);
+                var comparison = condition.Comparison switch
+                {
+                    PropertyComparison.LessThan => "<",
+                    PropertyComparison.AtMost => "<=",
+                    PropertyComparison.GreaterThan => ">",
+                    PropertyComparison.AtLeast => ">=",
+                    _ => throw Invalid(),
+                };
+                sql.Append(" and (").Append(expression).Append(')').Append(comparison).Append('$').Append(parameters.Count);
+            }
+            if (condition.Value is PropertyValue.ArticleReference) sql.Append("""
+                 and not exists (select from unnest(v.references_ids) target(id)
+                    where not exists (select from public.article r join public.article_publication p
+                        on p.article_id=r.id and p.revision=r.published_revision
+                        join public.article_publication_rights w
+                        on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
+                        where r.id=target.id and r.owner_id=$1 and not r.deleted))
+                """);
+        }
+        sql.Append(')');
     }
 
     private static string Cursor(byte[] binding, int before)

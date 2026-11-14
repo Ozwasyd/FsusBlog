@@ -37,6 +37,21 @@ internal static class PropertyValueVectors
             throw new InvalidOperationException("Typed property command changed the exact decimal or coordinates.");
         Reject(() => Wire.EncodePropertyValueInput(value with { Value = new PropertyFieldValue.Unavailable() }));
 
+        var groupBytes = Fixture("property-query-group");
+        var group = new PropertyArticleQueryGroup(10,
+        [
+            new(value.DefinitionId, 2, PropertyComparison.AtLeast, number),
+            new(Guid.Parse("12345678-1234-4000-9000-123456789abc"), 3, PropertyComparison.AtMost,
+                new PropertyFieldValue.Date(new DateTimeOffset(2024, 2, 29, 14, 12, 6, 15, TimeSpan.Zero))),
+        ], "");
+        BytesEqual(groupBytes, Wire.EncodePropertyArticleQueryGroup(group));
+        var decoded = Wire.DecodePropertyArticleQueryGroup(groupBytes);
+        if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || !decoded.Conditions.SequenceEqual(group.Conditions))
+            throw new InvalidOperationException("Property group differs from the independent byte vector.");
+        var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
+        invalidGroup[36] = 5;
+        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
+
         var schemaBytes = Fixture("property-definition-options");
         var schema = new PropertySchemaInput(new(1, Guid.Parse("00000000-0000-4000-8000-000000000004"), requestId,
             10, 0, "multi", "Multiple"), PropertyFieldKind.MultiSelect, [red, blue]);

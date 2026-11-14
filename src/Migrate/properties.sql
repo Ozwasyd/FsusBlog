@@ -48,5 +48,5 @@ CREATE TABLE public.property_value_command (
     PRIMARY KEY (article_id, request_id)
 );
 
-CREATE INDEX property_value_by_definition ON public.property_value(owner_id, definition_id);
+CREATE INDEX property_value_by_definition ON public.property_value(owner_id, definition_id, article_id);
 CREATE INDEX property_value_references ON public.property_value USING gin (references_ids);

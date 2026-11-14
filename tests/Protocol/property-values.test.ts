@@ -7,6 +7,7 @@ import {
   type PropertySchemaCommand, type PropertyValueCommand,
 } from '../../src/Contracts/property-values.ts'
 import { encodePropertyCommandReceipt, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
 function fixture(name: string): Uint8Array {
@@ -85,6 +86,24 @@ test('property commands match independently framed bytes', () => {
     fixture('property-definition-options'))
   assert.deepEqual(encodeFrame(FrameType.PropertyValueCommand, encodePropertyValueCommand(valueCommand)),
     fixture('property-value-exact-decimal'))
+})
+
+test('the AND request preserves independent decimal and UTC comparison bytes', async t => {
+  const base: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
+    enabled: true, deprecated: false, options: [] }
+  const fetch = t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
+    assert.equal(path, WireRoutes.PropertyArticleQuery)
+    assert.equal(init.method, 'POST')
+    assert.deepEqual(init.body, fixture('property-query-group'))
+    return new Response(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)),
+      { headers: { 'content-type': 'application/octet-stream' } })
+  })
+  assert.deepEqual(await queryPropertyArticles({ schema: 10n, cursor: '', conditions: [
+    { field: base, comparison: 'at-least', value: valueCommand.value },
+    { field: { ...base, id: '12345678-1234-4000-9000-123456789abc', revision: 3n, kind: 'date' },
+      comparison: 'at-most', value: { kind: 'date', value: '2024-02-29T14:12:06.015Z' } },
+  ] }), { nextCursor: '', rows: [] })
+  assert.equal(fetch.mock.callCount(), 1)
 })
 
 test('typed writers reject unsupported identity, dates, and exact decimal overflow', () => {

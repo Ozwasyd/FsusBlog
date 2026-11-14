@@ -5,16 +5,26 @@ import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element
 import { ApiError } from '../../../Contracts/client'
 import {
   propertyFilterCatalog, queryPropertyArticles, setPropertyFilterable,
-  type FilterCatalog, type PropertyMatches, type PropertyQuery,
+  type FilterCatalog, type PropertyComparison, type PropertyCondition, type PropertyMatches, type PropertyQuery,
 } from '../../../Contracts/property-query'
 import { normalizePropertyDecimal, type PropertyValue } from '../../../Contracts/property-values'
+import { WireLimits } from '../../../Contracts/wire.generated'
 import { identityEpoch, invalidateSession } from '../session'
 
 const open = ref(false)
 const retry = ref(0)
 const catalog = shallowRef<FilterCatalog>()
 const selection = ref('')
-const mode = ref<'value' | 'missing' | 'null'>('value')
+const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
+const comparisons = {
+  'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
+  'greater-than': '大于', 'at-least': '大于或等于',
+} as const satisfies Record<PropertyComparison, string>
+const dateComparisons = {
+  ...comparisons,
+  'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
+}
+const conditions = shallowRef<readonly PropertyCondition[]>([])
 const text = ref('')
 const choice = ref('')
 const multiple = ref<string[]>([])
@@ -24,6 +34,10 @@ const error = ref('')
 const submitted = shallowRef<PropertyQuery>()
 const result = shallowRef<PropertyMatches>()
 const field = computed(() => catalog.value?.fields.find(item => item.id === selection.value))
+const rangeComparisons = computed(() => {
+  const labels = field.value?.kind === 'date' ? dateComparisons : field.value?.kind === 'number' ? comparisons : undefined
+  return labels ? Object.entries(labels).filter(([comparison]) => comparison !== 'equal') : []
+})
 const pendingChange = shallowRef<Parameters<typeof setPropertyFilterable>[0]>()
 const pendingField = ref('')
 let operation: AbortController | undefined
@@ -35,8 +49,8 @@ function reset() {
   busy.value = false
   error.value = ''
   pendingChange.value = undefined
-  submitted.value = undefined
-  result.value = undefined
+  conditions.value = []
+  clearResults()
 }
 
 watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cleanup) => {
@@ -63,14 +77,14 @@ watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cle
 }, { flush: 'sync' })
 
 watch(selection, () => {
-  mode.value = 'value'
+  mode.value = 'equal'
   text.value = ''
   choice.value = ''
   multiple.value = []
   flag.value = false
-})
+}, { flush: 'sync' })
 
-watch([selection, mode, text, choice, multiple, flag], clearResults, { flush: 'sync' })
+watch([selection, mode, text, choice, multiple, flag, conditions], clearResults, { flush: 'sync' })
 
 function clearResults() {
   submitted.value = undefined
@@ -88,7 +102,7 @@ function report(failure: unknown, fallback: string) {
 }
 
 function operand(): PropertyValue | undefined {
-  if (mode.value !== 'value') return { kind: mode.value }
+  if (mode.value === 'null' || mode.value === 'missing') return { kind: mode.value }
   switch (field.value?.kind) {
     case 'text': return { kind: 'text', value: text.value }
     case 'number': return { kind: 'number', value: normalizePropertyDecimal(text.value.trim()) }
@@ -102,6 +116,38 @@ function operand(): PropertyValue | undefined {
       return { kind: 'article-reference', value: [Number(text.value)] }
     }
   }
+}
+
+function currentCondition(): PropertyCondition {
+  const value = operand(), active = field.value
+  if (!active?.enabled || !value) throw Error('Incomplete property condition')
+  const comparison = mode.value === 'missing' || mode.value === 'null' ? 'equal' : mode.value
+  if (conditions.value.some(item => item.field.id === active.id && item.comparison === comparison))
+    throw Error('Repeated property condition')
+  return { field: active, comparison, value }
+}
+
+function add() {
+  if (conditions.value.length + 1 >= WireLimits.PropertyQueryConditionCount) return
+  try {
+    conditions.value = [...conditions.value, currentCondition()]
+    selection.value = ''
+    error.value = ''
+  } catch {
+    error.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
+  }
+}
+
+function conditionText(condition: PropertyCondition) {
+  const { field, comparison, value } = condition
+  if (value.kind === 'missing') return `${field.label} · 尚未设置`
+  if (value.kind === 'null') return `${field.label} · 显式空值`
+  const names = new Map(field.options.map(option => [option.id, option.label]))
+  const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || '空选项集合'
+    : value.kind === 'single-select' ? names.get(value.value)
+    : value.kind === 'article-reference' ? value.value.join('、') : String(value.value)
+  const labels = field.kind === 'date' ? dateComparisons : comparisons
+  return `${field.label} · ${labels[comparison]} ${description}`
 }
 
 async function later() {
@@ -145,16 +191,16 @@ async function changeFilterability() {
 }
 
 async function search(more = false) {
-  if (busy.value || pendingChange.value || !catalog.value || !field.value?.enabled) return
+  if (busy.value || pendingChange.value || !catalog.value) return
   let filter: PropertyQuery | undefined
   if (more) {
     if (submitted.value && result.value?.nextCursor) filter = { ...submitted.value, cursor: result.value.nextCursor }
   } else {
     try {
-      const value = operand()
-      if (value) filter = { schema: catalog.value.revision, field: field.value, value, cursor: '' }
+      const active = field.value ? [...conditions.value, currentCondition()] : conditions.value
+      if (active.length) filter = { schema: catalog.value.revision, conditions: active, cursor: '' }
     } catch {
-      error.value = '请输入有效的属性值。'
+      error.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
       return
     }
   }
@@ -187,6 +233,13 @@ async function search(more = false) {
     <ElButton v-if="error && !busy && !pendingChange" text @click="retry++">重新加载属性定义</ElButton>
     <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
     <template v-if="catalog?.fields.length">
+      <ul v-if="conditions.length" aria-label="已有筛选条件">
+        <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}`">
+          <span>{{ conditionText(condition) }}</span>
+          <ElButton text :disabled="busy || !!pendingChange" v-bind="{ 'aria-label': `移除第 ${position + 1} 个筛选条件` }"
+            @click="conditions = conditions.filter((_, index) => index !== position)">移除</ElButton>
+        </li>
+      </ul>
       <label for="property-filter-field">属性字段</label>
       <ElSelect id="property-filter-field" v-model="selection" ariaLabel="属性字段" :disabled="busy || !!pendingChange">
         <ElOption v-for="item in catalog.fields" :key="item.id" :value="item.id"
@@ -201,11 +254,12 @@ async function search(more = false) {
         <template v-if="field.enabled">
           <label for="property-filter-operator">匹配方式</label>
           <ElSelect id="property-filter-operator" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
-            <ElOption value="value" label="精确匹配" />
+            <ElOption value="equal" label="精确匹配" />
+            <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
             <ElOption value="missing" label="尚未设置" />
             <ElOption value="null" label="显式空值" />
           </ElSelect>
-          <template v-if="mode === 'value'">
+          <template v-if="mode !== 'missing' && mode !== 'null'">
             <label for="property-filter-value">属性值</label>
             <ElSelect v-if="field.kind === 'boolean'" id="property-filter-value" v-model="flag" ariaLabel="属性值" :disabled="busy">
               <ElOption :value="false" label="False" /><ElOption :value="true" label="True" />
@@ -221,9 +275,12 @@ async function search(more = false) {
             <ElInput v-else id="property-filter-value" v-model="text" :disabled="busy"
               :placeholder="field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? '文章 ID' : undefined" />
           </template>
-          <ElButton type="primary" :disabled="busy || !!pendingChange" @click="search()">筛选属性</ElButton>
+          <ElButton v-if="conditions.length + 1 < WireLimits.PropertyQueryConditionCount" text
+            :disabled="busy || !!pendingChange" @click="add">添加条件</ElButton>
         </template>
       </template>
+      <ElButton v-if="field?.enabled || !field && conditions.length" type="primary"
+        :disabled="busy || !!pendingChange" @click="search()">{{ conditions.length ? '匹配全部条件' : '筛选属性' }}</ElButton>
       <section v-if="result" aria-label="属性筛选结果">
         <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
         <ul v-else>

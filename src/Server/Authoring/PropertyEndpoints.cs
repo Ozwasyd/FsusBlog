@@ -39,16 +39,18 @@ internal static class PropertyEndpoints
                     Aeds.ContentType), ct);
         }).RequireRateLimiting("command");
         MapSession(WireRoutes.PropertyArticleQuery, async (store, frame, session, ct) =>
-            Wire.EncodePropertyArticlePage(await store.Filter(Wire.DecodePropertyArticleQuery(frame), session, ct)));
+            Wire.EncodePropertyArticlePage(await store.Filter(Wire.DecodePropertyArticleQueryGroup(frame), session, ct)),
+            WireLimits.PropertyQueryGroupFrameBytes);
 
         void Map(string path, Func<PropertyStore, byte[], CancellationToken, Task<byte[]>> operation) =>
             MapSession(path, (store, frame, _, ct) => operation(store, frame, ct));
 
-        void MapSession(string path, Func<PropertyStore, byte[], string, CancellationToken, Task<byte[]>> operation)
+        void MapSession(string path, Func<PropertyStore, byte[], string, CancellationToken, Task<byte[]>> operation,
+            int frameBytes = WireLimits.PropertyMaxCommandBytes)
         {
             app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
             {
-                var frame = await readFrame(ctx, WireLimits.PropertyMaxCommandBytes, ct);
+                var frame = await readFrame(ctx, frameBytes, ct);
                 var session = ctx.Request.Cookies[cookie];
                 try
                 {

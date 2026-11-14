@@ -97,6 +97,7 @@ public enum FrameType : ushort
     PropertyFilterabilityCommand = 32881,
     PropertyArticleQuery = 32882,
     PropertyArticlePage = 32883,
+    PropertyArticleQueryGroup = 32912,
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
@@ -205,6 +206,8 @@ public static class WireLimits
     public const int PropertyMaxCommandBytes = 65792;
     public const int PropertyPageSize = 25;
     public const int PropertyQueryCursorChars = 48;
+    public const int PropertyQueryConditionCount = 4;
+    public const int PropertyQueryGroupFrameBytes = 262368;
     public const int PropertyOptionCount = 32;
     public const int PropertyDecimalBytes = 64;
     public const int PropertyDateBytes = 40;

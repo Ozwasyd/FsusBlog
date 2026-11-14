@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function exercisePropertyFilter(publisher, origin, article, exactScore, observations) {
@@ -6,10 +7,11 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
   try {
     await page.goto(`${origin}/user/manage/article/list`)
     await page.getByText('按文章属性筛选', { exact: true }).click()
-    const pickScore = async () => {
+    const field = async name => {
       await page.getByRole('combobox', { name: '属性字段', exact: true }).click()
-      await page.getByRole('option', { name: 'Editorial score · editorial-score' }).click()
+      await page.getByRole('option', { name, exact: true }).click()
     }
+    const pickScore = () => field('Editorial score · editorial-score')
     await pickScore()
     await page.getByRole('button', { name: '启用此字段的筛选' }).click()
     await page.getByRole('button', { name: '停用此字段的筛选' }).waitFor()
@@ -27,10 +29,37 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     await result.getByText('没有匹配的文章。').waitFor()
     const replacement = process.env.FSUSBLOG_TEST_PROPERTY_PEER_TICKET
     if (replacement) await verifyLateReply(publisher, origin, exactScore, replacement, observations)
+
+    await page.setViewportSize({ width: 375, height: 850 })
+    await field('Editorial date · editorial-date')
+    await page.getByRole('button', { name: '启用此字段的筛选' }).click()
+    await page.getByRole('button', { name: '停用此字段的筛选' }).waitFor()
+    const comparison = async name => {
+      await page.getByRole('combobox', { name: '匹配方式', exact: true }).click()
+      await page.getByRole('option', { name, exact: true }).click()
+    }
+    await comparison('早于或等于')
+    await page.getByLabel('属性值', { exact: true }).fill('2024-02-29T17:06:01.150Z')
+    await page.getByRole('button', { name: '添加条件', exact: true }).click()
+    await pickScore()
+    await comparison('大于或等于')
+    await page.getByLabel('属性值', { exact: true }).fill(exactScore)
+    await page.getByRole('button', { name: '匹配全部条件', exact: true }).click()
+    await result.getByRole('link', { name: article.title, exact: true }).waitFor()
+    assert.equal(await result.getByRole('link').count(), 1)
+    if (process.env.FSUSBLOG_TEST_EVIDENCE)
+      await page.screenshot({ path: join(process.env.FSUSBLOG_TEST_EVIDENCE, 'property-range-mobile.png') })
+    await comparison('大于')
+    await result.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: '匹配全部条件', exact: true }).click()
+    await result.getByText('没有匹配的文章。').waitFor()
+    await page.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
+    await result.waitFor({ state: 'detached' })
     await page.getByRole('button', { name: '停用此字段的筛选' }).click()
     await page.getByRole('button', { name: '启用此字段的筛选' }).waitFor()
     assert.equal(await result.count(), 0)
     observations.push('The private author collection opts a saved typed field into exact filtering, distinguishes the full decimal value from zero, and clears disabled results.')
+    observations.push('The author collection combines a UTC date bound and an exact decimal bound, distinguishes inclusive from strict comparison, and clears results when a condition changes at 375px.')
   } finally {
     await page.close()
   }
