@@ -47,6 +47,8 @@ public enum FrameType : ushort
     RevisionHistory = 32800,
     RevisionComparison = 32801,
     DraftRollback = 32802,
+    ArticleRightsPolicy = 32860,
+    ArticleRightsCommand = 32861,
     ArticleSchedule = 32825,
     ArticleScheduleCommand = 32826,
     AuthorArticlePage = 32840,
@@ -137,6 +139,10 @@ public static class WireLimits
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;
     public const int MaxDraftRollbackFrameBytes = 2056;
+    public const int ArticleRightsTokenBytes = 48;
+    public const int ArticleRightsHolderBytes = 1024;
+    public const int ArticleRightsTextBytes = 16000;
+    public const int MaxArticleRightsFrameBytes = 33200;
     public const int MaxArticleScheduleFrameBytes = 52;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
@@ -404,6 +410,8 @@ public static class WireRoutes
     public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
     public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";
     public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
+    public const string DraftRights = "/api/v2/authoring/draft/{id:int}/rights.aeds";
+    public const string DraftRightsCommand = "/api/v2/authoring/rights.aeds";
     public const string AuthorArticles = "/api/v2/authoring/articles.aeds";
     public const string DraftSchedule = "/api/v2/authoring/draft/{id:int}/schedule.aeds";
     public const string DraftScheduleCommand = "/api/v2/authoring/schedule.aeds";
@@ -466,6 +474,8 @@ public sealed record SignIn(string Ticket);
 public sealed record Session(string Name, long Generation, bool CanAuthor);
 public sealed record Draft(int Id, long Revision, string Title, string Body, bool Published);
 public sealed record DraftRollback(int Id, long ExpectedRevision, long SourceRevision, Guid IdempotencyKey, string Reason);
+public sealed record ArticleRightsPolicy(int Id, long Revision, bool Present, bool Enabled, string LicenseType, string CopyrightHolder, int CopyrightYear, string RightsStatement, string AttributionTemplate, string CopyPolicy, int MaxExcerptChars, bool AllowCodeCopy, bool ShowPublicBadge, bool ProofBindingEnabled);
+public sealed record ArticleRightsCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, bool Enabled, string LicenseType, string CopyrightHolder, int CopyrightYear, string RightsStatement, string AttributionTemplate, string CopyPolicy, int MaxExcerptChars, bool AllowCodeCopy, bool ShowPublicBadge, bool ProofBindingEnabled);
 public sealed record ArticleSchedule(int Id, long Revision, long DueUnixMs, long PublishedRevision);
 public sealed record ArticleScheduleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, long DueUnixMs);
 public sealed record RevisionComparison(int Id, long Revision, long SourceRevision, string Title, string Body, string SourceTitle, string SourceBody);
@@ -715,6 +725,66 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRollback));
         var value = new DraftRollback(reader.I32(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeArticleRightsPolicy(ArticleRightsPolicy value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.Revision);
+        writer.Bool(value.Present);
+        writer.Bool(value.Enabled);
+        writer.Text(value.LicenseType, WireLimits.ArticleRightsTokenBytes);
+        writer.Text(value.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
+        writer.I32(value.CopyrightYear);
+        writer.Text(value.RightsStatement, WireLimits.ArticleRightsTextBytes);
+        writer.Text(value.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
+        writer.Text(value.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
+        writer.I32(value.MaxExcerptChars);
+        writer.Bool(value.AllowCodeCopy);
+        writer.Bool(value.ShowPublicBadge);
+        writer.Bool(value.ProofBindingEnabled);
+        return Aeds.Encode(FrameType.ArticleRightsPolicy, writer.Written);
+    }
+
+    public static ArticleRightsPolicy DecodeArticleRightsPolicy(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleRightsPolicy));
+        var value = new ArticleRightsPolicy(reader.I32(), reader.I64(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeArticleRightsCommand(ArticleRightsCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.ExpectedRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Bool(value.Enabled);
+        writer.Text(value.LicenseType, WireLimits.ArticleRightsTokenBytes);
+        writer.Text(value.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
+        writer.I32(value.CopyrightYear);
+        writer.Text(value.RightsStatement, WireLimits.ArticleRightsTextBytes);
+        writer.Text(value.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
+        writer.Text(value.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
+        writer.I32(value.MaxExcerptChars);
+        writer.Bool(value.AllowCodeCopy);
+        writer.Bool(value.ShowPublicBadge);
+        writer.Bool(value.ProofBindingEnabled);
+        return Aeds.Encode(FrameType.ArticleRightsCommand, writer.Written);
+    }
+
+    public static ArticleRightsCommand DecodeArticleRightsCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleRightsCommand));
+        var value = new ArticleRightsCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;

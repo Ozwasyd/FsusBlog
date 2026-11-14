@@ -57,6 +57,10 @@ inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
 inline constexpr uint32_t RollbackReasonBytes = 2000;
 inline constexpr uint32_t MaxDraftRollbackFrameBytes = 2056;
+inline constexpr uint32_t ArticleRightsTokenBytes = 48;
+inline constexpr uint32_t ArticleRightsHolderBytes = 1024;
+inline constexpr uint32_t ArticleRightsTextBytes = 16000;
+inline constexpr uint32_t MaxArticleRightsFrameBytes = 33200;
 inline constexpr uint32_t MaxArticleScheduleFrameBytes = 52;
 inline constexpr uint32_t CanvasInsertionBytes = 560;
 inline constexpr uint32_t CanvasRequestBytes = 76;
@@ -301,6 +305,8 @@ enum class FrameType : uint16_t {
     RevisionHistory = 32800,
     RevisionComparison = 32801,
     DraftRollback = 32802,
+    ArticleRightsPolicy = 32860,
+    ArticleRightsCommand = 32861,
     ArticleSchedule = 32825,
     ArticleScheduleCommand = 32826,
     AuthorArticlePage = 32840,
@@ -382,6 +388,8 @@ constexpr bool known(FrameType type) {
         case FrameType::RevisionHistory:
         case FrameType::RevisionComparison:
         case FrameType::DraftRollback:
+        case FrameType::ArticleRightsPolicy:
+        case FrameType::ArticleRightsCommand:
         case FrameType::ArticleSchedule:
         case FrameType::ArticleScheduleCommand:
         case FrameType::AuthorArticlePage:

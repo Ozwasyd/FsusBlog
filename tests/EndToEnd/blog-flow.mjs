@@ -16,6 +16,7 @@ import { exerciseDraftRevision } from './revision-flow.mjs'
 import { exerciseCanvas } from './canvas-flow.mjs'
 import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
+import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -243,6 +244,7 @@ try {
   await exerciseWorkspace({ page: publisher, origin, article: { id: writtenId, title, body }, screenshot: screen, monitor, token, observations })
   await exerciseInspector({ page: publisher, screenshot: screen, token, observations })
   await exerciseArticleSchedule(publisher, screen, observations)
+  await exerciseArticleRights(publisher, observations)
 
   if (config.publicFixture) {
     await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()
@@ -311,6 +313,7 @@ try {
   const publicArticle = await api.publicArticle(writtenId)
   assert.equal(publicArticle.title, title)
   assert.equal(publicArticle.body, body)
+  assert.equal(publicArticle.rights?.copyrightHolder, 'Browser fixture owner & Co')
   assert.equal(indexEntry.publication, publicArticle.publication)
   if (config.publicFixture) {
     assert.equal(publicArticle.category.id, 1)
@@ -340,6 +343,7 @@ try {
   await screen(visitor, 'home-mobile-dark')
   await visitor.getByRole('link', { name: title, exact: true }).click()
   await visible(visitor.getByRole('heading', { name: title, exact: true }))
+  await visible(visitor.getByRole('complementary', { name: 'Article rights' }).getByText('Publication rights browser statement.'))
   await hidden(visitor.getByText(`Private subtitle ${token}`, { exact: true }))
   if (config.requireNative) {
     await visible(visitor.getByRole('heading', { name: 'Draft milestone', exact: true }))

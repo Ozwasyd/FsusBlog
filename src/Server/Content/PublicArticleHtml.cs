@@ -11,7 +11,15 @@ internal static class PublicArticleHtml
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().DisableHtml().Build();
 
     internal static string Render(Article article)
-        => $"<main><article><h1>{HtmlEncoder.Default.Encode(article.Title)}</h1>{RenderMarkdown(article.Body)}</article></main>";
+    {
+        var header = HtmlEncoder.Default.Encode(article.Title);
+        var disclosure = article.Rights?.Policy is { Enabled: true, ShowPublicBadge: true } rights
+            ? $"<aside aria-label=\"Article rights\"><p>{HtmlEncoder.Default.Encode(rights.LicenseType)}</p>" +
+              $"<p>{HtmlEncoder.Default.Encode(rights.CopyrightHolder)}{(rights.CopyrightYear > 0 ? $" {rights.CopyrightYear}" : "")}</p>" +
+              $"<p>{HtmlEncoder.Default.Encode(rights.RightsStatement)}</p></aside>"
+            : "";
+        return $"<main><article><h1>{header}</h1>{RenderMarkdown(article.Body)}{disclosure}</article></main>";
+    }
 
     internal static string RenderMarkdown(string markdown)
     {

@@ -33,6 +33,7 @@ internal static class ArticleScheduleStore
         }
         if (string.IsNullOrWhiteSpace(current.Body))
             throw new BusinessException(Rejection.Invalid, "A nonempty saved draft is required.");
+        await PublicationRightsStore.Require(db, tx, current.Id, current.Revision, ct);
         await using var future = Store.Sql(db, tx, "select $1 > clock_timestamp()", Due(input));
         if (await future.ExecuteScalarAsync(ct) is not true)
             throw new BusinessException(Rejection.Invalid, "The publication time must be in the future.");
@@ -104,6 +105,7 @@ internal static class ArticleScheduleStore
                 select a.published_revision,s.revision=a.revision and s.actor_id=a.owner_id and not a.deleted
                     and a.id=c.article_id and s.revision=c.revision and s.due_at=r.due_at
                     and coalesce(a.published_revision,0)=r.published_revision
+                    and exists (select from public.article_revision_rights w where w.article_id=a.id and w.revision=s.revision)
                 from public.article_schedule s join public.article a on a.id=s.article_id
                 join public.article_schedule_receipt r on r.actor_id=s.actor_id and r.command_id=s.command_id
                 join public.article_command c on c.actor_id=s.actor_id and c.command_id=s.command_id

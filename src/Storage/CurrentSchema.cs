@@ -105,6 +105,7 @@ internal static partial class CurrentSchema
         CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
+        bool requirePublicationRights = true,
         bool requireCanvasHistory = true)
     {
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
@@ -114,6 +115,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationHistory ? PublicationHistoryColumns : [])
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
+            .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
@@ -123,6 +125,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])
+            .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """

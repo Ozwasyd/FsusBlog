@@ -137,18 +137,19 @@ internal static partial class Migration
         var legacyCanvas = !await HasRelation(connection, tx, "public.canvas_node", ct);
         if (legacyCanvas && await HasRelation(connection, tx, "public.canvas_document_event", ct))
             throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
+        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
         if (!await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requireAdminIdentity: false, requirePublicationHistory: hasPublicationHistory,
-                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas);
+                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
         }
         else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) == 1)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: 1);
+                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: 1, requirePublicationRights: hasPublicationRights);
             await ExecuteAsync(connection, tx, """
                 alter table public.admin_permission drop constraint admin_permission_permission_check;
                 alter table public.admin_permission add constraint admin_permission_permission_check
@@ -161,7 +162,7 @@ internal static partial class Migration
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
             requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas);
+            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         await tx.CommitAsync(ct);

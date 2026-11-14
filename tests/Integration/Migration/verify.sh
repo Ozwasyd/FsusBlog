@@ -173,6 +173,14 @@ FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_schedule')" == 0 ]]
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
 
+"${psql_restore[@]}" -c 'DROP TABLE public.article_publication_rights, public.article_revision_rights'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-rights
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-rights
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_publication_rights')" == 0 ]]
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
+
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
 expect_failure 'unexpected-identity-sequence' "${migrate[@]}" verify
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'

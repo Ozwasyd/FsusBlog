@@ -95,6 +95,9 @@ if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
     -f tests/EndToEnd/public-fixture.sql > "$evidence/public-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql >> "$evidence/run.txt"
+  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
+    -f tests/Fixtures/publication-rights.sql >> "$evidence/public-fixture.log"
+  shasum -a 256 tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
   export FSUSBLOG_TEST_PUBLIC_FIXTURE=1
 fi
 

@@ -324,6 +324,9 @@ public sealed class CommentReadPostgresTests
             insert into public.article_revision(article_id,revision,title,body,happened_at)
             values (1,1,'visible article','text',now()),(2,1,'private article','text',now());
             insert into public.article_publication(article_id,revision,published_at) values (1,1,now());
+            insert into public.article_revision_rights values(1,1,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true);
+            insert into public.article_publication_rights (article_id,publication_id,revision)
+                select article_id,publication_id,revision from public.article_publication where article_id=1;
             """);
         await setup.ExecuteNonQueryAsync(ct);
 

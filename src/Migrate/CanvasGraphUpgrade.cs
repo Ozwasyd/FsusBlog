@@ -70,8 +70,9 @@ internal static partial class Migration
         var hasPublicationHistory = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
         var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
         var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
+        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-            hasAdminIdentity, hasPublicationHistory, hasArticleSchedule, hasMediaUpload, legacyCanvas: !nodeTable,
+            hasAdminIdentity, hasPublicationHistory, hasArticleSchedule, hasMediaUpload, legacyCanvas: !nodeTable, requirePublicationRights: hasPublicationRights,
             requireCanvasHistory: patchTable);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);

@@ -25,6 +25,22 @@ export type ArticleCard = Coordinates & {
 export type Article = ArticleCard & {
   body: string;
   coverImageUrl: string;
+  rights: ArticleRights | null;
+};
+
+export type ArticleRights = {
+  snapshotId: bigint;
+  enabled: boolean;
+  allowCodeCopy: boolean;
+  showPublicBadge: boolean;
+  proofBindingEnabled: boolean;
+  licenseType: string;
+  copyrightHolder: string;
+  copyrightYear: number | null;
+  rightsStatement: string;
+  attributionTemplate: string;
+  copyPolicy: string;
+  maxExcerptChars: number;
 };
 
 export type ArticlePage = {
@@ -143,11 +159,32 @@ function tagRecords(payload: Bytes, start: number, count: number, blob: Bytes): 
   return tags;
 }
 
-function validateRights(record: Bytes, blob: Bytes): void {
-  requireWire((record.int(20) & ~layout.ArticleRightsKnownFlags) === 0 && record.int(28) >= 0, 'rights record');
+function readRights(record: Bytes, blob: Bytes, article: Coordinates): ArticleRights | null {
+  const snapshotId = record.long(0);
+  const flags = record.int(20);
+  const year = record.int(24);
+  const maxExcerptChars = record.int(28);
+  requireWire((flags & ~layout.ArticleRightsKnownFlags) === 0 && maxExcerptChars >= 0, 'rights record');
+  const fields: string[] = [];
   for (let field = 32; field < layout.ArticleRightsRecordSize; field += 8) {
-    sliceText(record, field, blob);
+    fields.push(sliceText(record, field, blob));
   }
+  if (snapshotId === 0n) {
+    requireWire(record.long(8) === 0n && record.int(16) === 0 && flags === 0 && year === 0 &&
+      maxExcerptChars === 0 && fields.every(value => !value), 'empty legacy rights record');
+    return null;
+  }
+  requireWire(snapshotId > 0n && record.long(8) === article.revision && record.int(16) === article.revisionNo &&
+    Boolean(fields[0]) && Boolean(fields[4]), 'rights snapshot coordinates');
+  const has = (flag: number) => (flags & flag) !== 0;
+  requireWire(has(16) === (year !== 0) && has(32) === Boolean(fields[1]) && has(64) === Boolean(fields[2]) &&
+    has(128) === Boolean(fields[3]) && has(256) === Boolean(fields[5]) && has(512) === Boolean(fields[8]) &&
+    has(1024) === Boolean(fields[9]), 'rights presence flags');
+  return {
+    snapshotId, enabled: has(1), allowCodeCopy: has(2), showPublicBadge: has(4), proofBindingEnabled: has(8),
+    copyrightYear: year || null, maxExcerptChars, licenseType: fields[0], copyrightHolder: fields[1],
+    rightsStatement: fields[2], attributionTemplate: fields[3], copyPolicy: fields[4],
+  };
 }
 
 export function decodeArticle(payload: Uint8Array): Article {
@@ -177,7 +214,6 @@ export function decodeArticle(payload: Uint8Array): Article {
   record.reserved(layout.ArticleDetailDeletedOffset + 1, 3);
   const publishedAt = record.timestamp(layout.ArticleDetailPublishedAtOffset);
   validatePublished(record, layout.ArticleDetailStatusOffset, publishedAt, record.timestamp(layout.ArticleDetailScheduledAtOffset));
-  validateRights(bytes.record(rightsOffset, rightsLength), blob);
   const tags = tagRecords(bytes, tagOffset, tagCount, blob);
   const result = card(
     record,
@@ -197,6 +233,7 @@ export function decodeArticle(payload: Uint8Array): Article {
     ...result,
     body: sliceText(record, layout.ArticleDetailBodyOffset, blob, WireLimits.BodyBytes),
     coverImageUrl: sliceText(record, layout.ArticleDetailCoverOffset, blob),
+    rights: readRights(bytes.record(rightsOffset, rightsLength), blob, result),
   };
 }
 

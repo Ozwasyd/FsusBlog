@@ -18,7 +18,8 @@ public sealed record Article(
     DateTimeOffset PublishedAt,
     string? Summary = null,
     TaxonomyName? Category = null,
-    IReadOnlyList<TaxonomyName>? Tags = null);
+    IReadOnlyList<TaxonomyName>? Tags = null,
+    PublishedArticleRights? Rights = null);
 
 /// <summary>Current public article payloads selected by the binary HTTP endpoints.</summary>
 public static class PublicArticles
@@ -38,7 +39,8 @@ public static class PublicArticles
         const int tagOffset = recordOffset + ArticleDetailV5RecordSize;
         var rightsOffset = checked(tagOffset + taxonomy.Tags.Length * ArticleTagRecordSize);
         var blobOffset = rightsOffset + ArticleRightsRecordSize;
-        var blobLength = checked(title.Length + body.Length + summary.Length + taxonomy.BlobLength);
+        var rightsText = article.Rights is { } snapshot ? RightsText(article, snapshot) : [];
+        var blobLength = checked(title.Length + body.Length + summary.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
         var bytes = Allocate(checked(blobOffset + blobLength));
         var header = bytes.AsSpan(0, ArticleDetailHeaderSize);
         I32(header, 0, ArticleDetailV5Magic);
@@ -68,11 +70,36 @@ public static class PublicArticles
         for (var i = 0; i < taxonomy.Tags.Length; i++)
             WriteTag(bytes.AsSpan(tagOffset + i * ArticleTagRecordSize, ArticleTagRecordSize),
                 blob, taxonomy.Tags[i], ref offset);
-        // The detail format requires the rights record even when no rights snapshot is attached.
         var rights = bytes.AsSpan(rightsOffset, ArticleRightsRecordSize);
-        for (var slot = 32; slot < ArticleRightsRecordSize; slot += 8)
-            WriteSlice(rights, slot, offset, 0);
+        if (article.Rights is { } published)
+        {
+            var policy = published.Policy;
+            I64(rights, 0, published.SnapshotId);
+            I64(rights, 8, article.Revision);
+            I32(rights, 16, article.RevisionNo);
+            I32(rights, 20, (policy.Enabled ? 1 : 0) | (policy.AllowCodeCopy ? 2 : 0) | (policy.ShowPublicBadge ? 4 : 0) |
+                (policy.ProofBindingEnabled ? 8 : 0) | (policy.CopyrightYear != 0 ? 16 : 0) |
+                (policy.CopyrightHolder.Length != 0 ? 32 : 0) | (policy.RightsStatement.Length != 0 ? 64 : 0) |
+                (policy.AttributionTemplate.Length != 0 ? 128 : 0));
+            I32(rights, 24, policy.CopyrightYear);
+            I32(rights, 28, policy.MaxExcerptChars);
+        }
+        for (int slot = 32, i = 0; slot < ArticleRightsRecordSize; slot += 8, i++)
+        {
+            if (i < rightsText.Length) WriteText(rights, slot, blob, rightsText[i], ref offset);
+            else WriteSlice(rights, slot, offset, 0);
+        }
         return Aeds.Encode(FrameType.ArticleDetail, bytes);
+    }
+
+    private static byte[][] RightsText(Article article, PublishedArticleRights snapshot)
+    {
+        var policy = snapshot.Policy;
+        Wire.Validate(policy);
+        if (snapshot.SnapshotId <= 0 || !policy.Present || policy.Id != article.Id || policy.Revision != article.Revision)
+            throw new ProtocolException("Invalid public rights snapshot binding");
+        return [Utf8.GetBytes(policy.LicenseType), Utf8.GetBytes(policy.CopyrightHolder), Utf8.GetBytes(policy.RightsStatement),
+            Utf8.GetBytes(policy.AttributionTemplate), Utf8.GetBytes(policy.CopyPolicy)];
     }
 
     public static byte[] EncodeList(IReadOnlyList<Article> articles, int total, string? nextCursor = null)

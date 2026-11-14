@@ -58,6 +58,8 @@
     "RevisionHistory": 32800,
     "RevisionComparison": 32801,
     "DraftRollback": 32802,
+    "ArticleRightsPolicy": 32860,
+    "ArticleRightsCommand": 32861,
     "ArticleSchedule": 32825,
     "ArticleScheduleCommand": 32826,
     "AuthorArticlePage": 32840,
@@ -158,6 +160,8 @@
     "DraftRevisionHistory": "/api/v2/authoring/draft/{id:int}/revisions.aeds",
     "DraftRevisionComparison": "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
     "DraftRollback": "/api/v2/authoring/rollback.aeds",
+    "DraftRights": "/api/v2/authoring/draft/{id:int}/rights.aeds",
+    "DraftRightsCommand": "/api/v2/authoring/rights.aeds",
     "AuthorArticles": "/api/v2/authoring/articles.aeds",
     "DraftSchedule": "/api/v2/authoring/draft/{id:int}/schedule.aeds",
     "DraftScheduleCommand": "/api/v2/authoring/schedule.aeds",
@@ -244,6 +248,10 @@
     "RevisionHistoryCursorChars": 54,
     "RollbackReasonBytes": 2000,
     "MaxDraftRollbackFrameBytes": 2056,
+    "ArticleRightsTokenBytes": 48,
+    "ArticleRightsHolderBytes": 1024,
+    "ArticleRightsTextBytes": 16000,
+    "MaxArticleRightsFrameBytes": 33200,
     "MaxArticleScheduleFrameBytes": 52,
     "CanvasInsertionBytes": 560,
     "CanvasRequestBytes": 76,
@@ -489,6 +497,14 @@
     "DraftRollback": {
       "frame": "DraftRollback",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+    },
+    "ArticleRightsPolicy": {
+      "frame": "ArticleRightsPolicy",
+      "fields": [["Id", "i32"], ["Revision", "i64"], ["Present", "bool"], ["Enabled", "bool"], ["LicenseType", "text", "ArticleRightsTokenBytes"], ["CopyrightHolder", "text", "ArticleRightsHolderBytes"], ["CopyrightYear", "i32"], ["RightsStatement", "text", "ArticleRightsTextBytes"], ["AttributionTemplate", "text", "ArticleRightsTextBytes"], ["CopyPolicy", "text", "ArticleRightsTokenBytes"], ["MaxExcerptChars", "i32"], ["AllowCodeCopy", "bool"], ["ShowPublicBadge", "bool"], ["ProofBindingEnabled", "bool"]]
+    },
+    "ArticleRightsCommand": {
+      "frame": "ArticleRightsCommand",
+      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["Enabled", "bool"], ["LicenseType", "text", "ArticleRightsTokenBytes"], ["CopyrightHolder", "text", "ArticleRightsHolderBytes"], ["CopyrightYear", "i32"], ["RightsStatement", "text", "ArticleRightsTextBytes"], ["AttributionTemplate", "text", "ArticleRightsTextBytes"], ["CopyPolicy", "text", "ArticleRightsTokenBytes"], ["MaxExcerptChars", "i32"], ["AllowCodeCopy", "bool"], ["ShowPublicBadge", "bool"], ["ProofBindingEnabled", "bool"]]
     },
     "ArticleSchedule": {
       "frame": "ArticleSchedule",

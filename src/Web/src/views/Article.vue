@@ -70,6 +70,13 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       <ElAlert title="Formatted view unavailable. Showing the original article text." type="info" :closable="false" />
       <pre class="article-source">{{ article.body }}</pre>
     </template>
+    <aside v-if="article.rights?.enabled && article.rights.showPublicBadge" class="article-rights" aria-label="Article rights">
+      <p>{{ article.rights.licenseType }}</p>
+      <p v-if="article.rights.copyrightHolder || article.rights.copyrightYear">
+        {{ article.rights.copyrightHolder }} {{ article.rights.copyrightYear }}
+      </p>
+      <p v-if="article.rights.rightsStatement">{{ article.rights.rightsStatement }}</p>
+    </aside>
     <RelatedReading :article-id="article.id" :publication="article.publication" />
     <ArticleComments :key="article.id" :article-id="article.id" />
     <PublicCommentComposer :key="article.publication.toString()" :article-id="article.id" :publication="article.publication" />

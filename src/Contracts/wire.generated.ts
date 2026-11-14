@@ -46,6 +46,8 @@ export const FrameType = {
   RevisionHistory: 32800,
   RevisionComparison: 32801,
   DraftRollback: 32802,
+  ArticleRightsPolicy: 32860,
+  ArticleRightsCommand: 32861,
   ArticleSchedule: 32825,
   ArticleScheduleCommand: 32826,
   AuthorArticlePage: 32840,
@@ -134,6 +136,10 @@ export const WireLimits = {
   RevisionHistoryCursorChars: 54,
   RollbackReasonBytes: 2000,
   MaxDraftRollbackFrameBytes: 2056,
+  ArticleRightsTokenBytes: 48,
+  ArticleRightsHolderBytes: 1024,
+  ArticleRightsTextBytes: 16000,
+  MaxArticleRightsFrameBytes: 33200,
   MaxArticleScheduleFrameBytes: 52,
   CanvasInsertionBytes: 560,
   CanvasRequestBytes: 76,
@@ -399,6 +405,8 @@ export const WireRoutes = {
   DraftRevisionHistory: "/api/v2/authoring/draft/{id:int}/revisions.aeds",
   DraftRevisionComparison: "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
   DraftRollback: "/api/v2/authoring/rollback.aeds",
+  DraftRights: "/api/v2/authoring/draft/{id:int}/rights.aeds",
+  DraftRightsCommand: "/api/v2/authoring/rights.aeds",
   AuthorArticles: "/api/v2/authoring/articles.aeds",
   DraftSchedule: "/api/v2/authoring/draft/{id:int}/schedule.aeds",
   DraftScheduleCommand: "/api/v2/authoring/schedule.aeds",
@@ -772,6 +780,122 @@ export function decodeDraftRollback(payload: Uint8Array): DraftRollback {
     sourceRevision: reader.i64(),
     idempotencyKey: reader.uuid(),
     reason: reader.text(WireLimits.RollbackReasonBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface ArticleRightsPolicy {
+  id: number;
+  revision: bigint;
+  present: boolean;
+  enabled: boolean;
+  licenseType: string;
+  copyrightHolder: string;
+  copyrightYear: number;
+  rightsStatement: string;
+  attributionTemplate: string;
+  copyPolicy: string;
+  maxExcerptChars: number;
+  allowCodeCopy: boolean;
+  showPublicBadge: boolean;
+  proofBindingEnabled: boolean;
+}
+
+export function encodeArticleRightsPolicy(value: ArticleRightsPolicy): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.revision);
+  writer.bool(value.present);
+  writer.bool(value.enabled);
+  writer.text(value.licenseType, WireLimits.ArticleRightsTokenBytes);
+  writer.text(value.copyrightHolder, WireLimits.ArticleRightsHolderBytes);
+  writer.i32(value.copyrightYear);
+  writer.text(value.rightsStatement, WireLimits.ArticleRightsTextBytes);
+  writer.text(value.attributionTemplate, WireLimits.ArticleRightsTextBytes);
+  writer.text(value.copyPolicy, WireLimits.ArticleRightsTokenBytes);
+  writer.i32(value.maxExcerptChars);
+  writer.bool(value.allowCodeCopy);
+  writer.bool(value.showPublicBadge);
+  writer.bool(value.proofBindingEnabled);
+  return writer.finish();
+}
+
+export function decodeArticleRightsPolicy(payload: Uint8Array): ArticleRightsPolicy {
+  const reader = new PodReader(payload);
+  const value: ArticleRightsPolicy = {
+    id: reader.i32(),
+    revision: reader.i64(),
+    present: reader.bool(),
+    enabled: reader.bool(),
+    licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
+    copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
+    copyrightYear: reader.i32(),
+    rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
+    attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
+    copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
+    maxExcerptChars: reader.i32(),
+    allowCodeCopy: reader.bool(),
+    showPublicBadge: reader.bool(),
+    proofBindingEnabled: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface ArticleRightsCommand {
+  id: number;
+  expectedRevision: bigint;
+  idempotencyKey: string;
+  enabled: boolean;
+  licenseType: string;
+  copyrightHolder: string;
+  copyrightYear: number;
+  rightsStatement: string;
+  attributionTemplate: string;
+  copyPolicy: string;
+  maxExcerptChars: number;
+  allowCodeCopy: boolean;
+  showPublicBadge: boolean;
+  proofBindingEnabled: boolean;
+}
+
+export function encodeArticleRightsCommand(value: ArticleRightsCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.expectedRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.bool(value.enabled);
+  writer.text(value.licenseType, WireLimits.ArticleRightsTokenBytes);
+  writer.text(value.copyrightHolder, WireLimits.ArticleRightsHolderBytes);
+  writer.i32(value.copyrightYear);
+  writer.text(value.rightsStatement, WireLimits.ArticleRightsTextBytes);
+  writer.text(value.attributionTemplate, WireLimits.ArticleRightsTextBytes);
+  writer.text(value.copyPolicy, WireLimits.ArticleRightsTokenBytes);
+  writer.i32(value.maxExcerptChars);
+  writer.bool(value.allowCodeCopy);
+  writer.bool(value.showPublicBadge);
+  writer.bool(value.proofBindingEnabled);
+  return writer.finish();
+}
+
+export function decodeArticleRightsCommand(payload: Uint8Array): ArticleRightsCommand {
+  const reader = new PodReader(payload);
+  const value: ArticleRightsCommand = {
+    id: reader.i32(),
+    expectedRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    enabled: reader.bool(),
+    licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
+    copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
+    copyrightYear: reader.i32(),
+    rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
+    attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
+    copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
+    maxExcerptChars: reader.i32(),
+    allowCodeCopy: reader.bool(),
+    showPublicBadge: reader.bool(),
+    proofBindingEnabled: reader.bool(),
   };
   reader.finish();
   return value;

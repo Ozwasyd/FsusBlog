@@ -14,17 +14,18 @@ internal static partial class Migration
         var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
         var hasAdminIdentity = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
         var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
+        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
         if (!await HasRelation(connection, tx, "public.authoring_recovery_site", ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireRecoveryScope: false,
                 requireRevisionHistory: hasRevisionHistory, requireAdminIdentity: hasAdminIdentity, requirePublicationHistory: hasPublicationHistory,
-                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
+                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, requirePublicationRights: hasPublicationRights);
             await ApplySchemaAddition(connection, tx, "recovery_scope.sql", ct);
         }
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireRevisionHistory: hasRevisionHistory,
             requireAdminIdentity: hasAdminIdentity, requirePublicationHistory: hasPublicationHistory,
-            requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
+            requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, requirePublicationRights: hasPublicationRights);
         if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         await tx.CommitAsync(ct);

@@ -37,6 +37,7 @@ internal static partial class Migration
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
+                  publication-rights    Add rights storage while leaving missing publication rights private
                   article-schedule      Add pending publication and command receipts with the server stopped
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
@@ -158,6 +159,9 @@ internal static partial class Migration
                 case ["publication-history"]:
                     await InitializePublicationHistoryAsync(connection, token);
                     break;
+                case ["publication-rights"]:
+                    await InitializePublicationRightsAsync(connection, token);
+                    break;
                 case ["article-schedule"]:
                     await InitializeArticleScheduleAsync(connection, token);
                     break;
@@ -261,6 +265,7 @@ internal static partial class Migration
     {
         await using var transaction = await BeginReadOnlyAsync(connection, token);
         await VerifyActivePublicationsAsync(connection, transaction, token);
+        await ReportMissingPublicationRights(connection, transaction, token);
         await VerifyPublicationHistoryAsync(connection, transaction, token);
         await VerifyArticleScheduleAsync(connection, transaction, token);
         await using (var pending = new NpgsqlCommand("""

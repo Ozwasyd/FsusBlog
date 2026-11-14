@@ -239,6 +239,8 @@ stage=database
   python3 "$run/source/tests/Performance/seed.py" --database "$database" --sql "$run/seed.sql" --manifest "$evidence/fixture.json"
   shasum -a 256 "$run/seed.sql" "$evidence/fixture.json" > "$evidence/fixture.sha256"
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/seed.sql"
+  psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/source/tests/Fixtures/publication-rights.sql"
+  shasum -a 256 "$run/source/tests/Fixtures/publication-rights.sql" > "$evidence/fixture-rights.sha256"
   "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" verify
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -c 'SELECT current_database(),current_setting('"'"'server_version'"'"'),pg_backend_pid(),count(*) FROM public.article_publication'
 } > "$evidence/database.log" 2>&1

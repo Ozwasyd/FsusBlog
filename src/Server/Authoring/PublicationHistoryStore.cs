@@ -51,12 +51,14 @@ internal static class PublicationHistoryStore
 
         if (action == ArticleAction.Publish)
         {
+            await PublicationRightsStore.Require(db, tx, articleId, nextRevision, ct);
             var published = await Publish(db, tx, articleId, nextRevision, ct);
             var reason = scheduled ? (active is null ? "scheduled-published" : "scheduled-replaced") :
                 active is null ? "author-published" : "author-replaced";
             await Append(nextRevision, checked(eventNo + 1), published.Number, published.Id, active?.Id,
                 active is null ? "publish" : "replace", reason,
                 published.PublishedAt, actor, command);
+            await PublicationRightsStore.Attach(db, tx, articleId, nextRevision, published.Id, ct);
         }
         else
         {
