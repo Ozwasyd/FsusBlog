@@ -135,7 +135,7 @@ function hasDomReferenceAuthority(source, isCSharp = false)
         (domRead.test(token) && expression[index + 1] === '(')
         || (alias(token) && !['.', '?.'].includes(expression[index - 1])));
     const hasIdentity = (expression) => expression.some((token) => identity.test(token));
-    const expressionAt = (start, direction = 1, comparison = false) =>
+    const expressionAt = (start, direction = 1, comparison = false, includeAssignments = false) =>
     {
         let depth = 0;
         const expression = [];
@@ -144,8 +144,8 @@ function hasDomReferenceAuthority(source, isCSharp = false)
         for (let index = start; index >= 0 && index < tokens.length; index += direction)
         {
             const token = tokens[index];
-            if (depth === 0 && (closing.includes(token) || [',', ';', '=', '=>'].includes(token)
-                || compoundAssignment.test(token)
+            if (depth === 0 && (closing.includes(token) || [',', ';', '=>'].includes(token)
+                || (!includeAssignments && (token === '=' || compoundAssignment.test(token)))
                 || (token === ':' && !conditionalColons.has(index))
                 || (comparison && ['&&', '||', '==', '===', '!=', '!==', '?', ':'].includes(token))))
             {
@@ -481,7 +481,7 @@ function hasDomReferenceAuthority(source, isCSharp = false)
             const typed = token === '=' && tokens[index - 2] === ':';
             const nameIndex = typed ? index - 3 : index - 1;
             const name = tokens[nameIndex];
-            const expression = expressionAt(index + 1);
+            const expression = expressionAt(index + 1, 1, false, true);
             const derived = domDerived(expression) || (compoundAssignment.test(token) && alias(name));
             if (identity.test(name) && derived)
             {

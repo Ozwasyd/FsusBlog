@@ -220,6 +220,35 @@ export function canvasReference(element: HTMLElement) {
     assert.match(violations(repositoryRoot), domAuthorityViolation);
 });
 
+for (const operator of ['=', '||=', '??=', '+='])
+{
+    test(`rejects DOM identity propagated by chained ${operator}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement) {
+    let other = '';
+    const observed = other ${operator} element.getAttribute('id') ?? '';
+    return { targetHeadingIdentity: observed };
+}
+`);
+        assert.match(violations(repositoryRoot), domAuthorityViolation);
+    });
+}
+
+test('chained canonical assignments remain accepted', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(target: { targetHeadingIdentity: string }) {
+    let other = '';
+    const observed = other ||= target.targetHeadingIdentity;
+    return { targetHeadingIdentity: observed };
+}
+`);
+    assert.equal(violations(repositoryRoot), '');
+});
+
 test('canonical compound assignment without DOM input remains accepted', (t) =>
 {
     const repositoryRoot = fixture(t);
