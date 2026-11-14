@@ -15,6 +15,7 @@
         <button
             v-if="isCompact"
             v-show="activeInspector === null"
+            :ref="registerLauncher"
             type="button"
             class="article-write-inspector-launcher"
             aria-label="打开文章检查器"
@@ -30,6 +31,7 @@
         <component
             :is="inspectorHost"
             v-bind="inspectorHostProperties"
+            @close="handleDrawerClose"
             @update:model-value="handleDrawerVisibility"
             @closed="handleClosed"
         >
@@ -37,7 +39,6 @@
                 v-if="isCompact"
                 :active-inspector="activeInspector"
                 placement="drawer"
-                :register-trigger-element="registerTriggerElement"
                 @activate="handleRailActivate"
             />
 
@@ -171,6 +172,17 @@ const registerScrollContainer = (
     props.registerScrollElement?.(view, resolveElement(element));
 };
 
+const registerLauncher = (element: Element | ComponentPublicInstance | null): void =>
+{
+    // The launcher can be native or the public Button exposing its documented ref.
+    const target = element instanceof HTMLElement ? element
+        : element && 'ref' in element && element.ref instanceof HTMLElement ? element.ref : null;
+    for (const view of inspectorViews)
+    {
+        props.registerTriggerElement?.(view.id, target);
+    }
+};
+
 const activate = (view: ArticleWriteInspectorView, event: MouseEvent): void =>
 {
     emit('activate', view, event.currentTarget as HTMLElement);
@@ -190,9 +202,17 @@ const handleRailActivate = (
     emit('activate', view, trigger);
 };
 
+const handleDrawerClose = (): void =>
+{
+    if (isCompact.value && props.activeInspector !== null)
+    {
+        emit('close');
+    }
+};
+
 const handleDrawerVisibility = (visible: boolean): void =>
 {
-    if (!visible)
+    if (isCompact.value && !visible && props.activeInspector !== null)
     {
         emit('close');
     }
