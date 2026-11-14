@@ -14,26 +14,23 @@ namespace FsusBlog.V2.Server.Authoring;
 internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, byte[] sessionDigest)
 {
     private static readonly MarkdownPipeline SourceLocations = new MarkdownPipelineBuilder().UsePreciseSourceLocation().Build();
+    private readonly CanvasGraphStore graph = new(db, tx, actor);
+
     internal async Task<CanvasCreated> Create(CanvasCreate input, CancellationToken ct)
     {
         // Serialize this owner's bounded Canvas admission and reuse of the creation coordinates.
         await Store.LockCommand(db, tx, actor.Id, Guid.Empty, ct);
-        if (await ReadEdge(input.CanvasId, input.EdgeId, ct) is { } existing)
-            return existing.HostArticleId == input.HostArticleId && existing.TargetArticleId == input.TargetArticleId &&
-                existing.ExplicitReference
-                ? new(existing.CanvasId, existing.EdgeId, existing.Revision) : throw Conflict();
+        var fingerprint = SHA256.HashData(Wire.EncodeCanvasCreate(input));
+        if (await graph.Replay(input.CanvasId, input.EdgeId, CanvasGraphStore.SeedLinkKind, fingerprint, ct) is { } existing)
+            return new(input.CanvasId, input.EdgeId, existing.Revision);
         await FindArticles(input.HostArticleId, input.TargetArticleId, ct);
-        await using (var budget = Store.Sql(db, tx, "select count(*) from public.authoring_canvas where owner_id=$1", actor.Id))
-            if ((long)(await budget.ExecuteScalarAsync(ct))! >= 100) throw Conflict();
-        await using (var create = Store.Sql(db, tx, """
-            insert into public.authoring_canvas(id,owner_id,revision) values($1,$2,1) on conflict do nothing
-            """, input.CanvasId, actor.Id))
-            if (await create.ExecuteNonQueryAsync(ct) != 1) throw Missing();
-        await using var edge = Store.Sql(db, tx, """
-            insert into public.canvas_edge(canvas_id,id,article_id,target_article_id,explicit_reference) values($1,$2,$3,$4,true)
-            """, input.CanvasId, input.EdgeId, input.HostArticleId, input.TargetArticleId);
-        await edge.ExecuteNonQueryAsync(ct);
-        return new(input.CanvasId, input.EdgeId, 1);
+        var from = new CanvasNode(Guid.NewGuid(), CanvasNodeKind.ArticleReference, new(0, 0, 16000, 8000), input.HostArticleId);
+        var to = new CanvasNode(Guid.NewGuid(), CanvasNodeKind.ArticleReference, new(20000, 0, 16000, 8000), input.TargetArticleId);
+        var value = new CanvasGraph([from, to],
+            [new(input.EdgeId, CanvasGraphEdgeKind.ExplicitReferenceNote, from.Id, to.Id, 0)]);
+        var receipt = await graph.Create(input.CanvasId, input.EdgeId, CanvasGraphStore.SeedLinkKind, fingerprint,
+            "Canvas", CanvasViewport.Default, value, ct);
+        return new(input.CanvasId, input.EdgeId, receipt.Revision);
     }
 
     internal async Task<CanvasLinkPlan> Preview(CanvasPreview input, CancellationToken ct)
@@ -103,10 +100,8 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         var updated = await Store.Execute(db, tx, actor, ArticleAction.Save, edit, ct);
         if (!updated.Changed) throw Conflict();
 
-        await using var advance = Store.Sql(db, tx, """
-            update public.authoring_canvas set revision=revision+1 where id=$1 and revision=$2 returning revision
-            """, edge.CanvasId, saved.Intent.CanvasRevision);
-        if (await advance.ExecuteScalarAsync(ct) is not long revision) throw Conflict();
+        var receipt = await graph.RecordLink(edge.CanvasId, id, saved.Intent.CanvasRevision, saved.Digest, ct);
+        long revision = receipt.Revision;
         await using var finish = Store.Sql(db, tx, """
             update public.canvas_link_plan set applied_article_id=$2,applied_revision=$3,applied_canvas_revision=$4
             where id=$1 and expires_at>clock_timestamp() and applied_revision is null
@@ -118,9 +113,13 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
     private async Task<CanvasEdge?> ReadEdge(Guid canvas, Guid edge, CancellationToken ct)
     {
         await using var read = Store.Sql(db, tx, """
-            select c.revision,e.article_id,e.target_article_id,e.explicit_reference
+            select c.revision,s.article_id,t.article_id,e.explicit_reference
             from public.authoring_canvas c join public.canvas_edge e on e.canvas_id=c.id
-            where c.id=$1 and e.id=$2 and c.owner_id=$3 for update of c,e
+            join public.canvas_node s on s.canvas_id=c.id and s.id=e.source_node_id
+            join public.canvas_node t on t.canvas_id=c.id and t.id=e.target_node_id
+            where c.id=$1 and e.id=$2 and c.owner_id=$3 and not c.deleted
+                and s.kind=0 and t.kind=0 and s.article_id<>t.article_id
+                and s.pinned_revision is null and t.pinned_revision is null for update of c,e,s,t
             """, canvas, edge, actor.Id);
         await using var row = await read.ExecuteReaderAsync(ct);
         return await row.ReadAsync(ct) ? new(canvas, edge, row.GetInt64(0), row.GetInt32(1), row.GetInt32(2),

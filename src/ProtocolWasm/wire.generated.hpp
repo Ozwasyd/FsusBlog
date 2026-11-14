@@ -56,6 +56,15 @@ inline constexpr uint32_t RollbackReasonBytes = 2000;
 inline constexpr uint32_t MaxDraftRollbackFrameBytes = 2056;
 inline constexpr uint32_t CanvasInsertionBytes = 560;
 inline constexpr uint32_t CanvasRequestBytes = 76;
+inline constexpr uint32_t CanvasGraphCommandBytes = 1048576;
+inline constexpr uint32_t CanvasGraphNoteBytes = 24576;
+inline constexpr uint32_t CanvasGraphLabelBytes = 384;
+inline constexpr uint32_t CanvasGraphAnchorBytes = 64;
+inline constexpr uint32_t CanvasGraphMaxChanges = 64;
+inline constexpr uint32_t CanvasGraphMaxDocuments = 100;
+inline constexpr uint32_t CanvasGraphMaxPageNodes = 32;
+inline constexpr uint32_t CanvasGraphMaxPageNodeBytes = 524288;
+inline constexpr uint32_t CanvasGraphMaxPageEdges = 64;
 inline constexpr uint32_t PropertyKeyBytes = 64;
 inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyValueBytes = 65536;
@@ -248,6 +257,10 @@ enum class FrameType : uint16_t {
     CanvasLinkPlan = 32776,
     CanvasConfirm = 32777,
     CanvasLinked = 32778,
+    CanvasGraphCommand = 32810,
+    CanvasGraphReceipt = 32811,
+    CanvasGraphList = 32812,
+    CanvasGraphPage = 32813,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -316,6 +329,10 @@ constexpr bool known(FrameType type) {
         case FrameType::CanvasLinkPlan:
         case FrameType::CanvasConfirm:
         case FrameType::CanvasLinked:
+        case FrameType::CanvasGraphCommand:
+        case FrameType::CanvasGraphReceipt:
+        case FrameType::CanvasGraphList:
+        case FrameType::CanvasGraphPage:
         case FrameType::PropertyDefinitionCommand:
         case FrameType::PropertyWorkspaceRequest:
         case FrameType::PropertyTextCommand:

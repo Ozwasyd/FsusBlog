@@ -49,6 +49,10 @@ public enum FrameType : ushort
     CanvasLinkPlan = 32776,
     CanvasConfirm = 32777,
     CanvasLinked = 32778,
+    CanvasGraphCommand = 32810,
+    CanvasGraphReceipt = 32811,
+    CanvasGraphList = 32812,
+    CanvasGraphPage = 32813,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -123,6 +127,15 @@ public static class WireLimits
     public const int MaxDraftRollbackFrameBytes = 2056;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
+    public const int CanvasGraphCommandBytes = 1048576;
+    public const int CanvasGraphNoteBytes = 24576;
+    public const int CanvasGraphLabelBytes = 384;
+    public const int CanvasGraphAnchorBytes = 64;
+    public const int CanvasGraphMaxChanges = 64;
+    public const int CanvasGraphMaxDocuments = 100;
+    public const int CanvasGraphMaxPageNodes = 32;
+    public const int CanvasGraphMaxPageNodeBytes = 524288;
+    public const int CanvasGraphMaxPageEdges = 64;
     public const int PropertyKeyBytes = 64;
     public const int PropertyLabelBytes = 1024;
     public const int PropertyValueBytes = 65536;
@@ -326,6 +339,9 @@ public static class WireRoutes
     public const string CanvasCreate = "/api/v2/authoring/canvas/create.aeds";
     public const string CanvasPreview = "/api/v2/authoring/canvas/link/preview.aeds";
     public const string CanvasConfirm = "/api/v2/authoring/canvas/link/confirm.aeds";
+    public const string CanvasGraphWrite = "/api/v2/authoring/canvas/documents/write.aeds";
+    public const string CanvasGraphList = "/api/v2/authoring/canvas/documents.aeds";
+    public const string CanvasGraphPage = "/api/v2/authoring/canvas/documents/{id:guid}.aeds";
     public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
     public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
     public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";

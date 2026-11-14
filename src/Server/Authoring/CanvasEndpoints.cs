@@ -7,6 +7,7 @@ internal static class CanvasEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
+        CanvasGraphEndpoints.Map(app, cookie, readFrame);
         Map(WireRoutes.CanvasCreate, async (store, frame, ct) => Wire.EncodeCanvasCreated(
             await store.Create(Wire.DecodeCanvasCreate(frame), ct)));
         Map(WireRoutes.CanvasPreview, async (store, frame, ct) => Wire.EncodeCanvasLinkPlan(

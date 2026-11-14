@@ -75,6 +75,123 @@ public sealed class CanvasPostgresTests
     }
 
     [PostgresFact]
+    public async Task GraphRoutesApplyOneOrderedRevisionAndKeepPrivateProvenance()
+    {
+        await using var test = await Fixture.Open();
+        var owner = await test.Author("Graph owner");
+        var other = await test.Author("Graph outsider");
+        var reader = await test.Author("Graph reader", false);
+        var source = await test.Save(owner.Token, "Source", "Article body");
+        var target = await test.Publish(owner.Token, await test.Save(owner.Token, "Public target", "Target body"));
+        var foreign = await test.Save(other.Token, "Other owner's article", "Private");
+        await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
+        var id = Guid.NewGuid();
+        var from = Guid.NewGuid();
+        var to = Guid.NewGuid();
+        var note = Guid.NewGuid();
+        var group = Guid.NewGuid();
+        var edge = Guid.NewGuid();
+        var loop = Guid.NewGuid();
+        var title = "Planning";
+        var create = new CanvasGraphCommand(id, Guid.NewGuid(), 0, CanvasGraphAction.Create, title, new(600, -200, 1750),
+        [
+            Node(from, 0, source.Id), Node(to, 0, target.Id), Node(note, 3, text: "Private planning note"),
+            Node(group, 4, text: "Drafts", members: [from, note]),
+            new CanvasChangeFrame.PutEdge(new(edge, 1, from, to, 1, "Commit manually")),
+            new CanvasChangeFrame.PutEdge(new(loop, 0, note, note, 0, null))
+        ]);
+        await Send(HttpMethod.Get, WireRoutes.CanvasGraphList, null, HttpStatusCode.Unauthorized);
+        await Write(create, reader.Token, HttpStatusCode.Forbidden);
+        var head = Wire.DecodeCanvasGraphReceipt(await Write(create, owner.Token));
+        Assert.Equal((id, 1L, title, 4, 2), (head.Id, head.Revision, head.Title, head.NodeCount, head.EdgeCount));
+        Assert.Equal(head, Wire.DecodeCanvasGraphReceipt(await Write(create, owner.Token)));
+        await Write(create with { Title = "Different payload" }, owner.Token, HttpStatusCode.Conflict);
+        await Write(create, other.Token, HttpStatusCode.NotFound);
+        await GetPage(other.Token, 0, 0, HttpStatusCode.NotFound);
+        Assert.Empty(Wire.DecodeCanvasGraphList(await Send(HttpMethod.Get, WireRoutes.CanvasGraphList, other.Token)));
+        Assert.Equal(head, Assert.Single(Wire.DecodeCanvasGraphList(await Send(HttpMethod.Get, WireRoutes.CanvasGraphList, owner.Token))));
+        var first = Wire.DecodeCanvasGraphPage(await GetPage(owner.Token, 0, 0));
+        Assert.Equal(4, first.NextOffset);
+        Assert.Equal(4, first.Nodes.Count);
+        var last = Wire.DecodeCanvasGraphPage(await GetPage(owner.Token, head.Revision, first.NextOffset));
+        Assert.Equal(-1, last.NextOffset);
+        Assert.Equal(new[] { loop, edge }, last.Edges.Select(value => value.Id));
+        await GetPage(owner.Token, 0, first.NextOffset, HttpStatusCode.BadRequest);
+
+        var graphEdit = new CanvasGraphCommand(id, Guid.NewGuid(), head.Revision, CanvasGraphAction.Edit,
+            "", null, [new CanvasChangeFrame.DropNode(note)]);
+        await Write(graphEdit with { Changes = [Node(Guid.NewGuid(), 0, foreign.Id)] }, owner.Token, HttpStatusCode.NotFound);
+        await Write(graphEdit with { Changes = [new CanvasChangeFrame.DropNode(note), new CanvasChangeFrame.DropNode(Guid.NewGuid())] },
+            owner.Token, HttpStatusCode.NotFound);
+        Assert.Equal(4L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", id));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", id));
+
+        var competing = graphEdit with { CommandId = Guid.NewGuid(), Title = "Renamed", Changes = [] };
+        // Hold the transaction behind a deliberately closed fault point. Graph and receipt revert together.
+        await test.Mutate("alter table public.canvas_document_event add constraint test_graph_commit_failure check(revision=1)");
+        await Write(graphEdit, owner.Token, HttpStatusCode.ServiceUnavailable);
+        await test.Mutate("alter table public.canvas_document_event drop constraint test_graph_commit_failure");
+        Assert.Equal(4L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", id));
+        Assert.Equal(1L, await test.Scalar("select revision from public.authoring_canvas where id=$1", id));
+
+        var changed = Wire.DecodeCanvasGraphReceipt(await Write(graphEdit, owner.Token));
+        Assert.Equal((2L, 3, 1), (changed.Revision, changed.NodeCount, changed.EdgeCount));
+        Assert.Equal(changed, Wire.DecodeCanvasGraphReceipt(await Write(graphEdit, owner.Token)));
+        await Write(competing, owner.Token, HttpStatusCode.Conflict);
+        await GetPage(owner.Token, head.Revision, first.NextOffset, HttpStatusCode.Conflict);
+        var graph = Wire.DecodeCanvasGraphPage(await GetPage(owner.Token, changed.Revision, 0));
+        Assert.Equal(from, Assert.Single(Assert.Single(graph.Nodes, value => value.Id == group).MemberIds!));
+
+        var planBytes = await Send(HttpMethod.Post, WireRoutes.CanvasPreview, owner.Token, body: Wire.EncodeCanvasPreview(
+            new(id, edge, changed.Revision, source.Revision, target.Revision, source.Body.Length)));
+        var plan = Wire.DecodeCanvasLinkPlan(planBytes);
+        var link = Wire.DecodeCanvasLinked(await Send(HttpMethod.Post, WireRoutes.CanvasConfirm, owner.Token,
+            body: Wire.EncodeCanvasConfirm(new(plan.PlanId))));
+        Assert.Equal(3L, link.CanvasRevision);
+        var delete = new CanvasGraphCommand(id, Guid.NewGuid(), link.CanvasRevision, CanvasGraphAction.Delete, "", null, []);
+        var deleted = Wire.DecodeCanvasGraphReceipt(await Write(delete, owner.Token));
+        Assert.True(deleted.Deleted);
+        Assert.Equal((4L, 0, 0), (deleted.Revision, deleted.NodeCount, deleted.EdgeCount));
+        Assert.Equal(deleted, Wire.DecodeCanvasGraphReceipt(await Write(delete, owner.Token)));
+        Assert.Empty(Wire.DecodeCanvasGraphList(await Send(HttpMethod.Get, WireRoutes.CanvasGraphList, owner.Token)));
+        await GetPage(owner.Token, deleted.Revision, 0, HttpStatusCode.NotFound);
+        Assert.Equal(4L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", id));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_edge where canvas_id=$1", id));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", id));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_link_plan where canvas_id=$1", id));
+        Assert.EndsWith("[Public target](/article/" + target.Id + ")", (await test.Read(owner.Token, source.Id)).Body);
+
+        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
+        await Write(delete, owner.Token, HttpStatusCode.Unauthorized);
+
+        static CanvasChangeFrame Node(Guid id, int kind, int? article = null, string? text = null, Guid[]? members = null) =>
+            new CanvasChangeFrame.PutNode(new(id, kind, 0, 0, 12000, 8000, article, Text: text, MemberIds: members));
+
+        Task<byte[]> Write(CanvasGraphCommand command, string token, HttpStatusCode status = HttpStatusCode.OK) =>
+            Send(HttpMethod.Post, WireRoutes.CanvasGraphWrite, token, status, Wire.EncodeCanvasGraphCommand(command));
+
+        Task<byte[]> GetPage(string token, long revision, int offset, HttpStatusCode status = HttpStatusCode.OK) =>
+            Send(HttpMethod.Get, $"/api/v2/authoring/canvas/documents/{id:D}.aeds?revision={revision}&offset={offset}", token, status);
+
+        async Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status = HttpStatusCode.OK, byte[]? body = null)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            if (body is not null)
+            {
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
+            }
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, test.Token);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            byte[] bytes = await response.Content.ReadAsByteArrayAsync(test.Token);
+            if (status != HttpStatusCode.OK) Aeds.Decode(bytes, FrameType.ApiError);
+            return bytes;
+        }
+    }
+
+    [PostgresFact]
     public async Task ConfirmAtomicallyAppendsOnceAndRetainsImmutablePublication()
     {
         await using var test = await Fixture.Open();
