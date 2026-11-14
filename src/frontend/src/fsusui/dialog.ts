@@ -1,4 +1,5 @@
 export { ElDialog as FsusUiDialog } from '@ozwasyd/element-plus';
+export type { DialogBeforeCloseFn as FsusUiDialogBeforeCloseFn } from '@ozwasyd/element-plus';
 
 export const fsusDialogWidths = {
     default: '50%',

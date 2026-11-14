@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security/comment-draft-privacy.md"
+            ],
+            "reason": "Preserve the existing caller-visible browser storage and hyphenated contract spellings while documenting the actual v3 owner, reviewed public retries, and component-memory transaction boundaries; no runtime storage name or schema is renamed."
+        }
+    ]
+}

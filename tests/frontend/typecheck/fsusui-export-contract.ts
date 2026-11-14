@@ -230,3 +230,5 @@ export const fsusUiExportContract = {
 
 export type { TypePreservingAdapterContract }
 export type { TaxonomyPublicFormConsumerContract } from './admin-taxonomy-form-consumer-contract'
+
+export { articleCommentComposerConsumerContract } from './article-comment-composer-consumer-contract';
