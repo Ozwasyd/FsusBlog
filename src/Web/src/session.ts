@@ -1,5 +1,6 @@
 import { readonly, ref, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
+import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
 
 const session = shallowRef<Session | null>(null)
 const sessionEpoch = ref(0)
@@ -48,10 +49,25 @@ export async function refreshSession(signal?: AbortSignal) {
 }
 
 export async function signIn(ticket: string, signal?: AbortSignal) {
+  await mutateLogin(() => api.signIn(ticket, signal), signal)
+}
+
+export async function signInWithPasskey(signal?: AbortSignal) {
+  await mutateLogin(() => loginWithPasskey(signal), signal)
+}
+
+export async function registerFirstPasskey(ticket: string, signal?: AbortSignal) {
+  await mutateLogin(async () => {
+    await provisionPasskey(ticket, signal)
+    return null
+  }, signal)
+}
+
+async function mutateLogin(perform: () => Promise<Session | null>, signal?: AbortSignal) {
   const request = ++requestEpoch
   mutation = request
   try {
-    const value = await api.signIn(ticket, signal)
+    const value = await perform()
     if (request === requestEpoch && !signal?.aborted) updateSession(value, true)
   } finally {
     if (mutation === request) mutation = undefined

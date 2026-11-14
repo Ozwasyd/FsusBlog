@@ -36,6 +36,12 @@ internal static partial class Migration
                                         Create a reader and issue an expiring one-use login ticket
                   ticket NAME           Issue a new expiring one-use ticket for an existing enabled user
                   revoke NAME           End all sessions and pending tickets for an existing user
+                  notify ACCOUNT_ID EVENT_ID
+                                        Send an idempotent system notice from a UTF-8 JSON object on stdin
+                  legacy inventory postgres|mysql|sqlite
+                                        Inspect the v1 article catalog and exact table counts
+                  legacy plan postgres|mysql|sqlite
+                                        Audit v1 article coordinates and report import blockers
                 """);
             return 0;
         }
@@ -49,6 +55,11 @@ internal static partial class Migration
         Console.CancelKeyPress += cancel;
         try
         {
+            if (arguments is ["legacy", var mode, var provider])
+            {
+                return await RunLegacyAsync(mode, provider, cancelled.Token);
+            }
+
             var connectionString = Environment.GetEnvironmentVariable(DatabaseVariable);
             if (string.IsNullOrWhiteSpace(connectionString))
             {
@@ -94,6 +105,9 @@ internal static partial class Migration
                     break;
                 case ["revoke", var name]:
                     await RevokeAsync(connection, name, token);
+                    break;
+                case ["notify", var recipient, var eventId]:
+                    await NotifyAsync(connection, recipient, eventId, Console.OpenStandardInput(), token);
                     break;
                 default:
                     throw new ArgumentException("Unrecognized arguments. Run with --help for usage.");

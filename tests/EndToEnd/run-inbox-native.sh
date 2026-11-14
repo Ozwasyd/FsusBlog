@@ -61,26 +61,22 @@ FSUSBLOG_INBOX_DESKTOP_TICKET=$("$dotnet" "$migrate" operator inbox-desktop --re
 FSUSBLOG_INBOX_MOBILE_TICKET=$("$dotnet" "$migrate" operator inbox-mobile --reader)
 export FSUSBLOG_INBOX_DESKTOP_TICKET FSUSBLOG_INBOX_MOBILE_TICKET
 
-"${query[@]}" -d "$database" >> "$evidence/db.log" <<'SQL'
-BEGIN;
-INSERT INTO public.inbox_conversation (account_id, subject, status, is_system, last_message_at)
-SELECT id, 'Integration fixture notice', 0, true, clock_timestamp()
-FROM public.blog_user WHERE name IN ('inbox-desktop', 'inbox-mobile');
-
-INSERT INTO public.inbox_message (conversation_id, sender, is_internal, body, sent_at)
-SELECT id, 2, false, 'Integration fixture private body', last_message_at FROM public.inbox_conversation;
-
-UPDATE public.inbox_conversation c SET last_message_id = m.id
-FROM public.inbox_message m WHERE m.conversation_id = c.id;
-
-INSERT INTO public.inbox_delivery (account_id, last_sequence)
-SELECT account_id, 2 FROM public.inbox_conversation;
-
-INSERT INTO public.inbox_event (account_id, sequence, kind, conversation_id, message_id, occurred_at)
-SELECT c.account_id, e.sequence, e.kind, c.id, c.last_message_id, c.last_message_at
-FROM public.inbox_conversation c CROSS JOIN (VALUES (1, 12), (2, 13)) AS e(sequence, kind);
-COMMIT;
-SQL
+FSUSBLOG_INBOX_DESKTOP_ID=$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-desktop';")
+FSUSBLOG_INBOX_MOBILE_ID=$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-mobile';")
+export FSUSBLOG_INBOX_DESKTOP_ID FSUSBLOG_INBOX_MOBILE_ID
+for recipient in "$FSUSBLOG_INBOX_DESKTOP_ID" "$FSUSBLOG_INBOX_MOBILE_ID"; do
+  printf '%s' '{"subject":"Integration fixture notice","body":"Integration fixture private body"}' |
+    "$dotnet" "$migrate" notify "$recipient" initial-notice >> "$evidence/schema.log"
+done
+printf '%s' '{"subject":"Integration fixture notice","body":"Integration fixture private body"}' |
+  "$dotnet" "$migrate" notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/replayed-notice.json"
+rg -q '"replayed": true' "$evidence/replayed-notice.json"
+if printf '%s' '{"subject":"Integration fixture notice","body":"Different retry body"}' |
+    "$dotnet" "$migrate" notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/notice-conflict.log" 2>&1; then
+  printf 'Conflicting notice retry was accepted.\n' >&2
+  exit 1
+fi
+rg -q 'different request' "$evidence/notice-conflict.log"
 "$dotnet" "$migrate" verify >> "$evidence/schema.log"
 
 "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
@@ -94,8 +90,8 @@ for (( attempt=0; attempt<100; attempt++ )); do
 done
 [[ -n $url ]] && curl --silent --fail "$url/health/ready" >/dev/null
 export FSUSBLOG_TEST_URL=$url
-export FSUSBLOG_INBOX_TEST_DB_NAME=$database
-export FSUSBLOG_INBOX_TEST_PSQL=$psql
+export FSUSBLOG_INBOX_MIGRATE_DLL=$migrate
+export FSUSBLOG_INBOX_DOTNET=$dotnet
 node tests/EndToEnd/inbox-flow.mjs
 
 [[ $("${query[@]}" -d "$database" -qAtc "SELECT count(*) FROM public.inbox_conversation WHERE subject='Integration fixture notice' AND read_through=last_message_id;") == 2 ]]

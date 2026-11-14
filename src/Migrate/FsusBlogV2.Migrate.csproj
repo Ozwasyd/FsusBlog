@@ -3,7 +3,10 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.4" />
+    <PackageReference Include="MySqlConnector" Version="2.6.2" />
     <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
     <EmbeddedResource Include="*.sql" LogicalName="FsusBlogV2.Schema.%(Filename)%(Extension)" />
   </ItemGroup>

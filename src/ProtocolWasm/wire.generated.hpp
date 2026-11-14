@@ -21,6 +21,8 @@ inline constexpr uint32_t CrcPolynomial = 0xa001;
 namespace limits {
 inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
+inline constexpr uint32_t TaxonomyTagCount = 32;
+inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
 inline constexpr uint32_t NameBytes = 256;
@@ -28,10 +30,19 @@ inline constexpr uint32_t BodyBytes = 1048576;
 inline constexpr uint32_t MaxPayloadBytes = 4194304;
 inline constexpr uint32_t SearchIndexPageSize = 200;
 inline constexpr uint32_t SearchIndexMaxPages = 200;
+inline constexpr uint32_t SearchCorpusPageBytes = 8388608;
+inline constexpr uint32_t SearchCorpusTotalBytes = 67108864;
+inline constexpr uint32_t SearchCorpusMaxPages = 128;
+inline constexpr uint32_t SearchQueryChars = 128;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t CanvasInsertionBytes = 560;
 inline constexpr uint32_t CanvasRequestBytes = 76;
+inline constexpr uint32_t PropertyKeyBytes = 64;
+inline constexpr uint32_t PropertyLabelBytes = 1024;
+inline constexpr uint32_t PropertyValueBytes = 65536;
+inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
+inline constexpr uint32_t PropertyPageSize = 25;
 inline constexpr uint32_t InboxReplayMaxEvents = 512;
 inline constexpr uint32_t InboxReplayCursorChars = 54;
 inline constexpr uint32_t MaxPasskeyFrameBytes = 32768;
@@ -67,6 +78,19 @@ inline constexpr uint32_t ArticleListCursorVersion = 2;
 inline constexpr uint32_t ArticleListCursorMaxBytes = 512;
 inline constexpr uint32_t ArticleListRecordSizeCurrent = 100;
 inline constexpr uint32_t ArticleSearchV4Magic = 0x34534146;
+inline constexpr uint32_t SearchPackageMagic = 0x4b505346;
+inline constexpr uint32_t SearchShardMagic = 0x32534846;
+inline constexpr uint32_t SearchResultMagic = 0x34525346;
+inline constexpr uint32_t SearchArtifactVersion = 4;
+inline constexpr uint32_t SearchPackageEntryOffset = 12;
+inline constexpr uint32_t SearchPackagePayloadOffset = 32;
+inline constexpr uint32_t SearchShardHeaderSize = 72;
+inline constexpr uint32_t SearchTermRecordSize = 24;
+inline constexpr uint32_t SearchDocumentRecordSize = 76;
+inline constexpr uint32_t SearchDictionaryRecordSize = 16;
+inline constexpr uint32_t SearchResultHeaderSize = 24;
+inline constexpr uint32_t SearchResultRecordSize = 76;
+inline constexpr uint32_t SearchResultTagRecordSize = 12;
 inline constexpr uint32_t ArticleSearchV4Version = 4;
 inline constexpr uint32_t ArticleSearchItemPodSize = 420;
 inline constexpr uint32_t ArticleSearchTagPodSize = 132;
@@ -132,6 +156,10 @@ enum class FrameType : uint16_t {
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    CommentThreadReplyCursor = 8,
+    CommentTreeRootCursor = 208,
+    CommentChildCursor = 209,
+    CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
     AuthLoginFlow = 18,
@@ -160,6 +188,13 @@ enum class FrameType : uint16_t {
     CanvasLinkPlan = 32776,
     CanvasConfirm = 32777,
     CanvasLinked = 32778,
+    PropertyDefinitionCommand = 32779,
+    PropertyWorkspaceRequest = 32780,
+    PropertyTextCommand = 32781,
+    PropertyCommandReceipt = 32782,
+    PropertyWorkspace = 32783,
+    DraftTaxonomy = 32790,
+    TaxonomyAssignment = 32791,
 };
 
 constexpr bool known(FrameType type) {
@@ -167,6 +202,10 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:
+        case FrameType::CommentThreadReplyCursor:
+        case FrameType::CommentTreeRootCursor:
+        case FrameType::CommentChildCursor:
+        case FrameType::CommentPermalinkContext:
         case FrameType::CategoryList:
         case FrameType::TagList:
         case FrameType::AuthLoginFlow:
@@ -195,6 +234,13 @@ constexpr bool known(FrameType type) {
         case FrameType::CanvasLinkPlan:
         case FrameType::CanvasConfirm:
         case FrameType::CanvasLinked:
+        case FrameType::PropertyDefinitionCommand:
+        case FrameType::PropertyWorkspaceRequest:
+        case FrameType::PropertyTextCommand:
+        case FrameType::PropertyCommandReceipt:
+        case FrameType::PropertyWorkspace:
+        case FrameType::DraftTaxonomy:
+        case FrameType::TaxonomyAssignment:
             return true;
     }
     return false;

@@ -7,6 +7,8 @@ import {
   taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
 } from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing } from '../publicEntry'
+import { searchLocal } from '../localSearch'
+import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +31,7 @@ const query = computed(() => typeof route.query.q === 'string' ? route.query.q.t
 const page = computed(() => pageNumber(route.query.page))
 const cursor = computed(() => typeof route.query.cursor === 'string' && route.query.cursor ? route.query.cursor : undefined)
 const nextCursor = ref<string | null>(null)
+const searchTotal = ref(0)
 const cursorExpired = ref(false)
 const previousByCursor = new Map<string, string | undefined>()
 const priorCursor = computed(() => cursor.value && previousByCursor.get(cursor.value))
@@ -41,27 +44,21 @@ const loading = ref(true)
 const failed = ref(false)
 const reload = ref(0)
 const pageSize = 10
-const maxSearchLength = 256
-
-async function localSearch(value: string, signal: AbortSignal) {
-  const index = await api.publicIndex(signal)
-  const term = value.toLowerCase()
-  const items = index.items.filter(item => item.title.toLowerCase().includes(term)
-    || item.summary.toLowerCase().includes(term))
-  return { items, total: items.length, nextCursor: null }
-}
+const maxSearchLength = WireLimits.SearchQueryChars
+const searchTooLong = computed(() => input.value.trim().length > maxSearchLength)
 
 watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text], _, cleanup) => {
   const request = new AbortController()
   cleanup(() => request.abort())
   articles.value = []
   nextCursor.value = null
+  searchTotal.value = 0
   filter.value = undefined
   missing.value = false
   cursorExpired.value = false
   failed.value = false
   input.value = text
-  if (search && !text) {
+  if (search && (!text || text.length > maxSearchLength)) {
     loading.value = false
     return
   }
@@ -75,7 +72,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
     const currentCursor = ordinal > 1 ? token : undefined
     let result: Awaited<ReturnType<typeof api.publicList>>
     if (search) {
-      result = await localSearch(text.slice(0, maxSearchLength), request.signal)
+      result = await searchLocal(text, request.signal, ordinal, pageSize)
     } else if (kind) {
       const [metadata, page] = await Promise.all([
         taxonomyMetadata(kind, categoryOrTagId, request.signal),
@@ -92,6 +89,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
     if (!request.signal.aborted) {
       articles.value = result.items
       nextCursor.value = result.nextCursor
+      if (search) searchTotal.value = result.total
       if (result.nextCursor) {
         if (previousByCursor.size >= 100) previousByCursor.clear()
         previousByCursor.set(result.nextCursor, token)
@@ -116,10 +114,11 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
     <h1 class="editorial-rule">{{ missing ? heading + ' not found' : heading }}</h1>
     <p v-if="filter?.description">{{ filter.description }}</p>
     <form v-if="isSearch" class="search-form" @submit.prevent="search">
-      <ElInput v-model="input" label="Search articles" placeholder="Search titles or summaries" />
-      <ElButton type="primary" native-type="submit">Search</ElButton>
+      <ElInput v-model="input" label="Search articles" placeholder="Search published articles" />
+      <ElButton type="primary" native-type="submit" :disabled="searchTooLong">Search</ElButton>
     </form>
-    <p v-if="loading" role="status">Loading articles…</p>
+    <p v-if="isSearch && searchTooLong" role="status">Use at most {{ maxSearchLength }} characters.</p>
+    <p v-else-if="loading" role="status">Loading articles…</p>
     <template v-else-if="cursorExpired">
       <p role="status">This page link has expired. Start at the first page to see the current articles.</p>
       <RouterLink :to="{ query: {} }">First page</RouterLink>
@@ -130,7 +129,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       <ElButton class="retry" @click="reload++">Retry</ElButton>
     </template>
     <p v-else-if="!articles.length" class="muted">
-      {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published article titles and summaries.' : taxonomy ? 'There are no published articles here yet.' : 'No articles have been published yet.' }}
+      {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published articles.' : taxonomy ? 'There are no published articles here yet.' : 'No articles have been published yet.' }}
     </p>
     <ol v-else class="article-list">
       <li v-for="item in articles" :key="item.id">
@@ -145,6 +144,11 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </article>
       </li>
     </ol>
+    <nav v-if="isSearch && !loading && !failed && query && (page > 1 || searchTotal > pageSize)" aria-label="Search result pages" class="page-links">
+      <RouterLink v-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">Previous</RouterLink>
+      <span aria-current="page">Page {{ page }}</span>
+      <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }">Next</RouterLink>
+    </nav>
     <nav v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" aria-label="Article pages" class="page-links">
       <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }">{{ page > 2 && !priorCursor ? 'First page' : 'Previous' }}</RouterLink>
       <span aria-current="page">Page {{ page }}</span>

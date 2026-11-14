@@ -6,6 +6,10 @@ public enum FrameType : ushort
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    CommentThreadReplyCursor = 8,
+    CommentTreeRootCursor = 208,
+    CommentChildCursor = 209,
+    CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
     AuthLoginFlow = 18,
@@ -34,6 +38,13 @@ public enum FrameType : ushort
     CanvasLinkPlan = 32776,
     CanvasConfirm = 32777,
     CanvasLinked = 32778,
+    PropertyDefinitionCommand = 32779,
+    PropertyWorkspaceRequest = 32780,
+    PropertyTextCommand = 32781,
+    PropertyCommandReceipt = 32782,
+    PropertyWorkspace = 32783,
+    DraftTaxonomy = 32790,
+    TaxonomyAssignment = 32791,
 }
 
 public static class WireHeader
@@ -55,6 +66,8 @@ public static class WireLimits
 {
     public const int TaxonomyNameBytes = 512;
     public const int TaxonomyDescriptionBytes = 2000;
+    public const int TaxonomyTagCount = 32;
+    public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
     public const int NameBytes = 256;
@@ -62,10 +75,19 @@ public static class WireLimits
     public const int MaxPayloadBytes = 4194304;
     public const int SearchIndexPageSize = 200;
     public const int SearchIndexMaxPages = 200;
+    public const int SearchCorpusPageBytes = 8388608;
+    public const int SearchCorpusTotalBytes = 67108864;
+    public const int SearchCorpusMaxPages = 128;
+    public const int SearchQueryChars = 128;
     public const int MaxSignInFrameBytes = 148;
     public const int MaxCommandFrameBytes = 1048884;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
+    public const int PropertyKeyBytes = 64;
+    public const int PropertyLabelBytes = 1024;
+    public const int PropertyValueBytes = 65536;
+    public const int PropertyMaxCommandBytes = 65792;
+    public const int PropertyPageSize = 25;
     public const int InboxReplayMaxEvents = 512;
     public const int InboxReplayCursorChars = 54;
     public const int MaxPasskeyFrameBytes = 32768;
@@ -102,6 +124,19 @@ public static class WireLayouts
     public const int ArticleListCursorMaxBytes = 512;
     public const int ArticleListRecordSizeCurrent = 100;
     public const int ArticleSearchV4Magic = 0x34534146;
+    public const int SearchPackageMagic = 0x4b505346;
+    public const int SearchShardMagic = 0x32534846;
+    public const int SearchResultMagic = 0x34525346;
+    public const int SearchArtifactVersion = 4;
+    public const int SearchPackageEntryOffset = 12;
+    public const int SearchPackagePayloadOffset = 32;
+    public const int SearchShardHeaderSize = 72;
+    public const int SearchTermRecordSize = 24;
+    public const int SearchDocumentRecordSize = 76;
+    public const int SearchDictionaryRecordSize = 16;
+    public const int SearchResultHeaderSize = 24;
+    public const int SearchResultRecordSize = 76;
+    public const int SearchResultTagRecordSize = 12;
     public const int ArticleSearchV4Version = 4;
     public const int ArticleSearchItemPodSize = 420;
     public const int ArticleSearchTagPodSize = 132;
@@ -168,6 +203,10 @@ public static class WireRoutes
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
+    public const string CommentRoots = "/api/binary/comment/{articleId:int}";
+    public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
+    public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
+    public const string CommentThread = "/api/binary/comment/{articleId:int}/thread/{rootId:long}";
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
     public const string CategoryList = "/api/binary/category";
     public const string TagList = "/api/binary/tag";
@@ -176,7 +215,10 @@ public static class WireRoutes
     public const string TagMetadataByName = "/api/binary/tag/by-name.aeds";
     public const string CategoryArticles = "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds";
     public const string TagArticles = "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds";
+    public const string DraftTaxonomy = "/api/v2/authoring/draft/{id:int}/taxonomy.aeds";
+    public const string TaxonomyAssignment = "/api/v2/authoring/taxonomy/assign.aeds";
     public const string PublicIndex = "/api/v2/public/index.aeds";
+    public const string PublicSearchCorpus = "/api/v2/public/search-corpus";
     public const string InboxList = "/api/binary/messages/conversations";
     public const string InboxDetail = "/api/binary/messages/conversations/{id:long}";
     public const string InboxReply = "/api/binary/messages/conversations/{id:long}/reply";
@@ -198,6 +240,9 @@ public static class WireRoutes
     public const string CanvasCreate = "/api/v2/authoring/canvas/create.aeds";
     public const string CanvasPreview = "/api/v2/authoring/canvas/link/preview.aeds";
     public const string CanvasConfirm = "/api/v2/authoring/canvas/link/confirm.aeds";
+    public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
+    public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
+    public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";
 }
 
 public static class WireHeaders
@@ -211,6 +256,8 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
 }
 
+public sealed record DraftTaxonomy(int Id, long Revision, int CategoryId, IReadOnlyList<int> TagIds);
+public sealed record TaxonomyAssignment(int Id, long ExpectedRevision, Guid IdempotencyKey, int CategoryId, IReadOnlyList<int> TagIds);
 public sealed record SignIn(string Ticket);
 public sealed record Session(string Name, long Generation, bool CanAuthor);
 public sealed record Draft(int Id, long Revision, string Title, string Body, bool Published);
@@ -221,9 +268,54 @@ public sealed record CanvasPreview(Guid CanvasId, Guid EdgeId, long CanvasRevisi
 public sealed record CanvasLinkPlan(Guid PlanId, long CanvasRevision, int HostArticleId, long HostRevision, int TargetArticleId, long TargetRevision, int SourceOffset, string InsertedMarkdown, long ExpiresAtUnixSeconds);
 public sealed record CanvasConfirm(Guid PlanId);
 public sealed record CanvasLinked(Guid PlanId, int ArticleId, long ArticleRevision, long CanvasRevision);
+public sealed record PropertyDefinitionCommand(int Operation, Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, string MachineKey, string Label);
+public sealed record PropertyWorkspaceRequest(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, string AfterKey);
+public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
+public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
 
 public static partial class Wire
 {
+    public static byte[] EncodeDraftTaxonomy(DraftTaxonomy value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.Revision);
+        writer.I32(value.CategoryId);
+        writer.I32s(value.TagIds, WireLimits.TaxonomyTagCount);
+        return Aeds.Encode(FrameType.DraftTaxonomy, writer.Written);
+    }
+
+    public static DraftTaxonomy DecodeDraftTaxonomy(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftTaxonomy));
+        var value = new DraftTaxonomy(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeTaxonomyAssignment(TaxonomyAssignment value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.ExpectedRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.I32(value.CategoryId);
+        writer.I32s(value.TagIds, WireLimits.TaxonomyTagCount);
+        return Aeds.Encode(FrameType.TaxonomyAssignment, writer.Written);
+    }
+
+    public static TaxonomyAssignment DecodeTaxonomyAssignment(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.TaxonomyAssignment));
+        var value = new TaxonomyAssignment(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeSignIn(SignIn value)
     {
         Validate(value);
@@ -420,6 +512,94 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasLinked));
         var value = new CanvasLinked(reader.Uuid(), reader.I32(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyDefinitionCommand(PropertyDefinitionCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Operation);
+        writer.Uuid(value.DefinitionId);
+        writer.Uuid(value.RequestId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.DefinitionRevision);
+        writer.Text(value.MachineKey, WireLimits.PropertyKeyBytes);
+        writer.Text(value.Label, WireLimits.PropertyLabelBytes);
+        return Aeds.Encode(FrameType.PropertyDefinitionCommand, writer.Written);
+    }
+
+    public static PropertyDefinitionCommand DecodePropertyDefinitionCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionCommand));
+        var value = new PropertyDefinitionCommand(reader.I32(), reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes), reader.Text(WireLimits.PropertyLabelBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyWorkspaceRequest(PropertyWorkspaceRequest value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.ArticleRevision);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.ValueRevision);
+        writer.Text(value.AfterKey, WireLimits.PropertyKeyBytes);
+        return Aeds.Encode(FrameType.PropertyWorkspaceRequest, writer.Written);
+    }
+
+    public static PropertyWorkspaceRequest DecodePropertyWorkspaceRequest(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyWorkspaceRequest));
+        var value = new PropertyWorkspaceRequest(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyTextCommand(PropertyTextCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.ArticleRevision);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.ValueRevision);
+        writer.Uuid(value.DefinitionId);
+        writer.I64(value.DefinitionRevision);
+        writer.Uuid(value.RequestId);
+        writer.Bool(value.Remove);
+        writer.Text(value.Value, WireLimits.PropertyValueBytes);
+        return Aeds.Encode(FrameType.PropertyTextCommand, writer.Written);
+    }
+
+    public static PropertyTextCommand DecodePropertyTextCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyTextCommand));
+        var value = new PropertyTextCommand(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PropertyValueBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyCommandReceipt(PropertyCommandReceipt value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.DefinitionId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.Revision);
+        return Aeds.Encode(FrameType.PropertyCommandReceipt, writer.Written);
+    }
+
+    public static PropertyCommandReceipt DecodePropertyCommandReceipt(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyCommandReceipt));
+        var value = new PropertyCommandReceipt(reader.Uuid(), reader.I64(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

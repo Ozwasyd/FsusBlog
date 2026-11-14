@@ -4,6 +4,9 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRoute
 import { ElAlert, ElButton, ElInput, ElMarkdownEditor, ElMessageBox } from '@ozwasyd/element-plus'
 import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
+import ArticleTaxonomy from './ArticleTaxonomy.vue'
+import ArticleProperties from './ArticleProperties.vue'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 import {
   WorkspaceRegistry,
@@ -12,12 +15,16 @@ import {
   type WorkspaceTab,
 } from '../authoring/workspaceRegistry'
 
-type Action = 'save' | 'publish' | 'retract'
+type ArticleAction = 'save' | 'publish' | 'retract'
+type Action = ArticleAction | 'assign-taxonomy'
 const route = useRoute()
 const router = useRouter()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
 const id = computed(() => route.name === 'write' ? 0 : Number(route.params.id))
 const notice = ref('')
+const taxonomyDirty = ref(false)
+const taxonomyStale = ref(false)
+const propertyPending = ref(false)
 const failure = ref('')
 const authorizationReady = ref(false)
 const loading = ref(false)
@@ -25,10 +32,12 @@ const reload = ref(0)
 const lifetime = new AbortController()
 const original = shallowRef<Draft>()
 const tab = shallowRef<WorkspaceTab>()
-const dirty = computed(() => tab.value?.risk === 'dirty' || tab.value?.risk === 'conflict')
-const pending = computed(() => tab.value?.risk === 'saving')
+const articleDirty = computed(() => tab.value?.risk === 'dirty' || tab.value?.risk === 'conflict')
+const dirty = computed(() => articleDirty.value || taxonomyDirty.value)
+const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'conflict')
+const articlePending = computed(() => tab.value?.risk === 'saving')
+const pending = computed(() => articlePending.value || propertyPending.value)
 const retry = computed(() => tab.value?.retry)
-const conflicts = computed(() => tab.value?.risk === 'conflict')
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(original.value?.title.trim() ?? '').length)
 const validTitle = computed(() => titleLength.value > 0 && titleLength.value <= WireLimits.TitleBytes
@@ -38,7 +47,7 @@ const validBody = computed(() => {
   return body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
 })
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
-const cannotWrite = computed(() => pending.value || conflicts.value || !validBody.value || !validTitle.value)
+const cannotWrite = computed(() => pending.value || hasConflict.value || taxonomyDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
 
 const failureByReason: Record<WorkspaceBlock, string> = {
@@ -60,16 +69,9 @@ function workspaceBlock(error: unknown): WorkspaceBlock {
   return 'unavailable'
 }
 
-const send = (action: Action) => async (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> => {
+async function mutationResult(operation: () => Promise<Draft>, signal: AbortSignal): Promise<DraftSave<Draft>> {
   try {
-    const stored = await api[action]({
-      id: draft.id,
-      expectedRevision: draft.revision,
-      title: action === 'save' ? draft.title.trim() : '',
-      body: action === 'save' ? draft.body : '',
-      idempotencyKey,
-    }, signal)
-    return { kind: 'saved', draft: stored }
+    return { kind: 'saved', draft: await operation() }
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 409) return { kind: 'conflict' }
@@ -78,6 +80,24 @@ const send = (action: Action) => async (draft: Draft, signal: AbortSignal, idemp
     return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : workspaceBlock(error) }
   }
 }
+
+const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> =>
+  mutationResult(() => api[action]({
+    id: draft.id,
+    expectedRevision: draft.revision,
+    title: action === 'save' ? draft.title.trim() : '',
+    body: action === 'save' ? draft.body : '',
+    idempotencyKey,
+  }, signal), signal)
+
+const saveTaxonomy = (selection: TaxonomySelection) => (draft: Draft, signal: AbortSignal, idempotencyKey: string) =>
+  mutationResult(async () => {
+    const stored = await assignTaxonomy({
+      id: draft.id, expectedRevision: draft.revision, idempotencyKey,
+      categoryId: selection.categoryId, tagIds: selection.tagIds.slice(),
+    }, signal)
+    return { ...draft, id: stored.id, revision: stored.revision }
+  }, signal)
 
 const registry = new WorkspaceRegistry<Draft>({
   async load(articleId, signal) {
@@ -90,7 +110,12 @@ const registry = new WorkspaceRegistry<Draft>({
   save: send('save'),
 })
 const unsubscribe = registry.subscribe(() => {
-  original.value = registry.activeDraft
+  const next = registry.activeDraft
+  if (next?.id !== original.value?.id || next?.revision !== original.value?.revision) {
+    taxonomyDirty.value = false
+    taxonomyStale.value = false
+  }
+  original.value = next
   tab.value = registry.activeTab
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
@@ -141,8 +166,9 @@ function onUnload(event: BeforeUnloadEvent) {
 }
 
 async function allowLeave() {
+  if (propertyPending.value) return false
   const current = tab.value
-  if (!current || current.risk === 'clean') return true
+  if (!current || current.risk === 'clean' && !taxonomyDirty.value) return true
   if (current.risk === 'saving' || current.risk === 'pending' || current.retry) return false
   const revision = registry.revision
   try {
@@ -163,25 +189,38 @@ onBeforeRouteUpdate((to, from) => to.path === from.path || allowLeave())
 function edit(field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (editable.value && current && document && document[field] !== value) {
+  if (editable.value && !taxonomyDirty.value && !propertyPending.value && current && document && document[field] !== value) {
     registry.updateDraft(current, { ...document, [field]: value })
   }
 }
 
-async function submit(action: Action) {
+async function submit(action: Action, selection?: TaxonomySelection) {
   const current = tab.value
   const document = original.value
   if (!current || !document || !editable.value || pending.value) return
-  if (current.retry ? action !== current.retry : cannotWrite.value) return
-  if (!current.retry && action === 'publish' && !document.body.trim()) return
+  if (current.retry) {
+    if (action !== current.retry) return
+  } else if (action === 'assign-taxonomy') {
+    if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value) return
+  } else if (cannotWrite.value || action === 'publish' && !document.body.trim()) {
+    return
+  }
 
   failure.value = ''
   notice.value = ''
   const identity = identityEpoch.value
-  const result = action === 'save' ? await registry.save(current) : await registry.commit(current, action, send(action))
+  const requested = current.retry
+    ? registry.retry(current)
+    : action === 'save'
+      ? registry.save(current)
+      : action === 'publish' || action === 'retract'
+        ? registry.commit(current, action, send(action))
+        : selection && registry.commit(current, action, saveTaxonomy(selection))
+  if (!requested) return
+  const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
   if (result.kind === 'saved') {
-    notice.value = { save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.' }[action]
+    notice.value = { save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.', 'assign-taxonomy': 'Classification saved.' }[action]
     if (!document.id) await router.replace({ name: 'edit', params: { id: result.articleId } })
   } else if (result.kind === 'conflict') {
     failure.value = 'The server has a newer revision. Copy your changes before loading it.'
@@ -193,7 +232,10 @@ async function submit(action: Action) {
 }
 
 async function reloadDraft() {
-  if (await allowLeave()) reload.value++
+  if (!await allowLeave()) return
+  const current = tab.value
+  if (current) registry.requestClose(current)
+  reload.value++
 }
 </script>
 
@@ -207,7 +249,7 @@ async function reloadDraft() {
       </div>
       <div v-if="editable" class="editor-actions">
         <ElButton v-if="retry" type="primary" :disabled="pending" @click="submit(retry)">Try again</ElButton>
-        <ElButton v-else native-type="button" :disabled="cannotWrite || !dirty" @click="submit('save')">Save draft</ElButton>
+        <ElButton v-else native-type="button" :disabled="cannotWrite || !articleDirty" @click="submit('save')">Save draft</ElButton>
         <ElButton
           v-if="!retry" native-type="button" :type="original?.published ? 'default' : 'primary'"
           :disabled="cannotWrite || dirty || id === 0 || !original?.body.trim()"
@@ -232,21 +274,39 @@ async function reloadDraft() {
         {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">Read the published article</RouterLink>
       </p>
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-      <ElButton v-if="conflicts" class="retry" @click="reloadDraft">Load latest revision</ElButton>
+      <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
       <label for="article-title">Title</label>
-      <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending" />
-      <p v-if="id === 0 || dirty" class="metadata">Save the draft before publishing.</p>
+      <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty" />
+      <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>
       <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
       <label for="article-body">Body</label>
       <ElMarkdownEditor
         v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
-        :disabled="pending" :show-actions="false"
+        :disabled="pending || taxonomyDirty" :show-actions="false"
       />
       <template v-else>
         <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
-        <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending" />
+        <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty" />
       </template>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
+      <ArticleTaxonomy
+        v-if="original && original.id > 0"
+        :article-id="original.id"
+        :revision="original.revision"
+        :identity="identityEpoch"
+        :disabled="articleDirty || pending || !!retry || hasConflict"
+        @change="taxonomyDirty = $event"
+        @save="submit('assign-taxonomy', $event)"
+        @stale="taxonomyStale = true"
+      />
+      <ArticleProperties
+        v-if="original && original.id > 0"
+        :article-id="original.id"
+        :revision="original.revision"
+        :identity="identityEpoch"
+        :disabled="articleDirty || taxonomyDirty || articlePending || !!retry || hasConflict"
+        @pending="propertyPending = $event"
+      />
     </section>
   </main>
 </template>

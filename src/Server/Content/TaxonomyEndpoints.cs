@@ -11,7 +11,8 @@ internal static class TaxonomyEndpoints
     private static readonly string[] ReadMethods = [HttpMethods.Get, HttpMethods.Head];
 
     internal static void Map(WebApplication app, Func<HttpContext, PublicSnapshot> snapshot,
-        Func<HttpContext, string, int, string?> query, Func<HttpContext, string?> cursor)
+        Func<HttpContext, string, int, string?> query, Func<HttpContext, string?> cursor, string cookie,
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         app.MapMethods(WireRoutes.CategoryList, ReadMethods, (HttpContext ctx) => Results.Bytes(snapshot(ctx).Taxonomy.Categories, Binary));
         app.MapMethods(WireRoutes.TagList, ReadMethods, (HttpContext ctx) => Results.Bytes(snapshot(ctx).Taxonomy.Tags, Binary));
@@ -27,6 +28,34 @@ internal static class TaxonomyEndpoints
             List(ctx, false, id, page, size)).RequireRateLimiting("query");
         app.MapMethods(WireRoutes.TagArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
             List(ctx, true, id, page, size)).RequireRateLimiting("query");
+
+        app.MapGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
+        {
+            if (id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
+                throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
+
+            var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            {
+                var draft = await Store.Find(db, tx, actor, id, true, ct);
+                if (draft.Revision != revision)
+                    throw new BusinessException(Rejection.Conflict, "The article changed. Reload its current revision.");
+                return await TaxonomyStore.ReadDraft(db, tx, id, revision, ct);
+            }, ct);
+            return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
+        }).RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.TaxonomyAssignment, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            var input = Wire.DecodeTaxonomyAssignment(await readFrame(ctx, WireLimits.TaxonomyAssignmentFrameBytes, ct));
+            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
+                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
+                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            input = input with { TagIds = input.TagIds.Order().ToArray() };
+
+            var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true,
+                (db, tx, actor) => Store.AssignTaxonomy(db, tx, actor, input, ct), ct);
+            return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
+        }).RequireRateLimiting("command");
 
         app.MapMethods("/category/{id:int}", ReadMethods, (HttpContext ctx, int id) => Page(snapshot(ctx), false, id));
         app.MapMethods("/tag/{id:int}", ReadMethods, (HttpContext ctx, int id) => Page(snapshot(ctx), true, id));

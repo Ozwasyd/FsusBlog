@@ -8,6 +8,7 @@ CREATE TABLE public.property_definition (
     id uuid NOT NULL,
     machine_key text NOT NULL,
     revision bigint NOT NULL CHECK (revision > 0),
+    digest text NOT NULL CHECK (char_length(digest) = 64),
     shape jsonb NOT NULL,
     PRIMARY KEY (owner_id, id),
     UNIQUE (owner_id, machine_key)

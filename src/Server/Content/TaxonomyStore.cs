@@ -1,4 +1,5 @@
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
@@ -10,6 +11,37 @@ internal sealed record TaxonomyRows(
 
 internal static class TaxonomyStore
 {
+    internal static async Task<DraftTaxonomy> ReadDraft(NpgsqlConnection db, NpgsqlTransaction tx, int articleId,
+        long revision, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, """
+            select coalesce((select category_id from public.article_revision_category where article_id=$1 and revision=$2),0),
+                   array(select tag_id from public.article_revision_tag where article_id=$1 and revision=$2 order by tag_id)
+            """, articleId, revision);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Draft taxonomy query returned no row.");
+        return new(articleId, revision, reader.GetInt32(0), reader.GetFieldValue<int[]>(1));
+    }
+
+    internal static async Task Replace(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision,
+        int category, IReadOnlyList<int> tags, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, """
+            with category_link as (
+                insert into public.article_revision_category(article_id,revision,category_id)
+                select $1,$2,$3 where $3<>0
+            )
+            insert into public.article_revision_tag(article_id,revision,tag_id)
+            select $1,$2,requested.id from unnest($4::integer[]) as requested(id)
+            """, articleId, revision, category, tags.ToArray());
+        try { await cmd.ExecuteNonQueryAsync(ct); }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.ForeignKeyViolation &&
+            error.ConstraintName is "article_revision_category_category_id_fkey" or "article_revision_tag_tag_id_fkey")
+        {
+            throw new BusinessException(Rejection.Invalid, "A selected category or tag no longer exists.");
+        }
+    }
+
     internal static async Task<TaxonomyRows> Read(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var cmd = Store.Sql(db, tx, """

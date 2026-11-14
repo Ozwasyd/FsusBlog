@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElThemeModeToggle } from '@ozwasyd/element-plus'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { ApiError } from '../../../Contracts/client'
-import { currentSession, signIn } from '../session'
+import { passkeyAvailable } from '../../../Contracts/passkey'
+import { currentSession, registerFirstPasskey, signIn, signInWithPasskey } from '../session'
 
 const props = defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
@@ -13,15 +14,22 @@ const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
 const busy = ref(false)
 const failure = ref('')
+const registered = ref(false)
+const hasPasskeys = ref(false)
 const canContinue = computed(() => currentSession.value?.canAuthor)
 const router = useRouter()
 const lifetime = new AbortController()
 onUnmounted(() => lifetime.abort())
+onMounted(async () => {
+  try { hasPasskeys.value = await passkeyAvailable(lifetime.signal) }
+  catch { hasPasskeys.value = false }
+})
 
 async function submit() {
   if (busy.value || !validTicket.value) return
   busy.value = true
   failure.value = ''
+  registered.value = false
   try {
     await signIn(ticket.value.trim(), lifetime.signal)
     if (!lifetime.signal.aborted && currentSession.value) {
@@ -33,6 +41,30 @@ async function submit() {
         ? 'This owner access key was not accepted.'
         : 'Could not log in. Try again.'
     }
+  } finally {
+    if (!lifetime.signal.aborted) busy.value = false
+  }
+}
+
+async function usePasskey(register: boolean) {
+  if (busy.value || (register && !validTicket.value)) return
+  busy.value = true
+  failure.value = ''
+  registered.value = false
+  try {
+    if (register) {
+      const oneTimeKey = ticket.value.trim()
+      ticket.value = ''
+      await registerFirstPasskey(oneTimeKey, lifetime.signal)
+      if (!lifetime.signal.aborted) registered.value = true
+    } else {
+      await signInWithPasskey(lifetime.signal)
+      if (!lifetime.signal.aborted && currentSession.value)
+        await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
+    }
+  } catch {
+    if (!lifetime.signal.aborted)
+      failure.value = register ? 'Could not create the Passkey. Try again with a new owner access key.' : 'Could not log in with this Passkey. Try again.'
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
@@ -50,6 +82,10 @@ async function submit() {
     </div>
     <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">Continue to writing</RouterLink></p>
     <form v-else class="auth-form" @submit.prevent="submit">
+      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy" @click="usePasskey(false)">
+        Log in with Passkey
+      </ElButton>
+      <ElAlert v-if="registered" title="Passkey created. Log in with your Passkey." type="success" :closable="false" show-icon />
       <label for="owner-key">Owner access key</label>
       <ElInput
         id="owner-key"
@@ -62,6 +98,9 @@ async function submit() {
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
       <ElButton native-type="submit" size="large" type="primary" :loading="busy" :disabled="!validTicket">
         Log in
+      </ElButton>
+      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || !validTicket" @click="usePasskey(true)">
+        Create Passkey
       </ElButton>
     </form>
     <div class="auth-footer"><RouterLink to="/">Cancel</RouterLink></div>

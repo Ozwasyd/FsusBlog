@@ -17,6 +17,13 @@ export class PodReader {
     return this.view(4).getInt32(0, true);
   }
 
+  i32s(limit: number): number[] {
+    const count = this.i32();
+    if (count < 0 || count > limit || count > (this.payload.length - this.offset) / 4)
+      throw new ProtocolError('Invalid AEDS collection length');
+    return Array.from({ length: count }, () => this.i32());
+  }
+
   i64(): bigint {
     return this.view(8).getBigInt64(0, true);
   }
@@ -62,6 +69,12 @@ export class PodWriter {
     if (!Number.isInteger(value) || value < -0x80000000 || value > 0x7fffffff)
       throw new ProtocolError('Value outside AEDS int32 range');
     this.number(4, view => view.setInt32(0, value, true));
+  }
+
+  i32s(values: readonly number[], limit: number): void {
+    if (values.length > limit) throw new ProtocolError('AEDS collection exceeds its item limit');
+    this.i32(values.length);
+    for (const value of values) this.i32(value);
   }
 
   i64(value: bigint): void {

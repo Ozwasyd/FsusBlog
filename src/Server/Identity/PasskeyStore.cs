@@ -1,0 +1,284 @@
+using System.Security.Cryptography;
+using System.Text;
+using Fido2NetLib;
+using Fido2NetLib.Objects;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using Microsoft.AspNetCore.WebUtilities;
+using Npgsql;
+using NpgsqlTypes;
+
+namespace FsusBlog.V2.Server.Passkeys;
+
+internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration configuration)
+{
+    private readonly Fido2 _verifier = configuration.CreateVerifier();
+    private const long ChallengeBudgetLock = 716729109726707502L;
+    private const int ChallengeCapacity = 4096;
+
+    internal async Task<byte[]> BeginLogin(CancellationToken ct)
+    {
+        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = [],
+            UserVerification = UserVerificationRequirement.Required
+        });
+        var token = NewToken();
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using var tx = await db.BeginTransactionAsync(ct);
+        await SaveChallenge(db, tx, token, options.ToJson(), null, null, null, ct);
+        await tx.CommitAsync(ct);
+        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge);
+    }
+
+    internal async Task<(byte[] Frame, string Binding)> BeginProvision(string ticket, CancellationToken ct)
+    {
+        if (ticket is not { Length: 64 } || !ticket.All(char.IsAsciiHexDigitLower)) throw Denied();
+        var digest = SHA256.HashData(Convert.FromHexString(ticket));
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using var tx = await db.BeginTransactionAsync(ct);
+        Guid userId;
+        long generation;
+        await using (var user = Store.Sql(db, tx, """
+            select id,generation from public.blog_user
+            where enabled and id=(select user_id from public.login_ticket where digest=$1 and expires_at>clock_timestamp())
+            for update
+            """, digest))
+        await using (var row = await user.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw Denied();
+            (userId, generation) = (row.GetGuid(0), row.GetInt64(1));
+        }
+
+        if (await HasCredential(db, tx, userId, ct)) throw Denied();
+        await using (var consume = Store.Sql(db, tx, """
+            delete from public.login_ticket where user_id=$1 and digest=$2 and expires_at>clock_timestamp()
+            """, userId, digest))
+            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Denied();
+
+        await using (var ensureSubject = Store.Sql(db, tx, """
+            insert into public.passkey_subject(user_id,user_handle) values ($1,$2) on conflict (user_id) do nothing
+            """, userId, RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes)))
+            await ensureSubject.ExecuteNonQueryAsync(ct);
+        byte[] userHandle;
+        await using (var subject = Store.Sql(db, tx, "select user_handle from public.passkey_subject where user_id=$1", userId))
+            userHandle = (byte[])(await subject.ExecuteScalarAsync(ct))!;
+
+        // Avoid shipping the private operator name to platform credential providers.
+        var options = _verifier.RequestNewCredential(new RequestNewCredentialParams
+        {
+            User = new Fido2User { Id = userHandle, Name = "fsus-anonymous-account", DisplayName = "Anonymous account" },
+            AuthenticatorSelection = new AuthenticatorSelection
+            {
+                ResidentKey = ResidentKeyRequirement.Required,
+                UserVerification = UserVerificationRequirement.Required
+            },
+            AttestationPreference = AttestationConveyancePreference.None
+        });
+        var token = NewToken();
+        var binding = NewToken();
+        await SaveChallenge(db, tx, token, options.ToJson(), userId, generation, TokenDigest(binding), ct);
+        await tx.CommitAsync(ct);
+        return (PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
+            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
+            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray()), binding);
+    }
+
+    internal async Task CompleteProvision(PasskeyProvisionRequest request, string? binding, CancellationToken ct)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        if (binding is not { Length: 43 } || !binding.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+            throw Denied();
+        var challenge = await ConsumeChallenge(db, request.Token, TokenDigest(binding), ct);
+        CheckId(request.CredentialId, request.RawId);
+        var accountId = challenge.UserId!.Value;
+        var options = CredentialCreateOptions.FromJson(challenge.Options);
+        await using var tx = await db.BeginTransactionAsync(ct);
+        await using (var verifyOwner = Store.Sql(db, tx, """
+            select 1 from public.blog_user u join public.passkey_subject s on s.user_id=u.id
+            where u.id=$1 and u.enabled and u.generation=$2 and s.user_handle=$3 for update of u
+            """, accountId, challenge.Generation!.Value, options.User.Id))
+            if (await verifyOwner.ExecuteScalarAsync(ct) is null) throw Denied();
+        if (await HasCredential(db, tx, accountId, ct)) throw Denied();
+
+        RegisteredPublicKeyCredential credential;
+        try
+        {
+            credential = await _verifier.MakeNewCredentialAsync(new MakeNewCredentialParams
+            {
+                AttestationResponse = new AuthenticatorAttestationRawResponse
+                {
+                    Id = request.CredentialId,
+                    RawId = request.RawId,
+                    Type = PublicKeyCredentialType.PublicKey,
+                    Response = new AuthenticatorAttestationRawResponse.AttestationResponse
+                    {
+                        ClientDataJson = request.ClientData,
+                        AttestationObject = request.Attestation,
+                        Transports = request.Transports.Select(value => (AuthenticatorTransport)value).ToArray()
+                    },
+                    ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
+                },
+                OriginalOptions = options,
+                IsCredentialIdUniqueToUserCallback = async (candidate, token) =>
+                {
+                    await using var unique = Store.Sql(db, tx,
+                        "select not exists(select 1 from public.passkey_credential where credential_id=$1)", candidate.CredentialId);
+                    return (bool)(await unique.ExecuteScalarAsync(token))!;
+                }
+            }, ct);
+        }
+        catch (Fido2VerificationException) { throw Denied(); }
+
+        try
+        {
+            await using var insert = Store.Sql(db, tx, """
+                insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
+                values ($1,$2,$3,$4,$5,$6)
+                """, credential.Id, accountId, credential.PublicKey, (long)credential.SignCount, credential.IsBackupEligible, credential.IsBackedUp);
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation) { throw Denied(); }
+
+        // Fail stale credential-attachment challenges and retire bootstrap sessions atomically.
+        await using (var revoke = Store.Sql(db, tx, "update public.blog_user set generation=generation+1 where id=$1", accountId))
+            await revoke.ExecuteNonQueryAsync(ct);
+        await using (var revoke = Store.Sql(db, tx, "delete from public.login_ticket where user_id=$1", accountId))
+            await revoke.ExecuteNonQueryAsync(ct);
+        await using (var revoke = Store.Sql(db, tx, "delete from public.user_session where user_id=$1", accountId))
+            await revoke.ExecuteNonQueryAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    internal async Task<(string SessionToken, int AccountNumber, DateTimeOffset ExpiresAt)> CompleteLogin(PasskeyLoginRequest request, CancellationToken ct)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        var challenge = await ConsumeChallenge(db, request.Token, null, ct);
+        if (request.RememberMe)
+            throw new BusinessException(Rejection.Invalid, "Persistent Passkey sessions are not available.");
+        CheckId(request.CredentialId, request.RawId);
+
+        await using var tx = await db.BeginTransactionAsync(ct);
+        Guid userId;
+        long userGeneration;
+        await using (var user = Store.Sql(db, tx, """
+            select u.id,u.generation from public.blog_user u
+            where u.enabled and u.id=(select user_id from public.passkey_credential where credential_id=$1)
+            for update
+            """, request.RawId))
+        await using (var row = await user.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw Denied();
+            (userId, userGeneration) = (row.GetGuid(0), row.GetInt64(1));
+        }
+        byte[] handle, key;
+        int number;
+        uint counter;
+        bool backupEligible;
+        await using (var credential = Store.Sql(db, tx, """
+            select s.account_id,s.user_handle,c.public_key,c.sign_count,c.backup_eligible from public.passkey_credential c
+            join public.passkey_subject s on s.user_id=c.user_id
+            where c.credential_id=$1 and c.user_id=$2 for update of c
+            """, request.RawId, userId))
+        await using (var row = await credential.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw Denied();
+            (number, handle, key, counter, backupEligible) =
+                (row.GetInt32(0), row.GetFieldValue<byte[]>(1), row.GetFieldValue<byte[]>(2), checked((uint)row.GetInt64(3)), row.GetBoolean(4));
+        }
+        if (!CryptographicOperations.FixedTimeEquals(handle, request.UserHandle)) throw Denied();
+
+        VerifyAssertionResult verification;
+        try
+        {
+            verification = await _verifier.MakeAssertionAsync(new MakeAssertionParams
+            {
+                AssertionResponse = new AuthenticatorAssertionRawResponse
+                {
+                    Id = request.CredentialId,
+                    RawId = request.RawId,
+                    Type = PublicKeyCredentialType.PublicKey,
+                    Response = new AuthenticatorAssertionRawResponse.AssertionResponse
+                    {
+                        ClientDataJson = request.ClientData,
+                        AuthenticatorData = request.AuthenticatorData,
+                        Signature = request.Signature,
+                        UserHandle = request.UserHandle
+                    },
+                    ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
+                },
+                OriginalOptions = AssertionOptions.FromJson(challenge.Options),
+                StoredPublicKey = key,
+                StoredSignatureCounter = counter,
+                IsUserHandleOwnerOfCredentialIdCallback = (candidate, _) => Task.FromResult(
+                    CryptographicOperations.FixedTimeEquals(candidate.UserHandle, handle) &&
+                    CryptographicOperations.FixedTimeEquals(candidate.CredentialId, request.RawId))
+            }, ct);
+        }
+        catch (Fido2VerificationException) { throw Denied(); }
+
+        // The flag is covered by the verified authenticator data. Backup eligibility is immutable.
+        if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw Denied();
+        await using (var update = Store.Sql(db, tx, """
+            update public.passkey_credential set sign_count=$2,backed_up=$3,last_used_at=clock_timestamp()
+            where credential_id=$1
+            """, request.RawId, (long)verification.SignCount, verification.IsBackedUp))
+            await update.ExecuteNonQueryAsync(ct);
+        var secret = RandomNumberGenerator.GetBytes(32);
+        await using var session = Store.Sql(db, tx, """
+            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id)
+            values($1,$2,$3,clock_timestamp()+interval '8 hours',$4) returning expires_at
+            """, SHA256.HashData(secret), userId, userGeneration, request.RawId);
+        var expiry = (DateTime)(await session.ExecuteScalarAsync(ct))!;
+        await tx.CommitAsync(ct);
+        return (Convert.ToHexStringLower(secret), number, expiry);
+    }
+
+    private static async Task<bool> HasCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid id, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, "select exists(select 1 from public.passkey_credential where user_id=$1)", id);
+        return (bool)(await cmd.ExecuteScalarAsync(ct))!;
+    }
+
+    private static async Task SaveChallenge(NpgsqlConnection db, NpgsqlTransaction tx, string token,
+        string options, Guid? userId, long? generation, byte[]? binding, CancellationToken ct)
+    {
+        await using (var limit = Store.Sql(db, tx, "select pg_advisory_xact_lock($1)", ChallengeBudgetLock))
+            await limit.ExecuteNonQueryAsync(ct);
+        await using (var prune = Store.Sql(db, tx, "delete from public.passkey_challenge where expires_at<=clock_timestamp()"))
+            await prune.ExecuteNonQueryAsync(ct);
+        await using var insert = Store.Sql(db, tx, """
+            insert into public.passkey_challenge(digest,user_id,generation,options,expires_at,binding_digest)
+            select $1,$2,$3,$4,clock_timestamp()+interval '5 minutes',$5
+            where (select count(*) from public.passkey_challenge)<$6
+            """, TokenDigest(token), new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)userId ?? DBNull.Value },
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)generation ?? DBNull.Value }, options, NullableBytes(binding), ChallengeCapacity);
+        if (await insert.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
+    }
+
+    private static async Task<(string Options, Guid? UserId, long? Generation)> ConsumeChallenge(NpgsqlConnection db,
+        string token, byte[]? binding, CancellationToken ct)
+    {
+        await using var consume = Store.Sql(db, null, """
+            delete from public.passkey_challenge
+            where digest=$1 and expires_at>clock_timestamp() and binding_digest is not distinct from $2
+            returning options,user_id,generation
+            """, TokenDigest(token), NullableBytes(binding));
+        await using var row = await consume.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw Denied();
+        return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2));
+    }
+
+    private static NpgsqlParameter NullableBytes(byte[]? bytes) =>
+        new() { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)bytes ?? DBNull.Value };
+
+    private static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+    private static byte[] TokenDigest(string token) => SHA256.HashData(Encoding.ASCII.GetBytes(token));
+
+    private static void CheckId(string text, byte[] raw)
+    {
+        if (!string.Equals(WebEncoders.Base64UrlEncode(raw), text, StringComparison.Ordinal)) throw Denied();
+    }
+
+    private static BusinessException Denied() => new(Rejection.Unauthorized, "Passkey verification failed. Start a new ceremony.");
+}

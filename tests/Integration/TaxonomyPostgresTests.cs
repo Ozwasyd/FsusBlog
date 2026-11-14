@@ -44,11 +44,45 @@ public sealed class TaxonomyPostgresTests
         // A later private draft must not change the public links or their generation.
         var draft = (await publications.Command(store, actor.Token, ArticleAction.Save,
             new(first.Id, posted.Revision, Guid.NewGuid(), "private rewrite", "draft content"), ct)).Article;
-        await Execute("update public.article_revision_category set category_id=2 where article_id=$1 and revision=$2", first.Id, draft.Revision);
-        await Execute("delete from public.article_revision_tag where article_id=$1 and revision=$2", first.Id, draft.Revision);
-
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var client = server.Client;
+        var assignment = new TaxonomyAssignment(first.Id, draft.Revision, Guid.NewGuid(), 2, []);
+        var changed = await Assign(assignment, actor.Token);
+        Assert.Equal(draft.Revision + 1, changed!.Revision);
+        Assert.Equal(2, changed.CategoryId);
+        Assert.Empty(changed.TagIds);
+        Assert.Equal(changed.Revision, (await Assign(assignment, actor.Token))!.Revision);
+        await Assign(assignment with { CategoryId = 1 }, actor.Token, HttpStatusCode.Conflict);
+        await Assign(assignment with { IdempotencyKey = Guid.NewGuid() }, actor.Token, HttpStatusCode.Conflict);
+        await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid(), CategoryId = 99 }, actor.Token,
+            HttpStatusCode.BadRequest);
+        await Assign(assignment, null, HttpStatusCode.Unauthorized);
+        var outsiderId = Guid.NewGuid();
+        var outsiderTicket = RandomNumberGenerator.GetBytes(32);
+        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'other writer',true,true,1)", outsiderId);
+        await Execute("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
+            SHA256.HashData(outsiderTicket), outsiderId);
+        var outsider = await store.SignIn(Convert.ToHexStringLower(outsiderTicket), ct);
+        await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid() }, outsider.Token, HttpStatusCode.NotFound);
+        using (var stale = Request(HttpMethod.Get, $"/api/v2/authoring/draft/{first.Id}/taxonomy.aeds?revision={draft.Revision}", actor.Token))
+        using (var staleResponse = await client.SendAsync(stale, ct))
+            Assert.Equal(HttpStatusCode.Conflict, staleResponse.StatusCode);
+        using (var existing = Request(HttpMethod.Get, $"/api/v2/authoring/draft/{first.Id}/taxonomy.aeds?revision={changed.Revision}", actor.Token))
+        using (var existingResponse = await client.SendAsync(existing, ct))
+        {
+            Assert.Equal(HttpStatusCode.OK, existingResponse.StatusCode);
+            var observed = Wire.DecodeDraftTaxonomy(await existingResponse.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal(changed.Revision, observed.Revision);
+            Assert.Equal(changed.CategoryId, observed.CategoryId);
+        }
+        using (var existing = Request(HttpMethod.Get, $"/api/v2/authoring/draft/{first.Id}.aeds", actor.Token))
+        using (var draftResponse = await client.SendAsync(existing, ct))
+        {
+            var observed = Wire.DecodeDraft(await draftResponse.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal(draft.Title, observed.Title);
+            Assert.Equal(draft.Body, observed.Body);
+            Assert.Equal(changed.Revision, observed.Revision);
+        }
         Assert.Equal(new[] { (1, 2), (2, 0) }, ReadCounts(await GetFrame(WireRoutes.CategoryList, FrameType.CategoryList)));
         Assert.Equal(new[] { (4, 1) }, ReadCounts(await GetFrame(WireRoutes.TagList, FrameType.TagList)));
         var exact = await GetFrame("/api/binary/tag/4.aeds", FrameType.TaxonomyExactMetadata);
@@ -93,7 +127,7 @@ public sealed class TaxonomyPostgresTests
 
         using var retract = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract);
         retract.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-        retract.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(first.Id, draft.Revision, Guid.NewGuid(), "", "")));
+        retract.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(first.Id, changed.Revision, Guid.NewGuid(), "", "")));
         retract.Content.Headers.ContentType = new("application/octet-stream");
         using var response = await client.SendAsync(retract, ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -120,6 +154,23 @@ public sealed class TaxonomyPostgresTests
             Assert.Equal("application/octet-stream", packet.Content.Headers.ContentType?.MediaType);
             return Aeds.Decode(await packet.Content.ReadAsByteArrayAsync(ct), expected).ToArray();
         }
+
+        async Task<DraftTaxonomy?> Assign(TaxonomyAssignment value, string? token, HttpStatusCode status = HttpStatusCode.OK)
+        {
+            using var request = Request(HttpMethod.Post, WireRoutes.TaxonomyAssignment, token);
+            request.Content = new ByteArrayContent(Wire.EncodeTaxonomyAssignment(value));
+            request.Content.Headers.ContentType = new("application/octet-stream");
+            using var result = await client.SendAsync(request, ct);
+            Assert.Equal(status, result.StatusCode);
+            return status == HttpStatusCode.OK ? Wire.DecodeDraftTaxonomy(await result.Content.ReadAsByteArrayAsync(ct)) : null;
+        }
+    }
+
+    private static HttpRequestMessage Request(HttpMethod method, string path, string? token)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+        return request;
     }
 
     private static (int Id, int Count)[] ReadCounts(byte[] payload)

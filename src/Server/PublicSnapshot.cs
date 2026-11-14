@@ -10,28 +10,31 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server;
 
-internal sealed record PublicEntry(Article Article, byte[] Wire, byte[] Html);
-
 internal sealed class PublicSnapshot
 {
-    private readonly PublicEntry[] _ordered;
+    private readonly IReadOnlyList<Article> _ordered;
     private readonly byte[][] _index;
-    private readonly FrozenDictionary<int, PublicEntry> _byId;
+    private readonly IReadOnlyList<byte[]>? _corpus;
+    private readonly FrozenDictionary<int, Article> _byId;
+    private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
     internal long Generation { get; }
     internal long Watermark { get; }
     internal byte[] Home { get; }
     internal TaxonomyProjection Taxonomy { get; }
     internal int IndexPageCount => _index.Length;
+    internal int CorpusPageCount => _corpus?.Count ?? 0;
 
-    internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor)
+    internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
+        PublicSnapshot? previous, CancellationToken cancellationToken)
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
-        _ordered = articles.Select(article => new PublicEntry(article, PublicArticles.EncodeDetail(article),
-            pages.Page(PublicArticleHtml.Render(article), article.Title, article.Summary))).ToArray();
-        _byId = _ordered.ToFrozenDictionary(entry => entry.Article.Id);
+        _ordered = articles;
+        _byId = articles.ToFrozenDictionary(article => article.Id);
+        _details = new PublicArticleCache(_byId, pages);
+        _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
         Home = pages.Page("<main><h1>FsusBlog</h1>" + (first.Length > 0
@@ -39,11 +42,18 @@ internal sealed class PublicSnapshot
             : "<p>暂无文章</p>") + "</main>");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
             .Select(part => PublicArticles.EncodeSearch(part, part.Length)).ToArray();
+        _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
     }
 
-    internal PublicEntry? Article(int id) => _byId.GetValueOrDefault(id);
+    internal Article? Article(int id) => _byId.GetValueOrDefault(id);
+
+    internal bool HasArticle(int id) => _byId.ContainsKey(id);
+
+    internal ValueTask<PublicArticleBytes?> Detail(int id, CancellationToken ct) => _details.Read(id, ct);
 
     internal byte[]? Index(int page) => page > 0 && page <= _index.Length ? _index[page - 1] : null;
+
+    internal byte[]? Corpus(int page) => _corpus is not null && page > 0 && page <= _corpus.Count ? _corpus[page - 1] : null;
 
     internal byte[] List(string scope, int page, int size, string? keyword, string? sort, string? cursor,
         CancellationToken ct, Func<Article, bool>? filter = null) =>
@@ -72,7 +82,7 @@ internal sealed class PublicSnapshot
 
     private Article[] Match(string? keyword)
     {
-        var query = _ordered.Select(entry => entry.Article);
+        IEnumerable<Article> query = _ordered;
         if (!string.IsNullOrWhiteSpace(keyword))
             query = query.Where(article => article.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                                            article.Body.Contains(keyword, StringComparison.OrdinalIgnoreCase));
@@ -86,6 +96,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private PublicSnapshot? _snapshot;
+    private PublicSnapshot? _lastProjection;
     internal PublicSnapshot? Snapshot => Volatile.Read(ref _snapshot);
 
     // Admission requires a single v2 server per database. Its publications gate and instance lock
@@ -134,7 +145,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
         long maxEvent;
-        await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox"))
+        await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')"))
             maxEvent = (long)(await watermark.ExecuteScalarAsync(ct))!;
         var next = Snapshot;
         if (next is null || next.Watermark != maxEvent)
@@ -171,12 +182,13 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, ct);
         }
         await using (var advance = Store.Sql(connection, tx, """
-            update public.blog_outbox set processed_at=now() where id<=$1 and processed_at is null
-            """, maxEvent)) await advance.ExecuteNonQueryAsync(ct);
+            update public.blog_outbox set processed_at=now() where processed_at is null
+            """)) await advance.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);
+        _lastProjection = next;
         Volatile.Write(ref _snapshot, next);
     }
 }

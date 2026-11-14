@@ -5,6 +5,10 @@ export const FrameType = {
   ArticleList: 1,
   ArticleDetail: 2,
   ArticleSearch: 4,
+  CommentThreadReplyCursor: 8,
+  CommentTreeRootCursor: 208,
+  CommentChildCursor: 209,
+  CommentPermalinkContext: 210,
   CategoryList: 9,
   TagList: 10,
   AuthLoginFlow: 18,
@@ -33,6 +37,13 @@ export const FrameType = {
   CanvasLinkPlan: 32776,
   CanvasConfirm: 32777,
   CanvasLinked: 32778,
+  PropertyDefinitionCommand: 32779,
+  PropertyWorkspaceRequest: 32780,
+  PropertyTextCommand: 32781,
+  PropertyCommandReceipt: 32782,
+  PropertyWorkspace: 32783,
+  DraftTaxonomy: 32790,
+  TaxonomyAssignment: 32791,
 } as const;
 
 export const WireHeader = {
@@ -52,6 +63,8 @@ export const WireHeader = {
 export const WireLimits = {
   TaxonomyNameBytes: 512,
   TaxonomyDescriptionBytes: 2000,
+  TaxonomyTagCount: 32,
+  TaxonomyAssignmentFrameBytes: 180,
   TicketBytes: 128,
   TitleBytes: 256,
   NameBytes: 256,
@@ -59,10 +72,19 @@ export const WireLimits = {
   MaxPayloadBytes: 4194304,
   SearchIndexPageSize: 200,
   SearchIndexMaxPages: 200,
+  SearchCorpusPageBytes: 8388608,
+  SearchCorpusTotalBytes: 67108864,
+  SearchCorpusMaxPages: 128,
+  SearchQueryChars: 128,
   MaxSignInFrameBytes: 148,
   MaxCommandFrameBytes: 1048884,
   CanvasInsertionBytes: 560,
   CanvasRequestBytes: 76,
+  PropertyKeyBytes: 64,
+  PropertyLabelBytes: 1024,
+  PropertyValueBytes: 65536,
+  PropertyMaxCommandBytes: 65792,
+  PropertyPageSize: 25,
   InboxReplayMaxEvents: 512,
   InboxReplayCursorChars: 54,
   MaxPasskeyFrameBytes: 32768,
@@ -98,6 +120,19 @@ export const WireLayouts = {
   ArticleListCursorMaxBytes: 512,
   ArticleListRecordSizeCurrent: 100,
   ArticleSearchV4Magic: 0x34534146,
+  SearchPackageMagic: 0x4b505346,
+  SearchShardMagic: 0x32534846,
+  SearchResultMagic: 0x34525346,
+  SearchArtifactVersion: 4,
+  SearchPackageEntryOffset: 12,
+  SearchPackagePayloadOffset: 32,
+  SearchShardHeaderSize: 72,
+  SearchTermRecordSize: 24,
+  SearchDocumentRecordSize: 76,
+  SearchDictionaryRecordSize: 16,
+  SearchResultHeaderSize: 24,
+  SearchResultRecordSize: 76,
+  SearchResultTagRecordSize: 12,
   ArticleSearchV4Version: 4,
   ArticleSearchItemPodSize: 420,
   ArticleSearchTagPodSize: 132,
@@ -163,6 +198,10 @@ export const WireRoutes = {
   PublicList: "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
   PublicArchive: "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
   PublicArticle: "/api/binary/article/{id}.aeds",
+  CommentRoots: "/api/binary/comment/{articleId:int}",
+  CommentChildren: "/api/binary/comment/{articleId:int}/children/{parentId:long}",
+  CommentContext: "/api/binary/comment/{articleId:int}/context/{commentId:long}",
+  CommentThread: "/api/binary/comment/{articleId:int}/thread/{rootId:long}",
   PublicSearch: "/api/binary/article/search/query.aeds",
   CategoryList: "/api/binary/category",
   TagList: "/api/binary/tag",
@@ -171,7 +210,10 @@ export const WireRoutes = {
   TagMetadataByName: "/api/binary/tag/by-name.aeds",
   CategoryArticles: "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds",
   TagArticles: "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds",
+  DraftTaxonomy: "/api/v2/authoring/draft/{id:int}/taxonomy.aeds",
+  TaxonomyAssignment: "/api/v2/authoring/taxonomy/assign.aeds",
   PublicIndex: "/api/v2/public/index.aeds",
+  PublicSearchCorpus: "/api/v2/public/search-corpus",
   InboxList: "/api/binary/messages/conversations",
   InboxDetail: "/api/binary/messages/conversations/{id:long}",
   InboxReply: "/api/binary/messages/conversations/{id:long}/reply",
@@ -193,6 +235,9 @@ export const WireRoutes = {
   CanvasCreate: "/api/v2/authoring/canvas/create.aeds",
   CanvasPreview: "/api/v2/authoring/canvas/link/preview.aeds",
   CanvasConfirm: "/api/v2/authoring/canvas/link/confirm.aeds",
+  PropertyDefinitionCommand: "/api/v2/authoring/properties/definition.aeds",
+  PropertyWorkspace: "/api/v2/authoring/properties/workspace.aeds",
+  PropertyTextCommand: "/api/v2/authoring/properties/text.aeds",
 } as const;
 
 export const WireHeaders = {
@@ -206,6 +251,65 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface DraftTaxonomy {
+  id: number;
+  revision: bigint;
+  categoryId: number;
+  tagIds: readonly number[];
+}
+
+export function encodeDraftTaxonomy(value: DraftTaxonomy): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.revision);
+  writer.i32(value.categoryId);
+  writer.i32s(value.tagIds, WireLimits.TaxonomyTagCount);
+  return writer.finish();
+}
+
+export function decodeDraftTaxonomy(payload: Uint8Array): DraftTaxonomy {
+  const reader = new PodReader(payload);
+  const value: DraftTaxonomy = {
+    id: reader.i32(),
+    revision: reader.i64(),
+    categoryId: reader.i32(),
+    tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface TaxonomyAssignment {
+  id: number;
+  expectedRevision: bigint;
+  idempotencyKey: string;
+  categoryId: number;
+  tagIds: readonly number[];
+}
+
+export function encodeTaxonomyAssignment(value: TaxonomyAssignment): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.expectedRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.i32(value.categoryId);
+  writer.i32s(value.tagIds, WireLimits.TaxonomyTagCount);
+  return writer.finish();
+}
+
+export function decodeTaxonomyAssignment(payload: Uint8Array): TaxonomyAssignment {
+  const reader = new PodReader(payload);
+  const value: TaxonomyAssignment = {
+    id: reader.i32(),
+    expectedRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    categoryId: reader.i32(),
+    tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface SignIn {
   ticket: string;
@@ -485,6 +589,142 @@ export function decodeCanvasLinked(payload: Uint8Array): CanvasLinked {
     articleId: reader.i32(),
     articleRevision: reader.i64(),
     canvasRevision: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyDefinitionCommand {
+  operation: number;
+  definitionId: string;
+  requestId: string;
+  schemaRevision: bigint;
+  definitionRevision: bigint;
+  machineKey: string;
+  label: string;
+}
+
+export function encodePropertyDefinitionCommand(value: PropertyDefinitionCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.operation);
+  writer.uuid(value.definitionId);
+  writer.uuid(value.requestId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.definitionRevision);
+  writer.text(value.machineKey, WireLimits.PropertyKeyBytes);
+  writer.text(value.label, WireLimits.PropertyLabelBytes);
+  return writer.finish();
+}
+
+export function decodePropertyDefinitionCommand(payload: Uint8Array): PropertyDefinitionCommand {
+  const reader = new PodReader(payload);
+  const value: PropertyDefinitionCommand = {
+    operation: reader.i32(),
+    definitionId: reader.uuid(),
+    requestId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    definitionRevision: reader.i64(),
+    machineKey: reader.text(WireLimits.PropertyKeyBytes),
+    label: reader.text(WireLimits.PropertyLabelBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyWorkspaceRequest {
+  articleId: number;
+  articleRevision: bigint;
+  schemaRevision: bigint;
+  valueRevision: bigint;
+  afterKey: string;
+}
+
+export function encodePropertyWorkspaceRequest(value: PropertyWorkspaceRequest): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.articleRevision);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.valueRevision);
+  writer.text(value.afterKey, WireLimits.PropertyKeyBytes);
+  return writer.finish();
+}
+
+export function decodePropertyWorkspaceRequest(payload: Uint8Array): PropertyWorkspaceRequest {
+  const reader = new PodReader(payload);
+  const value: PropertyWorkspaceRequest = {
+    articleId: reader.i32(),
+    articleRevision: reader.i64(),
+    schemaRevision: reader.i64(),
+    valueRevision: reader.i64(),
+    afterKey: reader.text(WireLimits.PropertyKeyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyTextCommand {
+  articleId: number;
+  articleRevision: bigint;
+  schemaRevision: bigint;
+  valueRevision: bigint;
+  definitionId: string;
+  definitionRevision: bigint;
+  requestId: string;
+  remove: boolean;
+  value: string;
+}
+
+export function encodePropertyTextCommand(value: PropertyTextCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.articleRevision);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.valueRevision);
+  writer.uuid(value.definitionId);
+  writer.i64(value.definitionRevision);
+  writer.uuid(value.requestId);
+  writer.bool(value.remove);
+  writer.text(value.value, WireLimits.PropertyValueBytes);
+  return writer.finish();
+}
+
+export function decodePropertyTextCommand(payload: Uint8Array): PropertyTextCommand {
+  const reader = new PodReader(payload);
+  const value: PropertyTextCommand = {
+    articleId: reader.i32(),
+    articleRevision: reader.i64(),
+    schemaRevision: reader.i64(),
+    valueRevision: reader.i64(),
+    definitionId: reader.uuid(),
+    definitionRevision: reader.i64(),
+    requestId: reader.uuid(),
+    remove: reader.bool(),
+    value: reader.text(WireLimits.PropertyValueBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyCommandReceipt {
+  definitionId: string;
+  schemaRevision: bigint;
+  revision: bigint;
+}
+
+export function encodePropertyCommandReceipt(value: PropertyCommandReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.definitionId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.revision);
+  return writer.finish();
+}
+
+export function decodePropertyCommandReceipt(payload: Uint8Array): PropertyCommandReceipt {
+  const reader = new PodReader(payload);
+  const value: PropertyCommandReceipt = {
+    definitionId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    revision: reader.i64(),
   };
   reader.finish();
   return value;

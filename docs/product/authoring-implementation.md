@@ -6,7 +6,9 @@
 
 `createInspectorFocus` 让单个焦点所有者跨断点接收抽屉关闭事件。旧宿主的回调失效，关闭后优先回到仍可用的原触发按钮，再使用当前宿主的外部按钮。生命周期单元测试和真实 DOM 焦点冒烟已验证。响应式 Inspector 页面和真实 FsusUI Drawer 的组合仍待实现和验收。 [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
 
-服务端 Core 的属性定义领域规则接受八种封闭类型，校验稳定字段和选项 ID、schema 及定义版本、引用与约束。当已有值需要协调时，领域规则拒绝直接修改或删除。数据库事务、授权入口、属性值与查询投影、前端 UI、审计以及 Canvas 到文章链接的事务仍待实现。 [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+服务端 Core 的属性定义领域规则接受八种封闭类型，校验稳定字段和选项 ID、schema 及定义版本、引用与约束。文本属性已接入数据库、授权 API 和编辑页，其他七种类型的生产持久化、查询投影及属性管理界面仍待交付。 [文本属性](properties.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
+
+Canvas 的显式文章链接确认已通过原生 PostgreSQL 验证。该路径支持同作者的公开目标、文末插入和保留边。完整 Canvas 界面、关系查询、标题及块引用和编辑器撤销仍待交付。 [Canvas 事务](canvas-transaction.md) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 
 ```sh
 node --test tests/Authoring/*.test.ts

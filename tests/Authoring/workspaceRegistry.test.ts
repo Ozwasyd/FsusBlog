@@ -172,6 +172,25 @@ test('a draft whose first creation response was lost keeps the exact key and pay
   assert.equal(registry.tabs.length, 1)
 })
 
+test('retry uses the exact original classification operation and key', async () => {
+  const registry = setup()
+  const tab = await activate(registry, 1)
+  const keys: string[] = []
+  const selected = async (item: Draft, _signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {
+    keys.push(key)
+    return keys.length === 1 ? { kind: 'blocked', reason: 'unavailable' }
+      : { kind: 'saved', draft: { ...item, revision: 2n } }
+  }
+  const classification = await registry.commit(tab, 'assign-taxonomy', selected)
+  assert.deepEqual(classification, { kind: 'blocked', reason: 'unavailable' })
+  assert.equal(registry.activeTab?.retry, 'assign-taxonomy')
+  assert.deepEqual(await registry.commit(tab, 'publish', async () => {
+    throw new Error('unconfirmed metadata must block publishing')
+  }), { kind: 'busy' })
+  assert.deepEqual(await registry.retry(tab), { kind: 'saved', articleId: 1, revision: 2n })
+  assert.deepEqual(keys, [keys[0], keys[0]])
+})
+
 test('a rejected draft keeps local edits and allows a corrected request with a new key', async () => {
   const keys: string[] = []
   const registry = setup({

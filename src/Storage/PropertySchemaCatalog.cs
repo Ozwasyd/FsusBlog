@@ -5,7 +5,7 @@ internal static partial class CurrentSchema
     private static readonly string[] PropertyColumns =
     [
         "property_schema owner_id:uuid revision:int8",
-        "property_definition owner_id:uuid id:uuid machine_key:text revision:int8 shape:jsonb",
+        "property_definition owner_id:uuid id:uuid machine_key:text revision:int8 digest:text shape:jsonb",
         "property_schema_command owner_id:uuid request_id:uuid receipt:jsonb",
         "property_article article_id:int4 owner_id:uuid revision:int8",
         "property_text_value article_id:int4 owner_id:uuid definition_id:uuid value:text",
@@ -21,6 +21,7 @@ internal static partial class CurrentSchema
         "property_definition u owner_id,machine_key",
         "property_definition f owner_id public.property_schema:owner_id",
         "property_definition c revision revision>0",
+        "property_definition c digest char_length(digest)=64",
         "property_schema_command p owner_id,request_id",
         "property_schema_command f owner_id public.property_schema:owner_id",
         "property_article p article_id",

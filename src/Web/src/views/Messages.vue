@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton, ElEmptyState, ElOption, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElEmptyState, ElOption, ElSelect, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, type InboxThread } from '../../../Contracts/client'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
@@ -230,13 +230,12 @@ onBeforeUnmount(() => {
           <li v-for="row in rows" :key="String(row.id)">
             <button type="button" class="inbox-choice" :aria-current="row.id === selected ? 'true' : undefined"
               @click="selectConversation(row.id, $event)">
-              <span class="inbox-row-title">
-                <strong>{{ row.subject }}</strong>
-                <ElTag v-if="row.isSystem" type="info" effect="plain" size="small">系统</ElTag>
-                <ElTag v-if="row.unreadCount" type="info" effect="plain" size="small">{{ row.unreadCount }} 条未读</ElTag>
-              </span>
+              <strong class="inbox-row-title">{{ row.subject }}</strong>
               <span v-if="row.preview" class="inbox-preview">{{ row.preview }}</span>
-              <span class="inbox-meta">{{ statuses[row.status] }} · {{ format.format(row.lastMessageAt) }}</span>
+              <span class="inbox-meta">
+                <template v-if="row.isSystem">系统 · </template>{{ statuses[row.status] }} · {{ format.format(row.lastMessageAt) }}
+                <template v-if="row.unreadCount"> · <span>{{ row.unreadCount }} 条未读</span></template>
+              </span>
             </button>
           </li>
         </ul>
@@ -280,7 +279,7 @@ onBeforeUnmount(() => {
 .inbox-choice { display: grid; width: 100%; min-width: 0; gap: var(--fsus-space-2); text-align: start; padding: var(--fsus-space-4); background: transparent; color: inherit; font: inherit; border: 0; border-bottom: 1px solid var(--el-border-color-lighter); cursor: pointer; }
 .inbox-choice:hover, .inbox-choice[aria-current="true"] { background: var(--el-fill-color-light); }
 .inbox-choice[aria-current="true"] { box-shadow: inset 2px 0 var(--el-color-primary); }
-.inbox-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fsus-space-2); overflow-wrap: anywhere; }
+.inbox-row-title { overflow-wrap: anywhere; }
 .inbox-meta, .inbox-preview { color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
 .inbox-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-message { padding-block: var(--fsus-space-3); border-bottom: 1px solid var(--el-border-color-lighter); }

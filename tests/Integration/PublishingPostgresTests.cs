@@ -9,6 +9,85 @@ using System.Net;
 public sealed class PublishingPostgresTests
 {
     [PostgresFact]
+    public async Task ProjectionFailureKeepsAllRepresentationsClosedUntilDurableRecovery()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        var store = new Store(fixture.DataSource);
+        var session = await store.SignIn((await IssueTicket(fixture.DataSource, "projection owner", true, ct)).Token, ct);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        await using var database = await fixture.DataSource.OpenConnectionAsync(ct);
+        const string marker = "projection fixture unique text";
+        var saved = Wire.DecodeDraft(await Write(server.Client, session.Token, WireRoutes.Save,
+            new(0, 0, Guid.NewGuid(), marker, "## Committed article"), ct));
+        var articlePath = $"/article/{saved.Id}";
+        var binaryPath = WireRoutes.PublicArticle.Replace("{id}", saved.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var paths = new[] { "/", articlePath, binaryPath, WireRoutes.PublicIndex, WireRoutes.PublicSearchCorpus };
+
+        await InjectFailure("publish");
+        var publish = new ArticleCommand(saved.Id, saved.Revision, Guid.NewGuid(), "", "");
+        await Write(server.Client, session.Token, WireRoutes.Publish, publish, ct, HttpStatusCode.ServiceUnavailable);
+        await AssertPublicClosed();
+        Assert.Equal(1L, await Pending("publish"));
+        await RemoveFailure();
+        var published = Wire.DecodeDraft(await Write(server.Client, session.Token, WireRoutes.Publish, publish, ct));
+        Assert.True(published.Published);
+        Assert.Contains(marker, await server.Client.GetStringAsync(articlePath, ct));
+
+        await InjectFailure("retract");
+        var withdraw = new ArticleCommand(saved.Id, published.Revision, Guid.NewGuid(), "", "");
+        await Write(server.Client, session.Token, WireRoutes.Retract, withdraw, ct, HttpStatusCode.ServiceUnavailable);
+        await AssertPublicClosed();
+        Assert.Equal(1L, await Pending("retract"));
+        await RemoveFailure();
+
+        using var ready = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        while (true)
+        {
+            using var response = await server.Client.GetAsync("/health/ready", ready.Token);
+            if (response.StatusCode == HttpStatusCode.NoContent) break;
+            await Task.Delay(100, ready.Token);
+        }
+        using var absent = await server.Client.GetAsync(articlePath, ct);
+        Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
+        Assert.Equal(0L, await Pending("retract"));
+
+        async Task InjectFailure(string action)
+        {
+            var sql = action == "publish"
+                ? "alter table public.blog_outbox add constraint test_projection_failure check (kind <> 'publish' or processed_at is null)"
+                : "alter table public.blog_outbox add constraint test_projection_failure check (kind <> 'retract' or processed_at is null)";
+            await using var cmd = Store.Sql(database, null, sql);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        async Task RemoveFailure()
+        {
+            await using var cmd = Store.Sql(database, null, "alter table public.blog_outbox drop constraint test_projection_failure");
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        async Task<object?> Pending(string action)
+        {
+            await using var cmd = Store.Sql(database, null,
+                "select count(*) from public.blog_outbox where article_id=$1 and kind=$2 and processed_at is null", saved.Id, action);
+            return await cmd.ExecuteScalarAsync(ct);
+        }
+
+        async Task AssertPublicClosed()
+        {
+            foreach (var path in paths)
+            {
+                using var response = await server.Client.GetAsync(path, ct);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                Assert.True(response.Headers.CacheControl?.NoStore);
+                Assert.DoesNotContain(marker, await response.Content.ReadAsStringAsync(ct));
+            }
+        }
+    }
+
+    [PostgresFact]
     public async Task WithdrawingInvalidatesOldHttpRepresentationsAcrossRestart()
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -34,6 +113,10 @@ public sealed class PublishingPostgresTests
             Assert.Contains(marker, page);
             Assert.True(html.Headers.CacheControl?.NoStore);
             publishedGeneration = Assert.Single(html.Headers.GetValues(WireHeaders.SearchIndexGeneration));
+            using var corpus = await server.Client.GetAsync(WireRoutes.PublicSearchCorpus, ct);
+            Assert.Equal(HttpStatusCode.OK, corpus.StatusCode);
+            Assert.Equal(publishedGeneration, Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+            Assert.StartsWith("FSPK", System.Text.Encoding.ASCII.GetString((await corpus.Content.ReadAsByteArrayAsync(ct)).AsSpan(0, 4)));
             var binary = WireRoutes.PublicArticle.Replace("{id}", articleId.ToString(System.Globalization.CultureInfo.InvariantCulture));
             using var detail = await server.Client.GetAsync(binary, ct);
             Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
@@ -62,20 +145,24 @@ public sealed class PublishingPostgresTests
             using var previous = await client.GetAsync($"{WireRoutes.PublicIndex}?page=1&generation={publishedGeneration}", ct);
             Assert.Equal(HttpStatusCode.Conflict, previous.StatusCode);
             Assert.DoesNotContain(marker, await previous.Content.ReadAsStringAsync(ct));
+            using var staleCorpus = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={publishedGeneration}");
+            using var staleResult = await client.SendAsync(staleCorpus, ct);
+            Assert.Equal(HttpStatusCode.Conflict, staleResult.StatusCode);
             using var current = await client.GetAsync(WireRoutes.PublicIndex, ct);
             Assert.Equal(HttpStatusCode.OK, current.StatusCode);
             Assert.NotEqual(publishedGeneration, Assert.Single(current.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
         }
     }
 
-    private static async Task<byte[]> Write(HttpClient client, string token, string route, ArticleCommand command, CancellationToken ct)
+    private static async Task<byte[]> Write(HttpClient client, string token, string route, ArticleCommand command, CancellationToken ct,
+        HttpStatusCode expected = HttpStatusCode.OK)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, route);
         request.Headers.Add("Cookie", $"fsus-v2-session={token}");
         request.Content = new ByteArrayContent(Wire.EncodeArticleCommand(command));
         request.Content.Headers.ContentType = new("application/octet-stream");
         using var response = await client.SendAsync(request, ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expected, response.StatusCode);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
@@ -166,10 +253,10 @@ public sealed class PublishingPostgresTests
         Assert.Null(publications.Snapshot!.Article(first.Id));
         await publications.Command(store, session.Token, ArticleAction.Publish,
             new(first.Id, withdrawn.Article.Revision, Guid.NewGuid(), "", ""), ct);
-        var republished = publications.Snapshot!.Article(first.Id)!.Article;
+        var republished = publications.Snapshot!.Article(first.Id)!;
         Assert.Equal(2, republished.PublicationNo);
         Assert.NotEqual(first.Publication, republished.Publication);
-        Assert.Equal(second, publications.Snapshot!.Article(second.Id)!.Article);
+        Assert.Equal(second, publications.Snapshot!.Article(second.Id)!);
 
         async Task<FsusBlog.V2.Contracts.Article> CreateAndPublish(string title)
         {
@@ -177,7 +264,7 @@ public sealed class PublishingPostgresTests
                 new(0, 0, Guid.NewGuid(), title, "Published body"), ct);
             await publications.Command(store, session.Token, ArticleAction.Publish,
                 new(draft.Article.Id, draft.Article.Revision, Guid.NewGuid(), "", ""), ct);
-            return publications.Snapshot!.Article(draft.Article.Id)!.Article;
+            return publications.Snapshot!.Article(draft.Article.Id)!;
         }
     }
 
@@ -207,7 +294,7 @@ public sealed class PublishingPostgresTests
             publications.Command(store, session.Token, ArticleAction.Publish, oldPublication, ct))).Rejection);
         var publish = oldPublication with { ExpectedRevision = newDraft.Revision };
         var published = (await publications.Command(store, session.Token, ArticleAction.Publish, publish, ct)).Article;
-        Assert.Equal(published.Revision, publications.Snapshot!.Article(saved.Id)!.Article.Revision);
+        Assert.Equal(published.Revision, publications.Snapshot!.Article(saved.Id)!.Revision);
 
         var outsider = await store.SignIn((await IssueTicket(fixture.DataSource, "other author", true, ct)).Token, ct);
         var retract = new Edit(saved.Id, published.Revision, Guid.NewGuid(), "", "");

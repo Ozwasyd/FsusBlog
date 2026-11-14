@@ -17,7 +17,7 @@ internal static partial class CurrentSchema
         "v2_schema singleton:bool version:int4",
         "blog_user id:uuid name:text can_author:bool enabled:bool generation:int8",
         "login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
-        "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz",
+        "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz passkey_credential_id:bytea?",
         "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
         "article_revision article_id:int4 revision:int8 title:text body:text happened_at:timestamptz",
         "article_command actor_id:uuid command_id:uuid fingerprint:bytea article_id:int4 revision:int8 title:text body:text published:bool",
@@ -94,8 +94,8 @@ internal static partial class CurrentSchema
 
     internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
     {
-        var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).ToArray();
-        var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints).ToArray();
+        var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).Concat(PropertyColumns).Concat(PasskeyColumns).Concat(CommentColumns).ToArray();
+        var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints).Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(CommentConstraints).ToArray();
         const string sql = """
             WITH owned AS (
                 SELECT c.*

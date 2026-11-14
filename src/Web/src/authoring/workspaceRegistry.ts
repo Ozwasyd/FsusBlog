@@ -23,7 +23,7 @@ export interface EditorTransport<Draft> {
 }
 
 type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string) => Promise<DraftSave<Draft>>
-type WriteCommand = 'save' | 'publish' | 'retract'
+type WriteCommand = 'save' | 'publish' | 'retract' | 'assign-taxonomy'
 
 export interface EditorSessionRef {
   readonly articleId: number
@@ -70,7 +70,7 @@ type Session<Draft> = {
   pending: boolean
   block?: WorkspaceBlock
   edit: number
-  request?: { command: WriteCommand; key: string; draft: Draft; edit: number }
+  request?: { command: WriteCommand; key: string; draft: Draft; edit: number; perform: ContentCommand<Draft> }
 }
 
 const equalIdentity = (a: WorkspaceIdentity | null, b: WorkspaceIdentity | null): boolean =>
@@ -270,22 +270,27 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return this.#write(tab, command, perform)
   }
 
+  retry(tab: EditorSessionRef): Promise<SaveReceipt> {
+    const request = this.#find(tab)?.request
+    return request ? this.#write(tab, request.command, request.perform) : Promise.resolve({ kind: 'superseded' })
+  }
+
   async #write(tab: EditorSessionRef, command: WriteCommand, perform: ContentCommand<Draft>): Promise<SaveReceipt> {
     const session = this.#find(tab)
     if (!session?.draft) return { kind: 'superseded' }
     if (session.writing || session.pending || session.recovery) return { kind: 'busy' }
     if (session.conflict) return { kind: 'conflict' }
     if (session.request && session.request.command !== command) return { kind: 'busy' }
-    if (command === 'save' && !session.dirty) return { kind: 'clean' }
-    if (command !== 'save' && (session.dirty || session.id === 0)) return { kind: 'dirty' }
+    if (!session.request && command === 'save' && !session.dirty) return { kind: 'clean' }
+    if (!session.request && command !== 'save' && (session.dirty || session.id === 0)) return { kind: 'dirty' }
 
-    const { draft, edit, key } = session.request ??= {
-      command, key: this.#newRequestKey(), draft: structuredClone(session.draft), edit: session.edit,
+    const { draft, edit, key, perform: performCommand } = session.request ??= {
+      command, key: this.#newRequestKey(), draft: structuredClone(session.draft), edit: session.edit, perform,
     }
     session.writing = command
     this.#changed()
 
-    const result = await untilAborted(session.controller.signal, () => perform(structuredClone(draft), session.controller.signal, key))
+    const result = await untilAborted(session.controller.signal, () => performCommand(structuredClone(draft), session.controller.signal, key))
       .catch(() => blocked('unavailable'))
     if (!result || this.#find(tab) !== session || session.phase !== 'ready' || !session.draft) {
       return { kind: 'superseded' }

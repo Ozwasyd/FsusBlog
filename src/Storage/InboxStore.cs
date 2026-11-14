@@ -3,7 +3,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
 using Npgsql;
 
-namespace FsusBlog.V2.Server.Communication;
+namespace FsusBlogV2.Storage;
 
 /// <summary>Account inbox. Call account methods after verifying the current session in this transaction.</summary>
 internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid accountId)

@@ -9,6 +9,7 @@ const entries = Object.entries;
 const camel = name => name[0].toLowerCase() + name.slice(1);
 const primitive = {
   i32: ['int', 'number', 'I32'],
+  i32s: ['IReadOnlyList<int>', 'readonly number[]', 'I32s'],
   i64: ['long', 'bigint', 'I64'],
   bool: ['bool', 'boolean', 'Bool'],
   uuid: ['Guid', 'string', 'Uuid'],

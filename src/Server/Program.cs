@@ -24,6 +24,7 @@ builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
 builder.Services.AddSingleton(new WebPages(template));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
+builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -43,6 +44,7 @@ await CurrentSchema.VerifyAsync(lease, CancellationToken.None);
 await using (var acquire = Store.Sql(lease, null, "select pg_try_advisory_lock($1)", Publications.InstanceLock))
     if (await acquire.ExecuteScalarAsync() is not true) throw new InvalidOperationException("Another v2 server already owns this database.");
 var publications = app.Services.GetRequiredService<Publications>();
+app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
 
 app.Use(async (ctx, next) =>
@@ -91,15 +93,23 @@ foreach (var asset in new[] { "assets", "dist" })
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(assetDir), RequestPath = "/" + asset });
 }
 app.UseRateLimiter();
+FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor);
+FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) => PublicList(ctx, "archive", page, size)).RequireRateLimiting("query");
-app.MapGet(WireRoutes.PublicArticle, (HttpContext ctx, int id) => Snapshot(ctx).Article(id) is { } article
-    ? Results.Bytes(article.Wire, Binary) : Error(ctx, 404, "Article not found."));
-app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Search(Query(ctx, "q", 256)), Binary)).RequireRateLimiting("query");
+app.MapGet(WireRoutes.PublicArticle, (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: false));
+app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
+{
+    var keyword = Query(ctx, "q", 256)?.Trim();
+    return string.IsNullOrEmpty(keyword)
+        ? Error(ctx, 400, "A search term is required.")
+        : Results.Bytes(Snapshot(ctx).Search(keyword), Binary);
+}).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
 {
     var snapshot = Snapshot(ctx);
@@ -112,6 +122,25 @@ app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
     ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.IndexPageCount.ToString(CultureInfo.InvariantCulture);
     return snapshot.Index(page is null ? 1 : int.Parse(page, CultureInfo.InvariantCulture)) is { } index
         ? Results.Bytes(index, Binary) : Error(ctx, 404, "Index page not found.");
+});
+app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head], (HttpContext ctx) =>
+{
+    var snapshot = Snapshot(ctx);
+    var generation = Query(ctx, "generation", 20);
+    var pageText = Query(ctx, "page", 10);
+    var page = 1;
+    if (pageText is not null && (!int.TryParse(pageText, NumberStyles.None, CultureInfo.InvariantCulture, out page) || page < 1))
+        return Error(ctx, 400, "Invalid search corpus page.");
+    var head = HttpMethods.IsHead(ctx.Request.Method);
+    if ((head || page > 1) && generation is null)
+        return Error(ctx, 400, "A search generation is required.");
+    if (generation is not null && generation != snapshot.Generation.ToString(CultureInfo.InvariantCulture))
+        return Error(ctx, 409, "The search corpus changed. Reload it from page 1.");
+    if (snapshot.CorpusPageCount == 0)
+        return Error(ctx, 503, "The search corpus is unavailable.");
+    ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
+    if (head) return Results.NoContent();
+    return snapshot.Corpus(page) is { } bytes ? Results.Bytes(bytes, Binary) : Error(ctx, 404, "Search corpus page not found.");
 });
 
 app.MapPost(WireRoutes.SignIn, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -139,8 +168,7 @@ Mutation(WireRoutes.Delete, ArticleAction.Delete);
 
 var shell = app.Services.GetRequiredService<WebPages>().Page();
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
-app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => Snapshot(ctx).Article(id) is { } article
-    ? Results.Bytes(article.Html, Html) : Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404));
+app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 foreach (var route in new[] { "/archive", "/search", "/login", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
@@ -150,6 +178,15 @@ await app.RunAsync();
 IResult PublicList(HttpContext ctx, string scope, int page, int size) =>
     Results.Bytes(Snapshot(ctx).List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
         ReadListCursor(ctx), ctx.RequestAborted), Binary);
+
+async Task<IResult> PublicDetail(HttpContext ctx, int id, bool asHtml)
+{
+    var snapshot = Snapshot(ctx);
+    var article = await snapshot.Detail(id, ctx.RequestAborted);
+    if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
+    if (article is not null) return asHtml ? Results.Bytes(article.Html, Html) : Results.Bytes(article.Wire, Binary);
+    return asHtml ? Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404) : Error(ctx, 404, "Article not found.");
+}
 
 static string? ReadListCursor(HttpContext ctx)
 {

@@ -68,6 +68,23 @@ public static partial class Wire
             throw new ProtocolException("Invalid article command coordinates");
     }
 
+    internal static void Validate(DraftTaxonomy value) =>
+        ValidateTaxonomy(value.Id, value.Revision, value.CategoryId, value.TagIds);
+
+    internal static void Validate(TaxonomyAssignment value)
+    {
+        if (value.IdempotencyKey == Guid.Empty)
+            throw new ProtocolException("Invalid taxonomy command key");
+        ValidateTaxonomy(value.Id, value.ExpectedRevision, value.CategoryId, value.TagIds);
+    }
+
+    private static void ValidateTaxonomy(int article, long revision, int category, IReadOnlyList<int> tags)
+    {
+        if (article <= 0 || revision <= 0 || category < 0 || tags.Count > WireLimits.TaxonomyTagCount ||
+            tags.Any(tag => tag <= 0) || tags.Distinct().Count() != tags.Count)
+            throw new ProtocolException("Invalid draft taxonomy coordinates");
+    }
+
     private sealed class Writer
     {
         private readonly ArrayBufferWriter<byte> buffer = new();
@@ -77,6 +94,14 @@ public static partial class Wire
         {
             BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), value);
             buffer.Advance(4);
+        }
+
+        public void I32s(IReadOnlyList<int> values, int limit)
+        {
+            if (values.Count > limit)
+                throw new ProtocolException("AEDS collection exceeds its item limit");
+            I32(values.Count);
+            foreach (var value in values) I32(value);
         }
 
         public void I64(long value)
@@ -113,6 +138,15 @@ public static partial class Wire
         private ReadOnlySpan<byte> remaining = payload;
 
         public int I32() => BinaryPrimitives.ReadInt32LittleEndian(Take(4));
+        public int[] I32s(int limit)
+        {
+            var count = I32();
+            if (count < 0 || count > limit || count > remaining.Length / 4)
+                throw new ProtocolException("Invalid AEDS collection length");
+            var values = new int[count];
+            for (var i = 0; i < count; i++) values[i] = I32();
+            return values;
+        }
         public long I64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));
         public Guid Uuid() => new(Take(16), bigEndian: true);
 

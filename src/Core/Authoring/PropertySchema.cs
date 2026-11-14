@@ -67,12 +67,13 @@ public sealed partial class PropertySchema
 
     public PropertyDefinition? Find(Guid id) => definitions.GetValueOrDefault(id);
 
-    public ImmutableArray<PropertyDefinition> Page(string? afterKey, int limit = MaxPageSize)
+    public ImmutableArray<PropertyDefinition> Page(string? afterKey, int limit = MaxPageSize, PropertyKind? kind = null)
     {
         if (limit is < 1 or > MaxPageSize)
             throw PropertyValues.Invalid("page-size");
 
         return definitions.Values.Where(item => item.Status != PropertyStatus.Deleted
+                && (kind is null || item.Settings.Kind == kind)
                 && (afterKey is null || StringComparer.Ordinal.Compare(item.MachineKey, afterKey) > 0))
             .OrderBy(item => item.MachineKey, StringComparer.Ordinal).Take(limit).ToImmutableArray();
     }

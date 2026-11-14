@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Buffers.Binary;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Contracts;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -36,6 +37,7 @@ internal sealed class Store(NpgsqlDataSource source)
         }
         await using (var consume = Sql(db, tx, """
             delete from public.login_ticket where digest=$1 and user_id=$2 and expires_at>clock_timestamp()
+                and not exists(select 1 from public.passkey_credential where user_id=$2)
             """, ticket, id))
             if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Unauthenticated();
 
@@ -101,11 +103,24 @@ internal sealed class Store(NpgsqlDataSource source)
         await serialize.ExecuteNonQueryAsync(ct);
     }
 
-    internal static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
-        ArticleAction action, Edit edit, CancellationToken ct)
+    internal static Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleAction action, Edit edit, CancellationToken ct) => Execute(db, tx, actor, action, edit, ct, null);
+
+    internal static async Task<DraftTaxonomy> AssignTaxonomy(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        TaxonomyAssignment input, CancellationToken ct)
     {
-        var fingerprint = Publishing.Fingerprint(action, edit);
+        var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
+        var saved = await Execute(db, tx, actor, ArticleAction.Save, edit, ct, input);
+        return await Content.TaxonomyStore.ReadDraft(db, tx, saved.Article.Id, saved.Article.Revision, ct);
+    }
+
+    private static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy)
+    {
+        var fingerprint = taxonomy is null ? Publishing.Fingerprint(action, edit)
+            : SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy));
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
+        var current = taxonomy is null ? null : await Find(db, tx, actor, edit.Id, true, ct);
         await using (var existing = Sql(db, tx, """
             select fingerprint,article_id,revision,title,body,published from public.article_command where actor_id=$1 and command_id=$2
             """, actor.Id, edit.Key))
@@ -129,7 +144,9 @@ internal sealed class Store(NpgsqlDataSource source)
         }
         else
         {
-            state = Publishing.Change(action, edit, await Find(db, tx, actor, edit.Id, true, ct), actor);
+            current ??= await Find(db, tx, actor, edit.Id, true, ct);
+            if (taxonomy is not null) edit = edit with { Title = current.Title, Body = current.Body };
+            state = Publishing.Change(action, edit, current, actor);
             await using var update = Sql(db, tx, """
                 update public.article set revision=$2,title=$3,body=$4,published_revision=$5,deleted=$6,updated_at=now() where id=$1
                 """, state.Id, state.Revision, state.Title, state.Body,
@@ -139,7 +156,9 @@ internal sealed class Store(NpgsqlDataSource source)
         await using (var revision = Sql(db, tx, """
             insert into public.article_revision(article_id,revision,title,body,happened_at) values($1,$2,$3,$4,now())
             """, state.Id, state.Revision, state.Title, state.Body)) await revision.ExecuteNonQueryAsync(ct);
-        if (edit.Id != 0)
+        if (taxonomy is not null)
+            await Content.TaxonomyStore.Replace(db, tx, state.Id, state.Revision, taxonomy.CategoryId, taxonomy.TagIds, ct);
+        else if (edit.Id != 0)
             await Content.TaxonomyStore.CarryForward(db, tx, state.Id, edit.ExpectedRevision, state.Revision, ct);
         if (action == ArticleAction.Publish)
         {

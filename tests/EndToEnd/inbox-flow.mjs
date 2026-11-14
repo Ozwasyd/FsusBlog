@@ -9,8 +9,9 @@ const { chromium } = createRequire(new URL('../../src/Web/package.json', import.
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const tickets = [process.env.FSUSBLOG_INBOX_DESKTOP_TICKET, process.env.FSUSBLOG_INBOX_MOBILE_TICKET]
-assert(evidence && tickets.every(Boolean), 'Set local inbox fixture tickets and evidence directory')
-assert(/^fsusv2_inbox_[a-f0-9]{32}$/.test(process.env.FSUSBLOG_INBOX_TEST_DB_NAME ?? ''), 'Expected an owned disposable inbox database')
+const recipients = [process.env.FSUSBLOG_INBOX_DESKTOP_ID, process.env.FSUSBLOG_INBOX_MOBILE_ID]
+assert(evidence && tickets.every(Boolean) && recipients.every(Boolean), 'Set local inbox fixture identities, tickets and evidence directory')
+assert(/(?:^|;)Database=fsusv2_inbox_[a-f0-9]{32}(?:;|$)/.test(process.env.FSUSBLOG_DB ?? ''), 'Expected an owned disposable inbox database')
 const fetchAt = globalThis.fetch
 await mkdir(evidence, { recursive: true })
 
@@ -56,7 +57,7 @@ try {
       assert.equal(await row.getByText('1 条未读', { exact: true }).count(), 1)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
       await page.screenshot({ path: join(evidence, `inbox-${name}-list.png`) })
-      appendFixtureNotice(name)
+      appendFixtureNotice(recipients[index])
       const update = page.getByRole('button', { name: /New notification after opening/ })
       await update.waitFor({ timeout: 15_000 })
       await row.focus()
@@ -96,32 +97,13 @@ try {
 if (failure) throw failure
 console.log('Native PostgreSQL communication flow passed in desktop and narrow Chrome.')
 
-function appendFixtureNotice(name) {
-  const login = name === 'desktop' ? 'inbox-desktop' : 'inbox-mobile'
-  const sql = `
-    BEGIN;
-    SELECT last_sequence FROM public.inbox_delivery
-    WHERE account_id=(SELECT id FROM public.blog_user WHERE name='${login}') FOR UPDATE;
-    WITH conversation AS (
-      INSERT INTO public.inbox_conversation(account_id,subject,status,is_system,last_message_at)
-      SELECT id,'New notification after opening',0,true,clock_timestamp() FROM public.blog_user WHERE name='${login}'
-      RETURNING id,account_id,last_message_at
-    ), message AS (
-      INSERT INTO public.inbox_message(conversation_id,sender,is_internal,body,sent_at)
-      SELECT id,2,false,'This update came from PostgreSQL.',last_message_at FROM conversation
-      RETURNING id,conversation_id
-    ), head AS (
-      UPDATE public.inbox_delivery h SET last_sequence=last_sequence+2 FROM conversation c
-      WHERE h.account_id=c.account_id RETURNING h.account_id,h.last_sequence
-    )
-    INSERT INTO public.inbox_event(account_id,sequence,kind,conversation_id,message_id,occurred_at)
-    SELECT c.account_id,h.last_sequence-e.offset,e.kind,c.id,m.id,c.last_message_at
-    FROM conversation c JOIN message m ON m.conversation_id=c.id JOIN head h ON h.account_id=c.account_id
-    CROSS JOIN (VALUES (1,12),(0,13)) e(offset,kind);
-    UPDATE public.inbox_conversation c SET last_message_id=m.id
-    FROM public.inbox_message m WHERE m.conversation_id=c.id AND c.last_message_id IS NULL;
-    COMMIT;`
-  execFileSync(process.env.FSUSBLOG_INBOX_TEST_PSQL, ['-X', '--no-password', '-v', 'ON_ERROR_STOP=1',
-    '-h', process.env.FSUSBLOG_TEST_PGHOST, '-p', process.env.FSUSBLOG_TEST_PGPORT, '-U', process.env.FSUSBLOG_TEST_PGUSER,
-    '-d', process.env.FSUSBLOG_INBOX_TEST_DB_NAME, '-c', sql])
+function appendFixtureNotice(recipient) {
+  const printed = execFileSync(process.env.FSUSBLOG_INBOX_DOTNET,
+    [process.env.FSUSBLOG_INBOX_MIGRATE_DLL, 'notify', recipient, 'while-open'], {
+      encoding: 'utf8',
+      input: JSON.stringify({ subject: 'New notification after opening', body: 'This update came from PostgreSQL.' }),
+    })
+  const result = JSON.parse(printed)
+  assert.equal(result.accountId, recipient)
+  assert.equal(result.replayed, false)
 }

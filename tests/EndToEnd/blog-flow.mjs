@@ -24,7 +24,8 @@ await mkdir(config.evidence, { recursive: true })
 
 const token = `fsusv2${Date.now()}`
 const title = `Browser flow ${token}`
-const body = `## Draft milestone\n\nThis release note contains ${token}.\n`
+const bodyTerm = `publicationneedle${Date.now()}`
+const body = `## Draft milestone\n\nThis release note contains ${token}.\n${'Padding paragraph. '.repeat(15)}\n${bodyTerm}.\n`
 const origin = new URL(config.origin).origin
 const nativeFetch = globalThis.fetch
 const repository = fileURLToPath(new URL('../../', import.meta.url))
@@ -162,6 +163,32 @@ try {
   await screen(publisher, 'editor-desktop')
   observations.push('Login, draft navigation protection, durable save, and unpublished omission from index.')
 
+  if (config.publicFixture) {
+    await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()
+    await publisher.getByRole('option', { name: 'Web engineering', exact: true }).click()
+    await publisher.getByRole('heading', { name: 'Classification', exact: true }).click()
+    await publisher.getByRole('combobox', { name: 'Tags', exact: true }).and(publisher.locator(':not([readonly])')).click()
+    await publisher.getByRole('option', { name: 'Café', exact: true }).click()
+    await publisher.getByRole('heading', { name: 'Classification', exact: true }).click()
+    await button(publisher, 'Save classification').click()
+    await visible(publisher.getByText('Classification saved.', { exact: true }))
+    assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))
+    observations.push('Save classification commits against the current article revision and remains private until publication.')
+  }
+
+  await button(publisher, 'Add text property').click()
+  await publisher.getByLabel('Property label').fill('Article subtitle')
+  await publisher.getByLabel('Property key').fill('article-subtitle')
+  await button(publisher, 'Create property').click()
+  await button(publisher, 'Edit Article subtitle').click()
+  await publisher.getByLabel('Article subtitle value').fill(`Private subtitle ${token}`)
+  await button(publisher, 'Save property').click()
+  await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
+  await publisher.reload()
+  await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
+  await screen(publisher, 'editor-properties')
+  observations.push('The editor creates a stable text property and reloads a persisted private value.')
+
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))
   const published = await api.publicIndex()
@@ -171,6 +198,10 @@ try {
   assert.equal(publicArticle.title, title)
   assert.equal(publicArticle.body, body)
   assert.equal(indexEntry.publication, publicArticle.publication)
+  if (config.publicFixture) {
+    assert.equal(publicArticle.category.id, 1)
+    assert(publicArticle.tags.some(tag => tag.id === 4))
+  }
 
   if (stalePageUrl) {
     await visitor.goto(stalePageUrl)
@@ -182,6 +213,7 @@ try {
 
   const homeHtml = await nativeFetch(`${origin}/`).then(response => response.text())
   assert(homeHtml.includes(title))
+  assert(!homeHtml.includes(`Private subtitle ${token}`))
   await visitor.goto(`${origin}/`)
   await visible(visitor.getByRole('heading', { name: 'Latest posts' }))
   await visible(visitor.getByRole('link', { name: title, exact: true }))
@@ -194,6 +226,7 @@ try {
   await screen(visitor, 'home-mobile-dark')
   await visitor.getByRole('link', { name: title, exact: true }).click()
   await visible(visitor.getByRole('heading', { name: title, exact: true }))
+  await hidden(visitor.getByText(`Private subtitle ${token}`, { exact: true }))
   if (config.requireNative) {
     await visible(visitor.getByRole('heading', { name: 'Draft milestone', exact: true }))
     await hidden(visitor.getByText('Formatted view unavailable.', { exact: false }))
@@ -206,8 +239,19 @@ try {
 
   await search(visitor, 'release note')
   await visible(visitor.getByRole('link', { name: title, exact: true }))
+  assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
+  const corpusResponse = mobile.waitForEvent('response', response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
+  const generationCheck = visitor.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'HEAD')
+  await search(visitor, bodyTerm)
+  await visible(visitor.getByRole('link', { name: title, exact: true }))
+  const corpus = await corpusResponse
+  assert.equal(corpus.status(), 200)
+  const corpusBytes = await nativeFetch(corpus.url()).then(response => response.arrayBuffer())
+  assert.equal(Buffer.from(corpusBytes, 0, 4).toString('ascii'), 'FSPK')
+  assert.equal((await generationCheck).status(), 204)
+  assert.equal((await api.search(bodyTerm)).items[0].id, writtenId)
   await screen(visitor, 'search-mobile-dark')
-  observations.push('Published snapshot visible in HTML, AEDS public detail, and search on a dark 375px viewport.')
+  observations.push('Published snapshot visible in HTML, AEDS public detail, and local full-text search on a dark 375px viewport. A body-only term passed through the FSPK worker and generation recheck.')
 
   const stale = await desktop.newPage()
   monitor(stale, 'stale-editor')
@@ -235,7 +279,11 @@ try {
   const absent = await visitor.goto(`${origin}/article/${writtenId}`)
   assert.equal(absent.status(), 404)
   assert(!(await absent.text()).includes(token))
-  await search(visitor, token)
+  const priorSearchGeneration = corpus.headers()['x-fsus-search-index-generation']
+  assert(priorSearchGeneration)
+  const priorSearch = await nativeFetch(`${origin}${WireRoutes.PublicSearchCorpus}?generation=${priorSearchGeneration}`, { method: 'HEAD' })
+  assert.equal(priorSearch.status, 409)
+  await search(visitor, bodyTerm)
   await visible(visitor.getByText('No articles match your search.', { exact: true }))
   const signOut = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SignOut)
   await button(publisher, 'Log out').click()

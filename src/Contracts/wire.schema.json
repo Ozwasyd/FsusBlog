@@ -17,8 +17,13 @@
     "ArticleList": 1,
     "ArticleDetail": 2,
     "ArticleSearch": 4,
+    "CommentThreadReplyCursor": 8,
+    "CommentTreeRootCursor": 208,
+    "CommentChildCursor": 209,
+    "CommentPermalinkContext": 210,
     "CategoryList": 9,
     "TagList": 10,
+    "PageContent": 14,
     "AuthLoginFlow": 18,
     "ConversationList": 56,
     "ConversationMessage": 58,
@@ -44,13 +49,25 @@
     "CanvasPreview": 32775,
     "CanvasLinkPlan": 32776,
     "CanvasConfirm": 32777,
-    "CanvasLinked": 32778
+    "CanvasLinked": 32778,
+    "PropertyDefinitionCommand": 32779,
+    "PropertyWorkspaceRequest": 32780,
+    "PropertyTextCommand": 32781,
+    "PropertyCommandReceipt": 32782,
+    "PropertyWorkspace": 32783,
+    "DraftTaxonomy": 32790,
+    "TaxonomyAssignment": 32791
   },
   "routes": {
     "PublicList": "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
     "PublicArchive": "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
     "PublicArticle": "/api/binary/article/{id}.aeds",
+    "CommentRoots": "/api/binary/comment/{articleId:int}",
+    "CommentChildren": "/api/binary/comment/{articleId:int}/children/{parentId:long}",
+    "CommentContext": "/api/binary/comment/{articleId:int}/context/{commentId:long}",
+    "CommentThread": "/api/binary/comment/{articleId:int}/thread/{rootId:long}",
     "PublicSearch": "/api/binary/article/search/query.aeds",
+    "PublicSitePage": "/api/binary/system/page/{slug}",
     "CategoryList": "/api/binary/category",
     "TagList": "/api/binary/tag",
     "CategoryMetadata": "/api/binary/category/{id:int}.aeds",
@@ -58,7 +75,10 @@
     "TagMetadataByName": "/api/binary/tag/by-name.aeds",
     "CategoryArticles": "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds",
     "TagArticles": "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds",
+    "DraftTaxonomy": "/api/v2/authoring/draft/{id:int}/taxonomy.aeds",
+    "TaxonomyAssignment": "/api/v2/authoring/taxonomy/assign.aeds",
     "PublicIndex": "/api/v2/public/index.aeds",
+    "PublicSearchCorpus": "/api/v2/public/search-corpus",
     "InboxList": "/api/binary/messages/conversations",
     "InboxDetail": "/api/binary/messages/conversations/{id:long}",
     "InboxReply": "/api/binary/messages/conversations/{id:long}/reply",
@@ -79,7 +99,10 @@
     "Delete": "/api/v2/authoring/delete.aeds",
     "CanvasCreate": "/api/v2/authoring/canvas/create.aeds",
     "CanvasPreview": "/api/v2/authoring/canvas/link/preview.aeds",
-    "CanvasConfirm": "/api/v2/authoring/canvas/link/confirm.aeds"
+    "CanvasConfirm": "/api/v2/authoring/canvas/link/confirm.aeds",
+    "PropertyDefinitionCommand": "/api/v2/authoring/properties/definition.aeds",
+    "PropertyWorkspace": "/api/v2/authoring/properties/workspace.aeds",
+    "PropertyTextCommand": "/api/v2/authoring/properties/text.aeds"
   },
   "headers": {
     "TraceId": "X-Fsus-Trace-Id",
@@ -93,6 +116,8 @@
   "limits": {
     "TaxonomyNameBytes": 512,
     "TaxonomyDescriptionBytes": 2000,
+    "TaxonomyTagCount": 32,
+    "TaxonomyAssignmentFrameBytes": 180,
     "TicketBytes": 128,
     "TitleBytes": 256,
     "NameBytes": 256,
@@ -100,10 +125,19 @@
     "MaxPayloadBytes": 4194304,
     "SearchIndexPageSize": 200,
     "SearchIndexMaxPages": 200,
+    "SearchCorpusPageBytes": 8388608,
+    "SearchCorpusTotalBytes": 67108864,
+    "SearchCorpusMaxPages": 128,
+    "SearchQueryChars": 128,
     "MaxSignInFrameBytes": 148,
     "MaxCommandFrameBytes": 1048884,
     "CanvasInsertionBytes": 560,
     "CanvasRequestBytes": 76,
+    "PropertyKeyBytes": 64,
+    "PropertyLabelBytes": 1024,
+    "PropertyValueBytes": 65536,
+    "PropertyMaxCommandBytes": 65792,
+    "PropertyPageSize": 25,
     "InboxReplayMaxEvents": 512,
     "InboxReplayCursorChars": 54,
     "MaxPasskeyFrameBytes": 32768,
@@ -138,6 +172,19 @@
     "ArticleListCursorMaxBytes": 512,
     "ArticleListRecordSizeCurrent": 100,
     "ArticleSearchV4Magic": "0x34534146",
+    "SearchPackageMagic": "0x4b505346",
+    "SearchShardMagic": "0x32534846",
+    "SearchResultMagic": "0x34525346",
+    "SearchArtifactVersion": 4,
+    "SearchPackageEntryOffset": 12,
+    "SearchPackagePayloadOffset": 32,
+    "SearchShardHeaderSize": 72,
+    "SearchTermRecordSize": 24,
+    "SearchDocumentRecordSize": 76,
+    "SearchDictionaryRecordSize": 16,
+    "SearchResultHeaderSize": 24,
+    "SearchResultRecordSize": 76,
+    "SearchResultTagRecordSize": 12,
     "ArticleSearchV4Version": 4,
     "ArticleSearchItemPodSize": 420,
     "ArticleSearchTagPodSize": 132,
@@ -199,6 +246,14 @@
     "PasskeySliceSize": 8
   },
   "records": {
+    "DraftTaxonomy": {
+      "frame": "DraftTaxonomy",
+      "fields": [["Id", "i32"], ["Revision", "i64"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
+    },
+    "TaxonomyAssignment": {
+      "frame": "TaxonomyAssignment",
+      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
+    },
     "SignIn": {
       "frame": "OperatorSignIn",
       "fields": [["Ticket", "text", "TicketBytes"]]
@@ -238,6 +293,22 @@
     "CanvasLinked": {
       "frame": "CanvasLinked",
       "fields": [["PlanId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"], ["CanvasRevision", "i64"]]
+    },
+    "PropertyDefinitionCommand": {
+      "frame": "PropertyDefinitionCommand",
+      "fields": [["Operation", "i32"], ["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["MachineKey", "text", "PropertyKeyBytes"], ["Label", "text", "PropertyLabelBytes"]]
+    },
+    "PropertyWorkspaceRequest": {
+      "frame": "PropertyWorkspaceRequest",
+      "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["AfterKey", "text", "PropertyKeyBytes"]]
+    },
+    "PropertyTextCommand": {
+      "frame": "PropertyTextCommand",
+      "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["DefinitionId", "uuid"], ["DefinitionRevision", "i64"], ["RequestId", "uuid"], ["Remove", "bool"], ["Value", "text", "PropertyValueBytes"]]
+    },
+    "PropertyCommandReceipt": {
+      "frame": "PropertyCommandReceipt",
+      "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["Revision", "i64"]]
     }
   }
 }
