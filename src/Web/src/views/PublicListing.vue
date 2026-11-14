@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, ref, watch } from 'vue'
+import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { api, ApiError, type ArticleCard } from '../../../Contracts/client'
@@ -7,7 +7,7 @@ import {
   taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
 } from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing } from '../publicEntry'
-import { searchLocal } from '../localSearch'
+import { createLocalSearch } from '../localSearch'
 import { siteTitle } from '../siteBrand'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
@@ -47,6 +47,8 @@ const reload = ref(0)
 const pageSize = 10
 const maxSearchLength = WireLimits.SearchQueryChars
 const searchTooLong = computed(() => input.value.trim().length > maxSearchLength)
+const localSearch = createLocalSearch()
+onScopeDispose(localSearch.dispose)
 
 watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text], _, cleanup) => {
   const request = new AbortController()
@@ -59,6 +61,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
   cursorExpired.value = false
   failed.value = false
   input.value = text
+  if (!search) localSearch.dispose()
   if (search && (!text || text.length > maxSearchLength)) {
     loading.value = false
     return
@@ -73,7 +76,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
     const currentCursor = ordinal > 1 ? token : undefined
     let result: Awaited<ReturnType<typeof api.publicList>>
     if (search) {
-      result = await searchLocal(text, request.signal, ordinal, pageSize)
+      result = await localSearch.search(text, request.signal, ordinal, pageSize)
     } else if (kind) {
       const [metadata, page] = await Promise.all([
         taxonomyMetadata(kind, categoryOrTagId, request.signal),

@@ -9,6 +9,8 @@ type Taxon = ArticleCard['category'];
 type Shard = { documents: Map<number, SearchArticle>; matches: Map<number, number> };
 type Result = { items: ArticleCard[]; total: number; nextCursor: null };
 type PhraseHits = Map<number, Map<number, bigint>>;
+type CorpusPages = { generation: string; pages: Uint8Array[] };
+type CorpusCache = { corpus?: CorpusPages };
 
 const utf8 = new TextEncoder();
 const none: Taxon = { id: 0, name: '' };
@@ -202,14 +204,14 @@ function hasPhrase(hits: Map<number, bigint>, expected: bigint): boolean {
 export function queryCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
   requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
   try {
-    return parseCorpusPage(payload, terms);
+    return parseCorpusPage(payload, terms, false);
   } catch (error) {
     if (error instanceof RangeError) throw new ProtocolError('Truncated local search corpus');
     throw error;
   }
 }
 
-function parseCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
+function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted: boolean): Shard {
   const p = new Bytes(payload);
   requireWire(p.length >= L.SearchPackagePayloadOffset + L.SearchShardHeaderSize &&
     p.length <= Limit.SearchCorpusPageBytes && p.u32(0) === L.SearchPackageMagic &&
@@ -306,8 +308,11 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
     const positionFlag = b.u32(at + 16);
     requireWire(hash > priorHash && Number.isFinite(idf) && idf > 0 && offset === consumed &&
       length > 0 && offset + length <= end && positionFlag <= 1 && b.u32(at + 20) === 0, 'term metadata');
-    readPostings(b, { offset, end: offset + length, idf, hasPositions: positionFlag === 1 }, documents,
-      average, uniqueTerms.has(hash) ? matches : undefined, phraseHits, phrase.get(hash) ?? 0n);
+    const hit = uniqueTerms.has(hash);
+    if (hit || !admitted) {
+      readPostings(b, { offset, end: offset + length, idf, hasPositions: positionFlag === 1 }, documents,
+        average, hit ? matches : undefined, phraseHits, phrase.get(hash) ?? 0n);
+    }
     priorHash = hash;
     consumed += length;
   }
@@ -448,7 +453,7 @@ async function readBytes(response: Response, limit: number): Promise<Uint8Array>
   } finally {
     reader.releaseLock();
   }
-  if (chunks.length === 1) return chunks[0];
+  if (chunks.length === 1 && chunks[0].buffer.byteLength === length) return chunks[0];
   const bytes = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) {
@@ -492,24 +497,70 @@ async function corpusRequest(
   return { generation: current, pages, bytes: await readBytes(response, Limit.SearchCorpusPageBytes) };
 }
 
-/** Search only published, generation-bound corpus data and recheck it before exposing results. */
-export async function searchCorpus(query: string, signal?: AbortSignal, page = 1, size = 10): Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }> {
+/** Search published corpus data. The consumer revalidates the result generation before display. */
+export function searchCorpus(query: string, signal?: AbortSignal, page = 1, size = 10) {
+  return runCorpusSearch(query, signal, page, size);
+}
+
+/** Keep one completely admitted generation in the owning search worker's memory. */
+export function createCorpusSearch() {
+  const cache: CorpusCache = {};
+  let searching = false;
+  return async (query: string, signal?: AbortSignal, page = 1, size = 10) => {
+    requireWire(!searching, 'concurrent corpus query');
+    searching = true;
+    try {
+      return await runCorpusSearch(query, signal, page, size, cache);
+    } catch (error) {
+      cache.corpus = undefined;
+      throw error;
+    } finally {
+      searching = false;
+    }
+  };
+}
+
+async function currentCachedCorpus(cache: CorpusCache, signal: AbortSignal | undefined) {
+  if (!cache.corpus) return undefined;
+  try {
+    await verifySearchGeneration(cache.corpus.generation, signal);
+    return cache.corpus;
+  } catch (error) {
+    cache.corpus = undefined;
+    if (!(error instanceof ApiError) || error.status !== 409) throw error;
+    return undefined;
+  }
+}
+
+async function runCorpusSearch(query: string, signal: AbortSignal | undefined, page: number, size: number,
+  cache?: CorpusCache): Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }> {
   requireWire(Number.isInteger(page) && page > 0 && page <= 10000 &&
     Number.isInteger(size) && size > 0 && size <= 100, 'query page');
   const terms = searchTerms(query);
   signal?.throwIfAborted();
   if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
-  const first = await corpusRequest(signal, undefined, 1);
+  const admitted = cache ? await currentCachedCorpus(cache, signal) : undefined;
+  const first = admitted
+    ? { generation: admitted.generation, pages: admitted.pages.length, bytes: admitted.pages[0] }
+    : await corpusRequest(signal, undefined, 1);
+  const pendingPages: Uint8Array[] | undefined = cache && !admitted ? [] : undefined;
   const ids = new Set<number>();
   const matches: { article: SearchArticle; score: number }[] = [];
   let totalBytes = 0;
   for (let i = 1; i <= first.pages; i++) {
     signal?.throwIfAborted();
-    const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i);
-    totalBytes += loaded.bytes.length;
-    requireWire(loaded.pages === first.pages && totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
-    const shard = queryCorpusPage(loaded.bytes, terms);
+    let shard: Shard;
+    if (admitted) {
+      // Buffers are private to this worker and all postings were validated on cold load.
+      shard = parseCorpusPage(admitted.pages[i - 1], terms, true);
+    } else {
+      const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i);
+      totalBytes += loaded.bytes.length;
+      requireWire(loaded.pages === first.pages && totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
+      shard = queryCorpusPage(loaded.bytes, terms);
+      pendingPages?.push(loaded.bytes);
+    }
     requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
     for (const article of shard.documents.values()) {
       requireWire(!ids.has(article.id), 'duplicate corpus article');
@@ -521,6 +572,8 @@ export async function searchCorpus(query: string, signal?: AbortSignal, page = 1
   matches.sort((a, b) => b.score - a.score || b.article.createdAt - a.article.createdAt || b.article.id - a.article.id);
   const start = (page - 1) * size;
   const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+  signal?.throwIfAborted();
+  if (cache && pendingPages) cache.corpus = { generation: first.generation, pages: pendingPages };
   return { frame: encoded, generation: first.generation };
 }
 

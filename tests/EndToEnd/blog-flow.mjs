@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
 import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
+import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
@@ -411,8 +412,14 @@ try {
     page: publisher, origin, targetArticle: publicArticle, screenshot: screen, monitor, observations,
     createDraft: (title, body) => articleCommand(WireRoutes.Save, 0, 0n, title, body),
   })
-  await button(publisher, 'Withdraw').click()
-  await visible(publisher.getByText('Article withdrawn.', { exact: true }))
+  await exerciseSearchWorkerReuse({
+    page: visitor, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
+    withdraw: async () => {
+      await button(publisher, 'Withdraw').click()
+      await visible(publisher.getByText('Article withdrawn.', { exact: true }))
+    },
+    observations,
+  })
   const withdrawn = await api.publicIndex()
   assert.notEqual(withdrawn.generation, published.generation)
   assert(!withdrawn.items.some(item => item.id === writtenId))

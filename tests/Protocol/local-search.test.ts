@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
-  decodeLocalSearchResult, encodeLocalSearchResult, queryCorpusPage, searchCorpus, searchTerms, verifySearchGeneration,
+  createCorpusSearch, decodeLocalSearchResult, encodeLocalSearchResult, queryCorpusPage, searchCorpus, searchTerms,
+  verifySearchGeneration,
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
@@ -107,4 +108,68 @@ test('search uses corpus GET and separately revalidates with HEAD, rejecting mix
   const aborted = new AbortController();
   aborted.abort();
   await assert.rejects(searchCorpus('needle', aborted.signal), { name: 'AbortError' });
+});
+
+test('route worker cache reuses only fully admitted pages of the confirmed generation', async (t) => {
+  const pageWithId = (id: number) => {
+    const result = packageBytes.slice();
+    const shard = new DataView(result.buffer, L.SearchPackagePayloadOffset);
+    shard.setUint32(shard.getUint32(40, true), id, true);
+    const postingAt = shard.getUint32(60, true);
+    for (let i = 0; i < shard.getUint32(16, true); i++) {
+      const termOffset = L.SearchShardHeaderSize + i * L.SearchTermRecordSize;
+      shard.setUint8(postingAt + shard.getUint32(termOffset + 8, true) + 1, id);
+    }
+    return result;
+  };
+  let generation = '800';
+  let corpus = [packageBytes, pageWithId(43)];
+  let available = true;
+  const calls: string[] = [];
+  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
+    const url = new URL(path, 'http://localhost');
+    const expected = url.searchParams.get('generation');
+    const page = Number(url.searchParams.get('page'));
+    calls.push(`${init.method}:${expected ?? 'current'}:${page || '-'}`);
+    const headers = {
+      'Content-Type': 'application/octet-stream',
+      [WireHeaders.SearchIndexPages]: String(corpus.length),
+      [WireHeaders.SearchIndexGeneration]: generation,
+    };
+    if (!available) return new Response(null, { status: 503 });
+    if (expected !== null && expected !== generation) return new Response(null, { status: 409 });
+    if (!page) return new Response(null, { status: 204, headers });
+    return new Response(corpus[page - 1].slice(), { headers });
+  });
+
+  const search = createCorpusSearch();
+  const ids = async (query: string) => {
+    const result = await search(query);
+    await verifySearchGeneration(result.generation!);
+    return decodeLocalSearchResult(result.frame).items.map(article => article.id);
+  };
+  assert.deepEqual(await ids('needle'), [43, 42]);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:800:2', 'HEAD:800:-']);
+  assert.deepEqual(await ids('needle 雪'), [43, 42]);
+  assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'HEAD:800:-']);
+
+  generation = '801';
+  corpus = [pageWithId(43), pageWithId(44)];
+  assert.deepEqual(await ids('needle'), [44, 43]);
+  assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'GET:current:1', 'GET:801:2', 'HEAD:801:-']);
+
+  available = false;
+  await assert.rejects(ids('needle'), { status: 503 });
+  assert.deepEqual(calls.splice(0), ['HEAD:801:-']);
+  available = true;
+  assert.deepEqual(await ids('needle'), [44, 43]);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:801:2', 'HEAD:801:-']);
+
+  generation = '802';
+  corpus = [pageWithId(44), pageWithId(44)];
+  await assert.rejects(ids('needle'), /duplicate corpus article/);
+  assert.deepEqual(calls.splice(0), ['HEAD:801:-', 'GET:current:1', 'GET:802:2']);
+  corpus = [pageWithId(44), pageWithId(45)];
+  assert.deepEqual(await ids('needle'), [45, 44]);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:802:2', 'HEAD:802:-']);
 });
