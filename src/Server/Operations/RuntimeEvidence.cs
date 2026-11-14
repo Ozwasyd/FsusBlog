@@ -9,6 +9,9 @@ namespace FsusBlog.V2.Server.Operations;
 
 internal sealed class RuntimeEvidence : IAsyncDisposable
 {
+    private static readonly IReadOnlyDictionary<string, object> GcConfiguration = GC.GetConfigurationVariables()
+        .Where(option => option.Key is "GCConserveMem" or "GCConserveMemory" or "GCHeapCount" or "GCDynamicAdaptationMode")
+        .ToDictionary(option => option.Key, option => option.Value, StringComparer.Ordinal);
     private const int Background = 4;
     private const int OtherHttp = 5;
     private const int Publication = 6;
@@ -179,6 +182,7 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
         _output.WriteLine(JsonSerializer.Serialize(new
         {
             utc, mark, pid = Environment.ProcessId,
+            gcServer = System.Runtime.GCSettings.IsServerGC, gcConfiguration = GcConfiguration,
             managedAllocatedBytes = GC.GetTotalAllocatedBytes(precise: mark is not null),
             gcCollectionCounts = new[] { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) },
             gcTotalPauseMs = GC.GetTotalPauseDuration().TotalMilliseconds,

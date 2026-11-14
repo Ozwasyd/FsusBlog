@@ -181,6 +181,7 @@ ui_status=$(git -C ../FsusUI status --porcelain)
   node --version
   go version
   postgres --version
+  printf 'dotnet_gc_conserve_memory=%s\n' "${DOTNET_GCConserveMemory:-unset}"
   if [[ "$proxy_mode" == true ]]; then
     "$caddy" version
     printf 'topology=Caddy TLS -> Kestrel HTTP/1.1 loopback, native PostgreSQL over private Unix socket, same-host load client\n'

@@ -12,6 +12,7 @@ from statistics import median
 import sys
 
 
+UTC_DRIFT_SECONDS = 0.25
 ROUTES = {
     "home-html": "homeHtml",
     "detail-html": "detailHtml",
@@ -48,7 +49,13 @@ def summarize(rows, load, rss, pid):
     duration = load["seconds"]
     measured_end = measured_at + timedelta(seconds=duration)
     drained_at = timestamp(load["measurementCompletedAt"])
-    if not start_at <= measured_at <= measured_end <= drained_at <= end_at:
+    # The final planned request arrives one tick before the nominal end.
+    scheduled_last = measured_end - timedelta(seconds=1 / load["requestedRate"])
+    utc_earliest_end = scheduled_last - timedelta(seconds=UTC_DRIFT_SECONDS)
+    supplied_for = load.get("measurementElapsedSeconds")
+    if supplied_for is not None and not duration - 1 / load["requestedRate"] <= supplied_for <= duration + 2:
+        raise ValueError("Monotonic scheduler duration did not match the planned interval.")
+    if not start_at <= measured_at <= utc_earliest_end <= drained_at <= end_at:
         raise ValueError("The marked runtime interval does not enclose the load interval.")
 
     gc_pauses = [
@@ -138,9 +145,12 @@ def summarize(rows, load, rss, pid):
         "runtimeStart": start["utc"],
         "loadStart": load["measurementStartedAt"],
         "runtimeEnd": end["utc"],
+        "loadMonotonicSeconds": supplied_for,
         "boundsIdleSeconds": {"before": guard_before, "after": guard_after},
         "durationSeconds": duration,
         "serverPid": pid,
+        "gcServer": start.get("gcServer"),
+        "gcConfiguration": start.get("gcConfiguration"),
         "runtimeSamples": len(series),
         "load": {"planned": load["expected"], "sent": all_routes["sent"], "correct": correct,
                  "schedulerDropped": all_routes["dropped"], "clientMeasurement": load["measurement"]},

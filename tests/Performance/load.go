@@ -691,7 +691,7 @@ func (s *stats) add(r result) {
 	s.latency.add(r.latency)
 }
 
-func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int) map[string]*stats {
+func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats) {
 	// Admission counts queued jobs and active requests against the same limit.
 	// A worker briefly between reads must not turn unused capacity into an offered drop.
 	jobs := make(chan job, maxInFlight)
@@ -734,7 +734,7 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 		s.P99MS = s.latency.percentile(s.OK, 99)
 		s.Dispatch = s.dispatch.percentile(s.Sent, 99)
 	}
-	return totals
+	return started.UTC(), time.Since(started), totals
 }
 
 func startRuntimeMeasurement(ctx context.Context, directory string) error {
@@ -838,10 +838,10 @@ func run() int {
 		}
 	}
 	if code == 0 && *rate > 0 {
-		measured := time.Now().UTC()
-		totals := measure(ctx, origin, w, *rate, *seconds)
+		measured, elapsed, totals := measure(ctx, origin, w, *rate, *seconds)
 		all := totals["all"]
 		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, time.Now().UTC(), totals
+		report["measurementElapsedSeconds"] = elapsed.Seconds()
 		report["correctPerSecond"] = float64(all.OK) / float64(*seconds)
 		report["expected"] = *rate * *seconds
 		if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {
