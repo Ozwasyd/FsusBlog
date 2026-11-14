@@ -44,9 +44,18 @@ export function editArticleMedia(id: number, revision: bigint, key: string, edit
   }, signal, 'POST', frame, { [WireHeaders.CurrentSession]: current });
 }
 
-export function privateArticlePreview(ticket: string): string {
+export async function privateArticlePreview(ticket: string, signal?: AbortSignal): Promise<Blob> {
   if (!validTicket(ticket)) throw invalid();
-  return WireRoutes.ArticleMediaPreview.replace('{ticket}', ticket);
+  const response = await fetch(WireRoutes.ArticleMediaPreview, {
+    credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal,
+    headers: { Authorization: `Bearer ${ticket}`, Accept: 'image/png, image/jpeg' },
+  });
+  const type = response.headers.get('content-type');
+  if (!response.ok || type !== 'image/png' && type !== 'image/jpeg') {
+    await response.body?.cancel();
+    throw invalid();
+  }
+  return response.blob();
 }
 
 const empty = '00000000-0000-0000-0000-000000000000';

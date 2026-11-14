@@ -45,11 +45,17 @@ internal static class ArticleMediaEndpoints
         }).RequireRateLimiting("command");
 
         app.MapMethods(WireRoutes.ArticleMediaPreview, [HttpMethods.Get, HttpMethods.Head], async (
-            string ticket, HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>
+            HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>
         {
             MediaEndpoints.SetHidden(ctx.Response);
+            ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+            var authorization = ctx.Request.Headers.Authorization;
+            const string scheme = "Bearer ";
             if (Store.TokenDigest(ctx.Request.Cookies[cookie]) is not { } digest ||
-                !ArticleMediaTicket.TryDecode(ticket, digest, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), out var value)) return;
+                ctx.Request.QueryString.HasValue || authorization.Count != 1 || authorization[0] is not { } header ||
+                header.Length != scheme.Length + ArticleMediaTicket.EncodedLength ||
+                !header.StartsWith(scheme, StringComparison.OrdinalIgnoreCase) ||
+                !ArticleMediaTicket.TryDecode(header[scheme.Length..], digest, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), out var value)) return;
             await MediaEndpoints.ReadPrivate(ctx, store, media, cookie, app.Logger, async (db, tx, actor) =>
                 await ArticleMediaStore.Contains(db, tx, actor.Id, value.Article, value.Revision, value.Asset, ct) ? value.Asset : null, ct);
         }).RequireRateLimiting(MediaEndpoints.ReadPolicy).WithMetadata(new MediaEndpoints.PrivateRead());

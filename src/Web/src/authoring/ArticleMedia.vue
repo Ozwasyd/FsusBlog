@@ -67,10 +67,18 @@ async function openPreview(id: string) {
     const pair = (await articleMedia(props.articleId, props.revision, signal)).find(entry => entry.id === id)
     if (!current(signal)) return
     if (!pair) throw new Error('Missing attachment')
-    preview.value = { id, path: privateArticlePreview(pair.ticket) }
+    const bytes = await privateArticlePreview(pair.ticket, signal)
+    if (!current(signal)) return
+    closePreview()
+    preview.value = { id, path: URL.createObjectURL(bytes) }
     error.value = ''
   } catch { if (current(signal)) error.value = 'Private preview expired. Try again from the current draft.' }
   finally { if (current(signal)) pending.value = false }
+}
+
+function closePreview() {
+  if (preview.value) URL.revokeObjectURL(preview.value.path)
+  preview.value = undefined
 }
 
 watch([() => props.articleId, () => props.revision, () => props.identity, expanded], () => {
@@ -78,14 +86,17 @@ watch([() => props.articleId, () => props.revision, () => props.identity, expand
   task = new AbortController()
   attached.value = []
   selected.value = undefined
-  preview.value = undefined
+  closePreview()
   library.value = []
   pending.value = false
   error.value = ''
   available.value = true
   if (expanded.value) void load()
 }, { flush: 'sync' })
-onBeforeUnmount(() => task.abort())
+onBeforeUnmount(() => {
+  task.abort()
+  closePreview()
+})
 </script>
 
 <template>
@@ -114,7 +125,7 @@ onBeforeUnmount(() => task.abort())
         <ElButton v-if="more" native-type="button" text :disabled="pending" @click="loadMore">Load more images</ElButton>
         <p><RouterLink to="/user/manage/assets">Open asset library</RouterLink></p>
         <div v-if="preview" class="attachment-preview">
-          <ElButton native-type="button" text @click="preview = undefined">Close image preview</ElButton>
+          <ElButton native-type="button" text @click="closePreview">Close image preview</ElButton>
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
         </div>
       </template>

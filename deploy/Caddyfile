@@ -26,5 +26,7 @@
 {$FSUSBLOG_PUBLIC_ADDRESS} {
 	bind {$FSUSBLOG_PROXY_BIND:0.0.0.0}
 	tls {$FSUSBLOG_TLS_CERTIFICATE} {$FSUSBLOG_TLS_KEY}
+	@private_preview path /api/v2/media/draft-preview /api/v2/media/draft-preview/*
+	log_skip @private_preview
 	import fsusblog_upstream
 }

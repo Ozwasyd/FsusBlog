@@ -430,7 +430,7 @@ export const WireRoutes = {
   PrivateMediaList: "/api/v2/media/list.aeds",
   ArticleMedia: "/api/v2/authoring/draft/{id:int}/media.aeds",
   ArticleMediaCommand: "/api/v2/authoring/draft/media.aeds",
-  ArticleMediaPreview: "/api/v2/media/draft-preview/{ticket}",
+  ArticleMediaPreview: "/api/v2/media/draft-preview",
   PrivateMediaUpload: "/api/v2/media/upload.aeds",
   PrivateMediaUploadBegin: "/api/v2/media/resumable/begin.aeds",
   PrivateMediaUploadStatus: "/api/v2/media/resumable/{id}/status.aeds",

@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { api } from '../../src/Contracts/client.ts'
 import { uploadMedia } from '../../src/Contracts/private-media.ts'
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -52,7 +53,11 @@ try {
 
       const diagnostics = []
       page.on('pageerror', error => diagnostics.push(error.message))
-      page.on('console', item => { if (item.type() === 'error') diagnostics.push(item.text()) })
+      let revokedPreviewUrl
+      page.on('console', item => {
+        if (item.type() === 'error' &&
+          (item.location().url !== revokedPreviewUrl || !item.text().includes('net::ERR_FILE_NOT_FOUND'))) diagnostics.push(item.text())
+      })
       await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
       await page.getByRole('button', { name: 'Inspector', exact: true }).click()
       await page.getByRole('button', { name: 'Manage private attachments' }).click()
@@ -64,23 +69,42 @@ try {
       const preview = page.getByRole('button', { name: `Preview ${file}` })
       await preview.waitFor()
       await preview.focus()
-      await page.keyboard.press('Enter')
+      const previewUrl = origin + WireRoutes.ArticleMediaPreview
+      const [previewResponse] = await Promise.all([
+        page.waitForResponse(response => response.url() === previewUrl),
+        page.keyboard.press('Enter'),
+      ])
+      assert.equal(previewResponse.status(), 200)
+      const authorization = await previewResponse.request().headerValue('authorization')
+      assert(/^Bearer [A-Za-z0-9_-]{91}$/.test(authorization ?? ''), 'Browser supplied the private preview header')
+      assert.equal(await previewResponse.request().headerValue('referer'), null)
       const image = page.getByRole('img', { name: file })
       await image.waitFor()
       await page.waitForFunction(asset => [...document.images].find(candidate => candidate.alt === asset)?.naturalWidth === 160, file)
-      const path = await image.getAttribute('src')
-      const denied = await fetch(new URL(path, origin))
+      const objectUrl = await image.getAttribute('src')
+      assert(objectUrl?.startsWith('blob:' + origin + '/'), 'Preview used a local object URL')
+      const denied = await fetch(previewUrl, { headers: { Authorization: authorization } })
       assert.equal(denied.status, 404)
       assert.equal((await denied.arrayBuffer()).byteLength, 0)
+      const withoutAuthorization = await author.request.get(previewUrl)
+      assert.equal(withoutAuthorization.status(), 404)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
 
       await page.getByRole('button', { name: `Detach ${file}` }).click()
       await page.getByText('No images are attached to this revision.', { exact: true }).waitFor()
-      assert.equal((await author.request.get(new URL(path, origin).href)).status(), 404)
+      assert.equal((await author.request.get(previewUrl, { headers: { Authorization: authorization } })).status(), 404)
+      revokedPreviewUrl = objectUrl
+      assert(await page.evaluate(url => new Promise(resolve => {
+        const probe = new Image()
+        probe.onload = () => resolve(false)
+        probe.onerror = () => resolve(true)
+        probe.src = url
+      }), objectUrl), 'Previous object URL was revoked')
       assert.deepEqual(diagnostics, [])
       assertions.push({ name, viewport, title: await page.title(), uploadedAssetAttached: true, privatePreviewRendered: true,
-        anonymousDenied: true, previousTicketInvalidAfterDetach: true, keyboard: true })
+        anonymousDenied: true, previousTicketInvalidAfterDetach: true, authorizationHeaderOnly: true,
+        objectUrlRevoked: true, keyboard: true })
     } finally { await author.close() }
   }
 } catch (error) { failure = error }

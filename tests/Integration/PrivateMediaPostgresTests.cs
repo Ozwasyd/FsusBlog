@@ -143,10 +143,13 @@ public sealed class PrivateMediaPostgresTests
             using var repeated = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input));
             Assert.Equal(saved, Wire.DecodeDraft(await repeated.Content.ReadAsByteArrayAsync(ct)));
             var ticket = await Preview(saved.Revision);
-            await AssertHidden(client, HttpMethod.Get, ticket, null, ct);
-            await AssertHidden(client, HttpMethod.Get, ticket, outsider, ct);
-            await AssertHidden(client, HttpMethod.Head, ticket[..^2] + (ticket[^2] == 'b' ? 'A' : 'b') + ticket[^1], owner, ct);
-            using var allowed = await Send(client, HttpMethod.Get, ticket, owner, ct);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, null, ct, ticket);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, outsider, ct, ticket);
+            await AssertHidden(client, HttpMethod.Head, WireRoutes.ArticleMediaPreview, owner, ct,
+                ticket[..^2] + (ticket[^2] == 'b' ? 'A' : 'b') + ticket[^1]);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview + "?extra=unexpected", owner, ct, ticket);
+            using var allowed = await Send(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
             Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
             Assert.True(allowed.Headers.CacheControl?.NoStore);
             Assert.Equal("image/png", allowed.Content.Headers.ContentType?.MediaType);
@@ -157,21 +160,21 @@ public sealed class PrivateMediaPostgresTests
                 Wire.EncodeArticleMediaCommand(input with { ExpectedRevision = saved.Revision, IdempotencyKey = Guid.NewGuid(), Attach = false }));
             Assert.Equal(HttpStatusCode.OK, detach.StatusCode);
             var detached = Wire.DecodeDraft(await detach.Content.ReadAsByteArrayAsync(ct));
-            await AssertHidden(client, HttpMethod.Get, ticket, owner, ct);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
             using var historyStillPins = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
             Assert.Equal(HttpStatusCode.Conflict, historyStillPins.StatusCode);
             using var restore = await Command(WireRoutes.DraftRollback,
                 owner, Wire.EncodeDraftRollback(new(draft.Id, detached.Revision, saved.Revision, Guid.NewGuid(), "Restore the attached revision")));
             Assert.Equal(HttpStatusCode.OK, restore.StatusCode);
             var restored = Wire.DecodeDraft(await restore.Content.ReadAsByteArrayAsync(ct));
-            using var restoredBytes = await Send(client, HttpMethod.Head, await Preview(restored.Revision), owner, ct);
+            using var restoredBytes = await Send(client, HttpMethod.Head, WireRoutes.ArticleMediaPreview, owner, ct, await Preview(restored.Revision));
             Assert.Equal(HttpStatusCode.OK, restoredBytes.StatusCode);
             using var published = await Command(WireRoutes.Publish, owner,
                 Wire.EncodeArticleCommand(new(draft.Id, restored.Revision, Guid.NewGuid(), "", "")));
             Assert.Equal(HttpStatusCode.OK, published.StatusCode);
             var publishedDraft = Wire.DecodeDraft(await published.Content.ReadAsByteArrayAsync(ct));
             var publicCandidateTicket = await Preview(publishedDraft.Revision);
-            await AssertHidden(client, HttpMethod.Get, publicCandidateTicket, null, ct);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, null, ct, publicCandidateTicket);
             using var html = await client.GetAsync($"/article/{draft.Id}", ct);
             Assert.Equal(HttpStatusCode.OK, html.StatusCode);
             Assert.DoesNotContain("draft-preview", await html.Content.ReadAsStringAsync(ct));
@@ -196,7 +199,7 @@ public sealed class PrivateMediaPostgresTests
                 Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(payload[12..]));
                 Assert.Equal(asset, new Guid(payload[16..32], bigEndian: true));
                 Assert.Equal(91, BinaryPrimitives.ReadInt32LittleEndian(payload[32..]));
-                return WireRoutes.ArticleMediaPreview.Replace("{ticket}", System.Text.Encoding.UTF8.GetString(payload[36..]), StringComparison.Ordinal);
+                return System.Text.Encoding.UTF8.GetString(payload[36..]);
             }
         }
         finally { directory.Delete(recursive: true); }
@@ -443,9 +446,10 @@ public sealed class PrivateMediaPostgresTests
         return new Guid(payload[..16], bigEndian: true);
     }
 
-    private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, SessionFixture? session, CancellationToken ct)
+    private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, SessionFixture? session,
+        CancellationToken ct, string? previewTicket = null)
     {
-        using var response = await Send(client, method, path, session, ct);
+        using var response = await Send(client, method, path, session, ct, previewTicket);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(0, response.Content.Headers.ContentLength);
         Assert.Null(response.Content.Headers.ContentType);
@@ -471,9 +475,11 @@ public sealed class PrivateMediaPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, SessionFixture? session, CancellationToken ct)
+    private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, SessionFixture? session,
+        CancellationToken ct, string? previewTicket = null)
     {
         using var request = Request(method, path, session);
+        if (previewTicket is not null) request.Headers.Authorization = new("Bearer", previewTicket);
         return await client.SendAsync(request, ct);
     }
 

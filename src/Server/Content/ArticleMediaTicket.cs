@@ -7,6 +7,7 @@ namespace FsusBlog.V2.Server.Content;
 internal readonly record struct ArticleMediaTicket(int Article, long Revision, Guid Asset)
 {
     private const int PayloadLength = 36;
+    internal const int EncodedLength = 91;
     private static readonly byte[] Key = RandomNumberGenerator.GetBytes(32);
 
     internal string Encode(byte[] session, long now)
@@ -23,7 +24,7 @@ internal readonly record struct ArticleMediaTicket(int Article, long Revision, G
     internal static bool TryDecode(string encoded, byte[] session, long now, out ArticleMediaTicket ticket)
     {
         ticket = default;
-        if (encoded.Length != 91 || encoded.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not '-' and not '_')) return false;
+        if (encoded.Length != EncodedLength || encoded.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not '-' and not '_')) return false;
         var bytes = WebEncoders.Base64UrlDecode(encoded);
         if (WebEncoders.Base64UrlEncode(bytes) != encoded) return false;
         var expires = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(28));
