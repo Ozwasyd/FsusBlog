@@ -31,8 +31,12 @@ internal static class LocalSearchVectors
 
         var articlePage = Enumerable.Range(1, WireLimits.SearchIndexPageSize + 1)
             .Select(id => article with { Id = id }).ToArray();
-        if (LocalSearchCorpus.Build(articlePage) is not { Count: 2 })
+        var split = LocalSearchCorpus.Build(articlePage);
+        if (split is not { Count: 2 })
             throw new InvalidOperationException("Local search did not split its bounded corpus pages");
+        var last = LocalSearchCorpus.Build([articlePage[^1]])![0];
+        if (!split[1].AsSpan().SequenceEqual(last))
+            throw new InvalidOperationException("A short FSPK page retained bytes from the preceding full page");
 
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();

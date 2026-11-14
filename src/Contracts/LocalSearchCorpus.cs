@@ -22,6 +22,8 @@ public static class LocalSearchCorpus
     {
         var pages = new List<byte[]>();
         var docs = new List<Document>();
+        using var postingBytes = new MemoryStream();
+        using var strings = new MemoryStream();
         var projectedBytes = 0;
         var byteCount = 0;
         var lastId = 0;
@@ -52,7 +54,9 @@ public static class LocalSearchCorpus
         bool PublishPage()
         {
             if (pages.Count >= MaxPages) return false;
-            var page = Package(docs, ct);
+            postingBytes.SetLength(0);
+            strings.SetLength(0);
+            var page = Package(docs, postingBytes, strings, ct);
             if (page is null || page.Length > AggregateBytes - byteCount) return false;
             byteCount += page.Length;
             pages.Add(page);
@@ -124,7 +128,8 @@ public static class LocalSearchCorpus
         }
     }
 
-    private static byte[]? Package(IReadOnlyList<Document> docs, CancellationToken ct)
+    private static byte[]? Package(IReadOnlyList<Document> docs, MemoryStream postingBytes, MemoryStream strings,
+        CancellationToken ct)
     {
         var index = new SortedDictionary<uint, List<Posting>>();
         foreach (var doc in docs)
@@ -137,7 +142,6 @@ public static class LocalSearchCorpus
             }
         }
 
-        using var postingBytes = new MemoryStream();
         var terms = new List<Term>(index.Count);
         foreach (var (hash, postings) in index)
         {
@@ -173,7 +177,6 @@ public static class LocalSearchCorpus
             terms.Add(new Term(hash, idf, start, checked((int)postingBytes.Position - start), hasPositions));
         }
 
-        using var strings = new MemoryStream();
         var categories = DictionaryEntries(docs.Select(d => d.Article.Category).OfType<TaxonomyName>(), strings);
         var tags = DictionaryEntries(docs.SelectMany(d => d.Article.Tags ?? []), strings);
         if (categories.Count >= ushort.MaxValue || tags.Count >= ushort.MaxValue) return null;
@@ -273,11 +276,13 @@ public static class LocalSearchCorpus
 
     private static TextSlice Append(MemoryStream strings, string value)
     {
-        var bytes = Utf8.GetBytes(value);
-        if (bytes.Length == 0) return default;
-        var slice = new TextSlice(checked((int)strings.Position), bytes.Length);
-        strings.Write(bytes);
-        return slice;
+        var length = Utf8.GetByteCount(value);
+        if (length == 0) return default;
+        var offset = checked((int)strings.Position);
+        strings.SetLength(checked(offset + length));
+        Utf8.GetBytes(value.AsSpan(), strings.GetBuffer().AsSpan(offset, length));
+        strings.Position = offset + length;
+        return new TextSlice(offset, length);
     }
 
     private static void WriteDictionary(Span<byte> shard, int start, List<Taxon> entries)
