@@ -25,6 +25,7 @@ const router = createRouter({
     { path: '/article/:id(\\d+)', name: 'article', component: () => import('./views/Article.vue') },
     ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
+    { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
     { path: '/user/manage/article/write', name: 'write', component: editor },
     { path: '/user/manage/article/edit/:id(\\d+)', name: 'edit', component: editor },
@@ -37,7 +38,7 @@ router.afterEach((to, from) => {
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
   document.title = to.name === 'home' ? "Fsu's Blog" : `${title} · Fsu's Blog`
   document.querySelector('meta[name="robots"]')?.remove()
-  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'write' || to.name === 'edit') {
+  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'security' || to.name === 'write' || to.name === 'edit') {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
@@ -51,6 +52,7 @@ const labels: Record<string, string> = {
   tag: 'Tag',
   login: 'Log in',
   messages: '我的站内信',
+  security: 'Account security',
   write: 'New article',
   edit: 'Edit article',
   missing: 'Page not found',

@@ -1,6 +1,7 @@
 import { readonly, ref, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
 import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
+import { completeMfaLogin, type Factor } from '../../Contracts/mfa'
 import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
 
 const session = shallowRef<Session | null>(null)
@@ -53,8 +54,19 @@ export async function signIn(ticket: string, signal?: AbortSignal) {
   await mutateLogin(() => api.signIn(ticket, signal), signal)
 }
 
-export async function signInWithPasskey(signal?: AbortSignal) {
-  await mutateLogin(() => loginWithPasskey(signal), signal)
+export async function signInWithPasskey(signal?: AbortSignal): Promise<string | null> {
+  let pending: string | null = null
+  const accepted = await mutateLogin(async () => {
+    const outcome = await loginWithPasskey(signal)
+    if (outcome.status === 'signed-in') return outcome.session
+    pending = outcome.token
+    return null
+  }, signal)
+  return accepted ? pending : null
+}
+
+export async function signInWithMfa(token: string, factor: Factor, signal?: AbortSignal) {
+  await mutateLogin(() => completeMfaLogin(token, factor, signal), signal)
 }
 
 export async function registerFirstPasskey(ticket: string, signal?: AbortSignal) {
@@ -69,7 +81,9 @@ async function mutateLogin(perform: () => Promise<Session | null>, signal?: Abor
   mutation = request
   try {
     const value = await perform()
-    if (request === requestEpoch && !signal?.aborted) updateSession(value, true)
+    if (request !== requestEpoch || signal?.aborted) return false
+    updateSession(value, true)
+    return true
   } finally {
     if (mutation === request) mutation = undefined
   }

@@ -1,6 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, ApiError, request } from './client.ts';
+import { api, ApiError, request, type Session } from './client.ts';
+import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
 import { encodeSignIn, FrameType, WireHeader, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const encoder = new TextEncoder();
@@ -18,21 +19,36 @@ export async function passkeyAvailable(signal?: AbortSignal): Promise<boolean> {
   }
 }
 
-export async function loginWithPasskey(signal?: AbortSignal) {
+export type PasskeyLogin = { status: 'signed-in'; session: Session } | { status: 'mfa'; token: string };
+
+export async function loginWithPasskey(signal?: AbortSignal): Promise<PasskeyLogin> {
   const { token, options } = await request(WireRoutes.PasskeyLoginBegin, FrameType.PasskeyLoginBegin,
-    decodeLoginBegin, signal, 'POST');
+    payload => decodeLoginBegin(payload, false), signal, 'POST');
+  const assertion = await getAssertion(token, options, signal);
+  const pending = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
+  return pending ? { status: 'mfa', token: pending } : { status: 'signed-in', session: await api.session(signal) };
+}
+
+export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
+  const { token, options } = await request(WireRoutes.PasskeyStepUpBegin, FrameType.PasskeyLoginBegin,
+    payload => decodeLoginBegin(payload, true), signal, 'POST', mfaStartData(mfaAction.setup));
+  const assertion = await getAssertion(token, options, signal);
+  return request(WireRoutes.PasskeyStepUpComplete, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, mfaAction.setup, true), signal, 'POST', assertion);
+}
+
+async function getAssertion(token: string, options: PublicKeyCredentialRequestOptions, signal?: AbortSignal) {
   const result = await navigator.credentials.get({ publicKey: options, ...(signal ? { signal } : {}) });
   if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAssertionResponse))
-    throw new ProtocolError('No discoverable Passkey assertion was returned.');
+    throw new ProtocolError('No Passkey assertion was returned.');
   const response = result.response;
   const handle = response.userHandle;
-  if (!handle || handle.byteLength !== WireLimits.PasskeyUserHandleBytes) throw new ProtocolError('Invalid Passkey user handle.');
+  if ((!handle && !options.allowCredentials?.length) || (handle && handle.byteLength !== WireLimits.PasskeyUserHandleBytes))
+    throw new ProtocolError('Invalid Passkey user handle.');
   const payload = complete(WireLayouts.PasskeyLoginCompleteSize, token, [encoder.encode(result.id), new Uint8Array(result.rawId),
     new Uint8Array(response.clientDataJSON), new Uint8Array(response.authenticatorData), new Uint8Array(response.signature),
-    new Uint8Array(handle)], [], true);
-  await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeAuthenticated, signal, 'POST',
-    encodeFrame(FrameType.PasskeyLoginCompleteRequest, payload));
-  return api.session(signal);
+    handle ? new Uint8Array(handle) : new Uint8Array(0)], [], true);
+  return encodeFrame(FrameType.PasskeyLoginCompleteRequest, payload);
 }
 
 export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
@@ -49,14 +65,23 @@ export async function provisionPasskey(ticket: string, signal?: AbortSignal): Pr
     encodeFrame(FrameType.PasskeyRegisterCompleteRequest, payload));
 }
 
-function decodeLoginBegin(payload: Uint8Array): { token: string; options: PublicKeyCredentialRequestOptions } {
-  const data = begin(payload, WireLayouts.PasskeyLoginBeginSize, 0, WireLayouts.PasskeyLoginBeginTokenOffset);
-  if (data.pod.getInt32(8, true) !== 0 || data.pod.getInt32(12, true) !== 0 || data.pod.getInt32(16, true) !== 0)
-    throw invalid();
+function decodeLoginBegin(payload: Uint8Array, restricted: boolean): { token: string; options: PublicKeyCredentialRequestOptions } {
+  if (payload.length < WireLayouts.PasskeyLoginBeginSize) throw invalid();
+  const count = view(payload).getInt32(8, true);
+  if (restricted ? count < 1 || count > 16 : count !== 0) throw invalid();
+  const data = begin(payload, WireLayouts.PasskeyLoginBeginSize, count * 20, WireLayouts.PasskeyLoginBeginTokenOffset);
+  if (data.pod.getInt32(12, true) !== 0 || data.pod.getInt32(16, true) !== 0) throw invalid();
   const rpId = data.text(0, 253);
   const challenge = data.field(1, WireLimits.PasskeyChallengeBytes);
+  const allowCredentials: PublicKeyCredentialDescriptor[] = [];
+  for (let i = 0; i < count; i++) {
+    const record = WireLayouts.PasskeyLoginBeginSize + i * 20;
+    if (data.pod.getInt32(record, true) !== 0 || data.pod.getInt32(record + 4, true) !== 0 ||
+        data.pod.getInt32(record + 16, true) !== 0) throw invalid();
+    allowCredentials.push({ type: 'public-key', id: data.slice(record + 8, WireLimits.PasskeyCredentialIdBytes) });
+  }
   data.finish(challenge);
-  return { token: data.token, options: { rpId, challenge, timeout: data.timeout, userVerification: 'required', allowCredentials: [] } };
+  return { token: data.token, options: { rpId, challenge, timeout: data.timeout, userVerification: 'required', allowCredentials } };
 }
 
 function decodeProvisionBegin(payload: Uint8Array): { token: string; options: PublicKeyCredentialCreationOptions } {
@@ -96,8 +121,7 @@ function begin(payload: Uint8Array, size: number, extra: number, tokenOffset: nu
   const timeout = Number(pod.getBigUint64(0, true));
   if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 300_000) throw invalid();
   let position = 0;
-  const field = (index: number, limit: number): Uint8Array<ArrayBuffer> => {
-    const reference = tokenOffset + WireLayouts.PasskeyTokenSize + index * WireLayouts.PasskeySliceSize;
+  const slice = (reference: number, limit: number): Uint8Array<ArrayBuffer> => {
     const offset = pod.getInt32(reference, true);
     const length = pod.getInt32(reference + 4, true);
     if (offset !== position || length < 1 || length > limit || length > payload.length - blobOffset - offset)
@@ -105,16 +129,22 @@ function begin(payload: Uint8Array, size: number, extra: number, tokenOffset: nu
     position += length;
     return new Uint8Array(payload.subarray(blobOffset + offset, blobOffset + position));
   };
-  return { pod, token, timeout, field, text: (index: number, limit: number) => decodeUtf8(field(index, limit)),
+  const field = (index: number, limit: number) => slice(tokenOffset + WireLayouts.PasskeyTokenSize + index * WireLayouts.PasskeySliceSize, limit);
+  return { pod, token, timeout, field, slice, text: (index: number, limit: number) => decodeUtf8(field(index, limit)),
     finish(challenge: Uint8Array) {
       if (position + blobOffset !== payload.length || challenge.length !== WireLimits.PasskeyChallengeBytes) throw invalid();
     } };
 }
 
-function decodeAuthenticated(payload: Uint8Array): void {
+function decodeLoginFlow(payload: Uint8Array): string | null {
   if (payload.length !== WireLayouts.PasskeyAuthLoginFlowSize || view(payload).getInt32(0, true) <= 0 ||
-      payload[4] !== 1 || payload[5] !== 0 || payload[6] !== 0 || payload[7] !== 1 ||
-      decodeUtf8(payload.subarray(8, 25)) !== 'anonymous_account' || payload.subarray(25).some(Boolean)) throw invalid();
+      payload[7] !== 1 || decodeUtf8(payload.subarray(8, 25)) !== 'anonymous_account' || payload.subarray(25, 104).some(Boolean))
+    throw invalid();
+  if (payload[4] === 1 && payload[5] === 0 && payload[6] === 0 && !payload.subarray(104).some(Boolean)) return null;
+  if (payload[4] !== 2 || payload[5] !== 2 || payload[6] !== 1 || payload.subarray(147).some(Boolean)) throw invalid();
+  const token = decodeUtf8(payload.subarray(104, 147));
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw invalid();
+  return token;
 }
 
 function complete(size: number, token: string, fields: Uint8Array[], hints: number[], login: boolean) {
@@ -123,7 +153,7 @@ function complete(size: number, token: string, fields: Uint8Array[], hints: numb
   if (blobStart + blobSize + WireHeader.HeaderSize > WireLimits.MaxPasskeyFrameBytes) throw invalid();
   const payload = new Uint8Array(blobStart + blobSize);
   const data = view(payload);
-  if (login) payload[1] = 1;
+  if (login) payload[1] = fields[5].length > 0 ? 1 : 0;
   else data.setInt32(4, hints.length, true);
   payload.set(encoder.encode(token), WireLayouts.PasskeyCompleteTokenOffset);
   hints.forEach((hint, index) => data.setInt32(size + index * 4, hint, true));

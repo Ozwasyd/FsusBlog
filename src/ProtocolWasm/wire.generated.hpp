@@ -63,6 +63,8 @@ inline constexpr uint32_t PasskeyAuthenticatorDataBytes = 4096;
 inline constexpr uint32_t PasskeySignatureBytes = 4096;
 inline constexpr uint32_t PasskeyUserHandleBytes = 32;
 inline constexpr uint32_t PasskeyTransportCount = 6;
+inline constexpr uint32_t MaxMfaFrameBytes = 4096;
+inline constexpr uint32_t MfaCodeCount = 8;
 }
 
 namespace layouts {
@@ -161,6 +163,14 @@ inline constexpr uint32_t PasskeyCompleteTokenOffset = 8;
 inline constexpr uint32_t PasskeyCompleteBlobRefsOffset = 72;
 inline constexpr uint32_t PasskeyTokenSize = 64;
 inline constexpr uint32_t PasskeySliceSize = 8;
+inline constexpr uint32_t MfaSetupStartBytes = 36;
+inline constexpr uint32_t MfaSetupVerifyBytes = 8;
+inline constexpr uint32_t MfaProfileBytes = 12;
+inline constexpr uint32_t MfaChallengeResultBytes = 296;
+inline constexpr uint32_t MfaChallengeVerifyBytes = 32;
+inline constexpr uint32_t MfaFixedCodeBytes = 64;
+inline constexpr uint32_t MfaChallengeActionOffset = 104;
+inline constexpr uint32_t MfaChallengeProofOffset = 168;
 }
 
 enum class FrameType : uint16_t {
@@ -214,6 +224,13 @@ enum class FrameType : uint16_t {
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
+    MfaSetupStart = 48,
+    MfaSetupVerify = 49,
+    MfaProfile = 50,
+    MfaChallengeResult = 51,
+    MfaSetupVerifyRequest = 52,
+    MfaChallengeStartRequest = 54,
+    MfaChallengeVerifyRequest = 55,
 };
 
 constexpr bool known(FrameType type) {
@@ -268,6 +285,13 @@ constexpr bool known(FrameType type) {
         case FrameType::DraftRecoveryScope:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
+        case FrameType::MfaSetupStart:
+        case FrameType::MfaSetupVerify:
+        case FrameType::MfaProfile:
+        case FrameType::MfaChallengeResult:
+        case FrameType::MfaSetupVerifyRequest:
+        case FrameType::MfaChallengeStartRequest:
+        case FrameType::MfaChallengeVerifyRequest:
             return true;
     }
     return false;

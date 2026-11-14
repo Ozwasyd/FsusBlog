@@ -14,8 +14,15 @@ internal static class PasskeyEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var configuration = PasskeyConfiguration.Read(app.Configuration);
-        if (configuration is null) return;
-        var passkeys = new PasskeyStore(app.Services.GetRequiredService<NpgsqlDataSource>(), configuration);
+        var secrets = TotpSecret.Read(app.Configuration);
+        if (configuration is null)
+        {
+            if (secrets is not null)
+                throw new InvalidOperationException("A Passkey relying party is required to enable TOTP.");
+            return;
+        }
+        var database = app.Services.GetRequiredService<NpgsqlDataSource>();
+        var passkeys = new PasskeyStore(database, configuration);
         var expectedOrigin = configuration.Origin.GetLeftPart(UriPartial.Authority);
         var secure = configuration.Origin.Scheme == "https";
 
@@ -33,10 +40,15 @@ internal static class PasskeyEndpoints
         {
             RequireHost(ctx);
             var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
-            var (token, number, expires) = await passkeys.CompleteLogin(request, ct);
-            ctx.Response.Cookies.Append(sessionCookie, token, Cookie("/"));
-            ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = expires.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
-            return Results.Bytes(PasskeyWire.Authenticated(number), Aeds.ContentType);
+            var (token, number, expires, pending, binding) = await passkeys.CompleteLogin(request, secrets is not null, ct);
+            if (token is not null && expires.HasValue) IssueSession(ctx, token, expires.Value);
+            if (binding is not null)
+            {
+                var options = Cookie(WireRoutes.MfaChallengeVerify);
+                options.MaxAge = TimeSpan.FromMinutes(5);
+                ctx.Response.Cookies.Append(MfaEndpoints.LoginCookie, binding, options);
+            }
+            return Results.Bytes(PasskeyWire.Authenticated(number, pending), Aeds.ContentType);
         }).RequireRateLimiting("sign-in");
 
         app.MapPost(WireRoutes.PasskeyProvisionBegin, async (HttpContext ctx, CancellationToken ct) =>
@@ -59,6 +71,15 @@ internal static class PasskeyEndpoints
             ctx.Response.Cookies.Delete(sessionCookie, Cookie("/"));
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         }).RequireRateLimiting("sign-in");
+
+        if (secrets is not null)
+            MfaEndpoints.Map(app, new MfaStore(database, secrets), passkeys, sessionCookie, readFrame, RequireHost, IssueSession, Cookie);
+
+        void IssueSession(HttpContext ctx, string token, DateTimeOffset expires)
+        {
+            ctx.Response.Cookies.Append(sessionCookie, token, Cookie("/"));
+            ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = expires.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        }
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = path };
 

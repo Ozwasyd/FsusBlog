@@ -53,6 +53,13 @@ public enum FrameType : ushort
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
+    MfaSetupStart = 48,
+    MfaSetupVerify = 49,
+    MfaProfile = 50,
+    MfaChallengeResult = 51,
+    MfaSetupVerifyRequest = 52,
+    MfaChallengeStartRequest = 54,
+    MfaChallengeVerifyRequest = 55,
 }
 
 public static class WireHeader
@@ -116,6 +123,8 @@ public static class WireLimits
     public const int PasskeySignatureBytes = 4096;
     public const int PasskeyUserHandleBytes = 32;
     public const int PasskeyTransportCount = 6;
+    public const int MaxMfaFrameBytes = 4096;
+    public const int MfaCodeCount = 8;
 }
 
 public static class WireLayouts
@@ -215,6 +224,14 @@ public static class WireLayouts
     public const int PasskeyCompleteBlobRefsOffset = 72;
     public const int PasskeyTokenSize = 64;
     public const int PasskeySliceSize = 8;
+    public const int MfaSetupStartBytes = 36;
+    public const int MfaSetupVerifyBytes = 8;
+    public const int MfaProfileBytes = 12;
+    public const int MfaChallengeResultBytes = 296;
+    public const int MfaChallengeVerifyBytes = 32;
+    public const int MfaFixedCodeBytes = 64;
+    public const int MfaChallengeActionOffset = 104;
+    public const int MfaChallengeProofOffset = 168;
 }
 
 public static class WireRoutes
@@ -269,6 +286,14 @@ public static class WireRoutes
     public const string PropertyValueCommand = "/api/v2/authoring/properties/values.aeds";
     public const string PropertyEditor = "/api/v2/authoring/properties/editor.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
+    public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
+    public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
+    public const string MfaProfile = "/api/binary/auth/mfa/profile";
+    public const string MfaDisable = "/api/binary/auth/mfa/disable";
+    public const string MfaChallengeStart = "/api/binary/auth/mfa/challenge/start";
+    public const string MfaChallengeVerify = "/api/binary/auth/mfa/challenge";
+    public const string PasskeyStepUpBegin = "/api/binary/auth/step-up/passkey/begin";
+    public const string PasskeyStepUpComplete = "/api/binary/auth/step-up/passkey/complete";
 }
 
 public static class WireHeaders
@@ -280,6 +305,7 @@ public static class WireHeaders
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
+    public const string MfaProof = "X-Fsus-Mfa-Proof";
 }
 
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);

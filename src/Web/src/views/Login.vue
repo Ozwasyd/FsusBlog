@@ -6,7 +6,8 @@ import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { ApiError } from '../../../Contracts/client'
 import { passkeyAvailable } from '../../../Contracts/passkey'
-import { currentSession, registerFirstPasskey, signIn, signInWithPasskey } from '../session'
+import { validMfaFactor } from '../../../Contracts/mfa'
+import { currentSession, registerFirstPasskey, signIn, signInWithMfa, signInWithPasskey } from '../session'
 
 const props = defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
@@ -16,6 +17,8 @@ const busy = ref(false)
 const failure = ref('')
 const registered = ref(false)
 const hasPasskeys = ref(false)
+const pending = ref<string | null>(null)
+const factor = ref('')
 const canContinue = computed(() => currentSession.value?.canAuthor)
 const router = useRouter()
 const lifetime = new AbortController()
@@ -58,7 +61,7 @@ async function usePasskey(register: boolean) {
       await registerFirstPasskey(oneTimeKey, lifetime.signal)
       if (!lifetime.signal.aborted) registered.value = true
     } else {
-      await signInWithPasskey(lifetime.signal)
+      pending.value = await signInWithPasskey(lifetime.signal)
       if (!lifetime.signal.aborted && currentSession.value)
         await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
     }
@@ -68,6 +71,30 @@ async function usePasskey(register: boolean) {
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
+}
+async function verifyFactor() {
+  const method = validMfaFactor(factor.value)
+  if (busy.value || !pending.value || !method) return
+  busy.value = true
+  failure.value = ''
+  try {
+    await signInWithMfa(pending.value, method, lifetime.signal)
+    if (!lifetime.signal.aborted && currentSession.value) {
+      factor.value = ''
+      pending.value = null
+      await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
+    }
+  } catch {
+    if (!lifetime.signal.aborted) failure.value = 'Verification failed. Use a fresh code or start a new login.'
+  } finally {
+    if (!lifetime.signal.aborted) busy.value = false
+  }
+}
+
+function cancelFactor() {
+  pending.value = null
+  factor.value = ''
+  failure.value = ''
 }
 </script>
 
@@ -80,7 +107,17 @@ async function usePasskey(register: boolean) {
       </div>
       <ElThemeModeToggle :model-value="props.themeMode" variant="menu-button" @update:model-value="emit('theme', $event)" />
     </div>
-    <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">Continue to writing</RouterLink></p>
+    <template v-if="currentSession">
+      <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">Continue to writing</RouterLink></p>
+      <RouterLink to="/user/identity/mfa">Account security</RouterLink>
+    </template>
+    <form v-else-if="pending" class="auth-form" @submit.prevent="verifyFactor">
+      <label for="login-factor">Authenticator or recovery code</label>
+      <ElInput id="login-factor" v-model="factor" autocomplete="one-time-code" :disabled="busy" />
+      <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
+      <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(factor)">Verify and log in</ElButton>
+      <ElButton native-type="button" :disabled="busy" @click="cancelFactor">Start over</ElButton>
+    </form>
     <form v-else class="auth-form" @submit.prevent="submit">
       <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy" @click="usePasskey(false)">
         Log in with Passkey

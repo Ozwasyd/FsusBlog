@@ -15,10 +15,23 @@ public static class PasskeyWire
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
-    public static byte[] LoginBegin(string token, uint timeout, string rpId, byte[] challenge)
+    public static byte[] LoginBegin(string token, uint timeout, string rpId, byte[] challenge,
+        IReadOnlyList<byte[]>? allowed = null)
     {
-        var payload = Begin(PasskeyLoginBeginSize, [], PasskeyLoginBeginTokenOffset, token, timeout,
-            [Utf8.GetBytes(rpId), challenge]);
+        var rp = Utf8.GetBytes(rpId);
+        allowed ??= [];
+        var descriptors = new byte[allowed.Count * 20];
+        var offset = rp.Length + challenge.Length;
+        for (var i = 0; i < allowed.Count; i++)
+        {
+            var descriptor = descriptors.AsSpan(i * 20, 20);
+            BinaryPrimitives.WriteInt32LittleEndian(descriptor[8..], offset);
+            BinaryPrimitives.WriteInt32LittleEndian(descriptor[12..], allowed[i].Length);
+            offset += allowed[i].Length;
+        }
+        var payload = Begin(PasskeyLoginBeginSize, descriptors, PasskeyLoginBeginTokenOffset, token, timeout,
+            [rp, challenge, .. allowed], referenceCount: 2);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8), allowed.Count);
         return Aeds.Encode(FrameType.PasskeyLoginBegin, payload);
     }
 
@@ -35,29 +48,37 @@ public static class PasskeyWire
         return Aeds.Encode(FrameType.PasskeyRegisterBegin, payload);
     }
 
-    public static byte[] Authenticated(int accountId)
+    public static byte[] Authenticated(int accountId, string? mfaToken = null)
     {
         if (accountId <= 0) throw new ArgumentOutOfRangeException(nameof(accountId));
         var payload = new byte[PasskeyAuthLoginFlowSize];
         BinaryPrimitives.WriteInt32LittleEndian(payload, accountId);
-        payload[4] = 1;
+        payload[4] = mfaToken is null ? (byte)1 : (byte)2;
+        payload[5] = mfaToken is null ? (byte)0 : (byte)2;
+        payload[6] = mfaToken is null ? (byte)0 : (byte)1;
         payload[7] = 1;
         "anonymous_account"u8.CopyTo(payload.AsSpan(8));
+        if (mfaToken is not null)
+        {
+            if (mfaToken.Length != 43 || !Base64UrlText(mfaToken)) throw new ArgumentException("Invalid pending MFA token.", nameof(mfaToken));
+            Encoding.ASCII.GetBytes(mfaToken, payload.AsSpan(104));
+        }
         return Aeds.Encode(FrameType.AuthLoginFlow, payload);
     }
 
-    public static PasskeyLoginRequest ReadLogin(ReadOnlySpan<byte> frame)
+    public static PasskeyLoginRequest ReadLogin(ReadOnlySpan<byte> frame, bool discoverable = true)
     {
         var p = new Completion(Aeds.Decode(frame, FrameType.PasskeyLoginCompleteRequest), PasskeyLoginCompleteSize, 0);
-        if (p.Meta[0] > 1 || p.Meta[1] != 1 || !p.Meta[2..8].SequenceEqual(stackalloc byte[6]))
+        if (p.Meta[0] > 1 || p.Meta[1] > 1 || (discoverable && p.Meta[1] != 1) || !p.Meta[2..8].SequenceEqual(stackalloc byte[6]))
             throw Invalid();
         var id = p.Text(0, PasskeyCredentialIdBytes * 2);
         var raw = p.Bytes(1, PasskeyCredentialIdBytes);
         var result = new PasskeyLoginRequest(p.Token, id, raw, p.Bytes(2, PasskeyClientDataBytes),
-            p.Bytes(3, PasskeyAuthenticatorDataBytes), p.Bytes(4, PasskeySignatureBytes), p.Bytes(5, PasskeyUserHandleBytes),
+            p.Bytes(3, PasskeyAuthenticatorDataBytes), p.Bytes(4, PasskeySignatureBytes), p.Meta[1] == 1 ? p.Bytes(5, PasskeyUserHandleBytes) : [],
             p.Meta[0] == 1);
+        if (p.Meta[1] == 0) p.Absent(5);
         p.Finish();
-        if (result.UserHandle.Length != PasskeyUserHandleBytes) throw Invalid();
+        if (result.UserHandle.Length != (p.Meta[1] == 1 ? PasskeyUserHandleBytes : 0)) throw Invalid();
         return result;
     }
 
@@ -83,7 +104,7 @@ public static class PasskeyWire
         return result;
     }
 
-    private static byte[] Begin(int size, byte[] extra, int tokenOffset, string token, uint timeout, byte[][] fields)
+    private static byte[] Begin(int size, byte[] extra, int tokenOffset, string token, uint timeout, byte[][] fields, int? referenceCount = null)
     {
         if (token.Length != 43 || !Base64UrlText(token)) throw new ArgumentException("Invalid passkey challenge token.", nameof(token));
         var blobSize = fields.Sum(field => field.Length);
@@ -96,9 +117,12 @@ public static class PasskeyWire
         var offset = 0;
         for (var i = 0; i < fields.Length; i++)
         {
-            var reference = payload.AsSpan(tokenOffset + PasskeyTokenSize + i * PasskeySliceSize);
-            BinaryPrimitives.WriteInt32LittleEndian(reference, offset);
-            BinaryPrimitives.WriteInt32LittleEndian(reference[4..], fields[i].Length);
+            if (i < (referenceCount ?? fields.Length))
+            {
+                var reference = payload.AsSpan(tokenOffset + PasskeyTokenSize + i * PasskeySliceSize);
+                BinaryPrimitives.WriteInt32LittleEndian(reference, offset);
+                BinaryPrimitives.WriteInt32LittleEndian(reference[4..], fields[i].Length);
+            }
             fields[i].CopyTo(blob[offset..]);
             offset += fields[i].Length;
         }

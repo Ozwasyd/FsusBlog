@@ -19,9 +19,9 @@ public static partial class Wire
         payload.Clear();
         (payload[0], payload[1]) = status switch
         {
-            400 => ((byte)1, (byte)1),
+            400 or 422 => ((byte)1, (byte)1),
             401 => ((byte)4, (byte)2),
-            403 or 423 => ((byte)5, (byte)3),
+            403 or 423 or 428 => ((byte)5, (byte)3),
             404 => ((byte)2, (byte)4),
             409 => ((byte)3, (byte)5),
             _ => ((byte)6, (byte)13)

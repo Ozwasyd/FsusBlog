@@ -52,6 +52,13 @@ export const FrameType = {
   DraftRecoveryScope: 32787,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
+  MfaSetupStart: 48,
+  MfaSetupVerify: 49,
+  MfaProfile: 50,
+  MfaChallengeResult: 51,
+  MfaSetupVerifyRequest: 52,
+  MfaChallengeStartRequest: 54,
+  MfaChallengeVerifyRequest: 55,
 } as const;
 
 export const WireHeader = {
@@ -113,6 +120,8 @@ export const WireLimits = {
   PasskeySignatureBytes: 4096,
   PasskeyUserHandleBytes: 32,
   PasskeyTransportCount: 6,
+  MaxMfaFrameBytes: 4096,
+  MfaCodeCount: 8,
 } as const;
 
 export const WireLayouts = {
@@ -211,6 +220,14 @@ export const WireLayouts = {
   PasskeyCompleteBlobRefsOffset: 72,
   PasskeyTokenSize: 64,
   PasskeySliceSize: 8,
+  MfaSetupStartBytes: 36,
+  MfaSetupVerifyBytes: 8,
+  MfaProfileBytes: 12,
+  MfaChallengeResultBytes: 296,
+  MfaChallengeVerifyBytes: 32,
+  MfaFixedCodeBytes: 64,
+  MfaChallengeActionOffset: 104,
+  MfaChallengeProofOffset: 168,
 } as const;
 
 export const WireRoutes = {
@@ -264,6 +281,14 @@ export const WireRoutes = {
   PropertyValueCommand: "/api/v2/authoring/properties/values.aeds",
   PropertyEditor: "/api/v2/authoring/properties/editor.aeds",
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
+  MfaSetupStart: "/api/binary/auth/mfa/setup/start",
+  MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
+  MfaProfile: "/api/binary/auth/mfa/profile",
+  MfaDisable: "/api/binary/auth/mfa/disable",
+  MfaChallengeStart: "/api/binary/auth/mfa/challenge/start",
+  MfaChallengeVerify: "/api/binary/auth/mfa/challenge",
+  PasskeyStepUpBegin: "/api/binary/auth/step-up/passkey/begin",
+  PasskeyStepUpComplete: "/api/binary/auth/step-up/passkey/complete",
 } as const;
 
 export const WireHeaders = {
@@ -274,6 +299,7 @@ export const WireHeaders = {
   SearchIndexGeneration: "X-Fsus-Search-Index-Generation",
   SearchIndexPages: "X-Fsus-Search-Index-Pages",
   InboxReplayCursor: "X-Fsus-Inbox-Replay-Cursor",
+  MfaProof: "X-Fsus-Mfa-Proof",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

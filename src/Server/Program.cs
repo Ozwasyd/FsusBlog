@@ -35,6 +35,9 @@ builder.Services.AddRateLimiter(options =>
         await Error(context.HttpContext, 429, "Rate limit reached.").ExecuteAsync(context.HttpContext);
     options.AddPolicy("sign-in", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 12, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy("mfa", context => RateLimitPartition.GetFixedWindowLimiter(
+        (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
 });
@@ -182,7 +185,7 @@ Mutation(WireRoutes.Delete, ArticleAction.Delete);
 var shell = app.Services.GetRequiredService<WebPages>().Page();
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
-foreach (var route in new[] { "/archive", "/search", "/login", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
+foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));

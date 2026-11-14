@@ -150,7 +150,8 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         await tx.CommitAsync(ct);
     }
 
-    internal async Task<(string SessionToken, int AccountNumber, DateTimeOffset ExpiresAt)> CompleteLogin(PasskeyLoginRequest request, CancellationToken ct)
+    internal async Task<(string? SessionToken, int AccountNumber, DateTimeOffset? ExpiresAt, string? MfaToken, string? MfaBinding)> CompleteLogin(
+        PasskeyLoginRequest request, bool mfaEnabled, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         var challenge = await ConsumeChallenge(db, request.Token, null, ct);
@@ -171,6 +172,71 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             if (!await row.ReadAsync(ct)) throw Denied();
             (userId, userGeneration) = (row.GetGuid(0), row.GetInt64(1));
         }
+        var number = await VerifyAssertion(db, tx, request, userId, AssertionOptions.FromJson(challenge.Options),
+            requireHandle: true, ct);
+        if (await MfaStore.IsEnabled(db, tx, userId, ct))
+        {
+            if (!mfaEnabled) throw new PublicUnavailableException();
+            var binding = NewToken();
+            var actor = new MfaStore.Subject(userId, userGeneration, number, [.. MfaStore.FlowDigest(binding), .. request.RawId]);
+            var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, "", ct);
+            await tx.CommitAsync(ct);
+            return (null, number, null, mfa, binding);
+        }
+        var (token, expiry) = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, ct);
+        await tx.CommitAsync(ct);
+        return (token, number, expiry, null, null);
+    }
+
+    internal async Task<byte[]> BeginSetupProof(string? session, CancellationToken ct)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using var tx = await db.BeginTransactionAsync(ct);
+        var actor = await MfaStore.RequireSession(db, tx, session, ct);
+        if (await MfaStore.IsEnabled(db, tx, actor.Id, ct)) throw MfaStore.Denied();
+        var ids = new List<byte[]>();
+        await using (var query = Store.Sql(db, tx, """
+            select credential_id from public.passkey_credential where user_id=$1 order by credential_id limit 17
+            """, actor.Id))
+        await using (var row = await query.ExecuteReaderAsync(ct))
+            while (await row.ReadAsync(ct)) ids.Add(row.GetFieldValue<byte[]>(0));
+        if (ids.Count is 0 or >16) throw Denied();
+        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = ids.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
+            UserVerification = UserVerificationRequirement.Required
+        });
+        var token = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Assertion, options.ToJson(), ct);
+        await tx.CommitAsync(ct);
+        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, ids);
+    }
+
+    internal async Task<byte[]> CompleteSetupProof(string? session, PasskeyLoginRequest request, CancellationToken ct)
+    {
+        if (request.RememberMe) throw Denied();
+        MfaStore.Subject original;
+        string options;
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using (var consume = await db.BeginTransactionAsync(ct))
+        {
+            original = await MfaStore.RequireSession(db, consume, session, ct);
+            options = await MfaStore.ReadFlow(db, consume, original, MfaStore.Purpose.Assertion, request.Token, consume: true, ct);
+            await consume.CommitAsync(ct);
+        }
+        CheckId(request.CredentialId, request.RawId);
+        await using var verify = await db.BeginTransactionAsync(ct);
+        var current = await MfaStore.RequireSession(db, verify, session, ct);
+        if (original.Id != current.Id || original.Generation != current.Generation || !original.Scope.AsSpan().SequenceEqual(current.Scope) ||
+            await MfaStore.IsEnabled(db, verify, current.Id, ct)) throw MfaStore.Denied();
+        await VerifyAssertion(db, verify, request, current.Id, AssertionOptions.FromJson(options), requireHandle: false, ct);
+        var proof = await MfaStore.BeginFlow(db, verify, current, MfaStore.Purpose.SetupProof, "", ct);
+        await verify.CommitAsync(ct);
+        return MfaWire.EncodeChallenge(true, MfaWire.Setup, proof);
+    }
+
+    private async Task<int> VerifyAssertion(NpgsqlConnection db, NpgsqlTransaction tx, PasskeyLoginRequest request,
+        Guid userId, AssertionOptions options, bool requireHandle, CancellationToken ct)
+    {
         byte[] handle, key;
         int number;
         uint counter;
@@ -186,7 +252,9 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             (number, handle, key, counter, backupEligible) =
                 (row.GetInt32(0), row.GetFieldValue<byte[]>(1), row.GetFieldValue<byte[]>(2), checked((uint)row.GetInt64(3)), row.GetBoolean(4));
         }
-        if (!CryptographicOperations.FixedTimeEquals(handle, request.UserHandle)) throw Denied();
+        if (request.AuthenticatorData.Length < 37 ||
+            ((requireHandle || request.UserHandle.Length > 0) && !CryptographicOperations.FixedTimeEquals(handle, request.UserHandle)))
+            throw Denied();
 
         VerifyAssertionResult verification;
         try
@@ -207,7 +275,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
                     },
                     ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
                 },
-                OriginalOptions = AssertionOptions.FromJson(challenge.Options),
+                OriginalOptions = options,
                 StoredPublicKey = key,
                 StoredSignatureCounter = counter,
                 IsUserHandleOwnerOfCredentialIdCallback = (candidate, _) => Task.FromResult(
@@ -224,14 +292,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             where credential_id=$1
             """, request.RawId, (long)verification.SignCount, verification.IsBackedUp))
             await update.ExecuteNonQueryAsync(ct);
-        var secret = RandomNumberGenerator.GetBytes(32);
-        await using var session = Store.Sql(db, tx, """
-            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id)
-            values($1,$2,$3,clock_timestamp()+interval '8 hours',$4) returning expires_at
-            """, SHA256.HashData(secret), userId, userGeneration, request.RawId);
-        var expiry = (DateTime)(await session.ExecuteScalarAsync(ct))!;
-        await tx.CommitAsync(ct);
-        return (Convert.ToHexStringLower(secret), number, expiry);
+        return number;
     }
 
     private static async Task<bool> HasCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid id, CancellationToken ct)
