@@ -97,6 +97,21 @@ prepare_candidate() {
                     ;;
             esac
             ;;
+        scheduled|schedule_bad_content|schedule_bad_policy)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" < tests/Integration/Migration/legacy-projected-schedule-fixture.sql
+            case "$case_name" in
+                schedule_bad_content)
+                    sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot
+                        SET content_canonical_hash='sha256:0000000000000000000000000000000000000000000000000000000000000000'
+                        WHERE id=710"
+                    ;;
+                schedule_bad_policy)
+                    sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot
+                        SET policy_hash='sha256:0000000000000000000000000000000000000000000000000000000000000000'
+                        WHERE id=710"
+                    ;;
+            esac
+            ;;
     esac
     source_before="$(digest "$FSUSBLOG_V1_SQLITE_PATH")"
 
@@ -116,7 +131,7 @@ prepare_candidate() {
 
     "${migrate[@]}" legacy plan sqlite > "$run/intake.json" || rc=$?
     [[ "$rc" == 2 ]]
-    python3 - "$run/intake.json" "$run/owner.json" "$owner" <<'PY'
+    python3 - "$run/intake.json" "$run/owner.json" "$owner" "$case_name" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -128,6 +143,8 @@ owner_map = {
     "sourceAdminIdentitySha256": report["sourceAdminIdentitySha256"],
     "owners": [{"articleId": 42, "legacyAdminId": 7, "v2UserId": sys.argv[3]}],
 }
+if sys.argv[4].startswith("schedule"):
+    owner_map["owners"].append({"articleId": 43, "legacyAdminId": 7, "v2UserId": sys.argv[3]})
 Path(sys.argv[2]).write_text(json.dumps(owner_map))
 PY
     "${migrate[@]}" legacy import plan sqlite "$run/owner.json" "$backup" "$backup_digest" > "$run/import.json"
@@ -298,4 +315,75 @@ for case_name in rollback_wrong_source rollback_hidden rollback_wrong_digest; do
     fi
     [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
 done
-printf '%s\n' 'Staged legacy data projected and reverified with original publication IDs, rights, permanent quarantine, drift refusal, and no changes after a refused projection.'
+
+schedule_day=2026-01-03T00:00:00Z
+schedule_due_day=2026-01-05T00:00:00Z
+for case_name in schedule_bad_content schedule_bad_policy; do
+    prepare_candidate "$case_name"
+    before="$(state)"
+    expect_refused "${project_rows[@]}" --evaluate-schedules-at "$schedule_day"
+    if [[ "$case_name" == schedule_bad_content ]]; then
+        rg -Fi 'content SHA-256' "$run/error.log"
+    else
+        rg -Fi 'policy SHA-256' "$run/error.log"
+    fi
+    [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+done
+
+prepare_candidate scheduled
+before="$(state)"
+expect_refused "${project_rows[@]}"
+expect_refused "${project_rows[@]}" --evaluate-schedules-at "$schedule_due_day"
+[[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+[[ "$("${sql[@]}" -Atc "SELECT to_regclass('fsus_legacy_candidate.retained_initial_schedule') IS NULL")" == t ]]
+unset FSUSBLOG_V1_SQLITE_PATH FSUSBLOG_V1_DB
+"${project_rows[@]}" --evaluate-schedules-at "$schedule_day" > "$run/projected.json"
+"${project_rows[@]}" --evaluate-schedules-at "$schedule_day" > "$run/revalidated.json"
+FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" \
+    "${verify_rows[@]}" --evaluate-schedules-at "$schedule_day" > "$run/verified.json"
+python3 - "$run/projected.json" "$run/revalidated.json" "$run/verified.json" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+receipts = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
+assert [row["result"] for row in receipts] == ["projected", "revalidated", "verified"]
+assert all(row["retainedInitialSchedules"] == 1 and row["retainedLegacyPublicationRows"] == 2
+           and row["readyToApply"] is False for row in receipts), receipts
+assert len({row["projectionSha256"] for row in receipts}) == 1
+assert re.fullmatch(r"[0-9a-f]{64}", receipts[0]["projectionSha256"])
+PY
+[[ "$("${sql[@]}" -Atc "SELECT id,revision,title,body,published_revision IS NULL,publication_count,deleted
+    FROM public.article WHERE id=43")" == '43|1|Scheduled first release|Scheduled body ☃|t|0|f' ]]
+[[ "$("${sql[@]}" -Atc "SELECT
+    (SELECT count(*) FROM public.article_publication WHERE article_id=43),
+    (SELECT count(*) FROM public.article_publication_history WHERE article_id=43),
+    (SELECT count(*) FROM public.article_publication_rights WHERE article_id=43),
+    (SELECT count(*) FROM public.article_schedule),
+    (SELECT count(*) FROM public.article_schedule_receipt),
+    (SELECT count(*) FROM public.article_command),
+    (SELECT count(*) FROM public.blog_outbox)")" == '0|0|0|0|0|0|0' ]]
+[[ "$("${sql[@]}" -Atc "SELECT article_id,revision,source_revision_id,source_rights_snapshot_id,
+    source_responsibility_snapshot_id,source_responsibility_version,due_at AT TIME ZONE 'UTC',evaluated_at AT TIME ZONE 'UTC',
+    content_sha256,policy_sha256 FROM fsus_legacy_candidate.retained_initial_schedule")" \
+    == '43|1|5000000100|710|810|1|2026-01-05 00:00:00|2026-01-03 00:00:00|sha256:0b2dd71755ade169d30b26153a3ea3d76bd2e048178657570af391f7d0303b82|sha256:2ccf94a403cb76da85af5583079c8cfda9c3305dd0ac83180d7fe92a2661268b' ]]
+expect_refused "${verify_rows[@]}" --evaluate-schedules-at 2026-01-04T00:00:00Z
+expect_refused "${verify_rows[@]}"
+"${sql[@]}" -c "UPDATE fsus_legacy_candidate.retained_initial_schedule SET due_at='2026-01-06T00:00:00Z'"
+expect_refused "${verify_rows[@]}" --evaluate-schedules-at "$schedule_day"
+expect_refused "${project_rows[@]}" --evaluate-schedules-at "$schedule_day"
+"${sql[@]}" -c "UPDATE fsus_legacy_candidate.retained_initial_schedule SET due_at='2026-01-05T00:00:00Z'"
+"${sql[@]}" -c 'ALTER TABLE fsus_legacy_candidate.retained_initial_schedule
+    DROP CONSTRAINT retained_initial_schedule_revision_check,
+    ADD CONSTRAINT retained_initial_schedule_revision_check CHECK (revision>0)'
+expect_refused "${verify_rows[@]}" --evaluate-schedules-at "$schedule_day"
+rg -F 'The sealed current-table projection receipt differs.' "$run/error.log"
+"${sql[@]}" -c 'ALTER TABLE fsus_legacy_candidate.retained_initial_schedule
+    DROP CONSTRAINT retained_initial_schedule_revision_check,
+    ADD CONSTRAINT retained_initial_schedule_revision_check CHECK (revision=1)'
+"${verify_rows[@]}" --evaluate-schedules-at "$schedule_day" > /dev/null
+expect_refused "${migrate[@]}" verify
+rg -F 'isolated legacy import candidate and cannot serve' "$run/error.log"
+[[ "$(digest "$run/source.sqlite")" == "$source_before" ]]
+printf '%s\n' 'Staged legacy data projected and reverified with original publication IDs, rights, inactive schedule evidence, permanent quarantine, and drift refusal.'

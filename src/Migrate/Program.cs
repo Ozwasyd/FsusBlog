@@ -100,6 +100,7 @@ internal static partial class Migration
                                         Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
                   legacy import project|verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
                                         Project or verify staged articles under permanent quarantine
+                                        Add --evaluate-schedules-at UTC to retain original first-release schedules as evidence
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
                   legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID

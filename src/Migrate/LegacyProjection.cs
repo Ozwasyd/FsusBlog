@@ -11,7 +11,7 @@ internal static partial class Migration
     private const string LegacyProjectionReceipt = "current_projection";
 
     private static async Task<int> RunLegacyProjectionAsync(string mode, string planPath, string planDigest, string backupPath,
-        string backupDigest, CancellationToken token)
+        string backupDigest, DateTimeOffset? scheduleEvaluation, CancellationToken token)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -36,10 +36,13 @@ internal static partial class Migration
             await ExecuteAsync(target, tx, "SET LOCAL search_path TO pg_catalog", ct);
             await SetBackupRepresentationAsync(target, tx, ct);
 
-            bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, ct);
+            bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, scheduleEvaluation.HasValue, ct);
             if (mode == "verify" && !already)
                 throw new InvalidOperationException("No sealed current-table projection exists.");
-            await VerifyLegacyProjectionFactsAsync(target, tx, ct);
+            await VerifyLegacyProjectionFactsAsync(target, tx, scheduleEvaluation.HasValue, ct);
+            var schedules = scheduleEvaluation is { } evaluatedAt
+                ? await ReadInitialLegacySchedulesAsync(target, tx, evaluatedAt, ct)
+                : [];
             int verifiedRollbacks = await VerifyLegacyPublishedRollbacksAsync(target, tx, ct);
             await VerifyProjectedLegacyRightsAsync(target, tx, ct);
             var projection = await BuildProjectionRelationsAsync(target, tx, ct);
@@ -51,9 +54,14 @@ internal static partial class Migration
             await VerifyPublicationHistoryAsync(target, tx, ct);
             await VerifyArticleScheduleAsync(target, tx, ct);
             await VerifyProjectionReadbackAsync(target, tx, projection, ct);
+            var scheduleCatalogSha256 = scheduleEvaluation.HasValue
+                ? await StageOrVerifyInitialLegacySchedulesAsync(target, tx, already, schedules, ct)
+                : null;
             var (business, media) = await ReadBackupSiteAsync(target, tx, ct, excludedSchema: ImportSchema);
             if (media.Count != 0) throw new InvalidOperationException("A quarantined article projection cannot contain private media.");
-            var projectionDigest = DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business });
+            var projectionDigest = scheduleEvaluation.HasValue
+                ? DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business, schedules, scheduleCatalogSha256 })
+                : DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business });
             await SaveOrVerifyProjectionReceiptAsync(target, tx, already, planDigest, projectionDigest, ct);
             await tx.CommitAsync(ct);
 
@@ -65,6 +73,8 @@ internal static partial class Migration
                 readyToApply = false,
                 retainedLegacyPublicationRows = plan.ExpectedTables.Single(row => row.Table == "shadow_publication").Rows,
                 verifiedPublishedRollbackRows = verifiedRollbacks,
+                retainedInitialSchedules = schedules.Length,
+                scheduleEvaluatedAtUtc = scheduleEvaluation,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",
                     "unsupported domain conversion and activation" }
             }, Json));
@@ -85,7 +95,7 @@ internal static partial class Migration
     }
 
     private static async Task<bool> VerifyProjectionCandidateAsync(NpgsqlConnection target, NpgsqlTransaction tx, ImportPlan plan,
-        string planDigest, CancellationToken token)
+        string planDigest, bool retainSchedules, CancellationToken token)
     {
         if (await ReadTargetAsync(target, tx, token) != plan.Target ||
             await CurrentSchema.ReadRecoverySiteIdAsync(target, tx, token) != plan.TargetSiteId)
@@ -104,7 +114,7 @@ internal static partial class Migration
         }
         await VerifyCandidateHeaderAsync(target, plan, planDigest, token, tx);
         var already = await HasRelation(target, tx, $"{ImportSchema}.{LegacyProjectionReceipt}", token);
-        await AssertCandidateRelationsAsync(target, StagingTables, token, tx, already);
+        await AssertCandidateRelationsAsync(target, StagingTables, token, tx, already, retainSchedules && already);
         var expected = plan.ExpectedTables;
         if (expected.Length != StagingTables.Length || !expected.Select(row => row.Table).ToHashSet()
                 .SetEquals(StagingTables.Select(table => table.Name)) ||

@@ -243,10 +243,11 @@ internal static partial class Migration
     }
 
     private static async Task AssertCandidateRelationsAsync(NpgsqlConnection target, CandidateTable[] definitions,
-        CancellationToken token, NpgsqlTransaction? transaction = null, bool projected = false)
+        CancellationToken token, NpgsqlTransaction? transaction = null, bool projected = false, bool retainedSchedules = false)
     {
         var expected = definitions.Select(table => table.Name).Append("candidate").Append("checkpoint").ToHashSet(StringComparer.Ordinal);
         if (projected) expected.Add("current_projection");
+        if (retainedSchedules) expected.Add(LegacyInitialScheduleTable);
         await using var command = new NpgsqlCommand("""
             SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname=$1 AND c.relkind NOT IN ('i','I')

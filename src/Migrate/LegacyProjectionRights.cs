@@ -44,79 +44,89 @@ internal static partial class Migration
             if (snapshot <= 0 || !sources.Add(snapshot))
                 throw new InvalidOperationException("A legacy rights snapshot is bound to more than one publication or has invalid identity.");
 
-            int article = LegacyRightsInt(rows, 0);
-            long sourceRevision = rows.GetInt64(1);
-            int revision = LegacyRightsInt(rows, 2);
-            int category = LegacyRightsInt(rows, 9);
-            if (article <= 0 || sourceRevision <= 0 || revision <= 0 || category <= 0)
-                throw new InvalidOperationException("A legacy publication has invalid canonical coordinates.");
-            var tagCsv = rows.GetString(10);
-            int[] tags = tagCsv.Length == 0 ? [] : tagCsv.Split(',').Select(ParseRevisionTag).Distinct().Order().ToArray();
-
             // The production update path binds the first release time; the lifecycle writer binds the actual release time.
             var eventAt = LegacyRightsText(rows, 4);
             var firstAt = LegacyRightsText(rows, 26);
             var expectedContent = LegacyRightsText(rows, 24);
-            var content = ContentAt(transition == "rollback" ? firstAt : eventAt);
+            var content = LegacyRevisionContentHash(rows, status: 2, transition == "rollback" ? firstAt : eventAt, scheduledAt: null);
             if (transition == "immediate-publish" && content != expectedContent && rows.GetInt64(27) > 1 &&
                 CanVerifyLegacyRepublish(rows, firstAt, eventAt))
-                content = ContentAt(firstAt);
-            if (content != expectedContent)
-                throw new InvalidOperationException("A legacy publication's recorded canonical content SHA-256 does not match its frozen revision.");
-
-            string ContentAt(string? bindingTime) => LegacyRightsSha256(
-                "fsusblog.integrity.article-canonical.v1",
-                "hashVersion:i:1",
-                LegacyRightsInteger("articleId", article),
-                LegacyRightsInteger("articleRevisionId", sourceRevision),
-                LegacyRightsInteger("revisionNo", revision),
-                LegacyRightsString("publicRouteKey", FormattableString.Invariant($"article:{article}")),
-                LegacyRightsString("title", rows.GetString(5)),
-                LegacyRightsString("summary", LegacyRightsText(rows, 7)),
-                LegacyRightsString("coverImageUrl", LegacyRightsText(rows, 8)),
-                LegacyRightsInteger("categoryId", category),
-                "tagIds:i:" + string.Join(',', tags.Select(tag => tag.ToString(CultureInfo.InvariantCulture))),
-                "status:i:2",
-                "publishedAt:t:" + LegacyRightsTime(bindingTime),
-                "scheduledPublishAt:n",
-                LegacyRightsString("markdown", rows.GetString(6)));
-
-            var holder = LegacyRightsText(rows, 14);
-            int? year = rows.IsDBNull(15) ? null : LegacyRightsInt(rows, 15);
-            var statement = LegacyRightsText(rows, 16);
-            var attribution = LegacyRightsText(rows, 17);
-            if (year == 0)
-                throw new InvalidOperationException("A legacy publication copyright year collides with the current unset sentinel.");
-            var rights = new ArticleRightsPolicy(article, revision, true, LegacyRightsBoolean(rows, 12),
-                LegacyRightsText(rows, 13) ?? "", holder ?? "", year ?? 0, statement ?? "", attribution ?? "",
-                LegacyRightsText(rows, 18) ?? "", LegacyRightsInt(rows, 19), LegacyRightsBoolean(rows, 20),
-                LegacyRightsBoolean(rows, 21), LegacyRightsBoolean(rows, 22));
-            try { Wire.Validate(rights); }
-            catch (ProtocolException)
-            {
-                throw new InvalidOperationException("A legacy publication rights policy cannot be represented by the current contract.");
-            }
-
-            var policy = LegacyRightsSha256(
-                "fsusblog.rights.article-policy.v1",
-                "hashVersion:i:1",
-                LegacyRightsInteger("articleId", article),
-                LegacyRightsInteger("articleRevisionId", sourceRevision),
-                LegacyRightsInteger("revisionNo", revision),
-                LegacyRightsString("licenseType", rights.LicenseType),
-                LegacyRightsString("copyrightHolder", holder),
-                year is { } value ? LegacyRightsInteger("copyrightYear", value) : "copyrightYear:n",
-                LegacyRightsString("rightsStatement", statement),
-                LegacyRightsString("attributionTemplate", attribution),
-                LegacyRightsString("copyPolicy", rights.CopyPolicy),
-                LegacyRightsInteger("maxExcerptChars", rights.MaxExcerptChars),
-                rights.AllowCodeCopy ? "allowCodeCopy:b:1" : "allowCodeCopy:b:0",
-                rights.ShowPublicBadge ? "showPublicBadge:b:1" : "showPublicBadge:b:0",
-                LegacyRightsString("canonicalUrl", LegacyRightsText(rows, 23)),
-                "contentCanonicalHash:h:" + content);
-            if (policy != LegacyRightsText(rows, 25))
-                throw new InvalidOperationException("A legacy publication's recorded rights policy SHA-256 does not match its frozen snapshot.");
+                content = LegacyRevisionContentHash(rows, status: 2, firstAt, scheduledAt: null);
+            VerifyLegacyRevisionRightsHashes(rows, content, "publication");
         }
+    }
+
+    // Both frozen sources select the same canonical revision and policy coordinates.
+    private static string LegacyRevisionContentHash(NpgsqlDataReader rows, int status, string? publishedAt, string? scheduledAt)
+    {
+        int article = LegacyRightsInt(rows, 0);
+        long sourceRevision = rows.GetInt64(1);
+        int revision = LegacyRightsInt(rows, 2);
+        int category = LegacyRightsInt(rows, 9);
+        if (article <= 0 || sourceRevision <= 0 || revision <= 0 || category <= 0)
+            throw new InvalidOperationException("A legacy immutable rights snapshot has invalid canonical coordinates.");
+        var tagCsv = rows.GetString(10);
+        var tags = tagCsv.Length == 0 ? [] : tagCsv.Split(',').Select(ParseRevisionTag).Distinct().Order().ToArray();
+        return LegacyRightsSha256(
+            "fsusblog.integrity.article-canonical.v1",
+            "hashVersion:i:1",
+            LegacyRightsInteger("articleId", article),
+            LegacyRightsInteger("articleRevisionId", sourceRevision),
+            LegacyRightsInteger("revisionNo", revision),
+            LegacyRightsString("publicRouteKey", FormattableString.Invariant($"article:{article}")),
+            LegacyRightsString("title", rows.GetString(5)),
+            LegacyRightsString("summary", LegacyRightsText(rows, 7)),
+            LegacyRightsString("coverImageUrl", LegacyRightsText(rows, 8)),
+            LegacyRightsInteger("categoryId", category),
+            "tagIds:i:" + string.Join(',', tags.Select(tag => tag.ToString(CultureInfo.InvariantCulture))),
+            LegacyRightsInteger("status", status),
+            publishedAt is null ? "publishedAt:n" : "publishedAt:t:" + LegacyRightsTime(publishedAt),
+            scheduledAt is null ? "scheduledPublishAt:n" : "scheduledPublishAt:t:" + LegacyRightsTime(scheduledAt),
+            LegacyRightsString("markdown", rows.GetString(6)));
+    }
+
+    private static void VerifyLegacyRevisionRightsHashes(NpgsqlDataReader rows, string content, string authority)
+    {
+        if (content != LegacyRightsText(rows, 24))
+            throw new InvalidOperationException($"A legacy {authority}'s recorded canonical content SHA-256 does not match its frozen revision.");
+        int article = LegacyRightsInt(rows, 0);
+        long sourceRevision = rows.GetInt64(1);
+        int revision = LegacyRightsInt(rows, 2);
+        var holder = LegacyRightsText(rows, 14);
+        int? year = rows.IsDBNull(15) ? null : LegacyRightsInt(rows, 15);
+        var statement = LegacyRightsText(rows, 16);
+        var attribution = LegacyRightsText(rows, 17);
+        if (year == 0)
+            throw new InvalidOperationException($"A legacy {authority} copyright year collides with the current unset sentinel.");
+        var rights = new ArticleRightsPolicy(article, revision, true, LegacyRightsBoolean(rows, 12),
+            LegacyRightsText(rows, 13) ?? "", holder ?? "", year ?? 0, statement ?? "", attribution ?? "",
+            LegacyRightsText(rows, 18) ?? "", LegacyRightsInt(rows, 19), LegacyRightsBoolean(rows, 20),
+            LegacyRightsBoolean(rows, 21), LegacyRightsBoolean(rows, 22));
+        try { Wire.Validate(rights); }
+        catch (ProtocolException)
+        {
+            throw new InvalidOperationException($"A legacy {authority} rights policy cannot be represented by the current contract.");
+        }
+
+        var policy = LegacyRightsSha256(
+            "fsusblog.rights.article-policy.v1",
+            "hashVersion:i:1",
+            LegacyRightsInteger("articleId", article),
+            LegacyRightsInteger("articleRevisionId", sourceRevision),
+            LegacyRightsInteger("revisionNo", revision),
+            LegacyRightsString("licenseType", rights.LicenseType),
+            LegacyRightsString("copyrightHolder", holder),
+            year is { } value ? LegacyRightsInteger("copyrightYear", value) : "copyrightYear:n",
+            LegacyRightsString("rightsStatement", statement),
+            LegacyRightsString("attributionTemplate", attribution),
+            LegacyRightsString("copyPolicy", rights.CopyPolicy),
+            LegacyRightsInteger("maxExcerptChars", rights.MaxExcerptChars),
+            rights.AllowCodeCopy ? "allowCodeCopy:b:1" : "allowCodeCopy:b:0",
+            rights.ShowPublicBadge ? "showPublicBadge:b:1" : "showPublicBadge:b:0",
+            LegacyRightsString("canonicalUrl", LegacyRightsText(rows, 23)),
+            "contentCanonicalHash:h:" + content);
+        if (policy != LegacyRightsText(rows, 25))
+            throw new InvalidOperationException($"A legacy {authority}'s recorded rights policy SHA-256 does not match its frozen snapshot.");
     }
 
     private static bool CanVerifyLegacyRepublish(NpgsqlDataReader row, string? firstAt, string? eventAt)

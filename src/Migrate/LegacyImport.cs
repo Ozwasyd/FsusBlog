@@ -22,8 +22,16 @@ internal static partial class Migration
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
         if (arguments is [("project" or "verify") and var projectionMode, var plan, var planDigest,
-                var backupDirectory, var backupDigest])
-            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, token);
+                var backupDirectory, var backupDigest, .. var options])
+        {
+            var evaluation = options switch
+            {
+                [] => (DateTimeOffset?)null,
+                ["--evaluate-schedules-at", var timestamp] => ParseLegacyScheduleEvaluation(timestamp),
+                _ => throw new ArgumentException("Use --evaluate-schedules-at with one UTC evaluation timestamp.")
+            };
+            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, evaluation, token);
+        }
         if (arguments.Length is < 5 or > 6 || arguments[0] is not ("plan" or "apply") ||
             (arguments[0] == "apply") != (arguments.Length == 6))
             throw new ArgumentException("Use legacy import plan|apply with provider, owner map, backup directory, manifest digest, and apply plan.");

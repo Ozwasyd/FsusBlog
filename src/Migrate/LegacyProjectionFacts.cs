@@ -4,7 +4,7 @@ using Npgsql;
 internal static partial class Migration
 {
     private static async Task VerifyLegacyProjectionFactsAsync(NpgsqlConnection target, NpgsqlTransaction tx,
-        CancellationToken token)
+        bool retainInitialSchedules, CancellationToken token)
     {
         await using (var timestamps = new NpgsqlCommand($"""
             SELECT created_at,updated_at,source_metadata_updated_at,source_body_updated_at,published_at,last_published_at,
@@ -26,6 +26,7 @@ internal static partial class Migration
         }
 
         const string shadow = ImportSchema;
+        var supportedLifecycle = retainInitialSchedules ? "0,1,2,3,4" : "0,2,3,4";
         await RequireNoProjectionRowsAsync($"""
             SELECT 1 FROM {shadow}.shadow_article a
             LEFT JOIN {shadow}.shadow_revision r ON r.source_revision_id=a.current_source_revision_id
@@ -87,7 +88,8 @@ internal static partial class Migration
             SELECT 1 FROM {shadow}.shadow_article a
             LEFT JOIN {shadow}.shadow_publication recent ON recent.article_id=a.id AND recent.publication_number=a.last_publication_number
             LEFT JOIN {shadow}.shadow_publication first ON first.article_id=a.id AND first.publication_number=1
-            WHERE a.source_status NOT IN (0,2,3,4) OR a.scheduled_publish_at IS NOT NULL OR a.pending_publication_at IS NOT NULL
+            WHERE a.source_status NOT IN ({supportedLifecycle}) OR a.pending_publication_at IS NOT NULL
+                OR (a.source_status=1) IS DISTINCT FROM (a.scheduled_publish_at IS NOT NULL)
                 OR (a.source_status=4) IS DISTINCT FROM (a.deleted=1)
                 OR (a.source_status=4) IS DISTINCT FROM (a.deleted_at IS NOT NULL)
                 OR (a.source_status=3 AND a.archived_at IS NULL)
