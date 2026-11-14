@@ -11,6 +11,7 @@ import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
+import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
@@ -549,6 +550,8 @@ async function reloadDraft() {
       </section>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
       <EditorInspector v-if="original && original.id > 0">
+        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+          :disabled="pending || hasConflict" />
         <ArticleTaxonomy
           :article-id="original.id"
           :revision="original.revision"

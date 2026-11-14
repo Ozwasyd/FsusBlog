@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations }) {
   assert.equal(await page.getByLabel('Body', { exact: true }).inputValue(), `${originalBody}\nNewer saved revision.`)
@@ -10,6 +11,8 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await pane.getByRole('button', { name: `Compare revision ${sourceRevision}`, exact: true }).click()
   const comparison = pane.getByRole('region', { name: 'Revision comparison', exact: true })
   await comparison.getByText('Earlier revision', { exact: false }).waitFor()
+  const attachment = await readMarkdownDownload(page, comparison.getByRole('button', { name: 'Download revision Markdown' }), originalBody)
+  assert.equal(attachment.revision, sourceRevision)
   const restore = comparison.getByRole('button', { name: 'Restore as new draft', exact: true })
   assert.equal(await restore.isDisabled(), true)
   const reason = 'Restore the initial published content as a draft.'

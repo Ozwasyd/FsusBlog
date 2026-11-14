@@ -12,6 +12,7 @@ import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../
 import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
+import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -176,6 +177,11 @@ try {
   await publisher.waitForURL(/\/user\/manage\/article\/edit\/\d+$/)
   writtenId = Number(new URL(publisher.url()).pathname.split('/').at(-1))
   await visible(publisher.getByText('Draft saved.', { exact: true }))
+  await button(publisher, 'Inspector').click()
+  const initialExport = await readMarkdownDownload(publisher, button(publisher, 'Download saved Markdown'), body)
+  assert.equal(initialExport.title, title)
+  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+  observations.push('The saved editor produces a real Markdown download with portable title and byte-exact body.')
   assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))
   await screen(publisher, 'editor-desktop')
   observations.push('Login, draft navigation protection, durable save, and unpublished omission from index.')

@@ -6,6 +6,7 @@ import {
   compareDraftRevision, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
 } from '../../../Contracts/revision-history'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
+import MarkdownExportControl from './MarkdownExportControl.vue'
 
 const props = defineProps<{ articleId: number; revision: bigint; canRollback: boolean }>()
 const emit = defineEmits<{ restore: [selection: { sourceRevision: bigint; reason: string }] }>()
@@ -137,6 +138,7 @@ onScopeDispose(() => {
         <summary>Earlier revision · {{ pair.sourceTitle }}</summary>
         <pre>{{ pair.sourceBody }}</pre>
       </details>
+      <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
       <label for="revision-rollback-reason">Reason for restoring this draft</label>
       <ElInput id="revision-rollback-reason" v-model="reason" />
       <p>Use 8 to 500 characters. This restores the title, content and classification. Publishing stays a separate step.</p>
