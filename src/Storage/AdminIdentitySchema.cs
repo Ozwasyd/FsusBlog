@@ -8,10 +8,11 @@ namespace FsusBlogV2.Storage;
 internal static partial class CurrentSchema
 {
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
-    internal const int AdminIdentityVersion = 3;
+    internal const int AdminIdentityVersion = 4;
     internal const string AdminManagePermission = "admin.manage";
     internal const string AuditReadPermission = "audit.read";
     internal const string CommentModeratePermission = "comment.moderate";
+    internal const string ArticleWritePermission = "article.write";
 
     private static readonly string[] AdminIdentityColumns =
     [
@@ -80,11 +81,17 @@ internal static partial class CurrentSchema
             "admin_identity_schema c version version=2",
             "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::text"
         ],
-        AdminIdentityVersion =>
+        3 =>
         [
             .. AdminIdentityConstraints,
             "admin_identity_schema c version version=3",
             "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::text"
+        ],
+        AdminIdentityVersion =>
+        [
+            .. AdminIdentityConstraints,
+            "admin_identity_schema c version version=4",
+            "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text"
         ],
         _ => throw new InvalidOperationException("Unsupported admin identity schema version.")
     };

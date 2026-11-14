@@ -28,6 +28,7 @@ inline constexpr uint32_t PublicCommentBodyBytes = 4096;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
 inline constexpr uint32_t TaxonomyNameBytes = 512;
+inline constexpr uint32_t AdminTaxonomyPageSize = 24;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t TaxonomyTagCount = 32;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
@@ -303,6 +304,7 @@ enum class FrameType : uint16_t {
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     Draft = 32770,
     ArticleCommand = 32771,
@@ -388,6 +390,7 @@ constexpr bool known(FrameType type) {
         case FrameType::SiteSessionList:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
+        case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
         case FrameType::Draft:
         case FrameType::ArticleCommand:

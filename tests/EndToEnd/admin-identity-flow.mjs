@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
 import {
   decodeAdminOperationsStatus, decodeAdminSessionSnapshot, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
@@ -24,6 +25,9 @@ const moderatorGrant = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT
 const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
 const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
 const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
+const taxonomyGrant = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT
+const taxonomyRevoke = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE
+const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
 assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
   'Provide isolated site/admin origins and two unused one-time fixture keys.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
@@ -31,7 +35,11 @@ assert(Boolean(auditGrant) === Boolean(auditRevoke), 'Provide both offline audit
 const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moderatorBody]
 assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
   'Provide grant, revoke, seed and test body together for moderation acceptance.')
-assert(!(moderatorGrant && auditGrant), 'Run audit and moderation browser scenarios separately to preserve the administrator rate budget.')
+const taxonomyFixture = [taxonomyGrant, taxonomyRevoke, taxonomySeed]
+assert(taxonomyFixture.every(Boolean) || taxonomyFixture.every(value => !value),
+  'Provide grant, revoke and seed executables together for taxonomy acceptance.')
+assert([moderatorGrant, auditGrant, taxonomyGrant].filter(Boolean).length <= 1,
+  'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
 assert.equal(adminOrigin.hostname, 'localhost', 'The admin WebAuthn fixture uses localhost as its relying party.')
@@ -203,6 +211,16 @@ try {
     checks.moderationRequiresIndependentGrant = true
     checks.moderationBodyIsTextAndPendingIsPrivate = true
     checks.moderationGrantAndRevokeInvalidateOldSessions = true
+  }
+
+  if (taxonomyGrant) {
+    phase = 'taxonomy-permission'
+    finalCookie = await verifyTaxonomy({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
+      priorCookie: finalCookie, grant: taxonomyGrant, revoke: taxonomyRevoke, seed: taxonomySeed, logIn,
+      probe: credentialProbe, snapshot, readCookie, evidence })
+    checks.taxonomyRequiresIndependentGrant = true
+    checks.taxonomyCountersAndCursorUseStoredRevisions = true
+    checks.taxonomyGrantAndRevokeInvalidateOldSessions = true
   }
 
   phase = 'logout'

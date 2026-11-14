@@ -16,10 +16,11 @@ internal static partial class Migration
         (string action, string handle, string? permission) = arguments switch
         {
             ["bootstrap", var name, CurrentSchema.AdminManagePermission] => ("bootstrap", name, null),
-            ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission or CurrentSchema.CommentModeratePermission] =>
+            ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission or CurrentSchema.CommentModeratePermission
+                or CurrentSchema.ArticleWritePermission] =>
                 (arguments[0], name, arguments[2]),
             ["rotate-passkey" or "revoke-all" or "disable", var name] => (arguments[0], name, null),
-            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read|comment.moderate, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
+            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read|comment.moderate|article.write, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
         };
         if (handle.Length is < 1 or > 64 || !char.IsAsciiLetterLower(handle[0]) ||
             !handle.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '_' or '-' or '.'))
@@ -146,7 +147,7 @@ internal static partial class Migration
                 requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
         }
-        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2) and var previousVersion)
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2 or 3) and var previousVersion)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
@@ -154,10 +155,10 @@ internal static partial class Migration
             await ExecuteAsync(connection, tx, """
                 alter table public.admin_permission drop constraint admin_permission_permission_check;
                 alter table public.admin_permission add constraint admin_permission_permission_check
-                    check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate');
+                    check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate' or permission = 'article.write');
                 alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
-                update public.admin_identity_schema set version=3 where singleton and version in (1,2);
-                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=3);
+                update public.admin_identity_schema set version=4 where singleton and version in (1,2,3);
+                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=4);
                 """, ct);
         }
 

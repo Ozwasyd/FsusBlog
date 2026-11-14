@@ -8,7 +8,7 @@ using FsusBlog.V2.Core.Content;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal readonly record struct TaxonomyPage(byte[] Wire, byte[] Html);
+internal readonly record struct TaxonomyPage(byte[] Wire, byte[] Html, int ArticleCount);
 
 internal sealed class TaxonomyProjection
 {
@@ -69,6 +69,6 @@ internal sealed class TaxonomyProjection
                     $"<li><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>"));
             var html = $"<main><h1>{name}</h1>{description}{(links.Length == 0 ? "<p>暂无文章</p>" : $"<ol>{links}</ol>")}</main>";
             var path = $"/{prefix}/{DistributionSettings.Number(item.Id)}";
-            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item), pages.Page(html, item.Name, publicPath: path));
+            return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item), pages.Page(html, item.Name, publicPath: path), members[item.Id].Count());
         });
 }

@@ -167,7 +167,25 @@ set -euo pipefail
 EOF
   chmod 700 "$path"
 }
-if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
+  unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+  unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
+    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
+  export FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT="$scratch/grant-taxonomy"
+  export FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE="$scratch/revoke-taxonomy"
+  export FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED="$scratch/seed-taxonomy"
+  export FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE="$database"
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT" grant article.write
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE" revoke article.write
+  cat > "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
+exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE" \
+  -f tests/EndToEnd/admin-taxonomy-fixture.sql
+EOF
+  chmod 700 "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED"
+elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
   FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET=$("$dotnet" "$migrate" operator tls-moderation-fixture)
@@ -241,4 +259,6 @@ node tests/EndToEnd/admin-identity-flow.mjs
     where actor=session_user and action in ('grant:audit.read','revoke:audit.read')
   union all select 'offline_moderation_permission_changes=' || count(*) from public.admin_identity_audit
     where actor=session_user and action in ('grant:comment.moderate','revoke:comment.moderate')
+  union all select 'offline_taxonomy_permission_changes=' || count(*) from public.admin_identity_audit
+    where actor=session_user and action in ('grant:article.write','revoke:article.write')
 " > "$evidence/after-counts.txt"

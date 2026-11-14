@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import AdminTaxonomy from './AdminTaxonomy.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
@@ -195,7 +196,7 @@ function logOut() {
 </script>
 
 <template>
-  <main class="auth-page">
+  <main class="auth-page" :class="{ 'admin-workspace': authority?.status === 'active' }">
     <h1>Administrator access</h1>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
     <ElAlert v-if="notice" :title="notice" type="success" :closable="false" show-icon />
@@ -254,6 +255,7 @@ function logOut() {
         </dl>
       </div>
     </section>
+    <AdminTaxonomy v-if="authority?.status === 'active'" :key="authority.session.generation.toString()" @session-lost="handleSessionLoss" />
     <p v-else-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
     <template v-else-if="authority?.status === 'signed-out'">
       <p v-if="!canUsePasskeys">Use a secure origin and a browser that supports Passkeys.</p>
@@ -278,6 +280,8 @@ function logOut() {
 <style scoped>
 .admin-bootstrap-form { display: grid; gap: 0.75rem; }
 .admin-setup-button { margin-inline-start: 0; }
+.admin-workspace { width: min(68rem, calc(100% - 2 * var(--fsusblog-page-gutter))); }
+.admin-workspace .auth-form { max-width: 40rem; }
 .admin-operations, .admin-moderation { margin-block-start: 1.5rem; }
 .moderation-comments { display: grid; gap: 1.5rem; padding-inline-start: 1.5rem; }
 .moderation-comments h3, .moderation-body { overflow-wrap: anywhere; }

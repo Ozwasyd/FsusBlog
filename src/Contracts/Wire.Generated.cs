@@ -42,6 +42,7 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     Draft = 32770,
     ArticleCommand = 32771,
@@ -112,6 +113,7 @@ public static class WireLimits
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentFrameBytes = 4533;
     public const int TaxonomyNameBytes = 512;
+    public const int AdminTaxonomyPageSize = 24;
     public const int TaxonomyDescriptionBytes = 2000;
     public const int TaxonomyTagCount = 32;
     public const int TaxonomyAssignmentFrameBytes = 180;
@@ -407,6 +409,8 @@ public static class WireRoutes
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
+    public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
