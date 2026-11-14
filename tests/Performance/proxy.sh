@@ -1,0 +1,62 @@
+# Sourced by run.sh after creating a private per-attempt directory.
+# shellcheck shell=bash disable=SC2154
+choose_loopback_port() {
+  python3 -c 'import socket
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    print(listener.getsockname()[1])'
+}
+
+start_proxy() {
+  local port=${target##*:} ready
+  proxy_ca="$run/ca.pem"
+  export FSUSBLOG_PUBLIC_ADDRESS="$target" FSUSBLOG_PROXY_BIND=127.0.0.1
+  export FSUSBLOG_UPSTREAM_PORT="${origin##*:}"
+  export FSUSBLOG_TLS_CERTIFICATE="$run/leaf.pem" FSUSBLOG_TLS_KEY="$run/leaf.key"
+  export XDG_DATA_HOME="$run/caddy-data" XDG_CONFIG_HOME="$run/caddy-config"
+  cat > "$run/cert.cnf" <<'EOF'
+[req]
+distinguished_name = dn
+prompt = no
+[dn]
+CN = FsusBlogV2 isolated benchmark
+[ca]
+basicConstraints = critical,CA:TRUE,pathlen:0
+keyUsage = critical,keyCertSign,cRLSign
+[leaf]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature
+extendedKeyUsage = serverAuth
+subjectAltName = IP:127.0.0.1
+EOF
+  {
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$run/ca.key"
+    openssl req -new -x509 -key "$run/ca.key" -days 1 -sha256 -config "$run/cert.cnf" -extensions ca -out "$proxy_ca"
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$FSUSBLOG_TLS_KEY"
+    openssl req -new -key "$FSUSBLOG_TLS_KEY" -config "$run/cert.cnf" -out "$run/leaf.csr"
+    openssl x509 -req -in "$run/leaf.csr" -CA "$proxy_ca" -CAkey "$run/ca.key" -CAcreateserial \
+      -days 1 -sha256 -extfile "$run/cert.cnf" -extensions leaf -out "$FSUSBLOG_TLS_CERTIFICATE"
+    openssl verify -CAfile "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE"
+    openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -fingerprint -sha256
+  } > "$evidence/proxy-certificate.log" 2>&1
+  curl_flags+=(--cacert "$proxy_ca" --http1.1)
+  load_flags+=(-ca "$proxy_ca")
+  "$caddy" adapt --config "$run/source/deploy/Caddyfile" --adapter caddyfile --validate --pretty \
+    > "$evidence/proxy-config.json" 2> "$evidence/proxy-validation.log"
+  "$caddy" run --config "$run/source/deploy/Caddyfile" --adapter caddyfile > "$evidence/proxy.log" 2>&1 &
+  proxy_pid=$!
+  for _ in {1..100}; do
+    own_child "$proxy_pid" || { echo 'Owned Caddy exited before readiness.' >&2; return 1; }
+    ready=$(readiness 2>/dev/null) || ready=
+    if [[ "$ready" == 204 ]] && lsof -n -P -a -p "$proxy_pid" -iTCP@127.0.0.1:"$port" -sTCP:LISTEN >/dev/null; then
+      return
+    fi
+    sleep 0.1
+  done
+  echo 'Owned Caddy did not become ready.' >&2
+  return 1
+}
+
+readiness() {
+  curl -sS --max-time 1 --noproxy '*' "${curl_flags[@]}" -o /dev/null -w '%{http_code}' "$target/health/ready"
+}

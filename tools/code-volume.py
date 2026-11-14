@@ -19,13 +19,13 @@ PRETTIER = {
 CLANG = {'.cs', '.c', '.cc', '.cpp', '.h', '.hpp'}
 SHELL = {'.sh', '.bash'}
 XML = {'.csproj', '.fsproj', '.vbproj', '.esproj', '.props', '.targets', '.xml', '.slnx', '.pubxml', '.dcproj', '.resx'}
-SOURCE = CLANG | SHELL | XML | PRETTIER.keys() | {'.py', '.cmake', '.sql', '.ps1', '.lua', '.conf', '.http', '.toml', '.sln', '.slnlaunch', '.npmrc', '.json', '.env', '.txt', '.webmanifest', '.diff', '.patch'}
+SOURCE = CLANG | SHELL | XML | PRETTIER.keys() | {'.go', '.py', '.cmake', '.sql', '.ps1', '.lua', '.conf', '.http', '.toml', '.sln', '.slnlaunch', '.npmrc', '.json', '.env', '.txt', '.webmanifest', '.diff', '.patch'}
 CONFIG = XML | {'.sln', '.slnlaunch', '.env', '.conf', '.jsonc', '.json5', '.json', '.toml', '.yaml', '.yml', '.webmanifest', '.npmrc', '.http'}
 NAMES = {
     'dockerfile': '.sh', 'containerfile': '.sh', 'cmakelists.txt': '.cmake',
     '.editorconfig': '.toml', '.clang-format': '.yaml', '.clang-tidy': '.yaml',
     '.shellcheckrc': '.conf', '.npmrc': '.npmrc', '.gitattributes': '.conf',
-    '.gitignore': '.conf', '.dockerignore': '.conf', '.git-blame-ignore-revs': '.conf',
+    '.gitignore': '.conf', '.dockerignore': '.conf', '.git-blame-ignore-revs': '.conf', 'caddyfile': '.conf',
     '.ignore': '.conf', 'nuget.config': '.xml', 'codeowners': '.conf',
 }
 LOCKS = {'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'packages.lock.json', 'dependencies.lock.json'}
@@ -140,9 +140,9 @@ def classify(path, suffix, source):
 def clean(source, suffix):
     mask = None
     strings = STRINGS
-    if suffix in CLANG or suffix in {'.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', '.jsx', '.jsonc', '.json5'}:
+    if suffix in CLANG or suffix in {'.go', '.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', '.jsx', '.jsonc', '.json5'}:
         mask = MASKS['c']
-        if suffix not in CLANG | {'.jsonc', '.json5'}:
+        if suffix not in CLANG | {'.go', '.jsonc', '.json5'}:
             strings += '|' + JS_REGEXP
     elif suffix == '.vue':
         # In Vue, only script bodies use JS comments. // remains in template text.
@@ -212,6 +212,8 @@ def simple_format(item):
         out, error = call(['shfmt', '-i', '4', '-ci'], source)
     elif suffix == '.py':
         out, error = call(['ruff', 'format', '--isolated', '--line-length', '100', '-'], source)
+    elif suffix == '.go':
+        out, error = call(['gofmt'], source)
     elif suffix in XML:
         out, error = call(['xmllint', '--nonet', '--format', '-'], source)
     elif suffix in {'.json', '.slnlaunch', '.webmanifest'}:

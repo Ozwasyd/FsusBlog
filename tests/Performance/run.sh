@@ -7,10 +7,19 @@ repo=$PWD
 
 mode=${1:-}
 output_arg=${2:-}
-if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold ) ]]; then
-  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold} NEW_EVIDENCE_DIRECTORY' >&2
+if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold &&
+    "$mode" != proxy-smoke && "$mode" != proxy ) ]]; then
+  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy} NEW_EVIDENCE_DIRECTORY' >&2
   exit 2
 fi
+proxy_mode=false
+caddy=${CADDY_BIN:-caddy}
+if [[ "$mode" == proxy* ]]; then
+  proxy_mode=true
+  command -v "$caddy" >/dev/null || { echo "Missing local executable: $caddy" >&2; exit 2; }
+fi
+# shellcheck source=tests/Performance/proxy.sh
+source tests/Performance/proxy.sh
 pg_dir=${PG_TOOLS_DIR:-}
 if [[ -n "$pg_dir" ]]; then
   export PATH="$pg_dir:$PATH"
@@ -29,9 +38,14 @@ attempt_id=$(openssl rand -hex 16)
 database="fsusv2_perf_$run_id"
 pg_port=5432
 server_pid=
+proxy_pid=
 sampler_pid=
 load_pid=
 origin=
+target=
+proxy_ca=
+curl_flags=()
+load_flags=()
 started=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 stage=preparing
 export PGHOST="$run" PGPORT="$pg_port" PGUSER=perf PGDATABASE=postgres PGCONNECT_TIMEOUT=2
@@ -55,6 +69,18 @@ cleanup() {
   if own_child "$sampler_pid"; then
     kill -TERM "$sampler_pid"
     wait "$sampler_pid" 2>/dev/null
+  fi
+  if own_child "$proxy_pid"; then
+    kill -TERM "$proxy_pid"
+    for _ in {1..50}; do
+      own_child "$proxy_pid" || break
+      sleep 0.1
+    done
+    if own_child "$proxy_pid"; then
+      kill -KILL "$proxy_pid"
+      clean=forced
+    fi
+    wait "$proxy_pid" 2>/dev/null
   fi
   if own_child "$server_pid"; then
     kill -TERM "$server_pid"
@@ -80,6 +106,12 @@ cleanup() {
       clean=no
     fi
   fi
+  if [[ -n "$proxy_pid" ]]; then
+    local port=${target##*:}
+    if lsof -n -P -iTCP@127.0.0.1:"$port" -sTCP:LISTEN > "$evidence/residual-proxy-listener.txt" 2>&1; then
+      clean=no
+    fi
+  fi
   if [[ "$clean" != no ]]; then
     rm -rf -- "$run" || clean=no
     [[ ! -e "$run" ]] || clean=no
@@ -94,6 +126,8 @@ cleanup() {
     echo "owner_pid=$$"
     echo "server_pid=$server_pid"
     echo "origin=$origin"
+    echo "proxy_pid=$proxy_pid"
+    echo "target=$target"
     echo "database=$database"
     echo "scratch=$run"
     echo "exit_code=$status"
@@ -109,7 +143,7 @@ trap 'exit 143' TERM
 
 # Capture the exact files used by the build, including tracked changes and new candidate code.
 source_hash() {
-  git ls-files -c -o --exclude-standard -z -- src tests/Performance 'Directory.Build.*' NuGet.Config global.json | python3 -c '
+  git ls-files -c -o --exclude-standard -z -- src tests/Performance deploy 'Directory.Build.*' NuGet.Config global.json | python3 -c '
 import hashlib, os, sys
 from pathlib import Path
 h = hashlib.sha256()
@@ -143,7 +177,12 @@ ui_status=$(git -C ../FsusUI status --porcelain)
   node --version
   go version
   postgres --version
-  printf 'topology=Kestrel HTTP/1.1 loopback, native PostgreSQL over private Unix socket, same-host load client\n'
+  if [[ "$proxy_mode" == true ]]; then
+    "$caddy" version
+    printf 'topology=Caddy TLS -> Kestrel HTTP/1.1 loopback, native PostgreSQL over private Unix socket, same-host load client\n'
+  else
+    printf 'topology=Kestrel HTTP/1.1 loopback, native PostgreSQL over private Unix socket, same-host load client\n'
+  fi
 } > "$evidence/environment.txt"
 git status --short > "$evidence/source-status.txt"
 git ls-files -c -o --exclude-standard -z -- '*lock.json' '*lock.yaml' 'global.json' 'NuGet.Config' |
@@ -159,10 +198,12 @@ ui_inputs() {
 ui_inputs > "$evidence/fsusui-inputs.sha256"
 
 stage=build
-mkdir -p "$run/source/src" "$run/source/tests/Performance"
+mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/deploy"
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
-cp tests/Performance/{seed.py,load.go,cold.go} "$run/source/tests/Performance/"
+cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh} "$run/source/tests/Performance/"
+cp deploy/Caddyfile "$run/source/deploy/"
+shasum -a 256 "$run/source/deploy/Caddyfile" > "$evidence/caddyfile.sha256"
 ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
 ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
 [[ "$(source_hash)" == "$candidate" && "$(git rev-parse HEAD)" == "$commit" ]] || { echo 'Candidate changed while copying inputs.' >&2; exit 1; }
@@ -201,7 +242,13 @@ stage=startup
 server="$run/server/FsusBlog.V2.Server.dll"
 cache_level=Information
 if [[ "$mode" == cold ]]; then cache_level=Debug; fi
+unset FSUSBLOG_PASSKEY_ORIGIN FSUSBLOG_PASSKEY_RP_ID
+if [[ "$proxy_mode" == true ]]; then
+  target="https://127.0.0.1:$(choose_loopback_port)"
+  export FSUSBLOG_PASSKEY_ORIGIN=$target FSUSBLOG_PASSKEY_RP_ID=127.0.0.1
+fi
 env FSUSBLOG_WEB_DIST="$run/web" ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS= \
+  FSUSBLOG_TRUST_LOOPBACK_PROXY="$proxy_mode" \
   Logging__LogLevel__Microsoft=Warning 'Logging__LogLevel__Microsoft.Hosting.Lifetime=Information' \
   "Logging__LogLevel__FsusBlog.V2.Server.Publications=$cache_level" \
   "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
@@ -209,26 +256,45 @@ server_pid=$!
 for _ in {1..150}; do
   own_child "$server_pid" || { echo 'Owned Kestrel exited before readiness.' >&2; exit 1; }
   url=$(sed -nE 's/.*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+).*/\1/p' "$evidence/server.log" | head -n1)
-  if [[ -n "$url" ]] && [[ "$(curl -sS --max-time 1 --noproxy '*' -o /dev/null -w '%{http_code}' "$url/health/ready" 2>/dev/null)" == 204 ]]; then
+  if [[ -n "$url" ]] && lsof -n -P -a -p "$server_pid" -iTCP@127.0.0.1:"${url##*:}" -sTCP:LISTEN >/dev/null; then
     origin=$url
     break
   fi
   sleep 0.2
 done
 [[ -n "$origin" ]] || { echo 'Owned Kestrel did not become ready.' >&2; exit 1; }
+if [[ "$proxy_mode" == true ]]; then
+  stage=proxy-startup
+  start_proxy
+  stage=proxy-boundary
+  "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" operator proxy-check |
+    node "$run/source/tests/Performance/proxy-boundary.mjs" "$target" "$origin" "$proxy_ca" \
+      > "$evidence/proxy-boundary.log" 2>&1
+else
+  target=$origin
+fi
+[[ "$(readiness)" == 204 ]]
 read -r postgres_pid < "$run/pg/postmaster.pid"
 {
   printf 'owner_pid=%s\npostgres_pid=%s\nserver_pid=%s\norigin=%s\n' "$$" "$postgres_pid" "$server_pid" "$origin"
   printf 'run_id=%s\ninvocation_id=%s\nattempt_id=%s\ndatabase=%s\n' "$run_id" "$invocation_id" "$attempt_id" "$database"
   printf 'socket=%s\nready_at=%s\n' "$run/.s.PGSQL.$pg_port" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
   ps -o pid=,ppid=,lstart=,command= -p "$$,$postgres_pid,$server_pid"
+  if [[ -n "$proxy_pid" ]]; then
+    printf 'proxy_pid=%s\ntarget=%s\n' "$proxy_pid" "$target"
+    ps -o pid=,ppid=,lstart=,command= -p "$proxy_pid"
+  fi
   echo 'readiness=204'
 } > "$evidence/owner.txt"
 
 (
   printf 'utc,pid,rss_kib,pcpu\n'
+  if [[ -n "$proxy_pid" ]]; then printf 'utc,pid,rss_kib,pcpu\n' > "$evidence/proxy-process.csv"; fi
   while kill -0 "$server_pid" 2>/dev/null; do
     ps -o pid=,rss=,%cpu= -p "$server_pid" | awk -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '{ print date "," $1 "," $2 "," $3 }'
+    if [[ -n "$proxy_pid" ]]; then
+      ps -o pid=,rss=,%cpu= -p "$proxy_pid" | awk -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '{ print date "," $1 "," $2 "," $3 }' >> "$evidence/proxy-process.csv"
+    fi
     sleep 5
   done
 ) > "$evidence/server-process.csv" &
@@ -238,20 +304,21 @@ measure() {
   stage=$1
   local rate=$2 seconds=$3
   own_child "$server_pid"
+  if [[ -n "$proxy_pid" ]]; then own_child "$proxy_pid"; fi
   pg_ctl -D "$run/pg" status >> "$evidence/owner.txt"
-  [[ "$(curl -sS --max-time 1 --noproxy '*' -o /dev/null -w '%{http_code}' "$origin/health/ready")" == 204 ]]
+  [[ "$(readiness)" == 204 ]]
   printf '%s: %s requests/s for %s seconds\n' "$stage" "$rate" "$seconds" >&2
-  printf 'load -target %q -fixture %q -wire %q -rate %d -seconds %d -out %q\n' \
-    "$origin" "$evidence/fixture.json" "$run/source/src/Contracts/wire.schema.json" "$rate" "$seconds" "$evidence/$stage.json" >> "$evidence/commands.txt"
-  "$run/load" -target "$origin" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json" -rate "$rate" -seconds "$seconds" \
-    -out "$evidence/$stage.json" > "$evidence/$stage.log" 2>&1 &
+  local args=(-target "$target" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
+    -rate "$rate" -seconds "$seconds" -out "$evidence/$stage.json" "${load_flags[@]}")
+  { printf 'load'; printf ' %q' "${args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
+  "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
   load_pid=$!
   wait "$load_pid"
   load_pid=
 }
 
 case "$mode" in
-  smoke) measure smoke 100 3 ;;
+  smoke|proxy-smoke) measure "$mode" 100 3 ;;
   cold)
     stage=cold
     own_child "$server_pid"
@@ -265,12 +332,12 @@ case "$mode" in
     wait "$load_pid"
     load_pid=
     ;;
-  direct)
+  direct|proxy)
     first=1
     for rate in 2000 5000 8000 10500; do
       if ((first)); then first=0; else sleep 15; fi
       measure "warmup-$rate" 2000 30
-      measure "direct-$rate" "$rate" 60
+      measure "$mode-$rate" "$rate" 60
     done
     ;;
   soak)
