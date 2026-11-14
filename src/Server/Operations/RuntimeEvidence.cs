@@ -10,7 +10,8 @@ namespace FsusBlog.V2.Server.Operations;
 internal sealed class RuntimeEvidence : IAsyncDisposable
 {
     private static readonly IReadOnlyDictionary<string, object> GcConfiguration = GC.GetConfigurationVariables()
-        .Where(option => option.Key is "GCConserveMem" or "GCConserveMemory" or "GCHeapCount" or "GCDynamicAdaptationMode")
+        .Where(option => option.Key is "GCConserveMem" or "GCConserveMemory" or "GCHeapCount" or
+            "GCHeapHardLimit" or "GCDynamicAdaptationMode")
         .ToDictionary(option => option.Key, option => option.Value, StringComparer.Ordinal);
     private const int Background = 4;
     private const int OtherHttp = 5;
