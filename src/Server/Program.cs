@@ -14,6 +14,7 @@ const string Binary = "application/octet-stream";
 const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
+var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
@@ -22,7 +23,14 @@ if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = WireLimits.MaxCommandFrameBytes);
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
-builder.Services.AddSingleton(_ => new InstanceLease(connectionString));
+builder.Services.AddSingleton(services => new InstanceLease(connectionString, services.GetService<RuntimeEvidence>()));
+if (!string.IsNullOrEmpty(evidenceDirectory))
+{
+    var output = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] ??
+        throw new InvalidOperationException("Runtime evidence output is required.");
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
+}
 builder.Services.AddSingleton(new WebPages(template));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
@@ -43,6 +51,23 @@ builder.Services.AddRateLimiter(options =>
 });
 
 await using var app = builder.Build();
+if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
+{
+    app.Use(async (ctx, next) =>
+    {
+        var sample = runtimeEvidence.SampleObserverCost();
+        var started = sample ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+        var category = RuntimeEvidence.Classify(ctx);
+        var before = sample ? System.Diagnostics.Stopwatch.GetTimestamp() - started : 0;
+        try { await next(ctx); }
+        finally
+        {
+            if (sample) started = System.Diagnostics.Stopwatch.GetTimestamp();
+            runtimeEvidence.CountRequest(ctx, category);
+            if (sample) runtimeEvidence.AccountObserverSample(before + System.Diagnostics.Stopwatch.GetTimestamp() - started);
+        }
+    });
+}
 var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
 await lease.Start(app.Logger, app.Lifetime.ApplicationStopping);

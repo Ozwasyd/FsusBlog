@@ -46,7 +46,7 @@ EOF
     openssl verify -CAfile "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE"
     openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -subject -issuer -fingerprint -sha256
   } > "$evidence/proxy-certificate.log" 2>&1
-  curl_flags+=(--cacert "$proxy_ca" --http1.1)
+  curl_flags+=(--cacert "$proxy_ca")
   load_flags+=(-ca "$proxy_ca")
   "$caddy" adapt --config "$run/source/deploy/Caddyfile" --adapter caddyfile --validate --pretty \
     > "$evidence/proxy-config.json" 2> "$evidence/proxy-validation.log"

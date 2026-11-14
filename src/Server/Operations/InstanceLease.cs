@@ -24,14 +24,16 @@ internal sealed class InstanceLease : IAsyncDisposable
     private const long Pending = -1;
     private const long Expired = -2;
     private readonly NpgsqlConnection _owner;
+    private readonly RuntimeEvidence? _evidence;
     private readonly CancellationTokenSource _stopped = new();
     private Task? _monitor;
     private int _pid;
     private DateTime _backendStart;
     private long _validUntil = Pending;
 
-    internal InstanceLease(string connectionString)
+    internal InstanceLease(string connectionString, RuntimeEvidence? evidence = null)
     {
+        _evidence = evidence;
         var settings = new NpgsqlConnectionStringBuilder(connectionString)
         {
             Pooling = false, Enlist = false, Multiplexing = false, CommandTimeout = 1, CancellationTimeout = -1
@@ -150,6 +152,7 @@ internal sealed class InstanceLease : IAsyncDisposable
 
     private async Task Monitor(ILogger log)
     {
+        using var attribution = _evidence?.LeaseWork();
         using var timer = new PeriodicTimer(ProbeInterval);
         try
         {

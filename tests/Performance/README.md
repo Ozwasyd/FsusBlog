@@ -10,6 +10,8 @@ mkdir -p artifacts
 tests/Performance/run.sh smoke artifacts/p2-smoke-1
 tests/Performance/run.sh direct artifacts/p2-direct-1
 tests/Performance/run.sh cold artifacts/p2-cold-1
+FSUSBLOG_PERF_RUNTIME=1 tests/Performance/run.sh smoke artifacts/p2-runtime-smoke-1
+tests/Performance/run.sh soak artifacts/p2-soak-1
 export CADDY_BIN=/absolute/path/to/caddy
 tests/Performance/run.sh proxy-smoke artifacts/p2-proxy-smoke-1
 tests/Performance/run.sh proxy artifacts/p2-proxy-1
@@ -24,4 +26,6 @@ tests/Performance/run.sh proxy artifacts/p2-proxy-1
 
 代理入口使用交付的 [Caddyfile](../../deploy/Caddyfile) 和每轮独立生成且按次信任的 TLS CA，证书校验包含回环 IP。代理负载和直连使用相同的供给档位及 HTTP/1.1 identity。运行记录包含 TLS 版本、配置、进程归属及 RSS，并检查裸后端拒绝、转发头重建、Passkey 来源和真实会话 Cookie。结束时检查 Caddy 与 Kestrel 的监听均已关闭，并清理本轮证书和数据库。
 
-当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。独立供给者、数据库访问归因和 GC 指标仍需另行验证。
+soak 和显式启用运行时观察的 smoke 使用私有文件标记划定计时窗口。观察器在 5 秒采样之外保留精确的阶段开始、结束累积值。四条热读由服务端实际路由识别，并单独统计归因到请求的 Npgsql 命令 Activity、物理连接 Activity 和 HTTP 响应数。驱动内部事务控制消息及连接复位不计入命令 Activity。计时之前访问一次真实 PostgreSQL 评论列表验证 HTTP 请求归因，并查验启动期间的物理连接事件。发布轮询及 lease 后台命令单列。诊断不记录 SQL、客户端路径或凭据。GC 暂停分位基于 .NET Runtime 暂停事件的原始时间戳，跟内置总暂停计数交叉核验。另采样堆、进程 RSS、冷渲染和线程池排队，运行结束时生成 `runtime-result.json`。
+
+当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。运行时观察会增加少量计数、文件采样和诊断事件开销，独立供给者仍需另行验证。

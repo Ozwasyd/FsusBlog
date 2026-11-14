@@ -13,6 +13,8 @@ if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "
   exit 2
 fi
 proxy_mode=false
+runtime_evidence=false
+if [[ "$mode" == soak || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
 caddy=${CADDY_BIN:-caddy}
 if [[ "$mode" == proxy* ]]; then
   proxy_mode=true
@@ -20,6 +22,8 @@ if [[ "$mode" == proxy* ]]; then
 fi
 # shellcheck source=tests/Performance/proxy.sh
 source tests/Performance/proxy.sh
+# shellcheck source=tests/Performance/runtime.sh
+source tests/Performance/runtime.sh
 pg_dir=${PG_TOOLS_DIR:-}
 if [[ -n "$pg_dir" ]]; then
   export PATH="$pg_dir:$PATH"
@@ -44,7 +48,7 @@ load_pid=
 origin=
 target=
 proxy_ca=
-curl_flags=()
+curl_flags=(--http1.1)
 load_flags=()
 started=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 stage=preparing
@@ -201,7 +205,7 @@ stage=build
 mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/deploy"
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
-cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh} "$run/source/tests/Performance/"
+cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh,runtime.py,runtime.sh} "$run/source/tests/Performance/"
 cp deploy/Caddyfile "$run/source/deploy/"
 shasum -a 256 "$run/source/deploy/Caddyfile" > "$evidence/caddyfile.sha256"
 ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
@@ -242,6 +246,10 @@ stage=startup
 server="$run/server/FsusBlog.V2.Server.dll"
 cache_level=Information
 if [[ "$mode" == cold ]]; then cache_level=Debug; fi
+runtime_env=(FSUSBLOG_RUNTIME_EVIDENCE_CONTROL= FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT=)
+if [[ "$runtime_evidence" == true ]]; then
+  runtime_env=("FSUSBLOG_RUNTIME_EVIDENCE_CONTROL=$run" "FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT=$evidence/runtime.ndjson")
+fi
 unset FSUSBLOG_PASSKEY_ORIGIN FSUSBLOG_PASSKEY_RP_ID
 if [[ "$proxy_mode" == true ]]; then
   target="https://127.0.0.1:$(choose_loopback_port)"
@@ -249,6 +257,7 @@ if [[ "$proxy_mode" == true ]]; then
 fi
 env FSUSBLOG_WEB_DIST="$run/web" ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS= \
   FSUSBLOG_TRUST_LOOPBACK_PROXY="$proxy_mode" \
+  "${runtime_env[@]}" \
   Logging__LogLevel__Microsoft=Warning 'Logging__LogLevel__Microsoft.Hosting.Lifetime=Information' \
   "Logging__LogLevel__FsusBlog.V2.Server.Publications=$cache_level" \
   "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
@@ -309,16 +318,30 @@ measure() {
   [[ "$(readiness)" == 204 ]]
   printf '%s: %s requests/s for %s seconds\n' "$stage" "$rate" "$seconds" >&2
   local args=(-target "$target" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
-    -rate "$rate" -seconds "$seconds" -out "$evidence/$stage.json" "${load_flags[@]}")
+    -rate "$rate" -seconds "$seconds" -out "$evidence/$stage.json")
+  args+=("${load_flags[@]+"${load_flags[@]}"}")
+  if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then args+=(-runtime-control "$run"); fi
   { printf 'load'; printf ' %q' "${args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
   "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
   load_pid=$!
   wait "$load_pid"
   load_pid=
+  if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then runtime_report "$stage"; fi
 }
 
+if [[ "$runtime_evidence" == true ]]; then
+  stage=runtime-positive-control
+  runtime_positive_control
+fi
 case "$mode" in
-  smoke|proxy-smoke) measure "$mode" 100 3 ;;
+  smoke|proxy-smoke)
+    if [[ "$runtime_evidence" == true ]]; then
+      measure warmup-runtime-smoke 2000 3
+      measure "$mode" 2000 10
+    else
+      measure "$mode" 100 3
+    fi
+    ;;
   cold)
     stage=cold
     own_child "$server_pid"

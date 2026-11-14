@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Operations;
 
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed record PublicArticleBytes(byte[] Wire, byte[] Html);
 
 internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> articles, WebPages pages,
-    long generation = 0, ILogger? log = null)
+    long generation = 0, ILogger? log = null, RuntimeEvidence? evidence = null)
 {
     private const int ParallelRenders = 4;
     private const int PendingRenders = 64;
@@ -74,6 +75,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
                 Interlocked.Increment(ref _coldStarts);
                 operation = Task.Run(() => Render(article, arrived));
                 _pending.Add(id, operation);
+                evidence?.ChangeCache(pending: 1);
                 Trace("admitted", id, arrived);
             }
             else Trace("joined", id, arrived);
@@ -112,6 +114,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
                         throw new PublicUnavailableException();
                     }
                     _active++;
+                    evidence?.ChangeCache(active: 1);
                     Trace("started", article.Id, admitted);
                 }
                 try
@@ -129,7 +132,14 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
                         return encoded;
                     }
                 }
-                finally { lock (_gate) _active--; }
+                finally
+                {
+                    lock (_gate)
+                    {
+                        _active--;
+                        evidence?.ChangeCache(active: -1);
+                    }
+                }
             }
             finally { _workers.Release(); }
         }
@@ -138,6 +148,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
             lock (_gate)
             {
                 _pending.Remove(article.Id);
+                evidence?.ChangeCache(pending: -1);
                 Trace("finished", article.Id, admitted);
             }
         }

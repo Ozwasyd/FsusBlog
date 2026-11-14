@@ -27,14 +27,14 @@ internal sealed class PublicSnapshot
     internal int CorpusPageCount => _corpus?.Count ?? 0;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
-        PublicSnapshot? previous, ILogger log, CancellationToken cancellationToken)
+        PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, CancellationToken cancellationToken)
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         _ordered = articles;
         _byId = articles.ToFrozenDictionary(article => article.Id);
-        _details = new PublicArticleCache(_byId, pages, Generation, log);
+        _details = new PublicArticleCache(_byId, pages, Generation, log, evidence);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
@@ -92,7 +92,8 @@ internal sealed class PublicSnapshot
 
 }
 
-internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null)
+internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
+    RuntimeEvidence? evidence = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
@@ -148,6 +149,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     private async Task Rebuild(CancellationToken ct)
     {
+        using var attribution = evidence?.PublicationWork();
         lease?.RequireCurrent();
         using var stop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
         ct = stop?.Token ?? ct;
@@ -157,7 +159,8 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')"))
             maxEvent = (long)(await watermark.ExecuteScalarAsync(ct))!;
         var next = Snapshot;
-        if (next is null || next.Watermark != maxEvent)
+        var rebuilt = next is null || next.Watermark != maxEvent;
+        if (rebuilt)
         {
             var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
             await using var cmd = Store.Sql(connection, tx, """
@@ -191,7 +194,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, ct);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, ct);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
@@ -199,6 +202,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await InstanceLease.CommitProtected(tx, lease, ct);
         _lastProjection = next;
         Volatile.Write(ref _snapshot, next);
+        evidence?.CountRefresh(rebuilt);
     }
 }
 

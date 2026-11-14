@@ -718,6 +718,28 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 	return totals
 }
 
+func startRuntimeMeasurement(ctx context.Context, directory string) error {
+	command := directory + "/runtime.mark"
+	temporary := command + ".new"
+	if err := os.WriteFile(temporary, []byte("measure-before\n"), 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(temporary, command); err != nil {
+		return err
+	}
+	acknowledgment := directory + "/measure-before.ack"
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		if _, err := os.Stat(acknowledgment); err == nil {
+			return nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return errors.New("runtime evidence did not mark the start of load measurement")
+}
+
 func run() int {
 	target := flag.String("target", "", "explicit loopback HTTP or TLS origin with port")
 	authority := flag.String("ca", "", "optional PEM authority for an isolated TLS run")
@@ -727,6 +749,7 @@ func run() int {
 	seconds := flag.Int("seconds", 60, "seconds per measured stage")
 	coldLog := flag.String("cold-log", "", "existing private Kestrel log from a fresh, owned cold-cache run")
 	coldPressure := flag.Bool("cold-pressure", false, "after standard cold rounds run overload and actual disconnect diagnostics")
+	runtimeControl := flag.String("runtime-control", "", "private run directory for a runtime measurement boundary")
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
@@ -789,11 +812,17 @@ func run() int {
 		}
 		report["preflightPayloads"] = checkedPayloads
 	}
+	if code == 0 && *rate > 0 && *runtimeControl != "" {
+		if err = startRuntimeMeasurement(ctx, *runtimeControl); err != nil {
+			report["measurement"], report["measurementError"] = "runtime_boundary_failed", err.Error()
+			code = 1
+		}
+	}
 	if code == 0 && *rate > 0 {
 		measured := time.Now().UTC()
 		totals := measure(ctx, origin, w, *rate, *seconds)
 		all := totals["all"]
-		report["measurementStartedAt"], report["routes"] = measured, totals
+		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, time.Now().UTC(), totals
 		report["correctPerSecond"] = float64(all.OK) / float64(*seconds)
 		report["expected"] = *rate * *seconds
 		if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {
