@@ -47,6 +47,8 @@ public enum FrameType : ushort
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminSitePages = 32905,
+    AdminSitePageRevision = 32915,
+    AdminSitePagePublish = 32916,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -154,6 +156,9 @@ public static class WireLimits
     public const int NameBytes = 256;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
+    public const int AdminSitePageDigestBytes = 64;
+    public const int AdminSitePageSlugBytes = 10;
+    public const int AdminSitePagePublishFrameBytes = 600110;
     public const int SiteConfigBlobBytes = 4096;
     public const int BodyBytes = 1048576;
     public const int MaxPayloadBytes = 4194304;
@@ -469,6 +474,11 @@ public static class WireRoutes
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
     public const string AdminSitePages = "/api/v2/admin/identity/site-pages.aeds";
     public const string AdminSitePage = "/api/v2/admin/identity/site-pages/{slug}.aeds";
+    public const string AdminSitePageRevision = "/api/v2/admin/identity/site-pages/{slug}/revision.aeds";
+    public const string AdminSitePageStepUpBegin = "/api/v2/admin/identity/site-pages/step-up/begin.aeds";
+    public const string AdminSitePageStepUpComplete = "/api/v2/admin/identity/site-pages/step-up/complete.aeds";
+    public const string AdminSitePagePow = "/api/v2/admin/identity/site-pages/pow.aeds";
+    public const string AdminSitePagePublish = "/api/v2/admin/identity/site-pages/publish.aeds";
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
@@ -560,6 +570,7 @@ public static class WireHeaders
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string SiteRefresh = "X-Fsus-Site-Refresh";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
+    public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
 }
 
 public sealed record RecoveryKeyOperation(int Operation);
@@ -573,6 +584,8 @@ public sealed record AdminModerationIntent(int ArticleId, long CommentId, int Ex
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
 public sealed record AdminSitePages(int ConfiguredMask);
+public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
+public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
 public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped);
 public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
@@ -814,6 +827,46 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePages));
         var value = new AdminSitePages(reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminSitePageRevision(AdminSitePageRevision value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Slug, WireLimits.AdminSitePageSlugBytes);
+        writer.I64(value.Revision);
+        writer.Text(value.Digest, WireLimits.AdminSitePageDigestBytes);
+        writer.Text(value.Markdown, WireLimits.PageContentBytes);
+        return Aeds.Encode(FrameType.AdminSitePageRevision, writer.Written);
+    }
+
+    public static AdminSitePageRevision DecodeAdminSitePageRevision(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePageRevision));
+        var value = new AdminSitePageRevision(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminSitePagePublish(AdminSitePagePublish value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Slug, WireLimits.AdminSitePageSlugBytes);
+        writer.I64(value.ExpectedRevision);
+        writer.Text(value.ExpectedDigest, WireLimits.AdminSitePageDigestBytes);
+        writer.Text(value.Markdown, WireLimits.PageContentBytes);
+        return Aeds.Encode(FrameType.AdminSitePagePublish, writer.Written);
+    }
+
+    public static AdminSitePagePublish DecodeAdminSitePagePublish(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePagePublish));
+        var value = new AdminSitePagePublish(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes));
         reader.Finish();
         Validate(value);
         return value;

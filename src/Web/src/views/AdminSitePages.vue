@@ -4,11 +4,13 @@ import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
+import AdminSitePageEditor from './AdminSitePageEditor.vue'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
 const pages = shallowRef<Awaited<ReturnType<typeof readAdminSitePages>>>()
 const selected = shallowRef<Awaited<ReturnType<typeof readAdminSitePage>>>()
+const editor = ref<SitePageSlug>()
 const busy = ref(false)
 const error = ref('')
 let active: AbortController | undefined
@@ -18,6 +20,7 @@ function clear() {
   active = undefined
   pages.value = undefined
   selected.value = undefined
+  editor.value = undefined
   busy.value = false
   error.value = ''
 }
@@ -27,6 +30,7 @@ async function read(slug?: SitePageSlug) {
   const request = active = new AbortController()
   const signal = AbortSignal.any([request.signal, props.sessionSignal])
   selected.value = undefined
+  editor.value = undefined
   if (!slug) pages.value = undefined
   error.value = ''
   busy.value = true
@@ -62,12 +66,16 @@ onScopeDispose(clear)
     <ElButton native-type="button" :loading="busy" @click="read()">Check site pages</ElButton>
     <ElAlert v-if="error" :title="error" :closable="false" type="error" />
     <ul v-if="pages" class="site-pages-list">
-      <li v-for="page in pages" :key="page.slug">
+      <li v-for="page in pages.pages" :key="page.slug">
         <strong>{{ page.title }}</strong> <code>/{{ page.slug }}</code>
         <span>{{ page.configured ? 'Configured' : 'Unconfigured' }}</span>
         <ElButton v-if="page.configured" :disabled="busy" native-type="button" text
           @click="read(page.slug)">View {{ page.slug }} content</ElButton>
+        <ElButton v-if="pages.editor && page.configured" :disabled="busy" native-type="button" text
+          @click="selected = undefined; editor = page.slug">Edit {{ page.slug }} content</ElButton>
         <pre v-if="selected?.slug === page.slug" tabindex="0" :aria-label="`${page.slug} Markdown`">{{ selected.markdown }}</pre>
+        <AdminSitePageEditor v-if="editor === page.slug" :key="page.slug" :slug="page.slug" :session-signal="sessionSignal"
+          @session-lost="emit('session-lost', $event)" @close="editor = undefined" />
       </li>
     </ul>
   </section>

@@ -20,7 +20,11 @@ internal static class AdminSitePages
     internal static void Map(WebApplication app, AdminPasskeyStore store, string session)
     {
         app.MapGet(WireRoutes.AdminSitePages, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
-            Results.Bytes(await store.SitePagesOverview(ctx.Request.Cookies[session], pages, ct), Aeds.ContentType))
+        {
+            var frame = await store.SitePagesOverview(ctx.Request.Cookies[session], pages, ct);
+            if (pages.EditorEnabled) ctx.Response.Headers[WireHeaders.AdminSitePageEditor] = "1";
+            return Results.Bytes(frame, Aeds.ContentType);
+        })
             .RequireRateLimiting("command");
         foreach (var route in new[] { WireRoutes.AdminSitePage, LegacyPrefix + "/{slug}" })
         {
@@ -38,5 +42,5 @@ internal sealed partial class AdminPasskeyStore
             Task.FromResult(Wire.EncodeAdminSitePages(new(pages.ConfiguredMask))), ct);
 
     internal Task<byte[]> SitePage(string? token, SitePages pages, string slug, CancellationToken ct) =>
-        WithSession(token, CurrentSchema.SystemConfigPermission, (_, _, _) => Task.FromResult(pages.ConfiguredPage(slug)), ct);
+        WithSession(token, CurrentSchema.SystemConfigPermission, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
 }

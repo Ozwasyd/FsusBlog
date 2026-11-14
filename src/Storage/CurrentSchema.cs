@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -88,7 +88,8 @@ internal static partial class CurrentSchema
         }
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
-            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh);
+            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
+            requireSitePageEditor: requireSitePageEditor);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -109,7 +110,7 @@ internal static partial class CurrentSchema
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
-        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null)
+        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null)
     {
         if (requireArticleMedia is null)
         {
@@ -139,6 +140,9 @@ internal static partial class CurrentSchema
         var hasSiteRefresh = await HasSiteRefreshSchemaAsync(connection, transaction, cancellationToken);
         if (requireSiteRefresh.HasValue && requireSiteRefresh.Value != hasSiteRefresh)
             throw new InvalidOperationException("The site refresh schema presence does not match the requested operation.");
+        var hasSitePageEditor = await HasSitePageEditorSchemaAsync(connection, transaction, cancellationToken);
+        if (requireSitePageEditor.HasValue && requireSitePageEditor.Value != hasSitePageEditor)
+            throw new InvalidOperationException("The site page editor schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
@@ -151,6 +155,7 @@ internal static partial class CurrentSchema
             .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
+            .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
@@ -167,6 +172,7 @@ internal static partial class CurrentSchema
             .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
+            .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
@@ -239,16 +245,17 @@ internal static partial class CurrentSchema
         {
             TypedValue = expectedColumns.Select(column => column.Split(' ', 2)[0]).ToArray()
         });
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var columns = new List<string>();
         var constraints = new List<string>();
-        while (await reader.ReadAsync(cancellationToken))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
-            (reader.GetString(0) == "column" ? columns : constraints).Add(reader.GetString(1));
+            while (await reader.ReadAsync(cancellationToken))
+                (reader.GetString(0) == "column" ? columns : constraints).Add(reader.GetString(1));
         }
 
         AssertShape("relation/column", expectedColumns, columns);
         AssertShape("constraint", expectedConstraints, constraints);
+        if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
     }
 
     private static void AssertShape(string kind, string[] expected, List<string> observed)

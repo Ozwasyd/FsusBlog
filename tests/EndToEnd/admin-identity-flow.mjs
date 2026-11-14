@@ -243,6 +243,8 @@ try {
       priorCookie: finalCookie, grant: sitePagesGrant, revoke: sitePagesRevoke, logIn, probe: credentialProbe, readCookie, evidence })
     checks.pageReadsRequireIndependentSystemConfig = true
     checks.pageReadsMatchPublicAedsAndExcludeSiteHostAndWrites = true
+    if (process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1')
+      checks.pagePublishUsesPasskeyPowAndVersionedPublicRepresentations = true
   }
 
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1') {

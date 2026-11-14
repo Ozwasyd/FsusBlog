@@ -54,7 +54,7 @@ internal static class AdminModerationEndpoints
         }).RequireRateLimiting("command");
     }
 
-    private static void RequireOrigin(HttpContext ctx, string authority)
+    internal static void RequireOrigin(HttpContext ctx, string authority)
     {
         var origin = ctx.Request.Headers.Origin;
         if (origin.Count == 1 && string.Equals(origin[0], authority, StringComparison.OrdinalIgnoreCase)) return;

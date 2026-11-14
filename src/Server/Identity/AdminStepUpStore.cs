@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private const int ModerateComment = 1;
+    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -18,8 +18,9 @@ internal sealed partial class AdminPasskeyStore
         BeginStepUp(session, IntentDigest(intent), (db, tx, _) => CheckPendingComment(db, tx, intent, locked: false, ct), ct);
 
     private Task<byte[]> BeginStepUp(string? session, byte[] bodyDigest,
-        Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task> verifyTarget, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task> verifyTarget, CancellationToken ct,
+        StepUpAction action = StepUpAction.ModerateComment) =>
+        WithLiveAdmin(session, StepUpPermission(action), async (db, tx, admin) =>
         {
             await verifyTarget(db, tx, admin);
             await using var query = Store.Sql(db, tx, """
@@ -32,20 +33,25 @@ internal sealed partial class AdminPasskeyStore
                 UserVerification = UserVerificationRequirement.Required
             });
             var token = Token();
-            await SaveStepUp(db, tx, admin, token, StepUpChallenge, bodyDigest, options.ToJson(), 120, ct);
+            await SaveStepUp(db, tx, admin, token, action, StepUpChallenge, bodyDigest, options.ToJson(), 120, ct);
             return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, [credential]);
         }, ct);
 
-    internal async Task<byte[]> CompleteModerationStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct)
+    internal Task<byte[]> CompleteModerationStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct) =>
+        CompleteStepUp(session, request, StepUpAction.ModerateComment, ct);
+
+    private async Task<byte[]> CompleteStepUp(string? session, PasskeyLoginRequest request,
+        StepUpAction action, CancellationToken ct)
     {
-        var challenge = await WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        var permission = StepUpPermission(action);
+        var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
         {
-            await using var consume = Store.Sql(db, tx, """
-                delete from public.admin_step_up
+            await using var consume = Store.Sql(db, tx, $"""
+                delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
                   and expires_at>clock_timestamp()
                 returning options,body_digest
-                """, ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, ModerateComment);
+                """, ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
             await using var row = await consume.ExecuteReaderAsync(ct);
             if (!await row.ReadAsync(ct)) throw Denied();
             return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
@@ -53,14 +59,14 @@ internal sealed partial class AdminPasskeyStore
         RequireCredentialId(request.CredentialId, request.RawId);
         if (request.RememberMe) throw Denied();
 
-        return await WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        return await WithLiveAdmin(session, permission, async (db, tx, admin) =>
         {
             await using var user = Store.Sql(db, tx, "select user_handle from public.admin_principal where id=$1", admin.Id);
             var handle = (await user.ExecuteScalarAsync(ct) as byte[]) ?? throw Denied();
             await VerifyCredential(db, tx, admin.Id, handle, request, AssertionOptions.FromJson(challenge.Options), ct,
                 requireHandle: false);
             var proof = Token();
-            await SaveStepUp(db, tx, admin, proof, StepUpProof, challenge.Digest, null, 45, ct);
+            await SaveStepUp(db, tx, admin, proof, action, StepUpProof, challenge.Digest, null, 45, ct);
             return MfaWire.EncodeChallenge(true, "admin-sensitive", proof);
         }, ct);
     }
@@ -78,13 +84,13 @@ internal sealed partial class AdminPasskeyStore
     internal static byte[] IntentDigest(AdminModerationIntent intent) => SHA256.HashData(Wire.EncodeAdminModerationIntent(intent));
 
     private static async Task<bool> ConsumeStepUpProof(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin,
-        byte[] proofDigest, byte[] bodyDigest, CancellationToken ct)
+        byte[] proofDigest, byte[] bodyDigest, CancellationToken ct, StepUpAction action = StepUpAction.ModerateComment)
     {
-        await using var consume = Store.Sql(db, tx, """
-            delete from public.admin_step_up
+        await using var consume = Store.Sql(db, tx, $"""
+            delete from {StepUpTable(action)}
             where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
               and body_digest=$7 and expires_at>clock_timestamp()
-            """, proofDigest, admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, ModerateComment, bodyDigest);
+            """, proofDigest, admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, (int)action, bodyDigest);
         return await consume.ExecuteNonQueryAsync(ct) == 1;
     }
 
@@ -100,13 +106,27 @@ internal sealed partial class AdminPasskeyStore
             throw new BusinessException(Rejection.NotFound, "The pending comment is no longer available.");
     }
 
-    private static Task SaveStepUp(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin, string token, short kind,
+    private static Task SaveStepUp(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin, string token, StepUpAction action, short kind,
         byte[] bodyDigest, string? options, int seconds, CancellationToken ct) =>
-        Execute(db, tx, ct, """
-            insert into public.admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
+        Execute(db, tx, ct, $"""
+            insert into {StepUpTable(action)}(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+$8 * interval '1 second',$9)
             on conflict (session_digest,kind) do update
                 set digest=excluded.digest,body_digest=excluded.body_digest,options=excluded.options,expires_at=excluded.expires_at
-            """, ChallengeDigest(token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, ModerateComment, bodyDigest,
+            """, ChallengeDigest(token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, (int)action, bodyDigest,
             Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds, kind);
+
+    private static string StepUpTable(StepUpAction action) => action switch
+    {
+        StepUpAction.ModerateComment => "public.admin_step_up",
+        StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
+        _ => throw new ArgumentOutOfRangeException(nameof(action))
+    };
+
+    private static string StepUpPermission(StepUpAction action) => action switch
+    {
+        StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
+        StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
+        _ => throw new ArgumentOutOfRangeException(nameof(action))
+    };
 }

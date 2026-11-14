@@ -58,6 +58,8 @@
     "AdminSessionSnapshot": 32830,
     "AdminOperationsStatus": 32850,
     "AdminSitePages": 32905,
+    "AdminSitePageRevision": 32915,
+    "AdminSitePagePublish": 32916,
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
     "AdminInboxPage": 32896,
@@ -193,6 +195,11 @@
     "AdminOperationsStatus": "/api/v2/admin/identity/operations/status.aeds",
     "AdminSitePages": "/api/v2/admin/identity/site-pages.aeds",
     "AdminSitePage": "/api/v2/admin/identity/site-pages/{slug}.aeds",
+    "AdminSitePageRevision": "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
+    "AdminSitePageStepUpBegin": "/api/v2/admin/identity/site-pages/step-up/begin.aeds",
+    "AdminSitePageStepUpComplete": "/api/v2/admin/identity/site-pages/step-up/complete.aeds",
+    "AdminSitePagePow": "/api/v2/admin/identity/site-pages/pow.aeds",
+    "AdminSitePagePublish": "/api/v2/admin/identity/site-pages/publish.aeds",
     "AdminCategories": "/api/v2/admin/identity/taxonomy/categories.aeds",
     "AdminTags": "/api/v2/admin/identity/taxonomy/tags.aeds",
     "AdminCommentQueue": "/api/v2/admin/identity/comments/queue.aeds",
@@ -281,7 +288,8 @@
     "MfaProof": "X-Fsus-Mfa-Proof",
     "CurrentSession": "X-Fsus-Current-Session",
     "SiteRefresh": "X-Fsus-Site-Refresh",
-    "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token"
+    "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token",
+    "AdminSitePageEditor": "X-Fsus-Admin-Site-Page-Editor"
   },
   "limits": {
     "PowProofHeaderChars": 416,
@@ -309,6 +317,9 @@
     "NameBytes": 256,
     "PageContentChars": 200000,
     "PageContentBytes": 600000,
+    "AdminSitePageDigestBytes": 64,
+    "AdminSitePageSlugBytes": 10,
+    "AdminSitePagePublishFrameBytes": 600110,
     "SiteConfigBlobBytes": 4096,
     "BodyBytes": 1048576,
     "MaxPayloadBytes": 4194304,
@@ -593,6 +604,14 @@
     "AdminSitePages": {
       "frame": "AdminSitePages",
       "fields": [["ConfiguredMask", "i32"]]
+    },
+    "AdminSitePageRevision": {
+      "frame": "AdminSitePageRevision",
+      "fields": [["Slug", "text", "AdminSitePageSlugBytes"], ["Revision", "i64"], ["Digest", "text", "AdminSitePageDigestBytes"], ["Markdown", "text", "PageContentBytes"]]
+    },
+    "AdminSitePagePublish": {
+      "frame": "AdminSitePagePublish",
+      "fields": [["Slug", "text", "AdminSitePageSlugBytes"], ["ExpectedRevision", "i64"], ["ExpectedDigest", "text", "AdminSitePageDigestBytes"], ["Markdown", "text", "PageContentBytes"]]
     },
     "AuthoringWorkspaceSnapshot": {
       "frame": "AuthoringWorkspaceSnapshot",

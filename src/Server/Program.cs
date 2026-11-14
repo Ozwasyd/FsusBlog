@@ -17,6 +17,7 @@ const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
+var sitePageEditor = builder.Configuration.GetValue(SitePages.EditorSetting, false);
 var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
 var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
 var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
@@ -40,11 +41,14 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+if (sitePageEditor && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null))
+    throw new InvalidOperationException("The site page editor requires independent HTTPS administrator and public origins.");
 if (subscription is not null && publicSite.Origin is null)
     throw new InvalidOperationException("Subscription preferences require an explicit public HTTPS origin.");
 builder.Services.AddSingleton(new WebPages(template, publicSite, appearance));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
-    services.GetRequiredService<WebPages>()));
+    services.GetRequiredService<WebPages>(), services.GetRequiredService<NpgsqlDataSource>(),
+    services.GetRequiredService<InstanceLease>(), sitePageEditor));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicSite,
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
@@ -103,7 +107,7 @@ var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
 await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
     requireRecoveryKey: recoveryKey is null ? null : true,
-    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null);
+    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);

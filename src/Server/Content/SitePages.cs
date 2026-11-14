@@ -1,43 +1,79 @@
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Operations;
+using Microsoft.Net.Http.Headers;
 using Microsoft.Win32.SafeHandles;
+using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed class SitePages
 {
     private const string Html = "text/html; charset=utf-8";
+    internal const string EditorSetting = "FSUSBLOG_SITE_PAGE_EDITOR";
     private const string Unconfigured = "页面内容正在准备中，请稍后再试。";
     private static readonly string[] ReadMethods = [HttpMethods.Get, HttpMethods.Head];
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly (string Slug, string Title)[] Definitions =
         [("about", "关于"), ("privacy", "隐私政策"), ("guidelines", "用户守则"), ("copyright", "版权声明")];
 
-    private sealed record Page(byte[] Html, byte[] Frame, bool Configured);
+    private sealed record Page(AdminSitePageRevision Revision, byte[] Html, byte[] Frame, bool Configured,
+        EntityTagHeaderValue HtmlTag, EntityTagHeaderValue FrameTag);
 
     private readonly FrozenDictionary<string, Page> current;
+    private readonly ConcurrentDictionary<string, Page> published = new(StringComparer.Ordinal);
+    private readonly WebPages renderer;
+    private readonly NpgsqlDataSource source;
+    private readonly InstanceLease lease;
     internal IReadOnlyList<string> ConfiguredPaths { get; }
 
     internal int ConfiguredMask { get; }
+    internal bool EditorEnabled { get; }
 
-    internal byte[] ConfiguredPage(string slug)
+    private Page Find(string slug, bool configured = false)
     {
         if (slug.Length > WireLayouts.PageContentSlugBytes || !slug.All(char.IsAsciiLetter) ||
-            !current.TryGetValue(slug, out var page) || !page.Configured)
+            !current.TryGetValue(slug, out var page) || (configured && !page.Configured))
             throw new BusinessException(Rejection.NotFound, "Site page not found.");
-        return page.Frame;
+        return page;
     }
 
-    internal SitePages(IConfiguration configuration, WebPages renderer)
+    internal async Task<byte[]> ConfiguredFrame(NpgsqlConnection db, NpgsqlTransaction tx, string slug, CancellationToken ct)
     {
+        var baseline = Find(slug, configured: true);
+        if (!EditorEnabled) return baseline.Frame;
+        var revision = await SitePagePublicationStore.Read(db, tx, baseline.Revision, ct);
+        return revision.Revision == 0 ? baseline.Frame : SitePageWire.Encode(revision.Slug, revision.Markdown);
+    }
+
+    internal AdminSitePageRevision EditorBaseline(string slug)
+    {
+        if (!EditorEnabled) throw new BusinessException(Rejection.NotFound, "The site page editor is unavailable.");
+        return Find(slug, configured: true).Revision;
+    }
+
+    internal SitePages(IConfiguration configuration, WebPages renderer, NpgsqlDataSource source, InstanceLease lease, bool editorEnabled)
+    {
+        this.renderer = renderer;
+        this.source = source;
+        this.lease = lease;
+        EditorEnabled = editorEnabled;
         var configuredRoot = configuration["FSUSBLOG_SITE_PAGES"];
         var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
+        if (EditorEnabled && root is null)
+            throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
         current = Definitions.ToFrozenDictionary(spec => spec.Slug,
-            spec => Build(spec, root, renderer), StringComparer.OrdinalIgnoreCase);
+            spec =>
+            {
+                var markdown = root is null ? Unconfigured : Read(Path.Combine(root, spec.Slug + ".md"));
+                return Build(spec, new(spec.Slug, 0, Digest(markdown), markdown), root is not null);
+            }, StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < Definitions.Length; index++)
             if (current[Definitions[index].Slug].Configured) ConfiguredMask |= 1 << index;
         ConfiguredPaths = Definitions.Where(spec => current[spec.Slug].Configured)
@@ -46,39 +82,59 @@ internal sealed class SitePages
 
     internal void Map(WebApplication app)
     {
-        foreach (var (slug, page) in current)
+        foreach (var (slug, baseline) in current)
         {
-            app.MapMethods("/" + slug, ReadMethods, (HttpContext context) =>
+            var pageRoute = app.MapMethods("/" + slug, ReadMethods, async (HttpContext context, CancellationToken ct) =>
             {
+                context.Response.Headers.CacheControl = "no-store";
+                var page = await PublicPage(baseline, ct);
                 SetHeaders(context, page);
-                return Results.Bytes(page.Html, Html);
+                return Results.Bytes(page.Html, Html, entityTag: page.HtmlTag);
             });
+            if (EditorEnabled) pageRoute.RequireRateLimiting("query");
         }
 
-        app.MapMethods(WireRoutes.PublicSitePage, ReadMethods, (HttpContext context, string slug) =>
+        var frameRoute = app.MapMethods(WireRoutes.PublicSitePage, ReadMethods, async (HttpContext context, string slug, CancellationToken ct) =>
         {
-            if (slug.Length > WireLayouts.PageContentSlugBytes || !slug.All(char.IsAsciiLetter) ||
-                !current.TryGetValue(slug, out var page))
-                throw new BusinessException(Rejection.NotFound, "Site page not found.");
+            var page = await PublicPage(Find(slug), ct);
             SetHeaders(context, page);
-            return Results.Bytes(page.Frame, Aeds.ContentType);
+            return Results.Bytes(page.Frame, Aeds.ContentType, entityTag: page.FrameTag);
         });
+        if (EditorEnabled) frameRoute.RequireRateLimiting("query");
     }
 
-    private static Page Build((string Slug, string Title) spec, string? root, WebPages renderer)
+    private async Task<Page> PublicPage(Page baseline, CancellationToken ct)
     {
-        var markdown = root is null ? Unconfigured : Read(Path.Combine(root, spec.Slug + ".md"));
-        var title = HtmlEncoder.Default.Encode(spec.Title);
-        var state = root is null ? "unconfigured" : "published";
-        var content = $"<main><article data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header><h1>{title}</h1></header>" +
-            $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(markdown)}</div></article></main>";
-        return new(renderer.Page(content, spec.Title, language: "zh-CN", noIndex: root is null, publicPath: "/" + spec.Slug),
-            SitePageWire.Encode(spec.Slug, markdown), root is not null);
+        if (!EditorEnabled) return baseline;
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        var revision = await SitePagePublicationStore.Read(db, tx, baseline.Revision, ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
+        if (revision.Revision == 0) return baseline;
+        if (published.TryGetValue(revision.Slug, out var ready) && ready.Revision.Revision == revision.Revision)
+            return ready;
+        var page = Build(Definitions.Single(spec => spec.Slug == revision.Slug), revision, configured: true);
+        published.AddOrUpdate(revision.Slug, page, (_, previous) => previous.Revision.Revision > revision.Revision ? previous : page);
+        return page;
     }
+
+    private Page Build((string Slug, string Title) spec, AdminSitePageRevision revision, bool configured)
+    {
+        var frame = SitePageWire.Encode(spec.Slug, revision.Markdown);
+        var title = HtmlEncoder.Default.Encode(spec.Title);
+        var state = configured ? "published" : "unconfigured";
+        var content = $"<main><article data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header><h1>{title}</h1></header>" +
+            $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(revision.Markdown)}</div></article></main>";
+        var html = renderer.Page(content, spec.Title, language: "zh-CN", noIndex: !configured, publicPath: "/" + spec.Slug);
+        return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame));
+    }
+
+    internal static string Digest(string markdown) => Convert.ToHexStringLower(SHA256.HashData(Utf8.GetBytes(markdown)));
+
+    private static EntityTagHeaderValue StrongTag(byte[] contents) => new("\"" + Convert.ToHexStringLower(SHA256.HashData(contents)) + "\"");
 
     private static void SetHeaders(HttpContext context, Page page)
     {
-        context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.ContentLanguage = "zh-CN";
         if (!page.Configured) context.Response.Headers["X-Robots-Tag"] = "noindex, follow";
     }

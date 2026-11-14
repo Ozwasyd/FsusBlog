@@ -44,6 +44,9 @@ inline constexpr uint32_t AuthorArticleKeywordChars = 128;
 inline constexpr uint32_t NameBytes = 256;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
+inline constexpr uint32_t AdminSitePageDigestBytes = 64;
+inline constexpr uint32_t AdminSitePageSlugBytes = 10;
+inline constexpr uint32_t AdminSitePagePublishFrameBytes = 600110;
 inline constexpr uint32_t SiteConfigBlobBytes = 4096;
 inline constexpr uint32_t BodyBytes = 1048576;
 inline constexpr uint32_t MaxPayloadBytes = 4194304;
@@ -331,6 +334,8 @@ enum class FrameType : uint16_t {
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminSitePages = 32905,
+    AdminSitePageRevision = 32915,
+    AdminSitePagePublish = 32916,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -442,6 +447,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
         case FrameType::AdminSitePages:
+        case FrameType::AdminSitePageRevision:
+        case FrameType::AdminSitePagePublish:
         case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
         case FrameType::AdminInboxPage:

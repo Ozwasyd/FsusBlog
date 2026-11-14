@@ -1,16 +1,55 @@
-import { ProtocolError } from './aeds.ts';
+import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { decodeUtf8 } from './binary.ts';
 import { request } from './client.ts';
+import { readMfaProof } from './mfa.ts';
+import { requestPasskeyAssertion } from './passkey.ts';
+import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { decodeSitePage, sitePages, type SitePageSlug } from './site-pages.ts';
-import { decodeAdminSitePages, FrameType, WireRoutes } from './wire.generated.ts';
+import { decodeAdminSitePageRevision, decodeAdminSitePages, encodeAdminSitePagePublish,
+  FrameType, WireHeaders, WireLimits, WireRoutes, type AdminSitePagePublish } from './wire.generated.ts';
 
 const slugs = ['about', 'privacy', 'guidelines', 'copyright'] as const;
+const encoder = new TextEncoder();
 
 export function readAdminSitePages(signal: AbortSignal) {
-  return request(WireRoutes.AdminSitePages, FrameType.AdminSitePages, payload => {
+  return request(WireRoutes.AdminSitePages, FrameType.AdminSitePages, (payload, headers) => {
     const { configuredMask } = decodeAdminSitePages(payload);
     if (configuredMask < 0 || configuredMask > 15) throw new ProtocolError('Invalid site page configuration states');
-    return slugs.map((slug, index) => ({ slug, title: sitePages[slug], configured: Boolean(configuredMask & (1 << index)) }));
+    return {
+      editor: headers.get(WireHeaders.AdminSitePageEditor) === '1',
+      pages: slugs.map((slug, index) => ({ slug, title: sitePages[slug], configured: Boolean(configuredMask & (1 << index)) })),
+    };
   }, signal);
+}
+
+export function readSitePageRevision(slug: SitePageSlug, signal: AbortSignal) {
+  return request(WireRoutes.AdminSitePageRevision.replace('{slug}', slug), FrameType.AdminSitePageRevision, payload => {
+    const page = decodeAdminSitePageRevision(payload);
+    if (page.slug !== slug || page.revision < 0n || !/^[a-f0-9]{64}$/.test(page.digest) || !validPageMarkdown(page.markdown))
+      throw new ProtocolError('Invalid administrator site page revision');
+    return page;
+  }, signal);
+}
+
+export function validPageMarkdown(markdown: string): boolean {
+  if (markdown.length > WireLimits.PageContentChars || markdown.includes('\0')) return false;
+  const bytes = encoder.encode(markdown);
+  return bytes.length <= WireLimits.PageContentBytes && decodeUtf8(bytes) === markdown;
+}
+
+export async function publishAdminSitePage(intent: AdminSitePagePublish, signal: AbortSignal): Promise<void> {
+  if (!validPageMarkdown(intent.markdown)) throw new ProtocolError('Invalid site page Markdown');
+  const frame = encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(intent));
+  const assertion = await requestPasskeyAssertion(WireRoutes.AdminSitePageStepUpBegin, signal, frame, true);
+  const passkey = await request(WireRoutes.AdminSitePageStepUpComplete, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
+
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
+  const challenge = await request(WireRoutes.AdminSitePagePow, FrameType.PowChallenge, decodePowChallenge,
+    signal, 'POST', frame, { [WireHeaders.PowClientNonce]: nonce });
+  const work = await solveScopedPow(challenge, nonce, signal);
+  await request(WireRoutes.AdminSitePagePublish, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', frame,
+    { [WireHeaders.MfaProof]: passkey, [WireHeaders.PowProof]: encodePowProof(challenge, work, nonce) });
 }
 
 export function readAdminSitePage(slug: SitePageSlug, signal: AbortSignal) {

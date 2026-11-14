@@ -46,6 +46,8 @@ export const FrameType = {
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
   AdminSitePages: 32905,
+  AdminSitePageRevision: 32915,
+  AdminSitePagePublish: 32916,
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
   AdminInboxPage: 32896,
@@ -151,6 +153,9 @@ export const WireLimits = {
   NameBytes: 256,
   PageContentChars: 200000,
   PageContentBytes: 600000,
+  AdminSitePageDigestBytes: 64,
+  AdminSitePageSlugBytes: 10,
+  AdminSitePagePublishFrameBytes: 600110,
   SiteConfigBlobBytes: 4096,
   BodyBytes: 1048576,
   MaxPayloadBytes: 4194304,
@@ -464,6 +469,11 @@ export const WireRoutes = {
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
   AdminSitePages: "/api/v2/admin/identity/site-pages.aeds",
   AdminSitePage: "/api/v2/admin/identity/site-pages/{slug}.aeds",
+  AdminSitePageRevision: "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
+  AdminSitePageStepUpBegin: "/api/v2/admin/identity/site-pages/step-up/begin.aeds",
+  AdminSitePageStepUpComplete: "/api/v2/admin/identity/site-pages/step-up/complete.aeds",
+  AdminSitePagePow: "/api/v2/admin/identity/site-pages/pow.aeds",
+  AdminSitePagePublish: "/api/v2/admin/identity/site-pages/publish.aeds",
   AdminCategories: "/api/v2/admin/identity/taxonomy/categories.aeds",
   AdminTags: "/api/v2/admin/identity/taxonomy/tags.aeds",
   AdminCommentQueue: "/api/v2/admin/identity/comments/queue.aeds",
@@ -554,6 +564,7 @@ export const WireHeaders = {
   CurrentSession: "X-Fsus-Current-Session",
   SiteRefresh: "X-Fsus-Site-Refresh",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
+  AdminSitePageEditor: "X-Fsus-Admin-Site-Page-Editor",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
@@ -840,6 +851,62 @@ export function decodeAdminSitePages(payload: Uint8Array): AdminSitePages {
   const reader = new PodReader(payload);
   const value: AdminSitePages = {
     configuredMask: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminSitePageRevision {
+  slug: string;
+  revision: bigint;
+  digest: string;
+  markdown: string;
+}
+
+export function encodeAdminSitePageRevision(value: AdminSitePageRevision): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.slug, WireLimits.AdminSitePageSlugBytes);
+  writer.i64(value.revision);
+  writer.text(value.digest, WireLimits.AdminSitePageDigestBytes);
+  writer.text(value.markdown, WireLimits.PageContentBytes);
+  return writer.finish();
+}
+
+export function decodeAdminSitePageRevision(payload: Uint8Array): AdminSitePageRevision {
+  const reader = new PodReader(payload);
+  const value: AdminSitePageRevision = {
+    slug: reader.text(WireLimits.AdminSitePageSlugBytes),
+    revision: reader.i64(),
+    digest: reader.text(WireLimits.AdminSitePageDigestBytes),
+    markdown: reader.text(WireLimits.PageContentBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminSitePagePublish {
+  slug: string;
+  expectedRevision: bigint;
+  expectedDigest: string;
+  markdown: string;
+}
+
+export function encodeAdminSitePagePublish(value: AdminSitePagePublish): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.slug, WireLimits.AdminSitePageSlugBytes);
+  writer.i64(value.expectedRevision);
+  writer.text(value.expectedDigest, WireLimits.AdminSitePageDigestBytes);
+  writer.text(value.markdown, WireLimits.PageContentBytes);
+  return writer.finish();
+}
+
+export function decodeAdminSitePagePublish(payload: Uint8Array): AdminSitePagePublish {
+  const reader = new PodReader(payload);
+  const value: AdminSitePagePublish = {
+    slug: reader.text(WireLimits.AdminSitePageSlugBytes),
+    expectedRevision: reader.i64(),
+    expectedDigest: reader.text(WireLimits.AdminSitePageDigestBytes),
+    markdown: reader.text(WireLimits.PageContentBytes),
   };
   reader.finish();
   return value;

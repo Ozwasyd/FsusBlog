@@ -36,6 +36,8 @@ internal static partial class Migration
                                         Inspect preview Canvas provenance or upgrade its exact empty schema offline
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   recovery-key schema    Add site Recovery Key storage with the server stopped
+                  site-page-editor schema
+                                        Add optional site page publication storage with the server stopped
                   site-refresh schema    Add site refresh storage with the server stopped
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
@@ -188,6 +190,9 @@ internal static partial class Migration
                 case ["site-refresh", "schema"]:
                     await InitializeSiteRefreshAsync(connection, token);
                     break;
+                case ["site-page-editor", "schema"]:
+                    await InitializeSitePageEditorAsync(connection, token);
+                    break;
                 case ["revision-history"]:
                     await InitializeRevisionHistoryAsync(connection, token);
                     break;
@@ -305,7 +310,8 @@ internal static partial class Migration
         await RequireEmptyAsync(connection, transaction, token);
         await ExecuteAsync(connection, transaction, schema, token);
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
-            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireSiteRefresh: true);
+            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireSiteRefresh: true,
+            requireSitePageEditor: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

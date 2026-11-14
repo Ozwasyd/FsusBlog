@@ -113,6 +113,8 @@ internal static class AdminIdentityEndpoints
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);
+        if (app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().EditorEnabled)
+            AdminSitePageEditorEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         app.MapGet(WireRoutes.AdminCategories, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], false, ctx.Request.Query, publications, ct))))
             .RequireRateLimiting("command");

@@ -255,6 +255,12 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   export FSUSBLOG_SITE_PAGES=$(cd "$scratch/pages" && pwd -P)
   printf '# Verified about\n\n<script>literal</script>\n' > "$FSUSBLOG_SITE_PAGES/about.md"
   for slug in privacy guidelines copyright; do printf '# Verified %s\n' "$slug" > "$FSUSBLOG_SITE_PAGES/$slug.md"; done
+  if [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR:-0} == 1 ]]; then
+    export FSUSBLOG_SITE_PAGE_EDITOR=true
+    "$dotnet" "$migrate" site-page-editor schema > "$evidence/site-page-editor-migration.log"
+    "$dotnet" "$migrate" site-page-editor schema >> "$evidence/site-page-editor-migration.log"
+    sha_before=$(shasum -a 256 "$FSUSBLOG_SITE_PAGES/about.md")
+  fi
 elif [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
@@ -360,6 +366,29 @@ elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   node tests/EndToEnd/site-refresh-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
+fi
+if [[ ${FSUSBLOG_SITE_PAGE_EDITOR:-false} == true ]]; then
+  [[ "$sha_before" == "$(shasum -a 256 "$FSUSBLOG_SITE_PAGES/about.md")" ]]
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'audited_published_pages=' || count(*) from public.site_page_publish_audit a
+      join public.site_page_content p on p.slug=a.slug and p.revision=a.revision
+      join public.admin_principal admin on admin.id=a.principal_id
+      where a.slug='about' and a.revision=1 and admin.handle='tls-admin-fixture'
+        and a.previous_digest<>a.next_digest and a.next_digest=sha256(convert_to(p.markdown,'UTF8'))
+    union all select 'consumed_site_page_step_up=' || count(*) from public.admin_site_page_step_up
+  " > "$evidence/site-page-publication-counts.txt"
+  grep -Fxq 'audited_published_pages=1' "$evidence/site-page-publication-counts.txt"
+  grep -Fxq 'consumed_site_page_step_up=0' "$evidence/site-page-publication-counts.txt"
+  kill "$server_pid"
+  wait "$server_pid" 2>/dev/null || true
+  "$dotnet" "$server" --urls "http://127.0.0.1:$upstream_port" > "$evidence/server-restarted.log" 2>&1 &
+  server_pid=$!
+  for (( attempt=0; attempt<120; attempt++ )); do
+    if curl --silent --fail --cacert "$scratch/ca.pem" "$FSUSBLOG_PUBLIC_ADDRESS/about" > "$evidence/restarted-site-page.html"; then break; fi
+    kill -0 "$server_pid"
+    sleep 0.2
+  done
+  grep -Fq 'Published by authorized editor' "$evidence/restarted-site-page.html"
 fi
 "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
   select 'admin_sessions=' || count(*) from public.admin_session
