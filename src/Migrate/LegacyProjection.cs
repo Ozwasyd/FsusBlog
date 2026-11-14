@@ -40,6 +40,7 @@ internal static partial class Migration
             if (mode == "verify" && !already)
                 throw new InvalidOperationException("No sealed current-table projection exists.");
             await VerifyLegacyProjectionFactsAsync(target, tx, ct);
+            int verifiedRollbacks = await VerifyLegacyPublishedRollbacksAsync(target, tx, ct);
             await VerifyProjectedLegacyRightsAsync(target, tx, ct);
             var projection = await BuildProjectionRelationsAsync(target, tx, ct);
             await VerifyProjectionCoverageAsync(target, tx, backup, projection, already, ct);
@@ -63,6 +64,7 @@ internal static partial class Migration
                 result = mode == "verify" ? "verified" : already ? "revalidated" : "projected",
                 readyToApply = false,
                 retainedLegacyPublicationRows = plan.ExpectedTables.Single(row => row.Table == "shadow_publication").Rows,
+                verifiedPublishedRollbackRows = verifiedRollbacks,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",
                     "unsupported domain conversion and activation" }
             }, Json));

@@ -73,6 +73,30 @@ prepare_candidate() {
                 SET policy_hash='sha256:0000000000000000000000000000000000000000000000000000000000000000'
                 WHERE id=701"
             ;;
+        rollback|rollback_wrong_source|rollback_hidden|rollback_wrong_digest)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" < tests/Integration/Migration/legacy-projected-rollback-fixture.sql
+            case "$case_name" in
+                rollback_wrong_source)
+                    sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "
+                        UPDATE article_revision SET rollback_source_revision_id=5000000002 WHERE id=5000000004"
+                    ;;
+                rollback_hidden)
+                    # v1 also appends a rollback publication when the resulting article stays a draft.
+                    sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "
+                        UPDATE article SET status=0,last_published_at=NULL,public_updated_at='2026-10-04 00:00:00';
+                        UPDATE article_rights_snapshot
+                        SET content_canonical_hash='sha256:5dde0c378a2c13cf79df9f26aade010058a1b5d1aba16b6b4e8949a8917c0eea',
+                            policy_hash='sha256:26fd6e71c79716a5cd429563d9e23d1d208137da854eafe82069bb3fba89ee69'
+                        WHERE id=702"
+                    ;;
+                rollback_wrong_digest)
+                    sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "
+                        UPDATE article_rights_snapshot SET
+                            content_canonical_hash='sha256:0000000000000000000000000000000000000000000000000000000000000000'
+                        WHERE id=702"
+                    ;;
+            esac
+            ;;
     esac
     source_before="$(digest "$FSUSBLOG_V1_SQLITE_PATH")"
 
@@ -238,4 +262,40 @@ before="$(state)"
 expect_refused "${project_rows[@]}"
 rg -F 'rights policy SHA-256' "$run/error.log" "$run/refused.json"
 [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+prepare_candidate rollback
+"${project_rows[@]}" > "$run/projected.json"
+"${project_rows[@]}" > "$run/revalidated.json"
+FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" \
+    "${verify_rows[@]}" > "$run/verified.json"
+python3 - "$run/projected.json" "$run/revalidated.json" "$run/verified.json" <<'PY'
+import json, sys
+from pathlib import Path
+receipts = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
+assert [receipt["result"] for receipt in receipts] == ["projected", "revalidated", "verified"]
+assert all(receipt["verifiedPublishedRollbackRows"] == 1 and receipt["retainedLegacyPublicationRows"] == 3
+           and receipt["readyToApply"] is False for receipt in receipts)
+assert len({receipt["projectionSha256"] for receipt in receipts}) == 1
+PY
+[[ "$("${sql[@]}" -Atc "SELECT a.revision,a.title,a.body,p.publication_id,p.publication_no,p.published_at AT TIME ZONE 'UTC'
+    FROM public.article a JOIN public.article_publication p ON p.article_id=a.id")" == '4|First|first|900000003|3|2026-10-04 00:00:00' ]]
+[[ "$("${sql[@]}" -Atc "SELECT source_revision_id,source_rollback_revision_id,source_admin_id,source_rollback_reason
+    FROM fsus_legacy_candidate.shadow_revision WHERE revision=4")" == '5000000004|5000000001|7|Return to the original article text' ]]
+[[ "$("${sql[@]}" -Atc "SELECT id,publication_id,revision FROM public.article_publication_rights ORDER BY publication_id")" \
+    == $'700|900000001|1\n701|900000002|2\n702|900000003|4' ]]
+[[ "$("${sql[@]}" -Atc "SELECT kind,actor_id IS NULL,command_id IS NULL FROM public.article_publication_history")" == 'retained-active|t|t' ]]
+[[ "$("${sql[@]}" -Atc "SELECT (SELECT count(*) FROM public.article_rollback),(SELECT count(*) FROM public.article_command),
+    (SELECT count(*) FROM public.blog_outbox)")" == '0|0|0' ]]
+[[ "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+
+for case_name in rollback_wrong_source rollback_hidden rollback_wrong_digest; do
+    prepare_candidate "$case_name"
+    before="$(state)"
+    expect_refused "${project_rows[@]}"
+    if [[ "$case_name" == rollback_wrong_digest ]]; then
+        rg -F 'canonical content SHA-256' "$run/error.log"
+    else
+        rg -F 'legacy published rollback lacks its exact historical source or cloned provenance' "$run/error.log"
+    fi
+    [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+done
 printf '%s\n' 'Staged legacy data projected and reverified with original publication IDs, rights, permanent quarantine, drift refusal, and no changes after a refused projection.'

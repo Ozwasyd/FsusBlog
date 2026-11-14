@@ -20,12 +20,15 @@ internal static partial class Migration
                    r.title,r.body,r.summary,r.cover_image_url,r.source_category_id,r.source_tag_ids,
                    s.id,s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,
                    s.attribution_template,s.copy_policy,s.max_excerpt_chars,s.allow_code_copy,s.show_public_badge,
-                   s.proof_binding_enabled,s.canonical_url,s.content_canonical_hash,s.policy_hash
+                   s.proof_binding_enabled,s.canonical_url,s.content_canonical_hash,s.policy_hash,first.published_at,
+                   p.publication_number,a.published_at,p.source_created_at,r.happened_at,s.created_at
             FROM {ImportSchema}.shadow_publication p
             LEFT JOIN {ImportSchema}.shadow_revision r ON r.source_revision_id=p.source_revision_id
                 AND r.article_id=p.article_id AND r.revision=p.revision
             LEFT JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
                 AND s.article_id=p.article_id AND s.article_revision_id=p.source_revision_id AND s.revision_no=p.revision
+            LEFT JOIN {ImportSchema}.shadow_publication first ON first.article_id=p.article_id AND first.publication_number=1
+            LEFT JOIN {ImportSchema}.shadow_article a ON a.id=p.article_id
             ORDER BY p.article_id,p.publication_number
             """, target, tx);
         await using var rows = await command.ExecuteReaderAsync(token);
@@ -34,7 +37,8 @@ internal static partial class Migration
         {
             if (rows.IsDBNull(11) || rows.IsDBNull(5) || rows.IsDBNull(6) || rows.IsDBNull(10))
                 throw new InvalidOperationException("A legacy publication lacks its exact revision or rights snapshot.");
-            if (LegacyRightsText(rows, 3) != "immediate-publish")
+            var transition = LegacyRightsText(rows, 3);
+            if (transition is not ("immediate-publish" or "rollback"))
                 throw new InvalidOperationException("A legacy publication requires unsupported historical rights coordinates.");
             var snapshot = rows.GetInt64(11);
             if (snapshot <= 0 || !sources.Add(snapshot))
@@ -46,11 +50,21 @@ internal static partial class Migration
             int category = LegacyRightsInt(rows, 9);
             if (article <= 0 || sourceRevision <= 0 || revision <= 0 || category <= 0)
                 throw new InvalidOperationException("A legacy publication has invalid canonical coordinates.");
-            var published = LegacyRightsTime(LegacyRightsText(rows, 4));
             var tagCsv = rows.GetString(10);
             int[] tags = tagCsv.Length == 0 ? [] : tagCsv.Split(',').Select(ParseRevisionTag).Distinct().Order().ToArray();
 
-            var content = LegacyRightsSha256(
+            // The production update path binds the first release time; the lifecycle writer binds the actual release time.
+            var eventAt = LegacyRightsText(rows, 4);
+            var firstAt = LegacyRightsText(rows, 26);
+            var expectedContent = LegacyRightsText(rows, 24);
+            var content = ContentAt(transition == "rollback" ? firstAt : eventAt);
+            if (transition == "immediate-publish" && content != expectedContent && rows.GetInt64(27) > 1 &&
+                CanVerifyLegacyRepublish(rows, firstAt, eventAt))
+                content = ContentAt(firstAt);
+            if (content != expectedContent)
+                throw new InvalidOperationException("A legacy publication's recorded canonical content SHA-256 does not match its frozen revision.");
+
+            string ContentAt(string? bindingTime) => LegacyRightsSha256(
                 "fsusblog.integrity.article-canonical.v1",
                 "hashVersion:i:1",
                 LegacyRightsInteger("articleId", article),
@@ -63,11 +77,9 @@ internal static partial class Migration
                 LegacyRightsInteger("categoryId", category),
                 "tagIds:i:" + string.Join(',', tags.Select(tag => tag.ToString(CultureInfo.InvariantCulture))),
                 "status:i:2",
-                "publishedAt:t:" + published,
+                "publishedAt:t:" + LegacyRightsTime(bindingTime),
                 "scheduledPublishAt:n",
                 LegacyRightsString("markdown", rows.GetString(6)));
-            if (content != LegacyRightsText(rows, 24))
-                throw new InvalidOperationException("A legacy publication's recorded canonical content SHA-256 does not match its frozen revision.");
 
             var holder = LegacyRightsText(rows, 14);
             int? year = rows.IsDBNull(15) ? null : LegacyRightsInt(rows, 15);
@@ -105,6 +117,18 @@ internal static partial class Migration
             if (policy != LegacyRightsText(rows, 25))
                 throw new InvalidOperationException("A legacy publication's recorded rights policy SHA-256 does not match its frozen snapshot.");
         }
+    }
+
+    private static bool CanVerifyLegacyRepublish(NpgsqlDataReader row, string? firstAt, string? eventAt)
+    {
+        if (firstAt is null || eventAt is null || row.IsDBNull(28) || row.IsDBNull(29) || row.IsDBNull(30) || row.IsDBNull(31))
+            return false;
+        var first = ParseLegacyProjectionTimestamp(firstAt);
+        var actual = ParseLegacyProjectionTimestamp(eventAt);
+        return first < actual && first == ParseLegacyProjectionTimestamp(row.GetString(28)) &&
+               actual == ParseLegacyProjectionTimestamp(row.GetString(29)) &&
+               actual == ParseLegacyProjectionTimestamp(row.GetString(30)) &&
+               actual == ParseLegacyProjectionTimestamp(row.GetString(31));
     }
 
     // The two payloads follow ArticleCanonicalHashV1 and ArticleRightsCanonicalHashV1 at LegacyReference.
