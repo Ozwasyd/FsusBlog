@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorArticlePinTransport.cs",
+                "src/shared/Contracts/AuthorArticlePins/AuthorArticlePinTransportContracts.cs"
+            ],
+            "reason": "Preserve original configuration, authenticated request claims and stable article pin identity/reference spellings in the two managed transport paths. These are conservatively governed by the trusted naming registry; this ordinary source evidence grants no permission, currentness, active protocol or qualification authority."
+        }
+    ]
+}
