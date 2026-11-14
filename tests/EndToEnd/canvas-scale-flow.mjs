@@ -5,9 +5,10 @@ import { join } from 'node:path'
 import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasBundlePlan, encodeCanvasBundleExecute } from '../../src/Contracts/canvas-bundle.ts'
 import { decodeCanvasGraphPage, decodeCanvasGraphReceipt, defaultCanvasViewport } from '../../src/Contracts/canvas-graph.ts'
-import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeArticle } from '../../src/Contracts/public-articles.ts'
+import { decodeCanvasConfirm, decodeCanvasLinked, decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import {
-  CANVAS_SCALE_ARTICLE_SOURCE, CANVAS_SCALE_FAR_EDGE, CANVAS_SCALE_FAR_NOTE, CANVAS_SCALE_LOCATIONS,
+  CANVAS_SCALE_ARTICLE_SOURCE, CANVAS_SCALE_FAR_EDGE, CANVAS_SCALE_FAR_NOTE, CANVAS_SCALE_FIRST_EDGE, CANVAS_SCALE_LOCATIONS,
   CANVAS_SCALE_HEADING_ANCHOR, CANVAS_SCALE_NEAR_NOTE, createCanvasScaleCorpus,
 } from './canvas-scale-corpus.mjs'
 
@@ -16,7 +17,7 @@ const nodeSelector = '.canvas-board__node'
 const edgeSelector = '.canvas-board__edges g'
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
 const round = milliseconds => Math.round(milliseconds * 10) / 10
-const route = (pattern, id) => pattern.replace('{id:guid}', id).replace('{id:int}', String(id))
+const route = (pattern, id) => pattern.replace(/\{id(?::guid|:int)?\}/, String(id))
 const budget = { nodes: 100, edges: 200, outlineRows: 100 }
 const matrix = [
   { name: 'desktop-1', width: 1280, height: 800 },
@@ -76,7 +77,7 @@ async function mountMetrics(page) {
 }
 
 export async function exerciseCanvasScale({ page, origin, screenshot, observations, evidenceDir, createDraft, publishDraft, outsider }) {
-  const first = await createDraft('Canvas scale source', CANVAS_SCALE_ARTICLE_SOURCE)
+  const first = await publishDraft(await createDraft('Canvas scale source', CANVAS_SCALE_ARTICLE_SOURCE))
   const secondDraft = await createDraft('Canvas scale target', CANVAS_SCALE_ARTICLE_SOURCE)
   const second = await publishDraft(secondDraft)
   const corpus = createCanvasScaleCorpus({ first, second })
@@ -170,6 +171,87 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     } finally {
       await other.close()
     }
+  }
+
+  const fetchDraft = async article => decodeDraft(await frame(
+    await page.request.get(origin + route(WireRoutes.Draft, article.id)), FrameType.Draft))
+  const fetchPublic = async article => decodeArticle(await frame(
+    await page.request.get(origin + route(WireRoutes.PublicArticle, article.id)), FrameType.ArticleDetail))
+
+  async function convertArticleLink() {
+    await button('Outline').click()
+    await pickOutline(CANVAS_SCALE_FIRST_EDGE)
+    const review = page.getByRole('dialog', { name: 'Review article link', exact: true })
+    const [beforePublic, beforeTarget] = await Promise.all([fetchPublic(first), fetchPublic(second)])
+    const started = performance.now()
+    await button('Review article link').click()
+    const inserted = `\n\n[${second.title}](/article/${second.id})`
+    await review.locator('pre').waitFor()
+    assert.equal(await review.locator('pre').textContent(), inserted)
+    await review.getByRole('button', { name: 'Cancel', exact: true }).press('Enter')
+    await review.waitFor({ state: 'hidden' })
+    assert.deepEqual(await fetchDraft(first), first)
+    shape(decodeCanvasGraphPage(await frame(await page.request.get(origin + graphPath), FrameType.CanvasGraphPage)).header,
+      revision, counts, defaultCanvasViewport)
+
+    await button('Review article link').click()
+    const confirmation = origin + WireRoutes.CanvasConfirm
+    const committed = Promise.withResolvers()
+    const dropConfirmationResponse = async intercepted => {
+      try {
+        const request = intercepted.request()
+        assert.equal(request.method(), 'POST')
+        const payload = request.postDataBuffer()
+        const expected = decodeCanvasConfirm(decodeFrame(payload, FrameType.CanvasConfirm).payload)
+        const upstream = await intercepted.fetch({ maxRetries: 0, maxRedirects: 0 })
+        try {
+          const receipt = decodeCanvasLinked(await frame(upstream, FrameType.CanvasLinked))
+          assert.equal(receipt.planId, expected.planId)
+          await intercepted.abort('connectionreset')
+          committed.resolve({ receipt, payload })
+        } finally {
+          await upstream.dispose()
+        }
+      } catch (cause) {
+        await intercepted.abort('failed').catch(() => {})
+        committed.reject(cause)
+      }
+    }
+    await page.route(confirmation, dropConfirmationResponse, { times: 1 })
+    let accepted
+    try {
+      accepted = await Promise.all([
+        committed.promise,
+        review.getByRole('button', { name: 'Confirm link', exact: true }).press('Enter'),
+      ])
+    } finally {
+      await page.unroute(confirmation, dropConfirmationResponse)
+    }
+    const [{ receipt, payload }] = accepted
+    assert.deepEqual([receipt.articleId, receipt.articleRevision, receipt.canvasRevision],
+      [first.id, first.revision + 1n, revision + 1n])
+    const retry = review.getByRole('button', { name: 'Retry confirmation', exact: true })
+    await retry.waitFor()
+    const [response] = await Promise.all([
+      page.waitForResponse(reply => reply.url() === confirmation && reply.request().method() === 'POST'),
+      retry.press('Enter'),
+    ])
+    assert.deepEqual(response.request().postDataBuffer(), payload)
+    assert.deepEqual(decodeCanvasLinked(decodeFrame(await response.body(), FrameType.CanvasLinked).payload), receipt)
+    assert.equal(response.status(), 200)
+    revision = receipt.canvasRevision
+    await review.waitFor({ state: 'hidden' })
+    await footer(revision).waitFor({ timeout: 180_000 })
+
+    const linked = await fetchDraft(first)
+    assert.deepEqual(linked, { ...first, body: first.body + inserted, revision: first.revision + 1n })
+    assert.deepEqual(await fetchDraft(second), second)
+    assert.equal(beforePublic.revision, first.revision)
+    assert.deepEqual(await fetchPublic(first), beforePublic)
+    assert.deepEqual(await fetchPublic(second), beforeTarget)
+    report.link = { planId: receipt.planId, articleId: first.id, targetArticleId: second.id, draftRevision: linked.revision,
+      publishedRevision: beforePublic.revision, canvasRevision: revision, bodySha256: digest(linked.body),
+      confirmedWithSameBytes: true, milliseconds: round(performance.now() - started) }
   }
 
   try {
@@ -309,6 +391,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
         page.off('response', read)
       }
     }
+    await convertArticleLink()
     const href = await page.getByRole('link', { name: 'Export Canvas bundle', exact: true }).getAttribute('href')
     assert.equal(href, route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=' + revision)
     const exportStarted = performance.now()
@@ -331,12 +414,9 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     assert.deepEqual(await repeatExport.body(), bytes)
     report.exactExport = { revision, bytes: bytes.length, digest: digest(bytes), milliseconds: round(performance.now() - exportStarted) }
 
-    for (const article of [first, second]) {
-      const stored = decodeDraft(await frame(await page.request.get(origin + route(WireRoutes.Draft, article.id)), FrameType.Draft))
-      assert.deepEqual(stored, article)
-    }
     observations.push('Three native Chrome trials loaded all 10,000 nodes and 10,000 edges from the deployed application. The graph stayed within 100 mounted nodes, 200 edge groups and 100 outline rows while seeking, zooming, panning and handling keyboard focus.')
-    observations.push('The exact Canvas revisions retained the node movement across undo and redo, private Canvas routes denied anonymous access and rejected another authenticated owner, and both article revisions and source bytes remained unchanged.')
+    observations.push('The private graph retained one movement across undo and redo and denied anonymous and other-owner access.')
+    observations.push('On the fully loaded graph the author cancelled an explicit link conversion, then confirmed a new plan. The server committed before the first response was lost. The same confirmation bytes returned the same receipt and inserted one draft link, with both published articles and all graph edges preserved.')
     return report
   } finally {
     if (beforeViewport) await page.setViewportSize(beforeViewport)

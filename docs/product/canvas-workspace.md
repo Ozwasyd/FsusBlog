@@ -14,4 +14,6 @@
 
 固定语料包含 10,000 个节点、10,000 条边和 6,000 个显式文章引用映射。安装包 `08d7040`（SHA-256 `04944cbde35a759feb7695c33b6c1144c8044b288a879e595b039fccb2224fee`）在真实 PostgreSQL 18.7 和 Chrome 上运行桌面、375px、桌面三轮。首屏分别为 110.4、69.1 和 65.4 ms。每轮访问 470 页才读完同一修订，耗时分别为 3.319、2.328 和 2.332 秒。三轮均验证了最远的节点与边、空间定位、缩放、拖动视口和键盘焦点，桌面首轮额外验证固定标题解析、移动、撤销和重做。浏览器分别最多挂载 100 个节点、200 条边和 100 个大纲条目。最终修订 16 的 20,000 条记录都与确定语料及唯一一次持久化节点移动相符，重复导出字节一致，两个文章修订保持原样。授权外的会话不可读取。首次重复测试发现同一视口定位的焦点丢失，修复后复测通过。数字为同机回环单次三轮观测，未约定吞吐或延迟目标。 [浏览器测量](../../artifacts/canvas-scale-evidence/run-4/canvas-scale-trials.json) · [数据库复核](../../artifacts/canvas-scale-evidence/run-4/canvas-scale-database.txt)
 
-图形工作区仍缺导入覆盖既有文档、有数据的旧开发数据库转换、把交互和所有关联域行为合并的一万节点矩阵，以及 CPU、RSS 和完整无障碍审计。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)
+使用 `db53a07` 解包产物补验万级显式文章链接。作者在完整加载的 10,000 节点和 10,000 边上先取消预览，再确认一个新计划。真实服务提交后，测试丢弃首次网络响应。浏览器以完全相同的请求字节重试并取得原始回执。独立 PostgreSQL 复核只增加一次草稿和 Canvas 修订、一次命令及一次 outbox，两个公开版本与 Canvas 两种边全部保留。 [浏览器结果](../../artifacts/canvas-scale-link-db53a07/canvas-scale-result.json) · [数据库复核](../../artifacts/canvas-scale-link-db53a07/canvas-scale-database.txt)
+
+图形工作区仍缺导入覆盖既有文档、有数据的旧开发数据库转换、更广的标题与块转换、CPU、RSS 和完整无障碍审计。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)
