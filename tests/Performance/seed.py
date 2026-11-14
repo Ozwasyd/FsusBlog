@@ -19,6 +19,7 @@ TOTAL = PUBLIC + DRAFT + WITHDRAWAL
 CATEGORIES = 32
 TAGS = 128
 SCHEMA = 1
+ADMIN_IDENTITY_SCHEMA = 2
 SERVER_LOCK = 716729109726707501
 MIGRATION_LOCK = 4815262471654073021
 SIZES = (2048, 8192, 32768)
@@ -186,7 +187,7 @@ BEGIN
             CONTINUE;
         END IF;
         IF relation.relname = 'admin_identity_schema' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = 1) FROM public.admin_identity_schema'
+            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = {ADMIN_IDENTITY_SCHEMA}) FROM public.admin_identity_schema'
                 INTO valid_bootstrap;
             IF valid_bootstrap IS DISTINCT FROM true THEN
                 RAISE EXCEPTION 'Fixture target has an invalid administrator identity bootstrap marker';

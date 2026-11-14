@@ -58,12 +58,16 @@ def summarize(rows, load, rss, pid):
     if not start_at <= measured_at <= utc_earliest_end <= drained_at <= end_at:
         raise ValueError("The marked runtime interval does not enclose the load interval.")
 
-    gc_pauses = [
-        pause["Milliseconds"]
+    gc_events = [
+        pause
         for row in rows
         for pause in row["gcPauses"]
         if start_at <= timestamp(pause["StartUtc"]) <= timestamp(pause["EndUtc"]) <= end_at
     ]
+    gc_pauses = [pause["Milliseconds"] for pause in gc_events]
+    gc_suspensions = [pause["SuspensionMilliseconds"] for pause in gc_events if "SuspensionMilliseconds" in pause]
+    gc_resumes = [pause["ResumeMilliseconds"] for pause in gc_events if "ResumeMilliseconds" in pause]
+    split_complete = bool(gc_events) and len(gc_events) == len(gc_suspensions) == len(gc_resumes)
     series = [row for row in rows if start_at <= timestamp(row["utc"]) <= end_at]
     all_routes = load["routes"]["all"]
     correct = all_routes["ok"]
@@ -78,6 +82,7 @@ def summarize(rows, load, rss, pid):
     traced_pause = sum(gc_pauses)
     trailing = next((row for row in rows if timestamp(row["utc"]) > end_at), None)
     unmatched = (trailing or end)["gcUnmatched"] - start["gcUnmatched"]
+    pending_gc_phases = (trailing or end).get("gcOpenSuspensions")
     guard_before = (measured_at - start_at).total_seconds()
     guard_after = (end_at - drained_at).total_seconds()
     observer_samples = end["observerRequestSamples"] - start["observerRequestSamples"]
@@ -86,6 +91,8 @@ def summarize(rows, load, rss, pid):
     errors = []
     if trailing is None:
         errors.append("No post-measurement sample was available to collect late GC events.")
+    if pending_gc_phases:
+        errors.append("A CLR suspension was still unpaired at the post-measurement sample.")
     if control_commands <= 0 or control_requests != 1:
         errors.append("No instrumented PostgreSQL command found under the positive HTTP comments control.")
     startup_opens = sum(rows[0]["dbPhysicalOpenStarts"].values())
@@ -100,9 +107,18 @@ def summarize(rows, load, rss, pid):
         errors.append("An unclassified Npgsql command occurred during hot measurement.")
     if query_counts["comments"] != 0 or query_counts["otherHttp"] != 0:
         errors.append("Unexpected PostgreSQL request activity occurred during hot measurement.")
+    supply = load.get("supplyBySecond")
+    if supply is not None:
+        expected = {"planned": load["expected"], "schedulerAwake": all_routes["sent"] + all_routes["dropped"],
+                    "admitted": all_routes["sent"], "dropped": all_routes["dropped"], "attemptFinished": all_routes["sent"],
+                    "socketWritten": all_routes["socketWritten"], "responseHeadersRead": all_routes["responseHeadersRead"],
+                    "responseBodiesRead": all_routes["responseBodiesRead"], "correct": correct}
+        if any(sum(row[k] for row in supply) != total for k, total in expected.items()):
+            errors.append("Producer time buckets do not reconcile to request stage totals.")
     for route, category in ROUTES.items():
         stats = load["routes"][route]
-        if completed[category] != stats["sent"] or success[category] != stats["ok"]:
+        expected_requests = stats.get("socketWritten", stats["sent"])
+        if completed[category] != expected_requests or success[category] != stats["ok"]:
             errors.append(f"Server and load client totals disagree on {route}.")
         if query_counts[category] != 0 or opening_counts[category] != 0:
             errors.append(f"PostgreSQL activity occurred under {route}.")
@@ -110,7 +126,15 @@ def summarize(rows, load, rss, pid):
         errors.append("A projection build or cold detail render changed the hot interval.")
     if end["coldPendingPeak"] or end["coldActivePeak"]:
         errors.append("Detail cache work was queued during the hot interval.")
-    if (duration == 900 and not gc_pauses) or unmatched or abs(runtime_pause - traced_pause) > max(10, 0.2 * runtime_pause):
+    if gc_events and not split_complete and pending_gc_phases is not None:
+        errors.append("A GC event is missing its suspension or resume duration.")
+    if split_complete and any(
+        s < 0 or r < 0 or abs(full - (s + r)) > 0.001
+        for full, s, r in zip(gc_pauses, gc_suspensions, gc_resumes)
+    ):
+        errors.append("GC suspension and resume phases do not reconstruct the complete pause.")
+    comparison_total = sum(gc_suspensions) if split_complete else traced_pause
+    if (duration == 900 and not gc_pauses) or unmatched or abs(runtime_pause - comparison_total) > max(10, 0.2 * runtime_pause):
         errors.append("GC pause events did not reconcile to the built-in total pause time.")
     if guard_before > 1 or guard_after > 3:
         errors.append("Runtime and client measurement bounds have excessive idle margins.")
@@ -153,6 +177,8 @@ def summarize(rows, load, rss, pid):
         "gcConfiguration": start.get("gcConfiguration"),
         "runtimeSamples": len(series),
         "load": {"planned": load["expected"], "sent": all_routes["sent"], "correct": correct,
+                 "socketWritten": all_routes.get("socketWritten"), "responseHeadersRead": all_routes.get("responseHeadersRead"),
+                 "responseBodiesRead": all_routes.get("responseBodiesRead"),
                  "schedulerDropped": all_routes["dropped"], "clientMeasurement": load["measurement"]},
         "dbCommandStarts": query_counts,
         "dbPhysicalOpenStarts": opening_counts,
@@ -170,9 +196,15 @@ def summarize(rows, load, rss, pid):
         "gcPauseTotalMs": runtime_pause,
         "gcTracePauseTotalMs": traced_pause,
         "gcUnmatchedEvents": unmatched,
+        "gcOpenSuspensions": pending_gc_phases,
         "gcPauseP50Ms": percentile(gc_pauses, 0.50),
         "gcPauseP95Ms": percentile(gc_pauses, 0.95),
         "gcPauseP99Ms": percentile(gc_pauses, 0.99),
+        "gcPauseSplit": {
+            "suspendThroughRestartBegin": pause_stats(gc_suspensions),
+            "restartBeginThroughRestartEnd": pause_stats(gc_resumes),
+            "suspendThroughRestartEnd": pause_stats(gc_pauses),
+        } if split_complete else None,
         "gcHeapPeakBytes": max(row["gcHeapBytes"] for row in series),
         "gcCommittedPeakBytes": max(row["gcCommittedBytes"] for row in series),
         "threadPoolPendingSampleMax": max(row["threadPoolPending"] for row in series),
@@ -190,6 +222,11 @@ def summarize(rows, load, rss, pid):
         "result": "verified" if not errors else "incomplete",
         "errors": errors,
     }
+
+
+def pause_stats(durations):
+    return {"totalMs": sum(durations), "p50Ms": percentile(durations, 0.50),
+            "p95Ms": percentile(durations, 0.95), "p99Ms": percentile(durations, 0.99)}
 
 
 def main():

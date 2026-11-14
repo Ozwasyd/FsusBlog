@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/metrics"
 	"sort"
 	"strconv"
 	"strings"
@@ -228,7 +230,7 @@ func (c *connection) request(path string, deadline time.Time, inspect func(*http
 	if err != nil {
 		return 0, err
 	}
-	return c.requestEncoded(request, deadline, inspect)
+	return c.requestEncoded(request, deadline, nil, inspect)
 }
 
 func encodeRequest(origin *url.URL, path string) ([]byte, error) {
@@ -245,15 +247,34 @@ func encodeRequest(origin *url.URL, path string) ([]byte, error) {
 	return wire.Bytes(), nil
 }
 
-func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect func(*http.Response) error) (int, error) {
-	if err := c.connect(deadline); err != nil {
+type exchange struct {
+	dialStarted, dialFinished time.Time
+	dialConnected             bool
+	written, headers          time.Time
+}
+
+func (c *connection) requestEncoded(request []byte, deadline time.Time, observed *exchange, inspect func(*http.Response) error) (int, error) {
+	dialing := observed != nil && c.conn == nil
+	if dialing {
+		observed.dialStarted = time.Now()
+	}
+	err := c.connect(deadline)
+	if dialing {
+		observed.dialFinished = time.Now()
+		observed.dialConnected = err == nil
+	}
+	if err != nil {
 		return 0, err
 	}
 	if err := c.conn.SetDeadline(deadline); err != nil {
 		c.close()
 		return 0, err
 	}
-	if n, err := c.conn.Write(request); err != nil || n != len(request) {
+	n, err := c.conn.Write(request)
+	if observed != nil && n == len(request) {
+		observed.written = time.Now()
+	}
+	if err != nil || n != len(request) {
 		c.close()
 		if err == nil {
 			err = io.ErrShortWrite
@@ -264,6 +285,9 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect 
 	if err != nil {
 		c.close()
 		return 0, err
+	}
+	if observed != nil {
+		observed.headers = time.Now()
 	}
 	err = inspect(response)
 	if err != nil || response.Close {
@@ -324,7 +348,7 @@ func preflight(ctx context.Context, origin *url.URL, w *workload) error {
 				return err
 			}
 			expected.request = request
-			status, err := c.requestEncoded(request, time.Now().Add(requestLimit), func(response *http.Response) error {
+			status, err := c.requestEncoded(request, time.Now().Add(requestLimit), nil, func(response *http.Response) error {
 				if response.Proto != "HTTP/1.1" {
 					return errors.New("expected HTTP/1.1")
 				}
@@ -566,6 +590,10 @@ type result struct {
 	dispatch time.Duration
 	bytes    int64
 	sampled  bool
+	exchange
+	bodyCompleted time.Time
+	completed     time.Time
+	planned       time.Time
 }
 
 func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan<- result, w workload) {
@@ -573,18 +601,23 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 	copyBuffer := make([]byte, 32*1024)
 	readBuffer := make([]byte, 0, 48*1024)
 	for j := range jobs {
-		r := result{class: j.class, dispatch: time.Since(j.planned)}
-		var err error
-		r.status, err = c.requestEncoded(j.request, j.planned.Add(requestLimit), func(response *http.Response) error {
-			r.reason, err = metadata(response, j.class, w.generation, w.wire.Headers["SearchIndexGeneration"])
-			if err != nil {
-				return err
+		r := result{class: j.class, dispatch: time.Since(j.planned), planned: j.planned}
+		status, err := c.requestEncoded(j.request, j.planned.Add(requestLimit), &r.exchange, func(response *http.Response) error {
+			reason, metadataErr := metadata(response, j.class, w.generation, w.wire.Headers["SearchIndexGeneration"])
+			if metadataErr != nil {
+				r.reason = reason
+				return metadataErr
 			}
 			source := io.LimitReader(response.Body, int64(j.length)+1)
+			var received int64
+			var readErr error
 			if j.sample {
 				buf := bytes.NewBuffer(readBuffer[:0])
-				r.bytes, err = io.Copy(buf, source)
-				if err == nil {
+				received, readErr = io.Copy(buf, source)
+				if readErr == nil && received <= int64(j.length) {
+					r.bodyCompleted = time.Now()
+				}
+				if readErr == nil {
 					digest, digestErr := w.checksum(j.class, buf.Bytes())
 					if digestErr != nil || digest != j.digest {
 						r.reason = "digest"
@@ -593,21 +626,27 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 				}
 				r.sampled = true
 			} else {
-				r.bytes, err = io.CopyBuffer(io.Discard, source, copyBuffer)
+				received, readErr = io.CopyBuffer(io.Discard, source, copyBuffer)
+				if readErr == nil && received <= int64(j.length) {
+					r.bodyCompleted = time.Now()
+				}
 			}
-			if err != nil {
-				return err
+			if readErr != nil {
+				return readErr
 			}
-			if int(r.bytes) != j.length {
+			r.bytes = received
+			if int(received) != j.length {
 				r.reason = "length"
 				return errors.New("response length differs")
 			}
 			return nil
 		})
+		r.status = status
 		if err != nil && r.reason == "" {
 			r.reason = readFailure(err)
 		}
-		r.latency = time.Since(j.planned)
+		r.completed = time.Now()
+		r.latency = r.completed.Sub(j.planned)
 		<-permits
 		output <- r
 	}
@@ -664,7 +703,10 @@ func (h *histogram) percentile(n, percent int) float64 {
 }
 
 type stats struct {
-	Sent     int            `json:"sent"`
+	Sent     int            `json:"sent"` // Legacy field: attempts, including failures before any socket write.
+	Written  int            `json:"socketWritten"`
+	Header   int            `json:"responseHeadersRead"`
+	Body     int            `json:"responseBodiesRead"`
 	Dropped  int            `json:"dropped"`
 	OK       int            `json:"ok"`
 	Bytes    int64          `json:"bytes"`
@@ -685,6 +727,15 @@ func (s *stats) add(r result) {
 		return
 	}
 	s.Sent++
+	if !r.written.IsZero() {
+		s.Written++
+	}
+	if r.status != 0 {
+		s.Header++
+	}
+	if !r.bodyCompleted.IsZero() {
+		s.Body++
+	}
 	s.Status[r.status]++
 	s.dispatch.add(r.dispatch)
 	if r.reason != "" {
@@ -719,7 +770,179 @@ func warmTLSConnections(ctx context.Context, pool []connection) error {
 	return nil
 }
 
-func measure(ctx context.Context, pool []connection, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats) {
+type admissionSecond struct {
+	dequeued int
+	admitted int
+	dropped  int
+	high     int
+	wakeMax  time.Duration
+}
+
+type transferSecond struct {
+	written, headers, body, finished, correct int
+	dialStarted, dialConnected, dialFailed    int
+	writeDelay, afterWrite, dialMax           time.Duration
+}
+
+type supplySecond struct {
+	Second            int     `json:"second"`
+	Planned           int     `json:"planned"`
+	SchedulerAwake    int     `json:"schedulerAwake"`
+	Admitted          int     `json:"admitted"`
+	Dropped           int     `json:"dropped"`
+	SocketWritten     int     `json:"socketWritten"`
+	HeadersRead       int     `json:"responseHeadersRead"`
+	BodiesRead        int     `json:"responseBodiesRead"`
+	Finished          int     `json:"attemptFinished"`
+	Correct           int     `json:"correct"`
+	DialsStarted      int     `json:"dialsStarted"`
+	DialsConnected    int     `json:"dialsConnected"`
+	DialsFailed       int     `json:"dialsFailed"`
+	OutstandingPeak   int     `json:"observedOutstandingPeak"`
+	MaxWakeDelayMS    float64 `json:"maxWakeDelayMs"`
+	MaxWriteDelayMS   float64 `json:"maxWriteDelayMs"`
+	MaxAfterWriteMS   float64 `json:"maxAfterWriteMs"`
+	MaxDialDurationMS float64 `json:"maxDialDurationMs"`
+}
+
+type supplyTimeline struct {
+	epoch      time.Time
+	seconds    int
+	admissions map[int]*admissionSecond // Producer owns this map.
+	transfers  map[int]*transferSecond  // Collector owns this map.
+}
+
+func (s supplyTimeline) recordAdmission(at, planned time.Time, admitted bool, observedOutstanding int) {
+	second := int(at.Sub(s.epoch) / time.Second)
+	slot := s.admissions[second]
+	if slot == nil {
+		slot = &admissionSecond{}
+		s.admissions[second] = slot
+	}
+	slot.dequeued++
+	slot.wakeMax = max(slot.wakeMax, at.Sub(planned))
+	if admitted {
+		slot.admitted++
+		slot.high = max(slot.high, observedOutstanding)
+	} else {
+		slot.dropped++
+		slot.high = maxInFlight
+	}
+}
+
+func (s supplyTimeline) transfer(at time.Time) *transferSecond {
+	second := int(at.Sub(s.epoch) / time.Second)
+	slot := s.transfers[second]
+	if slot == nil {
+		slot = &transferSecond{}
+		s.transfers[second] = slot
+	}
+	return slot
+}
+
+func (s supplyTimeline) recordTransfer(r result) {
+	if r.reason == "dropped" {
+		return
+	}
+	if !r.dialStarted.IsZero() {
+		s.transfer(r.dialStarted).dialStarted++
+		finished := s.transfer(r.dialFinished)
+		if r.dialConnected {
+			finished.dialConnected++
+		} else {
+			finished.dialFailed++
+		}
+		finished.dialMax = max(finished.dialMax, r.dialFinished.Sub(r.dialStarted))
+	}
+	done := s.transfer(r.completed)
+	done.finished++
+	if !r.bodyCompleted.IsZero() {
+		s.transfer(r.bodyCompleted).body++
+	}
+	if !r.headers.IsZero() {
+		s.transfer(r.headers).headers++
+	}
+	if r.reason == "" {
+		done.correct++
+	}
+	if !r.written.IsZero() {
+		written := s.transfer(r.written)
+		written.written++
+		written.writeDelay = max(written.writeDelay, r.written.Sub(r.planned))
+		if !r.bodyCompleted.IsZero() {
+			body := s.transfer(r.bodyCompleted)
+			body.afterWrite = max(body.afterWrite, r.bodyCompleted.Sub(r.written))
+		}
+	}
+}
+
+func (s supplyTimeline) rows(rate int) []supplySecond {
+	last := s.seconds - 1
+	for second := range s.admissions {
+		last = max(last, second)
+	}
+	for second := range s.transfers {
+		last = max(last, second)
+	}
+	rows := make([]supplySecond, last+1)
+	for second := range rows {
+		row := &rows[second]
+		row.Second = second
+		if second < s.seconds {
+			row.Planned = rate
+		}
+		if slot := s.admissions[second]; slot != nil {
+			row.SchedulerAwake = slot.dequeued
+			row.Admitted, row.Dropped, row.OutstandingPeak = slot.admitted, slot.dropped, slot.high
+			row.MaxWakeDelayMS = millis(slot.wakeMax)
+		}
+		if slot := s.transfers[second]; slot != nil {
+			row.SocketWritten, row.HeadersRead, row.BodiesRead = slot.written, slot.headers, slot.body
+			row.Finished, row.Correct = slot.finished, slot.correct
+			row.DialsStarted, row.DialsConnected, row.DialsFailed = slot.dialStarted, slot.dialConnected, slot.dialFailed
+			row.MaxWriteDelayMS, row.MaxAfterWriteMS, row.MaxDialDurationMS =
+				millis(slot.writeDelay), millis(slot.afterWrite), millis(slot.dialMax)
+		}
+	}
+	return rows
+}
+
+type producerSample struct {
+	UserCPUSeconds      float64 `json:"userCpuSeconds"`
+	KernelCPUSeconds    float64 `json:"kernelCpuSeconds"`
+	CumulativeGCSeconds float64 `json:"gcPauseCpuSeconds"`
+	GCCount             uint64  `json:"gcCollections"`
+	RuntimeMaxProcs     int     `json:"runtimeMaxProcs"`
+	SchedulerProcs      int     `json:"cpuAvailableToProducer"`
+	AllocatedBytes      uint64  `json:"allocatedBytes"`
+}
+
+func sampleProducer() (producerSample, error) {
+	var usage syscall.Rusage
+	err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage)
+	if err != nil {
+		return producerSample{}, err
+	}
+	runtimeSamples := []metrics.Sample{{Name: "/cpu/classes/gc/pause:cpu-seconds"},
+		{Name: "/gc/cycles/total:gc-cycles"}, {Name: "/gc/heap/allocs:bytes"}}
+	metrics.Read(runtimeSamples)
+	if runtimeSamples[0].Value.Kind() != metrics.KindFloat64 ||
+		runtimeSamples[1].Value.Kind() != metrics.KindUint64 ||
+		runtimeSamples[2].Value.Kind() != metrics.KindUint64 {
+		return producerSample{}, errors.New("Required Go GC/cpu/heap metrics are unavailable")
+	}
+	return producerSample{
+		UserCPUSeconds:      float64(usage.Utime.Nano()) / 1e9,
+		KernelCPUSeconds:    float64(usage.Stime.Nano()) / 1e9,
+		CumulativeGCSeconds: runtimeSamples[0].Value.Float64(),
+		GCCount:             runtimeSamples[1].Value.Uint64(),
+		RuntimeMaxProcs:     runtime.GOMAXPROCS(0),
+		SchedulerProcs:      runtime.NumCPU(),
+		AllocatedBytes:      runtimeSamples[2].Value.Uint64(),
+	}, nil
+}
+
+func measure(ctx context.Context, pool []connection, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats, []supplySecond) {
 	// Admission counts queued jobs and active requests against the same limit.
 	// A worker briefly between reads must not turn unused capacity into an offered drop.
 	jobs := make(chan job, maxInFlight)
@@ -731,24 +954,30 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 	for _, name := range append(names[:], "all") {
 		totals[name] = &stats{Status: map[int]int{}, Errors: map[string]int{}}
 	}
+	timeline := supplyTimeline{seconds: seconds, admissions: make(map[int]*admissionSecond), transfers: make(map[int]*transferSecond)}
 	collector.Go(func() {
 		for r := range results {
 			totals["all"].add(r)
 			totals[names[r.class]].add(r)
+			timeline.recordTransfer(r)
 		}
 	})
 	for i := range pool {
 		workers.Go(func() { worker(&pool[i], jobs, permits, results, w) })
 	}
 	started := time.Now().Add(20 * time.Millisecond)
+	timeline.epoch = started
 	for i := 0; i < rate*seconds && ctx.Err() == nil; i++ {
 		planned := started.Add(time.Second * time.Duration(i) / time.Duration(rate))
 		time.Sleep(time.Until(planned))
+		awake := time.Now()
 		j := w.job(i, planned)
 		select {
 		case permits <- struct{}{}:
+			timeline.recordAdmission(awake, planned, true, len(permits))
 			jobs <- j
 		default:
+			timeline.recordAdmission(awake, planned, false, maxInFlight)
 			results <- result{class: j.class, reason: "dropped"}
 		}
 	}
@@ -762,7 +991,7 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 		s.P99MS = s.latency.percentile(s.OK, 99)
 		s.Dispatch = s.dispatch.percentile(s.Sent, 99)
 	}
-	return started.UTC(), time.Since(started), totals
+	return started.UTC(), time.Since(started), totals, timeline.rows(rate)
 }
 
 func startRuntimeMeasurement(ctx context.Context, directory string) error {
@@ -886,10 +1115,19 @@ func run() int {
 		}
 	}
 	if code == 0 && *rate > 0 {
-		measured, elapsed, totals := measure(ctx, pool, w, *rate, *seconds)
+		producerBefore, beforeErr := sampleProducer()
+		measured, elapsed, totals, timeline := measure(ctx, pool, w, *rate, *seconds)
+		finished := time.Now().UTC()
+		producerAfter, afterErr := sampleProducer()
 		all := totals["all"]
-		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, time.Now().UTC(), totals
+		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
 		report["measurementElapsedSeconds"] = elapsed.Seconds()
+		report["supplyBySecond"] = timeline
+		if supplyErr := errors.Join(beforeErr, afterErr); supplyErr != nil {
+			report["producerResourceError"] = supplyErr.Error()
+		} else {
+			report["producerBefore"], report["producerAfter"] = producerBefore, producerAfter
+		}
 		report["correctPerSecond"] = float64(all.OK) / float64(*seconds)
 		report["expected"] = *rate * *seconds
 		if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {

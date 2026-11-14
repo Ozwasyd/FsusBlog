@@ -186,7 +186,7 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
             managedAllocatedBytes = GC.GetTotalAllocatedBytes(precise: mark is not null),
             gcCollectionCounts = new[] { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) },
             gcTotalPauseMs = GC.GetTotalPauseDuration().TotalMilliseconds,
-            gcPauses = pauses, gcUnmatched = Interlocked.Read(ref _gc.Unmatched),
+            gcPauses = pauses, gcUnmatched = _gc.Unmatched, gcOpenSuspensions = _gc.Pending,
             gcHeapBytes = memory.HeapSizeBytes, gcFragmentedBytes = memory.FragmentedBytes, gcCommittedBytes = memory.TotalCommittedBytes,
             requestCompleted = Counts(_requests), requestStatus200 = Counts(_successes),
             dbCommandStarts = Counts(_queries), dbPhysicalOpenStarts = Counts(_opens),
@@ -221,38 +221,88 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
         }
     }
 
-    private sealed record Pause(DateTime StartUtc, DateTime EndUtc, double Milliseconds);
+    internal sealed record Pause(ushort ClrInstanceId, DateTime StartUtc, DateTime RestartUtc, DateTime EndUtc)
+    {
+        public double SuspensionMilliseconds => (RestartUtc - StartUtc).TotalMilliseconds;
+        public double ResumeMilliseconds => (EndUtc - RestartUtc).TotalMilliseconds;
+        public double Milliseconds => (EndUtc - StartUtc).TotalMilliseconds;
+    }
 
     private sealed class CollectionEvents : EventListener
     {
-        private DateTime _suspendedAt;
-        private bool _isGcPause;
-        internal ConcurrentQueue<Pause> Pauses { get; } = new();
-        internal long Unmatched;
+        private readonly PauseSequence _sequence = new();
+        internal ConcurrentQueue<Pause> Pauses => _sequence.Pauses;
+        internal long Unmatched => _sequence.Unmatched;
+        internal int Pending => _sequence.Pending;
 
         protected override void OnEventSourceCreated(EventSource source)
         {
-            if (source.Name == "Microsoft-Windows-DotNETRuntime")
+            if (_sequence is not null && source.Name == "Microsoft-Windows-DotNETRuntime")
                 EnableEvents(source, EventLevel.Informational, (EventKeywords)0x1);
+        }
+
+        internal CollectionEvents()
+        {
+            // Existing sources are discovered during the base constructor,
+            // before the pause reader's fields are initialized.
+            foreach (var source in EventSource.GetSources()) OnEventSourceCreated(source);
         }
 
         protected override void OnEventWritten(EventWrittenEventArgs ev)
         {
-            // The CLR's native timestamps describe execution-engine suspension and
-            // restart, independent of scheduling delay in the managed listener.
-            if (ev.EventId == 9)
+            if (ev.EventId is 3 or 7 or 9)
+                _sequence.Add(ev.EventId, ev.Version, ev.Payload, ev.TimeStamp.ToUniversalTime());
+        }
+    }
+
+    internal sealed class PauseSequence
+    {
+        private sealed record Suspension(DateTime Started, DateTime Restarted, bool IsGarbageCollection);
+        private readonly Dictionary<ushort, Suspension> _active = new();
+        private long _unmatched;
+        internal long Unmatched => Interlocked.Read(ref _unmatched);
+        internal int Pending { get { lock (_active) return _active.Count; } }
+        internal ConcurrentQueue<Pause> Pauses { get; } = new();
+
+        // .NET 10 emits native EventPipe timestamps. The Version 1 suspend
+        // payload is Reason, Count, ClrInstanceID, and the restart payload is
+        // ClrInstanceID alone. Count is not a stable identity for the pause.
+        internal void Add(int id, byte version, IReadOnlyList<object?>? fields, DateTime time)
+        {
+            var start = id == 9;
+            var expectedCount = start ? 3 : 1;
+            lock (_active)
             {
-                if (_suspendedAt != default) Interlocked.Increment(ref Unmatched);
-                _suspendedAt = ev.TimeStamp.ToUniversalTime();
-                _isGcPause = ev.Payload?[0] is 1u or 6u or 1 or 6;
-            }
-            else if (ev.EventId == 3)
-            {
-                var completed = ev.TimeStamp.ToUniversalTime();
-                if (_suspendedAt == default || completed < _suspendedAt) Interlocked.Increment(ref Unmatched);
-                else if (_isGcPause && Pauses is not null)
-                    Pauses.Enqueue(new Pause(_suspendedAt, completed, (completed - _suspendedAt).TotalMilliseconds));
-                _suspendedAt = default;
+                if (version != 1 || fields?.Count != expectedCount || fields[^1] is not ushort instance ||
+                    start && fields[0] is not (uint or int))
+                {
+                    Interlocked.Increment(ref _unmatched);
+                    return;
+                }
+                if (start)
+                {
+                    if (_active.ContainsKey(instance)) Interlocked.Increment(ref _unmatched);
+                    _active[instance] = new Suspension(time, default, fields[0] is 1u or 6u or 1 or 6);
+                    return;
+                }
+                if (!_active.TryGetValue(instance, out var pending))
+                {
+                    Interlocked.Increment(ref _unmatched);
+                    return;
+                }
+                if (id == 7 && pending.Restarted == default && time >= pending.Started)
+                {
+                    _active[instance] = pending with { Restarted = time };
+                    return;
+                }
+                _active.Remove(instance);
+                if (id != 3 || pending.Restarted == default || time < pending.Restarted)
+                {
+                    Interlocked.Increment(ref _unmatched);
+                    return;
+                }
+                if (pending.IsGarbageCollection)
+                    Pauses.Enqueue(new Pause(instance, pending.Started, pending.Restarted, time));
             }
         }
     }
