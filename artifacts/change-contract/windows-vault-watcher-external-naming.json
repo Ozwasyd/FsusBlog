@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/windows/WindowsDirectoryChangesNative.cs",
+                "src/article-vault/windows/WindowsVaultFactBuffer.cs",
+                "src/article-vault/windows/WindowsVaultNotifyDecoder.cs",
+                "src/article-vault/windows/WindowsVaultObservationAdapter.cs",
+                "src/article-vault/windows/WindowsVaultRawFactCodec.cs",
+                "src/article-vault/windows/WindowsVaultTestAccess.cs",
+                "src/article-vault/windows/WindowsVaultWatchContracts.cs",
+                "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs"
+            ],
+            "reason": "The trusted registry classifies src/**/*.cs as this surface. Preserve external process/ABI spelling while internal Windows observer identifiers retain C# naming; these files introduce no environment-variable reader."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/article-vault/windows/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet-defined lockfile JSON keys and package identities verbatim in the package-manager-generated test dependency graph."
+        }
+    ]
+}

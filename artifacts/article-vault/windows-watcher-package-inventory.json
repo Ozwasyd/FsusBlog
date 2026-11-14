@@ -1,0 +1,162 @@
+{
+    "schema": "fsusblog.article-vault.windows-watcher-package-inventory.v1",
+    "owner": "WindowsArticleVaultWatcher",
+    "issue": 2670,
+    "baseCommit": "53da546cc8ab9fd8603067395d988b7ddb650394",
+    "inspectedCapabilityCommit": "c0c32cb168fbe59125b942b5964edd7263247338",
+    "package": {
+        "project": "src/article-vault/windows/FsusBlog.ArticleVault.Windows.csproj",
+        "assembly": "FsusBlog.ArticleVault.Windows",
+        "targetFramework": "net10.0",
+        "platform": "windows",
+        "productionSources": [
+            "src/article-vault/windows/WindowsDirectoryChangesNative.cs",
+            "src/article-vault/windows/WindowsVaultFactBuffer.cs",
+            "src/article-vault/windows/WindowsVaultNotifyDecoder.cs",
+            "src/article-vault/windows/WindowsVaultRawFactCodec.cs",
+            "src/article-vault/windows/WindowsVaultTestAccess.cs",
+            "src/article-vault/windows/WindowsVaultWatchContracts.cs",
+            "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+            "src/article-vault/windows/WindowsVaultObservationAdapter.cs"
+        ],
+        "role": "Windows platform module beside existing Linux module, not another full agent"
+    },
+    "publicSymbols": [
+        "WindowsVaultWatcherSchemas",
+        "WindowsVaultFactClass",
+        "WindowsVaultPathDisposition",
+        "WindowsVaultWatchIdentity",
+        "WindowsVaultWatcherOptions",
+        "WindowsVaultWatermark",
+        "WindowsVaultRawFact",
+        "WindowsVaultRawFactCodec",
+        "WindowsVaultWatcherSession",
+        "WindowsVaultObservationAdapter"
+    ],
+    "nativeBoundary": {
+        "library": "kernel32.dll",
+        "entryPoints": [
+            "ReadDirectoryChangesW",
+            "CreateEventW",
+            "ResetEvent",
+            "GetOverlappedResult",
+            "CancelIoEx"
+        ],
+        "eventRecord": "FILE_NOTIFY_INFORMATION",
+        "directoryHandle": "canonical #2109 owner must supply admitted overlapped directory handle; no absolute-path opening API in production watcher",
+        "bufferBytesMaximum": 65536,
+        "factsMaximum": 16384
+    },
+    "tests": {
+        "project": "tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj",
+        "contractCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter Category=WindowsArticleVaultWatcherContract",
+        "focusedCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter Category=WindowsArticleVaultWatcher",
+        "sources": [
+            "tests/article-vault/windows/WindowsVaultRawFactContractTests.cs",
+            "tests/article-vault/windows/WindowsVaultWatcherNtfsTests.cs",
+            "tests/article-vault/windows/WindowsVaultNtfsFixture.cs",
+            "tests/article-vault/windows/WindowsVaultObservationAdapterTests.cs"
+        ]
+    },
+    "admission": {
+        "productionFactory": "absent; construction assembly-private",
+        "nextCapability": "#2109 exact Windows verified-root handle and per-event native root-relative path/control-tree admission",
+        "watermark": "always invalid; no raw digest acknowledgement",
+        "sourceContentDigest": "null; only #2110 stable snapshot owner can produce body digest",
+        "renameCookieAndFileId": "null; FILE_NOTIFY_INFORMATION has neither; old/new actions remain separate",
+        "quietRootMove": "not implemented: ReadDirectoryChangesW excludes changes to the watched root itself; needs admitted parent/ancestor watch coordinates from #2109",
+        "observationConsumer": "WindowsVaultObservationAdapter.Convert(root, binding, independently expectedIdentity, facts) consumes the actual canonical #2112 raw-observation schema without invoking normalization or granting native/sync admission"
+    },
+    "qualification": {
+        "issue": 2673,
+        "status": "WIP",
+        "currentEnvironment": "Linux; real Windows NTFS unavailable",
+        "fullAgentCommand": null,
+        "nextCapabilities": [
+            "real Windows NTFS host",
+            "#2109 Windows native admission",
+            "#2110 stable snapshots/materialization",
+            "#2112 normalization/rescan",
+            "#2113 lease/closed IPC",
+            "#2114 lifecycle",
+            "#1909 complete verified protocol receipts",
+            "#1865 canonical bytes/APIs from #3560"
+        ]
+    },
+    "documentation": "src/article-vault/windows/README.md",
+    "forbiddenDependencies": [
+        "filesystem polling",
+        "body reads",
+        "event normalization",
+        "article identity by path/file ID",
+        "sync planner/server writer",
+        "manifest/base writes",
+        "package fallback"
+    ],
+    "nativeApiReferences": [
+        "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw",
+        "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-file_notify_information",
+        "https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex"
+    ],
+    "registrationRequests": [
+        {
+            "path": "config/development/authoritative-development-docs.json",
+            "change": "append src/article-vault/windows/packages.lock.json and tests/article-vault/windows/packages.lock.json to existing lock PackageManager patterns"
+        },
+        {
+            "path": "config/development/native-tooling-style-policy.json",
+            "change": "append the same two exact package-manager-owned lock paths to excludedPaths"
+        },
+        {
+            "path": "tests/matrix.yml",
+            "change": "integration owner must register canonical Windows project/contract and native categories; preserve real Windows/NTFS failures and full qualification obligations; no native pass-through on Linux"
+        },
+        {
+            "path": "tests/governance/test-lifecycle-registry.json",
+            "change": "none: no new Node tests"
+        },
+        {
+            "path": "coverage registry",
+            "change": "integration owner must bind this exact new Windows project and actual categories; package compilation does not establish native qualification"
+        }
+    ],
+    "consumedSharedContracts": [
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "f6f1bd688c16ed5714db536e6a19691fd9279e1e",
+            "authoredHere": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "e8445ba30362158a6cb79e647ffb05bbeef39955",
+            "authoredHere": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "8bb3b1361f025778805d91a441f058f2d903f600",
+            "authoredHere": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "4a0edccea3095ebaa641709d7d53fe41ce974c6f",
+            "authoredHere": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "c76fbadae1ce1dad8ad8d8e8e8e2597f8bb8afd7",
+            "authoredHere": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+            "sourceCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "blob": "8fc7a812bd3205dd3099c4548d86cff2ca12fb91",
+            "authoredHere": false
+        }
+    ],
+    "inspectedObservationCapabilityCommit": "e1b4ffba4781bf6729e38b240df8c7647f19768e"
+}
