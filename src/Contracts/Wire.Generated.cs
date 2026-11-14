@@ -72,6 +72,8 @@ public static class WireLimits
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
     public const int NameBytes = 256;
+    public const int PageContentChars = 200000;
+    public const int PageContentBytes = 600000;
     public const int BodyBytes = 1048576;
     public const int MaxPayloadBytes = 4194304;
     public const int SearchIndexPageSize = 200;
@@ -110,6 +112,8 @@ public static class WireLayouts
     public const int ErrorDetailsOffset = 264;
     public const int ErrorTraceIdOffset = 520;
     public const int SuccessBytes = 4;
+    public const int PageContentSlugBytes = 128;
+    public const int PageContentBlobOffset = 140;
     public const int TaxonomyHeaderBytes = 8;
     public const int TaxonomyListRecordSize = 16;
     public const int TaxonomyMetadataRecordSize = 16;

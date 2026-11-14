@@ -195,13 +195,17 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
 internal sealed class WebPages(string template)
 {
-    internal byte[] Page(string content = "", string? title = null, string? description = null)
+    internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null, bool noIndex = false)
     {
         var document = template.Replace("<!--fsus-public-content-->", content, StringComparison.Ordinal);
         if (title is not null)
             document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(title)} · Fsu's Blog</title>", StringComparison.Ordinal);
         if (!string.IsNullOrWhiteSpace(description))
             document = document.Replace("</head>", $"<meta name=\"description\" content=\"{HtmlEncoder.Default.Encode(description)}\"></head>", StringComparison.Ordinal);
+        if (language is not null)
+            document = document.Replace("<html lang=\"en\">", $"<html lang=\"{HtmlEncoder.Default.Encode(language)}\">", StringComparison.Ordinal);
+        if (noIndex)
+            document = document.Replace("</head>", "<meta name=\"robots\" content=\"noindex, follow\"></head>", StringComparison.Ordinal);
         return Encoding.UTF8.GetBytes(document);
     }
 }

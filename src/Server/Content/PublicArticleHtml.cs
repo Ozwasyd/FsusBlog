@@ -11,8 +11,11 @@ internal static class PublicArticleHtml
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().DisableHtml().Build();
 
     internal static string Render(Article article)
+        => $"<main><article><h1>{HtmlEncoder.Default.Encode(article.Title)}</h1>{RenderMarkdown(article.Body)}</article></main>";
+
+    internal static string RenderMarkdown(string markdown)
     {
-        var document = Markdown.Parse(article.Body, Pipeline);
+        var document = Markdown.Parse(markdown, Pipeline);
         foreach (var link in document.Descendants<LinkInline>())
         {
             if (!IsPublicUrl(link.Url, permitMail: !link.IsImage))
@@ -24,8 +27,7 @@ internal static class PublicArticleHtml
                 link.ReplaceBy(new LiteralInline(link.Url));
         }
 
-        var title = HtmlEncoder.Default.Encode(article.Title);
-        return $"<main><article><h1>{title}</h1>{Markdown.ToHtml(document, Pipeline)}</article></main>";
+        return Markdown.ToHtml(document, Pipeline);
     }
 
     private static bool IsPublicUrl(string? url, bool permitMail)

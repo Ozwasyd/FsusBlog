@@ -8,9 +8,11 @@ import { readThemeMode, syncThemeMode } from '@ozwasyd/element-plus/theme'
 import './blog.css'
 import App from './App.vue'
 import { preloadPublicEntry } from './publicEntry'
+import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEntry'
 
 const publicListing = () => import('./views/PublicListing.vue')
 const editor = () => import('./views/Write.vue')
+const sitePage = () => import('./views/SitePage.vue')
 const router = createRouter({
   history: createWebHistory(),
   scrollBehavior: () => ({ top: 0 }),
@@ -21,6 +23,7 @@ const router = createRouter({
     { path: '/category/:id(\\d+)', name: 'category', component: publicListing },
     { path: '/tag/:id(\\d+)', name: 'tag', component: publicListing },
     { path: '/article/:id(\\d+)', name: 'article', component: () => import('./views/Article.vue') },
+    ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
     { path: '/user/manage/article/write', name: 'write', component: editor },
@@ -29,10 +32,12 @@ const router = createRouter({
   ],
 })
 router.afterEach((to, from) => {
+  document.documentElement.lang = isSitePageSlug(to.name) ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
-  document.title = to.name === 'home' ? "Fsu's Blog" : `${labels[String(to.name)] ?? 'Article'} · Fsu's Blog`
+  const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
+  document.title = to.name === 'home' ? "Fsu's Blog" : `${title} · Fsu's Blog`
   document.querySelector('meta[name="robots"]')?.remove()
-  if (to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'write' || to.name === 'edit') {
+  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'write' || to.name === 'edit') {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
@@ -55,5 +60,6 @@ try { syncThemeMode(readThemeMode()) } catch { syncThemeMode('system') }
 const app = createApp(App)
 app.use(router)
 await router.isReady()
+captureInitialSitePage(router.currentRoute.value.name)
 await preloadPublicEntry(router.currentRoute.value)
 app.mount('#app')

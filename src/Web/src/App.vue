@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton } from '@ozwasyd/element-plus'
 import { currentSession, refreshSession, signOut } from './session'
+import { isSitePageSlug, sitePages } from './sitePageEntry'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +20,7 @@ const logoutFailure = ref(false)
 const navigation = [
   { key: 'home', label: 'Home', href: '/' },
   { key: 'archive', label: 'Archive', href: '/archive' },
+  { key: 'about', label: sitePages.about, href: '/about' },
 ]
 const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'messages')
 const ownerPath = '/user/manage/article/write'
@@ -93,7 +95,7 @@ async function leave() {
       :auth-label="authLabel"
       v-model:search-query="searchQuery"
       max-width="64rem"
-      :content-flow="route.name === 'article' ? 'content-driven' : 'viewport-stable'"
+      :content-flow="route.name === 'article' || isSitePageSlug(route.name) ? 'content-driven' : 'viewport-stable'"
       sticky
       csp-safe
       spa-search
@@ -118,9 +120,20 @@ async function leave() {
         <div class="site-footer">
           <strong>Fsu's Blog</strong>
           <p>© {{ new Date().getFullYear() }} Fsu's Blog. All rights reserved.</p>
+          <nav class="site-policy-links" aria-label="站点政策">
+            <RouterLink v-for="(label, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ label }}</RouterLink>
+          </nav>
           <a href="#">Top</a>
         </div>
       </template>
     </ElPublicShell>
   </template>
 </template>
+
+<style scoped>
+.site-policy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+</style>

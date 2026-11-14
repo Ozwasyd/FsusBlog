@@ -25,6 +25,7 @@ void Reject(Action run)
 var error = Fixture("api-error-v1.hex");
 Equal(error, Wire.EncodeError(403, "权限不足", "role_required", "trace-123"));
 Equal(new byte[] { 1, 0, 0, 0 }, Aeds.Decode(Wire.EncodeEmptySuccess(), FrameType.EmptySuccess));
+Equal(Fixture("page-content-v1.hex"), SitePageWire.Encode("about", "# About\n\nHydration-safe binary payload."));
 
 var command = new ArticleCommand(0, 0, Guid.Parse("00446688-2244-6688-99aa-bbccddeeff00"), "独立向量", "first draft 🐈\n");
 var expected = Fixture("article-command.hex");

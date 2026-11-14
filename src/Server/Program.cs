@@ -107,6 +107,7 @@ app.UseRateLimiter();
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
+FsusBlog.V2.Server.Content.SitePages.Map(app, app.Services.GetRequiredService<WebPages>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications);
