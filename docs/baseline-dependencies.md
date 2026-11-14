@@ -25,3 +25,9 @@ NuGet 探针锁 SHA-256 为 `bb33835c9c591fea0695b147c2c8a19d68537e4e03c6b86630f
 | `markdown_basic.wasm` | `9b96f43c4248572cf375d826973aa9aeda06d8074d10cb404e1aaff508d2311d` |
 | `markdown_simd.js` | `b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8` |
 | `markdown_simd.wasm` | `c25f2596c189efcec91ec71cdc355d5275725eae8bab64c8bf132d8c1230eca3` |
+
+## 已验证候选的实际工具链
+
+用户随后授权安装计划所需的工具。`e7d1117` 的独立构建使用 macOS ARM64 的 .NET SDK 10.0.404、运行库 10.0.15、Node 24.16.0、锁定的 pnpm 10.33.0 和本地 FsusUI 源码。FsusUI 的六份原生资源已用 Emscripten 5.0.4 从源码重建。发布流程复核依赖锁、资源指纹与摘要，并逐字节比较包内 Wasm。运行持久层采用 Npgsql 10.0.3 单路径。本机使用 PostgreSQL 18.7、Caddy 2.11.9 和 Chrome 157 验收。 [FSusUI 源码及重建](fsusui.md) · [候选构建日志](../artifacts/candidate-e7d1117/release/build.txt)
+
+原生 Debian 13 ARM64 验收使用 Lima 2.3.0 的无宿主挂载测试虚拟机。安装的 Linux SDK 10.0.404 由 Microsoft 发布清单的 SHA-512 核对，实际使用运行库 10.0.15 和 PostgreSQL 17.12。`32880a1` 的运行包经 GNU tar 解包无警告，304 个文件摘要一致，并使用原生迁移工具、Kestrel 和 PostgreSQL 完成同代公开读取与重启。虚拟机完成后关停。本地未运行 Docker 测试。 [Linux 运行环境](../artifacts/linux-plugin-host/versions.txt) · [运行日志](../artifacts/linux-plugin-host/portable-linux-run.log)
