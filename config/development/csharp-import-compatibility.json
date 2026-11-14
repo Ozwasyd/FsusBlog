@@ -45,6 +45,46 @@
             "path": "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
             "order": "system-third-party-fsusblog",
             "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored native receipt source consumer; preserve every namespace and the unchanged global migration comparator."
+        },
+        {
+            "path": "src/migration/ArticlePreservationStorageWriter.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact native migration owner; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyNativeSession.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact native migration owner; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/OfflineMigrationExecutor.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact native migration owner; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "tests/migration/PgCurrentSchemaCatalogNotNullTests.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact native migration owner; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/OfflineMigrationBackupAdmission.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact original native migration owner observed in the complete current source chain; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/OfflineMigrationSourceObserver.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact original native migration owner observed in the complete current source chain; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact original native migration owner observed in the complete current source chain; retain root-namespace subgroups and every existing style refusal."
+        },
+        {
+            "path": "src/migration/PgLegacyNonArticlePreparation.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply docs/development/coding-conventions.md current System, third-party, then FsusBlog order to this exact original native migration owner observed in the complete current source chain; retain root-namespace subgroups and every existing style refusal."
         }
     ]
 }

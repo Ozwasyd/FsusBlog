@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Globalization;
+using System.Text.Json;
 
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Contracts.Schema;
@@ -178,6 +180,121 @@ internal sealed class ArticlePreservationStorageProgram
                 rows.Add(Row("ArticleTag", F("ArticleId", article.ArticleId), F("TagId", tagId)));
         }
         return rows.ToImmutable();
+    }
+
+    internal static ImmutableArray<ArticlePreservationStorageRow> CompileOutbox(
+        ArticlePreservationWritePlan plan, ArticlePreservationOutboxBatch batch,
+        OwnedCurrentSchemaTarget ownedTarget, CancellationToken token)
+    {
+        SchemaTableModel table = ownedTarget.ReadBoundInput().EntityProjection.Schema.Tables.Values
+            .Single(static table => table.Owner?.Owner == EntityNamespace + "ArticleMutationOutboxEvent");
+        return BindOutboxRows(table, plan, batch, token);
+    }
+
+    // Pure closed owner binding, also used by native provider contract controls.
+    // These values alone grant no source ownership or transaction capability.
+    internal static ImmutableArray<ArticlePreservationStorageRow> BindOutboxRows(
+        SchemaTableModel table, ArticlePreservationWritePlan plan, ArticlePreservationOutboxBatch batch,
+        CancellationToken token)
+    {
+        _ = BuildLogicalRows(plan, token); // Preserve every original graph/plan oracle.
+        if (batch.PlanDigest != plan.ContentDigest || batch.Events.IsDefault
+            || batch.Events.Length != plan.Articles.Length
+            || batch.Events.Select(static item => item.ArticleId).Distinct().Count() != batch.Events.Length
+            || batch.Events.Select(static item => item.EventId).Distinct(StringComparer.Ordinal).Count() != batch.Events.Length)
+            throw new InvalidOperationException("article_preservation_outbox_batch_binding");
+        var result = ImmutableArray.CreateBuilder<ArticlePreservationStorageRow>();
+        foreach (ArticlePreservationOutboxEnvelope envelope in batch.Events.OrderBy(static item => item.ArticleId))
+        {
+            token.ThrowIfCancellationRequested();
+            ArticlePreservationArticleWritePlan graph = plan.Articles.Single(item => item.Source.Id == envelope.ArticleId);
+            RequireEnvelope(graph, envelope);
+            var coordinate = graph.Current.Coordinates;
+            DateTime occurred = DateTime.SpecifyKind(envelope.OccurredAt, DateTimeKind.Unspecified);
+            ArticlePreservationStorageRow row = BindRow(table, Row("ArticleMutationOutboxEvent",
+                F("Id", 0L), F("EventId", envelope.EventId), F("AggregateType", "article"), F("AggregateId", envelope.ArticleId),
+                F("SchemaVersion", 2), F("ArticleRevisionId", graph.Current.Article.ArticleRevisionId!.Value),
+                F("RevisionNo", graph.Current.Article.RevisionNo!.Value), F("RightsSnapshotId", coordinate.RightsSnapshotId),
+                F("ResponsibilitySnapshotId", coordinate.ResponsibilitySnapshotId), F("ResponsibilityVersion", coordinate.ResponsibilityVersion),
+                F("ArticlePublicationId", coordinate.PublicationId), F("PublicationNo", coordinate.PublicationNo),
+                F("EventType", "created"), F("PayloadJson", envelope.PayloadJson), F("Status", "pending"), F("RetryCount", 0),
+                F("NextRetryAt", occurred), F("CreatedAt", occurred), F("ProcessedAt", null), F("LastError", null),
+                F("ClaimToken", null), F("ClaimedBy", null), F("ClaimedAt", null), F("HeartbeatAt", null), F("ClaimExpiresAt", null)));
+            if (row.Columns.Count(static column => column.IsPrimaryKey) != 1
+                || row.Columns.Count(static column => column.IsIdentity) != 1
+                || !row.Columns.Any(static column => column.IsPrimaryKey && column.IsIdentity
+                    && column.DataType == "int64" && column.PropertyOwner == EntityNamespace + "ArticleMutationOutboxEvent.Id"))
+                throw new InvalidOperationException("article_preservation_outbox_identity_owner_changed");
+            result.Add(row);
+        }
+        return result.ToImmutable();
+    }
+
+    private static void RequireEnvelope(ArticlePreservationArticleWritePlan graph, ArticlePreservationOutboxEnvelope envelope)
+    {
+        if (!Guid.TryParseExact(envelope.EventId, "N", out Guid id) || id == Guid.Empty
+            || envelope.OccurredAt.Kind != DateTimeKind.Utc || envelope.OccurredAt.Ticks % 10 != 0
+            || string.IsNullOrWhiteSpace(envelope.PayloadJson))
+            throw new InvalidOperationException("article_preservation_outbox_original_envelope_required");
+        using JsonDocument document = JsonDocument.Parse(envelope.PayloadJson);
+        JsonElement root = document.RootElement;
+        RequireUniqueProperties(root);
+        var article = graph.Current.Article;
+        var coordinate = graph.Current.Coordinates;
+        bool Integer(string name, long value) => root.TryGetProperty(name, out var actual)
+            && actual.TryGetInt64(out long number) && number == value;
+        bool Time(string name, DateTime expected) => root.TryGetProperty(name, out var actual)
+            && actual.ValueKind == JsonValueKind.String
+            && DateTime.TryParse(actual.GetString(), CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out DateTime value)
+            && value == DateTime.SpecifyKind(expected, DateTimeKind.Utc);
+        if (root.ValueKind != JsonValueKind.Object || !Integer("schemaVersion", 2)
+            || !Integer("articleId", article.ArticleId) || root.GetProperty("eventType").GetString() != "created"
+            || !Integer("articleRevisionId", article.ArticleRevisionId!.Value) || !Integer("revisionNo", article.RevisionNo!.Value)
+            || !Integer("rightsSnapshotId", coordinate.RightsSnapshotId)
+            || !Integer("responsibilitySnapshotId", coordinate.ResponsibilitySnapshotId)
+            || !Integer("responsibilityVersion", coordinate.ResponsibilityVersion)
+            || !Integer("releaseId", coordinate.PublicationId) || !Integer("releaseNo", coordinate.PublicationNo)
+            || !Time("occurredAt", envelope.OccurredAt)
+            || !Time("publicUpdatedAt", article.PublishedAt ?? envelope.OccurredAt)
+            || root.TryGetProperty("articlePublicationId", out _) || root.TryGetProperty("publicationNo", out _))
+            throw new InvalidOperationException("article_preservation_outbox_envelope_coordinates_changed");
+        string visibility = graph.Source.IsDeleted || article.Status == ArticleStatusValues.Deleted ? "deleted"
+            : article.Status switch
+            {
+                ArticleStatusValues.Published => "published",
+                ArticleStatusValues.Scheduled => "scheduled",
+                ArticleStatusValues.Archived => "archived",
+                _ => "draft"
+            };
+        void RequireScope(JsonElement scope)
+        {
+            if (scope.ValueKind != JsonValueKind.Object || scope.GetProperty("categoryId").GetInt32() != article.CategoryId
+                || scope.GetProperty("visibility").GetString() != visibility
+                || !scope.GetProperty("tagIds").EnumerateArray().Select(static tag => tag.GetInt32()).SequenceEqual(article.TagIds.Order()))
+                throw new InvalidOperationException("article_preservation_outbox_envelope_scope_changed");
+        }
+        RequireScope(root.GetProperty("after"));
+        JsonElement before = root.GetProperty("before");
+        if (before.ValueKind != JsonValueKind.Null)
+            RequireScope(before);
+    }
+
+    private static void RequireUniqueProperties(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (JsonProperty property in value.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                    throw new InvalidOperationException("article_preservation_outbox_duplicate_property");
+                RequireUniqueProperties(property.Value);
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+            foreach (JsonElement item in value.EnumerateArray())
+                RequireUniqueProperties(item);
     }
 
     private static ArticlePreservationStorageField F(string property, object? value) => new(property, value);

@@ -1,8 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
+import { inspectMsbuildSource, msbuildSourceFiles, validateMsbuildSourceReceipt } from './msbuild-source-inspector.mjs';
+import { assertOpaqueFixtureSourceOwner, isOpaqueFrontendFixture, opaqueFixtureSourcePath, selectOpaqueFixtureSourceRegressions } from './opaque-fixture-source-ownership.mjs';
 import { parseMatrix } from './parse-matrix.mjs';
 import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
@@ -48,21 +52,103 @@ for (const file of files)
         throw new Error(`source check refuses a nonregular or escaped changed file: ${file}`);
     }
 }
+const results = [];
+const checkedOpaqueFixtures = [];
+const changedOpaqueFixtures = evidence.changedFiles.filter(isOpaqueFrontendFixture);
+if (effectivePrExecutionStage(callerContext) === 'source-integration'
+    && (changedOpaqueFixtures.length || selectOpaqueFixtureSourceRegressions(evidence.changedFiles).length))
+{
+    const opaqueFiles = changedOpaqueFixtures.length ? changedOpaqueFixtures : [opaqueFixtureSourcePath];
+    const checker = sourceGovernanceChildEntries.opaqueFixture;
+    const attemptToken = randomBytes(32).toString('hex');
+    const env = { ...process.env };
+    for (const key of ['NODE_OPTIONS', 'NODE_PATH', 'NODE_TEST_CONTEXT', 'NODE_V8_COVERAGE'])
+    {
+        delete env[key];
+    }
+    let receipt;
+    let verification;
+    let result;
+    let bindingError = null;
+    let accepted = false;
+    try
+    {
+        assertOpaqueFixtureSourceOwner(matrix, opaqueFiles);
+        verifyChildBeforeSpawn(checker);
+        const argv = [checker, '--root', root, '--attempt-token', attemptToken, ...opaqueFiles.flatMap(file => ['--file', file])];
+        result = spawnSync(process.execPath, argv,
+            { cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        if (result.error || result.status !== 0)
+        {
+            throw new Error('opaque fixture original consumer collection failed');
+        }
+        receipt = JSON.parse(result.stdout);
+        verifyChildBeforeSpawn(checker);
+        verification = spawnSync(process.execPath, [checker, '--verify-receipt', '--expected-head', evidence.headCommit,
+            '--expected-attempt-token', attemptToken, '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])],
+        { cwd: root, env, input: JSON.stringify(receipt), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        if (verification.error || verification.status !== 0
+            || !isDeepStrictEqual(JSON.parse(verification.stdout), {
+                schema: 'fsusblog.opaque-fixture-source-verification.v1', status: 'verified',
+                qualificationEligible: false, head: evidence.headCommit, attemptToken, files: opaqueFiles
+            }))
+        {
+            throw new Error('opaque fixture receipt failed independent live-input verification');
+        }
+        // Parse the exact matrix bytes held by the collector, not a receipt-authored owner claim.
+        assertOpaqueFixtureSourceOwner(parseMatrix(receipt.matrixSource), opaqueFiles);
+        verifyChildBeforeSpawn(checker);
+        accepted = true;
+        checkedOpaqueFixtures.push(...opaqueFiles);
+    }
+    catch (error)
+    {
+        bindingError = error.message;
+        process.exitCode = 1;
+    }
+    results.push({ checker, mode: 'opaque-fixture-data', files: opaqueFiles,
+        exitCode: result?.status ?? null, status: accepted ? 'success' : 'failure', qualificationEligible: false,
+        receipt, verification: verification?.stdout ?? null, stderr: result?.stderr ?? '',
+        verificationStderr: verification?.stderr ?? '', spawnError: result?.error?.message ?? null, bindingError });
+}
 const groups = [
     ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
-        .map(value => [sourceGovernanceChildEntries.frontend, value.options, value.files]),
+        .map(value => [sourceGovernanceChildEntries.frontend, value.options,
+            value.files.filter(file => !checkedOpaqueFixtures.includes(file))]),
     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],
     ...(effectivePrExecutionStage(callerContext) === 'source-integration'
         ? [[sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'scripts', '--operation', 'lint'], files.filter(file => file.endsWith('.sh'))]] : [])
 ];
-const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
 const checkedBlame = [];
 const checkedDeclarations = [];
+const checkedMsbuild = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
+    // The original SOURCE owner calls a read-only declaration parser directly;
+    // no new executable child port or SDK/restore authority is introduced.
+    const msbuildFiles = evidence.changedFiles.filter(file => msbuildSourceFiles.includes(file));
+    if (msbuildFiles.length)
+    {
+        let receipt = null;
+        let bindingError = null;
+        try
+        {
+            receipt = inspectMsbuildSource({ repositoryRoot: root, files: msbuildFiles });
+            validateMsbuildSourceReceipt({ repositoryRoot: root, files: msbuildFiles,
+                expectedHead: evidence.headCommit, receipt });
+            checkedMsbuild.push(...msbuildFiles);
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+            process.exitCode = 1;
+        }
+        results.push({ checker: 'tools/test-matrix/msbuild-source-inspector.mjs', files: msbuildFiles,
+            status: bindingError ? 'failure' : 'success', qualificationEligible: false, receipt, bindingError });
+    }
     const solutions = files.filter(file => file.endsWith('.slnx'));
     if (solutions.length)
     {
@@ -243,7 +329,7 @@ for (const [checker, options, applicable] of groups)
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const inspectedFiles = sourceStageInspectionFiles(files, evidence.changedFiles);
-    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations);
+    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations, checkedMsbuild);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,

@@ -379,6 +379,16 @@ public sealed class AuthoringCommandContributionTests
         TransactionFixture transaction = await CreateTransactionFixtureAsync(fixture, response.MutationPlan!);
         var adapter = new AuthoringCommandTransactionAdapter(transaction.Rpc);
 
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await adapter.ApplyAsync(
+                transaction.Envelope,
+                response,
+                transaction.Approval with
+                {
+                    PreviewDigest = new string('d', 64)
+                }));
+        Assert.Equal(0, transaction.Port.CallCount);
+
         AuthoringTransactionReceipt receipt = await adapter.ApplyAsync(
             transaction.Envelope,
             response,
@@ -855,7 +865,7 @@ public sealed class AuthoringCommandContributionTests
             plan.PlanId,
             true,
             "approval-1",
-            new string('d', 64));
+            AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
         return new TransactionFixture(rpc, envelope, approval, port);
     }
 

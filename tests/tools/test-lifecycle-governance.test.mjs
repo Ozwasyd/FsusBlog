@@ -530,3 +530,20 @@ test('test-assets phase invokes one canonical retention producer before lifecycl
     assert.ok(calls.indexOf(retentionCalls[0]) < calls.indexOf(lifecycleCalls[0]));
     assert.doesNotMatch(calls.join('\n'), /test-lifecycle-retention-input\.json/u);
 });
+
+
+test('canonical article lifecycle keeps its complete check under one fixture owner', async () =>
+{
+    const { loadStaticGovernanceRegistry, buildStaticGovernanceExecutionPlan } = await import(
+        pathToFileURL(path.join(root, 'tools/test/static-governance-host.mjs')).href
+    );
+    const registry = loadStaticGovernanceRegistry(path.join(root, 'tests/governance/test-lifecycle-registry.json'), root);
+    const file = 'tests/tools/canonical-article-lifecycle-authority.test.mjs';
+    const checks = registry.checks.filter(check => check.file === file);
+    assert.equal(checks.length, 1);
+    assert.equal(checks[0].id, 'canonical-article-lifecycle-authority');
+    assert.equal(checks[0].category, 'isolated-temporary-repository-fixture');
+    const plan = buildStaticGovernanceExecutionPlan(registry);
+    const executions = plan.hosts.flatMap(host => host.checks).filter(check => check.file === file);
+    assert.deepEqual(executions, checks);
+});
