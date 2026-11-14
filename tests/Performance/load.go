@@ -265,8 +265,11 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect 
 		c.close()
 		return 0, err
 	}
-	if _, err := c.conn.Write(request); err != nil {
+	if n, err := c.conn.Write(request); err != nil || n != len(request) {
 		c.close()
+		if err == nil {
+			err = io.ErrShortWrite
+		}
 		return 0, err
 	}
 	response, err := http.ReadResponse(c.reader, nil)
@@ -594,15 +597,31 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 			return nil
 		})
 		if err != nil && r.reason == "" {
-			r.reason = "transport"
-			var e net.Error
-			if errors.As(err, &e) && e.Timeout() {
-				r.reason = "timeout"
-			}
+			r.reason = readFailure(err)
 		}
 		r.latency = time.Since(j.planned)
 		<-permits
 		output <- r
+	}
+}
+
+func readFailure(err error) string {
+	var network net.Error
+	switch {
+	case errors.As(err, &network) && network.Timeout():
+		return "timeout"
+	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
+		return "transport_eof"
+	case errors.Is(err, syscall.ECONNRESET):
+		return "transport_reset"
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "transport_refused"
+	case errors.Is(err, syscall.EPIPE):
+		return "transport_broken_pipe"
+	case errors.Is(err, io.ErrShortWrite):
+		return "transport_short_write"
+	default:
+		return "transport"
 	}
 }
 
