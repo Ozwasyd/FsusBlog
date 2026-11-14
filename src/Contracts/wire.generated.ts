@@ -37,6 +37,9 @@ export const FrameType = {
   SiteSessionList: 32796,
   Draft: 32770,
   ArticleCommand: 32771,
+  RevisionHistory: 32800,
+  RevisionComparison: 32801,
+  DraftRollback: 32802,
   InboxReplay: 32772,
   CanvasCreate: 32773,
   CanvasCreated: 32774,
@@ -108,6 +111,10 @@ export const WireLimits = {
   SiteSessionIdBytes: 64,
   SiteSessionListSize: 101,
   MaxCommandFrameBytes: 1048884,
+  RevisionHistoryPageSize: 20,
+  RevisionHistoryCursorChars: 54,
+  RollbackReasonBytes: 2000,
+  MaxDraftRollbackFrameBytes: 2056,
   CanvasInsertionBytes: 560,
   CanvasRequestBytes: 76,
   PropertyKeyBytes: 64,
@@ -291,6 +298,9 @@ export const WireRoutes = {
   PasskeyProvisionComplete: "/api/v2/identity/passkey/register/complete.aeds",
   PasskeyAvailability: "/api/v2/identity/passkey/availability.aeds",
   Draft: "/api/v2/authoring/draft/{id:int}.aeds",
+  DraftRevisionHistory: "/api/v2/authoring/draft/{id:int}/revisions.aeds",
+  DraftRevisionComparison: "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
+  DraftRollback: "/api/v2/authoring/rollback.aeds",
   Save: "/api/v2/authoring/save.aeds",
   Publish: "/api/v2/authoring/publish.aeds",
   Retract: "/api/v2/authoring/retract.aeds",
@@ -568,6 +578,74 @@ export function decodeDraft(payload: Uint8Array): Draft {
     title: reader.text(WireLimits.TitleBytes),
     body: reader.text(WireLimits.BodyBytes),
     published: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface DraftRollback {
+  id: number;
+  expectedRevision: bigint;
+  sourceRevision: bigint;
+  idempotencyKey: string;
+  reason: string;
+}
+
+export function encodeDraftRollback(value: DraftRollback): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.expectedRevision);
+  writer.i64(value.sourceRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.text(value.reason, WireLimits.RollbackReasonBytes);
+  return writer.finish();
+}
+
+export function decodeDraftRollback(payload: Uint8Array): DraftRollback {
+  const reader = new PodReader(payload);
+  const value: DraftRollback = {
+    id: reader.i32(),
+    expectedRevision: reader.i64(),
+    sourceRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    reason: reader.text(WireLimits.RollbackReasonBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface RevisionComparison {
+  id: number;
+  revision: bigint;
+  sourceRevision: bigint;
+  title: string;
+  body: string;
+  sourceTitle: string;
+  sourceBody: string;
+}
+
+export function encodeRevisionComparison(value: RevisionComparison): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.revision);
+  writer.i64(value.sourceRevision);
+  writer.text(value.title, WireLimits.TitleBytes);
+  writer.text(value.body, WireLimits.BodyBytes);
+  writer.text(value.sourceTitle, WireLimits.TitleBytes);
+  writer.text(value.sourceBody, WireLimits.BodyBytes);
+  return writer.finish();
+}
+
+export function decodeRevisionComparison(payload: Uint8Array): RevisionComparison {
+  const reader = new PodReader(payload);
+  const value: RevisionComparison = {
+    id: reader.i32(),
+    revision: reader.i64(),
+    sourceRevision: reader.i64(),
+    title: reader.text(WireLimits.TitleBytes),
+    body: reader.text(WireLimits.BodyBytes),
+    sourceTitle: reader.text(WireLimits.TitleBytes),
+    sourceBody: reader.text(WireLimits.BodyBytes),
   };
   reader.finish();
   return value;

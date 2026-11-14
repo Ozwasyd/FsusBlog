@@ -33,6 +33,7 @@ internal static partial class Migration
                   apply PLAN.json        Apply that plan atomically to an empty database
                   verify                 Check the current marker, shape and publication coordinates
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
+                  revision-history      Add rollback provenance to a matching existing database with the server stopped
                   operator NAME         Create an author and issue an expiring one-use login ticket
                   operator NAME --reader
                                         Create a reader and issue an expiring one-use login ticket
@@ -115,6 +116,9 @@ internal static partial class Migration
                     break;
                 case ["recovery-scope"]:
                     await InitializeRecoveryScopeAsync(connection, token);
+                    break;
+                case ["revision-history"]:
+                    await InitializeRevisionHistoryAsync(connection, token);
                     break;
                 case ["operator", var name]:
                     await IssueAsync(connection, name, create: true, author: true, token);

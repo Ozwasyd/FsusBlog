@@ -48,6 +48,10 @@ inline constexpr uint32_t MaxSignInFrameBytes = 148;
 inline constexpr uint32_t SiteSessionIdBytes = 64;
 inline constexpr uint32_t SiteSessionListSize = 101;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
+inline constexpr uint32_t RevisionHistoryPageSize = 20;
+inline constexpr uint32_t RevisionHistoryCursorChars = 54;
+inline constexpr uint32_t RollbackReasonBytes = 2000;
+inline constexpr uint32_t MaxDraftRollbackFrameBytes = 2056;
 inline constexpr uint32_t CanvasInsertionBytes = 560;
 inline constexpr uint32_t CanvasRequestBytes = 76;
 inline constexpr uint32_t PropertyKeyBytes = 64;
@@ -222,6 +226,9 @@ enum class FrameType : uint16_t {
     SiteSessionList = 32796,
     Draft = 32770,
     ArticleCommand = 32771,
+    RevisionHistory = 32800,
+    RevisionComparison = 32801,
+    DraftRollback = 32802,
     InboxReplay = 32772,
     CanvasCreate = 32773,
     CanvasCreated = 32774,
@@ -286,6 +293,9 @@ constexpr bool known(FrameType type) {
         case FrameType::SiteSessionList:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
+        case FrameType::RevisionHistory:
+        case FrameType::RevisionComparison:
+        case FrameType::DraftRollback:
         case FrameType::InboxReplay:
         case FrameType::CanvasCreate:
         case FrameType::CanvasCreated:

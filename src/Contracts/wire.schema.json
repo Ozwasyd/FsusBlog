@@ -49,6 +49,9 @@
     "SiteSessionList": 32796,
     "Draft": 32770,
     "ArticleCommand": 32771,
+    "RevisionHistory": 32800,
+    "RevisionComparison": 32801,
+    "DraftRollback": 32802,
     "InboxReplay": 32772,
     "CanvasCreate": 32773,
     "CanvasCreated": 32774,
@@ -120,6 +123,9 @@
     "PasskeyProvisionComplete": "/api/v2/identity/passkey/register/complete.aeds",
     "PasskeyAvailability": "/api/v2/identity/passkey/availability.aeds",
     "Draft": "/api/v2/authoring/draft/{id:int}.aeds",
+    "DraftRevisionHistory": "/api/v2/authoring/draft/{id:int}/revisions.aeds",
+    "DraftRevisionComparison": "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",
+    "DraftRollback": "/api/v2/authoring/rollback.aeds",
     "Save": "/api/v2/authoring/save.aeds",
     "Publish": "/api/v2/authoring/publish.aeds",
     "Retract": "/api/v2/authoring/retract.aeds",
@@ -185,6 +191,10 @@
     "SiteSessionIdBytes": 64,
     "SiteSessionListSize": 101,
     "MaxCommandFrameBytes": 1048884,
+    "RevisionHistoryPageSize": 20,
+    "RevisionHistoryCursorChars": 54,
+    "RollbackReasonBytes": 2000,
+    "MaxDraftRollbackFrameBytes": 2056,
     "CanvasInsertionBytes": 560,
     "CanvasRequestBytes": 76,
     "PropertyKeyBytes": 64,
@@ -357,6 +367,14 @@
     "Draft": {
       "frame": "Draft",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["Published", "bool"]]
+    },
+    "DraftRollback": {
+      "frame": "DraftRollback",
+      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+    },
+    "RevisionComparison": {
+      "frame": "RevisionComparison",
+      "fields": [["Id", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["SourceTitle", "text", "TitleBytes"], ["SourceBody", "text", "BodyBytes"]]
     },
     "ArticleCommand": {
       "frame": "ArticleCommand",

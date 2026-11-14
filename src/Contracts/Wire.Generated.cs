@@ -38,6 +38,9 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     Draft = 32770,
     ArticleCommand = 32771,
+    RevisionHistory = 32800,
+    RevisionComparison = 32801,
+    DraftRollback = 32802,
     InboxReplay = 32772,
     CanvasCreate = 32773,
     CanvasCreated = 32774,
@@ -111,6 +114,10 @@ public static class WireLimits
     public const int SiteSessionIdBytes = 64;
     public const int SiteSessionListSize = 101;
     public const int MaxCommandFrameBytes = 1048884;
+    public const int RevisionHistoryPageSize = 20;
+    public const int RevisionHistoryCursorChars = 54;
+    public const int RollbackReasonBytes = 2000;
+    public const int MaxDraftRollbackFrameBytes = 2056;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
     public const int PropertyKeyBytes = 64;
@@ -296,6 +303,9 @@ public static class WireRoutes
     public const string PasskeyProvisionComplete = "/api/v2/identity/passkey/register/complete.aeds";
     public const string PasskeyAvailability = "/api/v2/identity/passkey/availability.aeds";
     public const string Draft = "/api/v2/authoring/draft/{id:int}.aeds";
+    public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
+    public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";
+    public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
     public const string Save = "/api/v2/authoring/save.aeds";
     public const string Publish = "/api/v2/authoring/publish.aeds";
     public const string Retract = "/api/v2/authoring/retract.aeds";
@@ -343,6 +353,8 @@ public sealed record TaxonomyAssignment(int Id, long ExpectedRevision, Guid Idem
 public sealed record SignIn(string Ticket);
 public sealed record Session(string Name, long Generation, bool CanAuthor);
 public sealed record Draft(int Id, long Revision, string Title, string Body, bool Published);
+public sealed record DraftRollback(int Id, long ExpectedRevision, long SourceRevision, Guid IdempotencyKey, string Reason);
+public sealed record RevisionComparison(int Id, long Revision, long SourceRevision, string Title, string Body, string SourceTitle, string SourceBody);
 public sealed record ArticleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, string Title, string Body);
 public sealed record CanvasCreate(Guid CanvasId, Guid EdgeId, int HostArticleId, int TargetArticleId);
 public sealed record CanvasCreated(Guid CanvasId, Guid EdgeId, long CanvasRevision);
@@ -529,6 +541,50 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.Draft));
         var value = new Draft(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeDraftRollback(DraftRollback value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.ExpectedRevision);
+        writer.I64(value.SourceRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
+        return Aeds.Encode(FrameType.DraftRollback, writer.Written);
+    }
+
+    public static DraftRollback DecodeDraftRollback(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRollback));
+        var value = new DraftRollback(reader.I32(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeRevisionComparison(RevisionComparison value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.Revision);
+        writer.I64(value.SourceRevision);
+        writer.Text(value.Title, WireLimits.TitleBytes);
+        writer.Text(value.Body, WireLimits.BodyBytes);
+        writer.Text(value.SourceTitle, WireLimits.TitleBytes);
+        writer.Text(value.SourceBody, WireLimits.BodyBytes);
+        return Aeds.Encode(FrameType.RevisionComparison, writer.Written);
+    }
+
+    public static RevisionComparison DecodeRevisionComparison(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.RevisionComparison));
+        var value = new RevisionComparison(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
         reader.Finish();
         Validate(value);
         return value;
