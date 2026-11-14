@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
+import { localFsusUiDependencyBindings, prepareLocalFsusUiSourceCopy, resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
 
 const packageName = '@ozwasyd/element-plus';
 const packageLocation = `node_modules/${packageName}`;
@@ -41,34 +41,6 @@ function validateBundledParent(packages, location)
         assert.equal(record.inBundle, true, `bundled parent has no tarball owner: ${parent}`);
     }
     assert.fail(`bundled integrity owner is missing: ${location}`);
-}
-
-function sourceDependencyBindings({ manifest, lockfile })
-{
-    const dependencies = { ...lockfile.packages[packageLocation].dependencies, ...lockfile.packages[packageLocation].peerDependencies };
-    const installNames = new Set();
-    return Object.keys(dependencies).map(name =>
-    {
-        validatePackageName(name);
-        const lockedLocation = lockedDependencyLocation(lockfile, name);
-        const locked = lockfile.packages[lockedLocation];
-        validatePackageName(locked.name ?? name);
-        assert.match(locked.version ?? '', /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?$/u, 'locked source version must be exact');
-        const nested = lockedLocation !== `node_modules/${name}`;
-        const installName = nested ? `fsusui-local-${name.replaceAll(/[^a-z0-9-]/gu, '-')}` : name;
-        validatePackageName(installName);
-        assert.equal(installNames.has(installName), false, 'source dependency alias collision');
-        installNames.add(installName);
-        if (nested)
-        {
-            assert.equal(lockfile.packages[`node_modules/${installName}`], undefined, 'source dependency alias collides with a locked package');
-            for (const section of dependencySections)
-            {
-                assert.equal(manifest[section]?.[installName], undefined, 'source dependency alias collides with a declared package');
-            }
-        }
-        return { name, lockedLocation, locked, installName, location: `node_modules/${installName}`, nested };
-    });
 }
 
 function validatePackageName(name)
@@ -161,7 +133,7 @@ export function projectLocalFsusUiInstall({ manifest, lockfile })
     }
     // npm ci prunes unreachable records. Make the real source's locked public
     // dependencies reachable without installing or manufacturing a FsusUI package.
-    for (const binding of sourceDependencyBindings({ manifest, lockfile }))
+    for (const binding of localFsusUiDependencyBindings({ manifest, lockfile }))
     {
         const { installName, locked, nested } = binding;
         const alreadyDeclared = dependencySections.some(section => projectedManifest[section]?.[installName] !== undefined);
@@ -183,7 +155,11 @@ export function projectLocalFsusUiInstall({ manifest, lockfile })
 
 function validateLocalSource(frontend, fsusui)
 {
-    const root = resolveLocalFsusUiRepositoryRoot({ override: fsusui, repositoryRoot: path.resolve(frontend, '../..') });
+    const root = resolveLocalFsusUiRepositoryRoot({
+        override: fsusui,
+        repositoryRoot: path.resolve(frontend, '../..'),
+        preferSourceCopy: false
+    });
     assert.ok(fsusui && root, 'explicit FsusUI source is required');
     const canonical = fs.realpathSync(root);
     for (const asset of [
@@ -224,14 +200,6 @@ export function prepareLocalFsusUiInstall({ frontend, fsusui, output })
     fs.writeFileSync(path.join(output, 'package-lock.json'), `${JSON.stringify(projected.lockfile, null, 4)}\n`, { flag: 'wx' });
 }
 
-function lockedDependencyLocation(lockfile, name)
-{
-    const nested = `${packageLocation}/node_modules/${name}`;
-    const location = Object.hasOwn(lockfile.packages, nested) ? nested : `node_modules/${name}`;
-    assert.ok(lockfile.packages[location], `source dependency is not locked: ${name}`);
-    return location;
-}
-
 /** Verify the real public install and expose exact locked public dependencies to source aliases. */
 export function verifyLocalFsusUiInstall({ frontend, fsusui })
 {
@@ -241,7 +209,7 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
     assert.equal(fs.existsSync(path.join(frontend, packageLocation, 'package.json')), false, 'FsusUI registry package must not be installed in local mode');
     const sourceManifest = readJson(path.join(root, 'vue/packages/element-plus/package.json'));
     const lockedPackage = original.lockfile.packages[packageLocation];
-    const bindings = sourceDependencyBindings(original);
+    const bindings = localFsusUiDependencyBindings(original);
     for (const [name, specifier] of Object.entries({ ...sourceManifest.dependencies, ...sourceManifest.peerDependencies }))
     {
         if (specifier.startsWith('workspace:'))
@@ -262,8 +230,6 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.equal(installed.version, locked.version, `installed locked dependency version differs: ${name}`);
         assert.equal(installed.name, locked.name ?? name, `installed locked dependency identity differs: ${name}`);
     }
-    const destination = path.join(root, 'vue/packages/node_modules');
-    assert.equal(fs.existsSync(destination), false, 'source package dependency directory already exists');
     // Link each original import name to the verified public install, including
     // version-conflicting dependencies installed under dedicated npm aliases.
     for (const binding of bindings)
@@ -273,12 +239,21 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.equal(installed.version, binding.locked.version, `installed locked dependency version differs: ${binding.name}`);
         assert.equal(installed.name, binding.locked.name ?? binding.name, `installed locked dependency identity differs: ${binding.name}`);
     }
-    for (const binding of bindings)
-    {
-        const link = path.join(destination, binding.name);
-        fs.mkdirSync(path.dirname(link), { recursive: true });
-        fs.symlinkSync(path.join(frontend, binding.location), link, 'dir');
-    }
+    return prepareLocalFsusUiSourceCopy({
+        repositoryRoot: path.resolve(frontend, '../..'),
+        sourceRoot: root,
+        frontend,
+        initialize(copy)
+        {
+            const destination = path.join(copy, 'vue/packages/node_modules');
+            for (const binding of bindings)
+            {
+                const link = path.join(destination, binding.name);
+                fs.mkdirSync(path.dirname(link), { recursive: true });
+                fs.symlinkSync(fs.realpathSync(path.join(frontend, binding.location)), link, 'dir');
+            }
+        }
+    });
 }
 
 function main(args)

@@ -48,6 +48,43 @@ prints its path; retention does not turn a failed gate into acceptance.
 
 By default it resolves the `FsusUI` checkout beside the primary FsusBlog checkout, including when the command runs from a linked Git worktree. Set `FSUSBLOG_LOCAL_FSUSUI_ROOT` to select another checkout; an invalid explicit path fails closed instead of falling back to the installed package. This is the mode to run during local development before the FsusUI package has been published.
 
+### Consumer Source Initialization
+
+With the original locked public dependencies already installed and the required
+theme/Wasm assets already present in the source checkout, initialize the consumer
+from its FsusBlog repository root:
+
+```bash
+node src/frontend/scripts/prepare-local-fsusui-install.mjs verify \
+  --frontend-root src/frontend --fsusui-root /absolute/path/FsusUI
+```
+
+This command verifies the original manifest, lock, source dependencies and assets;
+it does not install packages or generate missing assets. It writes a real source
+copy under this consumer's ignored `.tmp/fsusui-source/<source-root-sha256>`.
+The directory key hashes the canonical owner path. The copy contains the actual
+Vue source, declarations and existing assets, omitting owner dependency trees,
+Git metadata and temporary/cache directories. Its marker binds the source owner,
+consumer frontend and source-content digest. The owner checkout stays read-only;
+each linked FsusBlog worktree initializes its own independent copy.
+
+The internal `resolveLocalFsusUiRepositoryRoot` API selects this verified copy
+once it exists. Before initialization, it retains the original owner selection.
+The external `fsusui-root.mjs` CLI prints the owner Git-worktree root for identity,
+including when its input names an owned copy; that output does not certify copy
+freshness. Source consumption uses the internal API rather than treating the
+identity output as the initialized dependency projection.
+
+Selection verifies both owner and copy content, the consumer dependency root,
+every locked alias target/name/version and complete package-link membership.
+Unexpected nearer `node_modules` directories fail. Source changes or copy drift
+require rerunning initialization; stale or invalid copies do not silently fall
+back to the owner. Initialization validates existing `.tmp` and `fsusui-source`
+ancestors before creating directories, refuses redirected or owner-contained
+destinations, and replaces only an owned copy. A failed preparation preserves the
+previous published copy. It neither repairs existing owner dependency pollution
+nor authorizes downloading missing dependencies or generating missing assets.
+
 ### Docker Source Installation
 
 `FSUSBLOG_USE_LOCAL_FSUSUI=1` explicitly selects the checked-out source mode in
@@ -75,12 +112,15 @@ accepted only through a present package-parent chain ending at an unchanged
 public tarball with integrity; removed-parent orphans are rejected.
 
 After installation, the helper verifies the source's locked runtime dependencies
-and their installed identities. Each source import name is linked to its verified
-public dependency through `vue/packages/node_modules`, while the existing root
-dependency link supplies the shared frontend runtime. Thus source imports retain
-the locked nested KaTeX version instead of accidentally selecting the different
-root version. A missing dependency is an error, not permission to resolve or
-update the lock.
+and their installed identities, then initializes the consumer source copy above.
+Within that copy, each original source import name is linked to its verified
+public dependency through `vue/packages/node_modules`. The copy's root
+`node_modules` link points to this consumer's `src/frontend/node_modules`, so
+declarations outside `vue/packages` and component source resolve one consumer
+Vue identity. The original FsusUI checkout's dependency links are not rewritten.
+Source imports retain the locked nested KaTeX version instead of accidentally
+selecting the different root version. A missing dependency is an error, not
+permission to resolve or update the lock.
 
 `FSUSBLOG_USE_LOCAL_FSUSUI=0` retains the existing published-package installation
 with its original private lock and required token. Other switch values fail;
