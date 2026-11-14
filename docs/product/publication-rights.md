@@ -6,4 +6,6 @@
 
 `publication-rights` 为结构匹配的旧 v2 数据库添加权利存储并报告待补齐公开坐标。没有已保存的权利证据时，迁移保持该坐标但使其留在私有范围。作者确认策略并重新发布后产生新的证据。旧库审计候选保留来源凭证，但当前候选没有开放导入到运行库的发布权利提升操作。测试中的明确合成权利来自 `tests/Fixtures/publication-rights.sql`，单独记录摘要，不修改原代表性 seed。
 
-此实现采用 v1 Rights V3 策略字段及固定记录布局。源 v1 规范内容哈希要求现版本可能缺失的字段，包括正数分类 ID。本实现保留公开记录的规范哈希及证明字段为空，待独立实现真实规范内容、权利哈希、签名、透明日志和责任历史包。复制策略和 ProofBindingEnabled 按原样记录，浏览器复制增强和证明生成仍待完成。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/rights-v3-schema.md)
+此实现采用 v1 Rights V3 策略字段及固定记录布局。迁移验证与协议向量共用 `ArticleCanonicalHashesV1`。隔离候选只用保留的 v1 来源事实复算已有摘要，包括全局修订 ID、正数来源分类 ID、原始可空元数据和策略，以及经验证的历史发布时间或首发排期。两个冻结向量同时比对完整载荷和摘要。即时发布、带确切来源证据的再次发布及公开回滚、首发排期仍分别按迁移既有边界验证。 [共用规范](../../src/Contracts/ArticleCanonicalHashesV1.cs) · [冻结向量](../../tests/Protocol/fixtures/canonical-hash-golden-vectors.json)
+
+原生 v2 只有文章内修订号，没有 v1 权利哈希所需的全局修订 ID。其可选分类和由正文生成的摘要也不能代替来源元数据。原生发布的公开记录中规范哈希及证明字段仍为空。复制策略和 `ProofBindingEnabled` 按原样记录。原生摘要、签名、透明日志、责任历史包和浏览器复制增强在本次变更范围之外。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/rights-v3-schema.md)

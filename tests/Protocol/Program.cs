@@ -88,4 +88,5 @@ Reject(() => InboxReplayWire.Encode(702, true, true, inboxEvents));
 LocalSearchVectors.Run(fixtures);
 PropertyValueVectors.Run(fixtures);
 RelatedReadingVectors.Run(fixtures);
+ArticleCanonicalHashVectors.Run(fixtures);
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

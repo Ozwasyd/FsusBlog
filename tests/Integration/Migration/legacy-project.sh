@@ -63,6 +63,20 @@ prepare_candidate() {
             public_updated_at='2026-10-02 00:00:00';"
     # A syntactically valid captured digest which independent canonical recomputation must disprove.
     case "$case_name" in
+        missing_category)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_revision SET categoryid=0 WHERE id=5000000001"
+            ;;
+        submicrosecond_clock)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_publication
+                SET published_at='2026-10-01 00:00:00.0000001' WHERE id=900000001"
+            ;;
+        year_sentinel)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot SET copyright_year=0 WHERE id=700"
+            ;;
+        recompute_sentinel)
+            sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot
+                SET policy_hash='rights-v3:policy-hash:recompute' WHERE id=700"
+            ;;
         invalid_content)
             sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot
                 SET content_canonical_hash='sha256:0000000000000000000000000000000000000000000000000000000000000000'
@@ -279,6 +293,19 @@ before="$(state)"
 expect_refused "${project_rows[@]}"
 rg -F 'rights policy SHA-256' "$run/error.log" "$run/refused.json"
 [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+for case_name in missing_category submicrosecond_clock year_sentinel recompute_sentinel; do
+    prepare_candidate "$case_name"
+    before="$(state)"
+    expect_refused "${project_rows[@]}"
+    case "$case_name" in
+        missing_category) rg -F 'invalid canonical coordinates' "$run/error.log" ;;
+        submicrosecond_clock) rg -F 'timestamp cannot be represented exactly in PostgreSQL' "$run/error.log" ;;
+        year_sentinel) rg -F 'copyright year collides with the current unset sentinel' "$run/error.log" ;;
+        recompute_sentinel) rg -F 'rights policy SHA-256' "$run/error.log" ;;
+    esac
+    [[ "$(state)" == "$before" && "$(digest "$FSUSBLOG_V1_SQLITE_PATH")" == "$source_before" ]]
+done
+
 prepare_candidate rollback
 "${project_rows[@]}" > "$run/projected.json"
 "${project_rows[@]}" > "$run/revalidated.json"

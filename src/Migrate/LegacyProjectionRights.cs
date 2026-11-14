@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using FsusBlog.V2.Contracts;
 using Npgsql;
 
@@ -66,23 +64,12 @@ internal static partial class Migration
         if (article <= 0 || sourceRevision <= 0 || revision <= 0 || category <= 0)
             throw new InvalidOperationException("A legacy immutable rights snapshot has invalid canonical coordinates.");
         var tagCsv = rows.GetString(10);
-        var tags = tagCsv.Length == 0 ? [] : tagCsv.Split(',').Select(ParseRevisionTag).Distinct().Order().ToArray();
-        return LegacyRightsSha256(
-            "fsusblog.integrity.article-canonical.v1",
-            "hashVersion:i:1",
-            LegacyRightsInteger("articleId", article),
-            LegacyRightsInteger("articleRevisionId", sourceRevision),
-            LegacyRightsInteger("revisionNo", revision),
-            LegacyRightsString("publicRouteKey", FormattableString.Invariant($"article:{article}")),
-            LegacyRightsString("title", rows.GetString(5)),
-            LegacyRightsString("summary", LegacyRightsText(rows, 7)),
-            LegacyRightsString("coverImageUrl", LegacyRightsText(rows, 8)),
-            LegacyRightsInteger("categoryId", category),
-            "tagIds:i:" + string.Join(',', tags.Select(tag => tag.ToString(CultureInfo.InvariantCulture))),
-            LegacyRightsInteger("status", status),
-            publishedAt is null ? "publishedAt:n" : "publishedAt:t:" + LegacyRightsTime(publishedAt),
-            scheduledAt is null ? "scheduledPublishAt:n" : "scheduledPublishAt:t:" + LegacyRightsTime(scheduledAt),
-            LegacyRightsString("markdown", rows.GetString(6)));
+        var tags = tagCsv.Length == 0 ? [] : tagCsv.Split(',').Select(ParseRevisionTag).ToArray();
+        return ArticleCanonicalHashesV1.ContentDigest(new(article, sourceRevision, revision,
+            FormattableString.Invariant($"article:{article}"), rows.GetString(5), LegacyRightsText(rows, 7),
+            LegacyRightsText(rows, 8), category, tags, status,
+            publishedAt is null ? null : ParseLegacyProjectionTimestamp(publishedAt),
+            scheduledAt is null ? null : ParseLegacyProjectionTimestamp(scheduledAt), rows.GetString(6)));
     }
 
     private static void VerifyLegacyRevisionRightsHashes(NpgsqlDataReader rows, string content, string authority)
@@ -108,23 +95,9 @@ internal static partial class Migration
             throw new InvalidOperationException($"A legacy {authority} rights policy cannot be represented by the current contract.");
         }
 
-        var policy = LegacyRightsSha256(
-            "fsusblog.rights.article-policy.v1",
-            "hashVersion:i:1",
-            LegacyRightsInteger("articleId", article),
-            LegacyRightsInteger("articleRevisionId", sourceRevision),
-            LegacyRightsInteger("revisionNo", revision),
-            LegacyRightsString("licenseType", rights.LicenseType),
-            LegacyRightsString("copyrightHolder", holder),
-            year is { } value ? LegacyRightsInteger("copyrightYear", value) : "copyrightYear:n",
-            LegacyRightsString("rightsStatement", statement),
-            LegacyRightsString("attributionTemplate", attribution),
-            LegacyRightsString("copyPolicy", rights.CopyPolicy),
-            LegacyRightsInteger("maxExcerptChars", rights.MaxExcerptChars),
-            rights.AllowCodeCopy ? "allowCodeCopy:b:1" : "allowCodeCopy:b:0",
-            rights.ShowPublicBadge ? "showPublicBadge:b:1" : "showPublicBadge:b:0",
-            LegacyRightsString("canonicalUrl", LegacyRightsText(rows, 23)),
-            "contentCanonicalHash:h:" + content);
+        var policy = ArticleCanonicalHashesV1.PolicyDigest(new(article, sourceRevision, revision,
+            rights.LicenseType, holder, year, statement, attribution, rights.CopyPolicy, rights.MaxExcerptChars,
+            rights.AllowCodeCopy, rights.ShowPublicBadge, LegacyRightsText(rows, 23), content));
         if (policy != LegacyRightsText(rows, 25))
             throw new InvalidOperationException($"A legacy {authority}'s recorded rights policy SHA-256 does not match its frozen snapshot.");
     }
@@ -140,17 +113,6 @@ internal static partial class Migration
                actual == ParseLegacyProjectionTimestamp(row.GetString(30)) &&
                actual == ParseLegacyProjectionTimestamp(row.GetString(31));
     }
-
-    // The two payloads follow ArticleCanonicalHashV1 and ArticleRightsCanonicalHashV1 at LegacyReference.
-    private static string LegacyRightsSha256(params string[] lines) =>
-        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(StrictUtf8.GetBytes(string.Join('\n', lines) + '\n')));
-
-    private static string LegacyRightsString(string field, string? value) => value is null ? field + ":n" :
-        field + ":s:" + Convert.ToBase64String(StrictUtf8.GetBytes(value.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n').Normalize(NormalizationForm.FormC)));
-
-    private static string LegacyRightsInteger(string field, long value) =>
-        field + ":i:" + value.ToString(CultureInfo.InvariantCulture);
 
     private static string? LegacyRightsText(NpgsqlDataReader row, int ordinal) =>
         row.IsDBNull(ordinal) ? null : row.GetString(ordinal);
@@ -180,7 +142,4 @@ internal static partial class Migration
             throw new InvalidOperationException("A legacy projection timestamp cannot be represented exactly in PostgreSQL.");
         return utc;
     }
-
-    private static string LegacyRightsTime(string? value) =>
-        ParseLegacyProjectionTimestamp(value).ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
 }
