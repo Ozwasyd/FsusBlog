@@ -34,6 +34,7 @@ internal static partial class Migration
                   verify                 Check the current marker, shape and publication coordinates
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
+                  publication-history   Retain current publication coordinates and add event history with the server stopped
                   admin-identity schema Add the independent administrator schema with the server stopped
                   admin-identity bootstrap HANDLE admin.manage
                                         Create an administrator and issue a one-use Passkey invitation
@@ -128,6 +129,9 @@ internal static partial class Migration
                     break;
                 case ["revision-history"]:
                     await InitializeRevisionHistoryAsync(connection, token);
+                    break;
+                case ["publication-history"]:
+                    await InitializePublicationHistoryAsync(connection, token);
                     break;
                 case ["admin-identity", .. var adminArguments]:
                     await AdminIdentityAsync(connection, adminArguments, token);
@@ -225,6 +229,21 @@ internal static partial class Migration
     private static async Task VerifyPublicationsAsync(NpgsqlConnection connection, CancellationToken token)
     {
         await using var transaction = await BeginReadOnlyAsync(connection, token);
+        await VerifyActivePublicationsAsync(connection, transaction, token);
+        await VerifyPublicationHistoryAsync(connection, transaction, token);
+        await using (var pending = new NpgsqlCommand("""
+            select count(*) from public.article a where a.publication_count>0 and not exists (
+                select from public.article_publication_history h where h.article_id=a.id
+            )
+            """, connection, transaction))
+            if (await pending.ExecuteScalarAsync(token) is long count && count != 0)
+                Console.WriteLine($"Publication history has {count} articles awaiting a retained boundary. Run publication-history after direct imports.");
+        await transaction.CommitAsync(token);
+    }
+
+    private static async Task VerifyActivePublicationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken token)
+    {
         await using var command = new NpgsqlCommand("""
             SELECT a.id
             FROM public.article a LEFT JOIN public.article_publication p ON a.id = p.article_id
@@ -238,7 +257,6 @@ internal static partial class Migration
             throw new InvalidOperationException($"Article {id} has inconsistent publication coordinates.");
         }
 
-        await transaction.CommitAsync(token);
     }
 
     private static async Task IssueAsync(NpgsqlConnection connection, string name, bool create, bool author,

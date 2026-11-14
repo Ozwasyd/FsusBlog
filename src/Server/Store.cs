@@ -191,29 +191,13 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             await Content.TaxonomyStore.Replace(db, tx, state.Id, state.Revision, taxonomy.CategoryId, taxonomy.TagIds, ct);
         else if (edit.Id != 0)
             await Content.TaxonomyStore.CarryForward(db, tx, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision, state.Revision, ct);
-        if (action == ArticleAction.Publish)
-        {
-            await using var publish = Sql(db, tx, """
-                with next_publication as (
-                    update public.article set publication_count=publication_count+1 where id=$1 returning publication_count
-                )
-                insert into public.article_publication(article_id,revision,publication_no,published_at)
-                    select $1,$2,publication_count,now() from next_publication
-                on conflict(article_id) do update set revision=excluded.revision,publication_no=excluded.publication_no,
-                    published_at=excluded.published_at,publication_id=excluded.publication_id
-                """, state.Id, state.Revision);
-            await publish.ExecuteNonQueryAsync(ct);
-        }
-        if (action is ArticleAction.Retract or ArticleAction.Delete)
-        {
-            await using var retract = Sql(db, tx, "delete from public.article_publication where article_id=$1", state.Id);
-            await retract.ExecuteNonQueryAsync(ct);
-        }
         await using (var record = Sql(db, tx, """
             insert into public.article_command(actor_id,command_id,fingerprint,article_id,revision,title,body,published)
             values($1,$2,$3,$4,$5,$6,$7,$8)
             """, actor.Id, edit.Key, fingerprint, state.Id, state.Revision, state.Title, state.Body, state.PublishedRevision.HasValue))
             await record.ExecuteNonQueryAsync(ct);
+        if (action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete)
+            await Authoring.PublicationHistoryStore.Apply(db, tx, actor.Id, edit.Key, action, current!, state, ct);
         if (rollback is not null)
             await Authoring.RevisionHistoryStore.RecordRollback(db, tx, actor, state.Revision, rollback, ct);
         await using (var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",

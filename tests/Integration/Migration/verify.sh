@@ -145,6 +145,26 @@ JOIN public.article_revision r ON (r.article_id, r.revision) = (p.article_id, p.
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_count FROM public.article')" == 1 ]]
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_no FROM public.article_publication')" == 1 ]]
 
+"${psql_restore[@]}" <<'SQL'
+BEGIN;
+INSERT INTO public.article (owner_id, revision, title, body, deleted, publication_count)
+    SELECT id, 5, 'Previously withdrawn', 'Private body', false, 2 FROM public.blog_user;
+INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
+    SELECT id, revision, title, body, now() FROM public.article WHERE title = 'Previously withdrawn';
+DROP TABLE public.article_publication_history;
+COMMIT;
+SQL
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-history
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-history
+retained=$("${psql_restore[@]}" -qAtc "SELECT concat_ws('|',event_no,revision,publication_no,coalesce(publication_id,0),
+    kind,reason,happened_at IS NOT NULL,actor_id IS NULL) FROM public.article_publication_history ORDER BY article_id")
+active=$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')
+[[ "$retained" == $'1|1|1|'"$active"$'|retained-active|pre-history|true|true\n1|5|2|0|retained-hidden|pre-history|false|true' ]]
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+"${psql_restore[@]}" -c "UPDATE public.article_publication_history SET reason = 'changed' WHERE kind = 'retained-active'"
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'inconsistent publication history' "${migrate[@]}" verify
+
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
 expect_failure 'unexpected-identity-sequence' "${migrate[@]}" verify
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'

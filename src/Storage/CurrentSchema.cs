@@ -96,17 +96,19 @@ internal static partial class CurrentSchema
 
     internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
-        bool requireAdminIdentity = true)
+        bool requireAdminIdentity = true, bool requirePublicationHistory = true)
     {
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? AdminIdentityColumns : [])
+            .Concat(requirePublicationHistory ? PublicationHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(CommentConstraints).Concat(MediaConstraints)
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? AdminIdentityConstraints : [])
+            .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """
             WITH owned AS (
