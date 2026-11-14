@@ -52,18 +52,32 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         return (Convert.ToHexStringLower(secret), new(id, name, generation, canAuthor, expiry));
     }
 
-    internal async Task<T> WithSession<T>(string? token, bool author, Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct)
+    internal Task<T> WithSession<T>(string? token, bool author, Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct) =>
+        WithSession(token, author, lockAccount: false, run, ct);
+
+    internal Task<T> WithSessionForAccountUpdate<T>(string? token, Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct) =>
+        WithSession(token, author: false, lockAccount: true, run, ct);
+
+    private async Task<T> WithSession<T>(string? token, bool author, bool lockAccount,
+        Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct)
     {
         if (TokenDigest(token) is not { } digest) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        if (lockAccount)
+        {
+            await using var account = Sql(db, tx, """
+                select id from public.blog_user where enabled
+                and id=(select user_id from public.user_session where digest=$1) for update
+                """, digest);
+            if (await account.ExecuteScalarAsync(ct) is null) throw Unauthenticated();
+        }
         Identity actor;
         await using (var cmd = Sql(db, tx, """
             select u.id,u.name,u.generation,u.can_author,s.expires_at
             from public.blog_user u join public.user_session s on s.user_id=u.id
             where u.enabled and s.digest=$1 and u.generation=s.generation and s.expires_at>clock_timestamp()
-            for share of u,s
-            """, digest))
+            """ + (lockAccount ? " for update of s" : " for share of u,s"), digest))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
             if (!await row.ReadAsync(ct)) throw Unauthenticated();

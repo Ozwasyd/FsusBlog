@@ -45,6 +45,8 @@ inline constexpr uint32_t SearchCorpusTotalBytes = 67108864;
 inline constexpr uint32_t SearchCorpusMaxPages = 128;
 inline constexpr uint32_t SearchQueryChars = 128;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
+inline constexpr uint32_t SiteSessionIdBytes = 64;
+inline constexpr uint32_t SiteSessionListSize = 101;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t CanvasInsertionBytes = 560;
 inline constexpr uint32_t CanvasRequestBytes = 76;
@@ -217,6 +219,7 @@ enum class FrameType : uint16_t {
     ApiError = 251,
     OperatorSignIn = 32768,
     OperatorSession = 32769,
+    SiteSessionList = 32796,
     Draft = 32770,
     ArticleCommand = 32771,
     InboxReplay = 32772,
@@ -280,6 +283,7 @@ constexpr bool known(FrameType type) {
         case FrameType::ApiError:
         case FrameType::OperatorSignIn:
         case FrameType::OperatorSession:
+        case FrameType::SiteSessionList:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
         case FrameType::InboxReplay:

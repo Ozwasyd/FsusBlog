@@ -35,6 +35,7 @@ public enum FrameType : ushort
     ApiError = 251,
     OperatorSignIn = 32768,
     OperatorSession = 32769,
+    SiteSessionList = 32796,
     Draft = 32770,
     ArticleCommand = 32771,
     InboxReplay = 32772,
@@ -107,6 +108,8 @@ public static class WireLimits
     public const int SearchCorpusMaxPages = 128;
     public const int SearchQueryChars = 128;
     public const int MaxSignInFrameBytes = 148;
+    public const int SiteSessionIdBytes = 64;
+    public const int SiteSessionListSize = 101;
     public const int MaxCommandFrameBytes = 1048884;
     public const int CanvasInsertionBytes = 560;
     public const int CanvasRequestBytes = 76;
@@ -284,6 +287,9 @@ public static class WireRoutes
     public const string SignIn = "/api/v2/identity/sign-in.aeds";
     public const string Session = "/api/v2/identity/session.aeds";
     public const string SignOut = "/api/v2/identity/sign-out.aeds";
+    public const string SiteSessions = "/api/v2/identity/sessions.aeds";
+    public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
+    public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
@@ -325,6 +331,7 @@ public static class WireHeaders
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
+    public const string CurrentSession = "X-Fsus-Current-Session";
 }
 
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);

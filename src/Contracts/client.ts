@@ -23,7 +23,11 @@ export type { Article, ArticleCard } from './public-articles.ts';
 export type { ArticleCommand, Draft } from './wire.generated.ts';
 export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
 export type { InboxFilter, InboxListItem, InboxListPage, InboxMessage, InboxThread } from './inbox.ts';
-export type Session = Readonly<WireSession & { expiresAt: number }>;
+export type Session = Readonly<WireSession & { expiresAt: number; siteSessionId?: string }>;
+
+export function validSiteSessionId(value: string): boolean {
+  return value.length === WireLimits.SiteSessionIdBytes && /^[0-9a-f]+$/.test(value);
+}
 
 export async function request<T>(
   path: string,
@@ -98,9 +102,11 @@ function readSession(payload: Uint8Array, headers: Headers): Session {
   const expiresAt = rawExpiry && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?Z$/.test(rawExpiry)
     ? Date.parse(rawExpiry)
     : NaN;
-  if (session.name.length === 0 || session.generation <= 0n || !Number.isFinite(expiresAt))
+  const handle = headers.get(WireHeaders.CurrentSession);
+  if (session.name.length === 0 || session.generation <= 0n || !Number.isFinite(expiresAt) ||
+      (handle !== null && !validSiteSessionId(handle)))
     throw new ProtocolError('Invalid operator session');
-  return { ...session, expiresAt };
+  return { ...session, expiresAt, ...(handle !== null ? { siteSessionId: handle } : {}) };
 }
 
 function readDraft(payload: Uint8Array): Draft {

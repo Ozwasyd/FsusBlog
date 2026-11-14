@@ -18,7 +18,7 @@ function updateSession(value: Session | null, newLogin = false) {
   const next = value && value.expiresAt > Date.now() ? value : null
   session.value = next
   if (newLogin || previous?.generation !== next?.generation || previous?.name !== next?.name ||
-      previous?.canAuthor !== next?.canAuthor || previous?.expiresAt !== next?.expiresAt) {
+      previous?.canAuthor !== next?.canAuthor || previous?.expiresAt !== next?.expiresAt || previous?.siteSessionId !== next?.siteSessionId) {
     sessionEpoch.value++
   }
   clearTimeout(expiryTimer)

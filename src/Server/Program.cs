@@ -158,6 +158,7 @@ foreach (var asset in new[] { "assets", "dist" })
 }
 app.UseRateLimiter();
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
@@ -218,10 +219,14 @@ app.MapPost(WireRoutes.SignIn, async (HttpContext ctx, Store store, Cancellation
     var signIn = Wire.DecodeSignIn(await ReadFrame(ctx, WireLimits.MaxSignInFrameBytes, ct));
     var issued = await store.SignIn(signIn.Ticket, ct);
     ctx.Response.Cookies.Append(Cookie, issued.Token, CookieSettings(ctx, issued.User.ExpiresAt));
-    return SessionResponse(ctx, issued.User);
+    return SessionResponse(ctx, issued.User, issued.Token);
 }).RequireRateLimiting("sign-in");
-app.MapGet(WireRoutes.Session, (HttpContext ctx, Store store, CancellationToken ct) =>
-    store.WithSession(ctx.Request.Cookies[Cookie], false, (_, _, actor) => Task.FromResult(SessionResponse(ctx, actor)), ct));
+app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, CancellationToken ct) =>
+{
+    var token = ctx.Request.Cookies[Cookie];
+    var actor = await store.WithSession(token, false, (_, _, actor) => Task.FromResult(actor), ct);
+    return SessionResponse(ctx, actor, token!);
+});
 app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
     await store.SignOut(ctx.Request.Cookies[Cookie], ct);
@@ -329,9 +334,10 @@ static CookieOptions CookieSettings(HttpContext ctx, DateTimeOffset? expiresAt =
     HttpOnly = true, Secure = ctx.Request.IsHttps, SameSite = SameSiteMode.Strict, Path = "/", Expires = expiresAt
 };
 
-static IResult SessionResponse(HttpContext ctx, Identity actor)
+static IResult SessionResponse(HttpContext ctx, Identity actor, string token)
 {
     ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = actor.ExpiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+    ctx.Response.Headers[WireHeaders.CurrentSession] = FsusBlog.V2.Server.Sessions.SiteSessions.Id(actor.Id, Store.TokenDigest(token)!);
     return Results.Bytes(Wire.EncodeSession(new(actor.Name, actor.Generation, actor.CanAuthor)), Binary);
 }
 

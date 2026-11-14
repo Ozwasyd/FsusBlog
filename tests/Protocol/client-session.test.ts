@@ -10,9 +10,10 @@ const session = encodeFrame(FrameType.OperatorSession, encodeSession({
   canAuthor: true,
 }));
 
-function frame(expiry?: string) {
+function frame(expiry?: string, current?: string) {
   const headers = new Headers({ 'Content-Type': 'application/octet-stream' });
   if (expiry !== undefined) headers.set(WireHeaders.AccessExpiresAtUtc, expiry);
+  if (current !== undefined) headers.set(WireHeaders.CurrentSession, current);
   return new Response(session, { headers });
 }
 
@@ -22,6 +23,15 @@ test('operator session reads the server expiry without changing the payload', as
   equal(admitted.name, 'operator');
   equal(admitted.generation, 3n);
   equal(admitted.expiresAt, Date.UTC(2026, 10, 15, 12, 45, 9, 123));
+});
+
+test('operator session accepts an opaque site session handle and rejects a malformed one', async t => {
+  const expiry = '2026-11-15T12:45:09Z';
+  const current = 'ac'.repeat(32);
+  const fetch = t.mock.method(globalThis, 'fetch', async () => frame(expiry, current));
+  equal((await api.session()).siteSessionId, current);
+  fetch.mock.mockImplementation(async () => frame(expiry, 'not-a-handle'));
+  await rejects(api.session(), { name: ProtocolError.name, message: 'Invalid operator session' });
 });
 
 test('operator session requires a valid explicit UTC expiry', async t => {

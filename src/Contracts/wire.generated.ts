@@ -34,6 +34,7 @@ export const FrameType = {
   ApiError: 251,
   OperatorSignIn: 32768,
   OperatorSession: 32769,
+  SiteSessionList: 32796,
   Draft: 32770,
   ArticleCommand: 32771,
   InboxReplay: 32772,
@@ -104,6 +105,8 @@ export const WireLimits = {
   SearchCorpusMaxPages: 128,
   SearchQueryChars: 128,
   MaxSignInFrameBytes: 148,
+  SiteSessionIdBytes: 64,
+  SiteSessionListSize: 101,
   MaxCommandFrameBytes: 1048884,
   CanvasInsertionBytes: 560,
   CanvasRequestBytes: 76,
@@ -279,6 +282,9 @@ export const WireRoutes = {
   SignIn: "/api/v2/identity/sign-in.aeds",
   Session: "/api/v2/identity/session.aeds",
   SignOut: "/api/v2/identity/sign-out.aeds",
+  SiteSessions: "/api/v2/identity/sessions.aeds",
+  SiteSessionRevoke: "/api/v2/identity/sessions/{id}/revoke.aeds",
+  SiteSessionsRevokeOthers: "/api/v2/identity/sessions/revoke-others.aeds",
   PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
   PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
   PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
@@ -319,6 +325,7 @@ export const WireHeaders = {
   SearchIndexPages: "X-Fsus-Search-Index-Pages",
   InboxReplayCursor: "X-Fsus-Inbox-Replay-Cursor",
   MfaProof: "X-Fsus-Mfa-Proof",
+  CurrentSession: "X-Fsus-Current-Session",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

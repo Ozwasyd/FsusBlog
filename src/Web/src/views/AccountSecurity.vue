@@ -6,6 +6,7 @@ import { beginMfaSetup, completeMfaSetup, disableMfa, mfaProfile, validMfaFactor
 import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
+import SiteSessions from './SiteSessions.vue'
 
 const lifetime = new AbortController()
 onUnmounted(() => lifetime.abort())
@@ -114,5 +115,6 @@ async function disable() {
     <ElButton v-else-if="profile" native-type="button" :loading="busy" @click="start">Set up authenticator</ElButton>
     <p v-else-if="!error">Authenticator verification is unavailable for this session.</p>
     </section>
+    <SiteSessions />
   </main>
 </template>
