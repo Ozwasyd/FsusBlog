@@ -77,6 +77,10 @@ migrate=(dotnet "$scratch/migrate/FsusBlogV2.Migrate.dll")
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
+  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
+  export FSUSBLOG_TEST_OUTSIDER_TICKET
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
   export FSUSBLOG_TEST_MOBILE_TICKET
@@ -112,7 +116,11 @@ for (( attempt=0; attempt<100; attempt++ )); do
 done
 [[ -n "$url" ]] && curl --silent --fail "$url/health/ready" >/dev/null
 export FSUSBLOG_TEST_URL="$url"
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
+  node tests/EndToEnd/run-canvas-scale.mjs
+  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
+    -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   node tests/EndToEnd/article-media-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
   node tests/EndToEnd/private-media-flow.mjs

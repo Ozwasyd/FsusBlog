@@ -8,6 +8,7 @@ const props = defineProps<{
   viewport: CanvasViewport
   selectedNodeId?: string | null
   selectedEdgeId?: string | null
+  focusRequestId?: string
   disabled?: boolean
 }>()
 
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   'select-edge': [id: string]
   'move-node': [id: string, geometry: CanvasGeometry]
   viewport: [viewport: CanvasViewport]
+  'focus-request-handled': []
 }>()
 
 const nodesOnScreen = 100
@@ -124,6 +126,14 @@ const visibleNodes = computed(() => {
   if (drag.kind === 'pan') return spatialQuery(props.nodes, viewport.value)
   return idleProjection.value.map(box => box.node.id === drag.id ? project(box.node) : box)
 })
+
+watch([visibleNodes, () => props.focusRequestId, () => props.disabled], ([boxes, requested, disabled]) => {
+  if (!requested || disabled || !boxes.some(box => box.node.id === requested)) return
+  const target = board.value?.querySelector<HTMLButtonElement>(`#canvas-board-node-${requested}`)
+  if (!target) return
+  target.focus()
+  emit('focus-request-handled')
+}, { flush: 'post' })
 
 const firstNode = computed(() => visibleNodes.value.find(box => box.node.id === nodeFocus.value)?.node.id
   ?? visibleNodes.value.find(box => box.node.id === props.selectedNodeId)?.node.id

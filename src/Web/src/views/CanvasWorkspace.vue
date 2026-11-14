@@ -36,6 +36,11 @@ const edges = shallowRef<readonly CanvasGraphEdge[]>([])
 const offset = ref<number | null>(null)
 const view = ref<'canvas' | 'outline'>('canvas')
 const outlinePage = ref(0)
+const outlineSearch = ref('')
+const focusBoardNode = ref('')
+const loadingAll = ref(false)
+const completeGraph = ref(false)
+const bulkProgress = ref(0)
 const nodeId = ref('')
 const edgeId = ref('')
 const retry = shallowRef<CanvasGraphCommand>()
@@ -82,7 +87,7 @@ const activeLink = computed(() => {
     pair.from.pinnedRevision || pair.to.pinnedRevision || pair.from.articleId === pair.to.articleId) return undefined
   return { from: pair.from, to: pair.to }
 })
-const disabled = computed(() => loading.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value || bundlePending.value)
+const disabled = computed(() => loading.value || loadingAll.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value || bundlePending.value)
 const historyActionAvailable = computed(() => {
   const current = document.value
   const position = history.value
@@ -93,9 +98,17 @@ const historyActionAvailable = computed(() => {
   }
 })
 const extent = computed(() => outlinePage.value * 50)
-const outlineNodes = computed(() => nodes.value.slice(extent.value, extent.value + 50))
-const outlineEdges = computed(() => edges.value.slice(extent.value, extent.value + 50))
-const hasNextOutline = computed(() => extent.value + 50 < Math.max(nodes.value.length, edges.value.length))
+const outlineQuery = computed(() => outlineSearch.value.trim().toLowerCase())
+const matchingNodes = computed(() => outlineQuery.value ? nodes.value.filter(node =>
+  nodeLabel(node).toLowerCase().includes(outlineQuery.value) ||
+  ('anchor' in node && node.anchor.includes(outlineQuery.value))) : nodes.value)
+const matchingEdges = computed(() => outlineQuery.value ? edges.value.filter(edge =>
+  edgeLabel(edge).toLowerCase().includes(outlineQuery.value)) : edges.value)
+const outlineNodes = computed(() => matchingNodes.value.slice(extent.value, extent.value + 50))
+const outlineEdges = computed(() => matchingEdges.value.slice(extent.value, extent.value + 50))
+const hasNextOutline = computed(() => extent.value + 50 < Math.max(matchingNodes.value.length, matchingEdges.value.length))
+watch(outlineSearch, () => { outlinePage.value = 0 })
+watch([view, nodeId], () => { focusBoardNode.value = '' }, { flush: 'sync' })
 const matchesChoice = (node: CanvasNode) => nodeLabel(node).toLowerCase().includes(choiceFilter.value.trim().toLowerCase())
 const memberChoices = computed(() => nodes.value.filter(node => node.kind !== 'group-frame' && matchesChoice(node)).slice(0, 256))
 const endpointChoices = computed(() => {
@@ -121,6 +134,11 @@ function reset() {
   edgeId.value = ''
   offset.value = null
   outlinePage.value = 0
+  outlineSearch.value = ''
+  focusBoardNode.value = ''
+  loadingAll.value = false
+  completeGraph.value = false
+  bulkProgress.value = 0
   retry.value = undefined
   plan.value = undefined
   form.value = undefined
@@ -244,12 +262,56 @@ async function load(more = false, confirmed?: CanvasGraphHeader) {
         if (confirmed) await loadHistory(document.value)
         else void loadHistory(document.value)
       }
+      if (completeGraph.value && offset.value !== null && !more) await loadAll()
     }
   } catch (cause) {
     if (scoped(signal)) graphReadFailure.value = true
     recordError(cause, signal, 'Could not load the Canvas.', true)
   } finally {
     if (scoped(signal)) loading.value = false
+  }
+}
+
+async function loadAll() {
+  const current = document.value
+  const signal = scope.signal
+  let next = offset.value
+  if (!current || next === null || loadingAll.value || !scoped(signal)) return
+  loadingAll.value = true
+  error.value = ''
+  bulkProgress.value = nodes.value.length + edges.value.length
+  const nextNodes = [...nodes.value]
+  const nextEdges = [...edges.value]
+
+  try {
+    while (next !== null) {
+      const page = await canvasGraph.page(current.id, { revision: current.revision, offset: next }, signal)
+      if (!scoped(signal) || current !== document.value) return
+      nextNodes.push(...page.nodes)
+      nextEdges.push(...page.edges)
+      bulkProgress.value = nextNodes.length + nextEdges.length
+      next = page.nextOffset
+    }
+    if (nextNodes.length !== current.nodeCount || nextEdges.length !== current.edgeCount) {
+      throw new Error('Canvas pages did not cover the advertised counts')
+    }
+    if (!scoped(signal) || current !== document.value) return
+    nodes.value = nextNodes
+    edges.value = nextEdges
+    offset.value = null
+    completeGraph.value = true
+    if (nodeId.value && !byId.value.has(nodeId.value)) nodeId.value = ''
+    if (edgeId.value && !nextEdges.some(edge => edge.id === edgeId.value)) edgeId.value = ''
+  } catch (cause) {
+    if (!scoped(signal)) return
+    completeGraph.value = false
+    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      recordError(cause, signal, 'Could not load all Canvas records.', true)
+    } else {
+      error.value = 'Could not load all Canvas records. Try again.'
+    }
+  } finally {
+    if (scoped(signal)) loadingAll.value = false
   }
 }
 
@@ -342,13 +404,16 @@ function openImported(id: string) {
 
 function chooseNode(id: string) { nodeId.value = id; edgeId.value = '' }
 function chooseEdge(id: string) { edgeId.value = id; nodeId.value = '' }
-function showNode() {
+async function showNode() {
   const node = selectedNode.value
   const viewport = document.value?.viewport
   if (!node || !viewport) return
+  const signal = scope.signal
   view.value = 'canvas'
-  saveViewport({ ...viewport, x: Math.max(-1_000_000_000, node.geometry.x - 3500),
+  await saveViewport({ ...viewport, x: Math.max(-1_000_000_000, node.geometry.x - 3500),
     y: Math.max(-1_000_000_000, node.geometry.y - 3500) })
+  if (scoped(signal) && selectedNode.value?.id === node.id && view.value === 'canvas' && !stale.value)
+    focusBoardNode.value = node.id
 }
 
 async function send(command: CanvasGraphCommand) {
@@ -379,8 +444,17 @@ async function send(command: CanvasGraphCommand) {
       document.value = result
       // A later continuation must use the newly confirmed revision.
       void loadHistory(result)
+    } else if (completeGraph.value && command.changes.length === 1 &&
+      command.changes[0].kind === 'upsert-node' && byId.value.has(command.changes[0].node.id) &&
+      result.nodeCount === nodes.value.length && result.edgeCount === edges.value.length) {
+      // An existing node upsert changes no incident records. The exact CAS
+      // receipt confirms this immutable candidate without refetching all pages.
+      const changed = command.changes[0].node
+      nodes.value = nodes.value.map(node => node.id === changed.id ? changed : node)
+      document.value = result
+      void loadHistory(result)
     } else {
-      await load()
+      await load(false, result)
     }
   } catch (cause) {
     if (recordError(cause, signal, 'Could not confirm the change. Retry the same request.')) retry.value = undefined
@@ -423,14 +497,14 @@ function historyShortcut(event: KeyboardEvent) {
 
 function patch(changes: CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null) {
   if (!document.value || disabled.value) return
-  void send({
+  return send({
     id: document.value.id, commandId: crypto.randomUUID(), expectedRevision: document.value.revision,
     action: 'edit', title: name, viewport, changes,
   })
 }
 function saveViewport(viewport: CanvasViewport) {
   const saved = document.value?.viewport
-  if (saved && (viewport.x !== saved.x || viewport.y !== saved.y || viewport.zoom !== saved.zoom)) patch([], '', viewport)
+  if (saved && (viewport.x !== saved.x || viewport.y !== saved.y || viewport.zoom !== saved.zoom)) return patch([], '', viewport)
 }
 function zoom(amount: number) {
   const viewport = document.value?.viewport
@@ -641,18 +715,21 @@ function edgeLabel(edge: CanvasGraphEdge) {
         </div>
         <div ref="graph" class="canvas-graph">
           <CanvasBoard v-if="view === 'canvas'" :nodes="nodes" :edges="edges" :viewport="document.viewport"
-            :selected-node-id="nodeId" :selected-edge-id="edgeId" :disabled="disabled"
+            :selected-node-id="nodeId" :selected-edge-id="edgeId" :focus-request-id="focusBoardNode" :disabled="disabled"
+            @focus-request-handled="focusBoardNode = ''"
             @select-node="chooseNode" @select-edge="chooseEdge" @move-node="move" @viewport="saveViewport" />
           <section v-else class="canvas-outline" aria-label="Canvas outline" tabindex="-1">
+            <label for="canvas-outline-search">Find loaded records</label>
+            <input id="canvas-outline-search" v-model="outlineSearch" type="search" />
             <h2>Nodes</h2>
-            <p v-if="!nodes.length">No nodes in this Canvas.</p>
+            <p v-if="!matchingNodes.length">{{ outlineQuery ? 'No matching loaded nodes.' : 'No nodes in this Canvas.' }}</p>
             <ul v-else>
               <li v-for="node in outlineNodes" :key="node.id">
                 <button type="button" :aria-pressed="nodeId === node.id" @click="chooseNode(node.id)">{{ nodeLabel(node) }}</button>
               </li>
             </ul>
             <h2>Edges</h2>
-            <p v-if="!edges.length">No loaded edges.</p>
+            <p v-if="!matchingEdges.length">{{ outlineQuery ? 'No matching loaded edges.' : 'No loaded edges.' }}</p>
             <ul v-else>
               <li v-for="edge in outlineEdges" :key="edge.id">
                 <button type="button" :aria-pressed="edgeId === edge.id" @click="chooseEdge(edge.id)">{{ edgeLabel(edge) }}</button>
@@ -708,7 +785,9 @@ function edgeLabel(edge: CanvasGraphEdge) {
         </div>
         <footer class="canvas-toolbar canvas-footer">
           <span>Revision {{ document.revision }} · {{ nodes.length }}/{{ document.nodeCount }} nodes · {{ edges.length }}/{{ document.edgeCount }} edges</span>
+          <p v-if="loadingAll" role="status">Loading {{ bulkProgress }} of {{ document.nodeCount + document.edgeCount }} records…</p>
           <ElButton v-if="offset !== null" :disabled="disabled" @click="load(true)">Load more records</ElButton>
+          <ElButton v-if="offset !== null" :disabled="disabled" @click="loadAll()">Load all records</ElButton>
           <ElButton type="danger" text :disabled="disabled" @click="deleteDocument">Delete Canvas</ElButton>
         </footer>
       </section>
@@ -806,6 +885,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
 .canvas-reference-preview h3 { margin: .6rem 0 .35rem; }
 .canvas-reference-excerpt { border-inline-start: 2px solid var(--fsus-border); padding-inline-start: .6rem; }
 .canvas-selection h2, .canvas-outline h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+.canvas-outline input { display: block; max-width: 100%; margin-block: .25rem .9rem; }
 .canvas-outline ul { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
 .canvas-form { display: grid; gap: .6rem; }
 .canvas-form input, .canvas-form select, .canvas-form textarea { font: inherit; color: inherit; background: var(--fsus-paper); border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); padding: .5rem; min-width: 0; }
