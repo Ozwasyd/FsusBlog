@@ -53,6 +53,7 @@ export const FrameType = {
   SiteSessionList: 32796,
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
+  AdminEffectivePermissions: 32948,
   AdminSitePages: 32905,
   AdminArticleRollbackIntent: 32924,
   AdminArticleRollbackPreview: 32925,
@@ -508,6 +509,7 @@ export const WireRoutes = {
   AdminPasskeyBegin: "/api/v2/admin/identity/passkey/begin.aeds",
   AdminPasskeyComplete: "/api/v2/admin/identity/passkey/complete.aeds",
   AdminSession: "/api/v2/admin/identity/session.aeds",
+  AdminEffectivePermissions: "/api/v2/admin/identity/permissions.aeds",
   AdminSignOut: "/api/v2/admin/identity/sign-out.aeds",
   AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
   AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
@@ -636,6 +638,7 @@ export const WireHeaders = {
   SiteSessionContinuity: "X-Fsus-Site-Session-Continuity",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
   AdminSitePageEditor: "X-Fsus-Admin-Site-Page-Editor",
+  AdminPermissionSession: "X-Fsus-Admin-Permission-Session",
   AdminAppearanceEnabled: "X-Fsus-Admin-Appearance",
 } as const;
 

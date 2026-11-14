@@ -19,7 +19,6 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   const panel = page.getByRole('region', { name: 'Taxonomy usage', exact: true })
   const categories = panel.getByRole('button', { name: 'Categories', exact: true })
   const tags = panel.getByRole('button', { name: 'Tags', exact: true })
-  const denied = panel.getByRole('alert').filter({ hasText: 'You do not have permission to view taxonomy usage.' })
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const generation = (await snapshot(context)).principal.generation
 
@@ -29,12 +28,12 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   }
   await probe(categoryEndpoint, siteCookie.name, siteCookie.value, 401)
   await probe(categoryEndpoint, adminCookieName, siteCookie.value, 401)
-  assert.equal((await read(categories, categoryEndpoint)).status(), 403)
-  await denied.waitFor()
+  assert.equal((await context.request.get(categoryEndpoint)).status(), 403)
+  await panel.waitFor({ state: 'detached' })
 
   await run(grant, [], { timeout: 8_000 })
-  assert.equal((await read(categories, categoryEndpoint)).status(), 401)
-  await revoked.waitFor()
+  await probe(categoryEndpoint, adminCookieName, priorCookie.value, 401)
+  await page.reload()
   await logIn(page)
   const granted = await snapshot(context)
   assert(granted.principal.generation > generation)
@@ -87,8 +86,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   await panel.waitFor({ state: 'hidden' })
   await logIn(page)
   assert((await snapshot(context)).principal.generation > granted.principal.generation)
-  assert.equal((await read(tags, tagEndpoint)).status(), 403)
-  await denied.waitFor()
+  assert.equal((await context.request.get(tagEndpoint)).status(), 403)
+  await panel.waitFor({ state: 'detached' })
   return readCookie(context, adminSession, adminCookieName)
 
   async function read(button, endpoint) {

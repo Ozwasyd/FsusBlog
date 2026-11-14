@@ -14,6 +14,7 @@ import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
 import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
 import { verifyAdminInbox } from './admin-inbox-flow.mjs'
+import { expectPanelHidden, expectPermissions, verifyMismatchedPermissionSession } from './admin-permissions-flow.mjs'
 import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
@@ -64,6 +65,7 @@ const {
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
   AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
   AdminStepUpBegin: stepUpBegin, AdminStepUpComplete: stepUpComplete,
+  AdminEffectivePermissions: permissions,
   AdminModerationClaim: moderationClaim, AdminModerationRenew: moderationRenew, AdminModerationRelease: moderationRelease,
   AdminModerationDecision: moderationDecision, AdminModerationStepUpBegin: moderationStepUpBegin,
   CommentRoots: commentRoots,
@@ -130,6 +132,10 @@ try {
   }
   await admin.getByRole('heading', { name: 'Administrator access', exact: true }).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+  assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
+  assert.equal((await context.request.get(siteOrigin.origin + permissions)).status(), 404)
+  await credentialProbe(adminOrigin.origin + permissions, siteCookieName, siteCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, siteCookie.value, 401)
   await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
   await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
   const registrationBegin = waitPost(admin, adminOrigin, bootstrapBegin)
@@ -150,6 +156,12 @@ try {
   phase = 'admin-login'
   const firstLogin = await logIn(admin)
   const initial = await snapshot(context)
+  assert.equal(await expectPermissions(admin, context, adminOrigin.origin, ['admin.manage']), initial.principal.generation)
+  for (const heading of ['Operations status', 'Moderation queue', 'Taxonomy usage', 'Site pages',
+    'Site appearance', 'Restore a published article revision']) await expectPanelHidden(admin, heading)
+  await admin.getByRole('button', { name: 'Reload administrator access', exact: true }).waitFor({ state: 'detached' })
+  await admin.getByRole('heading', { name: 'Support inbox', exact: true }).waitFor()
+  checks.independentAdministratorStartsWithExactOwnGrant = true
   const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert.equal(oldCookie.httpOnly, true)
   assert.equal(oldCookie.sameSite, 'Strict')
@@ -213,9 +225,12 @@ try {
 
   if (auditGrant && auditRevoke) {
     phase = 'operations-permission'
+    await verifyMismatchedPermissionSession(admin, context, adminOrigin.origin)
+    checks.adminPermissionProjectionRejectsWrongSessionBinding = true
     finalCookie = await verifyOperationsPermissions(admin, context, siteCookie, finalCookie, auditGrant, auditRevoke)
     checks.operationsRequireIndependentAuditGrant = true
     checks.operationsGrantAndRevokeInvalidateOldSessions = true
+    checks.currentPermissionsDriveVisiblePanelsAndTrackRevocation = true
   }
 
   if (moderatorGrant) {
@@ -278,6 +293,8 @@ try {
   await admin.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
+  assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
+  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, finalCookie.value, 401)
   const stillSignedIn = await context.request.get(siteOrigin.origin + siteSession)
   assert.equal(stillSignedIn.status(), 200)
   assert((await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,
@@ -345,7 +362,6 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
     page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
     statusButton.click(),
   ]))[0]
-  const deniedMessage = 'You do not have permission to view operations status.'
   const revokedMessage = 'Your administrator session expired or was revoked. Log in again.'
   const alert = text => page.getByRole('alert').filter({ hasText: text })
   const displayedSnapshot = page.getByText('Public snapshot', { exact: true })
@@ -354,19 +370,21 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
   assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
   await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
-  assert.equal((await checkStatus()).status(), 403, 'An administrator login alone must not grant the operations status capability.')
-  await alert(deniedMessage).waitFor()
+  assert.equal((await context.request.get(endpoint)).status(), 403, 'An administrator login alone must not grant operations status.')
+  await expectPanelHidden(page, 'Operations status')
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
 
   await promisify(execFile)(grant, [], { timeout: 8_000 })
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, priorCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, priorCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
-  assert.equal((await checkStatus()).status(), 401)
-  await alert(revokedMessage).waitFor()
+  await page.reload()
   await displayedSnapshot.waitFor({ state: 'hidden' })
   await logIn(page)
   const granted = await snapshot(context)
   assert(granted.principal.generation > generation)
+  assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage', 'audit.read']), granted.principal.generation)
+  await expectPanelHidden(page, 'Moderation queue')
   const grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert(grantedCookie.value !== priorCookie.value)
   const status = await checkStatus()
@@ -385,6 +403,7 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
 
   await promisify(execFile)(revoke, [], { timeout: 8_000 })
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, grantedCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, grantedCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
   assert.equal((await checkStatus()).status(), 401)
   await alert(revokedMessage).waitFor()
@@ -392,8 +411,9 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
   await logIn(page)
   const revoked = await snapshot(context)
   assert(revoked.principal.generation > granted.principal.generation)
-  assert.equal((await checkStatus()).status(), 403, 'Revoking audit permission must retain login only.')
-  await alert(deniedMessage).waitFor()
+  assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage']), revoked.principal.generation)
+  assert.equal((await context.request.get(endpoint)).status(), 403, 'Revoking audit permission must retain login only.')
+  await expectPanelHidden(page, 'Operations status')
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
 }
@@ -422,22 +442,20 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
     page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
     load.click(),
   ]))[0]
-  const denied = page.getByRole('alert').filter({ hasText: 'You do not have permission to view the moderation queue.' })
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const bodyText = section.getByText(moderatorBody, { exact: true })
   const generation = (await snapshot(context)).principal.generation
   assert.equal((await context.request.get(siteOrigin.origin + moderationQueue)).status(), 404)
   await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
-  assert.equal((await checkQueue()).status(), 403, 'Administrator access alone must not grant moderation read.')
-  await denied.waitFor()
+  assert.equal((await context.request.get(endpoint)).status(), 403, 'Administrator access alone must not grant moderation read.')
+  await expectPanelHidden(page, 'Moderation queue')
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   assert.equal((await postModerationIntent(context.request, moderationIntent(articleId, 1n))).status(), 403)
 
   await run(moderatorGrant, [], { timeout: 8_000 })
   await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
-  assert.equal((await checkQueue()).status(), 401)
-  await revoked.waitFor()
+  await page.reload()
   await logIn(page)
   const granted = await snapshot(context)
   assert(granted.principal.generation > generation)
@@ -466,8 +484,8 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await logIn(page)
   assert((await snapshot(context)).principal.generation > granted.principal.generation)
   assert.equal((await postModerationIntent(context.request, intent)).status(), 403)
-  assert.equal((await checkQueue()).status(), 403, 'Removing moderation authority must preserve only login.')
-  await denied.waitFor()
+  assert.equal((await context.request.get(endpoint)).status(), 403, 'Removing moderation authority must preserve only login.')
+  await expectPanelHidden(page, 'Moderation queue')
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
 }

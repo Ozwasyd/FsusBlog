@@ -22,13 +22,13 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   assert.equal((await context.request.get(adminOrigin.origin + '/api/binary/system/page/about')).status(), 404)
   assert.equal((await context.request.put(adminOrigin.origin + legacy)).status(), 404)
   assert.equal((await context.request.get(adminOrigin.origin + legacy)).status(), 403)
-  assert.equal((await check()).status(), 403)
-  await section.getByText('The system.config permission is required.').waitFor()
+  assert.equal((await context.request.get(overview)).status(), 403)
+  await section.waitFor({ state: 'detached' })
 
   await promisify(execFile)(grant, [], { timeout: 8_000 })
   await probe(adminOrigin.origin + legacy, adminCookieName, priorCookie.value, 401)
-  assert.equal((await check()).status(), 401)
-  await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
+  await probe(overview, adminCookieName, priorCookie.value, 401)
+  await page.reload()
   await logIn(page)
   const allowed = await check()
   assert.equal(allowed.status(), 200)
@@ -70,7 +70,8 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   assert.equal((await check()).status(), 401)
   await displayed.waitFor({ state: 'hidden' })
   await logIn(page)
-  assert.equal((await check()).status(), 403)
+  assert.equal((await context.request.get(overview)).status(), 403)
+  await section.waitFor({ state: 'detached' })
   return await readCookie(context, adminOrigin.origin + WireRoutes.AdminSession, adminCookieName)
 }
 

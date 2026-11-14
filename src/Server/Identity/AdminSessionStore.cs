@@ -15,9 +15,6 @@ internal sealed partial class AdminPasskeyStore
     private sealed record Challenge(Guid? Principal, long? Generation, string Options, DateTimeOffset StartedAt);
     private sealed record LiveAdmin(Guid Id, byte[] Digest, AdminSessionSnapshot Snapshot);
 
-    internal Task<AdminSessionSnapshot> Session(string? token, CancellationToken ct) =>
-        WithSession(token, Permission, (_, _, session) => Task.FromResult(session), ct);
-
     private Task<T> WithSession<T>(string? token, string requiredPermission,
         Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct) =>
         WithLiveAdmin(token, requiredPermission, (db, tx, actor) => use(db, tx, actor.Snapshot), ct);

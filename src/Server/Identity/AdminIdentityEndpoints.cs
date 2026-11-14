@@ -93,9 +93,16 @@ internal static class AdminIdentityEndpoints
         }).RequireRateLimiting(Limit);
         app.MapGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var active = await store.Session(ctx.Request.Cookies[session], ct);
+            var active = await store.SessionWithPermissionBinding(ctx.Request.Cookies[session], ct);
             if (appearance is { Online: true }) ctx.Response.Headers[WireHeaders.AdminAppearanceEnabled] = "1";
-            return Frame(Wire.EncodeAdminSessionSnapshot(active));
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = active.PermissionSession;
+            return Frame(Wire.EncodeAdminSessionSnapshot(active.Snapshot));
+        }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminEffectivePermissions, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var scope = await store.EffectivePermissions(ctx.Request.Cookies[session], ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
+            return Frame(Wire.EncodeAdminEffectivePermissions(scope.Permissions));
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {

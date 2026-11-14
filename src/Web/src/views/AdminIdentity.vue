@@ -11,14 +11,19 @@ import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
+  readAdminEffectivePermissions,
   readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
   type AdminOperationsStatus,
+  type AdminPermission,
+  type AdminSession,
 } from '../../../Contracts/admin-identity'
 
+const permissionLease = 60_000
+const permissionRefresh = 45_000
 const lifetime = new AbortController()
 const authority = shallowRef<AdminAuthority | null>(null)
 const bootstrapOpen = ref(false)
@@ -31,15 +36,21 @@ const notice = ref('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
 const operationsFailure = ref('')
-const moderationAuthority = shallowRef(new AbortController())
+const permissionAuthority = shallowRef(new AbortController())
+const permissionEpoch = ref(0)
+const permissions = shallowRef<readonly AdminPermission[] | null>(null)
+const permissionsPending = ref(false)
+const permissionsFailure = ref(false)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let operationsRequest: AbortController | undefined
+let permissionsRequest: AbortController | undefined
+let permissionLeaseTimer: ReturnType<typeof setTimeout> | undefined
+let permissionRefreshTimer: ReturnType<typeof setTimeout> | undefined
 
 function setAuthority(next: AdminAuthority | null) {
   clearTimeout(expiryTimer)
-  clearOperations()
-  moderationAuthority.value.abort()
-  moderationAuthority.value = new AbortController()
+  clearPermissions()
+  permissionsFailure.value = false
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
@@ -50,6 +61,7 @@ function setAuthority(next: AdminAuthority | null) {
     closeBootstrap()
   }
   authority.value = next
+  if (next?.status === 'active') void checkPermissions(next.session)
 }
 
 async function run(task: () => Promise<void>, onFailure: string) {
@@ -80,10 +92,68 @@ onMounted(() => {
 onUnmounted(() => {
   lifetime.abort()
   clearTimeout(expiryTimer)
-  clearOperations()
-  moderationAuthority.value.abort()
+  clearPermissions()
   document.removeEventListener('visibilitychange', whenVisible)
 })
+
+function setPermissions(next: readonly AdminPermission[] | null) {
+  const previous = permissions.value
+  if (previous === next || (previous && next && previous.length === next.length && previous.every((grant, i) => next[i] === grant))) return
+  clearOperations()
+  permissionAuthority.value.abort()
+  permissionAuthority.value = new AbortController()
+  permissionEpoch.value++
+  permissions.value = next
+}
+
+function clearPermissions() {
+  permissionsRequest?.abort()
+  permissionsRequest = undefined
+  permissionsPending.value = false
+  clearTimeout(permissionLeaseTimer)
+  clearTimeout(permissionRefreshTimer)
+  setPermissions(null)
+}
+
+function permits(grant: AdminPermission): boolean {
+  return authority.value?.status === 'active' && permissions.value?.includes(grant) === true
+}
+
+async function checkPermissions(session: AdminSession) {
+  if (lifetime.signal.aborted || permissionsRequest || authority.value?.status !== 'active' || authority.value.session !== session) return
+  const check = new AbortController()
+  permissionsRequest = check
+  permissionsPending.value = true
+  permissionsFailure.value = false
+  const reportedAt = Date.now()
+  try {
+    const grants = await readAdminEffectivePermissions(session, check.signal)
+    if (check.signal.aborted) return
+    const remaining = Math.min(reportedAt + permissionLease, session.expiresAt) - Date.now()
+    if (remaining <= 0) throw new Error('Administrator permissions expired while loading.')
+    setPermissions(grants)
+    clearTimeout(permissionLeaseTimer)
+    clearTimeout(permissionRefreshTimer)
+    permissionLeaseTimer = setTimeout(() => {
+      clearPermissions()
+      permissionsFailure.value = true
+    }, remaining)
+    if (session.expiresAt > reportedAt + permissionRefresh) {
+      permissionRefreshTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') void checkPermissions(session)
+      }, Math.max(0, reportedAt + permissionRefresh - Date.now()))
+    }
+  } catch (error) {
+    if (check.signal.aborted || handleSessionLoss(error)) return
+    clearPermissions()
+    permissionsFailure.value = true
+  } finally {
+    if (permissionsRequest === check) {
+      permissionsRequest = undefined
+      permissionsPending.value = false
+    }
+  }
+}
 
 function clearOperations() {
   operationsRequest?.abort()
@@ -94,7 +164,7 @@ function clearOperations() {
 }
 
 async function checkOperations() {
-  if (authority.value?.status !== 'active' || busy.value || operationsBusy.value) return
+  if (!permits('audit.read') || busy.value || operationsBusy.value) return
   clearOperations()
   const check = new AbortController()
   operationsRequest = check
@@ -179,9 +249,20 @@ function logOut() {
       </dl>
       <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
     </section>
-    <AdminModerationControls v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminInbox v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
-    <section v-if="authority?.status === 'active'" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
+    <section v-if="authority?.status === 'active'" class="auth-form" aria-labelledby="admin-permissions-heading">
+      <h2 id="admin-permissions-heading">Effective permissions</h2>
+      <ul v-if="permissions">
+        <li v-for="grant in permissions" :key="grant">{{ grant }}</li>
+      </ul>
+      <template v-else-if="permissionsFailure">
+        <ElAlert title="Could not verify effective permissions. Reload to try again." type="error" :closable="false" show-icon />
+        <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">Reload effective permissions</ElButton>
+      </template>
+      <p v-else-if="permissionsPending" role="status">Checking effective permissions…</p>
+    </section>
+    <AdminModerationControls v-if="permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminInbox v-if="permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <section v-if="permits('audit.read')" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
       <h2 id="admin-operations-heading">Operations status</h2>
       <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>
       <ElAlert v-if="operationsFailure" :title="operationsFailure" type="error" :closable="false" show-icon />
@@ -202,12 +283,12 @@ function logOut() {
         </dl>
       </div>
     </section>
-    <AdminTaxonomy v-if="authority?.status === 'active'" :key="authority.session.generation.toString()" @session-lost="handleSessionLoss" />
-    <AdminArticleRollback v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled" :key="authority.session.generation.toString()"
-      :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminSitePages v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
-    <p v-else-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
+    <AdminTaxonomy v-if="permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
+    <AdminArticleRollback v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
+      :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminSitePages v-if="permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <p v-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
     <template v-else-if="authority?.status === 'signed-out'">
       <p v-if="!canUsePasskeys">Use a secure origin and a browser that supports Passkeys.</p>
       <div v-else class="auth-form">
@@ -223,8 +304,8 @@ function logOut() {
         </form>
       </div>
     </template>
-    <p v-else-if="busy" role="status">Checking administrator access…</p>
-    <ElButton v-else native-type="button" @click="refresh">Reload administrator access</ElButton>
+    <p v-else-if="authority === null && busy" role="status">Checking administrator access…</p>
+    <ElButton v-else-if="authority === null" native-type="button" @click="refresh">Reload administrator access</ElButton>
   </main>
 </template>
 

@@ -54,6 +54,7 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminEffectivePermissions = 32948,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
     AdminArticleRollbackPreview = 32925,
@@ -513,6 +514,7 @@ public static class WireRoutes
     public const string AdminPasskeyBegin = "/api/v2/admin/identity/passkey/begin.aeds";
     public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
+    public const string AdminEffectivePermissions = "/api/v2/admin/identity/permissions.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
@@ -642,6 +644,7 @@ public static class WireHeaders
     public const string SiteSessionContinuity = "X-Fsus-Site-Session-Continuity";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
     public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
+    public const string AdminPermissionSession = "X-Fsus-Admin-Permission-Session";
     public const string AdminAppearanceEnabled = "X-Fsus-Admin-Appearance";
 }
 

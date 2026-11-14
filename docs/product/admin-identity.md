@@ -10,6 +10,8 @@
 
 数据库操作员可用 `admin-identity grant HANDLE <权限>` 或 `admin-identity revoke HANDLE <权限>` 调整单项授权，支持 `audit.read`、`comment.moderate`、`article.write` 和 `system.config`。实际权限变化会推进该管理员的代次、撤销旧会话与待处理引导，并以数据库 `session_user` 记录授权动作。`admin.manage` 由管理员建号命令授予。 [管理员分类与标签目录](admin-taxonomy.md) · [站点页面](site-pages.md)
 
+管理员会话页面显示当前主体的实际授权，仅加载匹配授权且由部署启用的管理区域。 `GET /api/v2/admin/identity/permissions.aeds`（AEDS 帧 32948）在独立管理来源读取当前 PostgreSQL 授权。响应中的会话代次和不透明匹配标记须与当前会话一致。每个业务端点仍自行复核权限。固定 v1 的 `/api/binary/auth/admin/me` 帧 188 包含其他身份字段，v2 沿用自己的会话与权限帧。 [v1 管理员自己的能力快照](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L403-L414)
+
 持有 `audit.read` 的管理员可在管理页面手动查询运行状态，或读取 `GET /api/v2/admin/identity/operations/status.aeds`（AEDS 帧 32850）。接口返回当前公开投影是否就绪、投影水位、待处理发布事件数，以及最旧待处理事件时间。数值来自当前服务进程和 PostgreSQL 账本。无当前管理员会话返回 401，当前会话缺少 `audit.read` 返回 403。v1 的 `/api/binary/author/ops/health` 同样要求 `audit.read`，另含更多依赖检查、固定来源限流和在线查看审计，当前 v2 接口仅覆盖公开投影与待处理事件。 [v1 运维端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs)
 
 持有 `comment.moderate` 的管理员可在管理页面审核待处理的站点账号投稿。 `GET /api/v2/admin/identity/comments/queue.aeds`（AEDS 帧 32862）按评论 ID 和文章 ID 正序返回投稿，每页最多 24 条。已删除的评论和文章不进入队列，撤回公开发布的文章保留未完成审核。正文只按文本显示。
