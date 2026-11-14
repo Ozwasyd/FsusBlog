@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch, type ComponentPublicInstance } from 'vue'
 import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import {
   createInspectorFocus, focusInspectorOpener, type InspectorHost, type InspectorPresentation,
 } from './inspectorFocus'
 
-withDefaults(defineProps<{ title?: string; triggerLabel?: string }>(), {
+const props = withDefaults(defineProps<{ title?: string; triggerLabel?: string; nestedModalActive?: boolean }>(), {
   title: 'Article inspector',
   triggerLabel: 'Inspector',
 })
@@ -78,6 +78,8 @@ function close(owner: InspectorPresentation | null) {
 }
 
 function rehost() {
+  // FsusUI gives the newest focus trap ownership, independent of overlay z-index.
+  if (props.nestedModalActive) return
   const next = media?.matches ? 'drawer' : 'pane'
   if (next === host.value) return
   host.value = next
@@ -87,11 +89,15 @@ function rehost() {
 
 function onDesktopEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing
-      || host.value !== 'pane' || !expanded.value
+      || host.value !== 'pane' || !expanded.value || props.nestedModalActive
       || event.target instanceof Element && event.target.closest('[aria-modal="true"]')) return
   event.preventDefault()
   close(current)
 }
+
+watch(() => props.nestedModalActive, active => {
+  if (!active) rehost()
+})
 
 onMounted(() => {
   media = window.matchMedia(compactQuery)

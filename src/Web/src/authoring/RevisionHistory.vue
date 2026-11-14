@@ -9,13 +9,17 @@ import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 
 const props = defineProps<{ articleId: number; revision: bigint; canRollback: boolean }>()
-const emit = defineEmits<{ restore: [selection: { sourceRevision: bigint; reason: string }] }>()
+const emit = defineEmits<{
+  restore: [selection: { sourceRevision: bigint; reason: string }]
+  'comparison-modal': [active: boolean]
+}>()
 const open = ref(false)
 const items = shallowRef<readonly RevisionHistoryItem[]>([])
 const cursor = ref<string | null>(null)
 const published = ref<bigint | null>(null)
 const pair = shallowRef<RevisionComparison>()
 const comparisonOpen = ref(false)
+let ownsModal = false
 const comparisonError = ref('')
 const reason = ref('')
 const error = ref('')
@@ -54,6 +58,12 @@ function closeComparison() {
   comparing.value = false
 }
 
+function releaseComparisonModal() {
+  if (!ownsModal) return
+  ownsModal = false
+  emit('comparison-modal', false)
+}
+
 async function load(more = false) {
   if (loading.value || (more && !cursor.value)) return
   const controller = historyRequest = new AbortController()
@@ -82,6 +92,10 @@ async function load(more = false) {
 async function compare(source: bigint) {
   compareRequest?.abort()
   const controller = compareRequest = new AbortController()
+  if (!ownsModal) {
+    ownsModal = true
+    emit('comparison-modal', true)
+  }
   comparisonOpen.value = true
   comparing.value = true
   comparisonError.value = ''
@@ -137,6 +151,7 @@ watch(() => [open.value, props.articleId, props.revision], () => {
 onScopeDispose(() => {
   historyRequest?.abort()
   compareRequest?.abort()
+  releaseComparisonModal()
 })
 </script>
 
@@ -164,8 +179,8 @@ onScopeDispose(() => {
     <ElDialog
       :model-value="comparisonOpen" title="Revision comparison" append-to-body destroy-on-close
       width="min(72rem, calc(100vw - 2rem))" top="4vh"
-      :z-index="2100"
-      @update:model-value="value => { if (!value) closeComparison() }"
+      @close="closeComparison"
+      @closed="releaseComparisonModal"
     >
       <p v-if="comparing" role="status">Loading both saved revisions…</p>
       <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />

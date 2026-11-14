@@ -55,6 +55,7 @@ const notice = ref('')
 const taxonomyDirty = ref(false)
 const taxonomyStale = ref(false)
 const propertyPending = ref(false)
+const revisionComparisonActive = ref(false)
 const recovery = editorRecovery()
 const recoveryItems = recovery.candidates
 const recoveryFailure = recovery.failure
@@ -590,7 +591,7 @@ async function reloadDraft() {
         </div>
       </section>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
-      <EditorInspector v-if="original && original.id > 0">
+      <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
         <ArticleMedia :article-id="original.id" :revision="original.revision" :identity="identityEpoch"
@@ -618,6 +619,7 @@ async function reloadDraft() {
           :revision="original.revision"
           :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @restore="submit('rollback-history', undefined, $event)"
+          @comparison-modal="revisionComparisonActive = $event"
         />
         <ArticleSchedule
           :key="`schedule-${identityEpoch}`"
