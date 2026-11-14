@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Runtime evidence for the process and private work directory owned by run.sh.
+# shellcheck disable=SC2154
 
 runtime_mark() {
   local mark=$1
