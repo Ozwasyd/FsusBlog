@@ -13,9 +13,9 @@
 
 ### 可执行的源库预检
 
-使用 `dotnet run --no-build --project src/Migrate -- legacy inventory postgres` 读出 PostgreSQL 的 catalog 和五张文章相关表的行数。连接串通过 `FSUSBLOG_V1_DB` 注入，非 public schema 另外设置 `FSUSBLOG_V1_SCHEMA`。独立 SQLite 备份以 `legacy inventory sqlite` 读取，文件来自 `FSUSBLOG_V1_SQLITE_PATH`，要求没有未合并的 WAL 或 rollback journal。MySQL 支持同名子命令和 `FSUSBLOG_V1_DB`，只接受 InnoDB 文章表。连接使用专用只读账号，SQLite 以只读模式打开。
+使用 `dotnet run --no-build --project src/Migrate -- legacy inventory postgres` 读取 PostgreSQL catalog，并统计文章、分类标签、发布权利和责任数据的十二个固定投影。连接串通过 `FSUSBLOG_V1_DB` 注入，非 public schema 另外设置 `FSUSBLOG_V1_SCHEMA`。独立 SQLite 备份以 `legacy inventory sqlite` 读取，文件来自 `FSUSBLOG_V1_SQLITE_PATH`，要求没有未合并的 WAL 或 rollback journal。MySQL 支持同名子命令和 `FSUSBLOG_V1_DB`，要求选定表在 InnoDB 中。连接使用专用只读账号，SQLite 以只读模式打开。
 
-把 `inventory` 换为 `plan` 会检查稳定 ID、当前编辑和发布指针、发布序号、不可变正文块的 UTF-8 字节数和 SHA-256，再为五个固定投影输出摘要。不剔除大小写不同但字节等价的合法 SHA-256 表示。摘要绑定提供方读取到的值与固定列投影，报告不包含业务行原文。每表扫描上限 500,000 行，单文本字段上限 2 MB，每条查询和总体快照分别限定 30 秒和 4 分钟。超出、缺列和引用不一致均阻塞。报告保留 v1 激活条件和 `readyToApply: false`，`plan` 的退出码 2 表示已生成预检报告且仍需实施或解决阻塞。
+把 `inventory` 换为 `plan` 会检查稳定 ID、当前编辑和发布指针、发布序号、权利和责任快照坐标、分类和 URL 别名引用、不可变正文块的 UTF-8 字节数和 SHA-256，并输出固定列投影摘要。正文块哈希接受 v1 历史大小写差异，权利快照保留字段原样，包括已知的历史待重算标记。摘要绑定提供方读取到的值，报告不包含业务行原文。每表扫描上限 500,000 行，单文本字段上限 2 MB，每条查询和总体快照分别限定 30 秒和 4 分钟。超出、缺列和引用不一致均阻塞。报告保留 v1 激活条件和 `readyToApply: false`，`plan` 的退出码 2 表示已生成预检报告且仍需实施或解决阻塞。
 
 SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧字段形状的隔离样本，通过了行数、稳定摘要、Unicode 正文、错误哈希、错配发布坐标及缺列测试。MySQL 也拒绝了转为 MyISAM 的表。预检尚未核对外部附件、备份摘要身份、完整权限和主体现实映射。
 
@@ -43,7 +43,11 @@ SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧
 
 演练成功返回 0，报告仍明确保留 `readyToApply: false` 和未覆盖条款。管理员映射只证明影子归属引用可解析，实际权限、账号合并或 Passkey 的 int32 账户标识和用户句柄、凭据及会话迁移需要各自验收。完整迁移还需保全发布权利和责任快照、分类标签、媒体、待处理工作、草稿及附属关联。
 
-2026-11-14 22:29 使用 .NET SDK 10.0.404 在 SQLite、PostgreSQL 18.7 和 MySQL 8.4.13 的隔离旧字段样本验证通过。每个提供方的重复演练摘要一致，引用不存在的管理员或重用了旧身份摘要的映射均被拒绝。临时库和实例已清理，运行基准、工作树文件摘要与原始输出在本地 `artifacts/native-migration/shadow-20261114T142936.log`。
+第二版演练把分类 ID、标签 ID、活动文章关联和 URL 别名原样写入严格类型影子表，并将每条历史修订的标签列表转换为独立的修订关联。分类 0 表示无分类，旧关联已丢失的标签、重复关联和规范名冲突都需要显式映射。发布权利策略、不可变权利与责任快照通过发布 ID、修订 ID 和修订号绑定。责任首版可以引用同篇文章另一修订的快照，后续版本必须引用同修订的上一版。回读检查快照字段与原投影一致，以及正文当前草稿与历史发布仍有各自的引用。
+
+演练覆盖字段类型、关系和保留原值。签名、权利规范摘要的重算和透明日志链验证仍待独立实现。有历史待重算标记的快照不会获得真实性证明。仍需核验来源站点注册、部署 schema 与备份证据。源提供方通过演练时只确认其输入兼容性，生产激活仍被阻塞。
+
+2026-11-14 22:47 使用 .NET SDK 10.0.404 在 SQLite、PostgreSQL 18.7 和 MySQL 8.4.13 的隔离旧字段样本通过第二版演练。三个提供方重复演练摘要一致，拒绝过期身份映射、别名冲突、重复历史标签、错修订快照、未知哈希格式和非法责任前驱。临时库和实例已清理，运行基准、工作树输入摘要与原始输出在本地 `artifacts/native-migration/release-shadow-20261114T144640.log`。
 
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 

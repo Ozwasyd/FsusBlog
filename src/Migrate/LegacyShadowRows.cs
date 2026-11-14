@@ -29,7 +29,7 @@ internal static partial class Migration
         AppendLegacyValue(hash, projection.Table);
         foreach (var field in fields) AppendLegacyValue(hash, field);
         await using var query = CreateLegacyCommand(transaction,
-            $"SELECT {string.Join(", ", projected)} FROM {source.Table(table)} ORDER BY {projected[0]}");
+            $"SELECT {string.Join(", ", projected)} FROM {source.Table(table)} ORDER BY {LegacySort(source, table, projection.Table)}");
         await using var read = await query.ExecuteReaderAsync(CommandBehavior.SequentialAccess, token);
         long rows = 0, textBytes = 0;
         while (await read.ReadAsync(token))
@@ -90,7 +90,7 @@ internal static partial class Migration
 
             INSERT INTO shadow_article
             SELECT a.id, m.legacy_admin_id, m.v2_user_id, r.id, r.revision_no,
-                a.title, body.markdown_content, a.status, a.isdeleted, p.id,
+                a.title, body.markdown_content, a.status, a.categoryid, a.isdeleted, p.id,
                 CASE WHEN a.status = 2 AND a.isdeleted = 0 THEN p.revision_no END,
                 COALESCE((SELECT MAX(history.publication_no) FROM source_article_publication history
                           WHERE history.article_id = a.id), 0),
@@ -102,33 +102,48 @@ internal static partial class Migration
             LEFT JOIN source_article_publication p ON p.id = a.current_publication_id AND p.article_id = a.id;
 
             INSERT INTO shadow_revision
-            SELECT r.id, r.article_id, r.revision_no, r.title, x.markdown_content,
+            SELECT r.id, r.article_id, r.revision_no, r.title, x.markdown_content, r.categoryid,
                 x.id, lower(x.content_hash), r.created_by_admin_principal_id, r.rollback_source_revision_id, r.created_at
             FROM source_article_revision r
             JOIN source_article_revision_content_block x ON x.id = r.content_block_id;
-
-            INSERT INTO shadow_publication
-            SELECT p.id, p.article_id, p.article_revision_id, p.revision_no, p.publication_no,
-                p.rights_snapshot_id, p.responsibility_snapshot_id, p.transition_kind, p.published_at
-            FROM source_article_publication p;
 
             """);
         await transform.ExecuteNonQueryAsync(token);
     }
 
+    private static async Task BuildShadowPublicationsAsync(DbTransaction transaction, CancellationToken token)
+    {
+        await using var transform = CreateLegacyCommand(transaction, """
+            INSERT INTO shadow_publication
+            SELECT p.id, p.article_id, p.article_revision_id, p.revision_no, p.publication_no,
+                p.rights_snapshot_id, p.responsibility_snapshot_id, p.transition_kind, p.published_at
+            FROM source_article_publication p
+            """);
+        await transform.ExecuteNonQueryAsync(token);
+    }
+
     private static async Task<ShadowCount[]> VerifyShadowRowsAsync(DbTransaction transaction, LegacyAudit audit,
-        CancellationToken token)
+        long revisionTagRows, CancellationToken token)
     {
         var checks = new[]
         {
             ("shadow_article", Article, "id"),
             ("shadow_revision", Revision, "source_revision_id"),
-            ("shadow_publication", Publication, "source_publication_id")
+            ("shadow_publication", Publication, "source_publication_id"),
+            ("shadow_category", Category, "id"),
+            ("shadow_tag", Tag, "id"),
+            ("shadow_tag_url_alias", TagAlias, "normalized_name COLLATE BINARY"),
+            ("shadow_article_tag", ArticleTag, "articleid, tagid"),
+            ("shadow_article_rights_policy", RightsPolicy, "id"),
+            ("shadow_article_rights_snapshot", RightsSnapshot, "id"),
+            ("shadow_article_responsibility_snapshot", Responsibility, "id"),
+            ("shadow_revision_tag", "", "source_revision_id, tag_id")
         };
         var result = new List<ShadowCount>(checks.Length);
         foreach (var (shadow, source, order) in checks)
         {
-            var expected = audit.Projections.Single(projection => projection.Table == source).Rows;
+            var expected = source == "" ? revisionTagRows :
+                audit.Projections.Single(projection => projection.Table == source).Rows;
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             AppendLegacyValue(hash, shadow);
             await using var readBack = CreateLegacyCommand(transaction, $"SELECT * FROM {shadow} ORDER BY {order}");
@@ -159,7 +174,7 @@ internal static partial class Migration
                OR a.current_publication_id IS NOT s.current_publication_id
                OR a.title IS NOT s.title OR a.body IS NOT b.markdown_content OR a.owner_id IS NOT m.v2_user_id
                OR a.legacy_admin_id IS NOT m.legacy_admin_id OR a.deleted IS NOT s.isdeleted
-               OR a.source_status IS NOT s.status OR a.created_at IS NOT s.createtime
+               OR a.source_status IS NOT s.status OR a.source_category_id IS NOT s.categoryid OR a.created_at IS NOT s.createtime
                OR a.updated_at IS NOT CASE WHEN s.metadata_updated_at > b.updated_at
                                           THEN s.metadata_updated_at ELSE b.updated_at END
                OR a.last_publication_number IS NOT COALESCE((SELECT MAX(h.publication_number)
@@ -175,7 +190,7 @@ internal static partial class Migration
             JOIN source_article_revision s ON r.source_revision_id = s.id
             JOIN source_article_revision_content_block c ON s.content_block_id = c.id
             WHERE r.article_id IS NOT s.article_id OR r.revision IS NOT s.revision_no OR r.title IS NOT s.title
-               OR r.source_content_block_id IS NOT s.content_block_id
+               OR r.source_content_block_id IS NOT s.content_block_id OR r.source_category_id IS NOT s.categoryid
                OR r.body IS NOT c.markdown_content OR r.source_content_sha256 IS NOT lower(c.content_hash)
                OR r.source_admin_id IS NOT s.created_by_admin_principal_id
                OR r.source_rollback_revision_id IS NOT s.rollback_source_revision_id OR r.happened_at IS NOT s.created_at
@@ -193,6 +208,7 @@ internal static partial class Migration
             await CountAsync(brokenPublication, transaction, token) != 0)
             throw new InvalidOperationException("Shadow revision content or publication lineage was not preserved.");
 
+        await VerifyShadowReleaseReadbackAsync(transaction, token);
         return result.ToArray();
     }
 }

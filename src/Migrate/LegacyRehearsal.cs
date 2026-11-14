@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 internal static partial class Migration
 {
-    private const int RehearsalVersion = 1;
+    private const int RehearsalVersion = 2;
     private const int RehearsalLimit = 5_000;
     private const int RehearsalMapBytes = 1_000_000;
     private const long RehearsalTextBytes = 128_000_000;
@@ -75,9 +75,11 @@ internal static partial class Migration
         }
 
         await BuildShadowRowsAsync(shadowTransaction, owners, token);
+        var revisionTagRows = await BuildShadowReleaseAsync(shadowTransaction, token);
+        await BuildShadowPublicationsAsync(shadowTransaction, token);
         await shadowTransaction.CommitAsync(token);
         await using var readBack = shadow.BeginTransaction(deferred: true);
-        var checkedRows = await VerifyShadowRowsAsync(readBack, audit, token);
+        var checkedRows = await VerifyShadowRowsAsync(readBack, audit, revisionTagRows, token);
         await readBack.RollbackAsync(token);
         return new ShadowReport(RehearsalVersion, Convert.ToHexStringLower(SHA256.HashData(mapBytes)), adminIdentitySha256, checkedRows);
     }
@@ -150,6 +152,7 @@ internal static partial class Migration
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             source_status INTEGER NOT NULL,
+            source_category_id INTEGER NOT NULL,
             deleted INTEGER NOT NULL CHECK (deleted IN (0, 1)),
             current_publication_id INTEGER,
             current_public_revision_candidate INTEGER,
@@ -164,12 +167,13 @@ internal static partial class Migration
             revision INTEGER NOT NULL,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
+            source_category_id INTEGER NOT NULL,
             source_content_block_id INTEGER NOT NULL,
             source_content_sha256 TEXT NOT NULL,
             source_admin_id INTEGER NOT NULL,
             source_rollback_revision_id INTEGER,
             happened_at TEXT NOT NULL,
-            UNIQUE (article_id, revision)
+            UNIQUE (article_id, revision), UNIQUE (source_revision_id, article_id, revision)
         ) STRICT;
         CREATE TABLE shadow_publication (
             source_publication_id INTEGER PRIMARY KEY,
@@ -181,7 +185,13 @@ internal static partial class Migration
             source_responsibility_snapshot_id INTEGER,
             source_transition TEXT NOT NULL,
             published_at TEXT NOT NULL,
-            UNIQUE (article_id, publication_number)
+            UNIQUE (article_id, publication_number),
+            FOREIGN KEY (source_rights_snapshot_id, source_revision_id, article_id, revision)
+                REFERENCES shadow_article_rights_snapshot (id, article_revision_id, article_id, revision_no)
+                DEFERRABLE INITIALLY DEFERRED,
+            FOREIGN KEY (source_responsibility_snapshot_id, source_revision_id, article_id, revision)
+                REFERENCES shadow_article_responsibility_snapshot (id, article_revision_id, article_id, revision_no)
+                DEFERRABLE INITIALLY DEFERRED
         ) STRICT;
         """;
 }

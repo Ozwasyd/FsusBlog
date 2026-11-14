@@ -29,7 +29,22 @@ internal static partial class Migration
             "rollback_source_revision_id", "rollback_reason", "created_at"],
         [Block] = ["id", "content_hash", "markdown_content", "byte_length", "created_at"],
         [Publication] = ["id", "article_id", "publication_no", "article_revision_id", "revision_no", "rights_snapshot_id",
-            "responsibility_snapshot_id", "transition_kind", "published_at", "created_at"]
+            "responsibility_snapshot_id", "transition_kind", "published_at", "created_at"],
+        [Category] = ["id", "name", "description"],
+        [Tag] = ["id", "name", "description"],
+        [ArticleTag] = ["articleid", "tagid"],
+        [TagAlias] = ["normalized_name", "tag_id", "original_name", "created_at_utc"],
+        [RightsPolicy] = ["id", "article_id", "enabled", "license_type", "copyright_holder", "copyright_year",
+            "rights_statement", "attribution_template", "copy_policy", "max_excerpt_chars", "allow_code_copy",
+            "show_public_badge", "proof_binding_enabled", "created_at", "updated_at"],
+        [RightsSnapshot] = ["id", "article_id", "article_revision_id", "revision_no", "article_rights_policy_id",
+            "enabled", "license_type", "copyright_holder", "copyright_year", "rights_statement", "attribution_template",
+            "copy_policy", "max_excerpt_chars", "allow_code_copy", "show_public_badge", "proof_binding_enabled",
+            "canonical_url", "policy_hash", "content_canonical_hash", "created_at"],
+        [Responsibility] = ["id", "article_id", "article_revision_id", "revision_no", "responsibility_version",
+            "previous_snapshot_id", "inherit_site_author", "authors_json", "reviewer_json", "sources_json",
+            "update_summary", "update_reason", "effective_at", "conclusion_impact", "methodology", "applicability",
+            "limitations", "responsible_person_confirmed", "created_at"]
     };
 
     private sealed record LegacyIssue(string Kind, long Count);
@@ -60,13 +75,17 @@ internal static partial class Migration
             if (!plan || issues.Count != 0)
                 continue;
 
-            var id = C(key, "t", columns[0]);
-            await FindingAsync($"null or nonpositive row key: {key}", $"FROM {T(key)} t WHERE {id} IS NULL OR {id} <= 0");
-            await FindingAsync($"duplicate row key: {key}", $"FROM (SELECT {id} FROM {T(key)} t GROUP BY {id} HAVING COUNT(*) > 1) duplicates");
+            var keys = LegacyKeyColumns(key).Select(column => C(key, "t", column)).ToArray();
+            var badKey = key == TagAlias ? $"{keys[0]} IS NULL OR {keys[0]} = ''"
+                : string.Join(" OR ", keys.Select(id => $"{id} IS NULL OR {id} <= 0"));
+            await FindingAsync($"missing or invalid row key: {key}", $"FROM {T(key)} t WHERE {badKey}");
+            var grouping = string.Join(", ", keys);
+            await FindingAsync($"duplicate row key: {key}",
+                $"FROM (SELECT {grouping} FROM {T(key)} t GROUP BY {grouping} HAVING COUNT(*) > 1) duplicates");
             if (source.Provider == "sqlite")
             {
                 var invalid = columns.Select(column => source.InvalidStorage(C(key, "t", column),
-                    IsLegacyText(column), IsLegacyTimestamp(column), column == "isdeleted"));
+                    IsLegacyText(column), IsLegacyTimestamp(column), IsLegacyBoolean(column)));
                 await FindingAsync($"incorrect SQLite storage type: {key}", $"FROM {T(key)} t WHERE {string.Join(" OR ", invalid)}");
             }
         }
@@ -108,6 +127,7 @@ internal static partial class Migration
             """);
         await FindingAsync("duplicate article publication number",
             $"FROM (SELECT {P("article_id")}, {P("publication_no")} FROM {T(Publication)} p GROUP BY {P("article_id")}, {P("publication_no")} HAVING COUNT(*) > 1) duplicates");
+        await AuditLegacyReleaseReferencesAsync(source, transaction, tables, issues, token);
 
         for (var i = 0; i < projections.Count; i++)
         {
@@ -116,7 +136,9 @@ internal static partial class Migration
             if (result.Oversized != 0)
                 issues.Add(new LegacyIssue($"text exceeds intake byte budget: {projection.Table}", result.Oversized));
             if (result.BadContentHashes != 0)
-                issues.Add(new LegacyIssue("immutable block byte count or SHA-256 mismatch", result.BadContentHashes));
+                issues.Add(new LegacyIssue(projection.Table == Block
+                    ? "immutable block byte count or SHA-256 mismatch" : "unrecognized legacy rights snapshot hash representation",
+                    result.BadContentHashes));
             projections[i] = projection with { Sha256 = result.Digest };
         }
 
@@ -151,8 +173,10 @@ internal static partial class Migration
         foreach (var field in LegacyColumns[name]) AppendLegacyValue(data, field);
 
         long badHashes = 0;
+        var policyHashIndex = Array.IndexOf(LegacyColumns[name], "policy_hash");
+        var canonicalHashIndex = Array.IndexOf(LegacyColumns[name], "content_canonical_hash");
         await using var command = CreateLegacyCommand(transaction,
-            $"SELECT {string.Join(", ", columns)} FROM {qualified} ORDER BY {columns[0]}");
+            $"SELECT {string.Join(", ", columns)} FROM {qualified} ORDER BY {LegacySort(source, table, name)}");
         await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, token);
         while (await reader.ReadAsync(token))
         {
@@ -164,6 +188,10 @@ internal static partial class Migration
                 AppendLegacyValue(data, values[i]);
             }
             if (name == Block && !LegacyBlockMatches(values))
+                badHashes++;
+            if (name == RightsSnapshot &&
+                (!IsStoredRightsHash(values[policyHashIndex] as string, "rights-v3:policy-hash:recompute") ||
+                 !IsStoredRightsHash(values[canonicalHashIndex] as string, "rights-v3:content-hash:recompute")))
                 badHashes++;
         }
 
@@ -182,9 +210,11 @@ internal static partial class Migration
     }
 
     private static bool IsLegacyText(string name) => name is "title" or "summary" or "coverimageurl" or "cover_image_url"
-        or "tag_ids" or "markdown_content" or "diff_summary" or "rollback_reason" or "content_hash" or "transition_kind";
+        or "tag_ids" or "markdown_content" or "diff_summary" or "rollback_reason" or "content_hash" or "transition_kind"
+        || IsLegacyReleaseText(name);
 
-    private static bool IsLegacyTimestamp(string name) => name == "createtime" || name.EndsWith("_at", StringComparison.Ordinal);
+    private static bool IsLegacyTimestamp(string name) => name == "createtime" || name.EndsWith("_at", StringComparison.Ordinal)
+        || name.EndsWith("_at_utc", StringComparison.Ordinal);
 
     private static void AppendLegacyValue(IncrementalHash data, object? value)
     {

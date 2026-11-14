@@ -28,6 +28,7 @@ else
     scratch="$(mktemp -d "${TMPDIR:-/tmp}/fsusv2-legacy.XXXXXXXX")"
 fi
 fixture="tests/Integration/Migration/legacy-source-fixture.sql"
+rights_fixture="tests/Integration/Migration/legacy-shared-rights-fixture.sql"
 database="fsusv2_legacy_$(openssl rand -hex 12)"
 created=0
 pg=(psql -X --no-password -v ON_ERROR_STOP=1)
@@ -58,6 +59,7 @@ if [[ "$provider" == postgres ]]; then
     "${pg[@]}" -d postgres -c "CREATE DATABASE \"$database\" TEMPLATE template0"
     created=1
     "${pg[@]}" -d "$database" -f "$fixture"
+    "${pg[@]}" -d "$database" -f "$rights_fixture"
     export FSUSBLOG_V1_DB="${FSUSBLOG_TEST_DB%;};Database=$database;Options=-c default_transaction_read_only=on"
     export FSUSBLOG_V1_SCHEMA=public
     source_sql=("${pg[@]}" -d "$database" -c)
@@ -66,12 +68,12 @@ elif [[ "$provider" == mysql ]]; then
     "${mysql_admin[@]}" -e "CREATE DATABASE $database CHARACTER SET utf8mb4;
         CREATE USER 'fsus_read'@'localhost';
         GRANT SELECT ON $database.* TO 'fsus_read'@'localhost'"
-    "${mysql_admin[@]}" "$database" < "$fixture"
+    cat "$fixture" "$rights_fixture" | "${mysql_admin[@]}" "$database"
     export FSUSBLOG_V1_DB="Server=$scratch/mysql.sock;Protocol=Unix;User ID=fsus_read;Database=$database;SSL Mode=Disabled"
     source_sql=("${mysql_admin[@]}" "$database" -e)
 else
     export FSUSBLOG_V1_SQLITE_PATH="$scratch/source.sqlite"
-    sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" < "$fixture"
+    cat "$fixture" "$rights_fixture" | sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH"
     source_sql=(sqlite3 "$FSUSBLOG_V1_SQLITE_PATH")
 fi
 
@@ -109,6 +111,13 @@ assert actual == {
     'article_revision': 3,
     'article_revision_content_block': 3,
     'article_publication': 2,
+    'category': 2,
+    'tag': 3,
+    'article_tag': 2,
+    'tag_url_alias': 2,
+    'article_rights_policy': 1,
+    'article_rights_snapshot': 2,
+    'article_responsibility_snapshot': 3,
 }
 assert all(len(p['sha256']) == 64 for p in plan['audit']['projections'])
 assert 'Private edit' not in plan_raw and 'published ☃' not in plan_raw
@@ -143,6 +152,9 @@ assert len(rehearsal['ownerMapSha256']) == 64
 assert rehearsal['sourceAdminIdentitySha256'] == report['sourceAdminIdentitySha256']
 assert {entry['table']: entry['rows'] for entry in rehearsal['counts']} == {
     'shadow_article': 1, 'shadow_revision': 3, 'shadow_publication': 2,
+    'shadow_category': 2, 'shadow_tag': 3, 'shadow_article_tag': 2, 'shadow_tag_url_alias': 2,
+    'shadow_article_rights_policy': 1, 'shadow_article_rights_snapshot': 2,
+    'shadow_article_responsibility_snapshot': 3, 'shadow_revision_tag': 4,
 }
 assert all(len(entry['sha256']) == 64 for entry in rehearsal['counts'])
 assert 'Private edit' not in raw and 'published ☃' not in raw
@@ -154,6 +166,32 @@ if "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > /dev/null
     exit 1
 fi
 "${source_sql[@]}" "UPDATE admin_principal SET handle = 'fixture-editor' WHERE id = 7"
+
+"${source_sql[@]}" 'UPDATE article_publication SET rights_snapshot_id = 700 WHERE id = 900000002'
+expect_blocked "$scratch/corrupt.json"
+rg -F 'publication does not resolve its exact snapshot coordinates: article_rights_snapshot' "$scratch/corrupt.json"
+"${source_sql[@]}" 'UPDATE article_publication SET rights_snapshot_id = 701 WHERE id = 900000002'
+"${source_sql[@]}" "UPDATE article_rights_snapshot SET policy_hash = 'unrecognized' WHERE id = 700"
+expect_blocked "$scratch/corrupt.json"
+rg -F 'unrecognized legacy rights snapshot hash representation' "$scratch/corrupt.json"
+"${source_sql[@]}" "UPDATE article_rights_snapshot SET policy_hash = 'rights-v3:policy-hash:recompute' WHERE id = 700"
+"${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > "$scratch/repeat.json"
+"${source_sql[@]}" 'UPDATE article_responsibility_snapshot SET previous_snapshot_id = 799 WHERE id = 801'
+expect_blocked "$scratch/corrupt.json"
+rg -F 'responsibility predecessor is outside its valid lineage' "$scratch/corrupt.json"
+"${source_sql[@]}" 'UPDATE article_responsibility_snapshot SET previous_snapshot_id = 800 WHERE id = 801'
+"${source_sql[@]}" "UPDATE article_revision SET tag_ids = '21,21' WHERE id = 5000000002"
+if "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > /dev/null; then
+    printf '%s\n' 'Duplicate historical tag identity was silently dropped.' >&2
+    exit 1
+fi
+"${source_sql[@]}" "UPDATE article_revision SET tag_ids = '21' WHERE id = 5000000002"
+"${source_sql[@]}" "UPDATE tag_url_alias SET normalized_name = 'NEWS', original_name = 'News' WHERE tag_id = 23"
+if "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > /dev/null; then
+    printf '%s\n' 'An alias shadowing another tag was silently changed.' >&2
+    exit 1
+fi
+"${source_sql[@]}" "UPDATE tag_url_alias SET normalized_name = 'CAFÉ ARCHIVE', original_name = 'Café Archive' WHERE tag_id = 23"
 
 "${source_sql[@]}" "UPDATE article_revision_content_block SET markdown_content = 'wrong' WHERE id = 200"
 "${source_sql[@]}" 'UPDATE article_publication SET revision_no = 3 WHERE id = 900000002'

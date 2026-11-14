@@ -116,7 +116,8 @@ internal static partial class Migration
         if (mode is "plan" or "rehearse")
         {
             blockers.Add("v2 activation requires an approved complete principal, role and article ownership mapping");
-            blockers.Add("preserve rights, responsibility, credentials, media, properties, Canvas, drafts, pending work and other durable v1 domains");
+            blockers.Add("rights signatures, canonical digest recomputation, transparency history, publication schedule and source registration/authority remain unverified");
+            blockers.Add("preserve credentials, media, properties, Canvas, drafts, pending work and other durable v1 domains");
             blockers.Add("the full v1-to-v2 converter and independent restore acceptance are unavailable");
         }
 
