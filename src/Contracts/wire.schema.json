@@ -197,6 +197,7 @@
     "InboxReplayCursor": "X-Fsus-Inbox-Replay-Cursor",
     "InboxWriteEnabled": "X-Fsus-Inbox-Write-Enabled",
     "PrivateMediaDigest": "X-Fsus-Private-Media-SHA256",
+    "PrivateMediaResumable": "X-Fsus-Private-Media-Resumable",
     "MfaProof": "X-Fsus-Mfa-Proof",
     "CurrentSession": "X-Fsus-Current-Session",
     "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token"

@@ -1,6 +1,6 @@
 import { decodeSuccess, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { request } from './client.ts';
+import { request, validSiteSessionId } from './client.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
@@ -21,6 +21,17 @@ export interface PrivateMediaItem {
 export interface MediaPage {
   readonly items: readonly PrivateMediaItem[];
   readonly hasMore: boolean;
+}
+
+interface UploadManifest { file: File; key: string; digest: string }
+export interface MediaUploadState {
+  readonly id: string;
+  readonly length: number;
+  readonly partSize: number;
+  readonly expiresAt: number;
+  readonly reserved: boolean;
+  readonly asset?: string;
+  readonly received: readonly number[];
 }
 
 export function decodeMediaItems(payload: Uint8Array): MediaPage {
@@ -49,20 +60,100 @@ export function decodeMediaItems(payload: Uint8Array): MediaPage {
   return { items, hasMore };
 }
 
-export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal): Promise<MediaPage> {
+export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal): Promise<MediaPage & { resumable: boolean }> {
   const query = before ? `?${new URLSearchParams({ before: String(before.ticks), beforeId: before.id })}` : '';
-  return request(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, decodeMediaItems, signal);
+  return request(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, (payload, headers) => {
+    const flag = headers.get(WireHeaders.PrivateMediaResumable);
+    if (flag !== null && flag !== '1') throw invalid();
+    return { ...decodeMediaItems(payload), resumable: flag === '1' };
+  }, signal);
 }
 
 export function uploadMedia(file: File, key: string, signal?: AbortSignal): Promise<PrivateMediaItem> {
+  validateFile(file, key);
+  const path = `${WireRoutes.PrivateMediaUpload}?${new URLSearchParams({ name: file.name })}`;
+  return request(path, FrameType.PrivateMediaItems, payload => uploaded(payload, file), signal, 'POST', file,
+    { [WireHeaders.ClientMutationId]: key, 'Content-Type': file.type });
+}
+
+export async function mediaDigest(file: Blob, signal: AbortSignal): Promise<string> {
+  if (file.size < 1 || file.size > WireLimits.PrivateMediaBytes) throw invalid();
+  signal.throwIfAborted();
+  const bytes = await file.arrayBuffer();
+  signal.throwIfAborted();
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  signal.throwIfAborted();
+  return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function startMediaUpload(input: UploadManifest, current: string, signal: AbortSignal): Promise<MediaUploadState> {
+  const { file, key, digest } = input;
+  validateFile(file, key);
+  const path = `${WireRoutes.PrivateMediaUploadBegin}?${new URLSearchParams({ name: file.name, type: file.type, length: String(file.size) })}`;
+  return request(path, FrameType.PrivateMediaUploadState, payload => {
+    const upload = decodeMediaUpload(payload);
+    if (upload.length !== file.size) throw invalid();
+    return upload;
+  }, signal, 'POST', undefined, { ...mediaHeader(current, digest), [WireHeaders.ClientMutationId]: key });
+}
+
+export function sendMediaPart(file: File, upload: MediaUploadState, part: number, body: Blob, digest: string,
+  current: string, signal: AbortSignal): Promise<MediaUploadState> {
+  const offset = part * upload.partSize;
+  const path = itemPath(WireRoutes.PrivateMediaUploadPart, upload.id).replace('{part:int}', String(part)) + `?offset=${offset}`;
+  return request(path, FrameType.PrivateMediaUploadState, payload => {
+    const next = decodeMediaUpload(payload);
+    if (next.id !== upload.id || next.length !== file.size || next.partSize !== upload.partSize ||
+        next.reserved || !next.received.includes(part)) throw invalid();
+    return next;
+  }, signal, 'POST', body, mediaHeader(current, digest));
+}
+
+export function finalizeMediaUpload(file: File, upload: MediaUploadState, current: string, signal: AbortSignal): Promise<PrivateMediaItem> {
+  return request(itemPath(WireRoutes.PrivateMediaUploadFinalize, upload.id), FrameType.PrivateMediaItems, payload => {
+    const value = uploaded(payload, file);
+    if (upload.asset && value.id !== upload.asset) throw invalid();
+    return value;
+  }, signal, 'POST', undefined, mediaHeader(current));
+}
+
+export function cancelMediaUpload(upload: MediaUploadState, current: string, signal: AbortSignal): Promise<void> {
+  return request(itemPath(WireRoutes.PrivateMediaUploadCancel, upload.id), FrameType.EmptySuccess, decodeSuccess,
+    signal, 'POST', undefined, mediaHeader(current));
+}
+
+function decodeMediaUpload(payload: Uint8Array): MediaUploadState {
+  const reader = new PodReader(payload);
+  const id = reader.uuid();
+  const length = reader.i32();
+  const partSize = reader.i32();
+  const expiresAt = Number(reader.i64());
+  const reserved = reader.bool();
+  const asset = reader.bool() ? reader.uuid() : undefined;
+  const received = reader.i32s(320);
+  reader.finish();
+  const maximum = Math.ceil(length / partSize);
+  if (!validId(id) || length < 1 || length > WireLimits.PrivateMediaBytes || partSize < 65536 || partSize > 2097152 ||
+      !Number.isSafeInteger(expiresAt) || expiresAt <= 0 || (asset && (!validId(asset) || !reserved || received.length)) ||
+      received.some((part, index) => part < 0 || part >= maximum || (index > 0 && part <= received[index - 1]))) throw invalid();
+  return { id, length, partSize, expiresAt, reserved, asset, received };
+}
+
+function mediaHeader(current: string, digest?: string): Record<string, string> {
+  if (!validSiteSessionId(current) || (digest !== undefined && !/^[a-f0-9]{64}$/.test(digest))) throw invalid();
+  return { [WireHeaders.CurrentSession]: current, ...(digest ? { [WireHeaders.PrivateMediaDigest]: digest } : {}) };
+}
+
+function validateFile(file: File, key: string) {
   if (!validId(key) || file.size < 1 || file.size > WireLimits.PrivateMediaBytes ||
       (file.type !== 'image/png' && file.type !== 'image/jpeg')) throw invalid();
-  const path = `${WireRoutes.PrivateMediaUpload}?${new URLSearchParams({ name: file.name })}`;
-  return request(path, FrameType.PrivateMediaItems, payload => {
-    const page = decodeMediaItems(payload);
-    if (page.hasMore || page.items.length !== 1 || page.items[0].name !== file.name) throw invalid();
-    return page.items[0];
-  }, signal, 'POST', file, { [WireHeaders.ClientMutationId]: key, 'Content-Type': file.type });
+}
+
+function uploaded(payload: Uint8Array, file: File): PrivateMediaItem {
+  const page = decodeMediaItems(payload);
+  if (page.hasMore || page.items.length !== 1 || page.items[0].name !== file.name ||
+      page.items[0].format !== (file.type === 'image/png' ? 1 : 2)) throw invalid();
+  return page.items[0];
 }
 
 export function removeMedia(id: string, signal?: AbortSignal): Promise<void> {

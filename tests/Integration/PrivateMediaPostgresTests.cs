@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
+using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 using SkiaSharp;
 
@@ -29,7 +30,7 @@ public sealed class PrivateMediaPostgresTests
         try
         {
             await using var server = await ServerProcess.Start(db.ConnectionString, ct,
-                new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = storage });
+                new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = storage, [MediaUploadEndpoints.Setting] = "false" });
             var png = EncodeImage(SKEncodedImageFormat.Png);
             var jpeg = EncodeImage(SKEncodedImageFormat.Jpeg);
             var command = Guid.NewGuid();
@@ -55,6 +56,7 @@ public sealed class PrivateMediaPostgresTests
 
             using var list = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, primary, ct);
             Assert.Equal(asset, First(await list.Content.ReadAsByteArrayAsync(ct), 1));
+            Assert.False(list.Headers.Contains(WireHeaders.PrivateMediaResumable));
             using var otherList = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, another, ct);
             Assert.Equal(Guid.Empty, First(await otherList.Content.ReadAsByteArrayAsync(ct), 0));
 
@@ -129,6 +131,10 @@ public sealed class PrivateMediaPostgresTests
             {
                 using var auth = await Begin(server.Client, reader, key, "resumable.png", image, ct);
                 Assert.Equal(HttpStatusCode.Forbidden, auth.StatusCode);
+                using var advertised = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, owner, ct);
+                Assert.Equal("1", Assert.Single(advertised.Headers.GetValues(WireHeaders.PrivateMediaResumable)));
+                using var stale = await Begin(server.Client, foreign, key, "resumable.png", image, ct, owner);
+                Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
                 using var created = await Begin(server.Client, owner, key, "resumable.png", image, ct);
                 upload = await State(created, [], ct);
                 using var conflict = await Begin(server.Client, owner, key, "changed.png", image, ct);
@@ -295,11 +301,16 @@ public sealed class PrivateMediaPostgresTests
     private static string PathFor(string route, Guid id) => route.Replace("{id}", id.ToString("D"), StringComparison.Ordinal);
 
     private static async Task<HttpResponseMessage> Begin(HttpClient client, SessionFixture actor, Guid key, string name, byte[] image,
-        CancellationToken ct)
+        CancellationToken ct, SessionFixture? expected = null)
     {
         using var request = Request(HttpMethod.Post,
             $"{WireRoutes.PrivateMediaUploadBegin}?name={Uri.EscapeDataString(name)}&type=image%2Fpng&length={image.Length}&partSize=65536", actor);
         request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
+        if (expected is not null)
+        {
+            request.Headers.Remove(WireHeaders.CurrentSession);
+            request.Headers.Add(WireHeaders.CurrentSession, expected.SiteSessionId);
+        }
         request.Headers.Add(WireHeaders.PrivateMediaDigest, Convert.ToHexString(SHA256.HashData(image)));
         return await client.SendAsync(request, ct);
     }
@@ -371,7 +382,11 @@ public sealed class PrivateMediaPostgresTests
     private static HttpRequestMessage Request(HttpMethod method, string path, SessionFixture? session)
     {
         var request = new HttpRequestMessage(method, path);
-        if (session is not null) request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
+        if (session is not null)
+        {
+            request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
+            request.Headers.Add(WireHeaders.CurrentSession, session.SiteSessionId);
+        }
         return request;
     }
 
@@ -395,5 +410,8 @@ public sealed class PrivateMediaPostgresTests
         return new(id, Convert.ToHexStringLower(bytes));
     }
 
-    private sealed record SessionFixture(Guid Id, string Token);
+    private sealed record SessionFixture(Guid Id, string Token)
+    {
+        internal string SiteSessionId => SiteSessions.Id(Id, SHA256.HashData(Convert.FromHexString(Token)));
+    }
 }

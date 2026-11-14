@@ -445,6 +445,7 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
+    public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";

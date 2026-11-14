@@ -2,12 +2,14 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { api } from '../../src/Contracts/client.ts'
 
 const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT
 const tickets = [process.env.FSUSBLOG_TEST_TICKET, process.env.FSUSBLOG_TEST_MOBILE_TICKET]
+const resumable = process.env.FSUSBLOG_TEST_RESUMABLE_MEDIA === '1'
 assert(evidence && storage && tickets.every(Boolean))
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
 const results = []
@@ -38,6 +40,7 @@ try {
     await page.getByLabel('Owner access key').fill(tickets[index])
     await page.getByRole('button', { name: 'Log in', exact: true }).click()
     await page.getByRole('heading', { name: 'New article' }).waitFor()
+    if (index) await page.getByRole('button', { name: 'Account menu' }).click()
     await page.getByRole('link', { name: '资产库' }).filter({ visible: true }).click()
     await page.getByText('还没有图片', { exact: true }).waitFor()
     await page.screenshot({ path: join(evidence, `private-media-${name}-empty.png`) })
@@ -54,10 +57,17 @@ try {
       draw.fillRect(25, 20, 80, 50)
       return canvas.toDataURL('image/png').split(',')[1]
     }), 'base64')
-    await page.getByLabel('选择图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: imageBytes })
-    const upload = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/media/upload.aeds')
-    await page.getByRole('button', { name: '上传图片' }).click()
-    assert.equal((await upload).status(), 200)
+    let continuation
+    if (resumable) {
+      const file = { name: fileName, mimeType: 'image/png', buffer: Buffer.concat([imageBytes, Buffer.alloc(512 * 1024, 1)]) }
+      continuation = await verifyContinuation(page, file, name)
+    } else {
+      await page.getByLabel('选择图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: imageBytes })
+      const upload = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/media/upload.aeds')
+      await page.getByRole('button', { name: '上传图片' }).click()
+      assert.equal((await upload).status(), 200)
+      assert.equal(await page.getByText(/当前标签页重新选择/).count(), 0)
+    }
     await page.getByRole('status').getByText('图片已保存。').waitFor()
     const show = page.getByRole('button', { name: `查看 ${fileName}` })
     await show.focus()
@@ -89,9 +99,14 @@ try {
     const removed = await context.request.get(new URL(imageHref, url).href)
     assert.equal(removed.status(), 404)
     assert.deepEqual(await readdir(storage), [])
+    if (resumable && name === 'desktop') {
+      await verifyAccountSwitch(page, { name: 'account-switch.png', mimeType: 'image/png',
+        buffer: Buffer.concat([imageBytes, Buffer.alloc(512 * 1024, 1)]) }, context)
+      continuation.accountSwitchIsolated = true
+    }
     assert.deepEqual(diagnostics, [])
     results.push({ name, viewport, title: await page.title(), upload: true, privateRead: true,
-      keyboardFocus: true, remove: true, assetFileRemoved: true, diagnostics })
+      keyboardFocus: true, remove: true, assetFileRemoved: true, continuation, diagnostics })
     await context.close()
   }
 } catch (error) { failure = error }
@@ -101,3 +116,128 @@ finally {
 }
 if (failure) throw failure
 console.log('Private PNG upload, authorized image read and file removal verified in desktop and mobile Chrome.')
+
+async function verifyContinuation(page, file, name) {
+  const resumeUi = page.getByText(/当前标签页重新选择/)
+  await resumeUi.waitFor()
+  const all = '**/api/v2/media/resumable/**'
+  const submit = page.getByRole('button', { name: '上传图片' })
+  const choose = page.getByLabel('选择图片')
+  const first = []
+  await page.route(all, async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    first.push([path, request.headers()['x-fsus-client-mutation-id']])
+    if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
+    else await route.continue()
+  })
+  await choose.setInputFiles(file)
+  await submit.click()
+  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+  await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: '取消上传' }).count(), 1)
+  await page.screenshot({ path: join(evidence, `private-media-${name}-interrupted.png`), animations: 'disabled' })
+  await page.unroute(all)
+  await page.reload()
+  await resumeUi.waitFor()
+  const expected = first.find(([path]) => path.endsWith('/begin.aeds'))[1]
+  if (name === 'mobile') {
+    const changed = Buffer.from(file.buffer)
+    changed[changed.length - 1] ^= 1
+    let differentKey
+    await page.route(all, async route => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      if (path.endsWith('/begin.aeds')) differentKey = request.headers()['x-fsus-client-mutation-id']
+      if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
+      else await route.continue()
+    })
+    await choose.setInputFiles({ ...file, buffer: changed })
+    await submit.click()
+    await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+    assert(differentKey && differentKey !== expected)
+    await page.getByRole('button', { name: '取消上传' }).click()
+    await page.getByText('已取消上传。', { exact: true }).waitFor()
+    await page.unroute(all)
+  }
+  const second = []
+  await page.route(all, async route => {
+    const request = route.request()
+    second.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
+    await route.continue()
+  })
+  await choose.setInputFiles(file)
+  await submit.click()
+  await page.getByText('图片已保存。', { exact: true }).waitFor()
+  await page.unroute(all)
+  assert.equal(second.find(([path]) => path.endsWith('/begin.aeds'))[1], expected)
+  assert.deepEqual(second.filter(([path]) => path.includes('/parts/')).map(([path]) => path.split('/').at(-1)), ['1.aeds'])
+  assert.equal(await page.evaluate(() => Object.keys(sessionStorage).some(key => key.startsWith('fsus.private-media.resume.v1:'))), false)
+
+  return { acceptedBeforeFailure: [0], replayedAfterReload: [1], differentBytesIsolated: name === 'mobile' }
+}
+
+async function verifyAccountSwitch(page, uploadFile, context) {
+  // Use a second real author in the same tab after one confirmed part. Exactly the original bytes select a new owner key.
+  const all = '**/api/v2/media/resumable/**'
+  const submit = page.getByRole('button', { name: '上传图片' })
+  const choose = page.getByLabel('选择图片')
+  const resumeUi = page.getByText(/当前标签页重新选择/)
+  const oldCookie = (await context.cookies()).find(cookie => cookie.name === 'fsus-v2-session')
+  assert(oldCookie)
+  let foreignCookie
+  const nativeFetch = globalThis.fetch
+  globalThis.fetch = async (path, options) => {
+    const response = await nativeFetch(new URL(path, url), options)
+    foreignCookie = response.headers.get('set-cookie')?.match(/\bfsus-v2-session=([a-f0-9]{64})\b/)?.[1]
+    return response
+  }
+  try { await api.signIn(process.env.FSUSBLOG_TEST_MEDIA_SWITCH_TICKET) }
+  finally { globalThis.fetch = nativeFetch }
+  assert(foreignCookie)
+  const switched = []
+  await page.route(all, async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    switched.push([path, request.headers()['x-fsus-client-mutation-id']])
+    if (path.endsWith('/parts/1.aeds')) {
+      await context.addCookies([{ name: 'fsus-v2-session', value: foreignCookie, url, httpOnly: true, sameSite: 'Strict' }])
+      await route.abort('failed')
+    } else await route.continue()
+  })
+  await choose.setInputFiles(uploadFile)
+  await submit.click()
+  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+  const original = switched.find(([path]) => path.endsWith('/begin.aeds'))[1]
+  await page.unroute(all)
+  const savedCookie = await context.cookies().then(cookies => cookies.find(cookie => cookie.name === 'fsus-v2-session'))
+  assert.equal(savedCookie.value, foreignCookie)
+  await page.reload()
+  await resumeUi.waitFor()
+  const received = []
+  await page.route(all, async route => {
+    const request = route.request()
+    received.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
+    await route.continue()
+  })
+  await choose.setInputFiles(uploadFile)
+  await submit.click()
+  await page.getByText('图片已保存。', { exact: true }).waitFor()
+  await page.unroute(all)
+  assert.notEqual(received.find(([path]) => path.endsWith('/begin.aeds'))[1], original)
+  assert.equal(received.filter(([path]) => path.includes('/parts/')).length, 2)
+  await page.getByRole('button', { name: `删除 ${uploadFile.name}` }).click()
+  await page.getByRole('button', { name: '删除图片', exact: true }).click()
+  await page.getByText('图片已删除。', { exact: true }).waitFor()
+  await context.addCookies([oldCookie])
+  await page.route(all, route => new URL(route.request().url()).pathname.endsWith('/parts/1.aeds') ? route.abort('failed') : route.continue())
+  await page.reload()
+  await resumeUi.waitFor()
+  await choose.setInputFiles(uploadFile)
+  await submit.click()
+  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+  await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
+  await page.getByRole('button', { name: '取消上传' }).click()
+  await page.getByText('已取消上传。', { exact: true }).waitFor()
+  await page.unroute(all)
+}

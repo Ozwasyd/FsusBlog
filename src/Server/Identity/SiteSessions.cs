@@ -64,7 +64,7 @@ internal static class SiteSessions
         return Convert.ToHexStringLower(SHA256.HashData(input));
     }
 
-    private static void RequireCurrent(Guid account, byte[] digest, string? expected)
+    internal static void RequireCurrent(Guid account, byte[] digest, string? expected)
     {
         if (!Wire.ValidSiteSessionId(expected) || expected != Id(account, digest))
             throw new BusinessException(Rejection.Conflict, "The current browser session changed. Reload before making changes.");

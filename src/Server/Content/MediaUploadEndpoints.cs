@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -21,8 +22,10 @@ internal static class MediaUploadEndpoints
         app.MapPost(WireRoutes.PrivateMediaUploadBegin, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             NoBody(ctx);
-            return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            var session = ctx.Request.Cookies[cookie];
+            return await store.WithSession(session, true, async (db, tx, actor) =>
             {
+                RequireCurrent(ctx, actor.Id, session);
                 var name = Query(ctx, "name", 255) ?? throw Invalid("Set an image name.");
                 var kind = MediaImage.FormatFor(name, Query(ctx, "type", 16) ?? "");
                 var length = Number(Query(ctx, "length", 8), 1, MediaImage.MaxBytes);
@@ -50,6 +53,7 @@ internal static class MediaUploadEndpoints
                 int offset = Number(Query(ctx, "offset", 8), 0, MediaImage.MaxBytes - 1);
                 int expected = await store.WithSession(session, true, async (db, tx, actor) =>
                 {
+                    RequireCurrent(ctx, actor.Id, session);
                     var upload = await new MediaUploadStore(db, tx, actor.Id).Find(uploadId, false, deadline);
                     if (upload.AssetId.HasValue) throw new BusinessException(Rejection.Conflict, "The private image is already reserved.");
                     return upload.PartLength(part, offset);
@@ -74,6 +78,7 @@ internal static class MediaUploadEndpoints
                 var uploadId = MediaEndpoints.Key(id);
                 var source = await store.WithSession(session, true, async (db, tx, actor) =>
                 {
+                    RequireCurrent(ctx, actor.Id, session);
                     var uploader = new MediaUploadStore(db, tx, actor.Id);
                     var upload = await uploader.Find(uploadId, false, deadline);
                     return (upload, bytes: upload.Complete ? null : await uploader.Assemble(upload, deadline));
@@ -112,8 +117,10 @@ internal static class MediaUploadEndpoints
         app.MapPost(WireRoutes.PrivateMediaUploadCancel, async (string id, HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>
         {
             NoBody(ctx);
-            return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            var session = ctx.Request.Cookies[cookie];
+            return await store.WithSession(session, true, async (db, tx, actor) =>
             {
+                RequireCurrent(ctx, actor.Id, session);
                 var uploader = new MediaUploadStore(db, tx, actor.Id);
                 var upload = await uploader.Find(MediaEndpoints.Key(id), true, ct);
                 if (upload.Complete) throw new BusinessException(Rejection.Conflict, "Private upload already has a private asset.");
@@ -171,6 +178,8 @@ internal static class MediaUploadEndpoints
     }
 
     private static string? Query(HttpContext ctx, string name, int length) => MediaEndpoints.Only(ctx.Request.Query[name], length);
+    private static void RequireCurrent(HttpContext ctx, Guid account, string? session) => SiteSessions.RequireCurrent(account,
+        Store.TokenDigest(session)!, MediaEndpoints.Only(ctx.Request.Headers[WireHeaders.CurrentSession], WireLimits.SiteSessionIdBytes));
     private static int Number(string? input, int min, int max) =>
         int.TryParse(input, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number >= min && number <= max
             ? number : throw Invalid("Invalid media upload numeric parameter.");

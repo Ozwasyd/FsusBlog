@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton, ElEmptyState, ElMessageBox, ElSettingsSection, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElEmptyState, ElMessageBox, ElProgress, ElSettingsSection, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
-import { listMedia, mediaDate, privateMediaHref, removeMedia, uploadMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
+import { cancelMediaUpload, finalizeMediaUpload, listMedia, mediaDate, mediaDigest, privateMediaHref, removeMedia,
+  sendMediaPart, startMediaUpload, uploadMedia, type MediaUploadState, type PrivateMediaItem } from '../../../Contracts/private-media'
+import { forgetMediaRecovery, mediaRecovery } from '../mediaUploadRecovery'
 import { currentSession, identityEpoch, invalidateSession } from '../session'
 
 const entries = shallowRef<readonly PrivateMediaItem[]>([])
-const selected = shallowRef<{ file: File; key: string }>()
+const selected = shallowRef<{ file: File; key: string; digest?: string; coordinate?: string }>()
+const uploadState = shallowRef<MediaUploadState>()
 const preview = shallowRef<PrivateMediaItem>()
 const error = ref('')
 const feedback = ref('')
 const available = ref(true)
+const resumable = ref(false)
 const hasMore = ref(false)
 const working = ref(false)
 const loading = ref(false)
@@ -21,6 +25,12 @@ const fileInput = ref<HTMLInputElement>()
 const date = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
 let scope = new AbortController()
 let previewOpener: HTMLElement | null
+
+function clearSelection() {
+  uploadState.value = undefined
+  selected.value = undefined
+  if (fileInput.value) fileInput.value.value = ''
+}
 
 function current(signal: AbortSignal) {
   return scope.signal === signal && !signal.aborted && currentSession.value?.canAuthor && currentSession.value.expiresAt > Date.now()
@@ -46,6 +56,7 @@ async function load(more = false) {
     entries.value = [...prior, ...page.items.filter(item => !existing.has(item.id))]
     hasMore.value = page.hasMore
     available.value = true
+    resumable.value = page.resumable && Boolean(currentSession.value?.siteSessionId)
   } catch (reason) { failure(reason, signal, '无法加载资产。') }
   finally { if (current(signal)) loading.value = false }
 }
@@ -54,6 +65,7 @@ function choose(event: Event) {
   if (!(event.target instanceof HTMLInputElement)) return
   const file = event.target.files?.[0]
   selected.value = file ? { file, key: crypto.randomUUID() } : undefined
+  uploadState.value = undefined
   error.value = ''
   feedback.value = ''
 }
@@ -66,13 +78,63 @@ async function upload() {
   error.value = ''
   feedback.value = ''
   try {
-    const item = await uploadMedia(input.file, input.key, signal)
+    const currentId = currentSession.value?.siteSessionId
+    const item = resumable.value && currentId
+      ? await uploadResumable(input, currentId, signal)
+      : await uploadMedia(input.file, input.key, signal)
     if (!current(signal)) return
     entries.value = [item, ...entries.value.filter(previous => previous.id !== item.id)]
-    selected.value = undefined
-    if (fileInput.value) fileInput.value.value = ''
+    if (input.coordinate) forgetMediaRecovery(input.coordinate)
+    clearSelection()
     feedback.value = '图片已保存。'
-  } catch (reason) { failure(reason, signal, '上传失败。请确认图片是 PNG 或 JPEG，且不超过 20 MiB。') }
+  } catch (reason) {
+    failure(reason, signal, uploadState.value
+      ? '上传未完成。可以重试，已确认的分片会保留。'
+      : '上传失败。请确认图片是 PNG 或 JPEG，且不超过 20 MiB。')
+  }
+  finally { if (current(signal)) working.value = false }
+}
+
+async function uploadResumable(input: NonNullable<typeof selected.value>, currentId: string, signal: AbortSignal) {
+  const file = input.file
+  input.digest ??= await mediaDigest(file, signal)
+  if (!input.coordinate) {
+    const saved = await mediaRecovery(file, input.digest, currentId, input.key, signal)
+    input.coordinate = saved.coordinate
+    input.key = saved.key
+  }
+  let state = await startMediaUpload({ file, key: input.key, digest: input.digest }, currentId, signal)
+  signal.throwIfAborted()
+  uploadState.value = state
+  if (!state.reserved) {
+    const count = Math.ceil(file.size / state.partSize)
+    for (let part = 0; part < count; part++) {
+      if (state.received.includes(part)) continue
+      const offset = part * state.partSize
+      const bytes = file.slice(offset, Math.min(file.size, offset + state.partSize), 'application/octet-stream')
+      const digest = await mediaDigest(bytes, signal)
+      state = await sendMediaPart(file, state, part, bytes, digest, currentId, signal)
+      signal.throwIfAborted()
+      uploadState.value = state
+    }
+  }
+  return finalizeMediaUpload(file, state, currentId, signal)
+}
+
+async function cancelUpload() {
+  const state = uploadState.value
+  const identity = currentSession.value?.siteSessionId
+  const signal = scope.signal
+  if (!state || state.asset || !identity || !current(signal) || working.value) return
+  working.value = true
+  try {
+    await cancelMediaUpload(state, identity, signal)
+    if (!current(signal)) return
+    if (selected.value?.coordinate) forgetMediaRecovery(selected.value.coordinate)
+    clearSelection()
+    error.value = ''
+    feedback.value = '已取消上传。'
+  } catch (reason) { failure(reason, signal, '取消失败。请重试。') }
   finally { if (current(signal)) working.value = false }
 }
 
@@ -111,14 +173,14 @@ watch(identityEpoch, () => {
   scope.abort()
   scope = new AbortController()
   preview.value = undefined
-  selected.value = undefined
+  clearSelection()
   entries.value = []
   hasMore.value = false
+  resumable.value = false
   working.value = false
   loading.value = false
   feedback.value = ''
   error.value = ''
-  if (fileInput.value) fileInput.value.value = ''
   if (currentSession.value?.canAuthor) void load()
 }, { immediate: true, flush: 'sync' })
 
@@ -140,7 +202,16 @@ onBeforeUnmount(() => scope.abort())
             <input id="private-media-file" ref="fileInput" type="file" accept="image/png,image/jpeg"
               :disabled="working" @change="choose" />
             <ElButton native-type="submit" type="primary" :disabled="!selected || loading" :loading="working">上传图片</ElButton>
+            <ElButton v-if="uploadState && !uploadState.asset && !working" native-type="button" @click="cancelUpload">取消上传</ElButton>
           </form>
+          <p v-if="resumable" class="media-help">上传中断后，可在当前标签页重新选择同一张图片继续。</p>
+          <div v-if="uploadState" class="media-progress">
+            <span v-if="uploadState.reserved">正在核对已上传图片。</span>
+            <template v-else>
+              <span>{{ uploadState.received.length }} / {{ Math.ceil(uploadState.length / uploadState.partSize) }} 个分片已确认</span>
+              <ElProgress :percentage="Math.floor(uploadState.received.length * 100 / Math.ceil(uploadState.length / uploadState.partSize))" :show-text="false" />
+            </template>
+          </div>
         </ElSettingsSection>
         <ElAlert v-if="error" type="error" :title="error" :closable="false" show-icon />
         <p v-if="feedback" role="status">{{ feedback }}</p>
@@ -182,6 +253,8 @@ onBeforeUnmount(() => scope.abort())
 .media-page > * + * { margin-block-start: var(--fsus-space-5); }
 .media-upload, .media-head, .media-row, .media-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fsus-space-3); }
 .media-upload input { max-width: 100%; }
+.media-help, .media-progress { margin-block: var(--fsus-space-3) 0; color: var(--el-text-color-secondary); }
+.media-progress { display: grid; gap: var(--fsus-space-2); }
 .media-head, .media-row { justify-content: space-between; }
 .media-head h2 { font-size: var(--el-font-size-large); overflow-wrap: anywhere; }
 .media-items { margin: 0; padding: 0; list-style: none; }

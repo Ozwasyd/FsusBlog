@@ -80,6 +80,13 @@ export FSUSBLOG_TEST_TICKET
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
   export FSUSBLOG_TEST_MOBILE_TICKET
+  if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
+    export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=true
+    FSUSBLOG_TEST_MEDIA_SWITCH_TICKET=$("${migrate[@]}" operator switch-author)
+    export FSUSBLOG_TEST_MEDIA_SWITCH_TICKET
+  else
+    export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=false
+  fi
   mkdir -m 700 "$scratch/media"
   FSUSBLOG_PRIVATE_MEDIA_ROOT=$(cd "$scratch/media" && pwd -P)
   export FSUSBLOG_PRIVATE_MEDIA_ROOT
@@ -104,6 +111,11 @@ done
 export FSUSBLOG_TEST_URL="$url"
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
   node tests/EndToEnd/private-media-flow.mjs
+  if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
+    "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres -qAt -c \
+      'SELECT (SELECT count(*) FROM public.private_media_upload WHERE complete), (SELECT count(*) FROM public.private_media_upload_part), (SELECT count(*) FROM public.private_media WHERE phase=3)' > "$evidence/media-state.txt"
+    [[ $(cat "$evidence/media-state.txt") == '3|0|3' ]]
+  fi
 else
   node tests/EndToEnd/blog-flow.mjs
 fi

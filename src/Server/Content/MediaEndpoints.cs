@@ -21,12 +21,14 @@ internal static class MediaEndpoints
 
     internal static void Map(WebApplication app, string cookie)
     {
+        var resumable = app.Configuration.GetValue(MediaUploadEndpoints.Setting, false);
         app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
         {
             var boundary = Position(ctx);
             var rows = await store.WithSession(ctx.Request.Cookies[cookie], true,
                 (db, tx, actor) => media.List(db, tx, actor.Id, boundary, token), token);
             var more = rows.Count == 51;
+            if (resumable) ctx.Response.Headers[WireHeaders.PrivateMediaResumable] = "1";
             return Results.Bytes(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
