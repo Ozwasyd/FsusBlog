@@ -562,8 +562,17 @@ jobs:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - name: Prepare pinned FsusUI source artifacts
+              run: |
+                  docker build --pull --file ops/docker/FsusBlog.Server.Dockerfile --target fsusui-build-tools --tag "fsusblog-fsusui-build-tools:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" .
+                  docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp/fsusui-home --env WASM_BUILD_JOBS=2 \
+                    --volume "$FSUSBLOG_LOCAL_FSUSUI_ROOT:/work" --workdir /work "fsusblog-fsusui-build-tools:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" bash -c '
+                      set -euo pipefail
+                      corepack pnpm@10.33.0 install --frozen-lockfile --ignore-scripts
+                      corepack pnpm@10.33.0 --dir vue/internal/build-utils run stub
+                      corepack pnpm@10.33.0 run build:theme
+                      corepack pnpm@10.33.0 run ensure:wasm
+                    '
             - run: node tests/browser-diagnostics/local-fsusui-identity.mjs
             - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
               env:

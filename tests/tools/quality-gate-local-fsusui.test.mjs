@@ -10,5 +10,5 @@ test('production artifact build uses pinned local FsusUI and the job token', () 
     assert.doesNotMatch(workflow, /secrets\.GITHUB_PACKAGES_TOKEN/u);
     assert.match(job, /FSUSBLOG_USE_LOCAL_FSUSUI: "1"/u);
     assert.match(job, /fsusui-baseline\.mjs --github-output[\s\S]*ref: \$\{\{ steps\.fsusui-baseline\.outputs\.commit \}\}/u);
-    assert.match(job, /npm --prefix src\/frontend ci[\s\S]*run build:theme[\s\S]*local-fsusui-identity\.mjs[\s\S]*ci-tier production-build-artifacts/u);
+    assert.match(job, /npm --prefix src\/frontend ci[\s\S]*run build:theme[\s\S]*run ensure:wasm[\s\S]*local-fsusui-identity\.mjs[\s\S]*ci-tier production-build-artifacts/u);
 });
