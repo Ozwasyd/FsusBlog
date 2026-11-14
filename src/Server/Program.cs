@@ -215,15 +215,17 @@ app.MapGet(WireRoutes.PublicRelatedReading, (HttpContext ctx, int articleId) =>
     if (publication is not null && publication != article.Publication.ToString(CultureInfo.InvariantCulture))
         return Error(ctx, 409, "The article changed. Reload its latest publication.", "article_publication_changed");
     var frame = snapshot.RelatedReading.Read(articleId, ctx.RequestAborted);
-    if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
+    RequireCurrentSnapshot(ctx, snapshot);
     return frame is null ? Error(ctx, 404, "Article not found.", "article_not_found") : Results.Bytes(frame, Binary);
 }).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
 {
     var keyword = Query(ctx, "q", 256)?.Trim();
-    return string.IsNullOrEmpty(keyword)
-        ? Error(ctx, 400, "A search term is required.")
-        : Results.Bytes(Snapshot(ctx).Search(keyword), Binary);
+    if (string.IsNullOrEmpty(keyword)) return Error(ctx, 400, "A search term is required.");
+    var snapshot = Snapshot(ctx);
+    var bytes = snapshot.Search(keyword);
+    RequireCurrentSnapshot(ctx, snapshot);
+    return Results.Bytes(bytes, Binary);
 }).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
 {
@@ -234,6 +236,7 @@ app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
         return Error(ctx, 409, "The search index changed. Reload it from page 1.");
     if (page is not null && (!int.TryParse(page, NumberStyles.None, CultureInfo.InvariantCulture, out var value) || (value > 1 && generation is null)))
         return Error(ctx, 400, "Invalid search index page or missing generation.");
+    RequireCurrentSnapshot(ctx, snapshot);
     ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.IndexPageCount.ToString(CultureInfo.InvariantCulture);
     return snapshot.Index(page is null ? 1 : int.Parse(page, CultureInfo.InvariantCulture)) is { } index
         ? Results.Bytes(index, Binary) : Error(ctx, 404, "Index page not found.");
@@ -253,6 +256,7 @@ app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head
         return Error(ctx, 409, "The search corpus changed. Reload it from page 1.");
     if (snapshot.CorpusPageCount == 0)
         return Error(ctx, 503, "The search corpus is unavailable.");
+    RequireCurrentSnapshot(ctx, snapshot);
     ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
     if (head) return Results.NoContent();
     return snapshot.Corpus(page) is { } bytes ? Results.Bytes(bytes, Binary) : Error(ctx, 404, "Search corpus page not found.");
@@ -313,15 +317,20 @@ app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));
 await app.RunAsync();
 
-Task PublicList(HttpContext ctx, string scope, int page, int size) =>
-    PublicResponse.Write(ctx, Snapshot(ctx).List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
-        ReadListCursor(ctx), ctx.RequestAborted), Binary);
+Task PublicList(HttpContext ctx, string scope, int page, int size)
+{
+    var snapshot = Snapshot(ctx);
+    var bytes = snapshot.List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
+        ReadListCursor(ctx), ctx.RequestAborted);
+    RequireCurrentSnapshot(ctx, snapshot);
+    return PublicResponse.Write(ctx, bytes, Binary);
+}
 
 async Task PublicDetail(HttpContext ctx, int id, bool asHtml)
 {
     var snapshot = Snapshot(ctx);
     var article = await snapshot.Detail(id, ctx.RequestAborted);
-    if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
+    RequireCurrentSnapshot(ctx, snapshot);
     if (article is not null)
     {
         await PublicResponse.Write(ctx, asHtml ? article.Html : article.Wire, asHtml ? Html : Binary);
@@ -359,6 +368,13 @@ PublicSnapshot Snapshot(HttpContext ctx)
     var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
     ctx.Response.Headers[WireHeaders.SearchIndexGeneration] = snapshot.GenerationHeader;
     return snapshot;
+}
+
+void RequireCurrentSnapshot(HttpContext ctx, PublicSnapshot snapshot)
+{
+    if (ReferenceEquals(snapshot, publications.Snapshot)) return;
+    ctx.Response.Headers.Remove(WireHeaders.SearchIndexGeneration);
+    throw new PublicUnavailableException();
 }
 
 static string? Query(HttpContext ctx, string name, int limit)

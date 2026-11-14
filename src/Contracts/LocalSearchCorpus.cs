@@ -321,7 +321,7 @@ public static class LocalSearchCorpus
             {
                 var start = index++;
                 while (index < text.Length && char.IsAsciiLetterOrDigit(text[index])) index++;
-                yield return Hash(Utf8.GetBytes(text[start..index].ToLowerInvariant()));
+                yield return HashAscii(text.AsSpan(start, index - start));
             }
             else
             {
@@ -330,26 +330,47 @@ public static class LocalSearchCorpus
                 if (scalar.Value >= 0x80 && (Rune.IsLetterOrDigit(scalar) ||
                     scalar.Value is >= 0x4e00 and <= 0x9fff or >= 0x3400 and <= 0x4dbf or
                     >= 0x3040 and <= 0x30ff or >= 0xac00 and <= 0xd7af))
-                    yield return Hash(Utf8.GetBytes(scalar.ToString()));
+                    yield return HashRune(scalar);
             }
         }
     }
 
-    private static uint Hash(ReadOnlySpan<byte> bytes)
+    private static uint HashAscii(ReadOnlySpan<char> token)
     {
         uint hash = 0;
         var offset = 0;
-        while (bytes.Length - offset >= 4)
+        while (token.Length - offset >= 4)
         {
-            hash ^= Mix(BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]));
-            hash = BitOperations.RotateLeft(hash, 13) * 5 + 0xe6546b64;
+            var word = LowerAscii(token[offset]) | (LowerAscii(token[offset + 1]) << 8) |
+                (LowerAscii(token[offset + 2]) << 16) | (LowerAscii(token[offset + 3]) << 24);
+            hash = MixWord(hash, word);
             offset += 4;
         }
+        uint tail = 0;
+        for (var i = 0; offset + i < token.Length; i++)
+            tail |= LowerAscii(token[offset + i]) << (8 * i);
+        return FinishHash(hash, tail, token.Length);
+    }
 
+    private static uint HashRune(Rune rune)
+    {
+        Span<byte> encoded = stackalloc byte[4];
+        var bytes = encoded[..rune.EncodeToUtf8(encoded)];
+        uint hash = 0;
+        var offset = bytes.Length == 4 ? 4 : 0;
+        if (offset == 4) hash = MixWord(0, BinaryPrimitives.ReadUInt32LittleEndian(bytes));
         uint tail = 0;
         for (var i = 0; offset + i < bytes.Length; i++)
             tail |= (uint)bytes[offset + i] << (8 * i);
-        hash ^= Mix(tail) ^ (uint)bytes.Length;
+        return FinishHash(hash, tail, bytes.Length);
+    }
+
+    private static uint LowerAscii(char value) => (uint)(value is >= 'A' and <= 'Z' ? value + ('a' - 'A') : value);
+    private static uint MixWord(uint hash, uint word) => BitOperations.RotateLeft(hash ^ Mix(word), 13) * 5 + 0xe6546b64;
+
+    private static uint FinishHash(uint hash, uint tail, int length)
+    {
+        hash ^= Mix(tail) ^ (uint)length;
         hash = (hash ^ (hash >> 16)) * 0x85ebca6b;
         hash = (hash ^ (hash >> 13)) * 0xc2b2ae35;
         return hash ^ (hash >> 16);
