@@ -11,6 +11,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [open-issues.ndjson.gz](open-issues.ndjson.gz)：开放 issue 正文与评论快照。只存公开可见读取结果，不保存登录凭据。不是测试 fixture、命令或运行配置。
 - [text-reference-candidates.tsv](text-reference-candidates.tsv)：正文/评论中显式 `Depends on:`、`Parent:`、`Implementation DAG:` 等行的候选。候选带正文/评论 URL 和文本行号；目标可能是 PR、关闭 issue、跨仓 issue 或历史引用。在段落、表格或自由文本里的依赖仍需人工回查。正式关系与文本提及不能混用。
 - [同仓显式引用核对](text-reference-review.md) 说明文本声明、定向正式关系、逐行语境复核和未核对范围。
+- [P0 完成度与验收映射](review-completeness.md) 固定计数口径和已知剩余范围，关联公开搜索、权利、运行观察与管理员授权的实际证据。
 - [冻结档外目标的独立核验](target-observation-review.md) 记录 183 个编号后续查询的当前状态、PR 提交和待决语义，原冻结状态按原时间保留。
 - [规模查询、保存视图和私有沟通的语义核对](semantic-scope-review.md) 记录采用条款、执行归属、原优先级、附件阶段和当前验收缺口。
 - [管理标签和文章内容移交](risk-taxonomy-portability.md) 核对稳定 ID、公开刷新、真实管理入口及迁移范围。
