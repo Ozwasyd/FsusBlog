@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { validateCoherenceProfile } from '../support/crossStackMatrix.mjs'
+import { URL } from 'node:url';
+const { observeStaticAtomicAssertion } = await import(new URL('../../../../tools/test/static-atomic/assertion-result.mjs', import.meta.url));
+const { validateCoherenceProfile } = await import(new URL('../support/crossStackMatrix.mjs', import.meta.url));
 
-const profile = validateCoherenceProfile('sw-cache')
-console.log(`[sw-backend-cache-coherence] ok surfaces=${profile.surfaces.length}`)
+const profile = await observeStaticAtomicAssertion('sw-backend-cache', import.meta.url, () => validateCoherenceProfile('sw-cache'));
+console.log(`[sw-backend-cache-coherence] ok surfaces=${profile.surfaces.length}`);
