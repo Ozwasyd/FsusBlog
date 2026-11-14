@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/browser-contract-adapter.mjs",
+                "tools/test-matrix/outcomes/browser-contract-runner-binding.mjs"
+            ],
+            "reason": "preserve existing external process and runtime authority spellings on the registered tooling surface while using camelCase adapter locals; no environment override is introduced"
+        }
+    ]
+}
