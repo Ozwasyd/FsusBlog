@@ -64,7 +64,7 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
-2026-11-15 00:17 用 .NET SDK 10.0.404 验证了 SQLite 源到原生 PostgreSQL 18.7 候选的实写、禁止启动、模拟阶段中断续跑、检查点数据变更拒绝和原备份隔离恢复；三种源的只读影子演练也重新通过。独立确认临时库和目录已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/import-20261114T161718.log`。MySQL 和 PostgreSQL 源从只读盘点和内存影子可用，完整导入端到端跑的是 SQLite 源样本。
+`tests/Integration/Migration/legacy-import.sh [sqlite|postgres|mysql]` 对三种只读源执行相同的候选实写、禁用启动、检查点续跑、改动拒绝和导入前备份恢复。2026-11-15 用 SDK 10.0.404、SQLite 3.54.0、PostgreSQL 18.7 和 MySQL 8.4.13 原生实例通过。PostgreSQL 来源连接明确强制只读事务，MySQL 来源位于无网络监听的临时实例，使用只有 `SELECT` 权限的账号。独立确认测试结束后自建库、临时目录和 MySQL socket 已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/provider-import-20261114T162656.log`。
 
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 

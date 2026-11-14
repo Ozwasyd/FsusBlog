@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
+provider="${1:-sqlite}"
+case "$provider" in
+    sqlite|postgres|mysql) ;;
+    *) printf 'Usage: %s [sqlite|postgres|mysql]\n' "$0" >&2; exit 2 ;;
+esac
 if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" ]]; then
     printf '%s\n' 'Set FSUSBLOG_TEST_DB and matching libpq variables for the isolated cluster.' >&2
     exit 2
 fi
 if [[ -n "${PG_TOOLS_DIR:-}" ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
+if [[ "$provider" == mysql ]]; then
+    # shellcheck source=tests/Integration/Migration/mysql-scratch.sh
+    source tests/Integration/Migration/mysql-scratch.sh
+    check_mysql_tools
+fi
 dotnet="${DOTNET_BIN:-dotnet}"
 export DOTNET_BIN="$dotnet"
 export FSUSBLOG_MIGRATE_DLL="src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll"
@@ -14,6 +24,7 @@ root="$(mktemp -d /tmp/fsusv2-legacy-import.XXXXXXXX)"
 root="$(cd "$root" && pwd -P)"
 database="fsusv2_import_$(openssl rand -hex 12)"
 restore="${database}_restore"
+source_db="${database}_source"
 maintenance=(psql -X -q --no-password -v ON_ERROR_STOP=1 -d postgres)
 created=()
 cleanup() {
@@ -24,6 +35,11 @@ cleanup() {
             if [[ "$code" == 0 ]]; then code=1; fi
         fi
     done
+    if [[ "$provider" == mysql ]] && ! stop_mysql_scratch "$root"; then
+        printf 'Could not stop and clean owned MySQL instance. Preserving %s\n' "$root" >&2
+        if [[ "$code" == 0 ]]; then code=1; fi
+        exit "$code"
+    fi
     if ! find "$root" -depth -delete; then
         printf 'Could not remove owned scratch directory %s\n' "$root" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
@@ -41,15 +57,41 @@ target_sql=(psql -X --no-password -v ON_ERROR_STOP=1 -d "$database")
 restore_sql=(psql -X --no-password -v ON_ERROR_STOP=1 -d "$restore")
 export FSUSBLOG_IMPORT_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
 export FSUSBLOG_DB="$FSUSBLOG_IMPORT_DB" PGDATABASE="$database"
-export FSUSBLOG_V1_SQLITE_PATH="$root/source.sqlite"
+
+fixture=(
+    tests/Integration/Migration/legacy-source-fixture.sql
+    tests/Integration/Migration/legacy-shared-rights-fixture.sql
+)
+case "$provider" in
+    postgres)
+        "${maintenance[@]}" -c "CREATE DATABASE \"$source_db\" TEMPLATE template0"
+        created+=("$source_db")
+        psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -f "${fixture[0]}" -f "${fixture[1]}"
+        export FSUSBLOG_V1_DB="${FSUSBLOG_TEST_DB%;};Database=$source_db;Options=-c default_transaction_read_only=on"
+        export FSUSBLOG_V1_SCHEMA=public
+        source_sql=(psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -c)
+        ;;
+    mysql)
+        start_mysql_scratch "$root"
+        "${mysql_admin[@]}" -e "CREATE DATABASE $source_db CHARACTER SET utf8mb4;
+            CREATE USER 'fsus_read'@'localhost';
+            GRANT SELECT ON $source_db.* TO 'fsus_read'@'localhost'"
+        cat "${fixture[@]}" | "${mysql_admin[@]}" "$source_db"
+        export FSUSBLOG_V1_DB="Server=$root/mysql.sock;Protocol=Unix;User ID=fsus_read;Database=$source_db;SSL Mode=Disabled"
+        source_sql=("${mysql_admin[@]}" "$source_db" -e)
+        ;;
+    sqlite)
+        export FSUSBLOG_V1_SQLITE_PATH="$root/source.sqlite"
+        cat "${fixture[@]}" | sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH"
+        source_sql=(sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH")
+        ;;
+esac
 
 project=src/Migrate/FsusBlogV2.Migrate.csproj
 "$dotnet" restore "$project" --configfile NuGet.Config --locked-mode
 "$dotnet" build "$project" --no-restore
 migrate=("$dotnet" "$FSUSBLOG_MIGRATE_DLL")
 
-cat tests/Integration/Migration/legacy-source-fixture.sql \
-    tests/Integration/Migration/legacy-shared-rights-fixture.sql | sqlite3 -bail "$FSUSBLOG_V1_SQLITE_PATH"
 "${migrate[@]}" plan > "$root/bootstrap.json"
 "${migrate[@]}" apply "$root/bootstrap.json"
 "${target_sql[@]}" -c "INSERT INTO public.blog_user VALUES ('968ffb2b-77ef-4868-89ec-6a0a19b28b95','Import owner',true,true,1)"
@@ -62,7 +104,7 @@ backup="$root/backup/seed"
 python3 tools/site-backup.py verify "$backup" "$manifest"
 
 rc=0
-"${migrate[@]}" legacy plan sqlite > "$root/intake.json" || rc=$?
+"${migrate[@]}" legacy plan "$provider" > "$root/intake.json" || rc=$?
 [[ "$rc" == 2 ]]
 python3 - "$root/intake.json" "$root/owner.json" <<'PY'
 import json, pathlib, sys
@@ -73,8 +115,8 @@ owner={"sourceArticleSha256":article["sha256"],"sourceAdminIdentitySha256":repor
 pathlib.Path(sys.argv[2]).write_text(json.dumps(owner))
 PY
 
-plan=("${migrate[@]}" legacy import plan sqlite "$root/owner.json" "$backup" "$manifest")
-apply=("${migrate[@]}" legacy import apply sqlite "$root/owner.json" "$backup" "$manifest" "$root/import.json")
+plan=("${migrate[@]}" legacy import plan "$provider" "$root/owner.json" "$backup" "$manifest")
+apply=("${migrate[@]}" legacy import apply "$provider" "$root/owner.json" "$backup" "$manifest" "$root/import.json")
 "${plan[@]}" > "$root/import.json"
 python3 - "$root/import.json" <<'PY'
 import json, pathlib, sys
@@ -89,12 +131,12 @@ rg -F 'backup contains an unavailable or linked file' "$root/error.log"
 unlink "$backup/database.dump"
 mv "$root/seed.dump" "$backup/database.dump"
 
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot SET copyright_holder='Changed' WHERE id=701"
+"${source_sql[@]}" "UPDATE article_rights_snapshot SET copyright_holder='Changed' WHERE id=701"
 if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
 rg -F 'The import plan no longer matches' "$root/error.log"
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE article_rights_snapshot SET copyright_holder='Fixture Author' WHERE id=701"
+"${source_sql[@]}" "UPDATE article_rights_snapshot SET copyright_holder='Fixture Author' WHERE id=701"
 
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" 'CREATE TABLE content_asset (id integer); INSERT INTO content_asset VALUES (1),(2)'
+"${source_sql[@]}" 'CREATE TABLE content_asset (id integer); INSERT INTO content_asset VALUES (1),(2)'
 rc=0
 "${plan[@]}" > "$root/blocked.json" || rc=$?
 [[ "$rc" == 2 ]]
@@ -106,10 +148,8 @@ assert plan["findings"] == [{"category":"attachments","source":"content_asset","
 PY
 if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
 rg -F 'contains unsupported rows' "$root/error.log"
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" 'DROP TABLE content_asset'
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" <<'SQL'
-UPDATE admin_principal SET permissions='["article.publish"]', isroot=true;
-SQL
+"${source_sql[@]}" 'DROP TABLE content_asset'
+"${source_sql[@]}" "UPDATE admin_principal SET permissions='[\"article.publish\"]', isroot=true"
 rc=0
 "${plan[@]}" > "$root/blocked.json" || rc=$?
 [[ "$rc" == 2 ]]
@@ -122,7 +162,7 @@ assert plan["findings"] == [
     {"category":"legacy-privilege","source":"admin_principal.permissions","rows":1}
 ]
 PY
-sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" "UPDATE admin_principal SET permissions='[]', isroot=false"
+"${source_sql[@]}" "UPDATE admin_principal SET permissions='[]', isroot=false"
 [[ "$("${target_sql[@]}" -qAtc 'SELECT version FROM public.v2_schema')" == 1 ]]
 
 "${apply[@]}" > "$root/applied.json"
@@ -153,4 +193,4 @@ pg_restore --no-password --single-transaction --exit-on-error --no-owner --no-pr
 FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$restore" python3 tools/site-backup.py verify-restored "$backup" "$manifest" "$root/media"
 [[ "$("${restore_sql[@]}" -qAtc 'SELECT version FROM public.v2_schema')" == 1 ]]
 [[ "$("${restore_sql[@]}" -qAtc 'SELECT count(*) FROM public.article')" == 0 ]]
-printf '%s\n' 'Legacy PostgreSQL candidate import, resume, refusal and independent recovery passed.'
+printf 'Legacy %s source to PostgreSQL candidate import, resume, refusal and independent recovery passed.\n' "$provider"
