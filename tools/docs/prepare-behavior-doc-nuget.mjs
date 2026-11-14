@@ -20,6 +20,12 @@ const { snapshotSourceState } = await import(new URL('../test-matrix/scheduler.m
 
 const digest = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
+export function writeStagedFeedFile(file, bytes, mode)
+{
+    fs.writeFileSync(file, bytes, { flag: 'wx', mode });
+    fs.chmodSync(file, mode);
+}
+
 /** Independent, offline dependency preparation only; no correctness admission is generated here. */
 export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFile, feedRoot, feedDigest, purpose = 'behavior-doc' })
 {
@@ -122,7 +128,8 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             {
                 throw new Error('Offline feed bytes drifted before staging');
             }
-            fs.writeFileSync(path.join(stagedFeed, entry.path), bytes, { flag: 'wx', mode: entry.mode });
+            const stagedFile = path.join(stagedFeed, entry.path);
+            writeStagedFeedFile(stagedFile, bytes, entry.mode);
             await new Promise((resolve) => setImmediate(resolve));
         }
         fs.chmodSync(stagedFeed, 0o555);
