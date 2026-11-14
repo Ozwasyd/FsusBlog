@@ -22,6 +22,23 @@ migrate=(dotnet src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll)
 
 ## v2 数据库备份恢复
 
+`tools/site-backup.py` 可生成供离线恢复演练使用的 PostgreSQL 和私有媒体候选。先停止站点及该数据库的离线写入工具，等待上传和删除结束。指定两个绝对路径，备份父目录和源媒体目录均由当前用户持有、模式为 0700，且互相隔离。无媒体时提供独立的空目录。显式设置 `PGDATABASE`、`PGHOST` 和 `PGPORT`，它们须与 `FSUSBLOG_DB` 指向同一源库。使用与服务器同主版本的 `pg_dump` 和受控连接凭据。使用已构建的 Migrate DLL，可用 `FSUSBLOG_MIGRATE_DLL` 和 `DOTNET_BIN` 定位。
+
+```bash
+python3 tools/site-backup.py capture "$private_backup_parent" "$new_candidate_name" "$source_media_root"
+python3 tools/site-backup.py verify "$candidate" "$manifest_sha256"
+pg_restore --no-password --single-transaction --exit-on-error --no-owner --no-privileges \
+  --dbname "$new_isolated_restore_db" "$candidate/database.dump"
+FSUSBLOG_DB="$restore_dsn" python3 tools/site-backup.py verify-restored \
+  "$candidate" "$manifest_sha256" "$isolated_restored_media_root"
+```
+
+备份期间核验当前结构，锁定 v2 数据库写者和媒体目录。统计业务表、identity 序列和已提交的媒体长度与摘要。原生 `pg_dump` 导入同一个导出快照，复制媒体时核验数据库记录。目录和文件使用已打开的目录句柄约束，拒绝符号链接、共享硬链接和非专用私有权限。输出新目录包含 `database.dump`、`media/` 和最后写入的 `manifest.json`。将打印的清单 SHA-256 保存到受独立保护的记录中。
+
+验证通过后只向新建的隔离库恢复可信的 dump，并把候选媒体文件复制到新建的 0700 恢复目录。恢复库和媒体目录由命令独立回读比对；候选及恢复目录需要保持隔离冻结。候选包含明文数据库与媒体，须在加密保护的离线存储中使用。当前范围是 PostgreSQL 和私有媒体的可恢复性，不包含 v1 的认证加密信封、密钥轮换、外部对象存储、扩展包仓库、运行密钥、角色 ACL 或生产切换。未解决的媒体阶段、额外数据库扩展或大对象会阻塞。
+
+2026-11-14 23:52，.NET SDK 10.0.404 与 PostgreSQL 18.7 上的原生演练退出码为 0。真实恢复的表、序列和媒体均匹配。当前数据库写者、待落盘媒体、暂存上传分片、不同来源连接、错误主版本、已存在候选名、错误清单摘要、媒体符号链接和恢复后业务数据变更均被拒绝。两个临时库和媒体目录已独立确认清理。[演练入口](../tests/Integration/Migration/backup-candidate.sh)，本地原始证据 `artifacts/native-migration/backup-20261114T155233.log`。
+
 用已提供的 PostgreSQL 客户端在受控目录备份。操作前为 `pg_dump` 及 `pg_restore` 设置对应连接环境和权限。恢复到独立、新建的空库。数据库归属和权限应使用验证过的原配置重新设置。
 
 ```bash
