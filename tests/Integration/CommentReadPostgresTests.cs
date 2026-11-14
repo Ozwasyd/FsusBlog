@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
@@ -131,9 +132,13 @@ public sealed class CommentReadPostgresTests
         var input = new PublicCommentSubmission(1, 1, Guid.NewGuid(), true, "Public Handle", "pending submission body");
         using (var unauthenticated = await Send(input, authenticated: false))
             Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
-        using (var stale = await Send(input with { Publication = 9000 }))
+        using (var missing = await Send(input))
+            Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
+        using (var invalid = await Send(input, proof: "bad!"))
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using (var stale = await Send(input with { Publication = 9000 }, challenge: true))
             Assert.Equal(HttpStatusCode.Forbidden, stale.StatusCode);
-        using (var mismatch = await Send(input with { DisplayName = "Changed public handle" }))
+        using (var mismatch = await Send(input with { DisplayName = "Changed public handle" }, challenge: true))
             Assert.Equal(HttpStatusCode.Conflict, mismatch.StatusCode);
         using (var missingHeader = await Send(input, keyHeader: false))
             Assert.Equal(HttpStatusCode.BadRequest, missingHeader.StatusCode);
@@ -144,7 +149,22 @@ public sealed class CommentReadPostgresTests
             Assert.Equal(HttpStatusCode.OK, eligible.StatusCode);
             Assert.Equal("Public Handle", Wire.DecodePublicCommentEligibility(await eligible.Content.ReadAsByteArrayAsync(ct)).DisplayName);
         }
-        var results = await Task.WhenAll(Send(input), Send(input));
+        var sameProof = await ObtainProof(input);
+        using (var changed = await Send(input with { Body = "different body" }, proof: sameProof))
+            Assert.Equal(HttpStatusCode.Unauthorized, changed.StatusCode);
+        var anotherToken = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        await using (var rotated = Store.Sql(db, null, """
+            insert into public.user_session(digest,user_id,generation,expires_at)
+            values($1,$2,1,now()+interval '5 minutes')
+            """, Store.TokenDigest(anotherToken)!, AccountId))
+            await rotated.ExecuteNonQueryAsync(ct);
+        using (var wrongSession = await Send(input, proof: sameProof, sessionToken: anotherToken))
+            Assert.Equal(HttpStatusCode.Unauthorized, wrongSession.StatusCode);
+        var concurrent = await Task.WhenAll(Send(input, proof: sameProof), Send(input, proof: sameProof));
+        Assert.Single(concurrent, response => response.StatusCode == HttpStatusCode.Unauthorized);
+        using var replayDenied = concurrent.Single(response => response.StatusCode == HttpStatusCode.Unauthorized);
+        var freshProof = await ObtainProof(input);
+        var results = new[] { concurrent.Single(response => response.StatusCode == HttpStatusCode.OK), await Send(input, proof: freshProof) };
         var receipts = new List<PublicCommentSubmissionResult>();
         foreach (var response in results)
         {
@@ -157,28 +177,134 @@ public sealed class CommentReadPostgresTests
         Assert.Single(receipts, receipt => receipt.Replayed);
         Assert.All(receipts, receipt => Assert.Equal(0, receipt.ModerationStatus));
         Assert.Equal(receipts[0].CommentId, receipts[1].CommentId);
-        using (var conflict = await Send(input with { Body = "different body" }))
+        using (var conflict = await Send(input with { Body = "different body" }, challenge: true))
             Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
         var rootFrame = await server.Client.GetByteArrayAsync("/api/binary/comment/1", ct);
         Assert.DoesNotContain("pending submission body", Encoding.UTF8.GetString(rootFrame), StringComparison.Ordinal);
         await using (var shut = Store.Sql(db, null, "delete from public.comment_public_write where article_id=1"))
             await shut.ExecuteNonQueryAsync(ct);
-        using (var policyClosed = await Send(input with { IdempotencyKey = Guid.NewGuid() }))
+        using (var policyClosed = await Send(input with { IdempotencyKey = Guid.NewGuid() }, challenge: true))
             Assert.Equal(HttpStatusCode.Forbidden, policyClosed.StatusCode);
+        using (var lateRetry = await Send(input, proof: await ObtainProof(input)))
+            Assert.True(Wire.DecodePublicCommentSubmissionResult(await lateRetry.Content.ReadAsByteArrayAsync(ct)).Replayed);
         await using var count = Store.Sql(db, null, "select count(*) from public.comment_submit_command");
         Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
+        await using (var proofs = Store.Sql(db, null, "select count(*) from public.comment_pow_consumed"))
+            Assert.Equal(3L, await proofs.ExecuteScalarAsync(ct));
 
-        async Task<HttpResponseMessage> Send(PublicCommentSubmission command, bool authenticated = true, bool keyHeader = true)
+        async Task<string> ObtainProof(PublicCommentSubmission command)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.SubmitPublicComment)
+            using var response = await Send(command, challenge: true);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            var challenge = Payload(await response.Content.ReadAsByteArrayAsync(ct), FrameType.PowChallenge);
+            var salt = Encoding.UTF8.GetString(challenge.AsSpan(0, 64)).TrimEnd('\0');
+            var signature = Encoding.UTF8.GetString(challenge.AsSpan(76)).TrimEnd('\0');
+            var bits = Read32(challenge, 64);
+            var timestamp = Read64(challenge, 68);
+            return Solve(salt, signature, bits, timestamp, ClientNonce);
+        }
+
+        async Task<HttpResponseMessage> Send(PublicCommentSubmission command, bool authenticated = true, bool keyHeader = true,
+            bool challenge = false, string? proof = null, string? sessionToken = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, challenge ? WireRoutes.PublicCommentPowChallenge : WireRoutes.SubmitPublicComment)
             {
                 Content = new ByteArrayContent(Wire.EncodePublicCommentSubmission(command))
             };
             request.Content.Headers.ContentType = new(Aeds.ContentType);
             if (keyHeader) request.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
-            if (authenticated) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            if (authenticated) request.Headers.Add("Cookie", $"fsus-v2-session={sessionToken ?? token}");
+            if (challenge) request.Headers.Add(WireHeaders.PowClientNonce, ClientNonce);
+            if (proof is not null) request.Headers.Add(WireHeaders.PowProof, proof);
             return await server.Client.SendAsync(request, ct);
         }
+    }
+
+    private const string ClientNonce = "61287bbaae554232a936d42a3f59bd05";
+
+    [PostgresFact]
+    public async Task ProofChecksBindSourceAndExpireAndRollbackWithItsTransaction()
+    {
+        using var time = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = time.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var clock = new PowTime();
+        var authority = new CommentPow(clock);
+        var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var source = IPAddress.Parse("192.0.2.1");
+        var otherSource = IPAddress.Parse("192.0.2.2");
+        byte[] frame = [174, 26, 55];
+        var challenge = authority.Issue(session, source, ClientNonce, frame);
+        var proof = PowWire.ReadProof(Solve(challenge.Salt, challenge.Signature, challenge.Difficulty, challenge.Timestamp, ClientNonce));
+
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, otherSource, frame, proof, ct));
+            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, [174, 26, 56], proof, ct));
+            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame,
+                proof with { Difficulty = WireLimits.PowChallengeDifficulty - 1 }, ct));
+            await authority.Consume(db, tx, session, source, frame, proof, ct);
+            await tx.RollbackAsync(ct);
+        }
+
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await authority.Consume(db, tx, session, source, frame, proof, ct);
+            await tx.CommitAsync(ct);
+        }
+
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame, proof, ct));
+            clock.Now = clock.Now.AddSeconds(WireLimits.PowChallengeSeconds);
+            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame, proof, ct));
+        }
+    }
+
+    [Fact]
+    public void ProofIssuanceCapsPerSessionAndPerTrustedSource()
+    {
+        var authority = new CommentPow(new PowTime());
+        var first = IPAddress.Parse("192.0.2.1");
+        var next = IPAddress.Parse("192.0.2.2");
+        for (int i = 0; i < 8; i++) authority.Issue("session", first, ClientNonce, [1]);
+        Assert.Equal(429, Assert.Throws<CommentPowFailure>(() => authority.Issue("session", next, ClientNonce, [1])).Status);
+        for (int i = 0; i < 16; i++) authority.Issue(i.ToString(), first, ClientNonce, [1]);
+        Assert.Equal(429, Assert.Throws<CommentPowFailure>(() => authority.Issue("another", first, ClientNonce, [1])).Status);
+        Assert.NotNull(authority.Issue("another", next, ClientNonce, [1]));
+    }
+
+    private sealed class PowTime : TimeProvider
+    {
+        internal DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private static string Solve(string salt, string signature, int bits, long timestamp, string clientNonce)
+    {
+        for (var i = 0; i < 1_000_000; i++)
+        {
+            var nonce = i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{salt}:{nonce}:{clientNonce}"));
+            if (hash[0] != 0 || hash[1] >= 16) continue;
+            Assert.Equal(12, bits);
+            using var output = new MemoryStream();
+            using var writer = new BinaryWriter(output);
+            writer.Write("FPOW"u8);
+            writer.Write((byte)1);
+            writer.Write(bits);
+            writer.Write(timestamp);
+            foreach (var value in new[] { salt, nonce, signature, clientNonce })
+            {
+                var encoded = Encoding.UTF8.GetBytes(value);
+                writer.Write((ushort)encoded.Length);
+                writer.Write(encoded);
+            }
+            return Convert.ToBase64String(output.ToArray());
+        }
+        throw new InvalidOperationException("No valid proof within test iteration budget.");
     }
 
     private static async Task Seed(ScratchDatabase fixture, CancellationToken ct)

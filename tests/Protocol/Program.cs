@@ -54,6 +54,9 @@ Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, new
 Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, [.. Aeds.Decode(expected, FrameType.ArticleCommand), 0])));
 
 PublicArticleVectors.Run(fixtures);
+Equal(
+    Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "pow-challenge-v1.hex")))),
+    PowWire.EncodeChallenge(new("salt-value", 4, 1778290000L, "signature-value")));
 CommentReadVectors.Run(fixtures);
 byte[] CategoryFixture() => Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "category-list-v1.hex"))));
 Equal(CategoryFixture(), TaxonomyWire.EncodeList(FrameType.CategoryList, [new(1, "Tech", 2), new(2, "Life", 0)]));

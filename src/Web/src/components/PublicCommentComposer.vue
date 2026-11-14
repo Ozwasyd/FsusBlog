@@ -83,6 +83,7 @@ async function send() {
       Publish as {{ eligibility.displayName }} after review
     </ElCheckbox>
     <div><ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">Submit for review</ElButton></div>
+    <p v-if="pending" role="status">Verifying and submitting comment…</p>
     <p v-if="result" role="status">{{ result }}</p>
     <ElAlert v-if="problem" :title="problem" type="error" :closable="false" />
   </form>

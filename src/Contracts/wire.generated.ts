@@ -2,6 +2,7 @@
 import { PodReader, PodWriter } from './binary.ts';
 
 export const FrameType = {
+  PowChallenge: 30,
   ArticleList: 1,
   ArticleDetail: 2,
   ArticleSearch: 4,
@@ -76,6 +77,10 @@ export const WireHeader = {
 } as const;
 
 export const WireLimits = {
+  PowProofHeaderChars: 416,
+  PowChallengeDifficulty: 12,
+  PowChallengeSeconds: 120,
+  PowWorkerMilliseconds: 12000,
   PublicCommentFrameBytes: 4533,
   PublicCommentHandleBytes: 384,
   PublicCommentBodyBytes: 4096,
@@ -125,6 +130,11 @@ export const WireLimits = {
 } as const;
 
 export const WireLayouts = {
+  PowChallengeBytes: 204,
+  PowChallengeSaltBytes: 64,
+  PowChallengeTimestampOffset: 68,
+  PowChallengeSignatureOffset: 76,
+  PowProofHeaderBytes: 17,
   ErrorBytes: 584,
   ErrorStatusOffset: 4,
   ErrorMessageOffset: 8,
@@ -231,6 +241,7 @@ export const WireLayouts = {
 } as const;
 
 export const WireRoutes = {
+  PublicCommentPowChallenge: "/api/v2/comments/pow-challenge.aeds",
   PublicList: "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
   PublicArchive: "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
   PublicArticle: "/api/binary/article/{id}.aeds",
@@ -292,6 +303,7 @@ export const WireRoutes = {
 } as const;
 
 export const WireHeaders = {
+  PowClientNonce: "X-Fsus-Pow-Client-Nonce",
   TraceId: "X-Fsus-Trace-Id",
   AccessExpiresAtUtc: "X-Fsus-Access-Expires-At-Utc",
   PowProof: "X-Fsus-Pow-Proof",

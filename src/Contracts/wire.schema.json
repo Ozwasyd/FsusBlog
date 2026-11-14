@@ -14,6 +14,7 @@
     "CrcPolynomial": "0xa001"
   },
   "frameTypes": {
+    "PowChallenge": 30,
     "ArticleList": 1,
     "ArticleDetail": 2,
     "ArticleSearch": 4,
@@ -73,6 +74,7 @@
     "MfaChallengeVerifyRequest": 55
   },
   "routes": {
+    "PublicCommentPowChallenge": "/api/v2/comments/pow-challenge.aeds",
     "PublicList": "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
     "PublicArchive": "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
     "PublicArticle": "/api/binary/article/{id}.aeds",
@@ -133,6 +135,7 @@
     "PasskeyStepUpComplete": "/api/binary/auth/step-up/passkey/complete"
   },
   "headers": {
+    "PowClientNonce": "X-Fsus-Pow-Client-Nonce",
     "TraceId": "X-Fsus-Trace-Id",
     "AccessExpiresAtUtc": "X-Fsus-Access-Expires-At-Utc",
     "PowProof": "X-Fsus-Pow-Proof",
@@ -143,6 +146,10 @@
     "MfaProof": "X-Fsus-Mfa-Proof"
   },
   "limits": {
+    "PowProofHeaderChars": 416,
+    "PowChallengeDifficulty": 12,
+    "PowChallengeSeconds": 120,
+    "PowWorkerMilliseconds": 12000,
     "PublicCommentFrameBytes": 4533,
     "PublicCommentHandleBytes": 384,
     "PublicCommentBodyBytes": 4096,
@@ -191,6 +198,11 @@
     "MfaCodeCount": 8
   },
   "layouts": {
+    "PowChallengeBytes": 204,
+    "PowChallengeSaltBytes": 64,
+    "PowChallengeTimestampOffset": 68,
+    "PowChallengeSignatureOffset": 76,
+    "PowProofHeaderBytes": 17,
     "ErrorBytes": 584,
     "ErrorStatusOffset": 4,
     "ErrorMessageOffset": 8,

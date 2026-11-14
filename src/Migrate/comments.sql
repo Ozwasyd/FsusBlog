@@ -67,3 +67,10 @@ CREATE TABLE public.comment_moderation_log (
     occurred_at timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY (article_id, comment_id) REFERENCES public.comment (article_id, id)
 );
+
+CREATE TABLE public.comment_pow_consumed (
+    digest bytea PRIMARY KEY CHECK (octet_length(digest) = 32),
+    expires_at timestamptz NOT NULL
+);
+
+CREATE INDEX comment_pow_expiry ON public.comment_pow_consumed (expires_at);

@@ -9,7 +9,8 @@ internal static partial class CurrentSchema
         "comment_public_handle user_id:uuid display_name:text",
         "comment_public_write article_id:int4",
         "comment_submit_command user_id:uuid command_id:uuid fingerprint:bytea article_id:int4 comment_id:int8",
-        "comment_moderation_log id:int8:a article_id:int4 comment_id:int8 previous_status:int2 next_status:int2 moderator_db_role:text reason:text occurred_at:timestamptz=now"
+        "comment_moderation_log id:int8:a article_id:int4 comment_id:int8 previous_status:int2 next_status:int2 moderator_db_role:text reason:text occurred_at:timestamptz=now",
+        "comment_pow_consumed digest:bytea expires_at:timestamptz"
     ];
 
     private static readonly string[] CommentConstraints =
@@ -47,6 +48,8 @@ internal static partial class CurrentSchema
         "comment_moderation_log f article_id,comment_id public.comment:article_id,id",
         "comment_moderation_log c previous_status previous_status>=0ANDprevious_status<=3",
         "comment_moderation_log c next_status next_status>=1ANDnext_status<=3",
-        "comment_moderation_log c reason octet_length(reason)>=1ANDoctet_length(reason)<=1024"
+        "comment_moderation_log c reason octet_length(reason)>=1ANDoctet_length(reason)<=1024",
+        "comment_pow_consumed p digest",
+        "comment_pow_consumed c digest octet_length(digest)=32"
     ];
 }

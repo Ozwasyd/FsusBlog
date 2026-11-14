@@ -66,6 +66,26 @@ internal static class CommentWriteStore
         return new(input.ArticleId, id, 0, false);
     }
 
+    internal static async Task AdmitChallenge(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, PublicCommentSubmission input, CancellationToken ct)
+    {
+        // A response lost after commit can obtain a fresh proof for the original mutation,
+        // even if publication is closed before the client receives its durable receipt.
+        var normalized = input with { Body = Normalize(input.Body) };
+        await using var previous = Store.Sql(db, tx, """
+            select fingerprint from public.comment_submit_command where user_id=$1 and command_id=$2
+            """, actor.Id, input.IdempotencyKey);
+        if (await previous.ExecuteScalarAsync(ct) is byte[] fingerprint)
+        {
+            if (!CryptographicOperations.FixedTimeEquals(fingerprint, SHA256.HashData(Wire.EncodePublicCommentSubmission(normalized))))
+                throw new BusinessException(Rejection.Conflict, "The comment key was used for a different submission.");
+            return;
+        }
+        var eligible = await Eligibility(db, tx, actor, input.ArticleId, input.Publication, ct);
+        if (!string.Equals(eligible.DisplayName, input.DisplayName, StringComparison.Ordinal))
+            throw new BusinessException(Rejection.Conflict, "The public display name changed. Reload and confirm it before sending.");
+    }
+
     private static string Normalize(string raw)
     {
         var text = raw.Trim().ReplaceLineEndings("\n");

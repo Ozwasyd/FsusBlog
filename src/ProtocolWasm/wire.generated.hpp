@@ -19,6 +19,10 @@ inline constexpr uint32_t CrcPolynomial = 0xa001;
 }
 
 namespace limits {
+inline constexpr uint32_t PowProofHeaderChars = 416;
+inline constexpr uint32_t PowChallengeDifficulty = 12;
+inline constexpr uint32_t PowChallengeSeconds = 120;
+inline constexpr uint32_t PowWorkerMilliseconds = 12000;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
@@ -68,6 +72,11 @@ inline constexpr uint32_t MfaCodeCount = 8;
 }
 
 namespace layouts {
+inline constexpr uint32_t PowChallengeBytes = 204;
+inline constexpr uint32_t PowChallengeSaltBytes = 64;
+inline constexpr uint32_t PowChallengeTimestampOffset = 68;
+inline constexpr uint32_t PowChallengeSignatureOffset = 76;
+inline constexpr uint32_t PowProofHeaderBytes = 17;
 inline constexpr uint32_t ErrorBytes = 584;
 inline constexpr uint32_t ErrorStatusOffset = 4;
 inline constexpr uint32_t ErrorMessageOffset = 8;
@@ -174,6 +183,7 @@ inline constexpr uint32_t MfaChallengeProofOffset = 168;
 }
 
 enum class FrameType : uint16_t {
+    PowChallenge = 30,
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
@@ -235,6 +245,7 @@ enum class FrameType : uint16_t {
 
 constexpr bool known(FrameType type) {
     switch (type) {
+        case FrameType::PowChallenge:
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:

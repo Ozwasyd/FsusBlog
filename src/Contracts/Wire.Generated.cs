@@ -3,6 +3,7 @@ namespace FsusBlog.V2.Contracts;
 
 public enum FrameType : ushort
 {
+    PowChallenge = 30,
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
@@ -79,6 +80,10 @@ public static class WireHeader
 
 public static class WireLimits
 {
+    public const int PowProofHeaderChars = 416;
+    public const int PowChallengeDifficulty = 12;
+    public const int PowChallengeSeconds = 120;
+    public const int PowWorkerMilliseconds = 12000;
     public const int PublicCommentFrameBytes = 4533;
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentBodyBytes = 4096;
@@ -129,6 +134,11 @@ public static class WireLimits
 
 public static class WireLayouts
 {
+    public const int PowChallengeBytes = 204;
+    public const int PowChallengeSaltBytes = 64;
+    public const int PowChallengeTimestampOffset = 68;
+    public const int PowChallengeSignatureOffset = 76;
+    public const int PowProofHeaderBytes = 17;
     public const int ErrorBytes = 584;
     public const int ErrorStatusOffset = 4;
     public const int ErrorMessageOffset = 8;
@@ -236,6 +246,7 @@ public static class WireLayouts
 
 public static class WireRoutes
 {
+    public const string PublicCommentPowChallenge = "/api/v2/comments/pow-challenge.aeds";
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
@@ -298,6 +309,7 @@ public static class WireRoutes
 
 public static class WireHeaders
 {
+    public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string TraceId = "X-Fsus-Trace-Id";
     public const string AccessExpiresAtUtc = "X-Fsus-Access-Expires-At-Utc";
     public const string PowProof = "X-Fsus-Pow-Proof";
