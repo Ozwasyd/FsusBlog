@@ -81,6 +81,7 @@
                     </div>
                     <ElSwitch
                         :model-value="options.preserveAlpha"
+                        label="透明通道 (Alpha Channel)"
                         @update:model-value="updatePreserveAlpha"
                     />
                 </div>
@@ -92,11 +93,17 @@
                     </div>
                     <ElSwitch
                         :model-value="wasmOnly"
+                        label="WASM-only 模式"
                         @update:model-value="updateWasmOnly"
                     />
                 </div>
             </div>
         </div>
+
+        <span
+            class="sr-only"
+            :role="announceStatus ? 'status' : undefined"
+        >{{ announceStatus ? statusText : '' }}</span>
 
         <!-- 状态与预览 -->
         <footer class="mt-12 space-y-6">
@@ -104,7 +111,10 @@
                 v-if="statusText"
                 class="flex items-center gap-4 py-3 px-4 bg-[var(--fsusblog-page-bg)] border border-[var(--fsusblog-panel-border-strong)] rounded-[var(--fsus-radius-control)]"
             >
-                <span class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
+                <span
+                    :aria-hidden="announceStatus || undefined"
+                    class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal"
+                >{{ statusText }}</span>
                 <ElButton
                     v-if="canResume"
                     link
@@ -167,15 +177,16 @@ import { computed } from 'vue';
 import type { ImageCompressionOptions } from '@/api/upload';
 import type { ImageCompressionPreview } from '@/utils/imageCompression';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     options: ImageCompressionOptions;
     statusText?: string;
+    announceStatus?: boolean;
     canAbort?: boolean;
     canResume?: boolean;
     preview?: ImageCompressionPreview | null;
     wasmOnly?: boolean;
     wasmSupportedFormats?: string[];
-}>();
+}>(), { announceStatus: true });
 
 const emit = defineEmits<{
     (e: 'update:options', value: Partial<ImageCompressionOptions>): void;
@@ -209,19 +220,28 @@ function updateFormat(value: string | number | boolean): void
     }
 }
 
-function updateQuality(value: string | number | boolean): void
+function updateQuality(value: number | number[]): void
 {
-    updateOption('quality', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('quality', value);
+    }
 }
 
-function updateScaleRatio(value: string | number | boolean): void
+function updateScaleRatio(value: number | number[]): void
 {
-    updateOption('scaleRatio', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('scaleRatio', value);
+    }
 }
 
-function updateMaxEdge(value: string | number | boolean): void
+function updateMaxEdge(value: number | number[]): void
 {
-    updateOption('maxEdge', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('maxEdge', value);
+    }
 }
 
 function updatePreserveAlpha(value: string | number | boolean): void
