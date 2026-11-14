@@ -196,6 +196,7 @@ https://github.com/Ozwasyd/FsusBlog/issues/1723	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1723	https://github.com/Ozwasyd/FsusBlog/issues/1723	issue=1723.body:L1	Depends on	1722	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1724	https://github.com/Ozwasyd/FsusBlog/issues/1724	issue=1724.body:L1	Depends on	1712	CLOSED	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1724	https://github.com/Ozwasyd/FsusBlog/issues/1724	issue=1724.body:L1	Depends on	1722	ABSENT	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1724	https://github.com/Ozwasyd/FsusBlog/issues/1724	issue=1724.body:L65		1601	OPEN	prerequisite		0	#1724:61-73; #1601:5-12	Scheduled 的业务时间来源与测量时钟分开，不能用运行开始时间替代实际生效边界。
 https://github.com/Ozwasyd/FsusBlog/issues/1725	https://github.com/Ozwasyd/FsusBlog/issues/1725	issue=1725.body:L1	Depends on	1713	CLOSED	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1725	https://github.com/Ozwasyd/FsusBlog/issues/1725	issue=1725.body:L1	Depends on	1714	CLOSED	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1725	https://github.com/Ozwasyd/FsusBlog/issues/1725	issue=1725.body:L1	Depends on	1715	OPEN	prerequisite		1	—	—
@@ -206,6 +207,7 @@ https://github.com/Ozwasyd/FsusBlog/issues/1726	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1728	https://github.com/Ozwasyd/FsusBlog/issues/1728	issue=1728.body:L1	Depends on	1722	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1728	https://github.com/Ozwasyd/FsusBlog/issues/1728	issue=1728.body:L1	Depends on	1724	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1728	https://github.com/Ozwasyd/FsusBlog/issues/1728	issue=1728.body:L1	Depends on	1725	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1728	https://github.com/Ozwasyd/FsusBlog/issues/1728	issue=1728.body:L120		1724	OPEN	acceptance-gate		0	#1728:104-131; #1724:44-56	真实文章生产者消费有可复算 token 命中与拒绝的标题、摘要、正文夹具；search 分别证明实际公开读取。
 https://github.com/Ozwasyd/FsusBlog/issues/1729	https://github.com/Ozwasyd/FsusBlog/issues/1729	issue=1729.body:L1	Depends on	1722	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1729	https://github.com/Ozwasyd/FsusBlog/issues/1729	issue=1729.body:L1	Depends on	1724	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1730	https://github.com/Ozwasyd/FsusBlog/issues/1730	issue=1730.body:L1	Depends on	1601	OPEN	prerequisite		1	—	—
@@ -220,6 +222,7 @@ https://github.com/Ozwasyd/FsusBlog/issues/1731	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1731	https://github.com/Ozwasyd/FsusBlog/issues/1731	issue=1731.body:L1	Depends on	1722	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1731	https://github.com/Ozwasyd/FsusBlog/issues/1731	issue=1731.body:L1	Depends on	1724	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1731	https://github.com/Ozwasyd/FsusBlog/issues/1731	issue=1731.body:L1	Depends on	1730	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1731	https://github.com/Ozwasyd/FsusBlog/issues/1731	issue=1731.body:L47		1724	OPEN	prerequisite		0	#1731:37-60; #1724:24-35	批量 factory 共享生产状态机、normalizer、规范哈希、发布和 outbox schema、分配语义。通过派生输入共源实现，仍保持实际批量路径。
 https://github.com/Ozwasyd/FsusBlog/issues/1732	https://github.com/Ozwasyd/FsusBlog/issues/1732	issue=1732.body:L1	Depends on	1617	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1732	https://github.com/Ozwasyd/FsusBlog/issues/1732	issue=1732.body:L1	Depends on	1618	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1732	https://github.com/Ozwasyd/FsusBlog/issues/1732	issue=1732.body:L1	Depends on	1619	OPEN	prerequisite		1	—	—
@@ -258,6 +261,8 @@ https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusBlog/issues/1736	issue=1736.body:L1	Depends on	1733	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusBlog/issues/1736	issue=1736.body:L1	Depends on	1734	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusBlog/issues/1736	issue=1736.body:L1	Depends on	1735	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusBlog/issues/1736	issue=1736.body:L33		1724	OPEN	acceptance-gate		0	#1736:30-45; #1736:120-133; #1724:44-56	质量终验消费正向发布合同，拒绝可重算哨兵、错误发布指针及借助手工投影形成的假完成。
+https://github.com/Ozwasyd/FsusBlog/issues/1736	https://github.com/Ozwasyd/FsusBlog/issues/1736	issue=1736.body:L37		1728	OPEN	acceptance-gate		0	#1736:30-45; #1736:69-77; #1728:104-131	唯一 shape catalog 的测试输入须真正被搜索等消费者使用，覆盖非 ASCII 以及准确的命中与拒绝。
 https://github.com/Ozwasyd/FsusBlog/issues/1758	https://github.com/Ozwasyd/FsusBlog/issues/1758	issue=1758.body:L1	Depends on	1749	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1758	https://github.com/Ozwasyd/FsusBlog/issues/1758	issue=1758.body:L1	Depends on	1753	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1758	https://github.com/Ozwasyd/FsusBlog/issues/1758	issue=1758.body:L1	Depends on	1755	ABSENT	prerequisite		1	—	—
@@ -287,12 +292,14 @@ https://github.com/Ozwasyd/FsusBlog/issues/1759	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1759	https://github.com/Ozwasyd/FsusBlog/issues/1759	issue=1759.body:L1	Depends on	1758	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1761	https://github.com/Ozwasyd/FsusBlog/issues/1761	issue=1761.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1762	https://github.com/Ozwasyd/FsusBlog/issues/1762	issue=1762.body:L1	Depends on	1761	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1762	https://github.com/Ozwasyd/FsusBlog/issues/1762	issue=1762.body:L2		1724	OPEN	related		0	#1762:75-89; #1724:44-56	离线终验与线上发布共享合法 revision、publication、rights、responsibility 坐标。旧库写入须独立于 runtime outbox 和公开投影。
 https://github.com/Ozwasyd/FsusBlog/issues/1763	https://github.com/Ozwasyd/FsusBlog/issues/1763	issue=1763.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1763	https://github.com/Ozwasyd/FsusBlog/issues/1763	issue=1763.body:L1	Depends on	1761	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1764	https://github.com/Ozwasyd/FsusBlog/issues/1764	issue=1764.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1765	https://github.com/Ozwasyd/FsusBlog/issues/1765	issue=1765.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1766	https://github.com/Ozwasyd/FsusBlog/issues/1766	issue=1766.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1766	https://github.com/Ozwasyd/FsusBlog/issues/1766	issue=1766.body:L1	Depends on	1762	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1766	https://github.com/Ozwasyd/FsusBlog/issues/1766	issue=1766.body:L32		1762	OPEN	prerequisite		0	#1766:22-33; #1762:75-91	旧数据由离线迁移生成 current graph；ARD5 解码独立适配现行 rights 子布局及坐标，不能补造缺失权利或修订身份。
 https://github.com/Ozwasyd/FsusBlog/issues/1767	https://github.com/Ozwasyd/FsusBlog/issues/1767	issue=1767.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1768	https://github.com/Ozwasyd/FsusBlog/issues/1768	issue=1768.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1769	https://github.com/Ozwasyd/FsusBlog/issues/1769	issue=1769.body:L1	Depends on	1760	OPEN	prerequisite		1	—	—
@@ -1247,11 +1254,15 @@ https://github.com/Ozwasyd/FsusBlog/issues/2174	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2174	https://github.com/Ozwasyd/FsusBlog/issues/2174	issue=2174.body:L2	Depends on	1601	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2174	https://github.com/Ozwasyd/FsusBlog/issues/2174	issue=2174.body:L2	Depends on	1712	CLOSED	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2174	https://github.com/Ozwasyd/FsusBlog/issues/2174	issue=2174.body:L2	Depends on	2173	CLOSED	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2174	https://github.com/Ozwasyd/FsusBlog/issues/2174	issue=2174.body:L25		2175	OPEN	scope-exclusion		0	#2174:10-27; #2175:10-19	生命周期负责实际事务和 sealed coordinates。真实 search/AOT/AEDS/HotRead/cache 边与该代次的权利可见性由 #2175 读取验收。
 https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L1	Parent	1724	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L2	Depends on	1638	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L2	Depends on	1639	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L2	Depends on	2173	CLOSED	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L2	Depends on	2174	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L6		2173	CLOSED	prerequisite		0	#2175:1-12; #1724:24-35	读侧使用原发布 writer 事务回执作为坐标来源。保留目标的冻结正式 CLOSED 状态及运行验收分工。
+https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L6		2174	OPEN	prerequisite		0	#2174:10-20; #2175:6-19	读侧消费正式生命周期回执。撤回、恢复或新发布后，从各真实边独立读取精确发布、generation、权利和摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2175	https://github.com/Ozwasyd/FsusBlog/issues/2175	issue=2175.body:L18		2176	OPEN	acceptance-gate		0	#2175:10-19; #2176:1-11	清理与重跑消费实际边缘的终态、投影身份与摘要，需要区分旧代、缺失边、人工回暖和运行恢复。
 https://github.com/Ozwasyd/FsusBlog/issues/2176	https://github.com/Ozwasyd/FsusBlog/issues/2176	issue=2176.body:L36	Parent	1724	OPEN	historical		1	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
 https://github.com/Ozwasyd/FsusBlog/issues/2176	https://github.com/Ozwasyd/FsusBlog/issues/2176	issue=2176.body:L37	Depends on	1712	CLOSED	historical		1	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
 https://github.com/Ozwasyd/FsusBlog/issues/2176	https://github.com/Ozwasyd/FsusBlog/issues/2176	issue=2176.body:L37	Depends on	2173	CLOSED	historical		1	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
@@ -2856,6 +2867,7 @@ https://github.com/Ozwasyd/FsusBlog/issues/2543	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2543	https://github.com/Ozwasyd/FsusBlog/issues/2543	issue=2543.body:L2	Depends on	2539	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2543	https://github.com/Ozwasyd/FsusBlog/issues/2543	issue=2543.body:L2	Depends on	2541	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2543	https://github.com/Ozwasyd/FsusBlog/issues/2543	issue=2543.body:L2	Depends on	2542	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2543	https://github.com/Ozwasyd/FsusBlog/issues/2543	issue=2543.body:L11		1724	OPEN	prerequisite		0	#2543:10-24; #1724:44-56	差分生产侧走唯一真实 writer，核对含权利、责任、proof、旧新发布和 outbox 的完整语义图。另一侧独立使用 bulk factory/provider，不能同源自证。
 https://github.com/Ozwasyd/FsusBlog/issues/2544	https://github.com/Ozwasyd/FsusBlog/issues/2544	issue=2544.body:L1	Parent	1731	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2544	https://github.com/Ozwasyd/FsusBlog/issues/2544	issue=2544.body:L2	Depends on	1618	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2544	https://github.com/Ozwasyd/FsusBlog/issues/2544	issue=2544.body:L2	Depends on	2539	ABSENT	prerequisite		1	—	—

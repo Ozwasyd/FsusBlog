@@ -15,6 +15,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [规模查询、保存视图和私有沟通的语义核对](semantic-scope-review.md) 记录采用条款、执行归属、原优先级、附件阶段和当前验收缺口。
 - [管理标签和文章内容移交](risk-taxonomy-portability.md) 核对稳定 ID、公开刷新、真实管理入口及迁移范围。
 - [公开密钥清单和发布证明](risk-integrity.md) 核对公钥枚举、签名准入、发布/权利坐标与当前缺口。
+- [公开搜索词典与分片](risk-public-search.md) 核对真实词元、分片补丁、浏览器旧代失效与测试边界。
 - [评论作者、删除与申诉](risk-comment-lifecycle.md) 分开核对普通账号、强匿名、独立管理员、真实写入和公开占位。
 - [公开回滚和附件交付](risk-rollback-media.md) 核对固定 v1 的真实授权、写入、公开投影，以及私有票据与公开资源的边界。
 - [review-queue.tsv](review-queue.tsv)：按开放 issue 索引处置台账；`dependencies` 是原候选编号的检索索引，具体语义见显式引用台账。没有映射的主题路由只是分工建议，`acceptanceCase` 的 ID 关联下方的现有条款。若一个 issue 对应多种处置，按分项台账判断。去重覆盖和剩余条款见 [review-progress.json](review-progress.json)。
