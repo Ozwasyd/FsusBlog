@@ -1,0 +1,51 @@
+{
+  "verifiedAt": "2026-11-14T12:52:35+00:00",
+  "sameIssueNumbersStatesUpdatedTimesAndBodies": 808,
+  "restEvidenceSha256": "c983c29028ea00e038d40f85b3ad5007b90d8ad22a94e9c70a0e44248b6d0a21",
+  "restListComments": 2522,
+  "graphqlComments": 2562,
+  "commentCountDifferences": [
+    {
+      "number": 2214,
+      "restListCount": 0,
+      "graphqlCount": 6,
+      "restCommentConnectionCount": 6
+    },
+    {
+      "number": 2236,
+      "restListCount": 0,
+      "graphqlCount": 3,
+      "restCommentConnectionCount": 3
+    },
+    {
+      "number": 2392,
+      "restListCount": 0,
+      "graphqlCount": 4,
+      "restCommentConnectionCount": 4
+    },
+    {
+      "number": 2394,
+      "restListCount": 0,
+      "graphqlCount": 5,
+      "restCommentConnectionCount": 5
+    },
+    {
+      "number": 2485,
+      "restListCount": 0,
+      "graphqlCount": 5,
+      "restCommentConnectionCount": 5
+    },
+    {
+      "number": 3543,
+      "restListCount": 0,
+      "graphqlCount": 9,
+      "restCommentConnectionCount": 9
+    },
+    {
+      "number": 3545,
+      "restListCount": 0,
+      "graphqlCount": 8,
+      "restCommentConnectionCount": 8
+    }
+  ]
+}

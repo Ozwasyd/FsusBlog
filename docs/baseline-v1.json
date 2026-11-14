@@ -1,0 +1,1188 @@
+{
+  "budget_90_percent_reduction_ncloc": 208546,
+  "by_area": {
+    ".agents/skills": {
+      "bytes": 51462,
+      "files": 9,
+      "ncloc": 1636,
+      "raw_ncloc": 1707,
+      "token_proxy": 11353
+    },
+    ".clang-format": {
+      "bytes": 1622,
+      "files": 1,
+      "ncloc": 60,
+      "raw_ncloc": 60,
+      "token_proxy": 226
+    },
+    ".clang-tidy": {
+      "bytes": 6109,
+      "files": 1,
+      "ncloc": 91,
+      "raw_ncloc": 91,
+      "token_proxy": 959
+    },
+    ".cmake-format.yaml": {
+      "bytes": 850,
+      "files": 1,
+      "ncloc": 24,
+      "raw_ncloc": 24,
+      "token_proxy": 255
+    },
+    ".config": {
+      "bytes": 620,
+      "files": 1,
+      "ncloc": 27,
+      "raw_ncloc": 27,
+      "token_proxy": 133
+    },
+    ".dockerignore": {
+      "bytes": 4113,
+      "files": 1,
+      "ncloc": 172,
+      "raw_ncloc": 172,
+      "token_proxy": 1311
+    },
+    ".editorconfig": {
+      "bytes": 7786,
+      "files": 1,
+      "ncloc": 146,
+      "raw_ncloc": 146,
+      "token_proxy": 882
+    },
+    ".git-blame-ignore-revs": {
+      "bytes": 1944,
+      "files": 1,
+      "ncloc": 25,
+      "raw_ncloc": 25,
+      "token_proxy": 25
+    },
+    ".gitattributes": {
+      "bytes": 2525,
+      "files": 1,
+      "ncloc": 1,
+      "raw_ncloc": 1,
+      "token_proxy": 7
+    },
+    ".github": {
+      "bytes": 6907,
+      "files": 4,
+      "ncloc": 187,
+      "raw_ncloc": 187,
+      "token_proxy": 1530
+    },
+    ".github/ISSUE_TEMPLATE": {
+      "bytes": 22012,
+      "files": 8,
+      "ncloc": 561,
+      "raw_ncloc": 573,
+      "token_proxy": 3568
+    },
+    ".github/actions": {
+      "bytes": 5011,
+      "files": 2,
+      "ncloc": 88,
+      "raw_ncloc": 88,
+      "token_proxy": 945
+    },
+    ".github/workflows": {
+      "bytes": 171479,
+      "files": 15,
+      "ncloc": 3258,
+      "raw_ncloc": 3167,
+      "token_proxy": 31637
+    },
+    ".gitignore": {
+      "bytes": 4790,
+      "files": 1,
+      "ncloc": 214,
+      "raw_ncloc": 214,
+      "token_proxy": 1410
+    },
+    ".ignore": {
+      "bytes": 684,
+      "files": 1,
+      "ncloc": 40,
+      "raw_ncloc": 40,
+      "token_proxy": 258
+    },
+    ".markdownlint-cli2.jsonc": {
+      "bytes": 1487,
+      "files": 1,
+      "ncloc": 41,
+      "raw_ncloc": 57,
+      "token_proxy": 487
+    },
+    ".npmrc": {
+      "bytes": 106,
+      "files": 1,
+      "ncloc": 2,
+      "raw_ncloc": 2,
+      "token_proxy": 33
+    },
+    ".shellcheckrc": {
+      "bytes": 77,
+      "files": 1,
+      "ncloc": 4,
+      "raw_ncloc": 4,
+      "token_proxy": 18
+    },
+    ".yamllint.yml": {
+      "bytes": 693,
+      "files": 1,
+      "ncloc": 27,
+      "raw_ncloc": 27,
+      "token_proxy": 144
+    },
+    "CMakeLists.txt": {
+      "bytes": 1124,
+      "files": 1,
+      "ncloc": 27,
+      "raw_ncloc": 27,
+      "token_proxy": 191
+    },
+    "CMakePresets.json": {
+      "bytes": 4494,
+      "files": 1,
+      "ncloc": 165,
+      "raw_ncloc": 165,
+      "token_proxy": 858
+    },
+    "Directory.Build.props": {
+      "bytes": 1110,
+      "files": 1,
+      "ncloc": 20,
+      "raw_ncloc": 19,
+      "token_proxy": 220
+    },
+    "Directory.Packages.props": {
+      "bytes": 3707,
+      "files": 1,
+      "ncloc": 55,
+      "raw_ncloc": 54,
+      "token_proxy": 1027
+    },
+    "FsusBlog.MatrixNativeRestore.slnx": {
+      "bytes": 203,
+      "files": 1,
+      "ncloc": 5,
+      "raw_ncloc": 4,
+      "token_proxy": 45
+    },
+    "FsusBlog.slnLaunch": {
+      "bytes": 547,
+      "files": 1,
+      "ncloc": 28,
+      "raw_ncloc": 28,
+      "token_proxy": 153
+    },
+    "FsusBlog.slnx": {
+      "bytes": 2143,
+      "files": 1,
+      "ncloc": 55,
+      "raw_ncloc": 54,
+      "token_proxy": 655
+    },
+    "artifacts/article-vault": {
+      "bytes": 18637,
+      "files": 2,
+      "ncloc": 419,
+      "raw_ncloc": 416,
+      "token_proxy": 3476
+    },
+    "artifacts/change-contract": {
+      "bytes": 1445248,
+      "files": 425,
+      "ncloc": 13099,
+      "raw_ncloc": 13093,
+      "token_proxy": 325644
+    },
+    "artifacts/document-export-api-ui": {
+      "bytes": 21223,
+      "files": 1,
+      "ncloc": 295,
+      "raw_ncloc": 295,
+      "token_proxy": 4259
+    },
+    "artifacts/performance": {
+      "bytes": 3285,
+      "files": 4,
+      "ncloc": 85,
+      "raw_ncloc": 85,
+      "token_proxy": 577
+    },
+    "artifacts/schema-migration": {
+      "bytes": 113654,
+      "files": 3,
+      "ncloc": 2796,
+      "raw_ncloc": 2796,
+      "token_proxy": 15913
+    },
+    "artifacts/style": {
+      "bytes": 9387,
+      "files": 11,
+      "ncloc": 179,
+      "raw_ncloc": 179,
+      "token_proxy": 1836
+    },
+    "benchmarks/core": {
+      "bytes": 256908,
+      "files": 19,
+      "ncloc": 5343,
+      "raw_ncloc": 5965,
+      "token_proxy": 44157
+    },
+    "benchmarks/security": {
+      "bytes": 28204,
+      "files": 2,
+      "ncloc": 845,
+      "raw_ncloc": 658,
+      "token_proxy": 6877
+    },
+    "cmake": {
+      "bytes": 2734,
+      "files": 1,
+      "ncloc": 50,
+      "raw_ncloc": 50,
+      "token_proxy": 305
+    },
+    "commitlint.config.mjs": {
+      "bytes": 654,
+      "files": 1,
+      "ncloc": 12,
+      "raw_ncloc": 12,
+      "token_proxy": 147
+    },
+    "config": {
+      "bytes": 97218,
+      "files": 3,
+      "ncloc": 2073,
+      "raw_ncloc": 2043,
+      "token_proxy": 22346
+    },
+    "config/application": {
+      "bytes": 300811,
+      "files": 1,
+      "ncloc": 9920,
+      "raw_ncloc": 9920,
+      "token_proxy": 64985
+    },
+    "config/build": {
+      "bytes": 5017,
+      "files": 3,
+      "ncloc": 165,
+      "raw_ncloc": 151,
+      "token_proxy": 1154
+    },
+    "config/content-credentials": {
+      "bytes": 866,
+      "files": 1,
+      "ncloc": 33,
+      "raw_ncloc": 33,
+      "token_proxy": 210
+    },
+    "config/contracts": {
+      "bytes": 101849,
+      "files": 5,
+      "ncloc": 2347,
+      "raw_ncloc": 2235,
+      "token_proxy": 20535
+    },
+    "config/dependencies": {
+      "bytes": 140793,
+      "files": 7,
+      "ncloc": 4005,
+      "raw_ncloc": 4005,
+      "token_proxy": 34187
+    },
+    "config/deployment": {
+      "bytes": 17878,
+      "files": 3,
+      "ncloc": 417,
+      "raw_ncloc": 417,
+      "token_proxy": 3595
+    },
+    "config/development": {
+      "bytes": 1357567,
+      "files": 17,
+      "ncloc": 30757,
+      "raw_ncloc": 30757,
+      "token_proxy": 239157
+    },
+    "config/docs": {
+      "bytes": 30030,
+      "files": 5,
+      "ncloc": 1041,
+      "raw_ncloc": 1041,
+      "token_proxy": 6385
+    },
+    "config/examples": {
+      "bytes": 5600,
+      "files": 2,
+      "ncloc": 62,
+      "raw_ncloc": 62,
+      "token_proxy": 413
+    },
+    "config/governance": {
+      "bytes": 1065752,
+      "files": 6,
+      "ncloc": 25067,
+      "raw_ncloc": 24967,
+      "token_proxy": 215374
+    },
+    "config/moderation": {
+      "bytes": 21877,
+      "files": 29,
+      "ncloc": 774,
+      "raw_ncloc": 774,
+      "token_proxy": 3234
+    },
+    "config/observability": {
+      "bytes": 1726,
+      "files": 1,
+      "ncloc": 61,
+      "raw_ncloc": 61,
+      "token_proxy": 301
+    },
+    "config/performance": {
+      "bytes": 21671,
+      "files": 2,
+      "ncloc": 665,
+      "raw_ncloc": 665,
+      "token_proxy": 3984
+    },
+    "config/runtime": {
+      "bytes": 6590,
+      "files": 1,
+      "ncloc": 299,
+      "raw_ncloc": 139,
+      "token_proxy": 1859
+    },
+    "config/schemas": {
+      "bytes": 495994,
+      "files": 71,
+      "ncloc": 17799,
+      "raw_ncloc": 15713,
+      "token_proxy": 96328
+    },
+    "config/testing": {
+      "bytes": 2546879,
+      "files": 82,
+      "ncloc": 59251,
+      "raw_ncloc": 56576,
+      "token_proxy": 487271
+    },
+    "config/zk": {
+      "bytes": 680,
+      "files": 1,
+      "ncloc": 16,
+      "raw_ncloc": 16,
+      "token_proxy": 150
+    },
+    "docs": {
+      "bytes": 25474,
+      "files": 1,
+      "ncloc": 818,
+      "raw_ncloc": 818,
+      "token_proxy": 5385
+    },
+    "docs/architecture": {
+      "bytes": 4547,
+      "files": 1,
+      "ncloc": 168,
+      "raw_ncloc": 48,
+      "token_proxy": 1130
+    },
+    "docs/assets": {
+      "bytes": 149991,
+      "files": 2,
+      "ncloc": 3955,
+      "raw_ncloc": 3955,
+      "token_proxy": 21732
+    },
+    "docs/fonts": {
+      "bytes": 7556,
+      "files": 1,
+      "ncloc": 277,
+      "raw_ncloc": 277,
+      "token_proxy": 1529
+    },
+    "docs/moderation": {
+      "bytes": 829,
+      "files": 1,
+      "ncloc": 27,
+      "raw_ncloc": 28,
+      "token_proxy": 142
+    },
+    "docs/planning": {
+      "bytes": 39321,
+      "files": 2,
+      "ncloc": 933,
+      "raw_ncloc": 933,
+      "token_proxy": 7387
+    },
+    "docs/schema-migrations": {
+      "bytes": 32571,
+      "files": 3,
+      "ncloc": 1375,
+      "raw_ncloc": 1375,
+      "token_proxy": 6047
+    },
+    "eslint.config.mjs": {
+      "bytes": 78,
+      "files": 1,
+      "ncloc": 1,
+      "raw_ncloc": 1,
+      "token_proxy": 23
+    },
+    "examples/plugins": {
+      "bytes": 2193,
+      "files": 6,
+      "ncloc": 82,
+      "raw_ncloc": 91,
+      "token_proxy": 614
+    },
+    "ops/development": {
+      "bytes": 1327,
+      "files": 1,
+      "ncloc": 40,
+      "raw_ncloc": 40,
+      "token_proxy": 236
+    },
+    "ops/docker": {
+      "bytes": 49337,
+      "files": 7,
+      "ncloc": 832,
+      "raw_ncloc": 841,
+      "token_proxy": 9976
+    },
+    "ops/gateway": {
+      "bytes": 13264,
+      "files": 4,
+      "ncloc": 292,
+      "raw_ncloc": 292,
+      "token_proxy": 2095
+    },
+    "ops/privacy": {
+      "bytes": 2425,
+      "files": 2,
+      "ncloc": 88,
+      "raw_ncloc": 88,
+      "token_proxy": 639
+    },
+    "renovate.json5": {
+      "bytes": 11324,
+      "files": 1,
+      "ncloc": 292,
+      "raw_ncloc": 234,
+      "token_proxy": 3364
+    },
+    "security/catalog": {
+      "bytes": 3490,
+      "files": 1,
+      "ncloc": 87,
+      "raw_ncloc": 87,
+      "token_proxy": 788
+    },
+    "security/evidence-contracts": {
+      "bytes": 12993,
+      "files": 6,
+      "ncloc": 342,
+      "raw_ncloc": 339,
+      "token_proxy": 2606
+    },
+    "security/matrices": {
+      "bytes": 51272,
+      "files": 7,
+      "ncloc": 1117,
+      "raw_ncloc": 1154,
+      "token_proxy": 9419
+    },
+    "security/policies": {
+      "bytes": 6932,
+      "files": 2,
+      "ncloc": 161,
+      "raw_ncloc": 161,
+      "token_proxy": 1413
+    },
+    "security/zk": {
+      "bytes": 7587,
+      "files": 4,
+      "ncloc": 236,
+      "raw_ncloc": 236,
+      "token_proxy": 1547
+    },
+    "src/article-vault": {
+      "bytes": 52367,
+      "files": 6,
+      "ncloc": 1123,
+      "raw_ncloc": 1265,
+      "token_proxy": 7887
+    },
+    "src/backend": {
+      "bytes": 13913826,
+      "files": 951,
+      "ncloc": 283222,
+      "raw_ncloc": 309435,
+      "token_proxy": 2045454
+    },
+    "src/core": {
+      "bytes": 962364,
+      "files": 102,
+      "ncloc": 19265,
+      "raw_ncloc": 20117,
+      "token_proxy": 141186
+    },
+    "src/frontend": {
+      "bytes": 6495713,
+      "files": 773,
+      "ncloc": 152812,
+      "raw_ncloc": 156730,
+      "token_proxy": 1184665
+    },
+    "src/migration": {
+      "bytes": 2017185,
+      "files": 165,
+      "ncloc": 36585,
+      "raw_ncloc": 33100,
+      "token_proxy": 276773
+    },
+    "src/plugin-sdk": {
+      "bytes": 4838,
+      "files": 2,
+      "ncloc": 157,
+      "raw_ncloc": 163,
+      "token_proxy": 1174
+    },
+    "src/shared": {
+      "bytes": 6120203,
+      "files": 139,
+      "ncloc": 121444,
+      "raw_ncloc": 121895,
+      "token_proxy": 930685
+    },
+    "src/zk": {
+      "bytes": 3536,
+      "files": 1,
+      "ncloc": 93,
+      "raw_ncloc": 93,
+      "token_proxy": 616
+    },
+    "stylelint.config.mjs": {
+      "bytes": 81,
+      "files": 1,
+      "ncloc": 1,
+      "raw_ncloc": 1,
+      "token_proxy": 23
+    },
+    "tests": {
+      "bytes": 1018211,
+      "files": 36,
+      "ncloc": 20462,
+      "raw_ncloc": 20268,
+      "token_proxy": 192297
+    },
+    "tests/article-vault": {
+      "bytes": 160500,
+      "files": 6,
+      "ncloc": 3045,
+      "raw_ncloc": 3052,
+      "token_proxy": 28139
+    },
+    "tests/backend": {
+      "bytes": 12552486,
+      "files": 750,
+      "ncloc": 236371,
+      "raw_ncloc": 246774,
+      "token_proxy": 2118800
+    },
+    "tests/browser-capability-risk": {
+      "bytes": 6065,
+      "files": 1,
+      "ncloc": 192,
+      "raw_ncloc": 192,
+      "token_proxy": 1453
+    },
+    "tests/browser-contract": {
+      "bytes": 589504,
+      "files": 24,
+      "ncloc": 14663,
+      "raw_ncloc": 12056,
+      "token_proxy": 120026
+    },
+    "tests/browser-diagnostics": {
+      "bytes": 60295,
+      "files": 6,
+      "ncloc": 1656,
+      "raw_ncloc": 1478,
+      "token_proxy": 13629
+    },
+    "tests/cache-coordination-probe": {
+      "bytes": 387,
+      "files": 2,
+      "ncloc": 12,
+      "raw_ncloc": 11,
+      "token_proxy": 90
+    },
+    "tests/contracts": {
+      "bytes": 947,
+      "files": 2,
+      "ncloc": 27,
+      "raw_ncloc": 28,
+      "token_proxy": 194
+    },
+    "tests/fixtures": {
+      "bytes": 3395900,
+      "files": 140,
+      "ncloc": 57832,
+      "raw_ncloc": 53365,
+      "token_proxy": 785153
+    },
+    "tests/frontend": {
+      "bytes": 5822046,
+      "files": 684,
+      "ncloc": 151120,
+      "raw_ncloc": 137738,
+      "token_proxy": 1354745
+    },
+    "tests/governance": {
+      "bytes": 438427,
+      "files": 16,
+      "ncloc": 11060,
+      "raw_ncloc": 10539,
+      "token_proxy": 88990
+    },
+    "tests/migration": {
+      "bytes": 1023495,
+      "files": 72,
+      "ncloc": 21044,
+      "raw_ncloc": 17176,
+      "token_proxy": 184081
+    },
+    "tests/native": {
+      "bytes": 2753,
+      "files": 4,
+      "ncloc": 49,
+      "raw_ncloc": 53,
+      "token_proxy": 491
+    },
+    "tests/performance": {
+      "bytes": 567789,
+      "files": 8,
+      "ncloc": 11655,
+      "raw_ncloc": 11544,
+      "token_proxy": 72282
+    },
+    "tests/security": {
+      "bytes": 128956,
+      "files": 18,
+      "ncloc": 3047,
+      "raw_ncloc": 2891,
+      "token_proxy": 31115
+    },
+    "tests/tools": {
+      "bytes": 10787714,
+      "files": 686,
+      "ncloc": 273557,
+      "raw_ncloc": 228546,
+      "token_proxy": 2561584
+    },
+    "tools": {
+      "bytes": 998745,
+      "files": 40,
+      "ncloc": 22897,
+      "raw_ncloc": 22749,
+      "token_proxy": 220684
+    },
+    "tools/architecture": {
+      "bytes": 45163,
+      "files": 10,
+      "ncloc": 1105,
+      "raw_ncloc": 1255,
+      "token_proxy": 9174
+    },
+    "tools/cache": {
+      "bytes": 5212,
+      "files": 1,
+      "ncloc": 145,
+      "raw_ncloc": 148,
+      "token_proxy": 1580
+    },
+    "tools/ci": {
+      "bytes": 207228,
+      "files": 13,
+      "ncloc": 5339,
+      "raw_ncloc": 4942,
+      "token_proxy": 48113
+    },
+    "tools/configuration": {
+      "bytes": 163750,
+      "files": 8,
+      "ncloc": 4171,
+      "raw_ncloc": 4066,
+      "token_proxy": 39292
+    },
+    "tools/content-credentials": {
+      "bytes": 27222,
+      "files": 2,
+      "ncloc": 718,
+      "raw_ncloc": 689,
+      "token_proxy": 6314
+    },
+    "tools/contracts": {
+      "bytes": 817315,
+      "files": 60,
+      "ncloc": 17935,
+      "raw_ncloc": 18683,
+      "token_proxy": 165830
+    },
+    "tools/coverage": {
+      "bytes": 78436,
+      "files": 9,
+      "ncloc": 1865,
+      "raw_ncloc": 1891,
+      "token_proxy": 19192
+    },
+    "tools/crypto": {
+      "bytes": 9600,
+      "files": 2,
+      "ncloc": 254,
+      "raw_ncloc": 243,
+      "token_proxy": 2538
+    },
+    "tools/data-scale": {
+      "bytes": 342006,
+      "files": 22,
+      "ncloc": 8321,
+      "raw_ncloc": 8227,
+      "token_proxy": 68834
+    },
+    "tools/db": {
+      "bytes": 166298,
+      "files": 14,
+      "ncloc": 4157,
+      "raw_ncloc": 4260,
+      "token_proxy": 37301
+    },
+    "tools/dependencies": {
+      "bytes": 90301,
+      "files": 7,
+      "ncloc": 2442,
+      "raw_ncloc": 2186,
+      "token_proxy": 20192
+    },
+    "tools/deployment": {
+      "bytes": 1191140,
+      "files": 58,
+      "ncloc": 29423,
+      "raw_ncloc": 27732,
+      "token_proxy": 280249
+    },
+    "tools/dev": {
+      "bytes": 22431,
+      "files": 1,
+      "ncloc": 414,
+      "raw_ncloc": 414,
+      "token_proxy": 5072
+    },
+    "tools/docker": {
+      "bytes": 103070,
+      "files": 3,
+      "ncloc": 2677,
+      "raw_ncloc": 2420,
+      "token_proxy": 24834
+    },
+    "tools/docs": {
+      "bytes": 881625,
+      "files": 65,
+      "ncloc": 22176,
+      "raw_ncloc": 21686,
+      "token_proxy": 188736
+    },
+    "tools/dotnet": {
+      "bytes": 64740,
+      "files": 1,
+      "ncloc": 1800,
+      "raw_ncloc": 1672,
+      "token_proxy": 15515
+    },
+    "tools/fact-extractors": {
+      "bytes": 343970,
+      "files": 26,
+      "ncloc": 8585,
+      "raw_ncloc": 7897,
+      "token_proxy": 74688
+    },
+    "tools/frontend": {
+      "bytes": 575891,
+      "files": 45,
+      "ncloc": 14644,
+      "raw_ncloc": 14560,
+      "token_proxy": 133001
+    },
+    "tools/governance": {
+      "bytes": 1086484,
+      "files": 84,
+      "ncloc": 27431,
+      "raw_ncloc": 26683,
+      "token_proxy": 248593
+    },
+    "tools/mutation": {
+      "bytes": 54181,
+      "files": 3,
+      "ncloc": 1238,
+      "raw_ncloc": 1185,
+      "token_proxy": 10896
+    },
+    "tools/node": {
+      "bytes": 2597,
+      "files": 2,
+      "ncloc": 75,
+      "raw_ncloc": 75,
+      "token_proxy": 852
+    },
+    "tools/operations": {
+      "bytes": 835240,
+      "files": 42,
+      "ncloc": 21596,
+      "raw_ncloc": 17150,
+      "token_proxy": 205433
+    },
+    "tools/perf": {
+      "bytes": 140634,
+      "files": 12,
+      "ncloc": 3585,
+      "raw_ncloc": 3635,
+      "token_proxy": 32714
+    },
+    "tools/performance": {
+      "bytes": 9859,
+      "files": 2,
+      "ncloc": 238,
+      "raw_ncloc": 238,
+      "token_proxy": 1755
+    },
+    "tools/release": {
+      "bytes": 408434,
+      "files": 29,
+      "ncloc": 10123,
+      "raw_ncloc": 9574,
+      "token_proxy": 87275
+    },
+    "tools/retention": {
+      "bytes": 4832,
+      "files": 1,
+      "ncloc": 122,
+      "raw_ncloc": 145,
+      "token_proxy": 1067
+    },
+    "tools/runtime-profiles": {
+      "bytes": 187748,
+      "files": 14,
+      "ncloc": 4971,
+      "raw_ncloc": 4781,
+      "token_proxy": 42213
+    },
+    "tools/schema": {
+      "bytes": 2171,
+      "files": 1,
+      "ncloc": 52,
+      "raw_ncloc": 56,
+      "token_proxy": 633
+    },
+    "tools/security": {
+      "bytes": 783074,
+      "files": 69,
+      "ncloc": 17305,
+      "raw_ncloc": 17066,
+      "token_proxy": 184006
+    },
+    "tools/seo": {
+      "bytes": 47016,
+      "files": 7,
+      "ncloc": 1300,
+      "raw_ncloc": 1179,
+      "token_proxy": 11280
+    },
+    "tools/storage": {
+      "bytes": 106473,
+      "files": 11,
+      "ncloc": 2770,
+      "raw_ncloc": 2627,
+      "token_proxy": 23681
+    },
+    "tools/style": {
+      "bytes": 87052,
+      "files": 3,
+      "ncloc": 2379,
+      "raw_ncloc": 2570,
+      "token_proxy": 21754
+    },
+    "tools/test": {
+      "bytes": 4284951,
+      "files": 352,
+      "ncloc": 104967,
+      "raw_ncloc": 100664,
+      "token_proxy": 911572
+    },
+    "tools/test-convergence": {
+      "bytes": 53633,
+      "files": 2,
+      "ncloc": 1468,
+      "raw_ncloc": 1302,
+      "token_proxy": 13352
+    },
+    "tools/test-evidence": {
+      "bytes": 214260,
+      "files": 31,
+      "ncloc": 5771,
+      "raw_ncloc": 4508,
+      "token_proxy": 49077
+    },
+    "tools/test-fixtures": {
+      "bytes": 909695,
+      "files": 60,
+      "ncloc": 22235,
+      "raw_ncloc": 20964,
+      "token_proxy": 188844
+    },
+    "tools/test-inventory": {
+      "bytes": 250980,
+      "files": 28,
+      "ncloc": 6216,
+      "raw_ncloc": 6375,
+      "token_proxy": 51269
+    },
+    "tools/test-lifecycle": {
+      "bytes": 16260,
+      "files": 1,
+      "ncloc": 431,
+      "raw_ncloc": 420,
+      "token_proxy": 3717
+    },
+    "tools/test-matrix": {
+      "bytes": 2615535,
+      "files": 106,
+      "ncloc": 65148,
+      "raw_ncloc": 62501,
+      "token_proxy": 545919
+    },
+    "tools/test-observations": {
+      "bytes": 55652,
+      "files": 7,
+      "ncloc": 1394,
+      "raw_ncloc": 1484,
+      "token_proxy": 13493
+    },
+    "tools/test-quality": {
+      "bytes": 84417,
+      "files": 8,
+      "ncloc": 2279,
+      "raw_ncloc": 2253,
+      "token_proxy": 20501
+    },
+    "tools/test-replacement": {
+      "bytes": 41448,
+      "files": 2,
+      "ncloc": 1099,
+      "raw_ncloc": 1085,
+      "token_proxy": 9583
+    },
+    "tools/test-retention": {
+      "bytes": 60978,
+      "files": 1,
+      "ncloc": 1485,
+      "raw_ncloc": 1460,
+      "token_proxy": 13905
+    },
+    "tools/test-runtime": {
+      "bytes": 212761,
+      "files": 19,
+      "ncloc": 5339,
+      "raw_ncloc": 4977,
+      "token_proxy": 43713
+    },
+    "tools/testing": {
+      "bytes": 274980,
+      "files": 10,
+      "ncloc": 6369,
+      "raw_ncloc": 6033,
+      "token_proxy": 56384
+    },
+    "tools/transport": {
+      "bytes": 31737,
+      "files": 4,
+      "ncloc": 679,
+      "raw_ncloc": 708,
+      "token_proxy": 7695
+    },
+    "tools/ux": {
+      "bytes": 34975,
+      "files": 6,
+      "ncloc": 920,
+      "raw_ncloc": 937,
+      "token_proxy": 8026
+    },
+    "tools/vcpkg-overlays": {
+      "bytes": 6377,
+      "files": 5,
+      "ncloc": 163,
+      "raw_ncloc": 163,
+      "token_proxy": 1372
+    },
+    "tools/visual": {
+      "bytes": 10001,
+      "files": 1,
+      "ncloc": 267,
+      "raw_ncloc": 270,
+      "token_proxy": 2244
+    },
+    "tools/yaml": {
+      "bytes": 20118,
+      "files": 2,
+      "ncloc": 530,
+      "raw_ncloc": 668,
+      "token_proxy": 4673
+    }
+  },
+  "by_category": {
+    "evidence_snapshot/handwritten": {
+      "bytes": 203078,
+      "files": 10,
+      "ncloc": 8488,
+      "raw_ncloc": 8488,
+      "token_proxy": 64271
+    },
+    "generator/handwritten": {
+      "bytes": 221716,
+      "files": 34,
+      "ncloc": 5369,
+      "raw_ncloc": 5149,
+      "token_proxy": 54135
+    },
+    "historical_test_evidence/handwritten": {
+      "bytes": 43949416,
+      "files": 32,
+      "ncloc": 139605,
+      "raw_ncloc": 20673,
+      "token_proxy": 10280196
+    },
+    "product_schema/generated": {
+      "bytes": 4700314,
+      "files": 6,
+      "ncloc": 101171,
+      "raw_ncloc": 101171,
+      "token_proxy": 735101
+    },
+    "product_schema/handwritten": {
+      "bytes": 7046119,
+      "files": 327,
+      "ncloc": 170072,
+      "raw_ncloc": 163238,
+      "token_proxy": 1330754
+    },
+    "production/generated": {
+      "bytes": 342724,
+      "files": 26,
+      "ncloc": 9539,
+      "raw_ncloc": 4670,
+      "token_proxy": 68128
+    },
+    "production/handwritten": {
+      "bytes": 23816660,
+      "files": 2045,
+      "ncloc": 491499,
+      "raw_ncloc": 526230,
+      "token_proxy": 3678742
+    },
+    "project_rules/handwritten": {
+      "bytes": 279851,
+      "files": 22,
+      "ncloc": 8413,
+      "raw_ncloc": 8300,
+      "token_proxy": 48408
+    },
+    "test/handwritten": {
+      "bytes": 31029878,
+      "files": 2253,
+      "ncloc": 699411,
+      "raw_ncloc": 646186,
+      "token_proxy": 6386579
+    },
+    "test_rules/generated": {
+      "bytes": 97509,
+      "files": 2,
+      "ncloc": 3018,
+      "raw_ncloc": 3018,
+      "token_proxy": 22478
+    },
+    "test_rules/handwritten": {
+      "bytes": 5856291,
+      "files": 228,
+      "ncloc": 113210,
+      "raw_ncloc": 105957,
+      "token_proxy": 1232350
+    },
+    "tooling/generated": {
+      "bytes": 1418,
+      "files": 1,
+      "ncloc": 44,
+      "raw_ncloc": 43,
+      "token_proxy": 214
+    },
+    "tooling/handwritten": {
+      "bytes": 18685564,
+      "files": 1242,
+      "ncloc": 459171,
+      "raw_ncloc": 440678,
+      "token_proxy": 4083578
+    },
+    "tooling_rules/handwritten": {
+      "bytes": 1961088,
+      "files": 542,
+      "ncloc": 24547,
+      "raw_ncloc": 24411,
+      "token_proxy": 418756
+    }
+  },
+  "commit": "2605b438eed8f16d12ddddf033d08a6fa18fcd12",
+  "excluded_file_counts": {
+    "binary_or_font": 92,
+    "dependency_lock_snapshot": 32,
+    "documentation": 381,
+    "documentation_asset": 10,
+    "encoded_fixture_or_test_result": 31,
+    "third_party_attributed_text": 3
+  },
+  "formatter_fallbacks": {
+    "tests/fixtures/native-tooling-style/invalid/Workflow.yml": "SyntaxError: Map keys must be unique; \"name\" is repeated (4:5)",
+    "tests/fixtures/native-tooling-style/invalid/contract.json": "Duplicate JSON key 'schema'"
+  },
+  "formatting": {
+    "as-authored": 73,
+    "evidence-as-authored": 10,
+    "formatted": 6685,
+    "parse-fallback": 2
+  },
+  "reviewable_exclusions": {
+    "src/backend/Dictionaries/TSCharacters.txt": "third_party_attributed_text",
+    "src/backend/Dictionaries/TWPhrases.txt": "third_party_attributed_text",
+    "src/backend/Dictionaries/TWVariants.txt": "third_party_attributed_text"
+  },
+  "schema": 1,
+  "total": {
+    "bytes": 94039132,
+    "files": 6728,
+    "ncloc": 2085464,
+    "raw_ncloc": 2029051,
+    "token_proxy": 18059223
+  },
+  "total_including_historical_test_evidence": {
+    "bytes": 137988548,
+    "files": 6760,
+    "ncloc": 2225069,
+    "raw_ncloc": 2049724,
+    "token_proxy": 28339419
+  },
+  "tree": "ae47acb5a24a336546abf4756bfdd93e57c9f740"
+}
