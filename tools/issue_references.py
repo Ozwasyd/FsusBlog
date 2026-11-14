@@ -29,7 +29,7 @@ INTERPRETATIONS = set(MARKERS.values()) | {
 }
 TOKEN = r"(?:https://github\.com/[\w.-]+/[\w.-]+/issues/\d+|(?:[\w.-]+/[\w.-]+)?#\d+)"
 ISSUE_LIST = re.compile(rf"{TOKEN}(?:\s*[,、，]\s*{TOKEN})*\.?")
-ISSUE_NUMBER = re.compile(r"(?:#\s*|/(?:issues|pull)/)(\d+)\b")
+ISSUE_NUMBER = re.compile(r"(?:#\s*|/(?:issues|pull)/)([0-9]+)")
 LOCATOR = re.compile(r"#(\d+)(?:@([0-9]+))?:(\d+)(?:[-–](\d+))?")
 QUALIFICATION_HEADER = ("sourceDocument", "line", "targetNumber", "interpretation", "support", "note")
 TEXT_HEADER = (

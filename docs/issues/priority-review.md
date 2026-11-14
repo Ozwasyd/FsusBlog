@@ -12,4 +12,8 @@
 | [#3665](https://github.com/Ozwasyd/FsusBlog/issues/3665) 的范围限定了 IO broker 加固，父项 [#2142](https://github.com/Ozwasyd/FsusBlog/issues/2142) 涉及生产授权和宿主。 | 保留封闭 proposal、授权复核和所有权清理。production consent/grant 持久化、ArticleQuery 和其他保留 RPC 需要与父项及真实 host provider 核对后实施。 | P5 插件端到端和 native 隔离。 |
 | [#1950](https://github.com/Ozwasyd/FsusBlog/issues/1950) 使用历史仓库的运行时限。其评论指出总时限与各阶段之和存在不一致。 | 冻结 v2 的负载、数据集、业务断言和分段时限，记录 setup、测量和清理实际耗时；直连与反代/TLS 分开测。单机公开读取 10,000 QPS 为待验目标。 | P2 复估、P6 完整吞吐与清理。 |
 
+`R-1950-01` 至 `R-1950-05` 的后续证据包括固定工作负载、两套独立数据库及运行 ID、按路由和按秒的业务核对，以及正常和两次准备失败后的清理。短档的最高请求档位仍超过 0.1% 漏发加错误上限，默认 GC 长测的 RSS 峰值超过 1.5 GiB。原 #1950 的 #3734 是历史源码交付。跨运行准入、运行中断与重复恢复负控及最终规模验收须保留独立结论。 [冻结工作负载](../product/p2-acceptance.md) · [容量矩阵](../../tests/Performance/matrix-2026-11-15.md) · [默认 GC 长测](../../tests/Performance/default-gc-soak-2026-11-15.md) · [#1950 的源码交接](https://github.com/Ozwasyd/FsusBlog/issues/1950#issuecomment-6876907923)
+
+`R-2322` 的定义与版本边界继续由定义权威验收。当前八属性类型、四条件保存视图和固定、默认、排序属于实际已实现的范围。#2324 另外要求同一作者索引和查询器处理 eligibility、权限、空值、稳定选项 ID、分面和排序。#2346 的条件执行及 #2351 的旧源移除各有验收，见冻结行号和当前入口。 [现行属性](../product/properties.md) · [现行保存视图](../product/author-saved-views.md) · [显式引用台账](text-reference-review.md) · [语义核对](semantic-scope-review.md)
+
 其余开放 issue 查阅和处置另见全量盘点。重点台账的覆盖范围是上述九项的来源和验收映射。

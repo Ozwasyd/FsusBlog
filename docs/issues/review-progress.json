@@ -8,28 +8,28 @@
     "sameRepositoryTextCandidateOccurrences": 3410,
     "sameRepositoryOpenTargetBodyOccurrences": 2611,
     "uniqueSameRepositoryCandidateLocators": 3408,
-    "qualifiedLocators": 298,
-    "supplementalLocators": 73,
+    "qualifiedLocators": 328,
+    "supplementalLocators": 103,
     "freezeTargetStates": {
       "ABSENT": 605,
       "CLOSED": 209,
-      "OPEN": 2667
+      "OPEN": 2697
     },
     "interpretations": {
-      "acceptance-gate": 43,
+      "acceptance-gate": 50,
       "blocks": 4,
       "conditional-prerequisite": 5,
-      "context": 43,
+      "context": 49,
       "dag-member": 12,
-      "historical": 73,
+      "historical": 74,
       "parent": 534,
       "pr-evidence": 24,
-      "prerequisite": 2646,
+      "prerequisite": 2661,
       "reference-conflict": 3,
       "related": 67,
       "reported-blocker": 3,
       "scope-exclusion": 6,
-      "source-handoff": 11,
+      "source-handoff": 12,
       "tracking": 7
     },
     "normalizedFormalEdges": 229
