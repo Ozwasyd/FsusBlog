@@ -16,6 +16,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - `comments-*.tsv` 关联冻结评论、处置及相应验收。详见 [评论覆盖](comment-progress.json) 和 [从评论纳入的验收用例](comment-findings.md)。
 - [scope-families.md](scope-families.md)、[memory-review.tsv](memory-review.tsv) 和 [conflicts.md](conflicts.md)：新增范围、硬件要求和实施冲突。
 - [高风险条款的实现对照](risk-trace.md) 特别核对迁移、私有附件、PoW、属性和 Canvas 的正文及评论引用，并记录当前实现、已有运行证据和验收缺口。
+- [发布、分发和身份恢复](risk-release-trace.md) 将固定 v1 契约与当前项目及离线演练逐项对照。[历史评论对应关系](historical-comment-lineage.tsv) 给出 712 条已分类评论的冻结正文摘要及重复来源定位。
 
 可离线重建候选索引，核对评论 URL、时间、处置及验收 ID。命令将重新计算评论与议题覆盖。
 
