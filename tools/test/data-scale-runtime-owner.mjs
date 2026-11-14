@@ -556,7 +556,12 @@ export function createDataScaleTeardownReceipt({
             ownershipStatus: observation?.ownershipStatus ?? 'unknown',
             action: observation?.action ?? null,
             actionExit: observation?.actionExit ?? null,
-            status: observation?.postExists === false ? 'complete' : 'failed',
+            status: observation?.postExists === false
+                && observation.ownershipStatus === 'owned'
+                && observation.actionExit === 0
+                && typeof observation.observedId === 'string' && observation.observedId.length > 0
+                && typeof observation.action === 'string' && observation.action.length > 0
+                ? 'complete' : 'failed',
             postObservation: { exists: observation?.postExists ?? true }
         };
     });
@@ -564,14 +569,25 @@ export function createDataScaleTeardownReceipt({
         path: rootPath,
         postExists: rootObservations.find((item) => item.path === rootPath)?.postExists ?? true
     }));
+    const exactResourceRoster = resourceObservations.length === resources.length
+        && new Set(resourceObservations.map((item) => item.plannedId)).size === resources.length
+        && resourceObservations.every((item) => resources.some((resource) => resource.plannedId === item.plannedId));
+    const exactRootRoster = rootObservations.length === roots.length
+        && new Set(rootObservations.map((item) => item.path)).size === roots.length
+        && rootObservations.every((item) => roots.some((root) => root.path === item.path));
+    const distinctPorts = new Set(portObservations.map((item) => item.port)).size === portObservations.length;
+    const distinctLeases = new Set(leaseObservations.map((item) => item.id)).size === leaseObservations.length;
     const receipt = {
         schema: DATA_SCALE_TEARDOWN_SCHEMA,
         status: failures.length === 0
+            && exactResourceRoster && exactRootRoster && distinctPorts && distinctLeases
             && resources.every((item) => item.status === 'complete')
-            && portObservations.every((item) => item.postListeningPids.length === 0)
+            && portObservations.every((item) => Number.isInteger(item.port) && item.port > 0 && item.port <= 65535
+                && Array.isArray(item.postListeningPids) && item.postListeningPids.length === 0)
             && roots.every((item) => item.postExists === false)
             && leaseObservations.length > 0
-            && leaseObservations.every((item) => item.postStatus === 'released')
+            && leaseObservations.every((item) => typeof item.id === 'string' && item.id.length > 0
+                && item.postStatus === 'released')
             ? 'complete'
             : 'blocked',
         dataScaleRunId: plan.dataScaleRunId,
@@ -1510,6 +1526,7 @@ export async function teardownDataScaleRuntime({
     for (const [kind, id] of targets)
     {
         let owned = false;
+        let observedId = id;
         let actionExit = 0;
         let exists = true;
         try
@@ -1540,6 +1557,20 @@ export async function teardownDataScaleRuntime({
             {
                 throw new Error(`refusing to remove unowned ${kind}: ${id}`);
             }
+            observedId = kind === 'volume' ? documents[0].Name : documents[0].Id;
+            if (kind === 'volume' ? observedId !== id : !/^[a-f0-9]{64}$/u.test(observedId ?? ''))
+            {
+                throw new Error(`data-scale ${kind} stable identity is unavailable: ${id}`);
+            }
+            const expectedId = runtimeReceipt && (id === plan.resources.backendContainerName
+                ? runtimeReceipt.backend.pidOrContainerId
+                : id === plan.resources.postgresContainerName ? runtimeReceipt.postgres.containerId
+                    : id === plan.resources.redisContainerName ? runtimeReceipt.redis.containerId
+                        : kind === 'network' ? runtimeReceipt.network.id : null);
+            if (expectedId && observedId !== expectedId)
+            {
+                throw new Error(`data-scale ${kind} identity differs from the creation receipt: ${id}`);
+            }
             if (kind === 'container')
             {
                 for (const bindings of Object.values(documents[0].NetworkSettings?.Ports ?? {}))
@@ -1556,10 +1587,10 @@ export async function teardownDataScaleRuntime({
                 }
             }
             run('docker', kind === 'network'
-                ? ['network', 'rm', id]
+                ? ['network', 'rm', observedId]
                 : kind === 'volume'
-                    ? ['volume', 'rm', id]
-                    : ['rm', '-f', '-v', id], commandOptions);
+                    ? ['volume', 'rm', observedId]
+                    : ['rm', '-f', '-v', observedId], commandOptions);
             exists = resourceExists(kind, id, commandOptions);
         }
         catch (error)
@@ -1569,7 +1600,7 @@ export async function teardownDataScaleRuntime({
         }
         observations.push({
             plannedId: id,
-            observedId: id,
+            observedId,
             ownershipStatus: owned ? 'owned' : 'unknown',
             action: `remove-${kind}`,
             actionExit,
@@ -1630,7 +1661,14 @@ export async function teardownDataScaleRuntime({
         && observations.every((item) => item.postExists === false)
         && portObservations.every((item) => item.postListeningPids.length === 0))
     {
-        fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
+        try
+        {
+            fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
+        }
+        catch (error)
+        {
+            failures.push(error instanceof Error ? error.message : String(error));
+        }
     }
     const receipt = createDataScaleTeardownReceipt({
         plan,

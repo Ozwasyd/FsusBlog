@@ -222,6 +222,12 @@ public sealed class CanonicalArticleLifecycleFixturePort(
         if (request.Plan.Variant is CanonicalArticleLifecycleVariants.Scheduled
             or CanonicalArticleLifecycleVariants.PublishedScheduledUpdate)
         {
+            if (scheduledAt.HasValue && scheduledAt.Value.Kind != DateTimeKind.Utc)
+            {
+                throw new CanonicalArticleLifecycleValidationException(
+                    "scheduled_at_must_be_utc",
+                    "Scheduled fixtures must bind an explicit UTC business-clock instant.");
+            }
             if (!scheduledAt.HasValue || scheduledAt.Value <= now)
             {
                 throw new CanonicalArticleLifecycleValidationException(

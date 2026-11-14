@@ -1750,5 +1750,118 @@
             "boundaryTags": [],
             "contentDigest": "sha256:2be85a2de0e3462acd3f963950a61af6a2d4224ca3bae36cd820d7868e133c19"
         }
+    ],
+    "entityShapes": [
+        {
+            "id": "article-comment-entity-lifecycle",
+            "schema": "fsusblog.temporal-entity-shape.v1",
+            "entityKinds": [
+                {
+                    "kind": "article",
+                    "states": [
+                        "draft",
+                        "scheduled",
+                        "published",
+                        "archived",
+                        "deleted"
+                    ],
+                    "revisionRequired": true,
+                    "publicationAllowed": true,
+                    "stateFacts": [
+                        "hasRevision",
+                        "hasPublication"
+                    ],
+                    "roles": [
+                        {
+                            "roleId": "article.created",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.revision",
+                            "presence": "hasRevision",
+                            "absent": "not-generated"
+                        },
+                        {
+                            "roleId": "article.metadata-updated",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.publication",
+                            "presence": "hasPublication",
+                            "absent": "not-generated"
+                        },
+                        {
+                            "roleId": "article.published",
+                            "presence": "hasPublication",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": [
+                        "article-lifecycle",
+                        "article-metadata-current"
+                    ]
+                },
+                {
+                    "kind": "comment",
+                    "states": [
+                        "approved",
+                        "pending",
+                        "rejected",
+                        "deleted"
+                    ],
+                    "revisionRequired": true,
+                    "publicationAllowed": false,
+                    "stateFacts": [
+                        "hasRevision",
+                        "hasEditTime",
+                        "hasModerationTime"
+                    ],
+                    "roles": [
+                        {
+                            "roleId": "comment.created",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "comment.edited",
+                            "presence": "hasEditTime",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "comment.moderated",
+                            "presence": "hasModerationTime",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": [
+                        "comment-lifecycle"
+                    ]
+                },
+                {
+                    "kind": "audit",
+                    "states": [
+                        "recorded"
+                    ],
+                    "revisionRequired": false,
+                    "publicationAllowed": false,
+                    "stateFacts": [],
+                    "roles": [
+                        {
+                            "roleId": "audit.occurred",
+                            "presence": "always",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": []
+                }
+            ],
+            "contentDigest": "sha256:7ed60d4d14c4ed0edc1fdbca85909daccaec62192e721634ba646e040f95e5f7",
+            "parentChronology": {
+                "roleId": "comment.created",
+                "operator": "<="
+            }
+        }
     ]
 }

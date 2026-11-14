@@ -278,7 +278,7 @@ test('current temporal domain producers have zero private clock residue', () =>
     const result = verifyTemporalShapeGovernance();
     assert.deepEqual(result, {
         catalogDigest: result.catalogDigest,
-        producerCount: 4,
+        producerCount: 6,
         roleCount: 64,
         shapeCount: 15,
         secondAuthorityCount: 0,
@@ -322,3 +322,18 @@ function readFile(relative)
 {
     return readFileSync(path.join(repositoryRoot, relative), 'utf8');
 }
+
+test('entity temporal shape keeps nullable lifecycle closure separate from the original scalar matrix', () =>
+{
+    const state = readTemporalShapeCatalog();
+    assert.equal(state.shapeIds.size, 15);
+    assert.equal(state.entityShapeIds.size, 1);
+    const shape = state.catalog.entityShapes[0];
+    assert.equal(shape.schema, 'fsusblog.temporal-entity-shape.v1');
+    const comment = shape.entityKinds.find((kind) => kind.kind === 'comment');
+    assert.deepEqual(comment.roles.map((role) => role.roleId), ['comment.created', 'comment.edited', 'comment.moderated']);
+    const incomplete = clone(state.catalog);
+    incomplete.entityShapes[0].entityKinds.find((kind) => kind.kind === 'comment').roles.splice(1, 1);
+    resign(incomplete.entityShapes[0]);
+    assert.throws(() => validateTemporalShapeCatalog(incomplete), /complete invariant role closure/u);
+});

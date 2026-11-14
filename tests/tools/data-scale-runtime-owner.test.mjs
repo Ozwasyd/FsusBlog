@@ -305,6 +305,49 @@ test('teardown receipt is complete only after every owned resource is absent', (
     assert.equal(leaked.status, 'blocked');
 });
 
+test('teardown cannot qualify missing ownership failed actions or ambiguous observations', (context) =>
+{
+    const root = temporaryRoot(context);
+    const ownerPlan = plan(root);
+    const input = {
+        plan: ownerPlan,
+        runtimeReceiptDigest: sha('7'),
+        startedAt: '2026-09-04T00:01:00Z',
+        finishedAt: '2026-09-04T00:02:00Z',
+        resourceObservations: Object.values(ownerPlan.resources).map((plannedId) => ({
+            plannedId, observedId: plannedId, ownershipStatus: 'owned',
+            action: 'remove', actionExit: 0, postExists: false
+        })),
+        portObservations: [{ port: 49152, postListeningPids: [] }],
+        rootObservations: Object.values(ownerPlan.roots).map((value) => ({ path: value, postExists: false })),
+        leaseObservations: [{ id: ownerPlan.dataScaleRunId, postStatus: 'released' }]
+    };
+    for (const patch of [
+        { ownershipStatus: 'unknown' }, { actionExit: 1 }, { actionExit: null },
+        { action: null }, { observedId: '' }
+    ])
+    {
+        const changed = structuredClone(input);
+        Object.assign(changed.resourceObservations[0], patch);
+        assert.equal(createDataScaleTeardownReceipt(changed).status, 'blocked', JSON.stringify(patch));
+    }
+    for (const field of ['resourceObservations', 'rootObservations', 'portObservations', 'leaseObservations'])
+    {
+        const changed = structuredClone(input);
+        changed[field].push({ ...changed[field][0] });
+        assert.equal(createDataScaleTeardownReceipt(changed).status, 'blocked', field);
+    }
+    const extra = structuredClone(input);
+    extra.resourceObservations.push({ ...extra.resourceObservations[0], plannedId: 'external-container' });
+    assert.equal(createDataScaleTeardownReceipt(extra).status, 'blocked');
+    const invalidPort = structuredClone(input);
+    invalidPort.portObservations[0].port = 0;
+    assert.equal(createDataScaleTeardownReceipt(invalidPort).status, 'blocked');
+    const invalidLease = structuredClone(input);
+    invalidLease.leaseObservations[0].id = '';
+    assert.equal(createDataScaleTeardownReceipt(invalidLease).status, 'blocked');
+});
+
 test('provision and teardown execute the dedicated topology and leave zero residue', async (context) =>
 {
     const root = temporaryRoot(context);
@@ -328,6 +371,10 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     const removed = new Set();
     const created = new Set();
     let helperResidue = '';
+    const resourceId = (name) => name === ownerPlan.resources.backendContainerName ? ids.backend
+        : name === ownerPlan.resources.postgresContainerName ? ids.postgres
+            : name === ownerPlan.resources.redisContainerName ? ids.redis
+                : name === ownerPlan.resources.networkName ? ids.network : name;
     let postgresConnectionCounts = '2|0\n';
     let redisClientAddress = '172.24.0.4';
     const calls = [];
@@ -582,7 +629,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
                 ? { Id: ids.network, Name: target, Labels: labels() }
                 : inspectKind === 'volume'
                     ? { Name: target, Labels: labels() }
-                    : { Id: target, Config: { Labels: labels() } };
+                    : { Id: resourceId(target), Config: { Labels: labels() } };
             return { status: 0, stdout: JSON.stringify([document]), stderr: '' };
         }
         if ((args[0] === 'rm')
@@ -591,7 +638,9 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         {
             const kind = args[0] === 'network' ? 'network'
                 : args[0] === 'volume' ? 'volume' : 'container';
-            removed.add(`${kind}:${args.at(-1)}`);
+            const targetId = args.at(-1);
+            const plannedName = Object.values(ownerPlan.resources).find((name) => resourceId(name) === targetId);
+            removed.add(`${kind}:${plannedName ?? targetId}`);
             return { status: 0, stdout: args.at(-1), stderr: '' };
         }
         return { status: 1, stdout: '', stderr: 'unexpected command' };
@@ -726,6 +775,17 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     });
     assert.equal(tornDown.receipt.status, 'complete');
     assert.equal(tornDown.receipt.runtimeReceiptDigest, provisioned.receipt.contentDigest);
+    for (const [name, id] of [
+        [ownerPlan.resources.backendContainerName, ids.backend],
+        [ownerPlan.resources.postgresContainerName, ids.postgres],
+        [ownerPlan.resources.redisContainerName, ids.redis],
+        [ownerPlan.resources.networkName, ids.network]
+    ])
+    {
+        assert.equal(tornDown.receipt.resources.find((resource) => resource.plannedId === name).observedId, id);
+        assert.ok(calls.some((call) => call.includes('rm') && call.at(-1) === id));
+        assert.ok(!calls.some((call) => call.includes('rm') && call.at(-1) === name));
+    }
     assert.equal(
         removed.size,
         7,

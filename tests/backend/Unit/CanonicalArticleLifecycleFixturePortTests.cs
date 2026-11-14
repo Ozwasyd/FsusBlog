@@ -114,6 +114,31 @@ public sealed class CanonicalArticleLifecycleFixturePortTests
         Assert.Equal("rollback_target_invalid", exception.Code);
     }
 
+    [Theory]
+    [InlineData(CanonicalArticleLifecycleVariants.Scheduled, DateTimeKind.Local)]
+    [InlineData(CanonicalArticleLifecycleVariants.Scheduled, DateTimeKind.Unspecified)]
+    [InlineData(CanonicalArticleLifecycleVariants.PublishedScheduledUpdate, DateTimeKind.Local)]
+    [InlineData(CanonicalArticleLifecycleVariants.PublishedScheduledUpdate, DateTimeKind.Unspecified)]
+    public async Task ScheduledNonUtc_FailsBeforeMutationFenceOrDatabase(string variant, DateTimeKind kind)
+    {
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IArticlePublicMutationFence fence = Substitute.For<IArticlePublicMutationFence>();
+        var port = new CanonicalArticleLifecycleFixturePort(
+            db,
+            new ConfigurationBuilder().Build(),
+            Substitute.For<IArticlePublicationValidator>(),
+            fence,
+            new FixedTimeProvider(new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)));
+        CanonicalArticleLifecyclePlan plan = Plan(variant,
+            scheduledPublishAt: new DateTime(2026, 9, 15, 12, 1, 0, kind));
+
+        CanonicalArticleLifecycleValidationException exception = await Assert.ThrowsAsync<CanonicalArticleLifecycleValidationException>(
+            () => port.ExecuteAsync(new CanonicalArticleLifecycleRequest(Binding(), plan)));
+
+        Assert.Equal("scheduled_at_must_be_utc", exception.Code);
+        await fence.DidNotReceive().BeginPublicMutationFenceAsync(Arg.Any<int?>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public void ReceiptDigest_IsBoundToVariantAndCoordinateLists()
     {

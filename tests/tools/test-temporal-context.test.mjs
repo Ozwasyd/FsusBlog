@@ -388,6 +388,51 @@ test('business wall clock advances explicitly without freezing monotonic measure
     );
 });
 
+test('business epoch ingress rejects normalized calendar dates before clock construction', () =>
+{
+    for (const businessEpochUtc of [
+        '2023-02-29T12:00:00Z',
+        '2024-02-30T12:00:00.000Z',
+        '2024-04-31T12:00:00.0000000Z',
+        '2024-02-29T24:00:00Z',
+        '0000-01-01T00:00:00Z'
+    ])
+    {
+        assert.ok(Number.isFinite(Date.parse(businessEpochUtc)));
+        assert.throws(() => qualificationTemporalContext({ ...identity, businessEpochUtc }),
+            (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.context-invalid');
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            assert.throws(() => project({ businessEpochUtc, articleCount: 1, commentCount: 1 }),
+                (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.context-invalid');
+        }
+    }
+});
+
+test('business epoch ingress preserves valid leap century and boundary dates', () =>
+{
+    for (const businessEpochUtc of [
+        '0001-01-01T00:00:00Z',
+        '2000-02-29T00:00:00.000Z',
+        '2024-02-29T23:59:59.1230000Z',
+        '9999-12-31T23:59:59.999Z'
+    ])
+    {
+        const wall = createBusinessWallClock(qualificationTemporalContext({ ...identity, businessEpochUtc }));
+        assert.equal(wall.nowIso(), businessEpochUtc);
+    }
+});
+
+test('advancement cannot leave the backend calendar range or alter the admitted instant on rejection', () =>
+{
+    const businessEpochUtc = '9999-12-31T23:59:59.999Z';
+    const wall = createBusinessWallClock(qualificationTemporalContext({ ...identity, businessEpochUtc }));
+    assert.throws(() => wall.advanceMs(1),
+        (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.context-invalid');
+    assert.equal(wall.nowIso(), businessEpochUtc);
+    assert.equal(wall.advanceMs(0), businessEpochUtc);
+});
+
 test('business epoch ingress rejects nonzero submillisecond digits before clock construction', () =>
 {
     for (const businessEpochUtc of [
