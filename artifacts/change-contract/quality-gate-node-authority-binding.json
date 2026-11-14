@@ -7,7 +7,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "70f6f4ee826e7355aaf900c78f32cb361107964c34a915efbabae97c77046a86"
+            "sha256": "dc9fcca8e1eb264183197c05b17ac13ebfe3d455c36f396015ca933d471376b5"
         },
         {
             "path": "tools/style/markdown-toolchain/package-lock.json",
