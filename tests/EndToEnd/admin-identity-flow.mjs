@@ -10,6 +10,7 @@ import { PodReader } from '../../src/Contracts/binary.ts'
 import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
+import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
 import { verifyAdminInbox } from './admin-inbox-flow.mjs'
 import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
@@ -32,6 +33,8 @@ const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
 const taxonomyGrant = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT
 const taxonomyRevoke = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE
 const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
+const sitePagesGrant = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT
+const sitePagesRevoke = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE
 assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
   'Provide isolated site/admin origins and two unused one-time fixture keys.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
@@ -42,7 +45,8 @@ assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !val
 const taxonomyFixture = [taxonomyGrant, taxonomyRevoke, taxonomySeed]
 assert(taxonomyFixture.every(Boolean) || taxonomyFixture.every(value => !value),
   'Provide grant, revoke and seed executables together for taxonomy acceptance.')
-assert([moderatorGrant, auditGrant, taxonomyGrant].filter(Boolean).length <= 1,
+assert(Boolean(sitePagesGrant) === Boolean(sitePagesRevoke), 'Provide both offline site-page permission executables.')
+assert([moderatorGrant, auditGrant, taxonomyGrant, sitePagesGrant].filter(Boolean).length <= 1,
   'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
@@ -231,6 +235,14 @@ try {
     checks.taxonomyRequiresIndependentGrant = true
     checks.taxonomyCountersAndCursorUseStoredRevisions = true
     checks.taxonomyGrantAndRevokeInvalidateOldSessions = true
+  }
+
+  if (sitePagesGrant) {
+    phase = 'site-page-permission'
+    finalCookie = await verifyAdminSitePages({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
+      priorCookie: finalCookie, grant: sitePagesGrant, revoke: sitePagesRevoke, logIn, probe: credentialProbe, readCookie, evidence })
+    checks.pageReadsRequireIndependentSystemConfig = true
+    checks.pageReadsMatchPublicAedsAndExcludeSiteHostAndWrites = true
   }
 
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1') {

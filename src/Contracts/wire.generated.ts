@@ -44,6 +44,7 @@ export const FrameType = {
   SiteSessionList: 32796,
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
+  AdminSitePages: 32905,
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
   AdminInboxPage: 32896,
@@ -449,6 +450,8 @@ export const WireRoutes = {
   AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
   AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
+  AdminSitePages: "/api/v2/admin/identity/site-pages.aeds",
+  AdminSitePage: "/api/v2/admin/identity/site-pages/{slug}.aeds",
   AdminCategories: "/api/v2/admin/identity/taxonomy/categories.aeds",
   AdminTags: "/api/v2/admin/identity/taxonomy/tags.aeds",
   AdminCommentQueue: "/api/v2/admin/identity/comments/queue.aeds",
@@ -801,6 +804,25 @@ export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperation
     publicationWatermark: reader.i64(),
     pendingPublicationEvents: reader.i64(),
     oldestPendingAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminSitePages {
+  configuredMask: number;
+}
+
+export function encodeAdminSitePages(value: AdminSitePages): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.configuredMask);
+  return writer.finish();
+}
+
+export function decodeAdminSitePages(payload: Uint8Array): AdminSitePages {
+  const reader = new PodReader(payload);
+  const value: AdminSitePages = {
+    configuredMask: reader.i32(),
   };
   reader.finish();
   return value;

@@ -6,9 +6,16 @@ import Caddyfile
 
 	@wrong_tls_host expression `{http.request.tls.server_name}.lowerAscii() != {http.request.host}.lowerAscii()`
 	@admin_routes path /admin/identity /api/v2/admin/identity/* /assets/* /dist/*
+	@admin_page_read {
+		method GET
+		path_regexp admin_page_read (?i)^/api/binary/system/admin/page/[^/]+/?$
+	}
 	route {
 		respond @wrong_tls_host 421
 		handle @admin_routes {
+			import fsusblog_upstream
+		}
+		handle @admin_page_read {
 			import fsusblog_upstream
 		}
 		respond 404

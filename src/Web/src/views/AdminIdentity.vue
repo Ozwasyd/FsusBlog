@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
+import AdminSitePages from './AdminSitePages.vue'
 import AdminInbox from './AdminInbox.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
@@ -200,6 +201,7 @@ function logOut() {
       </div>
     </section>
     <AdminTaxonomy v-if="authority?.status === 'active'" :key="authority.session.generation.toString()" @session-lost="handleSessionLoss" />
+    <AdminSitePages v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
     <p v-else-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
     <template v-else-if="authority?.status === 'signed-out'">
       <p v-if="!canUsePasskeys">Use a secure origin and a browser that supports Passkeys.</p>

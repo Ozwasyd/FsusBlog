@@ -325,6 +325,7 @@ enum class FrameType : uint16_t {
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminSitePages = 32905,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -431,6 +432,7 @@ constexpr bool known(FrameType type) {
         case FrameType::SiteSessionList:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
+        case FrameType::AdminSitePages:
         case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
         case FrameType::AdminInboxPage:

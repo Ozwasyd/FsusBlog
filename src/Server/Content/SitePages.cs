@@ -22,12 +22,24 @@ internal sealed class SitePages
     private readonly FrozenDictionary<string, Page> current;
     internal IReadOnlyList<string> ConfiguredPaths { get; }
 
+    internal int ConfiguredMask { get; }
+
+    internal byte[] ConfiguredPage(string slug)
+    {
+        if (slug.Length > WireLayouts.PageContentSlugBytes || !slug.All(char.IsAsciiLetter) ||
+            !current.TryGetValue(slug, out var page) || !page.Configured)
+            throw new BusinessException(Rejection.NotFound, "Site page not found.");
+        return page.Frame;
+    }
+
     internal SitePages(IConfiguration configuration, WebPages renderer)
     {
         var configuredRoot = configuration["FSUSBLOG_SITE_PAGES"];
         var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
         current = Definitions.ToFrozenDictionary(spec => spec.Slug,
             spec => Build(spec, root, renderer), StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < Definitions.Length; index++)
+            if (current[Definitions[index].Slug].Configured) ConfiguredMask |= 1 << index;
         ConfiguredPaths = Definitions.Where(spec => current[spec.Slug].Configured)
             .Select(spec => "/" + spec.Slug).ToArray();
     }

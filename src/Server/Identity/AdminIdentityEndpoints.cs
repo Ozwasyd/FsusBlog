@@ -24,7 +24,7 @@ internal static class AdminIdentityEndpoints
     internal static bool IsAllowed(HttpContext ctx, PasskeyConfiguration? config)
     {
         var path = ctx.Request.Path;
-        var administration = path == PagePath || path.StartsWithSegments(ApiPath);
+        var administration = path == PagePath || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path);
         if (config is null) return !administration;
         var isAdminOrigin = string.Equals(config.Origin.Scheme, ctx.Request.Scheme, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(config.Origin.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
@@ -112,6 +112,7 @@ internal static class AdminIdentityEndpoints
             .RequireRateLimiting("command");
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session);
+        AdminSitePages.Map(app, store, session);
         app.MapGet(WireRoutes.AdminCategories, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], false, ctx.Request.Query, publications, ct))))
             .RequireRateLimiting("command");

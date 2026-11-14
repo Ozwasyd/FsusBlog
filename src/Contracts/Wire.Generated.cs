@@ -45,6 +45,7 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminSitePages = 32905,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -454,6 +455,8 @@ public static class WireRoutes
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminSitePages = "/api/v2/admin/identity/site-pages.aeds";
+    public const string AdminSitePage = "/api/v2/admin/identity/site-pages/{slug}.aeds";
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
@@ -552,6 +555,7 @@ public sealed record AdminModerationDecision(int ArticleId, long CommentId, int 
 public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
+public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
@@ -774,6 +778,23 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
         var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminSitePages(AdminSitePages value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ConfiguredMask);
+        return Aeds.Encode(FrameType.AdminSitePages, writer.Written);
+    }
+
+    public static AdminSitePages DecodeAdminSitePages(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePages));
+        var value = new AdminSitePages(reader.I32());
         reader.Finish();
         Validate(value);
         return value;

@@ -17,7 +17,7 @@ internal static partial class Migration
         {
             ["bootstrap", var name, CurrentSchema.AdminManagePermission] => ("bootstrap", name, null),
             ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission or CurrentSchema.CommentModeratePermission
-                or CurrentSchema.ArticleWritePermission] =>
+                or CurrentSchema.ArticleWritePermission or CurrentSchema.SystemConfigPermission] =>
                 (arguments[0], name, arguments[2]),
             ["rotate-passkey" or "revoke-all" or "disable", var name] => (arguments[0], name, null),
             _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read|comment.moderate|article.write, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
@@ -153,8 +153,9 @@ internal static partial class Migration
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
             await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
             await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
+            await ApplySchemaAddition(connection, tx, "system-config-admin.sql", ct);
         }
-        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (>= 1 and <= 5) and var previousVersion)
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (>= 1 and < CurrentSchema.AdminIdentityVersion) and var previousVersion)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
@@ -168,12 +169,16 @@ internal static partial class Migration
                     """, ct);
             if (previousVersion < 5)
                 await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
-            await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
-            await ExecuteAsync(connection, tx, """
-                alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
-                update public.admin_identity_schema set version=6 where singleton and version between 1 and 5;
-                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=6);
-                """, ct);
+            if (previousVersion < 6)
+            {
+                await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
+                await ExecuteAsync(connection, tx, """
+                    alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
+                    update public.admin_identity_schema set version=6 where singleton and version between 1 and 5;
+                    alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=6);
+                    """, ct);
+            }
+            await ApplySchemaAddition(connection, tx, "system-config-admin.sql", ct);
         }
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,

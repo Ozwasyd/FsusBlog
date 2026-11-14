@@ -56,6 +56,7 @@
     "SiteSessionList": 32796,
     "AdminSessionSnapshot": 32830,
     "AdminOperationsStatus": 32850,
+    "AdminSitePages": 32905,
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
     "AdminInboxPage": 32896,
@@ -182,6 +183,8 @@
     "AdminStepUpBegin": "/api/v2/admin/identity/step-up/passkey/begin.aeds",
     "AdminStepUpComplete": "/api/v2/admin/identity/step-up/passkey/complete.aeds",
     "AdminOperationsStatus": "/api/v2/admin/identity/operations/status.aeds",
+    "AdminSitePages": "/api/v2/admin/identity/site-pages.aeds",
+    "AdminSitePage": "/api/v2/admin/identity/site-pages/{slug}.aeds",
     "AdminCategories": "/api/v2/admin/identity/taxonomy/categories.aeds",
     "AdminTags": "/api/v2/admin/identity/taxonomy/tags.aeds",
     "AdminCommentQueue": "/api/v2/admin/identity/comments/queue.aeds",
@@ -569,6 +572,10 @@
     "AdminOperationsStatus": {
       "frame": "AdminOperationsStatus",
       "fields": [["SnapshotReady", "bool"], ["PublicationWatermark", "i64"], ["PendingPublicationEvents", "i64"], ["OldestPendingAt", "i64"]]
+    },
+    "AdminSitePages": {
+      "frame": "AdminSitePages",
+      "fields": [["ConfiguredMask", "i32"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

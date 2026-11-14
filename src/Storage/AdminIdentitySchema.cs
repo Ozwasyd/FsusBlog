@@ -8,13 +8,14 @@ namespace FsusBlogV2.Storage;
 internal static partial class CurrentSchema
 {
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
-    internal const int AdminIdentityVersion = 6;
+    internal const int AdminIdentityVersion = 7;
     private const int AdminStepUpVersion = 5;
     private const int AdminModerationVersion = 6;
     internal const string AdminManagePermission = "admin.manage";
     internal const string AuditReadPermission = "audit.read";
     internal const string CommentModeratePermission = "comment.moderate";
     internal const string ArticleWritePermission = "article.write";
+    internal const string SystemConfigPermission = "system.config";
 
     private static readonly string[] AdminIdentityColumns =
     [
@@ -74,7 +75,7 @@ internal static partial class CurrentSchema
     private static string[] GetAdminIdentityColumns(int version) => version switch
     {
         AdminStepUpVersion => [.. AdminIdentityColumns, AdminStepUpColumns],
-        AdminModerationVersion =>
+        AdminModerationVersion or AdminIdentityVersion =>
         [
             .. AdminIdentityColumns, AdminStepUpColumns,
             "admin_comment_claim article_id:int4 comment_id:int8 principal_id:uuid session_digest:bytea admin_generation:int8 claim_digest:bytea claim_generation:int8 claim_version:int8 claimed_comment_version:int8 expires_at:timestamptz state:int2",
@@ -83,7 +84,7 @@ internal static partial class CurrentSchema
         _ => AdminIdentityColumns
     };
 
-    private const string CurrentPermissionConstraint = "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text";
+    private const string PriorPermissionConstraint = "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text";
 
     private static readonly string[] AdminStepUpConstraints =
     [
@@ -124,20 +125,20 @@ internal static partial class CurrentSchema
         [
             .. AdminIdentityConstraints,
             "admin_identity_schema c version version=4",
-            CurrentPermissionConstraint
+            PriorPermissionConstraint
         ],
         AdminStepUpVersion =>
         [
             .. AdminIdentityConstraints,
             "admin_identity_schema c version version=5",
-            CurrentPermissionConstraint,
+            PriorPermissionConstraint,
             .. AdminStepUpConstraints
         ],
-        AdminModerationVersion =>
+        AdminModerationVersion or AdminIdentityVersion =>
         [
             .. AdminIdentityConstraints,
-            "admin_identity_schema c version version=6",
-            CurrentPermissionConstraint,
+            $"admin_identity_schema c version version={version}",
+            version == AdminIdentityVersion ? PriorPermissionConstraint + "ORpermission='system.config'::text" : PriorPermissionConstraint,
             .. AdminStepUpConstraints,
             "admin_comment_claim p article_id,comment_id",
             "admin_comment_claim f article_id,comment_id public.comment_submit_command:article_id,comment_id",
