@@ -19,3 +19,24 @@ caddy run --config deploy/Caddyfile --adapter caddyfile
 ```
 
 证书由部署方更新并重启代理进程。测试使用按次生成的回环证书及独立 CA，通过同一 Caddyfile 验证代理、来源、Cookie 和会话。生产证书和外部网络仍需在实际部署验证。见[本机负载与代理入口](../tests/Performance/README.md)。
+
+## 独立管理域名
+
+启用管理员登录时使用 `Caddyfile.admin`。它从同目录的 `Caddyfile` 导入公开站点和回环上游规则。两个文件一起分发，单独使用 `Caddyfile` 仍可提供纯公开站点部署。
+
+为 Caddy 追加管理域名和证书设置，给 Kestrel 设置匹配的管理来源和 RP ID。公开来源应与 `FSUSBLOG_PUBLIC_ADDRESS` 一致。每个证书必须覆盖对应主机的 SAN。也可以为两个主机指定同一份包含两者的证书链和密钥。
+
+```bash
+export FSUSBLOG_ADMIN_ADDRESS=https://manage.example.org
+export FSUSBLOG_ADMIN_TLS_CERTIFICATE=/srv/fsusblog/admin-tls/fullchain.pem
+export FSUSBLOG_ADMIN_TLS_KEY=/srv/fsusblog/admin-tls/privkey.pem
+export FSUSBLOG_PUBLIC_ORIGIN=https://blog.example.org
+export FSUSBLOG_ADMIN_ORIGIN=https://manage.example.org
+export FSUSBLOG_ADMIN_RP_ID=manage.example.org
+caddy validate --config deploy/Caddyfile.admin --adapter caddyfile
+caddy run --config deploy/Caddyfile.admin --adapter caddyfile
+```
+
+管理主机只向上游转发 `/admin/identity`、`/api/v2/admin/identity/*`、`/assets/*` 和 `/dist/*`。管理主机要求 TLS SNI 与 HTTP Host 匹配。Caddy 按真实 TLS 请求重建转发头，站点账号和管理员凭据各自按主机与权限验证。管理员 Cookie 使用 `__Host-` 前缀，完成 Passkey 登录后才签发。域名、公网证书和网络接入策略需要部署方验证。 [Caddy 的 SNI 和 Host 说明](https://caddyserver.com/docs/caddyfile/options#strict-sni-host)
+
+`tests/EndToEnd/run-admin-tls.sh` 使用两个独立的环回证书、原生 PostgreSQL 和 Chrome 虚拟 CTAP2 验证此配置。为脚本设置测试数据库连接 `FSUSBLOG_TEST_DB` 及配套的 `PGHOST`、`PGPORT`、`PGUSER`。可通过 `FSUSBLOG_NATIVE_SERVER_BUILD`、`FSUSBLOG_NATIVE_MIGRATE_BUILD` 和 `FSUSBLOG_WEB_DIST` 指向解包后的发布产物。测试只为子进程设置证书信任，结束后移除临时数据库、私钥和监听进程。 [Chrome 测试证书用法](https://github.com/GoogleChrome/samples/blob/gh-pages/webtransport/webtransport_server.py)

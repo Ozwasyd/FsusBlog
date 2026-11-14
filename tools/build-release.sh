@@ -82,7 +82,7 @@ for name in ep_wasm markdown_basic markdown_simd; do
     exit 1
   fi
 done
-cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/README.md" "$scratch/package/"
+cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin" "$scratch/source/deploy/README.md" "$scratch/package/"
 {
   printf 'fsusblog_commit=%s\nfsusui_commit=%s\n' "$rev" "$ui_rev"
   printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\nmigrate=migrate/FsusBlogV2.Migrate.dll\n'

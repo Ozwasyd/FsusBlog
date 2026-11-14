@@ -1,0 +1,16 @@
+import Caddyfile
+
+{$FSUSBLOG_ADMIN_ADDRESS} {
+	bind {$FSUSBLOG_PROXY_BIND:0.0.0.0}
+	tls {$FSUSBLOG_ADMIN_TLS_CERTIFICATE} {$FSUSBLOG_ADMIN_TLS_KEY}
+
+	@wrong_tls_host expression `{http.request.tls.server_name}.lowerAscii() != {http.request.host}.lowerAscii()`
+	@admin_routes path /admin/identity /api/v2/admin/identity/* /assets/* /dist/*
+	route {
+		respond @wrong_tls_host 421
+		handle @admin_routes {
+			import fsusblog_upstream
+		}
+		respond 404
+	}
+}

@@ -1,6 +1,6 @@
 # 独立管理员身份
 
-管理员从 `/admin/identity` 注册和使用 Passkey。运行时配置 `FSUSBLOG_ADMIN_ORIGIN` 和 `FSUSBLOG_ADMIN_RP_ID`。管理员域名必须和公开站点 `FSUSBLOG_PUBLIC_ORIGIN` 及站点账号的 Passkey RP 区分。线上使用 HTTPS。原生验收在环回地址使用 `localhost` 作为管理端，并通过 `127.0.0.1` 访问站点。反向代理应为管理域名传递原始 Host，仅转发管理员页面、身份 AEDS API 和静态资源，应用也会拒绝在该域名访问公开站点及站点账号入口。
+管理员从 `/admin/identity` 注册和使用 Passkey。运行时配置 `FSUSBLOG_ADMIN_ORIGIN` 和 `FSUSBLOG_ADMIN_RP_ID`。管理员域名必须和公开站点 `FSUSBLOG_PUBLIC_ORIGIN` 及站点账号的 Passkey RP 区分。线上使用 HTTPS。原生验收在环回地址使用 `https://localhost` 作为管理端，并通过 `https://127.0.0.1` 访问站点。反向代理保留原始 Host，仅转发管理员页面、身份 AEDS API 和静态资源，应用也会拒绝在该域名访问公开站点及站点账号入口。 [双主机部署配置](../../deploy/README.md#独立管理域名)
 
 通过受控的数据库操作员运行 `admin-identity bootstrap HANDLE admin.manage`。命令建立独立主体，提交后输出一枚十分钟内有效的一次性引导密钥。浏览器在管理域完成要求用户验证的可发现 Passkey 注册，引导密钥和挑战随后失效。注册本身不签发会话。重新用 Passkey 登录后，当前浏览器获得独立的 HttpOnly、SameSite=Strict 凭据。线上使用 Secure 和 `__Host-` 前缀将凭据限定在管理主机，环回验收使用限路径的独立 Cookie。每个管理员只有一个两小时有效的会话，完成新的 Passkey 验证会原子地撤销旧会话。
 

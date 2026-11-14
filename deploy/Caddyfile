@@ -6,10 +6,7 @@
 	}
 }
 
-{$FSUSBLOG_PUBLIC_ADDRESS} {
-	bind {$FSUSBLOG_PROXY_BIND:0.0.0.0}
-	tls {$FSUSBLOG_TLS_CERTIFICATE} {$FSUSBLOG_TLS_KEY}
-
+(fsusblog_upstream) {
 	reverse_proxy 127.0.0.1:{$FSUSBLOG_UPSTREAM_PORT} {
 		header_up -Forwarded
 		header_up -X-Original-For
@@ -24,4 +21,10 @@
 			compression off
 		}
 	}
+}
+
+{$FSUSBLOG_PUBLIC_ADDRESS} {
+	bind {$FSUSBLOG_PROXY_BIND:0.0.0.0}
+	tls {$FSUSBLOG_TLS_CERTIFICATE} {$FSUSBLOG_TLS_KEY}
+	import fsusblog_upstream
 }

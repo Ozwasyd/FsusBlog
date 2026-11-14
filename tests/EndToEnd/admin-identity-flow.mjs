@@ -33,13 +33,19 @@ const {
   Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
 } = WireRoutes
 const secureAdmin = adminOrigin.protocol === 'https:'
+const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
+if (pins !== undefined) {
+  assert(secureAdmin && siteOrigin.protocol === 'https:' &&
+    /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins), 'TLS fixtures need two SHA-256 leaf public-key pins.')
+}
 const adminCookieName = secureAdmin ? '__Host-FsusAdminSession' : 'fsus-v2-admin-session'
 const siteCookieName = 'fsus-v2-session'
 const checks = {}
 const responses = []
 const faults = []
 const startedAt = new Date().toISOString()
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
+  args: pins ? [`--ignore-certificate-errors-spki-list=${pins}`] : [] })
 let phase = 'site-session'
 let failure
 try {
@@ -71,6 +77,7 @@ try {
   await site.waitForURL(siteOrigin.origin + '/user/manage/article/write')
   const siteCookie = await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)
   assert.equal(siteCookie.httpOnly, true)
+  assert.equal(siteCookie.secure, siteOrigin.protocol === 'https:')
   const siteState = await context.request.get(siteOrigin.origin + siteSession)
   assert.equal(decodeFrame(await siteState.body()).type, FrameType.OperatorSession)
   await credentialProbe(adminOrigin.origin + adminSession, siteCookieName, siteCookie.value, 401)
@@ -78,7 +85,12 @@ try {
   checks.siteSessionCannotAuthorizeAdmin = true
 
   phase = 'bootstrap'
-  await admin.goto(adminPage)
+  const landing = await admin.goto(adminPage)
+  if (secureAdmin) {
+    assert.match((await landing.securityDetails())?.protocol ?? '', /^TLS/)
+    assert.equal(await admin.evaluate(() => window.isSecureContext), true)
+    checks.realHttpsWebAuthnContext = true
+  }
   await admin.getByRole('heading', { name: 'Administrator access', exact: true }).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
@@ -106,6 +118,7 @@ try {
   assert.equal(oldCookie.sameSite, 'Strict')
   assert.equal(oldCookie.path, secureAdmin ? '/' : adminPath)
   assert.equal(oldCookie.secure, secureAdmin)
+  assert.equal(oldCookie.domain, adminOrigin.hostname)
   assertNoCredential(initial.body, oldCookie.value)
   await rejectReplay(context, firstLogin)
   assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === oldCookie.value,
