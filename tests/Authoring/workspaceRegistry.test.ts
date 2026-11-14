@@ -172,6 +172,25 @@ test('a draft whose first creation response was lost keeps the exact key and pay
   assert.equal(registry.tabs.length, 1)
 })
 
+test('a rejected draft keeps local edits and allows a corrected request with a new key', async () => {
+  const keys: string[] = []
+  const registry = setup({
+    save: async (item, _signal, key) => {
+      keys.push(key)
+      return keys.length === 1 ? { kind: 'rejected' } : { kind: 'saved', draft: { ...item, revision: 2n } }
+    },
+  })
+  const tab = await activate(registry, 1)
+  registry.updateDraft(tab, draft(1, 1n, 'first edit'))
+  assert.deepEqual(await registry.save(tab), { kind: 'rejected' })
+  assert.equal(registry.activeDraft?.body, 'first edit')
+  assert.equal(registry.activeTab?.risk, 'dirty')
+  assert.equal(registry.activeTab?.retry, undefined)
+  registry.updateDraft(tab, draft(1, 1n, 'corrected'))
+  assert.deepEqual(await registry.save(tab), { kind: 'saved', articleId: 1, revision: 2n })
+  assert.notEqual(keys[0], keys[1])
+})
+
 test('publication rejects dirty and unsaved drafts, and fences edits while writing', async () => {
   const pending = deferred<DraftSave<Draft>>()
   const registry = setup()

@@ -71,6 +71,7 @@ app.Use(async (ctx, next) =>
                 Rejection.Invalid => 400, Rejection.Unauthorized => 401, Rejection.Forbidden => 403,
                 Rejection.NotFound => 404, Rejection.Conflict => 409, _ => 500
             }, err.Message),
+            PublicListFailure err => (err.Status, err.Message),
             ProtocolException => (400, "Invalid AEDS payload."),
             BadHttpRequestException bad => (bad.StatusCode, "Invalid HTTP request."),
             PublicUnavailableException or NpgsqlException => (503, "This operation is temporarily unavailable."),
@@ -78,7 +79,7 @@ app.Use(async (ctx, next) =>
         };
         if (status >= 500) app.Logger.LogError(ex, "Request {TraceId} failed", ctx.TraceIdentifier);
         var result = ctx.Request.Path.StartsWithSegments("/api")
-            ? Error(ctx, status, message) : Results.Text(message, "text/plain; charset=utf-8", statusCode: status);
+            ? Error(ctx, status, message, (ex as PublicListFailure)?.Details) : Results.Text(message, "text/plain; charset=utf-8", statusCode: status);
         await result.ExecuteAsync(ctx);
     }
 });
@@ -91,9 +92,11 @@ foreach (var asset in new[] { "assets", "dist" })
 }
 app.UseRateLimiter();
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor);
+FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 
-app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, page, size)).RequireRateLimiting("query");
-app.MapGet("/api/binary/article/list/archive/{page:int}/{size:int}.aeds", (HttpContext ctx, int page, int size) => PublicList(ctx, page, size)).RequireRateLimiting("query");
+app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");
+app.MapGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) => PublicList(ctx, "archive", page, size)).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicArticle, (HttpContext ctx, int id) => Snapshot(ctx).Article(id) is { } article
     ? Results.Bytes(article.Wire, Binary) : Error(ctx, 404, "Article not found."));
 app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Search(Query(ctx, "q", 256)), Binary)).RequireRateLimiting("query");
@@ -138,18 +141,22 @@ var shell = app.Services.GetRequiredService<WebPages>().Page();
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => Snapshot(ctx).Article(id) is { } article
     ? Results.Bytes(article.Html, Html) : Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404));
-foreach (var route in new[] { "/archive", "/search", "/login", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
+foreach (var route in new[] { "/archive", "/search", "/login", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));
 await app.RunAsync();
 
-IResult PublicList(HttpContext ctx, int page, int size)
+IResult PublicList(HttpContext ctx, string scope, int page, int size) =>
+    Results.Bytes(Snapshot(ctx).List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
+        ReadListCursor(ctx), ctx.RequestAborted), Binary);
+
+static string? ReadListCursor(HttpContext ctx)
 {
-    var sort = Query(ctx, "sort", 20);
-    if (page < 1 || size is < 1 or > 100 || Query(ctx, "cursor", 512) is not null || sort is not (null or "oldest" or "newest"))
-        return Error(ctx, 400, "Unsupported page, size, cursor, or sort.");
-    return Results.Bytes(Snapshot(ctx).List(page, size, Query(ctx, "keyword", 256), sort), Binary);
+    if (!ctx.Request.Query.TryGetValue("cursor", out var values)) return null;
+    if (values.Count != 1 || values[0] is not { Length: > 0 and <= WireLayouts.ArticleListCursorMaxBytes } value)
+        throw PublicListFailure.InvalidCursor();
+    return value;
 }
 
 void Mutation(string path, ArticleAction action)
@@ -221,10 +228,10 @@ static IResult DraftResponse(ArticleState state) =>
     Results.Bytes(Wire.EncodeDraft(new(state.Id, state.Revision, state.Title, state.Body, state.PublishedRevision is not null)), Binary);
 
 static void NoStore(HttpContext ctx) => ctx.Response.Headers.CacheControl = "no-store";
-static IResult Error(HttpContext ctx, int status, string message)
+static IResult Error(HttpContext ctx, int status, string message, string? details = null)
 {
     NoStore(ctx);
-    return new AedsError(status, Wire.EncodeError(status, message, traceId: ctx.TraceIdentifier));
+    return new AedsError(status, Wire.EncodeError(status, message, details, ctx.TraceIdentifier));
 }
 
 internal sealed record AedsError(int Status, byte[] Packet) : IResult

@@ -31,8 +31,12 @@ const retry = computed(() => tab.value?.retry)
 const conflicts = computed(() => tab.value?.risk === 'conflict')
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(original.value?.title.trim() ?? '').length)
-const validTitle = computed(() => titleLength.value > 0 && titleLength.value <= WireLimits.TitleBytes)
-const validBody = computed(() => encoder.encode(original.value?.body ?? '').length <= WireLimits.BodyBytes)
+const validTitle = computed(() => titleLength.value > 0 && titleLength.value <= WireLimits.TitleBytes
+  && !/[\x00-\x1f\x7f-\x9f]/.test(original.value?.title.trim() ?? ''))
+const validBody = computed(() => {
+  const body = original.value?.body ?? ''
+  return body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
+})
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
 const cannotWrite = computed(() => pending.value || conflicts.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
@@ -61,13 +65,16 @@ const send = (action: Action) => async (draft: Draft, signal: AbortSignal, idemp
     const stored = await api[action]({
       id: draft.id,
       expectedRevision: draft.revision,
-      title: draft.title,
-      body: draft.body,
+      title: action === 'save' ? draft.title.trim() : '',
+      body: action === 'save' ? draft.body : '',
       idempotencyKey,
     }, signal)
     return { kind: 'saved', draft: stored }
   } catch (error) {
-    if (error instanceof ApiError && error.status === 409) return { kind: 'conflict' }
+    if (error instanceof ApiError) {
+      if (error.status === 409) return { kind: 'conflict' }
+      if (error.status === 400) return { kind: 'rejected' }
+    }
     return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : workspaceBlock(error) }
   }
 }
@@ -88,7 +95,7 @@ const unsubscribe = registry.subscribe(() => {
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
   registry.setIdentity(session?.canAuthor
-    ? { site: location.origin, principalId: String(epoch), generation: session.generation }
+    ? { site: location.origin, principalId: String(epoch), generation: session.generation, expiresAt: session.expiresAt }
     : null)
 }, { immediate: true, flush: 'sync' })
 
@@ -139,13 +146,13 @@ async function allowLeave() {
   if (current.risk === 'saving' || current.risk === 'pending' || current.retry) return false
   const revision = registry.revision
   try {
-    await ElMessageBox.confirm('Your changes will be lost if you leave this page.', 'Discard unsaved changes?', {
+    const outcome = await ElMessageBox.confirm('Your changes will be lost if you leave this page.', 'Discard unsaved changes?', {
       type: 'warning',
       confirmButtonText: 'Discard changes',
       cancelButtonText: 'Keep writing',
       closeOnClickModal: false,
     })
-    return registry.discard(current, revision).kind === 'closed'
+    return outcome.ok && registry.discard(current, revision).kind === 'closed'
   } catch {
     return false
   }
@@ -180,6 +187,8 @@ async function submit(action: Action) {
     failure.value = 'The server has a newer revision. Copy your changes before loading it.'
   } else if (result.kind === 'blocked') {
     failure.value = failureByReason[result.reason]
+  } else if (result.kind === 'rejected') {
+    failure.value = 'The server rejected this change. Check the draft and try again.'
   }
 }
 
@@ -230,7 +239,7 @@ async function reloadDraft() {
       <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
       <label for="article-body">Body</label>
       <ElMarkdownEditor
-        v-if="nativeMarkdown" textarea-id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
+        v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
         :disabled="pending" :show-actions="false"
       />
       <template v-else>

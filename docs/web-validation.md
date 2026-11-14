@@ -29,6 +29,10 @@ FSUSBLOG_TEST_REQUIRE_NATIVE=1 \
 node tests/EndToEnd/blog-flow.mjs
 ```
 
-当前 PostgreSQL 服务端不可用，完整脚本未执行。实机 Chrome 烟测与单独 alias 探针日志保存在本轮临时证据目录。
+真实闭环已在本机 PostgreSQL 18.7、.NET 10.0.302、Chrome 157.0.8103.51、Playwright 1.59.1 和重新构建的 FsusUI Wasm 上通过。
+
+最近一轮完整证据位于 `artifacts/native-e2e-fsusv2-e2e.kbjzwL/`。`run.txt` 记录 `exit=0` 和 `cleanup=1`，`browser-result.json` 记录原生 Markdown 必需、零额外诊断、CAS 返回 409、服务端登出返回 200 以及原浏览器会话随后的拒绝。真实浏览器也验证了首页游标前进和后退、发布后的旧游标恢复、分类数据和空状态，以及旧标签名称跳转到数字地址。此轮关联开发中的文件状态与具体构建摘要，提交后可用同一入口复跑。
+
+运行 `bash tests/EndToEnd/run-native.sh` 会用独立的 Unix socket 建立临时数据库、运行迁移、导入固定公开文章与分类标签夹具、启动 V2 服务和浏览器，再核验清理。验收覆盖公开页与 AEDS 使用同一发布坐标，私有修订不会替换已发布正文，撤回后详情和本地索引均不可见，旧修订冲突保留本地编辑。取消离开也经过真实 FsusUI 对话框验证。证据目录含桌面登录/编辑、375px 暗色首页/文章/搜索截图、浏览器结果、服务日志和构建摘要。
 
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

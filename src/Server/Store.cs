@@ -18,7 +18,7 @@ internal sealed class Store(NpgsqlDataSource source)
 
     internal async Task<(string Token, Identity User)> SignIn(string token, CancellationToken ct)
     {
-        if (Digest(token) is not { } ticket) throw Unauthenticated();
+        if (TokenDigest(token) is not { } ticket) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await db.BeginTransactionAsync(ct);
         Guid id;
@@ -51,7 +51,7 @@ internal sealed class Store(NpgsqlDataSource source)
 
     internal async Task<T> WithSession<T>(string? token, bool author, Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct)
     {
-        if (Digest(token) is not { } digest) throw Unauthenticated();
+        if (TokenDigest(token) is not { } digest) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await db.BeginTransactionAsync(ct);
         Identity actor;
@@ -75,7 +75,7 @@ internal sealed class Store(NpgsqlDataSource source)
 
     internal async Task SignOut(string? token, CancellationToken ct)
     {
-        if (Digest(token) is not { } digest) return;
+        if (TokenDigest(token) is not { } digest) return;
         await using var db = await source.OpenConnectionAsync(ct);
         await using var cmd = Sql(db, null, "delete from public.user_session where digest=$1", digest);
         await cmd.ExecuteNonQueryAsync(ct);
@@ -91,16 +91,21 @@ internal sealed class Store(NpgsqlDataSource source)
         return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2), row.IsDBNull(3) ? null : row.GetInt64(3), false);
     }
 
+    internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
+    {
+        var scope = new byte[32];
+        actor.TryWriteBytes(scope);
+        commandKey.TryWriteBytes(scope.AsSpan(16));
+        var dedupeLock = BinaryPrimitives.ReadInt64LittleEndian(SHA256.HashData(scope));
+        await using var serialize = Sql(db, tx, "select pg_advisory_xact_lock($1)", dedupeLock);
+        await serialize.ExecuteNonQueryAsync(ct);
+    }
+
     internal static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct)
     {
         var fingerprint = Publishing.Fingerprint(action, edit);
-        var scope = new byte[32];
-        actor.Id.TryWriteBytes(scope);
-        edit.Key.TryWriteBytes(scope.AsSpan(16));
-        var dedupeLock = BinaryPrimitives.ReadInt64LittleEndian(SHA256.HashData(scope));
-        await using (var serialize = Sql(db, tx, "select pg_advisory_xact_lock($1)", dedupeLock))
-            await serialize.ExecuteNonQueryAsync(ct);
+        await LockCommand(db, tx, actor.Id, edit.Key, ct);
         await using (var existing = Sql(db, tx, """
             select fingerprint,article_id,revision,title,body,published from public.article_command where actor_id=$1 and command_id=$2
             """, actor.Id, edit.Key))
@@ -134,11 +139,18 @@ internal sealed class Store(NpgsqlDataSource source)
         await using (var revision = Sql(db, tx, """
             insert into public.article_revision(article_id,revision,title,body,happened_at) values($1,$2,$3,$4,now())
             """, state.Id, state.Revision, state.Title, state.Body)) await revision.ExecuteNonQueryAsync(ct);
+        if (edit.Id != 0)
+            await Content.TaxonomyStore.CarryForward(db, tx, state.Id, edit.ExpectedRevision, state.Revision, ct);
         if (action == ArticleAction.Publish)
         {
             await using var publish = Sql(db, tx, """
-                insert into public.article_publication(article_id,revision,published_at) values($1,$2,now())
-                on conflict(article_id) do update set revision=excluded.revision,published_at=excluded.published_at,publication_id=excluded.publication_id
+                with next_publication as (
+                    update public.article set publication_count=publication_count+1 where id=$1 returning publication_count
+                )
+                insert into public.article_publication(article_id,revision,publication_no,published_at)
+                    select $1,$2,publication_count,now() from next_publication
+                on conflict(article_id) do update set revision=excluded.revision,publication_no=excluded.publication_no,
+                    published_at=excluded.published_at,publication_id=excluded.publication_id
                 """, state.Id, state.Revision);
             await publish.ExecuteNonQueryAsync(ct);
         }
@@ -157,7 +169,7 @@ internal sealed class Store(NpgsqlDataSource source)
         return (state, true);
     }
 
-    private static byte[]? Digest(string? token)
+    internal static byte[]? TokenDigest(string? token)
     {
         if (token is not { Length: 64 } || !token.All(c => char.IsAsciiHexDigitLower(c))) return null;
         return SHA256.HashData(Convert.FromHexString(token));

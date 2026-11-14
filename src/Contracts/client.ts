@@ -1,10 +1,13 @@
 import { ApiError, decodeApiError, decodeFrame, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { decodeInboxReplay, validReplayCursor } from './inbox-replay.ts';
+import { decodeInboxList, decodeInboxThread, type InboxFilter } from './inbox.ts';
+import { PodWriter } from './binary.ts';
 import { decodeArticle, decodeArticleList, decodeSearch } from './public-articles.ts';
 import {
   type ArticleCommand,
   type Draft,
   FrameType,
-  type Session,
+  type Session as WireSession,
   WireHeader,
   WireHeaders,
   WireLimits,
@@ -17,9 +20,12 @@ import {
 
 export { ApiError, ProtocolError } from './aeds.ts';
 export type { Article, ArticleCard } from './public-articles.ts';
-export type { ArticleCommand, Draft, Session } from './wire.generated.ts';
+export type { ArticleCommand, Draft } from './wire.generated.ts';
+export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
+export type { InboxFilter, InboxListItem, InboxListPage, InboxMessage, InboxThread } from './inbox.ts';
+export type Session = Readonly<WireSession & { expiresAt: number }>;
 
-async function request<T>(
+export async function request<T>(
   path: string,
   expected: FrameType,
   decode: (payload: Uint8Array, headers: Headers) => T,
@@ -84,11 +90,15 @@ function command(path: string, value: ArticleCommand, signal?: AbortSignal): Pro
   return request(path, FrameType.Draft, readDraft, signal, 'POST', commandFrame(value));
 }
 
-function readSession(payload: Uint8Array): Session {
+function readSession(payload: Uint8Array, headers: Headers): Session {
   const session = decodeSession(payload);
-  if (session.name.length === 0 || session.generation <= 0n)
+  const rawExpiry = headers.get(WireHeaders.AccessExpiresAtUtc);
+  const expiresAt = rawExpiry && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?Z$/.test(rawExpiry)
+    ? Date.parse(rawExpiry)
+    : NaN;
+  if (session.name.length === 0 || session.generation <= 0n || !Number.isFinite(expiresAt))
     throw new ProtocolError('Invalid operator session');
-  return session;
+  return { ...session, expiresAt };
 }
 
 function readDraft(payload: Uint8Array): Draft {
@@ -116,9 +126,22 @@ async function indexPage(page: number, generation: string | undefined, signal?: 
   }, signal);
 }
 
+export type PublicListOptions = {
+  archive?: boolean;
+  cursor?: string;
+  keyword?: string;
+  sort?: 'latest' | 'relevance' | 'hot';
+};
+
 export const api = {
-  publicList(page = 1, size = 10, signal?: AbortSignal) {
-    const path = WireRoutes.PublicList.replace('{page:int}', String(page)).replace('{size:int}', String(size));
+  publicList(page = 1, size = 10, signal?: AbortSignal, options?: PublicListOptions) {
+    const route = options?.archive ? WireRoutes.PublicArchive : WireRoutes.PublicList;
+    const query = new URLSearchParams();
+    if (options?.cursor !== undefined) query.set('cursor', options.cursor);
+    if (options?.keyword !== undefined) query.set('keyword', options.keyword);
+    if (options?.sort !== undefined) query.set('sort', options.sort);
+    const path = route.replace('{page:int}', String(page)).replace('{size:int}', String(size)) +
+      (query.size === 0 ? '' : `?${query}`);
     return request(path, FrameType.ArticleList, payload => {
       const { articles, total, nextCursor } = decodeArticleList(payload);
       return { items: articles, total, nextCursor };
@@ -153,6 +176,31 @@ export const api = {
       }
     }
     return { items, total: items.length, generation: first.generation };
+  },
+
+  inboxReplay(after?: string, signal?: AbortSignal) {
+    if (after !== undefined && !validReplayCursor(after)) throw new ProtocolError('Invalid inbox replay cursor');
+    const path = after === undefined ? WireRoutes.InboxReplay : `${WireRoutes.InboxReplay}?${new URLSearchParams({ after })}`;
+    return request(path, FrameType.InboxReplay, decodeInboxReplay, signal);
+  },
+
+  inboxList(filter: InboxFilter, cursor?: string, signal?: AbortSignal) {
+    const query = new URLSearchParams({ size: '20', filter });
+    if (cursor) query.set('cursor', cursor);
+    return request(`${WireRoutes.InboxList}?${query}`, FrameType.ConversationList, decodeInboxList, signal);
+  },
+
+  inboxThread(id: bigint, before?: bigint, signal?: AbortSignal) {
+    const path = WireRoutes.InboxDetail.replace('{id:long}', String(id));
+    return request(before ? `${path}?beforeMessageId=${before}` : path, FrameType.ConversationDetailV3, decodeInboxThread, signal);
+  },
+
+  inboxRead(id: bigint, through: bigint, signal?: AbortSignal) {
+    const path = WireRoutes.InboxRead.replace('{id:long}', String(id));
+    const fields = new PodWriter();
+    fields.i64(through);
+    return request(path, FrameType.EmptySuccess, decodeSuccess, signal, 'POST',
+      encodeFrame(FrameType.ConversationReadRequest, fields.finish()));
   },
 
   signIn(ticket: string, signal?: AbortSignal): Promise<Session> {

@@ -1,5 +1,10 @@
+using System.Buffers.Binary;
+using System.Net;
+using System.Security.Cryptography;
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
+using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Communication;
 using Npgsql;
 
@@ -7,6 +12,70 @@ namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class InboxPostgresTests
 {
+    [PostgresFact]
+    public async Task HttpReplayRechecksSessionAndRejectsAnotherSessionsCursor()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var alice = await AddUser(db.DataSource, "alice", ct);
+        var bob = await AddUser(db.DataSource, "bob", ct);
+        var aliceSession = await SignIn(db.DataSource, alice, ct);
+        var bobSession = await SignIn(db.DataSource, bob, ct);
+        await using var server = await ServerProcess.Start(db.ConnectionString, ct);
+        var client = server.Client;
+
+        using var missing = await client.GetAsync(WireRoutes.InboxReplay, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
+        await InTransaction(db.DataSource, alice, inbox => inbox.SendNoticeAsync("before-opening", "Notice", "Already seen", ct), ct);
+        using var list = await InboxGet(client, WireRoutes.InboxList, aliceSession, ct);
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        Assert.Equal(FrameType.ConversationList, Kind(await list.Content.ReadAsByteArrayAsync(ct)));
+        var cursor = Cursor(list);
+
+        var notice = await InTransaction(db.DataSource, alice, inbox => inbox.SendNoticeAsync("after-opening", "Notice", "New notice", ct), ct);
+        var replayPath = $"{WireRoutes.InboxReplay}?after={cursor}&limit=1";
+        using var first = await InboxGet(client, replayPath, aliceSession, ct);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.True(first.Headers.CacheControl?.NoStore);
+        var firstPayload = Aeds.Decode(await first.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay).ToArray();
+        Assert.Equal(1, EventCount(firstPayload));
+        Assert.Equal(WireLayouts.InboxReplayHasMore, firstPayload[1]);
+        Assert.Equal(notice.Message.Id, BinaryPrimitives.ReadInt64LittleEndian(firstPayload.AsSpan(36)));
+
+        using var second = await InboxGet(client, $"{WireRoutes.InboxReplay}?after={Cursor(first)}", aliceSession, ct);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        var secondPayload = Aeds.Decode(await second.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay).ToArray();
+        Assert.Equal(1, EventCount(secondPayload));
+        Assert.Equal(WireLayouts.InboxMessageAppend, BinaryPrimitives.ReadInt32LittleEndian(secondPayload.AsSpan(24)));
+
+        using var crossAccount = await InboxGet(client, replayPath, bobSession, ct);
+        Assert.Equal(HttpStatusCode.Conflict, crossAccount.StatusCode);
+        Assert.Equal(FrameType.ApiError, Kind(await crossAccount.Content.ReadAsByteArrayAsync(ct)));
+        using var empty = await InboxGet(client, WireRoutes.InboxReplay, bobSession, ct);
+        Assert.Equal(0, EventCount(Aeds.Decode(await empty.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay)));
+
+        await using (var erase = db.DataSource.CreateCommand("delete from public.inbox_event where account_id=$1 and sequence=3"))
+        {
+            erase.Parameters.AddWithValue(alice);
+            Assert.Equal(1, await erase.ExecuteNonQueryAsync(ct));
+        }
+        using var gap = await InboxGet(client, replayPath, aliceSession, ct);
+        var gapPayload = Aeds.Decode(await gap.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay).ToArray();
+        Assert.Equal(WireLayouts.InboxReplayRequiresResync, gapPayload[1]);
+        Assert.Equal(0, EventCount(gapPayload));
+        Assert.False(gap.Headers.Contains(WireHeaders.InboxReplayCursor));
+
+        await using (var revoke = db.DataSource.CreateCommand("update public.blog_user set generation=generation+1 where id=$1"))
+        {
+            revoke.Parameters.AddWithValue(alice);
+            Assert.Equal(1, await revoke.ExecuteNonQueryAsync(ct));
+        }
+        using var revoked = await InboxGet(client, replayPath, aliceSession, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, revoked.StatusCode);
+        Assert.False(revoked.Headers.Contains(WireHeaders.InboxReplayCursor));
+    }
+
     [PostgresFact]
     public async Task MessageMutationReadPositionAndPrivateReplayAreAtomic()
     {
@@ -121,6 +190,33 @@ public sealed class InboxPostgresTests
         await insert.ExecuteNonQueryAsync(ct);
         return user;
     }
+
+    private static async Task<string> SignIn(NpgsqlDataSource data, Guid user, CancellationToken ct)
+    {
+        var token = RandomNumberGenerator.GetBytes(32);
+        await using var ticket = data.CreateCommand("insert into public.login_ticket values($1,$2,now()+interval '1 minute')");
+        ticket.Parameters.AddWithValue(SHA256.HashData(token));
+        ticket.Parameters.AddWithValue(user);
+        await ticket.ExecuteNonQueryAsync(ct);
+        return (await new Store(data).SignIn(Convert.ToHexStringLower(token), ct)).Token;
+    }
+
+    private static async Task<HttpResponseMessage> InboxGet(HttpClient client, string path, string session, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Cookie", $"fsus-v2-session={session}");
+        return await client.SendAsync(request, ct);
+    }
+
+    private static FrameType Kind(byte[] frame)
+    {
+        Aeds.Decode(frame, out var type);
+        return type;
+    }
+
+    private static string Cursor(HttpResponseMessage response) => Assert.Single(response.Headers.GetValues(WireHeaders.InboxReplayCursor));
+
+    private static int EventCount(ReadOnlySpan<byte> payload) => BinaryPrimitives.ReadInt32LittleEndian(payload[4..]);
 
     private static async Task<long> AddInternalMessage(NpgsqlDataSource data, long conversation, CancellationToken ct)
     {

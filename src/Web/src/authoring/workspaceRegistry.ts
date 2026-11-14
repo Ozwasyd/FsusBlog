@@ -15,7 +15,7 @@ export type WorkspaceBlock = 'missing' | 'forbidden' | 'deleted' | 'expired' | '
 type Blocked = Readonly<{ kind: 'blocked'; reason: WorkspaceBlock }>
 
 export type DraftLoad<Draft> = Readonly<{ kind: 'ready'; draft: Draft }> | Blocked
-export type DraftSave<Draft> = Readonly<{ kind: 'saved'; draft: Draft }> | { kind: 'conflict' } | Blocked
+export type DraftSave<Draft> = Readonly<{ kind: 'saved'; draft: Draft }> | { kind: 'conflict' | 'rejected' } | Blocked
 
 export interface EditorTransport<Draft> {
   load(id: number, signal: AbortSignal): Promise<DraftLoad<Draft>>
@@ -49,7 +49,7 @@ export type Activation =
 
 type SaveReceipt =
   | Readonly<{ kind: 'saved'; articleId: number; revision: bigint }>
-  | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' }>
+  | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' | 'rejected' }>
   | Blocked
 
 type ClosePlan = Readonly<{ revision: number; tabs: readonly WorkspaceTab[] }>
@@ -291,10 +291,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       return { kind: 'superseded' }
     }
     delete session.writing
-    if (result.kind === 'conflict') {
-      session.conflict = true
-      delete session.request
-    }
+    if (result.kind === 'conflict') session.conflict = true
+    if (result.kind === 'conflict' || result.kind === 'rejected') delete session.request
     if (result.kind === 'saved') {
       const articleId = result.draft.id
       const creating = session.id === 0

@@ -18,10 +18,10 @@ internal static partial class CurrentSchema
         "blog_user id:uuid name:text can_author:bool enabled:bool generation:int8",
         "login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
         "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz",
-        "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
+        "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
         "article_revision article_id:int4 revision:int8 title:text body:text happened_at:timestamptz",
         "article_command actor_id:uuid command_id:uuid fingerprint:bytea article_id:int4 revision:int8 title:text body:text published:bool",
-        "article_publication article_id:int4 publication_id:int8:d revision:int8 published_at:timestamptz",
+        "article_publication article_id:int4 publication_id:int8:d revision:int8 publication_no:int4=1 published_at:timestamptz",
         "blog_outbox id:int8:a article_id:int4 revision:int8 kind:text created_at:timestamptz=now processed_at:timestamptz?"
     ];
 
@@ -41,6 +41,7 @@ internal static partial class CurrentSchema
         "user_session f user_id public.blog_user:id",
         "article p id",
         "article c revision revision>0",
+        "article c publication_count publication_count>=0",
         "article f owner_id public.blog_user:id",
         "article f id,revision public.article_revision:article_id,revision deferred",
         "article f id,published_revision public.article_revision:article_id,revision deferred",
@@ -54,6 +55,7 @@ internal static partial class CurrentSchema
         "article_command f article_id,revision public.article_revision:article_id,revision",
         "article_publication p article_id",
         "article_publication u publication_id",
+        "article_publication c publication_no publication_no>0",
         "article_publication f article_id public.article:id",
         "article_publication f article_id,revision public.article_revision:article_id,revision",
         "blog_outbox p id",
@@ -92,8 +94,8 @@ internal static partial class CurrentSchema
 
     internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
     {
-        var expectedColumns = Columns.Concat(CommunicationColumns).ToArray();
-        var expectedConstraints = Constraints.Concat(CommunicationConstraints).ToArray();
+        var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).ToArray();
+        var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints).ToArray();
         const string sql = """
             WITH owned AS (
                 SELECT c.*

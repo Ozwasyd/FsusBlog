@@ -168,6 +168,7 @@ internal static partial class Migration
             SELECT a.id
             FROM public.article a LEFT JOIN public.article_publication p ON a.id = p.article_id
             WHERE a.published_revision IS DISTINCT FROM p.revision
+               OR (p.publication_id IS NOT NULL AND p.publication_no <> a.publication_count)
                OR (a.deleted AND p.article_id IS NOT NULL)
             LIMIT 1
             """, connection, transaction);

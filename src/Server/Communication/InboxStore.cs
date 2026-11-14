@@ -143,7 +143,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
 
         await using var insert = Command("""
             INSERT INTO public.inbox_conversation (account_id, subject, status, is_system, last_message_at)
-            VALUES (@account, @subject, 0, clock_timestamp()) RETURNING id
+            VALUES (@account, @subject, 0, @system, clock_timestamp()) RETURNING id
             """, ("subject", subject), ("system", system));
         var conversationId = (long)(await insert.ExecuteScalarAsync(cancellationToken))!;
         var message = await AppendAsync(conversationId, sender, body, cancellationToken);

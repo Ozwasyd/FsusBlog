@@ -2,7 +2,10 @@
 import { computed, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
-import { api, type ArticleCard } from '../../../Contracts/client'
+import { api, ApiError, type ArticleCard } from '../../../Contracts/client'
+import {
+  taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
+} from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing } from '../publicEntry'
 
 const route = useRoute()
@@ -13,11 +16,27 @@ function search() {
 }
 const isSearch = computed(() => route.name === 'search')
 const isHome = computed(() => route.name === 'home')
+const taxonomy = computed<TaxonomyKind | undefined>(() => {
+  const name = route.name
+  return name === 'category' || name === 'tag' ? name : undefined
+})
+const taxonomyId = computed(() => Number(route.params.id))
+const filter = shallowRef<TaxonomyMetadata>()
+const missing = ref(false)
+const heading = computed(() => filter.value?.name
+  ?? (isSearch.value ? 'Search' : isHome.value ? 'Latest posts' : taxonomy.value === 'category' ? 'Category' : taxonomy.value === 'tag' ? 'Tag' : 'Archive'))
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q.trim() : '')
 const page = computed(() => pageNumber(route.query.page))
+const cursor = computed(() => typeof route.query.cursor === 'string' && route.query.cursor ? route.query.cursor : undefined)
+const nextCursor = ref<string | null>(null)
+const cursorExpired = ref(false)
+const previousByCursor = new Map<string, string | undefined>()
+const priorCursor = computed(() => cursor.value && previousByCursor.get(cursor.value))
+const previousPageQuery = computed(() => page.value > 2 && priorCursor.value
+  ? { page: page.value - 1, cursor: priorCursor.value }
+  : {})
 const input = ref('')
 const articles = shallowRef<ArticleCard[]>([])
-const total = ref(0)
 const loading = ref(true)
 const failed = ref(false)
 const reload = ref(0)
@@ -29,31 +48,61 @@ async function localSearch(value: string, signal: AbortSignal) {
   const term = value.toLowerCase()
   const items = index.items.filter(item => item.title.toLowerCase().includes(term)
     || item.summary.toLowerCase().includes(term))
-  return { items, total: items.length }
+  return { items, total: items.length, nextCursor: null }
 }
 
-watch([isSearch, page, query, reload], async ([search, pageNumber, text], _, cleanup) => {
+watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text], _, cleanup) => {
   const request = new AbortController()
   cleanup(() => request.abort())
   articles.value = []
-  total.value = 0
+  nextCursor.value = null
+  filter.value = undefined
+  missing.value = false
+  cursorExpired.value = false
   failed.value = false
   input.value = text
   if (search && !text) {
     loading.value = false
     return
   }
+  if (!search && ordinal > 1 && !token) {
+    cursorExpired.value = true
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
-    const result = search
-      ? await localSearch(text.slice(0, maxSearchLength), request.signal)
-      : readInitialListing(pageNumber) ?? await api.publicList(pageNumber, pageSize, request.signal)
+    const currentCursor = ordinal > 1 ? token : undefined
+    let result: Awaited<ReturnType<typeof api.publicList>>
+    if (search) {
+      result = await localSearch(text.slice(0, maxSearchLength), request.signal)
+    } else if (kind) {
+      const [metadata, page] = await Promise.all([
+        taxonomyMetadata(kind, categoryOrTagId, request.signal),
+        taxonomyArticles(kind, categoryOrTagId, ordinal, pageSize, request.signal, currentCursor),
+      ])
+      if (request.signal.aborted) return
+      filter.value = metadata
+      document.title = `${metadata.name} · Fsu's Blog`
+      result = page
+    } else {
+      result = (!token && home ? readInitialListing(ordinal) : undefined)
+        ?? await api.publicList(ordinal, pageSize, request.signal, { archive: !home, cursor: currentCursor })
+    }
     if (!request.signal.aborted) {
       articles.value = result.items
-      total.value = result.total
+      nextCursor.value = result.nextCursor
+      if (result.nextCursor) {
+        if (previousByCursor.size >= 100) previousByCursor.clear()
+        previousByCursor.set(result.nextCursor, token)
+      }
     }
-  } catch {
-    if (!request.signal.aborted) failed.value = true
+  } catch (error) {
+    if (!request.signal.aborted) {
+      cursorExpired.value = !search && error instanceof ApiError && error.status === 400 && error.details === 'article_cursor_invalid'
+      missing.value = kind !== undefined && error instanceof ApiError && error.status === 404
+      failed.value = !cursorExpired.value && !missing.value
+    }
   } finally {
     if (!request.signal.aborted) loading.value = false
   }
@@ -64,32 +113,42 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 
 <template>
   <section class="reading-column editorial-page">
-    <h1 class="editorial-rule">{{ isSearch ? 'Search' : isHome ? 'Latest posts' : 'Archive' }}</h1>
+    <h1 class="editorial-rule">{{ missing ? heading + ' not found' : heading }}</h1>
+    <p v-if="filter?.description">{{ filter.description }}</p>
     <form v-if="isSearch" class="search-form" @submit.prevent="search">
       <ElInput v-model="input" label="Search articles" placeholder="Search titles or summaries" />
       <ElButton type="primary" native-type="submit">Search</ElButton>
     </form>
     <p v-if="loading" role="status">Loading articles…</p>
+    <template v-else-if="cursorExpired">
+      <p role="status">This page link has expired. Start at the first page to see the current articles.</p>
+      <RouterLink :to="{ query: {} }">First page</RouterLink>
+    </template>
+    <p v-else-if="missing" class="muted"><RouterLink to="/archive">Browse the archive</RouterLink></p>
     <template v-else-if="failed">
       <ElAlert title="Could not load the articles." type="error" :closable="false" show-icon />
       <ElButton class="retry" @click="reload++">Retry</ElButton>
     </template>
     <p v-else-if="!articles.length" class="muted">
-      {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published article titles and summaries.' : 'No articles have been published yet.' }}
+      {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published article titles and summaries.' : taxonomy ? 'There are no published articles here yet.' : 'No articles have been published yet.' }}
     </p>
     <ol v-else class="article-list">
       <li v-for="item in articles" :key="item.id">
         <article>
-          <time v-if="item.publishedAt" :datetime="date(item.publishedAt)" class="metadata">{{ date(item.publishedAt) }}</time>
+          <div class="article-taxonomy metadata">
+            <time v-if="item.publishedAt" :datetime="date(item.publishedAt)">{{ date(item.publishedAt) }}</time>
+            <RouterLink v-if="item.category.id > 0" :to="{ name: 'category', params: { id: item.category.id } }">{{ item.category.name }}</RouterLink>
+            <RouterLink v-for="tag in item.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
+          </div>
           <h2><RouterLink :to="{ name: 'article', params: { id: item.id } }">{{ item.title }}</RouterLink></h2>
           <p v-if="item.summary">{{ item.summary }}</p>
         </article>
       </li>
     </ol>
-    <nav v-if="!isSearch && !loading && !failed && (total > pageSize || page > 1)" aria-label="Article pages" class="page-links">
-      <RouterLink v-if="page > 1" :to="{ query: { page: page - 1 } }">Previous</RouterLink>
+    <nav v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" aria-label="Article pages" class="page-links">
+      <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }">{{ page > 2 && !priorCursor ? 'First page' : 'Previous' }}</RouterLink>
       <span aria-current="page">Page {{ page }}</span>
-      <RouterLink v-if="page * pageSize < total" :to="{ query: { page: page + 1 } }">Next</RouterLink>
+      <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }">Next</RouterLink>
     </nav>
   </section>
 </template>

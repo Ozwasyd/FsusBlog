@@ -16,7 +16,9 @@ public sealed record Article(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset PublishedAt,
-    string? Summary = null);
+    string? Summary = null,
+    TaxonomyName? Category = null,
+    IReadOnlyList<TaxonomyName>? Tags = null);
 
 /// <summary>Current public article payloads selected by the binary HTTP endpoints.</summary>
 public static class PublicArticles
@@ -31,10 +33,12 @@ public static class PublicArticles
             throw new ProtocolException("Public article body exceeds its byte limit");
         var body = Utf8.GetBytes(article.Body);
         var summary = SummaryBytes(article);
+        var taxonomy = EncodeTaxonomy(article);
         const int recordOffset = ArticleDetailHeaderSize;
         const int tagOffset = recordOffset + ArticleDetailV5RecordSize;
-        const int blobOffset = tagOffset + ArticleRightsRecordSize;
-        var blobLength = checked(title.Length + body.Length + summary.Length);
+        var rightsOffset = checked(tagOffset + taxonomy.Tags.Length * ArticleTagRecordSize);
+        var blobOffset = rightsOffset + ArticleRightsRecordSize;
+        var blobLength = checked(title.Length + body.Length + summary.Length + taxonomy.BlobLength);
         var bytes = Allocate(checked(blobOffset + blobLength));
         var header = bytes.AsSpan(0, ArticleDetailHeaderSize);
         I32(header, 0, ArticleDetailV5Magic);
@@ -42,7 +46,8 @@ public static class PublicArticles
         I32(header, 12, recordOffset);
         I32(header, 16, ArticleDetailV5RecordSize);
         I32(header, 20, tagOffset);
-        I32(header, 28, tagOffset);
+        I32(header, 24, taxonomy.Tags.Length);
+        I32(header, 28, rightsOffset);
         I32(header, 32, ArticleRightsRecordSize);
         I32(header, 36, blobOffset);
         I32(header, 40, blobLength);
@@ -59,9 +64,12 @@ public static class PublicArticles
         WriteText(record, ArticleDetailBodyOffset, blob, body, ref offset);
         WriteText(record, ArticleDetailSummaryOffset, blob, summary, ref offset);
         WriteSlice(record, ArticleDetailCoverOffset, offset, 0);
-        WriteSlice(record, ArticleDetailCategoryOffset, offset, 0);
+        WriteText(record, ArticleDetailCategoryOffset, blob, taxonomy.Category, ref offset);
+        for (var i = 0; i < taxonomy.Tags.Length; i++)
+            WriteTag(bytes.AsSpan(tagOffset + i * ArticleTagRecordSize, ArticleTagRecordSize),
+                blob, taxonomy.Tags[i], ref offset);
         // The detail format requires the rights record even when no rights snapshot is attached.
-        var rights = bytes.AsSpan(tagOffset, ArticleRightsRecordSize);
+        var rights = bytes.AsSpan(rightsOffset, ArticleRightsRecordSize);
         for (var slot = 32; slot < ArticleRightsRecordSize; slot += 8)
             WriteSlice(rights, slot, offset, 0);
         return Aeds.Encode(FrameType.ArticleDetail, bytes);
@@ -79,13 +87,15 @@ public static class PublicArticles
         var text = articles.Select(article =>
         {
             ValidateArticle(article);
-            return (Title: Utf8.GetBytes(article.Title), Summary: SummaryBytes(article));
+            return (Title: Utf8.GetBytes(article.Title), Summary: SummaryBytes(article), Taxonomy: EncodeTaxonomy(article));
         }).ToArray();
-        var blobLength = text.Sum(static item => item.Title.Length + item.Summary.Length);
+        var blobLength = text.Sum(static item => item.Title.Length + item.Summary.Length + item.Taxonomy.BlobLength);
+        var tagCount = text.Sum(static item => item.Taxonomy.Tags.Length);
         var blobMetaOffset = ArticleListCursorOffset + cursor.Length;
         var blobOffset = blobMetaOffset + 12;
         var recordsOffset = checked(blobOffset + blobLength);
-        var bytes = Allocate(checked(recordsOffset + articles.Count * ArticleListRecordSizeCurrent));
+        var tagsOffset = checked(recordsOffset + articles.Count * ArticleListRecordSizeCurrent);
+        var bytes = Allocate(checked(tagsOffset + tagCount * ArticleTagRecordSize));
         I32(bytes, 0, ArticleListCursorMagic);
         I32(bytes, 4, ArticleListCursorVersion);
         bytes[ArticleListCursorFlagOffset] = nextCursor is null ? (byte)0 : (byte)1;
@@ -93,16 +103,26 @@ public static class PublicArticles
         I32(bytes, ArticleListCursorLengthOffset, cursor.Length);
         cursor.CopyTo(bytes.AsSpan(ArticleListCursorOffset));
         I32(bytes, blobMetaOffset, articles.Count);
+        I32(bytes, blobMetaOffset + 4, tagCount);
         I32(bytes, blobMetaOffset + 8, blobLength);
 
         var blob = bytes.AsSpan(blobOffset, blobLength);
         var textOffset = 0;
+        var nextTag = 0;
         for (var index = 0; index < articles.Count; index++)
         {
             var article = articles[index];
             var record = bytes.AsSpan(recordsOffset + index * ArticleListRecordSizeCurrent, ArticleListRecordSizeCurrent);
             WriteCommon(record, article);
-            WriteSlice(record, ArticleListCategoryOffset, textOffset, 0);
+            var taxonomy = text[index].Taxonomy;
+            I32(record, ArticleListTagStartOffset, nextTag);
+            I32(record, ArticleListTagCountOffset, taxonomy.Tags.Length);
+            foreach (var tag in taxonomy.Tags)
+            {
+                WriteTag(bytes.AsSpan(tagsOffset + nextTag * ArticleTagRecordSize, ArticleTagRecordSize), blob, tag, ref textOffset);
+                nextTag++;
+            }
+            WriteText(record, ArticleListCategoryOffset, blob, taxonomy.Category, ref textOffset);
             WriteText(record, ArticleListTitleOffset, blob, text[index].Title, ref textOffset);
             WriteText(record, ArticleListSummaryOffset, blob, text[index].Summary, ref textOffset);
             record[ArticleListDeletedOffset + 1] = 1;
@@ -116,14 +136,15 @@ public static class PublicArticles
     public static byte[] EncodeSearch(IReadOnlyList<Article> articles, int total)
     {
         ValidateTotal(articles, total);
-        var summaries = articles.Select(article =>
+        var fields = articles.Select(article =>
         {
             ValidateArticle(article);
-            return SummaryBytes(article);
+            return (Summary: SummaryBytes(article), Taxonomy: EncodeTaxonomy(article));
         }).ToArray();
         // FAS4 carries the returned count in its header. It has no separate unpaginated total.
         const int itemFixedBytes = ArticleSearchItemPodSize + 8 + ArticlePublicationCoordinateBytes;
-        var bytes = Allocate(checked(12 + articles.Count * itemFixedBytes + summaries.Sum(static bytes => bytes.Length)));
+        var bytes = Allocate(checked(12 + articles.Count * itemFixedBytes + fields.Sum(static field =>
+            field.Summary.Length + field.Taxonomy.Tags.Length * ArticleSearchTagPodSize)));
         I32(bytes, 0, ArticleSearchV4Magic);
         I32(bytes, 4, ArticleSearchV4Version);
         I32(bytes, 8, articles.Count);
@@ -131,15 +152,25 @@ public static class PublicArticles
         for (var index = 0; index < articles.Count; index++)
         {
             var article = articles[index];
-            var summary = summaries[index];
+            var (summary, taxonomy) = fields[index];
             var record = bytes.AsSpan(offset, ArticleSearchItemPodSize);
             WriteCommon(record, article);
             Utf8.GetBytes(article.Title, record.Slice(ArticleSearchTitleOffset, ArticleSearchTitleBytes));
+            WriteFixedName(record.Slice(ArticleSearchCategoryOffset, ArticleSearchCategoryBytes), taxonomy.Category);
             WriteSlice(record, ArticleSearchSummaryOffset, 0, summary.Length);
             record[ArticleSearchDeletedOffset + 1] = 1;
             offset += ArticleSearchItemPodSize;
-            I32(bytes, offset + 4, summary.Length);
-            offset += 8;
+            I32(bytes, offset, taxonomy.Tags.Length);
+            offset += 4;
+            foreach (var tag in taxonomy.Tags)
+            {
+                var tagRecord = bytes.AsSpan(offset, ArticleSearchTagPodSize);
+                I32(tagRecord, 0, tag.Id);
+                WriteFixedName(tagRecord.Slice(4), tag.Text);
+                offset += ArticleSearchTagPodSize;
+            }
+            I32(bytes, offset, summary.Length);
+            offset += 4;
             summary.CopyTo(bytes.AsSpan(offset));
             offset += summary.Length;
             WriteCoordinates(bytes.AsSpan(offset, ArticlePublicationCoordinateBytes), article);
@@ -154,6 +185,29 @@ public static class PublicArticles
         if (Utf8.GetByteCount(summary) > 2048)
             throw new ProtocolException("Public article summary exceeds its byte limit");
         return Utf8.GetBytes(summary);
+    }
+
+    private static EncodedTaxonomy EncodeTaxonomy(Article article) => new(
+        article.Category is { } category ? TaxonomyWire.NameBytes(category.Id, category.Name) : [],
+        article.Tags?.Select(tag => (tag.Id, TaxonomyWire.NameBytes(tag.Id, tag.Name))).ToArray() ?? []);
+
+    private static void WriteTag(Span<byte> record, Span<byte> blob, (int Id, byte[] Text) tag, ref int offset)
+    {
+        I32(record, 0, tag.Id);
+        WriteText(record, 4, blob, tag.Text, ref offset);
+    }
+
+    private static void WriteFixedName(Span<byte> field, byte[] text)
+    {
+        var length = Math.Min(text.Length, field.Length);
+        while (length < text.Length && (text[length] & 0xc0) == 0x80)
+            length--;
+        text.AsSpan(0, length).CopyTo(field);
+    }
+
+    private sealed record EncodedTaxonomy(byte[] Category, (int Id, byte[] Text)[] Tags)
+    {
+        internal int BlobLength => checked(Category.Length + Tags.Sum(tag => tag.Text.Length));
     }
 
     private static void ValidateArticle(Article article)
@@ -183,6 +237,7 @@ public static class PublicArticles
     private static void WriteCommon(Span<byte> record, Article article)
     {
         I32(record, ArticleIdOffset, article.Id);
+        I32(record, ArticleCategoryIdOffset, article.Category?.Id ?? 0);
         I64(record, ArticleCreatedAtOffset, article.CreatedAt.ToUnixTimeMilliseconds());
     }
 

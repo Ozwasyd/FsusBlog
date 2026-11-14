@@ -53,5 +53,24 @@ Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, new
 Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, [.. Aeds.Decode(expected, FrameType.ArticleCommand), 0])));
 
 PublicArticleVectors.Run(fixtures);
+byte[] CategoryFixture() => Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "category-list-v1.hex"))));
+Equal(CategoryFixture(), TaxonomyWire.EncodeList(FrameType.CategoryList, [new(1, "Tech", 2), new(2, "Life", 0)]));
+Equal(Fixture("taxonomy-exact-metadata.hex"), TaxonomyWire.EncodeMetadata(new(34, "Étoile", "旧名不可占用")));
 InboxVectors.Run(fixtures);
+var canvasVector = Fixture("canvas-link-plan.hex");
+var canvasPlan = new CanvasLinkPlan(Guid.Parse("76aff0f0-ba5e-4bd3-ab12-a42d29b9131a"), 3, 8, 12,
+    21, 9, 30, "\r\n\r\n[规划 🐝](/article/21)", 1794680000);
+Equal(canvasVector, Wire.EncodeCanvasLinkPlan(canvasPlan));
+if (Wire.DecodeCanvasLinkPlan(canvasVector) != canvasPlan)
+    throw new InvalidOperationException("Canvas plan differs from the independent vector");
+Reject(() => Wire.DecodeCanvasConfirm(canvasVector));
+var inboxTime = DateTimeOffset.FromUnixTimeMilliseconds(1794659381000);
+var inboxEvents = new InboxReplayRecord[]
+{
+    new(701, 12, 1234567890123456, 9102, inboxTime),
+    new(702, 13, 1234567890123456, 9102, inboxTime.AddSeconds(1))
+};
+Equal(Fixture("inbox-replay.hex"), InboxReplayWire.Encode(702, true, false, inboxEvents));
+Reject(() => InboxReplayWire.Encode(703, true, false, inboxEvents));
+Reject(() => InboxReplayWire.Encode(702, true, true, inboxEvents));
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

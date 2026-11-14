@@ -16,9 +16,8 @@ export async function preloadPublicEntry(route: { name: unknown; params: Record<
   if (!entry?.firstElementChild) return
   const signal = AbortSignal.timeout(2_500)
   try {
-    if (route.name === 'home') {
-      const page = pageNumber(route.query.page)
-      listing = { page, value: await api.publicList(page, 10, signal) }
+    if (route.name === 'home' && pageNumber(route.query.page) === 1 && !route.query.cursor) {
+      listing = { page: 1, value: await api.publicList(1, 10, signal) }
     } else if (route.name === 'article') {
       const id = Number(route.params.id)
       article = { id, value: await api.publicArticle(id, signal) }

@@ -6,19 +6,34 @@ public enum FrameType : ushort
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    CategoryList = 9,
+    TagList = 10,
+    AuthLoginFlow = 18,
     ConversationList = 56,
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
+    PasskeyRegisterBegin = 63,
+    PasskeyLoginBegin = 64,
+    PasskeyRegisterCompleteRequest = 66,
+    PasskeyLoginCompleteRequest = 67,
     ConversationReadRequest = 201,
     AccountConversationReplyRequest = 202,
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
     EmptySuccess = 240,
+    TaxonomyExactMetadata = 243,
     ApiError = 251,
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     Draft = 32770,
     ArticleCommand = 32771,
+    InboxReplay = 32772,
+    CanvasCreate = 32773,
+    CanvasCreated = 32774,
+    CanvasPreview = 32775,
+    CanvasLinkPlan = 32776,
+    CanvasConfirm = 32777,
+    CanvasLinked = 32778,
 }
 
 public static class WireHeader
@@ -38,6 +53,8 @@ public static class WireHeader
 
 public static class WireLimits
 {
+    public const int TaxonomyNameBytes = 512;
+    public const int TaxonomyDescriptionBytes = 2000;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
     public const int NameBytes = 256;
@@ -47,6 +64,19 @@ public static class WireLimits
     public const int SearchIndexMaxPages = 200;
     public const int MaxSignInFrameBytes = 148;
     public const int MaxCommandFrameBytes = 1048884;
+    public const int CanvasInsertionBytes = 560;
+    public const int CanvasRequestBytes = 76;
+    public const int InboxReplayMaxEvents = 512;
+    public const int InboxReplayCursorChars = 54;
+    public const int MaxPasskeyFrameBytes = 32768;
+    public const int PasskeyCredentialIdBytes = 1023;
+    public const int PasskeyChallengeBytes = 32;
+    public const int PasskeyClientDataBytes = 8192;
+    public const int PasskeyAttestationBytes = 16384;
+    public const int PasskeyAuthenticatorDataBytes = 4096;
+    public const int PasskeySignatureBytes = 4096;
+    public const int PasskeyUserHandleBytes = 32;
+    public const int PasskeyTransportCount = 6;
 }
 
 public static class WireLayouts
@@ -57,6 +87,9 @@ public static class WireLayouts
     public const int ErrorDetailsOffset = 264;
     public const int ErrorTraceIdOffset = 520;
     public const int SuccessBytes = 4;
+    public const int TaxonomyHeaderBytes = 8;
+    public const int TaxonomyListRecordSize = 16;
+    public const int TaxonomyMetadataRecordSize = 16;
     public const int ArticleDetailHeaderSize = 44;
     public const int ArticleDetailV5Magic = 0x41524435;
     public const int ArticleDetailV5Version = 5;
@@ -109,26 +142,62 @@ public static class WireLayouts
     public const int ArticleListTotalOffset = 9;
     public const int ArticleListCursorLengthOffset = 13;
     public const int ArticleListCursorOffset = 17;
+    public const int InboxReplayVersion = 1;
+    public const int InboxReplayHeaderBytes = 16;
+    public const int InboxReplayEventBytes = 36;
+    public const int InboxReplayHasMore = 1;
+    public const int InboxReplayRequiresResync = 2;
+    public const int InboxConversationUpsert = 12;
+    public const int InboxMessageAppend = 13;
+    public const int InboxReadUpdated = 14;
+    public const int PasskeyAuthLoginFlowSize = 168;
+    public const int PasskeyRegisterBeginSize = 148;
+    public const int PasskeyLoginBeginSize = 100;
+    public const int PasskeyRegisterCompleteSize = 120;
+    public const int PasskeyLoginCompleteSize = 120;
+    public const int PasskeyLoginBeginTokenOffset = 20;
+    public const int PasskeyRegisterBeginTokenOffset = 36;
+    public const int PasskeyCompleteTokenOffset = 8;
+    public const int PasskeyCompleteBlobRefsOffset = 72;
+    public const int PasskeyTokenSize = 64;
+    public const int PasskeySliceSize = 8;
 }
 
 public static class WireRoutes
 {
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
+    public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
+    public const string CategoryList = "/api/binary/category";
+    public const string TagList = "/api/binary/tag";
+    public const string CategoryMetadata = "/api/binary/category/{id:int}.aeds";
+    public const string TagMetadata = "/api/binary/tag/{id:int}.aeds";
+    public const string TagMetadataByName = "/api/binary/tag/by-name.aeds";
+    public const string CategoryArticles = "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds";
+    public const string TagArticles = "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds";
     public const string PublicIndex = "/api/v2/public/index.aeds";
     public const string InboxList = "/api/binary/messages/conversations";
     public const string InboxDetail = "/api/binary/messages/conversations/{id:long}";
     public const string InboxReply = "/api/binary/messages/conversations/{id:long}/reply";
     public const string InboxRead = "/api/binary/messages/conversations/{id:long}/read";
+    public const string InboxReplay = "/api/v2/notifications/private.aeds";
     public const string SignIn = "/api/v2/identity/sign-in.aeds";
     public const string Session = "/api/v2/identity/session.aeds";
     public const string SignOut = "/api/v2/identity/sign-out.aeds";
+    public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
+    public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
+    public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
+    public const string PasskeyProvisionComplete = "/api/v2/identity/passkey/register/complete.aeds";
+    public const string PasskeyAvailability = "/api/v2/identity/passkey/availability.aeds";
     public const string Draft = "/api/v2/authoring/draft/{id:int}.aeds";
     public const string Save = "/api/v2/authoring/save.aeds";
     public const string Publish = "/api/v2/authoring/publish.aeds";
     public const string Retract = "/api/v2/authoring/retract.aeds";
     public const string Delete = "/api/v2/authoring/delete.aeds";
+    public const string CanvasCreate = "/api/v2/authoring/canvas/create.aeds";
+    public const string CanvasPreview = "/api/v2/authoring/canvas/link/preview.aeds";
+    public const string CanvasConfirm = "/api/v2/authoring/canvas/link/confirm.aeds";
 }
 
 public static class WireHeaders
@@ -139,12 +208,19 @@ public static class WireHeaders
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
+    public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
 }
 
 public sealed record SignIn(string Ticket);
 public sealed record Session(string Name, long Generation, bool CanAuthor);
 public sealed record Draft(int Id, long Revision, string Title, string Body, bool Published);
 public sealed record ArticleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, string Title, string Body);
+public sealed record CanvasCreate(Guid CanvasId, Guid EdgeId, int HostArticleId, int TargetArticleId);
+public sealed record CanvasCreated(Guid CanvasId, Guid EdgeId, long CanvasRevision);
+public sealed record CanvasPreview(Guid CanvasId, Guid EdgeId, long CanvasRevision, long HostRevision, long TargetRevision, int SourceOffset);
+public sealed record CanvasLinkPlan(Guid PlanId, long CanvasRevision, int HostArticleId, long HostRevision, int TargetArticleId, long TargetRevision, int SourceOffset, string InsertedMarkdown, long ExpiresAtUnixSeconds);
+public sealed record CanvasConfirm(Guid PlanId);
+public sealed record CanvasLinked(Guid PlanId, int ArticleId, long ArticleRevision, long CanvasRevision);
 
 public static partial class Wire
 {
@@ -221,6 +297,129 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleCommand));
         var value = new ArticleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasCreate(CanvasCreate value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.CanvasId);
+        writer.Uuid(value.EdgeId);
+        writer.I32(value.HostArticleId);
+        writer.I32(value.TargetArticleId);
+        return Aeds.Encode(FrameType.CanvasCreate, writer.Written);
+    }
+
+    public static CanvasCreate DecodeCanvasCreate(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasCreate));
+        var value = new CanvasCreate(reader.Uuid(), reader.Uuid(), reader.I32(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasCreated(CanvasCreated value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.CanvasId);
+        writer.Uuid(value.EdgeId);
+        writer.I64(value.CanvasRevision);
+        return Aeds.Encode(FrameType.CanvasCreated, writer.Written);
+    }
+
+    public static CanvasCreated DecodeCanvasCreated(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasCreated));
+        var value = new CanvasCreated(reader.Uuid(), reader.Uuid(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasPreview(CanvasPreview value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.CanvasId);
+        writer.Uuid(value.EdgeId);
+        writer.I64(value.CanvasRevision);
+        writer.I64(value.HostRevision);
+        writer.I64(value.TargetRevision);
+        writer.I32(value.SourceOffset);
+        return Aeds.Encode(FrameType.CanvasPreview, writer.Written);
+    }
+
+    public static CanvasPreview DecodeCanvasPreview(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasPreview));
+        var value = new CanvasPreview(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasLinkPlan(CanvasLinkPlan value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.PlanId);
+        writer.I64(value.CanvasRevision);
+        writer.I32(value.HostArticleId);
+        writer.I64(value.HostRevision);
+        writer.I32(value.TargetArticleId);
+        writer.I64(value.TargetRevision);
+        writer.I32(value.SourceOffset);
+        writer.Text(value.InsertedMarkdown, WireLimits.CanvasInsertionBytes);
+        writer.I64(value.ExpiresAtUnixSeconds);
+        return Aeds.Encode(FrameType.CanvasLinkPlan, writer.Written);
+    }
+
+    public static CanvasLinkPlan DecodeCanvasLinkPlan(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasLinkPlan));
+        var value = new CanvasLinkPlan(reader.Uuid(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.Text(WireLimits.CanvasInsertionBytes), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasConfirm(CanvasConfirm value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.PlanId);
+        return Aeds.Encode(FrameType.CanvasConfirm, writer.Written);
+    }
+
+    public static CanvasConfirm DecodeCanvasConfirm(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasConfirm));
+        var value = new CanvasConfirm(reader.Uuid());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCanvasLinked(CanvasLinked value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.PlanId);
+        writer.I32(value.ArticleId);
+        writer.I64(value.ArticleRevision);
+        writer.I64(value.CanvasRevision);
+        return Aeds.Encode(FrameType.CanvasLinked, writer.Written);
+    }
+
+    public static CanvasLinked DecodeCanvasLinked(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasLinked));
+        var value = new CanvasLinked(reader.Uuid(), reader.I32(), reader.I64(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

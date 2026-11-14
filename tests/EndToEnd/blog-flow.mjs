@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -14,6 +17,7 @@ const config = {
   evidence: resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/browser'),
   browserPath: process.env.FSUSBLOG_TEST_CHROME,
   requireNative: process.env.FSUSBLOG_TEST_REQUIRE_NATIVE === '1',
+  publicFixture: process.env.FSUSBLOG_TEST_PUBLIC_FIXTURE === '1',
 }
 assert(config.origin && config.ticket, 'Provide FSUSBLOG_TEST_URL and FSUSBLOG_TEST_TICKET for an isolated server fixture.')
 await mkdir(config.evidence, { recursive: true })
@@ -23,6 +27,28 @@ const title = `Browser flow ${token}`
 const body = `## Draft milestone\n\nThis release note contains ${token}.\n`
 const origin = new URL(config.origin).origin
 const nativeFetch = globalThis.fetch
+const repository = fileURLToPath(new URL('../../', import.meta.url))
+const git = (...args) => spawnSync('git', args, { cwd: repository, encoding: 'utf8' }).stdout.trim()
+const sha256 = input => createHash('sha256').update(input).digest('hex')
+const artifactDigests = Object.fromEntries(await Promise.all(
+  ['src/Web/pnpm-lock.yaml', 'src/Server/packages.lock.json'].map(async path =>
+    [path, sha256(await readFile(join(repository, path)))]),
+))
+if (process.env.FSUSBLOG_WEB_DIST) {
+  artifactDigests['web/index.html'] = sha256(await readFile(join(process.env.FSUSBLOG_WEB_DIST, 'index.html')))
+}
+const served = await nativeFetch(`${origin}/health/ready`)
+assert.equal(served.status, 204, 'The isolated V2 server is not ready.')
+const serverHome = await nativeFetch(`${origin}/`).then(async response => {
+  assert.equal(response.status, 200)
+  return response.text()
+})
+artifactDigests['GET /'] = sha256(serverHome)
+const asset = serverHome.match(/<script type="module"[^>]+src="([^"]+)"/)?.[1]
+assert(asset, 'Server did not serve a Web production entry point.')
+const servedBuild = await nativeFetch(new URL(asset, origin))
+assert.equal(servedBuild.status, 200)
+artifactDigests[asset] = sha256(Buffer.from(await servedBuild.arrayBuffer()))
 globalThis.fetch = (path, init) => nativeFetch(new URL(path, origin), init)
 
 const browser = await chromium.launch({
@@ -46,6 +72,9 @@ function monitor(page, name) {
   })
   page.on('response', response => {
     const url = new URL(response.url())
+    if (url.origin === origin && url.pathname.startsWith('/assets/') && response.status() >= 400) {
+      diagnostics.push({ name, kind: 'asset', path: url.pathname, status: response.status() })
+    }
     if (url.origin === origin && url.pathname.startsWith('/api/')) {
       responses.push({ name, method: response.request().method(), path: url.pathname, status: response.status() })
       if (response.status() >= 500) {
@@ -68,8 +97,38 @@ async function search(page, value) {
 }
 
 let writtenId
+let stalePageUrl
 let failure
 try {
+  if (config.publicFixture) {
+    await visitor.goto(`${origin}/`)
+    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
+    await visitor.getByRole('link', { name: 'Next', exact: true }).click()
+    await visible(visitor.getByText('Page 2', { exact: true }))
+    await visible(visitor.getByRole('link', { name: 'Browser fixture 2', exact: true }))
+    stalePageUrl = visitor.url()
+    const cursor = new URL(stalePageUrl).searchParams.get('cursor')
+    assert(cursor, 'Page 2 needs the server-issued cursor')
+    await visitor.getByRole('link', { name: 'Previous', exact: true }).click()
+    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
+    await visitor.getByRole('link', { name: 'Web engineering', exact: true }).click()
+    await visible(visitor.getByRole('heading', { name: 'Web engineering', exact: true }))
+    await visible(visitor.getByText('Published implementation notes.', { exact: true }))
+    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
+    await hidden(visitor.getByRole('link', { name: 'Browser fixture 11', exact: true }))
+    await screen(visitor, 'taxonomy-mobile')
+    await visitor.goto(`${origin}/category/2`)
+    await visible(visitor.getByRole('heading', { name: 'Empty category', exact: true }))
+    await visible(visitor.getByText('There are no published articles here yet.', { exact: true }))
+    const alias = await nativeFetch(`${origin}/tag/ancienne`, { redirect: 'manual' })
+    assert.equal(alias.status, 301)
+    assert.equal(alias.headers.get('location'), '/tag/4')
+    await visitor.goto(`${origin}/tag/ancienne`)
+    await visitor.waitForURL(`${origin}/tag/4`)
+    await visible(visitor.getByRole('heading', { name: 'Café', exact: true }))
+    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
+    observations.push('Signed home cursor traverses forward and back. Category data and empty state render. The old tag URL redirects to the numeric page.')
+  }
   await visitor.goto(`${origin}/user/manage/article/write`)
   await visible(visitor.getByText('Log in with an author account to write an article.'))
   await hidden(visitor.getByLabel('Title', { exact: true }))
@@ -78,6 +137,7 @@ try {
   await publisher.goto(`${origin}/login`)
   await visible(publisher.getByRole('heading', { name: 'Log in', exact: true }))
   assert.match(await publisher.title(), /Log in/)
+  await screen(publisher, 'login-desktop')
   await publisher.getByLabel('Owner access key').fill(config.ticket)
   await button(publisher, 'Log in').click()
   await visible(publisher.getByRole('heading', { name: 'New article' }))
@@ -105,7 +165,20 @@ try {
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))
   const published = await api.publicIndex()
-  assert(published.items.some(item => item.id === writtenId))
+  const indexEntry = published.items.find(item => item.id === writtenId)
+  assert(indexEntry)
+  const publicArticle = await api.publicArticle(writtenId)
+  assert.equal(publicArticle.title, title)
+  assert.equal(publicArticle.body, body)
+  assert.equal(indexEntry.publication, publicArticle.publication)
+
+  if (stalePageUrl) {
+    await visitor.goto(stalePageUrl)
+    await visible(visitor.getByText('This page link has expired.', { exact: false }))
+    await visitor.getByRole('link', { name: 'First page', exact: true }).click()
+    await visible(visitor.getByRole('link', { name: title, exact: true }))
+    observations.push('Public generation changes invalidate old page cursors and offer a working first-page recovery link.')
+  }
 
   const homeHtml = await nativeFetch(`${origin}/`).then(response => response.text())
   assert(homeHtml.includes(title))
@@ -144,6 +217,7 @@ try {
   await publisher.getByLabel('Body', { exact: true }).fill(`${body}\nNewer saved revision.`)
   await button(publisher, 'Save draft').click()
   await visible(publisher.getByText('Draft saved.', { exact: false }))
+  assert.equal((await api.publicArticle(writtenId)).body, body)
   await button(stale, 'Save draft').click()
   await visible(stale.getByText('The server has a newer revision.', { exact: false }))
   assert.match(await stale.getByLabel('Body', { exact: true }).inputValue(), /Stale edit/)
@@ -157,14 +231,18 @@ try {
   const withdrawn = await api.publicIndex()
   assert.notEqual(withdrawn.generation, published.generation)
   assert(!withdrawn.items.some(item => item.id === writtenId))
+  await assert.rejects(api.publicArticle(writtenId), { status: 404 })
   const absent = await visitor.goto(`${origin}/article/${writtenId}`)
   assert.equal(absent.status(), 404)
   assert(!(await absent.text()).includes(token))
   await search(visitor, token)
   await visible(visitor.getByText('No articles match your search.', { exact: true }))
+  const signOut = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SignOut)
   await button(publisher, 'Log out').click()
+  assert.equal((await signOut).status(), 200)
   await publisher.waitForURL(`${origin}/`)
   await visible(publisher.getByRole('link', { name: 'Log in', exact: true }))
+  assert.equal((await publisher.request.get(`${origin}${WireRoutes.Session}`)).status(), 401)
   observations.push('CAS rejects stale edit, reload reads the durable winner, withdrawal removes public access and index entry, logout returns to anonymous shell.')
   assert(responses.some(response => response.path === WireRoutes.Save && response.status === 409))
   assert.deepEqual(diagnostics, [])
@@ -176,8 +254,13 @@ try {
   await browser.close()
   await writeFile(join(config.evidence, 'browser-result.json'), JSON.stringify({
     origin, writtenId, startedAt, completedAt: new Date().toISOString(), exitCode: failure ? 1 : 0,
+    commit: git('rev-parse', 'HEAD'),
+    dirty: git('status', '--porcelain'),
+    artifactDigests,
+    node: process.version,
+    fixture: { articleTitle: title, initialBodyDigest: sha256(body) },
     chromium: browser.version(), playWright: tools('@playwright/test/package.json').version,
-    requireNative: config.requireNative, observations, diagnostics, responses,
+    requireNative: config.requireNative, publicFixture: config.publicFixture, observations, diagnostics, responses,
     failure: failure ? String(failure) : undefined,
     cleanup: 'Playwright browser closed. Database and server fixture are owned by the caller.',
   }, null, 2))

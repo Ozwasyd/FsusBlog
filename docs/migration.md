@@ -32,6 +32,6 @@ FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" verify
 
 记录时保存 dump 摘要、工具版本、工作树 Git 提交、数据库快照时间、预期行数和恢复校验结果。恢复核验也要比较业务数据、附件及对应密钥。当前 `verify` 可以检查关系、列、约束和文章当前发布坐标。前台站点的完整恢复验收还包括站点外的配置和对象。恢复后禁止并行对同一逻辑站点开放两个写端。
 
-[本机 PostgreSQL 用例](../tests/Integration/Migration/verify.sh) 需要专用测试集群。提供用于同一集群的 `FSUSBLOG_TEST_DB`、`PGHOST`、`PGPORT`、`PGUSER`，libpq 密码使用 `PGPASSFILE` 或已有受控设置。需要 CREATEDB 权限和 `psql`、`pg_dump`、`pg_restore`、`openssl`、`xxd`、`rg`。脚本只创建并删除本次运行随机命名的两个数据库，检查空库拒绝、错误目标、当前结构、重复 apply、签发和撤销、错误版本、备份恢复及缺失的关键外键，保留原始退出码并报告清理失败。
+[本机 PostgreSQL 用例](../tests/Integration/Migration/verify.sh) 需要专用测试集群。提供用于同一集群的 `FSUSBLOG_TEST_DB`、`PGHOST`、`PGPORT`、`PGUSER`，libpq 密码使用 `PGPASSFILE` 或已有受控设置。需要 CREATEDB 权限和 `psql`、`pg_dump`、`pg_restore`、`openssl`、`xxd`、`rg`。脚本只创建并删除本次运行随机命名的两个数据库，检查空库拒绝、错误目标、当前结构、重复 apply、签发和撤销、错误版本、引用失配和备份恢复，保留原始退出码并报告清理失败。
 
-编译和恢复依赖已验证。当前宿主和现有离线 Linux 镜像均未找到 PostgreSQL 服务端。实库用例及恢复演练待在原生 PostgreSQL 连接就绪后运行。Docker 测试留给指定环境。
+2026-11-14 21:18 在 macOS arm64 的独立 PostgreSQL 18.7 实例上通过上述用例，SDK 为 10.0.302，运行库为 10.0.10，退出码为 0。候选含站内信、分类标签和 Canvas 表。真实备份恢复保留了同一篇文章不同的公开修订和草稿，以及发布计数和序号。两种发布坐标失配均被拒绝，服务端设置只读时验证成功。确认两个临时数据库均已删除，临时备份文件已清理。工作树基准提交为 `6f10e0a4d7d9b07ae7df4511bd8f4049a3d26037`，候选工作树文件摘要和原始输出在本地 `artifacts/native-migration/run-20261114T131849.log`。v1 数据转换和生产恢复仍需验收。Docker 测试留给指定环境。

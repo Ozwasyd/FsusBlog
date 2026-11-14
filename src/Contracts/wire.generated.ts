@@ -5,19 +5,34 @@ export const FrameType = {
   ArticleList: 1,
   ArticleDetail: 2,
   ArticleSearch: 4,
+  CategoryList: 9,
+  TagList: 10,
+  AuthLoginFlow: 18,
   ConversationList: 56,
   ConversationMessage: 58,
   ConversationCreateRequest: 59,
+  PasskeyRegisterBegin: 63,
+  PasskeyLoginBegin: 64,
+  PasskeyRegisterCompleteRequest: 66,
+  PasskeyLoginCompleteRequest: 67,
   ConversationReadRequest: 201,
   AccountConversationReplyRequest: 202,
   ConversationDetailV2: 203,
   ConversationDetailV3: 204,
   EmptySuccess: 240,
+  TaxonomyExactMetadata: 243,
   ApiError: 251,
   OperatorSignIn: 32768,
   OperatorSession: 32769,
   Draft: 32770,
   ArticleCommand: 32771,
+  InboxReplay: 32772,
+  CanvasCreate: 32773,
+  CanvasCreated: 32774,
+  CanvasPreview: 32775,
+  CanvasLinkPlan: 32776,
+  CanvasConfirm: 32777,
+  CanvasLinked: 32778,
 } as const;
 
 export const WireHeader = {
@@ -35,6 +50,8 @@ export const WireHeader = {
 } as const;
 
 export const WireLimits = {
+  TaxonomyNameBytes: 512,
+  TaxonomyDescriptionBytes: 2000,
   TicketBytes: 128,
   TitleBytes: 256,
   NameBytes: 256,
@@ -44,6 +61,19 @@ export const WireLimits = {
   SearchIndexMaxPages: 200,
   MaxSignInFrameBytes: 148,
   MaxCommandFrameBytes: 1048884,
+  CanvasInsertionBytes: 560,
+  CanvasRequestBytes: 76,
+  InboxReplayMaxEvents: 512,
+  InboxReplayCursorChars: 54,
+  MaxPasskeyFrameBytes: 32768,
+  PasskeyCredentialIdBytes: 1023,
+  PasskeyChallengeBytes: 32,
+  PasskeyClientDataBytes: 8192,
+  PasskeyAttestationBytes: 16384,
+  PasskeyAuthenticatorDataBytes: 4096,
+  PasskeySignatureBytes: 4096,
+  PasskeyUserHandleBytes: 32,
+  PasskeyTransportCount: 6,
 } as const;
 
 export const WireLayouts = {
@@ -53,6 +83,9 @@ export const WireLayouts = {
   ErrorDetailsOffset: 264,
   ErrorTraceIdOffset: 520,
   SuccessBytes: 4,
+  TaxonomyHeaderBytes: 8,
+  TaxonomyListRecordSize: 16,
+  TaxonomyMetadataRecordSize: 16,
   ArticleDetailHeaderSize: 44,
   ArticleDetailV5Magic: 0x41524435,
   ArticleDetailV5Version: 5,
@@ -105,25 +138,61 @@ export const WireLayouts = {
   ArticleListTotalOffset: 9,
   ArticleListCursorLengthOffset: 13,
   ArticleListCursorOffset: 17,
+  InboxReplayVersion: 1,
+  InboxReplayHeaderBytes: 16,
+  InboxReplayEventBytes: 36,
+  InboxReplayHasMore: 1,
+  InboxReplayRequiresResync: 2,
+  InboxConversationUpsert: 12,
+  InboxMessageAppend: 13,
+  InboxReadUpdated: 14,
+  PasskeyAuthLoginFlowSize: 168,
+  PasskeyRegisterBeginSize: 148,
+  PasskeyLoginBeginSize: 100,
+  PasskeyRegisterCompleteSize: 120,
+  PasskeyLoginCompleteSize: 120,
+  PasskeyLoginBeginTokenOffset: 20,
+  PasskeyRegisterBeginTokenOffset: 36,
+  PasskeyCompleteTokenOffset: 8,
+  PasskeyCompleteBlobRefsOffset: 72,
+  PasskeyTokenSize: 64,
+  PasskeySliceSize: 8,
 } as const;
 
 export const WireRoutes = {
   PublicList: "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
+  PublicArchive: "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
   PublicArticle: "/api/binary/article/{id}.aeds",
   PublicSearch: "/api/binary/article/search/query.aeds",
+  CategoryList: "/api/binary/category",
+  TagList: "/api/binary/tag",
+  CategoryMetadata: "/api/binary/category/{id:int}.aeds",
+  TagMetadata: "/api/binary/tag/{id:int}.aeds",
+  TagMetadataByName: "/api/binary/tag/by-name.aeds",
+  CategoryArticles: "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds",
+  TagArticles: "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds",
   PublicIndex: "/api/v2/public/index.aeds",
   InboxList: "/api/binary/messages/conversations",
   InboxDetail: "/api/binary/messages/conversations/{id:long}",
   InboxReply: "/api/binary/messages/conversations/{id:long}/reply",
   InboxRead: "/api/binary/messages/conversations/{id:long}/read",
+  InboxReplay: "/api/v2/notifications/private.aeds",
   SignIn: "/api/v2/identity/sign-in.aeds",
   Session: "/api/v2/identity/session.aeds",
   SignOut: "/api/v2/identity/sign-out.aeds",
+  PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
+  PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
+  PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
+  PasskeyProvisionComplete: "/api/v2/identity/passkey/register/complete.aeds",
+  PasskeyAvailability: "/api/v2/identity/passkey/availability.aeds",
   Draft: "/api/v2/authoring/draft/{id:int}.aeds",
   Save: "/api/v2/authoring/save.aeds",
   Publish: "/api/v2/authoring/publish.aeds",
   Retract: "/api/v2/authoring/retract.aeds",
   Delete: "/api/v2/authoring/delete.aeds",
+  CanvasCreate: "/api/v2/authoring/canvas/create.aeds",
+  CanvasPreview: "/api/v2/authoring/canvas/link/preview.aeds",
+  CanvasConfirm: "/api/v2/authoring/canvas/link/confirm.aeds",
 } as const;
 
 export const WireHeaders = {
@@ -133,6 +202,7 @@ export const WireHeaders = {
   ClientMutationId: "X-Fsus-Client-Mutation-Id",
   SearchIndexGeneration: "X-Fsus-Search-Index-Generation",
   SearchIndexPages: "X-Fsus-Search-Index-Pages",
+  InboxReplayCursor: "X-Fsus-Inbox-Replay-Cursor",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
@@ -238,6 +308,183 @@ export function decodeArticleCommand(payload: Uint8Array): ArticleCommand {
     idempotencyKey: reader.uuid(),
     title: reader.text(WireLimits.TitleBytes),
     body: reader.text(WireLimits.BodyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasCreate {
+  canvasId: string;
+  edgeId: string;
+  hostArticleId: number;
+  targetArticleId: number;
+}
+
+export function encodeCanvasCreate(value: CanvasCreate): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.canvasId);
+  writer.uuid(value.edgeId);
+  writer.i32(value.hostArticleId);
+  writer.i32(value.targetArticleId);
+  return writer.finish();
+}
+
+export function decodeCanvasCreate(payload: Uint8Array): CanvasCreate {
+  const reader = new PodReader(payload);
+  const value: CanvasCreate = {
+    canvasId: reader.uuid(),
+    edgeId: reader.uuid(),
+    hostArticleId: reader.i32(),
+    targetArticleId: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasCreated {
+  canvasId: string;
+  edgeId: string;
+  canvasRevision: bigint;
+}
+
+export function encodeCanvasCreated(value: CanvasCreated): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.canvasId);
+  writer.uuid(value.edgeId);
+  writer.i64(value.canvasRevision);
+  return writer.finish();
+}
+
+export function decodeCanvasCreated(payload: Uint8Array): CanvasCreated {
+  const reader = new PodReader(payload);
+  const value: CanvasCreated = {
+    canvasId: reader.uuid(),
+    edgeId: reader.uuid(),
+    canvasRevision: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasPreview {
+  canvasId: string;
+  edgeId: string;
+  canvasRevision: bigint;
+  hostRevision: bigint;
+  targetRevision: bigint;
+  sourceOffset: number;
+}
+
+export function encodeCanvasPreview(value: CanvasPreview): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.canvasId);
+  writer.uuid(value.edgeId);
+  writer.i64(value.canvasRevision);
+  writer.i64(value.hostRevision);
+  writer.i64(value.targetRevision);
+  writer.i32(value.sourceOffset);
+  return writer.finish();
+}
+
+export function decodeCanvasPreview(payload: Uint8Array): CanvasPreview {
+  const reader = new PodReader(payload);
+  const value: CanvasPreview = {
+    canvasId: reader.uuid(),
+    edgeId: reader.uuid(),
+    canvasRevision: reader.i64(),
+    hostRevision: reader.i64(),
+    targetRevision: reader.i64(),
+    sourceOffset: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasLinkPlan {
+  planId: string;
+  canvasRevision: bigint;
+  hostArticleId: number;
+  hostRevision: bigint;
+  targetArticleId: number;
+  targetRevision: bigint;
+  sourceOffset: number;
+  insertedMarkdown: string;
+  expiresAtUnixSeconds: bigint;
+}
+
+export function encodeCanvasLinkPlan(value: CanvasLinkPlan): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.planId);
+  writer.i64(value.canvasRevision);
+  writer.i32(value.hostArticleId);
+  writer.i64(value.hostRevision);
+  writer.i32(value.targetArticleId);
+  writer.i64(value.targetRevision);
+  writer.i32(value.sourceOffset);
+  writer.text(value.insertedMarkdown, WireLimits.CanvasInsertionBytes);
+  writer.i64(value.expiresAtUnixSeconds);
+  return writer.finish();
+}
+
+export function decodeCanvasLinkPlan(payload: Uint8Array): CanvasLinkPlan {
+  const reader = new PodReader(payload);
+  const value: CanvasLinkPlan = {
+    planId: reader.uuid(),
+    canvasRevision: reader.i64(),
+    hostArticleId: reader.i32(),
+    hostRevision: reader.i64(),
+    targetArticleId: reader.i32(),
+    targetRevision: reader.i64(),
+    sourceOffset: reader.i32(),
+    insertedMarkdown: reader.text(WireLimits.CanvasInsertionBytes),
+    expiresAtUnixSeconds: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasConfirm {
+  planId: string;
+}
+
+export function encodeCanvasConfirm(value: CanvasConfirm): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.planId);
+  return writer.finish();
+}
+
+export function decodeCanvasConfirm(payload: Uint8Array): CanvasConfirm {
+  const reader = new PodReader(payload);
+  const value: CanvasConfirm = {
+    planId: reader.uuid(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CanvasLinked {
+  planId: string;
+  articleId: number;
+  articleRevision: bigint;
+  canvasRevision: bigint;
+}
+
+export function encodeCanvasLinked(value: CanvasLinked): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.planId);
+  writer.i32(value.articleId);
+  writer.i64(value.articleRevision);
+  writer.i64(value.canvasRevision);
+  return writer.finish();
+}
+
+export function decodeCanvasLinked(payload: Uint8Array): CanvasLinked {
+  const reader = new PodReader(payload);
+  const value: CanvasLinked = {
+    planId: reader.uuid(),
+    articleId: reader.i32(),
+    articleRevision: reader.i64(),
+    canvasRevision: reader.i64(),
   };
   reader.finish();
   return value;

@@ -20,7 +20,7 @@ const navigation = [
   { key: 'home', label: 'Home', href: '/' },
   { key: 'archive', label: 'Archive', href: '/archive' },
 ]
-const editing = computed(() => route.name === 'write' || route.name === 'edit')
+const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'messages')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')
@@ -61,16 +61,18 @@ async function leave() {
   <RouterView v-if="route.name === 'login'" v-slot="{ Component }">
     <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
   </RouterView>
-  <div v-else-if="editing" class="workspace">
+  <div v-else-if="accountArea" class="workspace">
     <ElSiteHeader max-width="64rem">
       <template #brand><RouterLink class="workspace-brand" to="/">Fsu's Blog</RouterLink></template>
       <template #desktop-actions>
         <RouterLink to="/">Public site</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
         <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
         <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
         <RouterLink v-else to="/login">Log in</RouterLink>
       </template>
       <template #mobile-primary-actions>
+        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
         <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
         <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
         <RouterLink v-else to="/login">Log in</RouterLink>
@@ -97,8 +99,14 @@ async function leave() {
       spa-search
       @search="search"
     >
-      <template #desktop-actions><ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" /></template>
-      <template #mobile-primary-actions><ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" /></template>
+      <template #desktop-actions>
+        <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
+      </template>
+      <template #mobile-primary-actions>
+        <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
+      </template>
       <div id="page-content" tabindex="-1">
         <div v-if="logoutFailure" class="reading-column editor-shell-error" role="alert">
           The server did not confirm logout.

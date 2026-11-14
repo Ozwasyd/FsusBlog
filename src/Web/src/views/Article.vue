@@ -55,7 +55,11 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
     <img v-if="cover" :src="cover" alt="Article cover" class="article-cover">
     <header class="editorial-rule">
       <h1>{{ article.title }}</h1>
-      <p class="metadata" v-if="article.publishedAt">Published <time :datetime="date(article.publishedAt)">{{ date(article.publishedAt) }}</time></p>
+      <div class="article-taxonomy metadata">
+        <span v-if="article.publishedAt">Published <time :datetime="date(article.publishedAt)">{{ date(article.publishedAt) }}</time></span>
+        <RouterLink v-if="article.category.id > 0" :to="{ name: 'category', params: { id: article.category.id } }">{{ article.category.name }}</RouterLink>
+        <RouterLink v-for="tag in article.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
+      </div>
     </header>
     <ElMarkdownRenderer v-if="nativeMarkdown" :content="article.body" :content-version="article.publication.toString()" mode="article" />
     <template v-else>

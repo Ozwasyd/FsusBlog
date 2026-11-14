@@ -19,6 +19,8 @@ inline constexpr uint32_t CrcPolynomial = 0xa001;
 }
 
 namespace limits {
+inline constexpr uint32_t TaxonomyNameBytes = 512;
+inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
 inline constexpr uint32_t NameBytes = 256;
@@ -28,6 +30,19 @@ inline constexpr uint32_t SearchIndexPageSize = 200;
 inline constexpr uint32_t SearchIndexMaxPages = 200;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
+inline constexpr uint32_t CanvasInsertionBytes = 560;
+inline constexpr uint32_t CanvasRequestBytes = 76;
+inline constexpr uint32_t InboxReplayMaxEvents = 512;
+inline constexpr uint32_t InboxReplayCursorChars = 54;
+inline constexpr uint32_t MaxPasskeyFrameBytes = 32768;
+inline constexpr uint32_t PasskeyCredentialIdBytes = 1023;
+inline constexpr uint32_t PasskeyChallengeBytes = 32;
+inline constexpr uint32_t PasskeyClientDataBytes = 8192;
+inline constexpr uint32_t PasskeyAttestationBytes = 16384;
+inline constexpr uint32_t PasskeyAuthenticatorDataBytes = 4096;
+inline constexpr uint32_t PasskeySignatureBytes = 4096;
+inline constexpr uint32_t PasskeyUserHandleBytes = 32;
+inline constexpr uint32_t PasskeyTransportCount = 6;
 }
 
 namespace layouts {
@@ -37,6 +52,9 @@ inline constexpr uint32_t ErrorMessageOffset = 8;
 inline constexpr uint32_t ErrorDetailsOffset = 264;
 inline constexpr uint32_t ErrorTraceIdOffset = 520;
 inline constexpr uint32_t SuccessBytes = 4;
+inline constexpr uint32_t TaxonomyHeaderBytes = 8;
+inline constexpr uint32_t TaxonomyListRecordSize = 16;
+inline constexpr uint32_t TaxonomyMetadataRecordSize = 16;
 inline constexpr uint32_t ArticleDetailHeaderSize = 44;
 inline constexpr uint32_t ArticleDetailV5Magic = 0x41524435;
 inline constexpr uint32_t ArticleDetailV5Version = 5;
@@ -89,25 +107,59 @@ inline constexpr uint32_t ArticleListCursorFlagOffset = 8;
 inline constexpr uint32_t ArticleListTotalOffset = 9;
 inline constexpr uint32_t ArticleListCursorLengthOffset = 13;
 inline constexpr uint32_t ArticleListCursorOffset = 17;
+inline constexpr uint32_t InboxReplayVersion = 1;
+inline constexpr uint32_t InboxReplayHeaderBytes = 16;
+inline constexpr uint32_t InboxReplayEventBytes = 36;
+inline constexpr uint32_t InboxReplayHasMore = 1;
+inline constexpr uint32_t InboxReplayRequiresResync = 2;
+inline constexpr uint32_t InboxConversationUpsert = 12;
+inline constexpr uint32_t InboxMessageAppend = 13;
+inline constexpr uint32_t InboxReadUpdated = 14;
+inline constexpr uint32_t PasskeyAuthLoginFlowSize = 168;
+inline constexpr uint32_t PasskeyRegisterBeginSize = 148;
+inline constexpr uint32_t PasskeyLoginBeginSize = 100;
+inline constexpr uint32_t PasskeyRegisterCompleteSize = 120;
+inline constexpr uint32_t PasskeyLoginCompleteSize = 120;
+inline constexpr uint32_t PasskeyLoginBeginTokenOffset = 20;
+inline constexpr uint32_t PasskeyRegisterBeginTokenOffset = 36;
+inline constexpr uint32_t PasskeyCompleteTokenOffset = 8;
+inline constexpr uint32_t PasskeyCompleteBlobRefsOffset = 72;
+inline constexpr uint32_t PasskeyTokenSize = 64;
+inline constexpr uint32_t PasskeySliceSize = 8;
 }
 
 enum class FrameType : uint16_t {
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    CategoryList = 9,
+    TagList = 10,
+    AuthLoginFlow = 18,
     ConversationList = 56,
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
+    PasskeyRegisterBegin = 63,
+    PasskeyLoginBegin = 64,
+    PasskeyRegisterCompleteRequest = 66,
+    PasskeyLoginCompleteRequest = 67,
     ConversationReadRequest = 201,
     AccountConversationReplyRequest = 202,
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
     EmptySuccess = 240,
+    TaxonomyExactMetadata = 243,
     ApiError = 251,
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     Draft = 32770,
     ArticleCommand = 32771,
+    InboxReplay = 32772,
+    CanvasCreate = 32773,
+    CanvasCreated = 32774,
+    CanvasPreview = 32775,
+    CanvasLinkPlan = 32776,
+    CanvasConfirm = 32777,
+    CanvasLinked = 32778,
 };
 
 constexpr bool known(FrameType type) {
@@ -115,19 +167,34 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:
+        case FrameType::CategoryList:
+        case FrameType::TagList:
+        case FrameType::AuthLoginFlow:
         case FrameType::ConversationList:
         case FrameType::ConversationMessage:
         case FrameType::ConversationCreateRequest:
+        case FrameType::PasskeyRegisterBegin:
+        case FrameType::PasskeyLoginBegin:
+        case FrameType::PasskeyRegisterCompleteRequest:
+        case FrameType::PasskeyLoginCompleteRequest:
         case FrameType::ConversationReadRequest:
         case FrameType::AccountConversationReplyRequest:
         case FrameType::ConversationDetailV2:
         case FrameType::ConversationDetailV3:
         case FrameType::EmptySuccess:
+        case FrameType::TaxonomyExactMetadata:
         case FrameType::ApiError:
         case FrameType::OperatorSignIn:
         case FrameType::OperatorSession:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
+        case FrameType::InboxReplay:
+        case FrameType::CanvasCreate:
+        case FrameType::CanvasCreated:
+        case FrameType::CanvasPreview:
+        case FrameType::CanvasLinkPlan:
+        case FrameType::CanvasConfirm:
+        case FrameType::CanvasLinked:
             return true;
     }
     return false;

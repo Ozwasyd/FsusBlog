@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Content;
 using Npgsql;
 
 namespace FsusBlog.V2.Server;
@@ -16,23 +17,23 @@ internal sealed class PublicSnapshot
     private readonly PublicEntry[] _ordered;
     private readonly byte[][] _index;
     private readonly FrozenDictionary<int, PublicEntry> _byId;
+    private readonly PublicListProjection _listing;
     internal long Generation { get; }
     internal long Watermark { get; }
     internal byte[] Home { get; }
-    internal byte[] FirstPage { get; }
-    private readonly byte[] _twenty;
+    internal TaxonomyProjection Taxonomy { get; }
     internal int IndexPageCount => _index.Length;
 
-    internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, WebPages pages)
+    internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor)
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
+        Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         _ordered = articles.Select(article => new PublicEntry(article, PublicArticles.EncodeDetail(article),
-            pages.Page($"<main><article><h1>{HtmlEncoder.Default.Encode(article.Title)}</h1><pre>{HtmlEncoder.Default.Encode(article.Body)}</pre></article></main>", article.Title))).ToArray();
+            pages.Page(PublicArticleHtml.Render(article), article.Title, article.Summary))).ToArray();
         _byId = _ordered.ToFrozenDictionary(entry => entry.Article.Id);
+        _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
-        FirstPage = PublicArticles.EncodeList(first, articles.Count);
-        _twenty = PublicArticles.EncodeList(articles.Take(20).ToArray(), articles.Count);
         Home = pages.Page("<main><h1>FsusBlog</h1>" + (first.Length > 0
             ? "<ol>" + string.Concat(first.Select(article => $"<li><a href=\"/article/{article.Id}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>")) + "</ol>"
             : "<p>暂无文章</p>") + "</main>");
@@ -44,21 +45,13 @@ internal sealed class PublicSnapshot
 
     internal byte[]? Index(int page) => page > 0 && page <= _index.Length ? _index[page - 1] : null;
 
-    internal byte[] List(int page, int size, string? keyword, string? sort)
-    {
-        if (page == 1 && string.IsNullOrWhiteSpace(keyword) && string.IsNullOrEmpty(sort))
-        {
-            if (size == 10) return FirstPage;
-            if (size == 20) return _twenty;
-        }
-        var matching = Match(keyword, sort);
-        var skip = ((long)page - 1) * size;
-        return PublicArticles.EncodeList(skip < matching.Length ? matching.Skip((int)skip).Take(size).ToArray() : [], matching.Length);
-    }
+    internal byte[] List(string scope, int page, int size, string? keyword, string? sort, string? cursor,
+        CancellationToken ct, Func<Article, bool>? filter = null) =>
+        _listing.Read(PublicListQuery.Parse(scope, page, size, keyword, sort, cursor), ct, filter);
 
     internal byte[] Search(string? keyword)
     {
-        var matching = Match(keyword, null);
+        var matching = Match(keyword);
         return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
     }
 
@@ -72,17 +65,17 @@ internal sealed class PublicSnapshot
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], article.Revision);
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
             hash.AppendData(coordinates);
+            TaxonomyProjection.AppendGeneration(hash, article);
         }
         return BinaryPrimitives.ReadInt64LittleEndian(hash.GetHashAndReset()) & long.MaxValue;
     }
 
-    private Article[] Match(string? keyword, string? sort)
+    private Article[] Match(string? keyword)
     {
         var query = _ordered.Select(entry => entry.Article);
         if (!string.IsNullOrWhiteSpace(keyword))
             query = query.Where(article => article.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                                            article.Body.Contains(keyword, StringComparison.OrdinalIgnoreCase));
-        if (sort == "oldest") query = query.Reverse();
         return query.ToArray();
     }
 
@@ -91,6 +84,7 @@ internal sealed class PublicSnapshot
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
+    private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private PublicSnapshot? _snapshot;
     internal PublicSnapshot? Snapshot => Volatile.Read(ref _snapshot);
 
@@ -145,12 +139,21 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         var next = Snapshot;
         if (next is null || next.Watermark != maxEvent)
         {
+            var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
             await using var cmd = Store.Sql(connection, tx, """
-                select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at
+                select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at,
+                    p.publication_no, c.id, c.name, tags.ids, tags.names
                 from public.article_publication p join public.article a on a.id=p.article_id
                 join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
+                left join public.article_revision_category link on link.article_id=p.article_id and link.revision=p.revision
+                left join public.category c on c.id=link.category_id
+                left join lateral (
+                    select array_agg(t.id order by t.id) as ids, array_agg(t.name order by t.id) as names
+                    from public.article_revision_tag tag_link join public.tag t on t.id=tag_link.tag_id
+                    where tag_link.article_id=p.article_id and tag_link.revision=p.revision
+                ) tags on true
                 where not a.deleted and a.published_revision=p.revision
-                order by p.published_at desc, a.id desc
+                order by a.created_at desc, a.id desc
                 """);
             await using var row = await cmd.ExecuteReaderAsync(ct);
             var articles = new List<Article>();
@@ -161,11 +164,14 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                 var body = row.GetString(4);
                 var limit = Math.Min(body.Length, 200);
                 if (limit > 0 && char.IsHighSurrogate(body[limit - 1])) limit--;
-                articles.Add(new Article(row.GetInt32(0), revision, publication, checked((int)revision), checked((int)publication),
+                var category = row.IsDBNull(9) ? null : new TaxonomyName(row.GetInt32(9), row.GetString(10));
+                var tags = row.IsDBNull(11) ? [] : row.GetFieldValue<int[]>(11).Zip(row.GetFieldValue<string[]>(12),
+                    (id, name) => new TaxonomyName(id, name)).ToArray();
+                articles.Add(new Article(row.GetInt32(0), revision, publication, checked((int)revision), row.GetInt32(8),
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
-                    row.GetFieldValue<DateTimeOffset>(7), body[..limit]));
+                    row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags));
             }
-            next = new PublicSnapshot(maxEvent, articles, pages);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where id<=$1 and processed_at is null
@@ -177,11 +183,13 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
 internal sealed class WebPages(string template)
 {
-    internal byte[] Page(string content = "", string? title = null)
+    internal byte[] Page(string content = "", string? title = null, string? description = null)
     {
         var document = template.Replace("<!--fsus-public-content-->", content, StringComparison.Ordinal);
         if (title is not null)
             document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(title)} · Fsu's Blog</title>", StringComparison.Ordinal);
+        if (!string.IsNullOrWhiteSpace(description))
+            document = document.Replace("</head>", $"<meta name=\"description\" content=\"{HtmlEncoder.Default.Encode(description)}\"></head>", StringComparison.Ordinal);
         return Encoding.UTF8.GetBytes(document);
     }
 }

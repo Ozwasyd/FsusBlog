@@ -17,37 +17,69 @@
     "ArticleList": 1,
     "ArticleDetail": 2,
     "ArticleSearch": 4,
+    "CategoryList": 9,
+    "TagList": 10,
+    "AuthLoginFlow": 18,
     "ConversationList": 56,
     "ConversationMessage": 58,
     "ConversationCreateRequest": 59,
+    "PasskeyRegisterBegin": 63,
+    "PasskeyLoginBegin": 64,
+    "PasskeyRegisterCompleteRequest": 66,
+    "PasskeyLoginCompleteRequest": 67,
     "ConversationReadRequest": 201,
     "AccountConversationReplyRequest": 202,
     "ConversationDetailV2": 203,
     "ConversationDetailV3": 204,
     "EmptySuccess": 240,
+    "TaxonomyExactMetadata": 243,
     "ApiError": 251,
     "OperatorSignIn": 32768,
     "OperatorSession": 32769,
     "Draft": 32770,
-    "ArticleCommand": 32771
+    "ArticleCommand": 32771,
+    "InboxReplay": 32772,
+    "CanvasCreate": 32773,
+    "CanvasCreated": 32774,
+    "CanvasPreview": 32775,
+    "CanvasLinkPlan": 32776,
+    "CanvasConfirm": 32777,
+    "CanvasLinked": 32778
   },
   "routes": {
     "PublicList": "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
+    "PublicArchive": "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
     "PublicArticle": "/api/binary/article/{id}.aeds",
     "PublicSearch": "/api/binary/article/search/query.aeds",
+    "CategoryList": "/api/binary/category",
+    "TagList": "/api/binary/tag",
+    "CategoryMetadata": "/api/binary/category/{id:int}.aeds",
+    "TagMetadata": "/api/binary/tag/{id:int}.aeds",
+    "TagMetadataByName": "/api/binary/tag/by-name.aeds",
+    "CategoryArticles": "/api/binary/article/list/category/{id:int}/{page:int}/{size:int}.aeds",
+    "TagArticles": "/api/binary/article/list/tag/{id:int}/{page:int}/{size:int}.aeds",
     "PublicIndex": "/api/v2/public/index.aeds",
     "InboxList": "/api/binary/messages/conversations",
     "InboxDetail": "/api/binary/messages/conversations/{id:long}",
     "InboxReply": "/api/binary/messages/conversations/{id:long}/reply",
     "InboxRead": "/api/binary/messages/conversations/{id:long}/read",
+    "InboxReplay": "/api/v2/notifications/private.aeds",
     "SignIn": "/api/v2/identity/sign-in.aeds",
     "Session": "/api/v2/identity/session.aeds",
     "SignOut": "/api/v2/identity/sign-out.aeds",
+    "PasskeyLoginBegin": "/api/binary/auth/passkey/login/begin",
+    "PasskeyLoginComplete": "/api/binary/auth/passkey/login/complete",
+    "PasskeyProvisionBegin": "/api/v2/identity/passkey/register/begin.aeds",
+    "PasskeyProvisionComplete": "/api/v2/identity/passkey/register/complete.aeds",
+    "PasskeyAvailability": "/api/v2/identity/passkey/availability.aeds",
     "Draft": "/api/v2/authoring/draft/{id:int}.aeds",
     "Save": "/api/v2/authoring/save.aeds",
     "Publish": "/api/v2/authoring/publish.aeds",
     "Retract": "/api/v2/authoring/retract.aeds",
-    "Delete": "/api/v2/authoring/delete.aeds"
+    "Delete": "/api/v2/authoring/delete.aeds",
+    "CanvasCreate": "/api/v2/authoring/canvas/create.aeds",
+    "CanvasPreview": "/api/v2/authoring/canvas/link/preview.aeds",
+    "CanvasConfirm": "/api/v2/authoring/canvas/link/confirm.aeds"
   },
   "headers": {
     "TraceId": "X-Fsus-Trace-Id",
@@ -55,9 +87,12 @@
     "PowProof": "X-Fsus-Pow-Proof",
     "ClientMutationId": "X-Fsus-Client-Mutation-Id",
     "SearchIndexGeneration": "X-Fsus-Search-Index-Generation",
-    "SearchIndexPages": "X-Fsus-Search-Index-Pages"
+    "SearchIndexPages": "X-Fsus-Search-Index-Pages",
+    "InboxReplayCursor": "X-Fsus-Inbox-Replay-Cursor"
   },
   "limits": {
+    "TaxonomyNameBytes": 512,
+    "TaxonomyDescriptionBytes": 2000,
     "TicketBytes": 128,
     "TitleBytes": 256,
     "NameBytes": 256,
@@ -66,7 +101,20 @@
     "SearchIndexPageSize": 200,
     "SearchIndexMaxPages": 200,
     "MaxSignInFrameBytes": 148,
-    "MaxCommandFrameBytes": 1048884
+    "MaxCommandFrameBytes": 1048884,
+    "CanvasInsertionBytes": 560,
+    "CanvasRequestBytes": 76,
+    "InboxReplayMaxEvents": 512,
+    "InboxReplayCursorChars": 54,
+    "MaxPasskeyFrameBytes": 32768,
+    "PasskeyCredentialIdBytes": 1023,
+    "PasskeyChallengeBytes": 32,
+    "PasskeyClientDataBytes": 8192,
+    "PasskeyAttestationBytes": 16384,
+    "PasskeyAuthenticatorDataBytes": 4096,
+    "PasskeySignatureBytes": 4096,
+    "PasskeyUserHandleBytes": 32,
+    "PasskeyTransportCount": 6
   },
   "layouts": {
     "ErrorBytes": 584,
@@ -75,6 +123,9 @@
     "ErrorDetailsOffset": 264,
     "ErrorTraceIdOffset": 520,
     "SuccessBytes": 4,
+    "TaxonomyHeaderBytes": 8,
+    "TaxonomyListRecordSize": 16,
+    "TaxonomyMetadataRecordSize": 16,
     "ArticleDetailHeaderSize": 44,
     "ArticleDetailV5Magic": "0x41524435",
     "ArticleDetailV5Version": 5,
@@ -126,7 +177,26 @@
     "ArticleListCursorFlagOffset": 8,
     "ArticleListTotalOffset": 9,
     "ArticleListCursorLengthOffset": 13,
-    "ArticleListCursorOffset": 17
+    "ArticleListCursorOffset": 17,
+    "InboxReplayVersion": 1,
+    "InboxReplayHeaderBytes": 16,
+    "InboxReplayEventBytes": 36,
+    "InboxReplayHasMore": 1,
+    "InboxReplayRequiresResync": 2,
+    "InboxConversationUpsert": 12,
+    "InboxMessageAppend": 13,
+    "InboxReadUpdated": 14,
+    "PasskeyAuthLoginFlowSize": 168,
+    "PasskeyRegisterBeginSize": 148,
+    "PasskeyLoginBeginSize": 100,
+    "PasskeyRegisterCompleteSize": 120,
+    "PasskeyLoginCompleteSize": 120,
+    "PasskeyLoginBeginTokenOffset": 20,
+    "PasskeyRegisterBeginTokenOffset": 36,
+    "PasskeyCompleteTokenOffset": 8,
+    "PasskeyCompleteBlobRefsOffset": 72,
+    "PasskeyTokenSize": 64,
+    "PasskeySliceSize": 8
   },
   "records": {
     "SignIn": {
@@ -144,6 +214,30 @@
     "ArticleCommand": {
       "frame": "ArticleCommand",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"]]
+    },
+    "CanvasCreate": {
+      "frame": "CanvasCreate",
+      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["HostArticleId", "i32"], ["TargetArticleId", "i32"]]
+    },
+    "CanvasCreated": {
+      "frame": "CanvasCreated",
+      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"]]
+    },
+    "CanvasPreview": {
+      "frame": "CanvasPreview",
+      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"], ["HostRevision", "i64"], ["TargetRevision", "i64"], ["SourceOffset", "i32"]]
+    },
+    "CanvasLinkPlan": {
+      "frame": "CanvasLinkPlan",
+      "fields": [["PlanId", "uuid"], ["CanvasRevision", "i64"], ["HostArticleId", "i32"], ["HostRevision", "i64"], ["TargetArticleId", "i32"], ["TargetRevision", "i64"], ["SourceOffset", "i32"], ["InsertedMarkdown", "text", "CanvasInsertionBytes"], ["ExpiresAtUnixSeconds", "i64"]]
+    },
+    "CanvasConfirm": {
+      "frame": "CanvasConfirm",
+      "fields": [["PlanId", "uuid"]]
+    },
+    "CanvasLinked": {
+      "frame": "CanvasLinked",
+      "fields": [["PlanId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"], ["CanvasRevision", "i64"]]
     }
   }
 }

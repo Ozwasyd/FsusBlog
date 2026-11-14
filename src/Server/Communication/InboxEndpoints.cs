@@ -23,7 +23,7 @@ internal static class InboxEndpoints
                     c.LastMessageAt, c.UpdatedAt, c.IsSystem, c.Status != ConversationStatus.Closed,
                     new InboxPreviewRecord((int)c.LastSender, c.LastMessageAt, c.Preview, Name(c.LastSender)))).ToArray();
                 var next = page.Next is { } n ? InboxWire.EncodeCursor(new(n.SnapshotMessageId, n.LastMessageAt, n.ConversationId)) : null;
-                return InboxWire.EncodeList(items, Count(page.Total), next);
+                return new Response(InboxWire.EncodeList(items, Count(page.Total), next), Cursor: cursor is null ? page.ReplayPosition : null);
             }, ct)).RequireRateLimiting("command");
 
         app.MapGet(WireRoutes.InboxDetail, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
@@ -37,10 +37,10 @@ internal static class InboxEndpoints
                     ? await inbox.DeltaAsync(id, last, 50, ct)
                     : await inbox.GetAsync(id, before, 50, ct);
                 if (detail is null) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
-                return InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status, Count(detail.UnreadCount),
+                return new Response(InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status, Count(detail.UnreadCount),
                     detail.LastMessageAt, detail.ReadSnapshot, detail.IsSystem, detail.Status != ConversationStatus.Closed,
                     detail.Messages.Select(m => new InboxMessageRecord(m.Id, m.ConversationId, (int)m.Sender, m.SentAt,
-                        m.Body, Name(m.Sender))).ToArray(), detail.Previous));
+                        m.Body, Name(m.Sender))).ToArray(), detail.Previous)));
             }, ct)).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.InboxRead, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
@@ -48,19 +48,43 @@ internal static class InboxEndpoints
             {
                 var readThrough = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
                 await inbox.MarkReadAsync(id, readThrough, ct);
-                return Wire.EncodeEmptySuccess();
+                return new Response(Wire.EncodeEmptySuccess());
             }, ct)).RequireRateLimiting("command");
+
+        app.MapGet(WireRoutes.InboxReplay, (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            var encoded = Query(ctx, "after", WireLimits.InboxReplayCursorChars);
+            var limit = QueryInt(ctx, "limit") ?? 100;
+            if (limit is < 1 or > WireLimits.InboxReplayMaxEvents) throw Invalid("Invalid notification page size.");
+            return Account(ctx, store, cookie, async inbox =>
+            {
+                long after = 0;
+                if (encoded is not null && !InboxReplayCursor.TryDecode(ctx.Request.Cookies[cookie]!, encoded, out after))
+                    throw new BusinessException(Rejection.Conflict, "The notification cursor has expired. Reload the inbox.");
+                var page = await inbox.ReplayAsync(after, (int)limit, ct);
+                var events = page.Events.Select(e => new InboxReplayRecord(e.Sequence, (int)e.Kind, e.ConversationId,
+                    e.MessageId, e.OccurredAt)).ToArray();
+                // A fresh inbox snapshot, not the rejected cursor, supplies the baseline after loss.
+                var packet = InboxReplayWire.Encode(page.RequiresResync ? 0 : page.Next, page.HasMore, page.RequiresResync, events);
+                return new Response(packet, page.RequiresResync ? null : page.Next);
+            }, ct);
+        }).RequireRateLimiting("command");
     }
 
-    private static async Task<IResult> Account(HttpContext ctx, Store store, string cookie, Func<InboxStore, Task<byte[]>> operation,
+    private readonly record struct Response(byte[] Frame, long? Cursor = null);
+
+    private static async Task<IResult> Account(HttpContext ctx, Store store, string cookie, Func<InboxStore, Task<Response>> operation,
         CancellationToken cancellationToken)
     {
-        var response = await store.WithSession(ctx.Request.Cookies[cookie], false, async (connection, transaction, actor) =>
+        var token = ctx.Request.Cookies[cookie];
+        var (response, expiresAt) = await store.WithSession(token, false, async (connection, transaction, actor) =>
         {
             var frame = await operation(new InboxStore(connection, transaction, actor.Id));
-            return (Frame: frame, actor.ExpiresAt);
+            return (frame, actor.ExpiresAt);
         }, cancellationToken);
-        ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = response.ExpiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = expiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        if (response.Cursor is long next)
+            ctx.Response.Headers[WireHeaders.InboxReplayCursor] = InboxReplayCursor.Encode(token!, next);
         return Results.Bytes(response.Frame, Aeds.ContentType);
     }
 

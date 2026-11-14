@@ -40,10 +40,13 @@ cleanup() {
       if ((code == 0)); then code=1; fi
     fi
   fi
-  if ! rm -f -- "$scratch/plan.json" "$scratch/backup.dump" "$scratch/error.log" ||
+  if ! rm -f -- "$scratch/plan.json" "$scratch/backup.dump" "$scratch/error.log" "$scratch/inventory.json" ||
      ! rmdir -- "$scratch"; then
     printf 'Artifact cleanup failed: %s\n' "$scratch" >&2
     if ((code == 0)); then code=1; fi
+  fi
+  if ((code == 0)); then
+    printf '%s\n' "Removed both test databases and scratch files."
   fi
   exit "$code"
 }
@@ -85,7 +88,7 @@ expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
 "${migrate[@]}" plan > "$scratch/plan.json"
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'plan targets a different database' "${migrate[@]}" apply "$scratch/plan.json"
 "${migrate[@]}" apply "$scratch/plan.json"
-"${migrate[@]}" verify
+FSUSBLOG_DB="$FSUSBLOG_DB;Options=-c default_transaction_read_only=on" "${migrate[@]}" verify
 expect_failure 'requires an empty database' "${migrate[@]}" apply "$scratch/plan.json"
 
 ticket=$("${migrate[@]}" operator 'Native author')
@@ -97,14 +100,44 @@ unset ticket digest
 [[ "$("${psql_source[@]}" -qAtc 'SELECT count(*) FROM public.login_ticket')" == 0 ]]
 [[ "$("${psql_source[@]}" -qAtc 'SELECT generation FROM public.blog_user')" == 2 ]]
 
+"${psql_source[@]}" <<'SQL'
+BEGIN;
+INSERT INTO public.article (owner_id, revision, title, body, deleted, published_revision, publication_count)
+    SELECT id, 2, 'Private draft', 'Unpublished changes', false, 1, 1 FROM public.blog_user;
+INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
+    SELECT id, 1, 'Public article', 'Published body', now() FROM public.article
+    UNION ALL
+    SELECT id, revision, title, body, now() FROM public.article;
+INSERT INTO public.article_publication (article_id, revision, published_at)
+    SELECT id, published_revision, now() FROM public.article;
+COMMIT;
+SQL
+
 "${psql_source[@]}" -c 'UPDATE public.v2_schema SET version = 99'
 expect_failure 'schema marker at version 1' "${migrate[@]}" verify
 "${psql_source[@]}" -c 'UPDATE public.v2_schema SET version = 1'
+"${psql_source[@]}" -c 'UPDATE public.article_publication SET revision = 2'
+expect_failure 'inconsistent publication coordinates' "${migrate[@]}" verify
+"${psql_source[@]}" -c 'UPDATE public.article_publication SET revision = 1'
+"${psql_source[@]}" -c 'UPDATE public.article_publication SET publication_no = 2'
+expect_failure 'inconsistent publication coordinates' "${migrate[@]}" verify
+"${psql_source[@]}" -c 'UPDATE public.article_publication SET publication_no = 1'
+"${migrate[@]}" inventory --counts > "$scratch/inventory.json"
+rg -A 3 '"name": "article",' "$scratch/inventory.json" | rg -F '"rows": 1'
 pg_dump --no-password --format=custom --dbname "$source_db" --file "$scratch/backup.dump"
 pg_restore --no-password --single-transaction --exit-on-error --dbname "$restore_db" "$scratch/backup.dump"
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT generation FROM public.blog_user')" == 2 ]]
+read_public="SELECT r.title FROM public.article_publication p
+JOIN public.article_revision r ON (r.article_id, r.revision) = (p.article_id, p.revision)"
+[[ "$("${psql_restore[@]}" -qAtc "$read_public")" == 'Public article' ]]
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT title FROM public.article')" == 'Private draft' ]]
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_count FROM public.article')" == 1 ]]
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_no FROM public.article_publication')" == 1 ]]
 
+"${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
+expect_failure 'unexpected-identity-sequence' "${migrate[@]}" verify
+"${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'
 "${psql_source[@]}" -c 'ALTER TABLE public.article DROP CONSTRAINT article_current_revision_fk'
 expect_failure 'constraint shape mismatch' "${migrate[@]}" verify
-printf '%s\n' "Native PostgreSQL migration checks passed. Dropping the two test databases."
+printf '%s\n' "Native PostgreSQL migration checks passed."

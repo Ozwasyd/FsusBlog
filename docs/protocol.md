@@ -7,6 +7,7 @@
 | 路径 | 载荷 |
 | --- | --- |
 | GET `/api/binary/article/list/home/{page}/{size}.aeds` | ArticleList (1)，FSPA v2、100 字节记录 |
+| GET `/api/binary/article/list/archive/{page}/{size}.aeds` | ArticleList (1)，独立的归档游标作用域 |
 | GET `/api/binary/article/{id}.aeds` | ArticleDetail (2)，ARD5 |
 | GET `/api/binary/article/search/query.aeds?q=…` | ArticleSearch (4)，FAS4 HTTP 本体 |
 | GET `/api/v2/public/index.aeds?page=…&generation=…` | ArticleSearch (4)，同代次 FAS4 静态索引页 |
@@ -23,7 +24,9 @@
 
 静态索引逐页返回标题和摘要。客户端固定首页的索引代次和总页数，检查每页坐标并拒绝跨页重复文章。完整加载返回结果与代次，变化或读失败时不产生部分结果。
 
-P2 的列表端点仍缺 v1 的游标签发、后续页校验及完整排序筛选。详情中的发布编号需要按单篇文章的发布顺序核对，发布 ID 和编号各有独立含义。通过本文列出的帧断言不能代替这些行为验收。
+首页和归档列表签发 15 分钟有效的加密游标。第 1 页不传游标，第 2 页起使用上一页的 `nextCursor`。游标绑定当前公开代次、路由作用域、页码、页大小、关键词、排序和最后一篇文章的发布坐标。服务重启或公开代次变化后，旧游标返回 `400 article_cursor_invalid`。
+
+列表 `latest` 根据创建时间和文章 ID 倒序，有关键词时默认采用 `relevance`，依次按标题等于、以…开头、包含和仅摘要包含匹配。关键词按字面匹配，保留大小写，避免 v1 SQL LIKE 的通配符扩展。排序 `hot` 有效输入会返回 `503 article_hot_unavailable`，等待真实的文章浏览量投影。列表首屏的常用页大小通过预编码响应提供。
 
 登录扩展使用一次性运维票据。Passkey、Recovery、MFA、风险决策和 PoW 仍按产品台账追踪。其余固定提交声明的业务帧和路由未通过本阶段验收。
 
