@@ -10,22 +10,50 @@ internal static partial class Migration
     private sealed record CandidateTable(string Name, int Phase, string Key, CandidateColumn[] Columns);
     private sealed record StageResult(int Phase, string Sha256, string Result);
 
-    private static readonly (string Name, int Phase, string Key)[] StagingOrder =
+    private static readonly Lazy<CandidateTable[]> StagingDefinitions = new(() =>
     [
-        ("shadow_article", 1, "id"), ("shadow_revision", 1, "source_revision_id"),
-        ("shadow_publication", 1, "source_publication_id"),
-        ("shadow_article_revision_content_block", 1, "id"),
-        ("shadow_category", 2, "id"), ("shadow_tag", 2, "id"),
-        ("shadow_tag_url_alias", 2, "normalized_name COLLATE BINARY"),
-        ("shadow_article_tag", 2, "articleid, tagid"), ("shadow_revision_tag", 2, "source_revision_id, tag_id"),
-        ("shadow_article_rights_policy", 3, "id"), ("shadow_article_rights_snapshot", 3, "id"),
-        ("shadow_article_responsibility_snapshot", 3, "id")
-    ];
+        Candidate("shadow_article", 1, "id", """
+            id legacy_admin_id owner_id:text current_source_revision_id current_revision title:text body:text summary:text
+            cover_image_url:text source_status source_category_id deleted scheduled_publish_at:text pending_publication_at:text
+            published_at:text last_published_at:text public_updated_at:text archived_at:text deleted_at:text current_publication_id
+            current_public_revision_candidate last_publication_number created_at:text updated_at:text
+            source_metadata_updated_at:text source_body_updated_at:text
+            """),
+        Candidate("shadow_revision", 1, "source_revision_id", """
+            source_revision_id article_id revision title:text body:text summary:text cover_image_url:text source_category_id
+            source_tag_ids:text source_content_block_id source_content_sha256:text source_inline_markdown:text source_diff_summary:text
+            source_admin_id source_rollback_revision_id source_rollback_reason:text happened_at:text
+            """),
+        Candidate("shadow_publication", 1, "source_publication_id", """
+            source_publication_id article_id source_revision_id revision publication_number source_rights_snapshot_id
+            source_responsibility_snapshot_id source_transition:text published_at:text source_created_at:text
+            """),
+        ReleaseCandidate(Block, 1, "id"),
+        ReleaseCandidate(Category, 2, "id"),
+        ReleaseCandidate(Tag, 2, "id"),
+        ReleaseCandidate(TagAlias, 2, "normalized_name COLLATE BINARY"),
+        ReleaseCandidate(ArticleTag, 2, "articleid, tagid"),
+        Candidate("shadow_revision_tag", 2, "source_revision_id, tag_id", "source_revision_id tag_id"),
+        ReleaseCandidate(RightsPolicy, 3, "id"),
+        ReleaseCandidate(RightsSnapshot, 3, "id"),
+        ReleaseCandidate(Responsibility, 3, "id")
+    ]);
+
+    private static CandidateTable[] StagingTables => StagingDefinitions.Value;
+
+    private static CandidateTable Candidate(string name, int phase, string key, string fields) =>
+        new(name, phase, key, fields.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(field => field.EndsWith(":text", StringComparison.Ordinal)
+                ? new CandidateColumn(field[..^5], "TEXT") : new CandidateColumn(field, "INTEGER")).ToArray());
+
+    private static CandidateTable ReleaseCandidate(string name, int phase, string key) =>
+        new("shadow_" + name, phase, key, LegacyColumns[name].Select(field =>
+            new CandidateColumn(field, IsLegacyText(field) || IsLegacyTimestamp(field) ? "TEXT" : "INTEGER")).ToArray());
 
     private static async Task<StageResult[]> StageLegacyCandidateAsync(NpgsqlConnection target, LegacyShadow shadow,
         ImportPlan plan, string digest, bool quarantined, CancellationToken token)
     {
-        var definitions = await ReadCandidateShapeAsync(shadow.Database, token);
+        var definitions = StagingTables;
         if (!quarantined) await BeginLegacyCandidateAsync(target, plan, digest, token);
         await VerifyCandidateHeaderAsync(target, plan, digest, token);
         await ValidateCommittedPhasePrefixAsync(target, definitions, token);
@@ -36,7 +64,7 @@ internal static partial class Migration
             await ExecuteAsync(target, tx, "SET LOCAL search_path TO pg_catalog", token);
             var cohort = definitions.Where(table => table.Phase == phase).ToArray();
             var expectedTables = plan.ExpectedTables.Where(row => cohort.Any(table => table.Name == row.Table)).ToArray();
-            var expectedCheckpoint = Digest(string.Join('\n', expectedTables.Select(row => $"{row.Table}:{row.Rows}:{row.Sha256}")));
+            var expectedCheckpoint = StagingCheckpointDigest(expectedTables);
 
             await using var checkpoint = new NpgsqlCommand(
                 $"SELECT digest FROM {ImportSchema}.checkpoint WHERE phase=$1", target, tx);
@@ -107,11 +135,11 @@ internal static partial class Migration
     }
 
     private static async Task VerifyCandidateHeaderAsync(NpgsqlConnection target, ImportPlan plan, string digest,
-        CancellationToken token)
+        CancellationToken token, NpgsqlTransaction? transaction = null)
     {
         await using var command = new NpgsqlCommand($"""
             SELECT plan_sha256,site_id,backup_manifest_sha256,serving FROM {ImportSchema}.candidate WHERE singleton
-            """, target);
+            """, target, transaction);
         await using var row = await command.ExecuteReaderAsync(token);
         if (!await row.ReadAsync(token) || row.GetString(0) != digest || row.GetGuid(1) != plan.TargetSiteId ||
             row.GetString(2) != plan.BackupManifestSha256 || row.GetBoolean(3) || await row.ReadAsync(token))
@@ -134,26 +162,8 @@ internal static partial class Migration
         await AssertCandidateRelationsAsync(target, definitions.Where(table => table.Phase <= last).ToArray(), token);
     }
 
-    private static async Task<CandidateTable[]> ReadCandidateShapeAsync(DbConnection shadow, CancellationToken token)
-    {
-        var result = new List<CandidateTable>();
-        foreach (var (name, phase, key) in StagingOrder)
-        {
-            await using var command = shadow.CreateCommand();
-            command.CommandText = $"SELECT name,type FROM pragma_table_info('{name}') ORDER BY cid";
-            await using var read = await command.ExecuteReaderAsync(token);
-            var columns = new List<CandidateColumn>();
-            while (await read.ReadAsync(token))
-            {
-                var kind = read.GetString(1).ToUpperInvariant();
-                if (kind is not ("TEXT" or "INTEGER")) throw new InvalidOperationException("Unsupported shadow target field.");
-                columns.Add(new CandidateColumn(read.GetString(0), kind));
-            }
-            if (columns.Count == 0) throw new InvalidOperationException($"Missing typed shadow table {name}.");
-            result.Add(new CandidateTable(name, phase, key, columns.ToArray()));
-        }
-        return result.ToArray();
-    }
+    private static string StagingCheckpointDigest(IEnumerable<ShadowCount> tables) =>
+        Digest(string.Join('\n', tables.Select(row => $"{row.Table}:{row.Rows}:{row.Sha256}")));
 
     private static async Task StageCandidateTableAsync(NpgsqlConnection target, NpgsqlTransaction tx, DbConnection shadow,
         CandidateTable table, CancellationToken token)
@@ -233,13 +243,14 @@ internal static partial class Migration
     }
 
     private static async Task AssertCandidateRelationsAsync(NpgsqlConnection target, CandidateTable[] definitions,
-        CancellationToken token)
+        CancellationToken token, NpgsqlTransaction? transaction = null, bool projected = false)
     {
         var expected = definitions.Select(table => table.Name).Append("candidate").Append("checkpoint").ToHashSet(StringComparer.Ordinal);
+        if (projected) expected.Add("current_projection");
         await using var command = new NpgsqlCommand("""
             SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname=$1 AND c.relkind NOT IN ('i','I')
-            """, target);
+            """, target, transaction);
         command.Parameters.Add(new NpgsqlParameter<string> { TypedValue = ImportSchema });
         await using var rows = await command.ExecuteReaderAsync(token);
         while (await rows.ReadAsync(token))

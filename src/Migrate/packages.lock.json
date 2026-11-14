@@ -94,6 +94,9 @@
           "SQLitePCLRaw.core": "2.1.11"
         }
       },
+      "fsusblog.v2.contracts": {
+        "type": "Project"
+      },
       "fsusblog.v2.core": {
         "type": "Project"
       }

@@ -66,6 +66,23 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 `tests/Integration/Migration/legacy-import.sh [sqlite|postgres|mysql]` 对三种只读源执行相同的候选实写、禁用启动、检查点续跑、改动拒绝和导入前备份恢复。2026-11-15 用 SDK 10.0.404、SQLite 3.54.0、PostgreSQL 18.7 和 MySQL 8.4.13 原生实例通过。PostgreSQL 来源连接明确强制只读事务，MySQL 来源位于无网络监听的临时实例，使用只有 `SELECT` 权限的账号。独立确认测试结束后自建库、临时目录和 MySQL socket 已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/provider-import-20261114T162656.log`。
 
+### 演练写入当前文章表
+
+对已完成三阶段暂存的同一个隔离候选库，可用 `legacy import project` 演练写入当前 v2 文章表。提供原始导入计划、从 `legacy import apply` 结果独立保存的 `planSha256`，以及该候选的导入前空库备份目录和清单 SHA-256。`planSha256` 是计划内容的规范摘要。此阶段只使用已暂存的旧记录，当前结构或候选数据库身份改变后，需重新建立候选和执行原始暂存。
+
+```bash
+dotnet run --no-build --project src/Migrate -- legacy import project "$plan" "$plan_sha256" "$verified_backup_dir" "$manifest_sha256"
+dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$plan_sha256" "$verified_backup_dir" "$manifest_sha256"
+```
+
+事务重新核对所有暂存表和检查点，再按原对象标识写入文章、修订、分类标签、原公开发布及对应权利。当前标题、正文、分类、标签需与已记录的头修订一致。首发时间和最近发布分别核对，旧计划发布和未解析的生命周期转换拒绝投影。读取已暂存快照中的 `immediate-publish` 记录，独立重算旧内容和旧权利策略的规范 SHA-256，再核对 v2 权利字段格式。缺失、待重算或不匹配的摘要会令整笔事务停止。旧权利可空文本与年份写入当前合同的空串和零标记，原始字段、权利绑定标记和旧责任记录仍保留在暂存表。
+
+当前 v2 发布历史每篇只写入一个已有发布边界，原始发布事件、时间、ID、权利和责任坐标完整保留在隔离暂存表。不会生成 v2 作者命令或 outbox 事件。根据所有原始发布及权利 ID 保留序列高水位。写入和序列调整同一个事务提交。成功后，重复 `project` 和只读 `verify` 均重测暂存和当前表、序列及空库备份覆盖，比较原收据。
+
+整个候选仍保留禁止启动的结构标记。命令恒返回 `readyToApply: false`。动态项目中的定时执行、恢复和回滚发布、日志签名和透明链、原稿摘要与责任呈现均未转换到当前运行时。未发布权利、旧责任链和全部历史坐标仍可离线核对，生产激活仍须另行完成。
+
+2026-11-15 用 SDK 10.0.404 与 SQLite 3.54.0 来源在原生 PostgreSQL 18.7 验证有两次真实格式旧发布的文章。测试确认原发布及权利标识、当前与已发布正文差异、标签和别名、只读回读与禁止启动。通过仅拒绝最后一张权利关联表写入的数据库角色验证事务回滚，再成功重跑。已暂存行或当前表发生改动会拒绝重跑；独立测试内容及权利摘要不符均不落表。其他提供方继续覆盖前置三阶段暂存与恢复。原始结果见 `artifacts/native-migration/project-final-20261114T172731.log`。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。
