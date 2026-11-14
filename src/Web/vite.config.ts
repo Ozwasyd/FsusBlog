@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
@@ -6,12 +6,13 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import { defineConfig, type Plugin } from 'vite'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
-const uiRoot = fileURLToPath(new URL('../../../FsusUI/', import.meta.url))
-const packages = join(uiRoot, 'vue/packages')
-const entry = join(packages, 'element-plus/index.ts')
-if (!existsSync(entry)) {
+const sibling = fileURLToPath(new URL('../../../FsusUI/', import.meta.url))
+if (!existsSync(join(sibling, 'vue/packages/element-plus/index.ts'))) {
   throw new Error('FsusUI source is required in ../FsusUI next to the FsusBlogV2 checkout.')
 }
+const uiRoot = realpathSync(sibling)
+const packages = join(uiRoot, 'vue/packages')
+const entry = join(packages, 'element-plus/index.ts')
 const nativeFiles = [
   'ep_wasm.mjs',
   'ep_wasm.wasm',
