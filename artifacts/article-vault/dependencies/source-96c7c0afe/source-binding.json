@@ -1,0 +1,152 @@
+{
+    "sourceCommit": "96c7c0afefe8790ec88acdfa3131ca3be7f84d3a",
+    "canonicalComposedCommit": "08f04ba6875d523a680a1d5e03190bbdb092bb35",
+    "freshDefaultObserved": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "canonicalPrerequisiteFixtureSource": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+    "canonicalOperationAndAcceptedSource": "9cd6ae50b233eee35f291c9690d316bbfee37941",
+    "qualification": "ordinary source/product integration only; no full issue or runtime/platform qualification",
+    "sourceFiles": [
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/ArticleVaultDependencyPlanner.cs",
+            "sha256": "2b55fe08f0419e4869e6059eaddb9fb271dfacfafe5e401108092a20c1e4c5c8",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
+            "sha256": "881842e11e6ffab87c45d9472b10f1579ebcfbf727557d553c9956cbbe739a46",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
+            "sha256": "3853bb0c1667898ee53cad7451f8aecc59f274083ebcb8d74a8dc4beacfe892b",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
+            "sha256": "9e121cf2285ac04a6314c87d7d0217da6c65be3f816f918e6dca0962908fad17",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/portable-dependency-manifest.schema.json",
+            "sha256": "76c2c3b3df2810c99865ee5bbda031c523e05bef67c4a56e5817b8427362ae01",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
+            "sha256": "05b7a8c370fdda605b8eb0fe5568c3c624999da620799de43c013c7219b698c3",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetStagingAdapter.cs",
+            "sha256": "9ec5aa1b88eb8f7d50a5ef411cba710256250565111f26dfec1d0171cb60ae3e",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetUploadHandoff.cs",
+            "sha256": "1c91e52a55ee48b7feaa3a1cc726beca9a2ba2a0896c47349063d4091e312fce",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
+            "sha256": "bc43fef260347b5083fb12aebdca52fd4499eec9e8a7b830ddc263c1fa3773e0",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultCommittedUploadObserver.cs",
+            "sha256": "b83d82175f890cdbc13aeda3ee68f7508e3a2ab788ee966f0c33925a0d6a6c88",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/PortableDependencyManifestTests.cs",
+            "sha256": "826cfbc5715560fd27507976137d13ece3f38bf683158a0e7ebc36cb7540ad12",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetValidationTests.cs",
+            "sha256": "40aecf3262f41bc5539311d1da3e2ec187092a40e65148f21032ad708a25c318",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultCommittedUploadObserverTests.cs",
+            "sha256": "e725123e10310b627ed03f80d480ab08302a5b447745b36337f93798eec82e1d",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs",
+            "sha256": "5d3a744e33dd16bf2b7ea2e4239cf4fe918ab2722658c5d69f3e559d99a6baf2",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "sha256": "73c6f4c99ded4d1197583c3f78e03b06d69f849d8fc51f396a6db9f1cb3b9b96",
+            "canonicalBytesEqual": true
+        }
+    ],
+    "verification": {
+        "ordinaryOriginalBackendProject": {
+            "passed": 162,
+            "failed": 0,
+            "skipped": 0,
+            "classCounts": {
+                "PortableDependencyManifestTests": 32,
+                "ArticleVaultAssetValidationTests": 42,
+                "ArticleVaultCommittedUploadObserverTests": 20,
+                "ArticleVaultAssetStagingAdapterTests": 55,
+                "UploadAssetObservationTests": 13
+            }
+        },
+        "nodeTests": {
+            "passed": 8,
+            "failed": 0,
+            "skipped": 0
+        },
+        "independentQaReplayed": false,
+        "fullAcceptance": false
+    },
+    "evidenceFiles": [
+        {
+            "path": "ordinary-product-final.trx",
+            "sha256": "ff06300215904d35f6536eccffd9951ea26b5f10a5425422489fa43644a4c462"
+        },
+        {
+            "path": "ordinary-product-final.log",
+            "sha256": "753a05e5712ae34da41831b4105b340ffa7b1c6b9aec4f44a3a9ed4929c89ba0"
+        },
+        {
+            "path": "initial-fixture-failure.trx",
+            "sha256": "ad22573b0d27ad26380fe11cfa220270ef4ccb3a57e6238547c03d3b9dbafa4d"
+        },
+        {
+            "path": "corrected-identity-fixture-failure.trx",
+            "sha256": "6268bd09422e68c8c29428fe5916d8467a098db2c302da321a57ea98148b5595"
+        },
+        {
+            "path": "staging-fixture-corrected-pass.trx",
+            "sha256": "839a087a6ab360b380e3ca1419689f7ce053379d195d281cf4320d206b07e14c"
+        },
+        {
+            "path": "csharp-style.log",
+            "sha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027"
+        },
+        {
+            "path": "dependency-csharp-style.log",
+            "sha256": "0a80fae55379dee59ade51d0769beef0eeccbef0b901837f893a4cbb3b607f68"
+        },
+        {
+            "path": "boundary.log",
+            "sha256": "9c8e4dc0bf26e8c9b2dd7509b7951ad8869428a0b82e748dd8cc32cb327a433e"
+        },
+        {
+            "path": "node-tests.log",
+            "sha256": "9600ad8f8c6899056112a9caca4f80501888c61bcfd1a6bdaaf447447daa2c87"
+        },
+        {
+            "path": "document-style.log",
+            "sha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2"
+        },
+        {
+            "path": "change-contract.log",
+            "sha256": "8f7cc6fcfe5b9fda8b3daa775eddc20b169b97b61108502e13076938e390339f"
+        }
+    ]
+}

@@ -1,0 +1,67 @@
+{
+    "sourceCommit": "0f9ec91c8a4c8237d096fa306d9403560e92c567",
+    "canonicalComposedCommit": "e52df80ebe4ae636edd8902b9f8fff63f05021c7",
+    "canonicalUploadCapability": "982430c1c696e51715e1fb9587acbc2f61ec8902",
+    "consumedUploadCommit": "8b1679519ee8881763579eb752b68426b848f354",
+    "graphQaHarness": "d21665cc921df8a0ed5dc54102b244f7a7bfb85d",
+    "linkConsumer": "7117889cec02509f14099f28477f673a8cf5795b",
+    "qualification": "WIP; canonical tests CS0182; two sibling link occurrence/identity QA failures retained",
+    "sourceFiles": [
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "sha256": "3d88bbd1a524234bb96fce5253cbe2216541afe92c856e8c2fe163a0c7becc92"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
+            "sha256": "05b7a8c370fdda605b8eb0fe5568c3c624999da620799de43c013c7219b698c3"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
+            "sha256": "bc43fef260347b5083fb12aebdca52fd4499eec9e8a7b830ddc263c1fa3773e0"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultCommittedUploadObserver.cs",
+            "sha256": "b83d82175f890cdbc13aeda3ee68f7508e3a2ab788ee966f0c33925a0d6a6c88"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/ArticleVaultDependencyPlanner.cs",
+            "sha256": "ab196d4de1715092f0e44e9fa272305c906a01ba8ded9727100031128590b8a7"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
+            "sha256": "c0ff128ceef5860cdc0a6ea3f9999aa1edbad9e2e5aeffabecba27159c7337ee"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
+            "sha256": "c3bf362da6e006b2897f09fa54fa9055b766c8b07a412ee89f66f18e7db6cb01"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
+            "sha256": "ebb19e16a9438366ecfe8e3b7974ed64ee93033a904e160468c544f51a2eab80"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/portable-dependency-manifest.schema.json",
+            "sha256": "76c2c3b3df2810c99865ee5bbda031c523e05bef67c4a56e5817b8427362ae01"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetValidationTests.cs",
+            "sha256": "40aecf3262f41bc5539311d1da3e2ec187092a40e65148f21032ad708a25c318"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultCommittedUploadObserverTests.cs",
+            "sha256": "ee8d778de579e0c0fec7e2325d0c2d2778f28d1b55deeb0d198059758ff4ebe3"
+        },
+        {
+            "path": "tests/backend/Unit/PortableDependencyManifestTests.cs",
+            "sha256": "62ab84202c2e4e64b2bd566f1eefec6ca66b97069adb4e3d9a09040c9b91f805"
+        },
+        {
+            "path": "tests/tools/article-vault-dependency-boundary.test.mjs",
+            "sha256": "08ac3bb63ff7b4051bda6613f44e7780810827bb426fe2037f80f820930ccad8"
+        },
+        {
+            "path": "tools/governance/check-article-vault-dependency-boundary.mjs",
+            "sha256": "1438ed94f3a5fef2402b0fb0e46f6073bf799e66205eecabf26d60347068f790"
+        }
+    ]
+}

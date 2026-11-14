@@ -1,0 +1,56 @@
+{
+    "sourceCommit": "00eeaf705dcc03a5412b36002df0b166e7442f3a",
+    "canonicalComposedCommit": "cfc2c7a771ad978743314f0bf0b2672ba26f0d82",
+    "defaultCommit": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+    "qualification": "diagnostic source tests only; canonical original test compilation fails CS0182",
+    "sourceFiles": [
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "sha256": "d35aed0341e98838fb81077aa5cd4b7039914bba22c49875fdf0c6842eb58f47"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
+            "sha256": "05b7a8c370fdda605b8eb0fe5568c3c624999da620799de43c013c7219b698c3"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
+            "sha256": "bc43fef260347b5083fb12aebdca52fd4499eec9e8a7b830ddc263c1fa3773e0"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/ArticleVaultDependencyPlanner.cs",
+            "sha256": "ab196d4de1715092f0e44e9fa272305c906a01ba8ded9727100031128590b8a7"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
+            "sha256": "c0ff128ceef5860cdc0a6ea3f9999aa1edbad9e2e5aeffabecba27159c7337ee"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
+            "sha256": "c3bf362da6e006b2897f09fa54fa9055b766c8b07a412ee89f66f18e7db6cb01"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
+            "sha256": "ebb19e16a9438366ecfe8e3b7974ed64ee93033a904e160468c544f51a2eab80"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/portable-dependency-manifest.schema.json",
+            "sha256": "76c2c3b3df2810c99865ee5bbda031c523e05bef67c4a56e5817b8427362ae01"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetValidationTests.cs",
+            "sha256": "40aecf3262f41bc5539311d1da3e2ec187092a40e65148f21032ad708a25c318"
+        },
+        {
+            "path": "tests/backend/Unit/PortableDependencyManifestTests.cs",
+            "sha256": "af7e3ca4dcede429508bb432b6bab19934c9383f6050640869832d16ff885967"
+        },
+        {
+            "path": "tests/tools/article-vault-dependency-boundary.test.mjs",
+            "sha256": "08ac3bb63ff7b4051bda6613f44e7780810827bb426fe2037f80f820930ccad8"
+        },
+        {
+            "path": "tools/governance/check-article-vault-dependency-boundary.mjs",
+            "sha256": "1438ed94f3a5fef2402b0fb0e46f6073bf799e66205eecabf26d60347068f790"
+        }
+    ]
+}

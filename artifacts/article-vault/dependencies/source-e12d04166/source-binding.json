@@ -1,0 +1,147 @@
+{
+    "sourceCommit": "e12d0416675075da0963a693aa335bda822631bd",
+    "canonicalComposedCommit": "a50096cd362ad116925d54a24fb3825ca8483edf",
+    "independentlyFetchedDefault": "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "supplierTableCommit": "42ece11c821dd01e9f372b66e7822f0fd0fc3864",
+    "validationOnly": true,
+    "canAuthorizeExecution": false,
+    "canMaterialize": false,
+    "canCommitBase": false,
+    "independentQaReplayed": false,
+    "sourceFiles": [
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetInputVerifier.cs",
+            "sha256": "7eee2a5692500e4252f976059c450248fec657172210ec4d4e7b2902da407094",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetInputVerifierTests.cs",
+            "sha256": "3338934cb32f2277fe2f48d4bdbff0a535cd0faeb0a2c566527a7670680ba890",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs",
+            "sha256": "08fb9410411606376bba2e5b8b99616ce2e5791597d4a877cd6e7182ae0bd6f1",
+            "canonicalBytesEqual": true
+        },
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "sha256": "b6ddc5f5110edbc5c5ebc832215f56b1784b5f0d136532fcf09985fad8d65015",
+            "canonicalBytesEqual": true
+        }
+    ],
+    "originalSupplierApis": [
+        {
+            "path": "src/backend/Interfaces/IPrivateAssetStore.cs",
+            "sha256": "72388deb30d36e244abbe95e110303c889bdd0427b02cb59a2b5147bf536a37d",
+            "freshDefaultBytesEqual": true
+        },
+        {
+            "path": "src/backend/Interfaces/IPrivateAssetAccessService.cs",
+            "sha256": "186f11384780e8c59ff097dfac82248c30d39e27b4ff969b57be9d038c4a78cb",
+            "freshDefaultBytesEqual": true
+        },
+        {
+            "path": "src/backend/Services/PrivateAssets/PrivateAssetAccessService.cs",
+            "sha256": "2ce409cd7fbc6d24d0156af80e381ca11289dd9dab37c74307f16466f4f31e1f",
+            "freshDefaultBytesEqual": true
+        },
+        {
+            "path": "src/backend/Contracts/Assets/ContentAssetContract.cs",
+            "sha256": "4019e82e23c3d4d2a014322e9dae218e46a26026317eee2a1c2660f4cd16ace0",
+            "freshDefaultBytesEqual": true
+        }
+    ],
+    "fullRegressionSourceCommit": "176c1d8f00406ef1e272ce6adf1324016c6e5fad",
+    "fullRegressionComposedCommit": "36c65405736c75801c879b573c16946a5cb58360",
+    "fullRegressionCounters": {
+        "total": "220",
+        "executed": "220",
+        "passed": "220",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "fullRegressionCountersByClass": {
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAssetValidationTests": 42,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultCommittedUploadObserverTests": 20,
+        "FsusBlog.Server.Tests.UploadAssetObservationTests": 13,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAssetInputVerifierTests": 58,
+        "FsusBlog.Server.Tests.Unit.PortableDependencyManifestTests": 32,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests": 55
+    },
+    "finalAffectedCounters": {
+        "total": "113",
+        "executed": "113",
+        "passed": "113",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "finalAffectedCountersByClass": {
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAssetInputVerifierTests": 58,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests": 55
+    },
+    "evidenceFiles": [
+        {
+            "path": "ordinary-product-full.trx",
+            "sha256": "9ff935970fc59ef77a2112899c9e23ed1de8e0820c466f5fa9662c640755ed64"
+        },
+        {
+            "path": "ordinary-product-full.log",
+            "sha256": "7f8bf481f42291e3b76dcdf24618a85332899fd6cf4ebbbec69e9d11ca061d4a"
+        },
+        {
+            "path": "ordinary-product-final.trx",
+            "sha256": "7a36cc715ca2e964a6bae4bf02c18a2f4518c3505af72f02af3a3428898e6e27"
+        },
+        {
+            "path": "ordinary-product-final.log",
+            "sha256": "c22144b170679f7d88755c95eaf406a616091a4b27b166ad2cf59678ce7a0c1f"
+        },
+        {
+            "path": "backend-build.log",
+            "sha256": "b6177c7a8e04d60dc091605ad5c45d950e5791b2e037427fa0444e2556edd498"
+        },
+        {
+            "path": "csharp-style.log",
+            "sha256": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941"
+        },
+        {
+            "path": "boundary.log",
+            "sha256": "9c8e4dc0bf26e8c9b2dd7509b7951ad8869428a0b82e748dd8cc32cb327a433e"
+        },
+        {
+            "path": "node-tests.log",
+            "sha256": "058c935f17eb7af46133b418eb84c8f16dac85355d108d2ecaeddd0dbda08f2d"
+        },
+        {
+            "path": "document-style.log",
+            "sha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2"
+        },
+        {
+            "path": "change-contract.log",
+            "sha256": "8cf323830bb4aad477d183fedbaf29b7445e1b1c1af26b28251210e3b7f0cda3"
+        }
+    ]
+}
