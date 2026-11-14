@@ -1,9 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tools/test-matrix/schema-validator/package.json",
-        "tools/test-matrix/generate-release-final-execution-authority.mjs",
-        "config/testing/release-final-execution-authority-index.json"
+        "tools/test-matrix/schema-validator/package.json"
     ],
     "outputs": [
         {
