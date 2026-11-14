@@ -105,6 +105,104 @@ public sealed class PrivateMediaPostgresTests
     }
 
     [PostgresFact]
+    public async Task DraftAttachmentsPinPrivateImagesAndTicketsRequireCurrentRevisionAndSession()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var owner = await Author(db.DataSource, "attachment-owner", true, ct);
+        var outsider = await Author(db.DataSource, "attachment-other", true, ct);
+        var directory = Directory.CreateTempSubdirectory("fsusblog-media-attach-");
+        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
+            ? "/private" + directory.FullName : directory.FullName;
+        try
+        {
+            await using var server = await ServerProcess.Start(db.ConnectionString, ct,
+                new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root });
+            var client = server.Client;
+            var png = EncodeImage(SKEncodedImageFormat.Png);
+            using var upload = await Upload(client, owner, Guid.NewGuid(), "draft.png", "image/png", png, ct);
+            var asset = First(await upload.Content.ReadAsByteArrayAsync(ct), 1);
+            using var elsewhere = await Upload(client, outsider, Guid.NewGuid(), "foreign.png", "image/png", png, ct);
+            var foreign = First(await elsewhere.Content.ReadAsByteArrayAsync(ct), 1);
+            using var create = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Attachments", "Original body.")));
+            Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+            var draft = Wire.DecodeDraft(await create.Content.ReadAsByteArrayAsync(ct));
+            var input = new ArticleMediaCommand(draft.Id, draft.Revision, Guid.NewGuid(), asset, true);
+            using var crossAsset = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input with { AssetId = foreign }));
+            Assert.Equal(HttpStatusCode.NotFound, crossAsset.StatusCode);
+            using var unauthorized = await Command(WireRoutes.ArticleMediaCommand, outsider, Wire.EncodeArticleMediaCommand(input));
+            Assert.Equal(HttpStatusCode.NotFound, unauthorized.StatusCode);
+            using var attach = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input));
+            Assert.Equal(HttpStatusCode.OK, attach.StatusCode);
+            var saved = Wire.DecodeDraft(await attach.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal(draft.Revision + 1, saved.Revision);
+            Assert.Equal(draft.Body, saved.Body);
+            using var repeated = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input));
+            Assert.Equal(saved, Wire.DecodeDraft(await repeated.Content.ReadAsByteArrayAsync(ct)));
+            var ticket = await Preview(saved.Revision);
+            await AssertHidden(client, HttpMethod.Get, ticket, null, ct);
+            await AssertHidden(client, HttpMethod.Get, ticket, outsider, ct);
+            await AssertHidden(client, HttpMethod.Head, ticket[..^2] + (ticket[^2] == 'b' ? 'A' : 'b') + ticket[^1], owner, ct);
+            using var allowed = await Send(client, HttpMethod.Get, ticket, owner, ct);
+            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+            Assert.True(allowed.Headers.CacheControl?.NoStore);
+            Assert.Equal("image/png", allowed.Content.Headers.ContentType?.MediaType);
+
+            using var cannotRemove = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
+            Assert.Equal(HttpStatusCode.Conflict, cannotRemove.StatusCode);
+            using var detach = await Command(WireRoutes.ArticleMediaCommand, owner,
+                Wire.EncodeArticleMediaCommand(input with { ExpectedRevision = saved.Revision, IdempotencyKey = Guid.NewGuid(), Attach = false }));
+            Assert.Equal(HttpStatusCode.OK, detach.StatusCode);
+            var detached = Wire.DecodeDraft(await detach.Content.ReadAsByteArrayAsync(ct));
+            await AssertHidden(client, HttpMethod.Get, ticket, owner, ct);
+            using var historyStillPins = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
+            Assert.Equal(HttpStatusCode.Conflict, historyStillPins.StatusCode);
+            using var restore = await Command(WireRoutes.DraftRollback,
+                owner, Wire.EncodeDraftRollback(new(draft.Id, detached.Revision, saved.Revision, Guid.NewGuid(), "Restore the attached revision")));
+            Assert.Equal(HttpStatusCode.OK, restore.StatusCode);
+            var restored = Wire.DecodeDraft(await restore.Content.ReadAsByteArrayAsync(ct));
+            using var restoredBytes = await Send(client, HttpMethod.Head, await Preview(restored.Revision), owner, ct);
+            Assert.Equal(HttpStatusCode.OK, restoredBytes.StatusCode);
+            using var published = await Command(WireRoutes.Publish, owner,
+                Wire.EncodeArticleCommand(new(draft.Id, restored.Revision, Guid.NewGuid(), "", "")));
+            Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+            var publishedDraft = Wire.DecodeDraft(await published.Content.ReadAsByteArrayAsync(ct));
+            var publicCandidateTicket = await Preview(publishedDraft.Revision);
+            await AssertHidden(client, HttpMethod.Get, publicCandidateTicket, null, ct);
+            using var html = await client.GetAsync($"/article/{draft.Id}", ct);
+            Assert.Equal(HttpStatusCode.OK, html.StatusCode);
+            Assert.DoesNotContain("draft-preview", await html.Content.ReadAsStringAsync(ct));
+            await using var pin = db.DataSource.CreateCommand("SELECT count(*) FROM public.article_revision_media WHERE asset_id=$1");
+            pin.Parameters.AddWithValue(asset);
+            Assert.Equal(3L, await pin.ExecuteScalarAsync(ct));
+
+            async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes)
+            {
+                using var request = Request(HttpMethod.Post, path, actor);
+                request.Content = new ByteArrayContent(bytes);
+                request.Content.Headers.ContentType = new(Aeds.ContentType);
+                return await client.SendAsync(request, ct);
+            }
+
+            async Task<string> Preview(long revision)
+            {
+                var path = WireRoutes.ArticleMedia.Replace("{id:int}", $"{draft.Id}", StringComparison.Ordinal);
+                using var response = await Send(client, HttpMethod.Get, $"{path}?revision={revision}", owner, ct);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var payload = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleMedia);
+                Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(payload[12..]));
+                Assert.Equal(asset, new Guid(payload[16..32], bigEndian: true));
+                Assert.Equal(91, BinaryPrimitives.ReadInt32LittleEndian(payload[32..]));
+                return WireRoutes.ArticleMediaPreview.Replace("{ticket}", System.Text.Encoding.UTF8.GetString(payload[36..]), StringComparison.Ordinal);
+            }
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [PostgresFact]
     public async Task ResumablePartsPersistAcrossRestartAndFinalizeOnlyVerifiedPrivateBytes()
     {
         if (OperatingSystem.IsWindows()) return;

@@ -8,6 +8,7 @@ import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxon
 import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
+import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
@@ -15,6 +16,7 @@ import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
 import ArticleSchedule from '../authoring/ArticleSchedule.vue'
 import ArticleRights from '../authoring/ArticleRights.vue'
+import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
@@ -29,7 +31,7 @@ import {
 } from '../authoring/workspaceRegistry'
 
 type ArticleAction = 'save' | 'publish' | 'retract'
-type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights'
+type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment'
 type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
@@ -155,6 +157,9 @@ const updateRights = (policy: RightsEdit) => (draft: Draft, signal: AbortSignal,
     const result = await setDraftRights({ ...policy, id: draft.id, expectedRevision: draft.revision, idempotencyKey }, signal)
     return { ...draft, revision: result.revision }
   }, signal)
+
+const updateAttachment = (edit: AttachmentEdit, current: string) => (draft: Draft, signal: AbortSignal, key: string) =>
+  mutationResult(() => editArticleMedia(draft.id, draft.revision, key, edit, current, signal), signal)
 
 const registry = new WorkspaceRegistry<Draft>({
   async load(articleId, signal) {
@@ -422,9 +427,11 @@ async function restoreDraft(candidate: RecoveryCandidate) {
   }
 }
 
-async function submit(action: Action, selection?: TaxonomySelection, restore?: RestoreSelection, due?: bigint, rights?: RightsEdit) {
+async function submit(action: Action, selection?: TaxonomySelection, restore?: RestoreSelection, due?: bigint, rights?: RightsEdit,
+  media?: AttachmentEdit) {
   const current = tab.value
   const document = original.value
+  const siteSession = currentSession.value?.siteSessionId
   if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
@@ -436,6 +443,8 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
     if (due === undefined || current.risk !== 'clean' || cannotWrite.value) return
   } else if (action === 'save-rights') {
     if (!rights || current.risk !== 'clean' || cannotWrite.value) return
+  } else if (action === 'save-attachment') {
+    if (!media || !siteSession || current.risk !== 'clean' || cannotWrite.value) return
   } else if (cannotWrite.value || action === 'publish' && !document.body.trim()) {
     return
   }
@@ -456,7 +465,9 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
             : action === 'schedule-publication' && due !== undefined
               ? registry.commit(current, action, updateSchedule(due))
               : action === 'save-rights' && rights
-                ? registry.commit(current, action, updateRights(rights)) : undefined
+                ? registry.commit(current, action, updateRights(rights))
+                : action === 'save-attachment' && media && siteSession
+                  ? registry.commit(current, action, updateAttachment(media, siteSession)) : undefined
   if (!requested) return
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
@@ -466,6 +477,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
       'assign-taxonomy': 'Classification saved.', 'rollback-history': 'Revision restored to a new draft.',
       'schedule-publication': 'Publication schedule updated.',
       'save-rights': 'Publication rights saved.',
+      'save-attachment': 'Private attachments saved.',
     }[action]
     if (!document.id) await router.replace({ name: 'edit', params: { id: result.articleId } })
   } else if (result.kind === 'conflict') {
@@ -581,6 +593,9 @@ async function reloadDraft() {
       <EditorInspector v-if="original && original.id > 0">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
+        <ArticleMedia :article-id="original.id" :revision="original.revision" :identity="identityEpoch"
+          :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
+          @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" />
         <ArticleTaxonomy
           :article-id="original.id"
           :revision="original.revision"

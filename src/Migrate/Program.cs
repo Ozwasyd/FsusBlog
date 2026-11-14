@@ -41,6 +41,7 @@ internal static partial class Migration
                   article-schedule      Add pending publication and command receipts with the server stopped
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
+                  article-private-media Add article revision attachment storage with the server stopped
                   admin-identity schema Add the independent administrator schema with the server stopped
                   admin-identity bootstrap HANDLE admin.manage
                                         Create an administrator and issue a one-use Passkey invitation
@@ -172,6 +173,9 @@ internal static partial class Migration
                 case ["private-media-upload", "schema"]:
                     await InitializeMediaUploadAsync(connection, token);
                     break;
+                case ["article-private-media"]:
+                    await InitializeArticleMediaAsync(connection, token);
+                    break;
                 case ["admin-identity", .. var adminArguments]:
                     await AdminIdentityAsync(connection, adminArguments, token);
                     break;
@@ -258,7 +262,7 @@ internal static partial class Migration
 
         await RequireEmptyAsync(connection, transaction, token);
         await ExecuteAsync(connection, transaction, schema, token);
-        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token);
+        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

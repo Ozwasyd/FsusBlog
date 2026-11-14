@@ -14,6 +14,8 @@ public enum FrameType : ushort
     PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
     PrivateMediaUploadState = 32845,
+    ArticleMedia = 32870,
+    ArticleMediaCommand = 32871,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -388,6 +390,9 @@ public static class WireRoutes
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
     public const string InboxStream = "/api/v2/notifications/inbox/wake";
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
+    public const string ArticleMedia = "/api/v2/authoring/draft/{id:int}/media.aeds";
+    public const string ArticleMediaCommand = "/api/v2/authoring/draft/media.aeds";
+    public const string ArticleMediaPreview = "/api/v2/media/draft-preview/{ticket}";
     public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";
     public const string PrivateMediaUploadBegin = "/api/v2/media/resumable/begin.aeds";
     public const string PrivateMediaUploadStatus = "/api/v2/media/resumable/{id}/status.aeds";

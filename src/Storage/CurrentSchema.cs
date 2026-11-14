@@ -86,7 +86,7 @@ internal static partial class CurrentSchema
                 throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
         }
 
-        await VerifyCatalogAsync(connection, transaction, cancellationToken);
+        await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -106,8 +106,13 @@ internal static partial class CurrentSchema
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
-        bool requireCanvasHistory = true)
+        bool requireCanvasHistory = true, bool? requireArticleMedia = null)
     {
+        if (requireArticleMedia is null)
+        {
+            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass('public.article_revision_media') IS NOT NULL", connection, transaction);
+            requireArticleMedia = await relation.ExecuteScalarAsync(cancellationToken) is true;
+        }
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
@@ -115,6 +120,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationHistory ? PublicationHistoryColumns : [])
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
+            .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
@@ -125,6 +131,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])
+            .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();

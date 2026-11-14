@@ -142,14 +142,15 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
 
     private static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
-        ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null)
+        ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null)
     {
-        var fingerprint = rights is not null ? SHA256.HashData(Wire.EncodeArticleRightsCommand(rights)) :
+        var fingerprint = attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
+            rights is not null ? SHA256.HashData(Wire.EncodeArticleRightsCommand(rights)) :
             schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
             taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
-        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null
+        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null
             ? await Find(db, tx, actor, edit.Id, true, ct) : null;
         await using (var existing = Sql(db, tx, """
             select fingerprint,article_id,revision,title,body,published from public.article_command where actor_id=$1 and command_id=$2
@@ -175,7 +176,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         else
         {
             current ??= await Find(db, tx, actor, edit.Id, true, ct, includeDeleted: action == ArticleAction.Restore);
-            if (taxonomy is not null || rights is not null) edit = edit with { Title = current.Title, Body = current.Body };
+            if (taxonomy is not null || rights is not null || attachment is not null) edit = edit with { Title = current.Title, Body = current.Body };
             if (schedule is not null)
             {
                 Authoring.RevisionHistoryStore.RequireRevision(current.Revision, schedule.ExpectedRevision);
@@ -207,6 +208,9 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 rights is null ? Wire.DefaultRights(state.Id, state.Revision) : Wire.RightsPolicy(rights, state.Revision), ct);
         else
             await Authoring.PublicationRightsStore.CarryForward(db, tx, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision, state.Revision, ct);
+        if (edit.Id != 0)
+            await Content.ArticleMediaStore.Copy(db, tx, actor, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision,
+                state.Revision, attachment, ct);
         await using (var record = Sql(db, tx, """
             insert into public.article_command(actor_id,command_id,fingerprint,article_id,revision,title,body,published)
             values($1,$2,$3,$4,$5,$6,$7,$8)
@@ -221,7 +225,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         else if (edit.Id != 0)
             await Authoring.ArticleScheduleStore.Clear(db, tx, state.Id, ct);
         await using (var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
-            state.Id, state.Revision, rights is not null ? "rights" : schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
+            state.Id, state.Revision, attachment is not null ? "draft-media" : rights is not null ? "rights" : schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
                 rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback"))
             await enqueue.ExecuteNonQueryAsync(ct);
         return (state, true);
@@ -233,6 +237,14 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
         var saved = await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, rights: input);
         return await Authoring.PublicationRightsStore.Read(db, tx, saved.Article.Id, saved.Article.Revision, ct);
+    }
+
+    internal static async Task<ArticleState> SetPrivateAttachment(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleMediaCommand input, CancellationToken ct)
+    {
+        var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
+        var saved = await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, attachment: input);
+        return saved.Article;
     }
 
     internal static async Task<ArticleSchedule> Schedule(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,

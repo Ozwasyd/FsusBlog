@@ -1,0 +1,76 @@
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using Npgsql;
+
+namespace FsusBlog.V2.Server.Content;
+
+internal static class ArticleMediaStore
+{
+    internal const int Maximum = 32;
+
+    internal static async Task<List<Guid>> Read(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct)
+    {
+        await using var command = Store.Sql(db, tx, """
+            SELECT asset_id FROM public.article_revision_media WHERE article_id=$1 AND revision=$2 ORDER BY asset_id LIMIT 33
+            """, article, revision);
+        await using var rows = await command.ExecuteReaderAsync(ct);
+        List<Guid> assets = [];
+        while (await rows.ReadAsync(ct)) assets.Add(rows.GetGuid(0));
+        if (assets.Count > Maximum) throw new InvalidOperationException("Private attachment list exceeds its allowed size.");
+        return assets;
+    }
+
+    internal static async Task Copy(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int article, long source,
+        long revision, ArticleMediaCommand? change, CancellationToken ct)
+    {
+        if (change is null)
+        {
+            await using var copy = Store.Sql(db, tx, """
+                INSERT INTO public.article_revision_media(article_id,revision,asset_id)
+                SELECT article_id,$3,asset_id FROM public.article_revision_media WHERE article_id=$1 AND revision=$2
+                """, article, source, revision);
+            await copy.ExecuteNonQueryAsync(ct);
+            return;
+        }
+
+        var assets = await Read(db, tx, article, source, ct);
+        if (change.Attach)
+        {
+            if (assets.Count >= Maximum || assets.Contains(change.AssetId))
+                throw new BusinessException(Rejection.Conflict, "This asset is already attached or the attachment limit was reached.");
+            await using var available = Store.Sql(db, tx, """
+                SELECT id FROM public.private_media WHERE id=$1 AND owner_id=$2 AND phase=1 FOR UPDATE
+                """, change.AssetId, actor.Id);
+            if (await available.ExecuteScalarAsync(ct) is null) throw Missing();
+            assets.Add(change.AssetId);
+        }
+        else if (!assets.Remove(change.AssetId)) throw Missing();
+
+        if (assets.Count == 0) return;
+        await using var insert = Store.Sql(db, tx, """
+            INSERT INTO public.article_revision_media (article_id,revision,asset_id)
+            SELECT $1,$2,asset FROM pg_catalog.unnest($3) AS refs(asset)
+            """, article, revision, assets.ToArray());
+        await insert.ExecuteNonQueryAsync(ct);
+    }
+
+    internal static async Task<bool> Contains(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article,
+        long revision, Guid asset, CancellationToken ct)
+    {
+        await using var query = Store.Sql(db, tx, """
+            SELECT a.id FROM public.article a JOIN public.article_revision_media r
+              ON r.article_id=a.id AND r.revision=a.revision
+            WHERE a.owner_id=$1 AND a.id=$2 AND a.revision=$3 AND NOT a.deleted AND r.asset_id=$4 FOR SHARE OF a
+            """, owner, article, revision, asset);
+        return await query.ExecuteScalarAsync(ct) is not null;
+    }
+
+    internal static async Task EnsureUnreferenced(NpgsqlConnection db, NpgsqlTransaction tx, Guid asset, CancellationToken ct)
+    {
+        await using var query = Store.Sql(db, tx, "SELECT EXISTS (SELECT FROM public.article_revision_media WHERE asset_id=$1)", asset);
+        if (await query.ExecuteScalarAsync(ct) is true)
+            throw new BusinessException(Rejection.Conflict, "A retained article revision references this private asset.");
+    }
+
+    internal static BusinessException Missing() => new(Rejection.NotFound, "Private article attachment not found.");
+}

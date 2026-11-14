@@ -88,7 +88,10 @@ internal sealed class MediaStore(MediaFiles files)
         var row = await Find(db, transaction, owner, id, locking: true, token);
         if (row is null) return false;
         if (row.Phase is MediaPhase.Pending or MediaPhase.Ready)
+        {
+            await ArticleMediaStore.EnsureUnreferenced(db, transaction, id, token);
             await SetPhase(db, transaction, owner, id, MediaPhase.Removing, token);
+        }
         return true;
     }
 

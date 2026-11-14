@@ -79,6 +79,7 @@ internal static class MediaEndpoints
             await Read(ctx, id, store, media, cookie, app.Logger, token);
         }).RequireRateLimiting(ReadPolicy).WithMetadata(new PrivateRead());
         MediaUploadEndpoints.Map(app, cookie);
+        ArticleMediaEndpoints.Map(app, cookie);
     }
 
     internal static void SetHidden(HttpResponse response)
@@ -95,12 +96,23 @@ internal static class MediaEndpoints
         CancellationToken token)
     {
         SetHidden(ctx.Response);
-        if (!Guid.TryParseExact(id, "D", out var asset) || asset == Guid.Empty || ctx.Request.Headers.ContainsKey("Range")) return;
+        if (!Guid.TryParseExact(id, "D", out var asset) || asset == Guid.Empty) return;
+        await ReadPrivate(ctx, store, media, cookie, logger, (_, _, _) => Task.FromResult<Guid?>(asset), token);
+    }
+
+    internal static async Task ReadPrivate(HttpContext ctx, Store store, MediaStore media, string cookie, ILogger logger,
+        Func<Npgsql.NpgsqlConnection, Npgsql.NpgsqlTransaction, Identity, Task<Guid?>> resolve, CancellationToken token)
+    {
+        SetHidden(ctx.Response);
+        if (ctx.Request.Headers.ContainsKey("Range")) return;
         try
         {
             if (!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !System.Net.IPAddress.IsLoopback(peer))) return;
-            var result = await store.WithSession(ctx.Request.Cookies[cookie], true,
-                (db, tx, actor) => media.Read(db, tx, actor.Id, asset, token), token);
+            var result = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            {
+                var asset = await resolve(db, tx, actor);
+                return asset is Guid id ? await media.Read(db, tx, actor.Id, id, token) : null;
+            }, token);
             if (result is not { } image) return;
             ctx.Response.StatusCode = StatusCodes.Status200OK;
             ctx.Response.ContentType = MediaImage.ContentType(image.Record.Format);
