@@ -24,9 +24,9 @@ inline constexpr uint32_t PowChallengeDifficulty = 12;
 inline constexpr uint32_t PowChallengeSeconds = 120;
 inline constexpr uint32_t PowWorkerMilliseconds = 12000;
 inline constexpr uint32_t PrivateMediaBytes = 20971520;
-inline constexpr uint32_t PublicCommentFrameBytes = 4533;
-inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
+inline constexpr uint32_t PublicCommentHandleBytes = 384;
+inline constexpr uint32_t PublicCommentFrameBytes = 4533;
 inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t TaxonomyTagCount = 32;
@@ -254,23 +254,23 @@ inline constexpr uint32_t MfaChallengeProofOffset = 168;
 }
 
 enum class FrameType : uint16_t {
-    PowChallenge = 30,
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
-    PublicCommentEligibility = 32794,
-    PublicCommentSubmissionResult = 32793,
+    PowChallenge = 30,
     PublicCommentSubmission = 32792,
+    PublicCommentSubmissionResult = 32793,
+    PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
-    PageContent = 14,
     SeoConfig = 13,
+    PageContent = 14,
     SiteComplianceConfig = 26,
     AuthLoginFlow = 18,
     ConversationList = 56,
@@ -329,23 +329,23 @@ enum class FrameType : uint16_t {
 
 constexpr bool known(FrameType type) {
     switch (type) {
-        case FrameType::PowChallenge:
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:
         case FrameType::ArticleRelatedReading:
         case FrameType::CommentThreadReplyCursor:
-        case FrameType::PublicCommentEligibility:
-        case FrameType::PublicCommentSubmissionResult:
+        case FrameType::PowChallenge:
         case FrameType::PublicCommentSubmission:
+        case FrameType::PublicCommentSubmissionResult:
+        case FrameType::PublicCommentEligibility:
         case FrameType::PrivateMediaItems:
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:
         case FrameType::CategoryList:
         case FrameType::TagList:
-        case FrameType::PageContent:
         case FrameType::SeoConfig:
+        case FrameType::PageContent:
         case FrameType::SiteComplianceConfig:
         case FrameType::AuthLoginFlow:
         case FrameType::ConversationList:

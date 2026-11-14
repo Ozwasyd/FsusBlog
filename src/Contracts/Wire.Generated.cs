@@ -3,23 +3,23 @@ namespace FsusBlog.V2.Contracts;
 
 public enum FrameType : ushort
 {
-    PowChallenge = 30,
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
-    PublicCommentEligibility = 32794,
-    PublicCommentSubmissionResult = 32793,
+    PowChallenge = 30,
     PublicCommentSubmission = 32792,
+    PublicCommentSubmissionResult = 32793,
+    PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
-    PageContent = 14,
     SeoConfig = 13,
+    PageContent = 14,
     SiteComplianceConfig = 26,
     AuthLoginFlow = 18,
     ConversationList = 56,
@@ -98,9 +98,9 @@ public static class WireLimits
     public const int PowChallengeSeconds = 120;
     public const int PowWorkerMilliseconds = 12000;
     public const int PrivateMediaBytes = 20971520;
-    public const int PublicCommentFrameBytes = 4533;
-    public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentBodyBytes = 4096;
+    public const int PublicCommentHandleBytes = 384;
+    public const int PublicCommentFrameBytes = 4533;
     public const int TaxonomyNameBytes = 512;
     public const int TaxonomyDescriptionBytes = 2000;
     public const int TaxonomyTagCount = 32;
@@ -330,11 +330,11 @@ public static class WireLayouts
 
 public static class WireRoutes
 {
-    public const string PublicCommentPowChallenge = "/api/v2/comments/pow-challenge.aeds";
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
     public const string SubmitPublicComment = "/api/v2/comments/submit.aeds";
+    public const string PublicCommentPowChallenge = "/api/v2/comments/pow-challenge.aeds";
     public const string PublicCommentEligibility = "/api/v2/comments/eligibility/{articleId:int}.aeds";
     public const string CommentRoots = "/api/binary/comment/{articleId:int}";
     public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
@@ -357,11 +357,11 @@ public static class WireRoutes
     public const string PublicIndex = "/api/v2/public/index.aeds";
     public const string PublicSearchCorpus = "/api/v2/public/search-corpus";
     public const string InboxList = "/api/binary/messages/conversations";
-    public const string InboxWriteAvailability = "/api/v2/notifications/inbox/write-availability.aeds";
     public const string InboxCreatePowChallenge = "/api/v2/notifications/inbox/pow-create.aeds";
+    public const string InboxWriteAvailability = "/api/v2/notifications/inbox/write-availability.aeds";
     public const string InboxDetail = "/api/binary/messages/conversations/{id:long}";
-    public const string InboxReplyPowChallenge = "/api/v2/notifications/inbox/{id:long}/pow-reply.aeds";
     public const string InboxReply = "/api/binary/messages/conversations/{id:long}/reply";
+    public const string InboxReplyPowChallenge = "/api/v2/notifications/inbox/{id:long}/pow-reply.aeds";
     public const string InboxRead = "/api/binary/messages/conversations/{id:long}/read";
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
@@ -418,10 +418,10 @@ public static class WireRoutes
 
 public static class WireHeaders
 {
-    public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string TraceId = "X-Fsus-Trace-Id";
     public const string AccessExpiresAtUtc = "X-Fsus-Access-Expires-At-Utc";
     public const string PowProof = "X-Fsus-Pow-Proof";
+    public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
