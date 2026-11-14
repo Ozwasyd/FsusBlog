@@ -709,6 +709,253 @@
                         "ids": "producedOutputIds"
                     }
                 ]
+            },
+            {
+                "producerId": "browser-contract-semantic-outcome",
+                "authorityId": "tools/test-matrix/outcomes/browser-contract-adapter.mjs",
+                "fields": [
+                    {
+                        "schemaPath": "$.outcome.membership.plannedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.executedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.passedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.failedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.skippedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.blockedMemberIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.plannedProjectIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.plannedBrowserIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.plannedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.plannedAssertionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-id",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "canonical-object",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].id",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].projectId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].browserId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].testId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].assertionId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].required",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "boolean",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].executed",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "boolean",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].status",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].failureKinds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.members[].artifactIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.interruptionKind",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.artifactSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest-map",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:domain-profiles",
+                        "reasonCode": "contract.semantic-field"
+                    }
+                ],
+                "setRelations": [
+                    {
+                        "subset": "executedMemberIds",
+                        "superset": "plannedMemberIds"
+                    },
+                    {
+                        "subset": "passedMemberIds",
+                        "superset": "plannedMemberIds"
+                    },
+                    {
+                        "subset": "failedMemberIds",
+                        "superset": "plannedMemberIds"
+                    },
+                    {
+                        "subset": "skippedMemberIds",
+                        "superset": "plannedMemberIds"
+                    },
+                    {
+                        "subset": "blockedMemberIds",
+                        "superset": "plannedMemberIds"
+                    }
+                ],
+                "successEqualSets": [],
+                "disjointSets": [],
+                "digestBindings": []
             }
         ],
         "schemas": [
