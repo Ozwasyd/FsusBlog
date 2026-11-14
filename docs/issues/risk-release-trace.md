@@ -4,7 +4,7 @@
 
 | 范围 | 已核对结果 |
 | --- | --- |
-| 预约、历史和权利 | 发布/撤回有实际 PostgreSQL 事务，公开读按活动发布及其修订取值。当前活动发布行采用 upsert 或删除，完整历史没有持久保全。ARD5 的固定 rights record 尚为空，相关 Rights V3 和责任链仅进入 v1 离线影子演练。工作树已有基础授权历史和草稿回滚。预约、旧发布保留到实际到期、完整对照及带权利快照的新发布回滚仍缺。 [发布条款](risk-publication.tsv) · [固定 v1 发布与修订合同](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/article-publication-revisions.md) |
+| 预约、历史和权利 | 发布/撤回有实际 PostgreSQL 事务，公开读按活动发布及其修订取值。当前活动发布行采用 upsert 或删除，完整历史没有持久保全。ARD5 的固定 rights record 尚为空，相关 Rights V3 和责任链仅进入 v1 离线影子演练。当时工作树已有基础授权历史和草稿回滚。后续实际发布沿革、排程和权利绑定均已提交，完整对照与独立管理员公开回滚仍待。 [后续运行契约](risk-rollback-media.md) [发布条款](risk-publication.tsv) · [固定 v1 发布与修订合同](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/article-publication-revisions.md) |
 | 分发和透明度 | RSS、旧 RSS 别名、Atom、JSON Feed、Sitemap 与 robots 属固定 v1 产品路由。审阅时新增分发代码在工作树，需用真实候选运行核验。订阅的 AEDS 注册/退订、签名发布证明、附加型透明日志和后台重试分别缺实现证据。 [分发条款](risk-distribution.tsv) · [固定 v1 HTTP 契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/contracts.md#L2236) |
 | 普通身份、后台主体与恢复 | 运维票据、Passkey、普通账号 TOTP、一次性二次认证恢复码的证据按入口区分。v1 单独的 Recovery Key 恢复、设备 enrollment、后台主体及后台票据和独立 cookie/权限仍按各来源核查。 [恢复与隔离条款](risk-identity-recovery.tsv) |
 
