@@ -79,6 +79,8 @@ internal static partial class Migration
                                         Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
+                  legacy identity PROVIDER
+                                        Audit account and administrator compatibility without activating credentials
                 """);
             return 0;
         }
@@ -94,6 +96,8 @@ internal static partial class Migration
         {
             if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
                 return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
+            if (arguments is ["legacy", "identity", var identityProvider])
+                return await VerifyLegacyIdentityAsync(identityProvider, cancelled.Token);
             if (arguments is ["legacy", "import", .. var importArguments])
             {
                 return await RunLegacyImportAsync(importArguments, cancelled.Token);

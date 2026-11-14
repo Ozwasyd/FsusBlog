@@ -84,6 +84,21 @@ dotnet run --no-build --project src/Migrate -- legacy assets postgres \
 
 2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-assets.sh [postgres|sqlite|mysql]`。三个样本均验证公有和私有件，同时拒绝相同长度的内容篡改、文件缺失或改名、符号链接、错误的旧所有者或修订号。草稿引用、清理队列和缺失旧摘要会生成逐项结果，当权威表结构不存在则停止。精确输入摘要与原始输出见本地 `artifacts/native-migration/assets-20261114T163811.log`。
 
+### 离线核对身份兼容性
+
+```bash
+umask 077
+dotnet run --no-build --project src/Migrate -- legacy identity postgres > "$identity_report"
+```
+
+从同一只读旧库快照分别核对 `sys_user` 和 `admin_principal`，保留各自的整数 ID 命名空间。报告只列出身份与关联表的行数、缺表和各类不兼容项。`sourceIdentitySha256` 对固定源码版本、来源提供者及已选字段的投影计算摘要。TOTP 加密内容、恢复码摘要、会话令牌和审计正文只检查必要的存在性或生命周期，不会进入投影或报告。`sessionStateAtUtc` 记录用于区分活跃和过期会话的时刻。摘要用于同一来源的预检，比对完整凭据及备份仍需独立证明。
+
+读取 Passkey 的归属、编码、签名计数与同步状态，并指出同一管理员的多凭据约束。公钥是否可用还需独立核对算法、旧 RP ID、来源域名和凭据注册语义。旧管理员 root 与未映射授权显式计数，普通账号的 subject、注册及封禁代次和 Passkey Signal 代次也需要保留。报告独立统计 TOTP、恢复密钥的有效或已用及已撤销状态、仍有效的持久会话、已泄露或撤销会话、令牌换代记录和注册会话。
+
+身份投影需要旧库实际表结构，缺少必需表或列时退出 1。报告发现缺少相关权威关系、未知权限或其他不兼容项时退出 2。`readyToApply` 恒为 `false`。旧会话和恢复授权需要已证明的撤销与重新登记流程，旧权利需要显式映射。此步骤读取旧库，不生成 v2 身份、认证材料或映射。
+
+2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-identity.sh [postgres|sqlite|mysql]`。PostgreSQL 18.7、SQLite 3.54.0 和 MySQL 8.4.13 分别通过旧字段形状的隔离样本验证。核对同号的两类主体、跨身份错误绑定、撤销与在用的恢复密钥、当前和历史会话、不认识的权限、缺表和报告脱敏。精确输入摘要与原始输出见本地 `artifacts/native-migration/identity-20261114T164928.log`。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql
