@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/correctness-provisional-receipt.mjs",
+                "tools/release/correctness-scheduler-authority.mjs",
+                "tools/release/correctness-terminal-receipt.mjs",
+                "tools/release/correctness-terminal-seal-journal.mjs",
+                "tools/release/test-evidence-receipts-cli.mjs",
+                "tools/test-matrix/atomic-producers/compiler.mjs",
+                "tools/test-matrix/atomic-producers/contract.mjs",
+                "tools/test-matrix/atomic-producers/disposition.mjs",
+                "tools/test-matrix/atomic-producers/execution.mjs",
+                "tools/test-matrix/correctness-input-manifest.mjs",
+                "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/bundles/bundle-steps.mjs"
+            ],
+            "reason": "Preserve the trusted registered external tooling names while composing exact scheduler and dependency sources for review; this declaration does not change an exception registry, runtime authority, gate, or sampler."
+        }
+    ]
+}

@@ -1,0 +1,69 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/coverage/atomic-coverage-command.mjs",
+                "tools/coverage/atomic-coverage-compiler-bridge.mjs",
+                "tools/coverage/atomic-coverage-execution.mjs",
+                "tools/coverage/atomic-coverage-inputs.mjs",
+                "tools/coverage/atomic-coverage-plan.mjs",
+                "tools/coverage/atomic-coverage-projection.mjs",
+                "tools/release/correctness-provisional-receipt.mjs",
+                "tools/release/correctness-scheduler-authority.mjs",
+                "tools/release/correctness-terminal-receipt.mjs",
+                "tools/release/correctness-terminal-seal-journal.mjs",
+                "tools/release/test-evidence-receipts-cli.mjs",
+                "tools/test-matrix/atomic-failure/ci-projection.mjs",
+                "tools/test-matrix/atomic-failure/conformance.mjs",
+                "tools/test-matrix/atomic-failure/executable-authorities.mjs",
+                "tools/test-matrix/atomic-failure/failure-navigation.mjs",
+                "tools/test-matrix/atomic-failure/projection-contract.mjs",
+                "tools/test-matrix/atomic-producers/compiler.mjs",
+                "tools/test-matrix/atomic-producers/contract.mjs",
+                "tools/test-matrix/atomic-producers/disposition.mjs",
+                "tools/test-matrix/atomic-producers/execution.mjs",
+                "tools/test-matrix/correctness-input-manifest.mjs",
+                "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/backend-atomic-bridge.mjs",
+                "tools/test/backend-atomic-outcomes.mjs",
+                "tools/test/backend-atomic-producers.mjs",
+                "tools/test/bundles/bundle-steps.mjs",
+                "tools/test/frontend-atomic/manifest-admission.mjs",
+                "tools/test/frontend-atomic/manifest-entry.mjs",
+                "tools/test/frontend-atomic/manifest-projection.mjs",
+                "tools/test/frontend-atomic/property-model-perf.mjs",
+                "tools/test/frontend-atomic/visual-projection.mjs",
+                "tools/test/public-runtime-producers/compiler-adapter.mjs",
+                "tools/test/public-runtime-producers/declarations.mjs",
+                "tools/test/public-runtime-producers/projection.mjs",
+                "tools/test/public-runtime-producers/settled-reset-adapter.mjs",
+                "tools/test/static-atomic/assertion-membership.mjs",
+                "tools/test/static-atomic/compiler-bridge.mjs",
+                "tools/test/static-atomic/declarations.mjs",
+                "tools/test/static-atomic/producer.mjs",
+                "tools/test/static-atomic/summary.mjs",
+                "tools/test/static-atomic/terminal-bridge.mjs"
+            ],
+            "reason": "preserve original process/replay naming while consuming exact canonical terminal, required-input and backend/static/frontend/public/coverage lane bridges; private atomic consumers retain original source owners"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/frontend-perf-regression.sh",
+                "tools/test/lanes/frontend-property.sh",
+                "tools/test/lanes/frontend-state-machines.sh"
+            ],
+            "reason": "preserve original frontend lane wrapper environment contracts from exact be307751 source without changing commands or resource policies"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "preserve exact original e6a42d63 generated authority wire keys when consuming the sole-owner candidate-compatible fixture; no new authority writer or qualification"
+        }
+    ]
+}

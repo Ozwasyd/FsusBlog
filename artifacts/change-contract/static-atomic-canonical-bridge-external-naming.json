@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/static-atomic/declarations.mjs",
+                "tools/test/static-atomic/producer.mjs",
+                "tools/test/static-atomic/summary.mjs",
+                "tools/test/static-atomic/assertion-membership.mjs",
+                "tools/test/static-atomic/compiler-bridge.mjs",
+                "tools/test/static-atomic/terminal-bridge.mjs"
+            ],
+            "reason": "Preserve original FSUSBLOG environment keys and upstream canonical matrix/replay/terminal schema identifiers while binding original static assertion membership and existing compiler/executor APIs; internal JavaScript names remain camelCase."
+        }
+    ]
+}

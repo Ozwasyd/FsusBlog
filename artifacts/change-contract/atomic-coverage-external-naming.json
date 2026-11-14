@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/coverage/atomic-coverage-plan.mjs",
+                "tools/coverage/atomic-coverage-inputs.mjs",
+                "tools/coverage/atomic-coverage-projection.mjs",
+                "tools/coverage/atomic-coverage-compiler-bridge.mjs",
+                "tools/coverage/atomic-coverage-command.mjs",
+                "tools/coverage/atomic-coverage-execution.mjs"
+            ],
+            "reason": "Preserve existing process environment spellings and adapt them to internal plan, identity and producer options; no external CLI or coverage policy naming changes."
+        }
+    ]
+}
