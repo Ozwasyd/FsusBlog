@@ -29,9 +29,9 @@ internal sealed record OfflineMigrationBackupDrillTerminal(int ExitCode, ReadOnl
 // ephemeral ledger is not part of any artifact and is not an evidence authority.
 internal sealed class OfflineMigrationOperationDeadline
 {
-    private readonly TimeProvider clock;
-    private readonly long startedAt;
-    private readonly TimeSpan total;
+    private readonly TimeProvider _clock;
+    private readonly long _startedAt;
+    private readonly TimeSpan _total;
 
     internal OfflineMigrationOperationDeadline(TimeProvider clock, int timeoutSeconds)
     {
@@ -39,16 +39,16 @@ internal sealed class OfflineMigrationOperationDeadline
         {
             throw new InvalidOperationException("schema_plan_timeout_invalid");
         }
-        this.clock = clock;
-        startedAt = clock.GetTimestamp();
-        total = TimeSpan.FromSeconds(timeoutSeconds);
+        _clock = clock;
+        _startedAt = clock.GetTimestamp();
+        _total = TimeSpan.FromSeconds(timeoutSeconds);
     }
 
     internal int RemainingWholeSeconds(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        TimeSpan elapsed = clock.GetElapsedTime(startedAt);
-        TimeSpan remaining = total - elapsed;
+        TimeSpan elapsed = _clock.GetElapsedTime(_startedAt);
+        TimeSpan remaining = _total - elapsed;
         if (elapsed < TimeSpan.Zero || remaining < TimeSpan.FromSeconds(1))
         {
             // The original shell accepts only whole seconds. Rounding up would extend
@@ -67,7 +67,7 @@ internal sealed class OfflineMigrationOperationDeadline
 internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDrillProducer producer)
     : IOfflineMigrationOwnedBackupAdmission
 {
-    private static readonly string[] RequiredChecks =
+    private static readonly string[] s_requiredChecks =
     [
         "site-backup-package:authenticated-unpacked", "database-restored-source:verified",
         "postgres-restore:ok", "uploads-recoverable:verified", "dataProtectionKeyRing-recoverable:verified",
@@ -188,7 +188,7 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
             && Digest(report, "packageSha256") == packageDigest
             && Digest(report, "manifestSha256") == Digest(output, "manifestSha256"), "recoverability_report_invalid");
         string[] checks = report.GetProperty("checks").EnumerateArray().Select(value => value.GetString()!).ToArray();
-        Require(RequiredChecks.All(check => checks.Contains(check, StringComparer.Ordinal))
+        Require(s_requiredChecks.All(check => checks.Contains(check, StringComparer.Ordinal))
             && report.GetProperty("blockers").GetArrayLength() == 0, "recoverability_checks_missing");
         Require(manifest.GetProperty("version").GetInt32() == 3
             && Text(manifest, "kind") == "fsusblog-site-backup", "snapshot_bound_package_required");
@@ -398,7 +398,8 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         }
         else if (value.ValueKind == JsonValueKind.Array)
         {
-            foreach (JsonElement item in value.EnumerateArray()) RejectDuplicateProperties(item);
+            foreach (JsonElement item in value.EnumerateArray())
+                RejectDuplicateProperties(item);
         }
     }
 
@@ -417,7 +418,8 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
 
     private static void Require(bool condition, string code)
     {
-        if (!condition) throw Failure(code);
+        if (!condition)
+            throw Failure(code);
     }
 
     private static InvalidOperationException Failure(string code) => new("offline_backup_owned_" + code);

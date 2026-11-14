@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import type { Page, StorageState, TestInfo } from '@playwright/test'
+import type { Page, TestInfo } from '@playwright/test'
+
+import type { StorageState } from '../../support/playwright/acceptance-shared'
 
 const routePath = '/user/profile'
 const themes = ['light', 'dark'] as const

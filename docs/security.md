@@ -452,7 +452,7 @@ render: enum-set
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN security.challenge.retired-kinds -->
-_empty set_
+Empty set.
 <!-- FSUSBLOG-GENERATED:END security.challenge.retired-kinds -->
 
 <!-- fsus-doc-claim

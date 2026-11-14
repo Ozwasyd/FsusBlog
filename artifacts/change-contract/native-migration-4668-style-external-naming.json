@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/ArticlePreservationStorageWriter.cs",
+                "src/migration/OfflineMigrationApplyNativeSession.cs",
+                "src/migration/OfflineMigrationExecutor.cs",
+                "src/migration/PgArticlePreservationOperation.cs"
+            ],
+            "reason": "The original trusted registry assigns src/**/*.cs to the process-environment naming surface. This successor acknowledges that existing path-level ownership for the four leased native sources while preserving every original external environment, SQL/JSON/outbox key, source identity, native transaction contract and adapter. Only ordinary import organization and token-preserving whitespace change; this declares no new environment key and grants no exception to internal identifiers."
+        }
+    ]
+}

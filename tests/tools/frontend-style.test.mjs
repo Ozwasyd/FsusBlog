@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+    cpSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
@@ -29,7 +30,6 @@ const { validateJsonSchema } = await import(
 const checker = path.join(root, 'tools/frontend/check-frontend-style.mjs');
 const toolchain = path.join(root, 'tools/frontend/style-toolchain');
 const eslintConfig = path.join(toolchain, 'eslint.config.mjs');
-const stylelintConfig = path.join(toolchain, 'stylelint.config.mjs');
 const sourcePolicy = JSON.parse(readFileSync(path.join(root, 'config/development/frontend-style-policy.json'), 'utf8'));
 
 function writeFixture(fixtureRoot, relativePath, content)
@@ -46,12 +46,12 @@ function createFixture()
     writeFixture(
         fixtureRoot,
         'eslint.config.mjs',
-        `export { default } from '${pathToFileURL(eslintConfig).href}';\n`
+        "export { default } from './tools/frontend/style-toolchain/eslint.config.mjs';\n"
     );
     writeFixture(
         fixtureRoot,
         'stylelint.config.mjs',
-        `export { default } from '${pathToFileURL(stylelintConfig).href}';\n`
+        "export { default } from './tools/frontend/style-toolchain/stylelint.config.mjs';\n"
     );
     writeFixture(
         fixtureRoot,
@@ -90,14 +90,27 @@ function createFixture()
     );
     const linkedToolchain = path.join(fixtureRoot, 'tools/frontend/style-toolchain');
     mkdirSync(path.dirname(linkedToolchain), { recursive: true });
-    symlinkSync(toolchain, linkedToolchain, 'dir');
+    cpSync(toolchain, linkedToolchain, { recursive: true, verbatimSymlinks: true });
+    for (const relative of [
+        'config/development/canonical-digest-edge.json',
+        'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
+        'tools/frontend/check-frontend-style.mjs',
+        'tools/frontend/source-unit-style-diff.mjs',
+        'tools/frontend/reviewed-residual-classification.mjs',
+        'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+        'src/frontend/scripts/fsusui-root.mjs',
+        'src/frontend/tsconfig.node.json'
+    ])
+    {
+        writeFixture(fixtureRoot, relative, readFileSync(path.join(root, relative), 'utf8'));
+    }
     return fixtureRoot;
 }
 
 function runChecker(fixtureRoot, args, env = {})
 {
     return spawnSync(process.execPath, [
-        checker,
+        path.join(fixtureRoot, 'tools/frontend/check-frontend-style.mjs'),
         '--root', fixtureRoot,
         '--policy', path.join(fixtureRoot, 'config/development/frontend-style-policy.json'),
         ...args
@@ -250,12 +263,12 @@ test('pure receipt parent import exception is limited to one file and one depend
         {
             withFixture((fixtureRoot) =>
             {
-                writeFixture(fixtureRoot, 'tools/fact-extractors/lib/canonicalize.mjs',
-                    'export const digestValue = (value) => value;\n');
-                writeFixture(fixtureRoot, 'tools/fact-extractors/identity.mjs',
-                    'export const digestValue = (value) => value;\n');
+                const canonicalSource = readFileSync(path.join(root, 'tools/fact-extractors/lib/canonicalize.mjs'), 'utf8');
+                const callerSource = readFileSync(path.join(root, pureFile), 'utf8');
+                writeFixture(fixtureRoot, 'tools/fact-extractors/lib/canonicalize.mjs', canonicalSource);
+                writeFixture(fixtureRoot, 'tools/fact-extractors/identity.mjs', canonicalSource);
                 writeFixture(fixtureRoot, vector.file,
-                    `import { digestValue } from ${JSON.stringify(vector.literal)};\n\nexport const digest = digestValue;\n`);
+                    callerSource.replace('../fact-extractors/lib/canonicalize.mjs', vector.literal));
                 const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', vector.file]);
                 if (vector.accepted)
                 {
@@ -2149,4 +2162,249 @@ test('script declaration owner refuses a declaration absent from the original co
         assert.notEqual(result.status, 0, output(result));
         assert.match(output(result), /not found|does not include|not included|Parsing error/u);
     });
+});
+
+test('canonical complete tests resolve the official Playwright declarations instead of its untyped runtime file', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const originalPath = path.join(frontend, 'tsconfig.playwright.json');
+    const generatedPath = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const packageRoot = path.join(frontend, 'node_modules/@playwright/test');
+    const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+    const declaredTypes = path.resolve(packageRoot, manifest.exports['.'].types);
+    const importer = path.join(root, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts');
+    const read = (file) => ts.getParsedCommandLineOfConfigFile(file, {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    for (const project of [originalPath, generatedPath])
+    {
+        const parsed = read(project);
+        assert.deepEqual(parsed.errors, []);
+        const resolved = ts.resolveModuleName('@playwright/test', importer, parsed.options, ts.sys).resolvedModule;
+        assert.equal(ts.sys.realpath(resolved.resolvedFileName), ts.sys.realpath(declaredTypes));
+        assert.equal(resolved.extension, ts.Extension.Dts);
+        assert.equal(resolved.packageId.name, manifest.name);
+        assert.equal(resolved.packageId.version, manifest.version);
+        const forwarded = ts.resolveModuleName('playwright/test', resolved.resolvedFileName,
+            parsed.options, ts.sys).resolvedModule;
+        assert.equal(forwarded.extension, ts.Extension.Dts);
+        assert.equal(ts.sys.realpath(forwarded.resolvedFileName),
+            ts.sys.realpath(path.join(frontend, 'node_modules/playwright/test.d.ts')));
+        for (const targets of [
+            ['node_modules/@playwright/test/index.mjs'],
+            ['node_modules/@playwright/test/index.mjs', 'node_modules/@playwright/test/index.d.ts']
+        ])
+        {
+            const runtimeOnly = ts.resolveModuleName('@playwright/test', importer, {
+                ...parsed.options,
+                paths: { ...parsed.options.paths, '@playwright/test': targets }
+            }, ts.sys).resolvedModule;
+            assert.equal(runtimeOnly.extension, ts.Extension.Mjs);
+            assert.notEqual(runtimeOnly.resolvedFileName, declaredTypes);
+        }
+    }
+});
+
+test('canonical Playwright projects preserve the official ESM runtime through the locked runner transform', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const originalPath = path.join(frontend, 'tsconfig.playwright.json');
+    const generatedPath = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const importer = path.join(root, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts');
+    const probe = `
+        import assert from 'node:assert/strict';
+        import { realpathSync, readFileSync } from 'node:fs';
+        import { createRequire } from 'node:module';
+        import path from 'node:path';
+        import { pathToFileURL } from 'node:url';
+
+        const [frontend, project, importer] = process.argv.slice(1);
+        const packageRoot = path.join(frontend, 'node_modules/@playwright/test');
+        const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+        const expected = path.resolve(packageRoot, manifest.exports['.'].import);
+        const require = createRequire(path.join(frontend, 'package.json'));
+        const { resolveHook, setSingleTSConfig } = require(
+            path.join(frontend, 'node_modules/playwright/lib/transform/transform.js')
+        );
+        setSingleTSConfig(project);
+        const actual = resolveHook(importer, '@playwright/test');
+        assert.equal(realpathSync(actual), realpathSync(expected));
+        const actualModule = await import(pathToFileURL(actual).href);
+        const officialModule = await import(pathToFileURL(expected).href);
+        assert.equal(typeof actualModule.test, 'function');
+        assert.equal(typeof actualModule.expect, 'function');
+        assert.equal(actualModule.test, officialModule.test);
+        assert.equal(actualModule.expect, officialModule.expect);
+    `;
+    const runProbe = (project, source) => spawnSync(process.execPath, ['--input-type=module', '-e', probe,
+        frontend, project, source], { cwd: frontend, encoding: 'utf8' });
+    for (const project of [originalPath, generatedPath])
+    {
+        for (const source of [path.join(frontend, 'playwright.config.ts'), importer])
+        {
+            const result = runProbe(project, source);
+            assert.equal(result.status, 0, result.stdout + result.stderr);
+        }
+    }
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-playwright-runtime-entry-'));
+    try
+    {
+        const original = JSON.parse(readFileSync(originalPath, 'utf8'));
+        for (const targets of [
+            ['node_modules/@playwright/test/index'],
+            ['node_modules/@playwright/test/index.d.ts'],
+            ['node_modules/@playwright/test/index.mjs', 'node_modules/@playwright/test/index.d.ts']
+        ])
+        {
+            const project = path.join(fixtureRoot, 'tsconfig.json');
+            writeFileSync(project, JSON.stringify({
+                extends: originalPath,
+                compilerOptions: {
+                    baseUrl: frontend,
+                    paths: { ...original.compilerOptions.paths, '@playwright/test': targets }
+                }
+            }));
+            const result = runProbe(project, importer);
+            assert.notEqual(result.status, 0, result.stdout + result.stderr);
+            assert.match(result.stderr, /ERR_ASSERTION/u);
+        }
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('canonical complete test CLI checks real SFC props and detects their invalid values', () =>
+{
+    // Add a consumer under an original include, never a reduced compiler project.
+    const fixtureRoot = mkdtempSync(path.join(root, 'tests/frontend/typecheck/canonical-vue-project-'));
+    const consumer = path.join(fixtureRoot, 'consumer.ts');
+    const relativeConsumer = path.relative(root, consumer).replaceAll(path.sep, '/');
+    const source = `import SemanticTime from '@/components/ui/SemanticTime.vue';
+import type { OnlyChildExpose } from '@element-plus/components/slot';
+import * as browserSecurity from '/src/api/security.ts';
+type Props = InstanceType<typeof SemanticTime>['$props'];
+type IsUntyped<T> = 0 extends (1 & T) ? true : false;
+const propsAreTyped: IsUntyped<Props> = false;
+const formatIsTyped: IsUntyped<Props['format']> = false;
+type ForwardRef = OnlyChildExpose['forwardRef']['value'];
+const forwardRefIsTyped: IsUntyped<ForwardRef> = false;
+const browserModuleIsTyped: IsUntyped<typeof browserSecurity> = false;
+const validRef: ForwardRef = document.createElement('button');
+// @ts-expect-error The real TSX exposure requires an HTML element.
+const invalidRef: ForwardRef = 'invalid-ref';
+const valid: Props = { format: 'datetime', value: new Date() };
+// @ts-expect-error The real SFC accepts only its declared format literals.
+const invalid: Props = { format: 'invalid-format' };
+void [propsAreTyped, formatIsTyped, valid, invalid, forwardRefIsTyped, browserModuleIsTyped, validRef, invalidRef];
+`;
+    const run = () => spawnSync(process.execPath, [
+        path.join(root, 'src/frontend/scripts/run-local-fsusui-typecheck.mjs'), '--tests'
+    ], { cwd: root, encoding: 'utf8', timeout: 180_000, maxBuffer: 32 * 1024 * 1024 });
+    try
+    {
+        writeFileSync(consumer, source);
+        const positive = run();
+        assert.equal(positive.error, undefined, output(positive));
+        assert.ok([0, 2].includes(positive.status), output(positive));
+        assert.equal(output(positive).includes(relativeConsumer), false, output(positive));
+
+        writeFileSync(consumer, source.replaceAll('// @ts-expect-error', '// negative control:'));
+        const negative = run();
+        assert.equal(negative.error, undefined, output(negative));
+        assert.equal(negative.status, 2, output(negative));
+        assert.ok(output(negative).split('\n').some(line => line.includes(relativeConsumer)
+            && line.includes('error TS2322:') && line.includes('invalid-format')), output(negative));
+        assert.ok(output(negative).split('\n').some(line => line.includes(relativeConsumer)
+            && line.includes('error TS2322:') && line.includes("Type 'string'")), output(negative));
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('canonical complete tests bind real public declarations outside the frontend install ancestry', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const parsed = ts.getParsedCommandLineOfConfigFile(project, {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    assert.deepEqual(parsed.errors, []);
+    const original = ts.getParsedCommandLineOfConfigFile(path.join(frontend, 'tsconfig.playwright.json'), {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    assert.deepEqual(original.errors, []);
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-public-test-importer-'));
+    try
+    {
+        const importer = path.join(fixtureRoot, 'consumer.ts');
+        writeFileSync(importer, "import { expect } from 'vitest';\nvoid expect;\n");
+        for (const specifier of [
+            'vitest', 'fake-indexeddb', 'happy-dom', 'pinia', 'pinia-plugin-persistedstate',
+            'vue-router', '@vue/test-utils', '@noble/hashes/sha2.js', '@noble/hashes/utils.js'
+        ])
+        {
+            const expected = ts.resolveModuleName(specifier, path.join(frontend, 'typecheck.ts'),
+                original.options, ts.sys).resolvedModule;
+            const actual = ts.resolveModuleName(specifier, importer, parsed.options, ts.sys).resolvedModule;
+            assert.ok(expected && actual, `missing installed declaration for ${specifier}`);
+            assert.equal(ts.sys.realpath(actual.resolvedFileName), ts.sys.realpath(expected.resolvedFileName));
+            assert.ok([ts.Extension.Dts, ts.Extension.Dmts, ts.Extension.Dcts].includes(actual.extension));
+        }
+        const withoutBinding = { ...parsed.options,
+            paths: Object.fromEntries(Object.entries(parsed.options.paths).filter(([specifier]) => specifier !== 'vitest')) };
+        assert.equal(ts.resolveModuleName('vitest', importer, withoutBinding, ts.sys).resolvedModule, undefined);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('canonical complete projects preserve Vue JSX and resolve actual Vite browser source URLs', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const generated = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const importer = path.join(root, 'tests/frontend/e2e/security/risk-control-console.spec.ts');
+    for (const project of [path.join(frontend, 'tsconfig.playwright.json'), generated])
+    {
+        const parsed = ts.getParsedCommandLineOfConfigFile(project, {}, {
+            ...ts.sys,
+            onUnRecoverableConfigFileDiagnostic(diagnostic)
+            {
+                assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+            }
+        });
+        assert.deepEqual(parsed.errors, []);
+        assert.equal(parsed.options.jsx, ts.JsxEmit.Preserve);
+        assert.equal(parsed.options.jsxImportSource, 'vue');
+        for (const source of ['api/security.ts', 'router/index.ts', 'bootstrap/fullApp.ts', 'security/challenge-capability-reload.ts'])
+        {
+            const specifier = `/src/${source}`;
+            const actual = ts.resolveModuleName(specifier, importer, parsed.options, ts.sys).resolvedModule;
+            assert.equal(actual?.resolvedFileName, path.join(frontend, 'src', source));
+            const withoutBinding = { ...parsed.options,
+                paths: Object.fromEntries(Object.entries(parsed.options.paths).filter(([name]) => name !== '/src/*')) };
+            assert.equal(ts.resolveModuleName(specifier, importer, withoutBinding, ts.sys).resolvedModule, undefined);
+        }
+    }
 });
