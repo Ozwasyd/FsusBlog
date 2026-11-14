@@ -26,7 +26,9 @@ const navigation = [
   { key: 'about', label: sitePages.about, href: '/about' },
 ]
 const accountArea = computed(() => route.name === 'canvas' || route.name === 'canvas-document' || route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' ||
-  route.name === 'messages' || route.name === 'security' || route.name === 'private-media')
+  route.name === 'article-list' || route.name === 'article-trash' || route.name === 'messages' ||
+  route.name === 'security' || route.name === 'private-media')
+const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-trash')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')
@@ -100,6 +102,7 @@ async function leave() {
       <template #brand><RouterLink class="workspace-brand" to="/">{{ siteTitle }}</RouterLink></template>
       <template #desktop-actions>
         <RouterLink to="/">Public site</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }">文章管理</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
         <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">资产库</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
@@ -116,6 +119,7 @@ async function leave() {
     <ElDrawer v-model="accountMenu" title="Account menu" direction="rtl" size="min(22rem, 100%)" append-to-body>
       <nav class="workspace-menu" aria-label="Account navigation">
         <RouterLink to="/" @click="accountMenu = false">Public site</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }" @click="accountMenu = false">文章管理</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox" @click="accountMenu = false">站内信</RouterLink>
         <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets" @click="accountMenu = false">资产库</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa" @click="accountMenu = false">Account security</RouterLink>

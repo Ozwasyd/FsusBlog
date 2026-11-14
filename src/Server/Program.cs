@@ -179,6 +179,7 @@ FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Authoring.RevisionHistoryEndpoints.Map(app, Cookie, Query, ReadFrame);
+FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
@@ -271,6 +272,13 @@ var archiveShell = webPages.Page(publicPath: "/archive");
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
+foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/trash" })
+    app.MapGet(route, (HttpContext ctx) =>
+    {
+        NoStore(ctx);
+        ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        return Results.Bytes(shell, Html);
+    });
 foreach (var route in new[] { "/search", "/login", "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });

@@ -14,6 +14,7 @@ import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEnt
 const publicListing = () => import('./views/PublicListing.vue')
 const editor = () => import('./views/Write.vue')
 const canvas = () => import('./views/CanvasWorkspace.vue')
+const authorArticles = () => import('./views/AuthorArticles.vue')
 const sitePage = () => import('./views/SitePage.vue')
 const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +34,8 @@ const router = createRouter({
     { path: '/user/manage/canvas', name: 'canvas', component: canvas },
     { path: '/user/manage/canvas/:id', name: 'canvas-document', component: canvas },
     { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
+    { path: '/user/manage/article/list', name: 'article-list', component: authorArticles },
+    { path: '/user/manage/article/trash', name: 'article-trash', component: authorArticles },
     {
       path: '/user/manage/article',
       component: editor,
@@ -48,13 +51,14 @@ const router = createRouter({
 router.afterEach((to, from) => {
   // Canonical metadata belongs to the verified HTML response for its original route.
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
-  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' ? 'zh-CN' : 'en'
+  const authorInventory = to.name === 'article-list' || to.name === 'article-trash'
+  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' || authorInventory ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
   document.title = to.name === 'home' ? siteTitle : `${title} · ${siteTitle}`
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
-      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media') {
+      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory) {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
@@ -75,6 +79,8 @@ const labels: Record<string, string> = {
   'canvas-document': 'Canvas',
   write: 'New article',
   'article-workspace': 'Article workspace',
+  'article-list': '文章管理',
+  'article-trash': '回收站',
   edit: 'Edit article',
   missing: 'Page not found',
 }

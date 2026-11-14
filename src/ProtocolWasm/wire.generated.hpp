@@ -33,6 +33,8 @@ inline constexpr uint32_t TaxonomyTagCount = 32;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
+inline constexpr uint32_t AuthorArticlePageSize = 20;
+inline constexpr uint32_t AuthorArticleKeywordChars = 128;
 inline constexpr uint32_t NameBytes = 256;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
@@ -299,6 +301,7 @@ enum class FrameType : uint16_t {
     DraftRollback = 32802,
     ArticleSchedule = 32825,
     ArticleScheduleCommand = 32826,
+    AuthorArticlePage = 32840,
     InboxReplay = 32772,
     CanvasCreate = 32773,
     CanvasCreated = 32774,
@@ -376,6 +379,7 @@ constexpr bool known(FrameType type) {
         case FrameType::DraftRollback:
         case FrameType::ArticleSchedule:
         case FrameType::ArticleScheduleCommand:
+        case FrameType::AuthorArticlePage:
         case FrameType::InboxReplay:
         case FrameType::CanvasCreate:
         case FrameType::CanvasCreated:

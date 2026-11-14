@@ -47,6 +47,7 @@ public enum FrameType : ushort
     DraftRollback = 32802,
     ArticleSchedule = 32825,
     ArticleScheduleCommand = 32826,
+    AuthorArticlePage = 32840,
     InboxReplay = 32772,
     CanvasCreate = 32773,
     CanvasCreated = 32774,
@@ -109,6 +110,8 @@ public static class WireLimits
     public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
+    public const int AuthorArticlePageSize = 20;
+    public const int AuthorArticleKeywordChars = 128;
     public const int NameBytes = 256;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
@@ -392,6 +395,7 @@ public static class WireRoutes
     public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
     public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";
     public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
+    public const string AuthorArticles = "/api/v2/authoring/articles.aeds";
     public const string DraftSchedule = "/api/v2/authoring/draft/{id:int}/schedule.aeds";
     public const string DraftScheduleCommand = "/api/v2/authoring/schedule.aeds";
     public const string Save = "/api/v2/authoring/save.aeds";
