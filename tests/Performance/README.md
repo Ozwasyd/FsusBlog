@@ -1,0 +1,19 @@
+# P2 公开读取负载
+
+负载口径和全量验收预算在 [P2 验收和负载协议](../../docs/product/p2-acceptance.md)。本目录可以重复运行原生 PostgreSQL 和 Kestrel 的直连采样。
+
+```bash
+# 在仓库根目录执行，先从锁文件离线恢复 src/Web 的依赖和 FsusUI 构建输入。
+export DOTNET_BIN=/absolute/path/to/dotnet
+export PG_TOOLS_DIR=/absolute/path/to/postgresql/bin
+mkdir -p artifacts
+tests/Performance/run.sh smoke artifacts/p2-smoke-1
+tests/Performance/run.sh direct artifacts/p2-direct-1
+```
+
+- `smoke` 用完整数据集和 3 秒 100 QPS 验证接入。`direct` 依次做 30 秒预热和 60 秒采样的 2,000、5,000、8,000、10,500 QPS 档位。`soak` 做 30 秒预热和 15 分钟 8,000 QPS 采样。跨运行比较时留出足够主机容量，避免同时启动编译器、浏览器测试或其他负载。
+- 运行器使用原生 `initdb` 按次创建私有 Unix socket 数据库，在快照源目录中恢复构建并验证，执行当前迁移 CLI 的 plan、apply 和 verify，再以事务导入固定语料。语料包含 12,000 篇常规公开文章、50 篇草稿、50 篇用于撤回测试的预先发布文章、32 个分类和 128 个标签。生产 DSN 不参与运行。启动后的真正 Kestrel 自动获取回环端口。
+- Go 标准库驱动固定 20/30/20/30 四类 GET 请求，最多 256 个活动连接，2 秒端到端期限，HTTP/1.1 keep-alive 和 identity 编码。每档预查全部 2,402 个 URL，用源语料检查发布代次、正文、记录位置、AEDS CRC、分类和标签。计时期间检查完整长度、HTTP 状态、类型和代次，并定期计算校验和。首页 AEDS 游标会随时间刷新，校验和只对其游标字符作归一化，仍验证 AEDS CRC 和游标边界。
+- `outcome.txt` 记录运行、调用、尝试标识和退出状态。`environment.txt`、`owner.txt`、`source-status.txt`、`*.sha256`、`fixture.json` 与 `commands.txt` 将候选源、构建、锁文件、数据、运行身份及命令关联起来。每档 JSON 分路由提供已发、漏发、正确响应、状态、错误、计时分位和发车延迟。`server-process.csv` 保存采样的服务端 RSS 和 CPU。退出时验证并移除本次私有 PostgreSQL、Kestrel 和临时目录，证据目录保留。
+
+当前运行器的客户端和服务端共用主机。每档结束的进程退出码表示执行和证据状态。容量门槛按协议从原始数据判定。供给者漏发和发车延迟须一起核对。独立供给者、代理/TLS、冷键、数据库访问归因和 GC 指标仍需另外验证，`direct` 的单次结果不构成 P2 性能通过。`load.go` 可针对同一主机上已验明当前运行归属的 TLS 代理做采样，证书验证使用系统信任，代理本身的身份和清理由调用方留证。
