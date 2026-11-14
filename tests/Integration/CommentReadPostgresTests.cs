@@ -10,6 +10,7 @@ namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class CommentReadPostgresTests
 {
+    private static readonly Guid AccountId = Guid.Parse("87dead9a-1591-4eae-846c-0192aaeeccca");
     private const long Start = 9007199254740993;
     private const string VisibleBody = "Visible public text 独立";
     private const string VisibleAuthor = "Public Display Name";
@@ -42,6 +43,7 @@ public sealed class CommentReadPostgresTests
         Assert.Equal(5, Read32(children, 24));
         Assert.Equal(Start + 6, Read64(children, 16));
         Assert.Equal(Start + 2, Read64(children, 32));
+        Assert.Equal(0, Read64(children, 32 + 24)); // A redacted reply target's private ID is omitted.
         var next = Payload(await read.Children(1, Start + 1, Start + 6, 5, ct), FrameType.CommentChildCursor);
         Assert.Equal(1, Read32(next, 24));
         Assert.Equal(0, Read64(next, 16));
@@ -90,11 +92,93 @@ public sealed class CommentReadPostgresTests
         Assert.Equal(0, Read32(noPublic, 9));
 
         await using var connection = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using (var crossArticle = Store.Sql(connection, null,
+            "update public.comment set parent_id=$1, parent_depth=0, root_id=$1, depth=1 where article_id=2",
+            Start + 1))
+        {
+            var error = await Assert.ThrowsAsync<PostgresException>(() => crossArticle.ExecuteNonQueryAsync(ct));
+            Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, error.SqlState);
+        }
         await using (var withdraw = Store.Sql(connection, null, "update public.article set published_revision=null where id=1"))
             await withdraw.ExecuteNonQueryAsync(ct);
         Assert.Equal(unavailable, await read.Context(1, Start + 3, 6, ct));
         Assert.Equal(0, Read32(Payload(await read.Roots(1, null, 10, ct), FrameType.CommentTreeRootCursor), 9));
         Assert.Equal(unavailable, await server.Client.GetByteArrayAsync($"/api/binary/comment/1/context/{Start + 3}", ct));
+    }
+
+    [PostgresFact]
+    public async Task PublicCommentSubmissionRequiresOptInAndDurablyKeepsOrderedConcurrentRetriesPending()
+    {
+        using var time = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = time.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await Seed(fixture, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var token = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        await using (var configure = Store.Sql(db, null, """
+            with session as (
+                insert into public.user_session(digest,user_id,generation,expires_at)
+                values($1,$2,1,now()+interval '5 minutes')
+            ), handle as (
+                insert into public.comment_public_handle(user_id,display_name) values($2,'Public Handle')
+            )
+            insert into public.comment_public_write(article_id) values(1)
+            """, Store.TokenDigest(token)!, AccountId))
+            await configure.ExecuteNonQueryAsync(ct);
+
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true" });
+        var input = new PublicCommentSubmission(1, 1, Guid.NewGuid(), true, "Public Handle", "pending submission body");
+        using (var unauthenticated = await Send(input, authenticated: false))
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+        using (var stale = await Send(input with { Publication = 9000 }))
+            Assert.Equal(HttpStatusCode.Forbidden, stale.StatusCode);
+        using (var mismatch = await Send(input with { DisplayName = "Changed public handle" }))
+            Assert.Equal(HttpStatusCode.Conflict, mismatch.StatusCode);
+        using (var missingHeader = await Send(input, keyHeader: false))
+            Assert.Equal(HttpStatusCode.BadRequest, missingHeader.StatusCode);
+        using (var request = new HttpRequestMessage(HttpMethod.Get, "/api/v2/comments/eligibility/1.aeds?publication=1"))
+        {
+            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var eligible = await server.Client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, eligible.StatusCode);
+            Assert.Equal("Public Handle", Wire.DecodePublicCommentEligibility(await eligible.Content.ReadAsByteArrayAsync(ct)).DisplayName);
+        }
+        var results = await Task.WhenAll(Send(input), Send(input));
+        var receipts = new List<PublicCommentSubmissionResult>();
+        foreach (var response in results)
+        {
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                receipts.Add(Wire.DecodePublicCommentSubmissionResult(await response.Content.ReadAsByteArrayAsync(ct)));
+            }
+        }
+        Assert.Single(receipts, receipt => receipt.Replayed);
+        Assert.All(receipts, receipt => Assert.Equal(0, receipt.ModerationStatus));
+        Assert.Equal(receipts[0].CommentId, receipts[1].CommentId);
+        using (var conflict = await Send(input with { Body = "different body" }))
+            Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        var rootFrame = await server.Client.GetByteArrayAsync("/api/binary/comment/1", ct);
+        Assert.DoesNotContain("pending submission body", Encoding.UTF8.GetString(rootFrame), StringComparison.Ordinal);
+        await using (var shut = Store.Sql(db, null, "delete from public.comment_public_write where article_id=1"))
+            await shut.ExecuteNonQueryAsync(ct);
+        using (var policyClosed = await Send(input with { IdempotencyKey = Guid.NewGuid() }))
+            Assert.Equal(HttpStatusCode.Forbidden, policyClosed.StatusCode);
+        await using var count = Store.Sql(db, null, "select count(*) from public.comment_submit_command");
+        Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
+
+        async Task<HttpResponseMessage> Send(PublicCommentSubmission command, bool authenticated = true, bool keyHeader = true)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.SubmitPublicComment)
+            {
+                Content = new ByteArrayContent(Wire.EncodePublicCommentSubmission(command))
+            };
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            if (keyHeader) request.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
+            if (authenticated) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            return await server.Client.SendAsync(request, ct);
+        }
     }
 
     private static async Task Seed(ScratchDatabase fixture, CancellationToken ct)

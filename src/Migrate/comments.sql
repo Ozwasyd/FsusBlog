@@ -36,3 +36,34 @@ CREATE TABLE public.comment_blocked_region (
     PRIMARY KEY (article_id, comment_id, region_code),
     FOREIGN KEY (article_id, comment_id) REFERENCES public.comment (article_id, id)
 );
+CREATE TABLE public.comment_public_handle (
+    user_id uuid PRIMARY KEY REFERENCES public.blog_user (id),
+    display_name text NOT NULL CHECK (octet_length(display_name) BETWEEN 1 AND 384)
+);
+
+CREATE TABLE public.comment_public_write (
+    article_id integer PRIMARY KEY REFERENCES public.article (id)
+);
+
+CREATE TABLE public.comment_submit_command (
+    user_id uuid NOT NULL REFERENCES public.blog_user (id),
+    command_id uuid NOT NULL,
+    fingerprint bytea NOT NULL CHECK (octet_length(fingerprint)=32),
+    article_id integer NOT NULL,
+    comment_id bigint NOT NULL,
+    PRIMARY KEY (user_id, command_id),
+    UNIQUE (article_id, comment_id),
+    FOREIGN KEY (article_id, comment_id) REFERENCES public.comment (article_id, id)
+);
+
+CREATE TABLE public.comment_moderation_log (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    article_id integer NOT NULL,
+    comment_id bigint NOT NULL,
+    previous_status smallint NOT NULL CHECK (previous_status >= 0 AND previous_status <= 3),
+    next_status smallint NOT NULL CHECK (next_status >= 1 AND next_status <= 3),
+    moderator_db_role text NOT NULL,
+    reason text NOT NULL CHECK (octet_length(reason) BETWEEN 1 AND 1024),
+    occurred_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (article_id, comment_id) REFERENCES public.comment (article_id, id)
+);

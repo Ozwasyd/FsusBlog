@@ -155,9 +155,10 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
             var children = reader.GetInt32(5);
             CommentAuthor? replyAuthor = null;
             // The target may be private even when this node has an approved author.
-            if (visible && !reader.IsDBNull(3)) replyAuthor = reader.IsDBNull(14) ? Tombstone : ReadAuthor(reader, 14);
+            var replyId = visible && !reader.IsDBNull(14) ? NullableId(reader, 3) : null;
+            if (visible && !reader.IsDBNull(3)) replyAuthor = replyId is null ? Tombstone : ReadAuthor(reader, 14);
             rows.Add(new CommentNode(reader.GetInt64(0), NullableId(reader, 1), reader.GetInt64(2),
-                visible ? NullableId(reader, 3) : null, reader.GetInt32(4), children, !visible, children > 0,
+                replyId, reader.GetInt32(4), children, !visible, children > 0,
                 reader.GetFieldValue<DateTimeOffset>(6), visible ? reader.GetString(9) : "该回复已删除",
                 visible ? ReadAuthor(reader, 10) : Tombstone, replyAuthor, reader.GetBoolean(8)));
         }

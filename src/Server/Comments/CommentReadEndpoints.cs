@@ -6,7 +6,8 @@ namespace FsusBlog.V2.Server.Comments;
 
 internal static class CommentReadEndpoints
 {
-    internal static void Map(WebApplication app, Publications publications)
+    internal static void Map(WebApplication app, Publications publications, string cookie,
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
             Read(publications, articleId, Cursor(ctx), cursor => store.Roots(articleId, cursor, Limit(ctx, 10, 50), ct),
@@ -23,6 +24,29 @@ internal static class CommentReadEndpoints
         app.MapGet(WireRoutes.CommentThread, (HttpContext ctx, CommentReadStore store, int articleId, long rootId, CancellationToken ct) =>
             Read(publications, articleId, Cursor(ctx), cursor => store.Thread(articleId, rootId, cursor, Limit(ctx, 20, 100), ct),
                 () => CommentReadWire.Thread(rootId, [], null))).RequireRateLimiting("query");
+
+        if (app.Configuration.GetValue("FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS", false))
+        {
+            app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
+            {
+                if (!long.TryParse(ctx.Request.Query["publication"].FirstOrDefault(), NumberStyles.None,
+                    CultureInfo.InvariantCulture, out var publication) || publication <= 0)
+                    throw new BusinessException(Rejection.Invalid, "A valid publication is required.");
+                var result = await store.WithSession(ctx.Request.Cookies[cookie], false,
+                    (db, tx, actor) => CommentWriteStore.Eligibility(db, tx, actor, articleId, publication, ct), ct);
+                return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
+            }).RequireRateLimiting("command");
+            app.MapPost(WireRoutes.SubmitPublicComment, async (HttpContext ctx, Store store, CancellationToken ct) =>
+            {
+                var input = Wire.DecodePublicCommentSubmission(await readFrame(ctx, WireLimits.PublicCommentFrameBytes, ct));
+                if (!ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) || header.Count != 1 ||
+                    !Guid.TryParseExact(header[0], "D", out var key) || input.IdempotencyKey != key)
+                    throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+                var receipt = await store.WithSession(ctx.Request.Cookies[cookie], false,
+                    (db, tx, actor) => CommentWriteStore.Submit(db, tx, actor, input, ct), ct);
+                return Results.Bytes(Wire.EncodePublicCommentSubmissionResult(receipt), Aeds.ContentType);
+            }).RequireRateLimiting("command");
+        }
     }
 
     private static async Task<IResult> Read(Publications publications, int article, long? cursor, Func<long?, Task<byte[]>> fetch, Func<byte[]> hidden)

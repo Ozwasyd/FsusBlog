@@ -5,7 +5,11 @@ internal static partial class CurrentSchema
     private static readonly string[] CommentColumns =
     [
         "comment article_id:int4 id:int8:d parent_id:int8? root_id:int8 parent_depth:int4? reply_to_id:int8? depth:int4 moderation_status:int2 deleted:bool body:text author_mode:int2 display_name:text display_language:text scope_label:text? created_at:timestamptz edited_at:timestamptz?",
-        "comment_blocked_region article_id:int4 comment_id:int8 region_code:text"
+        "comment_blocked_region article_id:int4 comment_id:int8 region_code:text",
+        "comment_public_handle user_id:uuid display_name:text",
+        "comment_public_write article_id:int4",
+        "comment_submit_command user_id:uuid command_id:uuid fingerprint:bytea article_id:int4 comment_id:int8",
+        "comment_moderation_log id:int8:a article_id:int4 comment_id:int8 previous_status:int2 next_status:int2 moderator_db_role:text reason:text occurred_at:timestamptz=now"
     ];
 
     private static readonly string[] CommentConstraints =
@@ -28,6 +32,21 @@ internal static partial class CurrentSchema
         "comment c reply_to_id,id reply_to_idISNULLORreply_to_id<id",
         "comment_blocked_region c region_code octet_length(region_code)>=1ANDoctet_length(region_code)<=16",
         "comment_blocked_region p article_id,comment_id,region_code",
-        "comment_blocked_region f article_id,comment_id public.comment:article_id,id"
+        "comment_blocked_region f article_id,comment_id public.comment:article_id,id",
+        "comment_public_handle p user_id",
+        "comment_public_handle f user_id public.blog_user:id",
+        "comment_public_handle c display_name octet_length(display_name)>=1ANDoctet_length(display_name)<=384",
+        "comment_public_write p article_id",
+        "comment_public_write f article_id public.article:id",
+        "comment_submit_command p user_id,command_id",
+        "comment_submit_command f user_id public.blog_user:id",
+        "comment_submit_command f article_id,comment_id public.comment:article_id,id",
+        "comment_submit_command u article_id,comment_id",
+        "comment_submit_command c fingerprint octet_length(fingerprint)=32",
+        "comment_moderation_log p id",
+        "comment_moderation_log f article_id,comment_id public.comment:article_id,id",
+        "comment_moderation_log c previous_status previous_status>=0ANDprevious_status<=3",
+        "comment_moderation_log c next_status next_status>=1ANDnext_status<=3",
+        "comment_moderation_log c reason octet_length(reason)>=1ANDoctet_length(reason)<=1024"
     ];
 }

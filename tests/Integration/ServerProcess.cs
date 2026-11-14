@@ -17,7 +17,8 @@ internal sealed class ServerProcess : IAsyncDisposable
         Client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = address };
     }
 
-    internal static async Task<ServerProcess> Start(string connectionString, CancellationToken cancellationToken)
+    internal static async Task<ServerProcess> Start(string connectionString, CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? settings = null)
     {
         var host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet";
         var assembly = Path.Combine(AppContext.BaseDirectory, "FsusBlog.V2.Server.dll");
@@ -44,6 +45,8 @@ internal sealed class ServerProcess : IAsyncDisposable
             start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
             start.Environment["Logging__LogLevel__Default"] = "Warning";
             start.Environment["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information";
+            if (settings is not null)
+                foreach (var setting in settings) start.Environment[setting.Key] = setting.Value;
 
             var listening = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
             var log = new BoundedLog();

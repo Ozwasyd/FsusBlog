@@ -19,6 +19,9 @@ inline constexpr uint32_t CrcPolynomial = 0xa001;
 }
 
 namespace limits {
+inline constexpr uint32_t PublicCommentFrameBytes = 4533;
+inline constexpr uint32_t PublicCommentHandleBytes = 384;
+inline constexpr uint32_t PublicCommentBodyBytes = 4096;
 inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t TaxonomyTagCount = 32;
@@ -161,6 +164,9 @@ enum class FrameType : uint16_t {
     ArticleDetail = 2,
     ArticleSearch = 4,
     CommentThreadReplyCursor = 8,
+    PublicCommentEligibility = 32794,
+    PublicCommentSubmissionResult = 32793,
+    PublicCommentSubmission = 32792,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -208,6 +214,9 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:
         case FrameType::CommentThreadReplyCursor:
+        case FrameType::PublicCommentEligibility:
+        case FrameType::PublicCommentSubmissionResult:
+        case FrameType::PublicCommentSubmission:
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:

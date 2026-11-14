@@ -32,9 +32,11 @@ export async function request<T>(
   signal: AbortSignal | undefined,
   method = 'GET',
   body?: Uint8Array<ArrayBuffer>,
+  headersInit?: HeadersInit,
 ): Promise<T> {
   const contentType = 'application/octet-stream';
-  const headers = new Headers({ Accept: contentType });
+  const headers = new Headers(headersInit);
+  headers.set('Accept', contentType);
   if (body) headers.set('Content-Type', contentType);
   const options: RequestInit = { method, credentials: 'same-origin', redirect: 'error', headers };
   if (body) options.body = body;

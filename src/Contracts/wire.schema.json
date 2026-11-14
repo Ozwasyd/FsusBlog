@@ -18,6 +18,9 @@
     "ArticleDetail": 2,
     "ArticleSearch": 4,
     "CommentThreadReplyCursor": 8,
+    "PublicCommentEligibility": 32794,
+    "PublicCommentSubmissionResult": 32793,
+    "PublicCommentSubmission": 32792,
     "CommentTreeRootCursor": 208,
     "CommentChildCursor": 209,
     "CommentPermalinkContext": 210,
@@ -62,6 +65,8 @@
     "PublicList": "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
     "PublicArchive": "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
     "PublicArticle": "/api/binary/article/{id}.aeds",
+    "SubmitPublicComment": "/api/v2/comments/submit.aeds",
+    "PublicCommentEligibility": "/api/v2/comments/eligibility/{articleId:int}.aeds",
     "CommentRoots": "/api/binary/comment/{articleId:int}",
     "CommentChildren": "/api/binary/comment/{articleId:int}/children/{parentId:long}",
     "CommentContext": "/api/binary/comment/{articleId:int}/context/{commentId:long}",
@@ -114,6 +119,9 @@
     "InboxReplayCursor": "X-Fsus-Inbox-Replay-Cursor"
   },
   "limits": {
+    "PublicCommentFrameBytes": 4533,
+    "PublicCommentHandleBytes": 384,
+    "PublicCommentBodyBytes": 4096,
     "TaxonomyNameBytes": 512,
     "TaxonomyDescriptionBytes": 2000,
     "TaxonomyTagCount": 32,
@@ -250,6 +258,18 @@
     "PasskeySliceSize": 8
   },
   "records": {
+    "PublicCommentEligibility": {
+      "frame": "PublicCommentEligibility",
+      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"]]
+    },
+    "PublicCommentSubmission": {
+      "frame": "PublicCommentSubmission",
+      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"], ["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"]]
+    },
+    "PublicCommentSubmissionResult": {
+      "frame": "PublicCommentSubmissionResult",
+      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ModerationStatus", "i32"], ["Replayed", "bool"]]
+    },
     "DraftTaxonomy": {
       "frame": "DraftTaxonomy",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]

@@ -54,6 +54,7 @@ Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, new
 Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, [.. Aeds.Decode(expected, FrameType.ArticleCommand), 0])));
 
 PublicArticleVectors.Run(fixtures);
+CommentReadVectors.Run(fixtures);
 byte[] CategoryFixture() => Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "category-list-v1.hex"))));
 Equal(CategoryFixture(), TaxonomyWire.EncodeList(FrameType.CategoryList, [new(1, "Tech", 2), new(2, "Life", 0)]));
 Equal(Fixture("taxonomy-exact-metadata.hex"), TaxonomyWire.EncodeMetadata(new(34, "Étoile", "旧名不可占用")));

@@ -6,6 +6,9 @@ export const FrameType = {
   ArticleDetail: 2,
   ArticleSearch: 4,
   CommentThreadReplyCursor: 8,
+  PublicCommentEligibility: 32794,
+  PublicCommentSubmissionResult: 32793,
+  PublicCommentSubmission: 32792,
   CommentTreeRootCursor: 208,
   CommentChildCursor: 209,
   CommentPermalinkContext: 210,
@@ -62,6 +65,9 @@ export const WireHeader = {
 } as const;
 
 export const WireLimits = {
+  PublicCommentFrameBytes: 4533,
+  PublicCommentHandleBytes: 384,
+  PublicCommentBodyBytes: 4096,
   TaxonomyNameBytes: 512,
   TaxonomyDescriptionBytes: 2000,
   TaxonomyTagCount: 32,
@@ -203,6 +209,8 @@ export const WireRoutes = {
   PublicList: "/api/binary/article/list/home/{page:int}/{size:int}.aeds",
   PublicArchive: "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
   PublicArticle: "/api/binary/article/{id}.aeds",
+  SubmitPublicComment: "/api/v2/comments/submit.aeds",
+  PublicCommentEligibility: "/api/v2/comments/eligibility/{articleId:int}.aeds",
   CommentRoots: "/api/binary/comment/{articleId:int}",
   CommentChildren: "/api/binary/comment/{articleId:int}/children/{parentId:long}",
   CommentContext: "/api/binary/comment/{articleId:int}/context/{commentId:long}",
@@ -257,6 +265,93 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface PublicCommentEligibility {
+  articleId: number;
+  publication: bigint;
+  displayName: string;
+}
+
+export function encodePublicCommentEligibility(value: PublicCommentEligibility): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.publication);
+  writer.text(value.displayName, WireLimits.PublicCommentHandleBytes);
+  return writer.finish();
+}
+
+export function decodePublicCommentEligibility(payload: Uint8Array): PublicCommentEligibility {
+  const reader = new PodReader(payload);
+  const value: PublicCommentEligibility = {
+    articleId: reader.i32(),
+    publication: reader.i64(),
+    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PublicCommentSubmission {
+  articleId: number;
+  publication: bigint;
+  idempotencyKey: string;
+  explicitPublic: boolean;
+  displayName: string;
+  body: string;
+}
+
+export function encodePublicCommentSubmission(value: PublicCommentSubmission): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.publication);
+  writer.uuid(value.idempotencyKey);
+  writer.bool(value.explicitPublic);
+  writer.text(value.displayName, WireLimits.PublicCommentHandleBytes);
+  writer.text(value.body, WireLimits.PublicCommentBodyBytes);
+  return writer.finish();
+}
+
+export function decodePublicCommentSubmission(payload: Uint8Array): PublicCommentSubmission {
+  const reader = new PodReader(payload);
+  const value: PublicCommentSubmission = {
+    articleId: reader.i32(),
+    publication: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    explicitPublic: reader.bool(),
+    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+    body: reader.text(WireLimits.PublicCommentBodyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PublicCommentSubmissionResult {
+  articleId: number;
+  commentId: bigint;
+  moderationStatus: number;
+  replayed: boolean;
+}
+
+export function encodePublicCommentSubmissionResult(value: PublicCommentSubmissionResult): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.commentId);
+  writer.i32(value.moderationStatus);
+  writer.bool(value.replayed);
+  return writer.finish();
+}
+
+export function decodePublicCommentSubmissionResult(payload: Uint8Array): PublicCommentSubmissionResult {
+  const reader = new PodReader(payload);
+  const value: PublicCommentSubmissionResult = {
+    articleId: reader.i32(),
+    commentId: reader.i64(),
+    moderationStatus: reader.i32(),
+    replayed: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface DraftTaxonomy {
   id: number;

@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlogV2.Storage;
+using FsusBlogV2.Migrate;
 using Npgsql;
 
 return await Migration.RunAsync(args);
@@ -38,6 +39,12 @@ internal static partial class Migration
                   revoke NAME           End all sessions and pending tickets for an existing user
                   notify ACCOUNT_ID EVENT_ID
                                         Send an idempotent system notice from a UTF-8 JSON object on stdin
+                  comment handle ACCOUNT_ID DISPLAY_NAME
+                                        Assign an explicit public comment display name to an enabled account
+                  comment policy ARTICLE_ID enable|disable
+                                        Allow or deny moderated public submissions on the article
+                  comment moderate ARTICLE_ID COMMENT_ID EXPECTED_STATUS approve|reject|hide REASON
+                                        Change comment status and append the trusted database role audit event
                   legacy inventory postgres|mysql|sqlite
                                         Inspect the v1 article catalog and exact table counts
                   legacy plan postgres|mysql|sqlite
@@ -108,6 +115,15 @@ internal static partial class Migration
                     break;
                 case ["notify", var recipient, var eventId]:
                     await NotifyAsync(connection, recipient, eventId, Console.OpenStandardInput(), token);
+                    break;
+                case ["comment", "handle", var account, var displayName]:
+                    await CommentMaintenance.AssignHandle(connection, account, displayName, token);
+                    break;
+                case ["comment", "policy", var article, var state]:
+                    await CommentMaintenance.SetArticlePolicy(connection, article, state, token);
+                    break;
+                case ["comment", "moderate", var article, var comment, var expected, var decision, var reason]:
+                    await CommentMaintenance.Moderate(connection, article, comment, expected, decision, reason, token);
                     break;
                 default:
                     throw new ArgumentException("Unrecognized arguments. Run with --help for usage.");

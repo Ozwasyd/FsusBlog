@@ -7,6 +7,9 @@ public enum FrameType : ushort
     ArticleDetail = 2,
     ArticleSearch = 4,
     CommentThreadReplyCursor = 8,
+    PublicCommentEligibility = 32794,
+    PublicCommentSubmissionResult = 32793,
+    PublicCommentSubmission = 32792,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -65,6 +68,9 @@ public static class WireHeader
 
 public static class WireLimits
 {
+    public const int PublicCommentFrameBytes = 4533;
+    public const int PublicCommentHandleBytes = 384;
+    public const int PublicCommentBodyBytes = 4096;
     public const int TaxonomyNameBytes = 512;
     public const int TaxonomyDescriptionBytes = 2000;
     public const int TaxonomyTagCount = 32;
@@ -208,6 +214,8 @@ public static class WireRoutes
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
+    public const string SubmitPublicComment = "/api/v2/comments/submit.aeds";
+    public const string PublicCommentEligibility = "/api/v2/comments/eligibility/{articleId:int}.aeds";
     public const string CommentRoots = "/api/binary/comment/{articleId:int}";
     public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
@@ -262,6 +270,9 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
 }
 
+public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
+public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
+public sealed record PublicCommentSubmissionResult(int ArticleId, long CommentId, int ModerationStatus, bool Replayed);
 public sealed record DraftTaxonomy(int Id, long Revision, int CategoryId, IReadOnlyList<int> TagIds);
 public sealed record TaxonomyAssignment(int Id, long ExpectedRevision, Guid IdempotencyKey, int CategoryId, IReadOnlyList<int> TagIds);
 public sealed record SignIn(string Ticket);
@@ -281,6 +292,67 @@ public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevisi
 
 public static partial class Wire
 {
+    public static byte[] EncodePublicCommentEligibility(PublicCommentEligibility value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Publication);
+        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
+        return Aeds.Encode(FrameType.PublicCommentEligibility, writer.Written);
+    }
+
+    public static PublicCommentEligibility DecodePublicCommentEligibility(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentEligibility));
+        var value = new PublicCommentEligibility(reader.I32(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePublicCommentSubmission(PublicCommentSubmission value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Publication);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Bool(value.ExplicitPublic);
+        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
+        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
+        return Aeds.Encode(FrameType.PublicCommentSubmission, writer.Written);
+    }
+
+    public static PublicCommentSubmission DecodePublicCommentSubmission(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmission));
+        var value = new PublicCommentSubmission(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePublicCommentSubmissionResult(PublicCommentSubmissionResult value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CommentId);
+        writer.I32(value.ModerationStatus);
+        writer.Bool(value.Replayed);
+        return Aeds.Encode(FrameType.PublicCommentSubmissionResult, writer.Written);
+    }
+
+    public static PublicCommentSubmissionResult DecodePublicCommentSubmissionResult(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmissionResult));
+        var value = new PublicCommentSubmissionResult(reader.I32(), reader.I64(), reader.I32(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeDraftTaxonomy(DraftTaxonomy value)
     {
         Validate(value);

@@ -1,0 +1,77 @@
+using System.Security.Cryptography;
+using System.Text;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using Npgsql;
+
+namespace FsusBlog.V2.Server.Comments;
+
+internal static class CommentWriteStore
+{
+    internal static async Task<PublicCommentEligibility> Eligibility(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, int articleId, long publication, CancellationToken ct)
+    {
+        await using var gate = Store.Sql(db, tx, """
+            select h.display_name
+            from public.article a
+            join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
+            join public.comment_public_write w on w.article_id=a.id
+            join public.comment_public_handle h on h.user_id=$3
+            where a.id=$1 and not a.deleted and p.publication_id=$2 and p.published_at<=statement_timestamp()
+            for share of a,p,w,h
+            """, articleId, publication, actor.Id);
+        var name = await gate.ExecuteScalarAsync(ct) as string ??
+            throw new BusinessException(Rejection.Forbidden, "Public comment submission is unavailable for this publication.");
+        return new(articleId, publication, name);
+    }
+
+    internal static async Task<PublicCommentSubmissionResult> Submit(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, PublicCommentSubmission input, CancellationToken ct)
+    {
+        input = input with { Body = Normalize(input.Body) };
+        var hash = SHA256.HashData(Wire.EncodePublicCommentSubmission(input));
+        await Store.LockCommand(db, tx, actor.Id, input.IdempotencyKey, ct);
+        await using (var replay = Store.Sql(db, tx, """
+            select c.fingerprint,c.article_id,c.comment_id,p.moderation_status
+            from public.comment_submit_command c
+            join public.comment p on p.article_id=c.article_id and p.id=c.comment_id
+            where c.user_id=$1 and c.command_id=$2
+            """, actor.Id, input.IdempotencyKey))
+        await using (var row = await replay.ExecuteReaderAsync(ct))
+        {
+            if (await row.ReadAsync(ct))
+            {
+                if (!CryptographicOperations.FixedTimeEquals(hash, row.GetFieldValue<byte[]>(0)))
+                    throw new BusinessException(Rejection.Conflict, "The comment key was used for a different submission.");
+                return new(row.GetInt32(1), row.GetInt64(2), row.GetInt16(3), true);
+            }
+        }
+
+        var eligible = await Eligibility(db, tx, actor, input.ArticleId, input.Publication, ct);
+        if (!string.Equals(eligible.DisplayName, input.DisplayName, StringComparison.Ordinal))
+            throw new BusinessException(Rejection.Conflict, "The public display name changed. Reload and confirm it before sending.");
+
+        await using var insert = Store.Sql(db, tx, """
+            with identity as (select nextval(pg_get_serial_sequence('public.comment','id')) as id),
+            new_comment as (
+                insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,
+                    display_name,display_language,created_at)
+                select $1,id,id,0,0,false,$2,3,$3,'zh-CN',statement_timestamp() from identity
+                returning id
+            )
+            insert into public.comment_submit_command(user_id,command_id,fingerprint,article_id,comment_id)
+            select $4,$5,$6,$1,id from new_comment returning comment_id
+            """, input.ArticleId, input.Body, eligible.DisplayName, actor.Id, input.IdempotencyKey, hash);
+        var id = (long)(await insert.ExecuteScalarAsync(ct))!;
+        return new(input.ArticleId, id, 0, false);
+    }
+
+    private static string Normalize(string raw)
+    {
+        var text = raw.Trim().ReplaceLineEndings("\n");
+        if (text.Length is 0 or > 1000 || Encoding.UTF8.GetByteCount(text) > WireLimits.PublicCommentBodyBytes ||
+            text.Any(ch => char.IsControl(ch) && ch is not ('\r' or '\n' or '\t')))
+            throw new BusinessException(Rejection.Invalid, "Public comment text exceeds its allowed length or contains control characters.");
+        return text;
+    }
+}
