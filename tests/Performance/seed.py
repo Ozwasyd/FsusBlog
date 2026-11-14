@@ -185,6 +185,14 @@ BEGIN
             END IF;
             CONTINUE;
         END IF;
+        IF relation.relname = 'admin_identity_schema' THEN
+            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = 1) FROM public.admin_identity_schema'
+                INTO valid_bootstrap;
+            IF valid_bootstrap IS DISTINCT FROM true THEN
+                RAISE EXCEPTION 'Fixture target has an invalid administrator identity bootstrap marker';
+            END IF;
+            CONTINUE;
+        END IF;
         EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
         IF contains_rows THEN
             RAISE EXCEPTION 'Fixture target contains business data in %', relation.relname;
