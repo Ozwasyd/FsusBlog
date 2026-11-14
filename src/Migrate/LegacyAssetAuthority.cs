@@ -7,7 +7,8 @@ internal static partial class Migration
 {
     private const int LegacyAssetReferenceLimit = 20_000;
 
-    private sealed record AssetReferenceAudit(long Total, long Articles, long Revisions, long Drafts, string Sha256);
+    private sealed record AssetReferenceAudit(long Total, long Articles, long Revisions, long Drafts, string Sha256,
+        LegacyMediaReference[] Bindings);
 
     private static void ValidateLegacyAssetRoots(string publicPath, string privatePath)
     {
@@ -21,7 +22,7 @@ internal static partial class Migration
     }
 
     private static async Task<(string? Digest, string? Failure)> HashLegacyAssetFileAsync(SafeFileHandle root,
-        string rootPath, string key, long expected, byte[] buffer, CancellationToken token)
+        string rootPath, string key, long expected, byte[] buffer, CancellationToken token, Stream? copy = null)
     {
         SafeFileHandle? directory = null;
         var segments = key.Split('/');
@@ -63,6 +64,7 @@ internal static partial class Migration
                 var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(remaining, buffer.Length)), token);
                 if (read == 0) return (null, "file-length-mismatch");
                 hash.AppendData(buffer.AsSpan(0, read));
+                if (copy is not null) await copy.WriteAsync(buffer.AsMemory(0, read), token);
                 remaining -= read;
             }
             return input.ReadByte() == -1 ? (Convert.ToHexStringLower(hash.GetHashAndReset()), null) : (null, "file-length-mismatch");
@@ -119,6 +121,7 @@ internal static partial class Migration
         var unique = new HashSet<(Guid, string, string)>();
         var existingArticles = new Dictionary<long, bool>();
         var existingRevisions = new Dictionary<long, long?>();
+        var bindings = new List<LegacyMediaReference>();
         long current = 0, historical = 0, drafts = 0;
         foreach (var reference in references.OrderBy(item => item.Asset).ThenBy(item => item.Kind, StringComparer.Ordinal)
                      .ThenBy(item => item.Key, StringComparer.Ordinal))
@@ -160,7 +163,12 @@ internal static partial class Migration
             }
             if (reference.Kind == "article")
             {
-                if (exists && id == article) current++;
+                if (exists && id == article)
+                {
+                    current++;
+                    bindings.Add(new LegacyMediaReference(reference.Asset, reference.Kind, id, (int)article, (int)reference.Count,
+                        reference.AltText, NormalizeLegacyMediaTime(reference.Updated)));
+                }
                 else addIssue("article-reference-unresolved");
                 continue;
             }
@@ -169,10 +177,16 @@ internal static partial class Migration
                 revisionArticle = await FindLegacyAssetIdAsync(source, transaction, revisions, "article_id", id, token);
                 existingRevisions.Add(id, revisionArticle);
             }
-            if (exists && revisionArticle == article) historical++;
+            if (exists && revisionArticle == article)
+            {
+                historical++;
+                bindings.Add(new LegacyMediaReference(reference.Asset, reference.Kind, id, (int)article, (int)reference.Count,
+                    reference.AltText, NormalizeLegacyMediaTime(reference.Updated)));
+            }
             else addIssue("revision-reference-unresolved");
         }
-        return new AssetReferenceAudit(references.Count, current, historical, drafts, Convert.ToHexStringLower(hash.GetHashAndReset()));
+        return new AssetReferenceAudit(references.Count, current, historical, drafts, Convert.ToHexStringLower(hash.GetHashAndReset()),
+            bindings.ToArray());
     }
 
     private static async Task RequireBoundedAssetTextAsync(LegacySource source, DbTransaction transaction, LegacyTable table,

@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
 
 internal static partial class Migration
 {
@@ -21,9 +22,33 @@ internal static partial class Migration
         string Status);
     private sealed record AssetMeta(Guid Id, string StorageClass, string Key, string Extension, string MediaType, long Bytes,
         string? Digest, long? Width, long? Height, long? Owner, string State, object Created, object Updated);
+    private sealed record AssetSnapshot(LegacySource Source, DbTransaction Transaction, LegacyTable Principals,
+        AssetMeta[] Metadata, string MetadataSha256, List<AssetCustody> Custody, AssetReferenceAudit References,
+        Dictionary<string, long> Issues, SafeFileHandle PublicRoot, SafeFileHandle PrivateRoot);
 
     private static async Task<int> VerifyLegacyAssetsAsync(string provider, string publicPath, string privatePath,
         CancellationToken token)
+        => await ObserveLegacyAssetSnapshotAsync(provider, publicPath, privatePath, (snapshot, _) =>
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                sourceReference = LegacyReference,
+                provider,
+                assetMetadataSha256 = snapshot.MetadataSha256,
+                custody = snapshot.Custody,
+                references = new { snapshot.References.Total, snapshot.References.Articles, snapshot.References.Revisions,
+                    snapshot.References.Drafts, snapshot.References.Sha256 },
+                issues = snapshot.Issues.OrderBy(entry => entry.Key).Select(entry => new { kind = entry.Key, count = entry.Value }),
+                readyToApply = false,
+                remaining = new[] { "asset content transformation and rights publication", "draft source references and their ownership",
+                    "authorization and live installation or reference rewrite are unavailable" }
+            }, Json));
+            return Task.FromResult(snapshot.Issues.Count == 0 ? 0 : 2);
+        }, token);
+
+    private static async Task<int> ObserveLegacyAssetSnapshotAsync(string provider, string publicPath, string privatePath,
+        Func<AssetSnapshot, CancellationToken, Task<int>> observe, CancellationToken token,
+        Func<LegacySource, DbTransaction, CancellationToken, Task>? admitSource = null)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         cancellation.CancelAfter(TimeSpan.FromMinutes(4));
@@ -41,6 +66,7 @@ internal static partial class Migration
             await using var database = source.Connection;
             await database.OpenAsync(ct);
             await using var transaction = await BeginLegacyReadAsync(database, ct);
+            if (admitSource is not null) await admitSource(source, transaction, ct);
             var catalog = await ReadLegacyCatalogAsync(source, transaction, ct);
             if (catalog.Any(table => table.Name.Equals("v2_schema", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("The attachment verifier requires a v1 source.");
@@ -112,20 +138,11 @@ internal static partial class Migration
                 var rows = await CountAsync($"FROM {source.Table(table)}", transaction, ct);
                 if (rows > 0) issues[issue] = rows;
             }
+            var snapshot = new AssetSnapshot(source, transaction, admins, assets, Convert.ToHexStringLower(metadata.GetHashAndReset()),
+                custody, refs, issues, publicRoot, privateRoot);
+            var result = await observe(snapshot, ct);
             await transaction.RollbackAsync(ct);
-            Console.WriteLine(JsonSerializer.Serialize(new
-            {
-                sourceReference = LegacyReference,
-                provider,
-                assetMetadataSha256 = Convert.ToHexStringLower(metadata.GetHashAndReset()),
-                custody,
-                references = refs,
-                issues = issues.OrderBy(entry => entry.Key).Select(entry => new { kind = entry.Key, count = entry.Value }),
-                readyToApply = false,
-                remaining = new[] { "asset content transformation and rights publication", "draft source references and their ownership",
-                    "authorization and live installation or reference rewrite are unavailable" }
-            }, Json));
-            return issues.Count == 0 ? 0 : 2;
+            return result;
 
             LegacyTable RequireAssetTable(string name, string[] columns) =>
                 catalog.Where(table => table.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray() is [var table] &&

@@ -84,6 +84,31 @@ dotnet run --no-build --project src/Migrate -- legacy assets postgres \
 
 2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-assets.sh [postgres|sqlite|mysql]`。三个样本均验证公有和私有件，同时拒绝相同长度的内容篡改、文件缺失或改名、符号链接、错误的旧所有者或修订号。草稿引用、清理队列和缺失旧摘要会生成逐项结果，当权威表结构不存在则停止。精确输入摘要与原始输出见本地 `artifacts/native-migration/assets-20261114T163811.log`。
 
+### 演练附件的隔离打包
+
+用上一节的冻结源快照和一个单独的空 v2 PostgreSQL 候选。以 `FSUSBLOG_IMPORT_DB` 指定本机 Unix socket 的 `fsusv2_import_*` 候选。候选需已建当前结构、尚未进行文章暂存且没有业务行，可单独预置计划需要的启用作者。v2 目标站点 UUID 取自 `authoring_recovery_site.site_id`。旧库没有相同的站点标识，旧站 UUID 由操作者从独立来源记录确认并提供。
+
+```bash
+umask 077
+dotnet run --no-build --project src/Migrate -- legacy assets rehearsal plan postgres \
+  "$frozen_public_assets" "$frozen_private_assets" "$source_site_uuid" "$target_site_uuid" > "$draft"
+```
+
+核对草案的来源、目标和附件数量，基于已审核的账号对应关系填写每个 `owners[].targetUserId`，得到权限为 0400 或 0600 的审核文件。每个旧管理员 ID 只接受一个不同的现有 v2 作者 UUID。独立记录审核文件的原始字节 SHA-256。准备站点和备份目录之外、归当前用户所有且权限为 0700 的离线输出目录。
+
+```bash
+dotnet run --no-build --project src/Migrate -- legacy assets rehearsal copy postgres \
+  "$frozen_public_assets" "$frozen_private_assets" "$reviewed_json" "$reviewed_sha256" "$quarantine_parent" asset-drill
+dotnet run --no-build --project src/Migrate -- legacy assets rehearsal verify \
+  "$quarantine_parent/asset-drill" "$manifest_sha256"
+```
+
+复制会重测来源附件 SHA-256、原始引用与归属摘要、已审核站点、候选结构及作者。只要存在任意附件核查问题，整批都停止。PostgreSQL 源与候选必须有不同的集群系统标识，即使数据库名称不同也拒绝同一集群。该限制用于本项隔离演练，源和目标的只读连接需能执行 `pg_catalog.pg_control_system()`。SQLite 快照的审核还绑定整个文件 SHA-256。
+
+包只写入离线目录，目录模式 0500、单链接普通文件模式 0400。密封清单保存原始附件标识、存储类、精确路径和摘要，保留旧文章及全局修订 ID、引用计数、替代文本及已审核归属。请按原始私有附件保管包。成功回读后输出 `manifestSha256`，应独立保存该值。无数据库连接的 `verify` 按此值核对清单、精确文件集合及每件摘要。该流程不写入任何数据库或站点媒体目录，`readyToApply` 恒为 `false`。
+
+2026-11-15 在 macOS ARM64 使用 SDK 10.0.404 运行 `tests/Integration/Migration/legacy-asset-rehearsal.sh`。SQLite 3.54.0 与独立 PostgreSQL 18.7 源均完成公有和私有件打包及离线回读。验证覆盖同集群跨库、已暂存库、审核与目标站点变化、所有者不符、已有包名称、文件篡改、链接、额外成员与扩展 ACL。输入及候选业务状态均保持一致，自建实例、数据库和目录已清理。MySQL 的附件盘点另有测试，打包链路及 Linux 文件实现尚未实测。原始结果见 `artifacts/native-migration/assets-package-final-20261114T171139.log`。
+
 ### 离线核对身份兼容性
 
 ```bash
