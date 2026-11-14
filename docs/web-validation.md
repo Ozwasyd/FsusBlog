@@ -30,3 +30,5 @@ node tests/EndToEnd/blog-flow.mjs
 ```
 
 当前 PostgreSQL 服务端不可用，完整脚本未执行。实机 Chrome 烟测与单独 alias 探针日志保存在本轮临时证据目录。
+
+后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。
