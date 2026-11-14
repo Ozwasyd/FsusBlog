@@ -17,6 +17,13 @@
                 "config/build/backend-docker-inputs.json"
             ],
             "reason": "Preserve the existing execution authority, dependency catalog and backend input inventory JSON schemas and field names."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "Preserve the external build source identity environment variable while binding Migration metadata."
         }
     ]
 }

@@ -2,12 +2,13 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/tools/pr-impact-plan.test.mjs",
-        "tools/style/markdown-toolchain/package.json"
+        "tools/style/markdown-toolchain/package.json",
+        "tools/test/lanes/production-build-artifacts.sh"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "dc9fcca8e1eb264183197c05b17ac13ebfe3d455c36f396015ca933d471376b5"
+            "sha256": "14b17d0c70885e04c319a9f29c56f7f609b9d1f4466b490c44eb77e8e9bd892a"
         },
         {
             "path": "tools/style/markdown-toolchain/package-lock.json",
