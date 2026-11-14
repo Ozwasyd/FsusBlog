@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/outcome-adapter-profile-contract.mjs",
+                "tools/test-matrix/outcomes/outcome-input-custody.mjs"
+            ],
+            "reason": "retain original producer and independent evidence authority identifiers in the domain outcome profile consumer"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/outcome-adapter-catalog.schema.json",
+                "config/schemas/outcome-adapter-membership.schema.json",
+                "config/testing/outcome-adapter-catalog.json",
+                "config/testing/outcome-field-dispositions.json"
+            ],
+            "reason": "preserve exact serialized candidate, disposition and domain member schema spellings while registering the original adapter contracts"
+        }
+    ]
+}
