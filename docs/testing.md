@@ -160,6 +160,37 @@ The end-to-end test selects `png-alpha` from MediaShapeCatalog, obtains verified
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
 
+## Offline native dependency preparation
+
+The original `tools/docs/prepare-behavior-doc-nuget.mjs` has two distinct dependency
+preparation purposes. The default remains BehaviorDoc; `--purpose matrix-native`
+binds the actual extractor/backend projects declared by
+`tools/testing/content-shape-catalog.mjs` through `FsusBlog.MatrixNativeRestore.slnx`.
+Its closure includes every referenced project lock and source, the solution, the
+native caller owner, and the Dockerfile SDK/runtime pins. It also observes the
+complete canonical SDK/compiler/runtime input bytes without launching the SDK.
+`DOTNET_ROOT`, `PATH` and `FSUSBLOG_CONTENT_FIELD_DOTNET` must select that same
+single pinned SDK. The guest caller's frozen `tool.purpose` selects this purpose
+and retains its existing exact source, readonly mounts, task lock and raw terminal
+observation checks.
+
+Both purposes use the original independent per-transfer capacity reservation,
+candidate lease, owned directories, sealed finite archive feed, ordered locked
+offline restore, private temporary directory and protected physical execution.
+The bound minimal environment disables MSBuild node reuse, .NET CLI telemetry,
+and background workload advertising downloads so the offline restore can reach
+its zero-member terminal without unplanned network attempts. The original
+network observation still rejects every unplanned endpoint.
+The `matrix-governance` and `validate-matrix` callers require an explicit
+`FSUSBLOG_MATRIX_NATIVE_NUGET_PREPARATION` descriptor. Their original deterministic
+runner checks it through the strict matrix reader before seeding the current
+attempt's private NuGet cache. BehaviorDoc descriptors and historical transfers
+cannot qualify this ingress, even when the package rosters overlap. Missing or
+cross-purpose preparation refuses before native launch. Dependency transfer
+remains nonqualifying; the actual native restore/rebuild and complete applicable
+CI controls retain their original owners and acceptance requirements. Downloaded
+archives or SDK inventory alone do not establish an admitted offline transfer.
+
 ## Fixture mutation and exact-recovery qualification
 
 `tools/test-fixtures/mutation-recovery/` is the only test-only semantic observation, mutation and same-profile recovery authority. It consumes the verified current `fsusblog.fixture-receipt.v2`, the sealed producer plan and `config/testing/fixture-mutation-envelope-catalog.json`; it never copies expected fixture values from producer source. A snapshot request binds run/source/profile, catalog and receipt digests, temporal context, provider, service generation and the observed backend/database/Redis runtime identity. The observer streams receipt-owned entities, relations, outbox rows, exact Redis TTL/generation, media byte digests and API/service projections together with explicitly catalogued nonowned sentinels into content-addressed bounded shards. The observer must stream records in canonical semantic-key order; duplicate or out-of-order input fails instead of being accumulated and resorted in memory.
@@ -304,6 +335,8 @@ Private article preview browser acceptance is owned exclusively by matrix leaf `
 The production XSS conformance is jointly owned by two matrix leaves, `production-xss-fast` and `production-xss-release`. Both directly load the test-only corpus of the local FsusUI alias, prohibiting copying the payload list or requiring the release of the FsusUI package; fast takes a representative case for each top-level category and only runs managed Chromium, and release consumes the complete hand-curated corpus and runs Chromium, Firefox, and WebKit in parallel. They reuse the same Release frontend, Kestrel, PostgreSQL snapshot and browser worker, override JavaScript-disabled AOT DOM, hydration, SPA navigation, About, comment persistence/reloading and admin private preview, and write `corpus ID × surface × browser × phase` to the only `matrix.json`. Any script execution, external request, navigation/window/download, dangerous DOM, CSP or Trusted Types observation fails closed.
 
 Ordinary PR uses smart gate: `plan-pr-risk` always runs and generates `.tmp/pr-plan.json` and `.tmp/release-evidence/pr-smart-gate-summary.json`, ordinary PRs select the declared source checks and tiers affected through explicit trigger/cache inputs, command ownership and the canonical target dependency-to-consumer reverse index, followed by the complete execution, evidence, fixed-job and workflow prerequisite closure. Global default flags do not turn unrelated runtime or production summaries into source qualification. Shared topology, selection/admission authority and unknown impact conservatively select the complete eligible PR CI roster and its required dependencies. Ordinary PR reverse consumers do not promote unrelated manual, nightly or local lanes; explicitly required dependency edges remain mandatory. Consumers independently bind the caller base, event, run, attempt and original planner output digest instead of accepting a re-sealed file as its own authority. Push, explicit full, workflow dispatch and release preserve complete coverage. Within an applicable closure, unresolved executable/import paths, stale independent authority and missing original producers still fail closed. The full execution-authority fixture remains canonical; scoped verification checks its applicable exact targets and dependency identities and cannot certify unselected release targets. The backend/frontend coverage has been incorporated into the corresponding fast `ci-job`, and `supersedes` replaces the ordinary unit execution of the same `executionKey`; skipping must be written in skip evidence, and silent skipping is not allowed. The complete dependency closure of `production-correctness` is fixed to zero browser, zero Playwright, zero browser resource, and zero session schema; release-final binds the universal single Chromium `browser-contract` and the dedicated Chromium/Firefox/WebKit `production-xss-release` through evidence-only, neither of which becomes the production scheduler edge. Other Acceptance, visual, UX full/risk, geometry/motion/focus, browser a11y/performance/resilience and search/PoW/permission/zero-auth browser probes are only run by scheduled/manual diagnostics. See [`testing/issue-1150-browserless-ci-topology.md`](testing/issue-1150-browserless-ci-topology.md) for the complete topology, and see [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md) for receipt, flaky and migration management.
+
+The Quality Gate workflow pins its Node runtime to the exact version in `config/testing/release-final-execution-authority-index.json`. Its planner and source checks validate that parser identity; change the runtime and indexed identity together through their existing review and producer checks. The source check installs its Markdown linter from `tools/style/markdownlint-toolchain/package-lock.json` before validating documentation.
 
 `run-deterministic-command.mjs` invocation must explicitly declare `--execution-class correctness|diagnostic` and `--producer-id`. `config/testing/producer-execution-class-contract.json` is a machine-readable mapping of matrix `evidenceClass` to execution class: both default correctness and browser-contract require producer, scheduler run and source identity, and diagnostic constant cannot be qualified. correctness requires `FSUSBLOG_TEST_RUN_ID`, `FSUSBLOG_TEST_SOURCE_COMMIT`, `FSUSBLOG_TEST_SOURCE_FINGERPRINT` before child spawn, missing any field fails with `contract.missing-run-identity` and zero execution; it does not generate local, timestamp or latest fallback. diagnostic must also be explicitly selected before it can be executed directly and output `qualificationEligible=false` constantly, and must not issue a correctness projection.
 
