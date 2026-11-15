@@ -39,6 +39,7 @@ public sealed class ArticleSchedulePostgresTests
         await Submit(intent with { DueUnixMs = future + 10 }, HttpStatusCode.Conflict);
         await Submit(intent with { IdempotencyKey = Guid.NewGuid() }, HttpStatusCode.Conflict);
         Assert.Equal(0, await Tick(future - 1));
+        Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_publication_canonical where article_id=$1", draft.Id));
 
         var newDue = future + 10_000;
         var replaced = Wire.DecodeArticleSchedule(await Submit(new(draft.Id, pending.Revision, Guid.NewGuid(), newDue)));
@@ -77,6 +78,12 @@ public sealed class ArticleSchedulePostgresTests
         Assert.Equal("scheduled-replaced", await Scalar<string>("select reason from public.article_publication_history where article_id=$1 and event_no=2", draft.Id));
         Assert.Equal(finalCommand.IdempotencyKey, await Scalar<Guid>("select command_id from public.article_publication_history where article_id=$1 and event_no=2", draft.Id));
         Assert.Equal(1L, await Scalar<long>("select count(*) from public.blog_outbox where article_id=$1 and revision=$2 and kind='publish'", draft.Id, final.Revision));
+        Assert.Equal(1L, await Scalar<long>("""
+            select count(*) from public.article_publication_canonical c
+            join public.article_publication p on p.publication_id=c.publication_id and p.published_at=c.published_at
+            join public.blog_outbox o on o.id=c.outbox_id and o.kind='publish' and o.revision=p.revision
+            where c.article_id=$1 and c.revision=$2 and c.transition='replace'
+            """, draft.Id, final.Revision));
         Assert.Equal(0L, (await Read(draft.Id, final.Revision)).DueUnixMs);
         Assert.Equal(final, Wire.DecodeArticleSchedule(await Submit(finalCommand)));
         await Submit(new(draft.Id, final.Revision, Guid.NewGuid(), 0), HttpStatusCode.Conflict);

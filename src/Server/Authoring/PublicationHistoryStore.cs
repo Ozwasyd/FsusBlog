@@ -160,6 +160,18 @@ internal static class PublicationHistoryStore
         return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
     }
 
+    internal static async Task<long> RecordPublishedOutbox(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
+        CancellationToken ct)
+    {
+        await using var add = Store.Sql(db, tx, """
+            insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish') returning id
+            """, article, revision);
+        if (await add.ExecuteScalarAsync(ct) is not long id)
+            throw new InvalidOperationException("Could not record the new publication outbox event.");
+        await PublicationCanonicalStore.Record(db, tx, article, revision, id, ct);
+        return id;
+    }
+
     private static NpgsqlParameter Optional(NpgsqlDbType type, object? value) =>
         new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
 }

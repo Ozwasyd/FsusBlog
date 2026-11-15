@@ -10,6 +10,45 @@ using Npgsql;
 public sealed class PublicationRightsPostgresTests
 {
     [PostgresFact]
+    public async Task PreviousCatalogStillPublishesWithItsOwnOutbox()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var actor = Guid.NewGuid();
+        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        await using (var prepare = new NpgsqlCommand("""
+            drop table public.article_publication_canonical;
+            alter table public.article_publication_history drop constraint publication_history_native_binding;
+            alter table public.article_publication_rights drop constraint publication_rights_native_binding;
+            alter table public.blog_outbox drop constraint outbox_native_publication_binding;
+            """, db)) await prepare.ExecuteNonQueryAsync(ct);
+        await using (var author = Store.Sql(db, null, "insert into public.blog_user values($1,'Previous catalog author',true,true,1)", actor))
+            await author.ExecuteNonQueryAsync(ct);
+        await using (var session = Store.Sql(db, null,
+            "insert into public.user_session (digest,user_id,generation,expires_at) values($1,$2,1,clock_timestamp()+interval '5 minutes')",
+            Store.TokenDigest(token)!, actor)) await session.ExecuteNonQueryAsync(ct);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var draft = await Send(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Prior catalog", "Without canonical storage"));
+        var published = await Send(WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
+        Assert.Contains("Without canonical storage", await server.Client.GetStringAsync($"/article/{draft.Id}", ct));
+        await using var outbox = Store.Sql(db, null,
+            "select count(*) from public.blog_outbox where kind='publish' and article_id=$1 and revision=$2", draft.Id, published.Revision);
+        Assert.Equal(1L, (long)(await outbox.ExecuteScalarAsync(ct))!);
+
+        async Task<Draft> Send(string path, ArticleCommand command)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(Wire.EncodeArticleCommand(command)) };
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            request.Headers.Add("Cookie", "fsus-v2-session=" + token);
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
+
+    [PostgresFact]
     public async Task OnlyTheExactPublicationSnapshotIsPublicAndItSurvivesSubsequentEdits()
     {
         using var stop = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -31,7 +70,10 @@ public sealed class PublicationRightsPostgresTests
         Assert.Equal(edited, Wire.DecodeArticleRightsPolicy(await Set(change, author)));
         await Set(change with { LicenseType = "CC0-1.0" }, author, HttpStatusCode.Conflict);
         await Set(change with { IdempotencyKey = Guid.NewGuid() }, author, HttpStatusCode.Conflict);
-        var firstRelease = await Publish(initial.Id, edited.Revision);
+        var firstCommand = Guid.NewGuid();
+        var firstRelease = await Publish(initial.Id, edited.Revision, key: firstCommand);
+        Assert.Equal(firstRelease, await Publish(initial.Id, edited.Revision, key: firstCommand));
+        Assert.Equal(1L, await CanonicalCount(initial.Id));
         var firstRights = await Detail(initial.Id);
         Assert.Equal(("CC-BY-SA-4.0", "First holder & Co", "Original rights statement"),
             (firstRights.License, firstRights.Holder, firstRights.Statement));
@@ -48,14 +90,31 @@ public sealed class PublicationRightsPostgresTests
         Assert.DoesNotContain("Private later holder", await server.Client.GetStringAsync(path, ct));
         await Execute("alter table public.blog_outbox add constraint force_rights_rollback check (kind <> 'publish') not valid");
         await Publish(initial.Id, next.Revision, HttpStatusCode.ServiceUnavailable);
+        Assert.Equal(1L, await CanonicalCount(initial.Id));
         await Execute("alter table public.blog_outbox drop constraint force_rights_rollback");
         Assert.Equal(firstRights, await Detail(initial.Id));
         Assert.Equal(1L, await Count("select count(*) from public.article_publication_rights where article_id=$1", initial.Id));
+        // Fail after the publish outbox has been written. The entire release, including outbox and history, must roll back.
+        await Execute("alter table public.article_publication_canonical add constraint force_canonical_rollback check (publication_no=1) not valid");
+        await Publish(initial.Id, next.Revision, HttpStatusCode.ServiceUnavailable);
+        Assert.Equal(1L, await CanonicalCount(initial.Id));
+        Assert.Equal(1L, await Count("select count(*) from public.blog_outbox where article_id=$1 and kind='publish'", initial.Id));
+        Assert.Equal(firstRights, await Detail(initial.Id));
+        await Execute("alter table public.article_publication_canonical drop constraint force_canonical_rollback");
         var secondRelease = await Publish(initial.Id, next.Revision);
         var secondRights = await Detail(initial.Id);
         Assert.NotEqual(firstRights.Id, secondRights.Id);
         Assert.Equal(secondRelease.Revision, secondRights.Revision);
         Assert.Equal("CC0-1.0", secondRights.License);
+        Assert.Equal(2L, await CanonicalCount(initial.Id));
+        Assert.Equal(2L, await Count("""
+            select count(distinct x.policy_sha256) from public.article_publication_canonical x where x.article_id=$1
+            """, initial.Id));
+        var mismatch = await Assert.ThrowsAsync<PostgresException>(() => Execute("""
+            update public.article_publication_canonical x set outbox_id=o.id
+            from public.blog_outbox o where x.article_id=$1 and x.publication_no=2 and o.article_id=$1 and o.kind='save'
+            """, initial.Id));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, mismatch.SqlState);
         Assert.Equal(2L, await Count("select count(*) from public.article_publication_rights where article_id=$1", initial.Id));
         Assert.Equal("First holder & Co", await Scalar<string>("""
             select w.copyright_holder from public.article_revision_rights w join public.article_publication_rights s
@@ -96,10 +155,16 @@ public sealed class PublicationRightsPostgresTests
         async Task<Draft> Save(int id, long revision, string title, string body) =>
             Wire.DecodeDraft(await Response(HttpMethod.Post, WireRoutes.Save, author,
                 Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, body)), HttpStatusCode.OK));
-        async Task<Draft> Publish(int id, long revision, HttpStatusCode status = HttpStatusCode.OK)
+        Task<long> CanonicalCount(int id) => Count("""
+            select count(*) from public.article_publication_canonical x
+            join public.blog_outbox o on (o.id,o.article_id,o.revision,o.kind)=(x.outbox_id,x.article_id,x.revision,'publish')
+            join public.article_publication_history h on (h.publication_id,h.publication_no,h.happened_at)=(x.publication_id,x.publication_no,x.published_at)
+            where x.article_id=$1 and x.canonical_version=2
+            """, id);
+        async Task<Draft> Publish(int id, long revision, HttpStatusCode status = HttpStatusCode.OK, Guid? key = null)
         {
             var packet = await Response(HttpMethod.Post, WireRoutes.Publish, author,
-                Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), "", "")), status);
+                Wire.EncodeArticleCommand(new(id, revision, key ?? Guid.NewGuid(), "", "")), status);
             return status == HttpStatusCode.OK ? Wire.DecodeDraft(packet) : null!;
         }
         async Task<byte[]> Response(HttpMethod method, string route, string? token, byte[]? body, HttpStatusCode status)

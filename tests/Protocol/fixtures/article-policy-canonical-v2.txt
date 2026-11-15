@@ -1,0 +1,16 @@
+fsusblog.integrity.article-policy.v2
+version:i:2
+articleId:i:42
+revision:i:9007199254740993
+enabled:b:0
+licenseType:s:Q0MtQlktNC4w
+copyrightHolder:s:
+copyrightYear:i:0
+rightsStatement:s:w4l0YXQK5paw
+attributionTemplate:s:e3RpdGxlfQ==
+copyPolicy:s:YXBwZW5kLWF0dHJpYnV0aW9u
+maxExcerptChars:i:0
+allowCodeCopy:b:1
+showPublicBadge:b:0
+proofBindingEnabled:b:1
+contentSha256:h:24239fad08e881ba50750f3d8d5ced03746a398201e9e68e7036eefdb9c25bb2

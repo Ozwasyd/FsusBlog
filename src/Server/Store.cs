@@ -224,10 +224,15 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             await Authoring.ArticleScheduleStore.Record(db, tx, actor, state, schedule, ct);
         else if (edit.Id != 0)
             await Authoring.ArticleScheduleStore.Clear(db, tx, state.Id, ct);
-        await using (var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
-            state.Id, state.Revision, attachment is not null ? "draft-media" : rights is not null ? "rights" : schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
-                rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback"))
+        if (action == ArticleAction.Publish)
+            await Authoring.PublicationHistoryStore.RecordPublishedOutbox(db, tx, state.Id, state.Revision, ct);
+        else
+        {
+            await using var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
+                state.Id, state.Revision, attachment is not null ? "draft-media" : rights is not null ? "rights" : schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
+                rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback");
             await enqueue.ExecuteNonQueryAsync(ct);
+        }
         return (state, true);
     }
 

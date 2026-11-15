@@ -81,9 +81,7 @@ internal sealed partial class AdminPasskeyStore
             var release = await PublicationHistoryStore.ReplaceByAdministrator(db, tx, article, stage.CurrentPublication,
                 intent.SourceRevision, revision, stage.CurrentRevision, stage.SourcePublication, stage.SourceResponsibility!.Value,
                 admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, ct);
-            await Execute(db, tx, ct, """
-                insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish')
-                """, article, revision);
+            await PublicationHistoryStore.RecordPublishedOutbox(db, tx, article, revision, ct);
             invalidatePublic();
             return new AdminArticleRollbackReceipt(article, revision, intent.SourceRevision, stage.CurrentPublication, release.Id,
                 release.Number, new DateTimeOffset(release.PublishedAt).ToUnixTimeMilliseconds(), release.RightsSnapshot,

@@ -43,6 +43,10 @@ internal static partial class Migration
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
                   publication-rights    Add rights storage while leaving missing publication rights private
+                  publication-canonical schema
+                                        Install native publication canonical storage offline, without backfill
+                  publication-canonical verify [PUBLICATION_ID]
+                                        Recompute native publication digests from retained PostgreSQL facts
                   admin-article-rollback schema
                                         Add independent published rollback storage with the server stopped
                   article-responsibility record ARTICLE REVISION
@@ -224,6 +228,15 @@ internal static partial class Migration
                 case ["publication-rights"]:
                     await InitializePublicationRightsAsync(connection, token);
                     break;
+                case ["publication-canonical", "schema"]:
+                    await InitializePublicationCanonicalAsync(connection, token);
+                    break;
+                case ["publication-canonical", "verify"]:
+                    await VerifyPublicationCanonicalAsync(connection, null, token);
+                    break;
+                case ["publication-canonical", "verify", var canonicalPublication]:
+                    await VerifyPublicationCanonicalAsync(connection, canonicalPublication, token);
+                    break;
                 case ["admin-article-rollback", "schema"]:
                     await InitializeAdminArticleRollbackAsync(connection, token);
                     break;
@@ -365,7 +378,7 @@ internal static partial class Migration
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
-            requireAppearanceActivation: true, requireAuthorRecentOpens: true);
+            requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

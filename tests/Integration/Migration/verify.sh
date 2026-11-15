@@ -132,9 +132,13 @@ restore_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_r
 [[ -n "$source_site" && "$source_site" == "$restore_site" ]]
 "${migrate[@]}" recovery-scope
 [[ "$source_site" == "$("${psql_source[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')" ]]
-"${psql_restore[@]}" -c 'DROP TABLE public.authoring_recovery_site'
+"${psql_restore[@]}" <<'SQL'
+DROP TABLE public.author_recent_open, public.author_recent_open_receipt, public.author_recent_open_collection,
+    public.authoring_recovery_site;
+SQL
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" recovery-scope
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" author-recent-opens
 new_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
 [[ -n "$new_site" && "$new_site" != "$source_site" ]]
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT generation FROM public.blog_user')" == 2 ]]
@@ -151,7 +155,12 @@ INSERT INTO public.article (owner_id, revision, title, body, deleted, publicatio
     SELECT id, 5, 'Previously withdrawn', 'Private body', false, 2 FROM public.blog_user;
 INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
     SELECT id, revision, title, body, now() FROM public.article WHERE title = 'Previously withdrawn';
-DROP TABLE public.article_publication_history;
+DROP TABLE public.article_publication_canonical;
+ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
+ALTER TABLE public.blog_outbox DROP CONSTRAINT outbox_native_publication_binding;
+DROP TABLE IF EXISTS public.article_publication_media;
+DROP TABLE public.article_publication_history, public.admin_article_rollback, public.admin_article_rollback_step_up,
+    public.article_publication_responsibility, public.article_revision_responsibility;
 COMMIT;
 SQL
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
@@ -179,6 +188,9 @@ FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-rights
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-rights
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_publication_rights')" == 0 ]]
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" admin-article-rollback schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-canonical schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-canonical verify | rg -Fx '{"canonicalVersion":2,"verifiedPublications":0}'
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
 
 # A new database always has optional subscription storage. A current database from before it still verifies.

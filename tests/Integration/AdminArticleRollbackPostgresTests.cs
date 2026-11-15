@@ -115,6 +115,7 @@ public sealed class AdminArticleRollbackPostgresTests
         Assert.Same(originalProjection, publications.Snapshot);
         Assert.Equal(2L, await Scalar<long>("select revision from public.article where id=1"));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.admin_article_rollback"));
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_publication_canonical"));
         Assert.Equal(1L, await Scalar<long>("select count(*) from public.admin_article_rollback_step_up where kind=2"));
         await Execute("alter table public.blog_outbox drop constraint fixture_refusal");
 
@@ -131,6 +132,11 @@ public sealed class AdminArticleRollbackPostgresTests
         Assert.Equal("Historical release", restored.Title);
         Assert.Equal("Historical body", restored.Body);
         Assert.Equal(result.PublicationId, restored.Publication);
+        Assert.Equal(1L, await Scalar<long>("""
+            select count(*) from public.article_publication_canonical c join public.blog_outbox o on o.id=c.outbox_id and o.kind='publish'
+            where c.publication_id=$1 and c.revision=$2 and c.rights_snapshot_id=$3 and c.transition='replace'
+            """, result.PublicationId, result.Revision, result.RightsSnapshotId));
+        Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_publication_canonical"));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", intent.IdempotencyKey));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.admin_article_rollback_step_up where kind=2"));
         Assert.Equal(author, await Scalar<Guid>("select owner_id from public.article where id=1"));

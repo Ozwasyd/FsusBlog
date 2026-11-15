@@ -129,10 +129,7 @@ internal static class ArticleScheduleStore
                 // For retained hidden legacy state, use the previous transition boundary, strictly before the scheduled revision.
                 await PublicationHistoryStore.Apply(db, tx, candidate.Actor, candidate.Command, ArticleAction.Publish,
                     candidate.Id, candidate.Revision - 1, publication, candidate.Revision, ct, scheduled: true);
-                await using var enqueue = Store.Sql(db, tx, """
-                    insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish')
-                    """, candidate.Id, candidate.Revision);
-                await enqueue.ExecuteNonQueryAsync(ct);
+                await PublicationHistoryStore.RecordPublishedOutbox(db, tx, candidate.Id, candidate.Revision, ct);
                 changed++;
             }
             await Clear(db, tx, candidate.Id, ct);

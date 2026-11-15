@@ -1,0 +1,8 @@
+fsusblog.integrity.article-content.v2
+version:i:2
+articleId:i:42
+revision:i:9007199254740993
+title:s:UsOpc2VhdSDwn5CI
+markdown:s:Q2FmZcyBDQrni6znq4vwn5iACg==
+categoryId:n
+tagIds:i:11,42

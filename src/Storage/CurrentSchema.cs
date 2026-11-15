@@ -112,7 +112,7 @@ internal static partial class CurrentSchema
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requireAuthorRecentOpens = null)
+        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null)
     {
         if (requireArticleMedia is null)
         {
@@ -184,6 +184,10 @@ internal static partial class CurrentSchema
         if ((hasAuthorRecentOpens && !requireRecoveryScope) ||
             (requireAuthorRecentOpens.HasValue && requireAuthorRecentOpens.Value != hasAuthorRecentOpens))
             throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
+        var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
+        if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
+            (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
+            throw new InvalidOperationException("The native publication canonical schema presence does not match the requested operation.");
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
@@ -209,6 +213,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
             .Concat(hasAdminInboxRead ? AdminInboxReadColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
+            .Concat(hasPublicationCanonical ? PublicationCanonicalColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
@@ -237,6 +242,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])
             .Concat(hasAdminInboxRead ? AdminInboxReadConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
+            .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """
