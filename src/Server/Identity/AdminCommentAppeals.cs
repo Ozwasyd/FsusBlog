@@ -13,6 +13,7 @@ internal static class AdminCommentAppeals
     internal static void Map(WebApplication app, string origin, AdminPasskeyStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
+        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         app.MapGet(WireRoutes.AdminCommentAppeals, async (HttpContext ctx, CancellationToken ct) =>
             Frame(await store.ReadAppeals(ctx.Request.Cookies[session], ctx.Request.Query, ct))).RequireRateLimiting("command");
 
@@ -35,7 +36,7 @@ internal static class AdminCommentAppeals
             AdminModerationEndpoints.RequireOrigin(ctx, origin);
             var frame = await readFrame(ctx, Wire.CommentAppealFrameBytes, ct);
             var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
-            try { return Frame(await store.DecideAppeal(ctx.Request.Cookies[session], id, frame, proof, ct)); }
+            try { return Frame(await store.DecideAppeal(ctx.Request.Cookies[session], id, frame, proof, ct, fenceVisibleMessages)); }
             catch (ModerationProofRequiredException)
             {
                 const int status = StatusCodes.Status428PreconditionRequired;
@@ -82,7 +83,8 @@ internal sealed partial class AdminPasskeyStore
     internal Task<byte[]> CompleteAppealStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct) =>
         CompleteStepUp(session, request, StepUpAction.ReviewCommentAppeal, ct);
 
-    internal Task<byte[]> DecideAppeal(string? session, long id, byte[] frame, string? proof, CancellationToken ct)
+    internal Task<byte[]> DecideAppeal(string? session, long id, byte[] frame, string? proof, CancellationToken ct,
+        bool fenceVisibleMessages = false)
     {
         var input = Wire.DecodeAdminAppeal(frame);
         var reason = CommentAppeals.Reason(input.Reason);
@@ -94,13 +96,16 @@ internal sealed partial class AdminPasskeyStore
                     StepUpAction.ReviewCommentAppeal))
                 throw new ModerationProofRequiredException();
             bool granted = input.Decision == "granted";
+            bool signedReply = false;
             if (granted)
             {
                 await using var update = Store.Sql(db, tx, """
                     update public.comment set moderation_status=1,moderation_version=moderation_version+1
                     where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=2 and not deleted
+                    returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
                     """, article, comment, version);
-                if (await update.ExecuteNonQueryAsync(ct) != 1) throw AppealChanged();
+                if (await update.ExecuteScalarAsync(ct) is not bool positiveReply) throw AppealChanged();
+                signedReply = positiveReply;
             }
             await using var receipt = Store.Sql(db, tx, """
                 with receipt as (
@@ -111,6 +116,7 @@ internal sealed partial class AdminPasskeyStore
                 select appeal_id,2,2,$6,decided_at from receipt
                 """, id, admin.Id, SHA256.HashData(admin.Digest), granted, reason, (short)(granted ? 1 : 2));
             if (await receipt.ExecuteNonQueryAsync(ct) != 1) throw AppealChanged();
+            if (signedReply) await CommentReplies.DeliverApproved(db, tx, article, comment, fenceVisibleMessages, ct);
             return Wire.EncodeAdminAppealResult(id);
         }, ct);
     }

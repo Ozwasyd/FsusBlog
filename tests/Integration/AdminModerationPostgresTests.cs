@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -6,6 +8,7 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Passkeys;
+using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
@@ -14,6 +17,175 @@ namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminModerationPostgresTests
 {
+    [PostgresFact]
+    public async Task ApprovedReplyNotifiesOnlyTheVisibleDirectParentOwnerAndRollsBackWithModeration()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await AddPendingComment(db, ct);
+        var recipient = await Scalar<Guid>("select owner_id from public.article where id=1");
+        var sender = Guid.NewGuid();
+        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var recipientToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var handle = SiteSessions.Id(sender, Store.TokenDigest(token)!);
+        await Execute(db, """
+            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Reply account',false,true,1)
+            """, ct, sender);
+        await Execute(db, """
+            insert into public.user_session(digest,user_id,generation,expires_at)
+                values($1,$2,1,now()+interval '5 minutes'),($3,$4,1,now()+interval '5 minutes')
+            """, ct, Store.TokenDigest(token)!, sender, Store.TokenDigest(recipientToken)!, recipient);
+        await Execute(db, "insert into public.comment_public_handle(user_id,display_name) values($1,'Reply display'),($2,'Parent display')",
+            ct, sender, recipient);
+        await Execute(db, "insert into public.comment_account_owner(article_id,comment_id,user_id) values(1,1,$1)", ct, recipient);
+        await Execute(db, """
+            insert into public.comment_public_write(article_id) values(1);
+            insert into public.article_publication(article_id,revision,published_at) values(1,1,now());
+            insert into public.article_revision_rights values(1,1,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true);
+            insert into public.article_publication_rights(article_id,publication_id,revision)
+                select article_id,publication_id,revision from public.article_publication where article_id=1;
+            update public.article set published_revision=1,publication_count=1 where id=1;
+            update public.comment set moderation_status=1,moderation_version=2 where article_id=1 and id=1;
+            select setval(pg_get_serial_sequence('public.comment','id'),1);
+            """, ct);
+        var moderator = await AddModerator(db, "reply-reviewer", ct);
+        var admin = CreateStore(fixture);
+        var reply = new PublicCommentReply(1, 1, 1, "Reply display", "Independent public reply", Guid.NewGuid(), true);
+        var optIn = new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true" };
+        await using (var defaults = await ServerProcess.Start(fixture.ConnectionString, ct, optIn))
+        {
+            using var absent = await Send(defaults, reply, true);
+            Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
+        }
+        optIn[CommentReplies.Setting] = "true";
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, optIn);
+        using (var stale = await Send(server, reply, true, current: new string('a', 64)))
+            Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        using (var unknown = await Send(server, reply with { ParentId = 98765 }, true))
+            Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        var proof = await Proof(reply);
+        using (var wrong = await Send(server, reply with { ParentId = 98765 }, false, proof))
+            Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        var pending = await Submit(reply, proof);
+        Assert.Equal(0, pending.ModerationStatus);
+        Assert.False(pending.Replayed);
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.inbox_event"));
+        Assert.DoesNotContain(reply.Body, Encoding.UTF8.GetString(await server.Client.GetByteArrayAsync(WireRoutes.CommentRoots
+            .Replace("{articleId:int}", "1", StringComparison.Ordinal), ct)), StringComparison.Ordinal);
+        await Execute(db, "insert into public.comment_blocked_region values(1,1,'ZZ')", ct);
+        using (var blocked = await Send(server, reply with { IdempotencyKey = Guid.NewGuid() }, true))
+            Assert.Equal(HttpStatusCode.NotFound, blocked.StatusCode);
+        await Execute(db, "delete from public.comment_blocked_region", ct);
+
+        var (decision, adminProof, adminDigest) = await PrepareDecision(pending.CommentId);
+        await Execute(db, "alter table public.comment_reply_notice add constraint fixture_deny_reply_notice check (false)", ct);
+        var failed = await Assert.ThrowsAsync<PostgresException>(() => admin.DecideComment(moderator.Token, adminProof, decision, ct));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, failed.SqlState);
+        Assert.True(await Scalar<bool>("""
+            select (select count(*) from public.inbox_conversation)=0
+                and (select count(*) from public.inbox_event)=0
+                and (select count(*) from public.admin_comment_moderation)=0
+                and (select moderation_status=0 from public.comment where article_id=1 and id=$1)
+                and exists(select 1 from public.admin_step_up where digest=$2)
+            """, pending.CommentId, adminDigest));
+        await Execute(db, "alter table public.comment_reply_notice drop constraint fixture_deny_reply_notice", ct);
+        await admin.DecideComment(moderator.Token, adminProof, decision, ct);
+        await Assert.ThrowsAsync<ModerationProofRequiredException>(() => admin.DecideComment(moderator.Token, adminProof, decision, ct));
+        Assert.Equal(1L, await Scalar<long>("""
+            select count(*) from public.comment_reply_notice n
+            join public.admin_comment_moderation d on (d.article_id,d.comment_id)=(n.article_id,n.reply_id)
+            join public.inbox_conversation c on (c.account_id,c.id)=(n.recipient_id,n.conversation_id)
+            where n.reply_id=$1 and n.recipient_id=$2 and d.principal_id=$3 and n.moderation_version=d.comment_version+1
+                and c.is_system and (select array_agg(e.kind order by e.sequence) from public.inbox_event e
+                    where e.account_id=n.recipient_id and e.conversation_id=n.conversation_id
+                        and e.message_id=n.message_id)=array[12,13]::smallint[]
+            """, pending.CommentId, recipient, moderator.Id));
+        var conversation = await Scalar<long>("select conversation_id from public.comment_reply_notice");
+        Assert.Equal(HttpStatusCode.NotFound, (await ReadInbox(token)).Status);
+        var visible = await ReadInbox(recipientToken);
+        Assert.Equal(HttpStatusCode.OK, visible.Status);
+        Assert.Contains($"Reply display 回复了您的评论：{reply.Body}。定位：/article/1#comment-{pending.CommentId}", visible.Body,
+            StringComparison.Ordinal);
+
+        var nested = reply with { ParentId = pending.CommentId, IdempotencyKey = Guid.NewGuid(), Body = "Reply to my own comment" };
+        var self = await Submit(nested, await Proof(nested));
+        Assert.True(await Scalar<bool>("select root_id=1 and parent_id=$1 and depth=2 from public.comment where article_id=1 and id=$2",
+            pending.CommentId, self.CommentId));
+        var (selfDecision, selfProof, _) = await PrepareDecision(self.CommentId);
+        await admin.DecideComment(moderator.Token, selfProof, selfDecision, ct);
+        await Execute(db, "delete from public.comment_public_write where article_id=1", ct);
+        var replay = await Submit(reply, await Proof(reply));
+        Assert.Equal(pending.CommentId, replay.CommentId);
+        Assert.True(replay.Replayed);
+        Assert.Equal(1, replay.ModerationStatus);
+        Assert.Equal(1L, await Scalar<long>("select count(*) from public.comment_reply_notice"));
+        Assert.Equal(2L, await Scalar<long>("select count(*) from public.inbox_event"));
+
+        async Task<T> Scalar<T>(string sql, params object[] parameters)
+        {
+            await using var query = Store.Sql(db, null, sql, parameters);
+            return Assert.IsType<T>(await query.ExecuteScalarAsync(ct));
+        }
+
+        async Task<HttpResponseMessage> Send(ServerProcess app, PublicCommentReply command, bool challenge, string? proofHeader = null,
+            string? current = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, challenge ? WireRoutes.PublicCommentReplyPow : WireRoutes.SubmitPublicCommentReply)
+            { Content = new ByteArrayContent(Wire.EncodePublicCommentReply(command)) };
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            request.Headers.Add(WireHeaders.CurrentSession, current ?? handle);
+            request.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
+            if (challenge) request.Headers.Add(WireHeaders.PowClientNonce, ClientNonce);
+            if (proofHeader is not null) request.Headers.Add(WireHeaders.PowProof, proofHeader);
+            return await app.Client.SendAsync(request, ct);
+        }
+
+        async Task<string> Proof(PublicCommentReply command)
+        {
+            using var response = await Send(server, command, true);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var challenge = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.PowChallenge).ToArray();
+            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(challenge.AsSpan(0, 64)).TrimEnd('\0'),
+                Encoding.UTF8.GetString(challenge.AsSpan(76)).TrimEnd('\0'), BinaryPrimitives.ReadInt32LittleEndian(challenge.AsSpan(64)),
+                BinaryPrimitives.ReadInt64LittleEndian(challenge.AsSpan(68)), ClientNonce);
+        }
+
+        async Task<PublicCommentSubmissionResult> Submit(PublicCommentReply command, string authorization)
+        {
+            using var response = await Send(server, command, false, authorization);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return Wire.DecodePublicCommentSubmissionResult(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+
+        async Task<(HttpStatusCode Status, string Body)> ReadInbox(string session)
+        {
+            var path = WireRoutes.InboxDetail.Replace("{id:long}", conversation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.Add("Cookie", $"fsus-v2-session={session}");
+            using var response = await server.Client.SendAsync(request, ct);
+            return (response.StatusCode, Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync(ct)));
+        }
+
+        async Task<(AdminModerationDecision Decision, string Proof, byte[] Digest)> PrepareDecision(long comment)
+        {
+            var claim = await admin.AcquireCommentClaim(moderator.Token, new(1, comment), ct);
+            var intent = new AdminModerationDecision(1, comment, 0, 1, "Reviewed visible reply fixture", claim.CommentVersion,
+                claim.ClaimToken, claim.ClaimGeneration, claim.ClaimVersion);
+            var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+            var digest = SHA256.HashData(Encoding.ASCII.GetBytes(token));
+            await Execute(db, """
+                insert into public.admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
+                values($1,$2,$3,1,1,$4,null,clock_timestamp()+interval '45 seconds',2)
+                """, ct, digest, moderator.Id, moderator.Digest, AdminPasskeyStore.DecisionDigest(intent));
+            return (intent, token, digest);
+        }
+    }
+
+    private const string ClientNonce = "c1287bbaae554232a936d42a3f59bd0d";
+
     [PostgresFact]
     public async Task AppealRequiresAnOwnedAdverseReceiptAndAnIndependentBoundDecision()
     {

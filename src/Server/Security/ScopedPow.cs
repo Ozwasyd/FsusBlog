@@ -9,7 +9,7 @@ using Npgsql;
 namespace FsusBlog.V2.Server.Security;
 
 /// <summary>Only explicitly mapped, independently authorized operations may request a proof.</summary>
-internal enum PowScope { PublicCommentSubmit, InboxCreate, InboxReply, SiteRecoveryKey, AdminInboxReply, AdminSitePagePublish, AdminInboxStatus, AdminInboxNotice, AdminAppearance, AdminTagMetadata }
+internal enum PowScope { PublicCommentSubmit, InboxCreate, InboxReply, SiteRecoveryKey, AdminInboxReply, AdminSitePagePublish, AdminInboxStatus, AdminInboxNotice, AdminAppearance, AdminTagMetadata, PublicCommentReply }
 
 internal sealed class ScopedPow(TimeProvider time)
 {
@@ -109,6 +109,7 @@ internal sealed class ScopedPow(TimeProvider time)
         var action = scope switch
         {
             PowScope.PublicCommentSubmit => "comment-submit",
+            PowScope.PublicCommentReply => "comment-reply",
             PowScope.InboxCreate => "inbox-create",
             PowScope.InboxReply => "inbox-reply",
             PowScope.AdminInboxReply => "admin-inbox-reply",
@@ -151,7 +152,7 @@ internal sealed class ScopedPow(TimeProvider time)
         try { return Results.Bytes(await run(), Aeds.ContentType); }
         catch (ScopedPowFailure rejection)
         {
-            var details = scope == PowScope.PublicCommentSubmit ? "comment_" + rejection.Details : rejection.Details;
+            var details = scope is PowScope.PublicCommentSubmit or PowScope.PublicCommentReply ? "comment_" + rejection.Details : rejection.Details;
             return new AedsError(rejection.Status, Wire.EncodeError(rejection.Status, rejection.Message, details, ctx.TraceIdentifier));
         }
     }

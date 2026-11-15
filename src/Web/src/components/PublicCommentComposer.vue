@@ -6,8 +6,9 @@ import { commentEligibility, submitPublicComment } from '../../../Contracts/comm
 import type { PublicCommentEligibility } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 
-const props = defineProps<{ articleId: number; publication: bigint }>()
-const eligibility = shallowRef<PublicCommentEligibility>()
+const props = defineProps<{ articleId: number; publication: bigint; reply?: { id: string; name: string } }>()
+const emit = defineEmits<{ availability: [value: boolean]; cancel: [] }>()
+const eligibility = shallowRef<PublicCommentEligibility & { canReply: boolean }>()
 const body = ref('')
 const confirm = ref(false)
 const pending = ref(false)
@@ -20,30 +21,43 @@ const ready = computed(() => confirm.value && body.value.trim().length > 0 && bo
 let action: AbortController | undefined
 onBeforeUnmount(() => action?.abort())
 
-watch([currentSession, identityEpoch, () => props.articleId, () => props.publication], async ([session], _, cleanup) => {
-  const controller = new AbortController()
-  cleanup(() => controller.abort())
+function resetDraft() {
   action?.abort()
   action = undefined
   pending.value = false
-  eligibility.value = undefined
   confirm.value = false
   body.value = ''
   candidate.value = undefined
   result.value = ''
   problem.value = ''
+}
+
+watch(() => props.reply?.id, resetDraft, { flush: 'sync' })
+watch([currentSession, identityEpoch, () => props.articleId, () => props.publication], async ([session], _, cleanup) => {
+  const controller = new AbortController()
+  cleanup(() => controller.abort())
+  resetDraft()
+  eligibility.value = undefined
+  emit('availability', false)
   if (!session || session.expiresAt <= Date.now()) return
   try {
     const value = await commentEligibility(props.articleId, props.publication, controller.signal)
-    if (!controller.signal.aborted) eligibility.value = value
+    if (!controller.signal.aborted) {
+      eligibility.value = value
+      emit('availability', value.canReply && !!session.siteSessionId)
+    }
   } catch {
     // A disabled site or a user without an approved public handle gets the read-only entry.
   }
-}, { immediate: true })
+}, { immediate: true, flush: 'sync' })
 
 async function send() {
-  if (!eligibility.value || !ready.value || pending.value || !currentSession.value ||
-      currentSession.value.expiresAt <= Date.now()) return
+  const session = currentSession.value
+  const target = props.reply
+  if (!eligibility.value || !ready.value || pending.value || !session || session.expiresAt <= Date.now()) return
+  const reply = target && session.siteSessionId && eligibility.value.canReply
+    ? { parent: target.id, session: session.siteSessionId } : undefined
+  if (target && !reply) return
   const text = body.value.trim().replaceAll('\r\n', '\n').replaceAll('\r', '\n')
   if (candidate.value?.body !== text) candidate.value = { body: text, id: crypto.randomUUID() }
   const controller = new AbortController()
@@ -54,12 +68,14 @@ async function send() {
   const epoch = identityEpoch.value
   try {
     const receipt = await submitPublicComment(props.articleId, props.publication, eligibility.value.displayName,
-      candidate.value.body, candidate.value.id, controller.signal)
+      candidate.value.body, candidate.value.id, controller.signal, reply)
     if (controller.signal.aborted || identityEpoch.value !== epoch) return
     candidate.value = undefined
     body.value = ''
     confirm.value = false
-    result.value = receipt.moderationStatus === 0 ? 'Comment submitted for review.' : 'Comment submission confirmed.'
+    result.value = receipt.moderationStatus === 0
+      ? target ? 'Reply submitted for review.' : 'Comment submitted for review.'
+      : 'Comment submission confirmed.'
   } catch (error) {
     if (!controller.signal.aborted && identityEpoch.value === epoch) {
       problem.value = error instanceof ApiError && (error.status === 401 || error.status === 403)
@@ -77,12 +93,15 @@ async function send() {
 
 <template>
   <form v-if="eligibility" class="public-comment-composer" @submit.prevent="send">
-    <h3>Leave a public comment</h3>
-    <ElInput v-model="body" type="textarea" label="Comment" v-bind="{ rows: 4, maxlength: 1000 }" :disabled="pending" />
+    <h3>{{ reply ? `Reply to ${reply.name}` : 'Leave a public comment' }}</h3>
+    <ElInput v-model="body" type="textarea" :label="reply ? 'Reply' : 'Comment'" v-bind="{ rows: 4, maxlength: 1000 }" :disabled="pending" />
     <ElCheckbox :model-value="confirm" :disabled="pending" @update:model-value="value => confirm = value === true">
       Publish as {{ eligibility.displayName }} after review
     </ElCheckbox>
-    <div><ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">Submit for review</ElButton></div>
+    <div>
+      <ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">Submit for review</ElButton>
+      <ElButton v-if="reply" native-type="button" @click="emit('cancel')">Cancel reply</ElButton>
+    </div>
     <p v-if="pending" role="status">Verifying and submitting comment…</p>
     <p v-if="result" role="status">{{ result }}</p>
     <ElAlert v-if="problem" :title="problem" type="error" :closable="false" />

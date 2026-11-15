@@ -27,6 +27,7 @@ inline constexpr uint32_t PrivateMediaBytes = 20971520;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
+inline constexpr uint32_t PublicCommentReplyFrameBytes = 4541;
 inline constexpr uint32_t CommentAuthorBatchSize = 100;
 inline constexpr uint32_t CommentAuthorProofFrameBytes = 512;
 inline constexpr uint32_t SubscriptionEmailBytes = 254;
@@ -321,6 +322,7 @@ enum class FrameType : uint16_t {
     CommentThreadReplyCursor = 8,
     PowChallenge = 30,
     PublicCommentSubmission = 32792,
+    PublicCommentReply = 32971,
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     CommentManagementChallengeRequest = 215,
@@ -476,6 +478,7 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentThreadReplyCursor:
         case FrameType::PowChallenge:
         case FrameType::PublicCommentSubmission:
+        case FrameType::PublicCommentReply:
         case FrameType::PublicCommentSubmissionResult:
         case FrameType::PublicCommentEligibility:
         case FrameType::CommentManagementChallengeRequest:

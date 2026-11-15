@@ -115,7 +115,7 @@ internal static partial class CurrentSchema
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
-        bool? requireAuthoringWorkspaceGroups = null)
+        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null)
     {
         if (requireArticleMedia is null)
         {
@@ -185,6 +185,9 @@ internal static partial class CurrentSchema
         var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
             throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
+        var hasCommentReplies = await HasCommentReplySchemaAsync(connection, transaction, cancellationToken);
+        if (hasCommentReplies && !hasCommentAuthorDelete || requireCommentReplies.HasValue && requireCommentReplies.Value != hasCommentReplies)
+            throw new InvalidOperationException("Comment reply notice schema presence does not match the requested operation.");
         var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
         var hasWorkspaceGroups = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceGroupsAsync(connection, transaction, cancellationToken);
         if ((hasWorkspaceGroups && !hasWorkspaceLayout) ||
@@ -210,6 +213,7 @@ internal static partial class CurrentSchema
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAppeal ? CommentAppealColumns : [])
+            .Concat(hasCommentReplies ? CommentReplyColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
@@ -241,6 +245,7 @@ internal static partial class CurrentSchema
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
+            .Concat(hasCommentReplies ? CommentReplyConstraints : [])
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])

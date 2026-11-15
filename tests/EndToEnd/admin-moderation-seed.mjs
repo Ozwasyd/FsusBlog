@@ -31,6 +31,13 @@ try {
   assert.match(user, /^[0-9a-f-]{36}$/)
   execFileSync(dotnet, [migrate, 'comment', 'policy', String(articleId), 'enable'])
   execFileSync(dotnet, [migrate, 'comment', 'handle', user, displayName])
+  if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
+    const responder = execFileSync(psql, ['-X', '-w', '-tA', '-d', database, '-c',
+      "select id from public.blog_user where name='tls-comment-reply-fixture'"], { encoding: 'utf8' }).trim()
+    assert.match(responder, /^[0-9a-f-]{36}$/)
+    assert.notEqual(responder, user)
+    execFileSync(dotnet, [migrate, 'comment', 'handle', responder, 'Reply fixture writer'])
+  }
 
   for (const comment of [body, body + ' [reject fixture]']) {
     const key = randomUUID()

@@ -10,6 +10,7 @@ public enum FrameType : ushort
     CommentThreadReplyCursor = 8,
     PowChallenge = 30,
     PublicCommentSubmission = 32792,
+    PublicCommentReply = 32971,
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     CommentManagementChallengeRequest = 215,
@@ -181,6 +182,7 @@ public static class WireLimits
     public const int PublicCommentBodyBytes = 4096;
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentFrameBytes = 4533;
+    public const int PublicCommentReplyFrameBytes = 4541;
     public const int CommentAuthorBatchSize = 100;
     public const int CommentAuthorProofFrameBytes = 512;
     public const int SubscriptionEmailBytes = 254;
@@ -474,6 +476,8 @@ public static class WireRoutes
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
     public const string SubmitPublicComment = "/api/v2/comments/submit.aeds";
+    public const string PublicCommentReplyPow = "/api/v2/comments/replies/pow-challenge.aeds";
+    public const string SubmitPublicCommentReply = "/api/v2/comments/replies.aeds";
     public const string PublicCommentPowChallenge = "/api/v2/comments/pow-challenge.aeds";
     public const string PublicCommentEligibility = "/api/v2/comments/eligibility/{articleId:int}.aeds";
     public const string CommentAuthorEligibility = "/api/v2/comments/{articleId:int}/author/eligibility.aeds";
@@ -664,6 +668,7 @@ public static class WireHeaders
     public const string AccessExpiresAtUtc = "X-Fsus-Access-Expires-At-Utc";
     public const string PowProof = "X-Fsus-Pow-Proof";
     public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
+    public const string CommentReplyEnabled = "X-Fsus-Comment-Reply-Enabled";
     public const string SubscriptionProof = "X-Fsus-Subscription-Proof";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
@@ -722,6 +727,7 @@ public sealed record AdminAppearanceCommand(long ExpectedRevision, string Curren
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
+public sealed record PublicCommentReply(int ArticleId, long Publication, long ParentId, string DisplayName, string Body, Guid IdempotencyKey, bool ExplicitPublic);
 public sealed record PublicCommentSubmissionResult(int ArticleId, long CommentId, int ModerationStatus, bool Replayed);
 public sealed record SubscriptionPreferenceRequest(string Email, int Channel);
 public sealed record DraftTaxonomy(int Id, long Revision, int CategoryId, IReadOnlyList<int> TagIds);
@@ -1376,6 +1382,29 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmission));
         var value = new PublicCommentSubmission(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePublicCommentReply(PublicCommentReply value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Publication);
+        writer.I64(value.ParentId);
+        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
+        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Bool(value.ExplicitPublic);
+        return Aeds.Encode(FrameType.PublicCommentReply, writer.Written);
+    }
+
+    public static PublicCommentReply DecodePublicCommentReply(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentReply));
+        var value = new PublicCommentReply(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes), reader.Uuid(), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;

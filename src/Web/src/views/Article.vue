@@ -8,7 +8,6 @@ import { fetchPublicArticleMedia, type PublicArticleImage } from '../../../Contr
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
 import RelatedReading from '../components/RelatedReading.vue'
-import PublicCommentComposer from '../components/PublicCommentComposer.vue'
 
 const route = useRoute()
 const article = shallowRef<Awaited<ReturnType<typeof api.publicArticle>>>()
@@ -113,8 +112,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       <p v-if="article.rights.rightsStatement">{{ article.rights.rightsStatement }}</p>
     </aside>
     <RelatedReading :article-id="article.id" :publication="article.publication" />
-    <ArticleComments :key="article.id" :article-id="article.id" />
-    <PublicCommentComposer :key="article.publication.toString()" :article-id="article.id" :publication="article.publication" />
+    <ArticleComments :key="article.id" :article-id="article.id" :publication="article.publication" />
   </article>
 </template>
 

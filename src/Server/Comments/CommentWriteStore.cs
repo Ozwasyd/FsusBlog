@@ -27,10 +27,10 @@ internal static class CommentWriteStore
     }
 
     internal static async Task<PublicCommentSubmissionResult> Submit(NpgsqlConnection db, NpgsqlTransaction tx,
-        Identity actor, PublicCommentSubmission input, CancellationToken ct)
+        Identity actor, PublicCommentSubmission input, CancellationToken ct, long? parent = null)
     {
         input = input with { Body = Normalize(input.Body) };
-        var hash = SHA256.HashData(Wire.EncodePublicCommentSubmission(input));
+        var hash = Fingerprint(input, parent);
         await Store.LockCommand(db, tx, actor.Id, input.IdempotencyKey, ct);
         await using (var replay = Store.Sql(db, tx, """
             select c.fingerprint,c.article_id,c.comment_id,p.moderation_status
@@ -52,17 +52,28 @@ internal static class CommentWriteStore
         if (!string.Equals(eligible.DisplayName, input.DisplayName, StringComparison.Ordinal))
             throw new BusinessException(Rejection.Conflict, "The public display name changed. Reload and confirm it before sending.");
 
-        await using var insert = Store.Sql(db, tx, """
-            with identity as (select nextval(pg_get_serial_sequence('public.comment','id')) as id),
-            new_comment as (
-                insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,
-                    display_name,display_language,created_at)
-                select $1,id,id,0,0,false,$2,3,$3,'zh-CN',statement_timestamp() from identity
-                returning id
-            )
-            insert into public.comment_submit_command(user_id,command_id,fingerprint,article_id,comment_id)
-            select $4,$5,$6,$1,id from new_comment returning comment_id
-            """, input.ArticleId, input.Body, eligible.DisplayName, actor.Id, input.IdempotencyKey, hash);
+        var target = parent is long predecessor ? await CommentReplies.LockParent(db, tx, input.ArticleId, predecessor, ct) : null;
+        await using var insert = parent is null ? Store.Sql(db, tx, """
+                with identity as (select nextval(pg_get_serial_sequence('public.comment','id')) as id),
+                new_comment as (
+                    insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,
+                        display_name,display_language,created_at)
+                    select $1,id,id,0,0,false,$2,3,$3,'zh-CN',statement_timestamp() from identity returning id
+                )
+                insert into public.comment_submit_command(user_id,command_id,fingerprint,article_id,comment_id)
+                select $4,$5,$6,$1,id from new_comment returning comment_id
+                """, input.ArticleId, input.Body, eligible.DisplayName, actor.Id, input.IdempotencyKey, hash)
+            : Store.Sql(db, tx, """
+                with new_comment as (
+                    insert into public.comment(article_id,root_id,parent_id,parent_depth,reply_to_id,depth,
+                        moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
+                    values ($1,$7,$8,$9,$8,$9+1,0,false,$2,3,$3,'zh-CN',statement_timestamp())
+                    returning id
+                )
+                insert into public.comment_submit_command(user_id,command_id,fingerprint,article_id,comment_id)
+                select $4,$5,$6,$1,id from new_comment returning comment_id
+                """, input.ArticleId, input.Body, eligible.DisplayName, actor.Id, input.IdempotencyKey, hash,
+                target!.Root, parent.Value, target.Depth);
         var id = (long)(await insert.ExecuteScalarAsync(ct))!;
         if (await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct))
         {
@@ -75,7 +86,7 @@ internal static class CommentWriteStore
     }
 
     internal static async Task AdmitChallenge(NpgsqlConnection db, NpgsqlTransaction tx,
-        Identity actor, PublicCommentSubmission input, CancellationToken ct)
+        Identity actor, PublicCommentSubmission input, CancellationToken ct, long? parent = null)
     {
         // A response lost after commit can obtain a fresh proof for the original mutation,
         // even if publication is closed before the client receives its durable receipt.
@@ -85,14 +96,19 @@ internal static class CommentWriteStore
             """, actor.Id, input.IdempotencyKey);
         if (await previous.ExecuteScalarAsync(ct) is byte[] fingerprint)
         {
-            if (!CryptographicOperations.FixedTimeEquals(fingerprint, SHA256.HashData(Wire.EncodePublicCommentSubmission(normalized))))
+            if (!CryptographicOperations.FixedTimeEquals(fingerprint, Fingerprint(normalized, parent)))
                 throw new BusinessException(Rejection.Conflict, "The comment key was used for a different submission.");
             return;
         }
         var eligible = await Eligibility(db, tx, actor, input.ArticleId, input.Publication, ct);
         if (!string.Equals(eligible.DisplayName, input.DisplayName, StringComparison.Ordinal))
             throw new BusinessException(Rejection.Conflict, "The public display name changed. Reload and confirm it before sending.");
+        if (parent is long predecessor) await CommentReplies.LockParent(db, tx, input.ArticleId, predecessor, ct);
     }
+
+    private static byte[] Fingerprint(PublicCommentSubmission input, long? parent) =>
+        SHA256.HashData(parent is long predecessor ? Wire.EncodePublicCommentReply(new(input.ArticleId, input.Publication,
+            predecessor, input.DisplayName, input.Body, input.IdempotencyKey, input.ExplicitPublic)) : Wire.EncodePublicCommentSubmission(input));
 
     private static string Normalize(string raw)
     {

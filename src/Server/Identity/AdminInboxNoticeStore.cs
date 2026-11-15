@@ -45,7 +45,7 @@ internal sealed partial class AdminPasskeyStore
 
             async Task<long> CreateNotice()
             {
-                var sent = await inbox.SendAdministratorNotice(subject, body, ct);
+                var sent = await inbox.SendAttributedNotice(subject, body, ct);
                 await using var audit = Store.Sql(db, tx, """
                     INSERT INTO public.inbox_admin_notice
                         (source_event_id,account_id,conversation_id,message_id,principal_id,session_reference,fingerprint,sent_at)

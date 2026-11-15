@@ -495,6 +495,18 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
+  if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
+    const { verifyApprovedReply } = await import('./comment-reply-flow.mjs')
+    await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
+      approve: async (body, commentId) => {
+        await page.bringToFront()
+        assert.equal((await checkQueue()).status(), 200)
+        const card = section.getByRole('article').filter({ has: page.getByText(body, { exact: true }) })
+        const claim = await readClaim(await clickModeration(page, card, moderationClaim, 'Claim comment for review'))
+        assert.equal(claim.commentId, commentId)
+        await applyModerationDecision(page, context, card, claim, 1, 'Approve with Passkey', 'Comment approved.')
+      } })
+  }
   if (process.env.FSUSBLOG_TEST_COMMENT_APPEAL === '1') {
     const { verifyCommentAppeal } = await import('./comment-appeal-flow.mjs')
     await verifyCommentAppeal({ page, context, siteOrigin: siteOrigin.origin, adminOrigin: adminOrigin.origin,

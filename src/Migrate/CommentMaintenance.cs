@@ -55,15 +55,17 @@ internal static class CommentMaintenance
         await CurrentSchema.VerifyAsync(db, ct);
         await using var command = Sql(db, """
             with changed as (
-                update public.comment set moderation_status=$4,moderation_version=moderation_version+1
-                where article_id=$1 and id=$2 and moderation_status=$3 and not deleted
-                returning article_id,id
+                update public.comment c set moderation_status=$4,moderation_version=moderation_version+1
+                where c.article_id=$1 and c.id=$2 and c.moderation_status=$3 and not c.deleted
+                    and (c.moderation_status=1 or c.reply_to_id is null or c.reply_to_id is distinct from c.parent_id or c.author_mode<>3
+                         or not exists(select 1 from public.comment_submit_command s where (s.article_id,s.comment_id)=(c.article_id,c.id)))
+                returning c.article_id,c.id
             )
             insert into public.comment_moderation_log(article_id,comment_id,previous_status,next_status,moderator_db_role,reason)
             select article_id,id,$3,$4,current_user,$5 from changed
             """, articleId, commentId, from, to, reason);
         if (await command.ExecuteNonQueryAsync(ct) != 1)
-            throw new InvalidOperationException("Comment is missing, deleted, or its moderation status changed.");
+            throw new InvalidOperationException("Comment changed or requires attributed online reply moderation.");
     }
 
     private static int ArticleId(string value) =>

@@ -4,10 +4,11 @@ import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { comments, type CommentContext, type CommentRoot } from '../../../Contracts/comment-read'
 import CommentBranch from './CommentBranch.vue'
+import PublicCommentComposer from './PublicCommentComposer.vue'
 import { identityEpoch } from '../session'
-import { commentAuthorDelete, useCommentAuthorEligibility } from './commentAuthorActions'
+import { commentAuthorDelete, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
 
-const props = defineProps<{ articleId: number }>()
+const props = defineProps<{ articleId: number; publication: bigint }>()
 const route = useRoute()
 const roots = shallowRef<CommentRoot[]>([])
 const linked = shallowRef<CommentContext | null>()
@@ -23,14 +24,28 @@ const loading = ref(false)
 const failed = ref(false)
 const restart = ref(0)
 const commentTitle = ref<HTMLElement>()
+const composer = ref<HTMLElement>()
+const replyAvailable = ref(false)
+const replyTarget = shallowRef<{ id: string; name: string }>()
 let request: AbortController | undefined
 const deletionNotice = ref('')
 watch(identityEpoch, () => { deletionNotice.value = '' })
+watch([identityEpoch, () => props.publication, () => route.hash], () => { replyTarget.value = undefined }, { flush: 'sync' })
 const visibleNodes = computed(() => linked.value ? permalinkNodes.value : roots.value.flatMap(root => [root.node, ...root.preview]))
 const deletable = useCommentAuthorEligibility(() => props.articleId, visibleNodes)
 
+provide(commentReply, {
+  available: replyAvailable,
+  start(node) {
+    if (!replyAvailable.value || node.deleted) return
+    replyTarget.value = { id: node.id, name: node.author.displayName }
+    void nextTick(() => composer.value?.focus())
+  },
+})
+
 provide(commentAuthorDelete, async id => {
   const epoch = identityEpoch.value
+  if (replyTarget.value?.id === id) replyTarget.value = undefined
   deletionNotice.value = 'Comment deleted.'
   restart.value++
   await nextTick()
@@ -92,18 +107,23 @@ watch([() => props.articleId, () => route.hash, restart], ([, hash]) => void loa
     <template v-if="linked">
       <ol class="comment-roots">
         <CommentBranch v-for="node in permalinkNodes"
-          :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="deletable.has(node.id)" context-only />
+          :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="deletable.has(node.id)"
+          :thread-open="node.depth === 0 || linked.ancestors.some(root => root.id === node.rootId && !root.deleted)" context-only />
       </ol>
       <RouterLink :to="{ hash: '#article-comments-title' }">All comments</RouterLink>
     </template>
     <ol v-else-if="roots.length" class="comment-roots">
       <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview"
-        :can-delete="deletable.has(root.node.id)" :preview-deletions="deletable" />
+        :can-delete="deletable.has(root.node.id)" :preview-deletions="deletable" :thread-open="!root.node.deleted" />
     </ol>
     <p v-else-if="!loading && !failed" class="muted">No comments yet.</p>
     <ElAlert v-if="failed" type="error" title="Could not load comments." :closable="false" />
     <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">Retry comments</ElButton>
     <ElButton v-else-if="next && !loading" text @click="load(true)">Load more comments</ElButton>
+    <div v-if="publication" ref="composer" tabindex="-1">
+      <PublicCommentComposer :article-id="articleId" :publication="publication" :reply="replyTarget"
+        @availability="value => replyAvailable = value" @cancel="replyTarget = undefined" />
+    </div>
   </section>
 </template>
 

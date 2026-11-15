@@ -337,6 +337,18 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   export FSUSBLOG_TEST_ADMIN_MODERATOR_BODY='Moderation fixture <strong data-moderation-fixture="1">literal</strong>'
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT" grant comment.moderate
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE" revoke comment.moderate
+  if [[ ${FSUSBLOG_TEST_COMMENT_REPLY:-0} == 1 ]]; then
+    export FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
+    FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" operator tls-comment-reply-fixture)
+    export FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
+    export FSUSBLOG_TEST_REPLY_PARENT_TICKET="$scratch/issue-reply-parent-ticket"
+    cat > "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" ticket tls-moderation-fixture
+EOF
+    chmod 700 "$FSUSBLOG_TEST_REPLY_PARENT_TICKET"
+  fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
     "$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer admin.manage > /dev/null
     "$dotnet" "$migrate" admin-identity grant tls-appeal-reviewer comment.moderate > "$evidence/appeal-reviewer-grant.log"
@@ -550,10 +562,24 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
         and claim.principal_id=p.id and claim.state=3
     union all select 'active_claims=' || count(*) from public.admin_comment_claim where state=1
   " > "$evidence/moderation-audit-counts.txt"
-  grep -Fxq 'approved=1' "$evidence/moderation-audit-counts.txt"
+  expected_reply=${FSUSBLOG_TEST_COMMENT_REPLY:-0}
+  grep -Fxq "approved=$(( 1 + expected_reply ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'rejected=1' "$evidence/moderation-audit-counts.txt"
-  grep -Fxq 'attributed_decisions=2' "$evidence/moderation-audit-counts.txt"
+  grep -Fxq "attributed_decisions=$(( 2 + expected_reply ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'active_claims=0' "$evidence/moderation-audit-counts.txt"
+  if [[ $expected_reply == 1 ]]; then
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+      select 'attributed_reply_deliveries=' || count(*) from public.comment_reply_notice n
+      join public.comment c on (c.article_id,c.id)=(n.article_id,n.reply_id)
+      join public.comment_account_owner t on (t.article_id,t.comment_id,t.user_id)=(c.article_id,c.reply_to_id,n.recipient_id)
+      join public.blog_user u on u.id=t.user_id
+      join public.admin_comment_moderation d on (d.article_id,d.comment_id)=(n.article_id,n.reply_id)
+      where u.name='tls-moderation-fixture' and d.next_status=1 and n.moderation_version=d.comment_version+1
+        and (select array_agg(e.kind order by e.sequence) from public.inbox_event e
+             where (e.account_id,e.conversation_id,e.message_id)=(n.recipient_id,n.conversation_id,n.message_id))=array[12,13]::smallint[]
+    " > "$evidence/comment-reply-audit.txt"
+    grep -Fxq 'attributed_reply_deliveries=1' "$evidence/comment-reply-audit.txt"
+  fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
       select 'independent_grant=' || count(*) from public.comment_appeal a

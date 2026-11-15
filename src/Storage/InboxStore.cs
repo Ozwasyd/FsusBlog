@@ -135,7 +135,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         return await StartAsync(InboxRules.CommandId(producerEventId), subject, body, InboxSender.System, cancellationToken);
     }
 
-    internal async Task<InboxMessage> SendAdministratorNotice(string subject, string body, CancellationToken ct)
+    internal async Task<InboxMessage> SendAttributedNotice(string subject, string body, CancellationToken ct)
     {
         await RequireNoticeRecipient(ct);
         await LockDeliveryAsync(ct);

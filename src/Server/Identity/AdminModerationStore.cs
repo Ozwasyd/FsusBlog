@@ -74,7 +74,8 @@ internal sealed partial class AdminPasskeyStore
     internal Task<byte[]> BeginModerationDecisionStepUp(string? session, AdminModerationDecision decision, CancellationToken ct) =>
         BeginStepUp(session, DecisionDigest(decision), (db, tx, admin) => CheckClaim(db, tx, admin, Receipt(decision), ct), ct);
 
-    internal Task DecideComment(string? session, string? proof, AdminModerationDecision decision, CancellationToken ct) =>
+    internal Task DecideComment(string? session, string? proof, AdminModerationDecision decision, CancellationToken ct,
+        bool fenceVisibleMessages = false) =>
         WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
         {
             if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||
@@ -85,14 +86,18 @@ internal sealed partial class AdminPasskeyStore
             await using var update = Store.Sql(db, tx, """
                 update public.comment set moderation_status=$4, moderation_version=moderation_version+1
                 where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=0 and not deleted
+                returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
                 """, decision.ArticleId, decision.CommentId, decision.CommentVersion, status);
-            if (await update.ExecuteNonQueryAsync(ct) != 1) throw ModerationChanged();
+            if (await update.ExecuteScalarAsync(ct) is not bool signedReply) throw ModerationChanged();
             await CloseClaim(db, tx, decision.ArticleId, decision.CommentId, ClaimCompleted, ct);
             await Execute(db, tx, ct, """
                 insert into public.admin_comment_moderation
                     (article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
                 values($1,$2,$3,0,$4,$5,clock_timestamp(),$6)
                 """, decision.ArticleId, decision.CommentId, admin.Id, status, decision.Reason, decision.CommentVersion);
+            if (status == 1 && signedReply)
+                await FsusBlog.V2.Server.Comments.CommentReplies.DeliverApproved(db, tx, decision.ArticleId, decision.CommentId,
+                    fenceVisibleMessages, ct);
             return true;
         }, ct);
 

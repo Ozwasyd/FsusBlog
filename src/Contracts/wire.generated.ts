@@ -9,6 +9,7 @@ export const FrameType = {
   CommentThreadReplyCursor: 8,
   PowChallenge: 30,
   PublicCommentSubmission: 32792,
+  PublicCommentReply: 32971,
   PublicCommentSubmissionResult: 32793,
   PublicCommentEligibility: 32794,
   CommentManagementChallengeRequest: 215,
@@ -178,6 +179,7 @@ export const WireLimits = {
   PublicCommentBodyBytes: 4096,
   PublicCommentHandleBytes: 384,
   PublicCommentFrameBytes: 4533,
+  PublicCommentReplyFrameBytes: 4541,
   CommentAuthorBatchSize: 100,
   CommentAuthorProofFrameBytes: 512,
   SubscriptionEmailBytes: 254,
@@ -469,6 +471,8 @@ export const WireRoutes = {
   PublicArchive: "/api/binary/article/list/archive/{page:int}/{size:int}.aeds",
   PublicArticle: "/api/binary/article/{id}.aeds",
   SubmitPublicComment: "/api/v2/comments/submit.aeds",
+  PublicCommentReplyPow: "/api/v2/comments/replies/pow-challenge.aeds",
+  SubmitPublicCommentReply: "/api/v2/comments/replies.aeds",
   PublicCommentPowChallenge: "/api/v2/comments/pow-challenge.aeds",
   PublicCommentEligibility: "/api/v2/comments/eligibility/{articleId:int}.aeds",
   CommentAuthorEligibility: "/api/v2/comments/{articleId:int}/author/eligibility.aeds",
@@ -658,6 +662,7 @@ export const WireHeaders = {
   AccessExpiresAtUtc: "X-Fsus-Access-Expires-At-Utc",
   PowProof: "X-Fsus-Pow-Proof",
   PowClientNonce: "X-Fsus-Pow-Client-Nonce",
+  CommentReplyEnabled: "X-Fsus-Comment-Reply-Enabled",
   SubscriptionProof: "X-Fsus-Subscription-Proof",
   ClientMutationId: "X-Fsus-Client-Mutation-Id",
   SearchIndexGeneration: "X-Fsus-Search-Index-Generation",
@@ -1616,6 +1621,43 @@ export function decodePublicCommentSubmission(payload: Uint8Array): PublicCommen
     explicitPublic: reader.bool(),
     displayName: reader.text(WireLimits.PublicCommentHandleBytes),
     body: reader.text(WireLimits.PublicCommentBodyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PublicCommentReply {
+  articleId: number;
+  publication: bigint;
+  parentId: bigint;
+  displayName: string;
+  body: string;
+  idempotencyKey: string;
+  explicitPublic: boolean;
+}
+
+export function encodePublicCommentReply(value: PublicCommentReply): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.publication);
+  writer.i64(value.parentId);
+  writer.text(value.displayName, WireLimits.PublicCommentHandleBytes);
+  writer.text(value.body, WireLimits.PublicCommentBodyBytes);
+  writer.uuid(value.idempotencyKey);
+  writer.bool(value.explicitPublic);
+  return writer.finish();
+}
+
+export function decodePublicCommentReply(payload: Uint8Array): PublicCommentReply {
+  const reader = new PodReader(payload);
+  const value: PublicCommentReply = {
+    articleId: reader.i32(),
+    publication: reader.i64(),
+    parentId: reader.i64(),
+    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+    body: reader.text(WireLimits.PublicCommentBodyBytes),
+    idempotencyKey: reader.uuid(),
+    explicitPublic: reader.bool(),
   };
   reader.finish();
   return value;

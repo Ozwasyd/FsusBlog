@@ -89,6 +89,7 @@ internal static partial class Migration
                                         Send an idempotent system notice from a UTF-8 JSON object on stdin
                   comment author-delete-schema  Add signed-in comment deletion storage with the server stopped
                   comment appeal-schema  Add signed-in comment appeals with the server stopped
+                  comment replies-schema  Add signed-in comment reply notices with the server stopped
                   comment handle ACCOUNT_ID DISPLAY_NAME
                                         Assign an explicit public comment display name to an enabled account
                   comment policy ARTICLE_ID enable|disable
@@ -318,6 +319,9 @@ internal static partial class Migration
                 case ["comment", "appeal-schema"]:
                     await InitializeCommentAppealAsync(connection, token);
                     break;
+                case ["comment", "replies-schema"]:
+                    await InitializeCommentReplyAsync(connection, token);
+                    break;
                 case ["comment", "policy", var article, var state]:
                     await CommentMaintenance.SetArticlePolicy(connection, article, state, token);
                     break;
@@ -387,6 +391,8 @@ internal static partial class Migration
             throw new InvalidOperationException("Comment author deletion schema was not installed.");
         if (!await CurrentSchema.HasCommentAppealSchemaAsync(connection, transaction, token))
             throw new InvalidOperationException("Comment appeal schema was not installed.");
+        if (!await CurrentSchema.HasCommentReplySchemaAsync(connection, transaction, token))
+            throw new InvalidOperationException("Comment reply notice schema was not installed.");
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,

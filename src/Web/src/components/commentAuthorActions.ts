@@ -1,10 +1,14 @@
-import { computed, onBeforeUnmount, shallowRef, watch, type ComputedRef, type InjectionKey } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, watch, type ComputedRef, type InjectionKey, type Ref } from 'vue'
 import { commentAuthorEligibility } from '../../../Contracts/comment-author'
 import type { CommentNode } from '../../../Contracts/comment-read'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 
 export const commentAuthorDelete: InjectionKey<(id: string) => void> = Symbol('comment author delete')
+export const commentReply: InjectionKey<{
+  available: Readonly<Ref<boolean>>
+  start: (node: CommentNode) => void
+}> = Symbol('comment reply')
 
 export function useCommentAuthorEligibility(article: () => number, nodes: ComputedRef<readonly CommentNode[]>) {
   const allowed = shallowRef(new Set<string>())

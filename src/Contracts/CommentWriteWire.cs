@@ -8,10 +8,18 @@ public static partial class Wire
             throw new ProtocolException("Invalid public comment eligibility response");
     }
 
-    internal static void Validate(PublicCommentSubmission submission)
+    internal static void Validate(PublicCommentSubmission submission) => ValidatePublicCommentCoordinates(submission.ArticleId,
+        submission.Publication, submission.IdempotencyKey, submission.ExplicitPublic, submission.DisplayName);
+
+    internal static void Validate(PublicCommentReply reply)
     {
-        if (submission.ArticleId <= 0 || submission.Publication <= 0 || submission.IdempotencyKey == Guid.Empty ||
-            !submission.ExplicitPublic || string.IsNullOrWhiteSpace(submission.DisplayName))
+        if (reply.ParentId <= 0) throw new ProtocolException("Invalid authenticated public comment reply target");
+        ValidatePublicCommentCoordinates(reply.ArticleId, reply.Publication, reply.IdempotencyKey, reply.ExplicitPublic, reply.DisplayName);
+    }
+
+    private static void ValidatePublicCommentCoordinates(int article, long publication, Guid id, bool explicitPublic, string display)
+    {
+        if (article <= 0 || publication <= 0 || id == Guid.Empty || !explicitPublic || string.IsNullOrWhiteSpace(display))
             throw new ProtocolException("Invalid authenticated public comment coordinates");
     }
 

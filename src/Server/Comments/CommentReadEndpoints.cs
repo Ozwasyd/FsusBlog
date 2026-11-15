@@ -28,13 +28,21 @@ internal static class CommentReadEndpoints
 
         if (app.Configuration.GetValue("FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS", false))
         {
+            var replies = app.Configuration.GetValue(CommentReplies.Setting, false);
+            if (replies) CommentReplyEndpoints.Map(app, cookie, readFrame);
             app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
             {
                 if (!long.TryParse(ctx.Request.Query["publication"].FirstOrDefault(), NumberStyles.None,
                     CultureInfo.InvariantCulture, out var publication) || publication <= 0)
                     throw new BusinessException(Rejection.Invalid, "A valid publication is required.");
                 var result = await store.WithSession(ctx.Request.Cookies[cookie], false,
-                    (db, tx, actor) => CommentWriteStore.Eligibility(db, tx, actor, articleId, publication, ct), ct);
+                    async (db, tx, actor) =>
+                    {
+                        var eligibility = await CommentWriteStore.Eligibility(db, tx, actor, articleId, publication, ct);
+                        if (replies && await FsusBlogV2.Storage.CurrentSchema.HasCommentReplySchemaAsync(db, tx, ct))
+                            ctx.Response.Headers[WireHeaders.CommentReplyEnabled] = "1";
+                        return eligibility;
+                    }, ct);
                 return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
             }).RequireRateLimiting("command");
             app.MapPost(WireRoutes.PublicCommentPowChallenge, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>

@@ -1,5 +1,6 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
@@ -9,6 +10,7 @@ internal static class AdminModerationEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var authority = origin.GetLeftPart(UriPartial.Authority);
+        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame);
         app.MapPost(WireRoutes.AdminModerationClaim, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -44,7 +46,8 @@ internal static class AdminModerationEndpoints
             var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
             try
             {
-                await store.DecideComment(ctx.Request.Cookies[session], proof, Wire.DecodeAdminModerationDecision(frame), ct);
+                await store.DecideComment(ctx.Request.Cookies[session], proof, Wire.DecodeAdminModerationDecision(frame), ct,
+                    fenceVisibleMessages);
                 return Frame(Wire.EncodeEmptySuccess());
             }
             catch (ModerationProofRequiredException)
