@@ -84,7 +84,7 @@ migrate=("$dotnet_bin" src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll)
 
 expect_blocked() {
     local rc=0
-    "${migrate[@]}" legacy plan "$provider" > "$1" || rc=$?
+    env -u FSUSBLOG_DB -u FSUSBLOG_IMPORT_DB "${migrate[@]}" legacy plan "$provider" > "$1" || rc=$?
     [[ "$rc" == 2 ]]
 }
 
@@ -92,7 +92,7 @@ expect_blocked() {
 expect_blocked "$scratch/plan.json"
 expect_blocked "$scratch/repeat.json"
 cmp "$scratch/plan.json" "$scratch/repeat.json"
-python3 - "$scratch/" <<'PY'
+python3 - "$scratch/" "$provider" <<'PY'
 import json
 import pathlib
 import sys
@@ -121,6 +121,11 @@ assert actual == {
 }
 assert all(len(p['sha256']) == 64 for p in plan['audit']['projections'])
 assert 'Private edit' not in plan_raw and 'published ☃' not in plan_raw
+if sys.argv[2] == 'postgres':
+    assert plan['importAdmission'] == {
+        'classificationComplete': True, 'eligibleForCandidatePlanning': True,
+        'sourceProjections': plan['audit']['projections'], 'findings': [],
+    }
 article = next(p for p in plan['audit']['projections'] if p['table'] == 'article')
 mapping = {
     'sourceArticleSha256': article['sha256'],
@@ -131,6 +136,48 @@ mapping = {
 mapping['owners'][0]['legacyAdminId'] = 404
 (root / 'owner-invalid.json').write_text(json.dumps(mapping))
 PY
+
+if [[ "$provider" == postgres ]]; then
+    "${source_sql[@]}" "
+        ALTER TABLE article ADD COLUMN views integer NOT NULL DEFAULT 0;
+        CREATE TABLE article_view_seed(article_id integer PRIMARY KEY, legacy_views integer NOT NULL DEFAULT 0,
+            seeded_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'));
+        INSERT INTO article_view_seed VALUES (42, 7, '2026-10-04 00:00:00');
+        UPDATE admin_principal SET isroot=true, permissions='fixture-private-grant' WHERE id=7;
+        CREATE TABLE admin_passkey_credential(id bigint PRIMARY KEY, adminprincipalid bigint NOT NULL,
+            credentialid varchar(512) NOT NULL);
+        INSERT INTO admin_passkey_credential VALUES (1, 7, 'fixture-private-credential');
+    "
+    expect_blocked "$scratch/corrupt.json"
+    python3 - "$scratch/plan.json" "$scratch/corrupt.json" <<'PY'
+import json
+import pathlib
+import sys
+
+before = json.loads(pathlib.Path(sys.argv[1]).read_text())
+raw = pathlib.Path(sys.argv[2]).read_text()
+after = json.loads(raw)
+admission = after['importAdmission']
+assert admission['classificationComplete'] and not admission['eligibleForCandidatePlanning']
+assert admission['sourceProjections'] == before['importAdmission']['sourceProjections']
+assert admission['findings'] == [
+    {'category': category, 'source': source, 'rows': 1}
+    for category, source in [
+        ('identity-or-privilege', 'admin_passkey_credential'),
+        ('legacy-privilege', 'admin_principal.isroot'),
+        ('legacy-privilege', 'admin_principal.permissions'),
+        ('unregistered-source-field', 'article.views'),
+        ('unsupported-source-relation', 'article_view_seed'),
+    ]
+]
+assert 'fixture-private-grant' not in raw and 'fixture-private-credential' not in raw
+PY
+    "${source_sql[@]}" "
+        DROP TABLE admin_passkey_credential, article_view_seed;
+        UPDATE admin_principal SET isroot=false, permissions='[]' WHERE id=7;
+        ALTER TABLE article DROP COLUMN views;
+    "
+fi
 
 "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > "$scratch/rehearsal.json"
 "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > "$scratch/repeat.json"
@@ -202,6 +249,16 @@ rg -F '"kind": "publication missing parent article, matching revision or require
 "${source_sql[@]}" 'ALTER TABLE article RENAME COLUMN current_publication_id TO unknown'
 expect_blocked "$scratch/incomplete.json"
 rg -F 'article.current_publication_id: required v1 column missing or ambiguous' "$scratch/incomplete.json"
+if [[ "$provider" == postgres ]]; then
+    python3 - "$scratch/incomplete.json" <<'PY'
+import json
+import pathlib
+import sys
+
+admission = json.loads(pathlib.Path(sys.argv[1]).read_text())['importAdmission']
+assert not admission['classificationComplete'] and not admission['eligibleForCandidatePlanning']
+PY
+fi
 if [[ "$provider" == mysql ]]; then
     "${source_sql[@]}" 'ALTER TABLE article RENAME COLUMN unknown TO current_publication_id'
     "${source_sql[@]}" 'ALTER TABLE article_body ENGINE=MyISAM'

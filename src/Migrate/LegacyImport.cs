@@ -18,6 +18,19 @@ internal static partial class Migration
     private const long ImportBackupBytes = 1024L * 1024 * 1024;
 
     private sealed record ImportFinding(string Category, string Source, long Rows);
+    private sealed record LegacyImportEvidence(LegacyCreateCommandRead Commands, LegacyOutboxRead Outbox,
+        LegacyTaxonomyEvidence Taxonomy, ImportFinding[] Findings)
+    {
+        internal LegacyProjection[] SourceProjections(LegacyAudit audit, bool includeTaxonomy = true)
+        {
+            var projections = new List<LegacyProjection>(audit.Projections);
+            if (Commands.Projection is { } command) projections.Add(command);
+            projections.AddRange(Outbox.Entries.Select(entry => entry.Projection));
+            if (includeTaxonomy) projections.AddRange(Taxonomy.Projections);
+            return projections.ToArray();
+        }
+    }
+
     private sealed record ImportPlan(int Version, string SourceReference, string Provider, string SourceSchema,
         int SchemaVersion, string SchemaSha256, DatabaseTarget Target, Guid TargetSiteId, string BackupManifestSha256,
         string OwnerMapSha256, string SourceAdminIdentitySha256, LegacyProjection[] SourceProjections,
@@ -75,18 +88,16 @@ internal static partial class Migration
         var (tables, blockers) = SelectLegacyTables(source, catalog);
         if (blockers.Count != 0)
             throw new InvalidOperationException("The source is outside the supported v1 article catalog. Run legacy plan for details.");
-        var principals = catalog.Where(table => table.Name.Equals("admin_principal", StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (principals is not [var principal] || !source.IsSnapshotTable(principal.Kind) ||
-            !new[] { "id", "handle" }.All(field => principal.Columns.Count(col => col.Name.Equals(field, StringComparison.OrdinalIgnoreCase)) == 1))
+        var principal = FindLegacyImportPrincipal(source, catalog);
+        if (principal is null)
             throw new InvalidOperationException("The source administrator identity relation does not match the supported intake.");
 
         var audit = await AuditLegacyAsync(source, sourceTransaction, tables, plan: true, token);
         if (audit.Issues.Count != 0)
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
-        var commands = await ReadLegacyCreateCommandsAsync(source, sourceTransaction, catalog, tables, principal, token);
-        var outbox = await ReadLegacyProcessedOutboxAsync(source, sourceTransaction, catalog, tables, principal, token);
         var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
-        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, outbox, taxonomy, token);
+        var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy, token);
+        var (commands, outbox, _, findings) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries);
@@ -97,13 +108,10 @@ internal static partial class Migration
         await RequireBackupDatabaseLockAsync(target, token);
         var (identity, siteId, quarantined) = await ObserveLegacyTargetAsync(target, backup, shadow.Owners, token);
         var schemaDigest = Digest(await SchemaSqlAsync(token));
-        var sourceProjections = audit.Projections.ToArray();
-        if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
-        sourceProjections = [.. sourceProjections, ..outbox.Entries.Select(entry => entry.Projection)];
         // Previously admitted empty derived tables were not sealed. An existing approved plan can replay that empty case.
-        if (taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
-            prior.Any(row => IsLegacyTaxonomyRelation(row.Table)))
-            sourceProjections = [.. sourceProjections, ..taxonomy.Projections];
+        var includeTaxonomy = taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
+            prior.Any(row => IsLegacyTaxonomyRelation(row.Table));
+        var sourceProjections = evidence.SourceProjections(audit, includeTaxonomy);
         var version = outbox.RollbackCount > 0 ? ImportPlanWithRollbackOutboxVersion :
             outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
             outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
@@ -151,6 +159,23 @@ internal static partial class Migration
             !Path.IsPathFullyQualified(host) || host.Contains(','))
             throw new ArgumentException("Legacy import requires a local Unix socket and a disposable fsusv2_import_* PostgreSQL database.");
         return settings;
+    }
+
+    private static LegacyTable? FindLegacyImportPrincipal(LegacySource source, LegacyTable[] catalog)
+    {
+        var principals = catalog.Where(table => table.Name.Equals("admin_principal", StringComparison.OrdinalIgnoreCase)).ToArray();
+        return principals is [var table] && source.IsSnapshotTable(table.Kind) && HasField(table, "id") && HasField(table, "handle")
+            ? table : null;
+    }
+
+    private static async Task<LegacyImportEvidence> ReadLegacyImportEvidenceAsync(LegacySource source, DbTransaction transaction,
+        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyTaxonomyEvidence taxonomy,
+        CancellationToken token)
+    {
+        var commands = await ReadLegacyCreateCommandsAsync(source, transaction, catalog, tables, principal, token);
+        var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
+        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, token);
+        return new LegacyImportEvidence(commands, outbox, taxonomy, findings);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,

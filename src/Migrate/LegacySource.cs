@@ -13,6 +13,9 @@ internal static partial class Migration
     private const string LegacySchemaVariable = "FSUSBLOG_V1_SCHEMA";
     private const int LegacyCommandTimeout = 30;
 
+    private sealed record LegacyImportAdmission(bool ClassificationComplete, bool EligibleForCandidatePlanning,
+        LegacyProjection[] SourceProjections, ImportFinding[] Findings);
+
     private static async Task<int> RunLegacyAsync(string mode, string provider, string? ownerMap, CancellationToken token)
     {
         if (mode is not ("inventory" or "plan") && (mode != "rehearse" || ownerMap is null))
@@ -64,12 +67,11 @@ internal static partial class Migration
 
         string? sourceAdminIdentitySha256 = null;
         ShadowReport? shadow = null;
+        LegacyImportAdmission? importAdmission = mode == "plan" && provider == "postgres"
+            ? new(false, false, [], []) : null;
         if (mode != "inventory" && audit is not null && blockers.Count == 0)
         {
-            var principals = catalog.Where(table => table.Name.Equals("admin_principal", StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (principals is [var table] && source.IsSnapshotTable(table.Kind) &&
-                table.Columns.Count(field => field.Name.Equals("id", StringComparison.OrdinalIgnoreCase)) == 1 &&
-                table.Columns.Count(field => field.Name.Equals("handle", StringComparison.OrdinalIgnoreCase)) == 1)
+            if (FindLegacyImportPrincipal(source, catalog) is { } table)
             {
                 if (ownerMap is not null)
                 {
@@ -79,6 +81,11 @@ internal static partial class Migration
                 else
                 {
                     sourceAdminIdentitySha256 = await FingerprintLegacyPrincipalsAsync(source, transaction, table, owners: null, token);
+                }
+                if (importAdmission is not null && taxonomy is not null)
+                {
+                    var evidence = await ReadLegacyImportEvidenceAsync(source, transaction, catalog, tables, table, taxonomy, token);
+                    importAdmission = new(true, evidence.Findings.Length == 0, evidence.SourceProjections(audit), evidence.Findings);
                 }
             }
             else
@@ -111,7 +118,8 @@ internal static partial class Migration
             taxonomyProjection = taxonomy,
             sourceAdminIdentitySha256,
             rehearsal = shadow,
-            blockers
+            blockers,
+            importAdmission
         }, Json));
         if (mode == "rehearse" && rehearsed) return 0;
         return blockers.Count == 0 ? 0 : 2;
