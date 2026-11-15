@@ -156,7 +156,7 @@ internal static class AdminIdentityEndpoints
         app.MapGet(WireRoutes.AdminTags, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], true, ctx.Request.Query, publications, ct))))
             .RequireRateLimiting("command");
-        app.MapGet(ApiPath + "/articles.aeds", (HttpContext ctx, CancellationToken ct) =>
+        app.MapGet(WireRoutes.AdminArticleInventory, (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             return store.ArticleInventory(ctx.Request.Cookies[session], ctx, query, ct);

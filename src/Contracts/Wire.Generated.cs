@@ -750,6 +750,7 @@ public static class WireRoutes
     public const string AdminArticleDraftRollbackStepUpBegin = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/begin.aeds";
     public const string AdminArticleDraftRollbackStepUpComplete = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds";
     public const string AdminArticleDraftRollbackExecute = "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds";
+    public const string AdminArticleInventory = "/api/v2/admin/identity/articles.aeds";
     public const string AdminArticleArchiveAvailability = "/api/v2/admin/identity/articles/archive/available.aeds";
     public const string AdminArticleArchivePage = "/api/v2/admin/identity/articles/archive/page.aeds";
     public const string AdminArticleArchivePreview = "/api/v2/admin/identity/articles/archive/preview.aeds";

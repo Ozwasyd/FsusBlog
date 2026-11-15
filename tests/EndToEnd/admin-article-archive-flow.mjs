@@ -14,7 +14,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const archive = section.getByRole('region', { name: 'Archived articles', exact: true })
   const inventory = page.getByRole('region', { name: 'Article inventory', exact: true })
-  const inventoryPath = '/api/v2/admin/identity/articles.aeds'
+  const inventoryPath = WireRoutes.AdminArticleInventory
   const sourceBody = 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n'
   const availability = WireRoutes.AdminArticleArchiveAvailability
   const archivePage = WireRoutes.AdminArticleArchivePage

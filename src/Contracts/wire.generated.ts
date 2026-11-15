@@ -745,6 +745,7 @@ export const WireRoutes = {
   AdminArticleDraftRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/begin.aeds",
   AdminArticleDraftRollbackStepUpComplete: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds",
   AdminArticleDraftRollbackExecute: "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds",
+  AdminArticleInventory: "/api/v2/admin/identity/articles.aeds",
   AdminArticleArchiveAvailability: "/api/v2/admin/identity/articles/archive/available.aeds",
   AdminArticleArchivePage: "/api/v2/admin/identity/articles/archive/page.aeds",
   AdminArticleArchivePreview: "/api/v2/admin/identity/articles/archive/preview.aeds",

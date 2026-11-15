@@ -66,7 +66,7 @@ export function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSign
 }
 
 export function listAdminArticles(query: AuthorArticleQuery, signal: AbortSignal): Promise<AuthorArticlePage> {
-  return listArticles('/api/v2/admin/identity/articles.aeds', query, signal);
+  return listArticles(WireRoutes.AdminArticleInventory, query, signal);
 }
 
 async function listArticles(path: string, query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
