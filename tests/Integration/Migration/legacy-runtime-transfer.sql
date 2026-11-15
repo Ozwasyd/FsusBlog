@@ -1,0 +1,108 @@
+\set ON_ERROR_STOP on
+\if :copy_out
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+\else
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+\endif
+SET LOCAL search_path TO pg_catalog;
+SET LOCAL TIME ZONE 'UTC';
+SET LOCAL DateStyle TO 'ISO, YMD';
+SET LOCAL statement_timeout TO '15s';
+
+SELECT current_database()=:'database_name'
+    AND (SELECT oid FROM pg_database WHERE datname=current_database())=:'database_oid'::oid
+    AND (SELECT site_id FROM public.authoring_recovery_site WHERE singleton)=:'site_id'::uuid
+    AND inet_server_addr() IS NULL AND current_setting('listen_addresses')=''
+    AND current_setting('session_replication_role')='origin'
+    AND pg_try_advisory_xact_lock(716729109726707501::bigint)
+    AND pg_try_advisory_xact_lock(1179866434,1) AS expected_database \gset
+\if :expected_database
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Rehearsal transfer database identity or ownership lock differs'; END $$;
+\endif
+
+\if :copy_out
+\if :source_seal
+SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
+    AND (SELECT NOT serving AND site_id=:'site_id'::uuid AND plan_sha256=:'plan_sha'
+         FROM fsus_legacy_candidate.candidate WHERE singleton)
+    AND (SELECT plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha'
+         FROM fsus_legacy_candidate.current_projection WHERE singleton)
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=0
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=1
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7 AS expected_seal \gset
+\else
+SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
+    AND to_regnamespace('fsus_legacy_candidate') IS NULL
+    AND (SELECT NOT enabled AND NOT can_author FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
+\endif
+\if :expected_seal
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Rehearsal source seal or runtime readback identity differs'; END $$;
+\endif
+
+SELECT (SELECT count(*) FROM public.article)=1
+    AND (SELECT count(*) FROM public.article_revision)=1
+    AND (SELECT count(*) FROM public.article_publication)=1
+    AND (SELECT NOT deleted AND revision=1 AND published_revision=1 AND owner_id=:'owner_id'::uuid
+         FROM public.article WHERE id=42)
+    AND (SELECT enabled AND NOT proof_binding_enabled FROM public.article_revision_rights WHERE article_id=42 AND revision=1)
+    AND (SELECT publication_id=900000001 AND publication_no=1 AND revision=1 FROM public.article_publication WHERE article_id=42)
+    AND (SELECT id=700 AND publication_id=900000001 AND revision=1 FROM public.article_publication_rights WHERE article_id=42)
+    AND (SELECT last_value=43 AND NOT is_called FROM public.article_id_seq)
+    AND (SELECT last_value=12 AND NOT is_called FROM public.category_id_seq)
+    AND (SELECT last_value=22 AND NOT is_called FROM public.tag_id_seq)
+    AND (SELECT last_value=900000002 AND NOT is_called FROM public.article_publication_publication_id_seq)
+    AND (SELECT last_value=701 AND NOT is_called FROM public.article_publication_rights_id_seq) AS eligible \gset
+\if :eligible
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Sealed source differs from the supported first-publication rehearsal'; END $$;
+\endif
+
+\copy (SELECT id,name,description FROM public.category ORDER BY id) TO 'category.csv' CSV
+\copy (SELECT id,name,description FROM public.tag ORDER BY id) TO 'tag.csv' CSV
+\copy (SELECT name_key,tag_id FROM public.tag_url_name ORDER BY name_key) TO 'tag_url_name.csv' CSV
+\copy (SELECT id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at FROM public.article ORDER BY id) TO 'article.csv' CSV
+\copy (SELECT article_id,revision,title,body,happened_at FROM public.article_revision ORDER BY article_id,revision) TO 'article_revision.csv' CSV
+\copy (SELECT article_id,revision,category_id FROM public.article_revision_category ORDER BY article_id,revision) TO 'article_revision_category.csv' CSV
+\copy (SELECT article_id,revision,tag_id FROM public.article_revision_tag ORDER BY article_id,revision,tag_id) TO 'article_revision_tag.csv' CSV
+\copy (SELECT article_id,publication_id,revision,publication_no,published_at FROM public.article_publication ORDER BY article_id) TO 'article_publication.csv' CSV
+\copy (SELECT article_id,event_no,revision,publication_no,publication_id,supersedes_id,kind,reason,happened_at,recorded_at,actor_id,command_id FROM public.article_publication_history ORDER BY article_id,event_no) TO 'article_publication_history.csv' CSV
+\copy (SELECT article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled FROM public.article_revision_rights ORDER BY article_id,revision) TO 'article_revision_rights.csv' CSV
+\copy (SELECT id,article_id,publication_id,revision FROM public.article_publication_rights ORDER BY id) TO 'article_publication_rights.csv' CSV
+\else
+SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
+    AND to_regnamespace('fsus_legacy_candidate') IS NULL
+    AND NOT EXISTS (SELECT FROM public.blog_user)
+    AND NOT EXISTS (SELECT FROM public.article)
+    AND NOT EXISTS (SELECT FROM public.category)
+    AND NOT EXISTS (SELECT FROM public.tag) AS pristine \gset
+\if :pristine
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Rehearsal runtime target is not pristine'; END $$;
+\endif
+
+INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
+    VALUES (:'owner_id'::uuid,'Legacy rehearsal custodian',false,false,1);
+\copy public.category (id,name,description) FROM 'category.csv' CSV
+\copy public.tag (id,name,description) FROM 'tag.csv' CSV
+\copy public.tag_url_name (name_key,tag_id) FROM 'tag_url_name.csv' CSV
+\copy public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at) FROM 'article.csv' CSV
+\copy public.article_revision (article_id,revision,title,body,happened_at) FROM 'article_revision.csv' CSV
+\copy public.article_revision_category (article_id,revision,category_id) FROM 'article_revision_category.csv' CSV
+\copy public.article_revision_tag (article_id,revision,tag_id) FROM 'article_revision_tag.csv' CSV
+\copy public.article_publication (article_id,publication_id,revision,publication_no,published_at) FROM 'article_publication.csv' CSV
+\copy public.article_publication_history (article_id,event_no,revision,publication_no,publication_id,supersedes_id,kind,reason,happened_at,recorded_at,actor_id,command_id) FROM 'article_publication_history.csv' CSV
+\copy public.article_revision_rights (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled) FROM 'article_revision_rights.csv' CSV
+\copy public.article_publication_rights (id,article_id,publication_id,revision) FROM 'article_publication_rights.csv' CSV
+ALTER SEQUENCE public.article_id_seq RESTART WITH 43;
+ALTER SEQUENCE public.category_id_seq RESTART WITH 12;
+ALTER SEQUENCE public.tag_id_seq RESTART WITH 22;
+ALTER SEQUENCE public.article_publication_publication_id_seq RESTART WITH 900000002;
+ALTER SEQUENCE public.article_publication_rights_id_seq RESTART WITH 701;
+SET CONSTRAINTS ALL IMMEDIATE;
+\if :interrupt_transfer
+DO $$ BEGIN RAISE EXCEPTION 'Injected failure after rehearsal transfer'; END $$;
+\endif
+\endif
+COMMIT;

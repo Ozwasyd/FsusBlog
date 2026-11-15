@@ -125,6 +125,14 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 在 PostgreSQL 18.7 用 `tests/Integration/Migration/legacy-outbox.sh --rollback` 验证三个事件、21 条边、原始 JSON 和逐边投递键。测试覆盖第二次发布事件缺失、回滚前分类标签不符、原权利摘要错误、责任副本内容或时间不符和错误回滚来源。候选篡改被拒绝，恢复原值后在源库断开及目标只读条件下得到相同投影摘要。版本 3、版本 4 和 SQLite 到 PostgreSQL 的旧投影回归也通过。见 `artifacts/native-migration/legacy-rollback-outbox-exact-20261115T013535Z.log` 和 `artifacts/native-migration/legacy-rollback-outbox-20261115T013151Z.log`。
 
+### 在独立临时库演练公开读取
+
+`bash tests/Integration/Migration/legacy-runtime.sh` 需要预编译的 v2 服务、迁移 CLI 和 FsusUI 前端构建产物。脚本自行创建只开放私有 Unix socket 的 PostgreSQL 实例。旧格式合成源库只有一篇即时首发文章，包含不可变修订和权利、分类、标签别名及七条已完成的出站边。源内容没有附件、责任快照、定时任务或凭据，权利快照的证明绑定关闭。[固定 v1 首发写入路径](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.cs#L739-L835)
+
+源数据通过计划、暂存、投影和只读复验进入原隔离库。测试再将明确列出的表和序列状态写入另一个新建的 v2 站点库，保留文章、修订、发布和权利标识。文章所有者的外键只对应禁用的演练账号。旧事件及投递记录留在原隔离库，新库没有历史操作者、命令、出站事件或原生证明。演练先检查错误站点拒绝和事务中断回退，逐表回读并核验新库的备份在第三个空库中恢复一致，再以默认服务启动新库。原隔离库经实际服务验证会在监听前拒绝启动。[写入及只读回读脚本](../tests/Integration/Migration/legacy-runtime-transfer.sql)
+
+2026-11-15 在 PostgreSQL 18.7 使用 SDK 10.0.404、Node 24.16.0 和独立校验的 `f14cb4d` 前端包通过。公开 HTML、AEDS、分类、标签别名、搜索和索引代次重启前后摘要相同。匿名草稿和旧格式登录请求被拒绝，也未暴露媒体或证明。停服后的全表和序列测量与演练备份一致，原隔离库再次通过只读核验，临时资源已清理。此脚本只供合成数据演练。真实旧站的全部领域数据、凭据、附件、权利证明和写入冻结仍按本文启用条件独立核验。见 `artifacts/native-migration/legacy-runtime.KVmUu9ae/run.txt` 和 `artifacts/native-migration/legacy-runtime-native-20261115T020944Z.log`。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。
