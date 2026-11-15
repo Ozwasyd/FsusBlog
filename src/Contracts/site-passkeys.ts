@@ -23,24 +23,26 @@ export function decodeSitePasskeys(payload: Uint8Array): SitePasskey[] {
   const count = reader.i32();
   if (count < 1 || count > WireLimits.SitePasskeyListSize) throw invalid();
   const rows: SitePasskey[] = [];
-  for (let i = 0; i < count; i++) {
-    const created = reader.i64();
-    const used = reader.i64();
-    const backupEligible = reader.bool();
-    const backedUp = reader.bool();
-    const current = reader.bool();
-    if (created <= 0n || created > latestTimestamp || used < 0n || used > latestTimestamp ||
-        (backedUp && !backupEligible) || current !== (i === 0)) throw invalid();
-    rows.push({
-      createdAt: new Date(Number(created)),
-      lastUsedAt: used === 0n ? null : new Date(Number(used)),
-      backupEligible,
-      backedUp,
-      current,
-    });
-  }
+  for (let i = 0; i < count; i++) rows.push(readSitePasskeyRow(reader, i === 0));
   reader.finish();
   return rows;
+}
+
+export function readSitePasskeyRow(reader: PodReader, currentExpected: boolean): SitePasskey {
+  const created = reader.i64();
+  const used = reader.i64();
+  const backupEligible = reader.bool();
+  const backedUp = reader.bool();
+  const current = reader.bool();
+  if (created <= 0n || created > latestTimestamp || used < 0n || used > latestTimestamp ||
+      (backedUp && !backupEligible) || current !== currentExpected) throw invalid();
+  return {
+    createdAt: new Date(Number(created)),
+    lastUsedAt: used === 0n ? null : new Date(Number(used)),
+    backupEligible,
+    backedUp,
+    current,
+  };
 }
 
 function invalid() { return new ProtocolError('Invalid site Passkey data.'); }

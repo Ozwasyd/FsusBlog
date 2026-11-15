@@ -1,0 +1,44 @@
+import { deepEqual, equal, throws } from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
+import { decodeSitePasskeyManagement, encodeSitePasskeyRename } from '../../src/Contracts/site-passkey-names.ts';
+import { FrameType } from '../../src/Contracts/wire.generated.ts';
+
+const currentReference = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
+const otherReference = 'a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf';
+const revision = 9_007_199_254_740_999n;
+const fixture = (name: string) => Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex');
+
+test('managed passkeys decode fixed opaque references without losing metadata or large revisions', () => {
+  equal(FrameType.SitePasskeys, 32980);
+  equal(FrameType.SitePasskeyManagement, 33055);
+  const { payload } = decodeFrame(fixture('site-passkey-management'), FrameType.SitePasskeyManagement);
+  deepEqual(decodeSitePasskeyManagement(payload), [{
+    reference: currentReference, revision: 0n, name: '', createdAt: new Date(1800000000123),
+    lastUsedAt: new Date(1800000000987), backupEligible: true, backedUp: true, current: true,
+  }, {
+    reference: otherReference, revision, name: '工作钥匙 🐈', createdAt: new Date(1800000001122),
+    lastUsedAt: null, backupEligible: false, backedUp: false, current: false,
+  }]);
+  const duplicate = Buffer.from(payload);
+  duplicate.copy(duplicate, 67, 4, 36);
+  throws(() => decodeSitePasskeyManagement(duplicate), ProtocolError);
+  const noCurrent = Buffer.from(payload);
+  noCurrent[66] = 0;
+  throws(() => decodeSitePasskeyManagement(noCurrent), ProtocolError);
+  const unexpectedName = Buffer.from(payload);
+  unexpectedName.writeBigInt64LE(0n, 99);
+  throws(() => decodeSitePasskeyManagement(unexpectedName), ProtocolError);
+  throws(() => decodeSitePasskeyManagement(Buffer.concat([payload, Uint8Array.of(0)])), ProtocolError);
+});
+
+test('rename intent carries one opaque reference, exact expected revision and raw bounded text', () => {
+  equal(FrameType.SitePasskeyRename, 33056);
+  deepEqual(Buffer.from(encodeSitePasskeyRename(otherReference, revision, ' 工位 🔑 ')), fixture('site-passkey-rename'));
+  for (const name of ['', '　', ' ' + '鍵'.repeat(64), '\ud800']) {
+    throws(() => encodeSitePasskeyRename(otherReference, revision, name), ProtocolError);
+  }
+  throws(() => encodeSitePasskeyRename(otherReference.toUpperCase(), revision, 'Name'), ProtocolError);
+  throws(() => encodeSitePasskeyRename(otherReference, -1n, 'Name'), ProtocolError);
+});

@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { WireHeaders } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = requireWeb('@playwright/test')
@@ -17,7 +17,10 @@ const start = new Date().toISOString()
 const responses = []
 const errors = []
 const checks = {}
-const inventoryPath = '/api/v2/identity/passkeys.aeds'
+const inventoryPath = WireRoutes.SitePasskeys
+const managementPath = WireRoutes.SitePasskeyManagement
+const renameRequired = process.env.FSUSBLOG_TEST_PASSKEY_RENAME === '1'
+const friendlyName = 'Writing laptop 🔐'
 const securityPath = '/user/identity/mfa'
 let phase = 'start'
 let failure
@@ -57,22 +60,28 @@ try {
   await page.screenshot({ path: join(evidence, 'passkey-signed-in.png') })
 
   phase = 'credential-inventory'
-  const security = await context.newPage()
-  monitor(security)
-  const listed = security.waitForResponse(response => response.request().method() === 'GET' &&
-    response.url() === origin + inventoryPath)
-  await security.goto(origin + securityPath)
-  const response = await listed
+  const sessionHeaders = { [WireHeaders.CurrentSession]: current }
+  const response = await context.request.get(origin + inventoryPath, { headers: sessionHeaders })
   assert.equal(response.status(), 200)
-  assert.equal((await response.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()], current)
-  assert.match(await response.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+  assert.match(response.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
   const inventory = decodeFrame(await response.body())
-  assert.equal(inventory.type, 32980)
+  assert.equal(inventory.type, FrameType.SitePasskeys)
   assert.equal(inventory.payload.byteLength, 23, 'One row must expose only its two timestamps and three flags.')
   assert.equal(new DataView(inventory.payload.buffer, inventory.payload.byteOffset).getInt32(0, true), 1)
-  const credentials = security.getByRole('region', { name: 'Passkeys', exact: true })
-  await credentials.getByRole('heading', { name: 'Passkeys', exact: true }).waitFor()
-  const credential = credentials.getByRole('listitem')
+
+  const managed = page.waitForResponse(response => response.request().method() === 'GET' &&
+    response.url() === origin + managementPath)
+  await page.goto(origin + securityPath)
+  const management = await managed
+  assert([200, 404].includes(management.status()), 'Expected the current management inventory or a legacy fallback.')
+  assert.equal((await management.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()], current)
+  if (management.status() === 200) {
+    assert.match(await management.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+    assert.equal(decodeFrame(await management.body()).type, FrameType.SitePasskeyManagement)
+  }
+  const inventoryRegion = page.getByRole('region', { name: 'Passkeys', exact: true })
+  await inventoryRegion.getByRole('heading', { name: 'Passkeys', exact: true }).waitFor()
+  const credential = inventoryRegion.getByRole('listitem')
   await credential.getByText('Current session passkey', { exact: true }).waitFor()
   await credential.getByText('Created', { exact: true }).waitFor()
   await credential.getByText('Last used', { exact: true }).waitFor()
@@ -88,7 +97,41 @@ try {
   assert(usedAt >= assertionStarted - 1_000 && usedAt <= Date.now() + 1_000,
     'The displayed last-used timestamp must reflect the completed login assertion.')
   checks.inventory = true
-  await security.screenshot({ path: join(evidence, 'passkey-inventory.png') })
+  await page.screenshot({ path: join(evidence, 'passkey-inventory.png') })
+
+  if (renameRequired) {
+    phase = 'credential-rename'
+    assert.equal(management.status(), 200)
+    await credential.getByRole('button', { name: 'Rename Passkey', exact: true }).click()
+    const field = credential.getByLabel('Passkey name', { exact: true })
+    const save = credential.getByRole('button', { name: 'Save with Passkey', exact: true })
+    assert(await save.isDisabled(), 'A blank name cannot be submitted.')
+    await field.fill(friendlyName)
+    const mutation = path => page.waitForResponse(response => response.request().method() === 'POST' && response.url() === origin + path)
+    const began = mutation(WireRoutes.SitePasskeyRenameBegin)
+    const completed = mutation(WireRoutes.SitePasskeyRenameComplete)
+    await save.click()
+    for (const mutationResponse of await Promise.all([began, completed])) {
+      assert.equal(mutationResponse.status(), 200)
+      assert.equal((await mutationResponse.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()], current)
+      assert.match(await mutationResponse.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+    }
+    await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey name saved\.$/ }).waitFor()
+    await credential.getByText(friendlyName, { exact: true }).waitFor()
+    await credential.getByText('Current session passkey', { exact: true }).waitFor()
+    await page.reload()
+    await credential.getByText(friendlyName, { exact: true }).waitFor()
+    await page.screenshot({ path: join(evidence, 'passkey-renamed.png') })
+    checks.renameWithPasskey = true
+  } else if (management.status() === 404) {
+    assert.equal(await credential.getByRole('button', { name: 'Rename Passkey', exact: true }).count(), 0)
+  }
+
+  const security = await context.newPage()
+  monitor(security)
+  await security.goto(origin + securityPath)
+  const credentials = security.getByRole('region', { name: 'Passkeys', exact: true })
+  await credentials.getByText(renameRequired ? friendlyName : 'Current session passkey', { exact: true }).waitFor()
 
   phase = 'logout'
   const logout = page.waitForResponse(response => response.request().method() === 'POST' &&
@@ -99,9 +142,16 @@ try {
   assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
   await security.getByText('to manage account security.', { exact: false }).waitFor()
   assert.equal(await credentials.count(), 0, 'The open tab must clear its passkey inventory after sign-out.')
+  assert.equal(await security.getByText(friendlyName, { exact: true }).count(), 0)
   const signedOut = await context.request.get(origin + inventoryPath, { headers: { [WireHeaders.CurrentSession]: current } })
   assert.equal(signedOut.status(), 401)
   assert.match(signedOut.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+  if (renameRequired) {
+    const signedOutManagement = await context.request.get(origin + managementPath, { headers: sessionHeaders })
+    assert.equal(signedOutManagement.status(), 401)
+    assert.match(signedOutManagement.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+    checks.signedOutManagementDenied = true
+  }
   checks.signedOutInventoryDenied = true
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-passkey-ceremony'))

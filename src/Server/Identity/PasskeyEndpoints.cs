@@ -46,6 +46,26 @@ internal static class PasskeyEndpoints
             var rows = await SitePasskeys.List(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
             return Results.Bytes(Wire.EncodeSitePasskeys(rows), Aeds.ContentType);
         }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.SitePasskeyManagement, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            RequireHost(ctx);
+            ctx.Response.Headers.CacheControl = "private, no-store";
+            var rows = await SitePasskeys.Manage(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
+            return Results.Bytes(Wire.EncodeSitePasskeyManagement(rows), Aeds.ContentType);
+        }).RequireRateLimiting("command");
+        app.MapPost(WireRoutes.SitePasskeyRenameBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireRenameOrigin(ctx);
+            var input = Wire.DecodeSitePasskeyRename(await readFrame(ctx, WireLimits.MaxSitePasskeyRenameFrameBytes, ct));
+            return Results.Bytes(await passkeys.BeginSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyRenameComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireRenameOrigin(ctx);
+            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            await passkeys.CompleteSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
+            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.PasskeyLoginBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireHost(ctx);
@@ -104,6 +124,15 @@ internal static class PasskeyEndpoints
         }
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = path };
+
+        void RequireRenameOrigin(HttpContext ctx)
+        {
+            RequireHost(ctx);
+            ctx.Response.Headers.CacheControl = "private, no-store";
+            if (ctx.Request.Headers.Origin is not { Count: 1 } origin ||
+                !string.Equals(origin[0], expectedOrigin, StringComparison.OrdinalIgnoreCase))
+                throw new BusinessException(Rejection.Forbidden, "A same-origin Passkey request is required.");
+        }
 
         void RequireHost(HttpContext ctx)
         {

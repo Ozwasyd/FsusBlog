@@ -72,6 +72,8 @@ public enum FrameType : ushort
     OperatorSession = 32769,
     SiteSessionList = 32796,
     SitePasskeys = 32980,
+    SitePasskeyManagement = 33055,
+    SitePasskeyRename = 33056,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
@@ -342,6 +344,10 @@ public static class WireLimits
     public const int SiteSessionIdBytes = 64;
     public const int SiteSessionListSize = 101;
     public const int SitePasskeyListSize = 16;
+    public const int SitePasskeyReferenceBytes = 32;
+    public const int SitePasskeyNameChars = 64;
+    public const int SitePasskeyNameBytes = 256;
+    public const int MaxSitePasskeyRenameFrameBytes = 316;
     public const int AdminCommentQueueSize = 24;
     public const int AdminCommentQueueBodyBytes = 12288;
     public const int AdminModerationReasonBytes = 1024;
@@ -696,6 +702,9 @@ public static class WireRoutes
     public const string SiteRefreshSignOut = "/api/v2/identity/refresh/sign-out.aeds";
     public const string SiteSessions = "/api/v2/identity/sessions.aeds";
     public const string SitePasskeys = "/api/v2/identity/passkeys.aeds";
+    public const string SitePasskeyManagement = "/api/v2/identity/passkeys/manage.aeds";
+    public const string SitePasskeyRenameBegin = "/api/v2/identity/passkeys/rename/begin.aeds";
+    public const string SitePasskeyRenameComplete = "/api/v2/identity/passkeys/rename/complete.aeds";
     public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
     public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
     public const string AdminBootstrapBegin = "/api/v2/admin/identity/bootstrap/begin.aeds";

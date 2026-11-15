@@ -28,9 +28,9 @@ export async function loginWithPasskey(signal?: AbortSignal, rememberMe = false)
 }
 
 export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>,
-  restricted = false, rememberMe = false) {
+  restricted = false, rememberMe = false, headers?: HeadersInit) {
   const { token, options } = await request(beginPath, FrameType.PasskeyLoginBegin,
-    payload => decodeLoginBegin(payload, restricted), signal, 'POST', body);
+    payload => decodeLoginBegin(payload, restricted), signal, 'POST', body, headers);
   return getAssertion(token, options, signal, rememberMe);
 }
 

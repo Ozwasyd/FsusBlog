@@ -83,6 +83,7 @@ internal static partial class Migration
                   author-summary       Add article revision author summaries with the server stopped
                   article-body-insertion Add saved editor insertion witnesses with the server stopped
                   document-exports     Add the private author document export queue with the server stopped
+                  site-passkey-names   Add owner Passkey names with the server stopped
                   saved-views          Add private author saved views with the server stopped
                   tag-metadata        Add the administrator tag metadata schema with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
@@ -342,6 +343,9 @@ internal static partial class Migration
                 case ["article-body-insertion"]:
                     await InitializeArticleBodyInsertionAsync(connection, token);
                     break;
+                case ["site-passkey-names"]:
+                    await InitializeSitePasskeyNamesAsync(connection, token);
+                    break;
                 case ["document-exports"]:
                     await InitializeDocumentExportsAsync(connection, token);
                     break;
@@ -479,6 +483,8 @@ internal static partial class Migration
             throw new InvalidOperationException("Comment appeal schema was not installed.");
         if (!await CurrentSchema.HasCommentReplySchemaAsync(connection, transaction, token))
             throw new InvalidOperationException("Comment reply notice schema was not installed.");
+        if (!await CurrentSchema.HasSitePasskeyNamesAsync(connection, transaction, token))
+            throw new InvalidOperationException("The site Passkey names schema was not installed.");
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         if (!await CurrentSchema.HasArticleBodyInsertionOperationsAsync(connection, transaction, token))

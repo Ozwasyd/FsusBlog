@@ -96,6 +96,45 @@ public sealed class SitePasskeyMetadataPostgresTests
         Assert.True(Assert.Single(await SitePasskeys.List(store, replacement.Token, replacement.Id, ct)).Current);
     }
 
+    [PostgresFact]
+    public async Task ManagementTargetsAreBoundToTheExactSessionAndBeginNeverChangesTheName()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var account = await AddAccount(db, "Name fixture", ct);
+        var peer = await AddAccount(db, "Peer fixture", ct);
+        var now = DateTimeOffset.UtcNow;
+        var key = await AddCredential(db, account, now, null, backupEligible: false, backedUp: false, ct);
+        var peerKey = await AddCredential(db, peer, now, null, backupEligible: false, backedUp: false, ct);
+        var session = await AddSession(db, account, now.AddMinutes(10), key, ct);
+        var alternate = await AddSession(db, account, now.AddMinutes(10), key, ct);
+        var outsider = await AddSession(db, peer, now.AddMinutes(10), peerKey, ct);
+
+        var current = Assert.Single(await SitePasskeys.Manage(store, session.Token, session.Id, ct));
+        Assert.NotEqual(Convert.ToHexStringLower(key), current.Reference);
+        Assert.NotEqual(current.Reference, Assert.Single(await SitePasskeys.Manage(store, alternate.Token, alternate.Id, ct)).Reference);
+        Assert.NotEqual(current.Reference, Assert.Single(await SitePasskeys.Manage(store, outsider.Token, outsider.Id, ct)).Reference);
+        Assert.Equal(0L, current.Revision);
+        Assert.Empty(current.Name);
+        var rename = new SitePasskeyRename(current.Reference, current.Revision, "New name");
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRename(session.Token, alternate.Id, rename, ct));
+        await Denied(Rejection.NotFound, () => passkeys.BeginSitePasskeyRename(alternate.Token, alternate.Id, rename, ct));
+        await Denied(Rejection.NotFound, () => passkeys.BeginSitePasskeyRename(outsider.Token, outsider.Id, rename, ct));
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRename(session.Token, session.Id, rename with { ExpectedRevision = 1 }, ct));
+        await Denied(Rejection.Invalid, () => passkeys.BeginSitePasskeyRename(session.Token, session.Id, rename with { Name = "  " }, ct));
+        var begin = await passkeys.BeginSitePasskeyRename(session.Token, session.Id, rename, ct);
+        Assert.True(Aeds.Decode(begin, FrameType.PasskeyLoginBegin).Length > WireLayouts.PasskeyLoginBeginSize);
+        using (var unpublished = Store.Sql(db, null, "select count(*) from public.site_passkey_name"))
+            Assert.Equal(0L, await unpublished.ExecuteScalarAsync(ct));
+        Assert.Equal(current, Assert.Single(await SitePasskeys.Manage(store, session.Token, session.Id, ct)));
+        await store.SignOut(session.Token, ct);
+        await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyRename(session.Token, session.Id, rename, ct));
+    }
+
     private static void AssertMetadata(SitePasskeyRow row, DateTimeOffset created,
         DateTimeOffset? used, bool backupEligible, bool backedUp, bool current)
     {

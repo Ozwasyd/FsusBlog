@@ -164,13 +164,14 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await using (var row = await query.ExecuteReaderAsync(ct))
             while (await row.ReadAsync(ct)) ids.Add(row.GetFieldValue<byte[]>(0));
         if (ids.Count is 0 or >16) throw Denied();
-        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
-        {
-            AllowedCredentials = ids.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
-            UserVerification = UserVerificationRequirement.Required
-        });
-        return (options, ids);
+        return (RestrictedAssertionOptions(ids), ids);
     }
+
+    private AssertionOptions RestrictedAssertionOptions(IReadOnlyList<byte[]> credentials) => _verifier.GetAssertionOptions(new GetAssertionOptionsParams
+    {
+        AllowedCredentials = credentials.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
+        UserVerification = UserVerificationRequirement.Required
+    });
 
     private CredentialCreateOptions RegistrationOptions(byte[] userHandle) => _verifier.RequestNewCredential(new RequestNewCredentialParams
     {
@@ -310,19 +311,22 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         string token, byte[]? binding, CancellationToken ct)
     {
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
+        var challenge = await ConsumeChallenge(db, tx, token, binding, ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
+        return challenge;
+    }
+
+    private static async Task<(string Options, Guid? UserId, long? Generation)> ConsumeChallenge(NpgsqlConnection db,
+        NpgsqlTransaction tx, string token, byte[]? binding, CancellationToken ct)
+    {
         await using var consume = Store.Sql(db, tx, """
             delete from public.passkey_challenge
             where digest=$1 and expires_at>clock_timestamp() and binding_digest is not distinct from $2
             returning options,user_id,generation
             """, TokenDigest(token), NullableBytes(binding));
-        (string Options, Guid? UserId, long? Generation) challenge;
-        await using (var row = await consume.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) throw Denied();
-            challenge = (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2));
-        }
-        await InstanceLease.CommitProtected(tx, _lease, ct);
-        return challenge;
+        await using var row = await consume.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw Denied();
+        return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2));
     }
 
     private static NpgsqlParameter NullableBytes(byte[]? bytes) =>

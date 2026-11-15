@@ -10,6 +10,10 @@ V2 的站点账号可以通过可发现的 Passkey 登录。现有 `/api/binary/
 
 账号安全页的 Passkeys 区域读取当前站点账号自己的凭据元数据。请求 `GET /api/v2/identity/passkeys.aeds` 携带浏览器当前的 `X-Fsus-Current-Session`，服务器在同一事务检查当前有效的 Passkey 会话和账号归属。响应为不缓存的 V2 AEDS 帧 32980，包含创建时间、最近一次通过签名验证的时间、备份资格、备份状态以及当前会话使用标记。备份状态表示认证器在最近一次成功验证时报告的值。响应省略凭据 ID、计数器、公钥、设备标识和账号 user handle。固定 v1 的帧 65 依赖正整数凭据行 ID，V2 目前使用独立路径与投影。
 
+账号持有人还可在同一面板修改通行密钥名称。管理列表使用 AEDS 33055，为每项提供当前访问会话的专用引用、名称和修订号。引用随登录会话变化，旧的 32980 元数据列表保留原有字节。已有数据库停服运行迁移 `site-passkey-names` 后可使用管理列表，新库初始化时直接安装名称表。
+
+重命名由 AEDS 33056 启动同源 WebAuthn 确认。服务端的一次性挑战绑定具体凭据、目标准确名称、期望修订、账号代次和当前会话。浏览器使用当前会话的通行密钥完成用户验证后才写入名称。名称去除首尾空白，限制为 64 个 UTF-16 单元，已更新的修订提示重载。管理列表与命令使用会话专用引用，WebAuthn 仪式仍使用标准凭据选择器。已知 v1 约束参考固定 [重命名端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1978) 和 [名称保存](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Security/PasskeyService.cs#L1579)。
+
 迁移旧凭据应保留原 `AccountId`、32 字节 user handle、凭据 ID、公钥、签名计数和备份元数据，并验证 RP 一致。`passkey_subject.account_id` 可由离线迁移明确写入旧值。导入后必须同步 identity 序列以防碰撞。旧库映射脚本尚未实现。
 
 实测环境为 .NET SDK 10.0.404、PostgreSQL 18、Chrome 157 及真实 Vite 生产构建。`tests/EndToEnd/passkey-flow.mjs` 通过 Chrome 的虚拟 CTAP2 认证器执行真实 WebAuthn 注册和断言，验证独立首次绑定、已签名登录、写作页、服务端注销和清除 cookie。`tests/Integration/PasskeyPostgresTests.cs` 检查错误浏览器绑定、票据重用和账号代次变更时的数据库拒绝，数据库记录确认没有意外的凭据或会话。实际实体认证器和受控生产 TLS 部署留待验收。

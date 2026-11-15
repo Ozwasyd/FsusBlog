@@ -281,10 +281,11 @@ internal static partial class CurrentSchema
         var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
         if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
             throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
+        var hasSitePasskeyNames = await HasSitePasskeyNamesAsync(connection, transaction, cancellationToken);
         var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
                 ? ArticleRevisionColumns + " author_summary:text?" : column)
             .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
-            .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
+            .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
             .Concat(hasCommentReport ? [CommentReportColumns] : [])
@@ -330,7 +331,7 @@ internal static partial class CurrentSchema
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
             .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
-            .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
+            .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
             .Concat(hasCommentReport ? CommentReportConstraints : [])
@@ -442,7 +443,8 @@ internal static partial class CurrentSchema
                                                       'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh')
-                                     OR (c.relname = 'author_document_export' AND target.relname IN ('blog_user', 'article_revision')))
+                                     OR (c.relname = 'author_document_export' AND target.relname IN ('blog_user', 'article_revision'))
+                                     OR (c.relname = 'site_passkey_name' AND target.relname = 'passkey_credential'))
                                    THEN ' delete-cascade'
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'c' AND n.nspname = 'public'
                                    AND c.relname = 'site_session_refresh' AND target.relname = 'user_session'
