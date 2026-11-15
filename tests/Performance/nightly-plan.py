@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from seed import words
@@ -15,6 +16,14 @@ COMMENT_BASE = 9_007_199_254_740_993
 HEADER = "id\tkind\tcategory\ttag\ttitle\tbody\treplacement_title\treplacement_body\n"
 
 
+def token_matches(text, pattern):
+    text = text.lower()
+    for match in pattern.finditer(text):
+        start, end = match.span()
+        if (not start or not text[start - 1:start].isalnum()) and not text[end:end + 1].isalnum():
+            yield match
+
+
 def prepare(profile, due, output):
     total = PROFILE_ARTICLES[profile]
     secondary = total // 20
@@ -22,6 +31,16 @@ def prepare(profile, due, output):
     scheduled = ordinary + secondary
     active_end = scheduled + secondary
     archived_end = active_end + secondary
+    search_cases = {
+        "publicTitle": (1, 3, "title", b"fixture00001", True),
+        "retainedBody": (scheduled + 1, 3, "body", f"c11body{scheduled + 1:06d}".encode("ascii"), True),
+        "pendingUpdate": (scheduled + 1, 5, "body", f"c11pending{scheduled + 1:06d}".encode("ascii"), False),
+        "archivedInterim": (active_end + 1, 5, "body", f"c11interim{active_end + 1:06d}".encode("ascii"), False),
+        "deletedPrior": (archived_end + 1, 3, "body", f"c11body{archived_end + 1:06d}".encode("ascii"), False),
+    }
+    search_pattern = re.compile(b"|".join(case[3] for case in search_cases.values()))
+    search_facts = {}
+    public_matches = {}
     samples = {1, 2, ordinary, ordinary + 1, scheduled + 1, active_end, active_end + 1, archived_end, archived_end + 1}
     samples = sorted(samples)
     sample_rows = []
@@ -62,12 +81,26 @@ def prepare(profile, due, output):
                 replacement_body = f"Interim publication selected for archive: c11interim{article:06d}."
             fields = (str(article), kind, str(category), str(tag), title, body, replacement_title, replacement_body)
             assert all("\t" not in value and "\n" not in value and "\r" not in value for value in fields)
-            data = ("\t".join(fields) + "\n").encode("utf-8")
+            encoded = tuple(value.encode("utf-8") for value in fields)
+            data = b"\t".join(encoded) + b"\n"
             rows.write(data)
             digest.update(data)
 
+            active = kind in ("published", "scheduled-update")
+            title_bytes, body_bytes, replacement_title_bytes, replacement_body_bytes = encoded[4:]
+            if active:
+                # The synthetic prose starts in ASCII so 200 bytes equal the public summary's 200 UTF-16 units.
+                summary = body_bytes[:200]
+                if not summary.isascii():
+                    raise ValueError(f"Non-ASCII public summary at article {article}.")
+                for field, source in (("title", title_bytes), ("summary", summary), ("body", body_bytes)):
+                    for match in token_matches(source, search_pattern):
+                        term = match.group()
+                        if term in public_matches:
+                            raise ValueError(f"Repeated public search canary at article {article} field {field}.")
+                        public_matches[term] = (article, field)
+
             if article in samples:
-                active = kind in ("published", "scheduled-update")
                 archive_ordinal = article - active_end
                 archive_release = total - secondary + 2 * archive_ordinal
                 sample_rows.append({
@@ -78,12 +111,44 @@ def prepare(profile, due, output):
                     "archivedReleaseId": archive_release if kind == "archived" else None,
                     "publicRevision": 3 if active else None, "category": category, "tag": tag,
                     "originalTitle": title,
-                    "originalBodySha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
-                    "currentBodySha256": hashlib.sha256((replacement_body if kind == "scheduled-update" else body).encode("utf-8")).hexdigest(),
-                    "archiveInterimBodySha256": hashlib.sha256(replacement_body.encode("utf-8")).hexdigest() if kind == "archived" else None,
+                    "originalBodySha256": hashlib.sha256(body_bytes).hexdigest(),
+                    "currentBodySha256": hashlib.sha256(replacement_body_bytes if kind == "scheduled-update" else body_bytes).hexdigest(),
+                    "archiveInterimBodySha256": hashlib.sha256(replacement_body_bytes).hexdigest() if kind == "archived" else None,
                     "titleSearchTerm": f"fixture{article:05d}", "bodySearchTerm": f"c11body{article:06d}",
-                    "pendingOnlyTerm": f"c11pending{article:06d}" if replacement_body else None,
+                    "pendingOnlyTerm": f"c11pending{article:06d}" if kind == "scheduled-update" else None,
+                    "archiveInterimOnlyTerm": f"c11interim{article:06d}" if kind == "archived" else None,
                 })
+                for role, (target, source_revision, field, term, public) in search_cases.items():
+                    if target != article:
+                        continue
+                    source_title, source_body = (title_bytes, body_bytes) if source_revision == 3 else (
+                        replacement_title_bytes, replacement_body_bytes)
+                    source = source_title if field == "title" else source_body
+                    matches = [match for match in token_matches(source, search_pattern) if match.group() == term]
+                    if len(matches) != 1:
+                        raise ValueError(f"Expected exactly one {role} token at article {article} revision {source_revision} field {field}.")
+                    match = matches[0]
+                    source_publication = publication
+                    if role == "pendingUpdate":
+                        source_publication = None
+                    if role == "archivedInterim":
+                        source_publication = archive_release - 1
+                    search_facts[role] = {
+                        "term": term.decode("ascii"),
+                        "anonymousMatchIds": [article] if public else [],
+                        "source": {
+                            "articleId": article, "revision": source_revision, "publicationId": source_publication,
+                            "categoryId": category, "tagId": tag, "field": field,
+                            "utf8Offset": match.start(), "utf8Length": match.end() - match.start(), "fieldBytes": len(source),
+                            "titleSha256": hashlib.sha256(source_title).hexdigest(),
+                            "summarySha256": hashlib.sha256(source_body[:200]).hexdigest(),
+                            "bodySha256": hashlib.sha256(source_body).hexdigest(),
+                        },
+                    }
+
+    expected_matches = {term: (article, field) for article, _, field, term, public in search_cases.values() if public}
+    if search_facts.keys() != search_cases.keys() or public_matches != expected_matches:
+        raise ValueError("Search canaries do not match the expected anonymous source roles.")
 
     pilot = profile == "pilot"
     roots, replies, wide, chain_start = (48, 84, 12, 13) if pilot else (500_000, 500_000, 480, 481)
@@ -108,6 +173,10 @@ def prepare(profile, due, output):
         "scheduled": secondary * 2,
         "sizeBucketsBeforeSentinelSuffix": sizes,
         "articleCases": sample_rows,
+        "articleQueryFacts": {
+            "version": 1, "search": search_facts,
+            "unpublishedDetailIds": [ordinary + 1, active_end + 1, archived_end + 1],
+        },
         "comments": {
             "rows": roots + replies, "roots": roots, "replies": replies,
             "visibleContent": roots + replies - 12, "structuralNodes": roots + replies - 9,

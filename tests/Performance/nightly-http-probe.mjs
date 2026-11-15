@@ -9,6 +9,7 @@ import { FrameType, WireHeader, WireHeaders, WireLimits, WireRoutes } from '../.
 
 const pageSize = 10;
 const maxOracleBytes = 1024 * 1024;
+const maxSourceBytes = 64 * 1024;
 const maxBodyBytes = WireHeader.HeaderSize + WireLimits.MaxPayloadBytes;
 const maxSignedLong = 9223372036854775807n;
 const binary = 'application/octet-stream';
@@ -18,19 +19,23 @@ const traceHeader = WireHeaders.TraceId.toLowerCase();
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const natural = value => Number.isSafeInteger(value) && value > 0;
 const decimal = value => typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= maxSignedLong;
+const digest = /^[0-9a-f]{64}$/;
 
 const args = process.argv.slice(2);
-assert.equal(args.length, 4, 'Usage: nightly-http-probe.mjs ORIGIN ORACLE_JSON ACTUAL_NDJSON RESPONSES_DIRECTORY');
-const [originText, oraclePath, actualPath, responsesPath] = args;
+assert.equal(args.length, 6, 'Usage: nightly-http-probe.mjs ORIGIN ORACLE_JSON PLAN_JSON ARTICLE_BYTES_JSON ACTUAL_NDJSON RESPONSES_DIRECTORY');
+const [originText, oraclePath, planPath, articleBytesPath, actualPath, responsesPath] = args;
 assert.match(originText, /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/);
 const origin = new URL(originText);
 assert(origin.origin === originText && Number(origin.port) >= 1024, 'Expected a private loopback HTTP fixture origin with an explicit port');
-const info = lstatSync(oraclePath);
-assert(info.isFile() && info.size > 0 && info.size <= maxOracleBytes, 'Expected a bounded saved oracle file');
-const oracleBytes = readFileSync(oraclePath);
-assert.equal(oracleBytes.length, info.size, 'Saved oracle size changed');
+const oracleBytes = readEvidence(oraclePath, maxOracleBytes);
 const oracle = JSON.parse(oracleBytes.toString('utf8'));
 validateOracle(oracle);
+const planBytes = readEvidence(planPath, maxSourceBytes);
+const plan = JSON.parse(planBytes.toString('utf8'));
+const articleBytes = readEvidence(articleBytesPath, maxSourceBytes);
+const byteReceipt = JSON.parse(articleBytes.toString('utf8'));
+const sourceIdentity = validateSource();
+const { search: canaries, unpublishedDetailIds } = plan.articleQueryFacts;
 
 try {
   mkdirSync(responsesPath, { mode: 0o700 });
@@ -44,6 +49,76 @@ const deadline = performance.now() + 120_000;
 let sequence = 0;
 let generation = null;
 let caseId = null;
+
+function readEvidence(path, maxBytes) {
+  const info = lstatSync(path);
+  assert(info.isFile() && info.size > 0 && info.size <= maxBytes, 'Expected a bounded evidence file');
+  const bytes = readFileSync(path);
+  assert.equal(bytes.length, info.size, 'Evidence file size changed');
+  return bytes;
+}
+
+function validateSource() {
+  const planSha256 = sha256(planBytes);
+  assert.equal(plan.format, 'fsusblog-v2-nightly-postgres-fixture-v2');
+  assert.equal(plan.profile, oracle.profile);
+  assert.equal(plan.activePublications, oracle.total);
+  assert.equal(planSha256, oracle.fixtureSha256, 'PostgreSQL oracle plan digest');
+  assert.match(plan.articlePlanSha256, digest, 'Article TSV digest');
+  assert.equal(byteReceipt.version, 1);
+  assert.equal(byteReceipt.profile, plan.profile);
+  assert.equal(byteReceipt.planSha256, planSha256, 'PostgreSQL article byte receipt plan digest');
+  assert.equal(byteReceipt.articlePlanSha256, plan.articlePlanSha256, 'PostgreSQL article byte receipt TSV digest');
+  assert(natural(plan.revisions) && byteReceipt.verifiedRevisions === plan.revisions, 'Complete revision byte readback');
+
+  const facts = plan.articleQueryFacts;
+  assert.equal(facts.version, 1);
+  const roles = [
+    ['publicTitle', 'published', 3, 'title', 'titleSearchTerm', 'publicationId', 'originalBodySha256'],
+    ['retainedBody', 'scheduled-update', 3, 'body', 'bodySearchTerm', 'publicationId', 'originalBodySha256'],
+    ['pendingUpdate', 'scheduled-update', 5, 'body', 'pendingOnlyTerm', null, 'currentBodySha256'],
+    ['archivedInterim', 'archived', 5, 'body', 'archiveInterimOnlyTerm', 'archiveSupersededReleaseId', 'archiveInterimBodySha256'],
+    ['deletedPrior', 'deleted', 3, 'body', 'bodySearchTerm', 'historicalFirstPublicationId', 'originalBodySha256'],
+  ];
+  assert.deepEqual(Object.keys(facts.search).sort(), roles.map(([role]) => role).sort(), 'Sealed search roles');
+  for (const [role, kind, revision, field, termKey, publicationKey, bodyHash] of roles) {
+    const canary = facts.search[role];
+    const { source, term } = canary;
+    const article = plan.articleCases.find(row => row.kind === kind);
+    assert.match(term, /^[a-z0-9]{1,128}$/, role);
+    assert.equal(term, article[termKey], role);
+    assert.deepEqual([source.articleId, source.revision, source.field, source.publicationId, source.categoryId, source.tagId],
+      [article.id, revision, field, publicationKey === null ? null : article[publicationKey], article.category, article.tag], role);
+    const active = source.revision === article.publicRevision && source.publicationId === article.publicationId;
+    assert.deepEqual(canary.anonymousMatchIds, active ? [article.id] : [], role);
+    for (const hash of [source.titleSha256, source.bodySha256, source.summarySha256]) assert.match(hash, digest, role);
+    assert.equal(source.bodySha256, article[bodyHash], role);
+    assert(Number.isSafeInteger(source.utf8Offset) && source.utf8Offset >= 0 && source.utf8Length === term.length &&
+      natural(source.fieldBytes) && source.utf8Offset + source.utf8Length <= source.fieldBytes, role + ' source byte range');
+  }
+  assert.deepEqual(facts.unpublishedDetailIds, ['scheduled', 'archived', 'deleted'].map(kind => plan.articleCases.find(row => row.kind === kind).id));
+  assert.deepEqual(oracle.unpublishedIds, facts.unpublishedDetailIds, 'PostgreSQL oracle unpublished detail roles');
+  assert.deepEqual(oracle.negativeTerms, ['pendingUpdate', 'archivedInterim', 'deletedPrior'].map(role => facts.search[role].term),
+    'PostgreSQL oracle hidden search terms');
+  for (const [observed, expected] of [[oracle.titleCanary, facts.search.publicTitle], [oracle.bodyCanary, facts.search.retainedBody]]) {
+    const { row, term } = observed;
+    const { source } = expected;
+    assert.equal(term, expected.term, 'PostgreSQL oracle public search term');
+    assert.deepEqual([row.id, row.revision, row.publication, row.revisionNo, row.publicationNo, row.category.id,
+      row.tags.map(tag => tag.id), sha256(row.title), sha256(row.summary), row.bodySha256],
+      [source.articleId, String(source.revision), String(source.publicationId), source.revision, 1, source.categoryId,
+        [source.tagId], source.titleSha256, source.summarySha256, source.bodySha256], 'PostgreSQL oracle public source coordinates');
+  }
+  compareSourceRange(oracle.titleCanary.row.title, facts.search.publicTitle);
+  return { planSha256, articlePlanSha256: plan.articlePlanSha256, articleByteReceiptSha256: sha256(articleBytes) };
+}
+
+function compareSourceRange(text, { term, source }) {
+  const bytes = Buffer.from(text, 'utf8');
+  assert.equal(bytes.length, source.fieldBytes, 'Search canary source length');
+  const at = source.utf8Offset;
+  assert.equal(bytes.subarray(at, at + source.utf8Length).toString('utf8').toLowerCase(), term, 'Search canary source byte range');
+}
 
 function validateOracle(value) {
   assert.equal(value.version, 1, 'Unexpected saved oracle version');
@@ -215,6 +290,8 @@ async function detail(id, expected) {
   compareCard(row, expected, 'detail');
   assert.equal(sha256(row.body), expected.bodySha256, `article ${expected.id} body SHA-256`);
   assert.equal(String(row.rights?.snapshotId), expected.rightsSnapshotId, `article ${expected.id} rights snapshot`);
+  if (row.id === canaries.retainedBody.source.articleId)
+    compareSourceRange(row.body, canaries.retainedBody);
 }
 
 async function search(id, term, expected) {
@@ -226,7 +303,7 @@ async function search(id, term, expected) {
 }
 
 try {
-  log({ kind: 'begin', origin: originText, profile: oracle.profile, oracleSha256: sha256(oracleBytes), total: oracle.total });
+  log({ kind: 'begin', origin: originText, profile: oracle.profile, oracleSha256: sha256(oracleBytes), total: oracle.total, ...sourceIdentity });
   const first = await observe('article-list-first-page', homePath(1), 200, FrameType.ArticleList);
   const pageOne = decodeArticleList(first.payload);
   comparePage(pageOne, oracle.rows.slice(0, pageSize), oracle.total, 'list');
@@ -249,7 +326,7 @@ try {
   if (bodyRow.id !== oracle.rows[0].id && bodyRow.id !== oracle.last.id)
     await detail('article-detail-visible-scheduled-update', bodyRow);
 
-  for (const id of oracle.unpublishedIds) {
+  for (const id of unpublishedDetailIds) {
     const path = WireRoutes.PublicArticle.replace('{id}', String(id));
     const { payload, headers } = await observe(`article-detail-unpublished-${id}`, path, 404, FrameType.ApiError);
     const error = decodeApiError(payload, 404);
@@ -257,10 +334,10 @@ try {
     assert.equal(error.traceId, headers[traceHeader]);
   }
 
-  await search('search-title-canary', oracle.titleCanary.term, [oracle.titleCanary.row]);
-  await search('search-body-canary', oracle.bodyCanary.term, [bodyRow]);
-  for (const [index, term] of oracle.negativeTerms.entries())
-    await search(`search-negative-${index + 1}`, term, []);
+  await search('search-title-canary', canaries.publicTitle.term, [oracle.titleCanary.row]);
+  await search('search-body-canary', canaries.retainedBody.term, [bodyRow]);
+  for (const [index, canary] of [canaries.pendingUpdate, canaries.archivedInterim, canaries.deletedPrior].entries())
+    await search(`search-negative-${index + 1}`, canary.term, []);
 
   log({ kind: 'verification', verified: true, requests: sequence, generation });
   console.log(`Verified ${sequence} bounded public requests against the saved ${oracle.profile} oracle (generation ${generation}).`);

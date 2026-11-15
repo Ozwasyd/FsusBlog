@@ -398,7 +398,8 @@ if [[ $http_probe == true ]]; then
     printf 'origin=%s\nreadiness=%s\nready_at=%s\n' "$origin" "$ready" "$(date -u +%FT%TZ)" >> "$evidence/http-server.txt"
 
     phase http-probe env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-http-probe.mjs \
-        "$origin" "$evidence/http-oracle.json" "$evidence/http-actual.ndjson" "$evidence/http-responses"
+        "$origin" "$evidence/http-oracle.json" "$evidence/plan.json" "$evidence/article-bytes.json" \
+        "$evidence/http-actual.ndjson" "$evidence/http-responses"
     if [[ $list_taxonomy == true ]]; then
         phase http-list-taxonomy env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-list-taxonomy-probe.mjs "$evidence"
     fi
@@ -424,7 +425,8 @@ if [[ $http_probe == true ]]; then
     stage=http-oracle-after
     "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle-after.json" 2> "$evidence/http-oracle-after.log"
     cmp "$evidence/http-oracle.json" "$evidence/http-oracle-after.json"
-    shasum -a 256 "$evidence"/http-oracle{,-after}.json "$evidence/http-actual.ndjson" > "$evidence/http-proof.sha256"
+    shasum -a 256 "$evidence"/http-oracle{,-after}.json "$evidence/plan.json" "$evidence/article-bytes.json" \
+        "$evidence/http-actual.ndjson" > "$evidence/http-proof.sha256"
     printf 'Verified the selected same-database HTTP cases with the sealed PostgreSQL oracle.\n'
 fi
 stage=complete
