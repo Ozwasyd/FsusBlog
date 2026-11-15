@@ -346,28 +346,39 @@ ALTER SEQUENCE public.category_id_seq RESTART WITH 33;
 ALTER SEQUENCE public.tag_id_seq RESTART WITH 129;
 COMMIT;
 SQL
-phase generate python3 -B tests/Performance/nightly-plan.py "$profile" "$due" "$scratch"
+article_input="$scratch/articles.tsv"
+generate_options=("$profile" "$due" "$scratch")
+if [[ $checkpoint_pilot == true ]]; then
+    article_input="$scratch/plan.json"
+    generate_options+=(--sharded)
+fi
+phase generate python3 -B tests/Performance/nightly-plan.py "${generate_options[@]}"
 cp "$scratch/plan.json" "$evidence/plan.json"
 record_filesystem before-articles
 
 before=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 export FSUSBLOG_NIGHTLY_FIXTURE=1 FSUSBLOG_NIGHTLY_FIXTURE_DB="$FSUSBLOG_DB"
-export FSUSBLOG_NIGHTLY_FIXTURE_SITE="$site" FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES="$scratch/articles.tsv"
+export FSUSBLOG_NIGHTLY_FIXTURE_SITE="$site" FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES="$article_input"
 export FSUSBLOG_NIGHTLY_FIXTURE_COUNT="$articles" FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS="$due"
 export FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR="$data_dir"
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
+unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
 if [[ $checkpoint_pilot == true ]]; then
-    checkpoint_plan_sha=$(shasum -a 256 -- "$scratch/articles.tsv")
-    checkpoint_plan_sha=${checkpoint_plan_sha%% *}
-    [[ $checkpoint_plan_sha =~ ^[0-9a-f]{64}$ ]]
+    checkpoint_plan_sha=$(python3 -B -c 'import json,sys; print(json.load(sys.stdin)["articlePlanSha256"])' < "$article_input")
+    checkpoint_manifest_sha=$(shasum -a 256 -- "$article_input")
+    checkpoint_manifest_sha=${checkpoint_manifest_sha%% *}
+    [[ $checkpoint_plan_sha =~ ^[0-9a-f]{64}$ && $checkpoint_manifest_sha =~ ^[0-9a-f]{64}$ ]]
     export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT=1 FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256="$checkpoint_plan_sha"
+    export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256="$checkpoint_manifest_sha"
     printf 'checkpoint_pilot=true\ncheckpoint_plan_sha256=%s\n' "$checkpoint_plan_sha" >> "$evidence/run.txt"
+    printf 'checkpoint_manifest_sha256=%s\n' "$checkpoint_manifest_sha" >> "$evidence/run.txt"
 fi
 phase write-articles "$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles' \
     '--logger:console;verbosity=detailed'
 unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES
 unset FSUSBLOG_NIGHTLY_FIXTURE_COUNT FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
+unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
 after_articles=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 record_filesystem after-articles
 "${sql[@]}" -c "SELECT pg_sleep(greatest(0,extract(epoch FROM max(published_at)+interval '1 second'-clock_timestamp()))) FROM public.article_publication" >/dev/null
@@ -381,7 +392,7 @@ phase verify-publications "${migrate[@]}" publication-canonical verify
 phase verify-rows "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
     -v nightly="$nightly" -v due_unix_ms="$due" -f tests/Performance/nightly-verify.sql
 phase verify-article-bytes python3 -B tests/Performance/nightly-verify-article-bytes.py \
-    "$profile" "$scratch/articles.tsv" "$evidence/plan.json" "$db" "$data_dir" "$site" "$evidence/article-bytes.json"
+    "$profile" "$article_input" "$evidence/plan.json" "$db" "$data_dir" "$site" "$evidence/article-bytes.json"
 shasum -a 256 "$evidence/article-bytes.json" >> "$evidence/run.txt"
 python3 - "$evidence" <<'PY'
 import hashlib

@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+from contextlib import ExitStack
 from pathlib import Path
 
 from seed import words
@@ -14,6 +15,7 @@ SOURCE_REFERENCE = "2605b438eed8f16d12ddddf033d08a6fa18fcd12"
 PROFILE_ARTICLES = {"pilot": 20, "nightly": 100_000}
 COMMENT_BASE = 9_007_199_254_740_993
 HEADER = "id\tkind\tcategory\ttag\ttitle\tbody\treplacement_title\treplacement_body\n"
+PILOT_SHARD_ROWS = 8
 
 
 def token_matches(text, pattern):
@@ -24,7 +26,7 @@ def token_matches(text, pattern):
             yield match
 
 
-def prepare(profile, due, output):
+def prepare(profile, due, output, sharded=False):
     total = PROFILE_ARTICLES[profile]
     secondary = total // 20
     ordinary = total - 4 * secondary
@@ -47,9 +49,15 @@ def prepare(profile, due, output):
     sizes = {512: 0, 2048: 0, 8192: 0}
     digest = hashlib.sha256()
 
-    with (output / "articles.tsv").open("xb") as rows:
+    rows_per_shard = PILOT_SHARD_ROWS if sharded else total
+    article_paths = ([output / f"articles-{ordinal:05d}.tsv"
+                      for ordinal, _ in enumerate(range(1, total + 1, rows_per_shard), 1)]
+                     if sharded else [output / "articles.tsv"])
+    with ExitStack() as outputs:
+        row_files = [outputs.enter_context(path.open("xb")) for path in article_paths]
         header = HEADER.encode("ascii")
-        rows.write(header)
+        for rows in row_files:
+            rows.write(header)
         digest.update(header)
         for article in range(1, total + 1):
             if article <= ordinary:
@@ -83,7 +91,9 @@ def prepare(profile, due, output):
             assert all("\t" not in value and "\n" not in value and "\r" not in value for value in fields)
             encoded = tuple(value.encode("utf-8") for value in fields)
             data = b"\t".join(encoded) + b"\n"
-            rows.write(data)
+            if sharded and len(data) > 64 * 1024:
+                raise ValueError(f"Article {article} exceeds the shard line budget.")
+            row_files[(article - 1) // rows_per_shard].write(data)
             digest.update(data)
 
             active = kind in ("published", "scheduled-update")
@@ -186,6 +196,22 @@ def prepare(profile, due, output):
             "deepRoot": str(COMMENT_BASE + 2), "deepTarget": str(COMMENT_BASE + roots + chain_start + 31),
         },
     }
+    if sharded:
+        shards = []
+        for ordinal, path in enumerate(article_paths, 1):
+            first = (ordinal - 1) * rows_per_shard + 1
+            last = min(first + rows_per_shard - 1, total)
+            size = path.stat().st_size
+            if size > 512 * 1024 * 1024 or last - first + 1 > 65_536:
+                raise ValueError(f"Article shard {ordinal} exceeds its file or row budget.")
+            shard_hash = hashlib.sha256()
+            with path.open("rb") as rows:
+                for chunk in iter(lambda: rows.read(64 * 1024), b""):
+                    shard_hash.update(chunk)
+            shards.append({"ordinal": ordinal, "firstArticle": first, "lastArticle": last,
+                           "rows": last - first + 1, "bytes": size, "sha256": shard_hash.hexdigest()})
+        manifest["format"] = "fsusblog-v2-nightly-postgres-fixture-v3"
+        manifest["articleShards"] = shards
     with (output / "plan.json").open("x", encoding="utf-8") as plan:
         json.dump(manifest, plan, ensure_ascii=False, indent=2, sort_keys=True)
         plan.write("\n")
@@ -196,10 +222,13 @@ def main():
     parser.add_argument("profile", choices=PROFILE_ARTICLES)
     parser.add_argument("due_unix_ms", type=int)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--sharded", action="store_true")
     args = parser.parse_args()
     if args.due_unix_ms <= 0:
         parser.error("the scheduled Unix time must be positive")
-    prepare(args.profile, args.due_unix_ms, args.output)
+    if args.sharded and args.profile != "pilot":
+        parser.error("sharded article plans require the pilot profile")
+    prepare(args.profile, args.due_unix_ms, args.output, args.sharded)
 
 
 if __name__ == "__main__":

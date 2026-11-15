@@ -39,14 +39,19 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         var dataDirectory = PrivateDirectory(Required("DATA_DIR"));
         var planPath = Required("ARTICLES");
         if (!Path.IsPathFullyQualified(planPath)) throw new InvalidOperationException("Expected an absolute fixture plan path.");
-        await using var stream = new FileStream(planPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var timeout = new CancellationTokenSource(WriterBudget);
+        var ct = timeout.Token;
+        var checkpoint = Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1"
+            ? new CheckpointBinding(site, due, Required("CHECKPOINT_PLAN_SHA256"), Required("CHECKPOINT_MANIFEST_SHA256"))
+            : null;
+        await using Stream stream = checkpoint is null
+            ? new FileStream(planPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan)
+            : await OpenShardedArticleInputAsync(planPath, count, due, checkpoint.ManifestHash, checkpoint.PlanHash, ct);
         if (stream.Length is <= 0 or > 512L * 1024 * 1024)
             throw new InvalidOperationException("Fixture plan exceeds the file budget.");
 
         var settings = ReadConnectionSettings();
-        using var timeout = new CancellationTokenSource(WriterBudget);
-        var ct = timeout.Token;
         var plan = new PlanReader(stream);
         if (await plan.Read(ct) != Header) throw new InvalidOperationException("Unexpected article plan header.");
 
@@ -75,9 +80,9 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         var band = count / 20;
         var archiveStart = 18 * band + 1;
         long archiveOffset = 0;
-        if (Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1")
+        if (checkpoint is not null)
         {
-            (archiveOffset, batches) = await WriteCheckpointPilot(db, settings, lease, stream, count, archiveStart, site, actor, due, ct);
+            (archiveOffset, batches) = await WriteCheckpointPilot(db, settings, lease, stream, count, archiveStart, actor, checkpoint, ct);
         }
         else
         {
@@ -108,12 +113,20 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         for (int offset = 0; offset < band; offset++)
         {
             var archived = Parse(await archivePlan.Read(ct), archiveStart + offset, count);
-            var replacementRelease = (long)count - band + 2 * offset + 1;
-            var intent = new AdminArticleArchiveIntent(archived.Id, 5, replacementRelease, 3, Command(archived.Id, 6),
-                ArchiveReason, Wire.AdminArticleArchiveStatus);
-            var proof = await PrepareArchive(db, lease, actor, archived, archived.Id - band, intent, sessionDigest, ct);
+            var intent = ArchiveIntent(archived, count, band, offset);
+            var replacementRelease = intent.ExpectedReleaseId;
             int invalidations = 0;
-            var receipt = await archiveStore.ExecuteArticleArchive(session, proof, intent, () => invalidations++, ct);
+            AdminArticleArchiveReceipt receipt;
+            if (checkpoint is null)
+            {
+                var proof = await PrepareArchive(db, lease, actor, archived, archived.Id - band, intent, sessionDigest, ct);
+                receipt = await archiveStore.ExecuteArticleArchive(session, proof, intent, () => invalidations++, ct);
+            }
+            else
+            {
+                receipt = await ArchiveWithCheckpoint(db, lease, archiveStore, stream, actor, archived, archived.Id - band,
+                    intent, sessionDigest, checkpoint, () => invalidations++, ct);
+            }
             Assert.Equal((archived.Id, 6L, 3L, replacementRelease, replacementRelease + 1, 3, Wire.AdminArticleArchiveStatus),
                 (receipt.ArticleId, receipt.Revision, receipt.SourceRevision, receipt.PreviousReleaseId, receipt.ReleaseId,
                     receipt.PublicationNo, receipt.TargetStatus));
@@ -124,6 +137,10 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         await RetireArchiveSession(db, lease, ct);
         output.WriteLine("Committed {0} replacements and {0} administrator archives with private release IDs in {1}.", band, elapsed.Elapsed);
     }
+
+    private static AdminArticleArchiveIntent ArchiveIntent(PlannedArticle article, int count, int band, int offset) =>
+        new(article.Id, 5, (long)count - band + 2 * offset + 1, 3, Command(article.Id, 6),
+            ArchiveReason, Wire.AdminArticleArchiveStatus);
 
     private static async Task<(List<PlannedArticle> Rows, long ArchiveOffset)> ReadInitialBatch(PlanReader plan, int first,
         int last, int count, int archiveStart, long archiveOffset, CancellationToken ct)
@@ -224,12 +241,9 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     }
 
     private static async Task<string> PrepareArchive(NpgsqlConnection db, InstanceLease lease, Identity actor, PlannedArticle article,
-        long sourceRelease, AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct)
+        long sourceRelease, AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct, CheckpointBinding? checkpoint = null)
     {
         int id = article.Id;
-        var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        var proofDigest = SHA256.HashData(Encoding.ASCII.GetBytes(proof));
-        var intentDigest = AdminPasskeyStore.ArticleArchiveIntentDigest(intent);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var draft = await Mutate(db, tx, actor, id, 3, ArticleAction.Save, ct, article.ReplacementTitle, article.ReplacementBody);
         Assert.Equal<long?>(3, draft.PublishedRevision);
@@ -255,6 +269,19 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             """, id, sourceRelease))
             Assert.Equal(1, await evidence.ExecuteNonQueryAsync(ct));
 
+        var proof = await IssueArchiveProof(db, tx, intent, sessionDigest, ct);
+        if (checkpoint is not null)
+            await RecordArchivePrepared(db, tx, intent, checkpoint, ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
+        return proof;
+    }
+
+    private static async Task<string> IssueArchiveProof(NpgsqlConnection db, NpgsqlTransaction tx,
+        AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct)
+    {
+        var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        var proofDigest = SHA256.HashData(Encoding.ASCII.GetBytes(proof));
+        var intentDigest = AdminPasskeyStore.ArticleArchiveIntentDigest(intent);
         await using (var step = Store.Sql(db, tx, """
             with session as (
                 update public.admin_session set expires_at=clock_timestamp()+interval '2 minutes'
@@ -265,7 +292,6 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             select $3,principal_id,digest,generation,8,$4,clock_timestamp()+interval '45 seconds',2 from session
             """, sessionDigest, ArchiveAdministrator, proofDigest, intentDigest))
             Assert.Equal(1, await step.ExecuteNonQueryAsync(ct));
-        await InstanceLease.CommitProtected(tx, lease, ct);
         return proof;
     }
 
@@ -368,7 +394,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     private sealed record PlannedArticle(int Id, string Kind, int Category, int Tag, string Title, string Body,
         string ReplacementTitle, string ReplacementBody);
 
-    private sealed class PlanReader(FileStream stream)
+    private sealed class PlanReader(Stream stream)
     {
         private static readonly UTF8Encoding Utf8 = new(false, true);
         private readonly byte[] _buffer = new byte[64 * 1024];
