@@ -95,6 +95,18 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 使用 SQLite 3.54.0 旧结构样本、PostgreSQL 18.7 目标和 .NET SDK 10.0.404 跑通暂存、投影、重跑和不连接旧站的只读复验。测试拒绝错误摘要、相等或更改的核对时间、修改后的到期坐标和同名约束替换，旧样本文件保持原样。见 `artifacts/native-migration/legacy-schedule-projection-20261114T190232Z.log`。
 
+### 保全旧建文幂等回执
+
+`legacy import plan` 会在 PostgreSQL 旧源按固定结构读取非空的 `article_mutation_command`，最多 5,000 条。计划版本 2 绑定源表和候选表的精确行数和摘要。`apply` 在第三个检查点写入 `fsus_legacy_candidate.shadow_article_mutation_command`，保留旧管理员整数 ID、客户端 UUID 字符串、原请求 SHA-256、首次修订和权利快照、发布坐标以及原 UTC 创建时间。原始 v1 请求字节不在回执中，因此只保存摘要和验证格式。首次发布须和对应的历史发布精确匹配。创建时未发布的记录保留 `0/0` 发布坐标。先前发布或创作后续修订不会改写该回执。
+
+重跑重新读取旧源并核对原计划。`legacy import project` 或 `verify` 会复验候选回执数量和摘要，保留其隔离状态。新站运行用的 `article_command`、定时发布回执和 `blog_outbox` 不读取这些记录。旧授权证明和原请求不能从回执重建，不匹配首次版本或权利谱系的回执阻止暂存。新版 v1 `article_create_request` / `article_create_receipt`、文章出站事件及其边状态为不同权威来源，含记录时仍会阻止该候选的暂存。SQLite 与 MySQL 暂无这一回执表的获验历史注册，保留原计划版本 1 路径和未支持表门禁。
+
+固定 PostgreSQL 定义见 [回执迁移](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs#L15-L40)，运行时摘要写入见 [v1 命令服务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.cs#L986-L1012)。
+
+2026-11-15 在 PostgreSQL 18.7 使用固定回执 DDL 和合成旧数据，验证了版本 2 暂存、中断恢复、源摘要变化拒绝、原备份独立恢复和断开旧库后的只读投影校验。源或候选移除对应唯一性约束时均被拒绝。SQLite 3.54.0 与 MySQL 8.4.13 的版本 1 文章导入及 SQLite 旧源的定时、回滚和权利投影回归也通过。原始输出与输入摘要见 `artifacts/native-migration/legacy-create-command-20261114T194650Z.log`。
+
+旧出站事件由 `article_mutation_outbox` 主行与 `article_mutation_outbox_edge` 逐边记录共同描述。旧分派器在七个必需边为 `completed` 或 `skipped` 后才将主行标为 `processed`，并清空认领信息。通知和完整性证明属于可选边，核对时继续区分。后续可先保全这类已完成的主行与边、原始 JSON 和投递键。`pending`、`processing`、`poison` 则需要先排空或单独对账，迁移工具不能从旧回执判定下游已投递。有效的版本 2 草稿创建事件可无发布、版权和责任坐标。PostgreSQL 边表有可复用的固定历史 DDL，主表最终结构来自 v1 CodeFirst 实体及后续列迁移。冻结版本的 SQLite 与 MySQL 离线代表性源库注册不含这两个表。[完成条件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#L968-L998) · [草稿写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs#L195-L217) · [边表和认领迁移](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs#L345-L396)
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。

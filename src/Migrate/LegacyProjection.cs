@@ -20,11 +20,12 @@ internal static partial class Migration
         try
         {
             var plan = await ReadImportPlanAsync(planPath, ct);
-            if (plan.Version != ImportPlanVersion || plan.SourceReference != LegacyReference || !plan.ReadyToStage ||
+            if (plan.SourceReference != LegacyReference || !plan.ReadyToStage ||
                 plan.ReadyToApply || plan.Findings is not { Length: 0 } || plan.ExpectedTables is null ||
                 plan.SchemaVersion != CurrentSchema.Version || plan.SchemaSha256 != Digest(await SchemaSqlAsync(ct)) ||
                 plan.BackupManifestSha256 != backupDigest || CanonicalImportPlanDigest(plan) != planDigest)
                 throw new InvalidOperationException("The independently recorded staging plan and current schema must match exactly.");
+            var definitions = CandidateDefinitions(plan);
             var backup = await ReadLegacyImportBackupAsync(backupPath, backupDigest, ct);
             var settings = ParseImportTarget();
             await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -36,7 +37,7 @@ internal static partial class Migration
             await ExecuteAsync(target, tx, "SET LOCAL search_path TO pg_catalog", ct);
             await SetBackupRepresentationAsync(target, tx, ct);
 
-            bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, scheduleEvaluation.HasValue, ct);
+            bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, definitions, scheduleEvaluation.HasValue, ct);
             if (mode == "verify" && !already)
                 throw new InvalidOperationException("No sealed current-table projection exists.");
             await VerifyLegacyProjectionFactsAsync(target, tx, scheduleEvaluation.HasValue, ct);
@@ -73,6 +74,7 @@ internal static partial class Migration
                 readyToApply = false,
                 retainedLegacyPublicationRows = plan.ExpectedTables.Single(row => row.Table == "shadow_publication").Rows,
                 verifiedPublishedRollbackRows = verifiedRollbacks,
+                retainedLegacyCreateCommands = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyCreateCommandShadow.Name)?.Rows ?? 0,
                 retainedInitialSchedules = schedules.Length,
                 scheduleEvaluatedAtUtc = scheduleEvaluation,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",
@@ -95,7 +97,7 @@ internal static partial class Migration
     }
 
     private static async Task<bool> VerifyProjectionCandidateAsync(NpgsqlConnection target, NpgsqlTransaction tx, ImportPlan plan,
-        string planDigest, bool retainSchedules, CancellationToken token)
+        string planDigest, CandidateTable[] definitions, bool retainSchedules, CancellationToken token)
     {
         if (await ReadTargetAsync(target, tx, token) != plan.Target ||
             await CurrentSchema.ReadRecoverySiteIdAsync(target, tx, token) != plan.TargetSiteId)
@@ -114,10 +116,10 @@ internal static partial class Migration
         }
         await VerifyCandidateHeaderAsync(target, plan, planDigest, token, tx);
         var already = await HasRelation(target, tx, $"{ImportSchema}.{LegacyProjectionReceipt}", token);
-        await AssertCandidateRelationsAsync(target, StagingTables, token, tx, already, retainSchedules && already);
+        await AssertCandidateRelationsAsync(target, definitions, token, tx, already, retainSchedules && already);
         var expected = plan.ExpectedTables;
-        if (expected.Length != StagingTables.Length || !expected.Select(row => row.Table).ToHashSet()
-                .SetEquals(StagingTables.Select(table => table.Name)) ||
+        if (expected.Length != definitions.Length || !expected.Select(row => row.Table).ToHashSet()
+                .SetEquals(definitions.Select(table => table.Name)) ||
             expected.Any(row => row.Rows < 0 || !IsSha256(row.Sha256)))
             throw new InvalidOperationException("The staging plan does not define the complete verified projection.");
         await using (var check = new NpgsqlCommand($"SELECT phase,digest FROM {ImportSchema}.checkpoint ORDER BY phase", target, tx))
@@ -125,14 +127,14 @@ internal static partial class Migration
         {
             for (var phase = 1; phase <= 3; phase++)
             {
-                var stage = StagingTables.Where(table => table.Phase == phase).Select(table => table.Name).ToHashSet();
+                var stage = definitions.Where(table => table.Phase == phase).Select(table => table.Name).ToHashSet();
                 if (!await rows.ReadAsync(token) || rows.GetInt32(0) != phase ||
                     rows.GetString(1) != StagingCheckpointDigest(expected.Where(row => stage.Contains(row.Table))))
                     throw new InvalidOperationException("The staged candidate requires all original verified checkpoints.");
             }
             if (await rows.ReadAsync(token)) throw new InvalidOperationException("The staged candidate has an unregistered checkpoint.");
         }
-        foreach (var table in StagingTables)
+        foreach (var table in definitions)
             if (await MeasureCandidateTableAsync(target, tx, table, token) != expected.Single(row => row.Table == table.Name))
                 throw new InvalidOperationException($"Staged source has changed: {table.Name}.");
         return already;

@@ -39,7 +39,13 @@ internal static partial class Migration
         ReleaseCandidate(Responsibility, 3, "id")
     ]);
 
-    private static CandidateTable[] StagingTables => StagingDefinitions.Value;
+    private static CandidateTable[] CandidateDefinitions(ImportPlan plan) => plan.Version switch
+    {
+        ImportPlanVersion => StagingDefinitions.Value,
+        ImportPlanWithCreateCommandsVersion when plan.Provider == "postgres" && HasCompleteLegacyCommandPlan(plan) =>
+            [.. StagingDefinitions.Value, LegacyCreateCommandShadow],
+        _ => throw new InvalidOperationException("The legacy import plan version and provider do not support this projection.")
+    };
 
     private static CandidateTable Candidate(string name, int phase, string key, string fields) =>
         new(name, phase, key, fields.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
@@ -53,7 +59,7 @@ internal static partial class Migration
     private static async Task<StageResult[]> StageLegacyCandidateAsync(NpgsqlConnection target, LegacyShadow shadow,
         ImportPlan plan, string digest, bool quarantined, CancellationToken token)
     {
-        var definitions = StagingTables;
+        var definitions = CandidateDefinitions(plan);
         if (!quarantined) await BeginLegacyCandidateAsync(target, plan, digest, token);
         await VerifyCandidateHeaderAsync(target, plan, digest, token);
         await ValidateCommittedPhasePrefixAsync(target, definitions, token);
@@ -172,9 +178,12 @@ internal static partial class Migration
         var fields = table.Columns.Select(column => quote.QuoteIdentifier(column.Name)).ToArray();
         var types = table.Columns.Select(column => column.Kind == "TEXT" ? "text" : "bigint").ToArray();
         var fieldList = string.Join(", ", fields);
-        var declarations = string.Join(", ", fields.Zip(types, (field, type) => $"{field} {type}"));
+        bool isCommand = table == LegacyCreateCommandShadow;
+        var declarations = string.Join(", ", fields.Zip(types, (field, type) => $"{field} {type}" + (isCommand ? " NOT NULL" : "")));
+        var commandIdentity = isCommand ? ", UNIQUE (admin_principal_id,client_mutation_id)" : "";
         var pkFields = table.Key.Replace(" COLLATE BINARY", "", StringComparison.Ordinal);
-        await ExecuteAsync(target, tx, $"CREATE TABLE {ImportSchema}.{table.Name} ({declarations}, PRIMARY KEY ({pkFields}))", token);
+        await ExecuteAsync(target, tx,
+            $"CREATE TABLE {ImportSchema}.{table.Name} ({declarations}, PRIMARY KEY ({pkFields}){commandIdentity})", token);
 
         await using var command = shadow.CreateCommand();
         command.CommandText = $"SELECT {fieldList} FROM {table.Name} ORDER BY {table.Key}";
@@ -201,6 +210,8 @@ internal static partial class Migration
     private static async Task<ShadowCount> MeasureCandidateTableAsync(NpgsqlConnection target, NpgsqlTransaction tx,
         CandidateTable table, CancellationToken token)
     {
+        if (table == LegacyCreateCommandShadow && !await HasLegacyCreateCommandCatalogAsync(tx, ImportSchema, table.Name, token))
+            throw new InvalidOperationException($"Candidate table {table.Name} shape differs.");
         await using (var catalog = new NpgsqlCommand("""
             SELECT a.attname,t.typname
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace

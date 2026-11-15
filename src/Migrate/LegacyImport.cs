@@ -10,6 +10,7 @@ internal static partial class Migration
     private const string ImportSchema = "fsus_legacy_candidate";
     private const string ImportVariable = "FSUSBLOG_IMPORT_DB";
     private const int ImportPlanVersion = 1;
+    private const int ImportPlanWithCreateCommandsVersion = 2;
     private const int ImportQuarantineVersion = -1;
     private const long ImportBackupBytes = 1024L * 1024 * 1024;
 
@@ -79,9 +80,11 @@ internal static partial class Migration
         var audit = await AuditLegacyAsync(source, sourceTransaction, tables, plan: true, token);
         if (audit.Issues.Count != 0)
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
-        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, token);
+        var commands = await ReadLegacyCreateCommandsAsync(source, sourceTransaction, catalog, tables, principal, token);
+        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, token);
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
-        await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token);
+        await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
+            commands.Rows);
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -89,9 +92,12 @@ internal static partial class Migration
         await RequireBackupDatabaseLockAsync(target, token);
         var (identity, siteId, quarantined) = await ObserveLegacyTargetAsync(target, backup, shadow.Owners, token);
         var schemaDigest = Digest(await SchemaSqlAsync(token));
-        var plan = new ImportPlan(ImportPlanVersion, LegacyReference, provider, source.Schema, CurrentSchema.Version,
+        var sourceProjections = audit.Projections.ToArray();
+        if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
+        var plan = new ImportPlan(commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion,
+            LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
-            audit.Projections.ToArray(), shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0);
+            sourceProjections, shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -134,13 +140,15 @@ internal static partial class Migration
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
-        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, CancellationToken token)
+        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
+        CancellationToken token)
     {
         var found = new List<ImportFinding>();
+        if (commands.Finding is { } finding) found.Add(finding);
         foreach (var relation in catalog)
         {
             var name = relation.Name.ToLowerInvariant();
-            if (LegacyColumns.ContainsKey(name) || relation == principal) continue;
+            if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)
