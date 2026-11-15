@@ -208,6 +208,89 @@ public sealed partial class DocumentExportPostgresTests
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
     }
 
+    [PostgresFact]
+    public async Task WorkerRefusesSavedMetadataDriftAndRestartKeepsTheFailedAttempt()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await Login(db, new Store(fixture.DataSource), "Export retry witness", canAuthor: true, ct);
+        const string title = "Selected title";
+        const string body = "Frozen export witness.";
+        var failed = (byte)DocumentExportState.Failed;
+        var firstId = Guid.NewGuid();
+        Draft source;
+        Draft edited;
+        DateTimeOffset sourceTime;
+        byte[] firstRequest;
+        byte[] firstReceipt;
+        byte[] originalDigest;
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, Settings))
+        {
+            var client = server.Client;
+            source = await Save(client, owner, 0, 0, title, body, ct);
+            sourceTime = await SourceTime(db, source, ct);
+            firstRequest = Create(firstId, source.Id, source.Revision, source.Revision, 1);
+            await HoldClaim(db, firstId, ct);
+            try
+            {
+                var queued = await ReadTask(client, CreateRoute, owner, firstRequest, ct);
+                Assert.Equal(Queued, queued.State);
+                originalDigest = SourceDigest(queued, title, body, sourceTime);
+                Assert.Equal(originalDigest, queued.SourceDigest);
+                Assert.Equal(1, await Execute(db, """
+                    update public.article_revision set happened_at=happened_at+interval '1 minute'
+                    where article_id=$1 and revision=$2
+                    """, ct, source.Id, source.Revision));
+            }
+            finally { await ReleaseClaim(db, ct); }
+
+            var drifted = await AwaitTask(client, owner, source.Id, firstId, failed, ct);
+            Assert.Equal((byte)DocumentExportFailure.Unavailable, drifted.Failure);
+            Assert.Equal(originalDigest, drifted.SourceDigest);
+            AssertNoOutput(drifted);
+            await Reject(client, DownloadRoute, owner, Reference(firstId), HttpStatusCode.NotFound, ct);
+            firstReceipt = await ReadFrame(client, CreateRoute, owner, firstRequest, HttpStatusCode.OK, ct);
+            Assert.Equal(1, await Execute(db, """
+                update public.article_revision set happened_at=$1 where article_id=$2 and revision=$3
+                """, ct, sourceTime, source.Id, source.Revision));
+            edited = await Save(client, owner, source.Id, source.Revision, "Later private revision",
+                "![unsupported](https://export.invalid/saved.png)", ct);
+        }
+
+        await using var restarted = await ServerProcess.Start(fixture.ConnectionString, ct, Settings);
+        var resumed = restarted.Client;
+        Assert.Equal(firstReceipt, await ReadFrame(resumed, CreateRoute, owner, firstRequest, HttpStatusCode.OK, ct));
+        var nextId = Guid.NewGuid();
+        var next = await ReadTask(resumed, CreateRoute, owner, Create(nextId, edited.Id, edited.Revision, source.Revision, 1), ct);
+        AssertReceipt(next, nextId, edited, source.Revision, 1);
+        Assert.Equal(originalDigest, next.SourceDigest);
+        var succeeded = await AwaitTask(resumed, owner, source.Id, nextId, Succeeded, ct);
+        var html = Encoding.UTF8.GetString(await Download(resumed, owner, succeeded, "text/html", "article.html", ct));
+        Assert.Contains(body, html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Later private revision", html, StringComparison.Ordinal);
+
+        var unsupportedId = Guid.NewGuid();
+        var unsupportedRequest = Create(unsupportedId, edited.Id, edited.Revision, edited.Revision, 1);
+        await ReadTask(resumed, CreateRoute, owner, unsupportedRequest, ct);
+        var unsupported = await AwaitTask(resumed, owner, source.Id, unsupportedId, failed, ct);
+        Assert.Equal((byte)DocumentExportFailure.Unsupported, unsupported.Failure);
+        AssertNoOutput(unsupported);
+        await Reject(resumed, DownloadRoute, owner, Reference(unsupportedId), HttpStatusCode.NotFound, ct);
+        Assert.Equal(firstReceipt, await ReadFrame(resumed, CreateRoute, owner, firstRequest, HttpStatusCode.OK, ct));
+        Assert.Equal(failed, (await ReadTask(resumed, CreateRoute, owner, unsupportedRequest, ct)).State);
+        Assert.Equal(new[] { firstId, nextId, unsupportedId }.Order(),
+            (await List(resumed, owner, source.Id, ct)).Select(task => task.Id).Order());
+
+        static void AssertNoOutput(ExportTask task)
+        {
+            Assert.True(task.Started >= task.Created && task.Finished >= task.Started);
+            Assert.Equal(0, task.Length);
+            Assert.All(task.OutputDigest, value => Assert.Equal(0, value));
+        }
+    }
+
     private static async Task CancelOwnedQueuedTask(NpgsqlConnection db, HttpClient client, Actor owner, Draft current, long source, Guid id,
         CancellationToken ct)
     {
