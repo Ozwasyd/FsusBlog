@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -16,25 +14,8 @@ public sealed class PropertyBatchPostgresTests
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(db.DataSource);
-        var author = Guid.NewGuid();
-        var firstTicket = RandomNumberGenerator.GetBytes(32);
-        var secondTicket = RandomNumberGenerator.GetBytes(32);
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        {
-            await using var user = Store.Sql(connection, null, """
-                insert into public.blog_user(id,name,can_author,enabled,generation)
-                values($1,'Property batch author',true,true,1)
-                """, author);
-            await user.ExecuteNonQueryAsync(ct);
-            await using var tickets = Store.Sql(connection, null, """
-                insert into public.login_ticket(digest,user_id,expires_at)
-                values($1,$3,now()+interval '2 minute'),($2,$3,now()+interval '2 minute')
-                """, SHA256.HashData(firstTicket), SHA256.HashData(secondTicket), author);
-            await tickets.ExecuteNonQueryAsync(ct);
-        }
-
-        var session = (await store.SignIn(Convert.ToHexStringLower(firstTicket), ct)).Token;
-        var otherSession = (await store.SignIn(Convert.ToHexStringLower(secondTicket), ct)).Token;
+        var (author, session, _) = await db.SignIn("Property batch author", ct);
+        var (_, otherSession, _) = await db.SignIn(author, ct);
         var original = await Save(0, 0, "Original body");
         var draft = await Save(original.Id, original.Revision, "Updated body");
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
@@ -249,9 +230,7 @@ public sealed class PropertyBatchPostgresTests
 
         async Task<(HttpStatusCode Status, byte[] Bytes)> Post(string path, byte[] body, string token)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(body) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, body, token, null);
             using var response = await server.Client.SendAsync(request, ct);
             return (response.StatusCode, await response.Content.ReadAsByteArrayAsync(ct));
         }

@@ -1,11 +1,8 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 using Xunit.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -24,8 +21,8 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(db.DataSource);
         await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login("Property scale author");
-        var outsider = await Login("Property scale outsider");
+        var owner = await db.SignIn("Property scale author", ct);
+        var outsider = await db.SignIn("Property scale outsider", ct);
         await SeedArticles();
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         var policy = new ArticleRightsCommand(1, 1, Guid.NewGuid(), true, "CC0-1.0", "", 0, "", "", "disabled", 0, false, false, false);
@@ -149,7 +146,7 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
             return receipt.Revision;
         }
 
-        async Task<PropertyCommandReceipt> Change(PropertySchemaInput input, LoginHandle actor) =>
+        async Task<PropertyCommandReceipt> Change(PropertySchemaInput input, (Guid Id, string Token, string Handle) actor) =>
             Wire.DecodePropertyCommandReceipt(await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(input), actor));
 
         async Task<AuthorTextPropertySortPage> ReadSorted(AuthorTextPropertySortQuery input) =>
@@ -169,24 +166,9 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
             Assert.Equal(matchingIds.Count(id => id % 5 is 1 or 2), counts[blue.Id]);
         }
 
-        async Task<LoginHandle> Login(string name)
+        async Task<byte[]> Send(string path, byte[] packet, (Guid Id, string Token, string Handle) actor, HttpStatusCode expected = HttpStatusCode.OK)
         {
-            var id = Guid.NewGuid();
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using (var account = Store.Sql(conn, null, "insert into public.blog_user values($1,$2,true,true,1)", id, name))
-                await account.ExecuteNonQueryAsync(ct);
-            await using (var ticket = Store.Sql(conn, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(key), id))
-                await ticket.ExecuteNonQueryAsync(ct);
-            var token = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-            return new(id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
-        }
-
-        async Task<byte[]> Send(string path, byte[] packet, LoginHandle actor, HttpStatusCode expected = HttpStatusCode.OK)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(packet) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-            request.Headers.Add(WireHeaders.CurrentSession, actor.Session);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, packet, actor.Token, actor.Handle);
             using var response = await server.Client.SendAsync(request, ct);
             var body = await response.Content.ReadAsByteArrayAsync(ct);
             Assert.True(response.StatusCode == expected, $"{path}: expected {(int)expected}, got {(int)response.StatusCode}");
@@ -246,6 +228,4 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
             await tx.CommitAsync(ct);
         }
     }
-
-    private sealed record LoginHandle(Guid Id, string Token, string Session);
 }

@@ -1,12 +1,10 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 using ArticleScheduleStore = FsusBlog.V2.Server.Authoring.ArticleScheduleStore;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -247,20 +245,8 @@ public sealed class AuthorTextSearchPostgresTests
         Task<byte[]> SendFaceted(string query, string cursor, Actor actor, HttpStatusCode expected) =>
             SendFrame(Wire.EncodeAuthorTextFacetedQuery(new(query, cursor)), actor, expected);
 
-        async Task<byte[]> SendFrame(byte[] frame, Actor actor, HttpStatusCode expected)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.AuthorTextSearch)
-            {
-                Content = new ByteArrayContent(frame),
-            };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", "fsus-v2-session=" + actor.Token);
-            if (actor.Handle is not null) request.Headers.Add(WireHeaders.CurrentSession, actor.Handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> SendFrame(byte[] frame, Actor actor, HttpStatusCode expected) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, WireRoutes.AuthorTextSearch, frame, actor.Token, actor.Handle, expected, ct);
 
         async Task<long> IndexedCount(Guid id)
         {
@@ -271,23 +257,14 @@ public sealed class AuthorTextSearchPostgresTests
 
         async Task<Actor> Login(string name, bool canAuthor)
         {
-            var id = Guid.NewGuid();
-            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using (var account = Store.Sql(conn, null, """
-                insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)
-                """, id, name, canAuthor))
-                await account.ExecuteNonQueryAsync(ct);
-            return await Session(id);
+            var (id, token, handle) = await db.SignIn(name, ct, canAuthor);
+            return new(id, token, handle);
         }
 
         async Task<Actor> Session(Guid id)
         {
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using (var ticket = Store.Sql(conn, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(key), id))
-                await ticket.ExecuteNonQueryAsync(ct);
-            var token = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-            return new(id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+            var (_, token, handle) = await db.SignIn(id, ct);
+            return new(id, token, handle);
         }
     }
 

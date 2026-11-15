@@ -1,10 +1,7 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -17,10 +14,8 @@ public sealed class PropertyQueryPostgresTests
         var ct = stop.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(db.DataSource);
-        var owner = await SignIn("First owner");
-        var outsider = await SignIn("Second owner");
-        var ownerId = await store.WithSession(owner, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
-        var handle = SiteSessions.Id(ownerId, Store.TokenDigest(owner)!);
+        var (ownerId, owner, handle) = await db.SignIn("First owner", ct);
+        var (_, outsider, outsiderHandle) = await db.SignIn("Second owner", ct);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         const string matchText = "C12%_Needle";
         const string keyword = "c12%_needle";
@@ -166,7 +161,7 @@ public sealed class PropertyQueryPostgresTests
         await Group([Present(1)], groupPage.NextCursor, HttpStatusCode.BadRequest);
         await Group([lower, upper with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
         await Group([lower with { DefinitionId = fields[2] }], status: HttpStatusCode.BadRequest);
-        var anotherOwnerSession = await Ticket(ownerId);
+        var (_, anotherOwnerSession, peerHandle) = await db.SignIn(ownerId, ct);
         var groupContinuation = Wire.EncodePropertyArticleQueryGroup(new(schema, [lower, upper], groupPage.NextCursor));
         await Send(WireRoutes.PropertyArticleQuery, groupContinuation, anotherOwnerSession, HttpStatusCode.BadRequest);
         await Send(WireRoutes.PropertyArticleQuery, groupContinuation, null, HttpStatusCode.Unauthorized);
@@ -177,7 +172,6 @@ public sealed class PropertyQueryPostgresTests
         var save = new SavedViewCommand(SavedViewAction.Save, viewId, 0, 0, Guid.NewGuid(), "  Re\u0301vision  ",
             new(schema, [upper, lower], ""));
         var packet = Wire.EncodeSavedViewCommand(save);
-        var peerHandle = SiteSessions.Id(ownerId, Store.TokenDigest(anotherOwnerSession)!);
         await Qualified(scoreContinuation, HttpStatusCode.Conflict, anotherOwnerSession, peerHandle);
         var firstSave = await Saved(WireRoutes.SavedViews, packet);
         Assert.Equal(firstSave, await Saved(WireRoutes.SavedViews, packet));
@@ -194,8 +188,6 @@ public sealed class PropertyQueryPostgresTests
         await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.BadRequest, anotherOwnerSession, peerHandle);
         await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict, anotherOwnerSession, handle);
         await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(viewId, 1, groupPage.NextCursor)), HttpStatusCode.BadRequest);
-        var outsiderId = await store.WithSession(outsider, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
-        var outsiderHandle = SiteSessions.Id(outsiderId, Store.TokenDigest(outsider)!);
         await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.NotFound, outsider, outsiderHandle);
         Assert.Empty(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews, session: outsider, sessionId: outsiderHandle)).Views);
         Assert.Equal(primary.Id, Assert.Single(Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, continuation)).Rows).Id);
@@ -553,22 +545,6 @@ public sealed class PropertyQueryPostgresTests
         async Task<ArticleState> Publication(ArticleState article, ArticleAction action, string token) =>
             (await store.WithSession(token, true, (c, t, a) => Store.Execute(c, t, a, action,
                 new(article.Id, article.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;
-        async Task<string> SignIn(string name)
-        {
-            var id = Guid.NewGuid();
-            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using (var create = Store.Sql(conn, null, "insert into public.blog_user values($1,$2,true,true,1)", id, name))
-                await create.ExecuteNonQueryAsync(ct);
-            return await Ticket(id);
-        }
-        async Task<string> Ticket(Guid id)
-        {
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using var ticket = Store.Sql(conn, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(key), id);
-            await ticket.ExecuteNonQueryAsync(ct);
-            return (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-        }
         async Task<byte[]> Send(string route, byte[]? packet, string? session, HttpStatusCode status = HttpStatusCode.OK, string? sessionId = null)
         {
             var response = await Response(route, packet, session, sessionId);
@@ -577,14 +553,7 @@ public sealed class PropertyQueryPostgresTests
         }
         async Task<(HttpStatusCode Status, byte[] Body)> Response(string route, byte[]? packet, string? session, string? sessionId)
         {
-            using var request = new HttpRequestMessage(packet is null ? HttpMethod.Get : HttpMethod.Post, route);
-            if (packet is not null)
-            {
-                request.Content = new ByteArrayContent(packet);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            if (session is not null) request.Headers.Add("Cookie", $"fsus-v2-session={session}");
-            if (sessionId is not null) request.Headers.Add(WireHeaders.CurrentSession, sessionId);
+            using var request = SiteAedsFixture.Request(packet is null ? HttpMethod.Get : HttpMethod.Post, route, packet, session, sessionId);
             using var result = await server.Client.SendAsync(request, ct);
             Assert.True(result.Headers.CacheControl?.NoStore);
             return (result.StatusCode, await result.Content.ReadAsByteArrayAsync(ct));

@@ -1,12 +1,10 @@
 using System.Buffers.Binary;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -225,36 +223,17 @@ public sealed class ArticleSummaryPostgresTests
             throw new InvalidOperationException($"Published index never returned the expected summary {present}.");
         }
 
-        async Task<byte[]> Send(HttpMethod method, string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
+        Task<byte[]> Send(HttpMethod method, string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             Actor? caller = null)
         {
             caller ??= owner;
-            using var request = new HttpRequestMessage(method, route);
-            if (frame is not null)
-            {
-                request.Content = new ByteArrayContent(frame);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            request.Headers.Add("Cookie", $"fsus-v2-session={caller.Token}");
-            if (caller.Handle is not null) request.Headers.Add(WireHeaders.CurrentSession, caller.Handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
+            return SiteAedsFixture.ExpectPrivate(server.Client, method, route, frame, caller.Token, caller.Handle, status, ct);
         }
 
         async Task<Actor> SignIn(string name)
         {
-            var id = Guid.NewGuid();
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var seed = Store.Sql(connection, null, """
-                with owner as (insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1) returning id)
-                insert into public.login_ticket(digest,user_id,expires_at) select $3,id,now()+interval '2 minutes' from owner
-                """, id, name, SHA256.HashData(key));
-            await seed.ExecuteNonQueryAsync(ct);
-            var token = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-            return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+            var (_, token, handle) = await db.SignIn(name, ct);
+            return new(token, handle);
         }
     }
 

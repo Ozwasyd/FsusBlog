@@ -1,12 +1,9 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Authoring;
-using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -19,9 +16,9 @@ public sealed class PropertySnapshotPostgresTests
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(db.DataSource);
-        var owner = await Login("Property snapshot owner");
-        var secondSession = await Login("Property snapshot owner", owner.Id);
-        var outsider = await Login("Property snapshot outsider");
+        var owner = await db.SignIn("Property snapshot owner", ct);
+        var secondSession = await db.SignIn(owner.Id, ct);
+        var outsider = await db.SignIn("Property snapshot outsider", ct);
 
         const string OriginalText = "snapshot-private-original-raw";
         const string PublishedText = "snapshot-private-published-raw";
@@ -214,24 +211,6 @@ public sealed class PropertySnapshotPostgresTests
         static (int, long, long, long) Coordinates(PropertyEditorWorkspace snapshot) =>
             (snapshot.ArticleId, snapshot.ArticleRevision, snapshot.SchemaRevision, snapshot.ValueRevision);
 
-        async Task<(Guid Id, string Token, string Handle)> Login(string name, Guid? existing = null)
-        {
-            var user = existing ?? Guid.NewGuid();
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            if (existing is null)
-            {
-                await using var insert = Store.Sql(connection, null,
-                    "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", user, name);
-                await insert.ExecuteNonQueryAsync(ct);
-            }
-            await using var ticket = Store.Sql(connection, null,
-                "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minute')", SHA256.HashData(key), user);
-            await ticket.ExecuteNonQueryAsync(ct);
-            var token = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-            return (user, token, SiteSessions.Id(user, Store.TokenDigest(token)!));
-        }
-
         async Task<int> InsertUncapturedRevision(Guid user)
         {
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
@@ -272,17 +251,7 @@ public sealed class PropertySnapshotPostgresTests
         async Task<byte[]> Request(HttpMethod method, string path, (Guid Id, string Token, string Handle)? session,
             byte[]? bytes = null, HttpStatusCode status = HttpStatusCode.OK)
         {
-            using var request = new HttpRequestMessage(method, path);
-            if (bytes is not null)
-            {
-                request.Content = new ByteArrayContent(bytes);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            if (session is { } current)
-            {
-                request.Headers.Add("Cookie", $"fsus-v2-session={current.Token}");
-                request.Headers.Add(WireHeaders.CurrentSession, current.Handle);
-            }
+            using var request = SiteAedsFixture.Request(method, path, bytes, session?.Token, session?.Handle);
             using var response = await client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);

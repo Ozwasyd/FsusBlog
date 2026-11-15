@@ -172,33 +172,14 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
 
     private static async Task<HttpStatusCode> WriteStatus(HttpClient client, string route, Credential credentials, byte[] payload, CancellationToken ct)
     {
-        using var request = Request(HttpMethod.Post, route, credentials, payload);
+        using var request = SiteAedsFixture.Request(HttpMethod.Post, route, payload, credentials.Token, credentials.Handle);
         using var response = await client.SendAsync(request, ct);
         return response.StatusCode;
     }
 
-    private static async Task<byte[]> Send(HttpClient client, HttpMethod method, string route, Credential credentials, byte[]? payload,
-        HttpStatusCode status, CancellationToken ct)
-    {
-        using var request = Request(method, route, credentials, payload);
-        using var response = await client.SendAsync(request, ct);
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        return await response.Content.ReadAsByteArrayAsync(ct);
-    }
-
-    private static HttpRequestMessage Request(HttpMethod method, string route, Credential credentials, byte[]? payload)
-    {
-        var request = new HttpRequestMessage(method, route);
-        request.Headers.Add("Cookie", $"fsus-v2-session={credentials.Token}");
-        request.Headers.Add(WireHeaders.CurrentSession, credentials.Handle);
-        if (payload is not null)
-        {
-            request.Content = new ByteArrayContent(payload);
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-        }
-        return request;
-    }
+    private static Task<byte[]> Send(HttpClient client, HttpMethod method, string route, Credential credentials, byte[]? payload,
+        HttpStatusCode status, CancellationToken ct) =>
+        SiteAedsFixture.ExpectPrivate(client, method, route, payload, credentials.Token, credentials.Handle, status, ct);
 
     private sealed record Credential(string Token, string Handle);
 }

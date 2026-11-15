@@ -1,11 +1,9 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 using AuthorTextRebuildProfile = FsusBlog.V2.Server.Authoring.AuthorTextRebuildProfile;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -394,30 +392,13 @@ public sealed class AuthorTextPropertyTextPostgresTests
         Task<byte[]> ReadHit(PropertyTextHitRequest request, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
             Send(WireRoutes.PropertyEditor, Wire.EncodePropertyTextHitRequest(request), actor, status);
 
-        async Task<byte[]> Send(string route, byte[] data, Actor actor, HttpStatusCode status = HttpStatusCode.OK)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = new ByteArrayContent(data) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-            request.Headers.Add(WireHeaders.CurrentSession, actor.Handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Send(string route, byte[] data, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, route, data, actor.Token, actor.Handle, status, ct);
 
         async Task<Actor> Login(string name)
         {
-            var id = Guid.NewGuid();
-            var key = RandomNumberGenerator.GetBytes(32);
-            await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using (var user = Store.Sql(conn, null, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", id, name))
-                await user.ExecuteNonQueryAsync(ct);
-            await using (var ticket = Store.Sql(conn, null, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-                SHA256.HashData(key), id))
-                await ticket.ExecuteNonQueryAsync(ct);
-            var token = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
-            return new(id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+            var (id, token, handle) = await fixture.SignIn(name, ct);
+            return new(id, token, handle);
         }
 
         async Task<Field> Create(Actor actor, string key, PropertyFieldKind kind, Guid? id = null)

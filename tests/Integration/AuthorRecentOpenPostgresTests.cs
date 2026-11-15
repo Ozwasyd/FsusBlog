@@ -141,14 +141,7 @@ public sealed class AuthorRecentOpenPostgresTests
 
         async Task<HttpResponseMessage> Send(HttpMethod method, string path, Credential user, byte[]? frame = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            request.Headers.Add("Cookie", $"fsus-v2-session={user.Token}");
-            request.Headers.Add(WireHeaders.CurrentSession, user.Handle);
-            if (frame is not null)
-            {
-                request.Content = new ByteArrayContent(frame);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, path, frame, user.Token, user.Handle);
             return await server.Client.SendAsync(request, ct);
         }
     }

@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -11,6 +14,29 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     private readonly string _maintenanceConnectionString;
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
+
+    internal async Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct, bool canAuthor = true)
+    {
+        var id = Guid.NewGuid();
+        await using (var connection = await DataSource.OpenConnectionAsync(ct))
+        await using (var account = Store.Sql(connection, null, """
+            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)
+            """, id, name, canAuthor))
+            await account.ExecuteNonQueryAsync(ct);
+        return await SignIn(id, ct);
+    }
+
+    internal async Task<(Guid Id, string Token, string Handle)> SignIn(Guid id, CancellationToken ct)
+    {
+        var key = RandomNumberGenerator.GetBytes(32);
+        await using (var connection = await DataSource.OpenConnectionAsync(ct))
+        await using (var ticket = Store.Sql(connection, null, """
+            insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')
+            """, SHA256.HashData(key), id))
+            await ticket.ExecuteNonQueryAsync(ct);
+        var token = (await new Store(DataSource).SignIn(Convert.ToHexStringLower(key), ct)).Token;
+        return (id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+    }
 
     private ScratchDatabase(string maintenanceConnectionString, string database)
     {
