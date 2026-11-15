@@ -22,19 +22,34 @@ export async function readMarkdownDownload(page, button, body) {
   return { title: JSON.parse(title.slice('title: '.length)), revision: BigInt(revision.slice('revision: '.length)) }
 }
 
-export async function readWordDownload(page, button) {
-  const attachment = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/export.docx'))
+async function readPackageDownload(page, button, format, type) {
+  const attachment = page.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/export.${format}`))
   const download = page.waitForEvent('download')
   await button.click()
   const response = await attachment
   assert.equal(response.status(), 200)
-  assert.equal(response.headers()['content-type'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  assert.equal(response.headers()['content-type'], type)
   assert.equal(response.headers()['cache-control'], 'private, no-store')
   const result = await download
-  assert.equal(result.suggestedFilename(), 'article.docx')
+  assert.equal(result.suggestedFilename(), `article.${format}`)
   const actual = await readFile(await result.path())
   assert.deepEqual(actual, await response.body())
   assert.deepEqual(actual.subarray(0, 4), Buffer.from([0x50, 0x4b, 0x03, 0x04]))
+  return { result, actual }
+}
+
+export async function readWordDownload(page, button) {
+  const { result } = await readPackageDownload(
+    page, button, 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  return result
+}
+
+export async function readEpubDownload(page, button) {
+  const { result, actual } = await readPackageDownload(page, button, 'epub', 'application/epub+zip')
+  assert.equal(actual.readUInt16LE(8), 0)
+  assert.equal(actual.readUInt16LE(26), 8)
+  assert.equal(actual.readUInt16LE(28), 0)
+  assert.equal(actual.subarray(30, 58).toString('ascii'), 'mimetypeapplication/epub+zip')
   return result
 }
 

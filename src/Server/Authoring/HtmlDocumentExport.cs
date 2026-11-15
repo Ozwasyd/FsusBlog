@@ -19,17 +19,7 @@ internal static class HtmlDocumentExport
 
     internal static byte[] Write(string title, string body, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested();
-        if (Encoding.UTF8.GetByteCount(title) > WireLimits.TitleBytes || Encoding.UTF8.GetByteCount(body) > WireLimits.BodyBytes)
-            throw TooLarge();
-
-        var document = PublicArticleHtml.ParseMarkdown(body);
-        if (document.Descendants<MarkdownObject>().Any(node => node is LinkInline or AutolinkInline or LinkReferenceDefinitionGroup ||
-            node is FencedCodeBlock { Info: { } info } && RenderedFences.Contains(info)))
-            throw new BusinessException(Rejection.Invalid,
-                "Offline HTML supports basic text Markdown without links, images, or render directives.");
-
-        ct.ThrowIfCancellationRequested();
+        var content = RenderBody(title, body, "HTML", ct);
         var heading = HtmlEncoder.Default.Encode(title);
         var html = $"""
             <!doctype html>
@@ -41,14 +31,30 @@ internal static class HtmlDocumentExport
             <title>{heading}</title>
             </head>
             <body><main><article dir="auto"><h1>{heading}</h1>
-            {PublicArticleHtml.RenderMarkdown(document)}
+            {content}
             </article></main></body>
             </html>
             """;
         ct.ThrowIfCancellationRequested();
-        if (Encoding.UTF8.GetByteCount(html) > MaximumOutput) throw TooLarge();
+        if (Encoding.UTF8.GetByteCount(html) > MaximumOutput) throw TooLarge("HTML");
         return Encoding.UTF8.GetBytes(html);
     }
 
-    private static BusinessException TooLarge() => new(Rejection.Invalid, "This revision exceeds the offline HTML size limit.");
+    internal static string RenderBody(string title, string body, string format, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (Encoding.UTF8.GetByteCount(title) > WireLimits.TitleBytes || Encoding.UTF8.GetByteCount(body) > WireLimits.BodyBytes)
+            throw TooLarge(format);
+
+        var document = PublicArticleHtml.ParseMarkdown(body);
+        if (document.Descendants<MarkdownObject>().Any(node => node is LinkInline or AutolinkInline or LinkReferenceDefinitionGroup ||
+            node is FencedCodeBlock { Info: { } info } && RenderedFences.Contains(info)))
+            throw new BusinessException(Rejection.Invalid,
+                $"Offline {format} supports basic text Markdown without links, images, or render directives.");
+
+        ct.ThrowIfCancellationRequested();
+        return PublicArticleHtml.RenderMarkdown(document);
+    }
+
+    internal static BusinessException TooLarge(string format) => new(Rejection.Invalid, $"This revision exceeds the offline {format} size limit.");
 }

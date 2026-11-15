@@ -19,7 +19,7 @@ import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { exercisePropertyFilter } from './property-filter-flow.mjs'
-import { readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { readEpubDownload, readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -190,9 +190,13 @@ try {
   const wordExport = await readWordDownload(publisher, button(publisher, 'Download saved Word'))
   if (process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)
     await wordExport.saveAs(process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)
+  const epub = await readEpubDownload(publisher, button(publisher, 'Download saved EPUB'))
+  if (process.env.FSUSBLOG_TEST_EPUB_FIXTURE)
+    await epub.saveAs(process.env.FSUSBLOG_TEST_EPUB_FIXTURE)
   await verifyOfflineHtmlDownload(publisher, button(publisher, 'Download saved HTML'), title, bodyTerm)
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
   observations.push('The saved editor downloads byte-exact Markdown and an HTML attachment that renders offline without resource requests.')
+  observations.push('The saved editor downloads an EPUB whose bytes and first uncompressed mimetype entry match the private attachment.')
   assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))
   await screen(publisher, 'editor-desktop')
   observations.push('Login, draft navigation protection, durable save, and unpublished omission from index.')

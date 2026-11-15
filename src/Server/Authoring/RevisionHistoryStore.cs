@@ -32,16 +32,16 @@ internal static class RevisionHistoryStore
         return published;
     }
 
-    internal static async Task<(string Title, string Body)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,
+    internal static async Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,
         int id, long revision, CancellationToken ct)
     {
         await using var read = Store.Sql(db, tx, """
-            select title,body from public.article_revision where article_id=$1 and revision=$2
+            select title,body,happened_at from public.article_revision where article_id=$1 and revision=$2
             """, id, revision);
         await using var row = await read.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct))
             throw new BusinessException(Rejection.NotFound, "Article revision not found.");
-        return (row.GetString(0), row.GetString(1));
+        return (row.GetString(0), row.GetString(1), row.GetFieldValue<DateTimeOffset>(2));
     }
 
     internal static async Task<List<RevisionHistoryItem>> Read(NpgsqlConnection db, NpgsqlTransaction tx, int id,

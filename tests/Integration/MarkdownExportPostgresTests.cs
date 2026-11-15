@@ -112,9 +112,27 @@ public sealed class MarkdownExportPostgresTests
         await ReadHtml(html, reader, HttpStatusCode.Forbidden);
         await ReadHtml(PathFor(older, older.Revision, "html"), owner, HttpStatusCode.Conflict);
         await ReadHtml(html + "&revision=2", owner, HttpStatusCode.BadRequest);
+        var epub = PathFor(current, older.Revision, "epub");
+        var savedEpub = await ReadEpub(epub, owner, HttpStatusCode.OK);
+        await using (var modification = Store.Sql(db, null, """
+            select to_char(happened_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')
+            from public.article_revision where article_id=$1 and revision=$2
+            """, older.Id, older.Revision))
+        {
+            var modified = Assert.IsType<string>(await modification.ExecuteScalarAsync(ct));
+            var chapter = EpubDocumentExportTests.AssertFile(savedEpub, olderTitle, modified);
+            Assert.Contains("No trailing newline", chapter.Root!.Value, StringComparison.Ordinal);
+            Assert.DoesNotContain(currentTitle, chapter.Root.Value, StringComparison.Ordinal);
+        }
+        Assert.Equal(savedEpub, await ReadEpub(epub, owner, HttpStatusCode.OK));
+        await ReadEpub(epub, null, HttpStatusCode.Unauthorized);
+        await ReadEpub(epub, outsider, HttpStatusCode.NotFound);
+        await ReadEpub(epub, reader, HttpStatusCode.Forbidden);
+        await ReadEpub(PathFor(older, older.Revision, "epub"), owner, HttpStatusCode.Conflict);
         var sourceWithLink = await Save(0, 0, "Unexportable image", "![External](https://export.invalid/no)");
         var linkedHtml = PathFor(sourceWithLink, sourceWithLink.Revision, "html");
         await ReadHtml(linkedHtml, owner, HttpStatusCode.BadRequest, "Offline HTML supports basic text Markdown");
+        await ReadEpub(PathFor(sourceWithLink, sourceWithLink.Revision, "epub"), owner, HttpStatusCode.BadRequest);
         await Read(export, null, HttpStatusCode.Unauthorized);
         await Read(export, outsider, HttpStatusCode.NotFound);
         await Read(export, reader, HttpStatusCode.Forbidden);
@@ -139,11 +157,37 @@ public sealed class MarkdownExportPostgresTests
         await Read(export, owner, HttpStatusCode.NotFound);
         await ReadWord(word, owner, HttpStatusCode.NotFound);
         await ReadHtml(html, owner, HttpStatusCode.NotFound);
+        await ReadEpub(epub, owner, HttpStatusCode.NotFound);
 
         await Command("delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await Read(export, owner, HttpStatusCode.Unauthorized);
         await ReadWord(word, owner, HttpStatusCode.Unauthorized);
         await ReadHtml(linkedHtml, owner, HttpStatusCode.Unauthorized);
+
+        async Task<byte[]> ReadEpub(string path, string? token, HttpStatusCode status)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            if (status == HttpStatusCode.OK)
+            {
+                Assert.True(response.Headers.CacheControl?.Private);
+                Assert.Equal("application/epub+zip", response.Content.Headers.ContentType?.MediaType);
+                Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+                Assert.Equal("article.epub", response.Content.Headers.ContentDisposition?.FileNameStar);
+                Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+            }
+            else
+            {
+                Assert.Null(response.Content.Headers.ContentDisposition);
+                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                Assert.DoesNotContain("https://export.invalid/no", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+            }
+            return bytes;
+        }
 
         async Task<string> ReadHtml(string path, string? token, HttpStatusCode status, string? error = null)
         {

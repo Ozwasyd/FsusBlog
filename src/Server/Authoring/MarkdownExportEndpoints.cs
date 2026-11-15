@@ -15,13 +15,15 @@ internal static class MarkdownExportEndpoints
 
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
     {
-        Attach(Route, ContentType, DownloadName, (title, body, revision, _) => Encode(title, body, revision));
+        Attach(Route, ContentType, DownloadName, (title, body, revision, _, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
-            (title, body, _, ct) => WordDocumentExport.Write(title, body, ct));
+            (title, body, _, _, ct) => WordDocumentExport.Write(title, body, ct));
         Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
-            (title, body, _, ct) => HtmlDocumentExport.Write(title, body, ct), HtmlDocumentExport.ResponsePolicy);
+            (title, body, _, _, ct) => HtmlDocumentExport.Write(title, body, ct), HtmlDocumentExport.ResponsePolicy);
+        Attach("/api/v2/authoring/draft/{id:int}/export.epub", EpubDocumentExport.ContentType, "article.epub",
+            (title, body, _, happenedAt, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct));
 
-        void Attach(string route, string mediaType, string filename, Func<string, string, long, CancellationToken, byte[]> render,
+        void Attach(string route, string mediaType, string filename, Func<string, string, long, DateTimeOffset, CancellationToken, byte[]> render,
             string? contentSecurityPolicy = null)
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
@@ -34,8 +36,8 @@ internal static class MarkdownExportEndpoints
                 var document = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 {
                     await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-                    var (title, body) = await RevisionHistoryStore.ReadSource(db, tx, id, selected, ct);
-                    return render(title, body, selected, ct);
+                    var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, id, selected, ct);
+                    return render(title, body, selected, happenedAt, ct);
                 }, ct);
                 ct.ThrowIfCancellationRequested();
                 ctx.Response.Headers.CacheControl = "private, no-store";

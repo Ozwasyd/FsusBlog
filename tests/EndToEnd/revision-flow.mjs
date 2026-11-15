@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { readEpubDownload, readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations }) {
   const currentBody = `${originalBody}\nNewer saved revision.`
@@ -58,6 +58,7 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await comparison.getByRole('button', { name: 'Download revision Markdown' }).click({ trial: true })
   await verifyOfflineHtmlDownload(page, comparison.getByRole('button', { name: 'Download revision HTML', exact: true }),
     savedBefore.title, 'Draft milestone', 'Newer saved revision.')
+  await readEpubDownload(page, comparison.getByRole('button', { name: 'Download revision EPUB', exact: true }))
   await screenshot(page, 'editor-revision-comparison-mobile')
   await page.setViewportSize(wide)
 

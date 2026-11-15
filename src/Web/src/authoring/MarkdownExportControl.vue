@@ -10,7 +10,7 @@ const props = withDefaults(defineProps<{ article: number; revision: bigint; sele
 })
 const failure = ref('')
 const loading = ref(false)
-const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML' }
+const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML', epub: 'EPUB' }
 let request: AbortController | undefined
 
 function reset() {
@@ -51,6 +51,8 @@ async function download() {
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
     else if (format === 'html' && error instanceof ApiError && error.status === 400)
       failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
+    else if (format === 'epub' && error instanceof ApiError && error.status === 400)
+      failure.value = 'EPUB requires a title and basic text Markdown without links, images, or render directives. It must fit within 2 MiB.'
     else failure.value = `Could not download ${formatLabels[format]}. Try again.`
   } finally {
     if (request === controller) {
