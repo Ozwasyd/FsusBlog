@@ -128,6 +128,47 @@ pg_dump --no-password --format=custom --dbname "$source_db" --file "$scratch/bac
 pg_restore --no-password --single-transaction --exit-on-error --dbname "$restore_db" "$scratch/backup.dump"
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 
+# Only the approved-only and pending-capable previous-status checks are recognized.
+edit_status_check="SELECT pg_catalog.pg_get_constraintdef(oid, true) FROM pg_catalog.pg_constraint
+    WHERE conrelid='public.comment_author_edited'::regclass AND conname='comment_author_edited_previous_status_check'"
+[[ "$("${psql_restore[@]}" -qAtc "$edit_status_check")" == 'CHECK (previous_status >= 0 AND previous_status <= 1)' ]]
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_author_edited DROP CONSTRAINT comment_author_edited_previous_status_check,
+    ADD CONSTRAINT comment_author_edited_previous_status_check CHECK (previous_status >= 0 AND previous_status <= 3)'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${migrate[@]}" comment author-edit-schema
+[[ "$("${psql_restore[@]}" -qAtc "$edit_status_check")" == 'CHECK (previous_status >= 0 AND previous_status <= 3)' ]]
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_author_edited DROP CONSTRAINT comment_author_edited_previous_status_check,
+    ADD CONSTRAINT comment_author_edited_previous_status_check CHECK (previous_status = 1)'
+# A prior approved edit remains byte-identical when its constraint is widened.
+"${psql_restore[@]}" <<'SQL'
+BEGIN;
+INSERT INTO public.comment (article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,
+    display_name,display_language,created_at,edited_at,moderation_version)
+    SELECT id,7061,7061,0,0,false,'After edit',3,'Migration fixture','en',now(),now(),3 FROM public.article;
+INSERT INTO public.comment_account_owner (article_id,comment_id,user_id)
+    SELECT id,7061,owner_id FROM public.article;
+INSERT INTO public.comment_author_edited (article_id,comment_id,user_id,comment_version,previous_version,
+    previous_status,moderation_status,previous_body,body,previous_body_digest,body_digest,happened_at)
+    SELECT article_id,comment_id,user_id,3,2,1,0,'Before edit','After edit',
+        pg_catalog.sha256(convert_to('Before edit','UTF8')),pg_catalog.sha256(convert_to('After edit','UTF8')),now()
+    FROM public.comment_account_owner WHERE comment_id=7061;
+INSERT INTO public.comment_author_edit_outbox (article_id,comment_id,comment_version,event_type)
+    SELECT article_id,comment_id,comment_version,'CommentEdited' FROM public.comment_author_edited WHERE comment_id=7061;
+COMMIT;
+SQL
+edit_witness="SELECT jsonb_build_array(to_jsonb(e), to_jsonb(o)) FROM public.comment_author_edited e
+    JOIN public.comment_author_edit_outbox o USING (article_id,comment_id,comment_version) WHERE e.comment_id=7061"
+retained_edit=$("${psql_restore[@]}" -qAtc "$edit_witness")
+[[ -n "$retained_edit" ]]
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment author-edit-schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment author-edit-schema
+[[ "$("${psql_restore[@]}" -qAtc "$edit_status_check")" == 'CHECK (previous_status >= 0 AND previous_status <= 1)' ]]
+[[ "$("${psql_restore[@]}" -qAtc "$edit_witness")" == "$retained_edit" ]]
+"${psql_restore[@]}" -c 'DELETE FROM public.comment_author_edit_outbox WHERE comment_id=7061;
+    DELETE FROM public.comment_author_edited WHERE comment_id=7061;
+    DELETE FROM public.comment_account_owner WHERE comment_id=7061;
+    DELETE FROM public.comment WHERE id=7061'
+
 # A database older than the edit component still verifies, but a partial installation is invalid.
 "${psql_restore[@]}" -c 'DROP TABLE public.comment_author_edit_outbox'
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'Comment author edit storage is incomplete.' "${migrate[@]}" verify

@@ -12,10 +12,11 @@ internal static class CommentAuthorEdits
     private sealed record Target(int Article, long Publication, long Version, short ModerationStatus, string Body);
 
     internal static async Task<CommentAuthorEditDetail> Detail(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, long id,
-        CancellationToken ct)
+        CancellationToken ct, bool pendingOnly = false)
     {
         var target = await Find(db, tx, owner, id, locking: false, ct);
-        RequireApproved(target);
+        if (pendingOnly && target.ModerationStatus != 0) throw Missing();
+        await RequireEditable(db, tx, target, ct);
         return new(target.Article, target.Publication, target.Version, target.Body);
     }
 
@@ -23,7 +24,7 @@ internal static class CommentAuthorEdits
         byte[] session, long id, CancellationToken ct)
     {
         var target = await Find(db, tx, actor.Id, id, locking: true, ct);
-        RequireApproved(target);
+        await RequireEditable(db, tx, target, ct);
         var secret = RandomNumberGenerator.GetBytes(32);
         var proof = Base64Url.EncodeToString(secret);
         var digest = SHA256.HashData(secret);
@@ -65,7 +66,7 @@ internal static class CommentAuthorEdits
             if (row.GetInt64(0) != request.ExpectedVersion || target.Version != request.ExpectedVersion ||
                 row.GetInt64(1) != target.Publication) throw Stale();
         }
-        RequireApproved(target);
+        await RequireEditable(db, tx, target, ct);
         if (string.Equals(body, target.Body, StringComparison.Ordinal))
             throw new BusinessException(Rejection.Invalid, "The edited comment matches its current text.");
 
@@ -73,7 +74,7 @@ internal static class CommentAuthorEdits
             with changed as (
                 update public.comment c set body=$4,edited_at=clock_timestamp(),moderation_status=0,
                     moderation_version=c.moderation_version+1
-                where c.article_id=$1 and c.id=$2 and c.moderation_version=$3 and c.moderation_status=1 and not c.deleted
+                where c.article_id=$1 and c.id=$2 and c.moderation_version=$3 and c.moderation_status=$8 and not c.deleted
                     and c.created_at+$7*interval '1 minute'>=clock_timestamp()
                     and not exists(select 1 from public.comment_blocked_region b where b.article_id=$1 and b.comment_id=$2)
                 returning article_id,id,moderation_version,body,edited_at
@@ -81,7 +82,7 @@ internal static class CommentAuthorEdits
                 insert into public.comment_author_edited
                     (article_id,comment_id,user_id,comment_version,previous_version,previous_status,moderation_status,
                      previous_body,body,previous_body_digest,body_digest,happened_at)
-                select article_id,id,$5,moderation_version,$3,1,0,$6,body,pg_catalog.sha256(convert_to($6,'UTF8')),
+                select article_id,id,$5,moderation_version,$3,$8,0,$6,body,pg_catalog.sha256(convert_to($6,'UTF8')),
                     pg_catalog.sha256(convert_to(body,'UTF8')),edited_at from changed
                 returning article_id,comment_id,comment_version
             ), outbox as (
@@ -89,7 +90,8 @@ internal static class CommentAuthorEdits
                 select article_id,comment_id,comment_version,'CommentEdited' from revision returning comment_id
             )
             select changed.moderation_version,changed.edited_at from changed join outbox on outbox.comment_id=changed.id
-            """, target.Article, id, target.Version, body, actor.Id, target.Body, WireLimits.CommentAuthorEditWindowMinutes);
+            """, target.Article, id, target.Version, body, actor.Id, target.Body, WireLimits.CommentAuthorEditWindowMinutes,
+            target.ModerationStatus);
         await using var result = await update.ExecuteReaderAsync(ct);
         if (!await result.ReadAsync(ct)) throw Stale();
         return new(true, "ok", result.GetInt64(0), 0, result.GetDateTime(1));
@@ -129,9 +131,11 @@ internal static class CommentAuthorEdits
         finally { CryptographicOperations.ZeroMemory(secret); }
     }
 
-    private static void RequireApproved(Target target)
+    private static async Task RequireEditable(NpgsqlConnection db, NpgsqlTransaction tx, Target target, CancellationToken ct)
     {
-        if (target.ModerationStatus != 1) throw Missing();
+        if (target.ModerationStatus == 1 ||
+            target.ModerationStatus == 0 && await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct)) return;
+        throw Missing();
     }
 
     private static BusinessException Missing() => new(Rejection.NotFound, "comment_management_not_found");

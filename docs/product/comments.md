@@ -38,11 +38,11 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 ### 登录作者编辑
 
-当前账号持有评论归属、评论已批准且在当前公开文章上对访客可见时，作者可在原评论创建后 30 分钟内从评论区打开 FsusUI 编辑框。旧库可停机执行 `comment author-edit-schema` 安装编辑存储。编辑框读取仅该作者可取得的 AEDS 33003，核对文章、出版版本与评论版本后载入服务端正文。
+当前账号持有评论归属时，可在原评论创建后 30 分钟内编辑。已批准且对访客可见的评论从文章评论区进入。待审评论从私有「我的评论」进入。两条入口都要求文章当前仍有公开出版物且没有评论地区屏蔽。旧库可停机执行 `comment author-edit-schema` 安装或升级编辑存储。编辑框读取仅该作者可取得的 AEDS 33003，核对文章和评论坐标后载入服务端正文及版本。
 
 保存沿用 v1 的编辑挑战 215→216 和命令 217→218。一次性证明五分钟有效，在 PostgreSQL 中绑定 `edit` 用途、评论、账户、当前会话与代次、当前出版和评论版本。服务端沿用普通评论的文本规范化和长度检查。编辑必须仍满足公开及地区条件。消费证明、版本 CAS、新旧正文和摘要、待审转移及 `CommentEdited` outbox 同事务提交。版本冲突后需重新载入，编辑期间的会话或文章切换清除旧稿。
 
-固定 v1 按内容、地区和模型审核决定初态，并允许配置编辑窗口。当前 v2 切片统一进入现有人工待审队列，适用对象为仍公开的登录用户评论及回复，窗口从原创建时刻计算。提交后页面重新读取评论树。待审期间公开 API 不输出旧正文或新正文，已批准的后代继续经占位可达。重新通过后沿用原坐标显示新正文及 Edited 标记。同一回复的历史站内通知保留原凭据。 [v1 编辑事务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentAuthorManagementService.cs#L434) · [v1 编辑交互](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useArticleDetailView.ts#L1075)
+固定 v1 按内容、地区和模型审核决定初态，并允许配置编辑窗口。v2 的已批准及待审登录评论编辑后交给现有人工审核队列，窗口从原创建时刻计算。待审编辑保持审核状态并递增版本，管理员时间线按同一评论坐标追加编辑事件。待审期间公开 API 不输出旧正文或新正文，已批准的后代继续经占位可达。通过后沿用原坐标显示新正文及 Edited 标记。同一回复的历史站内通知保留原凭据。驳回及隐藏状态继续走现有审核或申诉流程。 [v1 编辑事务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentAuthorManagementService.cs#L434) · [v1 编辑交互](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useArticleDetailView.ts#L1075)
 
 原生 PostgreSQL 验证一次性证明的版本、会话、代次、期限和出版边界，以及 outbox 写入失败回滚和并发兑换。390px Chrome 经 Caddy TLS 验证普通账号加载原文、取消、编辑后隐藏、子回复继续公开，以及 Passkey 重新批准后保留原链接和一条历史通知。 [原生测试](../../artifacts/comment-author-edit-initial/native.log) · [浏览器与数据库记录](../../artifacts/comment-author-edit-caddy-retry/caddy/)
 

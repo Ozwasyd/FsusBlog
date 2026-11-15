@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -6,6 +7,9 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
+    private const string LegacyCommentAuthorEditStatus = "previous_status=1";
+    private const string PendingCommentAuthorEditStatus = "previous_status>=0ANDprevious_status<=1";
+
     private static readonly string[] CommentAuthorEditColumns =
     [
         "comment_author_edit_challenge digest:bytea article_id:int4 comment_id:int8 user_id:uuid session_digest:bytea generation:int8 comment_version:int8 publication_id:int8 expires_at:timestamptz",
@@ -26,7 +30,6 @@ internal static partial class CurrentSchema
         "comment_author_edited p article_id,comment_id,comment_version",
         "comment_author_edited f article_id,comment_id,user_id public.comment_account_owner:article_id,comment_id,user_id",
         "comment_author_edited c previous_version previous_version>0",
-        "comment_author_edited c previous_status previous_status=1",
         "comment_author_edited c moderation_status moderation_status=0",
         "comment_author_edited c previous_body octet_length(previous_body)<=12288",
         "comment_author_edited c body octet_length(body)>=1ANDoctet_length(body)<=4096",
@@ -41,4 +44,27 @@ internal static partial class CurrentSchema
     internal static Task<bool> HasCommentAuthorEditSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Comment author edit storage is incomplete.",
             "public.comment_author_edit_challenge", "public.comment_author_edited", "public.comment_author_edit_outbox");
+
+    internal static async Task<bool> SupportsPendingCommentAuthorEditAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        await ReadCommentAuthorEditStatusAsync(db, tx, ct) == PendingCommentAuthorEditStatus;
+
+    private static async Task<string[]> ReadCommentAuthorEditConstraintsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        var status = await ReadCommentAuthorEditStatusAsync(db, tx, ct);
+        if (status is not (LegacyCommentAuthorEditStatus or PendingCommentAuthorEditStatus))
+            throw new InvalidOperationException("FsusBlog V2 constraint shape mismatch. Comment author edit previous status is invalid.");
+        return [.. CommentAuthorEditConstraints, "comment_author_edited c previous_status " + status];
+    }
+
+    private static async Task<string?> ReadCommentAuthorEditStatusAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand("""
+            select pg_catalog.regexp_replace(pg_catalog.pg_get_expr(k.conbin,k.conrelid,true),'[[:space:]]','','g')
+            from pg_catalog.pg_constraint k
+            where k.conrelid=pg_catalog.to_regclass('public.comment_author_edited') and k.contype='c'
+                and k.conname='comment_author_edited_previous_status_check' and k.convalidated and k.conislocal
+                and not k.condeferrable and not k.connoinherit and coalesce(pg_catalog.to_jsonb(k)->>'conenforced','true')='true'
+            """, db, tx);
+        return await command.ExecuteScalarAsync(ct) as string;
+    }
 }

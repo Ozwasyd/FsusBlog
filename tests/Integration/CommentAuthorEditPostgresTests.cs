@@ -101,7 +101,6 @@ public sealed partial class AdminModerationPostgresTests
         Assert.DoesNotContain(original.Body, pending, StringComparison.Ordinal);
         Assert.DoesNotContain(edited, pending, StringComparison.Ordinal);
         Assert.DoesNotContain(edited, Encoding.UTF8.GetString(await publicRead.Context(1, 1, 6, ct)), StringComparison.Ordinal);
-        await Denied(Rejection.NotFound, () => Issue(actor, session, 1));
         await Approve(1);
         var republished = Encoding.UTF8.GetString(await publicRead.Roots(1, null, 10, ct));
         Assert.Contains(edited, republished, StringComparison.Ordinal);
@@ -321,16 +320,6 @@ public sealed partial class AdminModerationPostgresTests
             await History(HttpStatusCode.ServiceUnavailable, moderator.Token, historyRoute + "?before=3&articleId=1");
         }
 
-        static void AssertRevision(JsonElement row, int version, string operation, string text)
-        {
-            Assert.Equal(version, row.GetProperty("version").GetInt32());
-            Assert.Equal(operation, row.GetProperty("operation").GetString());
-            Assert.Equal("public", row.GetProperty("actorMode").GetString());
-            Assert.Equal(text, row.GetProperty("content").GetString());
-            Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text))), row.GetProperty("contentSha256").GetString());
-            Assert.Equal(DateTimeKind.Utc, row.GetProperty("createdAtUtc").GetDateTime().Kind);
-        }
-
         async Task<T> Own<T>(Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> action)
         {
             await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -360,6 +349,145 @@ public sealed partial class AdminModerationPostgresTests
             var grant = await SeedDecisionProof(db, moderator, Wire.EncodeAdminModerationDecision(decision), batch: false, ct);
             await review.DecideComment(moderator.Token, grant.Token, decision, ct);
         }
+    }
+
+    [PostgresFact]
+    public async Task PendingOwnerEditUsesOneCurrentProofAndKeepsTheCommentPrivate()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (rootOwner, outsider) = await SeedBatchReplies(db, 1, ct);
+        var owner = await ReadDatabase<Guid>(db, "select user_id from public.comment_account_owner where comment_id=3", ct);
+        var ownerSession = await SiteSession(owner);
+        var alternateSession = await SiteSession(owner);
+        var outsiderSession = await SiteSession(outsider);
+        var moderator = await AddModerator(db, "pending-comment-reviewer", ct);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost"
+        });
+
+        const string original = "Reply fixture 3";
+        const string edited = "Revised pending text with 中文 🧭.";
+        var detailRoute = WireRoutes.CommentAuthorEditDetail.Replace("{id:long}", "3", StringComparison.Ordinal) + "?state=pending";
+        var challengeRoute = WireRoutes.CommentAuthorChallenge.Replace("{id:long}", "3", StringComparison.Ordinal);
+        var editRoute = WireRoutes.CommentAuthorEdit.Replace("{id:long}", "3", StringComparison.Ordinal);
+        await Send(HttpMethod.Get, WireRoutes.CommentAuthorEditDetail.Replace("{id:long}", "1", StringComparison.Ordinal) + "?state=pending",
+            HttpStatusCode.NotFound, await SiteSession(rootOwner));
+        await Send(HttpMethod.Get, detailRoute + "&state=pending", HttpStatusCode.BadRequest, ownerSession);
+        await Send(HttpMethod.Get, detailRoute, HttpStatusCode.NotFound, outsiderSession);
+        await Send(HttpMethod.Get, detailRoute, HttpStatusCode.Conflict, (ownerSession.Cookie, alternateSession.Handle));
+        var detail = Wire.DecodeCommentAuthorEditDetail(await Send(HttpMethod.Get, detailRoute, HttpStatusCode.OK, ownerSession));
+        var publication = await ReadDatabase<long>(db, "select publication_id from public.article_publication where article_id=1", ct);
+        Assert.Equal(new CommentAuthorEditDetail(1, publication, 1, original), detail);
+
+        var challenge = Aeds.Encode(FrameType.CommentManagementChallengeRequest, """{"purpose":"edit","capabilitySecret":null}"""u8);
+        await Send(HttpMethod.Post, challengeRoute, HttpStatusCode.NotFound, outsiderSession, challenge);
+        using var grant = JsonDocument.Parse(Aeds.Decode(await Send(HttpMethod.Post, challengeRoute, HttpStatusCode.OK, ownerSession, challenge),
+            FrameType.CommentManagementChallengeResponse).ToArray());
+        Assert.True(grant.RootElement.GetProperty("issued").GetBoolean());
+        Assert.Equal(detail.CurrentVersion, grant.RootElement.GetProperty("currentVersion").GetInt64());
+        var proof = grant.RootElement.GetProperty("challenge").GetString();
+        byte[] EditFrame(long expectedVersion) => Aeds.Encode(FrameType.CommentAuthorEditRequest,
+            JsonSerializer.SerializeToUtf8Bytes(new { expectedVersion, content = edited, challenge = proof }));
+        var edit = EditFrame(detail.CurrentVersion);
+        await Send(HttpMethod.Post, editRoute, HttpStatusCode.NotFound, outsiderSession, edit);
+        await Send(HttpMethod.Post, editRoute, HttpStatusCode.NotFound, alternateSession, edit);
+        await Send(HttpMethod.Post, editRoute, HttpStatusCode.Conflict, ownerSession, EditFrame(detail.CurrentVersion + 1));
+        using var response = JsonDocument.Parse(Aeds.Decode(await Send(HttpMethod.Post, editRoute, HttpStatusCode.OK, ownerSession, edit),
+            FrameType.CommentAuthorMutationResult).ToArray());
+        var mutation = response.RootElement;
+        Assert.True(mutation.GetProperty("success").GetBoolean());
+        Assert.Equal("ok", mutation.GetProperty("code").GetString());
+        var version = mutation.GetProperty("currentVersion").GetInt64();
+        Assert.Equal(detail.CurrentVersion + 1, version);
+        Assert.Equal(0, mutation.GetProperty("moderationStatus").GetInt32());
+        await Send(HttpMethod.Post, editRoute, HttpStatusCode.NotFound, ownerSession, edit);
+        Assert.Equal(detail with { CurrentVersion = version, Body = edited },
+            Wire.DecodeCommentAuthorEditDetail(await Send(HttpMethod.Get, detailRoute, HttpStatusCode.OK, ownerSession)));
+
+        Assert.True(await ReadDatabase<bool>(db, """
+            select c.moderation_status=0 and c.moderation_version=$2 and c.body=$3 and not c.deleted
+                and c.parent_id=1 and c.root_id=1 and c.reply_to_id=1 and c.depth=1
+                and e.user_id=$1 and e.previous_status=0 and e.moderation_status=0 and e.previous_version=$2-1
+                and e.comment_version=$2 and e.previous_body=$4 and e.body=$3 and e.happened_at=c.edited_at
+                and (select count(*) from public.comment_author_edit_outbox)=1 and o.event_type='CommentEdited'
+                and not exists(select from public.comment_author_edit_challenge)
+            from public.comment_author_edited e join public.comment_author_edit_outbox o using(article_id,comment_id,comment_version)
+            join public.comment c on (c.article_id,c.id)=(e.article_id,e.comment_id)
+            where e.article_id=1 and e.comment_id=3
+            """, ct, owner, version, edited, original));
+
+        const string history = "/api/binary/author/comments/3";
+        await Send(HttpMethod.Get, history + "/revisions?articleId=1", HttpStatusCode.NotFound);
+        var administrator = (Cookie: $"fsus-v2-admin-session={moderator.Token}", Handle: (string?)null);
+        using var revisions = JsonDocument.Parse(Aeds.Decode(await Send(HttpMethod.Get, history + "/revisions?articleId=1",
+            HttpStatusCode.OK, administrator, admin: true), FrameType.CommentRevisionList).ToArray());
+        Assert.Collection(revisions.RootElement.EnumerateArray(),
+            row => AssertRevision(row, 2, "edited", edited),
+            row => AssertRevision(row, 1, "created", original));
+        using var timeline = JsonDocument.Parse(Aeds.Decode(await Send(HttpMethod.Get, history + "/moderation-timeline?articleId=1",
+            HttpStatusCode.OK, administrator, admin: true), FrameType.CommentModerationTimeline).ToArray());
+        var state = timeline.RootElement;
+        Assert.True(state.GetProperty("consistent").GetBoolean());
+        Assert.False(state.GetProperty("deleted").GetBoolean());
+        Assert.Equal(0, state.GetProperty("currentStatus").GetInt32());
+        Assert.Equal(0, state.GetProperty("projectedStatus").GetInt32());
+        var events = state.GetProperty("events").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "create", "edit" }, events.Select(row => row.GetProperty("eventType").GetString()));
+        Assert.Equal(new[] { 1L, version }, events.Select(row => row.GetProperty("commentVersion").GetInt64()));
+        Assert.Equal(JsonValueKind.Null, events[0].GetProperty("previousStatus").ValueKind);
+        Assert.Equal(0, events[1].GetProperty("previousStatus").GetInt32());
+        Assert.Equal(0, events[1].GetProperty("nextStatus").GetInt32());
+        Assert.Equal("comment_author_edited", events[1].GetProperty("transitionSource").GetString());
+        Assert.DoesNotContain(edited, state.GetRawText(), StringComparison.Ordinal);
+        var publicRoots = Encoding.UTF8.GetString(await Send(HttpMethod.Get, "/api/binary/comment/1", HttpStatusCode.OK));
+        Assert.Contains("Awaiting review", publicRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain(original, publicRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain(edited, publicRoots, StringComparison.Ordinal);
+        Assert.Equal(CommentReadWire.Context(null, [], []),
+            await Send(HttpMethod.Get, "/api/binary/comment/1/context/3", HttpStatusCode.OK));
+
+        async Task<(string Cookie, string? Handle)> SiteSession(Guid account)
+        {
+            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            var digest = Store.TokenDigest(token)!;
+            await Execute(db, """
+                insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')
+                """, ct, digest, account);
+            return ($"fsus-v2-session={token}", SiteSessions.Id(account, digest));
+        }
+
+        async Task<byte[]> Send(HttpMethod method, string path, HttpStatusCode expected,
+            (string Cookie, string? Handle)? session = null, byte[]? frame = null, bool admin = false)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            if (admin) request.Headers.Host = "localhost";
+            if (session is { } credential)
+            {
+                request.Headers.Add("Cookie", credential.Cookie);
+                if (credential.Handle is not null) request.Headers.Add(WireHeaders.CurrentSession, credential.Handle);
+            }
+            if (frame is not null)
+            {
+                request.Content = new ByteArrayContent(frame);
+                request.Content.Headers.ContentType = new(Aeds.ContentType);
+            }
+            using var result = await server.Client.SendAsync(request, ct);
+            Assert.Equal(expected, result.StatusCode);
+            if (admin) Assert.True(result.Headers.CacheControl?.NoStore);
+            return await result.Content.ReadAsByteArrayAsync(ct);
+        }
+    }
+
+    static void AssertRevision(JsonElement row, int version, string operation, string text)
+    {
+        Assert.Equal(version, row.GetProperty("version").GetInt32());
+        Assert.Equal(operation, row.GetProperty("operation").GetString());
+        Assert.Equal("public", row.GetProperty("actorMode").GetString());
+        Assert.Equal(text, row.GetProperty("content").GetString());
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text))), row.GetProperty("contentSha256").GetString());
+        Assert.Equal(DateTimeKind.Utc, row.GetProperty("createdAtUtc").GetDateTime().Kind);
     }
 
     [Fact]

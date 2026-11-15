@@ -85,8 +85,9 @@ export async function deleteOwnComment(id: string, handle: string, signal: Abort
     encoder.encode(JSON.stringify({ challenge: proof.challenge, capabilitySecret: '' }))), headers(handle));
 }
 
-export function commentAuthorEditDetail(id: string, handle: string, signal: AbortSignal) {
-  return request(authorPath(WireRoutes.CommentAuthorEditDetail, id), FrameType.CommentAuthorEditDetail, payload => {
+export function commentAuthorEditDetail(id: string, handle: string, signal: AbortSignal, pendingOnly = false) {
+  const path = authorPath(WireRoutes.CommentAuthorEditDetail, id) + (pendingOnly ? '?state=pending' : '');
+  return request(path, FrameType.CommentAuthorEditDetail, payload => {
     const { articleId, publication, currentVersion, body } = decodeCommentAuthorEditDetail(payload);
     if (articleId <= 0 || publication <= 0n || currentVersion <= 0n || currentVersion >= BigInt(Number.MAX_SAFE_INTEGER) ||
         body.length === 0 || body.length > 1000)

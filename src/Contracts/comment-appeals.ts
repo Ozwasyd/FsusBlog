@@ -15,8 +15,8 @@ export function appealReason(value: string) {
 }
 
 export function readAuthorAppeals(before: string | null, session: string, signal: AbortSignal) {
-  return request(appealPage(WireRoutes.CommentAuthorAppeals, before), FrameType.CommentAuthorAppeals, payload =>
-    page(payload, reader => {
+  return request(appealPage(WireRoutes.CommentAuthorAppeals, before), FrameType.CommentAuthorAppeals, (payload, headers) => {
+    const result = page(payload, reader => {
       const article = reader.i32();
       const comment = id(reader.i64());
       const body = reader.text(4096);
@@ -26,7 +26,9 @@ export function readAuthorAppeals(before: string | null, session: string, signal
       if (article <= 0 || status < 0 || status > 3 || appeal < 0 || appeal > 5 ||
           (appeal === 3 || appeal === 4) !== Boolean(decisionReason)) throw invalid();
       return { article, comment, body, status, appeal, decisionReason } as AuthorAppeal;
-    }), signal, 'GET', undefined, siteSessionHeader(session));
+    });
+    return { ...result, editEnabled: headers.get(WireHeaders.CommentAuthorEditEnabled) === '1' };
+  }, signal, 'GET', undefined, siteSessionHeader(session));
 }
 
 export async function submitAuthorAppeal(comment: string, reason: string, session: string, signal: AbortSignal) {

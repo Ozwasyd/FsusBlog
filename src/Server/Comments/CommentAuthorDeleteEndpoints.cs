@@ -41,8 +41,12 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapGet(WireRoutes.CommentAuthorEditDetail, (HttpContext ctx, Store store, long id, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, actor, _) =>
-                Wire.EncodeCommentAuthorEditDetail(await CommentAuthorEdits.Detail(db, tx, actor.Id, id, ct)), ct))
-            .RequireRateLimiting("command");
+            {
+                var query = ctx.Request.Query;
+                var pendingOnly = query.Count == 1 && query["state"] is { Count: 1 } state && state[0] == "pending";
+                if (!pendingOnly && query.Count != 0) throw new ProtocolException("Invalid comment edit state.");
+                return Wire.EncodeCommentAuthorEditDetail(await CommentAuthorEdits.Detail(db, tx, actor.Id, id, ct, pendingOnly));
+            }, ct)).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.CommentAuthorEdit, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
@@ -52,7 +56,13 @@ internal static class CommentAuthorDeleteEndpoints
         }).RequireRateLimiting("command");
 
         app.MapGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
-            Run(ctx, store, (db, tx, actor, _) => CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct), ct))
+            Run(ctx, store, async (db, tx, actor, _) =>
+            {
+                var page = await CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct);
+                if (await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct))
+                    ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
+                return page;
+            }, ct))
             .RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.CommentAuthorAppeal, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>

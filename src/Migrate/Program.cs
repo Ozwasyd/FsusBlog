@@ -175,7 +175,7 @@ internal static partial class Migration
                   notify ACCOUNT_ID EVENT_ID
                                         Send an idempotent system notice from a UTF-8 JSON object on stdin
                   comment author-delete-schema  Add signed-in comment deletion storage with the server stopped
-                  comment author-edit-schema  Add signed-in comment edit storage with the server stopped
+                  comment author-edit-schema  Install or upgrade signed-in comment edit storage with the server stopped
                   comment report-schema  Add signed-in comment report storage with the server stopped
                   comment appeal-schema  Add signed-in comment appeals with the server stopped
                   comment replies-schema  Add signed-in comment reply notices with the server stopped

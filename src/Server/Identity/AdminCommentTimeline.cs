@@ -95,7 +95,7 @@ internal sealed partial class AdminPasskeyStore
                 else
                 {
                     consistent &= !projectedDelete && previous == projected && previous.HasValue && version > 0;
-                    if (previous != next || operation == "delete") ++version;
+                    if (previous != next || operation is "edit" or "delete") ++version;
                 }
                 consistent &= eventVersion == version && (!rows.IsDBNull(13) || rows.GetString(8) != "admin");
                 projected = next;

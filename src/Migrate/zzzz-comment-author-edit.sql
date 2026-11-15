@@ -20,7 +20,7 @@ CREATE TABLE public.comment_author_edited (
     user_id uuid NOT NULL,
     comment_version bigint NOT NULL,
     previous_version bigint NOT NULL CHECK (previous_version > 0),
-    previous_status smallint NOT NULL CHECK (previous_status = 1),
+    previous_status smallint NOT NULL CONSTRAINT comment_author_edited_previous_status_check CHECK (previous_status >= 0 AND previous_status <= 1),
     moderation_status smallint NOT NULL CHECK (moderation_status = 0),
     previous_body text NOT NULL CHECK (octet_length(previous_body) <= 12288),
     body text NOT NULL CHECK (octet_length(body) BETWEEN 1 AND 4096),

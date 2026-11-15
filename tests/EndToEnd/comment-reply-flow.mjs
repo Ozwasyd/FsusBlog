@@ -60,6 +60,16 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     await author.screenshot({ path: join(evidence, 'comment-reply-compose-mobile.png'), animations: 'disabled' })
     const receipt = await submitReply(author, siteOrigin, send, parentId)
     assert.equal(receipt.articleId, articleId)
+    if (process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1') {
+      const pendingBody = 'This independent owner reply remains under review after its correction.'
+      await reply.click()
+      await input.fill(pendingBody)
+      await confirmLabel.click()
+      const pending = await submitReply(author, siteOrigin, send, parentId)
+      assert.equal(pending.articleId, articleId)
+      assert.notEqual(pending.commentId, receipt.commentId)
+      await verifyPendingEdit({ browser, author, recipient, siteOrigin, evidence, articleId, id: pending.commentId, body: pendingBody })
+    }
 
     await recipient.bringToFront()
     const before = recipient.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.InboxList)
@@ -128,6 +138,143 @@ async function submitReply(page, origin, send, parentId) {
   assert.equal(receipt.moderationStatus, 0)
   await page.getByText('Reply submitted for review.', { exact: true }).waitFor()
   return receipt
+}
+
+async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evidence, articleId, id, body }) {
+  const newBody = 'Only the private pending reply now contains this corrected text.'
+  const comments = siteOrigin + '/user/comments'
+  const ownList = siteOrigin + WireRoutes.CommentAuthorAppeals
+  const route = path => siteOrigin + path.replace('{id:long}', String(id))
+  const detailUrl = route(WireRoutes.CommentAuthorEditDetail) + '?state=pending'
+  const challengeUrl = route(WireRoutes.CommentAuthorChallenge)
+  const editUrl = route(WireRoutes.CommentAuthorEdit)
+  const nonceHeader = WireHeaders.CurrentSession.toLowerCase()
+  const publicUrl = siteOrigin + WireRoutes.CommentContext.replace('{articleId:int}', String(articleId))
+    .replace('{commentId:long}', String(id))
+  const admin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL).origin
+  const moderator = browser.contexts().find(context => context.pages().some(page => new URL(page.url()).origin === admin))
+  assert(moderator, 'The dual-HTTPS fixture must have an authenticated moderator context')
+  const anonymous = await browser.newContext()
+
+  function readDetail(response) {
+    return response.body().then(bytes => decodeCommentAuthorEditDetail(decodeFrame(bytes, FrameType.CommentAuthorEditDetail).payload))
+  }
+  function noPrivateText(bytes) {
+    assert(!bytes.includes(Buffer.from(body)) && !bytes.includes(Buffer.from(newBody)))
+  }
+  async function invisibleInPublic() {
+    const response = await anonymous.request.get(publicUrl)
+    assert.equal(response.status(), 200)
+    const payload = Buffer.from(decodeFrame(await response.body(), FrameType.CommentPermalinkContext).payload)
+    noPrivateText(payload)
+    assert.equal(decodeCommentContext(payload), null)
+  }
+
+  try {
+    await invisibleInPublic()
+    const publicationReply = await anonymous.request.get(siteOrigin + WireRoutes.PublicArticle.replace('{id}', String(articleId)))
+    assert.equal(publicationReply.status(), 200)
+    const publication = decodeArticle(decodeFrame(await publicationReply.body(), FrameType.ArticleDetail).payload).publication
+
+    const peerSession = await recipient.request.get(siteOrigin + WireRoutes.Session)
+    assert.equal(peerSession.status(), 200)
+    const peerHeaders = { [WireHeaders.CurrentSession]: peerSession.headers()[nonceHeader] }
+    assert.match(peerHeaders[WireHeaders.CurrentSession], /^[a-f0-9]{64}$/)
+    const deniedDetail = await recipient.request.get(detailUrl, { headers: peerHeaders })
+    assert.equal(deniedDetail.status(), 404)
+    noPrivateText(await deniedDetail.body())
+    const otherList = recipient.waitForResponse(response => response.url() === ownList && response.request().method() === 'GET')
+    assert.equal((await recipient.goto(comments)).status(), 200)
+    const otherRows = await otherList
+    assert.equal(otherRows.status(), 200)
+    noPrivateText(await otherRows.body())
+    await recipient.getByRole('heading', { name: '我的评论', exact: true }).waitFor()
+
+    await author.bringToFront()
+    const own = author.waitForResponse(response => response.url() === ownList && response.request().method() === 'GET')
+    assert.equal((await author.goto(comments)).status(), 200)
+    const listed = await own
+    assert.equal(listed.status(), 200)
+    assert.equal(await listed.headerValue(WireHeaders.CommentAuthorEditEnabled), '1')
+    const handle = listed.request().headers()[nonceHeader]
+    assert.match(handle, /^[a-f0-9]{64}$/)
+    const row = text => author.getByRole('listitem').filter({ has: author.getByText(text, { exact: true }) })
+    await row(body).getByText('待审核', { exact: true }).waitFor()
+    const detail = author.waitForResponse(response => response.url() === detailUrl && response.request().method() === 'GET')
+    await row(body).getByRole('button', { name: '编辑评论', exact: true }).click()
+    const loaded = await detail
+    assert.equal(loaded.status(), 200)
+    assert.match((await loaded.headerValue('Cache-Control')) ?? '', /no-store/)
+    const previous = await readDetail(loaded)
+    assert.deepEqual(previous, { articleId, publication, currentVersion: 1n, body })
+    const form = author.getByRole('form', { name: '编辑待审核评论', exact: true })
+    const input = form.getByLabel('评论内容', { exact: true })
+    await input.waitFor()
+    assert.equal(await input.inputValue(), body)
+    await input.fill(newBody)
+
+    const paused = Promise.withResolvers()
+    const resume = Promise.withResolvers()
+    await author.route(editUrl, async intercepted => {
+      paused.resolve(intercepted.request())
+      await resume.promise
+      await intercepted.continue()
+    }, { times: 1 })
+    let applied
+    try {
+      const [issued] = await Promise.all([
+        author.waitForResponse(response => response.url() === challengeUrl && response.request().method() === 'POST'),
+        author.waitForRequest(request => request.url() === editUrl && request.method() === 'POST'),
+        form.getByRole('button', { name: '保存修改', exact: true }).click(),
+      ])
+      assert.equal(issued.status(), 200)
+      assert.equal(readJson(issued.request().postDataBuffer(), FrameType.CommentManagementChallengeRequest).purpose, 'edit')
+      const proof = readJson(await issued.body(), FrameType.CommentManagementChallengeResponse)
+      const command = (await paused.promise).postDataBuffer()
+      assert(command)
+      const edit = readJson(command, FrameType.CommentAuthorEditRequest)
+      assert(edit.challenge === proof.challenge)
+      assert.equal(edit.expectedVersion, 1)
+      assert.equal(edit.content, newBody)
+      const deniedEdit = await recipient.request.post(editUrl, { data: command,
+        headers: { ...peerHeaders, 'Content-Type': 'application/octet-stream', Origin: siteOrigin } })
+      assert.equal(deniedEdit.status(), 404)
+      noPrivateText(await deniedEdit.body())
+      const commit = author.waitForResponse(response => response.url() === editUrl && response.request().method() === 'POST')
+      resume.resolve()
+      applied = await commit
+    } finally {
+      resume.resolve()
+    }
+    assert.equal(applied.status(), 200)
+    const result = readJson(await applied.body(), FrameType.CommentAuthorMutationResult)
+    assert.deepEqual([result.success, result.code, result.currentVersion, result.moderationStatus], [true, 'ok', 2, 0])
+    await form.waitFor({ state: 'hidden' })
+    await author.getByText('评论已修改，仍待审核。', { exact: true }).waitFor()
+    await row(newBody).getByText('待审核', { exact: true }).waitFor()
+    assert.equal(await row(body).count(), 0)
+    const reread = await author.request.get(detailUrl, { headers: { [WireHeaders.CurrentSession]: handle } })
+    assert.equal(reread.status(), 200)
+    assert.deepEqual(await readDetail(reread), { ...previous, currentVersion: 2n, body: newBody })
+    await invisibleInPublic()
+
+    const timeline = await moderator.request.get(admin + WireRoutes.AdminCommentTimeline.replace('{id:long}', String(id)) + `?articleId=${articleId}`)
+    assert.equal(timeline.status(), 200)
+    const bytes = await timeline.body()
+    noPrivateText(bytes)
+    const history = readJson(bytes, FrameType.CommentModerationTimeline)
+    assert.equal(String(history.commentId), String(id))
+    assert.deepEqual([history.articleId, history.consistent, history.deleted, history.projectedStatus, history.currentStatus],
+      [articleId, true, false, 0, 0])
+    assert.deepEqual(history.events.map(event => [event.eventType, event.previousStatus, event.nextStatus, event.commentVersion]),
+      [['create', null, 0, 1], ['edit', 0, 0, 2]])
+    await author.screenshot({ path: join(evidence, 'comment-pending-edit-mobile.png'), animations: 'disabled' })
+    await writeFile(join(evidence, 'comment-pending-edit-result.json'), JSON.stringify({ articleId, commentId: String(id),
+      previousVersion: 1, currentVersion: 2, moderationStatus: 0, foreignRead: 404, foreignEdit: 404,
+      noPublicContent: true, consistentTimeline: ['create', 'edit'] }, null, 2) + '\n')
+  } finally {
+    await anonymous.close()
+  }
 }
 
 async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId, body, permalink, inboxUrl, approve }) {

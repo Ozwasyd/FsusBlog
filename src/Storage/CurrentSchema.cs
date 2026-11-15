@@ -204,6 +204,8 @@ internal static partial class CurrentSchema
         if ((hasCommentAuthorEdit && !hasCommentAuthorDelete) ||
             (requireCommentAuthorEdit.HasValue && requireCommentAuthorEdit.Value != hasCommentAuthorEdit))
             throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
+        string[] commentAuthorEditConstraints = hasCommentAuthorEdit
+            ? await ReadCommentAuthorEditConstraintsAsync(connection, transaction, cancellationToken) : [];
         var hasCommentReport = await HasCommentReportSchemaAsync(connection, transaction, cancellationToken);
         RequireSchemaPresence(requireCommentReport, hasCommentReport,
             "Comment report schema presence does not match the requested operation.");
@@ -349,7 +351,7 @@ internal static partial class CurrentSchema
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
             .Concat(hasLegacyReleaseOrigin ? LegacyReleaseOriginConstraints : [])
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
-            .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
+            .Concat(commentAuthorEditConstraints)
             .Concat(hasCommentReport ? CommentReportConstraints : [])
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
