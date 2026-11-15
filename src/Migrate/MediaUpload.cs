@@ -1,29 +1,11 @@
-using System.Data;
-using FsusBlogV2.Storage;
 using Npgsql;
 
 internal static partial class Migration
 {
     private static async Task InitializeMediaUploadAsync(NpgsqlConnection connection, CancellationToken ct)
     {
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(connection, tx, ct);
-        var schedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
-        var publication = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
-        var revision = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var recovery = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
-        var admin = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
-        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
-        if (!await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct))
-        {
-            var webpMedia = await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, schedule,
-                requireMediaUpload: false, requirePublicationRights: hasPublicationRights);
-            await ApplySchemaAddition(connection, tx, "private-media-uploads.sql", ct);
-            if (webpMedia) await AllowWebpFormatAsync(connection, tx, "private_media_upload", ct);
-        }
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, schedule, requirePublicationRights: hasPublicationRights);
-        if (recovery) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
-        if (admin) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(connection, ct);
+        await InstallPreviewSchemaAsync(connection, tx, PreviewSchema.Uploads, "private-media-uploads.sql", ct);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified private resumable media upload schema.");
     }

@@ -1,4 +1,3 @@
-using System.Data;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -6,24 +5,8 @@ internal static partial class Migration
 {
     private static async Task InitializePublicationHistoryAsync(NpgsqlConnection connection, CancellationToken ct)
     {
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(connection, tx, ct);
-        var hasRecoveryScope = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
-        var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var hasAdminIdentity = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
-        var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
-        var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
-        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
-        if (!await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct))
-        {
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
-                requirePublicationHistory: false, requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, requirePublicationRights: hasPublicationRights);
-            await ApplySchemaAddition(connection, tx, "publication-history.sql", ct);
-        }
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
-            requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, requirePublicationRights: hasPublicationRights);
-        if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
-        if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(connection, ct);
+        var shape = await InstallPreviewSchemaAsync(connection, tx, PreviewSchema.Publications, "publication-history.sql", ct);
         await VerifyActivePublicationsAsync(connection, tx, ct);
         await ExecuteAsync(connection, tx, """
             insert into public.article_publication_history
@@ -36,7 +19,7 @@ internal static partial class Migration
                 select from public.article_publication_history h where h.article_id=a.id
             )
             """, ct);
-        await VerifyPublicationHistoryAsync(connection, tx, ct, hasArticleSchedule);
+        await VerifyPublicationHistoryAsync(connection, tx, ct, shape.HasFlag(PreviewSchema.Schedule));
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified durable publication history and retained boundaries.");
     }

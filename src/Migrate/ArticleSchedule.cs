@@ -1,28 +1,11 @@
-using System.Data;
-using FsusBlogV2.Storage;
 using Npgsql;
 
 internal static partial class Migration
 {
     private static async Task InitializeArticleScheduleAsync(NpgsqlConnection connection, CancellationToken ct)
     {
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(connection, tx, ct);
-        var recovery = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
-        var revision = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var admin = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
-        var publication = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
-        var media = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
-        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
-        if (!await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct))
-        {
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication,
-                requireArticleSchedule: false, requireMediaUpload: media, requirePublicationRights: hasPublicationRights);
-            await ApplySchemaAddition(connection, tx, "scheduled-publication.sql", ct);
-        }
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, requireMediaUpload: media, requirePublicationRights: hasPublicationRights);
-        if (recovery) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
-        if (admin) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(connection, ct);
+        await InstallPreviewSchemaAsync(connection, tx, PreviewSchema.Schedule, "scheduled-publication.sql", ct);
         await VerifyArticleScheduleAsync(connection, tx, ct);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified durable article schedule storage.");

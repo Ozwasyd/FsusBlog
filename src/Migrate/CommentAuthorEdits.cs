@@ -1,4 +1,3 @@
-using System.Data;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -6,8 +5,7 @@ internal static partial class Migration
 {
     private static async Task InitializeCommentAuthorEditAsync(NpgsqlConnection db, CancellationToken ct)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         if (!await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct))
             throw new InvalidOperationException("Install comment author-delete-schema before comment author-edit-schema.");
 

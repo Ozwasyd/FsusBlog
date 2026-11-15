@@ -1,4 +1,3 @@
-using System.Data;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -6,8 +5,7 @@ internal static partial class Migration
 {
     private static async Task InitializeArticleReadSchemaAsync(NpgsqlConnection db, CancellationToken ct)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         var installed = await CurrentSchema.HasArticleReadSchemaAsync(db, tx, ct);
         var totalsInstalled = await CurrentSchema.HasArticleReadTotalSchemaAsync(db, tx, ct);

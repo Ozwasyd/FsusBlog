@@ -23,8 +23,7 @@ internal static partial class Migration
 
     private static async Task UpgradeEmptyCanvasGraphAsync(NpgsqlConnection connection, CancellationToken ct)
     {
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(connection, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(connection, ct);
         await ExecuteAsync(connection, tx, """
             set local lock_timeout = '5s';
             lock table public.authoring_canvas, public.canvas_edge, public.canvas_link_plan in access exclusive mode
@@ -57,25 +56,10 @@ internal static partial class Migration
             if (!await row.ReadAsync(ct) || !row.GetBoolean(0) || row.GetInt32(1) != CurrentSchema.Version || await row.ReadAsync(ct))
                 throw new InvalidOperationException("The database is not on the expected v2 schema revision.");
         }
-        var nodeTable = await HasRelation(connection, tx, "public.canvas_node", ct);
-        var eventTable = await HasRelation(connection, tx, "public.canvas_document_event", ct);
-        var patchTable = await HasRelation(connection, tx, "public.canvas_history_patch", ct);
-        var transitionTable = await HasRelation(connection, tx, "public.canvas_history_transition", ct);
-        if (nodeTable != eventTable || patchTable != transitionTable || patchTable && !nodeTable)
-            throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
-
-        var hasRecoveryScope = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
-        var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var hasAdminIdentity = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
-        var hasPublicationHistory = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
-        var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
-        var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
-        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-            hasAdminIdentity, hasPublicationHistory, hasArticleSchedule, hasMediaUpload, legacyCanvas: !nodeTable, requirePublicationRights: hasPublicationRights,
-            requireCanvasHistory: patchTable);
-        if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
-        if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
+        var (nodeTable, patchTable) = await ReadCanvasSchemaAsync(connection, tx, ct);
+        var shape = await ReadPreviewSchemaAsync(connection, tx, ct);
+        await VerifyPreviewCatalogAsync(connection, tx, shape, ct, legacyCanvas: !nodeTable, requireCanvasHistory: patchTable);
+        await VerifyPreviewIdentityAsync(connection, tx, shape, ct);
         if (nodeTable) return new(patchTable ? "current" : "history-ready", null, [], []);
 
         await using var counts = new NpgsqlCommand("""
@@ -110,4 +94,16 @@ internal static partial class Migration
 
     private sealed record CanvasUpgradeReport(string Status, LegacyCanvasCounts? Legacy, IReadOnlyList<string> PreservedKeyColumns,
         IReadOnlyList<string> Blockers);
+
+    private static async Task<(bool Graph, bool History)> ReadCanvasSchemaAsync(NpgsqlConnection connection,
+        NpgsqlTransaction tx, CancellationToken ct)
+    {
+        var nodeTable = await HasRelation(connection, tx, "public.canvas_node", ct);
+        var eventTable = await HasRelation(connection, tx, "public.canvas_document_event", ct);
+        var patchTable = await HasRelation(connection, tx, "public.canvas_history_patch", ct);
+        var transitionTable = await HasRelation(connection, tx, "public.canvas_history_transition", ct);
+        if (nodeTable != eventTable || patchTable != transitionTable || patchTable && !nodeTable)
+            throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
+        return (nodeTable, patchTable);
+    }
 }

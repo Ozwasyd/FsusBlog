@@ -1,4 +1,3 @@
-using System.Data;
 using System.Security.Cryptography;
 using FsusBlogV2.Storage;
 using Npgsql;
@@ -129,27 +128,13 @@ internal static partial class Migration
 
     private static async Task InitializeAdminIdentityAsync(NpgsqlConnection connection, CancellationToken ct)
     {
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(connection, tx, ct);
-        var hasRecoveryScope = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
-        var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
-        var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
-        var hasPublicationHistory = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
-        var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
-        var hasCanvasNode = await HasRelation(connection, tx, "public.canvas_node", ct);
-        var hasCanvasEvent = await HasRelation(connection, tx, "public.canvas_document_event", ct);
-        var hasCanvasHistory = await HasRelation(connection, tx, "public.canvas_history_patch", ct);
-        var hasCanvasTransition = await HasRelation(connection, tx, "public.canvas_history_transition", ct);
-        if (hasCanvasNode != hasCanvasEvent || hasCanvasHistory != hasCanvasTransition || hasCanvasHistory && !hasCanvasNode)
-            throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
-        var legacyCanvas = !hasCanvasNode;
-        var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
-        if (!await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct))
+        await using var tx = await BeginStoppedSchemaChangeAsync(connection, ct);
+        var shape = await ReadPreviewSchemaAsync(connection, tx, ct);
+        var (canvasGraph, canvasHistory) = await ReadCanvasSchemaAsync(connection, tx, ct);
+        if (!shape.HasFlag(PreviewSchema.Administration))
         {
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-                requireAdminIdentity: false, requirePublicationHistory: hasPublicationHistory,
-                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas,
-                requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
+            await VerifyPreviewCatalogAsync(connection, tx, shape, ct, legacyCanvas: !canvasGraph,
+                requireCanvasHistory: canvasHistory);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
             await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
             await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
@@ -158,10 +143,8 @@ internal static partial class Migration
         }
         else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (>= 1 and < CurrentSchema.AdminIdentityVersion) and var previousVersion)
         {
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-                requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: previousVersion,
-                requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
+            await VerifyPreviewCatalogAsync(connection, tx, shape, ct, legacyCanvas: !canvasGraph,
+                requireCanvasHistory: canvasHistory, adminIdentityVersion: previousVersion);
             if (previousVersion < 4)
                 await ExecuteAsync(connection, tx, """
                     alter table public.admin_permission drop constraint admin_permission_permission_check;
@@ -184,12 +167,10 @@ internal static partial class Migration
             await ApplySchemaAddition(connection, tx, "system-sign-in-history-admin.sql", ct);
         }
 
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-            requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas,
-            requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
-        await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
-        if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
+        shape |= PreviewSchema.Administration;
+        await VerifyPreviewCatalogAsync(connection, tx, shape, ct, legacyCanvas: !canvasGraph,
+            requireCanvasHistory: canvasHistory);
+        await VerifyPreviewIdentityAsync(connection, tx, shape, ct, adminFirst: true);
         await tx.CommitAsync(ct);
         Console.WriteLine($"Verified independent administrator identity schema version {CurrentSchema.AdminIdentityVersion}.");
     }

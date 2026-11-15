@@ -1,4 +1,3 @@
-using System.Data;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -53,22 +52,22 @@ internal static partial class Migration
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireRootCommentPowPolicy: exists));
 
     private static Task InitializeAdminInboxReadAsync(NpgsqlConnection connection, CancellationToken token) =>
-        InitializeAdminInboxSchemaAsync(connection, token, CurrentSchema.AdminInboxReadRelation,
+        InitializeMissingSchemaAsync(connection, token, CurrentSchema.AdminInboxReadRelation,
             "inbox-admin-read.sql", "Verified shared administrator inbox read schema.",
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireAdminInboxRead: exists));
 
     private static Task InitializeAdminInboxNoticeAsync(NpgsqlConnection connection, CancellationToken token) =>
-        InitializeAdminInboxSchemaAsync(connection, token, CurrentSchema.AdminInboxNoticeRelation,
+        InitializeMissingSchemaAsync(connection, token, CurrentSchema.AdminInboxNoticeRelation,
             "inbox-admin-notice.sql", "Verified administrator inbox notice attribution schema.",
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireAdminInboxNotice: exists));
 
     private static Task InitializeAdminInboxRepliesAsync(NpgsqlConnection connection, CancellationToken token) =>
-        InitializeAdminInboxSchemaAsync(connection, token, CurrentSchema.AdminInboxReplyRelation,
+        InitializeMissingSchemaAsync(connection, token, CurrentSchema.AdminInboxReplyRelation,
             "inbox-admin-replies.sql", "Verified administrator inbox reply attribution schema.",
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireAdminInboxReply: exists));
 
     private static Task InitializeAdminInboxStatusAsync(NpgsqlConnection connection, CancellationToken token) =>
-        InitializeAdminInboxSchemaAsync(connection, token, CurrentSchema.AdminInboxStatusRelation,
+        InitializeMissingSchemaAsync(connection, token, CurrentSchema.AdminInboxStatusRelation,
             "inbox-admin-status.sql", "Verified administrator inbox status audit schema.",
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireAdminInboxStatus: exists));
 
@@ -114,8 +113,7 @@ internal static partial class Migration
         string script, string success, SchemaCheck probe, OptionalSchemaCatalog verifyCatalog,
         bool requiresRecoverySite = false, bool verifyWhenInstalled = false, bool requiresAdminIdentity = true)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         var exists = await probe(db, tx, ct);
         await verifyCatalog(db, tx, exists, ct);
         if (requiresAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
@@ -126,15 +124,10 @@ internal static partial class Migration
         Console.WriteLine(success);
     }
 
-    private static Task InitializeAdminInboxSchemaAsync(NpgsqlConnection db, CancellationToken ct,
-        string relation, string script, string success, OptionalSchemaCatalog verifyCatalog) =>
-        InitializeMissingSchemaAsync(db, ct, relation, script, success, verifyCatalog);
-
     private static async Task InitializeMissingSchemaAsync(NpgsqlConnection db, CancellationToken ct,
         string relation, string script, string success, OptionalSchemaCatalog verifyCatalog, bool requiresAdminIdentity = true)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         if (!await HasRelation(db, tx, relation, ct))
         {
             await verifyCatalog(db, tx, false, ct);
@@ -149,8 +142,7 @@ internal static partial class Migration
     private static async Task InitializeRecoverySchemaAsync(NpgsqlConnection db, CancellationToken ct,
         string script, string success, SchemaCheck probe)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
@@ -163,8 +155,7 @@ internal static partial class Migration
     private static async Task InitializeCommentDependentSchemaAsync(NpgsqlConnection db, CancellationToken ct,
         string script, string success, SchemaCheck probe, SchemaCheck verifyCatalog, string missingDependency)
     {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
+        await using var tx = await BeginStoppedSchemaChangeAsync(db, ct);
         if (!await probe(db, tx, ct))
         {
             if (!await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct))

@@ -1,4 +1,3 @@
-using System.Data;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -6,8 +5,7 @@ internal static partial class Migration
 {
     private static async Task InitializeAdminCommentBatchAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
     {
-        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
-        await PrepareSchemaAddition(connection, transaction, cancellationToken);
+        await using var transaction = await BeginStoppedSchemaChangeAsync(connection, cancellationToken);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         bool installed = await CurrentSchema.HasAdminCommentBatchSchemaAsync(connection, transaction, cancellationToken);
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, cancellationToken, requireAdminCommentBatch: installed);
