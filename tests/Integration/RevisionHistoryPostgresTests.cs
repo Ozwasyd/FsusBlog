@@ -331,12 +331,7 @@ public sealed class RevisionHistoryPostgresTests
         await using var proof = Store.Sql(db, null, "select count(*) from public.article_body_insertion where article_id=$1", next.Id);
         Assert.Equal(0L, (long)(await proof.ExecuteScalarAsync(ct))!);
 
-        async Task<byte[]> Request(HttpMethod method, string route, byte[]? bytes = null)
-        {
-            using var request = SiteAedsFixture.Request(method, route, bytes, token, handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Request(HttpMethod method, string route, byte[]? bytes = null) =>
+            SiteAedsFixture.ExpectStatus(server.Client, method, route, bytes, token, handle, HttpStatusCode.OK, ct);
     }
 }

@@ -92,13 +92,8 @@ public sealed class PropertyKindsPostgresTests
             var error = await Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(input), HttpStatusCode.BadRequest);
             Assert.Equal(WireLayouts.ErrorBytes, Aeds.Decode(error, FrameType.ApiError).Length);
         }
-        async Task<byte[]> Send(string path, byte[] bytes, HttpStatusCode expected = HttpStatusCode.OK)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, bytes, session, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Send(string path, byte[] bytes, HttpStatusCode expected = HttpStatusCode.OK) =>
+            SiteAedsFixture.ExpectStatus(server.Client, HttpMethod.Post, path, bytes, session, null, expected, ct);
         async Task<ArticleState> Edit(ArticleAction action, Edit edit) => (await store.WithSession(session, true,
             (connection, tx, actor) => Store.Execute(connection, tx, actor, action, Publishing.Validate(action, edit), ct), ct)).Article;
     }

@@ -125,11 +125,8 @@ public sealed class AuthorArticleInventoryPostgresTests
             return Decode(bytes);
         }
 
-        async Task<HttpResponseMessage> GET(string? token, string query)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.AuthorArticles + query, frame: null, token, handle: null);
-            return await client.SendAsync(request, ct);
-        }
+        Task<HttpResponseMessage> GET(string? token, string query) =>
+            SiteAedsFixture.Send(client, HttpMethod.Get, WireRoutes.AuthorArticles + query, null, token, null, ct);
     }
 
     private static FrameType ReadFrameType(byte[] bytes)

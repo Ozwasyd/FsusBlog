@@ -35,13 +35,9 @@ public sealed class PublicationRightsPostgresTests
             "select count(*) from public.blog_outbox where kind='publish' and article_id=$1 and revision=$2", draft.Id, published.Revision);
         Assert.Equal(1L, (long)(await outbox.ExecuteScalarAsync(ct))!);
 
-        async Task<Draft> Send(string path, ArticleCommand command)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, Wire.EncodeArticleCommand(command), token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-        }
+        async Task<Draft> Send(string path, ArticleCommand command) =>
+            Wire.DecodeDraft(await SiteAedsFixture.ExpectStatus(server.Client, HttpMethod.Post, path,
+                Wire.EncodeArticleCommand(command), token, null, HttpStatusCode.OK, ct));
     }
 
     [PostgresFact]
@@ -163,8 +159,7 @@ public sealed class PublicationRightsPostgresTests
         }
         async Task<byte[]> Response(HttpMethod method, string route, string? token, byte[]? body, HttpStatusCode status)
         {
-            using var request = SiteAedsFixture.Request(method, route, body, token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
+            using var response = await SiteAedsFixture.Send(server.Client, method, route, body, token, null, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);

@@ -154,29 +154,16 @@ public sealed class PropertyPostgresTests
         async Task<PropertyCommandReceipt> SetFlags(PropertyDefinitionProjectionCommand command) =>
             Wire.DecodePropertyCommandReceipt(await Post(WireRoutes.PropertySchemaCommand,
                 Wire.EncodePropertyDefinitionProjectionCommand(command), author, HttpStatusCode.OK));
-        async Task<byte[]> ReadProjection(string token, HttpStatusCode status)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{WireRoutes.PropertySchemaCommand}?definition={renameAgain.DefinitionId:D}");
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> ReadProjection(string token, HttpStatusCode status) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Get,
+                $"{WireRoutes.PropertySchemaCommand}?definition={renameAgain.DefinitionId:D}", null, token, null, status, ct);
         async Task<PropertyCommandReceipt> Send(PropertyTextCommand command) =>
             Wire.DecodePropertyCommandReceipt(await Post(WireRoutes.PropertyTextCommand, Wire.EncodePropertyTextCommand(command),
                 author, HttpStatusCode.OK));
         async Task ExpectError(string path, byte[] bytes, string token, HttpStatusCode status) =>
             Assert.Equal(WireLayouts.ErrorBytes, Aeds.Decode(await Post(path, bytes, token, status), FrameType.ApiError).Length);
-        async Task<byte[]> Post(string path, byte[] bytes, string token, HttpStatusCode status)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, bytes, token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Post(string path, byte[] bytes, string token, HttpStatusCode status) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, path, bytes, token, null, status, ct);
         async Task<string> Account(string name, bool canAuthor = true) =>
             (await db.SignIn(name, ct, canAuthor)).Token;
     }

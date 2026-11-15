@@ -225,14 +225,8 @@ public sealed class ArticleSchedulePostgresTests
             Wire.DecodeDraft(await Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command), HttpStatusCode.OK));
         Task<byte[]> Submit(ArticleScheduleCommand input, HttpStatusCode status = HttpStatusCode.OK) =>
             Request(HttpMethod.Post, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(input), status);
-        async Task<byte[]> Request(HttpMethod method, string route, byte[]? body, HttpStatusCode status)
-        {
-            using var request = SiteAedsFixture.Request(method, route, body, token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Request(HttpMethod method, string route, byte[]? body, HttpStatusCode status) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, method, route, body, token, null, status, ct);
         Task Execute(string sql, params object[] values) =>
             FixtureSql.ExecuteAsync(db, null, ct, sql, values);
         async Task<T> Scalar<T>(string sql, params object[] values)

@@ -244,13 +244,8 @@ public sealed class PropertySnapshotPostgresTests
             Wire.DecodePropertyValueBatchReceipt(await Request(HttpMethod.Post, WireRoutes.PropertyValueCommand, owner,
                 Wire.EncodePropertyValueBatch(input)));
 
-        async Task<byte[]> Request(HttpMethod method, string path, (Guid Id, string Token, string Handle)? session,
-            byte[]? bytes = null, HttpStatusCode status = HttpStatusCode.OK)
-        {
-            using var request = SiteAedsFixture.Request(method, path, bytes, session?.Token, session?.Handle);
-            using var response = await client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Request(HttpMethod method, string path, (Guid Id, string Token, string Handle)? session,
+            byte[]? bytes = null, HttpStatusCode status = HttpStatusCode.OK) =>
+            SiteAedsFixture.ExpectStatus(client, method, path, bytes, session?.Token, session?.Handle, status, ct);
     }
 }

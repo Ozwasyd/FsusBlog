@@ -122,14 +122,9 @@ public sealed class PublicationHistoryPostgresTests
             return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
         }
 
-        async Task<byte[]> Post(string route, ArticleCommand command, HttpStatusCode expected = HttpStatusCode.OK)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command),
-                session.Token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> Post(string route, ArticleCommand command, HttpStatusCode expected = HttpStatusCode.OK) =>
+            SiteAedsFixture.ExpectStatus(server.Client, HttpMethod.Post, route, Wire.EncodeArticleCommand(command),
+                session.Token, null, expected, ct);
     }
 
     private static ArticleCommand Mutation(Draft draft) => new(draft.Id, draft.Revision, Guid.NewGuid(), "", "");
