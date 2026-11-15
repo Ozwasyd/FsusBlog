@@ -242,6 +242,18 @@ public sealed class RevisionHistoryPostgresTests
         Assert.False(invalidChain.Available);
         Assert.Empty(invalidChain.Edges);
 
+        var repeatedBasis = await Write(0, 0, "Repeated text", "aaa keep");
+        var repeatedEdit = new ArticleBodyEditsCommand(repeatedBasis.Id, repeatedBasis.Revision, Guid.NewGuid(),
+            repeatedBasis.Title + " edited", repeatedBasis.Body, [new(0, 1, ""), new(0, 0, "a")]);
+        var repeatedHead = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
+            Wire.EncodeArticleBodyEditsCommand(repeatedEdit), handle: ownerHandle));
+        Assert.Equal(repeatedBasis.Body, repeatedHead.Body);
+        var repeatedPath = ChainPath(repeatedHead, repeatedBasis.Revision);
+        Assert.False(Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get,
+            repeatedPath.Replace("body-chain", "body-edit"), owner.Token, handle: ownerHandle)).Available);
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get,
+            repeatedPath, owner.Token, handle: ownerHandle)).Available);
+
         await Execute("alter table public.article_body_insertion drop column operations");
         const string oldStoragePrefix = "## ";
         var nextSequence = new ArticleBodyInsertionsCommand(gap.Id, gap.Revision, Guid.NewGuid(), gap.Title,

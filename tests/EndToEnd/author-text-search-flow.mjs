@@ -450,11 +450,11 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await expectEditorHistory(true)
     await backToSearch()
 
-    async function saveBodyEdit(removed, inserted) {
+    async function saveBodyEdit(removed, inserted, restoreBeforeSave = false) {
       const start = revisedRaw.indexOf(removed)
       assert(start >= 0 && start === revisedRaw.lastIndexOf(removed), 'Find and replace needs an exact unique source match')
-      const expected = revisedRaw.slice(0, start) + inserted + revisedRaw.slice(start + removed.length)
-      assert.notEqual(expected, revisedRaw)
+      const changed = revisedRaw.slice(0, start) + inserted + revisedRaw.slice(start + removed.length)
+      assert.notEqual(changed, revisedRaw)
       const writer = await publisher.context().newPage()
       try {
         monitor(writer, 'author-saved-body-edit')
@@ -469,7 +469,13 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         await writer.getByTestId('markdown-search-query').fill(removed)
         await writer.getByTestId('markdown-search-replace').fill(inserted)
         await writer.getByTestId('markdown-search-replace-current').click()
-        await waitForModel(expected)
+        await waitForModel(changed)
+        if (restoreBeforeSave) {
+          await writer.getByTestId('markdown-search-query').fill(inserted)
+          await writer.getByTestId('markdown-search-replace').fill(removed)
+          await writer.getByTestId('markdown-search-replace-current').click()
+          await waitForModel(revisedRaw)
+        }
         await writer.getByTestId('markdown-search-close').click()
         const saveReply = writer.waitForResponse(response => response.request().method() === 'POST' &&
           new URL(response.url()).pathname === WireRoutes.Save)
@@ -478,6 +484,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         assert.equal(saved.status(), 200)
         decodeFrame(saved.request().postDataBuffer(), FrameType.ArticleBodyEditsCommand)
         const updated = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+        const expected = restoreBeforeSave ? revisedRaw : changed
         assert.equal(updated.revision, fixture.revision + 1n)
         assert.equal(updated.body, expected)
         revisedRaw = expected
@@ -571,6 +578,20 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(draftReads.length, readsBeforeOverlap)
     assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
 
+    const beforeRoundTrip = await search(`field.markdown-body:${bodyWord}`)
+    const roundTripSource = fixture
+    await saveBodyEdit(overlapReplacement, overlapReplacement + '🪶', true)
+    assert.equal(fixture.body, roundTripSource.body)
+    await prepareCurrentIndex(page, beforeRoundTrip.response, fixture.revision)
+    await jump().press('Enter')
+    const roundTripMap = bodyEditReceipt(roundTripSource.revision)
+    await rebase.press('Enter')
+    const roundTripReply = await roundTripMap
+    assert.equal(roundTripReply.status(), 200)
+    assert.equal(decodeDraftRevisionBodyEditChain(
+      decodeFrame(await roundTripReply.body(), FrameType.DraftRevisionBodyEditChain).payload).available, false)
+    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+
     await search(bodyWord.toUpperCase())
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
     observations.push('Private full-text jump rechecks a real saved revision, places the native body caret through CRLF/Unicode, selects the exact title range, preserves the plain editor link, and leaves only a one-use opaque value in history.')
@@ -579,6 +600,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     observations.push('At 375px a saved FsusUI keyboard insertion rebases a CRLF/Unicode search hit into the next revision through the exact stored map. An unwitnessed revision still offers its verified historical source.')
     observations.push('At 375px two keyboard insertions in one save, an unchanged-body title revision, and a later insertion compose into one authenticated three-revision chain. The old result lands on the verified CRLF/Unicode body caret.')
     observations.push('At 375px a FsusUI Find and replace edit and a deletion compose across two saved CRLF revisions. The authenticated body-edit chain reaches the original hit and rejects jumping to a different surviving occurrence when the edit touches the hit.')
+    observations.push('At 375px restoring the original body within an ambiguous edit sequence does not produce an identity map.')
   } finally {
     try {
       for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {

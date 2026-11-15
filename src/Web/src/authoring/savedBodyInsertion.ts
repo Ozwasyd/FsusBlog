@@ -58,7 +58,8 @@ export function captureBodyEdits(source: string, model: string, crlf: boolean,
     const removedLength = to - from
     const insert = crlf ? restoreCrlf(change.insert) : change.insert
     const next = body.slice(0, offset) + insert + body.slice(offset + removedLength)
-    if (next.length > WireLimits.BodyBytes || !uniqueEdit(body, next, offset, removedLength, insert.length)) return
+    if (next.length > WireLimits.BodyBytes || !validBoundary(body, offset) || !validBoundary(body, offset + removedLength) ||
+      !validBoundary(next, offset) || !validBoundary(next, offset + insert.length)) return
     edits.push({ offset, removedLength, insert })
     body = next
     editedModel = editedModel.slice(0, position) + change.insert + editedModel.slice(change.to + modelDelta)

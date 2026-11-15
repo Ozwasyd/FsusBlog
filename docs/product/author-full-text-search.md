@@ -30,7 +30,7 @@
 
 同一 `cfbc29c` 运行产物在新库完成万篇故障恢复演练。一条成功响应在客户端收到前被截留，下一次查询在写入阻塞时终止 Kestrel。原有 136 篇文档和词项在强制终止及完成恢复后逐字节一致。重启后完成剩余 1,233 批和 500 页校验，并核对三篇 199,978 个 UTF-16 单元正文的原始坐标及全量摘要。 [失败恢复实测](../../artifacts/author-index-crash-5139e54/crash-run.log)
 
-第五版结构的原生演练只发起一次冷查询。强制终止 Kestrel 后，任务和已提交索引保留，抽查的前 48 篇文档与词项逐字节一致。重启后 52 秒内在零搜索请求下补齐 10,000 篇。首个复查请求直接就绪，500 页的 ID 顺序和三篇长正文的坐标校验通过。另用封存包建库，停服连续运行两次升级，实际行和升级后结构一致。 [后台重启实测](../../artifacts/author-index-autonomous-c3c8cc2/autonomous-run.log) · [停服升级](../../artifacts/author-index-autonomous-c3c8cc2/stopped-upgrade.log)
+第五版结构的原生演练只发起一次冷查询。强制终止 Kestrel 后，任务和已提交索引保留，抽查的前 48 篇文档与词项逐字节一致。重启后 52 秒内在零搜索请求下补齐 10,000 篇。首个复查请求直接就绪，500 页的 ID 顺序和三篇长正文的坐标校验通过。另用封存包建库，停服连续运行两次升级，实际行和升级后结构一致。 [后台重启实测](../../artifacts/author-index-autonomous-c3c8cc2/autonomous-run.log) · [还原同一正文的定位回归](../../artifacts/authoring-edits-import-8794a67/browser-ambiguity-retry.log) · [停服升级](../../artifacts/author-index-autonomous-c3c8cc2/stopped-upgrade.log)
 
 隔离 Chrome 连接同样的 10,000 篇夹具，在 1440、768 和 375px 观察一次冷查询、键盘前后翻页和精确原文定位。列表每页最多渲染 20 条，显示结果期间没有读取文章全文，选中长正文命中后才读取相应草稿。 [万篇浏览器结果](../../artifacts/author-search-browser-10000-f3c35c6/browser-b9/browser-result.json)
 
@@ -38,7 +38,7 @@
 
 原命中的保存修订变更时，搜索先刷新结果。刷新页仍包含同一文章的更新修订时，可以显式打开「查看原保存修订的命中位置」。该操作再次核对更新修订，再从历史权限入口读取早期的保存内容，在只读弹窗选中原命中。标题、摘要、正文和章节标题都用原摘要和坐标核验。工作区继续使用当前草稿。
 
-正文命中可跨最多八个相邻保存修订重新定位。每版最多记录八次经 FsusUI 验证的显式插入、删除或替换。服务端用不可变正文回放有序操作，将验证过的坐标、两端摘要和保存修订一同提交。没有操作记录且字节相同的正文可以跨过对应修订。重新定位会核对当前会话、链上摘要和原文区间，再由 FsusUI 逐步映射。操作触及命中或缺少可靠记录时，可以使用原保存修订定位。既有数据库停服执行 `article-body-insertion` 安装或升级记录结构。 [375px 连续插入](../../artifacts/author-body-chain-b9f7c93/browser.log) · [375px 跨两次保存的替换与删除](../../artifacts/authoring-edits-import-8794a67/browser.log) · [停服升级](../../artifacts/authoring-edits-import-8794a67/stopped-upgrade.log)
+正文命中可跨最多八个相邻保存修订重新定位。每版最多记录八次经 FsusUI 验证的显式插入、删除或替换。服务端用不可变正文回放有序操作，将验证过的坐标、两端摘要和保存修订一同提交。没有操作记录且字节相同的正文可以跨过对应修订。重新定位会核对当前会话、链上摘要和原文区间，再由 FsusUI 逐步映射。操作触及命中或缺少可靠记录时，可以使用原保存修订定位。已知编辑有歧义且最终正文还原时，也必须查看原保存修订。既有数据库停服执行 `article-body-insertion` 安装或升级记录结构。 [375px 连续插入](../../artifacts/author-body-chain-b9f7c93/browser.log) · [375px 跨两次保存的替换与删除](../../artifacts/authoring-edits-import-8794a67/browser.log) · [还原同一正文的定位回归](../../artifacts/authoring-edits-import-8794a67/browser-ambiguity-retry.log) · [停服升级](../../artifacts/authoring-edits-import-8794a67/stopped-upgrade.log)
 
 文章管理和属性筛选中的标题／摘要条件读取当前保存的手动摘要，未填写时使用现有正文摘录。手动摘要通过文章编辑器检查器保存，每次提交都会创建新修订。普通保存保留摘要，历史恢复沿用来源修订的摘要。公开列表使用已发布修订对应的摘要。既有 v2 数据库在停止服务后通过迁移工具的 `author-summary` 命令安装字段。v1 导入逐修订保留来源摘要，并在投影回读核对。
 

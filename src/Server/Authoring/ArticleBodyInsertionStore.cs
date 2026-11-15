@@ -30,7 +30,8 @@ internal static class ArticleBodyInsertionStore
     {
         if (!TryReplayEdits(source, body, edits, out var unique))
             throw new BusinessException(Rejection.Invalid, "The saved body is not the supplied source edit sequence.");
-        return unique ? new(0, 0, Digest(source), Digest(body), Edits: edits) : null;
+        // An ambiguous edit returning to the same text must block the identity fallback.
+        return unique || source == body ? new(0, 0, Digest(source), Digest(body), Edits: edits) : null;
     }
 
     internal static async Task Record(NpgsqlConnection db, NpgsqlTransaction tx, int id, long revision, long source,
