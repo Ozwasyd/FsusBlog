@@ -3,6 +3,7 @@ using System.Data;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Fido2NetLib;
 using Fido2NetLib.Objects;
 using FsusBlog.V2.Contracts;
@@ -12,11 +13,15 @@ using Npgsql;
 
 internal static partial class Migration
 {
+    private const int LegacyPasskeyCredentialLimit = 5;
+    private const int LegacyPasskeyAssertionBytes = 32768;
     private sealed record LegacyPasskeySelection(Guid SourceSite, Guid TargetSite, int Account, Guid User, string Origin, string Rp);
     private sealed record LegacyPasskeyPlan(int Version, string SourceReference, LegacyPasskeySelection Selection,
-        LegacyPostgresSourceSeal Source, string TargetSha256, string CredentialSha256, string BackupSha256, string Nonce, DateTimeOffset Expires);
+        LegacyPostgresSourceSeal Source, string TargetSha256, string CredentialSha256, string BackupSha256, string Nonce, DateTimeOffset Expires,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CredentialCount = null);
     private sealed record LegacyPasskeyCredential(byte[] Handle, byte[] Id, byte[] Key, uint Counter, bool Eligible,
         bool BackedUp, DateTimeOffset Created, DateTimeOffset? LastUsed);
+    private sealed record LegacyVerifiedPasskey(LegacyPasskeyCredential Credential, uint Counter);
 
     private static async Task<int> RunLegacyPasskeyAsync(string[] args, CancellationToken ct)
     {
@@ -32,7 +37,8 @@ internal static partial class Migration
         {
             approvalBytes = await ReadLegacyPasskeyInputAsync(review, reviewSha, 8192, ct);
             approved = JsonSerializer.Deserialize<LegacyPasskeyPlan>(approvalBytes, OwnerMapJson);
-            if (approved is not { Version: 1, SourceReference: LegacyReference, Selection: not null, Source: not null } ||
+            if (approved is not { SourceReference: LegacyReference, Selection: not null, Source: not null } ||
+                approved is not ({ Version: 1, CredentialCount: null } or { Version: 2, CredentialCount: >= 2 and <= LegacyPasskeyCredentialLimit }) ||
                 approved.BackupSha256 != restoreSha || !IsCanonicalIdentityBytes(approved.Nonce, 32, 32) ||
                 approved.Expires > DateTimeOffset.UtcNow.AddMinutes(10))
                 throw new InvalidOperationException("Invalid independently approved Passkey plan.");
@@ -97,31 +103,29 @@ internal static partial class Migration
         if (await ReadLegacyPostgresClusterAsync(oldDb, oldTx, ct) == targetCluster)
             throw new InvalidOperationException("Passkey proof requires a separate restored source cluster.");
         var sourceSeal = await SealLegacyPostgresSourceAsync(source, oldDb, oldTx, ct);
-        var (credential, credentialSha) = await ReadLegacyPasskeyCredentialAsync(source, oldTx, selection.Account, ct);
+        var (credentials, credentialSha) = await ReadLegacyPasskeyCredentialsAsync(source, oldTx, selection.Account, ct);
         await oldTx.RollbackAsync(ct);
-        var observedPlan = new LegacyPasskeyPlan(1, LegacyReference, selection, sourceSeal, targetSha, credentialSha,
+        int? credentialCount = credentials.Length > 1 ? credentials.Length : null;
+        var observedPlan = new LegacyPasskeyPlan(credentialCount.HasValue ? 2 : 1, LegacyReference, selection, sourceSeal, targetSha, credentialSha,
             backupSha, approved?.Nonce ?? Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32)),
-            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10));
+            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10), credentialCount);
 
         if (approved is null)
         {
             if (!pristine) throw new InvalidOperationException("Plan requires a pristine backup-matching Passkey destination.");
-            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, credential, pristine, credential.Counter, ct);
+            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, [], ct);
             Console.WriteLine(JsonSerializer.Serialize(observedPlan, Json));
             return 0;
         }
         if (approved != observedPlan || pristine && approved.Expires <= DateTimeOffset.UtcNow)
             throw new InvalidOperationException("The approved Passkey source, destination or validity interval differs.");
-        PasskeyLoginRequest assertion;
-        try { assertion = PasskeyWire.ReadLogin(await ReadLegacyPasskeyInputAsync(args[3], args[4], 32768, ct)); }
-        catch (ProtocolException) { throw new InvalidOperationException("Invalid discoverable Passkey assertion frame."); }
-        var verifiedCounter = await VerifyLegacyPasskeyAssertionAsync(selection, credential, SHA256.HashData(approvalBytes!), assertion, ct);
+        var verified = await VerifyLegacyPasskeyAssertionsAsync(selection, credentials, SHA256.HashData(approvalBytes!), args[3], args[4], ct);
         if (pristine)
         {
-            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, credential, true, credential.Counter, ct);
-            await WriteLegacyPasskeyAsync(db, tx, selection, credential, verifiedCounter, ct);
+            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, [], ct);
+            await WriteLegacyPasskeysAsync(db, tx, selection, verified, ct);
         }
-        await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, credential, false, verifiedCounter, ct);
+        await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, verified, ct);
         await tx.CommitAsync(ct);
         Console.WriteLine(JsonSerializer.Serialize(new
         {
@@ -145,6 +149,32 @@ internal static partial class Migration
         if (file.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != sha)
             throw new InvalidOperationException("Pinned Passkey import input changed.");
         return bytes;
+    }
+
+    private static async Task<LegacyVerifiedPasskey[]> VerifyLegacyPasskeyAssertionsAsync(LegacyPasskeySelection selection,
+        LegacyPasskeyCredential[] credentials, byte[] challenge, string path, string digest, CancellationToken ct)
+    {
+        bool single = credentials.Length == 1;
+        var input = await ReadLegacyPasskeyInputAsync(path, digest, single ? LegacyPasskeyAssertionBytes :
+            credentials.Length * (4 * ((LegacyPasskeyAssertionBytes + 2) / 3) + 4) + 2, ct);
+        var frames = single ? [input] : JsonSerializer.Deserialize<byte[][]>(input, OwnerMapJson);
+        if (frames is null || frames.Length != credentials.Length ||
+            frames.Any(frame => frame is not { Length: > 0 and <= LegacyPasskeyAssertionBytes }))
+            throw new InvalidOperationException("Supply exactly one discoverable assertion per approved Passkey.");
+
+        var pending = credentials.ToDictionary(credential => Base64Url.EncodeToString(credential.Id), StringComparer.Ordinal);
+        var verified = new List<LegacyVerifiedPasskey>(frames.Length);
+        foreach (var frame in frames)
+        {
+            PasskeyLoginRequest assertion;
+            try { assertion = PasskeyWire.ReadLogin(frame); }
+            catch (ProtocolException) { throw new InvalidOperationException("Invalid discoverable Passkey assertion frame."); }
+            if (!pending.Remove(assertion.CredentialId, out var credential))
+                throw new InvalidOperationException("A migration Passkey assertion is duplicated or outside the approved account.");
+            var counter = await VerifyLegacyPasskeyAssertionAsync(selection, credential, challenge, assertion, ct);
+            verified.Add(new(credential, counter));
+        }
+        return verified.ToArray();
     }
 
     private static async Task<uint> VerifyLegacyPasskeyAssertionAsync(LegacyPasskeySelection selection, LegacyPasskeyCredential credential,
