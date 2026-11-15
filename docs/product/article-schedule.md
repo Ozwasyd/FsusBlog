@@ -11,4 +11,10 @@
 
 新数据库在 `plan` 和 `apply` 中自动建表。升级匹配其他业务表结构的 v2 数据库时，先停止服务器并运行离线工具的 `article-schedule`，再运行 `verify`。迁移与服务共用发布所有权和交接锁。
 
+## 订阅源回归
+
+定时发布集成测试使用临时 PostgreSQL 和真实 Kestrel。提前执行、取消和强制 outbox 写入失败后，RSS、旧 RSS 地址、Atom、JSON Feed 与 Sitemap 保持旧一代内容。两个并发到期处理只提交一次新发布。随后公开 AEDS 详情的修订、发布 ID、发布序号和时间与 PostgreSQL 对齐，各分发文档共享该详情的快照代号。订阅源保留文章的 canonical URL，并按各格式的时间精度输出实际提交时间。测试也核对后台工作器按数据库时钟首次发布后的分发结果。重试已执行的计划不会再增加发布事件。 [订阅源契约](distribution.md)
+
+.NET 10.0.404 的定时发布及分发测试共 22 项通过。 [原生运行日志](../../artifacts/scheduled-feed-transition/native.log)
+
 [固定 v1 的定时发布规则](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/article-publication-revisions.md#L127)
