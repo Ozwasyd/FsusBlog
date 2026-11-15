@@ -39,9 +39,12 @@ internal static class PublicArticleHtml
         return html.Append("</section>").ToString();
     }
 
-    internal static string RenderMarkdown(string markdown)
+    internal static MarkdownDocument ParseMarkdown(string markdown) => Markdown.Parse(markdown, Pipeline);
+
+    internal static string RenderMarkdown(string markdown) => RenderMarkdown(ParseMarkdown(markdown));
+
+    internal static string RenderMarkdown(MarkdownDocument document)
     {
-        var document = Markdown.Parse(markdown, Pipeline);
         foreach (var link in document.Descendants<LinkInline>())
         {
             if (!IsPublicUrl(link.Url, permitMail: !link.IsImage))

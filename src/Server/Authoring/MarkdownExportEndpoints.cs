@@ -18,8 +18,11 @@ internal static class MarkdownExportEndpoints
         Attach(Route, ContentType, DownloadName, (title, body, revision, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
             (title, body, _, ct) => WordDocumentExport.Write(title, body, ct));
+        Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
+            (title, body, _, ct) => HtmlDocumentExport.Write(title, body, ct), HtmlDocumentExport.ResponsePolicy);
 
-        void Attach(string route, string mediaType, string filename, Func<string, string, long, CancellationToken, byte[]> render)
+        void Attach(string route, string mediaType, string filename, Func<string, string, long, CancellationToken, byte[]> render,
+            string? contentSecurityPolicy = null)
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
@@ -36,6 +39,7 @@ internal static class MarkdownExportEndpoints
                 }, ct);
                 ct.ThrowIfCancellationRequested();
                 ctx.Response.Headers.CacheControl = "private, no-store";
+                if (contentSecurityPolicy is not null) ctx.Response.Headers.ContentSecurityPolicy = contentSecurityPolicy;
                 return Results.Bytes(document, mediaType, filename);
             }).RequireRateLimiting("command");
         }

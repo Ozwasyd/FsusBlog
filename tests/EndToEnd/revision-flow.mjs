@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { readMarkdownDownload, readWordDownload } from './markdown-export-flow.mjs'
+import { readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations }) {
   const currentBody = `${originalBody}\nNewer saved revision.`
@@ -56,6 +56,8 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
     'Narrow comparison must stack the exact sources without hiding either')
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
   await comparison.getByRole('button', { name: 'Download revision Markdown' }).click({ trial: true })
+  await verifyOfflineHtmlDownload(page, comparison.getByRole('button', { name: 'Download revision HTML', exact: true }),
+    savedBefore.title, 'Draft milestone', 'Newer saved revision.')
   await screenshot(page, 'editor-revision-comparison-mobile')
   await page.setViewportSize(wide)
 

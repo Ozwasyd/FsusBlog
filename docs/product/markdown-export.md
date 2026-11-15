@@ -10,4 +10,8 @@
 
 Word 文件只含正文、固定样式和指向这两个内部部件的关系。链接和图片描述以文字输出，不加载附件、不嵌入资源，也不创建超链接、宏或外部关系。服务端只在内存生成 Open XML，无渲染进程、临时文件及网络读取。字形显示取决于阅读器可用字体。LibreOffice 仅用于打开测试生成的实际下载样本。 [WordprocessingML 文档结构](https://learn.microsoft.com/en-us/office/open-xml/word/structure-of-a-wordprocessingml-document)
 
-v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站点备份。固定 v1 的独立文档导出目录将 DOCX 提供方标为未实现。此次 v2 交付提供单篇修订的 Markdown 和 Word 下载。权利与资产迁移、完整备份及导入、PDF 或 HTML 的隔离渲染仍待交付。参照固定 v1 的 `docs/api/contracts.md` 中 `ContentExportResponse` 和 `DocumentExportContracts.cs`。
+`GET /api/v2/authoring/draft/{id}/export.html` 使用同一授权和修订参数。Inspector 的 **Download saved HTML** 和历史对照的 **Download revision HTML** 导出单个 UTF-8 离线附件 `article.html`。基础文本档支持标题、段落、强调、列表、引用和代码等标准 Markdown 结构，原始 HTML 按文本转义。遇到 Markdown 链接、图片、引用式链接定义，或 Mermaid、KaTeX、LaTeX 和 math 围栏会返回 400。其他扩展按基础 Markdown 文本语义处理。需要原始语法字节时，可以下载保存的 Markdown。
+
+HTML 附件无脚本、外链、样式、字体或其他资源引用，HTTP 响应和离线文档均带禁止资源加载的内容安全策略。输入接受现有修订的标题和正文上限，输出最多 2 MiB。附件由服务端即时生成，沿用 `private, no-store`。此入口的范围为单篇已保存修订。文档任务、四格式隔离渲染、权利与资源清单、文章包往返及完整导入仍有各自的验收条件。
+
+v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站点备份。固定 v1 的文档导出源码包含 HTML 提供方、下载处理器和注册方法，常规二进制路由入口没有调用该注册方法。提供方目录将 DOCX 标记为未实现。 [v1 文档提供方目录](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/DocumentExport/DocumentExportContracts.cs#L261-L320) · [v1 路由入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs#L60-L80)

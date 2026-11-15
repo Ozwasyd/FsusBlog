@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{ article: number; revision: bigint; sele
 })
 const failure = ref('')
 const loading = ref(false)
+const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML' }
 let request: AbortController | undefined
 
 function reset() {
@@ -48,7 +49,9 @@ async function download() {
       await recheckCredential(session.siteSessionId, controller.signal)
     else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
-    else failure.value = format === 'docx' ? 'Could not download Word. Try again.' : 'Could not download Markdown. Try again.'
+    else if (format === 'html' && error instanceof ApiError && error.status === 400)
+      failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
+    else failure.value = `Could not download ${formatLabels[format]}. Try again.`
   } finally {
     if (request === controller) {
       request = undefined
@@ -64,7 +67,7 @@ onScopeDispose(reset)
 <template>
   <span class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      Download {{ selected === revision ? 'saved' : 'revision' }} {{ format === 'docx' ? 'Word' : 'Markdown' }}
+      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>

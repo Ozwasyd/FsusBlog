@@ -4,11 +4,72 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Authoring;
 
 public sealed class MarkdownExportPostgresTests
 {
+    [Fact]
+    public void OfflineHtmlRendersSafeMarkdownWithoutExecutableOrLoadingElements()
+    {
+        const string title = "Saved </title><script>alert(1)</script> & title";
+        const string source = """
+            ## Earlier outline
+
+            A paragraph with **emphasis** and a literal &.
+
+            - First item
+            - Second item
+
+            ```html
+            <iframe src="https://export.invalid/blocked"></iframe>
+            ```
+
+            <img src="https://export.invalid/blocked" onerror="alert(1)">
+            """;
+        var bytes = HtmlDocumentExport.Write(title, source, CancellationToken.None);
+        Assert.Equal(bytes, HtmlDocumentExport.Write(title, source, CancellationToken.None));
+        var html = Encoding.UTF8.GetString(bytes);
+        Assert.StartsWith("<!doctype html>\n<html>", html, StringComparison.Ordinal);
+        Assert.Contains("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; base-uri 'none'; form-action 'none'\">", html);
+        Assert.Contains("<title>Saved &lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt; &amp; title</title>", html);
+        Assert.Contains("<h2>Earlier outline</h2>", html);
+        Assert.Contains("<strong>emphasis</strong>", html);
+        Assert.Contains("<li>First item</li>", html);
+        Assert.Contains("&lt;iframe src=", html);
+        Assert.Contains("&lt;img src=", html);
+        foreach (var element in new[] { "<script", "<iframe", "<img", "<a ", "<link", "<style", "<base", "<form" })
+            Assert.DoesNotContain(element, html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("[outside](https://export.invalid/no)")]
+    [InlineData("[fragment](#local)")]
+    [InlineData("<https://export.invalid/no>")]
+    [InlineData("<author@export.invalid>")]
+    [InlineData("![local](/api/v2/authoring/media/sample)")]
+    [InlineData("![referenced][image]\n\n[image]: https://export.invalid/no")]
+    [InlineData("[unused]: https://export.invalid/no")]
+    [InlineData("```MERMAID\ngraph TD; A --> B;\n```")]
+    [InlineData("~~~katex\nx = 1\n~~~")]
+    public void OfflineHtmlRejectsRecognizedUnsupportedSource(string markdown)
+    {
+        var error = Assert.Throws<BusinessException>(() => HtmlDocumentExport.Write("Saved", markdown, CancellationToken.None));
+        Assert.Equal(Rejection.Invalid, error.Rejection);
+    }
+
+    [Fact]
+    public void OfflineHtmlRejectsOversizedInputOutputAndCancellation()
+    {
+        Assert.Throws<BusinessException>(() => HtmlDocumentExport.Write("Saved", new string('x', WireLimits.BodyBytes + 1), CancellationToken.None));
+        var escapedOutput = Assert.Throws<BusinessException>(() =>
+            HtmlDocumentExport.Write("Saved", new string('&', WireLimits.BodyBytes), CancellationToken.None));
+        Assert.Equal("This revision exceeds the offline HTML size limit.", escapedOutput.Message);
+        Assert.Throws<OperationCanceledException>(() => HtmlDocumentExport.Write("Saved", "Body", new CancellationToken(true)));
+    }
+
     [PostgresFact]
     public async Task ExportsOnlyTheRequestedSavedOwnerRevisionAsAnUncachedAttachment()
     {
@@ -38,6 +99,22 @@ public sealed class MarkdownExportPostgresTests
         await ReadWord(word, null, HttpStatusCode.Unauthorized);
         await ReadWord(word, reader, HttpStatusCode.Forbidden);
         await ReadWord(PathFor(older, older.Revision).Replace("export.md", "export.docx", StringComparison.Ordinal), owner, HttpStatusCode.Conflict);
+        var html = PathFor(current, older.Revision, "html");
+        var savedHtml = await ReadHtml(html, owner, HttpStatusCode.OK);
+        Assert.Contains("<h1>原文", savedHtml, StringComparison.Ordinal);
+        Assert.Contains("&lt;script&gt;literal document text&lt;/script&gt;", savedHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain(currentTitle, savedHtml, StringComparison.Ordinal);
+        Assert.Equal(savedHtml, await ReadHtml(html, owner, HttpStatusCode.OK));
+        var currentHtml = PathFor(current, current.Revision, "html");
+        Assert.Contains(currentTitle, await ReadHtml(currentHtml, owner, HttpStatusCode.OK), StringComparison.Ordinal);
+        await ReadHtml(html, null, HttpStatusCode.Unauthorized);
+        await ReadHtml(html, outsider, HttpStatusCode.NotFound);
+        await ReadHtml(html, reader, HttpStatusCode.Forbidden);
+        await ReadHtml(PathFor(older, older.Revision, "html"), owner, HttpStatusCode.Conflict);
+        await ReadHtml(html + "&revision=2", owner, HttpStatusCode.BadRequest);
+        var sourceWithLink = await Save(0, 0, "Unexportable image", "![External](https://export.invalid/no)");
+        var linkedHtml = PathFor(sourceWithLink, sourceWithLink.Revision, "html");
+        await ReadHtml(linkedHtml, owner, HttpStatusCode.BadRequest, "Offline HTML supports basic text Markdown");
         await Read(export, null, HttpStatusCode.Unauthorized);
         await Read(export, outsider, HttpStatusCode.NotFound);
         await Read(export, reader, HttpStatusCode.Forbidden);
@@ -61,10 +138,40 @@ public sealed class MarkdownExportPostgresTests
         }
         await Read(export, owner, HttpStatusCode.NotFound);
         await ReadWord(word, owner, HttpStatusCode.NotFound);
+        await ReadHtml(html, owner, HttpStatusCode.NotFound);
 
         await Command("delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await Read(export, owner, HttpStatusCode.Unauthorized);
         await ReadWord(word, owner, HttpStatusCode.Unauthorized);
+        await ReadHtml(linkedHtml, owner, HttpStatusCode.Unauthorized);
+
+        async Task<string> ReadHtml(string path, string? token, HttpStatusCode status, string? error = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            if (status != HttpStatusCode.OK)
+            {
+                Assert.Null(response.Content.Headers.ContentDisposition);
+                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                var message = Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync(ct));
+                Assert.DoesNotContain("literal document text", message, StringComparison.Ordinal);
+                Assert.DoesNotContain("https://export.invalid/no", message, StringComparison.Ordinal);
+                if (error is not null) Assert.Contains(error, message, StringComparison.Ordinal);
+                return "";
+            }
+            Assert.True(response.Headers.CacheControl?.Private);
+            Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("utf-8", response.Content.Headers.ContentType?.CharSet);
+            Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal("article.html", response.Content.Headers.ContentDisposition?.FileNameStar);
+            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+            Assert.Equal("default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+                Assert.Single(response.Headers.GetValues("Content-Security-Policy")));
+            return await response.Content.ReadAsStringAsync(ct);
+        }
 
         async Task ReadWord(string path, string? token, HttpStatusCode status, params string[] expected)
         {
@@ -149,6 +256,6 @@ public sealed class MarkdownExportPostgresTests
         }
     }
 
-    private static string PathFor(Draft draft, long selected) =>
-        FormattableString.Invariant($"/api/v2/authoring/draft/{draft.Id}/export.md?revision={draft.Revision}&sourceRevision={selected}");
+    private static string PathFor(Draft draft, long selected, string format = "md") =>
+        FormattableString.Invariant($"/api/v2/authoring/draft/{draft.Id}/export.{format}?revision={draft.Revision}&sourceRevision={selected}");
 }

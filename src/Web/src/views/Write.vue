@@ -977,6 +977,8 @@ async function reloadDraft() {
           :disabled="pending || hasConflict" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" format="docx" />
+        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+          :disabled="pending || hasConflict" format="html" />
         <ArticleMedia :article-id="original.id" :revision="original.revision"
           :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
