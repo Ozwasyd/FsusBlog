@@ -97,5 +97,8 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 | 开发 `4556f8e` | 1,081 | 112,615 | 4,851 | 85,944 | 3,969 | 207,379 | 1,167 |
 | 开发 `268e8c6` | 1,083 | 113,146 | 4,851 | 86,063 | 3,969 | 208,029 | 517 |
 | 开发 `7a1558d` | 1,084 | 113,061 | 4,851 | 86,369 | 3,969 | 208,250 | 296 |
+| 开发 `e3d58b9` | 1,086 | 113,280 | 4,851 | 86,441 | 3,969 | 208,541 | 5 |
+
+`e3d58b9` 的生成代码为 6,651 行，已计入生产。历史证据单列 5,259 行。共用集成夹具净减 236 行，受影响的 114 个用例全部通过。 [规范化计量](../../artifacts/targeted-delivery-99abb41/code-volume.json) · [用例覆盖](../../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json)
 
 生产代码的生成部分分别为 5,884、5,962、6,116、6,494、6,525、6,619、6,631、6,643、6,651、6,651 和 6,651 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [版本化导出提交计量](../../artifacts/code-volume-2ec1b97/result.json) · [属性批写、Passkey 重命名和旧图像准备提交计量](../../artifacts/code-volume-a649068/result.json) · [属性快照、第二设备及私有媒体启用提交计量](../../artifacts/code-volume-d937398/result.json) · [Passkey 移除、属性焦点和批次迁移计量](../../artifacts/delivery-integration-09e4b27/code-volume-6a53e4d.json) · [同字段任一匹配、恢复移除及 EPUB 附图计量](../../artifacts/targeted-delivery-82d0180/code-volume-4556f8e.json) · [旧首发迁移、插件授权、后台标签及 DOCX 附图计量](../../artifacts/targeted-delivery-967805c/code-volume-268e8c6.json) · [再发布迁移、作者搜索及 Passkey 计量](../../artifacts/delivery-review-72d684d/code-volume-7a1558d.json) · [发布验收边界](../release-readiness.md)

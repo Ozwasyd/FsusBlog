@@ -44,4 +44,12 @@
 - 原生导出 worker 拒绝已入队修订的保存时间变化。恢复输入及重启后，同一任务保留原失败回执，新任务使用同一冻结输入成功导出原历史正文。固定 PDF 工具的运行中取消、SIGTERM 及租约丢失三项也通过。异步附件清单及完整元数据仍待交付。 [实库记录](../artifacts/delivery-review-72d684d/combined-native.log) · [PDF 实测](../artifacts/delivery-review-72d684d/pdf-targeted/verification.log)
 - 414 条采用或合并采用的冻结评论均有显式条款 ID，正文自由文本逐项裁断仍待完成。共用目录探针净减 167 行，61 项新旧 CLI 对照和 7 项原生测试通过。合计 208,250 NCLOC，距上限 296 行。 [冻结台账](issues/review-completeness.md) · [CLI 对照](../artifacts/delivery-review-72d684d/catalog/compare.log) · [计量](product/code-budget-checkpoint.md)
 
+## 开发提交 `e3d58b9`
+
+- v4 可在同一审批批次启用即时首发与普通再发布。恢复后的独立 Kestrel 核验两篇文章的当前公开坐标，旧坐标无法作为当前公开版本读取。隔离库保留三条发布事件和 21 条终态投递。篡改历史修订后，同一审批被拒绝。v5 公开回滚的旧责任治理和操作者映射仍待实现。 [合并演练](../artifacts/targeted-delivery-99abb41/combined-migration.log) · [兼容演练](../artifacts/legacy-mixed-release-99abb41/native-suite-status-2.txt)
+- Chrome 验证桌面切回原工作组时保留已打开的大纲和键盘导航位置，焦点仍进入编辑器。375px Drawer 的关闭与焦点恢复通过。管理员系统通知页通过真实 Caddy TLS 收到通知并重新读取，缺少共享投影和仅带站点会话的订阅均被拒绝。 [工作区](../artifacts/targeted-delivery-99abb41/workspace-outline/) · [收件箱](../artifacts/targeted-delivery-99abb41/combined-admin-browser/) · [实库](../artifacts/targeted-delivery-99abb41/combined-inbox-media.log)
+- 签名插件授权绑定批准文件内容和打开文件的变更标识。Debian ARM64 复现旧代码接受撤下后恢复的授权，修复后 HTTPS、实库及签名 worker 拒绝旧授权并接受新授权。macOS 离线测试验证撤下再恢复也会中止正在运行的结果。 [Debian 实测](../artifacts/plugin-approval-aba-99abb41/debian-native.log) · [macOS 实测](../artifacts/plugin-approval-aba-99abb41/macos-in-flight-restore.log)
+- 异步 HTML 界面可从私有预览明确选择单张图片。第 3 版任务在 worker 重启后仍按所选历史修订重建输入，图片篡改会阻止下载。旧第 1、2 版任务升级前后的记录和输出字节一致。桌面和 375px Chrome 通过。遇到存储损坏时，已成功的回执可能仍在，下载会拒绝。完整附件清单、版式及异步 PDF 附图仍待交付。 [浏览器](../artifacts/targeted-delivery-99abb41/combined-export-browser/article-media-browser.json) · [实库与旧版本升级](../artifacts/targeted-delivery-99abb41/export-attachment/)
+- 锁定 Release 编译、严格 Vue 类型检查、Vite、三份 FsusUI Wasm 字节比对及 141 项协议测试通过。夹具复用净减 236 NCLOC，受影响的 114 项全部通过。全套集成首轮到达监督时限，结果仅计入已运行的用例。当前代码量为 208,541 NCLOC，距上限 5 行。正式容量沿用封存包四轮短档的结果，1 轮通过，900 秒正式长测未开始。 [合并检查](../artifacts/targeted-delivery-99abb41/) · [夹具覆盖](../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
