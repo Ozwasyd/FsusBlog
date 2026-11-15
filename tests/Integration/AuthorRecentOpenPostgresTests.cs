@@ -1,9 +1,7 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 
 public sealed class AuthorRecentOpenPostgresTests
 {
@@ -94,17 +92,8 @@ public sealed class AuthorRecentOpenPostgresTests
 
         async Task<Credential> Login(string name, bool canAuthor)
         {
-            var id = Guid.NewGuid();
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await using var dbConnection = await db.DataSource.OpenConnectionAsync(ct);
-            await FixtureSql.ExecuteAsync(dbConnection, null, ct, """
-                with created as (
-                    insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
-                )
-                insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
-                """, id, name, canAuthor, SHA256.HashData(ticket));
-            var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-            return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+            var (_, token, handle) = await db.SignIn(name, ct, canAuthor, minutes: 1);
+            return new(token, handle);
         }
 
         async Task<Draft> Change(Credential user, string route, ArticleCommand command) =>
@@ -129,14 +118,8 @@ public sealed class AuthorRecentOpenPostgresTests
             return (revision, next, rows);
         }
 
-        async Task<byte[]> Check(HttpMethod method, string path, Credential user, byte[]? frame, HttpStatusCode status)
-        {
-            using var response = await Send(method, path, user, frame);
-            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl!.NoStore);
-            return bytes;
-        }
+        Task<byte[]> Check(HttpMethod method, string path, Credential user, byte[]? frame, HttpStatusCode status) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, method, path, frame, user.Token, user.Handle, status, ct);
 
         async Task<HttpResponseMessage> Send(HttpMethod method, string path, Credential user, byte[]? frame = null)
         {

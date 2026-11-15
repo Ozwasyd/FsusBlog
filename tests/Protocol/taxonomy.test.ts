@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fixtureText, hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeTaxonomyList, decodeTaxonomyMetadata } from '../../src/Contracts/taxonomy.ts';
 import { decodeTaxonomyAssignment, encodeTaxonomyAssignment, FrameType } from '../../src/Contracts/wire.generated.ts';
 
 function fixture(name: string, type: FrameType): Uint8Array {
-  const hex = readFileSync(new URL(`fixtures/${name}.hex`, import.meta.url), 'utf8').replace(/\s+/g, '');
+  const hex = fixtureText(`${name}.hex`).replace(/\s+/g, '');
   return decodeFrame(Buffer.from(hex, 'hex'), type).payload;
 }
 
@@ -38,7 +38,7 @@ test('taxonomy assignment preserves revision, command identity, and bounded tag 
     categoryId: 3, tagIds: [101, 105],
   });
   assert.deepEqual(encodeFrame(FrameType.TaxonomyAssignment, encodeTaxonomyAssignment(decoded)),
-    Uint8Array.from(Buffer.from(readFileSync(new URL('fixtures/taxonomy-assignment.hex', import.meta.url), 'utf8').trim(), 'hex')));
+    Uint8Array.from(hexFixture('taxonomy-assignment.hex')));
   const tooMany = Uint8Array.from(expected);
   new DataView(tooMany.buffer).setInt32(32, 33, true);
   assert.throws(() => decodeTaxonomyAssignment(tooMany), ProtocolError);

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame } from '../../src/Contracts/aeds.ts';
 import { decodeSitePage } from '../../src/Contracts/site-pages.ts';
 import { FrameType } from '../../src/Contracts/wire.generated.ts';
 
-const golden = Buffer.from(readFileSync(new URL('./fixtures/page-content-v1.hex', import.meta.url), 'utf8').trim(), 'hex');
+const golden = hexFixture('page-content-v1.hex');
 
 test('v1 site page golden and malformed PODs', () => {
   const { payload } = decodeFrame(golden, FrameType.PageContent);

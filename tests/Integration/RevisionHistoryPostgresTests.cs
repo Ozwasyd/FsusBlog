@@ -4,8 +4,6 @@ using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
-using Npgsql;
 
 public sealed class RevisionHistoryPostgresTests
 {
@@ -16,11 +14,10 @@ public sealed class RevisionHistoryPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await SignIn("Revision owner", true);
-        var otherSession = await SignIn("Revision owner", true, owner.User.Id);
-        var outsider = await SignIn("Revision outsider", true);
-        var reader = await SignIn("Revision reader", false);
+        var owner = await fixture.SignIn("Revision owner", ct);
+        var otherSession = await fixture.SignIn(owner.Id, ct);
+        var outsider = await fixture.SignIn("Revision outsider", ct);
+        var reader = await fixture.SignIn("Revision reader", ct, canAuthor: false);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var article = await Write(0, 0, "Original private title", "First body, exact \r\n");
         await Execute("insert into public.category(id,name) values(1,'Original category'),(2,'Public category')");
@@ -61,11 +58,9 @@ public sealed class RevisionHistoryPostgresTests
         var pair = Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token));
         Assert.Equal((current.Title, current.Body, article.Title, article.Body), (pair.Title, pair.Body, pair.SourceTitle, pair.SourceBody));
         await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound);
-        var ownerHandle = SiteSessions.Id(owner.User.Id, Store.TokenDigest(owner.Token)!);
-        Assert.Equal(pair, Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token, handle: ownerHandle)));
-        await Request(HttpMethod.Get, compare, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
-        var outsiderHandle = SiteSessions.Id(outsider.User.Id, Store.TokenDigest(outsider.Token)!);
-        await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
+        Assert.Equal(pair, Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token, handle: owner.Handle)));
+        await Request(HttpMethod.Get, compare, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
         var input = new DraftRollback(article.Id, current.Revision, article.Revision, Guid.NewGuid(), "Restore the original draft. 📝");
         await Restore(input, outsider.Token, HttpStatusCode.NotFound);
 
@@ -98,7 +93,7 @@ public sealed class RevisionHistoryPostgresTests
             article.Id, restored.Revision));
         Assert.Equal(1L, await Scalar<long>("select count(*) from public.blog_outbox where kind='draft-rollback' and article_id=$1 and revision=$2",
             article.Id, restored.Revision));
-        Assert.Equal(owner.User.Id, await Scalar<Guid>("select actor_id from public.article_rollback where article_id=$1 and revision=$2",
+        Assert.Equal(owner.Id, await Scalar<Guid>("select actor_id from public.article_rollback where article_id=$1 and revision=$2",
             article.Id, restored.Revision));
         var stillPublic = await server.Client.GetStringAsync($"/article/{article.Id}", ct);
         Assert.Contains("Public body", stillPublic);
@@ -112,34 +107,34 @@ public sealed class RevisionHistoryPostgresTests
         var mappedCommand = new ArticleBodyInsertionCommand(basis.Id, basis.Revision, Guid.NewGuid(), basis.Title,
             inserted + basis.Body, 0, inserted.Length);
         var mappedBytes = Wire.EncodeArticleBodyInsertionCommand(mappedCommand);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, mappedBytes, HttpStatusCode.Conflict, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, mappedBytes, HttpStatusCode.Conflict, owner.Handle);
         var impossible = Wire.EncodeArticleBodyInsertionCommand(mappedCommand with { Offset = 1 });
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.BadRequest, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.BadRequest, owner.Handle);
         await Execute("alter table public.article_body_insertion add constraint test_abort_insertion check (length_utf16 < 0)");
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, HttpStatusCode.ServiceUnavailable, owner.Handle);
         Assert.Equal(basis.Revision, await Scalar<long>("select revision from public.article where id=$1", basis.Id));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", mappedCommand.IdempotencyKey));
         await Execute("alter table public.article_body_insertion drop constraint test_abort_insertion");
-        var newDraftBytes = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: ownerHandle);
-        Assert.Equal(newDraftBytes, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: ownerHandle));
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.Conflict, ownerHandle);
+        var newDraftBytes = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: owner.Handle);
+        Assert.Equal(newDraftBytes, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: owner.Handle));
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.Conflict, owner.Handle);
         var newDraft = Wire.DecodeDraft(newDraftBytes);
         var mapPath = WireRoutes.DraftRevisionComparison.Replace("{id:int}", basis.Id.ToString())
             .Replace("{sourceRevision:long}", basis.Revision.ToString()) + $"?revision={newDraft.Revision}&map=body-insertion";
         await Request(HttpMethod.Get, mapPath, owner.Token, status: HttpStatusCode.Conflict);
-        await Request(HttpMethod.Get, mapPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
-        var map = Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: ownerHandle));
+        await Request(HttpMethod.Get, mapPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
+        var map = Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: owner.Handle));
         Assert.Equal(new DraftRevisionBodyInsertion(basis.Id, newDraft.Revision, basis.Revision, true, 0, inserted.Length,
             Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(basis.Body))),
             Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(newDraft.Body))), basis.Body, newDraft.Body), map);
         Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_body_insertion where article_id=$1", basis.Id));
         await Execute("update public.article_body_insertion set body_digest=decode(repeat('11',32),'hex') where article_id=$1", basis.Id);
-        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: ownerHandle)).Available);
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: owner.Handle)).Available);
 
         var twin = await Write(0, 0, "Ambiguous insertion", "aa");
         var twinCommand = new ArticleBodyInsertionCommand(twin.Id, twin.Revision, Guid.NewGuid(), twin.Title, "aaa", 0, 1);
         var twinSaved = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
-            Wire.EncodeArticleBodyInsertionCommand(twinCommand), handle: ownerHandle));
+            Wire.EncodeArticleBodyInsertionCommand(twinCommand), handle: owner.Handle));
         Assert.Equal("aaa", twinSaved.Body);
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_body_insertion where article_id=$1", twin.Id));
 
@@ -151,20 +146,20 @@ public sealed class RevisionHistoryPostgresTests
         var sequence = new ArticleBodyInsertionsCommand(metadata.Id, metadata.Revision, Guid.NewGuid(), metadata.Title,
             withPrefix + suffix, [new(0, prefix.Length), new(withPrefix.Length, suffix.Length)]);
         var sequenceFrame = Wire.EncodeArticleBodyInsertionsCommand(sequence);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, sequenceFrame, HttpStatusCode.Conflict, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, sequenceFrame, HttpStatusCode.Conflict, owner.Handle);
         await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.Conflict);
         var wrongSequence = Wire.EncodeArticleBodyInsertionsCommand(sequence with { Insertions = [new(1, prefix.Length), sequence.Insertions[1]] });
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, wrongSequence, HttpStatusCode.BadRequest, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, wrongSequence, HttpStatusCode.BadRequest, owner.Handle);
         await Execute("alter table public.article_body_insertion add constraint test_abort_sequence check (operations is null)");
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.ServiceUnavailable, owner.Handle);
         Assert.Equal(metadata.Revision, await Scalar<long>("select revision from public.article where id=$1", metadata.Id));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", sequence.IdempotencyKey));
         await Execute("alter table public.article_body_insertion drop constraint test_abort_sequence");
-        var sequenceSaved = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: ownerHandle);
-        Assert.Equal(sequenceSaved, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: ownerHandle));
+        var sequenceSaved = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: owner.Handle);
+        Assert.Equal(sequenceSaved, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: owner.Handle));
         var multiple = Wire.DecodeDraft(sequenceSaved);
         var oldMap = ChainPath(multiple, metadata.Revision).Replace("body-chain", "body-insertion");
-        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, oldMap, owner.Token, handle: ownerHandle)).Available);
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, oldMap, owner.Token, handle: owner.Handle)).Available);
         Assert.Equal(new[] { 0, prefix.Length, withPrefix.Length, suffix.Length },
             await Scalar<int[]>("select operations from public.article_body_insertion where article_id=$1 and revision=$2",
                 multiple.Id, multiple.Revision));
@@ -172,11 +167,11 @@ public sealed class RevisionHistoryPostgresTests
         const string finalInsertion = "\r\n**End**";
         var final = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
             Wire.EncodeArticleBodyInsertionCommand(new(multiple.Id, multiple.Revision, Guid.NewGuid(), multiple.Title,
-                multiple.Body + finalInsertion, multiple.Body.Length, finalInsertion.Length)), handle: ownerHandle));
+                multiple.Body + finalInsertion, multiple.Body.Length, finalInsertion.Length)), handle: owner.Handle));
         var chainPath = ChainPath(final, chainBasis.Revision);
-        await Request(HttpMethod.Get, chainPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
-        await Request(HttpMethod.Get, chainPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
-        var chain = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: ownerHandle));
+        await Request(HttpMethod.Get, chainPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, chainPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
+        var chain = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: owner.Handle));
         Assert.True(chain.Available);
         Assert.Equal((chainBasis.Body, final.Body), (chain.SourceBody, chain.Body));
         Assert.Equal(3, chain.Edges.Count);
@@ -191,43 +186,43 @@ public sealed class RevisionHistoryPostgresTests
 
         await Execute("update public.article_body_insertion set operations=ARRAY[0,$3,0,$4] where article_id=$1 and revision=$2",
             multiple.Id, multiple.Revision, prefix.Length, suffix.Length);
-        var unavailable = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: ownerHandle));
+        var unavailable = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: owner.Handle));
         Assert.Equal((false, "", ""), (unavailable.Available, unavailable.SourceBody, unavailable.Body));
         Assert.Empty(unavailable.Edges);
         await Execute("update public.article_body_insertion set operations=ARRAY[0,$3,$4,$5] where article_id=$1 and revision=$2",
             multiple.Id, multiple.Revision, prefix.Length, withPrefix.Length, suffix.Length);
         var gap = await Write(final.Id, final.Revision, final.Title, final.Body + " ordinary");
         Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(gap, chainBasis.Revision),
-            owner.Token, handle: ownerHandle)).Available);
+            owner.Token, handle: owner.Handle)).Available);
 
         var spliceBasis = await Write(0, 0, "Body edit chain", "Lead 🚢\r\nkeep match\r\nTAIL");
         var withLegacy = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
             Wire.EncodeArticleBodyInsertionCommand(new(spliceBasis.Id, spliceBasis.Revision, Guid.NewGuid(), spliceBasis.Title,
-                "!" + spliceBasis.Body, 0, 1)), handle: ownerHandle));
+                "!" + spliceBasis.Body, 0, 1)), handle: owner.Handle));
         var removedLength = "!Lead 🚢\r\n".Length;
         var afterDeletion = withLegacy.Body[removedLength..];
         var replaceOffset = afterDeletion.LastIndexOf("TAIL", StringComparison.Ordinal);
         var spliceSave = new ArticleBodyEditsCommand(withLegacy.Id, withLegacy.Revision, Guid.NewGuid(), withLegacy.Title,
             afterDeletion[..replaceOffset] + "END", [new(0, removedLength, ""), new(replaceOffset, 4, "END")]);
         var spliceFrame = Wire.EncodeArticleBodyEditsCommand(spliceSave);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, spliceFrame, HttpStatusCode.Conflict, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, spliceFrame, HttpStatusCode.Conflict, owner.Handle);
         var invalidSplice = Wire.EncodeArticleBodyEditsCommand(spliceSave with
         {
             Edits = [new(1, removedLength, ""), new(replaceOffset, 4, "END")]
         });
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, invalidSplice, HttpStatusCode.BadRequest, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, invalidSplice, HttpStatusCode.BadRequest, owner.Handle);
         await Execute("alter table public.article_body_insertion add constraint test_abort_edits check (edit_texts is null)");
-        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, HttpStatusCode.ServiceUnavailable, owner.Handle);
         Assert.Equal(withLegacy.Revision, await Scalar<long>("select revision from public.article where id=$1", withLegacy.Id));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", spliceSave.IdempotencyKey));
         await Execute("alter table public.article_body_insertion drop constraint test_abort_edits");
-        var spliceReceipt = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: ownerHandle);
-        Assert.Equal(spliceReceipt, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: ownerHandle));
+        var spliceReceipt = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: owner.Handle);
+        Assert.Equal(spliceReceipt, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: owner.Handle));
         var editHead = Wire.DecodeDraft(spliceReceipt);
         var editsPath = ChainPath(editHead, spliceBasis.Revision).Replace("body-chain", "body-edit");
-        await Request(HttpMethod.Get, editsPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
-        await Request(HttpMethod.Get, editsPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
-        var editsChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: ownerHandle));
+        await Request(HttpMethod.Get, editsPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, editsPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
+        var editsChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: owner.Handle));
         Assert.True(editsChain.Available);
         Assert.Equal((spliceBasis.Body, editHead.Body), (editsChain.SourceBody, editsChain.Body));
         Assert.Equal(2, editsChain.Edges.Count);
@@ -235,10 +230,10 @@ public sealed class RevisionHistoryPostgresTests
         Assert.Equal(spliceSave.Edits, editsChain.Edges[1].Edits);
         Assert.Equal(Hash(editHead.Body), editsChain.Edges[1].Digest);
         Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(editHead, spliceBasis.Revision),
-            owner.Token, handle: ownerHandle)).Available);
+            owner.Token, handle: owner.Handle)).Available);
         await Execute("update public.article_body_insertion set edit_texts=ARRAY['','BAD'] where article_id=$1 and revision=$2",
             editHead.Id, editHead.Revision);
-        var invalidChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: ownerHandle));
+        var invalidChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: owner.Handle));
         Assert.False(invalidChain.Available);
         Assert.Empty(invalidChain.Edges);
 
@@ -246,13 +241,13 @@ public sealed class RevisionHistoryPostgresTests
         var repeatedEdit = new ArticleBodyEditsCommand(repeatedBasis.Id, repeatedBasis.Revision, Guid.NewGuid(),
             repeatedBasis.Title + " edited", repeatedBasis.Body, [new(0, 1, ""), new(0, 0, "a")]);
         var repeatedHead = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
-            Wire.EncodeArticleBodyEditsCommand(repeatedEdit), handle: ownerHandle));
+            Wire.EncodeArticleBodyEditsCommand(repeatedEdit), handle: owner.Handle));
         Assert.Equal(repeatedBasis.Body, repeatedHead.Body);
         var repeatedPath = ChainPath(repeatedHead, repeatedBasis.Revision);
         Assert.False(Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get,
-            repeatedPath.Replace("body-chain", "body-edit"), owner.Token, handle: ownerHandle)).Available);
+            repeatedPath.Replace("body-chain", "body-edit"), owner.Token, handle: owner.Handle)).Available);
         Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get,
-            repeatedPath, owner.Token, handle: ownerHandle)).Available);
+            repeatedPath, owner.Token, handle: owner.Handle)).Available);
 
         await Execute("alter table public.article_body_insertion drop column operations");
         const string oldStoragePrefix = "## ";
@@ -260,34 +255,19 @@ public sealed class RevisionHistoryPostgresTests
             oldStoragePrefix + gap.Body + suffix,
             [new(0, oldStoragePrefix.Length), new(oldStoragePrefix.Length + gap.Body.Length, suffix.Length)]);
         var olderStorageSave = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
-            Wire.EncodeArticleBodyInsertionsCommand(nextSequence), handle: ownerHandle));
+            Wire.EncodeArticleBodyInsertionsCommand(nextSequence), handle: owner.Handle));
         Assert.Equal((gap.Revision + 1, nextSequence.Body), (olderStorageSave.Revision, olderStorageSave.Body));
         Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(olderStorageSave, gap.Revision),
-            owner.Token, handle: ownerHandle)).Available);
+            owner.Token, handle: owner.Handle)).Available);
 
         static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
         static string ChainPath(Draft head, long basis) => WireRoutes.DraftRevisionComparison.Replace("{id:int}", head.Id.ToString())
             .Replace("{sourceRevision:long}", basis.ToString()) + $"?revision={head.Revision}&map=body-chain";
 
-        async Task<(string Token, FsusBlog.V2.Core.Identity User)> SignIn(string name, bool author, Guid? user = null)
-        {
-            var id = user ?? Guid.NewGuid();
-            if (user is null)
-                await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)",
-                    id, name, author);
-            return await store.SignIn(await fixture.IssueTicket(id, ct), ct);
-        }
+        Task Execute(string sql, params object[] values) => FixtureSql.ExecuteAsync(db, null, ct, sql, values);
 
-        async Task Execute(string sql, params object[] values)
-        {
-            await using var command = Store.Sql(db, null, sql, values);
-            await command.ExecuteNonQueryAsync(ct);
-        }
-
-        async Task<T> Scalar<T>(string sql, params object[] values)
-        {
-            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
-        }
+        async Task<T> Scalar<T>(string sql, params object[] values) =>
+            (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
 
         string History(Draft draft) => WireRoutes.DraftRevisionHistory.Replace("{id:int}", draft.Id.ToString()) + $"?revision={draft.Revision}";
 
@@ -301,13 +281,9 @@ public sealed class RevisionHistoryPostgresTests
         async Task<byte[]> Request(HttpMethod method, string path, string? token, byte[]? body = null,
             HttpStatusCode status = HttpStatusCode.OK, string? handle = null)
         {
-            using var request = SiteAedsFixture.Request(method, path, body, token, handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(server.Client, method, path, body, token, handle, status, ct);
             Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
-            return bytes;
+            return await response.Content.ReadAsByteArrayAsync(ct);
         }
     }
 

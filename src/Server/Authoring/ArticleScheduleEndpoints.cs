@@ -20,9 +20,7 @@ internal static class ArticleScheduleEndpoints
         app.MapPost(WireRoutes.DraftScheduleCommand, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeArticleScheduleCommand(await readFrame(ctx, WireLimits.MaxArticleScheduleFrameBytes, ct));
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var key) || key != input.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(ctx, input.IdempotencyKey);
             return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Results.Bytes(Wire.EncodeArticleSchedule(await Store.Schedule(db, tx, actor, input, ct)), Aeds.ContentType), ct);
         }).RequireRateLimiting("command");

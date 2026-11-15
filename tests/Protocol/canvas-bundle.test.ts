@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { hexFixture } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
@@ -14,7 +14,7 @@ const sourceRevision = 9_007_199_254_740_993n
 
 // Packed independently with Python struct, hashlib and bitwise CRC.
 function fixture(name: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex'))
+  return Uint8Array.from(hexFixture(`${name}.hex`))
 }
 
 test('bundle plan and execution preserve exact reference slots, pins and intake bytes', () => {

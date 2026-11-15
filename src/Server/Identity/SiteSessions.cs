@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using Npgsql;
 
 namespace FsusBlog.V2.Server.Sessions;
 
@@ -88,6 +89,15 @@ internal static class SiteSessions
 
     internal static string? Requested(HttpContext ctx) => ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var header)
         ? header.Count == 1 ? header[0] ?? "" : "" : null;
+
+    internal static Task<T> WithCurrentAuthor<T>(Store store, string? token, string? expected,
+        Func<NpgsqlConnection, NpgsqlTransaction, Identity, byte[], Task<T>> execute, CancellationToken ct) =>
+        store.WithSession(token, true, (db, tx, actor) =>
+        {
+            var digest = Store.TokenDigest(token)!;
+            RequireCurrent(actor.Id, digest, expected);
+            return execute(db, tx, actor, digest);
+        }, ct);
 
     internal static void RequireCurrent(Guid account, byte[] digest, string? expected)
     {

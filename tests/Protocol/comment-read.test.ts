@@ -1,13 +1,12 @@
 import { deepStrictEqual, equal, throws } from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { framedFixture } from './fixture-source.ts';
 import { test } from 'node:test';
-import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
+import { ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeCommentChildren, decodeCommentContext, decodeCommentRoots } from '../../src/Contracts/comment-read.ts';
 import { FrameType } from '../../src/Contracts/wire.generated.ts';
 
 function fixture(name: string, type: FrameType): Uint8Array {
-  const hex = readFileSync(new URL(`./fixtures/comment-${name}-current.hex`, import.meta.url), 'utf8').trim();
-  return decodeFrame(Uint8Array.from(Buffer.from(hex, 'hex')), type).payload;
+  return framedFixture(`comment-${name}-current.hex`, type);
 }
 
 test('independent comment vectors preserve 64-bit nodes, author views and recursive coordinates', () => {

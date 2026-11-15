@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 
 const hidden = process.argv.length === 4 && process.argv[3] === '--hidden'
 const authored = process.argv.length === 4 && process.argv[3] === '--authored'
-assert(process.argv.length === 3 || authored || hidden, 'Usage: node legacy-runtime-accountability.mjs BASE_URL [--authored|--hidden]')
+const siteAuthor = process.argv.length === 4 && process.argv[3] === '--site-author'
+assert(process.argv.length === 3 || authored || hidden || siteAuthor,
+  'Usage: node legacy-runtime-accountability.mjs BASE_URL [--authored|--hidden|--site-author]')
 const base = new URL(process.argv[2])
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
   base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash,
@@ -45,7 +47,7 @@ function manifest(revision, snapshotId) {
     responsibilityVersion: fallback ? 0 : 1,
     inheritsSiteAuthor: true,
     legacyFallback: fallback,
-    authors: [{ name: 'Fsu' }],
+    authors: [{ name: siteAuthor ? '甲乙🙂AB丙丁' : 'Fsu' }],
     sources: [],
     responsiblePersonConfirmed: !fallback,
     ...(!fallback && {

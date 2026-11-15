@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeClusterObservation } from '../../src/Contracts/admin-cluster.ts';
 import { encodeAdminClusterStatus, FrameType } from '../../src/Contracts/wire.generated.ts';
 
-const fixture = Buffer.from(readFileSync(new URL('./fixtures/admin-cluster-status-v2.hex', import.meta.url), 'utf8').trim(), 'hex');
+const fixture = hexFixture('admin-cluster-status-v2.hex');
 const payload = decodeFrame(fixture, FrameType.AdminClusterStatus).payload;
 const status = {
   mode: 1, nodeId: 'lab-a', instanceId: 'bd978cbd-7565-44ed-876d-d734cbe45c79', buildVersion: '2.0.0+ca32',

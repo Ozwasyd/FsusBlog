@@ -16,10 +16,8 @@ internal static class AuthorTextSearchEndpoints
             var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
-            var payload = await store.WithSession(token, true, async (db, tx, actor) =>
+            var payload = await SiteSessions.WithCurrentAuthor(store, token, expected, async (db, tx, actor, digest) =>
             {
-                var digest = Store.TokenDigest(token)!;
-                SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 Aeds.Decode(frame, out var type);
                 var maximum = type switch
                 {

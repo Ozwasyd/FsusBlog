@@ -24,13 +24,13 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var author = await CreateSession(db.DataSource, "TLS image pacing author", ct);
+        var author = await MediaFixture.CreateSession(db.DataSource, "TLS image pacing author", ct);
         var workspace = Directory.CreateTempSubdirectory("fsus-published-media-caddy-");
         try
         {
-            var privateRoot = OwnedDirectory(workspace, "private");
-            var publicRoot = OwnedDirectory(workspace, "public");
-            var tls = OwnedDirectory(workspace, "tls");
+            var privateRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "private");
+            var publicRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "public");
+            var tls = MediaFixture.CreateOwnedDirectory(workspace.FullName, "tls");
             await using var upstream = await ServerProcess.Start(db.ConnectionString, ct, new Dictionary<string, string>
             {
                 [MediaEndpoints.StorageSetting] = privateRoot,

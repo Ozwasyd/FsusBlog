@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 using Npgsql;
 using SkiaSharp;
@@ -22,14 +21,11 @@ public sealed partial class PrivateMediaPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var primary = await Author(db.DataSource, "media-owner", true, ct);
-        var another = await Author(db.DataSource, "media-outsider", true, ct);
-        var reader = await Author(db.DataSource, "media-reader", false, ct);
-        var directory = Directory.CreateTempSubdirectory("fsusblog-media-test-");
-        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        // macOS redirects /var to /private/var. Use our owned canonical path.
-        var storage = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
+        var primary = await MediaFixture.CreateSession(db.DataSource, "media-owner", ct, canAuthor: true);
+        var another = await MediaFixture.CreateSession(db.DataSource, "media-outsider", ct, canAuthor: true);
+        var reader = await MediaFixture.CreateSession(db.DataSource, "media-reader", ct, canAuthor: false);
+        var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-test-");
+        var storage = directory.FullName;
         try
         {
             await using var server = await ServerProcess.Start(db.ConnectionString, ct,
@@ -135,12 +131,10 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.True(await CurrentSchema.VerifyAsync(connection, ct));
         }
 
-        var owner = await Author(db.DataSource, "webp-owner", true, ct);
-        var other = await Author(db.DataSource, "webp-other", true, ct);
-        var directory = Directory.CreateTempSubdirectory("fsusblog-media-webp-");
-        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
+        var owner = await MediaFixture.CreateSession(db.DataSource, "webp-owner", ct, canAuthor: true);
+        var other = await MediaFixture.CreateSession(db.DataSource, "webp-other", ct, canAuthor: true);
+        var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-webp-");
+        var root = directory.FullName;
         var settings = new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root, [MediaUploadEndpoints.Setting] = "true" };
         var key = Guid.NewGuid();
         const int partSize = 65536;
@@ -215,12 +209,10 @@ public sealed partial class PrivateMediaPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var owner = await Author(db.DataSource, "attachment-owner", true, ct);
-        var outsider = await Author(db.DataSource, "attachment-other", true, ct);
-        var directory = Directory.CreateTempSubdirectory("fsusblog-media-attach-");
-        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
+        var owner = await MediaFixture.CreateSession(db.DataSource, "attachment-owner", ct, canAuthor: true);
+        var outsider = await MediaFixture.CreateSession(db.DataSource, "attachment-other", ct, canAuthor: true);
+        var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-attach-");
+        var root = directory.FullName;
         var settings = new Dictionary<string, string>
         {
             [MediaEndpoints.StorageSetting] = root, ["FSUSBLOG_DOCUMENT_EXPORT_TASKS"] = "true",
@@ -358,13 +350,13 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(2, ReadPart(archive, "EPUB/package.opf").Descendants(opf + "item").Count());
                 Assert.Empty(ReadPart(archive, "EPUB/article.xhtml").Descendants(xhtml + "img"));
             }
-            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
-            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
-            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
-            await ExpectEpubFailure(HttpStatusCode.Unauthorized, detached.Revision, saved.Revision, null, asset);
-            await ExpectEpubFailure(HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
-            await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
-            await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, "");
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.Unauthorized, detached.Revision, saved.Revision, null, asset);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, "");
 
             const string wordType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             using (var word = await Export("docx", detached.Revision, saved.Revision, owner, asset))
@@ -398,29 +390,21 @@ public sealed partial class PrivateMediaPostgresTests
                 if (Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DOCX_IMAGE_FIXTURE") is { Length: > 0 } fixture)
                     await File.WriteAllBytesAsync(fixture, wordBytes, ct);
             }
-            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
-            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
-            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
-            await ExpectWordFailure(HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
-            await ExpectWordFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
+            await ExpectExportFailure("docx", wordType, HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
+            await ExpectExportFailure("docx", wordType, HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
+            await ExpectExportFailure("docx", wordType, HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
+            await ExpectExportFailure("docx", wordType, HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
+            await ExpectExportFailure("docx", wordType, HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
 
             var changed = normalized.ToArray();
             changed[^1] ^= 1;
-            File.Move(leaf, held);
-            try
+            await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                await File.WriteAllBytesAsync(leaf, changed, ct);
-                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
                 using var corrupt = await ExportHtml(detached.Revision, saved.Revision, owner, asset);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corrupt.StatusCode);
-                await ExpectEpubFailure(HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
-                await ExpectWordFailure(HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
-            }
-            finally
-            {
-                File.Delete(leaf);
-                File.Move(held, leaf);
-            }
+                await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
+                await ExpectExportFailure("docx", wordType, HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
+            }, ct);
 
             using var historyStillPins = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
             Assert.Equal(HttpStatusCode.Conflict, historyStillPins.StatusCode);
@@ -469,22 +453,18 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(status, denied.StatusCode);
                 Assert.DoesNotContain("data:image/", await denied.Content.ReadAsStringAsync(ct));
             }
-            File.Move(leaf, held);
-            try
+            await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                await File.WriteAllBytesAsync(leaf, changed, ct);
-                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
                 using var badBundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, badBundle.StatusCode);
                 Assert.DoesNotContain("data:image/", await badBundle.Content.ReadAsStringAsync(ct));
-            }
-            finally { File.Delete(leaf); File.Move(held, leaf); }
+            }, ct);
 
             using var saveExternal = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
                 new(draft.Id, single.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)")));
             Assert.Equal(HttpStatusCode.OK, saveExternal.StatusCode);
             var externalDraft = Wire.DecodeDraft(await saveExternal.Content.ReadAsByteArrayAsync(ct));
-            await ExpectEpubFailure(HttpStatusCode.BadRequest, externalDraft.Revision, externalDraft.Revision, owner, asset);
+            await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.BadRequest, externalDraft.Revision, externalDraft.Revision, owner, asset);
             using var priorEpub = await Export("epub", externalDraft.Revision, saved.Revision, owner, asset);
             Assert.Equal(HttpStatusCode.OK, priorEpub.StatusCode);
             Assert.Equal(epubBytes, await priorEpub.Content.ReadAsByteArrayAsync(ct));
@@ -513,6 +493,15 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, textTask.StatusCode);
             Assert.Equal(2, Wire.DecodeDocumentExportTask(await textTask.Content.ReadAsByteArrayAsync(ct)).Provider);
 
+            var bundleTask = jobInput with { Id = Guid.NewGuid(), SourceRevision = both.Revision };
+            var bundleFrame = Wire.EncodeDocumentExportCreate(bundleTask);
+            using var queueBundle = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame, selection: selectedPair);
+            Assert.Equal(HttpStatusCode.OK, queueBundle.StatusCode);
+            Assert.Equal(4, Wire.DecodeDocumentExportTask(await queueBundle.Content.ReadAsByteArrayAsync(ct)).Provider);
+            using var reordered = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame,
+                selection: $"{asset:D},{second:D}");
+            Assert.Equal(HttpStatusCode.Conflict, reordered.StatusCode);
+
             var queuedServer = server;
             server = null;
             await queuedServer.DisposeAsync();
@@ -521,18 +510,24 @@ public sealed partial class PrivateMediaPostgresTests
             client = server.Client;
 
             var listPath = WireRoutes.DocumentExportTaskList.Replace("{id:int}", draft.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            DocumentExportTask finished;
+            DocumentExportTask finished, finishedBundle;
             using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
             wait.CancelAfter(TimeSpan.FromSeconds(15));
             do
             {
                 using var tasks = await Send(client, HttpMethod.Get, listPath, owner, wait.Token);
-                finished = Assert.Single(Wire.DecodeDocumentExportTaskList(await tasks.Content.ReadAsByteArrayAsync(wait.Token)),
-                    value => value.Request.Id == jobInput.Id);
-                if (finished.State is not (DocumentExportState.Queued or DocumentExportState.Running)) break;
+                var rows = Wire.DecodeDocumentExportTaskList(await tasks.Content.ReadAsByteArrayAsync(wait.Token));
+                finished = Assert.Single(rows, value => value.Request.Id == jobInput.Id);
+                finishedBundle = Assert.Single(rows, value => value.Request.Id == bundleTask.Id);
+                if (new[] { finished, finishedBundle }.All(task => task.State is not (DocumentExportState.Queued or DocumentExportState.Running))) break;
                 await Task.Delay(50, wait.Token);
             } while (true);
             Assert.Equal(DocumentExportState.Succeeded, finished.State);
+            Assert.Equal(DocumentExportState.Succeeded, finishedBundle.State);
+            var bundleReference = Wire.EncodeDocumentExportTaskRef(bundleTask.Id);
+            using var deliveredBundle = await Command(WireRoutes.DocumentExportDownload, owner, bundleReference);
+            Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
+            Assert.Equal(markup, await deliveredBundle.Content.ReadAsStringAsync(ct));
             var download = Wire.EncodeDocumentExportTaskRef(jobInput.Id);
             using var rendered = await Command(WireRoutes.DocumentExportDownload, owner, download);
             Assert.Equal(HttpStatusCode.OK, rendered.StatusCode);
@@ -550,19 +545,14 @@ public sealed partial class PrivateMediaPostgresTests
                 savedAsset.Parameters.AddWithValue(jobInput.Id);
                 Assert.Equal(asset, await savedAsset.ExecuteScalarAsync(ct));
             }
-            File.Move(leaf, held);
-            try
+            await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                await File.WriteAllBytesAsync(leaf, changed, ct);
-                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
                 using var corruptDownload = await Command(WireRoutes.DocumentExportDownload, owner, download);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptDownload.StatusCode);
-            }
-            finally
-            {
-                File.Delete(leaf);
-                File.Move(held, leaf);
-            }
+                using var corruptBundle = await Command(WireRoutes.DocumentExportDownload, owner, bundleReference);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptBundle.StatusCode);
+                Assert.DoesNotContain("data:image/", await corruptBundle.Content.ReadAsStringAsync(ct));
+            }, ct);
             var priorServer = server;
             server = null;
             await priorServer.DisposeAsync();
@@ -580,19 +570,20 @@ public sealed partial class PrivateMediaPostgresTests
                 return Wire.DecodeDraft(await result.Content.ReadAsByteArrayAsync(ct));
             }
 
-            async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes, Guid? image = null)
+            async Task<HttpResponseMessage> Command(string path, MediaFixture.Session actor, byte[] bytes, Guid? image = null,
+                string? selection = null)
             {
                 using var request = Request(HttpMethod.Post, path, actor);
-                if (image is Guid id) request.Headers.Add(WireHeaders.HtmlExportAttachment, id.ToString("D"));
+                if ((selection ?? image?.ToString("D")) is { } ids) request.Headers.Add(WireHeaders.HtmlExportAttachment, ids);
                 request.Content = new ByteArrayContent(bytes);
                 request.Content.Headers.ContentType = new(Aeds.ContentType);
                 return await client.SendAsync(request, ct);
             }
 
-            Task<HttpResponseMessage> ExportHtml(long expected, long selected, SessionFixture? actor, Guid? image,
+            Task<HttpResponseMessage> ExportHtml(long expected, long selected, MediaFixture.Session? actor, Guid? image,
                 string? handle = null) => Export("html", expected, selected, actor, image, handle);
 
-            async Task<HttpResponseMessage> Export(string format, long expected, long selected, SessionFixture? actor, Guid? image,
+            async Task<HttpResponseMessage> Export(string format, long expected, long selected, MediaFixture.Session? actor, Guid? image,
                 string? handle = null, string? selection = null)
             {
                 using var request = Request(HttpMethod.Get,
@@ -606,20 +597,12 @@ public sealed partial class PrivateMediaPostgresTests
                 return await client.SendAsync(request, ct);
             }
 
-            async Task ExpectEpubFailure(HttpStatusCode status, long expected, long selected, SessionFixture? actor, Guid image,
-                string? handle = null)
+            async Task ExpectExportFailure(string format, string mediaType, HttpStatusCode status, long expected, long selected,
+                MediaFixture.Session? actor, Guid image, string? handle = null)
             {
-                using var unavailable = await Export("epub", expected, selected, actor, image, handle);
+                using var unavailable = await Export(format, expected, selected, actor, image, handle);
                 Assert.Equal(status, unavailable.StatusCode);
-                Assert.NotEqual("application/epub+zip", unavailable.Content.Headers.ContentType?.MediaType);
-            }
-
-            async Task ExpectWordFailure(HttpStatusCode status, long expected, long selected, SessionFixture actor, Guid image,
-                string? handle = null)
-            {
-                using var unavailable = await Export("docx", expected, selected, actor, image, handle);
-                Assert.Equal(status, unavailable.StatusCode);
-                Assert.NotEqual(wordType, unavailable.Content.Headers.ContentType?.MediaType);
+                Assert.NotEqual(mediaType, unavailable.Content.Headers.ContentType?.MediaType);
             }
 
             static XDocument ReadPart(ZipArchive archive, string path)
@@ -690,13 +673,11 @@ public sealed partial class PrivateMediaPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var owner = await Author(db.DataSource, "resume-owner", true, ct);
-        var foreign = await Author(db.DataSource, "resume-other", true, ct);
-        var reader = await Author(db.DataSource, "resume-reader", false, ct);
-        var directory = Directory.CreateTempSubdirectory("fsusblog-media-parts-");
-        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
+        var owner = await MediaFixture.CreateSession(db.DataSource, "resume-owner", ct, canAuthor: true);
+        var foreign = await MediaFixture.CreateSession(db.DataSource, "resume-other", ct, canAuthor: true);
+        var reader = await MediaFixture.CreateSession(db.DataSource, "resume-reader", ct, canAuthor: false);
+        var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-parts-");
+        var root = directory.FullName;
         var settings = new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root, [MediaUploadEndpoints.Setting] = "true" };
         const int partSize = 65536;
         var png = EncodeImage(SKEncodedImageFormat.Png);
@@ -818,11 +799,9 @@ public sealed partial class PrivateMediaPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var owner = await Author(db.DataSource, "media-owner", true, ct);
-        var directory = Directory.CreateTempSubdirectory("fsusblog-media-recovery-");
-        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var storage = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
+        var owner = await MediaFixture.CreateSession(db.DataSource, "media-owner", ct, canAuthor: true);
+        var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-recovery-");
+        var storage = directory.FullName;
         try
         {
             var png = EncodeImage(SKEncodedImageFormat.Png);
@@ -912,8 +891,8 @@ public sealed partial class PrivateMediaPostgresTests
 
     private static string PathFor(string route, Guid id) => route.Replace("{id}", id.ToString("D"), StringComparison.Ordinal);
 
-    private static async Task<HttpResponseMessage> Begin(HttpClient client, SessionFixture actor, Guid key, string name, byte[] image,
-        CancellationToken ct, SessionFixture? expected = null, string type = "image/png")
+    private static async Task<HttpResponseMessage> Begin(HttpClient client, MediaFixture.Session actor, Guid key, string name, byte[] image,
+        CancellationToken ct, MediaFixture.Session? expected = null, string type = "image/png")
     {
         using var request = Request(HttpMethod.Post,
             $"{WireRoutes.PrivateMediaUploadBegin}?name={Uri.EscapeDataString(name)}&type={Uri.EscapeDataString(type)}&length={image.Length}&partSize=65536", actor);
@@ -927,7 +906,7 @@ public sealed partial class PrivateMediaPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static async Task<HttpResponseMessage> Part(HttpClient client, SessionFixture actor, Guid id, int part, int offset,
+    private static async Task<HttpResponseMessage> Part(HttpClient client, MediaFixture.Session actor, Guid id, int part, int offset,
         byte[] bytes, CancellationToken ct, byte[]? wrongHash = null)
     {
         var path = PathFor(WireRoutes.PrivateMediaUploadPart, id).Replace("{part:int}", $"{part}", StringComparison.Ordinal);
@@ -957,7 +936,7 @@ public sealed partial class PrivateMediaPostgresTests
         return new Guid(payload[..16], bigEndian: true);
     }
 
-    private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, SessionFixture? session,
+    private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, MediaFixture.Session? session,
         CancellationToken ct, string? previewTicket = null, bool range = false)
     {
         using var response = await Send(client, method, path, session, ct, previewTicket, range);
@@ -979,7 +958,7 @@ public sealed partial class PrivateMediaPostgresTests
         return total == 0 ? Guid.Empty : new Guid(page[9..25], bigEndian: true);
     }
 
-    private static async Task<HttpResponseMessage> Upload(HttpClient client, SessionFixture session, Guid key, string name, string type,
+    private static async Task<HttpResponseMessage> Upload(HttpClient client, MediaFixture.Session session, Guid key, string name, string type,
         byte[] bytes, CancellationToken ct)
     {
         using var request = Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name), session);
@@ -989,7 +968,7 @@ public sealed partial class PrivateMediaPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, SessionFixture? session,
+    private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, MediaFixture.Session? session,
         CancellationToken ct, string? previewTicket = null, bool range = false)
     {
         using var request = Request(method, path, session);
@@ -998,39 +977,6 @@ public sealed partial class PrivateMediaPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static HttpRequestMessage Request(HttpMethod method, string path, SessionFixture? session)
-    {
-        var request = new HttpRequestMessage(method, path);
-        if (session is not null)
-        {
-            request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-            request.Headers.Add(WireHeaders.CurrentSession, session.SiteSessionId);
-        }
-        return request;
-    }
-
-    private static async Task<SessionFixture> Author(NpgsqlDataSource source, string name, bool canAuthor, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        await using (var user = source.CreateCommand("INSERT INTO public.blog_user VALUES ($1,$2,$3,true,1)"))
-        {
-            user.Parameters.AddWithValue(id);
-            user.Parameters.AddWithValue(name);
-            user.Parameters.AddWithValue(canAuthor);
-            await user.ExecuteNonQueryAsync(ct);
-        }
-        await using var session = source.CreateCommand("""
-            INSERT INTO public.user_session (digest,user_id,generation,expires_at) VALUES ($1,$2,1,now()+interval '5 minutes')
-            """);
-        session.Parameters.AddWithValue(SHA256.HashData(bytes));
-        session.Parameters.AddWithValue(id);
-        await session.ExecuteNonQueryAsync(ct);
-        return new(id, Convert.ToHexStringLower(bytes));
-    }
-
-    private sealed record SessionFixture(Guid Id, string Token)
-    {
-        internal string SiteSessionId => SiteSessions.Id(Id, SHA256.HashData(Convert.FromHexString(Token)));
-    }
+    private static HttpRequestMessage Request(HttpMethod method, string path, MediaFixture.Session? session) =>
+        SiteAedsFixture.Request(method, path, frame: null, session?.Token, session?.SiteSessionId);
 }

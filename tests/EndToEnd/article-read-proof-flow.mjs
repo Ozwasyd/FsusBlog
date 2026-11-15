@@ -2,29 +2,25 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeApiError, decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeDraft, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+
+import { binary, postFrame, submitPublicationMutation } from './browser-authoring-fixture.mjs'
+import { expect, launchIdentityBrowser, readTlsPublicationFixture, request } from './site-authentication-fixture.mjs'
 
 // Run after the performance matrix releases the host. The disposable TLS fixture
 // must provision the optional read-proof schema and configure its PostgreSQL
 // connection to suppress bind-parameter logging, including on errors.
-const { chromium, expect, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
-const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
-const origin = url.origin
-const operatorTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
-const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
+const fixtureError = 'Use the disposable admin TLS fixture with its read-proof database, operator ticket and TLS leaf pins.'
+const { url, origin, ticket: operatorTicket, pins } = readTlsPublicationFixture(fixtureError)
 const database = process.env.FSUSBLOG_TEST_READ_PROOF_DATABASE
 const runtimeControl = process.env.FSUSBLOG_RUNTIME_EVIDENCE_CONTROL
 const runtimeOutput = process.env.FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT
-assert(url.hostname === '127.0.0.1' && url.protocol === 'https:' && url.port &&
-  /^[0-9a-f]{64}$/.test(operatorTicket ?? '') && /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins ?? '') &&
-  /^fsusv2_admin_tls_[0-9a-f]{24}$/.test(database ?? '') && runtimeControl && runtimeOutput &&
-  process.env.PGHOST && process.env.PGPORT && process.env.PGUSER,
-'Use the disposable admin TLS fixture with its read-proof database, operator ticket and TLS leaf pins.')
+assert(url.port && /^fsusv2_admin_tls_[0-9a-f]{24}$/.test(database ?? '') && runtimeControl && runtimeOutput &&
+  process.env.PGHOST && process.env.PGPORT && process.env.PGUSER, fixtureError)
 
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/article-read-proof-browser')
 await mkdir(evidence, { recursive: true })
@@ -42,12 +38,11 @@ const requestHeaders = {
   'Sec-Fetch-Mode': 'same-origin',
   'Sec-Fetch-Dest': 'empty',
 }
-const contentHeaders = { 'Content-Type': 'application/octet-stream' }
 const noReads = { hours: [], dwell: [] }
 const wirePath = (article, operation) => `/api/v2/public/articles/${article.id}/${article.publication}/read/${operation}.aeds`
 const articlePath = article => WireRoutes.PublicArticle.replace('{id}', String(article.id))
 const post = (client, path, type, payload = Buffer.alloc(0), headers = {}) =>
-  client.post(path, { data: Buffer.from(encodeFrame(type, payload)), headers: { ...contentHeaders, ...headers } })
+  postFrame(client, path, type, payload, { ...binary, ...headers })
 
 async function payload(response, type) {
   assert.equal(response.status(), 200, response.url())
@@ -179,10 +174,7 @@ try {
   const replacementTicket = await dwellTicket(await post(reader, wirePath(replacement, 'challenge'), challengeRequest,
     Buffer.alloc(0), requestHeaders))
 
-  browser = await chromium.launch({
-    executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
-    args: [`--ignore-certificate-errors-spki-list=${pins}`],
-  })
+  browser = await launchIdentityBrowser(pins)
   const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
   const faults = []
   page.on('pageerror', error => faults.push(error.message))
@@ -317,8 +309,6 @@ async function publish(label, previous) {
 }
 
 async function command(path, id, expectedRevision, title = '', body = '') {
-  const idempotencyKey = randomUUID()
-  return decodeDraft(await payload(await post(author, path, FrameType.ArticleCommand,
-    encodeArticleCommand({ id, expectedRevision, idempotencyKey, title, body }),
-    { [WireHeaders.ClientMutationId]: idempotencyKey }), FrameType.Draft))
+  const response = await submitPublicationMutation(author, path, id, expectedRevision, title, body)
+  return decodeDraft(await payload(response, FrameType.Draft))
 }

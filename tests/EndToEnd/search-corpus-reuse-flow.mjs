@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { chromium, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const { FSUSBLOG_TEST_URL, FSUSBLOG_TEST_TICKET, FSUSBLOG_TEST_SITE_URL, FSUSBLOG_TEST_SITE_TICKET,
   FSUSBLOG_TEST_CHROME: executablePath, FSUSBLOG_TEST_TLS_SPKI: tlsPins, FSUSBLOG_TEST_EVIDENCE: evidence } = process.env
 const origin = FSUSBLOG_TEST_SITE_URL ?? FSUSBLOG_TEST_URL
@@ -231,13 +229,7 @@ try {
   }
 
   async function command(route, id, expectedRevision, title = '', body = '') {
-    const payload = encodeArticleCommand({ id, expectedRevision, title, body, idempotencyKey: randomUUID() })
-    const response = await owner.request.post(`${origin}${route}`, {
-      data: Buffer.from(encodeFrame(FrameType.ArticleCommand, payload)),
-      headers: { 'Content-Type': 'application/octet-stream' },
-    })
-    assert.equal(response.status(), 200)
-    return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+    return readDraft(await submitArticle(owner.request, origin + route, { id, expectedRevision, title, body }))
   }
 
   function hash(bytes) {

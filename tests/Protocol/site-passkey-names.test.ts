@@ -1,5 +1,5 @@
 import { deepEqual, equal, throws } from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeSitePasskeyManagement, encodeSitePasskeyRemove, encodeSitePasskeyRename } from '../../src/Contracts/site-passkey-names.ts';
@@ -8,7 +8,7 @@ import { FrameType, WireLimits } from '../../src/Contracts/wire.generated.ts';
 const currentReference = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
 const otherReference = 'a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf';
 const revision = 9_007_199_254_740_999n;
-const fixture = (name: string) => Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex');
+const fixture = (name: string) => hexFixture(`${name}.hex`);
 
 test('managed passkeys decode fixed opaque references without losing metadata or large revisions', () => {
   equal(FrameType.SitePasskeys, 32980);

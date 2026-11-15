@@ -70,10 +70,9 @@ internal static class SavedViewEndpoints
             bool placement = false)
         {
             var token = ctx.Request.Cookies[cookie];
-            var expected = ctx.Request.Headers[WireHeaders.CurrentSession] is { Count: 1 } header ? header[0] : null;
-            return store.WithSession<IResult>(token, true, async (db, tx, actor) =>
+            var expected = SiteSessions.Requested(ctx);
+            return SiteSessions.WithCurrentAuthor<IResult>(store, token, expected, async (db, tx, actor, _) =>
             {
-                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
                 if (!await CurrentSchema.HasSavedViewsAsync(db, tx, ct))
                     throw new BusinessException(Rejection.NotFound, "Saved view storage is unavailable.");
                 if (placement && !await CurrentSchema.HasSavedViewPlacementAsync(db, tx, ct))

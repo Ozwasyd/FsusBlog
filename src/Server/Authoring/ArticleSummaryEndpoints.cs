@@ -20,16 +20,15 @@ internal static class ArticleSummaryEndpoints
             if (context.Request.Query.TryGetValue("sourceRevision", out var source) &&
                 (!TryRevision(source, out selected) || selected >= revision))
                 throw new BusinessException(Rejection.Invalid, "An earlier saved article revision is required.");
-            var frame = await store.WithSession(token, true, async (db, tx, actor) =>
+            var frame = await SiteSessions.WithCurrentAuthor(store, token, expected, async (db, tx, actor, digest) =>
             {
-                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, revision, ct);
                 await using var summary = Store.Sql(db, tx, """
                     select coalesce(author_summary,'') from public.article_revision where article_id=$1 and revision=$2
                     """, id, selected);
                 if (await summary.ExecuteScalarAsync(ct) is not string text)
                     throw new BusinessException(Rejection.NotFound, "Article summary is unavailable.");
-                if (selected != revision) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
+                if (selected != revision) SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 return Wire.EncodeArticleSummary(new(id, selected, text));
             }, ct);
             return Results.Bytes(frame, Aeds.ContentType);
@@ -38,14 +37,11 @@ internal static class ArticleSummaryEndpoints
         app.MapPost(WireRoutes.ArticleSummarySave, async (HttpContext context, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeArticleSummaryCommand(await readFrame(context, WireLimits.MaxArticleSummaryCommandFrameBytes, ct));
-            if (context.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(context, input.IdempotencyKey);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
-            var frame = await store.WithSession(token, true, async (db, tx, actor) =>
+            var frame = await SiteSessions.WithCurrentAuthor(store, token, expected, async (db, tx, actor, _) =>
             {
-                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
                 var saved = await Store.SetSummary(db, tx, actor, input, ct);
                 return Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null));
             }, ct);

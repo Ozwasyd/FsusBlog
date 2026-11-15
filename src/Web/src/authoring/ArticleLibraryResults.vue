@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { ElButton, ElInput } from '@ozwasyd/element-plus'
+import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
+import { ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleRow, type AuthorArticleState } from '../../../Contracts/author-articles'
+import { taxonomyList } from '../../../Contracts/taxonomy-client'
+import type { TaxonomyKind, TaxonomyListItem } from '../../../Contracts/taxonomy'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 import { moveLibraryFocus } from './articleLibraryKeyboard'
@@ -16,7 +18,12 @@ const states: Record<Exclude<AuthorArticleState, 'deleted'>, string> = {
 const filters = Object.entries(states)
 const keyword = ref('')
 const scope = ref<Scope>('')
-const query = shallowRef<{ keyword: string; state: Scope; cursors: readonly (number | undefined)[] }>({ keyword: '', state: '', cursors: [undefined] })
+const taxonomyFilters = [['category', 'Category'], ['tag', 'Tag']] as const
+const taxonomy = reactive<Record<TaxonomyKind, TaxonomyListItem[]>>({ category: [], tag: [] })
+const selectedTaxonomy = reactive({ category: 0, tag: 0 })
+const query = shallowRef<{ keyword: string; state: Scope; category: number; tag: number; cursors: readonly (number | undefined)[] }>({
+  keyword: '', state: '', category: 0, tag: 0, cursors: [undefined],
+})
 const page = shallowRef<AuthorArticlePage>()
 const currentRow = shallowRef<AuthorArticleRow>()
 const loading = ref(false)
@@ -36,6 +43,17 @@ const rows = computed(() => {
 })
 defineExpose({ focus: () => search.value?.focus() })
 
+watch(identityEpoch, (_, __, cleanup) => {
+  const controller = new AbortController()
+  cleanup(() => controller.abort())
+  for (const [kind] of taxonomyFilters) {
+    taxonomy[kind] = []
+    if (currentSession.value?.canAuthor) void taxonomyList(kind, controller.signal).then(items => {
+      if (!controller.signal.aborted) taxonomy[kind] = items
+    }, () => {})
+  }
+}, { immediate: true, flush: 'sync' })
+
 watch([query, identityEpoch, () => currentSession.value?.siteSessionId, retry], async ([scope, epoch, handle], _, cleanup) => {
   page.value = undefined
   failed.value = false
@@ -48,7 +66,7 @@ watch([query, identityEpoch, () => currentSession.value?.siteSessionId, retry], 
   loading.value = true
   try {
     const response = await listAuthorArticles({ trash: false, keyword: scope.keyword, state: scope.state || undefined,
-      beforeId: scope.cursors.at(-1) }, controller.signal, handle)
+      categoryId: scope.category || undefined, tagId: scope.tag || undefined, beforeId: scope.cursors.at(-1) }, controller.signal, handle)
     if (valid()) {
       page.value = response
       if (moveFocus.value) {
@@ -86,8 +104,10 @@ watch([current, () => props.articleRevision, identityEpoch, () => currentSession
 
 function applyFilters() {
   const value = keyword.value.trim()
-  if (value === query.value.keyword && scope.value === query.value.state && query.value.cursors.length === 1) return
-  query.value = { keyword: value, state: scope.value, cursors: [undefined] }
+  const { category, tag } = selectedTaxonomy
+  if (value === query.value.keyword && scope.value === query.value.state && category === query.value.category &&
+      tag === query.value.tag && query.value.cursors.length === 1) return
+  query.value = { keyword: value, state: scope.value, category, tag, cursors: [undefined] }
 }
 
 async function movePage(next: boolean) {
@@ -119,6 +139,12 @@ function stateLabel(item: AuthorArticleRow) {
       <option value="">All articles</option>
       <option v-for="[value, label] in filters" :key="value" :value="value">{{ label }}</option>
     </select>
+    <template v-for="[kind, label] in taxonomyFilters" :key="kind">
+      <ElSelect v-if="taxonomy[kind].length" v-model="selectedTaxonomy[kind]" :ariaLabel="label" filterable>
+        <ElOption :value="0" :label="kind === 'category' ? 'All categories' : 'All tags'" />
+        <ElOption v-for="item in taxonomy[kind]" :key="item.id" :value="item.id" :label="item.name" />
+      </ElSelect>
+    </template>
     <ElButton native-type="submit">Filter articles</ElButton>
   </form>
   <p v-if="loading || currentLoading" role="status">Loading articles…</p>

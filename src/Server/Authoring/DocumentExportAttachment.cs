@@ -15,9 +15,6 @@ internal sealed record DocumentExportAttachment(string Name, MediaFormat Format,
     internal static bool PrivateTransport(HttpContext ctx) =>
         ctx.Request.IsHttps || ctx.Connection.RemoteIpAddress is { } peer && IPAddress.IsLoopback(peer);
 
-    internal static Guid? ReadSelection(HttpContext ctx, bool allowed) =>
-        ReadSelections(ctx, allowed ? 1 : 0) is [var asset] ? asset : null;
-
     internal static Guid[] ReadSelections(HttpContext ctx, int limit)
     {
         if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return [];

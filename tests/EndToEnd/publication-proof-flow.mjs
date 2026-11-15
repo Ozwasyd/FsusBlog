@@ -1,29 +1,20 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { publicationProofPath } from '../../src/Contracts/article-publication-proof.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { encodeSignIn, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { verifyPublicationHead } from '../../tools/verify-publication-head.mjs'
 import { verifyPublicationProof } from '../../tools/verify-publication-proof.mjs'
+import { postFrame, readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
+import { expect, launchIdentityBrowser, readTlsPublicationFixture, request } from './site-authentication-fixture.mjs'
 
-const { chromium, expect, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
-const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
-const origin = url.origin
-const ticket = process.env.FSUSBLOG_TEST_SITE_TICKET
-const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
-assert(url.hostname === '127.0.0.1' && url.protocol === 'https:' && /^[0-9a-f]{64}$/.test(ticket ?? '') &&
-  /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins ?? ''),
-'Use the isolated publication proof HTTPS runner with a disposable site ticket and TLS leaf pins.')
+const { origin, ticket, pins } = readTlsPublicationFixture(
+  'Use the isolated publication proof HTTPS runner with a disposable site ticket and TLS leaf pins.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/publication-proof-browser')
 await mkdir(evidence, { recursive: true })
-const browser = await chromium.launch({
-  executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
-  args: [`--ignore-certificate-errors-spki-list=${pins}`],
-})
+const browser = await launchIdentityBrowser(pins)
 const author = await request.newContext({ baseURL: origin })
 const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
 const section = page.getByRole('region', { name: 'Publication verification' })
@@ -177,20 +168,14 @@ try {
 }
 if (failure) throw failure
 
-async function post(path, type, payload, output, headers = {}) {
-  const response = await author.post(path, {
-    headers: { ...headers, 'Content-Type': 'application/octet-stream' },
-    data: Buffer.from(encodeFrame(type, payload)),
-  })
+async function post(path, type, payload, output) {
+  const response = await postFrame(author, path, type, payload)
   assert.equal(response.status(), 200, path)
   return decodeFrame(await response.body(), output).payload
 }
 
 async function command(path, id, expectedRevision, title = '', body = '') {
-  const idempotencyKey = randomUUID()
-  return decodeDraft(await post(path, FrameType.ArticleCommand,
-    encodeArticleCommand({ id, expectedRevision, idempotencyKey, title, body }), FrameType.Draft,
-    { [WireHeaders.ClientMutationId]: idempotencyKey }))
+  return readDraft(await submitPublicationMutation(author, path, id, expectedRevision, title, body), path)
 }
 
 async function currentProof(id) {

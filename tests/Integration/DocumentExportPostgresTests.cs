@@ -1,13 +1,11 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -38,7 +36,7 @@ public sealed partial class DocumentExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login(db, new Store(fixture.DataSource), "Versioned document owner", canAuthor: true, ct);
+        var owner = await Login(fixture, "Versioned document owner", canAuthor: true, ct);
         const string title = "Versions of one document";
         const string body = "| Left | Right |\n| --- | --- |\n| One | Two |\n";
         Draft source;
@@ -48,11 +46,11 @@ public sealed partial class DocumentExportPostgresTests
         var legacy = new ExportTask(Guid.NewGuid(), source.Id, source.Revision, source.Revision,
             1, Queued, 0, 1, 0, 0, 0, 0, [], [], 0);
         var legacyDigest = SourceDigest(legacy, title, body, time);
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.author_document_export
             (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,created_at,expires_at,source_digest)
             values ($1,$2,$3,$4,$4,1,1,1,statement_timestamp(),statement_timestamp()+interval '30 minutes',$5)
-            """, ct, owner.Id, legacy.Id, source.Id, source.Revision, legacyDigest);
+            """, owner.Id, legacy.Id, source.Id, source.Revision, legacyDigest);
 
         await using var after = await ServerProcess.Start(fixture.ConnectionString, ct, Settings);
         var currentId = Guid.NewGuid();
@@ -79,10 +77,9 @@ public sealed partial class DocumentExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await Login(db, store, "Document task owner", canAuthor: true, ct);
-        var outsider = await Login(db, store, "Document task outsider", canAuthor: true, ct);
-        var reader = await Login(db, store, "Document task reader", canAuthor: false, ct);
+        var owner = await Login(fixture, "Document task owner", canAuthor: true, ct);
+        var outsider = await Login(fixture, "Document task outsider", canAuthor: true, ct);
+        var reader = await Login(fixture, "Document task reader", canAuthor: false, ct);
 
         const string title = "Pinned Chinese 中文 title";
         const string body = "## Frozen section\n\nHistorical document marker.\n";
@@ -170,10 +167,10 @@ public sealed partial class DocumentExportPostgresTests
                 (await List(restarted.Client, owner, older.Id, ct)).Select(task => task.Id).Order());
             Assert.Equal(htmlBytes, await Download(restarted.Client, owner, savedHtml, "text/html", "article.html", ct));
 
-            Assert.Equal(1, await Execute(db, """
+            Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
                 update public.author_document_export set output=set_byte(output,0,(get_byte(output,0)+1)%256)
                 where owner_id=$1 and id=$2
-                """, ct, owner.Id, htmlId));
+                """, owner.Id, htmlId));
             await Reject(restarted.Client, DownloadRoute, owner, Reference(htmlId), HttpStatusCode.ServiceUnavailable, ct);
             var cancelled = await AwaitTask(restarted.Client, owner, older.Id, cancelId, Cancelled, ct);
             Assert.True(cancelled.Finished >= cancelled.Created);
@@ -183,14 +180,14 @@ public sealed partial class DocumentExportPostgresTests
             await Reject(restarted.Client, DownloadRoute, owner, Reference(cancelId), HttpStatusCode.NotFound, ct);
 
             // Preserve the internally consistent timestamps while making exactly one owned row expired.
-            Assert.Equal(1, await Execute(db, """
+            Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
                 update public.author_document_export set
                   created_at=created_at-(expires_at-statement_timestamp()+interval '1 second'),
                   started_at=started_at-(expires_at-statement_timestamp()+interval '1 second'),
                   finished_at=finished_at-(expires_at-statement_timestamp()+interval '1 second'),
                   expires_at=statement_timestamp()-interval '1 second'
                 where owner_id=$1 and id=$2
-                """, ct, owner.Id, epubId));
+                """, owner.Id, epubId));
             await Reject(restarted.Client, DownloadRoute, owner, Reference(epubId), HttpStatusCode.NotFound, ct);
             Assert.DoesNotContain(await List(restarted.Client, owner, older.Id, ct), task => task.Id == epubId);
         }
@@ -204,7 +201,7 @@ public sealed partial class DocumentExportPostgresTests
                 owner.Id, epubId);
             return await query.ExecuteScalarAsync(token) is true;
         }, "The expired task was not removed by the worker on restart.", ct);
-        await Execute(db, "delete from public.user_session where digest=$1", ct, Store.TokenDigest(owner.Token)!);
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
     }
 
@@ -215,7 +212,7 @@ public sealed partial class DocumentExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login(db, new Store(fixture.DataSource), "Export retry witness", canAuthor: true, ct);
+        var owner = await Login(fixture, "Export retry witness", canAuthor: true, ct);
         const string title = "Selected title";
         const string body = "Frozen export witness.";
         var failed = (byte)DocumentExportState.Failed;
@@ -239,10 +236,10 @@ public sealed partial class DocumentExportPostgresTests
                 Assert.Equal(Queued, queued.State);
                 originalDigest = SourceDigest(queued, title, body, sourceTime);
                 Assert.Equal(originalDigest, queued.SourceDigest);
-                Assert.Equal(1, await Execute(db, """
+                Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
                     update public.article_revision set happened_at=happened_at+interval '1 minute'
                     where article_id=$1 and revision=$2
-                    """, ct, source.Id, source.Revision));
+                    """, source.Id, source.Revision));
             }
             finally { await ReleaseClaim(db, ct); }
 
@@ -252,9 +249,9 @@ public sealed partial class DocumentExportPostgresTests
             AssertNoOutput(drifted);
             await Reject(client, DownloadRoute, owner, Reference(firstId), HttpStatusCode.NotFound, ct);
             firstReceipt = await ReadFrame(client, CreateRoute, owner, firstRequest, HttpStatusCode.OK, ct);
-            Assert.Equal(1, await Execute(db, """
+            Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
                 update public.article_revision set happened_at=$1 where article_id=$2 and revision=$3
-                """, ct, sourceTime, source.Id, source.Revision));
+                """, sourceTime, source.Id, source.Revision));
             edited = await Save(client, owner, source.Id, source.Revision, "Later private revision",
                 "![unsupported](https://export.invalid/saved.png)", ct);
         }
@@ -309,18 +306,18 @@ public sealed partial class DocumentExportPostgresTests
     }
 
     // Prevent only the selected fixture task from starting, regardless of the worker timer.
-    internal static Task<int> HoldClaim(NpgsqlConnection db, Guid id, CancellationToken ct) => Execute(db, $"""
+    internal static Task<int> HoldClaim(NpgsqlConnection db, Guid id, CancellationToken ct) => FixtureSql.ExecuteAsync(db, null, ct, $"""
         create function public.document_export_fixture_hold() returns trigger language plpgsql
         as $$ begin return null; end; $$;
         create trigger document_export_fixture_hold before update of state on public.author_document_export
         for each row when (old.id='{id:D}'::uuid and old.state=1 and new.state=2)
         execute function public.document_export_fixture_hold();
-        """, ct);
+        """);
 
-    internal static Task<int> ReleaseClaim(NpgsqlConnection db, CancellationToken ct) => Execute(db, """
+    internal static Task<int> ReleaseClaim(NpgsqlConnection db, CancellationToken ct) => FixtureSql.ExecuteAsync(db, null, ct, """
         drop trigger document_export_fixture_hold on public.author_document_export;
         drop function public.document_export_fixture_hold();
-        """, ct);
+        """);
 
     private static async Task<ExportTask> AwaitTask(HttpClient client, Actor owner, int article, Guid id, byte state, CancellationToken ct)
     {
@@ -390,14 +387,9 @@ public sealed partial class DocumentExportPostgresTests
 
     private static async Task<byte[]> Download(HttpClient client, Actor owner, ExportTask task, string mediaType, string name, CancellationToken ct)
     {
-        using var response = await Send(client, DownloadRoute, owner, Reference(task.Id), ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        Assert.True(response.Headers.CacheControl?.Private);
-        Assert.Equal(mediaType, response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-        Assert.Equal(name, response.Content.Headers.ContentDisposition?.FileNameStar);
-        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        using var response = await SiteAedsFixture.ExpectPrivateResponse(client, HttpMethod.Post, DownloadRoute,
+            Reference(task.Id), owner.Token, owner.Handle, HttpStatusCode.OK, ct);
+        ExportResponseFixture.Attachment(response, mediaType, name);
         var output = await response.Content.ReadAsByteArrayAsync(ct);
         Assert.True(task.Started >= task.Created && task.Finished >= task.Started);
         Assert.Equal(0, task.Failure);
@@ -423,49 +415,19 @@ public sealed partial class DocumentExportPostgresTests
 
     private static async Task<byte[]> ReadFrame(HttpClient client, string route, Actor? owner, byte[]? packet, HttpStatusCode status, CancellationToken ct)
     {
-        using var response = await Send(client, route, owner, packet, ct);
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
-        Assert.Null(response.Content.Headers.ContentDisposition);
+        using var response = await SiteAedsFixture.ExpectPrivateResponse(client, packet is null ? HttpMethod.Get : HttpMethod.Post,
+            route, packet, owner?.Token, owner?.Handle, status, ct);
+        ExportResponseFixture.AedsWithoutAttachment(response);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
-    private static async Task<HttpResponseMessage> Send(HttpClient client, string route, Actor? owner, byte[]? packet, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(packet is null ? HttpMethod.Get : HttpMethod.Post, route);
-        if (owner is not null) request.Headers.Add("Cookie", $"fsus-v2-session={owner.Token}");
-        if (owner?.Handle is { } handle) request.Headers.Add(WireHeaders.CurrentSession, handle);
-        if (packet is not null)
-        {
-            request.Content = new ByteArrayContent(packet);
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-        }
-        return await client.SendAsync(request, ct);
-    }
+    private static Task<Draft> Save(HttpClient client, Actor owner, int id, long revision, string title, string body, CancellationToken ct) =>
+        SiteAedsFixture.SaveDraft(client, owner.Token, owner.Handle, id, revision, title, body, ct);
 
-    private static async Task<Draft> Save(HttpClient client, Actor owner, int id, long revision, string title, string body, CancellationToken ct)
+    private static async Task<Actor> Login(ScratchDatabase fixture, string name, bool canAuthor, CancellationToken ct)
     {
-        using var response = await Send(client, WireRoutes.Save, owner, Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, body)), ct);
-        response.EnsureSuccessStatusCode();
-        return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-    }
-
-    private static async Task<Actor> Login(NpgsqlConnection db, Store store, string name, bool canAuthor, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute(db, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", ct, id, name, canAuthor);
-        await Execute(db, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-            ct, SHA256.HashData(ticket), id);
-        var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-        return new(id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
-    }
-
-    private static async Task<int> Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
-    {
-        await using var command = Store.Sql(db, null, sql, values);
-        return await command.ExecuteNonQueryAsync(ct);
+        var (id, token, handle) = await fixture.SignIn(name, ct, canAuthor);
+        return new(id, token, handle);
     }
 
     private static string ListRoute(int article) => FormattableString.Invariant($"{Route}/{article}/tasks.aeds");

@@ -8,7 +8,7 @@ CREATE TABLE public.author_document_export (
     format smallint NOT NULL CHECK (format BETWEEN 1 AND 4),
     state smallint NOT NULL CHECK (state BETWEEN 1 AND 7),
     failure smallint NOT NULL DEFAULT 0 CHECK (failure BETWEEN 0 AND 4),
-    provider smallint NOT NULL DEFAULT 1 CHECK (provider BETWEEN 1 AND 3),
+    provider smallint NOT NULL DEFAULT 1 CHECK (provider BETWEEN 1 AND 4),
     created_at timestamptz NOT NULL,
     started_at timestamptz,
     finished_at timestamptz,
@@ -17,7 +17,11 @@ CREATE TABLE public.author_document_export (
     output_digest bytea CHECK (octet_length(output_digest) = 32),
     output bytea CHECK (octet_length(output) BETWEEN 1 AND 4194304),
     attachment_id uuid,
+    attachment_ids uuid[],
     CHECK ((provider = 3) = (attachment_id IS NOT NULL)),
+    CHECK ((provider = 4) = (attachment_ids IS NOT NULL)),
+    CHECK (attachment_ids IS NULL OR (format = 1 AND cardinality(attachment_ids) BETWEEN 2 AND 4
+        AND array_ndims(attachment_ids) = 1 AND array_position(attachment_ids, NULL) IS NULL)),
     PRIMARY KEY (owner_id, id),
     FOREIGN KEY (article_id, source_revision)
         REFERENCES public.article_revision(article_id, revision) ON DELETE CASCADE,

@@ -94,9 +94,7 @@ internal static class AdminArticleRollbackEndpoints
 
     private static void RequireCommandHeader(HttpContext ctx, Guid expected)
     {
-        if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-            (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != expected))
-            throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+        ClientMutationHeader.Require(ctx, expected);
     }
 
     private static long PositiveCoordinate(HttpContext ctx, string key)

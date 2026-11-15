@@ -46,8 +46,9 @@ internal static class RevisionHistoryEndpoints
             var handle = SiteSessions.Requested(ctx);
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
-                if (handle is not null || map is not null)
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
+                var requireCurrent = handle is not null || map is not null;
+                var digest = requireCurrent ? Store.TokenDigest(token)! : null;
+                if (requireCurrent) SiteSessions.RequireCurrent(actor.Id, digest!, handle);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
                 if (map == "properties")
                 {
@@ -56,42 +57,31 @@ internal static class RevisionHistoryEndpoints
                     if (cursor is not null && (!int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out offset) ||
                         offset > PropertySchema.MaxDefinitions))
                         throw new BusinessException(Rejection.Invalid, "Invalid saved property cursor.");
-                    var page = await new PropertyStore(db, tx, actor).ReadSnapshot(id, sourceRevision, offset, ct);
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
-                    return Results.Bytes(Wire.EncodePropertyEditor(page), Aeds.ContentType);
+                    return Reply(await new PropertyStore(db, tx, actor).ReadSnapshot(id, sourceRevision, offset, ct), Wire.EncodePropertyEditor);
                 }
                 if (map == "body-edit")
-                {
-                    var chain = await ArticleBodyInsertionStore.ReadEditChain(db, tx, id, expected, sourceRevision, ct);
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
-                    return Results.Bytes(Wire.EncodeDraftRevisionBodyEditChain(chain), Aeds.ContentType);
-                }
+                    return Reply(await ArticleBodyInsertionStore.ReadEditChain(db, tx, id, expected, sourceRevision, ct), Wire.EncodeDraftRevisionBodyEditChain);
                 if (map == "body-chain")
-                {
-                    var chain = await ArticleBodyInsertionStore.ReadChain(db, tx, id, expected, sourceRevision, ct);
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
-                    return Results.Bytes(Wire.EncodeDraftRevisionBodyInsertionChain(chain), Aeds.ContentType);
-                }
+                    return Reply(await ArticleBodyInsertionStore.ReadChain(db, tx, id, expected, sourceRevision, ct), Wire.EncodeDraftRevisionBodyInsertionChain);
                 if (map is not null)
-                {
-                    var proof = await ArticleBodyInsertionStore.Read(db, tx, id, expected, sourceRevision, ct);
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
-                    return Results.Bytes(Wire.EncodeDraftRevisionBodyInsertion(proof), Aeds.ContentType);
-                }
+                    return Reply(await ArticleBodyInsertionStore.Read(db, tx, id, expected, sourceRevision, ct), Wire.EncodeDraftRevisionBodyInsertion);
                 var current = await RevisionHistoryStore.ReadSource(db, tx, id, expected, ct);
                 var source = await RevisionHistoryStore.ReadSource(db, tx, id, sourceRevision, ct);
                 var comparison = new RevisionComparison(id, expected, sourceRevision, current.Title, current.Body, source.Title, source.Body);
-                if (handle is not null) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
-                return Results.Bytes(Wire.EncodeRevisionComparison(comparison), Aeds.ContentType);
+                return Reply(comparison, Wire.EncodeRevisionComparison);
+
+                IResult Reply<T>(T data, Func<T, byte[]> encode)
+                {
+                    if (requireCurrent) SiteSessions.RequireCurrent(actor.Id, digest!, handle);
+                    return Results.Bytes(encode(data), Aeds.ContentType);
+                }
             }, ct);
         }).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.DraftRollback, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeDraftRollback(await readFrame(ctx, WireLimits.MaxDraftRollbackFrameBytes, ct));
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(ctx, input.IdempotencyKey);
             return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
             {
                 var result = await Store.RollbackDraft(db, tx, actor, input, ct);

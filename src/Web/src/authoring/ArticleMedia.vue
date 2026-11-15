@@ -27,6 +27,7 @@ const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
 const preview = shallowRef<{ id: string; path: string; type: string; taskId?: string; queued?: boolean }>()
+const batchExport = shallowRef<{ taskId?: string; queued?: boolean }>({})
 const documentTasks = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
 const htmlImages = computed(() => attached.value.map(asset => asset.id).join(','))
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
@@ -94,19 +95,23 @@ async function openPreview(id: string) {
   finally { if (current(signal)) pending.value = false }
 }
 
-async function queueHtml() {
-  const selection = preview.value
+async function queueHtml(all = false) {
+  const shown = preview.value
+  const selection = all ? batchExport.value : shown
+  const images = all ? htmlImages.value : shown?.id
   const { articleId: article, revision, credential } = props
-  if (!selection || !credential || pending.value || selection.queued) return
+  if (!images || !selection || !credential || pending.value || selection.queued) return
   const signal = task.signal
   selection.taskId ??= crypto.randomUUID()
   pending.value = true
   error.value = ''
   try {
     await createDocumentExportTask({ id: selection.taskId, article, revision, sourceRevision: revision, format: 'html' },
-      credential, signal, selection.id)
-    if (current(signal) && preview.value === selection) preview.value = { ...selection, queued: true }
-  } catch { if (current(signal)) error.value = 'Could not queue HTML with this image.' }
+      credential, signal, images)
+    if (!current(signal)) return
+    if (all) batchExport.value = { ...selection, queued: true }
+    else if (shown && preview.value === shown) preview.value = { ...shown, queued: true }
+  } catch { if (current(signal)) error.value = all ? 'Could not queue HTML with these images.' : 'Could not queue HTML with this image.' }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -149,6 +154,7 @@ watch([() => props.articleId, () => props.revision, () => props.credential, cred
   task.abort()
   task = new AbortController()
   attached.value = []
+  batchExport.value = {}
   selected.value = undefined
   publicationSelection.value = []
   confirmation.value = undefined
@@ -190,6 +196,10 @@ onBeforeUnmount(() => {
         <MarkdownExportControl v-if="attached.length > 1 && attached.length <= maxHtmlExportImages"
           :article="articleId" :revision="revision" :selected="revision" format="html"
           :attachment="htmlImages" :disabled="pending || !credential" />
+        <ElButton v-if="documentTasks && attached.length > 1 && attached.length <= maxHtmlExportImages" native-type="button"
+          :disabled="pending || !credential || batchExport.queued" @click="queueHtml(true)">
+          {{ batchExport.queued ? 'HTML task with saved images added' : 'Queue HTML with saved images' }}
+        </ElButton>
         <div v-if="publishEnabled && attached.length" class="publication-actions">
           <ElButton v-if="!confirmation" ref="reviewButton" native-type="button"
             :disabled="pending || !canPublish || !publicationSelection.length" @click="reviewPublication">Review image publication</ElButton>
@@ -216,7 +226,7 @@ onBeforeUnmount(() => {
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
-          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || preview.queued" @click="queueHtml">
+          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || preview.queued" @click="queueHtml()">
             {{ preview.queued ? 'HTML task added' : 'Queue HTML with this image' }}
           </ElButton>
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"

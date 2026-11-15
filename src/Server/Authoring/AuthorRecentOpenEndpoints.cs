@@ -35,10 +35,8 @@ internal static class AuthorRecentOpenEndpoints
             CancellationToken ct)
         {
             var token = ctx.Request.Cookies[cookie];
-            return store.WithSession<IResult>(token, true, async (db, tx, actor) =>
+            return SiteSessions.WithCurrentAuthor<IResult>(store, token, SiteSessions.Requested(ctx), async (db, tx, actor, session) =>
             {
-                var session = Store.TokenDigest(token)!;
-                SiteSessions.RequireCurrent(actor.Id, session, SiteSessions.Requested(ctx));
                 if (!await CurrentSchema.HasAuthorRecentOpensAsync(db, tx, ct))
                     throw new BusinessException(Rejection.NotFound, "Recent opens are unavailable.");
                 var site = await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);

@@ -35,7 +35,7 @@ export type DocumentExportCreate = Readonly<{
 export type DocumentExportTask = DocumentExportCreate & Readonly<{
   status: DocumentExportStatus;
   failure: DocumentExportFailure;
-  provider: 1 | 2 | 3;
+  provider: 1 | 2 | 3 | 4;
   createdUnixMs: bigint;
   startedUnixMs: bigint;
   finishedUnixMs: bigint;
@@ -111,7 +111,8 @@ function readTask(reader: PodReader): DocumentExportTask {
   const coordinates = readCoordinates(reader);
   const [statusCode, failureCode, provider] = reader.fixedBytes(3);
   const status = statuses[statusCode - 1], failure = failures[failureCode];
-  if (!status || !failure || (provider !== 1 && provider !== 2 && provider !== 3)) throw new ProtocolError('Invalid document export task state');
+  if (!status || !failure || (provider !== 1 && provider !== 2 && provider !== 3 && provider !== 4) ||
+      (provider === 4 && coordinates.format !== 'html')) throw new ProtocolError('Invalid document export task state');
   const createdUnixMs = reader.i64(), startedUnixMs = reader.i64(), finishedUnixMs = reader.i64(), expiresUnixMs = reader.i64();
   const failed = status === 'failed' || status === 'blocked';
   const terminal = failed || status === 'succeeded' || status === 'cancelled';
@@ -174,7 +175,8 @@ export function createDocumentExportTask(input: DocumentExportCreate, session: s
   return request(WireRoutes.DocumentExportCreate, FrameType.DocumentExportTask, payload => {
     const task = decodeDocumentExportTask(payload);
     if (task.id !== id.toLowerCase() || task.article !== article || task.revision !== revision ||
-        task.sourceRevision !== sourceRevision || task.format !== format || (task.provider === 3) !== (attachment !== undefined))
+        task.sourceRevision !== sourceRevision || task.format !== format ||
+        (attachment === undefined ? task.provider > 2 : task.provider !== (attachment.includes(',') ? 4 : 3)))
       throw new ProtocolError('Unexpected document export task');
     return task;
   }, signal, 'POST', encodeDocumentExportCreate(input), headers);

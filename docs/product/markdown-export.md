@@ -50,4 +50,6 @@ PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结
 
 停服执行 `document-exports` 后，私有附件预览可以将当前选中的一张图片加入 HTML 任务。任务 API 也接受 EPUB 的 PNG、JPEG、WebP，以及 Word 的 PNG、JPEG。第 3 版任务持久化附件标识，并将所选修订和核验过的图片字节、格式、名称及尺寸绑定到输入摘要。重启后按同一摘要渲染，下载时复核归属和摘要。未选择附件的任务继续用现有提供方版本。
 
+再次停服运行 `document-exports` 后，任务也能导出包含当前修订全部已保存图片的 HTML。第 4 版任务按请求顺序记录 2 至 4 张图片，共用 512 KiB 上限。在执行和下载时重新核验每张图片。旧任务保持原版本和摘要。
+
 真实 macOS PDF 工作进程已验证运行中取消后退出和临时目录清理。数据库租约丢失时会清理运行中的渲染进程，重启后被中断的 PDF 保留失败回执，排队 HTML 继续。初次 SIGTERM 演练暂停了子进程，macOS 将该状态报告给 .NET 的退出等待，导致信号处理延迟，原失败保留。用自然运行的真实 PDF 重试，观察到 828 毫秒内回收渲染进程和临时目录并关闭服务。重启后运行中的任务保留中断回执，排队任务继续。暂停子进程的 HTTP 取消和租约丢失也有独立通过结果。 [真实 SIGTERM 演练](../../artifacts/document-export-sigterm-2ec1b97/graceful-and-cancellation.log) · [首次失败](../../artifacts/document-export-pdf-749b9ba/restart-2.log) · [macOS 等待结果](../../artifacts/document-export-sigterm-2ec1b97/darwin-child-wait.log)

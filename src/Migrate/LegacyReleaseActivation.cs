@@ -25,8 +25,9 @@ internal static partial class Migration
             throw new InvalidOperationException("The approved runtime site must differ from the source quarantine site.");
         var rollback = plan.Version == ImportPlanWithRollbackOutboxVersion;
         var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, verifiedRollbackEvents, ct);
+        var publishProof = await ReadLegacyReleasePublishProofAsync(source, sourceTx, rollback, ct);
         var origin = rollback ? await ReadLegacyReleaseOriginAsync(source, sourceTx, planSha, projectionSha,
-            plan.SourceAdminIdentitySha256, ct) : null;
+            plan.SourceAdminIdentitySha256, plan.SiteAuthor, ct, publishProof) : null;
         string? approved = null;
         if (input.Approval is [var path, var digest])
         {

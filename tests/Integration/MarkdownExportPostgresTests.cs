@@ -8,7 +8,6 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Authoring;
-using Npgsql;
 
 public sealed class MarkdownExportPostgresTests
 {
@@ -106,10 +105,9 @@ public sealed class MarkdownExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await OpenSession(db, store, "Markdown owner", true, ct);
-        var outsider = await OpenSession(db, store, "Markdown outsider", true, ct);
-        var reader = await OpenSession(db, store, "Markdown reader", false, ct);
+        var owner = (await fixture.SignIn("Markdown owner", ct, canAuthor: true)).Token;
+        var outsider = (await fixture.SignIn("Markdown outsider", ct, canAuthor: true)).Token;
+        var reader = (await fixture.SignIn("Markdown reader", ct, canAuthor: false)).Token;
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_PDF_TOOL_ROOT"] = "",
@@ -184,13 +182,9 @@ public sealed class MarkdownExportPostgresTests
         using var unpublished = await server.Client.GetAsync($"/article/{current.Id}", ct);
         Assert.Equal(HttpStatusCode.NotFound, unpublished.StatusCode);
 
-        using (var remove = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Delete)
+        using (var remove = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Delete,
+            Wire.EncodeArticleCommand(new(current.Id, current.Revision, Guid.NewGuid(), "", "")), owner, handle: null))
         {
-            Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(current.Id, current.Revision, Guid.NewGuid(), "", "")))
-        })
-        {
-            remove.Headers.Add("Cookie", $"fsus-v2-session={owner}");
-            remove.Content.Headers.ContentType = new(Aeds.ContentType);
             using var response = await server.Client.SendAsync(remove, ct);
             response.EnsureSuccessStatusCode();
         }
@@ -199,31 +193,23 @@ public sealed class MarkdownExportPostgresTests
         await ReadHtml(html, owner, HttpStatusCode.NotFound);
         await ReadEpub(epub, owner, HttpStatusCode.NotFound);
 
-        await Execute(db, "delete from public.user_session where digest=$1", ct, SHA256.HashData(Convert.FromHexString(owner)));
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await Read(export, owner, HttpStatusCode.Unauthorized);
         await ReadWord(word, owner, HttpStatusCode.Unauthorized);
         await ReadHtml(linkedHtml, owner, HttpStatusCode.Unauthorized);
 
         async Task<byte[]> ReadEpub(string path, string? token, HttpStatusCode status)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(server.Client, HttpMethod.Get, path,
+                null, token, null, status, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             if (status == HttpStatusCode.OK)
             {
-                Assert.True(response.Headers.CacheControl?.Private);
-                Assert.Equal("application/epub+zip", response.Content.Headers.ContentType?.MediaType);
-                Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-                Assert.Equal("article.epub", response.Content.Headers.ContentDisposition?.FileNameStar);
-                Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+                ExportResponseFixture.Attachment(response, "application/epub+zip", "article.epub");
             }
             else
             {
-                Assert.Null(response.Content.Headers.ContentDisposition);
-                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                ExportResponseFixture.AedsWithoutAttachment(response);
                 Assert.DoesNotContain("https://export.invalid/no", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
             }
             return bytes;
@@ -231,27 +217,19 @@ public sealed class MarkdownExportPostgresTests
 
         async Task<string> ReadHtml(string path, string? token, HttpStatusCode status, string? error = null)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(server.Client, HttpMethod.Get, path,
+                null, token, null, status, ct);
             if (status != HttpStatusCode.OK)
             {
-                Assert.Null(response.Content.Headers.ContentDisposition);
-                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                ExportResponseFixture.AedsWithoutAttachment(response);
                 var message = Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync(ct));
                 Assert.DoesNotContain("literal document text", message, StringComparison.Ordinal);
                 Assert.DoesNotContain("https://export.invalid/no", message, StringComparison.Ordinal);
                 if (error is not null) Assert.Contains(error, message, StringComparison.Ordinal);
                 return "";
             }
-            Assert.True(response.Headers.CacheControl?.Private);
-            Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+            ExportResponseFixture.Attachment(response, "text/html", "article.html");
             Assert.Equal("utf-8", response.Content.Headers.ContentType?.CharSet);
-            Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-            Assert.Equal("article.html", response.Content.Headers.ContentDisposition?.FileNameStar);
-            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
             Assert.Equal("default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
                 Assert.Single(response.Headers.GetValues("Content-Security-Policy")));
             return await response.Content.ReadAsStringAsync(ct);
@@ -259,50 +237,34 @@ public sealed class MarkdownExportPostgresTests
 
         async Task ReadWord(string path, string? token, HttpStatusCode status, params string[] expected)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(server.Client, HttpMethod.Get, path,
+                null, token, null, status, ct);
             if (status != HttpStatusCode.OK)
             {
-                Assert.Null(response.Content.Headers.ContentDisposition);
-                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                ExportResponseFixture.AedsWithoutAttachment(response);
                 return;
             }
-            Assert.True(response.Headers.CacheControl?.Private);
-            Assert.Equal(FsusBlog.V2.Server.Authoring.WordDocumentExport.ContentType, response.Content.Headers.ContentType?.MediaType);
-            Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-            Assert.Equal("article.docx", response.Content.Headers.ContentDisposition?.FileNameStar);
-            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+            ExportResponseFixture.Attachment(response, FsusBlog.V2.Server.Authoring.WordDocumentExport.ContentType, "article.docx");
             WordDocumentExportTests.AssertFile(await response.Content.ReadAsByteArrayAsync(ct), expected);
         }
 
         Task<Draft> Save(int id, long revision, string title, string body) =>
-            SaveDraft(server.Client, owner, id, revision, title, body, ct);
+            SiteAedsFixture.SaveDraft(server.Client, owner, null, id, revision, title, body, ct);
 
         async Task Read(string path, string? token, HttpStatusCode status, string? title = null, string? body = null, long revision = 0)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(server.Client, HttpMethod.Get, path,
+                null, token, null, status, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             if (status != HttpStatusCode.OK)
             {
-                Assert.Null(response.Content.Headers.ContentDisposition);
-                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                ExportResponseFixture.AedsWithoutAttachment(response);
                 Assert.DoesNotContain(olderTitle, Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
                 Assert.DoesNotContain("literal document text", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
                 return;
             }
-            Assert.True(response.Headers.CacheControl?.Private);
-            Assert.Equal("text/markdown", response.Content.Headers.ContentType?.MediaType);
+            ExportResponseFixture.Attachment(response, "text/markdown", "article.md");
             Assert.Equal("utf-8", response.Content.Headers.ContentType?.CharSet);
-            Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-            Assert.Equal("article.md", response.Content.Headers.ContentDisposition?.FileNameStar);
-            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
             var text = Encoding.UTF8.GetString(bytes);
             var closing = text.IndexOf("\n---\n", StringComparison.Ordinal);
             var fields = text[..closing].Split('\n');
@@ -326,10 +288,9 @@ public sealed class MarkdownExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(connection!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await OpenSession(db, store, "PDF owner", true, ct);
-        var outsider = await OpenSession(db, store, "PDF outsider", true, ct);
-        var reader = await OpenSession(db, store, "PDF reader", false, ct);
+        var owner = (await fixture.SignIn("PDF owner", ct, canAuthor: true)).Token;
+        var outsider = (await fixture.SignIn("PDF outsider", ct, canAuthor: true)).Token;
+        var reader = (await fixture.SignIn("PDF reader", ct, canAuthor: false)).Token;
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
 
         using (var shell = await server.Client.GetAsync("/user/manage/article/write", ct))
@@ -338,9 +299,9 @@ public sealed class MarkdownExportPostgresTests
             Assert.Contains("name=\"fsus-pdf-export\"", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
 
-        var older = await SaveDraft(server.Client, owner, 0, 0, "保留的中文标题",
+        var older = await SiteAedsFixture.SaveDraft(server.Client, owner, null, 0, 0, "保留的中文标题",
             "## 旧稿保留的段落\n\n打印文字。\n\n| 项目 | 数量 |\n| --- | ---: |\n| 保存的表格 | 12 |", ct);
-        var current = await SaveDraft(server.Client, owner, older.Id, older.Revision, "Newer private text", "Current version only.", ct);
+        var current = await SiteAedsFixture.SaveDraft(server.Client, owner, null, older.Id, older.Revision, "Newer private text", "Current version only.", ct);
         var path = PathFor(current, older.Revision, "pdf");
         var saved = await ReadPdf(server.Client, path, owner, HttpStatusCode.OK, ct);
         var latest = await ReadPdf(server.Client, PathFor(current, current.Revision, "pdf"), owner, HttpStatusCode.OK, ct);
@@ -351,72 +312,36 @@ public sealed class MarkdownExportPostgresTests
         await ReadPdf(server.Client, PathFor(older, older.Revision, "pdf"), owner, HttpStatusCode.Conflict, ct);
         await ReadPdf(server.Client, path + "&revision=2", owner, HttpStatusCode.BadRequest, ct);
 
-        var linked = await SaveDraft(server.Client, owner, 0, 0, "PDF link fixture", "![Remote](https://export.invalid/no)", ct);
+        var linked = await SiteAedsFixture.SaveDraft(server.Client, owner, null, 0, 0, "PDF link fixture", "![Remote](https://export.invalid/no)", ct);
         await ReadPdf(server.Client, PathFor(linked, linked.Revision, "pdf"), owner, HttpStatusCode.BadRequest, ct);
-        var glyph = await SaveDraft(server.Client, owner, 0, 0, "PDF glyph fixture", "Unsupported glyph \U0010FFFD", ct);
+        var glyph = await SiteAedsFixture.SaveDraft(server.Client, owner, null, 0, 0, "PDF glyph fixture", "Unsupported glyph \U0010FFFD", ct);
         await ReadPdf(server.Client, PathFor(glyph, glyph.Revision, "pdf"), owner, HttpStatusCode.BadRequest, ct);
-        var oversized = await SaveDraft(server.Client, owner, 0, 0, "PDF size fixture", new string('字', 256 * 1024 / 3 + 1), ct);
+        var oversized = await SiteAedsFixture.SaveDraft(server.Client, owner, null, 0, 0, "PDF size fixture", new string('字', 256 * 1024 / 3 + 1), ct);
         await ReadPdf(server.Client, PathFor(oversized, oversized.Revision, "pdf"), owner, HttpStatusCode.BadRequest, ct);
 
-        await Execute(db, "delete from public.user_session where digest=$1", ct, SHA256.HashData(Convert.FromHexString(owner)));
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await ReadPdf(server.Client, path, owner, HttpStatusCode.Unauthorized, ct);
     }
 
     private static async Task<byte[]> ReadPdf(HttpClient client, string path, string? token, HttpStatusCode status, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-        using var response = await client.SendAsync(request, ct);
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
+        using var response = await SiteAedsFixture.ExpectPrivateResponse(client, HttpMethod.Get, path,
+            null, token, null, status, ct);
         var bytes = await response.Content.ReadAsByteArrayAsync(ct);
         if (status != HttpStatusCode.OK)
         {
-            Assert.Null(response.Content.Headers.ContentDisposition);
-            Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+            ExportResponseFixture.AedsWithoutAttachment(response);
             var message = Encoding.UTF8.GetString(Aeds.Decode(bytes, FrameType.ApiError));
             Assert.DoesNotContain("旧稿保留的段落", message, StringComparison.Ordinal);
             Assert.DoesNotContain("Newer private text", message, StringComparison.Ordinal);
             Assert.DoesNotContain("https://export.invalid/no", message, StringComparison.Ordinal);
             return bytes;
         }
-        Assert.True(response.Headers.CacheControl?.Private);
-        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-        Assert.Equal("article.pdf", response.Content.Headers.ContentDisposition?.FileNameStar);
-        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        ExportResponseFixture.Attachment(response, "application/pdf", "article.pdf");
         Assert.InRange(bytes.Length, 100, 4 * 1024 * 1024);
         Assert.Equal("%PDF-", Encoding.ASCII.GetString(bytes, 0, 5));
         Assert.EndsWith("%%EOF", Encoding.ASCII.GetString(bytes, bytes.Length - 16, 16).TrimEnd(), StringComparison.Ordinal);
         return bytes;
-    }
-
-    private static async Task<Draft> SaveDraft(HttpClient client, string owner, int id, long revision, string title, string body, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Save)
-        {
-            Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, body)))
-        };
-        request.Headers.Add("Cookie", $"fsus-v2-session={owner}");
-        request.Content.Headers.ContentType = new(Aeds.ContentType);
-        using var response = await client.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
-        return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-    }
-
-    private static async Task<string> OpenSession(NpgsqlConnection db, Store store, string name, bool canAuthor, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        await Execute(db, "insert into public.blog_user (id,name,can_author,enabled,generation) values ($1,$2,$3,true,1)", ct, id, name, canAuthor);
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute(db, "insert into public.login_ticket values ($1,$2,now()+interval '2 minutes')", ct, SHA256.HashData(ticket), id);
-        return (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-    }
-
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
-    {
-        await using var command = Store.Sql(db, null, sql, values);
-        await command.ExecuteNonQueryAsync(ct);
     }
 
     private static string PathFor(Draft draft, long selected, string format = "md") =>

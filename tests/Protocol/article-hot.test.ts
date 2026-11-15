@@ -1,12 +1,12 @@
 import { deepStrictEqual, equal, throws } from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { hexFixture } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot, encodeArticleHot, type PopularArticle } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 function fixture(name: string): Buffer {
-  return Buffer.from(readFileSync(new URL('fixtures/' + name, import.meta.url), 'utf8').trim(), 'hex')
+  return hexFixture(name)
 }
 
 test('ArticleHot matches independently encoded fixed v1 AEDS bytes', () => {

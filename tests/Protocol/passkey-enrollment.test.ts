@@ -1,12 +1,11 @@
 import { deepEqual, equal, throws } from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeEnrollmentBegin, decodeProvisionBegin } from '../../src/Contracts/passkey.ts';
 import { FrameType, WireLayouts, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
-const fixture = (name: string) => decodeFrame(Buffer.from(
-  readFileSync(new URL(`./fixtures/site-passkey-${name}.hex`, import.meta.url), 'utf8').trim(), 'hex'), FrameType.PasskeyRegisterBegin).payload;
+const fixture = (name: string) => decodeFrame(hexFixture(`site-passkey-${name}.hex`), FrameType.PasskeyRegisterBegin).payload;
 
 const enrollment = fixture('enrollment');
 const bootstrap = fixture('bootstrap');

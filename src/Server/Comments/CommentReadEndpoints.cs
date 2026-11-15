@@ -83,9 +83,7 @@ internal static class CommentReadEndpoints
             {
                 var frame = await readFrame(ctx, WireLimits.PublicCommentFrameBytes, ct);
                 var input = Wire.DecodePublicCommentSubmission(frame);
-                if (!ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) || header.Count != 1 ||
-                    !Guid.TryParseExact(header[0], "D", out var key) || input.IdempotencyKey != key)
-                    throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+                ClientMutationHeader.Require(ctx, input.IdempotencyKey, required: true);
                 return (frame, input);
             }
             return new(RootSubmission: true, SignedInReply: replies, RootPowPolicy: rootPowPolicy);

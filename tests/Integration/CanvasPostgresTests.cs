@@ -1,12 +1,12 @@
 using System.Security.Cryptography;
 using System.Net;
-using System.Net.Http.Headers;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Authoring;
 using FsusBlog.V2.Server.Sessions;
+using static FsusBlog.V2.Integration.Tests.CanvasFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -43,7 +43,7 @@ public sealed class CanvasPostgresTests
     [PostgresFact]
     public async Task KestrelDecodesCanvasAedsAndRechecksSessionBeforeCommit()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("HTTP owner");
         var host = await test.Save(owner.Token, "Host", "Visible source");
         var target = await test.Publish(owner.Token, await test.Save(owner.Token, "Target", "Draft target"));
@@ -110,7 +110,7 @@ public sealed class CanvasPostgresTests
     [PostgresFact]
     public async Task PortableBundleKeepsOnlyCanvasFactsAndRebindsExplicitly()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Canvas export owner");
         var other = await test.Author("Canvas import owner");
         var from = await test.Save(owner.Token, "Private source <article>", "# Source mapped ^block");
@@ -176,33 +176,14 @@ public sealed class CanvasPostgresTests
         await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.NotFound,
             Wire.EncodeCanvasBundleExecute(command with { CommandId = Guid.NewGuid() }));
 
-        async Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, bool package = false)
-        {
-            using var request = new HttpRequestMessage(method, path);
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var response = await server.Client.SendAsync(request, test.Token);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            var payload = await response.Content.ReadAsByteArrayAsync(test.Token);
-            if (package)
-            {
-                Assert.Equal(Wire.CanvasBundleContentType, response.Content.Headers.ContentType?.MediaType);
-                Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
-            }
-            else if (status != HttpStatusCode.OK) Aeds.Decode(payload, FrameType.ApiError);
-            return payload;
-        }
+        Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, bool package = false) =>
+            test.ReadFrame(server.Client, method, path, token, status, body, bundle: package);
     }
 
     [PostgresFact]
     public async Task ImportsAndExportsTenThousandNodesAndEdgesThroughTheCanonicalStore()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Canvas load owner");
         var noteIds = Enumerable.Range(1, 10_000).Select(i => new Guid(i, 0, 0, new byte[8])).ToArray();
         var graph = new CanvasGraph(
@@ -234,7 +215,7 @@ public sealed class CanvasPostgresTests
     [PostgresFact]
     public async Task ResolvesOnlyStoredOwnerCoordinatesAndPinsExactSource()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Canvas resolver owner");
         var outsider = await test.Author("Canvas resolver outsider");
         var otherBrowser = await test.SignIn(owner.User.Id);
@@ -382,23 +363,14 @@ public sealed class CanvasPostgresTests
             Wire.DecodeCanvasReferenceResolution(await Request(HttpMethod.Get, Route(id, 1, requireCurrent ? "&current=1" : ""),
                 owner.Token, HttpStatusCode.OK, sessions: requireCurrent ? [ownerSession] : null));
 
-        async Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, string[]? sessions = null)
-        {
-            using var request = SiteAedsFixture.Request(method, path, body, token, handle: null);
-            if (sessions is not null) request.Headers.Add(WireHeaders.CurrentSession, sessions);
-            using var response = await server.Client.SendAsync(request, test.Token);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            var bytes = await response.Content.ReadAsByteArrayAsync(test.Token);
-            if (status != HttpStatusCode.OK) Aeds.Decode(bytes, FrameType.ApiError);
-            return bytes;
-        }
+        Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, string[]? sessions = null) =>
+            test.ReadFrame(server.Client, method, path, token, status, body, sessions);
     }
 
     [PostgresFact]
     public async Task AnchorEditsValidateOnlyChangedCoordinatesAndReplayOwnedHistory()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Canvas anchor editor");
         var other = await test.Author("Other Canvas anchor owner");
         var source = await test.Save(owner.Token, "Reference source", "# Heading ^title\n\nParagraph ^block");
@@ -463,7 +435,7 @@ public sealed class CanvasPostgresTests
     [PostgresFact]
     public async Task GraphRoutesApplyOneOrderedRevisionAndKeepPrivateProvenance()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Graph owner");
         var other = await test.Author("Graph outsider");
         var reader = await test.Author("Graph reader", false);
@@ -559,22 +531,14 @@ public sealed class CanvasPostgresTests
         Task<byte[]> GetPage(string token, long revision, int offset, HttpStatusCode status = HttpStatusCode.OK) =>
             Send(HttpMethod.Get, $"/api/v2/authoring/canvas/documents/{id:D}.aeds?revision={revision}&offset={offset}", token, status);
 
-        async Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status = HttpStatusCode.OK, byte[]? body = null)
-        {
-            using var request = SiteAedsFixture.Request(method, path, body, token, handle: null);
-            using var response = await server.Client.SendAsync(request, test.Token);
-            Assert.Equal(status, response.StatusCode);
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            byte[] bytes = await response.Content.ReadAsByteArrayAsync(test.Token);
-            if (status != HttpStatusCode.OK) Aeds.Decode(bytes, FrameType.ApiError);
-            return bytes;
-        }
+        Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status = HttpStatusCode.OK, byte[]? body = null) =>
+            test.ReadFrame(server.Client, method, path, token, status, body);
     }
 
     [PostgresFact]
     public async Task ConfirmAtomicallyAppendsOnceAndRetainsImmutablePublication()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var owner = await test.Author("owner");
         var outsider = await test.Author("outsider");
         var ignored = await test.Author("reader", false);
@@ -625,7 +589,7 @@ public sealed class CanvasPostgresTests
     [PostgresFact]
     public async Task ExpiryDriftAndFailedReceiptPreserveBothAuthorities()
     {
-        await using var test = await Fixture.Open();
+        await using var test = await CanvasFixture.Open();
         var author = await test.Author("author");
         var host = await test.Save(author.Token, "Host", "Source");
         var target = await test.Publish(author.Token, await test.Save(author.Token, "Target", "# Original title"));
@@ -669,67 +633,4 @@ public sealed class CanvasPostgresTests
         await Denied(Rejection.Unauthorized, test.WithCanvas(author.Token, op => op.Confirm(current.PlanId, test.Token)));
     }
 
-    private static async Task Denied<T>(Rejection rejection, Task<T> command) =>
-        Assert.Equal(rejection, (await Assert.ThrowsAsync<BusinessException>(() => command)).Rejection);
-
-    private sealed class Fixture(ScratchDatabase database, CancellationTokenSource deadline) : IAsyncDisposable
-    {
-        private readonly Store _store = new(database.DataSource);
-        internal CancellationToken Token => deadline.Token;
-        internal string ConnectionString => database.ConnectionString;
-
-        internal static async Task<Fixture> Open()
-        {
-            var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            try
-            {
-                return new(await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, deadline.Token), deadline);
-            }
-            catch { deadline.Dispose(); throw; }
-        }
-
-        internal async Task<(string Token, Identity User)> Author(string name, bool author = true)
-        {
-            var id = Guid.NewGuid();
-            await Mutate("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, author);
-            return await SignIn(id);
-        }
-
-        internal async Task<(string Token, Identity User)> SignIn(Guid id) =>
-            await _store.SignIn(await database.IssueTicket(id, Token), Token);
-
-        internal Task<T> WithGraph<T>(string token, Func<CanvasGraphStore, Task<T>> operation) =>
-            _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor)), Token);
-
-        internal Task<T> WithCanvas<T>(string token, Func<CanvasStore, Task<T>> operation) =>
-            _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor, Store.TokenDigest(token)!)), Token);
-
-        internal Task<ArticleState> Read(string token, int id) =>
-            _store.WithSession(token, true, (db, tx, actor) => Store.Find(db, tx, actor, id, false, Token), Token);
-
-        internal Task<ArticleState> Save(string token, string title, string body, int id = 0, long revision = 0) =>
-            Command(token, ArticleAction.Save, new(id, revision, Guid.NewGuid(), title, body));
-
-        internal Task<ArticleState> Publish(string token, ArticleState source) =>
-            Command(token, ArticleAction.Publish, new(source.Id, source.Revision, Guid.NewGuid(), "", ""));
-
-        private async Task<ArticleState> Command(string token, ArticleAction action, Edit edit)
-        {
-            edit = Publishing.Validate(action, edit);
-            return (await _store.WithSession(token, true, (db, tx, actor) => Store.Execute(db, tx, actor, action, edit, Token), Token)).Article;
-        }
-
-        internal async Task Mutate(string sql, params object[] args) => await Scalar(sql, args);
-        internal async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var db = await database.DataSource.OpenConnectionAsync(Token);
-            return await FixtureSql.ScalarAsync(db, null, Token, sql, args);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            try { await database.DisposeAsync(); }
-            finally { deadline.Dispose(); }
-        }
-    }
 }

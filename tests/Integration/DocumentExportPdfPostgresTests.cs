@@ -24,8 +24,7 @@ public sealed partial class DocumentExportPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login(db, new Store(fixture.DataSource), "Running PDF cancellation", canAuthor: true, ct);
+        var owner = await Login(fixture, "Running PDF cancellation", canAuthor: true, ct);
         var scratch = Directory.CreateTempSubdirectory("fsusv2-async-pdf-witness-");
         try
         {
@@ -85,7 +84,7 @@ public sealed partial class DocumentExportPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login(db, new Store(fixture.DataSource), "Running PDF interruption", canAuthor: true, ct);
+        var owner = await Login(fixture, "Running PDF interruption", canAuthor: true, ct);
         var scratch = Directory.CreateTempSubdirectory("fsusv2-async-pdf-restart-");
         try
         {

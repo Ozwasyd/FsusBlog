@@ -27,6 +27,13 @@ export function submitArticle(request, url, command, headers) {
     encodeArticleCommand({ idempotencyKey: randomUUID(), ...command }), headers)
 }
 
+export function submitPublicationMutation(request, path, id, expectedRevision, title, body) {
+  const idempotencyKey = randomUUID()
+  const command = encodeArticleCommand({ id, expectedRevision, idempotencyKey, title, body })
+  return postFrame(request, path, FrameType.ArticleCommand, command,
+    { ...binary, [WireHeaders.ClientMutationId]: idempotencyKey })
+}
+
 export async function readDraft(response, message) {
   assert.equal(response.status(), 200, message)
   return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)

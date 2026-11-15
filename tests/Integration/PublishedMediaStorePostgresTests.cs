@@ -216,13 +216,12 @@ public sealed class PublishedMediaStorePostgresTests
         {
             _db = db;
             _root = Directory.CreateTempSubdirectory("fsusblog-media-publish-");
-            var root = OperatingSystem.IsMacOS() && _root.FullName.StartsWith("/var/", StringComparison.Ordinal)
-                ? "/private" + _root.FullName : _root.FullName;
+
             try
             {
-                _privateDirectory = OwnedDirectory("private");
-                _publishedDirectory = OwnedDirectory("published");
-                _webDirectory = OwnedDirectory("web");
+                _privateDirectory = MediaFixture.CreateOwnedDirectory(_root.FullName, "private");
+                _publishedDirectory = MediaFixture.CreateOwnedDirectory(_root.FullName, "published");
+                _webDirectory = MediaFixture.CreateOwnedDirectory(_root.FullName, "web");
                 _privateFiles = new(_privateDirectory, _webDirectory);
                 try { _published = new(_privateFiles, _publishedDirectory, _webDirectory); }
                 catch { _privateFiles.Dispose(); throw; }
@@ -231,13 +230,6 @@ public sealed class PublishedMediaStorePostgresTests
                 Publications = new(db, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance, lease);
             }
             catch { _root.Delete(recursive: true); throw; }
-
-            string OwnedDirectory(string leaf)
-            {
-                var path = Path.Combine(root, leaf);
-                Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-                return path;
-            }
         }
 
         public void Dispose()
@@ -250,21 +242,18 @@ public sealed class PublishedMediaStorePostgresTests
         internal async Task<Actor> Author(string name, CancellationToken ct)
         {
             var id = Guid.NewGuid();
-            var secret = RandomNumberGenerator.GetBytes(32);
             await using var db = await _db.OpenConnectionAsync(ct);
             await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
-            await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.login_ticket (digest,user_id,expires_at) VALUES ($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), id);
-            var session = await AuthorStore.SignIn(Convert.ToHexStringLower(secret), ct);
+            var ticket = await FixtureSql.IssueLoginTicketAsync(db, null, ct, id, minutes: 1);
+            var session = await AuthorStore.SignIn(ticket, ct);
             return new(id, session.Token);
         }
 
         internal async Task<Asset> Upload(Actor author, string name, SKColor color, CancellationToken ct,
             MediaFormat format = MediaFormat.Png)
         {
-            using var bitmap = new SKBitmap(3, 2);
-            bitmap.Erase(color);
-            using var encoded = bitmap.Encode(format == MediaFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg, 90);
-            var image = MediaImage.Normalize(name, format, encoded.ToArray(), ct);
+            var encoded = MediaFixture.SolidImage(format == MediaFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg, color);
+            var image = MediaImage.Normalize(name, format, encoded, ct);
             return await AuthorStore.WithSession(author.Token, true, async (db, tx, actor) =>
             {
                 var asset = await _private.Reserve(db, tx, actor.Id, Guid.NewGuid(), image, ct);

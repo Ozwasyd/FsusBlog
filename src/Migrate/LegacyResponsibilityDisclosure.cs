@@ -7,8 +7,6 @@ using Npgsql;
 
 internal static partial class Migration
 {
-    private const string LegacyDefaultSiteAuthor = "Fsu";
-
     // Frozen v1 ArticleResponsibilityContracts and ArticleResponsibilityManifest.
     private sealed record LegacyResponsiblePerson(string? Name, string? ProfileUrl);
     private sealed record LegacyEvidenceSource(string? Title, string? Url, string? SourceType, DateOnly? AccessedOn,
@@ -19,7 +17,7 @@ internal static partial class Migration
     };
 
     private static async Task<string> ReadLegacyResponsibilityDisclosuresAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        CancellationToken ct)
+        string siteAuthor, CancellationToken ct)
     {
         await using var query = new NpgsqlCommand($"""
             SELECT s.id, admissible,
@@ -43,8 +41,7 @@ internal static partial class Migration
                 string? Text(int field) => rows.IsDBNull(field) ? null : rows.GetString(field);
                 var authors = ReadLegacyDisclosureArray<LegacyResponsiblePerson>(Text(3)).Select(PublicLegacyPerson)
                     .OfType<LegacyResponsiblePerson>().Take(8).ToArray();
-                // Sealed import rejects any nonempty site configuration relation, so v1 resolves the frozen Seo_Author default.
-                if (authors.Length == 0 && rows.GetBoolean(2)) authors = [new(LegacyDefaultSiteAuthor, null)];
+                if (authors.Length == 0 && rows.GetBoolean(2)) authors = [new(siteAuthor, null)];
                 var reviewer = Text(4) is { } reviewerJson && !string.IsNullOrWhiteSpace(reviewerJson)
                     ? PublicLegacyPerson(JsonSerializer.Deserialize<LegacyResponsiblePerson>(reviewerJson, LegacyDisclosureJson)) : null;
                 var sources = ReadLegacyDisclosureArray<LegacyEvidenceSource>(Text(5)).Where(source => source.IsPublic)

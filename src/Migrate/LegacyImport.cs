@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlogV2.Storage;
@@ -20,7 +21,8 @@ internal static partial class Migration
 
     private sealed record ImportFinding(string Category, string Source, long Rows);
     private sealed record LegacyImportEvidence(LegacyCreateCommandRead Commands, LegacyOutboxRead Outbox,
-        LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, LegacySavedViewRead SavedViews, ImportFinding[] Findings)
+        LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, LegacySavedViewRead SavedViews,
+        ImportFinding[] Findings, LegacySiteAuthor? SiteAuthor)
     {
         internal LegacyProjection[] SourceProjections(LegacyAudit audit, bool includeTaxonomy = true)
         {
@@ -30,6 +32,7 @@ internal static partial class Migration
             if (includeTaxonomy) projections.AddRange(Taxonomy.Projections);
             projections.AddRange(ReadingHistory.Projections);
             projections.AddRange(SavedViews.Relations.Select(relation => relation.Projection));
+            if (SiteAuthor is { } author) projections.Add(author.Projection);
             return projections.ToArray();
         }
     }
@@ -39,7 +42,8 @@ internal static partial class Migration
         string OwnerMapSha256, string SourceAdminIdentitySha256, LegacyProjection[] SourceProjections,
         ShadowCount[] ExpectedTables, ImportFinding[] Findings, bool ReadyToApply, bool ReadyToStage,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportMediaSeal? Media = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportMediaSeal? Media = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SiteAuthor = null);
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
@@ -152,7 +156,7 @@ internal static partial class Migration
             sourceTransaction, sourceSeal, catalog, tables, principal, token);
         var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy,
             token, mediaSource is not null);
-        var (commands, outbox, _, readingHistory, savedViews, findings) = evidence;
+        var (commands, outbox, _, readingHistory, savedViews, findings, siteAuthor) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries, readingHistory.Rows, savedViews.Relations);
@@ -189,7 +193,7 @@ internal static partial class Migration
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
             sourceProjections, counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0,
-            SourceSeal: sourceSeal, Media: mediaBinding);
+            SourceSeal: sourceSeal, Media: mediaBinding, SiteAuthor: siteAuthor?.Value);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -246,14 +250,17 @@ internal static partial class Migration
         var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
         var history = await ReadLegacyReadingHistoryAsync(source, transaction, tables[Article], catalog, token);
         var savedViews = await ReadLegacySavedViewsAsync(source, transaction, catalog, principal, token);
-        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, savedViews, verifiedMedia, token);
-        return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings);
+        var siteAuthor = outbox.RollbackCount > 0 && !verifiedMedia
+            ? await ReadLegacySiteAuthorAsync(source, transaction, catalog, token) : null;
+        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox,
+            taxonomy, history, savedViews, verifiedMedia, siteAuthor, token);
+        return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
         LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
-        bool verifiedMedia, CancellationToken token)
+        bool verifiedMedia, LegacySiteAuthor? siteAuthor, CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
@@ -265,7 +272,7 @@ internal static partial class Migration
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
                 taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name) ||
-                (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
+                relation == siteAuthor?.Relation || (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)
@@ -352,6 +359,11 @@ internal static partial class Migration
             throw new InvalidOperationException("Expected an exact legacy import plan.");
         if (plan.SourceSeal is { } seal && (plan.Provider != "postgres" || !seal.IsValid()))
             throw new InvalidOperationException("The legacy import plan contains an invalid PostgreSQL source seal.");
+        if (plan.SiteAuthor is { } author &&
+            (plan.Provider != "postgres" || plan.Version != ImportPlanWithRollbackOutboxVersion || plan.Media is not null ||
+             plan.SourceProjections.Where(row => row.Table == LegacySiteConfigTable).ToArray() is not [var observed] ||
+             observed != LegacySiteAuthorProjection(author) || author.EnumerateRunes().Count() > 512))
+            throw new InvalidOperationException("The legacy import plan contains an invalid site-author observation.");
         return plan;
     }
 

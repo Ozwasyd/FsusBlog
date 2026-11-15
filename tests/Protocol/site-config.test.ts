@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fixtureText } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame } from '../../src/Contracts/aeds.ts';
 import { ProtocolError } from '../../src/Contracts/binary.ts';
@@ -7,7 +7,7 @@ import { decodeSeoConfig, decodeSiteComplianceConfig } from '../../src/Contracts
 import { FrameType, WireLayouts as L } from '../../src/Contracts/wire.generated.ts';
 
 function fixture(name: string, frame: FrameType): Uint8Array {
-  const source = readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8');
+  const source = fixtureText(`${name}.hex`);
   return decodeFrame(Buffer.from(source.replaceAll(/\s/g, ''), 'hex'), frame).payload;
 }
 

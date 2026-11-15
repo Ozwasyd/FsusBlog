@@ -34,25 +34,28 @@ internal static partial class CurrentSchema
 
     internal const string LegacyDocumentExportProviderConstraint = "CHECK (provider = 1)";
     internal const string CurrentDocumentExportProviderConstraint = "CHECK (provider >= 1 AND provider <= 2)";
+    internal const string SingleAttachmentProviderConstraint = "CHECK (provider >= 1 AND provider <= 3)";
 
     internal static async Task<bool> HasCurrentDocumentExportProviderAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
     {
         await using var query = new NpgsqlCommand("""
             select exists(select from pg_catalog.pg_constraint
                 where conrelid=pg_catalog.to_regclass('public.author_document_export') and contype='c' and convalidated
-                and pg_catalog.pg_get_constraintdef(oid,true) in ($1,$2))
+                and pg_catalog.pg_get_constraintdef(oid,true) in ($1,$2,$3))
             """, db, tx);
         query.Parameters.AddWithValue(CurrentDocumentExportProviderConstraint);
-        query.Parameters.AddWithValue("CHECK (provider >= 1 AND provider <= 3)");
+        query.Parameters.AddWithValue(SingleAttachmentProviderConstraint);
+        query.Parameters.AddWithValue("CHECK (provider >= 1 AND provider <= 4)");
         return await query.ExecuteScalarAsync(ct) is true;
     }
 
-    internal static async Task<bool> HasDocumentExportAttachmentsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
+    internal static async Task<bool> HasDocumentExportAttachmentsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, bool list = false)
     {
         await using var query = new NpgsqlCommand("""
             select exists(select from pg_catalog.pg_attribute
-                where attrelid=pg_catalog.to_regclass('public.author_document_export') and attname='attachment_id' and not attisdropped)
+                where attrelid=pg_catalog.to_regclass('public.author_document_export') and attname=$1 and not attisdropped)
             """, db, tx);
+        query.Parameters.AddWithValue(list ? "attachment_ids" : "attachment_id");
         return await query.ExecuteScalarAsync(ct) is true;
     }
 

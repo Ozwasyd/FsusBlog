@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
@@ -10,7 +10,7 @@ import {
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
 const fixtures = (name: string) =>
-  Uint8Array.from(Buffer.from(readFileSync(new URL(`fixtures/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex'));
+  Uint8Array.from(hexFixture(`${name}.hex`));
 const packageBytes = fixtures('search-fspk-v4');
 const expected = fixtures('search-fsr4');
 

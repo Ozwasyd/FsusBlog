@@ -6,9 +6,11 @@ internal static partial class Migration
     private sealed record LegacyReleaseOrigin(BackupRelation Measurement, string Rows);
 
     private static async Task<LegacyReleaseOrigin> ReadLegacyReleaseOriginAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        string planSha, string projectionSha, string actorsSha, CancellationToken ct)
+        string planSha, string projectionSha, string actorsSha, string? configuredAuthor, CancellationToken ct,
+        LegacyReleasePublishProof? publishProof)
     {
-        var disclosure = await ReadLegacyResponsibilityDisclosuresAsync(db, tx, ct);
+        var siteAuthor = ResolveLegacySiteAuthor(configuredAuthor);
+        var disclosure = await ReadLegacyResponsibilityDisclosuresAsync(db, tx, siteAuthor, ct);
         await using var query = new NpgsqlCommand($$"""
             SELECT CASE WHEN octet_length(row_to_json(t)::text)<=131072 THEN row_to_json(t)::text END
             FROM (
@@ -17,7 +19,12 @@ internal static partial class Migration
                     r.source_rollback_reason AS rollback_reason,to_jsonb(s) AS responsibility,
                     jsonb_build_object('publication',to_jsonb(p),'rights',to_jsonb(rights),'event',to_jsonb(event),
                         'edges',(SELECT jsonb_agg(to_jsonb(edge) ORDER BY edge.id)
-                            FROM {{ImportSchema}}.{{LegacyOutboxEdge.Table.Name}} edge WHERE edge.outbox_event_id=event.id)) AS evidence,
+                            FROM {{ImportSchema}}.{{LegacyOutboxEdge.Table.Name}} edge WHERE edge.outbox_event_id=event.id))
+                        || CASE WHEN $6::text IS NULL THEN '{}'::jsonb ELSE
+                            jsonb_build_object('siteAuthor',jsonb_build_object('key','{{LegacySiteAuthorKey}}','value',$6::text))
+                            END
+                        || CASE WHEN p.source_publication_id=$7 THEN jsonb_build_object('publishProof',$8::jsonb)
+                            ELSE '{}'::jsonb END AS evidence,
                     jsonb_strip_nulls(jsonb_build_object('schemaVersion',1,'articleId',p.article_id,'revisionNo',p.revision,
                         'responsibilitySnapshotId',s.id::text,'responsibilityVersion',coalesce(s.responsibility_version,0),
                         'inheritsSiteAuthor',coalesce(s.inherit_site_author=1,true),'legacyFallback',s.id IS NULL,
@@ -25,7 +32,7 @@ internal static partial class Migration
                         jsonb_build_object('url',format('/integrity/article/%s/revisions/%s',p.article_id,p.revision),
                             'revisionNo',p.revision,'proofStatus','unavailable'))
                         || CASE WHEN s.id IS NULL THEN
-                            '{"authors":[{"name":"{{LegacyDefaultSiteAuthor}}"}],"sources":[]}'::jsonb
+                            jsonb_build_object('authors',jsonb_build_array(jsonb_build_object('name',$5::text)),'sources','[]'::jsonb)
                             ELSE $4::jsonb -> s.id::text END) AS manifest,
                     $1::text AS plan_sha256,$2::text AS projection_sha256,$3::text AS source_admin_identity_sha256
                 FROM {{ImportSchema}}.shadow_publication p
@@ -46,6 +53,13 @@ internal static partial class Migration
         query.Parameters.AddWithValue(projectionSha);
         query.Parameters.AddWithValue(actorsSha);
         query.Parameters.AddWithValue(disclosure);
+        query.Parameters.AddWithValue(siteAuthor);
+        query.Parameters.Add(new NpgsqlParameter
+        {
+            NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text, Value = (object?)configuredAuthor ?? DBNull.Value
+        });
+        query.Parameters.AddWithValue(publishProof?.PublicationId ?? 0L);
+        query.Parameters.AddWithValue(publishProof?.Evidence ?? "{}");
         await using var reader = await query.ExecuteReaderAsync(ct);
         var rows = new List<string>(3);
         var measurement = await MeasureBackupRowsAsync("legacy_release_origin", "r", reader, ct, rows);

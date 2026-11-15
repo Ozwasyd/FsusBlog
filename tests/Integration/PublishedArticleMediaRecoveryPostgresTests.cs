@@ -23,16 +23,16 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         if (maintenance.Host is null || !Path.IsPathFullyQualified(maintenance.Host) || maintenance.Host.Contains(','))
             throw new InvalidOperationException("Published-media recovery tests require one native PostgreSQL Unix socket.");
         await using var source = await ScratchDatabase.Create(maintenance.ConnectionString, ct);
-        var owner = await CreateSession(source.DataSource, "public image backup owner", ct);
+        var owner = await MediaFixture.CreateSession(source.DataSource, "public image backup owner", ct);
         var site = await SiteId(source.DataSource, ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-recovery-");
         try
         {
-            var privateRoot = OwnedDirectory(root, "private-source");
-            var publicRoot = OwnedDirectory(root, "public-source");
-            var restoredPrivate = OwnedDirectory(root, "private-restore");
-            var restoredPublic = OwnedDirectory(root, "public-restore");
-            var web = OwnedDirectory(root, "web");
+            var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private-source");
+            var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public-source");
+            var restoredPrivate = MediaFixture.CreateOwnedDirectory(root.FullName, "private-restore");
+            var restoredPublic = MediaFixture.CreateOwnedDirectory(root.FullName, "public-restore");
+            var web = MediaFixture.CreateOwnedDirectory(root.FullName, "web");
             await File.WriteAllTextAsync(Path.Combine(web, "index.html"),
                 "<html lang=\"en\"><head><title>Fsu's Blog</title></head><body><!--fsus-public-content--></body></html>", ct);
 
@@ -44,9 +44,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             {
                 var client = server.Client;
                 historical = await Upload(client, owner, "historical-private.png", "image/png",
-                    Image(SKEncodedImageFormat.Png, SKColors.SteelBlue), ct);
+                    MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SteelBlue), ct);
                 current = await Upload(client, owner, "current-private.png", "image/png",
-                    Image(SKEncodedImageFormat.Png, SKColors.SeaGreen), ct);
+                    MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SeaGreen), ct);
                 Assert.NotEqual(historical.Digest, current.Digest);
                 var draft = await PostDraft(client, WireRoutes.Save,
                     Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Media recovery", "Original published body.")), owner, ct);
@@ -143,12 +143,12 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 await drop.ExecuteNonQueryAsync();
             }
 
-            Dictionary<string, string> Config(string privatePath, string publicPath) => new()
+            Dictionary<string, string> Config(string privatePath, string publicPath)
             {
-                ["FSUSBLOG_WEB_DIST"] = web,
-                [MediaEndpoints.StorageSetting] = privatePath,
-                [PublishedMediaEndpoints.StorageSetting] = publicPath
-            };
+                var settings = MediaFixture.PublicSettings(privatePath, publicPath);
+                settings["FSUSBLOG_WEB_DIST"] = web;
+                return settings;
+            }
         }
         finally { root.Delete(recursive: true); }
     }

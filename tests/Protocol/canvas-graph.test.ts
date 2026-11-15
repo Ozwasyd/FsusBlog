@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { hexFixture } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
@@ -27,7 +27,7 @@ const commands = {
 
 // Packed independently with Python struct and bitwise AEDS CRC.
 function fixture(name: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex'))
+  return Uint8Array.from(hexFixture(`${name}.hex`))
 }
 
 test('graph command preserves exact wire bytes for all five nodes and stable typed edges', () => {

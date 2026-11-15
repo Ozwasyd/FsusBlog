@@ -20,12 +20,37 @@ internal static class SiteAedsFixture
     }
 
     internal static async Task<byte[]> ExpectPrivate(HttpClient client, HttpMethod method, string route, byte[]? frame,
-        string token, string? handle, HttpStatusCode status, CancellationToken ct)
+        string? token, string? handle, HttpStatusCode status, CancellationToken ct)
+    {
+        using var response = await ExpectPrivateResponse(client, method, route, frame, token, handle, status, ct);
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    internal static async Task<HttpResponseMessage> ExpectPrivateResponse(HttpClient client, HttpMethod method, string route,
+        byte[]? frame, string? token, string? handle, HttpStatusCode status, CancellationToken ct)
     {
         using var request = Request(method, route, frame, token, handle);
+        var response = await client.SendAsync(request, ct);
+        try
+        {
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+    }
+
+    internal static async Task<Draft> SaveDraft(HttpClient client, string token, string? handle, int id, long revision,
+        string title, string body, CancellationToken ct)
+    {
+        using var request = Request(HttpMethod.Post, WireRoutes.Save,
+            Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, body)), token, handle);
         using var response = await client.SendAsync(request, ct);
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        return await response.Content.ReadAsByteArrayAsync(ct);
+        response.EnsureSuccessStatusCode();
+        return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
     }
 }

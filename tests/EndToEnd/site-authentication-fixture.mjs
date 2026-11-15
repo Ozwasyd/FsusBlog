@@ -16,6 +16,15 @@ export function readTlsIdentityFixture(peerTicket, probe, error) {
   return { origin: url.origin, ownerTicket, pins }
 }
 
+export function readTlsPublicationFixture(error) {
+  const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
+  const ticket = process.env.FSUSBLOG_TEST_SITE_TICKET
+  const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
+  assert(url.hostname === '127.0.0.1' && url.protocol === 'https:' && /^[0-9a-f]{64}$/.test(ticket ?? '') &&
+    /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins ?? ''), error)
+  return { url, origin: url.origin, ticket, pins }
+}
+
 export function launchIdentityBrowser(pins) {
   return chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
     args: pins ? [`--ignore-certificate-errors-spki-list=${pins}`] : undefined })

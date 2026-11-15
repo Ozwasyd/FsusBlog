@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
@@ -451,7 +450,8 @@ async function sealedManifest(request) {
 }
 
 async function run() {
-  const { chromium, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+  const { launchIdentityBrowser, request } = await import('./site-authentication-fixture.mjs')
+  const { postFrame } = await import('./browser-authoring-fixture.mjs')
   const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
   const ticket = process.env.FSUSBLOG_TEST_SITE_TICKET
   const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
@@ -461,8 +461,7 @@ async function run() {
   'Use the isolated Caddy HTTPS fixture with a disposable article-owner ticket and TLS leaf pins.')
   await mkdir(evidence, { recursive: true })
   const author = await request.newContext({ baseURL: url.origin })
-  const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME,
-    headless: true, args: [`--ignore-certificate-errors-spki-list=${pins}`] })
+  const browser = await launchIdentityBrowser(pins)
   const observations = { browser: browser.version(), origin: url.origin }
   try {
     const manifest = await sealedManifest(author)
@@ -488,9 +487,7 @@ async function run() {
   }
 
   async function post(path, type, payload, reply) {
-    const response = await author.post(path, {
-      data: Buffer.from(encodeFrame(type, payload)), headers: { 'Content-Type': 'application/octet-stream' },
-    })
+    const response = await postFrame(author, path, type, payload)
     try {
       assert.equal(response.status(), 200)
       return decodeFrame(await response.body(), reply).payload

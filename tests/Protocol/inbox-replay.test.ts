@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeInboxReplay } from '../../src/Contracts/inbox-replay.ts';
 import { FrameType, WireHeaders, WireLayouts } from '../../src/Contracts/wire.generated.ts';
 
-const bytes = Uint8Array.from(Buffer.from(readFileSync(new URL('./fixtures/inbox-replay.hex', import.meta.url), 'utf8').trim(), 'hex'));
+const bytes = Uint8Array.from(hexFixture('inbox-replay.hex'));
 const payload = () => decodeFrame(bytes, FrameType.InboxReplay).payload.slice();
 const cursor = 'A'.repeat(54);
 

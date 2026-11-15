@@ -48,9 +48,7 @@ internal static class TaxonomyEndpoints
         app.MapPost(WireRoutes.TaxonomyAssignment, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeTaxonomyAssignment(await readFrame(ctx, WireLimits.TaxonomyAssignmentFrameBytes, ct));
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(ctx, input.IdempotencyKey);
             input = input with { TagIds = input.TagIds.Order().ToArray() };
 
             var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true,

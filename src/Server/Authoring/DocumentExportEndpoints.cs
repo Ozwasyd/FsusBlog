@@ -33,9 +33,14 @@ internal static class DocumentExportEndpoints
             var request = Wire.DecodeDocumentExportCreate(await readFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
             return await Session(ctx, store, async (db, tx, actor) =>
             {
-                var asset = DocumentExportAttachment.ReadSelection(ctx, request.Format != DocumentExportFormat.Pdf);
-                if (asset.HasValue && !DocumentExportAttachment.PrivateTransport(ctx)) throw Missing();
-                var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, asset, ct);
+                var assets = DocumentExportAttachment.ReadSelections(ctx, request.Format switch
+                {
+                    DocumentExportFormat.Html => HtmlDocumentExport.MaximumImages,
+                    DocumentExportFormat.Pdf => 0,
+                    _ => 1,
+                });
+                if (assets.Length > 0 && !DocumentExportAttachment.PrivateTransport(ctx)) throw Missing();
+                var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, assets, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");
@@ -92,14 +97,15 @@ internal static class DocumentExportEndpoints
 }
 
 internal sealed record DocumentExportInput(string Title, string Body, DateTimeOffset HappenedAt,
-    Guid? Asset, DocumentExportAttachment? Attachment)
+    Guid[] Assets, DocumentExportAttachment[] Attachments)
 {
-    internal const byte CurrentProvider = 2, AttachmentProvider = 3;
+    internal const byte CurrentProvider = 2, AttachmentProvider = 3, ImageListProvider = 4;
 
     internal byte[] Digest(DocumentExportCreate request, byte provider, byte[]? pdfToolDigest)
     {
-        if ((provider == AttachmentProvider) != (Asset.HasValue && Attachment is not null) ||
-            (provider == AttachmentProvider && request.Format == DocumentExportFormat.Pdf))
+        if (Assets.Length != Attachments.Length || (provider != ProviderFor(Assets) && !(provider == 1 && Assets.Length == 0)) ||
+            (Assets.Length > 0 && request.Format == DocumentExportFormat.Pdf) ||
+            (provider == ImageListProvider && request.Format != DocumentExportFormat.Html))
             throw new PublicUnavailableException();
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(provider switch
@@ -107,6 +113,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
             1 => "FsusBlog document export 1 basic-layout 1"u8,
             CurrentProvider => "FsusBlog document export 2 basic-layout 1"u8,
             AttachmentProvider => "FsusBlog document export 3 basic-layout 1"u8,
+            ImageListProvider => "FsusBlog document export 4 basic-layout 1"u8,
             _ => throw new PublicUnavailableException(),
         });
         Span<byte> coordinates = stackalloc byte[22];
@@ -117,9 +124,11 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         coordinates[21] = provider;
         hash.AppendData(coordinates);
         if (request.Format == DocumentExportFormat.Pdf && pdfToolDigest is not null) hash.AppendData(pdfToolDigest);
-        if (Attachment is { } image && Asset is Guid asset)
+        if (provider == ImageListProvider) hash.AppendData([(byte)Assets.Length]);
+        for (var index = 0; index < Assets.Length; index++)
         {
-            hash.AppendData(asset.ToByteArray());
+            var image = Attachments[index];
+            hash.AppendData(Assets[index].ToByteArray());
             BinaryPrimitives.WriteInt32LittleEndian(coordinates, image.Width);
             BinaryPrimitives.WriteInt32LittleEndian(coordinates[4..], image.Height);
             coordinates[8] = (byte)image.Format;
@@ -141,23 +150,30 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         }
     }
 
+    internal static byte ProviderFor(Guid[] assets) => assets.Length switch
+    {
+        0 => CurrentProvider,
+        1 => AttachmentProvider,
+        <= HtmlDocumentExport.MaximumImages => ImageListProvider,
+        _ => throw new PublicUnavailableException(),
+    };
+
     internal static async Task<DocumentExportInput> Read(NpgsqlConnection db, NpgsqlTransaction tx,
-        DocumentExportCreate request, MediaFiles? media, Guid owner, Guid? asset, CancellationToken ct)
+        DocumentExportCreate request, MediaFiles? media, Guid owner, Guid[] assets, CancellationToken ct)
     {
         var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, request.Article, request.SourceRevision, ct);
-        var attachment = asset is Guid id ? (await DocumentExportAttachment.ReadAll(db, tx, media, owner, request.Article,
-            request.SourceRevision, [id], ct))[0] : null;
-        return new(title, body, happenedAt, asset, attachment);
+        var attachments = assets.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx, media, owner, request.Article,
+            request.SourceRevision, assets, ct);
+        return new(title, body, happenedAt, assets, attachments);
     }
 
     internal static async Task<DocumentExportInput> ReadVerified(NpgsqlConnection db, NpgsqlTransaction tx,
         DocumentExportCreate request, MediaFiles? media, Guid owner, short provider, byte[] sourceDigest,
         byte[]? pdfToolDigest, CancellationToken ct)
     {
-        Guid? asset = provider == AttachmentProvider
-            ? await DocumentExportStore.ReadAttachmentId(db, tx, owner, request.Id, ct) : null;
-        var input = await Read(db, tx, request, media, owner, asset, ct);
-        if (provider is not (1 or CurrentProvider or AttachmentProvider) ||
+        var assets = await DocumentExportStore.ReadAttachmentIds(db, tx, owner, request.Id, provider, ct);
+        var input = await Read(db, tx, request, media, owner, assets, ct);
+        if (provider is < 1 or > ImageListProvider ||
             !CryptographicOperations.FixedTimeEquals(sourceDigest, input.Digest(request, (byte)provider, pdfToolDigest)))
             throw new PublicUnavailableException();
         return input;

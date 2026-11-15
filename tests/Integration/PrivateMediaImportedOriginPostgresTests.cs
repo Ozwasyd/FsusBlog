@@ -23,12 +23,11 @@ public sealed partial class PrivateMediaPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var owner = await Author(db.DataSource, "imported-asset-owner", true, ct);
-        var outsider = await Author(db.DataSource, "imported-asset-outsider", true, ct);
+        var owner = await MediaFixture.CreateSession(db.DataSource, "imported-asset-owner", ct, canAuthor: true);
+        var outsider = await MediaFixture.CreateSession(db.DataSource, "imported-asset-outsider", ct, canAuthor: true);
         var directory = Directory.CreateTempSubdirectory("fsusblog-imported-media-");
-        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + directory.FullName : directory.FullName;
-        var media = Directory.CreateDirectory(Path.Combine(root, "media"), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var root = MediaFixture.CanonicalPath(directory.FullName);
+        var media = MediaFixture.CreateOwnedDirectory(root, "media");
         var succeeded = false;
         try
         {
@@ -39,7 +38,7 @@ public sealed partial class PrivateMediaPostgresTests
             byte[] originDigest = SHA256.HashData("fixture approval"u8);
             byte[] rawDigest = SHA256.HashData(raw);
             Assert.False(normalized.Hash.AsSpan().SequenceEqual(rawDigest));
-            using (var files = new MediaFiles(media.FullName, Path.Combine(root, "web")))
+            using (var files = new MediaFiles(media, Path.Combine(root, "web")))
                 await files.Materialize(asset, normalized, ct);
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
             var schemaFile = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
@@ -114,7 +113,7 @@ public sealed partial class PrivateMediaPostgresTests
                 {
                     ["FSUSBLOG_PUBLIC_ORIGIN"] = address.GetLeftPart(UriPartial.Authority),
                     ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
-                    [MediaEndpoints.StorageSetting] = media.FullName,
+                    [MediaEndpoints.StorageSetting] = media,
                 }, request => PublicationFixture.Forward(request, address.Authority));
             await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, root, ct, address);
             var client = proxy.Client;

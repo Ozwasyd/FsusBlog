@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { hexFixture } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
@@ -14,8 +14,7 @@ import {
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
 function fixture(name: string): Uint8Array {
-  const hex = readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').trim()
-  return Uint8Array.from(Buffer.from(hex, 'hex'))
+  return Uint8Array.from(hexFixture(`${name}.hex`))
 }
 
 const definitionId = '00000000-0000-4000-8000-000000000006'

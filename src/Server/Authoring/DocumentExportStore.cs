@@ -17,15 +17,14 @@ internal static class DocumentExportStore
     private const string OwnedTask = "owner_id=$1 and id=$2 and author_generation=$3 and expires_at>statement_timestamp()";
 
     internal static async Task<DocumentExportTask> Create(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
-        DocumentExportCreate request, byte[]? pdfToolDigest, MediaFiles? media, Guid? asset, CancellationToken ct)
+        DocumentExportCreate request, byte[]? pdfToolDigest, MediaFiles? media, Guid[] assets, CancellationToken ct)
     {
         await using (var guard = Store.Sql(db, tx, "select pg_advisory_xact_lock(hashtextextended('fsus-author-document-export',0))"))
             await guard.ExecuteNonQueryAsync(ct);
         var prior = await Owned(db, tx, actor, request.Id, ct);
         if (prior is not null)
         {
-            if (prior.Request != request || (prior.Provider == DocumentExportInput.AttachmentProvider) != asset.HasValue ||
-                (asset.HasValue && await ReadAttachmentId(db, tx, actor.Id, request.Id, ct) != asset.Value))
+            if (prior.Request != request || !Enumerable.SequenceEqual(assets, await ReadAttachmentIds(db, tx, actor.Id, request.Id, prior.Provider, ct)))
                 throw new BusinessException(Rejection.Conflict, "The request ID belongs to a different document export.");
             await RevisionHistoryStore.LockOwned(db, tx, actor.Id, request.Article, ct);
             return prior;
@@ -34,9 +33,9 @@ internal static class DocumentExportStore
         if (request.Format == DocumentExportFormat.Pdf && pdfToolDigest is null)
             throw new BusinessException(Rejection.Invalid, "The PDF provider is unavailable.");
         await RevisionHistoryStore.LockCurrent(db, tx, actor, request.Article, request.Revision, ct);
-        if (asset.HasValue && !await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct))
+        if (assets.Length > 0 && !await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: assets.Length > 1))
             throw new BusinessException(Rejection.Invalid, "The document export attachment schema is unavailable.");
-        var input = await DocumentExportInput.Read(db, tx, request, media, actor.Id, asset, ct);
+        var input = await DocumentExportInput.Read(db, tx, request, media, actor.Id, assets, ct);
 
         await using (var remove = Store.Sql(db, tx, """
             delete from public.author_document_export
@@ -51,14 +50,15 @@ internal static class DocumentExportStore
                 throw new BusinessException(Rejection.Conflict, "The export quota is full. Wait for an export to expire.");
         }
 
-        var provider = asset.HasValue ? DocumentExportInput.AttachmentProvider : DocumentExportInput.CurrentProvider;
+        var provider = DocumentExportInput.ProviderFor(assets);
+        var assetColumn = assets.Length == 1 ? ",attachment_id" : assets.Length > 1 ? ",attachment_ids" : "";
         object[] parameters = [actor.Id, request.Id, request.Article, request.Revision, request.SourceRevision, actor.Generation,
             (short)request.Format, (short)provider, input.Digest(request, provider, pdfToolDigest)];
-        if (asset is Guid selected) parameters = [.. parameters, selected];
+        if (assets.Length > 0) parameters = [.. parameters, assets.Length == 1 ? (object)assets[0] : assets];
         await using var write = Store.Sql(db, tx, $"""
             insert into public.author_document_export
-                (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,provider,created_at,expires_at,source_digest{(asset.HasValue ? ",attachment_id" : "")})
-            values ($1,$2,$3,$4,$5,$6,$7,1,$8,statement_timestamp(),statement_timestamp()+interval '30 minutes',$9{(asset.HasValue ? ",$10" : "")})
+                (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,provider,created_at,expires_at,source_digest{assetColumn})
+            values ($1,$2,$3,$4,$5,$6,$7,1,$8,statement_timestamp(),statement_timestamp()+interval '30 minutes',$9{(assets.Length > 0 ? ",$10" : "")})
             returning {Columns}
             """, parameters);
         await using var receipt = await write.ExecuteReaderAsync(ct);
@@ -103,7 +103,7 @@ internal static class DocumentExportStore
         var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
         if (task.State != DocumentExportState.Succeeded) throw DocumentExportEndpoints.Missing();
-        var hasAttachment = task.Provider == DocumentExportInput.AttachmentProvider;
+        var hasAttachment = task.Provider is DocumentExportInput.AttachmentProvider or DocumentExportInput.ImageListProvider;
         if (hasAttachment)
         {
             if (!privateTransport) throw DocumentExportEndpoints.Missing();
@@ -122,12 +122,17 @@ internal static class DocumentExportStore
         return (task.Request.Format, output, hasAttachment);
     }
 
-    internal static async Task<Guid> ReadAttachmentId(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, CancellationToken ct)
+    internal static async Task<Guid[]> ReadAttachmentIds(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, short provider, CancellationToken ct)
     {
-        await using var read = Store.Sql(db, tx, """
-            select attachment_id from public.author_document_export where owner_id=$1 and id=$2 and provider=3
-            """, owner, id);
-        return await read.ExecuteScalarAsync(ct) is Guid asset ? asset : throw new PublicUnavailableException();
+        if (provider is 1 or DocumentExportInput.CurrentProvider) return [];
+        var list = provider == DocumentExportInput.ImageListProvider;
+        await using var read = Store.Sql(db, tx, $"""
+            select {(list ? "attachment_ids" : "array[attachment_id]")} from public.author_document_export
+            where owner_id=$1 and id=$2 and provider=$3
+            """, owner, id, provider);
+        return await read.ExecuteScalarAsync(ct) is Guid[] assets && assets.All(asset => asset != Guid.Empty) &&
+            assets.Distinct().Count() == assets.Length && DocumentExportInput.ProviderFor(assets) == provider
+                ? assets : throw new PublicUnavailableException();
     }
 
     private static async Task<DocumentExportTask?> Owned(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, Guid id,

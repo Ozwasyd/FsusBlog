@@ -1,8 +1,7 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Authoring;
+using static FsusBlog.V2.Integration.Tests.CanvasFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -204,72 +203,38 @@ public sealed class CanvasHistoryPostgresTests
     private static CanvasChangeFrame PutNode(Guid id, int kind, string? text = null, int? article = null, Guid[]? members = null) =>
         new CanvasChangeFrame.PutNode(new(id, kind, 0, 0, 12_000, 8_000, article, Text: text, MemberIds: members));
 
-    private static async Task Denied(Rejection rejection, Task<CanvasGraphReceipt> write) =>
-        Assert.Equal(rejection, (await Assert.ThrowsAsync<BusinessException>(() => write)).Rejection);
-
-    private sealed class Fixture(ScratchDatabase database, CancellationTokenSource deadline) : IAsyncDisposable
+    private sealed class Fixture(CanvasFixture fixture, Guid ownerId, string ownerToken) : IAsyncDisposable
     {
-        private readonly Store store = new(database.DataSource);
-        private readonly Guid actorId = Guid.NewGuid();
-        private CancellationToken Token => deadline.Token;
-        private string ownerToken = "";
-
         internal static async Task<Fixture> Open()
         {
-            var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            var fixture = await CanvasFixture.Open();
             try
             {
-                var dsn = Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!;
-                var fixture = new Fixture(await ScratchDatabase.Create(dsn, deadline.Token), deadline);
-                try
-                {
-                    await fixture.Scalar("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)",
-                        fixture.actorId, "Canvas history owner");
-                    fixture.ownerToken = await fixture.Session();
-                    return fixture;
-                }
-                catch { await fixture.DisposeAsync(); throw; }
+                var (token, owner) = await fixture.Author("Canvas history owner");
+                return new(fixture, owner.Id, token);
             }
-            catch { deadline.Dispose(); throw; }
+            catch { await fixture.DisposeAsync(); throw; }
         }
 
-        internal async Task<string> Session() => (await database.SignIn(actorId, Token)).Token;
+        internal async Task<string> Session() => (await fixture.SignIn(ownerId)).Token;
 
         internal Task<CanvasGraphReceipt> Write(CanvasGraphCommand command, string? session = null)
         {
             byte[] fingerprint = SHA256.HashData(Wire.EncodeCanvasGraphCommand(command));
-            return store.WithSession(session ?? ownerToken, true, (db, tx, actor) =>
-                new CanvasGraphStore(db, tx, actor).Write(command, fingerprint, Token), Token);
+            return fixture.WithGraph(session ?? ownerToken, graph => graph.Write(command, fingerprint, fixture.Token));
         }
 
-        internal Task<ArticleState> SaveArticle(string title, string body) =>
-            WriteArticle(ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
+        internal Task<ArticleState> SaveArticle(string title, string body) => fixture.Save(ownerToken, title, body);
 
         internal Task<ArticleState> DeleteArticle(ArticleState article) =>
-            WriteArticle(ArticleAction.Delete, new(article.Id, article.Revision, Guid.NewGuid(), "", ""));
+            fixture.Command(ownerToken, ArticleAction.Delete, new(article.Id, article.Revision, Guid.NewGuid(), "", ""));
 
-        private async Task<ArticleState> WriteArticle(ArticleAction action, Edit command)
-        {
-            var edit = Publishing.Validate(action, command);
-            return (await store.WithSession(ownerToken, true,
-                (db, tx, actor) => Store.Execute(db, tx, actor, action, edit, Token), Token)).Article;
-        }
-
-        internal Task<ArticleState> ReadArticle(int id) =>
-            store.WithSession(ownerToken, true, (db, tx, actor) => Store.Find(db, tx, actor, id, false, Token), Token);
+        internal Task<ArticleState> ReadArticle(int id) => fixture.Read(ownerToken, id);
 
         internal async Task<long> Count(string table) => Assert.IsType<long>(await Scalar($"select count(*) from {table}"));
 
-        internal async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var db = await database.DataSource.OpenConnectionAsync(Token);
-            return await FixtureSql.ScalarAsync(db, null, Token, sql, args);
-        }
+        internal Task<object?> Scalar(string sql, params object[] args) => fixture.Scalar(sql, args);
 
-        public async ValueTask DisposeAsync()
-        {
-            try { await database.DisposeAsync(); }
-            finally { deadline.Dispose(); }
-        }
+        public ValueTask DisposeAsync() => fixture.DisposeAsync();
     }
 }

@@ -9,6 +9,7 @@ activate=false
 activate_rollback=false
 authored_disclosure=false
 malformed_disclosure=false
+site_author_raw=
 republish_profile=false
 mixed_profile=false
 expected_articles=1
@@ -29,7 +30,7 @@ case "$# ${1:-}" in
         fi
         public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
         ;;
-    '1 --rollback'|'1 --activate-rollback'|'1 --activate-rollback-authored'|'1 --activate-rollback-malformed')
+    '1 --rollback'|'1 --activate-rollback'|'1 --activate-rollback-authored'|'1 --activate-rollback-malformed'|'1 --activate-rollback-site-author')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
         if [[ "$1" != --rollback ]]; then
             activate=true activate_rollback=true profile=rollback-activated
@@ -38,6 +39,11 @@ case "$# ${1:-}" in
         case "$1" in
             --activate-rollback-authored) authored_disclosure=true profile=rollback-authored ;;
             --activate-rollback-malformed) malformed_disclosure=true profile=rollback-malformed ;;
+            --activate-rollback-site-author)
+                profile=rollback-site-author
+                # After trimming, the emoji that follows the 18-byte prefix crosses the 20-byte v1 cap.
+                site_author_raw='　甲乙🙂AB丙丁🚀尾　'
+                ;;
         esac
         if [[ "$authored_disclosure" == true || "$malformed_disclosure" == true ]]; then
             source_overlays+=("$fixture/legacy-runtime-authored-fixture.sql")
@@ -45,7 +51,7 @@ case "$# ${1:-}" in
         source_overlays+=("$fixture/legacy-rollback-outbox-fixture.sql")
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed|--activate-rollback-site-author]\n' "$0" >&2; exit 2 ;;
 esac
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
@@ -163,6 +169,11 @@ done
 if [[ "$rollback_profile" == true ]]; then
     psql_db "$source_db" -c 'CREATE TABLE public.sys_systemconfig (key varchar(64) PRIMARY KEY, value varchar(512) NOT NULL)'
 fi
+if [[ -n "$site_author_raw" ]]; then
+    psql_db "$source_db" -v site_author_raw="$site_author_raw" <<'SITE_AUTHOR_SEED'
+INSERT INTO public.sys_systemconfig (key,value) VALUES ('Seo_Author',:'site_author_raw');
+SITE_AUTHOR_SEED
+fi
 if [[ "$republish_profile" == true ]]; then
     # Both actual publications have null responsibility. The v1 policy digest excludes the proof-binding flag.
     psql_db "$source_db" -c "DELETE FROM article_responsibility_snapshot; UPDATE article_rights_snapshot SET proof_binding_enabled=false;
@@ -242,6 +253,24 @@ assert counts["shadow_article_mutation_outbox"] == publications and counts["shad
 assert counts["shadow_article_responsibility_snapshot"] == (2 if version == 5 else 0)
 assert "shadow_article_mutation_command" not in counts
 PY
+if [[ -n "$site_author_raw" ]]; then
+    python3 - "$scratch/reviewed.json" "$site_author_raw" <<'CHECK_APPROVED_SITE_AUTHOR'
+import json
+import sys
+from pathlib import Path
+
+assert json.loads(Path(sys.argv[1]).read_text())['siteAuthor'] == sys.argv[2]
+CHECK_APPROVED_SITE_AUTHOR
+    psql_db "$source_db" -c "UPDATE public.sys_systemconfig SET value='Different sealed author' WHERE key='Seo_Author'"
+    if migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" \
+        > "$evidence/import-wrong-site-author.log" 2>&1; then exit 1; fi
+    rg -Fq 'The import plan no longer matches its source' "$evidence/import-wrong-site-author.log"
+    [[ "$(psql_db "$quarantine_db" -Atc "SELECT to_regnamespace('fsus_legacy_candidate') IS NULL")" == t ]]
+    FSUSBLOG_DB="$(dsn "$quarantine_db")" python3 tools/site-backup.py verify-restored "$quarantine_backup" "$quarantine_backup_sha" "$scratch/media"
+    psql_db "$source_db" -v site_author_raw="$site_author_raw" <<'RESTORE_SITE_AUTHOR'
+UPDATE public.sys_systemconfig SET value=:'site_author_raw' WHERE key='Seo_Author';
+RESTORE_SITE_AUTHOR
+fi
 migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" > "$scratch/applied.json"
 unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
 json_hash() {
@@ -357,10 +386,10 @@ SELECT jsonb_build_array(article_id,revision,publication_id,source_revision_id,s
         responsibility->>'sources_json',responsibility->>'update_summary',responsibility->>'update_reason',
         (responsibility->>'effective_at')::timestamp,responsibility->>'conclusion_impact',responsibility->>'methodology',
         responsibility->>'applicability',responsibility->>'limitations',
-        (responsibility->>'responsible_person_confirmed')::integer=1)::text,'UTF8')),'hex') END)
+        (responsibility->>'responsible_person_confirmed')::integer=1)::text,'UTF8')),'hex') END,evidence->'siteAuthor')
 FROM public.legacy_release_origin ORDER BY article_id,revision;
 ORIGIN_ROWS
-    python3 - "$output" "$scratch/source-history.jsonl" "$authored_disclosure" <<'CHECK_ORIGIN_ROWS'
+    python3 - "$output" "$scratch/source-history.jsonl" "$authored_disclosure" "$site_author_raw" <<'CHECK_ORIGIN_ROWS'
 import json
 import re
 import sys
@@ -369,13 +398,16 @@ from pathlib import Path
 rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
 original = [json.loads(line) for line in Path(sys.argv[2]).read_text().splitlines()]
 responsibility_hash = {row[1]: row[8] for row in original if row[0] == 'responsibility'}
-author = 'Lead Writer' if sys.argv[3] == 'true' else 'Fsu'
+site_author = '甲乙🙂AB丙丁' if sys.argv[4] else 'Fsu'
+raw_site_author = {'key': 'Seo_Author', 'value': sys.argv[4]} if sys.argv[4] else None
+author = 'Lead Writer' if sys.argv[3] == 'true' else site_author
 assert [row[:12] for row in rows] == [
     [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, author],
-    [42, 2, 900000002, 5000000002, 8, None, None, None, 7, None, True, 'Fsu'],
+    [42, 2, 900000002, 5000000002, 8, None, None, None, 7, None, True, site_author],
     [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, author],
 ]
 assert [row[16] for row in rows] == [responsibility_hash[799], None, responsibility_hash[802]]
+assert [row[17] for row in rows] == [raw_site_author] * 3
 for row in rows:
     # The frozen SQLite-compatible projection can encode the same true value as the integer 1.
     assert row[12] in (True, 1) and row[13:15] == [True, True] and re.fullmatch(r'[0-9a-f]{64}', row[15]), row
@@ -560,6 +592,7 @@ probe_server() {
     if [[ "$activate_rollback" == true ]]; then
         local accountability_args=("$url")
         if [[ "$authored_disclosure" == true ]]; then accountability_args+=(--authored); fi
+        if [[ -n "$site_author_raw" ]]; then accountability_args+=(--site-author); fi
         env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "${accountability_args[@]}" > "$evidence/$label-accountability.sha256"
         if [[ "$label" == restarted ]]; then
             # Remove the restored scratch article's active coordinate while the original Kestrel snapshot is still resident.

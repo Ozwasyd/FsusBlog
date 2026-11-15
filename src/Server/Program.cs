@@ -554,9 +554,8 @@ void Mutation(string path, ArticleAction action)
             (_, _, { } one) => new ArticleCommand(one.Id, one.ExpectedRevision, one.IdempotencyKey, one.Title, one.Body),
             _ => Wire.DecodeArticleCommand(frame),
         };
-        if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-            (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
-            return Error(ctx, 400, "Command key does not match its request header.");
+        if (!ClientMutationHeader.Matches(ctx, input.IdempotencyKey))
+            return Error(ctx, 400, ClientMutationHeader.Mismatch);
         var edit = Publishing.Validate(action, new(input.Id, input.ExpectedRevision, input.IdempotencyKey, input.Title, input.Body));
         var result = await publications.Command(store, ctx.Request.Cookies[Cookie], action, edit, ct,
             FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx), insertion, insertions, bodyEdits);

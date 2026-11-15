@@ -1,13 +1,11 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
-using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 using SkiaSharp;
 
@@ -22,18 +20,14 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var owner = await CreateSession(db.DataSource, "image release author", ct);
-        var other = await CreateSession(db.DataSource, "independent image author", ct);
+        var owner = await MediaFixture.CreateSession(db.DataSource, "image release author", ct);
+        var other = await MediaFixture.CreateSession(db.DataSource, "independent image author", ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-");
         try
         {
-            var privateRoot = OwnedDirectory(root, "private");
-            var publicRoot = OwnedDirectory(root, "public");
-            var enabled = new Dictionary<string, string>
-            {
-                [MediaEndpoints.StorageSetting] = privateRoot,
-                [PublishedMediaEndpoints.StorageSetting] = publicRoot
-            };
+            var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private");
+            var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public");
+            var enabled = MediaFixture.PublicSettings(privateRoot, publicRoot);
             int otherArticle;
             long otherPublication;
             Asset shared;
@@ -41,10 +35,10 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             await using (var server = await ServerProcess.Start(db.ConnectionString, ct, enabled))
             {
                 var client = server.Client;
-                var source = Image(SKEncodedImageFormat.Png, SKColors.SteelBlue);
+                var source = MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SteelBlue);
                 var chosen = await Upload(client, owner, "chosen-private.png", "image/png", source, ct);
                 var unselected = await Upload(client, owner, "unselected-private.jpg", "image/jpeg",
-                    Image(SKEncodedImageFormat.Jpeg, SKColors.SeaGreen), ct);
+                    MediaFixture.SolidImage(SKEncodedImageFormat.Jpeg, SKColors.SeaGreen), ct);
                 Assert.NotEqual(chosen.Digest, unselected.Digest);
                 var initial = await PostDraft(client, WireRoutes.Save,
                     Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Current public image", "Scoped image fixture.")), owner, ct);
@@ -61,7 +55,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 }
                 await RejectPublish(null, HttpStatusCode.Unauthorized);
                 await RejectPublish(owner, HttpStatusCode.Conflict, currentSession: "");
-                await RejectPublish(owner, HttpStatusCode.Conflict, currentSession: other.Current);
+                await RejectPublish(owner, HttpStatusCode.Conflict, currentSession: other.SiteSessionId);
                 await RejectPublish(other, HttpStatusCode.NotFound);
                 await RejectPublish(owner, HttpStatusCode.BadRequest, headerKey: Guid.NewGuid());
                 using (var stale = await Send(client, HttpMethod.Post, WireRoutes.ArticlePublishImages, ct, owner,
@@ -158,7 +152,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 using var ownerBytes = await Send(client, HttpMethod.Get, PrivatePath(chosen.Id), ct, owner);
                 Assert.Equal(chosen.Bytes, await ownerBytes.Content.ReadAsByteArrayAsync(ct));
 
-                async Task RejectPublish(Session? caller, HttpStatusCode status, string? currentSession = null, Guid? headerKey = null)
+                async Task RejectPublish(MediaFixture.Session? caller, HttpStatusCode status, string? currentSession = null, Guid? headerKey = null)
                 {
                     using var response = await Send(client, HttpMethod.Post, WireRoutes.ArticlePublishImages, ct, caller, frame,
                         headerKey, currentSession);
@@ -203,13 +197,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-limit-");
         try
         {
-            var privateRoot = OwnedDirectory(root, "private");
-            var publicRoot = OwnedDirectory(root, "public");
-            await using var server = await ServerProcess.Start(db.ConnectionString, ct, new Dictionary<string, string>
-            {
-                [MediaEndpoints.StorageSetting] = privateRoot,
-                [PublishedMediaEndpoints.StorageSetting] = publicRoot
-            });
+            var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private");
+            var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public");
+            await using var server = await ServerProcess.Start(db.ConnectionString, ct, MediaFixture.PublicSettings(privateRoot, publicRoot));
             using var window = CancellationTokenSource.CreateLinkedTokenSource(ct);
             window.CancelAfter(TimeSpan.FromSeconds(30));
             var path = RawPath(1, 1, new string('0', 64));
@@ -271,11 +261,11 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         Assert.Equal((int)status, BinaryPrimitives.ReadInt32LittleEndian(payload[WireLayouts.ErrorStatusOffset..]));
     }
 
-    private static Task<Draft> Attach(HttpClient client, Session author, Draft draft, Guid asset, CancellationToken ct) =>
+    private static Task<Draft> Attach(HttpClient client, MediaFixture.Session author, Draft draft, Guid asset, CancellationToken ct) =>
         PostDraft(client, WireRoutes.ArticleMediaCommand,
             Wire.EncodeArticleMediaCommand(new(draft.Id, draft.Revision, Guid.NewGuid(), asset, true)), author, ct);
 
-    private static async Task<Draft> PostDraft(HttpClient client, string path, byte[] frame, Session actor, CancellationToken ct,
+    private static async Task<Draft> PostDraft(HttpClient client, string path, byte[] frame, MediaFixture.Session actor, CancellationToken ct,
         Guid? key = null)
     {
         using var response = await Send(client, HttpMethod.Post, path, ct, actor, frame, key);
@@ -284,7 +274,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
-    private static async Task<Asset> Upload(HttpClient client, Session owner, string name, string type, byte[] source, CancellationToken ct)
+    private static async Task<Asset> Upload(HttpClient client, MediaFixture.Session owner, string name, string type, byte[] source, CancellationToken ct)
     {
         using var uploaded = await Send(client, HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name),
             ct, owner, source, Guid.NewGuid(), contentType: type);
@@ -300,56 +290,21 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     }
 
     private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, CancellationToken ct,
-        Session? actor = null, byte[]? bytes = null, Guid? mutation = null, string? currentSession = null,
+        MediaFixture.Session? actor = null, byte[]? bytes = null, Guid? mutation = null, string? currentSession = null,
         string contentType = Aeds.ContentType, KeyValuePair<string, string>? header = null)
     {
-        using var request = new HttpRequestMessage(method, path);
-        if (actor is not null)
-        {
-            request.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-            if (currentSession != "") request.Headers.Add(WireHeaders.CurrentSession, currentSession ?? actor.Current);
-        }
-        if (bytes is not null)
-        {
-            request.Content = new ByteArrayContent(bytes);
-            request.Content.Headers.ContentType = new(contentType);
-        }
+        var handle = actor is not null && currentSession != "" ? currentSession ?? actor.SiteSessionId : null;
+        using var request = SiteAedsFixture.Request(method, path, bytes, actor?.Token, handle);
+        if (bytes is not null) request.Content!.Headers.ContentType = new(contentType);
         if (mutation is { } key) request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
         if (header is { } additional) request.Headers.Add(additional.Key, additional.Value);
         return await client.SendAsync(request, ct);
-    }
-
-    private static async Task<Session> CreateSession(NpgsqlDataSource source, string name, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        var token = RandomNumberGenerator.GetBytes(32);
-        var digest = SHA256.HashData(token);
-        await using var db = await source.OpenConnectionAsync(ct);
-        await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
-        await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.user_session (digest,user_id,generation,expires_at) VALUES ($1,$2,1,now()+interval '5 minutes')", digest, id);
-        return new(Convert.ToHexStringLower(token), SiteSessions.Id(id, digest));
     }
 
     private static async Task<long> PublicationId(NpgsqlDataSource source, Draft draft, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         return Assert.IsType<long>(await FixtureSql.ScalarAsync(db, null, ct, "SELECT publication_id FROM public.article_publication WHERE article_id=$1 AND revision=$2", draft.Id, draft.Revision));
-    }
-
-    private static byte[] Image(SKEncodedImageFormat format, SKColor color)
-    {
-        using var image = new SKBitmap(3, 2);
-        image.Erase(color);
-        using var encoded = image.Encode(format, 90);
-        return encoded.ToArray();
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    private static string OwnedDirectory(DirectoryInfo root, string leaf)
-    {
-        var directory = Path.Combine(root.FullName, leaf);
-        Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        return OperatingSystem.IsMacOS() && directory.StartsWith("/var/", StringComparison.Ordinal) ? "/private" + directory : directory;
     }
 
     private static string Invariant(long value) => value.ToString(CultureInfo.InvariantCulture);
@@ -364,6 +319,5 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         .Replace("{publication:long}", Invariant(publication), StringComparison.Ordinal)
         .Replace("{digest}", digest, StringComparison.Ordinal);
 
-    private sealed record Session(string Token, string Current);
     private sealed record Asset(Guid Id, string Name, string ContentType, byte[] Bytes, string Digest);
 }

@@ -2,20 +2,18 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePowChallenge, encodePowProof } from '../../src/Contracts/pow.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, decodePublicCommentSubmissionResult, encodeArticleCommand, encodePublicCommentSubmission, encodeSignIn,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { binary, chromium, expect, observePageErrors, postFrame } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const socket = process.env.FSUSBLOG_TEST_COMMENT_DELETE_DB
 assert(socket?.startsWith('/tmp/fsusv2-e2e.') && socket.endsWith('/socket'))
-const binary = { 'Content-Type': 'application/octet-stream' }
 const observations = []
 const diagnostics = []
 const requestPath = (path, id) => path.replace('{id:long}', String(id))
@@ -29,8 +27,7 @@ function sql(statement, variables = {}) {
 }
 
 async function post(context, path, type, payload, expected, headers = {}, status = 200) {
-  const response = await context.request.post(`${origin}${path}`, { headers: { ...binary, ...headers },
-    data: Buffer.from(encodeFrame(type, payload)) })
+  const response = await postFrame(context.request, origin + path, type, payload, { ...binary, ...headers })
   assert.equal(response.status(), status, path)
   assert.match(response.headers()['cache-control'] ?? '', /no-store/)
   return expected === undefined ? response : decodeFrame(await response.body(), expected).payload
@@ -146,10 +143,9 @@ try {
   assert.equal(sql(`select c.deleted,(select count(*) from public.comment_author_deleted where comment_id=:id),
       (select count(*) from public.comment_author_delete_challenge where comment_id=:id) from public.comment c where id=:id;`, { id: other }), 'f|0|1')
   sql('alter table public.comment_author_delete_outbox drop constraint fixture_refuse_delete;')
-  const resumed = await Promise.all([0, 1].map(() => commenter.request.post(`${origin}${requestPath(WireRoutes.CommentAuthorDelete, other)}`, {
-    headers: { ...binary, ...commenterAuth }, data: Buffer.from(encodeFrame(FrameType.CommentAuthorStatusRequest,
-      json({ challenge: rollback.challenge, capabilitySecret: '' }))),
-  })))
+  const resumed = await Promise.all([0, 1].map(() => postFrame(commenter.request,
+    origin + requestPath(WireRoutes.CommentAuthorDelete, other), FrameType.CommentAuthorStatusRequest,
+    json({ challenge: rollback.challenge, capabilitySecret: '' }), { ...binary, ...commenterAuth })))
   assert.deepEqual(resumed.map(response => response.status()).sort(), [200, 404])
   assert.deepEqual(decodeJson(decodeFrame(await resumed.find(response => response.status() === 200).body(),
     FrameType.CommentAuthorMutationResult).payload), {
@@ -161,10 +157,7 @@ try {
 
   const article = `${origin}/article/${draft.id}`
   const page = await commenter.newPage()
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', info => {
-    if (info.type() === 'error' && !info.text().startsWith('Failed to load resource:')) diagnostics.push(info.text())
-  })
+  observePageErrors(page, diagnostics)
   let challenges = 0
   page.on('request', req => { if (req.url() === `${origin}${requestPath(WireRoutes.CommentAuthorChallenge, root)}`) challenges++ })
   await page.goto(article)

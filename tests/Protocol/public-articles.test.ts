@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fixtureText } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeArticle, decodeArticleList, decodeSearch } from '../../src/Contracts/public-articles.ts';
 import { FrameType, WireLayouts as layout } from '../../src/Contracts/wire.generated.ts';
 
 function fixture(name: string, type: FrameType): Uint8Array {
-  const hex = readFileSync(new URL(`fixtures/${name}.hex`, import.meta.url), 'utf8').trim();
+  const hex = fixtureText(`${name}.hex`).trim();
   return decodeFrame(Buffer.from(hex, 'hex'), type).payload;
 }
 

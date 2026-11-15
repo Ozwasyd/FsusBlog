@@ -32,9 +32,7 @@ internal static class CanvasGraphEndpoints
             {
                 var frame = await readFrame(ctx, WireLimits.CanvasBundleExecuteFrameBytes, ct);
                 var input = Wire.DecodeCanvasBundleExecute(frame);
-                if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                    (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.CommandId))
-                    throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+                ClientMutationHeader.Require(ctx, input.CommandId);
                 var result = await new CanvasGraphStore(db, tx, actor).ImportBundle(input, SHA256.HashData(frame), ct);
                 return Frame(Wire.EncodeCanvasGraphReceipt(result));
             }, ct)).RequireRateLimiting("command");
@@ -79,9 +77,7 @@ internal static class CanvasGraphEndpoints
         {
             byte[] frame = await readFrame(ctx, WireLimits.CanvasGraphCommandBytes, ct);
             var command = Wire.DecodeCanvasGraphCommand(frame);
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != command.CommandId))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(ctx, command.CommandId);
             byte[] fingerprint = SHA256.HashData(frame);
             return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(Wire.EncodeCanvasGraphReceipt(await new CanvasGraphStore(db, tx, actor).Write(command, fingerprint, ct))), ct);

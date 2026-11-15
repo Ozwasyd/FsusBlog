@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { cancelSubscription, enrollSubscription } from '../../src/Contracts/subscription-preference.ts';
@@ -7,7 +7,7 @@ import { decodeSubscriptionPreferenceRequest, FrameType, WireHeaders, WireLimits
 
 const email = 'news+brief@example.test';
 const proof = 'ab'.repeat(32);
-const fixture = Buffer.from(readFileSync(new URL('./fixtures/subscription-preference.hex', import.meta.url), 'utf8').trim(), 'hex');
+const fixture = hexFixture('subscription-preference.hex');
 
 test('subscription uses an anonymous AEDS preference and puts cancellation proof only in the header', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async (path: string, options: RequestInit) => {

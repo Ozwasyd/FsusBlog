@@ -49,9 +49,7 @@ internal static class PublishedMediaEndpoints
         app.MapPost(WireRoutes.ArticlePublishImages, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeArticlePublishImages(await readFrame(ctx, ArticlePublishImages.MaxFrameBytes, ct));
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var key) || key != input.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            ClientMutationHeader.Require(ctx, input.IdempotencyKey);
             var result = await publications.PublishWithImages(store, ctx.Request.Cookies[cookie], SiteSessions.Requested(ctx),
                 media, input.ArticleId, input.ExpectedRevision, input.IdempotencyKey, input.AssetIds, ct);
             var saved = result.Article;

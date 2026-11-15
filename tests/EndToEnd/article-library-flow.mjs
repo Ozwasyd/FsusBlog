@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
-import { FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, expect } from './browser-authoring-fixture.mjs'
+import { encodeTaxonomyAssignment, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { authorFixture, button, chromium, expect, postReceipt } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -78,6 +79,12 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     return decodeAuthorArticlePage(decodeFrame(await response.body(), FrameType.AuthorArticlePage).payload)
   }
 
+  async function openSearch(term) {
+    await launcher.click()
+    await ready()
+    return search(term)
+  }
+
   async function expectActive(option) {
     const id = await option.getAttribute('id')
     assert(id)
@@ -135,9 +142,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
 
   await page.setViewportSize({ width: 1280, height: 800 })
   const candidate = await create(author, 'Exact switcher target')
-  await launcher.click()
-  await ready()
-  const before = await search(candidate.title)
+  const before = await openSearch(candidate.title)
   assert.deepEqual(before.items.map(item => [item.id, item.revision]), [[candidate.id, candidate.revision]])
   await expect(options).toHaveCount(1)
   await input.press('Home')
@@ -151,9 +156,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
 
   await input.press('Escape')
   await expect(dialog).toBeHidden()
-  await launcher.click()
-  await ready()
-  const current = await search(changed.title)
+  const current = await openSearch(changed.title)
   assert.deepEqual(current.items.map(item => [item.id, item.revision]), [[changed.id, changed.revision]])
   await expect(options).toHaveCount(1)
   await input.press('Home')
@@ -175,9 +178,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   if (await dialog.isVisible()) await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
 
-  await launcher.click()
-  await ready()
-  const alreadyOpen = await search(active.title)
+  const alreadyOpen = await openSearch(active.title)
   assert.equal(alreadyOpen.items[0]?.id, active.id)
   await expect(options.first()).toContainText(active.title)
   await openOther.click()
@@ -187,9 +188,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   assert.equal(await body(page).evaluate((node, saved) => node === saved, original), true)
 
   await page.setViewportSize({ width: 375, height: 850 })
-  await launcher.click()
-  await ready()
-  await search(changed.title)
+  await openSearch(changed.title)
   await expect(options).toHaveCount(1)
   await openOther.focus()
   await expect(openOther).toBeFocused()
@@ -210,9 +209,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await expect(page).toHaveURL(editor(active.id))
     await expect(body(primary)).toBeEditable()
     await expect(body(secondary)).not.toBeEditable()
-    await launcher.click()
-    await ready()
-    await search(changed.title)
+    await openSearch(changed.title)
     await expect(options).toHaveCount(1)
     await input.press('Home')
     await expectActive(options.first())
@@ -229,9 +226,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await expect(page.getByText('Opening article…', { exact: true })).toHaveCount(0)
     await expect(page).toHaveURL(editor(active.id))
     await expect(body(primary)).toHaveValue(dirty)
-    await launcher.click()
-    await ready()
-    await search(changed.title)
+    await openSearch(changed.title)
     await expect(options).toHaveCount(1)
     const delayed = await hold(page, draftPath(changed.id))
     try {
@@ -284,6 +279,12 @@ try {
   const duplicate = await create(author, title)
   for (let i = 0; i < WireLimits.AuthorArticlePageSize; i++) await create(author, `Library collection ${i + 1}`)
   const foreign = await create(outsider, 'Forbidden article title from other account')
+  const taxonomyFixture = process.env.FSUSBLOG_TEST_PUBLIC_FIXTURE === '1'
+  if (taxonomyFixture) for (const [context, article, tagIds] of [[author, previousDuplicate, []], [outsider, foreign, [4]]]) {
+    await postReceipt(context, origin, WireRoutes.TaxonomyAssignment, FrameType.TaxonomyAssignment, encodeTaxonomyAssignment({
+      id: article.id, expectedRevision: article.revision, idempotencyKey: randomUUID(), categoryId: 1, tagIds,
+    }), FrameType.DraftTaxonomy)
+  }
   const outside = await author.request.get(`${inventory}?article=${foreign.id}`, { headers: { [WireHeaders.CurrentSession]: handle } })
   assert.equal(outside.status(), 200)
   assert.deepEqual(decodeAuthorArticlePage(decodeFrame(await outside.body(), FrameType.AuthorArticlePage).payload), { total: 0, nextId: null, items: [] })
@@ -313,6 +314,19 @@ try {
   await expect(list(pane).getByRole('button', { name: /重复标题/ })).toHaveCount(2)
   await button(pane, 'Previous articles').click()
   await expect(list(pane).getByRole('button')).toHaveCount(WireLimits.AuthorArticlePageSize + 1)
+  if (taxonomyFixture) for (const [category, tag, suffix] of [['Web engineering', 'Café', '&category=1&tag=4'], ['All categories', 'All tags', '']]) {
+    for (const [label, value] of [['Category', category], ['Tag', tag]]) {
+      await pane.getByRole('combobox', { name: label, exact: true }).click()
+      await page.getByRole('option', { name: value, exact: true }).click()
+    }
+    const response = page.waitForResponse(`${inventory}?scope=active${suffix}`)
+    await button(pane, 'Filter articles').click()
+    assert.equal((await response).status(), 200)
+    await expect(list(pane).getByRole('button')).toHaveCount(suffix ? 2 : WireLimits.AuthorArticlePageSize + 1)
+    if (suffix) await expect(pane.getByText('Browser fixture 12', { exact: true })).toBeVisible()
+    await expect(selected(pane)).toHaveText(/Library exact active article/)
+    observations.push(suffix ? { exactCategoryAndTagQuery: true } : { taxonomyClearRestoresUnfilteredPage: true })
+  }
   await pane.getByLabel('Search article titles').fill('重复标题')
   await pane.getByLabel('Status', { exact: true }).selectOption('draft')
   await button(pane, 'Filter articles').click()

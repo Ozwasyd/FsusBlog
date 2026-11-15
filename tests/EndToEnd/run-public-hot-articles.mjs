@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot } from '../../src/Contracts/article-hot.ts'
-import { encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exercisePublicHotArticles } from './public-hot-articles-flow.mjs'
+import { chromium, submitArticle } from './browser-authoring-fixture.mjs'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const { FSUSBLOG_TEST_URL: origin, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_CHROME: executablePath,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_HOT_ENABLED: selected } = process.env
 assert(origin && ticket && evidence)
@@ -30,13 +28,8 @@ try {
   await exercisePublicHotArticles({
     browser, origin, enabled, expected, observations,
     advance: owner && (async ({ generation }) => {
-      const payload = encodeArticleCommand({
-        id: expected[0].id, expectedRevision: 1n, idempotencyKey: randomUUID(), title: '', body: '',
-      })
-      const retracted = await owner.request.post(new URL(WireRoutes.Retract, origin).href, {
-        data: Buffer.from(encodeFrame(FrameType.ArticleCommand, payload)),
-        headers: { 'Content-Type': 'application/octet-stream' },
-      })
+      const retracted = await submitArticle(owner.request, new URL(WireRoutes.Retract, origin).href,
+        { id: expected[0].id, expectedRevision: 1n, title: '', body: '' })
       assert.equal(retracted.status(), 200)
       const stop = AbortSignal.timeout(2500)
       for (;;) {
