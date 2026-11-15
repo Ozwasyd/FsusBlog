@@ -93,10 +93,8 @@ internal static partial class Migration
                         or archived.publication_id is distinct from b.previous_publication_id
                         or archived.source_revision is distinct from b.source_revision
                         or archived.source_publication_id is distinct from b.source_publication_id
-                        or (select count(*) from public.blog_outbox e
-                            where e.article_id=h.article_id and e.revision=h.revision and e.kind='publish')<>1
-                        or exists (select from public.blog_outbox e
-                            where e.article_id=h.article_id and e.revision=h.revision and e.kind in ('retract','delete'))))
+                        or coalesce(o.publishes,0)<>1
+                        or coalesce(o.retractions,0)>0 or coalesce(o.deletions,0)>0))
             """ : "";
         var archivedSchedule = hasArticleSchedule ? """
                     or exists(select from public.article_schedule pending where pending.article_id=h.article_id)
@@ -138,17 +136,14 @@ internal static partial class Migration
                             or b.publication_id is null
                             or exists (select from public.article_publication_history visible where visible.publication_id=b.publication_id)
                             or exists (select from public.article_publication visible where visible.publication_id=b.publication_id)
-                            or (select count(*) from public.blog_outbox e
-                                where e.article_id=h.article_id and e.revision=h.revision and e.kind='retract')<>1
-                            or exists (select from public.blog_outbox e
-                                where e.article_id=h.article_id and e.revision=h.revision and e.kind in ('publish','delete'))
+                            or coalesce(o.retractions,0)<>1
+                            or coalesce(o.publishes,0)>0 or coalesce(o.deletions,0)>0
                         when {adminDestination}=2 then
                             h.kind<>case when {adminFromArchive} then 'publish' else 'replace' end
                             or h.reason<>case when {adminFromArchive} then 'administrator-archive-republished' else 'administrator-rollback-replaced' end
                             or h.publication_id is null
                             or b.publication_id is distinct from h.publication_id
-                            or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision
-                                and e.kind='publish')
+                            or coalesce(o.publishes,0)=0
                         else true
                     end
             """ : "";
@@ -159,7 +154,15 @@ internal static partial class Migration
             )
             """ : "";
         await using var command = new NpgsqlCommand($"""
-            with links as (
+            with lifecycle_outbox as materialized (
+                select article_id,revision,
+                       count(*) filter (where kind='publish') as publishes,
+                       count(*) filter (where kind='retract') as retractions,
+                       count(*) filter (where kind='delete') as deletions
+                from public.blog_outbox
+                where kind in ('publish','retract','delete')
+                group by article_id,revision
+            ), links as (
                 select h.*{adminFields},
                        coalesce(lag(event_no) over w,0) as previous_event,
                        coalesce(lag(publication_no) over w,0) as previous_count,
@@ -175,6 +178,7 @@ internal static partial class Migration
             left join public.article_publication p on p.article_id=h.article_id
             left join public.article_command c on c.actor_id=h.actor_id and c.command_id=h.command_id
             left join {scheduleJoin} s on s.actor_id=h.actor_id and s.command_id=h.command_id
+            left join lifecycle_outbox o on (o.article_id,o.revision)=(h.article_id,h.revision)
             {adminJoin}
             where h.event_no<>h.previous_event+1 or h.revision<=h.previous_revision
                or h.revision>a.revision
@@ -209,17 +213,20 @@ internal static partial class Migration
                          (h.publication_id is null or (s.command_id is null and not c.published) or h.publication_no<>h.previous_count+1))
                     or (h.kind in ('retract','delete') and
                          (h.publication_id is not null or c.published or h.publication_no<>h.previous_count))
-                    or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision
-                         and e.kind=case h.kind when 'replace' then 'publish' else h.kind end)
+                    or coalesce(case
+                        when h.kind in ('publish','replace') then o.publishes
+                        when h.kind='retract' then o.retractions
+                        when h.kind='delete' then o.deletions end,0)=0
                  end
             union all
-            select e.article_id from public.blog_outbox e
-            join public.article_publication_history first on first.article_id=e.article_id and first.event_no=1
-            where e.kind in ('publish','retract','delete')
-              and (e.revision>first.revision or (
-                   e.revision=first.revision and first.kind not in ('retained-active','retained-hidden')))
+            select o.article_id from lifecycle_outbox o
+            join public.article_publication_history first on first.article_id=o.article_id and first.event_no=1
+            cross join lateral (values ('publish',o.publishes),('retract',o.retractions),('delete',o.deletions)) e(kind,event_count)
+            where e.event_count>0
+              and (o.revision>first.revision or (
+                   o.revision=first.revision and first.kind not in ('retained-active','retained-hidden')))
               and not exists (select from public.article_publication_history h
-                   where h.article_id=e.article_id and h.revision=e.revision
+                   where h.article_id=o.article_id and h.revision=o.revision
                      and e.kind=case h.kind when 'replace' then 'publish' else h.kind end)
             {adminOrphans}
             limit 1

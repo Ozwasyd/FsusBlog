@@ -191,7 +191,7 @@ FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column sha
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-history
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-history
 retained=$("${psql_restore[@]}" -qAtc "SELECT concat_ws('|',event_no,revision,publication_no,coalesce(publication_id,0),
-    kind,reason,happened_at IS NOT NULL,actor_id IS NULL) FROM public.article_publication_history ORDER BY article_id")
+    kind,reason,(happened_at IS NOT NULL)::text,(actor_id IS NULL)::text) FROM public.article_publication_history ORDER BY article_id")
 active=$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')
 [[ "$retained" == $'1|1|1|'"$active"$'|retained-active|pre-history|true|true\n1|5|2|0|retained-hidden|pre-history|false|true' ]]
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
@@ -218,6 +218,104 @@ FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-proof s
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-proof schema
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-canonical verify | rg -Fx '{"canonicalVersion":2,"verifiedPublications":0}'
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
+
+# Exercise outbox verification after both retained and native publication boundaries.
+"${psql_restore[@]}" <<'SQL'
+BEGIN;
+INSERT INTO public.blog_outbox (article_id, revision, kind)
+SELECT article_id, revision, CASE kind WHEN 'retained-active' THEN 'publish' ELSE 'retract' END
+FROM public.article_publication_history WHERE kind IN ('retained-active', 'retained-hidden');
+
+INSERT INTO public.admin_principal (id, handle, user_handle, enabled, generation)
+VALUES ('27d50f12-dd1a-4747-8752-d1d59dc8903a', 'migration-history-fixture', decode(repeat('5a',32),'hex'), true, 1);
+INSERT INTO public.article (owner_id, revision, title, body, deleted, published_revision, publication_count)
+SELECT id, 5, 'Draft after archive restore', 'Private draft body', false, 4, 4 FROM public.blog_user
+RETURNING id AS article \gset
+INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
+SELECT :article, revision, title, body, '2026-01-01T00:00:00Z'::timestamptz + revision * interval '1 minute'
+FROM (VALUES (1,'First release','Recorded source body'), (2,'Replacement release','Replacement body'),
+    (3,'First release','Recorded source body'), (4,'First release','Recorded source body'),
+    (5,'Draft after archive restore','Private draft body')) fixture(revision,title,body);
+INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
+SELECT a.owner_id, gen_random_uuid(), decode(repeat('4a',32),'hex'), r.article_id, r.revision, r.title, r.body, true
+FROM public.article_revision r JOIN public.article a ON a.id = r.article_id
+WHERE r.article_id = :article AND r.revision IN (1,2);
+INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id,
+    supersedes_id, kind, reason, happened_at, actor_id, command_id)
+SELECT r.article_id, r.revision, r.revision, r.revision, 100+r.revision, CASE WHEN r.revision=2 THEN 101 END,
+    CASE r.revision WHEN 1 THEN 'publish' ELSE 'replace' END,
+    CASE r.revision WHEN 1 THEN 'author-published' ELSE 'author-replaced' END, r.happened_at, c.actor_id, c.command_id
+FROM public.article_revision r JOIN public.article_command c ON (c.article_id, c.revision) = (r.article_id, r.revision)
+WHERE r.article_id = :article;
+INSERT INTO public.article_revision_rights
+SELECT article_id, revision, true, 'CC-BY-4.0', 'Fixture holder', 2026, 'Fixture rights', '',
+       'append-attribution', 40, true, true, false
+FROM public.article_revision WHERE article_id = :article;
+INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
+SELECT article_id, 100+revision, revision FROM public.article_revision WHERE article_id = :article AND revision <= 4;
+INSERT INTO public.article_revision_responsibility (article_id, revision, responsible_party, basis, reference, recorded_by)
+VALUES (:article, 1, 'Fixture claimant', 'Original fixture evidence', 'history-fixture-record', current_user);
+INSERT INTO public.article_revision_responsibility (article_id, revision, responsible_party, basis, reference, recorded_by, source_snapshot_id)
+SELECT article_id, 3, responsible_party, basis, reference, recorded_by, id
+FROM public.article_revision_responsibility WHERE article_id = :article AND revision = 1;
+INSERT INTO public.article_revision_responsibility (article_id, revision, responsible_party, basis, reference, recorded_by, source_snapshot_id)
+SELECT article_id, 4, responsible_party, basis, reference, recorded_by, id
+FROM public.article_revision_responsibility WHERE article_id = :article AND revision = 3;
+INSERT INTO public.article_publication_responsibility (publication_id, article_id, revision, snapshot_id)
+SELECT 100+revision, article_id, revision, id FROM public.article_revision_responsibility WHERE article_id = :article;
+INSERT INTO public.admin_article_rollback (principal_id, command_id, fingerprint, article_id, previous_revision, source_revision,
+    revision, source_publication_id, previous_publication_id, publication_id, publication_no, published_at,
+    rights_snapshot_id, responsibility_snapshot_id, reason, destination, from_archive)
+SELECT '27d50f12-dd1a-4747-8752-d1d59dc8903a', gen_random_uuid(), decode(repeat('3a',32),'hex'), r.article_id, r.revision-1, 1,
+    r.revision, 101, 99+r.revision, w.publication_id, r.revision, r.happened_at,
+    w.id, d.id, 'Verified fixture lineage', CASE r.revision WHEN 3 THEN 3 ELSE 2 END, r.revision=4
+FROM public.article_revision r
+JOIN public.article_publication_rights w ON (w.article_id, w.revision) = (r.article_id, r.revision)
+JOIN public.article_revision_responsibility d ON (d.article_id, d.revision) = (r.article_id, r.revision)
+WHERE r.article_id = :article AND r.revision IN (3,4);
+INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, supersedes_id,
+    kind, reason, happened_at, admin_actor_id, admin_command_id)
+SELECT article_id, revision, revision, publication_no, CASE WHEN from_archive THEN publication_id END,
+    CASE WHEN NOT from_archive THEN previous_publication_id END, CASE WHEN from_archive THEN 'publish' ELSE 'retract' END,
+    CASE WHEN from_archive THEN 'administrator-archive-republished' ELSE 'administrator-rollback-archived' END,
+    published_at, principal_id, command_id
+FROM public.admin_article_rollback WHERE article_id = :article;
+INSERT INTO public.article_publication (article_id, publication_id, revision, publication_no, published_at)
+SELECT article_id, publication_id, revision, publication_no, happened_at
+FROM public.article_publication_history WHERE article_id = :article AND revision = 4;
+ALTER SEQUENCE public.article_publication_publication_id_seq RESTART WITH 105;
+INSERT INTO public.blog_outbox (article_id, revision, kind)
+VALUES (:article,1,'publish'), (:article,2,'publish'), (:article,2,'publish'), (:article,3,'retract'), (:article,4,'publish');
+COMMIT;
+SQL
+(
+  export FSUSBLOG_DB="$settings;Database=$restore_db"
+  history_article=$("${psql_restore[@]}" -qAtc "SELECT id FROM public.article WHERE title = 'Draft after archive restore'")
+  [[ "$history_article" =~ ^[1-9][0-9]*$ ]]
+  history_error="Article $history_article has inconsistent publication history."
+  # An ordinary replacement requires a matching publish event and accepts multiple copies.
+  "${migrate[@]}" verify
+  for entry in '3 retract duplicate-archive' '4 publish duplicate-restore' \
+      '5 publish orphan-after-boundary' '2 delete wrong-kind-at-replacement'; do
+    read -r revision kind label <<< "$entry"
+    printf 'Reject %s outbox at revision %s.\n' "$label" "$revision"
+    outbox_id=$("${psql_restore[@]}" -qAtc "INSERT INTO public.blog_outbox (article_id,revision,kind)
+      VALUES ($history_article,$revision,'$kind') RETURNING id")
+    [[ "$outbox_id" =~ ^[1-9][0-9]*$ ]]
+    expect_failure "$history_error" "${migrate[@]}" verify
+    "${psql_restore[@]}" -qc "DELETE FROM public.blog_outbox WHERE id=$outbox_id"
+  done
+  for entry in '2 publish' '3 retract' '4 publish'; do
+    read -r revision kind <<< "$entry"
+    printf 'Reject missing %s outbox at revision %s.\n' "$kind" "$revision"
+    "${psql_restore[@]}" -qc "DELETE FROM public.blog_outbox
+      WHERE article_id=$history_article AND revision=$revision AND kind='$kind'"
+    expect_failure "$history_error" "${migrate[@]}" verify
+    "${psql_restore[@]}" -qc "INSERT INTO public.blog_outbox (article_id,revision,kind)
+      VALUES ($history_article,$revision,'$kind')"
+  done
+  "${migrate[@]}" verify
+)
 
 # A new database always has optional subscription storage. A current database from before it still verifies.
 [[ "$("${psql_source[@]}" -qAtc 'SELECT count(*) FROM public.site_subscription')" == 0 ]]
