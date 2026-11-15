@@ -33,3 +33,13 @@
 固定 v1 浏览器提供责任清单的公开链接和服务端材料状态。v2 文章页会对眼前这次发布执行本地签名比对。信任依据为当次同源公开密钥目录。部署中的 CDN 和 Service Worker 须直通 `/integrity/v2/`，避免重放旧的密钥状态和收据。历史责任清单、外部钥匙锚点及独立透明日志仍待交付。 [固定 v1 公开组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/article/ArticleResponsibilityDisclosure.vue#L68-L115)
 
 使用 `FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 可通过真实 Chrome、Caddy 和 PostgreSQL 核验签名、拒绝篡改的签名及已泄露的公钥状态、拒绝被替换或撤回文章的旧证明，并检查窄屏及切换标签时的状态清除。测试使用独立临时数据库、公钥和私钥。 [浏览器验收](../../tests/EndToEnd/publication-proof-flow.mjs)
+
+## 原生签发日志
+
+停止服务后，运行 `publication-transparency enable` 可为尚未签发任何原生证明的库开启本地签发日志。旧库可先运行 `publication-proof schema`。启用后数据库要求所有原生证明绑定准确的日志条目，重复启用为幂等操作。已有原生签名的库拒绝空起点启用，仍可继续提供这些收据。
+
+启用后，每个准备完成的原生证明及其日志条目在同一 PostgreSQL 事务和写租约内落盘。每条记录使用整型连续序号，绑定上一条摘要及实际签名。收据摘要为 SHA-256，输入为以 NUL 结束的域名 `fsusblog.integrity.native-transparency-receipt.v2`、规范签名载荷的 SHA-256 和 64 字节 P1363 签名。日志摘要的输入为另一个以 NUL 结束的域名 `fsusblog.integrity.native-transparency-entry.v2`、八字节大端序号、前序摘要和收据摘要。第一条的前序摘要为 32 字节零。日志只保存签发坐标和摘要，草稿、正文、账号及责任清单资料留在各自存储中。 [规范代码](../../src/Contracts/PublicationTransparencyV2.cs)
+
+`publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]` 使用通过独立渠道保存的可信、最新原生 v2 公钥目录，在 PostgreSQL 只读快照内重建全链和每笔签名。恢复旧备份时使用当前密钥状态。把最新的非空输出序号及摘要另外存放，可作为后续核验的前序锚点，检出被改写的前缀或短于锚点的恢复库。锚点覆盖截至该序号的记录。例行换钥保留撤销时刻前已经签发的签名。数据库或提供的目录任一已知的泄露状态都排除该键的全部签名信任，日志仍保存原条目。命令通过时 `chainVerified` 为真，`trustStatus` 单独报告 `empty`、`trusted` 或 `withheld`，并统计正常退役、已撤销与已泄露签名。可另运行 `publication-canonical verify` 从保留的正文和策略复算签名所绑定的摘要。公开文章的现行证明继续由发布指针、权限、租约和公钥状态决定。
+
+固定 v1 有产线权利证明追加器，证明与日志分两次提交。其公开 head 带历史文章坐标和原证明签名。固定源码的日检查点公开路由会读取已有记录，已定位的 Merkle 构建还用于独立审计，未发现生产文章检查点写入器。v2 本阶段只提供本地签发追加和离线检验。公开 head、Merkle 检查点、历史责任清单和外部公证仍待交付。 [固定 v1 追加流程](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs#L292-L318) · [固定 v1 公开读取](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityVerificationManifest.cs#L452-L488)

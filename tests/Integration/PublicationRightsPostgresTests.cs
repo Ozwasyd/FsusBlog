@@ -19,7 +19,8 @@ public sealed class PublicationRightsPostgresTests
         var actor = Guid.NewGuid();
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         await using (var prepare = new NpgsqlCommand("""
-            drop table public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
+            drop table public.article_publication_transparency,
+                public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
             alter table public.article_publication_history drop constraint publication_history_native_binding;
             alter table public.article_publication_rights drop constraint publication_rights_native_binding;
             alter table public.blog_outbox drop constraint outbox_native_publication_binding;

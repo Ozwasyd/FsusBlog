@@ -4,10 +4,11 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly string[] PublicationProofColumns =
+    private static string[] GetPublicationProofColumns(bool? transparency) =>
     [
         "publication_proof_key key_id:text version:int4 spki_sha256:bytea not_before:timestamptz not_after:timestamptz revoked_at:timestamptz? compromised_at:timestamptz?",
-        "article_publication_proof publication_id:int8 origin:text key_id:text key_version:int4 key_sha256:bytea issued_at:timestamptz signature:bytea"
+        "article_publication_proof publication_id:int8 origin:text key_id:text key_version:int4 key_sha256:bytea issued_at:timestamptz signature:bytea" +
+            (transparency switch { true => " transparency_seq:int8", false => " transparency_seq:int8?", _ => "" })
     ];
 
     private static readonly string[] PublicationProofConstraints =

@@ -54,10 +54,9 @@ internal sealed class PublicationProofKeys(string origin, ProofPublicKey current
         }
     }
 
-    internal byte[] Sign(ArticlePublicationProofV2 proof)
+    internal byte[] Sign(byte[] transcript)
     {
-        var bytes = ArticlePublicationProofPayloadV2.Build(proof);
-        lock (signer) return signer.SignData(bytes, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        lock (signer) return signer.SignData(transcript, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
     }
 
     public void Dispose() => signer.Dispose();

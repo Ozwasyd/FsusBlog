@@ -18,6 +18,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
     private const string Json = "application/json; charset=utf-8";
     private readonly Uri _origin = new(keys.Origin);
     private PublicSnapshot? _scan;
+    private bool _transparency;
     private bool _complete;
     private long _after;
 
@@ -41,6 +42,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
         if (!await CurrentSchema.HasPublicationProofAsync(connection, tx, ct))
             throw new InvalidOperationException("Native publication signing requires the offline publication-proof schema.");
+        _transparency = await CurrentSchema.PublicationTransparencyStateAsync(connection, tx, ct) is true;
         await using (var command = Store.Sql(connection, tx, """
             select exists (select from public.article_publication_proof where origin<>$1)
             """, keys.Origin))
@@ -123,6 +125,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
             while (await rows.ReadAsync(ct)) pending.Add(Binding.Read(rows));
         if (pending.Count == 0) { _complete = true; return; }
 
+        PublicationTransparency? head = null;
         foreach (var binding in pending)
         {
             if (!binding.Matches(snapshot.Article(binding.Article))) continue;
@@ -130,12 +133,27 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
             var issued = (DateTime)(await clock.ExecuteScalarAsync(ct))!;
             if (!keys.Current.Allows(issued) || issued < binding.PublishedAt) continue;
             var claim = binding.Claim(keys.Origin, keys.Current, issued);
-            var signature = keys.Sign(claim);
-            await using var insert = Store.Sql(connection, tx, """
-                insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature)
-                values($1,$2,$3,$4,$5,$6,$7)
-                """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature);
-            await insert.ExecuteNonQueryAsync(ct);
+            var transcript = ArticlePublicationProofPayloadV2.Build(claim);
+            var signature = keys.Sign(transcript);
+            if (_transparency)
+            {
+                head ??= await PublicationTransparency.ReadHead(connection, tx, ct);
+                var sequence = checked(head.Value.Sequence + 1);
+                await using var insert = Store.Sql(connection, tx, """
+                    insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature,transparency_seq)
+                    values($1,$2,$3,$4,$5,$6,$7,$8)
+                    """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature, sequence);
+                await insert.ExecuteNonQueryAsync(ct);
+                head = await head.Value.Append(connection, tx, sequence, binding.Publication, transcript, signature, ct);
+            }
+            else
+            {
+                await using var insert = Store.Sql(connection, tx, """
+                    insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature)
+                    values($1,$2,$3,$4,$5,$6,$7)
+                    """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature);
+                await insert.ExecuteNonQueryAsync(ct);
+            }
         }
         await InstanceLease.CommitProtected(tx, lease, ct);
         _after = pending[^1].Publication;

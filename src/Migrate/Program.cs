@@ -48,6 +48,10 @@ internal static partial class Migration
                   publication-canonical verify [PUBLICATION_ID]
                                         Recompute native publication digests from retained PostgreSQL facts
                   publication-proof schema  Add native proof storage with the server stopped
+                  publication-transparency enable
+                                        Start a native proof issuance ledger from an empty genesis
+                  publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]
+                                        Verify a local issuance ledger with a trusted public key manifest
                   admin-article-rollback schema
                                         Add independent published rollback storage with the server stopped
                   article-responsibility record ARTICLE REVISION
@@ -249,6 +253,12 @@ internal static partial class Migration
                 case ["publication-proof", "schema"]:
                     await InitializePublicationProofAsync(connection, token);
                     break;
+                case ["publication-transparency", "enable"]:
+                    await EnablePublicationTransparencyAsync(connection, token);
+                    break;
+                case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
+                    await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);
+                    break;
                 case ["admin-article-rollback", "schema"]:
                     await InitializeAdminArticleRollbackAsync(connection, token);
                     break;
@@ -415,7 +425,7 @@ internal static partial class Migration
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
-            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true);
+            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true, requirePublicationTransparency: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

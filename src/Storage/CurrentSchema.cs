@@ -116,7 +116,7 @@ internal static partial class CurrentSchema
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
-        bool? requireArticleRead = null)
+        bool? requireArticleRead = null, bool? requirePublicationTransparency = null)
     {
         if (requireArticleMedia is null)
         {
@@ -214,6 +214,11 @@ internal static partial class CurrentSchema
         if ((hasPublicationProof && !hasPublicationCanonical) ||
             (requirePublicationProof.HasValue && requirePublicationProof.Value != hasPublicationProof))
             throw new InvalidOperationException("The native publication proof schema presence does not match the requested operation.");
+        var publicationTransparency = await PublicationTransparencyStateAsync(connection, transaction, cancellationToken);
+        var hasPublicationTransparency = publicationTransparency.HasValue;
+        if ((hasPublicationTransparency && !hasPublicationProof) ||
+            (requirePublicationTransparency.HasValue && requirePublicationTransparency.Value != hasPublicationTransparency))
+            throw new InvalidOperationException("The native publication transparency schema presence does not match the requested operation.");
         var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
         if (requireArticleRead.HasValue && requireArticleRead.Value != hasArticleRead)
             throw new InvalidOperationException("The article read aggregate schema presence does not match the requested operation.");
@@ -247,7 +252,8 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxRead ? AdminInboxReadColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalColumns : [])
-            .Concat(hasPublicationProof ? PublicationProofColumns : [])
+            .Concat(hasPublicationProof ? GetPublicationProofColumns(publicationTransparency) : [])
+            .Concat(hasPublicationTransparency ? PublicationTransparencyColumns : [])
             .Concat(hasArticleRead ? ArticleReadColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
@@ -284,6 +290,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
             .Concat(hasPublicationProof ? PublicationProofConstraints : [])
+            .Concat(hasPublicationTransparency ? PublicationTransparencyConstraints : [])
             .Concat(hasArticleRead ? ArticleReadConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
