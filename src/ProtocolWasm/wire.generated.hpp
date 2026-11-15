@@ -150,6 +150,8 @@ inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
 inline constexpr uint32_t RollbackReasonBytes = 2000;
 inline constexpr uint32_t MaxDraftRollbackFrameBytes = 2056;
+inline constexpr uint32_t MaxDocumentExportCreateFrameBytes = 53;
+inline constexpr uint32_t MaxDocumentExportTaskRefFrameBytes = 32;
 inline constexpr uint32_t MaxAdminArticleRollbackFrameBytes = 2064;
 inline constexpr uint32_t MaxAdminArticleDraftRollbackFrameBytes = 2068;
 inline constexpr uint32_t MaxAdminArticleArchiveFrameBytes = 2068;
@@ -591,6 +593,10 @@ enum class FrameType : uint16_t {
     AuthorTextPropertyTextMixedPage = 33041,
     ArticleBodyEditsCommand = 33042,
     DraftRevisionBodyEditChain = 33043,
+    DocumentExportCreate = 33044,
+    DocumentExportTaskRef = 33045,
+    DocumentExportTask = 33046,
+    DocumentExportTaskList = 33047,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -807,6 +813,10 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextPropertyTextMixedPage:
         case FrameType::ArticleBodyEditsCommand:
         case FrameType::DraftRevisionBodyEditChain:
+        case FrameType::DocumentExportCreate:
+        case FrameType::DocumentExportTaskRef:
+        case FrameType::DocumentExportTask:
+        case FrameType::DocumentExportTaskList:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

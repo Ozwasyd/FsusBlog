@@ -77,7 +77,7 @@ internal sealed class InstanceLease : IAsyncDisposable
     internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null,
         bool? requireAdminInboxReply = null, bool? requireSitePageEditor = null, bool? requireSiteRefresh = null,
         bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null)
+        bool? requirePublicationMedia = null, bool requireDocumentExports = false)
     {
         await _owner.OpenAsync(ct);
         await using (var acquire = Store.Sql(_owner, null, "select pg_catalog.pg_try_advisory_lock($1)", OwnershipKey))
@@ -94,7 +94,8 @@ internal sealed class InstanceLease : IAsyncDisposable
         WebpMedia = await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription, requireRecoveryKey, requireAdminInboxReply,
             requireSitePageEditor: requireSitePageEditor, requireSiteRefresh: requireSiteRefresh,
             requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
-            requirePublicationMedia: requirePublicationMedia, requireArticleSummary: true);
+            requirePublicationMedia: requirePublicationMedia, requireArticleSummary: true,
+            requireDocumentExports: requireDocumentExports ? true : null);
         // The catalog verifier has already rejected partial or malformed installations.
         await using (var policy = Store.Sql(_owner, null, "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null"))
             RootCommentPowPolicyInstalled = await policy.ExecuteScalarAsync(ct) is true;

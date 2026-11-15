@@ -19,6 +19,8 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
     private const string Sandbox = "/usr/bin/sandbox-exec";
     private const string Env = "/usr/bin/env";
     private static readonly byte[] ReadyBytes = "FSUS-PDF-1\n"u8.ToArray();
+    private readonly SemaphoreSlim rendererSlot = new(1, 1);
+    internal byte[]? ToolDigest { get; private init; }
     internal static ReadOnlyMemory<byte> Ready => ReadyBytes;
 
     internal static PdfDocumentExport? Read(IConfiguration configuration)
@@ -26,10 +28,11 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
         var root = configuration["FSUSBLOG_PDF_TOOL_ROOT"];
         var digest = configuration["FSUSBLOG_PDF_TOOL_SHA256"];
         if (string.IsNullOrEmpty(root) && string.IsNullOrEmpty(digest)) return null;
-        if (OperatingSystem.IsLinux()) return new(LinuxPdfRuntime.Read(root, digest).RenderAsync);
+        if (OperatingSystem.IsLinux())
+            return new(LinuxPdfRuntime.Read(root, digest).RenderAsync) { ToolDigest = Convert.FromHexString(digest!) };
         if (!OperatingSystem.IsMacOS() || !File.Exists(Sandbox) || !File.Exists(Env))
             throw new InvalidOperationException("Offline PDF requires a supported sandbox host.");
-        return new(new MacRuntime(PdfExportToolchain.Read(root, digest)).RenderAsync);
+        return new(new MacRuntime(PdfExportToolchain.Read(root, digest)).RenderAsync) { ToolDigest = Convert.FromHexString(digest!) };
     }
 
     internal async Task<byte[]> WriteAsync(string title, string markdown, DateTimeOffset happenedAt, CancellationToken ct)
@@ -54,6 +57,7 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
             """;
         if (Encoding.UTF8.GetByteCount(document) > MaximumInput) throw HtmlDocumentExport.TooLarge("PDF");
 
+        await rendererSlot.WaitAsync(ct);
         try
         {
             ct.ThrowIfCancellationRequested();
@@ -66,6 +70,7 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
             // An engine error or its stderr must never appear in the public response or service log.
             throw new PublicUnavailableException();
         }
+        finally { rendererSlot.Release(); }
     }
 
     private static Stream OpenWorker() => typeof(PdfDocumentExport).Assembly.GetManifestResourceStream("FsusBlog.PdfRender")

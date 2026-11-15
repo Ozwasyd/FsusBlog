@@ -66,7 +66,7 @@ internal static partial class CurrentSchema
     internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null,
-        bool? requireArticleSummary = null)
+        bool? requireArticleSummary = null, bool? requireDocumentExports = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -93,7 +93,8 @@ internal static partial class CurrentSchema
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch,
-            requireAuthorTextIndex: requireAuthorTextIndex, requireArticleSummary: requireArticleSummary);
+            requireAuthorTextIndex: requireAuthorTextIndex, requireArticleSummary: requireArticleSummary,
+            requireDocumentExports: requireDocumentExports);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -123,7 +124,8 @@ internal static partial class CurrentSchema
         bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
         bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
-        bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false)
+        bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
+        bool? requireDocumentExports = null)
     {
         if (requireArticleMedia is null)
         {
@@ -242,6 +244,9 @@ internal static partial class CurrentSchema
         if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || requireAuthorTextRebuild && !hasAuthorTextRebuild)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
+        var hasDocumentExports = await HasDocumentExportsAsync(connection, transaction, cancellationToken);
+        if (requireDocumentExports.HasValue && requireDocumentExports.Value != hasDocumentExports)
+            throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
         var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
             await HasArticleBodyInsertionOperationsAsync(connection, transaction, cancellationToken);
@@ -304,6 +309,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)] : [])
+            .Concat(hasDocumentExports ? [DocumentExportColumns] : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexColumns : [])
             .Concat(hasAuthorTextRebuild ? [AuthorTextRebuildColumns] : [])
@@ -351,6 +357,7 @@ internal static partial class CurrentSchema
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
             .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits) : [])
+            .Concat(hasDocumentExports ? DocumentExportConstraints : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
             .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])
@@ -413,7 +420,8 @@ internal static partial class CurrentSchema
                                                       'admin_appearance_step_up', 'comment_appeal_admin_step_up',
                                                       'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up')
                                          AND target.relname = 'admin_session')
-                                     OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
+                                     OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh')
+                                     OR (c.relname = 'author_document_export' AND target.relname IN ('blog_user', 'article_revision')))
                                    THEN ' delete-cascade'
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'c' AND n.nspname = 'public'
                                    AND c.relname = 'site_session_refresh' AND target.relname = 'user_session'
@@ -457,6 +465,7 @@ internal static partial class CurrentSchema
         if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
         if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
         if (hasAuthorTextIndex) await VerifyAuthorTextArticleOwnerIndexAsync(connection, transaction, cancellationToken);
+        if (hasDocumentExports) await VerifyDocumentExportIndexesAsync(connection, transaction, cancellationToken);
         return webpMedia;
     }
 

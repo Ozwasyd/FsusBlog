@@ -77,6 +77,31 @@ public sealed class SchemaAdmissionPostgresTests
         Assert.Contains("batch schema presence", missing.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [PostgresFact]
+    public async Task DocumentExportsRequireExactPrivateOutputConstraintsAndIndexesWhenInstalled()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var ct = timeout.Token;
+        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var connection = await database.DataSource.OpenConnectionAsync(ct);
+        await CurrentSchema.VerifyAsync(connection, ct, requireDocumentExports: true);
+
+        await Execute(connection, "ALTER INDEX public.author_document_export_pending RENAME TO wrong_document_export_pending", ct);
+        var indexDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
+        Assert.Contains("document export index shape mismatch", indexDrift.Message, StringComparison.Ordinal);
+        await Execute(connection, "ALTER INDEX public.wrong_document_export_pending RENAME TO author_document_export_pending", ct);
+
+        await Execute(connection, "ALTER TABLE public.author_document_export DROP CONSTRAINT author_document_export_output_check", ct);
+        var constraintDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
+        Assert.Contains("octet_length(output)<=4194304", constraintDrift.Message, StringComparison.Ordinal);
+
+        await Execute(connection, "DROP TABLE public.author_document_export", ct);
+        await CurrentSchema.VerifyAsync(connection, ct);
+        var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CurrentSchema.VerifyAsync(connection, ct, requireDocumentExports: true));
+        Assert.Contains("document export schema presence", missing.Message, StringComparison.Ordinal);
+    }
+
     private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand(sql, db);

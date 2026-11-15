@@ -23,6 +23,7 @@ import ArticleRights from '../authoring/ArticleRights.vue'
 import ArticleSummary from '../authoring/ArticleSummary.vue'
 import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
+import DocumentExportTasks from '../authoring/DocumentExportTasks.vue'
 import DraftMarkdownImport from '../authoring/DraftMarkdownImport.vue'
 import { normalizeDraftTitle, validDraftBody, validDraftTitle, type DraftMarkdown } from '../authoring/draftMarkdownImport'
 import { editorRecovery } from '../authoring/editorRecovery'
@@ -1298,6 +1299,8 @@ async function reloadDraft() {
           :disabled="pending || hasConflict" format="epub" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" format="pdf" />
+        <DocumentExportTasks :article="original.id" :revision="original.revision" :selected="original.revision"
+          :active="inspectorReady && !revisionComparisonActive" :disabled="pending || hasConflict" />
         <ArticleMedia :article-id="original.id" :revision="original.revision"
           :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"

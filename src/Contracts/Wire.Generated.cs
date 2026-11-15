@@ -204,6 +204,10 @@ public enum FrameType : ushort
     AuthorTextPropertyTextMixedPage = 33041,
     ArticleBodyEditsCommand = 33042,
     DraftRevisionBodyEditChain = 33043,
+    DocumentExportCreate = 33044,
+    DocumentExportTaskRef = 33045,
+    DocumentExportTask = 33046,
+    DocumentExportTaskList = 33047,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -365,6 +369,8 @@ public static class WireLimits
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;
     public const int MaxDraftRollbackFrameBytes = 2056;
+    public const int MaxDocumentExportCreateFrameBytes = 53;
+    public const int MaxDocumentExportTaskRefFrameBytes = 32;
     public const int MaxAdminArticleRollbackFrameBytes = 2064;
     public const int MaxAdminArticleDraftRollbackFrameBytes = 2068;
     public const int MaxAdminArticleArchiveFrameBytes = 2068;
@@ -781,6 +787,10 @@ public static class WireRoutes
     public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
     public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";
     public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
+    public const string DocumentExportCreate = "/api/v2/authoring/document-exports/create.aeds";
+    public const string DocumentExportCancel = "/api/v2/authoring/document-exports/cancel.aeds";
+    public const string DocumentExportDownload = "/api/v2/authoring/document-exports/download.aeds";
+    public const string DocumentExportTaskList = "/api/v2/authoring/document-exports/{id:int}/tasks.aeds";
     public const string DraftRights = "/api/v2/authoring/draft/{id:int}/rights.aeds";
     public const string DraftRightsCommand = "/api/v2/authoring/rights.aeds";
     public const string ArticleSummary = "/api/v2/authoring/summary/{id:int}.aeds";

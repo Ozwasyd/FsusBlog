@@ -29,3 +29,11 @@ PDF 默认关闭。当 `FSUSBLOG_PDF_TOOL_ROOT` 为本机工具链的绝对路�
 Debian 13 ARM64 已通过原生渲染和 PostgreSQL 保存修订下载验证。该部署使用固定 `/opt/fsusblog-pdf-arm64` 和该目录下 `payload.sha256` 的 SHA-256 作为上述配置。安装目录由 root 持有，含固定启动器和用于 Bubblewrap 的只读文件系统。安装包逐文件核验，必须包含与服务程序内嵌源码一致的渲染脚本与字体配置，以及固定 Noto 字体。Linux 启动器将入口限定为该包内 Python，隔离网络和文件系统，清除额外文件描述符，初始化后拒绝再次执行程序。服务核对实际 systemd 单元、进程组、256 MiB 内存和零交换空间限额，再交付输入。原生验证需要非 root 服务账号、systemd 用户管理器、cgroup v2 和可用的 Bubblewrap。 [现有 Linux 宿主及前置条件](platform-plugin-offline.md#离线-linux-arm64-工作进程) · [原生 PDF 证据](../../artifacts/original-delivery-next/linux-pdf/)
 
 v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站点备份。固定 v1 的文档导出源码包含 HTML 提供方、下载处理器和注册方法，常规二进制路由入口没有调用该注册方法。提供方目录将 DOCX 标记为未实现。 [v1 文档提供方目录](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/DocumentExport/DocumentExportContracts.cs#L261-L320) · [v1 路由入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs#L60-L80)
+
+## 作者导出任务
+
+停服执行 `document-exports` 安装任务表，再设置 `FSUSBLOG_DOCUMENT_EXPORT_TASKS=true`。作者可从 Inspector 或历史对照的 **Document export tasks** 选择 HTML、PDF、DOCX 或 EPUB。任务绑定提交时检查过的当前修订及选中的原文修订，后续保存可继续进行。关掉面板或重载后可按文章恢复状态。
+
+PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结束时间、结果摘要与字节数。源摘要绑定文章、选中修订、保存时间、原始标题和 Markdown，PDF 同时绑定已验证的工具链摘要。任务使用现有格式提供方及其正文、字形、页数和输出预算。排队中可立即取消，执行中由工作进程收到取消后终止。服务重启会保留排队和终态回执，并将中断的执行标为失败。每个作者最多保留四项，每个站点最多十六项，保留期三十分钟。
+
+下载提交绑定当前会话的任务 ID，服务重新检查文章所有权、授权代次、过期时间和文件摘要。结果只保存在私有数据库，通过禁止缓存的附件响应交付。已保存修订在文章继续编辑后仍可获授权下载。格式扩展、资产和元数据清单、一次性下载授权与更大任务负载仍待验收。 [PostgreSQL 执行记录](../../artifacts/document-export-tasks-13bf4fc/postgres/integration.txt) · [375px HTML 和 PDF 下载](../../artifacts/document-export-tasks-13bf4fc/browser/browser-result.json)

@@ -8,6 +8,7 @@ import {
 import { draftSummary } from '../../../Contracts/article-summary-client'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
+import DocumentExportTasks from './DocumentExportTasks.vue'
 import { credentialEpoch } from '../session'
 import type { HistoricalSearchSeek } from './canvasEditorHandoff'
 import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
@@ -298,6 +299,8 @@ onScopeDispose(() => {
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="html" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="epub" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="pdf" />
+        <DocumentExportTasks :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision"
+          :active="comparisonOpen" />
         <label :for="`${compareId}-reason`">Reason for restoring this draft</label>
         <ElInput :id="`${compareId}-reason`" v-model="reason" />
         <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, and any stored rights policy into a new draft.</p>

@@ -59,6 +59,13 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
 var pdfExport = FsusBlog.V2.Server.Authoring.PdfDocumentExport.Read(builder.Configuration);
+var documentExportTasks = builder.Configuration.GetValue(DocumentExportEndpoints.Setting, false);
+if (documentExportTasks)
+{
+    template = template.Replace("</head>", DocumentExportEndpoints.Marker + "</head>", StringComparison.Ordinal);
+    builder.Services.AddHostedService(services => new DocumentExportWorker(services.GetRequiredService<NpgsqlDataSource>(),
+        services.GetRequiredService<InstanceLease>(), pdfExport, services.GetRequiredService<ILogger<DocumentExportWorker>>()));
+}
 if (pdfExport is not null)
     template = template.Replace("</head>", FsusBlog.V2.Server.Authoring.PdfDocumentExport.PageMarker + "</head>", StringComparison.Ordinal);
 if (builder.Configuration.GetValue(PublicHotArticles.Setting, false))
@@ -137,6 +144,8 @@ builder.Services.AddRateLimiter(options =>
         (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    if (documentExportTasks)
+        options.AddConcurrencyLimiter("document-export-download", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     if (pdfExport is not null)
         options.AddConcurrencyLimiter(FsusBlog.V2.Server.Authoring.PdfDocumentExport.RatePolicy,
             limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
@@ -188,7 +197,8 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireAdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
     requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
-    requireAdminTagMetadata: adminTagMetadata ? true : null, requirePublicationMedia: publicMediaEnabled ? true : null);
+    requireAdminTagMetadata: adminTagMetadata ? true : null, requirePublicationMedia: publicMediaEnabled ? true : null,
+    requireDocumentExports: documentExportTasks);
 var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
 var publicationProofs = app.Services.GetService<PublicationProofs>();
@@ -316,6 +326,7 @@ FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, 
 FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query, pdfExport);
+if (documentExportTasks) DocumentExportEndpoints.Map(app, Cookie, pdfExport, ReadFrame);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
     lease.RootCommentPowPolicyInstalled);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);

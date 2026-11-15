@@ -24,6 +24,7 @@ import { exerciseAuthorTextSearch, exerciseSummarySearchReveal } from './author-
 import { exerciseAuthorTextPropertyFacet } from './author-text-property-facet-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
+import { exerciseDocumentExportTasks } from './document-export-task-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -199,6 +200,10 @@ try {
   await button(publisher, 'Inspector').click()
   const initialExport = await readMarkdownDownload(publisher, button(publisher, 'Download saved Markdown'), body)
   assert.equal(initialExport.title, title)
+  if (process.env.FSUSBLOG_TEST_DOCUMENT_EXPORT_TASKS === '1') {
+    await exerciseDocumentExportTasks(publisher, writtenId, initialExport.revision, token, config.pdfEnabled)
+    observations.push('The author creates a document export task and downloads its exact private result after reloading the editor.')
+  }
   const wordExport = await readWordDownload(publisher, button(publisher, 'Download saved Word'))
   if (process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)
     await wordExport.saveAs(process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)

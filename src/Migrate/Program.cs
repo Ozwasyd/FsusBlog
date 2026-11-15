@@ -80,6 +80,7 @@ internal static partial class Migration
                   author-search        Add or upgrade the private author full-text index schema with the server stopped
                   author-summary       Add article revision author summaries with the server stopped
                   article-body-insertion Add saved editor insertion witnesses with the server stopped
+                  document-exports     Add the private author document export queue with the server stopped
                   saved-views          Add private author saved views with the server stopped
                   tag-metadata        Add the administrator tag metadata schema with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
@@ -330,6 +331,9 @@ internal static partial class Migration
                 case ["article-body-insertion"]:
                     await InitializeArticleBodyInsertionAsync(connection, token);
                     break;
+                case ["document-exports"]:
+                    await InitializeDocumentExportsAsync(connection, token);
+                    break;
                 case ["saved-views"]:
                     await InitializeSavedViewsAsync(connection, token);
                     break;
@@ -478,7 +482,7 @@ internal static partial class Migration
             requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,
             requireAuthorTextIndex: true, requireRootCommentPowPolicy: true, requireArticleSummary: true,
             requireAuthorTextSummaryIndex: true, requireAuthorTextHeadingIndex: true, requireAuthorTextPropertyIndex: true,
-            requireAuthorTextRebuild: true);
+            requireAuthorTextRebuild: true, requireDocumentExports: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

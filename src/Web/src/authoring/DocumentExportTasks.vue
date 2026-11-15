@@ -1,0 +1,237 @@
+<script setup lang="ts">
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import { ApiError, ProtocolError } from '../../../Contracts/aeds'
+import {
+  cancelDocumentExportTask, createDocumentExportTask, downloadDocumentExportTask, listDocumentExportTasks,
+  type DocumentExportFailure, type DocumentExportFormat, type DocumentExportStatus, type DocumentExportTask,
+} from '../../../Contracts/document-export-tasks'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
+
+const props = defineProps<{ article: number; revision: bigint; selected: bigint; active: boolean; disabled?: boolean }>()
+const enabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
+const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
+const formats: readonly DocumentExportFormat[] = pdfAvailable ? ['html', 'pdf', 'docx', 'epub'] : ['html', 'docx', 'epub']
+const labels: Record<DocumentExportFormat, string> = { html: 'HTML', pdf: 'PDF', docx: 'Word', epub: 'EPUB' }
+const states: Record<DocumentExportStatus, string> = {
+  queued: 'Queued', running: 'Running', succeeded: 'Ready', failed: 'Failed', cancelled: 'Cancelled',
+  blocked: 'Blocked', cancelling: 'Cancelling',
+}
+const failures: Record<DocumentExportFailure, string> = {
+  none: '', 'unsupported-input': 'This revision exceeds the format limits or contains unsupported content.',
+  'provider-unavailable': 'This format is currently unavailable.', permission: 'The saved revision is no longer available.',
+  interruption: 'The export was interrupted.',
+}
+const open = ref(false)
+const loading = ref(false)
+const busy = ref(false)
+const loaded = ref(false)
+const now = ref(Date.now())
+const listError = ref('')
+const actionError = ref('')
+const format = ref<DocumentExportFormat>('html')
+const tasks = shallowRef<readonly DocumentExportTask[]>([])
+const eligible = computed(() => enabled && !!currentSession.value?.canAuthor && !!currentSession.value?.siteSessionId)
+const visible = computed(() => eligible.value && props.active && open.value)
+const createKeys = new Map<DocumentExportFormat, string>()
+let request: { kind: 'list' | 'action'; controller: AbortController } | undefined
+let timer: ReturnType<typeof setTimeout> | undefined
+
+function cancelable(task: DocumentExportTask) {
+  return task.status === 'queued' || task.status === 'running'
+}
+
+function downloadable(task: DocumentExportTask, time = now.value) {
+  return task.status === 'succeeded' && task.expiresUnixMs > BigInt(time)
+}
+
+function stop() {
+  clearTimeout(timer)
+  request?.controller.abort()
+  request = undefined
+  loading.value = busy.value = loaded.value = false
+  tasks.value = []
+  listError.value = actionError.value = ''
+}
+
+function refreshWhenNeeded() {
+  clearTimeout(timer)
+  if (!visible.value || request) return
+  if (!listError.value && tasks.value.some(task => cancelable(task) || task.status === 'cancelling')) {
+    timer = setTimeout(() => { void load() }, 2000)
+    return
+  }
+  const remaining = tasks.value
+    .filter(task => downloadable(task))
+    .map(task => Number(task.expiresUnixMs) - now.value)
+  if (remaining.length) {
+    timer = setTimeout(() => { now.value = Date.now(); refreshWhenNeeded() },
+      Math.min(2_147_483_647, ...remaining))
+  }
+}
+
+async function run(kind: 'list' | 'action', work: (handle: string, signal: AbortSignal, current: () => boolean) => Promise<void>) {
+  const session = currentSession.value
+  const handle = session?.siteSessionId
+  if (!visible.value || !session || !handle || session.expiresAt <= Date.now() ||
+      (request && (kind === 'list' || request.kind === 'action'))) return
+  request?.controller.abort()
+  clearTimeout(timer)
+  const controller = new AbortController()
+  const operation = request = { kind, controller }
+  const { article, revision, selected } = props
+  const identity = identityEpoch.value
+  const credential = credentialEpoch.value
+  const current = () => !controller.signal.aborted && request === operation && visible.value &&
+    identity === identityEpoch.value && credential === credentialEpoch.value &&
+    article === props.article && revision === props.revision && selected === props.selected &&
+    currentSession.value?.siteSessionId === handle && currentSession.value.expiresAt > Date.now()
+  loading.value = kind === 'list'
+  busy.value = kind === 'action'
+  const error = kind === 'list' ? listError : actionError
+  error.value = ''
+  try {
+    await work(handle, controller.signal, current)
+  } catch (cause) {
+    if (!current()) return
+    if (cause instanceof ApiError && cause.status === 401) await recheckCredential(handle, controller.signal)
+    if (!current()) return
+    error.value = cause instanceof ApiError && cause.status === 409
+      ? 'The draft or export task changed. Refresh tasks or reload the saved revision.'
+      : cause instanceof ApiError && [401, 403, 404, 410].includes(cause.status)
+        ? 'This export is no longer available.'
+        : kind === 'list' ? 'Could not load export tasks. Try refreshing.' : 'Could not complete the export request. Try again.'
+  } finally {
+    if (request === operation) {
+      request = undefined
+      loading.value = busy.value = false
+      now.value = Date.now()
+      refreshWhenNeeded()
+    }
+  }
+}
+
+async function load() {
+  await run('list', async (handle, signal, current) => {
+    const result = await listDocumentExportTasks(props.article, handle, signal)
+    if (!current()) return
+    tasks.value = result
+    for (const [format, id] of createKeys) {
+      if (result.some(task => task.id === id)) createKeys.delete(format)
+    }
+    loaded.value = true
+  })
+}
+
+function record(task: DocumentExportTask) {
+  const present = tasks.value.findIndex(item => item.id === task.id)
+  tasks.value = present === -1 ? [task, ...tasks.value].slice(0, 4) :
+    tasks.value.map(item => item.id === task.id ? task : item)
+  listError.value = ''
+  loaded.value = true
+}
+
+async function create() {
+  if (!visible.value || busy.value || props.disabled || !formats.includes(format.value)) return
+  const selectedFormat = format.value
+  const id = createKeys.get(selectedFormat) ?? crypto.randomUUID()
+  createKeys.set(selectedFormat, id)
+  await run('action', async (handle, signal, current) => {
+    const task = await createDocumentExportTask({
+      id, article: props.article, revision: props.revision, sourceRevision: props.selected, format: selectedFormat,
+    }, handle, signal)
+    if (!current()) return
+    createKeys.delete(selectedFormat)
+    record(task)
+  })
+}
+
+async function cancel(task: DocumentExportTask) {
+  if (!cancelable(task)) return
+  await run('action', async (handle, signal, current) => {
+    const result = await cancelDocumentExportTask(task.id, handle, signal)
+    if (!current()) return
+    if (result.article !== task.article || result.revision !== task.revision ||
+        result.sourceRevision !== task.sourceRevision || result.format !== task.format)
+      throw new ProtocolError('Unexpected document export coordinates')
+    record(result)
+  })
+}
+
+async function download(task: DocumentExportTask) {
+  if (!downloadable(task, Date.now())) return
+  await run('action', async (handle, signal, current) => {
+    const blob = await downloadDocumentExportTask(task, handle, signal)
+    if (!current() || !downloadable(task, Date.now())) return
+    const url = URL.createObjectURL(blob)
+    try {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `article.${task.format}`
+      link.click()
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+  })
+}
+
+function toggle(event: Event) {
+  if (event.currentTarget instanceof HTMLDetailsElement) open.value = event.currentTarget.open
+}
+
+watch(eligible, allowed => { if (!allowed) open.value = false }, { flush: 'sync' })
+watch([() => props.article, () => props.revision, () => props.selected, identityEpoch], () => createKeys.clear(), { flush: 'sync' })
+watch([() => props.article, () => props.revision, () => props.selected, credentialEpoch, visible], () => {
+  stop()
+  if (visible.value) void load()
+}, { flush: 'sync' })
+onScopeDispose(stop)
+</script>
+
+<template>
+  <details v-if="eligible" class="document-export-tasks" @toggle="toggle">
+    <summary>Document export tasks</summary>
+    <div v-if="open" class="document-export-content" role="region" aria-label="Document export tasks">
+      <p>Source revision {{ selected }}</p>
+      <div class="document-export-controls">
+        <div class="document-export-format">
+          <ElSelect v-model="format" ariaLabel="Export format" :disabled="disabled || busy">
+            <ElOption v-for="value in formats" :key="value" :value="value" :label="labels[value]" />
+          </ElSelect>
+        </div>
+        <ElButton native-type="button" :disabled="disabled || busy" @click="create">Create export task</ElButton>
+        <ElButton native-type="button" text :disabled="loading || busy" @click="load">Refresh tasks</ElButton>
+      </div>
+      <p v-if="loading && !loaded" role="status">Loading export tasks…</p>
+      <p v-else-if="loaded && !tasks.length" role="status">No export tasks for this article.</p>
+      <ElAlert v-if="listError" :title="listError" type="error" :closable="false" />
+      <ElAlert v-if="actionError" :title="actionError" type="error" :closable="false" />
+      <ul v-if="tasks.length" class="document-export-list" aria-label="Recent export tasks">
+        <li v-for="task in tasks" :key="task.id">
+          <strong>{{ labels[task.format] }} · Revision {{ task.sourceRevision }}</strong>
+          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? 'Expired' : states[task.status] }}</span>
+          <span v-if="task.failure !== 'none'">{{ failures[task.failure] }}</span>
+          <div v-if="cancelable(task) || downloadable(task)">
+            <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">Cancel task</ElButton>
+            <ElButton v-if="downloadable(task)" native-type="button" text :disabled="busy" @click="download(task)">Download export</ElButton>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </details>
+</template>
+
+<style scoped>
+.document-export-tasks summary { cursor: pointer; }
+.document-export-content { display: grid; gap: var(--fsus-space-2); padding-block: var(--fsus-space-2); }
+.document-export-content p { margin: 0; }
+.document-export-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fsus-space-2); }
+.document-export-format { inline-size: 8rem; max-inline-size: 100%; }
+.document-export-list { list-style: none; margin: 0; padding: 0; }
+.document-export-list li {
+  display: grid;
+  gap: var(--fsus-space-1);
+  padding-block: var(--fsus-space-2);
+  border-block-start: 1px solid var(--fsus-border);
+}
+</style>
