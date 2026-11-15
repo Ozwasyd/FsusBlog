@@ -35,11 +35,13 @@ internal static class AdminArticleTrashRestore
 
 internal sealed partial class AdminPasskeyStore
 {
-    private const string TrashArticle = $"""
-        from public.article a where a.id=$1 and a.deleted and a.published_revision is null
+    private const string TrashArticlePredicate = $"""
+        a.id=$1 and a.deleted and a.published_revision is null
             and not exists(select from public.article_publication p where p.article_id=a.id)
             and {ArchivedArticleAuthority.Available}
         """;
+
+    private const string TrashArticle = $"from public.article a where {TrashArticlePredicate}";
 
     internal Task CheckTrashRestoreAvailability(string? session, CancellationToken ct) =>
         WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>

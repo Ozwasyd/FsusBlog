@@ -56,9 +56,15 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         [privateFiles.Root, webRoot, Path.Combine(webRoot, "assets"), Path.Combine(webRoot, "dist"), .. otherForbiddenRoots]);
 
     internal async Task<IReadOnlyList<PublishedMediaReference>> Prepare(NpgsqlConnection db, NpgsqlTransaction tx,
-        Identity owner, Edit edit, PublishedMediaSelection selection, CancellationToken ct)
+        Guid owner, int article, long revision, PublishedMediaSelection selection, CancellationToken ct)
     {
-        var images = await ReadSelected(db, tx, owner.Id, edit, selection, ct);
+        var images = await ReadSelected(db, tx, owner, article, revision, selection, ct);
+        await Materialize(images, ct);
+        return images;
+    }
+
+    private async Task Materialize(IEnumerable<PublishedMediaReference> images, CancellationToken ct)
+    {
         foreach (var image in images)
         {
             var bytes = await privateFiles.Read(image.AssetId, image.Length, image.Digest, ct);
@@ -66,11 +72,42 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
                 throw new IOException("The retained private source is missing or has an unexpected format.");
             await objects.Materialize(Name(image.Digest), bytes, image.Digest, ct);
         }
-        return images;
     }
 
+    internal static async Task<IReadOnlyList<PublishedMediaReference>?> RestoreSelection(NpgsqlConnection db,
+        NpgsqlTransaction tx, PublishedMediaStore? media, Guid owner, int article, long revision, long publication, CancellationToken ct)
+    {
+        if (!await CurrentSchema.HasPublicationMediaAsync(db, tx, ct)) return null;
+        List<PublishedMediaReference> prior = [];
+        await using (var query = Store.Sql(db, tx, """
+            select asset_id,content_hash,format,length,width,height,ordinal from public.article_publication_media
+            where article_id=$1 and publication_id=$2 and revision=$3 order by ordinal limit 33
+            """, article, publication, revision))
+        await using (var rows = await query.ExecuteReaderAsync(ct))
+            while (await rows.ReadAsync(ct))
+            {
+                if (prior.Count == ArticleMediaStore.Maximum || rows.GetInt32(6) != prior.Count + 1)
+                    throw RestoreMediaConflict();
+                prior.Add(new(rows.GetGuid(0), rows.GetFieldValue<byte[]>(1), (MediaFormat)rows.GetInt16(2),
+                    rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5)));
+            }
+        if (prior.Count == 0) return null;
+        if (media is null) throw RestoreMediaConflict();
+        var prepared = await ReadSelected(db, tx, owner, article, revision,
+            PublishedMediaSelection.Create(prior.Select(image => image.AssetId).ToArray()), ct);
+        var verified = prepared.ToDictionary(image => image.AssetId);
+        foreach (var original in prior)
+            if (!verified.TryGetValue(original.AssetId, out var image) ||
+                (original.Format, original.Length, original.Width, original.Height) != (image.Format, image.Length, image.Width, image.Height) ||
+                !original.Digest.AsSpan().SequenceEqual(image.Digest)) throw RestoreMediaConflict();
+        await media.Materialize(prior, ct);
+        return prior;
+    }
+
+    private static BusinessException RestoreMediaConflict() => new(Rejection.Conflict, "The former publication images are unavailable.");
+
     private static async Task<PublishedMediaReference[]> ReadSelected(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        Edit edit, PublishedMediaSelection selection, CancellationToken ct)
+        int article, long revision, PublishedMediaSelection selection, CancellationToken ct)
     {
         await using var query = Store.Sql(db, tx, """
             SELECT m.id,m.content_hash,m.format,m.length,m.width,m.height
@@ -79,7 +116,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
             WHERE r.article_id=$1 AND r.revision=$2 AND m.owner_id=$3 AND m.id=ANY($4) AND m.phase=1
             ORDER BY m.id
             FOR SHARE OF m
-            """, edit.Id, edit.ExpectedRevision, owner, selection.Assets);
+            """, article, revision, owner, selection.Assets);
         await using var rows = await query.ExecuteReaderAsync(ct);
         var images = new Dictionary<Guid, PublishedMediaReference>(selection.Assets.Length);
         while (await rows.ReadAsync(ct))

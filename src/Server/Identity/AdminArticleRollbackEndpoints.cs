@@ -97,7 +97,7 @@ internal static class AdminArticleRollbackEndpoints
         ClientMutationHeader.Require(ctx, expected);
     }
 
-    private static long PositiveCoordinate(HttpContext ctx, string key)
+    internal static long PositiveCoordinate(HttpContext ctx, string key)
     {
         if (ctx.Request.Query[key] is { Count: 1 } values && values[0] is { Length: >= 1 and <= 19 } text &&
             long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var coordinate) && coordinate > 0 &&

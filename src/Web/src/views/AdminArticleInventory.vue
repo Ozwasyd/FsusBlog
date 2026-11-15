@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { executeTrashRestore, readTrashRestoreAvailability, requestTrashRestoreProof } from '../../../Contracts/admin-article-trash'
+import { isValidAdminArticleRollbackReason } from '../../../Contracts/admin-article-rollback'
+import { executeTrashPublication, executeTrashRestore, readTrashPublication, readTrashPublicationAvailability,
+  readTrashRestoreAvailability, requestTrashPublicationProof, requestTrashRestoreProof } from '../../../Contracts/admin-article-trash'
 import { listAdminArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow } from '../../../Contracts/author-articles'
-import type { AdminArticleTrashRestoreIntent } from '../../../Contracts/wire.generated'
+import type { AdminArticleTrashPublicationIntent, AdminArticleTrashPublicationPreview, AdminArticleTrashRestoreIntent } from '../../../Contracts/wire.generated'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [cause: ApiError] }>()
@@ -16,18 +18,40 @@ const keyword = ref('')
 const reading = ref(false)
 const failed = ref(false)
 const restoreAvailable = ref(false)
+const publicationAvailable = ref(false)
+const publication = shallowRef<AdminArticleTrashPublicationPreview>()
+const reason = ref('')
 const selected = shallowRef<AuthorArticleRow>()
-const retry = shallowRef<AdminArticleTrashRestoreIntent>()
+const retry = shallowRef<AdminArticleTrashRestoreIntent | AdminArticleTrashPublicationIntent>()
 const restoring = ref(false)
 const restoreFailure = ref('')
 const notice = ref('')
 const busy = computed(() => reading.value || restoring.value || !!retry.value)
 onScopeDispose(() => lifetime.abort())
 
-onMounted(async () => {
-  try { restoreAvailable.value = await readTrashRestoreAvailability(signal) }
-  catch (cause) { if (!signal.aborted && cause instanceof ApiError && cause.status === 401) emit('session-lost', cause) }
+onMounted(() => {
+  for (const [available, read] of [[restoreAvailable, readTrashRestoreAvailability], [publicationAvailable, readTrashPublicationAvailability]] as const) {
+    void read(signal).then(value => { if (!signal.aborted) available.value = value }).catch(sessionError)
+  }
 })
+
+watch(selected, async (row, _, onCleanup) => {
+  publication.value = undefined
+  reason.value = ''
+  if (!row || !publicationAvailable.value) return
+  const request = new AbortController()
+  onCleanup(() => request.abort())
+  try {
+    const former = await readTrashPublication(row.id, row.revision, AbortSignal.any([signal, request.signal]))
+    if (!signal.aborted && !request.signal.aborted && selected.value === row) publication.value = former
+  } catch (cause) {
+    if (!request.signal.aborted) sessionError(cause)
+  }
+}, { flush: 'sync' })
+
+function sessionError(cause: unknown) {
+  if (!signal.aborted && cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+}
 
 async function load(next: AuthorArticleQuery) {
   if (busy.value || signal.aborted) return
@@ -53,25 +77,33 @@ function nextPage() {
   if (page.value?.nextId) return load({ ...query.value, beforeId: page.value.nextId })
 }
 
-async function restore() {
+async function restore(publicly = false) {
   const pending = retry.value
   const row = selected.value
-  if (!restoreAvailable.value || restoring.value || reading.value || signal.aborted || (!pending && !row)) return
-  const intent = pending ?? { articleId: row!.id, expectedRevision: row!.revision, idempotencyKey: crypto.randomUUID() }
+  const former = publication.value
+  if (restoring.value || reading.value || signal.aborted || (!pending && !row)) return
+  if (!pending && (publicly ? !former || !isValidAdminArticleRollbackReason(reason.value.trim()) : !restoreAvailable.value)) return
+  const intent = pending ?? {
+    articleId: row!.id, expectedRevision: row!.revision, idempotencyKey: crypto.randomUUID(),
+    ...(publicly && former ? { sourceRevision: former.sourceRevision, sourcePublicationId: former.sourcePublicationId, reason: reason.value.trim() } : {}),
+  }
+  const publicIntent = 'sourcePublicationId' in intent ? intent as AdminArticleTrashPublicationIntent : undefined
   restoreFailure.value = ''
   notice.value = ''
   restoring.value = true
   let submitted = !!pending
   let refresh = false
   try {
-    const proof = pending ? undefined : await requestTrashRestoreProof(intent, signal)
+    const proof = pending ? undefined : publicIntent
+      ? await requestTrashPublicationProof(publicIntent, signal) : await requestTrashRestoreProof(intent, signal)
     signal.throwIfAborted()
     submitted = true
-    const receipt = await executeTrashRestore(intent, proof, signal)
+    const receipt = publicIntent ? await executeTrashPublication(publicIntent, proof, signal) : await executeTrashRestore(intent, proof, signal)
     if (signal.aborted) return
     retry.value = undefined
     selected.value = undefined
-    notice.value = `Article ${receipt.articleId} restored as private revision ${receipt.revision}.`
+    notice.value = publicIntent ? `Article ${receipt.articleId} republished as revision ${receipt.revision}.`
+      : `Article ${receipt.articleId} restored as private revision ${receipt.revision}.`
     refresh = true
   } catch (cause) {
     if (signal.aborted) return
@@ -107,7 +139,7 @@ async function restore() {
     <ElAlert v-if="failed" title="Could not load the article inventory. Try again." type="error" :closable="false" />
     <ElAlert v-if="restoreFailure" :title="restoreFailure" type="warning" :closable="false" />
     <p v-if="notice" role="status">{{ notice }}</p>
-    <ElButton v-if="retry" native-type="button" :loading="restoring" @click="restore">Check restore result</ElButton>
+    <ElButton v-if="retry" native-type="button" :loading="restoring" @click="restore()">Check restore result</ElButton>
     <template v-if="page">
       <p role="status">{{ page.total }} {{ query.trash ? 'deleted' : 'active' }} {{ page.total === 1 ? 'article' : 'articles' }}</p>
       <ul v-if="page.items.length" class="inventory-list">
@@ -115,7 +147,9 @@ async function restore() {
           <strong>{{ item.title }}</strong>
           <div>Article {{ item.id }} · Revision {{ item.revision }} · {{ item.state }}</div>
           <div v-if="item.category || item.tags.length">{{ [item.category, ...item.tags].filter(Boolean).map(entry => entry?.name).join(' · ') }}</div>
-          <ElButton v-if="query.trash && restoreAvailable" native-type="button" :disabled="busy" @click="selected = item">Restore to draft</ElButton>
+          <ElButton v-if="query.trash && (restoreAvailable || publicationAvailable)" native-type="button" :disabled="busy" @click="selected = item">
+            {{ restoreAvailable ? 'Restore to draft' : 'Review restoration' }}
+          </ElButton>
         </li>
       </ul>
       <div v-if="query.beforeId || page.nextId" class="inventory-actions">
@@ -127,9 +161,17 @@ async function restore() {
       :close-on-press-escape="!restoring" :close-on-click-modal="!restoring" :show-close="!restoring"
       @update:model-value="visible => { if (!visible && !restoring) selected = undefined }">
       <p v-if="selected">Restore revision {{ selected.revision }} of {{ selected.title }} to its author as a private draft.</p>
+      <div v-if="publication" class="inventory">
+        <p>Former public revision {{ publication.sourceRevision }} · {{ publication.title }}. This option makes that revision public again.</p>
+        <label for="admin-trash-publication-reason">Reason for restoring publication</label>
+        <ElInput id="admin-trash-publication-reason" v-model="reason" :disabled="restoring" />
+        <ElButton native-type="button" :disabled="!isValidAdminArticleRollbackReason(reason.trim())" :loading="restoring" @click="restore(true)">
+          Restore former publication with Passkey
+        </ElButton>
+      </div>
       <template #footer>
         <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">Cancel</ElButton>
-        <ElButton native-type="button" type="primary" :loading="restoring" @click="restore">Restore draft with Passkey</ElButton>
+        <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">Restore draft with Passkey</ElButton>
       </template>
     </ElDialog>
   </section>

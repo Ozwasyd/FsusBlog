@@ -91,11 +91,13 @@ internal static class PublicationHistoryStore
 
     internal static async Task<AdminArticleRelease> RollbackByAdministrator(NpgsqlConnection db, NpgsqlTransaction tx,
         int article, long priorPublication, long sourceRevision, long revision, long previousRevision,
-        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason,
-        int destination, AdminArchiveSource? archivedSource, CancellationToken ct)
+        long sourcePublication, long? sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason,
+        int destination, AdminPublicationRestoreSource? restored, CancellationToken ct,
+        IReadOnlyList<Content.PublishedMediaReference>? selected = null)
     {
-        var eventNo = archivedSource?.EventNo ?? await RequireActiveBoundary(db, tx, article, priorPublication, ct);
+        var eventNo = restored?.EventNo ?? await RequireActiveBoundary(db, tx, article, priorPublication, ct);
         var hidden = destination != Wire.AdminArticleRestoreStatus;
+        var fromTrash = restored?.FromTrash == true;
 
         await PublicationRightsStore.Require(db, tx, article, revision, ct);
         var release = hidden ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
@@ -106,12 +108,18 @@ internal static class PublicationHistoryStore
         var rightsSnapshot = (long)(await rights.ExecuteScalarAsync(ct))!;
 
         // Copy the explicit historical evidence and record its exact immutable source.
-        await using var responsibility = Store.Sql(db, tx, """
+        var administratorReference = $"admin:{administrator:D}";
+        await using var responsibility = fromTrash && sourceResponsibility is null
+            ? Store.Sql(db, tx, """
+                insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by)
+                values($1,$2,$3,$4,$5,$3) returning id
+                """, article, revision, administratorReference, reason, FormattableString.Invariant($"publication:{sourcePublication}"))
+            : Store.Sql(db, tx, """
             insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by,source_snapshot_id)
             select article_id,$2,responsible_party,basis,reference,recorded_by,id
             from public.article_revision_responsibility where article_id=$1 and revision=$3 and id=$4
             returning id
-            """, article, revision, sourceRevision, sourceResponsibility);
+            """, article, revision, sourceRevision, Optional(NpgsqlDbType.Bigint, sourceResponsibility));
         if (await responsibility.ExecuteScalarAsync(ct) is not long responsibilitySnapshot)
             throw new BusinessException(Rejection.Conflict, "The historical responsibility snapshot is unavailable.");
         await using var responsibilityLink = Store.Sql(db, tx, """
@@ -122,23 +130,23 @@ internal static class PublicationHistoryStore
 
         // A restore copies the exact archived predecessor. Its original public rollback source remains
         // retained separately from the predecessor revision and private release coordinates.
-        var extraColumns = archivedSource is not null ? ",destination,from_archive" :
+        var extraColumns = fromTrash ? ",destination,from_trash" : restored is not null ? ",destination,from_archive" :
             hidden ? ",destination" : "";
-        var extraValues = archivedSource is not null ? ",2,true" :
+        var extraValues = restored is not null ? ",2,true" :
             destination == Wire.AdminArticleArchiveStatus ? ",3" : hidden ? ",0" : "";
         await using var retainCommand = Store.Sql(db, tx, $"""
             insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
                 source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
                 published_at,rights_snapshot_id,responsibility_snapshot_id,reason{extraColumns})
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15{extraValues})
-            """, administrator, command, fingerprint, article, previousRevision, archivedSource?.HistoricalRevision ?? sourceRevision,
-            revision, archivedSource?.HistoricalPublicationId ?? sourcePublication, priorPublication, release.Id, release.Number,
+            """, administrator, command, fingerprint, article, previousRevision, restored?.HistoricalRevision ?? sourceRevision,
+            revision, restored?.HistoricalPublicationId ?? sourcePublication, priorPublication, release.Id, release.Number,
             release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
         await retainCommand.ExecuteNonQueryAsync(ct);
-        var (kind, eventReason) = (destination, archivedSource is not null) switch
+        var (kind, eventReason) = (destination, restored is not null) switch
         {
             (Wire.AdminArticleArchiveStatus, false) => ("retract", ArchivedArticleAuthority.Reason),
-            (Wire.AdminArticleRestoreStatus, true) => ("publish", "administrator-archive-republished"),
+            (Wire.AdminArticleRestoreStatus, true) => ("publish", fromTrash ? "administrator-trash-republished" : "administrator-archive-republished"),
             (Wire.AdminArticleRestoreStatus, false) => ("replace", "administrator-rollback-replaced"),
             _ => ("retract", "administrator-rollback-draft")
         };
@@ -147,7 +155,7 @@ internal static class PublicationHistoryStore
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
             """, article, checked(eventNo + 1), revision, release.Number, Optional(NpgsqlDbType.Bigint, hidden ? null : release.Id),
-            Optional(NpgsqlDbType.Bigint, archivedSource is not null ? null : priorPublication), kind, eventReason,
+            Optional(NpgsqlDbType.Bigint, restored is not null ? null : priorPublication), kind, eventReason,
             release.PublishedAt, administrator, command);
         await append.ExecuteNonQueryAsync(ct);
 
@@ -160,6 +168,8 @@ internal static class PublicationHistoryStore
         }
         else
         {
+            if (selected is not null)
+                await Content.PublishedMediaStore.Attach(db, tx, article, release.Id, revision, selected, ct);
             await RecordPublishedOutbox(db, tx, article, revision, ct);
         }
         return new AdminArticleRelease(release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot);
@@ -167,7 +177,7 @@ internal static class PublicationHistoryStore
 
     internal sealed record AdminArticleRelease(long Id, int Number, DateTime PublishedAt, long RightsSnapshot, long ResponsibilitySnapshot);
 
-    internal sealed record AdminArchiveSource(int EventNo, long HistoricalRevision, long HistoricalPublicationId);
+    internal sealed record AdminPublicationRestoreSource(int EventNo, long HistoricalRevision, long HistoricalPublicationId, bool FromTrash = false);
 
     private static async Task<int> RequireActiveBoundary(NpgsqlConnection db, NpgsqlTransaction tx, int article,
         long publication, CancellationToken ct)

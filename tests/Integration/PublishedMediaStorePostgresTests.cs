@@ -73,6 +73,13 @@ public sealed class PublishedMediaStorePostgresTests
         Verify(Assert.Single(manifest, row => row.Asset == second.Id), second, published.Article.Revision);
         await media.VerifyPublicBytes(first, ct);
         await media.VerifyPublicBytes(second, ct);
+        var restoredSelection = await media.RestoreSelection(author, draft.Id, published.Article.Revision, publication, ct);
+        Assert.NotNull(restoredSelection);
+        Assert.Equal(manifest.Select(row => row.Asset), restoredSelection.Select(row => row.AssetId));
+        Assert.DoesNotContain(restoredSelection, row => row.AssetId == duplicate.Id);
+        await media.ReplacePrivateSource(first.Id, new byte[first.Image.Bytes.Length], ct);
+        await Assert.ThrowsAsync<IOException>(() => media.RestoreSelection(author, draft.Id, published.Article.Revision, publication, ct));
+        await media.ReplacePrivateSource(first.Id, first.Image.Bytes, ct);
         var leaves = media.PublishedEntries();
         Assert.Equal(new[] { FileName(first), FileName(second) }.Order(StringComparer.Ordinal).ToArray(), leaves);
         var replay = await media.Publish(author, draft, key, [first.Id, second.Id], ct);
@@ -207,6 +214,14 @@ public sealed class PublishedMediaStorePostgresTests
         private readonly PublishedMediaStore _published;
         internal Store AuthorStore { get; }
         internal Publications Publications { get; }
+
+        internal async Task<IReadOnlyList<PublishedMediaReference>?> RestoreSelection(Actor owner, int article, long revision,
+            long publication, CancellationToken ct)
+        {
+            await using var db = await _db.OpenConnectionAsync(ct);
+            await using var tx = await db.BeginTransactionAsync(ct);
+            return await PublishedMediaStore.RestoreSelection(db, tx, _published, owner.Id, article, revision, publication, ct);
+        }
 
         internal Files(NpgsqlDataSource db, InstanceLease lease)
         {

@@ -96,6 +96,9 @@ export const FrameType = {
   AdminArticleArchivePreview: 33011,
   AdminArticleTrashRestoreIntent: 33062,
   AdminArticleTrashRestoreReceipt: 33063,
+  AdminArticleTrashPublicationPreview: 33064,
+  AdminArticleTrashPublicationIntent: 33065,
+  AdminArticleTrashPublicationReceipt: 33066,
   RevisionMetadataComparison: 33068,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
@@ -756,6 +759,11 @@ export const WireRoutes = {
   AdminArticleTrashRestoreBegin: "/api/v2/admin/identity/articles/trash/restore/step-up/begin.aeds",
   AdminArticleTrashRestoreComplete: "/api/v2/admin/identity/articles/trash/restore/step-up/complete.aeds",
   AdminArticleTrashRestoreExecute: "/api/v2/admin/identity/articles/trash/restore/execute.aeds",
+  AdminArticleTrashPublicationPreview: "/api/v2/admin/identity/articles/trash/publication/preview.aeds",
+  AdminArticleTrashPublicationAvailability: "/api/v2/admin/identity/articles/trash/publication/available.aeds",
+  AdminArticleTrashPublicationBegin: "/api/v2/admin/identity/articles/trash/publication/step-up/begin.aeds",
+  AdminArticleTrashPublicationComplete: "/api/v2/admin/identity/articles/trash/publication/step-up/complete.aeds",
+  AdminArticleTrashPublicationExecute: "/api/v2/admin/identity/articles/trash/publication/execute.aeds",
   AdminArticleArchiveAvailability: "/api/v2/admin/identity/articles/archive/available.aeds",
   AdminArticleArchivePage: "/api/v2/admin/identity/articles/archive/page.aeds",
   AdminArticleArchivePreview: "/api/v2/admin/identity/articles/archive/preview.aeds",
@@ -1176,6 +1184,37 @@ const adminArticleTrashRestoreReceiptFields = {
 };
 export interface AdminArticleTrashRestoreReceipt extends PodValue<typeof adminArticleTrashRestoreReceiptFields> {}
 export const [encodeAdminArticleTrashRestoreReceipt, decodeAdminArticleTrashRestoreReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleTrashRestoreReceipt>(adminArticleTrashRestoreReceiptFields);
+
+const adminArticleTrashPublicationPreviewFields = {
+  articleId: podField.i32,
+  expectedRevision: podField.i64,
+  sourceRevision: podField.i64,
+  sourcePublicationId: podField.i64,
+  title: podField.text(WireLimits.TitleBytes),
+};
+export interface AdminArticleTrashPublicationPreview extends PodValue<typeof adminArticleTrashPublicationPreviewFields> {}
+export const [encodeAdminArticleTrashPublicationPreview, decodeAdminArticleTrashPublicationPreview] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationPreview>(adminArticleTrashPublicationPreviewFields);
+
+const adminArticleTrashPublicationIntentFields = {
+  articleId: podField.i32,
+  expectedRevision: podField.i64,
+  sourceRevision: podField.i64,
+  sourcePublicationId: podField.i64,
+  idempotencyKey: podField.uuid,
+  reason: podField.text(WireLimits.RollbackReasonBytes),
+};
+export interface AdminArticleTrashPublicationIntent extends PodValue<typeof adminArticleTrashPublicationIntentFields> {}
+export const [encodeAdminArticleTrashPublicationIntent, decodeAdminArticleTrashPublicationIntent] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationIntent>(adminArticleTrashPublicationIntentFields);
+
+const adminArticleTrashPublicationReceiptFields = {
+  articleId: podField.i32,
+  revision: podField.i64,
+  sourceRevision: podField.i64,
+  sourcePublicationId: podField.i64,
+  publicationId: podField.i64,
+};
+export interface AdminArticleTrashPublicationReceipt extends PodValue<typeof adminArticleTrashPublicationReceiptFields> {}
+export const [encodeAdminArticleTrashPublicationReceipt, decodeAdminArticleTrashPublicationReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationReceipt>(adminArticleTrashPublicationReceiptFields);
 
 const adminSitePagesFields = {
   configuredMask: podField.i32,

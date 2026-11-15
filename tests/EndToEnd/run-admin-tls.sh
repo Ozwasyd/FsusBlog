@@ -721,10 +721,9 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
     union all
     select 'exact_admin_republication=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
-      join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision=r.revision
+      join public.article a on a.id=r.article_id
       join public.blog_user u on u.id=a.owner_id
-      join public.article_publication active on active.article_id=r.article_id and active.revision=r.revision
-        and active.publication_id=r.publication_id and active.publication_no=r.publication_no
+      join public.article_revision republished on republished.article_id=r.article_id and republished.revision=r.revision
       join public.admin_article_rollback archived on archived.article_id=r.article_id and archived.revision=r.previous_revision
         and archived.publication_id=r.previous_publication_id and archived.destination=3 and not archived.from_archive
       join public.article_revision archived_source on archived_source.article_id=archived.article_id and archived_source.revision=archived.revision
@@ -733,13 +732,49 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
       join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
         and h.admin_actor_id=r.principal_id and h.admin_command_id=r.command_id and h.kind='publish'
         and h.reason='administrator-archive-republished' and h.publication_id=r.publication_id and h.supersedes_id is null
+        and h.publication_no=r.publication_no
       join public.article_publication_canonical c on c.article_id=r.article_id and c.revision=r.revision
         and c.publication_id=r.publication_id and c.rights_snapshot_id=r.rights_snapshot_id and c.transition='publish'
       join public.blog_outbox e on e.id=c.outbox_id and e.kind='publish' and e.processed_at is not null
       where p.handle='tls-admin-fixture' and u.name='tls-site-fixture' and r.destination=2 and r.from_archive
-        and r.article_id=1 and r.previous_revision=3 and r.revision=4 and a.publication_count=4
+        and r.article_id=1 and r.previous_revision=3 and r.revision=4 and r.publication_no=4
         and r.source_revision=archived.source_revision and r.source_publication_id=archived.source_publication_id
-        and (a.title,a.body)=(archived_source.title,archived_source.body)
+        and (republished.title,republished.body)=(archived_source.title,archived_source.body)
+    union all
+    select 'exact_admin_trash_republication=' || count(*) from public.admin_article_rollback r
+      join public.admin_principal p on p.id=r.principal_id
+      join public.article a on a.id=r.article_id and not a.deleted and a.revision=r.revision and a.published_revision=r.revision
+        and a.publication_count=r.publication_no
+      join public.blog_user u on u.id=a.owner_id
+      join public.article_publication active on active.article_id=a.id and active.revision=r.revision
+        and active.publication_id=r.publication_id and active.publication_no=r.publication_no
+      join public.article_publication_history h on h.article_id=a.id and h.revision=r.revision
+        and (h.admin_actor_id,h.admin_command_id)=(r.principal_id,r.command_id) and h.kind='publish'
+        and h.reason='administrator-trash-republished' and h.publication_id=r.publication_id
+        and h.publication_no=r.publication_no and h.supersedes_id is null
+      join public.article_publication_history deleted on deleted.article_id=a.id and deleted.event_no=h.event_no-1
+        and deleted.kind='delete' and deleted.reason='author-deleted' and deleted.actor_id=a.owner_id
+        and deleted.revision=r.previous_revision and deleted.supersedes_id=r.source_publication_id
+      join public.admin_article_rollback former on former.article_id=a.id and former.revision=r.source_revision
+        and former.publication_id=r.source_publication_id and former.from_archive
+      join public.article_revision original on original.article_id=a.id and original.revision=r.source_revision
+      join public.article_revision hidden on hidden.article_id=a.id and hidden.revision=r.previous_revision
+      join public.article_revision restored on restored.article_id=a.id and restored.revision=r.revision
+      join public.article_revision_responsibility responsibility on responsibility.id=r.responsibility_snapshot_id
+        and responsibility.source_snapshot_id=former.responsibility_snapshot_id
+      join public.article_publication_canonical c on c.article_id=a.id and c.revision=r.revision
+        and c.publication_id=r.publication_id and c.rights_snapshot_id=r.rights_snapshot_id and c.transition='publish'
+      join public.blog_outbox e on e.id=c.outbox_id and e.kind='publish' and e.processed_at is not null
+      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture' and r.destination=2 and r.from_trash and not r.from_archive
+        and r.article_id=1 and r.previous_revision=6 and r.source_revision=4 and r.revision=7 and r.publication_no=5
+        and r.previous_publication_id=r.source_publication_id and r.publication_id<>r.source_publication_id
+        and r.rights_snapshot_id<>former.rights_snapshot_id
+        and (hidden.title,hidden.body)=('Never published fixture title','neverpublictrashrestoremarker')
+        and (a.title,a.body)=(original.title,original.body)
+        and (restored.title,restored.body,restored.author_summary) is not distinct from (original.title,original.body,original.author_summary)
+        and not exists (select from public.article_command where article_id=a.id and revision=r.revision)
+    union all
+    select 'one_trash_republication_event=' || count(*) from public.blog_outbox where article_id=1 and revision=7 and kind='publish'
     union all
     select 'one_archive_retract_event=' || count(*) from public.blog_outbox
       where article_id=1 and revision=3 and kind='retract' and processed_at is not null
@@ -767,7 +802,8 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
     union all
     select 'one_trash_restore_event=' || count(*) from public.blog_outbox where article_id=23 and revision=2 and kind='restore'
   " > "$evidence/admin-article-archive-counts.txt"
-  for check in exact_admin_archive exact_admin_republication one_archive_retract_event one_archive_publish_event exact_trash_restore one_trash_restore_event; do
+  for check in exact_admin_archive exact_admin_republication exact_admin_trash_republication one_trash_republication_event \
+    one_archive_retract_event one_archive_publish_event exact_trash_restore one_trash_restore_event; do
     grep -Fxq "$check=1" "$evidence/admin-article-archive-counts.txt"
   done
   "$dotnet" "$migrate" verify > "$evidence/admin-article-archive-schema-verify.log" 2>&1

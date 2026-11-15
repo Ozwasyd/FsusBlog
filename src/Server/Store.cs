@@ -271,7 +271,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 bodyInsertion = Authoring.ArticleBodyInsertionStore.PrepareEdits(source.Body, state.Body, bodyEdits.Edits);
             }
             if (publishedMedia is { } share)
-                images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);
+                images = await share.Store.Prepare(db, tx, actor.Id, edit.Id, edit.ExpectedRevision, share.Selection, ct);
             await UpdateArticleHead(db, tx, state, ct);
         }
         var sourceRevision = rollback?.SourceRevision ?? edit.ExpectedRevision;

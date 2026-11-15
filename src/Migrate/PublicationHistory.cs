@@ -33,8 +33,12 @@ internal static partial class Migration
         bool hasAdminDraftRollback = hasAdminRollback &&
             await CurrentSchema.HasAdminArticleDraftRollbackSchemaAsync(connection, tx, ct);
         bool hasArchive = hasAdminDraftRollback && await CurrentSchema.HasAdminArticleArchiveSchemaAsync(connection, tx, ct);
+        bool hasTrashPublication = hasAdminRollback && await CurrentSchema.HasAdminArticleTrashPublicationSchemaAsync(connection, tx, ct);
+        bool hasPrivateTrashRestore = await CurrentSchema.HasAdminArticleTrashRestoreAsync(connection, tx, ct);
+        bool hasSummary = await CurrentSchema.HasArticleSummaryAsync(connection, tx, ct);
         var adminDestination = hasAdminDraftRollback ? "b.destination" : "2";
         var adminFromArchive = hasArchive ? "b.from_archive" : "false";
+        var adminFromTrash = hasTrashPublication ? "b.from_trash" : "false";
         var copiedRevision = hasArchive ? "(case when b.from_archive then b.previous_revision else b.source_revision end)" : "b.source_revision";
         var copiedRelease = hasArchive ? "(case when b.from_archive then b.previous_publication_id else b.source_publication_id end)" :
             "b.source_publication_id";
@@ -79,6 +83,66 @@ internal static partial class Migration
                         or coalesce(o.publishes,0)<>1
                         or coalesce(o.retractions,0)>0 or coalesce(o.deletions,0)>0))
             """ : "";
+        var publishedSummary = hasSummary ? "or source_content.author_summary is distinct from next_content.author_summary" : "";
+        var restoredMedia = hasTrashPublication && await CurrentSchema.HasPublicationMediaAsync(connection, tx, ct) ? """
+                        or array(select to_jsonb(m)-'publication_id'-'revision' from public.article_publication_media m
+                            where m.article_id=h.article_id and m.publication_id=b.source_publication_id and m.revision=b.source_revision order by ordinal)
+                           is distinct from array(select to_jsonb(m)-'publication_id'-'revision' from public.article_publication_media m
+                            where m.article_id=h.article_id and m.publication_id=b.publication_id and m.revision=b.revision order by ordinal)
+            """ : "";
+        var trashPublicationVerification = hasTrashPublication ? $"""
+                    or (b.from_trash and (
+                        {adminFromArchive} or {adminDestination}<>2 or h.previous_active is not null
+                        or h.previous_kind is distinct from 'delete' or h.previous_reason is distinct from 'author-deleted'
+                        or b.source_publication_id is distinct from h.previous_supersedes
+                        or b.previous_publication_id is distinct from b.source_publication_id
+                        or source_release.event_no is distinct from h.previous_event-1
+                        or source_release.publication_no is distinct from h.previous_count
+                        {restoredMedia}
+                        or source_release.kind not in ('retained-active','publish','replace')
+                        {publishedSummary}
+                        or coalesce(o.publishes,0)<>1 or coalesce(o.retractions,0)<>0 or coalesce(o.deletions,0)<>0))
+            """ : "";
+        const string copiedResponsibility = """
+            source_evidence.snapshot_id is null or derived.source_snapshot_id is distinct from source_evidence.snapshot_id
+                or (derived.responsible_party,derived.basis,derived.reference,derived.recorded_by) is distinct from
+                (original.responsible_party,original.basis,original.reference,original.recorded_by)
+            """;
+        var derivedResponsibility = hasTrashPublication ? $"""
+                    case when b.from_trash and source_evidence.snapshot_id is null then
+                        derived.id is null or derived.source_snapshot_id is not null or
+                        (derived.responsible_party,derived.basis,derived.reference,derived.recorded_by) is distinct from
+                        ('admin:'||b.principal_id::text,b.reason,'publication:'||b.source_publication_id::text,'admin:'||b.principal_id::text)
+                    else {copiedResponsibility} end
+            """ : copiedResponsibility;
+        var privateAdminRestore = hasPrivateTrashRestore ? """
+                        or exists (select from public.admin_article_trash_restore r
+                            where r.article_id=h.article_id and r.previous_revision=h.revision and r.revision=restored.revision)
+            """ : "";
+        var privateSummary = hasSummary ? "and current_revision.author_summary is not distinct from deleted_revision.author_summary" : "";
+        var privateRecovery = $"""
+            exists (
+                select from public.blog_outbox restored
+                join public.article_revision current_revision
+                    on (current_revision.article_id,current_revision.revision)=(restored.article_id,restored.revision)
+                join public.article_revision deleted_revision
+                    on (deleted_revision.article_id,deleted_revision.revision)=(h.article_id,h.revision)
+                where restored.article_id=h.article_id and restored.revision=h.revision+1 and restored.kind='restore'
+                    and (current_revision.title,current_revision.body) is not distinct from (deleted_revision.title,deleted_revision.body)
+                    {privateSummary}
+                    and (exists (select from public.article_command recovered
+                        where recovered.actor_id=a.owner_id and recovered.article_id=h.article_id
+                            and recovered.revision=restored.revision and not recovered.published
+                            and recovered.fingerprint=sha256(convert_to('4','UTF8')||decode('00','hex')||
+                                convert_to(h.article_id::text,'UTF8')||decode('00','hex')||
+                                convert_to(h.revision::text,'UTF8')||decode('0000','hex')))
+                        {privateAdminRestore})
+            )
+            """;
+        var nextPublicRestore = hasTrashPublication ? """
+            coalesce(h.next_revision=h.revision+1 and h.next_kind='publish'
+                and h.next_reason='administrator-trash-republished', false)
+            """ : "false";
         var archivedSchedule = hasArticleSchedule ? """
                     or exists(select from public.article_schedule pending where pending.article_id=h.article_id)
             """ : "";
@@ -95,9 +159,10 @@ internal static partial class Migration
                     or h.publication_no<>h.previous_count+1
                     or b.article_id is distinct from h.article_id or b.revision is distinct from h.revision
                     or b.previous_revision is distinct from h.previous_revision
-                    or (not {adminFromArchive} and
+                    or (not {adminFromArchive} and not {adminFromTrash} and
                         (h.previous_active is null or b.previous_publication_id is distinct from h.previous_active))
                     {restoreVerification}
+                    {trashPublicationVerification}
                     or b.publication_no is distinct from h.publication_no
                     or b.published_at is distinct from h.happened_at or b.source_publication_id is null
                     or source_release.event_no is null or source_release.event_no>=h.event_no
@@ -109,9 +174,7 @@ internal static partial class Migration
                     or array(select tag_id from public.article_revision_tag where article_id=b.article_id and revision={copiedRevision} order by tag_id)
                         is distinct from array(select tag_id from public.article_revision_tag where article_id=b.article_id and revision=b.revision order by tag_id)
                     or next_evidence.snapshot_id is distinct from b.responsibility_snapshot_id
-                    or source_evidence.snapshot_id is null or derived.source_snapshot_id is distinct from source_evidence.snapshot_id
-                    or (derived.responsible_party,derived.basis,derived.reference,derived.recorded_by) is distinct from
-                        (original.responsible_party,original.basis,original.reference,original.recorded_by)
+                    or ({derivedResponsibility})
                     or case
                         when {adminDestination} in (0,3) then h.kind<>'retract'
                             or h.reason<>case when {adminDestination}=0 then 'administrator-rollback-draft' else 'administrator-rollback-archived' end
@@ -122,8 +185,9 @@ internal static partial class Migration
                             or coalesce(o.retractions,0)<>1
                             or coalesce(o.publishes,0)>0 or coalesce(o.deletions,0)>0
                         when {adminDestination}=2 then
-                            h.kind<>case when {adminFromArchive} then 'publish' else 'replace' end
-                            or h.reason<>case when {adminFromArchive} then 'administrator-archive-republished' else 'administrator-rollback-replaced' end
+                            h.kind<>case when {adminFromArchive} or {adminFromTrash} then 'publish' else 'replace' end
+                            or h.reason<>case when {adminFromTrash} then 'administrator-trash-republished'
+                                when {adminFromArchive} then 'administrator-archive-republished' else 'administrator-rollback-replaced' end
                             or h.publication_id is null
                             or b.publication_id is distinct from h.publication_id
                             or coalesce(o.publishes,0)=0
@@ -153,7 +217,12 @@ internal static partial class Migration
                        coalesce(lag(publication_no) over w,0) as previous_count,
                        lag(publication_id) over w as previous_active,
                        lag(revision) over w as previous_revision,
+                       lag(supersedes_id) over w as previous_supersedes,
+                       lag(kind) over w as previous_kind,
                        lag(reason) over w as previous_reason,
+                       lead(revision) over w as next_revision,
+                       lead(kind) over w as next_kind,
+                       lead(reason) over w as next_reason,
                        lead(event_no) over w as next_event
                 from public.article_publication_history h
                 window w as (partition by article_id order by event_no)
@@ -171,7 +240,7 @@ internal static partial class Migration
                {archiveVerification}
                or (h.next_event is null and (
                     h.publication_no<>a.publication_count or h.publication_id is distinct from p.publication_id
-                    or (h.kind<>'retained-hidden' and a.deleted<>(h.kind='delete'))
+                    or (h.kind not in ('retained-hidden','delete') and a.deleted)
                     or p.revision is distinct from a.published_revision
                     or (p.publication_id is not null and (a.deleted or h.revision<>p.revision
                          or p.publication_no<>h.publication_no or h.happened_at is distinct from p.published_at))
@@ -191,7 +260,8 @@ internal static partial class Migration
                     or h.reason<>case h.kind when 'publish' then case when s.command_id is null then 'author-published' else 'scheduled-published' end
                          when 'replace' then case when s.command_id is null then 'author-replaced' else 'scheduled-replaced' end
                          when 'retract' then 'author-withdrew' when 'delete' then 'author-deleted' end
-                    or (h.kind='delete' and (h.next_event is not null or not a.deleted))
+                    or (h.kind='delete' and (h.next_event is not null or not a.deleted)
+                        and not ({nextPublicRestore} or ((h.next_revision is null or h.next_revision>h.revision+1) and {privateRecovery})))
                     or (h.kind='publish' and h.previous_active is not null)
                     or (h.kind='replace' and h.previous_active is null)
                     or (h.kind in ('publish','replace') and

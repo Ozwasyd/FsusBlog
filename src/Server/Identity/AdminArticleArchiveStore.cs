@@ -141,7 +141,7 @@ internal sealed partial class AdminPasskeyStore
             throw new BusinessException(Rejection.NotFound, "Article archive transitions are unavailable.");
     }
 
-    private sealed record ArchivedTarget(string Title, string Body, long Responsibility, PublicationHistoryStore.AdminArchiveSource Lineage);
+    private sealed record ArchivedTarget(string Title, string Body, long Responsibility, PublicationHistoryStore.AdminPublicationRestoreSource Lineage);
 
     private static async Task<ArchivedTarget> ReadArchivedTarget(NpgsqlConnection db, NpgsqlTransaction tx,
         int article, long revision, long privateRelease, bool locking, bool includeBody, CancellationToken ct)

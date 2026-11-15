@@ -496,6 +496,9 @@ enum class FrameType : uint16_t {
     AdminArticleArchivePreview = 33011,
     AdminArticleTrashRestoreIntent = 33062,
     AdminArticleTrashRestoreReceipt = 33063,
+    AdminArticleTrashPublicationPreview = 33064,
+    AdminArticleTrashPublicationIntent = 33065,
+    AdminArticleTrashPublicationReceipt = 33066,
     RevisionMetadataComparison = 33068,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
@@ -686,7 +689,7 @@ inline constexpr FrameRange frameRanges[] = {
     {32997, 33030},
     {33032, 33049},
     {33055, 33060},
-    {33062, 33063},
+    {33062, 33066},
     {33068, 33068},
     {33070, 33070},
 };

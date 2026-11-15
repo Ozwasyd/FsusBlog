@@ -86,7 +86,7 @@ internal sealed partial class AdminPasskeyStore
 
             var release = await PublicationHistoryStore.RollbackByAdministrator(db, tx, article, stage.CurrentPublication,
                 intent.SourceRevision, revision, stage.CurrentRevision, stage.SourcePublication, stage.SourceResponsibility!.Value,
-                admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, destination, archivedSource: null, ct);
+                admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, destination, restored: null, ct);
             invalidatePublic();
             return RollbackReceipt(article, revision, intent.SourceRevision, stage.CurrentPublication, release);
         }, ct);
@@ -96,16 +96,17 @@ internal sealed partial class AdminPasskeyStore
     {
         var typedDestination = action != StepUpAction.PublishArticleRollback;
         var archive = action == StepUpAction.ArticleArchive;
+        var trash = action == StepUpAction.RestoreDeletedPublication;
         await using var previous = Store.Sql(db, tx, $"""
             select fingerprint,article_id,revision,{(fromArchive ? "previous_revision" : "source_revision")},
                 previous_publication_id,publication_id,publication_no,published_at,rights_snapshot_id,responsibility_snapshot_id,
-                {(typedDestination ? "destination" : "2")},{(archive ? "from_archive" : "false")}
+                {(typedDestination ? "destination" : "2")},{(archive ? "from_archive" : "false")}{(trash ? ",from_trash" : "")}
             from public.admin_article_rollback where principal_id=$1 and command_id=$2
             """, administrator, command);
         await using var receipt = await previous.ExecuteReaderAsync(ct);
         if (!await receipt.ReadAsync(ct)) return null;
         if (!CryptographicOperations.FixedTimeEquals(receipt.GetFieldValue<byte[]>(0), fingerprint) ||
-            receipt.GetInt32(10) != destination || receipt.GetBoolean(11) != fromArchive)
+            receipt.GetInt32(10) != destination || receipt.GetBoolean(11) != fromArchive || (trash && !receipt.GetBoolean(12)))
             throw new BusinessException(Rejection.Conflict, "This administrator rollback command key is already in use.");
         return new AdminArticleRollbackReceipt(receipt.GetInt32(1), receipt.GetInt64(2), receipt.GetInt64(3),
             receipt.GetInt64(4), receipt.GetInt64(5), receipt.GetInt32(6),
@@ -121,18 +122,19 @@ internal sealed partial class AdminPasskeyStore
             {
                 StepUpAction.DraftArticleRollback => "A current Passkey proof for this exact draft rollback is required.",
                 StepUpAction.ArticleArchive => "A current Passkey proof for this exact archive transition is required.",
+                StepUpAction.RestoreDeletedPublication => "A current Passkey proof for this exact restoration of a former publication is required.",
                 _ => "A current Passkey proof for this exact published rollback is required."
             });
     }
 
     private static async Task CopyRollbackRevision(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
-        long previousRevision, string title, string body, long sourceRevision, int destination, CancellationToken ct)
+        long previousRevision, string title, string body, long sourceRevision, int destination, CancellationToken ct, bool wasDeleted = false)
     {
         await using (var update = Store.Sql(db, tx, """
-            update public.article set revision=$2,title=$3,body=$4,
+            update public.article set revision=$2,title=$3,body=$4,deleted=false,
                 published_revision=case when $6 then $2 else null end,updated_at=clock_timestamp()
-            where id=$1 and revision=$5 and not deleted
-            """, article, revision, title, body, previousRevision, destination == Wire.AdminArticleRestoreStatus))
+            where id=$1 and revision=$5 and deleted=$7
+            """, article, revision, title, body, previousRevision, destination == Wire.AdminArticleRestoreStatus, wasDeleted))
             if (await update.ExecuteNonQueryAsync(ct) != 1)
                 throw new BusinessException(Rejection.Conflict, "The article has changed.");
         await using (var addRevision = Store.Sql(db, tx, """

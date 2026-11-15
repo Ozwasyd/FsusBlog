@@ -108,6 +108,9 @@
     "AdminArticleArchivePreview": 33011,
     "AdminArticleTrashRestoreIntent": 33062,
     "AdminArticleTrashRestoreReceipt": 33063,
+    "AdminArticleTrashPublicationPreview": 33064,
+    "AdminArticleTrashPublicationIntent": 33065,
+    "AdminArticleTrashPublicationReceipt": 33066,
     "RevisionMetadataComparison": 33068,
     "AdminSitePageRevision": 32915,
     "AdminSitePagePublish": 32916,
@@ -370,6 +373,11 @@
     "AdminArticleTrashRestoreBegin": "/api/v2/admin/identity/articles/trash/restore/step-up/begin.aeds",
     "AdminArticleTrashRestoreComplete": "/api/v2/admin/identity/articles/trash/restore/step-up/complete.aeds",
     "AdminArticleTrashRestoreExecute": "/api/v2/admin/identity/articles/trash/restore/execute.aeds",
+    "AdminArticleTrashPublicationPreview": "/api/v2/admin/identity/articles/trash/publication/preview.aeds",
+    "AdminArticleTrashPublicationAvailability": "/api/v2/admin/identity/articles/trash/publication/available.aeds",
+    "AdminArticleTrashPublicationBegin": "/api/v2/admin/identity/articles/trash/publication/step-up/begin.aeds",
+    "AdminArticleTrashPublicationComplete": "/api/v2/admin/identity/articles/trash/publication/step-up/complete.aeds",
+    "AdminArticleTrashPublicationExecute": "/api/v2/admin/identity/articles/trash/publication/execute.aeds",
     "AdminArticleArchiveAvailability": "/api/v2/admin/identity/articles/archive/available.aeds",
     "AdminArticleArchivePage": "/api/v2/admin/identity/articles/archive/page.aeds",
     "AdminArticleArchivePreview": "/api/v2/admin/identity/articles/archive/preview.aeds",
@@ -995,6 +1003,15 @@
     },
     "AdminArticleTrashRestoreReceipt": {
       "fields": [["ArticleId", "i32"], ["Revision", "i64"]]
+    },
+    "AdminArticleTrashPublicationPreview": {
+      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["Title", "text", "TitleBytes"]]
+    },
+    "AdminArticleTrashPublicationIntent": {
+      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+    },
+    "AdminArticleTrashPublicationReceipt": {
+      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["PublicationId", "i64"]]
     },
     "AdminSitePages": {
       "fields": [["ConfiguredMask", "i32"]]

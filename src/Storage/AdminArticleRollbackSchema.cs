@@ -4,16 +4,17 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static string[] GetAdminArticleRollbackColumns(bool draft, bool archive) =>
+    private static string[] GetAdminArticleRollbackColumns(bool draft, bool archive, bool trash) =>
     [
         "article_revision_responsibility id:int8:a article_id:int4 revision:int8 responsible_party:text basis:text reference:text recorded_by:text recorded_at:timestamptz=clock_timestamp source_snapshot_id:int8?",
         "article_publication_responsibility publication_id:int8 article_id:int4 revision:int8 snapshot_id:int8",
         "admin_article_rollback principal_id:uuid command_id:uuid fingerprint:bytea article_id:int4 previous_revision:int8 source_revision:int8 revision:int8 source_publication_id:int8 previous_publication_id:int8 publication_id:int8 publication_no:int4 published_at:timestamptz rights_snapshot_id:int8 responsibility_snapshot_id:int8 reason:text"
-            + (draft ? " destination:int4=2" : "") + (archive ? " from_archive:bool=false" : ""),
+            + (draft ? " destination:int4=2" : "") + (archive ? " from_archive:bool=false" : "")
+            + (trash ? " from_trash:bool=false" : ""),
         StepUpColumns("admin_article_rollback_step_up")
     ];
 
-    private static string[] GetAdminArticleRollbackConstraints(bool draft, bool archive) =>
+    private static string[] GetAdminArticleRollbackConstraints(bool draft, bool archive, bool trash) =>
     [
         "article_revision_responsibility p id",
         "article_revision_responsibility u article_id,revision",
@@ -51,7 +52,12 @@ internal static partial class CurrentSchema
             "admin_article_rollback c destination destination=ANY(ARRAY[0,2,3])",
             "admin_article_rollback c from_archive,destination NOTfrom_archiveORdestination=2"
         } : draft ? ["admin_article_rollback c destination destination=ANY(ARRAY[0,2])"] : []),
-        ..StepUpConstraints("admin_article_rollback_step_up", archive ? "action=ANY(ARRAY[3,7,8])" : draft ? "action=ANY(ARRAY[3,7])" : "action=3")
+        ..(trash ? new[] {
+            "admin_article_rollback c from_trash,destination NOTfrom_trashORdestination=2",
+            "admin_article_rollback c from_trash,from_archive NOTfrom_trashORNOTfrom_archive"
+        } : []),
+        ..StepUpConstraints("admin_article_rollback_step_up", trash ? "action=ANY(ARRAY[3,7,8,11])" :
+            archive ? "action=ANY(ARRAY[3,7,8])" : draft ? "action=ANY(ARRAY[3,7])" : "action=3")
     ];
 
     internal static async Task<bool> HasAdminArticleRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
@@ -79,6 +85,9 @@ internal static partial class CurrentSchema
 
     internal static async Task<bool> HasAdminArticleArchiveSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
         => await HasRollbackColumn(db, tx, "from_archive", ct);
+
+    internal static Task<bool> HasAdminArticleTrashPublicationSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRollbackColumn(db, tx, "from_trash", ct);
 
     private static async Task<bool> HasRollbackColumn(NpgsqlConnection db, NpgsqlTransaction tx, string column, CancellationToken ct)
     {

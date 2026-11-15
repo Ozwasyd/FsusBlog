@@ -184,6 +184,8 @@ internal static partial class CurrentSchema
             await HasAdminArticleDraftRollbackSchemaAsync(connection, transaction, cancellationToken);
         var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
             await HasAdminArticleArchiveSchemaAsync(connection, transaction, cancellationToken);
+        var hasAdminArticleTrashPublication = hasAdminArticleArchive &&
+            await HasAdminArticleTrashPublicationSchemaAsync(connection, transaction, cancellationToken);
         var hasAdminArticleTrashRestore = await HasAdminArticleTrashRestoreAsync(connection, transaction, cancellationToken);
         if (hasAdminArticleTrashRestore && !requireAdminIdentity)
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
@@ -312,7 +314,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataColumns : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
+            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
             .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
@@ -364,7 +366,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataConstraints : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
+            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
             .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])

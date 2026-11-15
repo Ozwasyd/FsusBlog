@@ -14,4 +14,6 @@
 
 停服执行 `admin-article-trash-restore schema` 后，持有 `article.write` 的独立管理员可在回收站使用 **Restore to draft**。Passkey 证明绑定文章 ID、预期修订和命令 UUID。事务重新核验当前授权，锁定软删除文章并恢复给原作者。新私有修订继承正文、摘要、分类标签、权利、附件引用及作者属性。审核记录和恢复事件同一事务写入。AEDS 33063 仅含文章 ID 和新修订。断连后可重试同一请求核对原回执。
 
-v1 用 `/api/binary/admin/article` 的 ArticleList 帧提供独立管理员目录。v1 操作恢复后直接重新公开，V2 的 **Restore to draft** 明确恢复为私有稿件。管理员恢复并重新公开、旧列表帧兼容、批量管理及永久删除仍待实现。 [v1 管理接口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs) · [v1 发布行为](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.LifecycleAndReadModels.cs#L113-L178)
+停服重跑 `admin-article-rollback schema` 后，回收站对有可核验旧发布的文章显示 **Restore former publication with Passkey**。管理员确认的是作者删除所撤回的确切公开修订和发布坐标。预览只显示旧公开标题。写入重新核对删除尾事件、预期修订、权利和公开附件。新发布拷贝原公开修订，保存过但从未发布的修改仍留在原私有历史。已有责任快照沿用来源，旧发布没有责任快照时记录本次管理员的授权理由及所确认的发布坐标。操作写入新发布、独立命令和 outbox，并允许同一授权管理员重试获取原回执。
+
+v1 用 `/api/binary/admin/article` 的 ArticleList 帧提供独立管理员目录。V2 回收站分别提供恢复私有稿件与恢复公开发布。旧列表帧和旧 `/api/binary/admin/article/restore/{id}` 的协议兼容、批量管理及永久删除仍待实现。 [v1 管理接口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs) · [v1 发布行为](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.LifecycleAndReadModels.cs#L113-L178)

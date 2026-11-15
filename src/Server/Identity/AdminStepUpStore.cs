@@ -12,7 +12,7 @@ internal sealed partial class AdminPasskeyStore
 {
     private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
         ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7, ArticleArchive = 8,
-        ActivateRootCommentPow = 9, RestoreArticleTrash = 10 }
+        ActivateRootCommentPow = 9, RestoreArticleTrash = 10, RestoreDeletedPublication = 11 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -47,12 +47,13 @@ internal sealed partial class AdminPasskeyStore
     {
         var permission = StepUpPermission(action);
         var articleTransition = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or
-            StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash;
+            StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash or StepUpAction.RestoreDeletedPublication;
         var transition = action switch
         {
             StepUpAction.DraftArticleRollback => "draft rollback",
             StepUpAction.ArticleArchive => "archive transition",
             StepUpAction.RestoreArticleTrash => "trash restore",
+            StepUpAction.RestoreDeletedPublication => "former publication restore",
             _ => "published rollback"
         };
         var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
@@ -63,6 +64,7 @@ internal sealed partial class AdminPasskeyStore
             if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
             if (action == StepUpAction.ArticleArchive) await RequireArticleArchiveSchema(db, tx, ct);
             if (action == StepUpAction.RestoreArticleTrash) await RequireTrashRestoreSchema(db, tx, ct);
+            if (action == StepUpAction.RestoreDeletedPublication) await RequireTrashPublicationSchema(db, tx, ct);
             await using var consume = Store.Sql(db, tx, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
@@ -157,7 +159,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => "public.admin_step_up",
         StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive =>
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive or StepUpAction.RestoreDeletedPublication =>
             "public.admin_article_rollback_step_up",
         StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
@@ -171,7 +173,8 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash =>
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive or
+            StepUpAction.RestoreArticleTrash or StepUpAction.RestoreDeletedPublication =>
             CurrentSchema.ArticleWritePermission,
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
