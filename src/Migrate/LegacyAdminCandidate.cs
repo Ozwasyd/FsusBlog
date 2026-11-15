@@ -70,6 +70,9 @@ internal static partial class Migration
             "taxonomy_epoch" => """
                 SELECT count(*)=1 AND bool_and(singleton AND revision=0) FROM public.taxonomy_epoch
                 """,
+            "article_read_epoch" => """
+                SELECT count(*)=1 AND bool_and(singleton AND last_epoch IS NULL) FROM public.article_read_epoch
+                """,
             _ => null
         };
         if (sql is null) return false;

@@ -99,6 +99,7 @@ migrate=("$dotnet" "$FSUSBLOG_MIGRATE_DLL")
 "${migrate[@]}" apply "$root/bootstrap.json"
 [[ "$("${target_sql[@]}" -Atc "SELECT singleton,revision,
     (SELECT count(*) FROM public.admin_tag_metadata_command) FROM public.taxonomy_epoch")" == 't|0|0' ]]
+[[ "$("${target_sql[@]}" -Atc 'SELECT singleton,last_epoch IS NULL FROM public.article_read_epoch')" == 't|t' ]]
 "${target_sql[@]}" -c "INSERT INTO public.blog_user VALUES ('968ffb2b-77ef-4868-89ec-6a0a19b28b95','Import owner',true,true,1)"
 
 mkdir -m 700 "$root/backup" "$root/media"
@@ -126,6 +127,19 @@ apply=("${migrate[@]}" legacy import apply "$provider" "$root/owner.json" "$back
 if "${plan[@]}" > "$root/rejected.json" 2> "$root/error.log"; then exit 1; fi
 rg -Fx 'The taxonomy epoch and durable command history do not agree.' "$root/error.log"
 "${target_sql[@]}" -c 'UPDATE public.taxonomy_epoch SET revision=0 WHERE singleton'
+"${target_sql[@]}" -c 'UPDATE public.article_read_epoch SET last_epoch=1 WHERE singleton'
+if "${plan[@]}" > "$root/rejected.json" 2> "$root/error.log"; then exit 1; fi
+rg -Fx 'The independent target business and sequence digests differ from the backup.' "$root/error.log"
+result="$(python3 tools/site-backup.py capture "$root/backup" advanced-read-epoch "$root/media")"
+advanced_manifest="${result##* }"
+[[ "$advanced_manifest" =~ ^[0-9a-f]{64}$ ]]
+if "${migrate[@]}" legacy import plan "$provider" "$root/owner.json" "$root/backup/advanced-read-epoch" \
+    "$advanced_manifest" > "$root/rejected.json" 2> "$root/error.log"; then exit 1; fi
+rg -Fx 'The disposable target contains operational rows in article_read_epoch.' "$root/error.log"
+"${target_sql[@]}" -c 'DELETE FROM public.article_read_epoch WHERE singleton'
+if "${plan[@]}" > "$root/rejected.json" 2> "$root/error.log"; then exit 1; fi
+rg -Fx 'The article read epoch watermark is missing or inconsistent with the aggregate storage.' "$root/error.log"
+"${target_sql[@]}" -c 'INSERT INTO public.article_read_epoch(singleton) VALUES(true)'
 "${target_sql[@]}" -c "INSERT INTO public.admin_principal (id,handle,user_handle,enabled,generation)
     VALUES ('4ebd2ccb-f588-492c-94cb-f14d0ac890e5','fixture-page-editor',decode(repeat('b4',32),'hex'),false,1);
     UPDATE public.site_page_content SET revision=1,markdown='Unreviewed page' WHERE slug='about';
