@@ -10,6 +10,13 @@ public sealed record PublishedArticleImage(string Digest, int Format, int Length
 {
     public static bool ValidDigest(string value) => value.Length == 64 && value.All(char.IsAsciiHexDigitLower);
 
+    public static bool MatchesFormat(ReadOnlySpan<byte> bytes, int format) => format switch
+    {
+        1 => bytes.StartsWith((ReadOnlySpan<byte>)[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        2 => bytes.StartsWith((ReadOnlySpan<byte>)[0xff, 0xd8, 0xff]),
+        _ => false
+    };
+
     public bool Valid() => ValidDigest(Digest) && Format is 1 or 2 &&
         Length is >= 1 and <= 20 * 1024 * 1024 && Width is >= 1 and <= 8192 && Height is >= 1 and <= 8192 &&
         (long)Width * Height <= 16 * 1024 * 1024;

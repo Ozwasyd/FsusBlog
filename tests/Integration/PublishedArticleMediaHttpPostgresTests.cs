@@ -13,7 +13,7 @@ using SkiaSharp;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class PublishedArticleMediaHttpPostgresTests
+public sealed partial class PublishedArticleMediaHttpPostgresTests
 {
     [PostgresFact]
     public async Task ExplicitImagesAreScopedToCurrentPublicationAndRemainHiddenWhenDisabled()

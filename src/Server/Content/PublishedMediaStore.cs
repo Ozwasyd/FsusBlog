@@ -62,7 +62,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         foreach (var image in images)
         {
             var bytes = await privateFiles.Read(image.AssetId, image.Length, image.Digest, ct);
-            if (bytes is null || !MatchesFormat(bytes, image.Format))
+            if (bytes is null || !PublishedArticleImage.MatchesFormat(bytes, (int)image.Format))
                 throw new IOException("The retained private source is missing or has an unexpected format.");
             await objects.Materialize(Name(image.Digest), bytes, image.Digest, ct);
         }
@@ -129,7 +129,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
     internal async Task<byte[]?> ReadPublic(PublishedArticleImage image, CancellationToken ct)
     {
         var bytes = await objects.Read(image.Digest + ".media", image.Length, Convert.FromHexString(image.Digest), ct);
-        return bytes is not null && MatchesFormat(bytes, (MediaFormat)image.Format) ? bytes : null;
+        return bytes is not null && PublishedArticleImage.MatchesFormat(bytes, image.Format) ? bytes : null;
     }
 
     public void Dispose()
@@ -139,11 +139,4 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
     }
 
     private static string Name(byte[] digest) => Convert.ToHexStringLower(digest) + ".media";
-
-    private static bool MatchesFormat(ReadOnlySpan<byte> bytes, MediaFormat format) => format switch
-    {
-        MediaFormat.Png => bytes.StartsWith((ReadOnlySpan<byte>)[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-        MediaFormat.Jpeg => bytes.StartsWith((ReadOnlySpan<byte>)[0xff, 0xd8, 0xff]),
-        _ => false
-    };
 }

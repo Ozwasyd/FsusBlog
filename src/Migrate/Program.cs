@@ -57,6 +57,8 @@ internal static partial class Migration
                                         Add private resumable upload staging with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
                   article-public-media  Add explicit publication attachment storage with the server stopped
+                  article-public-media verify|rebuild SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
+                                        Check historical image objects or rebuild missing objects from retained private bytes
                   authoring-workspace Add private workspace layout storage with the server stopped
                   author-recent-opens Add private recent article opens with the server stopped
                   saved-views          Add private author saved views with the server stopped
@@ -261,6 +263,11 @@ internal static partial class Migration
                     break;
                 case ["article-public-media"]:
                     await InitializePublicationMediaAsync(connection, token);
+                    break;
+                case ["article-public-media", var mediaOperation, var mediaSite, var privateMediaRoot, var publicMediaRoot, var mediaWebRoot]
+                    when mediaOperation is "verify" or "rebuild":
+                    await VerifyOrRebuildPublicationMediaAsync(connection, mediaOperation == "rebuild", mediaSite,
+                        privateMediaRoot, publicMediaRoot, mediaWebRoot, token);
                     break;
                 case ["authoring-workspace"]:
                     await InitializeAuthoringWorkspaceAsync(connection, token);

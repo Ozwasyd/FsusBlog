@@ -40,6 +40,11 @@ internal static partial class Migration
             SELECT article_id FROM public.article_publication_media
             GROUP BY article_id,publication_id
             HAVING max(ordinal)<>count(*) OR sum(length)>$1
+            UNION ALL
+            SELECT min(article_id) FROM public.article_publication_media
+            GROUP BY content_hash
+            HAVING min(format)<>max(format) OR min(length)<>max(length)
+                OR min(width)<>max(width) OR min(height)<>max(height)
             LIMIT 1
             """, db, tx);
         command.Parameters.AddWithValue(CurrentSchema.PublicationMediaMaximumBytes);
