@@ -191,8 +191,8 @@ export function cancelDocumentExportTask(id: string, session: string, signal: Ab
 }
 
 const receiptType = 'application/vnd.fsus.document-export-receipt+json';
-const wordReceiptType = 'application/vnd.fsus.document-export-receipt.v2+json';
-export const wordWarningLabels = {
+const formattingReceiptType = 'application/vnd.fsus.document-export-receipt.v2+json';
+const wordWarningLabels = {
   'heading-level-reduced': 'Deep headings use the Word Heading 3 style.',
   'heading-markup-as-text': 'Heading markup is preserved as text.',
   'list-as-text': 'List markers are preserved as text.',
@@ -205,8 +205,13 @@ export const wordWarningLabels = {
   'render-directive-as-code': 'Render directives are preserved as code.',
   'code-language-omitted': 'Code blocks use plain monospace without language highlighting.',
 } as const;
-export type WordExportWarning = Readonly<{
-  code: keyof typeof wordWarningLabels;
+const epubWarningLabels = {
+  'epub-headings-outside-contents': 'Section headings stay in the chapter. The EPUB table of contents lists only the article title.',
+  'epub-code-unhighlighted': 'EPUB preserves code language labels without bundling syntax highlighting.',
+} as const;
+export const documentWarningLabels = { ...wordWarningLabels, ...epubWarningLabels };
+export type DocumentExportWarning = Readonly<{
+  code: keyof typeof documentWarningLabels;
   start: number;
   length: number;
   occurrences: number;
@@ -216,8 +221,12 @@ export async function downloadDocumentExportTask(task: DocumentExportTask, sessi
   return (await fetchDocumentExport(task, session, signal, receipt ? 1 : 0)).file;
 }
 
-export function readWordExportReceipt(task: DocumentExportTask, session: string, signal: AbortSignal) {
-  if (task.format !== 'docx') throw new ProtocolError('Expected a Word export task');
+export function hasExportWarnings(format: DocumentExportFormat): boolean {
+  return format === 'docx' || format === 'epub';
+}
+
+export function readExportFormattingReceipt(task: DocumentExportTask, session: string, signal: AbortSignal) {
+  if (!hasExportWarnings(task.format)) throw new ProtocolError('This format has no formatting report');
   return fetchDocumentExport(task, session, signal, 2);
 }
 
@@ -226,7 +235,7 @@ async function fetchDocumentExport(task: DocumentExportTask, session: string, si
   const output = documentOutputs[task.format];
   if (task.status !== 'succeeded' || !output || task.outputBytes > output.limit)
     throw new ProtocolError('Document export is not ready');
-  const type = version === 2 ? wordReceiptType : version === 1 ? receiptType : output.type;
+  const type = version === 2 ? formattingReceiptType : version === 1 ? receiptType : output.type;
   const expectedHash = task.outputHash.slice();
   const headers = new Headers(exportHeaders(session));
   headers.set('Accept', type);
@@ -258,16 +267,17 @@ async function fetchDocumentExport(task: DocumentExportTask, session: string, si
         document.output?.mime !== output.type || document.output.bytes !== task.outputBytes ||
         document.output.sha256 !== hex(expectedHash))
       throw new ProtocolError('Document export receipt differs from the task');
-    const warnings: WordExportWarning[] = [];
+    const warnings: DocumentExportWarning[] = [];
     if (version === 2) {
-      if (!Array.isArray(document.warnings)) throw new ProtocolError('Invalid Word export warnings');
+      if (!Array.isArray(document.warnings)) throw new ProtocolError('Invalid document export warnings');
+      const allowed = task.format === 'docx' ? wordWarningLabels : epubWarningLabels;
       const codes = new Set<string>();
       for (const warning of document.warnings) {
-        if (typeof warning?.code !== 'string' || !Object.hasOwn(wordWarningLabels, warning.code) ||
+        if (typeof warning?.code !== 'string' || !Object.hasOwn(allowed, warning.code) ||
             codes.has(warning.code) || !Number.isSafeInteger(warning.start) || warning.start < 0 ||
             !Number.isSafeInteger(warning.length) || warning.length < 1 || warning.start + warning.length > WireLimits.BodyBytes ||
             !Number.isSafeInteger(warning.occurrences) || warning.occurrences < 1 || warning.occurrences > WireLimits.BodyBytes)
-          throw new ProtocolError('Invalid Word export warnings');
+          throw new ProtocolError('Invalid document export warnings');
         codes.add(warning.code);
         warnings.push(warning);
       }

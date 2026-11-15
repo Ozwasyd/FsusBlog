@@ -115,17 +115,17 @@ internal static class WordDocumentExport
         string ImageId(int index) => images.Length == 1 ? "Image" : string.Create(CultureInfo.InvariantCulture, $"Image{index + 1}");
     }
 
-    internal sealed record FormatWarning(string Code, int Start, int Length, int Occurrences);
+    internal static DocumentExportWarning[] Warnings(string body, bool includeTables, CancellationToken ct)
+        => DocumentExportWarning.Collect(body, FindWarnings(body, includeTables, ct));
 
-    internal static FormatWarning[] Warnings(string body, bool includeTables, CancellationToken ct)
+    private static IEnumerable<(string Code, MarkdownObject Node)> FindWarnings(string body, bool includeTables, CancellationToken ct)
     {
-        var warnings = new Dictionary<string, FormatWarning>(StringComparer.Ordinal);
         var markdown = HtmlDocumentExport.ParseMarkdown(body, "Word", ct, includeTables, precise: true);
         foreach (var heading in markdown.OfType<HeadingBlock>())
         {
             ct.ThrowIfCancellationRequested();
-            if (heading.Level > 3) Record("heading-level-reduced", heading);
-            if (HeadingLabel(heading) is null) Record("heading-markup-as-text", heading);
+            if (heading.Level > 3) yield return ("heading-level-reduced", heading);
+            if (HeadingLabel(heading) is null) yield return ("heading-markup-as-text", heading);
         }
         foreach (var node in markdown.Descendants<MarkdownObject>())
         {
@@ -143,19 +143,7 @@ internal static class WordDocumentExport
                 FencedCodeBlock { Info.Length: > 0 } => "code-language-omitted",
                 _ => null
             };
-            if (code is not null) Record(code, node);
-        }
-        return warnings.Values.OrderBy(value => value.Start).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray();
-
-        void Record(string code, MarkdownObject node)
-        {
-            var start = node.Span.Start;
-            var end = Math.Min(node.Span.End, body.Length - 1);
-            if (start < 0 || start > end) return;
-            var known = warnings.GetValueOrDefault(code);
-            var count = (known?.Occurrences ?? 0) + 1;
-            warnings[code] = known is not null && known.Start <= start
-                ? known with { Occurrences = count } : new(code, start, end - start + 1, count);
+            if (code is not null) yield return (code, node);
         }
     }
 

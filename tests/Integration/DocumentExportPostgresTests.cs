@@ -83,7 +83,7 @@ public sealed partial class DocumentExportPostgresTests
         var reader = await Login(fixture, "Document task reader", canAuthor: false, ct);
 
         const string title = "Pinned Chinese 中文 title";
-        const string body = "## Frozen section\n\nHistorical document marker.\n";
+        const string body = "## Frozen section\n\nHistorical document marker.\n\n### Subsection\n\n~~~js\nconst saved = true;\n~~~\n";
         const string newerText = "Unrelated current document marker.";
         var htmlId = Guid.NewGuid();
         var wordId = Guid.NewGuid();
@@ -93,7 +93,7 @@ public sealed partial class DocumentExportPostgresTests
         ExportTask savedWord;
         ExportTask savedEpub;
         Draft older;
-        byte[] htmlBytes;
+        byte[] htmlBytes, epubReceipt;
 
         await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, Settings))
         {
@@ -156,6 +156,18 @@ public sealed partial class DocumentExportPostgresTests
                 title, sourceTime.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
             Assert.Contains("Historical document marker.", chapter.Root!.Value, StringComparison.Ordinal);
             Assert.DoesNotContain(newerText, chapter.Root!.Value, StringComparison.Ordinal);
+            Assert.Contains(chapter.Descendants(), element => element.Name.LocalName == "h3" && element.Value == "Subsection");
+            Assert.Equal("language-js", (string?)Assert.Single(chapter.Descendants(), element => element.Name.LocalName == "code").Attribute("class"));
+            epubReceipt = await ReadEpubFormatting(client);
+            var report = JsonNode.Parse(epubReceipt)!;
+            Assert.Equal(2, (int)report["version"]!);
+            Assert.Equal(Convert.ToHexStringLower(savedEpub.OutputDigest), (string?)report["output"]?["sha256"]);
+            var warnings = report["warnings"]!.AsArray();
+            Assert.Equal(new[] { "epub-headings-outside-contents", "epub-code-unhighlighted" },
+                warnings.Select(item => (string)item!["code"]!));
+            Assert.Equal(2, (int)warnings[0]!["occurrences"]!);
+            Assert.Equal(0, (int)warnings[0]!["start"]!);
+            Assert.Equal(body.IndexOf("~~~js", StringComparison.Ordinal), (int)warnings[1]!["start"]!);
             await Reject(client, DownloadRoute, outsider, Reference(htmlId), HttpStatusCode.NotFound, ct);
             await ExportResponseFixture.Receipt(client, htmlId, outsider.Token, outsider.Handle, HttpStatusCode.NotFound, ct);
             await Reject(client, DownloadRoute, reader, Reference(htmlId), HttpStatusCode.Forbidden, ct);
@@ -168,6 +180,7 @@ public sealed partial class DocumentExportPostgresTests
             Assert.Equal(new[] { htmlId, wordId, epubId, cancelId }.Order(),
                 (await List(restarted.Client, owner, older.Id, ct)).Select(task => task.Id).Order());
             Assert.Equal(htmlBytes, await Download(restarted.Client, owner, savedHtml, "text/html", "article.html", ct));
+            Assert.Equal(epubReceipt, await ReadEpubFormatting(restarted.Client));
 
             Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
                 update public.author_document_export set output=set_byte(output,0,(get_byte(output,0)+1)%256)
@@ -207,6 +220,15 @@ public sealed partial class DocumentExportPostgresTests
         await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
         await ExportResponseFixture.Receipt(final.Client, wordId, owner.Token, owner.Handle, HttpStatusCode.Unauthorized, ct);
+
+        async Task<byte[]> ReadEpubFormatting(HttpClient client)
+        {
+            const string type = "application/vnd.fsus.document-export-receipt.v2+json";
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(client, HttpMethod.Post, DownloadRoute, Reference(epubId),
+                owner.Token, owner.Handle, HttpStatusCode.OK, ct, type);
+            ExportResponseFixture.Attachment(response, type, "article.export-receipt.json");
+            return await response.Content.ReadAsByteArrayAsync(ct);
+        }
     }
 
     [PostgresFact]

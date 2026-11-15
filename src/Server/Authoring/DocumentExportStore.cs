@@ -116,7 +116,7 @@ internal static class DocumentExportStore
     {
         var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
-        if (task.State != DocumentExportState.Succeeded || (receiptVersion == 2 && task.Request.Format != DocumentExportFormat.Docx))
+        if (task.State != DocumentExportState.Succeeded || (receiptVersion == 2 && task.Request.Format is not (DocumentExportFormat.Docx or DocumentExportFormat.Epub)))
             throw DocumentExportEndpoints.Missing();
         var receipt = receiptVersion != 0;
         var hasAttachment = task.Provider is DocumentExportInput.AttachmentProvider or DocumentExportInput.ImageListProvider;
@@ -169,7 +169,10 @@ internal static class DocumentExportStore
         };
         if (version == 1) return JsonSerializer.SerializeToUtf8Bytes(result);
         var details = JsonSerializer.SerializeToNode(result)!.AsObject();
-        details["warnings"] = JsonSerializer.SerializeToNode(WordDocumentExport.Warnings(input.Body, task.Provider != 1, ct)
+        var warnings = task.Request.Format == DocumentExportFormat.Docx
+            ? WordDocumentExport.Warnings(input.Body, task.Provider != 1, ct)
+            : EpubDocumentExport.Warnings(input.Body, task.Provider != 1, ct);
+        details["warnings"] = JsonSerializer.SerializeToNode(warnings
             .Select(warning => new { code = warning.Code, start = warning.Start, length = warning.Length, occurrences = warning.Occurrences }));
         return JsonSerializer.SerializeToUtf8Bytes(details);
 

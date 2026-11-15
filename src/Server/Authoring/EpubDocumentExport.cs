@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Xml;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
+using Markdig.Syntax;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -100,6 +101,20 @@ internal static class EpubDocumentExport
         ct.ThrowIfCancellationRequested();
         if (output.Length > MaximumOutput) throw HtmlDocumentExport.TooLarge("EPUB");
         return output.ToArray();
+    }
+
+    internal static DocumentExportWarning[] Warnings(string body, bool includeTables, CancellationToken ct)
+        => DocumentExportWarning.Collect(body, FindWarnings(body, includeTables, ct));
+
+    private static IEnumerable<(string Code, MarkdownObject Node)> FindWarnings(string body, bool includeTables, CancellationToken ct)
+    {
+        var markdown = HtmlDocumentExport.ParseMarkdown(body, "EPUB", ct, includeTables, precise: true);
+        foreach (var node in markdown.Descendants<MarkdownObject>())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (node is HeadingBlock) yield return ("epub-headings-outside-contents", node);
+            if (node is FencedCodeBlock { Info.Length: > 0 }) yield return ("epub-code-unhighlighted", node);
+        }
     }
 
     private static byte[] ChapterDigest(byte[] chapter, DocumentExportAttachment[] images)
