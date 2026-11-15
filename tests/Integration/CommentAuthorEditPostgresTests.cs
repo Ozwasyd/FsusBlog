@@ -15,9 +15,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task ApprovedOwnerEditCommitsOneRevisionAndReturnsToReviewWithoutDuplicatingReplyNotice()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (owner, outsider) = await SeedBatchReplies(db, 1, ct);
         await Execute(db, "update public.comment_submit_command set user_id=$1 where article_id=1 and comment_id=1", ct, owner);

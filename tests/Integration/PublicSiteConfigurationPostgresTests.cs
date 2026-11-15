@@ -33,9 +33,7 @@ public sealed class PublicSiteConfigurationPostgresTests
     [PostgresFact]
     public async Task PublicPodMetadataHtmlAndFeedsShareOneExplicitSite()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = deadline.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         var settings = new Dictionary<string, string>
         {
             ["FSUSBLOG_PUBLIC_ORIGIN"] = "https://blog.example.test:443/",

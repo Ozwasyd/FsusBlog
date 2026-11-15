@@ -12,9 +12,7 @@ public sealed class PasskeyPostgresTests
     [PostgresFact]
     public async Task OneUseProvisioningTicketIsBoundToBrowserAndAccountGeneration()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
         var key = RandomNumberGenerator.GetBytes(32);
         var digest = SHA256.HashData(key);

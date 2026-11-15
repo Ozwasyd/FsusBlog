@@ -21,6 +21,12 @@ internal static class FixtureProcess
         return start;
     }
 
+    internal static async Task Stop(Process child, TimeSpan timeout)
+    {
+        if (!child.HasExited) child.Kill(entireProcessTree: true);
+        await child.WaitForExitAsync().WaitAsync(timeout);
+    }
+
     internal static async Task<Result> Run(ProcessStartInfo start, CancellationToken ct)
     {
         start.UseShellExecute = false;
@@ -32,8 +38,7 @@ internal static class FixtureProcess
         try { await process.WaitForExitAsync(ct); }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await Stop(process, TimeSpan.FromSeconds(5));
             throw;
         }
         return new(process.ExitCode, await output, await error);

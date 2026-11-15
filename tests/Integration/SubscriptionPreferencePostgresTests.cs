@@ -17,9 +17,7 @@ public sealed class SubscriptionPreferencePostgresTests
     [PostgresFact]
     public async Task FeatureRequiresConfiguredOriginAndExactStorage()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var key = RandomToken();
         await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct,
             new Dictionary<string, string> { [SubscriptionIdentity.KeySetting] = "" }))
@@ -50,9 +48,7 @@ public sealed class SubscriptionPreferencePostgresTests
     [PostgresFact]
     public async Task ProofIsBoundSingleUseAndCommitsWithSuppressionUnderRetries()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var key = RandomToken();
         var identity = SubscriptionIdentity.Read(key)!;

@@ -10,9 +10,7 @@ public sealed class AuthorArticleInventoryPostgresTests
     [PostgresFact]
     public async Task InventoryPagesRevealOnlyCurrentOwnerRowsAndHideDeletedDrafts()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var store = new Store(db.DataSource);
         var owner = await Login("inventory-owner", true);
         var other = await Login("inventory-other", true);

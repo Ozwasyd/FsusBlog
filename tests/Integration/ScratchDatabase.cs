@@ -29,9 +29,7 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     {
         var id = Guid.NewGuid();
         await using var connection = await DataSource.OpenConnectionAsync(ct);
-        await FixtureSql.ExecuteAsync(connection, null, ct, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)
-            """, id, name, canAuthor);
+        await FixtureSql.SiteAccountAsync(connection, null, ct, id, name, canAuthor);
         return (id, await FixtureSql.IssueLoginTicketAsync(connection, null, ct, id, minutes));
     }
 

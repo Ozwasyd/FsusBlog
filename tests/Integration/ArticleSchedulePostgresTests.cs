@@ -19,9 +19,7 @@ public sealed class ArticleSchedulePostgresTests
     [PostgresFact]
     public async Task ScheduledDraftKeepsItsPublicPredecessorAndConsumesOnlyItsExactDueCommand()
     {
-        using var stop = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = stop.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (author, token, _) = await fixture.SignIn("Scheduled author", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,

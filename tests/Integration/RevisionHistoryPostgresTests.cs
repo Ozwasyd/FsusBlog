@@ -10,9 +10,7 @@ public sealed class RevisionHistoryPostgresTests
     [PostgresFact]
     public async Task OwnerCanCompareAndRestoreExactDraftWithoutMovingPublicCoordinates()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await fixture.SignIn("Revision owner", ct);
         var otherSession = await fixture.SignIn(owner.Id, ct);
@@ -290,9 +288,7 @@ public sealed class RevisionHistoryPostgresTests
     [PostgresFact]
     public async Task BodyEditsSaveWithoutClaimingProofOnOlderSchema()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         // Reproduce the supported physical shape before body-edit evidence was installed.
         await FixtureSql.ExecuteAsync(db, null, ct, """

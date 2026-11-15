@@ -13,9 +13,7 @@ public sealed class MfaPostgresTests
     [PostgresFact]
     public async Task SessionAndPurposeBoundProofsRejectReplaysAndRevokedGenerations()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var protector = new TotpSecret(RandomNumberGenerator.GetBytes(32));
         var store = new MfaStore(fixture.DataSource, protector);
         var id = Guid.NewGuid();

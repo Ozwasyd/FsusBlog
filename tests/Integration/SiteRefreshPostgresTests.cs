@@ -12,9 +12,7 @@ public sealed class SiteRefreshPostgresTests
     [PostgresFact]
     public async Task SerializesCompetingRotationsAndRevokesOnlyTheProvenReplayFamily()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var refresh = new SiteRefreshStore(fixture.DataSource);
         var access = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -81,9 +79,7 @@ public sealed class SiteRefreshPostgresTests
     [PostgresFact]
     public async Task RenewsPastAccessExpiryAndCapsIdleExpiryAtTheAbsoluteDeadline()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var refresh = new SiteRefreshStore(fixture.DataSource);
         var access = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -136,9 +132,7 @@ public sealed class SiteRefreshPostgresTests
     [PostgresFact]
     public async Task RechecksGenerationAfterAccountLockAndCascadesRevocationAndSignOut()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var refresh = new SiteRefreshStore(fixture.DataSource);
         var access = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -179,9 +173,7 @@ public sealed class SiteRefreshPostgresTests
     [PostgresFact]
     public async Task ListsAndRevokesPersistentSessionsAfterTheirAccessHasExpired()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var refresh = new SiteRefreshStore(fixture.DataSource);
         var access = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);

@@ -143,11 +143,7 @@ internal sealed class NativeCaddyProxy(Process child, HttpClient client, X509Cer
 
     private static async Task Stop(Process child)
     {
-        using (child)
-        {
-            if (!child.HasExited) child.Kill(entireProcessTree: true);
-            await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
-        }
+        using (child) await FixtureProcess.Stop(child, TimeSpan.FromSeconds(10));
     }
 }
 

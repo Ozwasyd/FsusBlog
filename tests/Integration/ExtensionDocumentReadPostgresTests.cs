@@ -18,9 +18,7 @@ public sealed class ExtensionDocumentReadPostgresTests
     public async Task SignedRangeReadUsesTheCurrentPrivateAuthorRevisionAndOriginalBroker()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         var store = new Store(db.DataSource);
         await using var connection = await db.DataSource.OpenConnectionAsync(ct);
         var author = await db.SignIn("Extension author", ct, minutes: 1);

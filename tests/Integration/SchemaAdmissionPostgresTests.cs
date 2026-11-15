@@ -9,9 +9,7 @@ public sealed class SchemaAdmissionPostgresTests
     [PostgresFact]
     public async Task RealServerDoesNotRepairUnsupportedPostgresStateAtStartup()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         var scenarios = new[]
         {
             (Prepare: "UPDATE public.v2_schema SET version=99",
@@ -51,9 +49,7 @@ public sealed class SchemaAdmissionPostgresTests
     [PostgresFact]
     public async Task CommentBatchSchemaAcceptsLegacyAbsenceAndRejectsPartialOrWrongPurposeStorage()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         await CurrentSchema.VerifyAsync(connection, ct, requireAdminCommentBatch: true);
 
@@ -80,9 +76,7 @@ public sealed class SchemaAdmissionPostgresTests
     [PostgresFact]
     public async Task DocumentExportsRequireExactPrivateOutputConstraintsAndIndexesWhenInstalled()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         await CurrentSchema.VerifyAsync(connection, ct, requireDocumentExports: true);
 

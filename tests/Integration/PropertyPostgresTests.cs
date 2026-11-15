@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -178,16 +177,7 @@ public sealed class PropertyPostgresTests
             Assert.True(response.Headers.CacheControl?.NoStore);
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
-        async Task<string> Account(string name, bool canAuthor = true)
-        {
-            var id = Guid.NewGuid();
-            var seed = RandomNumberGenerator.GetBytes(32);
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, canAuthor);
-            await using (var ticket = Store.Sql(connection, null,
-                "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-                SHA256.HashData(seed), id)) await ticket.ExecuteNonQueryAsync(ct);
-            return (await store.SignIn(Convert.ToHexStringLower(seed), ct)).Token;
-        }
+        async Task<string> Account(string name, bool canAuthor = true) =>
+            (await db.SignIn(name, ct, canAuthor)).Token;
     }
 }

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlogV2.Storage;
@@ -53,21 +52,10 @@ public sealed class RecoveryScopeTests
         async Task Add(ScratchDatabase db, Guid id, string name, bool author)
         {
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var row = Store.Sql(connection, null,
-                "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, author);
-            await row.ExecuteNonQueryAsync(ct);
+            await FixtureSql.SiteAccountAsync(connection, null, ct, id, name, author);
         }
 
-        async Task<string> Login(ScratchDatabase db, Guid id)
-        {
-            var secret = RandomNumberGenerator.GetBytes(32);
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var ticket = Store.Sql(connection, null,
-                "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minute')",
-                SHA256.HashData(secret), id);
-            await ticket.ExecuteNonQueryAsync(ct);
-            return (await new Store(db.DataSource).SignIn(Convert.ToHexStringLower(secret), ct)).Token;
-        }
+        async Task<string> Login(ScratchDatabase db, Guid id) => (await db.SignIn(id, ct)).Token;
 
         async Task<DraftRecoveryScope> Scope(ServerProcess server, string token)
         {
@@ -79,8 +67,7 @@ public sealed class RecoveryScopeTests
 
         async Task<HttpResponseMessage> Read(ServerProcess server, string token)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, WireRoutes.DraftRecoveryScope);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.DraftRecoveryScope, null, token, null);
             return await server.Client.SendAsync(request, ct);
         }
     }

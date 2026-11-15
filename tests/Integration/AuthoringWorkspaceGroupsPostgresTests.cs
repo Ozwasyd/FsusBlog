@@ -10,9 +10,7 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
     [PostgresFact]
     public async Task GroupsShareLegacyRevisionAndRejectLegacyOverwriteEvenWithTheCurrentRevision()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var author = await Login(db, "Workspace author", true, ct);
         var other = await Login(db, "Other workspace author", true, ct);
         var reader = await Login(db, "Workspace reader", false, ct);
@@ -111,9 +109,7 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
     [PostgresFact]
     public async Task LegacyDatabaseServesOldFormatsAndRejectsAPartialGroupUpgrade()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var author = await Login(db, "Workspace author", true, ct);
         await using var connection = await db.DataSource.OpenConnectionAsync(ct);
         await FixtureSql.ExecuteAsync(connection, null, ct, """

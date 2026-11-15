@@ -14,9 +14,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     [PostgresFact]
     public async Task ReturnsOnlyTheOwnersMetadataAndMarksTheCredentialForTheExactSession()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAccount(db, "Passkey owner", ct);
@@ -60,9 +58,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     [PostgresFact]
     public async Task RequiresLivePasskeyAuthorityAndRejectsStaleSessionIdentifiersAfterRevocation()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAccount(db, "Session owner", ct);
@@ -99,9 +95,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     [PostgresFact]
     public async Task ManagementTargetsAreBoundToTheExactSessionAndBeginNeverChangesTheName()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         var store = new Store(fixture.DataSource);
         var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -138,9 +132,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     [PostgresFact]
     public async Task EnrollingADeviceRequiresTheCurrentPasskeySessionAndRespectsTheInventoryCap()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         var store = new Store(fixture.DataSource);
         var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -166,9 +158,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     [PostgresFact]
     public async Task DeviceRemovalRequiresAnOwnedCredentialAndASecondDevice()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         var store = new Store(fixture.DataSource);
         var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);

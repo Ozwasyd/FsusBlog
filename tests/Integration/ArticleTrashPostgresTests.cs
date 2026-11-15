@@ -8,9 +8,7 @@ public sealed class ArticleTrashPostgresTests
     [PostgresFact]
     public async Task SoftDeleteFailsClosedAndRestorationKeepsExactPrivateRevisionAndLineage()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = (await fixture.SignIn("trash owner", ct, canAuthor: true, minutes: 1)).Token;
         var other = (await fixture.SignIn("other author", ct, canAuthor: true, minutes: 1)).Token;

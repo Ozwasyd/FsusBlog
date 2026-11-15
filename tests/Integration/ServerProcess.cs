@@ -111,11 +111,7 @@ internal sealed class ServerProcess : IAsyncDisposable
     {
         using (process)
         {
-            if (process is not null)
-            {
-                if (!process.HasExited) process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
-            }
+            if (process is not null) await FixtureProcess.Stop(process, TimeSpan.FromSeconds(15));
         }
         Directory.Delete(dist, recursive: true);
     }

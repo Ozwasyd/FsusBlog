@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -13,14 +12,7 @@ public sealed class PropertyKindsPostgresTests
     {
         await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
-        var id = Guid.NewGuid();
-        var key = RandomNumberGenerator.GetBytes(32);
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        {
-            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'author',true,true,1)", id);
-            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minute')", SHA256.HashData(key), id);
-        }
-        var session = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
+        var (_, session, _) = await db.SignIn("author", ct);
         var source = await Edit(ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Source", "Text"));
         var target = await Edit(ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Target", "Text"));
         var privateTarget = await Edit(ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Private", "Text"));

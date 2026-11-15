@@ -75,9 +75,7 @@ public sealed class DistributionPostgresTests
     [PostgresFact]
     public async Task DisabledDistributionDoesNotInferOriginFromRequests()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = deadline.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
         {
             [PublicSiteConfiguration.OriginKey] = "", ["FSUSBLOG_SITE_PAGES"] = ""
@@ -98,9 +96,7 @@ public sealed class DistributionPostgresTests
     [PostgresFact]
     public async Task DistributionFollowsPublishedGenerationAndRemovesWithdrawnContent()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(35));
-        var ct = deadline.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(35));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var user = Guid.NewGuid();
         await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'distribution-author',true,true,1)", user);

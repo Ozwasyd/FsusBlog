@@ -13,9 +13,7 @@ public sealed class TaxonomyPostgresTests
     [PostgresFact]
     public async Task PublishedRevisionDeterminesCountsFilteredFramesAndCanonicalPages()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<main><!--fsus-public-content--></main>"), NullLogger<Publications>.Instance);
         var user = Guid.NewGuid();

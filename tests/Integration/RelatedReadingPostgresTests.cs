@@ -42,9 +42,7 @@ public sealed class RelatedReadingPostgresTests
     [PostgresFact]
     public async Task EmptyMissingPrivateAndWithdrawnSourcesHaveDistinctAdmittedResponses()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = deadline.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var (user, token, _) = await database.SignIn("related-author", ct, minutes: 1);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct);
