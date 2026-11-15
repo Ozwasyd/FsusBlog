@@ -329,17 +329,21 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             .Select(node => (Id: node.ArticleId!.Value, Pin: node.PinnedRevision ?? 0))
             .Distinct().OrderBy(reference => reference.Id).ToArray();
         if (references.Length == 0) return;
+        var ids = references.Select(reference => reference.Id).ToArray();
         await using var check = Store.Sql(db, tx, """
             select a.id from unnest($1::integer[],$2::bigint[]) ref(id,pin)
             join public.article a on a.id=ref.id
             where not a.deleted and a.owner_id=$3 and
                 (ref.pin=0 or exists(select 1 from public.article_revision r where r.article_id=a.id and r.revision=ref.pin))
             order by a.id for share of a
-            """, references.Select(reference => reference.Id).ToArray(), references.Select(reference => reference.Pin).ToArray(), actor.Id);
-        await using var rows = await check.ExecuteReaderAsync(ct);
+            """, ids, references.Select(reference => reference.Pin).ToArray(), actor.Id);
         int verified = 0;
-        while (await rows.ReadAsync(ct)) verified++;
-        if (verified != references.Length) throw new BusinessException(Rejection.NotFound, "Canvas reference is unavailable.");
+        await using (var rows = await check.ExecuteReaderAsync(ct))
+        {
+            while (await rows.ReadAsync(ct)) verified++;
+        }
+        if (verified != references.Length || await ArchivedArticleAuthority.AnyLockedArchived(db, tx, ids, ct))
+            throw new BusinessException(Rejection.NotFound, "Canvas reference is unavailable.");
     }
 
     private async Task<List<CanvasNode>> ReadNodes(Guid id, int offset, int limit, CancellationToken ct)

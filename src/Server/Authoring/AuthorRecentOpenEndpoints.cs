@@ -51,7 +51,7 @@ internal static class AuthorRecentOpenEndpoints
         byte[] session, (long Revision, long Before)? cursor, CancellationToken ct)
     {
         // Read the collection witness and the authorized projection in one statement snapshot.
-        await using var query = Store.Sql(db, tx, """
+        await using var query = Store.Sql(db, tx, $"""
             select head.revision, p.article_id, p.article_revision, p.sequence, p.opened_at, p.title
             from (select coalesce((select revision from public.author_recent_open_collection
                 where site_id=$1 and owner_id=$2),0) revision) head
@@ -59,6 +59,7 @@ internal static class AuthorRecentOpenEndpoints
                 select r.article_id, r.article_revision, r.sequence, r.opened_at, a.title
                 from public.author_recent_open r join public.article a on a.id=r.article_id
                 where r.site_id=$1 and r.owner_id=$2 and a.owner_id=$2 and not a.deleted
+                    and {ArchivedArticleAuthority.Available}
                     and ($3=0 or r.sequence<$3) and ($4=0 or head.revision=$4)
                 order by r.sequence desc limit $5
             ) p on true
@@ -105,6 +106,7 @@ internal static class AuthorRecentOpenEndpoints
             """, input.ArticleId, owner);
         if (await article.ExecuteScalarAsync(ct) is not long articleRevision)
             throw new BusinessException(Rejection.NotFound, "Article not found.");
+        await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, input.ArticleId, ct);
 
         await using (var prior = Store.Sql(db, tx, """
             select article_id,article_revision,sequence,opened_at from public.author_recent_open_receipt

@@ -18,11 +18,18 @@ internal static class RevisionHistoryStore
         await using var read = Store.Sql(db, tx, """
             select revision,published_revision from public.article where id=$1 and owner_id=$2 and not deleted for share
             """, id, actor.Id);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.NotFound, "Article not found.");
-        RequireRevision(row.GetInt64(0), expected);
-        return row.IsDBNull(1) ? 0 : row.GetInt64(1);
+        long revision;
+        long published;
+        await using (var row = await read.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct))
+                throw new BusinessException(Rejection.NotFound, "Article not found.");
+            revision = row.GetInt64(0);
+            published = row.IsDBNull(1) ? 0 : row.GetInt64(1);
+        }
+        await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, id, ct);
+        RequireRevision(revision, expected);
+        return published;
     }
 
     internal static async Task<(string Title, string Body)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,

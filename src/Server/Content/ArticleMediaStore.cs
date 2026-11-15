@@ -1,5 +1,6 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Authoring;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
@@ -62,7 +63,8 @@ internal static class ArticleMediaStore
               ON r.article_id=a.id AND r.revision=a.revision
             WHERE a.owner_id=$1 AND a.id=$2 AND a.revision=$3 AND NOT a.deleted AND r.asset_id=$4 FOR SHARE OF a
             """, owner, article, revision, asset);
-        return await query.ExecuteScalarAsync(ct) is not null;
+        return await query.ExecuteScalarAsync(ct) is not null &&
+            !await ArchivedArticleAuthority.IsLockedArchived(db, tx, article, ct);
     }
 
     internal static async Task EnsureUnreferenced(NpgsqlConnection db, NpgsqlTransaction tx, Guid asset, CancellationToken ct)

@@ -182,6 +182,8 @@ internal static partial class CurrentSchema
             throw new InvalidOperationException("The administrator article rollback schema presence does not match the requested operation.");
         var hasAdminArticleDraftRollback = hasAdminArticleRollback &&
             await HasAdminArticleDraftRollbackSchemaAsync(connection, transaction, cancellationToken);
+        var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
+            await HasAdminArticleArchiveSchemaAsync(connection, transaction, cancellationToken);
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
@@ -253,7 +255,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViews ? SavedViewColumns : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback) : [])
+            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
@@ -291,7 +293,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViews ? SavedViewConstraints : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback) : [])
+            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])

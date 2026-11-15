@@ -164,7 +164,10 @@ internal static class AuthoringWorkspaceEndpoints
     {
         var requested = input.Tabs.Concat(input.SecondaryTabs).Select(Math.Abs).ToArray();
         if (requested.Length == 0) return (new(0, Array.Empty<int>(), 0, Array.Empty<int>(), 0), 0);
-        await using var query = Store.Sql(db, tx, "select id from public.article where owner_id=$1 and not deleted and id=any($2)", owner, requested);
+        await using var query = Store.Sql(db, tx, $"""
+            select a.id from public.article a
+            where a.owner_id=$1 and not a.deleted and a.id=any($2) and {ArchivedArticleAuthority.Available}
+            """, owner, requested);
         await using var rows = await query.ExecuteReaderAsync(ct);
         var allowed = new HashSet<int>();
         while (await rows.ReadAsync(ct)) allowed.Add(rows.GetInt32(0));

@@ -104,6 +104,8 @@ inline constexpr uint32_t RollbackReasonBytes = 2000;
 inline constexpr uint32_t MaxDraftRollbackFrameBytes = 2056;
 inline constexpr uint32_t MaxAdminArticleRollbackFrameBytes = 2064;
 inline constexpr uint32_t MaxAdminArticleDraftRollbackFrameBytes = 2068;
+inline constexpr uint32_t MaxAdminArticleArchiveFrameBytes = 2068;
+inline constexpr uint32_t AdminArticleArchivePageSize = 20;
 inline constexpr uint32_t ArticleRightsTokenBytes = 48;
 inline constexpr uint32_t ArticleRightsHolderBytes = 1024;
 inline constexpr uint32_t ArticleRightsTextBytes = 16000;
@@ -404,6 +406,9 @@ enum class FrameType : uint16_t {
     AdminArticleRollbackReceipt = 32926,
     AdminArticleDraftRollbackIntent = 32997,
     AdminArticleDraftRollbackReceipt = 32998,
+    AdminArticleArchiveIntent = 32999,
+    AdminArticleArchiveReceipt = 33000,
+    AdminArticleArchivePage = 33001,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -572,6 +577,9 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminArticleRollbackReceipt:
         case FrameType::AdminArticleDraftRollbackIntent:
         case FrameType::AdminArticleDraftRollbackReceipt:
+        case FrameType::AdminArticleArchiveIntent:
+        case FrameType::AdminArticleArchiveReceipt:
+        case FrameType::AdminArticleArchivePage:
         case FrameType::AdminSitePageRevision:
         case FrameType::AdminSitePagePublish:
         case FrameType::AdminAppearanceState:

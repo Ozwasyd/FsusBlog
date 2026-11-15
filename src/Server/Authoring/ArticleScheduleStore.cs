@@ -101,8 +101,9 @@ internal static class ArticleScheduleStore
                 select enabled and can_author and generation=$2 from public.blog_user where id=$1 for share skip locked
                 """, candidate.Actor, candidate.Generation);
             if (await author.ExecuteScalarAsync(ct) is not bool permitted) continue;
-            await using var verify = Store.Sql(db, tx, """
+            await using var verify = Store.Sql(db, tx, $"""
                 select a.published_revision,s.revision=a.revision and s.actor_id=a.owner_id and not a.deleted
+                    and {ArchivedArticleAuthority.Available}
                     and a.id=c.article_id and s.revision=c.revision and s.due_at=r.due_at
                     and coalesce(a.published_revision,0)=r.published_revision
                     and exists (select from public.article_revision_rights w where w.article_id=a.id and w.revision=s.revision)

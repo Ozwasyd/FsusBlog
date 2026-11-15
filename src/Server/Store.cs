@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Buffers.Binary;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Authoring;
 using FsusBlog.V2.Server.Operations;
 using Npgsql;
 using NpgsqlTypes;
@@ -103,12 +104,22 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
     internal static async Task<ArticleState> Find(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int id, bool locking,
         CancellationToken ct, bool includeDeleted = false)
     {
-        await using var cmd = Sql(db, tx, """
-            select revision,title,body,published_revision,deleted from public.article where id=$1 and owner_id=$2 and ($3 or not deleted)
-            """ + (locking ? " for update" : ""), id, actor.Id, includeDeleted);
+        const string owned = "from public.article a where a.id=$1 and a.owner_id=$2 and ($3 or not a.deleted)";
+        if (locking)
+        {
+            await using var take = Sql(db, tx, $"select a.id {owned} for update", id, actor.Id, includeDeleted);
+            if (await take.ExecuteScalarAsync(ct) is null)
+                throw new BusinessException(Rejection.NotFound, "Article not found.");
+        }
+        // A fresh statement after locking observes the archive event committed by any prior holder.
+        await using var cmd = Sql(db, tx, $"""
+            select revision,title,body,published_revision,deleted
+            {owned} and {ArchivedArticleAuthority.Available}
+            """, id, actor.Id, includeDeleted);
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Article not found.");
-        return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2), row.IsDBNull(3) ? null : row.GetInt64(3), row.GetBoolean(4));
+        return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2),
+            row.IsDBNull(3) ? null : row.GetInt64(3), row.GetBoolean(4));
     }
 
     internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
@@ -158,6 +169,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
         var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null
             ? await Find(db, tx, actor, edit.Id, true, ct) : null;
+        ArticleState? replay = null;
         await using (var existing = Sql(db, tx, """
             select fingerprint,article_id,revision,title,body,published from public.article_command where actor_id=$1 and command_id=$2
             """, actor.Id, edit.Key))
@@ -167,9 +179,21 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             {
                 if (!CryptographicOperations.FixedTimeEquals(fingerprint, row.GetFieldValue<byte[]>(0)))
                     throw new BusinessException(Rejection.Conflict, "This command key is already in use.");
-                return (new(row.GetInt32(1), actor.Id, row.GetInt64(2), row.GetString(3), row.GetString(4),
-                    row.GetBoolean(5) ? row.GetInt64(2) : null, action == ArticleAction.Delete), false);
+                replay = new(row.GetInt32(1), actor.Id, row.GetInt64(2), row.GetString(3), row.GetString(4),
+                    row.GetBoolean(5) ? row.GetInt64(2) : null, action == ArticleAction.Delete);
             }
+        }
+        if (replay is not null)
+        {
+            if (current is null)
+            {
+                // A command that created the article carries zero as its input ID.
+                await using var article = Sql(db, tx, "select id from public.article where id=$1 for share", replay.Id);
+                if (await article.ExecuteScalarAsync(ct) is null)
+                    throw new BusinessException(Rejection.NotFound, "Article not found.");
+                await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, replay.Id, ct);
+            }
+            return (replay, false);
         }
         ArticleState state;
         IReadOnlyList<Content.PublishedMediaReference>? images = null;

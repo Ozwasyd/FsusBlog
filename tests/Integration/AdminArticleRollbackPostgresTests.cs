@@ -14,7 +14,7 @@ using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class AdminArticleRollbackPostgresTests
+public sealed partial class AdminArticleRollbackPostgresTests
 {
     [PostgresFact]
     public async Task PublishedRollbackIsAdministratorAttributedAtomicAndIdempotent()

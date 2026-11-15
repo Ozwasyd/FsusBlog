@@ -75,6 +75,40 @@ internal static class AdminArticleRollbackEndpoints
             return Frame(Wire.EncodeAdminArticleDraftRollbackReceipt(receipt));
         }).RequireRateLimiting("command");
 
+        app.MapGet(WireRoutes.AdminArticleArchiveAvailability, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            await store.CheckArticleArchiveAvailability(ctx.Request.Cookies[session], ct);
+            return Results.NoContent();
+        }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
+            if (before > int.MaxValue) throw InvalidCoordinate();
+            var page = await store.ListArchivedArticles(ctx.Request.Cookies[session], (int)before, ct);
+            return Frame(Wire.EncodeAdminArticleArchivePage(page));
+        }).RequireRateLimiting("query");
+        app.MapPost(WireRoutes.AdminArticleArchiveStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var input = await ReadArchiveIntent(ctx, ct);
+            return Frame(await store.BeginArticleArchiveStepUp(ctx.Request.Cookies[session], input, ct));
+        }).RequireRateLimiting(limit);
+        app.MapPost(WireRoutes.AdminArticleArchiveStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            return Frame(await store.CompleteArticleArchiveStepUp(ctx.Request.Cookies[session], assertion, ct));
+        }).RequireRateLimiting(limit);
+        app.MapPost(WireRoutes.AdminArticleArchiveExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var input = await ReadArchiveIntent(ctx, ct);
+            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+            var receipt = await publications.AdministrativePublication(
+                invalidate => store.ExecuteArticleArchive(ctx.Request.Cookies[session], proof, input, invalidate, ct), ct);
+            return Frame(Wire.EncodeAdminArticleArchiveReceipt(receipt));
+        }).RequireRateLimiting("command");
+
         async Task<AdminArticleRollbackIntent> ReadIntent(HttpContext ctx, CancellationToken ct)
         {
             var intent = Wire.DecodeAdminArticleRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleRollbackFrameBytes, ct));
@@ -85,6 +119,13 @@ internal static class AdminArticleRollbackEndpoints
         async Task<AdminArticleDraftRollbackIntent> ReadDraftIntent(HttpContext ctx, CancellationToken ct)
         {
             var intent = Wire.DecodeAdminArticleDraftRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleDraftRollbackFrameBytes, ct));
+            RequireCommandHeader(ctx, intent.IdempotencyKey);
+            return intent;
+        }
+
+        async Task<AdminArticleArchiveIntent> ReadArchiveIntent(HttpContext ctx, CancellationToken ct)
+        {
+            var intent = Wire.DecodeAdminArticleArchiveIntent(await readFrame(ctx, WireLimits.MaxAdminArticleArchiveFrameBytes, ct));
             RequireCommandHeader(ctx, intent.IdempotencyKey);
             return intent;
         }

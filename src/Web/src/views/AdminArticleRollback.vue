@@ -9,6 +9,7 @@ import {
   type AdminArticleDraftRollbackIntent, type AdminArticleDraftRollbackReceipt,
   type AdminArticleRollbackIntent, type AdminArticleRollbackPreview, type AdminArticleRollbackReceipt,
 } from '../../../Contracts/admin-article-rollback'
+import AdminArticleArchive from './AdminArticleArchive.vue'
 
 type RollbackIntent = AdminArticleRollbackIntent | AdminArticleDraftRollbackIntent
 type RollbackReceipt = AdminArticleRollbackReceipt | AdminArticleDraftRollbackReceipt
@@ -26,6 +27,7 @@ const confirmed = ref(false)
 const draftReason = ref('')
 const draftConfirmed = ref(false)
 const busy = ref(false)
+const archiveWorking = ref(false)
 const error = ref('')
 const preview = shallowRef<AdminArticleRollbackPreview>()
 const retry = shallowRef<RollbackIntent>()
@@ -36,7 +38,8 @@ const sourceCoordinates = computed(() => {
   const source = BigInt(sourceRevision.value)
   if (article <= 2_147_483_647 && source <= 9_223_372_036_854_775_807n) return { article, source }
 })
-const canRollback = computed(() => !!preview.value?.packageComplete && !busy.value && !retry.value)
+const editingLocked = computed(() => busy.value || !!retry.value || archiveWorking.value)
+const canRollback = computed(() => !!preview.value?.packageComplete && !editingLocked.value)
 const canPublish = computed(() => canRollback.value &&
   confirmed.value && isValidAdminArticleRollbackReason(reason.value.trim()))
 const canRestoreDraft = computed(() => canRollback.value && draftAvailable.value &&
@@ -65,7 +68,7 @@ function resetPreview() {
 
 async function readPreview() {
   const coordinates = sourceCoordinates.value
-  if (!coordinates || busy.value || retry.value || signal.aborted) return
+  if (!coordinates || editingLocked.value || signal.aborted) return
   resetPreview()
   busy.value = true
   try {
@@ -143,7 +146,7 @@ async function rollback(toDraft: boolean) {
 
 async function checkReceipt() {
   const intent = retry.value
-  if (!intent || busy.value || signal.aborted) return
+  if (!intent || busy.value || archiveWorking.value || signal.aborted) return
   busy.value = true
   error.value = ''
   try {
@@ -177,14 +180,14 @@ onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
-  <section v-if="available" class="auth-form article-rollback" aria-labelledby="admin-article-rollback-heading" :aria-busy="busy">
+  <section v-if="available" class="auth-form article-rollback" aria-labelledby="admin-article-rollback-heading" :aria-busy="busy || archiveWorking">
     <h2 id="admin-article-rollback-heading">Restore a published article revision</h2>
     <form class="article-rollback" @submit.prevent="readPreview">
       <label for="admin-rollback-article">Article ID</label>
-      <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="busy || !!retry" @input="resetPreview" />
+      <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
       <label for="admin-rollback-source">Historical revision</label>
-      <ElInput id="admin-rollback-source" v-model="sourceRevision" v-bind="{ inputmode: 'numeric' }" :disabled="busy || !!retry" @input="resetPreview" />
-      <ElButton native-type="submit" :disabled="!sourceCoordinates || busy || !!retry">Preview publication rollback</ElButton>
+      <ElInput id="admin-rollback-source" v-model="sourceRevision" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
+      <ElButton native-type="submit" :disabled="!sourceCoordinates || editingLocked">Preview publication rollback</ElButton>
     </form>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <ElAlert v-if="receiptTitle" :title="receiptTitle" type="success" :closable="false" />
@@ -202,8 +205,8 @@ onScopeDispose(() => lifetime.abort())
       <ElAlert v-if="!preview.packageComplete" :title="blockers[preview.blockingReason]" type="warning" :closable="false" />
       <template v-else>
         <label for="admin-rollback-reason">Reason for publishing this revision</label>
-        <ElInput id="admin-rollback-reason" v-model="reason" type="textarea" :disabled="busy" @input="confirmed = false" />
-        <ElCheckbox :model-value="confirmed" :disabled="busy" @update:model-value="confirmed = $event === true">
+        <ElInput id="admin-rollback-reason" v-model="reason" type="textarea" :disabled="editingLocked" @input="confirmed = false" />
+        <ElCheckbox :model-value="confirmed" :disabled="editingLocked" @update:model-value="confirmed = $event === true">
           Publish a new revision with this historical content, rights, and responsibility
         </ElCheckbox>
         <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="rollback(false)">
@@ -211,8 +214,8 @@ onScopeDispose(() => lifetime.abort())
         </ElButton>
         <div v-if="draftAvailable" class="article-rollback draft-rollback">
           <label for="admin-rollback-draft-reason">Reason for restoring this revision as a draft</label>
-          <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="busy" @input="draftConfirmed = false" />
-          <ElCheckbox :model-value="draftConfirmed" :disabled="busy" @update:model-value="draftConfirmed = $event === true">
+          <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="editingLocked" @input="draftConfirmed = false" />
+          <ElCheckbox :model-value="draftConfirmed" :disabled="editingLocked" @update:model-value="draftConfirmed = $event === true">
             Create a private draft from this revision and withdraw the current publication
           </ElCheckbox>
           <ElButton native-type="button" type="danger" plain :disabled="!canRestoreDraft" :loading="busy" @click="rollback(true)">
@@ -221,6 +224,8 @@ onScopeDispose(() => lifetime.abort())
         </div>
       </template>
     </div>
+    <AdminArticleArchive :session-signal="signal" :preview="preview" :blocked="busy || !!retry"
+      @working-change="archiveWorking = $event" @invalidate-review="resetPreview()" @session-lost="emit('session-lost', $event)" />
   </section>
 </template>
 

@@ -1,3 +1,4 @@
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
 using NpgsqlTypes;
@@ -90,22 +91,14 @@ internal static class PublicationHistoryStore
 
     internal static async Task<AdminArticleRelease> RollbackByAdministrator(NpgsqlConnection db, NpgsqlTransaction tx,
         int article, long priorPublication, long sourceRevision, long revision, long previousRevision,
-        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason, bool draft,
-        CancellationToken ct)
+        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason,
+        int destination, AdminArchiveSource? archivedSource, CancellationToken ct)
     {
-        await using var tail = Store.Sql(db, tx, """
-            select h.event_no
-            from public.article_publication_history h join public.article_publication p using(article_id)
-            join public.article a on a.id=p.article_id
-            where h.article_id=$1 and h.publication_id=$2 and p.publication_id=$2 and h.revision=p.revision
-                and h.publication_no=p.publication_no and p.publication_no=a.publication_count
-                and h.event_no=(select max(event_no) from public.article_publication_history where article_id=$1)
-            """, article, priorPublication);
-        if (await tail.ExecuteScalarAsync(ct) is not int eventNo)
-            throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
+        var eventNo = archivedSource?.EventNo ?? await RequireActiveBoundary(db, tx, article, priorPublication, ct);
+        var hidden = destination != Wire.AdminArticleRestoreStatus;
 
         await PublicationRightsStore.Require(db, tx, article, revision, ct);
-        var release = draft ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
+        var release = hidden ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
             : await Publish(db, tx, article, revision, ct);
         await PublicationRightsStore.Attach(db, tx, article, revision, release.Id, ct);
         await using var rights = Store.Sql(db, tx,
@@ -127,24 +120,38 @@ internal static class PublicationHistoryStore
             """, release.Id, article, revision, responsibilitySnapshot);
         await responsibilityLink.ExecuteNonQueryAsync(ct);
 
+        // A restore copies the exact archived predecessor. Its original public rollback source remains
+        // retained separately from the predecessor revision and private release coordinates.
+        var extraColumns = archivedSource is not null ? ",destination,from_archive" :
+            hidden ? ",destination" : "";
+        var extraValues = archivedSource is not null ? ",2,true" :
+            destination == Wire.AdminArticleArchiveStatus ? ",3" : hidden ? ",0" : "";
         await using var retainCommand = Store.Sql(db, tx, $"""
             insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
                 source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
-                published_at,rights_snapshot_id,responsibility_snapshot_id,reason{(draft ? ",destination" : "")})
-            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15{(draft ? ",0" : "")})
-            """, administrator, command, fingerprint, article, previousRevision, sourceRevision, revision, sourcePublication,
-            priorPublication, release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
+                published_at,rights_snapshot_id,responsibility_snapshot_id,reason{extraColumns})
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15{extraValues})
+            """, administrator, command, fingerprint, article, previousRevision, archivedSource?.HistoricalRevision ?? sourceRevision,
+            revision, archivedSource?.HistoricalPublicationId ?? sourcePublication, priorPublication, release.Id, release.Number,
+            release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
         await retainCommand.ExecuteNonQueryAsync(ct);
+        var (kind, eventReason) = (destination, archivedSource is not null) switch
+        {
+            (Wire.AdminArticleArchiveStatus, false) => ("retract", ArchivedArticleAuthority.Reason),
+            (Wire.AdminArticleRestoreStatus, true) => ("publish", "administrator-archive-republished"),
+            (Wire.AdminArticleRestoreStatus, false) => ("replace", "administrator-rollback-replaced"),
+            _ => ("retract", "administrator-rollback-draft")
+        };
         await using var append = Store.Sql(db, tx, """
             insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            """, article, checked(eventNo + 1), revision, release.Number, Optional(NpgsqlDbType.Bigint, draft ? null : release.Id),
-            priorPublication, draft ? "retract" : "replace", draft ? "administrator-rollback-draft" : "administrator-rollback-replaced",
+            """, article, checked(eventNo + 1), revision, release.Number, Optional(NpgsqlDbType.Bigint, hidden ? null : release.Id),
+            Optional(NpgsqlDbType.Bigint, archivedSource is not null ? null : priorPublication), kind, eventReason,
             release.PublishedAt, administrator, command);
         await append.ExecuteNonQueryAsync(ct);
 
-        if (draft)
+        if (hidden)
         {
             await using var retract = Store.Sql(db, tx, """
                 insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'retract')
@@ -159,6 +166,23 @@ internal static class PublicationHistoryStore
     }
 
     internal sealed record AdminArticleRelease(long Id, int Number, DateTime PublishedAt, long RightsSnapshot, long ResponsibilitySnapshot);
+
+    internal sealed record AdminArchiveSource(int EventNo, long HistoricalRevision, long HistoricalPublicationId);
+
+    private static async Task<int> RequireActiveBoundary(NpgsqlConnection db, NpgsqlTransaction tx, int article,
+        long publication, CancellationToken ct)
+    {
+        await using var tail = Store.Sql(db, tx, """
+            select h.event_no
+            from public.article_publication_history h join public.article_publication p using(article_id)
+            join public.article a on a.id=p.article_id
+            where h.article_id=$1 and h.publication_id=$2 and p.publication_id=$2 and h.revision=p.revision
+                and h.publication_no=p.publication_no and p.publication_no=a.publication_count
+                and h.event_no=(select max(event_no) from public.article_publication_history where article_id=$1)
+            """, article, publication);
+        return await tail.ExecuteScalarAsync(ct) is int eventNo ? eventNo
+            : throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
+    }
 
     private static async Task<ActivePublication> WithdrawForRollback(NpgsqlConnection db, NpgsqlTransaction tx, int article,
         long priorPublication, long revision, CancellationToken ct)

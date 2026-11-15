@@ -55,7 +55,7 @@ internal static class ArticleInventoryEndpoints
     private static async Task<AuthorArticlePage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, bool trash,
         AuthorArticleState? state, string keyword, bool summary, int categoryId, int tagId, int beforeId, int articleId, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = Store.Sql(db, tx, $"""
             with matched as materialized (
                 select a.id,a.revision,a.title,a.updated_at,c.id as category_id,c.name as category,s.due_at,
                     case when a.deleted then 5 when s.due_at is not null then 2 when a.published_revision is not null then 3
@@ -69,6 +69,7 @@ internal static class ArticleInventoryEndpoints
                 left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
                 left join public.category c on c.id=rc.category_id
                 where a.owner_id=$1 and a.deleted=$3 and ($10=0 or a.id=$10)
+                    and {ArchivedArticleAuthority.Available}
                     and ($4='' or strpos(lower(a.title), lower($4))>0
                          or ($11 and strpos(lower(left(a.body,200)),lower($4))>0))
                     and ($5=0 or rc.category_id=$5)

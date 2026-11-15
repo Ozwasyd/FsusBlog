@@ -76,6 +76,9 @@ export const FrameType = {
   AdminArticleRollbackReceipt: 32926,
   AdminArticleDraftRollbackIntent: 32997,
   AdminArticleDraftRollbackReceipt: 32998,
+  AdminArticleArchiveIntent: 32999,
+  AdminArticleArchiveReceipt: 33000,
+  AdminArticleArchivePage: 33001,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
   AdminAppearanceState: 32936,
@@ -268,6 +271,8 @@ export const WireLimits = {
   MaxDraftRollbackFrameBytes: 2056,
   MaxAdminArticleRollbackFrameBytes: 2064,
   MaxAdminArticleDraftRollbackFrameBytes: 2068,
+  MaxAdminArticleArchiveFrameBytes: 2068,
+  AdminArticleArchivePageSize: 20,
   ArticleRightsTokenBytes: 48,
   ArticleRightsHolderBytes: 1024,
   ArticleRightsTextBytes: 16000,
@@ -592,6 +597,11 @@ export const WireRoutes = {
   AdminArticleDraftRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/begin.aeds",
   AdminArticleDraftRollbackStepUpComplete: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds",
   AdminArticleDraftRollbackExecute: "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds",
+  AdminArticleArchiveAvailability: "/api/v2/admin/identity/articles/archive/available.aeds",
+  AdminArticleArchivePage: "/api/v2/admin/identity/articles/archive/page.aeds",
+  AdminArticleArchiveStepUpBegin: "/api/v2/admin/identity/articles/archive/step-up/begin.aeds",
+  AdminArticleArchiveStepUpComplete: "/api/v2/admin/identity/articles/archive/step-up/complete.aeds",
+  AdminArticleArchiveExecute: "/api/v2/admin/identity/articles/archive/execute.aeds",
   AdminSitePages: "/api/v2/admin/identity/site-pages.aeds",
   AdminSitePage: "/api/v2/admin/identity/site-pages/{slug}.aeds",
   AdminSitePageRevision: "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
@@ -1231,6 +1241,89 @@ export function decodeAdminArticleDraftRollbackReceipt(payload: Uint8Array): Adm
     sourceRevision: reader.i64(),
     previousPublicationId: reader.i64(),
     privateReleaseId: reader.i64(),
+    publicationNo: reader.i32(),
+    transitionedUnixMs: reader.i64(),
+    rightsSnapshotId: reader.i64(),
+    responsibilitySnapshotId: reader.i64(),
+    targetStatus: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleArchiveIntent {
+  articleId: number;
+  expectedRevision: bigint;
+  expectedReleaseId: bigint;
+  sourceRevision: bigint;
+  idempotencyKey: string;
+  reason: string;
+  targetStatus: number;
+}
+
+export function encodeAdminArticleArchiveIntent(value: AdminArticleArchiveIntent): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.expectedRevision);
+  writer.i64(value.expectedReleaseId);
+  writer.i64(value.sourceRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.text(value.reason, WireLimits.RollbackReasonBytes);
+  writer.i32(value.targetStatus);
+  return writer.finish();
+}
+
+export function decodeAdminArticleArchiveIntent(payload: Uint8Array): AdminArticleArchiveIntent {
+  const reader = new PodReader(payload);
+  const value: AdminArticleArchiveIntent = {
+    articleId: reader.i32(),
+    expectedRevision: reader.i64(),
+    expectedReleaseId: reader.i64(),
+    sourceRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    reason: reader.text(WireLimits.RollbackReasonBytes),
+    targetStatus: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleArchiveReceipt {
+  articleId: number;
+  revision: bigint;
+  sourceRevision: bigint;
+  previousReleaseId: bigint;
+  releaseId: bigint;
+  publicationNo: number;
+  transitionedUnixMs: bigint;
+  rightsSnapshotId: bigint;
+  responsibilitySnapshotId: bigint;
+  targetStatus: number;
+}
+
+export function encodeAdminArticleArchiveReceipt(value: AdminArticleArchiveReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.revision);
+  writer.i64(value.sourceRevision);
+  writer.i64(value.previousReleaseId);
+  writer.i64(value.releaseId);
+  writer.i32(value.publicationNo);
+  writer.i64(value.transitionedUnixMs);
+  writer.i64(value.rightsSnapshotId);
+  writer.i64(value.responsibilitySnapshotId);
+  writer.i32(value.targetStatus);
+  return writer.finish();
+}
+
+export function decodeAdminArticleArchiveReceipt(payload: Uint8Array): AdminArticleArchiveReceipt {
+  const reader = new PodReader(payload);
+  const value: AdminArticleArchiveReceipt = {
+    articleId: reader.i32(),
+    revision: reader.i64(),
+    sourceRevision: reader.i64(),
+    previousReleaseId: reader.i64(),
+    releaseId: reader.i64(),
     publicationNo: reader.i32(),
     transitionedUnixMs: reader.i64(),
     rightsSnapshotId: reader.i64(),

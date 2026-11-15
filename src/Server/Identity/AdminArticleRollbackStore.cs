@@ -53,75 +53,101 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<AdminArticleRollbackReceipt> ExecuteArticleRollback(string? session, string? proof, AdminArticleRollbackIntent intent,
         Action invalidatePublic, CancellationToken ct) =>
-        ExecuteArticleRollback(session, proof, intent, ArticleRollbackIntentDigest(intent), false, invalidatePublic, ct);
+        ExecuteArticleRollback(session, proof, intent, ArticleRollbackIntentDigest(intent), StepUpAction.PublishArticleRollback,
+            Wire.AdminArticleRestoreStatus, invalidatePublic, ct);
 
     internal async Task<AdminArticleDraftRollbackReceipt> ExecuteArticleDraftRollback(string? session, string? proof,
         AdminArticleDraftRollbackIntent intent, Action invalidatePublic, CancellationToken ct)
     {
         var receipt = await ExecuteArticleRollback(session, proof, DraftCoordinates(intent), ArticleDraftRollbackIntentDigest(intent),
-            true, invalidatePublic, ct);
+            StepUpAction.DraftArticleRollback, AdminArticleDraftRollbackStatus, invalidatePublic, ct);
         return new(receipt.ArticleId, receipt.Revision, receipt.SourceRevision, receipt.PreviousPublicationId, receipt.PublicationId,
             receipt.PublicationNo, receipt.PublishedUnixMs, receipt.RightsSnapshotId, receipt.ResponsibilitySnapshotId, intent.TargetStatus);
     }
 
     private Task<AdminArticleRollbackReceipt> ExecuteArticleRollback(string? session, string? proof, AdminArticleRollbackIntent intent,
-        byte[] fingerprint, bool draft, Action invalidatePublic, CancellationToken ct) =>
+        byte[] fingerprint, StepUpAction action, int destination, Action invalidatePublic, CancellationToken ct) =>
         WithLiveAdmin(session, RollbackPermission, async (db, tx, admin) =>
         {
-            if (draft) await RequireArticleDraftRollbackSchema(db, tx, ct);
+            if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
+            if (action == StepUpAction.ArticleArchive) await RequireArticleArchiveSchema(db, tx, ct);
             await Store.LockCommand(db, tx, admin.Id, intent.IdempotencyKey, ct);
-            await using (var previous = Store.Sql(db, tx, $"""
-                select fingerprint,article_id,revision,source_revision,previous_publication_id,publication_id,
-                    publication_no,published_at,rights_snapshot_id,responsibility_snapshot_id{(draft ? ",destination" : "")}
-                from public.admin_article_rollback where principal_id=$1 and command_id=$2
-                """, admin.Id, intent.IdempotencyKey))
-            await using (var receipt = await previous.ExecuteReaderAsync(ct))
-            {
-                if (await receipt.ReadAsync(ct))
-                {
-                    if (!CryptographicOperations.FixedTimeEquals(receipt.GetFieldValue<byte[]>(0), fingerprint) ||
-                        draft && receipt.GetInt32(10) != AdminArticleDraftRollbackStatus)
-                        throw new BusinessException(Rejection.Conflict, "This administrator rollback command key is already in use.");
-                    return new AdminArticleRollbackReceipt(receipt.GetInt32(1), receipt.GetInt64(2), receipt.GetInt64(3),
-                        receipt.GetInt64(4), receipt.GetInt64(5), receipt.GetInt32(6),
-                        new DateTimeOffset(receipt.GetDateTime(7)).ToUnixTimeMilliseconds(), receipt.GetInt64(8), receipt.GetInt64(9));
-                }
-            }
-
-            var action = draft ? StepUpAction.DraftArticleRollback : StepUpAction.PublishArticleRollback;
-            if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), fingerprint, ct, action))
-                throw new BusinessException(Rejection.Forbidden, draft
-                    ? "A current Passkey proof for this exact draft rollback is required."
-                    : "A current Passkey proof for this exact published rollback is required.");
+            var retained = await ReadRetainedRollback(db, tx, admin.Id, intent.IdempotencyKey, fingerprint,
+                action, destination, fromArchive: false, ct);
+            if (retained is not null) return retained;
+            await RequireRollbackProof(db, tx, admin, proof, fingerprint, action, ct);
 
             var stage = await ReadRollbackTarget(db, tx, intent.ArticleId, intent.SourceRevision, locking: true, ct);
             RequireRollbackTarget(stage, intent);
             var article = intent.ArticleId;
             var revision = checked(stage.CurrentRevision + 1);
-            await using (var update = Store.Sql(db, tx, """
-                update public.article set revision=$2,title=$3,body=$4,
-                    published_revision=case when $6 then null else $2 end,updated_at=clock_timestamp()
-                where id=$1 and revision=$5 and not deleted
-                """, article, revision, stage.SourceTitle, stage.SourceBody, stage.CurrentRevision, draft))
-                if (await update.ExecuteNonQueryAsync(ct) != 1)
-                    throw new BusinessException(Rejection.Conflict, "The public article has changed.");
-            await using (var addRevision = Store.Sql(db, tx, """
-                insert into public.article_revision(article_id,revision,title,body,happened_at)
-                values($1,$2,$3,$4,clock_timestamp())
-                """, article, revision, stage.SourceTitle, stage.SourceBody))
-                await addRevision.ExecuteNonQueryAsync(ct);
-            await TaxonomyStore.CarryForward(db, tx, article, intent.SourceRevision, revision, ct);
-            await PublicationRightsStore.CarryForward(db, tx, article, intent.SourceRevision, revision, ct);
+            await CopyRollbackRevision(db, tx, article, revision, stage.CurrentRevision, stage.SourceTitle, stage.SourceBody,
+                intent.SourceRevision, destination, ct);
 
             var release = await PublicationHistoryStore.RollbackByAdministrator(db, tx, article, stage.CurrentPublication,
                 intent.SourceRevision, revision, stage.CurrentRevision, stage.SourcePublication, stage.SourceResponsibility!.Value,
-                admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, draft, ct);
+                admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, destination, archivedSource: null, ct);
             invalidatePublic();
-            return new AdminArticleRollbackReceipt(article, revision, intent.SourceRevision, stage.CurrentPublication, release.Id,
-                release.Number, new DateTimeOffset(release.PublishedAt).ToUnixTimeMilliseconds(), release.RightsSnapshot,
-                release.ResponsibilitySnapshot);
+            return RollbackReceipt(article, revision, intent.SourceRevision, stage.CurrentPublication, release);
         }, ct);
+
+    private static async Task<AdminArticleRollbackReceipt?> ReadRetainedRollback(NpgsqlConnection db, NpgsqlTransaction tx,
+        Guid administrator, Guid command, byte[] fingerprint, StepUpAction action, int destination, bool fromArchive, CancellationToken ct)
+    {
+        var typedDestination = action != StepUpAction.PublishArticleRollback;
+        var archive = action == StepUpAction.ArticleArchive;
+        await using var previous = Store.Sql(db, tx, $"""
+            select fingerprint,article_id,revision,{(fromArchive ? "previous_revision" : "source_revision")},
+                previous_publication_id,publication_id,publication_no,published_at,rights_snapshot_id,responsibility_snapshot_id,
+                {(typedDestination ? "destination" : "2")},{(archive ? "from_archive" : "false")}
+            from public.admin_article_rollback where principal_id=$1 and command_id=$2
+            """, administrator, command);
+        await using var receipt = await previous.ExecuteReaderAsync(ct);
+        if (!await receipt.ReadAsync(ct)) return null;
+        if (!CryptographicOperations.FixedTimeEquals(receipt.GetFieldValue<byte[]>(0), fingerprint) ||
+            receipt.GetInt32(10) != destination || receipt.GetBoolean(11) != fromArchive)
+            throw new BusinessException(Rejection.Conflict, "This administrator rollback command key is already in use.");
+        return new AdminArticleRollbackReceipt(receipt.GetInt32(1), receipt.GetInt64(2), receipt.GetInt64(3),
+            receipt.GetInt64(4), receipt.GetInt64(5), receipt.GetInt32(6),
+            new DateTimeOffset(receipt.GetDateTime(7)).ToUnixTimeMilliseconds(), receipt.GetInt64(8), receipt.GetInt64(9));
+    }
+
+    private static async Task RequireRollbackProof(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin, string? proof,
+        byte[] fingerprint, StepUpAction action, CancellationToken ct)
+    {
+        if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||
+            !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), fingerprint, ct, action))
+            throw new BusinessException(Rejection.Forbidden, action switch
+            {
+                StepUpAction.DraftArticleRollback => "A current Passkey proof for this exact draft rollback is required.",
+                StepUpAction.ArticleArchive => "A current Passkey proof for this exact archive transition is required.",
+                _ => "A current Passkey proof for this exact published rollback is required."
+            });
+    }
+
+    private static async Task CopyRollbackRevision(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
+        long previousRevision, string title, string body, long sourceRevision, int destination, CancellationToken ct)
+    {
+        await using (var update = Store.Sql(db, tx, """
+            update public.article set revision=$2,title=$3,body=$4,
+                published_revision=case when $6 then $2 else null end,updated_at=clock_timestamp()
+            where id=$1 and revision=$5 and not deleted
+            """, article, revision, title, body, previousRevision, destination == Wire.AdminArticleRestoreStatus))
+            if (await update.ExecuteNonQueryAsync(ct) != 1)
+                throw new BusinessException(Rejection.Conflict, "The article has changed.");
+        await using (var addRevision = Store.Sql(db, tx, """
+            insert into public.article_revision(article_id,revision,title,body,happened_at)
+            values($1,$2,$3,$4,clock_timestamp())
+            """, article, revision, title, body))
+            await addRevision.ExecuteNonQueryAsync(ct);
+        await TaxonomyStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
+        await PublicationRightsStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
+    }
+
+    private static AdminArticleRollbackReceipt RollbackReceipt(int article, long revision, long sourceRevision, long previousRelease,
+        PublicationHistoryStore.AdminArticleRelease release) => new(article, revision, sourceRevision, previousRelease, release.Id,
+            release.Number, new DateTimeOffset(release.PublishedAt).ToUnixTimeMilliseconds(), release.RightsSnapshot,
+            release.ResponsibilitySnapshot);
 
     internal static byte[] ArticleRollbackIntentDigest(AdminArticleRollbackIntent intent) =>
         SHA256.HashData(Wire.EncodeAdminArticleRollbackIntent(intent));

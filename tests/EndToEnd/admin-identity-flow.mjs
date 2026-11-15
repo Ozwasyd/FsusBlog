@@ -12,6 +12,7 @@ import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
 import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
 import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
+import { verifyAdminArticleArchive } from './admin-article-archive-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
 import { verifyAdminInbox } from './admin-inbox-flow.mjs'
 import { expectPanelHidden, expectPermissions, verifyMismatchedPermissionSession } from './admin-permissions-flow.mjs'
@@ -297,7 +298,13 @@ try {
     checks.adminInboxOnlyShowsPrivateThreadsToCurrentAdmin = true
   }
 
-  if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1') {
+  if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
+    phase = 'article-archive'
+    await verifyAdminArticleArchive({ page: admin, context, adminOrigin, siteOrigin,
+      grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })
+    finalCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+    checks.articleArchiveAndRepublicationUseIndependentAdminAndStableReceipts = true
+  } else if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1') {
     phase = 'article-rollback'
     await verifyAdminArticleRollback({ page: admin, context, adminOrigin, siteOrigin,
       grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })

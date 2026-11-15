@@ -44,6 +44,8 @@ internal static class CanvasReferenceStore
                 return Empty(CanvasReferenceState.Unavailable);
             current = active;
         }
+        if (await ArchivedArticleAuthority.IsLockedArchived(db, tx, articleId, ct))
+            return Empty(CanvasReferenceState.Unavailable);
 
         long target = pin ?? current;
         if (requireCurrent && target != current) return Empty(CanvasReferenceState.StaleRevision);

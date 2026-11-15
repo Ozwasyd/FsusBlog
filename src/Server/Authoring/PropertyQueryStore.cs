@@ -97,7 +97,10 @@ internal sealed partial class PropertyStore
             if (before <= 0 || !CryptographicOperations.FixedTimeEquals(
                     Encoding.ASCII.GetBytes(Cursor(binding, before)), Encoding.ASCII.GetBytes(cursor))) throw Invalid();
         }
-        var sql = new StringBuilder("select a.id,a.revision,a.title from public.article a where a.owner_id=$1 and not a.deleted");
+        var sql = new StringBuilder($"""
+            select a.id,a.revision,a.title from public.article a
+            where a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}
+            """);
         var parameters = new List<object> { actor.Id, before, WireLimits.PropertyPageSize + 1 };
         sql.Append(before != 0 ? " and a.id<$2" : " and a.id>$2");
         foreach (var condition in conditions) AppendCondition(sql, parameters, condition);

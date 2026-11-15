@@ -40,7 +40,7 @@ export function readAdminArticleDraftRollbackAvailability(signal: AbortSignal): 
   return readRollbackAvailability(WireRoutes.AdminArticleDraftRollbackAvailability, signal);
 }
 
-async function readRollbackAvailability(path: string, signal: AbortSignal): Promise<boolean> {
+export async function readRollbackAvailability(path: string, signal: AbortSignal): Promise<boolean> {
   const response = await fetch(path, {
     credentials: 'same-origin', redirect: 'error', cache: 'no-store', signal,
   });
@@ -83,7 +83,7 @@ export async function requestAdminArticleDraftRollbackProof(intent: AdminArticle
     draftIntentFrame(intent), signal);
 }
 
-async function requestRollbackProof(begin: string, complete: string, frame: Uint8Array<ArrayBuffer>,
+export async function requestRollbackProof(begin: string, complete: string, frame: Uint8Array<ArrayBuffer>,
   signal: AbortSignal): Promise<string> {
   const assertion = await requestPasskeyAssertion(begin, signal, frame, true);
   return request(complete, FrameType.MfaChallengeResult,
@@ -135,7 +135,7 @@ function validateIntent(intent: AdminArticleRollbackIntent): void {
     throw new ProtocolError('Invalid administrator article rollback intent');
 }
 
-function proofHeaders(proof: string | undefined): Record<string, string> | undefined {
+export function proofHeaders(proof: string | undefined): Record<string, string> | undefined {
   if (proof === undefined) return undefined;
   if (!/^[A-Za-z0-9_-]{43}$/.test(proof))
     throw new ProtocolError('Invalid administrator article rollback proof');

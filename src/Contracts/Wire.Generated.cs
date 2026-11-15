@@ -77,6 +77,9 @@ public enum FrameType : ushort
     AdminArticleRollbackReceipt = 32926,
     AdminArticleDraftRollbackIntent = 32997,
     AdminArticleDraftRollbackReceipt = 32998,
+    AdminArticleArchiveIntent = 32999,
+    AdminArticleArchiveReceipt = 33000,
+    AdminArticleArchivePage = 33001,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -271,6 +274,8 @@ public static class WireLimits
     public const int MaxDraftRollbackFrameBytes = 2056;
     public const int MaxAdminArticleRollbackFrameBytes = 2064;
     public const int MaxAdminArticleDraftRollbackFrameBytes = 2068;
+    public const int MaxAdminArticleArchiveFrameBytes = 2068;
+    public const int AdminArticleArchivePageSize = 20;
     public const int ArticleRightsTokenBytes = 48;
     public const int ArticleRightsHolderBytes = 1024;
     public const int ArticleRightsTextBytes = 16000;
@@ -597,6 +602,11 @@ public static class WireRoutes
     public const string AdminArticleDraftRollbackStepUpBegin = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/begin.aeds";
     public const string AdminArticleDraftRollbackStepUpComplete = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds";
     public const string AdminArticleDraftRollbackExecute = "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds";
+    public const string AdminArticleArchiveAvailability = "/api/v2/admin/identity/articles/archive/available.aeds";
+    public const string AdminArticleArchivePage = "/api/v2/admin/identity/articles/archive/page.aeds";
+    public const string AdminArticleArchiveStepUpBegin = "/api/v2/admin/identity/articles/archive/step-up/begin.aeds";
+    public const string AdminArticleArchiveStepUpComplete = "/api/v2/admin/identity/articles/archive/step-up/complete.aeds";
+    public const string AdminArticleArchiveExecute = "/api/v2/admin/identity/articles/archive/execute.aeds";
     public const string AdminSitePages = "/api/v2/admin/identity/site-pages.aeds";
     public const string AdminSitePage = "/api/v2/admin/identity/site-pages/{slug}.aeds";
     public const string AdminSitePageRevision = "/api/v2/admin/identity/site-pages/{slug}/revision.aeds";
@@ -753,6 +763,8 @@ public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevi
 public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
 public sealed record AdminArticleDraftRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason, int TargetStatus);
 public sealed record AdminArticleDraftRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PrivateReleaseId, int PublicationNo, long TransitionedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId, int TargetStatus);
+public sealed record AdminArticleArchiveIntent(int ArticleId, long ExpectedRevision, long ExpectedReleaseId, long SourceRevision, Guid IdempotencyKey, string Reason, int TargetStatus);
+public sealed record AdminArticleArchiveReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousReleaseId, long ReleaseId, int PublicationNo, long TransitionedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId, int TargetStatus);
 public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
 public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
@@ -1133,6 +1145,55 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleDraftRollbackReceipt));
         var value = new AdminArticleDraftRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleArchiveIntent(AdminArticleArchiveIntent value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.ExpectedRevision);
+        writer.I64(value.ExpectedReleaseId);
+        writer.I64(value.SourceRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
+        writer.I32(value.TargetStatus);
+        return Aeds.Encode(FrameType.AdminArticleArchiveIntent, writer.Written);
+    }
+
+    public static AdminArticleArchiveIntent DecodeAdminArticleArchiveIntent(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchiveIntent));
+        var value = new AdminArticleArchiveIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleArchiveReceipt(AdminArticleArchiveReceipt value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Revision);
+        writer.I64(value.SourceRevision);
+        writer.I64(value.PreviousReleaseId);
+        writer.I64(value.ReleaseId);
+        writer.I32(value.PublicationNo);
+        writer.I64(value.TransitionedUnixMs);
+        writer.I64(value.RightsSnapshotId);
+        writer.I64(value.ResponsibilitySnapshotId);
+        writer.I32(value.TargetStatus);
+        return Aeds.Encode(FrameType.AdminArticleArchiveReceipt, writer.Written);
+    }
+
+    public static AdminArticleArchiveReceipt DecodeAdminArticleArchiveReceipt(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchiveReceipt));
+        var value = new AdminArticleArchiveReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
         reader.Finish();
         Validate(value);
         return value;

@@ -274,7 +274,7 @@ exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 \
   -d "$FSUSBLOG_TEST_SITE_REFRESH_DATABASE" -Atc "$statement"
 EOF
   chmod 700 "$FSUSBLOG_TEST_SITE_REFRESH_PROBE"
-elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
+elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_ADMIN_ARTICLE_ROLLBACK=true
   export FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT="$scratch/grant-article-rollback"
@@ -557,7 +557,7 @@ if [[ ${FSUSBLOG_SITE_PAGE_EDITOR:-false} == true ]]; then
   done
   grep -Fq 'Published by authorized editor' "$evidence/restarted-site-page.html"
 fi
-if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 && ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} != 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
     select 'exact_admin_rollback=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
@@ -612,6 +612,56 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
   grep -Fxq 'exact_admin_draft_rollback=1' "$evidence/admin-article-rollback-counts.txt"
   grep -Fxq 'one_retract_event=1' "$evidence/admin-article-rollback-counts.txt"
   "$dotnet" "$migrate" verify > "$evidence/admin-article-rollback-schema-verify.log" 2>&1
+fi
+if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'exact_admin_archive=' || count(*) from public.admin_article_rollback r
+      join public.admin_principal p on p.id=r.principal_id
+      join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
+        and h.admin_actor_id=r.principal_id and h.admin_command_id=r.command_id
+        and h.kind='retract' and h.reason='administrator-rollback-archived' and h.publication_id is null
+        and h.supersedes_id=r.previous_publication_id and h.publication_no=r.publication_no and h.happened_at=r.published_at
+      join public.article_revision archived on archived.article_id=r.article_id and archived.revision=r.revision
+      join public.article_revision source on source.article_id=r.article_id and source.revision=r.source_revision
+      where p.handle='tls-admin-fixture' and r.destination=3 and not r.from_archive
+        and r.article_id=1 and r.source_revision=1 and r.source_publication_id=1
+        and r.previous_revision=2 and r.previous_publication_id=2 and r.revision=3 and r.publication_no=3
+        and (archived.title,archived.body)=(source.title,source.body)
+        and not exists (select from public.article_publication active where active.publication_id=r.publication_id)
+        and not exists (select from public.article_publication_canonical c where c.article_id=r.article_id and c.revision=r.revision)
+    union all
+    select 'exact_admin_republication=' || count(*) from public.admin_article_rollback r
+      join public.admin_principal p on p.id=r.principal_id
+      join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision=r.revision
+      join public.blog_user u on u.id=a.owner_id
+      join public.article_publication active on active.article_id=r.article_id and active.revision=r.revision
+        and active.publication_id=r.publication_id and active.publication_no=r.publication_no
+      join public.admin_article_rollback archived on archived.article_id=r.article_id and archived.revision=r.previous_revision
+        and archived.publication_id=r.previous_publication_id and archived.destination=3 and not archived.from_archive
+      join public.article_revision archived_source on archived_source.article_id=archived.article_id and archived_source.revision=archived.revision
+      join public.article_revision_responsibility inherited on inherited.id=r.responsibility_snapshot_id
+        and inherited.source_snapshot_id=archived.responsibility_snapshot_id
+      join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
+        and h.admin_actor_id=r.principal_id and h.admin_command_id=r.command_id and h.kind='publish'
+        and h.reason='administrator-archive-republished' and h.publication_id=r.publication_id and h.supersedes_id is null
+      join public.article_publication_canonical c on c.article_id=r.article_id and c.revision=r.revision
+        and c.publication_id=r.publication_id and c.rights_snapshot_id=r.rights_snapshot_id and c.transition='publish'
+      join public.blog_outbox e on e.id=c.outbox_id and e.kind='publish' and e.processed_at is not null
+      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture' and r.destination=2 and r.from_archive
+        and r.article_id=1 and r.previous_revision=3 and r.revision=4 and a.publication_count=4
+        and r.source_revision=archived.source_revision and r.source_publication_id=archived.source_publication_id
+        and (a.title,a.body)=(archived_source.title,archived_source.body)
+    union all
+    select 'one_archive_retract_event=' || count(*) from public.blog_outbox
+      where article_id=1 and revision=3 and kind='retract' and processed_at is not null
+    union all
+    select 'one_archive_publish_event=' || count(*) from public.blog_outbox
+      where article_id=1 and revision=4 and kind='publish' and processed_at is not null
+  " > "$evidence/admin-article-archive-counts.txt"
+  for check in exact_admin_archive exact_admin_republication one_archive_retract_event one_archive_publish_event; do
+    grep -Fxq "$check=1" "$evidence/admin-article-archive-counts.txt"
+  done
+  "$dotnet" "$migrate" verify > "$evidence/admin-article-archive-schema-verify.log" 2>&1
 fi
 "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
   select 'admin_sessions=' || count(*) from public.admin_session

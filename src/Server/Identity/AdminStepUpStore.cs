@@ -11,7 +11,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
-        ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7 }
+        ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7, ArticleArchive = 8 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -45,14 +45,20 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction action, CancellationToken ct)
     {
         var permission = StepUpPermission(action);
-        var articleRollback = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback;
-        var rollbackLabel = action == StepUpAction.DraftArticleRollback ? "draft rollback" : "published rollback";
+        var articleRollback = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive;
+        var rollbackLabel = action switch
+        {
+            StepUpAction.DraftArticleRollback => "draft rollback",
+            StepUpAction.ArticleArchive => "archive transition",
+            _ => "published rollback"
+        };
         var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
         {
             if (action == StepUpAction.ReviewCommentAppeal)
                 await FsusBlog.V2.Server.Comments.CommentAppeals.RequireSchema(db, tx, ct);
             if (action == StepUpAction.ModerateCommentBatch) await RequireModerationBatchSchema(db, tx, ct);
             if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
+            if (action == StepUpAction.ArticleArchive) await RequireArticleArchiveSchema(db, tx, ct);
             await using var consume = Store.Sql(db, tx, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
@@ -147,7 +153,8 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => "public.admin_step_up",
         StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback => "public.admin_article_rollback_step_up",
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive =>
+            "public.admin_article_rollback_step_up",
         StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
         StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
@@ -158,7 +165,8 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback => CurrentSchema.ArticleWritePermission,
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive =>
+            CurrentSchema.ArticleWritePermission,
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
         StepUpAction.ModerateCommentBatch => CurrentSchema.CommentModeratePermission,
