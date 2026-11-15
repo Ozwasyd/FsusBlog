@@ -226,6 +226,14 @@ BEGIN
             END IF;
             CONTINUE;
         END IF;
+        IF relation.relname = 'root_comment_pow_policy' THEN
+            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND generation = 1 AND proof_seconds = 120)
+                FROM public.root_comment_pow_policy' INTO valid_bootstrap;
+            IF valid_bootstrap IS DISTINCT FROM true THEN
+                RAISE EXCEPTION 'Fixture target has an invalid root comment proof bootstrap policy';
+            END IF;
+            CONTINUE;
+        END IF;
         EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
         IF contains_rows THEN
             RAISE EXCEPTION 'Fixture target contains business data in %', relation.relname;
