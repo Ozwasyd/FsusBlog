@@ -23,11 +23,9 @@ internal static partial class Migration
             throw new InvalidOperationException("The import backup directory must use Unix permissions 0700.");
 
         await using var manifest = OpenImportBackupFile(directory, "manifest.json");
-        if (manifest.Length is <= 0 or > 2_000_000) throw new InvalidOperationException("The import backup manifest is outside its size limit.");
-        var encoded = new byte[(int)manifest.Length];
-        await manifest.ReadExactlyAsync(encoded, token);
-        if (manifest.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(encoded)) != expected)
-            throw new InvalidOperationException("The target backup manifest digest differs.");
+        var encoded = await ReadBoundedArtifactAsync(manifest, 2_000_000, token,
+            static () => new InvalidOperationException("The import backup manifest is outside its size limit."),
+            static () => new InvalidOperationException("The target backup manifest digest differs."), expected);
         var backup = JsonSerializer.Deserialize<ImportBackup>(encoded, OwnerMapJson);
         if (backup is null || backup.Format != "fsusblog-offline-backup-candidate-v1" ||
             backup.DatabaseDump is not { Bytes: > 5 and <= ImportBackupBytes } artifact || !IsSha256(artifact.Sha256) ||

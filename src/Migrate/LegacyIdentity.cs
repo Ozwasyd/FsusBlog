@@ -30,10 +30,11 @@ internal static partial class Migration
 
     private static async Task<int> VerifyLegacyIdentityAsync(string provider, CancellationToken token)
     {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-        deadline.CancelAfter(TimeSpan.FromMinutes(4));
-        var ct = deadline.Token;
-        try
+        return await RunBoundedLegacyOperationAsync(token, 4, "The identity verification exceeded its run budget.",
+            "The legacy identity catalog could not be read", Run,
+            representationError: "The source catalog contains an unsupported identity field representation.");
+
+        async Task<int> Run(CancellationToken ct)
         {
             var source = ParseLegacySource(provider);
             await using var database = source.Connection;
@@ -49,18 +50,6 @@ internal static partial class Migration
             await audit.CheckRelatedAsync();
             await transaction.RollbackAsync(ct);
             return audit.Report();
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested && deadline.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("The identity verification exceeded its run budget.");
-        }
-        catch (DbException error)
-        {
-            throw new InvalidOperationException($"The legacy identity catalog could not be read ({error.GetType().Name}).");
-        }
-        catch (Exception error) when (error is InvalidCastException or OverflowException)
-        {
-            throw new InvalidOperationException("The source catalog contains an unsupported identity field representation.");
         }
     }
 

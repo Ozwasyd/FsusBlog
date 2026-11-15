@@ -155,11 +155,8 @@ internal static partial class Migration
         if (path is null && digest is null) return null;
         if (path is null || !IsSha256(digest)) throw new FormatException();
         await using var file = OpenLegacyMediaReviewFile(path);
-        if (file.Length is < 1 or > 8192) throw new FormatException();
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, ct);
-        if (file.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != digest) throw new FormatException();
-        return bytes;
+        return await ReadBoundedArtifactAsync(file, 8192, ct,
+            static () => new FormatException(), static () => new FormatException(), digest);
     }
 
     private static string RequiredProofText(JsonElement proof, string name) =>

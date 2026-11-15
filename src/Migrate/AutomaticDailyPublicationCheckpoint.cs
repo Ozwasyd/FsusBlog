@@ -150,10 +150,9 @@ internal static partial class Migration
         if (handle is null || !NativeUnixFile.IsRegular(handle, ReadOnlyOwner, owned: true))
             throw new IOException("The retained daily archive must be a regular file owned by the signer with mode 0400.");
         using var file = new FileStream(handle, FileAccess.Read);
-        if (file.Length is < 1 or > DailyArchiveBytes) throw new IOException("Invalid retained daily archive size.");
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, ct);
-        if (file.ReadByte() != -1) throw new IOException("The retained daily archive changed while being read.");
+        var bytes = await ReadBoundedArtifactAsync(file, DailyArchiveBytes, ct,
+            static () => new IOException("Invalid retained daily archive size."),
+            static () => new IOException("The retained daily archive changed while being read."));
         try
         {
             using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { AllowDuplicateProperties = false, MaxDepth = 4 });

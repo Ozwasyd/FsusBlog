@@ -1,5 +1,4 @@
 using System.Data;
-using System.Data.Common;
 using System.Globalization;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
@@ -17,10 +16,10 @@ internal static partial class Migration
         LegacyReleaseActivationInput? release = null)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromMinutes(8));
-        var ct = timeout.Token;
-        try
+        return await RunBoundedLegacyOperationAsync(token, 8, "The staged legacy projection exceeded its run budget.",
+            "The candidate rejected its staged projection", Run, postgresState: true);
+
+        async Task<int> Run(CancellationToken ct)
         {
             var plan = await ReadImportPlanAsync(planPath, ct);
             if (plan.SourceReference != LegacyReference || !plan.ReadyToStage ||
@@ -130,18 +129,6 @@ internal static partial class Migration
                     "unsupported domain conversion and activation" }
             }, Json));
             return 0;
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested && timeout.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("The staged legacy projection exceeded its run budget.");
-        }
-        catch (PostgresException error)
-        {
-            throw new InvalidOperationException($"The candidate rejected its staged projection ({error.SqlState}).");
-        }
-        catch (DbException error)
-        {
-            throw new InvalidOperationException($"The candidate rejected its staged projection ({error.GetType().Name}).");
         }
     }
 

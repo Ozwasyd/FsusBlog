@@ -1,4 +1,3 @@
-using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlogV2.Storage;
@@ -25,12 +24,12 @@ internal static partial class Migration
 
     private static async Task<int> RunLegacyMediaRehearsalAsync(string[] arguments, CancellationToken token)
     {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-        deadline.CancelAfter(TimeSpan.FromMinutes(8));
-        var ct = deadline.Token;
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
             throw new ArgumentException("Legacy media rehearsal requires macOS or Linux.");
-        try
+        return await RunBoundedLegacyOperationAsync(token, 8, "The legacy media rehearsal exceeded its run budget.",
+            "The legacy media source or candidate rejected the read", Run);
+
+        async Task<int> Run(CancellationToken ct)
         {
             switch (arguments)
             {
@@ -53,14 +52,6 @@ internal static partial class Migration
                 default:
                     throw new ArgumentException("Use legacy assets rehearsal plan, copy, or verify. See --help.");
             }
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested && deadline.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("The legacy media rehearsal exceeded its run budget.");
-        }
-        catch (DbException error)
-        {
-            throw new InvalidOperationException($"The legacy media source or candidate rejected the read ({error.GetType().Name}).");
         }
     }
 
@@ -124,12 +115,9 @@ internal static partial class Migration
             path != Path.GetFullPath(path) || string.IsNullOrEmpty(Path.GetFileName(path)))
             throw new ArgumentException("Provide the absolute reviewed plan path and its approved SHA-256.");
         await using var file = OpenLegacyMediaReviewFile(path);
-        if (file.Length is <= 0 or > MaxMediaReviewBytes)
-            throw new InvalidOperationException("The reviewed media plan has an invalid size.");
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, token);
-        if (file.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != digest)
-            throw new InvalidOperationException("The reviewed media plan SHA-256 differs.");
+        var bytes = await ReadBoundedArtifactAsync(file, MaxMediaReviewBytes, token,
+            static () => new InvalidOperationException("The reviewed media plan has an invalid size."),
+            static () => new InvalidOperationException("The reviewed media plan SHA-256 differs."), digest);
         var review = JsonSerializer.Deserialize<LegacyMediaReview>(bytes, OwnerMapJson);
         CheckLegacyMediaReview(review);
         return review!;

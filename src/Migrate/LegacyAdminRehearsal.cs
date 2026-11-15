@@ -1,7 +1,5 @@
 using System.Data;
-using System.Data.Common;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlogV2.Storage;
 using Npgsql;
@@ -20,10 +18,11 @@ internal static partial class Migration
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
             throw new ArgumentException("Administrator migration rehearsal requires macOS or Linux.");
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-        deadline.CancelAfter(TimeSpan.FromMinutes(5));
-        var ct = deadline.Token;
-        try
+        return await RunBoundedLegacyOperationAsync(token, 5, "The administrator migration rehearsal exceeded its run budget.",
+            "The isolated administrator operation failed", Run, postgresState: true,
+            representationError: "The old administrator metadata has an unsupported field representation.");
+
+        async Task<int> Run(CancellationToken ct)
         {
             switch (arguments)
             {
@@ -47,22 +46,6 @@ internal static partial class Migration
                 default:
                     throw new ArgumentException("Use legacy admin plan, stage or verify with the documented arguments.");
             }
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested && deadline.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("The administrator migration rehearsal exceeded its run budget.");
-        }
-        catch (PostgresException error)
-        {
-            throw new InvalidOperationException($"The isolated administrator operation failed ({error.SqlState}).");
-        }
-        catch (DbException error)
-        {
-            throw new InvalidOperationException($"The isolated administrator operation failed ({error.GetType().Name}).");
-        }
-        catch (Exception error) when (error is OverflowException or InvalidCastException)
-        {
-            throw new InvalidOperationException("The old administrator metadata has an unsupported field representation.");
         }
     }
 
@@ -137,12 +120,9 @@ internal static partial class Migration
     {
         if (!IsSha256(expectedSha)) throw new ArgumentException("Provide the independently reviewed plan SHA-256.");
         await using var file = OpenLegacyMediaReviewFile(path);
-        if (file.Length is < 1 or > MaxMediaReviewBytes)
-            throw new InvalidOperationException("The reviewed administrator plan exceeds its input bound.");
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, ct);
-        if (file.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != expectedSha)
-            throw new InvalidOperationException("The reviewed administrator plan SHA-256 differs.");
+        var bytes = await ReadBoundedArtifactAsync(file, MaxMediaReviewBytes, ct,
+            static () => new InvalidOperationException("The reviewed administrator plan exceeds its input bound."),
+            static () => new InvalidOperationException("The reviewed administrator plan SHA-256 differs."), expectedSha);
         var review = JsonSerializer.Deserialize<LegacyAdminReview>(bytes, OwnerMapJson);
         if (review is null || review.Format != LegacyAdminReviewFormat || review.SourceReference != LegacyReference ||
             review.Provider is not ("postgres" or "mysql" or "sqlite") || string.IsNullOrWhiteSpace(review.SourceSchema) ||

@@ -20,11 +20,9 @@ internal static partial class Migration
         if (!Path.IsPathFullyQualified(path) || !IsSha256(approvedSha256))
             throw new ArgumentException("Supply an absolute property review path and its independently approved SHA-256.");
         await using var input = File.OpenRead(path);
-        if (input.Length is < 1 or > 16_384) throw new ArgumentException("Invalid property review size.");
-        var bytes = new byte[(int)input.Length];
-        await input.ReadExactlyAsync(bytes, ct);
-        if (input.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != approvedSha256)
-            throw new ArgumentException("Property review SHA-256 does not match.");
+        var bytes = await ReadBoundedArtifactAsync(input, 16_384, ct,
+            static () => new ArgumentException("Invalid property review size."),
+            static () => new ArgumentException("Property review SHA-256 does not match."), approvedSha256);
         LegacyPropertyReview? review;
         try { review = JsonSerializer.Deserialize<LegacyPropertyReview>(bytes, OwnerMapJson); }
         catch (JsonException) { throw new ArgumentException("Invalid property review."); }

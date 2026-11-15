@@ -104,22 +104,8 @@ internal static partial class Migration
             (arguments[0] == "apply") != (arguments.Length == 6))
             throw new ArgumentException("Use legacy import plan|apply with provider, owner map, backup directory, manifest digest, and apply plan.");
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromMinutes(8));
-        var ct = timeout.Token;
-        try
-        {
-            var actual = await ImportLegacyAsync(arguments, media, ct);
-            return actual;
-        }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested && timeout.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("The isolated legacy import exceeded its run budget.");
-        }
-        catch (DbException error)
-        {
-            throw new InvalidOperationException($"The isolated legacy source or target rejected its operation ({error.GetType().Name}).");
-        }
+        return await RunBoundedLegacyOperationAsync(token, 8, "The isolated legacy import exceeded its run budget.",
+            "The isolated legacy source or target rejected its operation", ct => ImportLegacyAsync(arguments, media, ct));
     }
 
     private static async Task<int> ImportLegacyAsync(string[] arguments, LegacyImportMediaInput? media, CancellationToken token)

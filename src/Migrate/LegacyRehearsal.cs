@@ -37,11 +37,9 @@ internal static partial class Migration
     private static async Task<(OwnerMap Map, string Digest)> ReadLegacyOwnerMapAsync(string ownerMapPath, CancellationToken token)
     {
         await using var file = new FileStream(ownerMapPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        if (file.Length is < 1 or > RehearsalMapBytes)
-            throw new InvalidOperationException("An owner map within the rehearsal size limit is required.");
-        var mapBytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(mapBytes, token);
-        if (file.ReadByte() != -1) throw new InvalidOperationException("The owner map changed while being read.");
+        var mapBytes = await ReadBoundedArtifactAsync(file, RehearsalMapBytes, token,
+            static () => new InvalidOperationException("An owner map within the rehearsal size limit is required."),
+            static () => new InvalidOperationException("The owner map changed while being read."));
         OwnerMap map;
         try
         {

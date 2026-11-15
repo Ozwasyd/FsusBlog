@@ -195,10 +195,8 @@ internal static partial class Migration
     private static async Task<JsonDocument> ReadIntegrityJsonAsync(string path, int maximumBytes, CancellationToken ct)
     {
         await using var file = File.OpenRead(path);
-        if (file.Length < 1 || file.Length > maximumBytes) throw new FormatException();
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, ct);
-        if (file.ReadByte() != -1) throw new FormatException();
+        var bytes = await ReadBoundedArtifactAsync(file, maximumBytes, ct,
+            static () => new FormatException(), static () => new FormatException());
         return JsonDocument.Parse(bytes, new JsonDocumentOptions { AllowDuplicateProperties = false });
     }
 

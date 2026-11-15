@@ -166,13 +166,10 @@ internal static partial class Migration
     private static async Task<byte[]> ReadLegacyPasskeyInputAsync(string path, string sha, int limit, CancellationToken ct)
     {
         await using var file = OpenLegacyMediaReviewFile(path);
-        if (!IsSha256(sha) || file.Length is < 1 || file.Length > limit)
-            throw new InvalidOperationException("Invalid pinned Passkey import input.");
-        var bytes = new byte[(int)file.Length];
-        await file.ReadExactlyAsync(bytes, ct);
-        if (file.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(bytes)) != sha)
-            throw new InvalidOperationException("Pinned Passkey import input changed.");
-        return bytes;
+        if (!IsSha256(sha)) throw new InvalidOperationException("Invalid pinned Passkey import input.");
+        return await ReadBoundedArtifactAsync(file, limit, ct,
+            static () => new InvalidOperationException("Invalid pinned Passkey import input."),
+            static () => new InvalidOperationException("Pinned Passkey import input changed."), sha);
     }
 
     private static async Task<LegacyVerifiedPasskey[]> VerifyLegacyPasskeyAssertionsAsync(LegacyPasskeySelection selection,
