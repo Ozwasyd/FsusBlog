@@ -9,3 +9,5 @@
 | 失效和公开权限 | v1 浏览器 generation 失效会取消正在加载的请求、清除活动清单和所载条目。旧分片文件的服务端保留周期及后台删除没有从这条路径得到确认。 [v1 浏览器失效](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/services/localSearch.ts#L930) | 服务端 GET/HEAD 拒绝过时代次。Chromium 用例实际暂停最终 HEAD、撤回、验证 409、抑制旧结果并重新下载。实库发布用例对撤回后的旧 generation 走 HTTP 复查。 [GET/HEAD](../../src/Server/Program.cs#L280) · [浏览器用例](../../tests/EndToEnd/search-worker-reuse-flow.mjs#L89) · [实库用例](../../tests/Integration/PublishingPostgresTests.cs#L250) | 补丁接入后重复同一浏览器竞争用例。再覆盖正在下载、解析、合并、回退及置换阶段的撤回，不让搜索 worker、服务器或代理长期提供已撤回的条目。旧产物如果独立对外提供，需明确可达性和保留上限。 |
 
 本次静态比对未运行产品测试。公开搜索的 HTTP wire 决策、正文词没有命中的业务原因、词典输出等价、补丁应用和撤回各自留出证据。作者全文索引另由 #2316–#2318 跟踪。 [作者索引](https://github.com/Ozwasyd/FsusBlog/issues/2317)
+
+后续复核固定公开 Filter、FAS4、独立本地 FSR4 入口，原 Wasm 排名与 v2 词序差异，以及 FSPT 同角色成员比对。独立 Python 向量验证补丁解码，在线传输与原排名仍待验收。 [离线补丁验收及议题映射](../product/search-patch-audit.md)
