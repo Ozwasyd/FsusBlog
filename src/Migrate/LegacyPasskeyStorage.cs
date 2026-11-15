@@ -82,8 +82,70 @@ internal static partial class Migration
         catalog.SingleOrDefault(table => table.Name == name) is { Kind: "r" } relation ? relation :
             throw new InvalidOperationException("The selected old identity relation is absent or unsupported.");
 
+    private const string LegacyPasskeyAccountSequence = "passkey_subject_account_id_seq";
+
+    private static async Task<(LegacyPasskeySequence Sequence, int PriorMax)> ReadLegacyPasskeySequenceAsync(
+        NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct)
+    {
+        await using var query = new NpgsqlCommand($"""
+            SELECT last_value,is_called,(SELECT coalesce(max(account_id),0) FROM public.passkey_subject WHERE user_id<>$1)
+            FROM public.{LegacyPasskeyAccountSequence}
+            """, db, tx);
+        query.Parameters.AddWithValue(owner);
+        await using var row = await query.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The Passkey sequence is unavailable.");
+        return (new(row.GetInt64(0), row.GetBoolean(1)), row.GetInt32(2));
+    }
+
+    private static async Task VerifyLegacyPasskeySequenceBaselineAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+        BackupRelation[] baseline, LegacyPasskeySequence before, CancellationToken ct)
+    {
+        await using var query = new NpgsqlCommand("""
+            SELECT pg_catalog.row_to_json(t)::text FROM (SELECT $1::bigint AS last_value,$2::boolean AS is_called) t
+            """, db, tx);
+        query.Parameters.AddWithValue(before.LastValue);
+        query.Parameters.AddWithValue(before.IsCalled);
+        await using var rows = await query.ExecuteReaderAsync(ct);
+        if (await MeasureBackupRowsAsync(LegacyPasskeyAccountSequence, "S", rows, ct) !=
+            baseline.Single(relation => relation.Name == LegacyPasskeyAccountSequence))
+            throw new InvalidOperationException("The approved Passkey sequence is not bound to the rollback backup.");
+    }
+
+    private static async Task VerifyLegacyPasskeyPriorAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
+        BackupRelation[] baseline, CancellationToken ct)
+    {
+        foreach (var (relation, key) in new[] { ("blog_user", "id"), ("passkey_subject", "user_id"), ("passkey_credential", "credential_id") })
+        {
+            var filter = relation == "blog_user" ? "" : "WHERE t.user_id<>$1";
+            await using var query = new NpgsqlCommand($"""
+                SELECT CASE WHEN pg_catalog.octet_length(pg_catalog.row_to_json(t)::text)<={BackupRowBytes}
+                    THEN pg_catalog.row_to_json(t)::text END
+                FROM public.{relation} t {filter} ORDER BY t.{key} LIMIT {BackupRowsPerRelation + 1}
+                """, db, tx);
+            if (filter.Length != 0) query.Parameters.AddWithValue(owner);
+            await using var rows = await query.ExecuteReaderAsync(ct);
+            if (await MeasureBackupRowsAsync(relation, "r", rows, ct) != baseline.Single(item => item.Name == relation))
+                throw new InvalidOperationException("The previous Passkey or account-owner rows differ from the rollback backup.");
+        }
+    }
+
+    private static async Task VerifyLegacyPasskeyAvailableAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+        LegacyPasskeySelection selection, LegacyPasskeyCredential[] credentials, CancellationToken ct)
+    {
+        await using var query = new NpgsqlCommand("""
+            SELECT NOT EXISTS (SELECT FROM public.passkey_subject WHERE user_id=$1 OR account_id=$2 OR user_handle=$3)
+                AND NOT EXISTS (SELECT FROM public.passkey_credential WHERE credential_id=ANY($4))
+            """, db, tx);
+        query.Parameters.AddWithValue(selection.User);
+        query.Parameters.AddWithValue(selection.Account);
+        query.Parameters.AddWithValue(credentials[0].Handle);
+        query.Parameters.AddWithValue(credentials.Select(credential => credential.Id).ToArray());
+        if (await query.ExecuteScalarAsync(ct) is not true)
+            throw new InvalidOperationException("The target Passkey owner, account number, handle or credential is already allocated.");
+    }
+
     private static async Task WriteLegacyPasskeysAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        LegacyPasskeySelection selection, LegacyVerifiedPasskey[] verified, CancellationToken ct)
+        LegacyPasskeySelection selection, LegacyVerifiedPasskey[] verified, long? restartWith, CancellationToken ct)
     {
         await using var subject = new NpgsqlCommand(
             "INSERT INTO public.passkey_subject (user_id,account_id,user_handle) VALUES ($1,$2,$3)", db, tx);
@@ -102,28 +164,18 @@ internal static partial class Migration
             if (await insert.ExecuteNonQueryAsync(ct) != 1)
                 throw new InvalidOperationException("The approved Passkey was not installed.");
         }
-        await ExecuteAsync(db, tx, FormattableString.Invariant(
-            $"ALTER SEQUENCE public.passkey_subject_account_id_seq RESTART WITH {selection.Account + 1}"), ct);
+        if (restartWith is { } next)
+            await ExecuteAsync(db, tx, FormattableString.Invariant(
+                $"ALTER SEQUENCE public.{LegacyPasskeyAccountSequence} RESTART WITH {next}"), ct);
     }
 
     private static async Task VerifyLegacyPasskeyDestinationAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         LegacyPasskeySelection selection, LegacyVerifiedPasskey[] verified, CancellationToken ct)
     {
-        if (verified.Length == 0)
-        {
-            await using var empty = new NpgsqlCommand("""
-                SELECT NOT EXISTS (SELECT FROM public.passkey_subject) AND NOT EXISTS (SELECT FROM public.passkey_credential)
-                    AND (SELECT last_value=1 AND NOT is_called FROM public.passkey_subject_account_id_seq)
-                """, db, tx);
-            if (await empty.ExecuteScalarAsync(ct) is not true)
-                throw new InvalidOperationException("The Passkey destination is not pristine.");
-            return;
-        }
         foreach (var entry in verified)
         {
             await using var query = new NpgsqlCommand("""
-                SELECT (SELECT count(*) FROM public.passkey_subject)=1 AND (SELECT count(*) FROM public.passkey_credential)=$11
-                    AND (SELECT last_value=$9::bigint+1 AND NOT is_called FROM public.passkey_subject_account_id_seq)
+                SELECT (SELECT count(*) FROM public.passkey_credential WHERE user_id=$1)=$11
                     AND EXISTS (SELECT FROM public.passkey_subject s JOIN public.passkey_credential c USING (user_id)
                         WHERE s.user_id=$1 AND s.account_id=$9 AND s.user_handle=$10 AND c.credential_id=$2 AND c.public_key=$3
                             AND c.sign_count=$4 AND c.backup_eligible=$5 AND c.backed_up=$6 AND c.created_at=$7

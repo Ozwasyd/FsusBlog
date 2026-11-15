@@ -18,7 +18,12 @@ internal static partial class Migration
     private sealed record LegacyPasskeySelection(Guid SourceSite, Guid TargetSite, int Account, Guid User, string Origin, string Rp);
     private sealed record LegacyPasskeyPlan(int Version, string SourceReference, LegacyPasskeySelection Selection,
         LegacyPostgresSourceSeal Source, string TargetSha256, string CredentialSha256, string BackupSha256, string Nonce, DateTimeOffset Expires,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CredentialCount = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CredentialCount = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPasskeySequence? SequenceBefore = null);
+    private sealed record LegacyPasskeySequence(long LastValue, bool IsCalled)
+    {
+        internal long Next => LastValue + (IsCalled ? 1 : 0);
+    }
     private sealed record LegacyPasskeyCredential(byte[] Handle, byte[] Id, byte[] Key, uint Counter, bool Eligible,
         bool BackedUp, DateTimeOffset Created, DateTimeOffset? LastUsed);
     private sealed record LegacyVerifiedPasskey(LegacyPasskeyCredential Credential, uint Counter);
@@ -38,7 +43,9 @@ internal static partial class Migration
             approvalBytes = await ReadLegacyPasskeyInputAsync(review, reviewSha, 8192, ct);
             approved = JsonSerializer.Deserialize<LegacyPasskeyPlan>(approvalBytes, OwnerMapJson);
             if (approved is not { SourceReference: LegacyReference, Selection: not null, Source: not null } ||
-                approved is not ({ Version: 1, CredentialCount: null } or { Version: 2, CredentialCount: >= 2 and <= LegacyPasskeyCredentialLimit }) ||
+                approved is not ({ Version: 1, CredentialCount: null, SequenceBefore: null } or
+                    { Version: 2, CredentialCount: >= 2 and <= LegacyPasskeyCredentialLimit, SequenceBefore: null } or
+                    { Version: 3, CredentialCount: >= 1 and <= LegacyPasskeyCredentialLimit, SequenceBefore: not null }) ||
                 approved.BackupSha256 != restoreSha || !IsCanonicalIdentityBytes(approved.Nonce, 32, 32) ||
                 approved.Expires > DateTimeOffset.UtcNow.AddMinutes(10))
                 throw new InvalidOperationException("Invalid independently approved Passkey plan.");
@@ -63,6 +70,8 @@ internal static partial class Migration
         await db.OpenAsync(ct);
         await RequireBackupDatabaseLockAsync(db, ct);
         await using var tx = approved is null ? await BeginReadOnlyAsync(db, ct) : await db.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
+        if (approved?.Version == 3)
+            await ExecuteAsync(db, tx, "LOCK TABLE public.blog_user,public.passkey_subject,public.passkey_credential IN SHARE ROW EXCLUSIVE MODE", ct);
         await ExecuteAsync(db, tx, "SET LOCAL search_path=pg_catalog", ct);
         await SetBackupRepresentationAsync(db, tx, ct);
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct);
@@ -91,10 +100,20 @@ internal static partial class Migration
         var baseline = backup.Site.Relations;
         if (media.Count != 0 || backup.Site.PostgreSqlMajor != db.PostgreSqlVersion.Major.ToString(CultureInfo.InvariantCulture) ||
             baseline.Count(IsLegacyPasskeyDestinationRelation) != 3 ||
-            baseline.Any(row => (row.Name is "passkey_subject" or "passkey_credential") && row.Rows != 0) ||
             !baseline.Where(row => !IsLegacyPasskeyDestinationRelation(row)).SequenceEqual(observed.Where(row => !IsLegacyPasskeyDestinationRelation(row))))
             throw new InvalidOperationException("The Passkey runtime differs from the reviewed rollback baseline.");
         bool pristine = baseline.SequenceEqual(observed);
+        bool additive = baseline.Any(row => row.Name == "passkey_subject" && row.Rows > 0);
+        var (storedSequence, priorMax) = await ReadLegacyPasskeySequenceAsync(db, tx, selection.User, ct);
+        var before = additive ? approved?.SequenceBefore ?? storedSequence : new LegacyPasskeySequence(1, false);
+        if (before.LastValue is < 1 or > int.MaxValue || before.Next > int.MaxValue || priorMax >= before.Next)
+            throw new InvalidOperationException("The approved Passkey sequence is behind allocated accounts or exhausted.");
+        await VerifyLegacyPasskeySequenceBaselineAsync(db, tx, baseline, before, ct);
+        var after = selection.Account >= before.Next ? new LegacyPasskeySequence((long)selection.Account + 1, false) : before;
+        if (storedSequence != (pristine ? before : after))
+            throw new InvalidOperationException("The Passkey sequence differs from the approved before or after state.");
+        if (!pristine)
+            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, ct);
 
         var source = ParseLegacySource("postgres");
         await using var oldDb = (NpgsqlConnection)source.Connection;
@@ -105,15 +124,16 @@ internal static partial class Migration
         var sourceSeal = await SealLegacyPostgresSourceAsync(source, oldDb, oldTx, ct);
         var (credentials, credentialSha) = await ReadLegacyPasskeyCredentialsAsync(source, oldTx, selection.Account, ct);
         await oldTx.RollbackAsync(ct);
-        int? credentialCount = credentials.Length > 1 ? credentials.Length : null;
-        var observedPlan = new LegacyPasskeyPlan(credentialCount.HasValue ? 2 : 1, LegacyReference, selection, sourceSeal, targetSha, credentialSha,
+        int? credentialCount = additive || credentials.Length > 1 ? credentials.Length : null;
+        var observedPlan = new LegacyPasskeyPlan(additive ? 3 : credentialCount.HasValue ? 2 : 1, LegacyReference,
+            selection, sourceSeal, targetSha, credentialSha,
             backupSha, approved?.Nonce ?? Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32)),
-            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10), credentialCount);
+            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10), credentialCount, additive ? before : null);
 
         if (approved is null)
         {
             if (!pristine) throw new InvalidOperationException("Plan requires a pristine backup-matching Passkey destination.");
-            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, [], ct);
+            await VerifyLegacyPasskeyAvailableAsync(db, tx, selection, credentials, ct);
             Console.WriteLine(JsonSerializer.Serialize(observedPlan, Json));
             return 0;
         }
@@ -122,8 +142,12 @@ internal static partial class Migration
         var verified = await VerifyLegacyPasskeyAssertionsAsync(selection, credentials, SHA256.HashData(approvalBytes!), args[3], args[4], ct);
         if (pristine)
         {
-            await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, [], ct);
-            await WriteLegacyPasskeysAsync(db, tx, selection, verified, ct);
+            await VerifyLegacyPasskeyAvailableAsync(db, tx, selection, credentials, ct);
+            await WriteLegacyPasskeysAsync(db, tx, selection, verified, before != after ? after.LastValue : null, ct);
+            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, ct);
+            var (writtenSequence, _) = await ReadLegacyPasskeySequenceAsync(db, tx, selection.User, ct);
+            if (writtenSequence != after)
+                throw new InvalidOperationException("The updated Passkey sequence cannot be verified.");
         }
         await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, verified, ct);
         await tx.CommitAsync(ct);

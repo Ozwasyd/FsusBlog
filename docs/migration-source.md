@@ -334,7 +334,7 @@ dotnet run --no-build --project src/Migrate -- legacy identity postgres > "$iden
 
 此路径适用于 PostgreSQL 冻结备份恢复出的普通匿名账号。旧账号须处于启用状态，有一至五枚普通登记的 Passkey。凭据数须与原登记代次一致，且没有 MFA 或恢复权限残留。旧站配置的 `Fido2:ServerDomain` 与所选 `Fido2:Origins` 值须独立核对。它们必须与新站的 `FSUSBLOG_PASSKEY_RP_ID` 和 `FSUSBLOG_PASSKEY_ORIGIN` 完全相同。旧凭据表本身不记录这两个值。
 
-将 `FSUSBLOG_V1_DB` 指向独立集群中还原的只读旧库。`FSUSBLOG_LEGACY_PASSKEY_DB` 指向本机 Unix socket 上停服的 `fsusv2_import_runtime_*` 副本。副本使用当前结构，已有审核过的目标账号，Passkey 信任池和账户序列处于初始状态。先验证副本的回退备份。
+将 `FSUSBLOG_V1_DB` 指向独立集群中还原的只读旧库。`FSUSBLOG_LEGACY_PASSKEY_DB` 指向本机 Unix socket 上停服的 `fsusv2_import_runtime_*` 副本。副本使用当前结构，已有审核过的目标账号。首次导入需要空 Passkey 信任池和初始账户序列。先验证副本的回退备份。
 
 ```bash
 umask 077
@@ -347,6 +347,10 @@ dotnet run --no-build --project src/Migrate -- legacy passkey apply \
 审批连接原站、旧账号、目标 UUID、两端库及旧凭据摘要和回退备份。审核后，在同一 origin 取得原认证器的可发现凭据断言，要求用户验证，并将审批文件原字节的 SHA-256 作为 32 字节挑战。以该摘要的无填充 Base64URL 填写 `PasskeyLoginCompleteRequest` 的 token。单枚凭据继续使用原版本 1 审批和二进制 AEDS 断言文件。多枚凭据使用版本 2 审批，`credentialCount` 绑定完整旧凭据集。断言文件是一个 UTF-8 JSON 数组，每个元素是一个对应 AEDS 帧的标准 Base64 字符串。同一审批的所有断言使用相同挑战，凭据 ID 必须各出现一次，顺序不限。每个断言保留返回的 credential ID、用户 handle、签名和认证器数据，remember-me 使用 false。两个输入文件均须为操作者私有文件，并分别固定原字节 SHA-256。首次启用的审批有效期为十分钟。
 
 工具复用运行时 FIDO 验证器，核对每枚原公钥、签名、用户验证、坐标和计数。全部证明通过后才在一次事务写入账号及完整凭据集，保留原整数账号、用户 handle、公钥、备份标志和历史时间，记录各自已核验的最新计数并推进账号序列。收到回执前中断时，同一审批可以回读完整结果。旧会话需要重新登录，旧恢复能力需要独立登记。原设备及登记元数据由冻结归档保管。这个流程没有导入管理员凭据、旧 session 或 MFA 密钥。
+
+同一停服副本可逐一接续多个普通账号。每个后续账号都使用最新已验证的回退备份、独立审批和新的断言。非空 Passkey 信任池使用版本 3 审批，其中 `sequenceBefore` 固定前置账户序列的 `lastValue` 和 `isCalled`。旧主体号低于下一分配值时保留原序列状态，达到或超过下一分配值时在同一事务内推进。序列落后于已分配主体时拒绝导入。
+
+写入和重试均重新核对原所有者、主体和凭据的备份摘要。目标账号已有主体时拒绝再次分配，包括撤销最后一枚凭据后留下的空主体。主体号、用户 handle 和凭据 ID 均核对冲突。新账号导入或服务产生后续写入后，旧审批不再属于当前可复验状态；此时应从对应备份核对原回执。
 
 ### 演练选定的独立管理员
 
