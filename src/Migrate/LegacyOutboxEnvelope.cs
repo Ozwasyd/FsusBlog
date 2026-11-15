@@ -16,16 +16,16 @@ internal static partial class Migration
         ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"];
 
     private static bool VerifyLegacyOutboxEnvelope(string json, int articleId, long revisionId, long rightsId,
-        long? responsibilityId, int? responsibilityVersion, long releaseId, DateTime createdAt, int expectedCategory,
+        long? responsibilityId, int? responsibilityVersion, long? releaseId, DateTime createdAt, int expectedCategory,
         int[] expectedTags, out bool exactDatabaseClock, int? beforeCategory = null, int[]? beforeTags = null,
-        int revisionNumber = 0, int publicationNumber = 0)
+        int revisionNumber = 0, int publicationNumber = 0, LegacyHistoricalResponsibility? history = null)
     {
         exactDatabaseClock = false;
         bool updated = beforeCategory.HasValue;
         int defaultOrdinal = updated ? 2 : 1;
         int expectedRevision = revisionNumber == 0 ? defaultOrdinal : revisionNumber;
-        int expectedPublication = publicationNumber == 0 ? defaultOrdinal : publicationNumber;
-        if (updated ? expectedRevision < 2 || expectedPublication < 2 : expectedRevision != 1 || expectedPublication != 1)
+        int? expectedPublication = history is not null ? null : publicationNumber == 0 ? defaultOrdinal : publicationNumber;
+        if (history is null && (updated ? expectedRevision < 2 || expectedPublication < 2 : expectedRevision != 1 || expectedPublication != 1))
             return false;
 
         if (json is not { Length: > 0 and <= LegacyOutboxMaxPayloadBytes } || articleId <= 0 || revisionId <= 0 || rightsId <= 0 ||
@@ -45,7 +45,7 @@ internal static partial class Migration
                 AllowDuplicateProperties = false
             });
             var root = document.RootElement;
-            string eventType = updated ? "updated" : "created";
+            string eventType = history is not null ? LegacyResponsibilityEventType : updated ? "updated" : "created";
             if (!HasExactLegacyOutboxFields(root, LegacyOutboxEnvelopeFields) ||
                 !LegacyOutboxIntegerMatches(root.GetProperty("schemaVersion"), 2) ||
                 !LegacyOutboxIntegerMatches(root.GetProperty("articleId"), articleId) ||
@@ -62,13 +62,15 @@ internal static partial class Migration
             // Both JSON times come from the same publication instant. PostgreSQL retains microseconds.
             if (!TryReadLegacyOutboxUtc(root.GetProperty("occurredAt"), out var occurredAt) ||
                 !TryReadLegacyOutboxUtc(root.GetProperty("publicUpdatedAt"), out var publicUpdatedAt) ||
-                occurredAt != publicUpdatedAt || occurredAt.Ticks - occurredAt.Ticks % 10 != createdAt.Ticks)
+                publicUpdatedAt != (history?.PublicUpdatedAt ?? occurredAt) || occurredAt.Ticks - occurredAt.Ticks % 10 != createdAt.Ticks)
                 return false;
 
             var before = root.GetProperty("before");
-            bool beforeMatches = beforeCategory is { } previous ? LegacyPublishedScopeMatches(before, previous, beforeTags!) :
+            var visibility = history is null ? "published" : "historical";
+            bool beforeMatches = history is not null ? LegacyOutboxScopeMatches(before, expectedCategory, expectedTags, visibility) :
+                beforeCategory is { } previous ? LegacyOutboxScopeMatches(before, previous, beforeTags!, visibility) :
                 before.ValueKind == JsonValueKind.Null;
-            if (!beforeMatches || !LegacyPublishedScopeMatches(root.GetProperty("after"), expectedCategory, expectedTags))
+            if (!beforeMatches || !LegacyOutboxScopeMatches(root.GetProperty("after"), expectedCategory, expectedTags, visibility))
                 return false;
 
             exactDatabaseClock = occurredAt.Ticks == createdAt.Ticks;
@@ -91,10 +93,10 @@ internal static partial class Migration
     private static bool LegacyOutboxTextMatches(JsonElement value, string expected) =>
         value.ValueKind == JsonValueKind.String && value.ValueEquals(expected);
 
-    private static bool LegacyPublishedScopeMatches(JsonElement value, int category, int[] tags) =>
+    private static bool LegacyOutboxScopeMatches(JsonElement value, int category, int[] tags, string visibility) =>
         HasExactLegacyOutboxFields(value, LegacyOutboxScopeFields) &&
         LegacyOutboxIntegerMatches(value.GetProperty("categoryId"), category) &&
-        LegacyOutboxTextMatches(value.GetProperty("visibility"), "published") &&
+        LegacyOutboxTextMatches(value.GetProperty("visibility"), visibility) &&
         LegacyOutboxTagsMatch(value.GetProperty("tagIds"), tags);
 
     private static bool LegacyOutboxTagsMatch(JsonElement tags, int[] expected)

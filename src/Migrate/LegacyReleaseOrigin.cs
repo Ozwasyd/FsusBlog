@@ -24,7 +24,9 @@ internal static partial class Migration
                             jsonb_build_object('siteAuthor',jsonb_build_object('key','{{LegacySiteAuthorKey}}','value',$6::text))
                             END
                         || CASE WHEN p.source_publication_id=$7 THEN jsonb_build_object('publishProof',$8::jsonb)
-                            ELSE '{}'::jsonb END AS evidence,
+                            ELSE '{}'::jsonb END
+                        || CASE WHEN history.records IS NULL THEN '{}'::jsonb
+                            ELSE jsonb_build_object('responsibilityHistory',history.records) END AS evidence,
                     jsonb_strip_nulls(jsonb_build_object('schemaVersion',1,'articleId',p.article_id,'revisionNo',p.revision,
                         'responsibilitySnapshotId',s.id::text,'responsibilityVersion',coalesce(s.responsibility_version,0),
                         'inheritsSiteAuthor',coalesce(s.inherit_site_author=1,true),'legacyFallback',s.id IS NULL,
@@ -45,7 +47,22 @@ internal static partial class Migration
                         AND (p.source_responsibility_snapshot_id IS NULL OR h.id=p.source_responsibility_snapshot_id)
                     ORDER BY h.responsibility_version DESC LIMIT 1
                 ) s ON true
-                WHERE (p.revision=2 AND s.id IS NULL) OR
+                LEFT JOIN LATERAL (
+                    SELECT count(*) AS entries, jsonb_agg(jsonb_build_object(
+                        'snapshot',to_jsonb(snap),'event',to_jsonb(edit),
+                        'edges',(SELECT jsonb_agg(to_jsonb(edge) ORDER BY edge.id)
+                            FROM {{ImportSchema}}.{{LegacyOutboxEdge.Table.Name}} edge WHERE edge.outbox_event_id=edit.id))
+                        ORDER BY snap.responsibility_version) AS records
+                    FROM {{ImportSchema}}.shadow_article_responsibility_snapshot snap
+                    JOIN {{ImportSchema}}.{{LegacyOutboxParent.Table.Name}} edit
+                        ON edit.responsibility_snapshot_id=snap.id AND edit.aggregate_id=p.article_id
+                        AND edit.article_revision_id=p.source_revision_id AND edit.event_type='{{LegacyResponsibilityEventType}}'
+                        AND edit.article_publication_id IS NULL AND edit.publication_no IS NULL
+                    WHERE p.revision=2 AND snap.article_id=p.article_id AND snap.article_revision_id=p.source_revision_id
+                ) history ON true
+                WHERE (p.revision=2 AND p.source_responsibility_snapshot_id IS NULL AND
+                    ((history.entries=0 AND s.id IS NULL) OR
+                     (history.entries BETWEEN 1 AND 2 AND s.responsibility_version=history.entries))) OR
                     (p.revision IN (1,3) AND s.id IS NOT NULL AND s.responsibility_version=1 AND s.previous_snapshot_id IS NULL)
             ) t ORDER BY article_id,revision
             """, db, tx);

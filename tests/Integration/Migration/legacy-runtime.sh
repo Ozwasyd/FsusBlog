@@ -9,6 +9,7 @@ activate=false
 activate_rollback=false
 authored_disclosure=false
 malformed_disclosure=false
+responsibility_history=false
 site_author_raw=
 republish_profile=false
 mixed_profile=false
@@ -30,7 +31,7 @@ case "$# ${1:-}" in
         fi
         public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
         ;;
-    '1 --rollback'|'1 --activate-rollback'|'1 --activate-rollback-authored'|'1 --activate-rollback-malformed'|'1 --activate-rollback-site-author')
+    '1 --rollback'|'1 --activate-rollback'|'1 --activate-rollback-authored'|'1 --activate-rollback-malformed'|'1 --activate-rollback-site-author'|'1 --activate-rollback-history')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
         if [[ "$1" != --rollback ]]; then
             activate=true activate_rollback=true profile=rollback-activated
@@ -39,6 +40,7 @@ case "$# ${1:-}" in
         case "$1" in
             --activate-rollback-authored) authored_disclosure=true profile=rollback-authored ;;
             --activate-rollback-malformed) malformed_disclosure=true profile=rollback-malformed ;;
+            --activate-rollback-history) responsibility_history=true profile=rollback-history ;;
             --activate-rollback-site-author)
                 profile=rollback-site-author
                 # After trimming, the emoji that follows the 18-byte prefix crosses the 20-byte v1 cap.
@@ -49,10 +51,15 @@ case "$# ${1:-}" in
             source_overlays+=("$fixture/legacy-runtime-authored-fixture.sql")
         fi
         source_overlays+=("$fixture/legacy-rollback-outbox-fixture.sql")
+        if [[ "$responsibility_history" == true ]]; then
+            source_overlays+=("$fixture/legacy-runtime-responsibility-history-fixture.sql")
+        fi
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed|--activate-rollback-site-author]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed|--activate-rollback-site-author|--activate-rollback-history]\n' "$0" >&2; exit 2 ;;
 esac
+expected_history=0
+if [[ "$responsibility_history" == true ]]; then expected_history=2; fi
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
 if [[ -n "${PG_TOOLS_DIR:-}" ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
@@ -237,20 +244,21 @@ Path(output).write_text(json.dumps({
 PY
 legacy_input=(postgres "$scratch/owners.json" "$quarantine_backup" "$quarantine_backup_sha")
 migrate_db "$quarantine_db" legacy import plan "${legacy_input[@]}" > "$scratch/reviewed.json"
-python3 - "$scratch/reviewed.json" "$plan_version" "$expected_articles" "$expected_publications" <<'PY'
+python3 - "$scratch/reviewed.json" "$plan_version" "$expected_articles" "$expected_publications" "$expected_history" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 path = sys.argv[1]
-version, articles, publications = map(int, sys.argv[2:])
+version, articles, publications, history = map(int, sys.argv[2:])
 plan = json.loads(Path(path).read_text())
 assert plan["version"] == version and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
 counts = {row["table"]: row["rows"] for row in plan["expectedTables"]}
 assert counts["shadow_article"] == articles
 assert counts["shadow_revision"] == counts["shadow_publication"] == publications
-assert counts["shadow_article_mutation_outbox"] == publications and counts["shadow_article_mutation_outbox_edge"] == 7 * publications
-assert counts["shadow_article_responsibility_snapshot"] == (2 if version == 5 else 0)
+assert counts["shadow_article_mutation_outbox"] == publications + history
+assert counts["shadow_article_mutation_outbox_edge"] == 7 * publications + 9 * history
+assert counts["shadow_article_responsibility_snapshot"] == (2 if version == 5 else 0) + history
 assert "shadow_article_mutation_command" not in counts
 PY
 if [[ -n "$site_author_raw" ]]; then
@@ -270,6 +278,17 @@ CHECK_APPROVED_SITE_AUTHOR
     psql_db "$source_db" -v site_author_raw="$site_author_raw" <<'RESTORE_SITE_AUTHOR'
 UPDATE public.sys_systemconfig SET value=:'site_author_raw' WHERE key='Seo_Author';
 RESTORE_SITE_AUTHOR
+fi
+if [[ "$responsibility_history" == true ]]; then
+    psql_db "$source_db" -c "UPDATE public.article_mutation_outbox_edge SET last_error='superseded-by-revision:5000000001'
+        WHERE outbox_event_id=991000004 AND edge_name='article-detail-aeds'"
+    if migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" \
+        > "$evidence/import-wrong-responsibility-skip.log" 2>&1; then exit 1; fi
+    rg -Fq 'The legacy source contains unsupported rows.' "$evidence/import-wrong-responsibility-skip.log"
+    [[ "$(psql_db "$quarantine_db" -Atc "SELECT to_regnamespace('fsus_legacy_candidate') IS NULL")" == t ]]
+    FSUSBLOG_DB="$(dsn "$quarantine_db")" python3 tools/site-backup.py verify-restored "$quarantine_backup" "$quarantine_backup_sha" "$scratch/media"
+    psql_db "$source_db" -c "UPDATE public.article_mutation_outbox_edge SET last_error='superseded-by-revision:5000000003'
+        WHERE outbox_event_id=991000004 AND edge_name='article-detail-aeds'"
 fi
 migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" > "$scratch/applied.json"
 unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
@@ -299,19 +318,20 @@ verify_quarantine() {
     [[ "$(json_hash "$scratch/quarantine-checked.json" projectionSha256)" == "$projection_sha" ]]
 }
 verify_quarantine
-python3 - "$scratch/projected.json" "$scratch/quarantine-checked.json" "$expected_publications" "$plan_version" <<'PY'
+python3 - "$scratch/projected.json" "$scratch/quarantine-checked.json" "$expected_publications" "$plan_version" "$expected_history" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 projected, verified = sys.argv[1:3]
-publications, version = map(int, sys.argv[3:])
+publications, version, history = map(int, sys.argv[3:])
 reports = [json.loads(Path(path).read_text()) for path in (projected, verified)]
 assert [row["result"] for row in reports] == ["projected", "verified"]
 for row in reports:
     assert not row["readyToApply"] and row["retainedLegacyPublicationRows"] == publications
     assert row["retainedLegacyCreateCommands"] == row["retainedInitialSchedules"] == 0
-    assert row["retainedLegacyOutboxEvents"] == publications and row["retainedLegacyOutboxEdges"] == 7 * publications
+    assert row["retainedLegacyOutboxEvents"] == publications + history
+    assert row["retainedLegacyOutboxEdges"] == 7 * publications + 9 * history
     assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRollbackOutboxEvents"] == (1 if version == 5 else 0)
     assert row["retainedLegacyRepublishOutboxEvents"] == (1 if publications >= 2 else 0)
 PY
@@ -320,20 +340,21 @@ if [[ "$rollback_profile" == true ]]; then
     psql_db "$source_db" -At -v quarantined=false -f "$custody_query" > "$scratch/source-history.jsonl"
     psql_db "$quarantine_db" -At -v quarantined=true -f "$custody_query" > "$scratch/quarantined-history.jsonl"
     cmp "$scratch/source-history.jsonl" "$scratch/quarantined-history.jsonl"
-    python3 - "$scratch/quarantined-history.jsonl" <<'PY'
+    python3 - "$scratch/quarantined-history.jsonl" "$expected_history" <<'PY'
 import json
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 rows = defaultdict(list)
+history = int(sys.argv[2])
 for line in Path(sys.argv[1]).read_text().splitlines():
     row = json.loads(line)
     rows[row[0]].append(row)
 
 assert {name: len(items) for name, items in rows.items()} == {
     "article": 1, "revision": 3, "publication": 3, "category": 2, "tag": 3, "tag-alias": 2, "article-tag": 1,
-    "rights": 3, "responsibility": 2, "event": 3, "edge": 21,
+    "rights": 3, "responsibility": 2 + history, "event": 3 + history, "edge": 21 + 9 * history,
 }
 assert [(r[1], r[3], r[4], r[7], r[8], r[9], r[14], r[15], r[16]) for r in rows["revision"]] == [
     (5000000001, 1, "First", "first", 11, "21", 7, None, None),
@@ -347,18 +368,33 @@ assert [p[1:9] for p in rows["publication"]] == [
 ]
 assert [p[9:11] for p in rows["publication"]] == [[f"2026-10-0{n}T00:00:00"] * 2 for n in (1, 2, 3)]
 assert [r[1] for r in rows["rights"]] == [700, 701, 702] and all(r[16] is True for r in rows["rights"])
-original, cloned = rows["responsibility"]
+original, cloned, *extra_snapshots = rows["responsibility"]
 assert original[1:8] == [799, 42, 5000000001, 1, 1, None, "2026-10-01T00:00:00"]
 assert cloned[1:8] == [802, 42, 5000000003, 3, 1, None, "2026-10-03T00:00:00.000005"]
 assert original[8] == cloned[8]
-assert [(e[1], e[13], e[14], e[-1]) for e in rows["event"]] == [
+assert [(e[1], e[13], e[14], e[-1]) for e in rows["event"][:3]] == [
     (991000001, "created", "processed", "59f604a6c5ba6f8c009a056cb44bd92ec20dab97a1f261fdf44c05677280054f"),
     (991000002, "updated", "processed", "0657ced05fb326cd273f4a104732c7ed8951f84ce981b6f585054936a5f7bc66"),
     (991000003, "updated", "processed", "9d1a4412ee2732ab58a5c9be5f91d7f9b8bee90fc8d5dfd04d384bd3d40bc978"),
 ]
-assert Counter(edge[2] for edge in rows["edge"]) == {991000001: 7, 991000002: 7, 991000003: 7}
-assert len({edge[7] for edge in rows["edge"]}) == 21
-assert all(edge[4] == "completed" and edge[8] is True for edge in rows["edge"])
+edge_counts = {991000001: 7, 991000002: 7, 991000003: 7}
+if history:
+    edge_counts.update({991000004: 9, 991000005: 9})
+    assert [r[1:8] for r in extra_snapshots] == [
+        [803, 42, 5000000002, 2, 1, None, "2026-10-04T12:30:00"],
+        [804, 42, 5000000002, 2, 2, 803, "2026-10-05T13:45:00"],
+    ]
+    assert [(e[1], e[6:16], e[-1]) for e in rows["event"][3:]] == [
+        (991000004, [5000000002, 2, 702, 803, 1, None, None, "responsibility-updated", "processed", 0],
+         "5b45bdc186bc8e0baa3146b35a55a26548ad873d276d651fb7e0dd2d6a290f8e"),
+        (991000005, [5000000002, 2, 702, 804, 2, None, None, "responsibility-updated", "processed", 0],
+         "c7fd73927c68b0e50db54bc3aa692b43ed51a92d8575fb6ab6080f19dd2d131b"),
+    ]
+assert Counter(edge[2] for edge in rows["edge"]) == edge_counts
+assert len({edge[7] for edge in rows["edge"]}) == 21 + 9 * history
+for edge in rows["edge"]:
+    assert edge[8] is True
+    assert (edge[4], edge[9]) == (("skipped", "superseded-by-revision:5000000003") if edge[2] >= 991000004 else ("completed", None))
 PY
     cp "$scratch/quarantined-history.jsonl" "$evidence/verified-rollback-custody.jsonl"
     shasum -a 256 "$evidence/verified-rollback-custody.jsonl" >> "$evidence/run.txt"
@@ -368,6 +404,7 @@ transfer() {
     local db=$1 oid=$2 site=$3 dir=$4 mode=$5 seal=$6 interrupt=$7
     (cd -- "$dir" && psql_db "$db" -v database_name="$db" -v database_oid="$oid" -v site_id="$site" \
         -v plan_sha="$plan_sha" -v projection_sha="$projection_sha" -v owner_id="$owner" \
+        -v expected_history="$expected_history" \
         -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" -v republish_profile="$republish_profile" -v mixed_profile="$mixed_profile" \
         -f "$fixture/legacy-runtime-transfer.sql")
 }
@@ -386,10 +423,12 @@ SELECT jsonb_build_array(article_id,revision,publication_id,source_revision_id,s
         responsibility->>'sources_json',responsibility->>'update_summary',responsibility->>'update_reason',
         (responsibility->>'effective_at')::timestamp,responsibility->>'conclusion_impact',responsibility->>'methodology',
         responsibility->>'applicability',responsibility->>'limitations',
-        (responsibility->>'responsible_person_confirmed')::integer=1)::text,'UTF8')),'hex') END,evidence->'siteAuthor')
+        (responsibility->>'responsible_person_confirmed')::integer=1)::text,'UTF8')),'hex') END,
+    evidence->'siteAuthor',evidence->'responsibilityHistory')
 FROM public.legacy_release_origin ORDER BY article_id,revision;
 ORIGIN_ROWS
-    python3 - "$output" "$scratch/source-history.jsonl" "$authored_disclosure" "$site_author_raw" <<'CHECK_ORIGIN_ROWS'
+    python3 - "$output" "$scratch/source-history.jsonl" "$authored_disclosure" "$site_author_raw" "$expected_history" <<'CHECK_ORIGIN_ROWS'
+import hashlib
 import json
 import re
 import sys
@@ -401,16 +440,61 @@ responsibility_hash = {row[1]: row[8] for row in original if row[0] == 'responsi
 site_author = '甲乙🙂AB丙丁' if sys.argv[4] else 'Fsu'
 raw_site_author = {'key': 'Seo_Author', 'value': sys.argv[4]} if sys.argv[4] else None
 author = 'Lead Writer' if sys.argv[3] == 'true' else site_author
+expected_history = int(sys.argv[5])
+revision_two_snapshot = '804' if expected_history else None
+revision_two_author = 'Archive Reviewer' if expected_history else site_author
 assert [row[:12] for row in rows] == [
     [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, author],
-    [42, 2, 900000002, 5000000002, 8, None, None, None, 7, None, True, site_author],
+    [42, 2, 900000002, 5000000002, 8, None, None, revision_two_snapshot, 7,
+     revision_two_snapshot, not expected_history, revision_two_author],
     [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, author],
 ]
-assert [row[16] for row in rows] == [responsibility_hash[799], None, responsibility_hash[802]]
+assert [row[16] for row in rows] == [responsibility_hash[799], responsibility_hash.get(804), responsibility_hash[802]]
 assert [row[17] for row in rows] == [raw_site_author] * 3
 for row in rows:
     # The frozen SQLite-compatible projection can encode the same true value as the integer 1.
     assert row[12] in (True, 1) and row[13:15] == [True, True] and re.fullmatch(r'[0-9a-f]{64}', row[15]), row
+
+assert rows[0][18] is None and rows[2][18] is None
+if not expected_history:
+    assert rows[1][18] is None
+    sys.exit()
+
+history = rows[1][18]
+assert isinstance(history, list) and len(history) == expected_history
+snapshots = {row[1]: row for row in original if row[0] == 'responsibility'}
+events = {row[1]: row for row in original if row[0] == 'event'}
+snapshot_fields = ('id', 'article_id', 'article_revision_id', 'revision_no', 'responsibility_version', 'previous_snapshot_id')
+event_fields = ('id', 'event_id', 'aggregate_type', 'aggregate_id', 'schema_version', 'article_revision_id', 'revision_no',
+                'rights_snapshot_id', 'responsibility_snapshot_id', 'responsibility_version', 'article_publication_id',
+                'publication_no', 'event_type', 'status', 'retry_count')
+
+def assert_clock(value, original_clock):
+    assert re.fullmatch(re.escape(original_clock) + r'(?:\.0{1,7})?(?:Z|\+00:00)?', value), value
+
+for version, item in enumerate(history, 1):
+    assert set(item) == {'snapshot', 'event', 'edges'}
+    snapshot, event, edges = (item[key] for key in ('snapshot', 'event', 'edges'))
+    old_snapshot = snapshots[802 + version]
+    old_event = events[991000003 + version]
+    old_edges = [row for row in original if row[0] == 'edge' and row[2] == old_event[1]]
+    assert [snapshot[key] for key in snapshot_fields] == old_snapshot[1:7]
+    assert_clock(snapshot['created_at'], old_snapshot[7])
+    disclosure = [bool(snapshot['inherit_site_author']), snapshot['authors_json'], snapshot['reviewer_json'],
+                  snapshot['sources_json'], snapshot['update_summary'], snapshot['update_reason'], snapshot['effective_at'],
+                  snapshot['conclusion_impact'], snapshot['methodology'], snapshot['applicability'], snapshot['limitations'],
+                  bool(snapshot['responsible_person_confirmed'])]
+    assert hashlib.sha256(json.dumps(disclosure).encode()).hexdigest() == old_snapshot[8]
+    assert [event[key] for key in event_fields] == old_event[1:16]
+    for key, original_clock in zip(('created_at', 'next_retry_at', 'processed_at'), old_event[16:19]):
+        assert_clock(event[key], original_clock)
+    assert all(event[key] is None for key in ('last_error', 'claim_token', 'claimed_by', 'claimed_at', 'heartbeat_at', 'claim_expires_at'))
+    assert hashlib.sha256(event['payload_json'].encode()).hexdigest() == old_event[19]
+    assert len(edges) == len(old_edges) == 9
+    for edge, old_edge in zip(edges, old_edges):
+        assert [edge[key] for key in ('id', 'outbox_event_id', 'edge_name', 'status', 'attempt_count')] == old_edge[1:6]
+        assert_clock(edge['updated_at'], old_edge[6])
+        assert edge['delivery_key'] == old_edge[7] and edge['last_error'] == old_edge[9]
 CHECK_ORIGIN_ROWS
 }
 transfer "$quarantine_db" "$quarantine_oid" "$quarantine_site" "$scratch/transfer" true true false
@@ -593,6 +677,7 @@ probe_server() {
         local accountability_args=("$url")
         if [[ "$authored_disclosure" == true ]]; then accountability_args+=(--authored); fi
         if [[ -n "$site_author_raw" ]]; then accountability_args+=(--site-author); fi
+        if [[ "$responsibility_history" == true ]]; then accountability_args+=(--responsibility-history); fi
         env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "${accountability_args[@]}" > "$evidence/$label-accountability.sha256"
         if [[ "$label" == restarted ]]; then
             # Remove the restored scratch article's active coordinate while the original Kestrel snapshot is still resident.

@@ -179,7 +179,7 @@ release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sh
 "${migrate[@]}" legacy import release-activate "${release_args[@]}" "$release_approval" "$approved_sha256"
 ```
 
-启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 另支持一篇有完整即时首发、普通再发布和公开回滚的文章。须先在运行副本停服执行 `legacy release-origin-schema`，再创建基线备份。范围限于已核验的两条原责任快照。站点配置仅接收冻结 PostgreSQL 来源的单条 `sys_systemconfig.Seo_Author`，其他配置及旧证明仍会阻塞启用。有该记录时，原值绑定于旧源计划和运行副本的来源关系，缺省或空白时采用旧站 `Fsu`。责任清单先修剪空白，再按完整 Unicode 字符保留最多 20 个 UTF-8 字节，最后修剪截断留下的尾部空白。责任清单按冻结 v1 的规则保留署名、评审人、可公开来源及原始无时区生效时间。私人来源和原始值仅保存在来源关系，格式错误或超出大小上限的责任记录会阻止启用。原责任、发布与投递坐标、旧操作者 ID 及主体验证摘要随同审批写入离线来源关系。公开当前及历史责任清单沿用旧路径，仅在文章公开时读取。运行副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
+启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 另支持一篇有完整即时首发、普通再发布和公开回滚的文章。须先在运行副本停服执行 `legacy release-origin-schema`，再创建基线备份。基本路径要求核验两条原责任快照。站点配置仅接收冻结 PostgreSQL 来源的单条 `sys_systemconfig.Seo_Author`，其他配置及旧证明仍会阻塞启用。有该记录时，原值绑定于旧源计划和运行副本的来源关系，缺省或空白时采用旧站 `Fsu`。责任清单先修剪空白，再按完整 Unicode 字符保留最多 20 个 UTF-8 字节，最后修剪截断留下的尾部空白。责任清单按冻结 v1 的规则保留署名、评审人、可公开来源及原始无时区生效时间。私人来源和原始值仅保存在来源关系，格式错误或超出大小上限的责任记录会阻止启用。原责任、发布与投递坐标、旧操作者 ID 及主体验证摘要随同审批写入离线来源关系。公开当前及历史责任清单沿用旧路径，仅在文章公开时读取。运行副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
 
@@ -192,6 +192,10 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 `legacy-runtime.sh --activate-rollback-authored` 核验恢复后的署名、评审人、公开来源顺序及无时区微秒生效时间，并逐条核对原快照摘要。修改未公开来源也会使同一审批的复验失败。错误类型的责任字段由 `--activate-rollback-malformed` 验证，发起启用前即被拒绝，运行副本仍与基线备份一致。见 `artifacts/legacy-v5-authors-0ee6af9/native-suite-status-2.txt`。
 
 `legacy-runtime.sh --activate-rollback-site-author` 从真实旧库归档恢复该设置，复核三条来源记录保留原值，且 Kestrel 当前及历史责任清单使用按字节计算的站点作者。只改动恢复源中的设置即会使已审核计划失配，隔离候选保持与基线备份一致。见 `artifacts/legacy-seo-author-f9fc6d7/native-suite-status-1.txt`。
+
+第三次回滚发布处于公开状态时，v5 可保全原第二修订随后保存的一至两个连续责任版本。这些旧事件没有新发布坐标，仍引用当时公开的第三次发布权利和时间。原投递器跳过该历史修订的九条边，迁移保留原跳过原因和投递键。运行副本按 v1 规则显示第二修订的最新责任，第三修订的原责任保持固定。
+
+`legacy-runtime.sh --activate-rollback-history` 从 PostgreSQL 归档恢复后核对第二修订的责任版本 1 和 2、两个无发布坐标的旧事件及 18 条原跳过记录。修改一条跳过原因会在暂存前拒绝导入。候选备份恢复后，Kestrel 仍公开第三修订，并通过旧接口返回第二修订的责任版本 2。
 
 版本 5 可附一条旧站已签名的发布证明供离线保全。按已审核的全局修订 ID 从同一次旧站冻结备份导出 `SELECT row_to_json(p) FROM public.article_publish_proof p WHERE p.article_revision_id = …` 的单行 JSON。另从独立审核的旧站签名配置导出对应公钥的 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`。两个文件的权限须为 `0400` 或 `0600`。
 

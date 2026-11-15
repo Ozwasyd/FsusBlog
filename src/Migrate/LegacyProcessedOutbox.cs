@@ -35,8 +35,9 @@ internal static partial class Migration
     private sealed record LegacyOutboxEntry(CandidateTable Table, LegacyProjection Projection, object?[][] Rows);
     private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings,
         int RepublishCount = 0, int RollbackCount = 0);
-    private sealed record LegacyTerminalEvent(string EventId, int Article, long PublicationId, DateTime CreatedAt,
-        DateTime ProcessedAt, bool ExactDatabaseClock, LegacyPublishedOutboxUpdate? Update, object?[] Values, HashSet<string> Edges)
+    private sealed record LegacyTerminalEvent(string EventId, int Article, long? PublicationId, DateTime CreatedAt,
+        DateTime ProcessedAt, bool ExactDatabaseClock, LegacyPublishedOutboxUpdate? Update, object?[] Values, HashSet<string> Edges,
+        LegacyHistoricalResponsibility? History)
     {
         internal int PublicationNumber => Update?.PublicationNumber ?? 1;
     }
@@ -104,13 +105,22 @@ internal static partial class Migration
             return new LegacyOutboxRead(relations, [], findings.ToArray());
 
         var updateEvidence = await ReadLegacyOrdinaryRepublishAsync(source, tx, tables, principals, parents[0], ct);
-        foreach (var pair in await ReadLegacyPublishedRollbackOutboxAsync(source, tx, tables, principals, parents[0], ct))
+        var rollbacks = await ReadLegacyPublishedRollbackOutboxAsync(source, tx, tables, principals, parents[0], ct);
+        var history = rollbacks.Count == 1
+            ? await ReadLegacyHistoricalResponsibilityAsync(source, tx, tables, parents[0], ct) : [];
+        foreach (var pair in rollbacks)
             updateEvidence.Add(pair.Key, pair.Value);
-        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], updateEvidence, findings, ct);
+        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], updateEvidence, history, findings, ct);
         var edgeRows = await ReadLegacyTerminalEdgesAsync(source, tx, edges[0], events, findings, ct);
-        int incomplete = events.Values.Count(item => LegacyRequiredOutboxEdges.Any(edge => !item.Edges.Contains(edge)));
+        int incomplete = events.Values.Count(item => item.History is null
+            ? !item.Edges.IsSupersetOf(LegacyRequiredOutboxEdges)
+            : !item.Edges.SetEquals(LegacyKnownOutboxEdges));
         if (incomplete > 0) findings.Add(new ImportFinding("legacy-outbox-missing-required-edge", LegacyOutboxSource, incomplete));
-        var byNumber = events.Values.ToDictionary(item => (item.Article, item.PublicationNumber));
+        var historyEvents = events.Values.Where(item => item.History is not null).OrderBy(item => item.History!.Version).ToArray();
+        if (historyEvents.Where((item, index) => item.History!.Version != index + 1 ||
+                index > 0 && item.CreatedAt <= historyEvents[index - 1].CreatedAt).Any())
+            findings.Add(new ImportFinding("legacy-outbox-responsibility-history", LegacyOutboxSource, historyEvents.Length));
+        var byNumber = events.Values.Where(item => item.History is null).ToDictionary(item => (item.Article, item.PublicationNumber));
         var updates = events.Values.Where(item => item.Update is not null).ToArray();
         int missingPredecessors = updates.Count(update =>
         {
@@ -167,7 +177,8 @@ internal static partial class Migration
 
     private static async Task<SortedDictionary<long, LegacyTerminalEvent>> ReadLegacyTerminalEventsAsync(LegacySource source,
         DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable relation,
-        Dictionary<long, LegacyPublishedOutboxUpdate> updateEvidence, List<ImportFinding> findings, CancellationToken ct)
+        Dictionary<long, LegacyPublishedOutboxUpdate> updateEvidence, Dictionary<long, LegacyHistoricalResponsibility> historyEvidence,
+        List<ImportFinding> findings, CancellationToken ct)
     {
         string E(string name) => "e." + source.Field(relation, name);
         string A(string name) => "a." + source.Field(tables[Article], name);
@@ -254,17 +265,24 @@ internal static partial class Migration
             var eventType = reader.GetString(12);
             bool updated = eventType == "updated";
             var evidence = updateEvidence.GetValueOrDefault(id);
+            var history = historyEvidence.GetValueOrDefault(id);
+            var releaseId = reader.IsDBNull(10) ? (long?)null : reader.GetInt64(10);
             var expectedRelease = evidence?.PublicationNumber ?? 1;
             var responsibility = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8);
             var responsibilityVersion = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
-            if (article <= 0 || reader.GetInt32(4) != 2 || eventType is not ("created" or "updated") ||
-                updated && (evidence is null || (responsibility is not null) != (expectedRelease == 3)) ||
-                reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) || reader.GetInt32(6) != expectedRelease ||
-                reader.IsDBNull(7) || reader.GetInt64(7) <= 0 || reader.IsDBNull(10) || reader.GetInt64(10) <= 0 ||
-                reader.IsDBNull(11) || reader.GetInt32(11) != expectedRelease ||
+            var validGraph = history is not null
+                ? eventType == LegacyResponsibilityEventType && releaseId is null && reader.IsDBNull(11) &&
+                    responsibility == history.SnapshotId && responsibilityVersion == history.Version
+                : eventType is ("created" or "updated") && releaseId > 0 && !reader.IsDBNull(11) &&
+                    reader.GetInt32(11) == expectedRelease &&
+                    (!updated || evidence is not null && (responsibility is not null) == (expectedRelease == 3)) &&
+                    !reader.IsDBNull(shape + 2) && reader.GetBoolean(shape + 2);
+            if (article <= 0 || reader.GetInt32(4) != 2 || !validGraph ||
+                reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) ||
+                reader.GetInt32(6) != (history is null ? expectedRelease : 2) ||
+                reader.IsDBNull(7) || reader.GetInt64(7) <= 0 ||
                 (responsibility is null) != (responsibilityVersion is null) || responsibility is <= 0 || responsibilityVersion is <= 0 ||
-                reader.IsDBNull(13) || reader.IsDBNull(shape) || reader.IsDBNull(shape + 1) || reader.IsDBNull(shape + 2) ||
-                !reader.GetBoolean(shape + 2))
+                reader.IsDBNull(13) || reader.IsDBNull(shape) || reader.IsDBNull(shape + 1))
             {
                 invalidEnvelope++;
                 continue;
@@ -275,19 +293,19 @@ internal static partial class Migration
                 throw new InvalidOperationException("Legacy outbox envelopes exceed their cumulative observation byte budget.");
             var expectedTags = ParseLegacyOutboxTags(reader.GetString(shape + 1));
             if (!VerifyLegacyOutboxEnvelope(payload, article, reader.GetInt64(5), reader.GetInt64(7), responsibility,
-                responsibilityVersion, reader.GetInt64(10), created, reader.GetInt32(shape), expectedTags, out var exactClock,
-                evidence?.BeforeCategory, evidence?.BeforeTags, expectedRelease, expectedRelease))
+                responsibilityVersion, releaseId, created, reader.GetInt32(shape), expectedTags, out var exactClock,
+                evidence?.BeforeCategory, evidence?.BeforeTags, history is null ? expectedRelease : 2, expectedRelease, history))
             {
                 invalidEnvelope++;
                 continue;
             }
-            if (!slots.Add((article, expectedRelease)))
+            if (history is null && !slots.Add((article, expectedRelease)))
             {
                 duplicateReleases++;
                 continue;
             }
-            accepted.Add(id, new LegacyTerminalEvent(eventId, article, reader.GetInt64(10), created, reader.GetDateTime(clocks[1]),
-                exactClock, evidence, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal)));
+            accepted.Add(id, new LegacyTerminalEvent(eventId, article, releaseId, created, reader.GetDateTime(clocks[1]),
+                exactClock, evidence, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal), history));
         }
 
         if (invalidState > 0) findings.Add(new ImportFinding("legacy-outbox-state", relation.Name, invalidState));
@@ -311,7 +329,8 @@ internal static partial class Migration
             var column = "x." + source.Field(relation, field.Name);
             return field.Name switch
             {
-                "last_error" => $"CASE WHEN {column} IS NOT NULL THEN 'present'::text END",
+                "last_error" => $"CASE WHEN parent.event_type='{LegacyResponsibilityEventType}' AND octet_length({column})<=64 THEN {column} " +
+                    $"WHEN {column} IS NOT NULL THEN 'present'::text END",
                 "updated_at" => SelectRepresentableLegacyOutboxClock(column),
                 _ => column
             };
@@ -340,8 +359,11 @@ internal static partial class Migration
             if (!events.TryGetValue(reader.GetInt64(1), out var parent)) continue;
             var id = reader.GetInt64(0);
             var edge = reader.GetString(2);
-            if (id <= 0 || !observedIds.Add(id) || !LegacyKnownOutboxEdges.Contains(edge) || reader.GetString(3) != "completed" ||
-                reader.GetInt32(4) <= 0 || !reader.IsDBNull(5) || reader.IsDBNull(7) ||
+            var terminal = parent.History is { } history
+                ? reader.GetString(3) == "skipped" && reader.GetInt32(4) == 1 && !reader.IsDBNull(5) &&
+                    reader.GetString(5) == history.SkipReason
+                : reader.GetString(3) == "completed" && reader.GetInt32(4) > 0 && reader.IsDBNull(5);
+            if (id <= 0 || !observedIds.Add(id) || !LegacyKnownOutboxEdges.Contains(edge) || !terminal || reader.IsDBNull(7) ||
                 reader.GetString(7) != Digest(parent.EventId + ":" + edge) || reader.IsDBNull(6) ||
                 reader.GetDateTime(6) < parent.CreatedAt || reader.GetDateTime(6) > parent.ProcessedAt || !parent.Edges.Add(edge))
             {

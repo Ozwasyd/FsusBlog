@@ -4,8 +4,9 @@ import { createHash } from 'node:crypto'
 const hidden = process.argv.length === 4 && process.argv[3] === '--hidden'
 const authored = process.argv.length === 4 && process.argv[3] === '--authored'
 const siteAuthor = process.argv.length === 4 && process.argv[3] === '--site-author'
-assert(process.argv.length === 3 || authored || hidden || siteAuthor,
-  'Usage: node legacy-runtime-accountability.mjs BASE_URL [--authored|--hidden|--site-author]')
+const responsibilityHistory = process.argv.length === 4 && process.argv[3] === '--responsibility-history'
+assert(process.argv.length === 3 || authored || hidden || siteAuthor || responsibilityHistory,
+  'Usage: node legacy-runtime-accountability.mjs BASE_URL [--authored|--hidden|--site-author|--responsibility-history]')
 const base = new URL(process.argv[2])
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
   base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash,
@@ -73,6 +74,13 @@ function manifest(revision, snapshotId) {
     expected.applicability = 'Public samples'
     expected.limitations = 'Limited coverage'
   }
+  if (responsibilityHistory && revision === 2) {
+    expected.responsibilityVersion = 2
+    expected.authors = [{ name: 'Archive Reviewer', profileUrl: 'https://archive.example/reviewer' }]
+    expected.update = {
+      summary: 'Historical review expanded', reason: 'Updated historical source review', conclusionImpact: 'clarified',
+    }
+  }
   return expected
 }
 
@@ -83,7 +91,7 @@ if (hidden) {
   const restored = manifest(3, '802')
   await probe('current', `${article}/responsibility`, 200, restored)
   await probe('revision1', `${article}/revisions/1/responsibility`, 200, manifest(1, '799'))
-  await probe('revision2', `${article}/revisions/2/responsibility`, 200, manifest(2))
+  await probe('revision2', `${article}/revisions/2/responsibility`, 200, manifest(2, responsibilityHistory ? '804' : undefined))
   await probe('revision3', `${article}/revisions/3/responsibility`, 200, restored)
   assert.equal(evidence.current, evidence.revision3)
   await probe('missingCurrent', `${missingArticle}/responsibility`, 404, missing)

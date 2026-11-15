@@ -85,7 +85,7 @@ SELECT json_build_array('event',id,event_id,aggregate_type,aggregate_id,schema_v
 FROM :"custody_schema".:"event_table" ORDER BY id;
 
 SELECT json_build_array('edge',g.id,g.outbox_event_id,g.edge_name,g.status,g.attempt_count,g.updated_at::timestamp,g.delivery_key,
-    g.delivery_key=encode(sha256(convert_to(e.event_id||':'||g.edge_name,'UTF8')),'hex'))
+    g.delivery_key=encode(sha256(convert_to(e.event_id||':'||g.edge_name,'UTF8')),'hex'),g.last_error)
 FROM :"custody_schema".:"edge_table" g LEFT JOIN :"custody_schema".:"event_table" e ON e.id=g.outbox_event_id ORDER BY g.id;
 
 ROLLBACK;

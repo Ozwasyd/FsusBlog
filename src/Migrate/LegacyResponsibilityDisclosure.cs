@@ -29,15 +29,15 @@ internal static partial class Migration
                 CASE WHEN admissible THEN applicability END, CASE WHEN admissible THEN limitations END
             FROM {ImportSchema}.shadow_article_responsibility_snapshot s
             CROSS JOIN LATERAL (SELECT octet_length(row_to_json(s)::text)<=65536 AS admissible) budget
-            ORDER BY s.id LIMIT 3
+            ORDER BY s.id LIMIT 5
             """, db, tx);
         await using var rows = await query.ExecuteReaderAsync(ct);
-        var disclosures = new Dictionary<long, object>(2);
+        var disclosures = new Dictionary<long, object>(4);
         try
         {
             while (await rows.ReadAsync(ct))
             {
-                if (disclosures.Count >= 2 || !rows.GetBoolean(1)) throw new JsonException();
+                if (disclosures.Count >= 4 || !rows.GetBoolean(1)) throw new JsonException();
                 string? Text(int field) => rows.IsDBNull(field) ? null : rows.GetString(field);
                 var authors = ReadLegacyDisclosureArray<LegacyResponsiblePerson>(Text(3)).Select(PublicLegacyPerson)
                     .OfType<LegacyResponsiblePerson>().Take(8).ToArray();

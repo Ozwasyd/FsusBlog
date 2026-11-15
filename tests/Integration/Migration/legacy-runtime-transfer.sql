@@ -1,4 +1,8 @@
 \set ON_ERROR_STOP on
+\if :{?expected_history}
+\else
+\set expected_history 0
+\endif
 \if :{?media_profile}
 \else
 \set media_profile false
@@ -117,13 +121,13 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
     AND (SELECT plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha'
          FROM fsus_legacy_candidate.current_projection WHERE singleton)
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:publication_count+(:mixed_profile)::int
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count AS expected_seal \gset
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count+:expected_history AS expected_seal \gset
 \if :media_profile
 SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=:media_count
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=:media_references AS expected_seal \gset
 \else
-SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count+(:mixed_profile)::int
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*(:publication_count+(:mixed_profile)::int) AS expected_seal \gset
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count+(:mixed_profile)::int+:expected_history
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*(:publication_count+(:mixed_profile)::int)+9*:expected_history AS expected_seal \gset
 \endif
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
