@@ -100,11 +100,14 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 | 开发 `e3d58b9` | 1,086 | 113,280 | 4,851 | 86,441 | 3,969 | 208,541 | 5 |
 | 开发 `845f8c1` | 1,086 | 113,544 | 4,852 | 86,633 | 3,969 | 208,998 | −452 |
 | 开发 `88d1f2b` | 1,094 | 113,535 | 4,852 | 86,093 | 3,969 | 208,449 | 97 |
+| 开发 `8e1cf2b` | 1,101 | 113,830 | 4,852 | 85,824 | 3,969 | 208,475 | 71 |
 
 `e3d58b9` 的生成代码为 6,651 行，已计入生产。历史证据单列 5,259 行。共用集成夹具净减 236 行，受影响的 114 个用例全部通过。 [规范化计量](../../artifacts/targeted-delivery-99abb41/code-volume.json) · [用例覆盖](../../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json)
 
 `845f8c1` 纳入 v5 责任来源和回滚启用、会话响应绑定、工作区切换与即时多图导出。七组离线安装器、原生文件操作及 Chrome 身份夹具共用实现，原生对照计量分别净减 62、68 和 63 行。源、测试和架构均入账，完整验收仍差 452 行。 [规范化计量](../../artifacts/targeted-delivery-6eccdaf/code-volume.json)
 
 `88d1f2b` 新增旧责任公开映射及双栏均分，复用管理员动作、导出、属性和两类身份夹具、发布验签及作者端浏览器夹具。生产净减 9 行，测试与规则净减 540 行。生成代码仍计入生产，共 6,651 行。剩余功能完成后按同一口径重算。 [规范化计量](../../artifacts/targeted-delivery-0ee6af9/code-volume.json)
+
+`8e1cf2b` 新增文章库分类与标签联筛、HTML 异步多图及旧站作者与一条旧证明的保全。共用私有 AEDS 请求、会话检查、测试夹具和协议样本载入。生产净增 295 行，测试与规则净减 269 行。生成代码仍计入生产，共 6,651 行。 [规范化计量](../../artifacts/short-path-f9fc6d7/code-volume.json)
 
 生产代码的生成部分分别为 5,884、5,962、6,116、6,494、6,525、6,619、6,631、6,643、6,651、6,651 和 6,651 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [版本化导出提交计量](../../artifacts/code-volume-2ec1b97/result.json) · [属性批写、Passkey 重命名和旧图像准备提交计量](../../artifacts/code-volume-a649068/result.json) · [属性快照、第二设备及私有媒体启用提交计量](../../artifacts/code-volume-d937398/result.json) · [Passkey 移除、属性焦点和批次迁移计量](../../artifacts/delivery-integration-09e4b27/code-volume-6a53e4d.json) · [同字段任一匹配、恢复移除及 EPUB 附图计量](../../artifacts/targeted-delivery-82d0180/code-volume-4556f8e.json) · [旧首发迁移、插件授权、后台标签及 DOCX 附图计量](../../artifacts/targeted-delivery-967805c/code-volume-268e8c6.json) · [再发布迁移、作者搜索及 Passkey 计量](../../artifacts/delivery-review-72d684d/code-volume-7a1558d.json) · [发布验收边界](../release-readiness.md)

@@ -66,4 +66,11 @@
 - 双栏编辑器可用 FsusUI 的「Equalize group widths」恢复 50/50。实测保留当前稿件、编辑器及选区，两个窗格相差至多 1px。合并后的 Chrome 在六种宽度及 100%、150%、200% 缩放通过。 [双栏回归](../artifacts/targeted-delivery-0ee6af9/combined-workspace/workspace-split-result.json)
 - 共用管理员动作、导出实现和原生测试夹具后，完整代码量为 208,449 NCLOC，低于上限 97 行。真实 Caddy TLS 的管理员发布、草稿回滚及归档再发布通过。导出复用有 25 项文件或摘要样本逐字节一致，其中 PDF 字节对比覆盖渲染器输入，实际 PDF 另经 macOS 隔离运行。锁定 Release、141 项协议、Vite 及三份本地 FsusUI Wasm 比对通过。合并版定向实库 24 项通过，专用 PDF 配置跳过 1 项。作者端夹具的六组 Chrome 有完整终态。 [全部合并证据](../artifacts/targeted-delivery-0ee6af9/) · [规范化计量](../artifacts/targeted-delivery-0ee6af9/code-volume.json)
 
+## 开发提交 `8e1cf2b`
+
+- 文章库可将分类、标签、标题和发布状态取交集。浏览器实测清除筛选后回到第一页，活动稿件仍单独显示，同分类同标签的其他作者稿件不会出现。 [合并版浏览器](../artifacts/short-path-f9fc6d7/chrome-article-library/article-library-result.json)
+- 异步 HTML 导出按顺序冻结保存修订中的 2 至 4 张授权图片，共用 512 KiB 预算。执行和下载重新核对每张图，损坏则拒绝整份导出。实际 Chrome 覆盖桌面和窄屏，PostgreSQL 的三个旧版本均通过停服升级并保留旧任务记录。25 项旧提供方文件或摘要逐字节一致，PDF 的字节对比覆盖渲染器输入，实际 PDF 输出另经原生测试。完整导出回执及其他格式的多图支持待完成。 [多图浏览器](../artifacts/short-path-f9fc6d7/verified-lanes/document-html-v4-chrome.json) · [旧任务升级](../artifacts/short-path-f9fc6d7/verified-lanes/document-stopped-upgrade.log)
+- v5 从隔离恢复的旧库保留 `Seo_Author` 原值并按 v1 的 20 字节规则计算公开署名。另支持验签并保全一条经独立审批的旧发布证明及公钥。恢复后证明原件字节一致，错误签名、已撤销或受损密钥、遗漏审批均被拒绝。附加责任历史、旧证明整库迁移和公开验证仍待完成。 [自定义作者演练](../artifacts/short-path-f9fc6d7/migration-site-author/) · [旧证明演练](../artifacts/short-path-f9fc6d7/migration-proof/)
+- 锁定 Release 编译、140 项 Core、141 项协议、严格 Vue 检查和 Vite 构建通过。三个 FsusUI Wasm 与本地源码产物逐字节一致。合并版定向 PostgreSQL 30 项通过，含真实 PDF。正式口径为 208,475 NCLOC，低于上限 71 行。封存候选 `f303f5c` 继续使用原包，四轮短档通过 1 轮，900 秒正式长测待执行。 [合并版证据](../artifacts/short-path-f9fc6d7/) · [规范化计量](../artifacts/short-path-f9fc6d7/code-volume.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
