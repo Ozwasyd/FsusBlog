@@ -19,6 +19,7 @@ export type AuthorArticlePage = Readonly<{ total: number; nextId: number | null;
 export type AuthorArticleQuery = Readonly<{
   trash: boolean;
   keyword?: string;
+  match?: 'title-summary';
   categoryId?: number;
   tagId?: number;
   state?: Exclude<AuthorArticleState, 'deleted'>;
@@ -63,6 +64,7 @@ export function decodeAuthorArticlePage(bytes: Uint8Array): AuthorArticlePage {
 export async function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
   const parameters = new URLSearchParams({ scope: query.trash ? 'trash' : 'active' });
   if (query.keyword) parameters.set('keyword', query.keyword);
+  if (query.match) parameters.set('match', query.match);
   if (query.categoryId !== undefined) parameters.set('category', String(query.categoryId));
   if (query.tagId !== undefined) parameters.set('tag', String(query.tagId));
   if (query.state) parameters.set('state', query.state);

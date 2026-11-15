@@ -62,6 +62,7 @@ function applyFilters() {
   firstPage({
     trash: trash.value,
     keyword: keyword.value.trim() || undefined,
+    match: 'title-summary',
     categoryId: categoryId.value || undefined,
     tagId: tagId.value || undefined,
     state: trash.value ? undefined : state.value || undefined,
@@ -227,8 +228,8 @@ onBeforeUnmount(() => {
       <form class="author-filter" aria-label="筛选文章" @submit.prevent="applyFilters">
         <div class="author-filter-fields">
           <label class="author-keyword">
-            <span>文章标题</span>
-            <ElInput v-model="keyword" label="文章标题" placeholder="搜索文章标题" clearable />
+            <span>标题或摘要</span>
+            <ElInput v-model="keyword" label="标题或摘要" placeholder="搜索标题或摘要" clearable />
           </label>
           <label v-if="categories.length">
             <span>分类</span>

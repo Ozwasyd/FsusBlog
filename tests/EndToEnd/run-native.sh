@@ -101,6 +101,11 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   export FSUSBLOG_TEST_OUTSIDER_TICKET FSUSBLOG_TEST_COMMENTER_TICKET FSUSBLOG_TEST_COMMENTER_SECOND_TICKET FSUSBLOG_TEST_COMMENT_DELETE_DB
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
 fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
+  FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator inventory-second-author)
+  export FSUSBLOG_TEST_MOBILE_TICKET
+  : "${FSUSBLOG_TEST_PUBLIC_FIXTURE:=0}"
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
   export FSUSBLOG_TEST_MOBILE_TICKET
@@ -150,6 +155,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-split ]]; then
   node tests/EndToEnd/workspace-split-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
   node tests/EndToEnd/article-library-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
+  node tests/EndToEnd/author-inventory-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   node tests/EndToEnd/comment-author-delete-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then

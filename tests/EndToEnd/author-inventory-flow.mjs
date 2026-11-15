@@ -36,8 +36,8 @@ async function command(context, path, article, expected = FrameType.Draft) {
   return expected === FrameType.Draft ? decodeDraft(wire.payload) : null
 }
 
-async function draft(context, title) {
-  return command(context, WireRoutes.Save, { id: 0, expectedRevision: 0n, title, body: 'Private browser fixture body.' })
+async function draft(context, title, body = 'Private browser fixture body.') {
+  return command(context, WireRoutes.Save, { id: 0, expectedRevision: 0n, title, body })
 }
 
 function monitor(page) {
@@ -81,7 +81,10 @@ try {
   await signIn(second, secondTicket)
 
   const articles = []
-  for (let i = 1; i <= 21; i++) articles.push(await draft(desktop, `${ownerNeedle} ${String(i).padStart(2, '0')}`))
+  const summaryNeedle = 'Inventory summary only marker'
+  for (let i = 1; i <= 21; i++) {
+    articles.push(await draft(desktop, `${ownerNeedle} ${String(i).padStart(2, '0')}`, i === 13 ? summaryNeedle : undefined))
+  }
   const toPublish = await draft(desktop, `${ownerNeedle} recovery`)
   const published = await command(desktop, WireRoutes.Publish,
     { id: toPublish.id, expectedRevision: toPublish.revision, title: '', body: '' })
@@ -89,7 +92,7 @@ try {
   const publicApi = new URL(WireRoutes.PublicArticle.replace('{id}', String(published.id)), origin).href
   assert.equal((await anonymous.request.get(publicUrl)).status(), 200)
   assert.equal((await anonymous.request.get(publicApi)).status(), 200)
-  await draft(mobile, secondTitle)
+  await draft(mobile, secondTitle, summaryNeedle)
 
   await readyInventory(owner, inventoryPath, '文章管理')
   await owner.getByText('共 22 篇', { exact: true }).waitFor()
@@ -101,14 +104,31 @@ try {
   await owner.getByRole('button', { name: '下一页' }).click()
   await owner.getByText('第 2 页', { exact: true }).waitFor()
   await owner.getByRole('heading', { name: articles[0].title, exact: true }).waitFor()
-  await owner.getByLabel('文章标题', { exact: true }).fill(articles[10].title)
-  await owner.getByRole('form', { name: '筛选文章' }).getByRole('button', { name: '搜索', exact: true }).click()
+  const keyword = owner.getByLabel('标题或摘要', { exact: true })
+  const search = owner.getByRole('form', { name: '筛选文章' }).getByRole('button', { name: '搜索', exact: true })
+  await keyword.fill(articles[10].title)
+  await search.click()
   await owner.getByText('共 1 篇', { exact: true }).waitFor()
-  const edit = owner.getByRole('link', { name: `编辑 ${articles[10].title}`, exact: true })
-  assert.equal(await edit.getAttribute('href'), `/user/manage/article/edit/${articles[10].id}`)
+  await owner.getByRole('heading', { name: articles[10].title, exact: true }).waitFor()
+  await keyword.fill(summaryNeedle)
+  const summaryResult = owner.waitForResponse(response => {
+    const url = new URL(response.url())
+    return url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('match') === 'title-summary' &&
+      url.searchParams.get('keyword') === summaryNeedle
+  })
+  await search.click()
+  const summaryResponse = await summaryResult
+  assert.equal(summaryResponse.status(), 200)
+  assert.equal((await summaryResponse.body()).includes(Buffer.from(summaryNeedle)), false)
+  await owner.getByText('共 1 篇', { exact: true }).waitFor()
+  assert.equal(await owner.getByRole('heading', { name: secondTitle, exact: true }).count(), 0)
+  const summaryArticle = articles[12]
+  const edit = owner.getByRole('link', { name: `编辑 ${summaryArticle.title}`, exact: true })
+  assert.equal(await edit.getAttribute('href'), `/user/manage/article/edit/${summaryArticle.id}`)
+  assert.equal(await owner.getByRole('heading', { name: articles[10].title, exact: true }).count(), 0)
   await edit.click()
-  await owner.waitForURL(url => url.pathname === `/user/manage/article/edit/${articles[10].id}`)
-  await owner.waitForFunction(title => document.querySelector('#article-title')?.value === title, articles[10].title)
+  await owner.waitForURL(url => url.pathname === `/user/manage/article/edit/${summaryArticle.id}`)
+  await owner.waitForFunction(title => document.querySelector('#article-title')?.value === title, summaryArticle.title)
   await owner.getByRole('link', { name: '文章管理', exact: true }).first().click()
   await owner.waitForURL(url => url.pathname === inventoryPath)
   const deleteButton = owner.getByRole('button', { name: `移至回收站 ${published.title}`, exact: true })
@@ -184,7 +204,7 @@ try {
   assert.deepEqual(errors.flat(), [])
   await writeFile(join(evidence, 'author-inventory-result.json'), JSON.stringify({
     started, finished: new Date().toISOString(), browser: browser.version(), desktop: '1280×900', mobile: '375×812',
-    completed: ['anonymous route and API denial', 'owner list and trash', 'second author isolation', 'title filtering', 'keyset next page',
+    completed: ['anonymous route and API denial', 'owner list and trash', 'second author isolation', 'title and summary-only filtering', 'keyset next page',
       'edit handoff', 'narrow layout', 'cancelled delete', 'stale delete and reload', 'published article withdrawal',
       'restore preserves saved content and remains private'],
   }, null, 2) + '\n')

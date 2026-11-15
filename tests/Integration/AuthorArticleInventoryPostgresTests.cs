@@ -25,6 +25,7 @@ public sealed class AuthorArticleInventoryPostgresTests
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         var client = server.Client;
         const string sensitive = "BODY_MUST_NOT_BE_IN_THE_LIST";
+        const string summaryTerm = "SummaryTerm";
         var published = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "State Published", sensitive));
         var sent = await POST(owner, WireRoutes.TaxonomyAssignment,
             Wire.EncodeTaxonomyAssignment(new(published.Id, published.Revision, Guid.NewGuid(), 41, [81])));
@@ -33,11 +34,14 @@ public sealed class AuthorArticleInventoryPostgresTests
         var hidden = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "State Retracted", sensitive));
         var ever = await Write(owner, WireRoutes.Publish, new(hidden.Id, hidden.Revision, Guid.NewGuid(), "", ""));
         await Write(owner, WireRoutes.Retract, new(ever.Id, ever.Revision, Guid.NewGuid(), "", ""));
-        var trash = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Owner Trash", sensitive));
+        var trash = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Owner Trash", $"{summaryTerm} {sensitive}"));
         await POST(owner, WireRoutes.Delete, Wire.EncodeArticleCommand(new(trash.Id, trash.Revision, Guid.NewGuid(), "", "")));
-        var otherDraft = await Write(other, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Other Private", sensitive));
+        var otherDraft = await Write(other, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Other Private", $"{summaryTerm} {sensitive}"));
         await POST(other, WireRoutes.Delete, Wire.EncodeArticleCommand(new(otherDraft.Id, otherDraft.Revision, Guid.NewGuid(), "", "")));
-        for (var i = 0; i < 21; i++) await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), $"Inventory source {i}", sensitive));
+        var prefix = string.Concat(Enumerable.Repeat("😀", 200 - summaryTerm.Length));
+        var summaryOnly = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Inventory source 0", $"{prefix}{summaryTerm}{sensitive}"));
+        var beyondSummary = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Inventory source 1", $"{prefix}a{summaryTerm}{sensitive}"));
+        for (var i = 2; i < 21; i++) await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), $"Inventory source {i}", sensitive));
         var scheduled = await Write(owner, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "State Scheduled", sensitive));
         var due = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeMilliseconds();
         await POST(owner, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(new(scheduled.Id, scheduled.Revision, Guid.NewGuid(), due)));
@@ -54,6 +58,8 @@ public sealed class AuthorArticleInventoryPostgresTests
         await Failure(owner, "?category=0", HttpStatusCode.BadRequest);
         await Failure(owner, "?before=1&before=2", HttpStatusCode.BadRequest);
         await Failure(owner, "?keyword=%00", HttpStatusCode.BadRequest);
+        await Failure(owner, "?match=full-text", HttpStatusCode.BadRequest);
+        await Failure(owner, "?match=title&match=title-summary", HttpStatusCode.BadRequest);
         var first = await Page(owner, "?scope=active");
         Assert.Equal(24, first.Total);
         Assert.Equal(20, first.Rows.Count);
@@ -68,6 +74,14 @@ public sealed class AuthorArticleInventoryPostgresTests
         Assert.Equal(41, filter.Category?.Id);
         Assert.Equal(81, Assert.Single(filter.Tags).Id);
         Assert.Empty((await Page(owner, "?keyword=%25")).Rows);
+        const string bySummary = "match=title-summary&keyword=summaryterm";
+        Assert.Empty((await Page(owner, "?keyword=summaryterm")).Rows);
+        Assert.Empty((await Page(owner, "?match=title&keyword=summaryterm")).Rows);
+        Assert.Equal(summaryOnly.Id, Assert.Single((await Page(owner, $"?{bySummary}&state=draft")).Rows).Id);
+        Assert.Empty((await Page(owner, $"?{bySummary}&article={beyondSummary.Id}")).Rows);
+        Assert.Equal(trash.Id, Assert.Single((await Page(owner, $"?scope=trash&{bySummary}")).Rows).Id);
+        Assert.Equal(otherDraft.Id, Assert.Single((await Page(other, $"?scope=trash&{bySummary}")).Rows).Id);
+        Assert.Empty((await Page(other, $"?{bySummary}&article={summaryOnly.Id}")).Rows);
         Assert.Equal(AuthorArticleState.Retracted, Assert.Single((await Page(owner, "?state=retracted")).Rows).State);
         Assert.Equal(due, Assert.Single((await Page(owner, "?state=scheduled")).Rows).ScheduledUnixMs);
         Assert.Equal(trash.Id, Assert.Single((await Page(owner, "?scope=trash")).Rows).Id);
@@ -123,7 +137,9 @@ public sealed class AuthorArticleInventoryPostgresTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.True(response.Headers.CacheControl!.NoStore);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
-            Assert.DoesNotContain(sensitive, System.Text.Encoding.UTF8.GetString(bytes));
+            var payload = System.Text.Encoding.UTF8.GetString(bytes);
+            Assert.DoesNotContain(sensitive, payload);
+            Assert.DoesNotContain(summaryTerm, payload);
             return Decode(bytes);
         }
 
