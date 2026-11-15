@@ -93,3 +93,7 @@
 冻结候选 `ce9439910b11061793c56a62cd836174553c3bfb` 的 311 个发布文件和 319 个 Git 提交通过独立校验。默认 CLR 下 133 项 Core、208 项集成测试通过。独立 C11 小样本走归档事务，核对了 20 篇文章、17 个公开发布坐标及 132 条评论。132 项合并 Node、82 项协议 Node、3 项 FSDL、9 项 FSPT、11 项 FSIM、5 项固定排名检查及 3,847 项 JS/Wasm 差分通过。文章检索的固定排名差异仍保留。隔离旧库迁移和回滚、原生 PostgreSQL 物理备库及两个应用的安全退出均通过。 [独立归档校验](../artifacts/candidate-ce94399/release-verification.json) · [联合结果](../artifacts/candidate-ce94399/checks.txt) · [C11 小样本](../artifacts/candidate-ce94399/nightly-pilot/run.txt)
 
 同一解包产物通过 19 组 Chrome 验收，覆盖评论编辑和举报、当前管理员诊断、固定视图及八种属性的存在筛选。Debian 13 ARM64 通过包摘要、迁移、启动与重启，并再次确认当前语料 304、旧代次 409 及重启后语料字节一致。临时实例和 guest 已停止。包 SHA-256 为 `37e676144c2abd6b95ad91692be9c5859a6d4133b6651fc8454818336c30365b`。 [发布包和校验值](../artifacts/candidate-ce94399/release/) · [Debian 原生记录](../artifacts/candidate-ce94399/linux-default/native.log) · [阶段退出条件](release-readiness.md)
+
+C11 冻结包 `75fd08f` 已在 PostgreSQL 18.7 核对 100,000 篇文章、85,000 个公开坐标、5,000 条管理员归档回执和 1,000,000 条评论。发布坐标偏差为零。最初两次发布历史验证达到原有 150 秒查询期限。满档计划复现显示，外层 `LIMIT 1` 触发预计约 78.6 亿对记录的嵌套循环。修复后的打包迁移工具约 2 秒完成该阶段，另经 404.94 秒重算 100,000 个 canonical 发布摘要。真实 Kestrel 的 14 个绑定 SQL 预期的请求通过，退出后同库预期字节一致，临时资源已清理。 [历史计划诊断](../artifacts/c11-verify-full-plan-21fb652/summary.md) · [C11 满档记录](../artifacts/c11-http-75fd08f/nightly/run.txt) · [其余规模条件](issues/risk-scale-query-cases.md)
+
+宽语料 HTTP 在 macOS 和 Debian ARM64 分别用 40,002 篇实库记录验收。浏览器切片另用 26,002 篇和 Caddy HTTPS 验证两标签页的一次 131 页下载、重开复用、损坏缓存清除、撤回后旧代次 409 和新代次重取。完整浏览器档位和单机容量验收仍待。 [宽语料验证](product/public-search.md) · [容量复测](../tests/Performance/matrix-2026-11-15.md#e31779c-系统采样矩阵)
