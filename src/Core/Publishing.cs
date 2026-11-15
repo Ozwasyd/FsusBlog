@@ -53,8 +53,8 @@ public static class Publishing
             throw new BusinessException(Rejection.Forbidden, "This account cannot write articles.");
         if (current.Id != edit.Id || current.Owner != actor.Id || current.Deleted && action != ArticleAction.Restore)
             throw new BusinessException(Rejection.NotFound, "Article not found.");
-        if (current.Revision != edit.ExpectedRevision)
-            throw new BusinessException(Rejection.Conflict, "The article changed. Reload its current revision.");
+        if (action == ArticleAction.Restore) return Restore(current, edit.ExpectedRevision);
+        RequireRevision(current, edit.ExpectedRevision);
 
         var revision = checked(current.Revision + 1);
         return action switch
@@ -63,9 +63,20 @@ public static class Publishing
             ArticleAction.Publish => current with { Revision = revision, PublishedRevision = revision },
             ArticleAction.Retract => current with { Revision = revision, PublishedRevision = null },
             ArticleAction.Delete => current with { Revision = revision, PublishedRevision = null, Deleted = true },
-            ArticleAction.Restore when current.Deleted => current with { Revision = revision, PublishedRevision = null, Deleted = false },
-            ArticleAction.Restore => throw new BusinessException(Rejection.Conflict, "Only a deleted article can be restored."),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
+    }
+
+    public static ArticleState Restore(ArticleState current, long expectedRevision)
+    {
+        RequireRevision(current, expectedRevision);
+        if (!current.Deleted) throw new BusinessException(Rejection.Conflict, "Only a deleted article can be restored.");
+        return current with { Revision = checked(current.Revision + 1), PublishedRevision = null, Deleted = false };
+    }
+
+    private static void RequireRevision(ArticleState current, long expected)
+    {
+        if (current.Revision != expected)
+            throw new BusinessException(Rejection.Conflict, "The article changed. Reload its current revision.");
     }
 }

@@ -12,4 +12,6 @@
 
 独立 HTTPS 管理页的 **Article inventory** 提供跨作者活动列表和回收站。每次 GET `/api/v2/admin/identity/articles.aeds` 都复核当前管理员会话和 `article.write`，响应禁止缓存。列表共用 AEDS 32840、原有关键字分类标签状态过滤和 ID 续页。排期只取文章所有者当前有效许可代次，归档仍由独立档案列表按私有发布坐标核对。管理页支持标题或摘要搜索以及键盘翻页。
 
-v1 用 `/api/binary/admin/article` 的 ArticleList 帧提供独立管理员目录，回收站恢复另需敏感操作复核。旧列表帧兼容、管理员恢复、批量管理及永久删除仍待实现。 [v1 管理接口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs) · [v1 回收站](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/views/admin/article/Trash.vue)
+停服执行 `admin-article-trash-restore schema` 后，持有 `article.write` 的独立管理员可在回收站使用 **Restore to draft**。Passkey 证明绑定文章 ID、预期修订和命令 UUID。事务重新核验当前授权，锁定软删除文章并恢复给原作者。新私有修订继承正文、摘要、分类标签、权利、附件引用及作者属性。审核记录和恢复事件同一事务写入。AEDS 33063 仅含文章 ID 和新修订。断连后可重试同一请求核对原回执。
+
+v1 用 `/api/binary/admin/article` 的 ArticleList 帧提供独立管理员目录。v1 操作恢复后直接重新公开，V2 的 **Restore to draft** 明确恢复为私有稿件。管理员恢复并重新公开、旧列表帧兼容、批量管理及永久删除仍待实现。 [v1 管理接口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs) · [v1 发布行为](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.LifecycleAndReadModels.cs#L113-L178)

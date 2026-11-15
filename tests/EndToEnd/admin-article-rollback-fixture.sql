@@ -45,4 +45,19 @@ WITH added AS (
 )
 INSERT INTO public.article_revision (article_id,revision,title,body,happened_at)
 SELECT id,revision,title,body,created_at FROM added;
+UPDATE public.article_revision SET author_summary='Private restore summary' WHERE article_id=23 AND revision=1;
+INSERT INTO public.category(id,name) VALUES (1,'Private restore category');
+INSERT INTO public.article_revision_category(article_id,revision,category_id) VALUES (23,1,1);
+INSERT INTO public.private_media (id,owner_id,command_id,request_hash,content_hash,name,format,length,width,height,phase)
+VALUES ('b0c88a3b-e863-4ac2-9c63-e6223d647314','a8e91b13-7706-4c71-8ead-61b201df1f7b','e5778490-c1a0-44bc-9a34-98be184418a4',
+    sha256('request'::bytea),sha256('content'::bytea),'private.png',1,68,1,1,1);
+INSERT INTO public.article_revision_media(article_id,revision,asset_id)
+VALUES (23,1,'b0c88a3b-e863-4ac2-9c63-e6223d647314');
+INSERT INTO public.property_schema(owner_id,revision) VALUES ('a8e91b13-7706-4c71-8ead-61b201df1f7b',1);
+INSERT INTO public.property_definition(owner_id,id,machine_key,revision,digest,shape)
+VALUES ('a8e91b13-7706-4c71-8ead-61b201df1f7b','ea3d5022-fa03-427d-8bbc-cf83aeb5e549','restore_property',1,
+    repeat('a',64),'{"machineKey":"restore_property","label":"Restore property","type":"text"}');
+INSERT INTO public.property_article(article_id,owner_id,revision) VALUES (23,'a8e91b13-7706-4c71-8ead-61b201df1f7b',1);
+INSERT INTO public.property_value(article_id,owner_id,definition_id,data,references_ids)
+VALUES (23,'a8e91b13-7706-4c71-8ead-61b201df1f7b','ea3d5022-fa03-427d-8bbc-cf83aeb5e549','"Private restored property"','{}');
 COMMIT;

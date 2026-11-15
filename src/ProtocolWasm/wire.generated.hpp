@@ -161,6 +161,7 @@ inline constexpr uint32_t MaxDocumentExportTaskRefFrameBytes = 32;
 inline constexpr uint32_t MaxAdminArticleRollbackFrameBytes = 2064;
 inline constexpr uint32_t MaxAdminArticleDraftRollbackFrameBytes = 2068;
 inline constexpr uint32_t MaxAdminArticleArchiveFrameBytes = 2068;
+inline constexpr uint32_t AdminArticleTrashRestoreIntentFrameBytes = 44;
 inline constexpr uint32_t AdminArticleArchivePageSize = 20;
 inline constexpr uint32_t ArticleRightsTokenBytes = 48;
 inline constexpr uint32_t ArticleRightsHolderBytes = 1024;
@@ -493,6 +494,8 @@ enum class FrameType : uint16_t {
     AdminArticleArchiveReceipt = 33000,
     AdminArticleArchivePage = 33001,
     AdminArticleArchivePreview = 33011,
+    AdminArticleTrashRestoreIntent = 33062,
+    AdminArticleTrashRestoreReceipt = 33063,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -724,6 +727,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminArticleArchiveReceipt:
         case FrameType::AdminArticleArchivePage:
         case FrameType::AdminArticleArchivePreview:
+        case FrameType::AdminArticleTrashRestoreIntent:
+        case FrameType::AdminArticleTrashRestoreReceipt:
         case FrameType::AdminSitePageRevision:
         case FrameType::AdminSitePagePublish:
         case FrameType::AdminAppearanceState:

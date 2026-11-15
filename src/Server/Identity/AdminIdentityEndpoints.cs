@@ -140,6 +140,7 @@ internal static class AdminIdentityEndpoints
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);
         AdminCommentRevisions.Map(app, store, session);
+        AdminArticleTrashRestore.Map(app, config.Origin, store, session, Limit, readFrame);
         if (app.Configuration.GetValue(AdminTagMetadataEndpoints.Setting, false))
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
         if (app.Configuration.GetValue(AdminTagMetadataEndpoints.CategorySetting, false))

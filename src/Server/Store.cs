@@ -272,19 +272,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             }
             if (publishedMedia is { } share)
                 images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);
-            await using var update = Sql(db, tx, """
-                update public.article set revision=$2,title=$3,body=$4,published_revision=$5,deleted=$6,updated_at=now() where id=$1
-                """, state.Id, state.Revision, state.Title, state.Body,
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)state.PublishedRevision ?? DBNull.Value }, state.Deleted);
-            await update.ExecuteNonQueryAsync(ct);
+            await UpdateArticleHead(db, tx, state, ct);
         }
-        await using (var revision = Sql(db, tx, """
-            insert into public.article_revision(article_id,revision,title,body,happened_at,author_summary)
-            values($1,$2,$3,$4,now(),case when $6::text is not null then nullif($6,'') else
-                (select author_summary from public.article_revision where article_id=$1 and revision=$5) end)
-            """, state.Id, state.Revision, state.Title, state.Body, rollback?.SourceRevision ?? edit.ExpectedRevision,
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)summary?.Text ?? DBNull.Value }))
-            await revision.ExecuteNonQueryAsync(ct);
+        var sourceRevision = rollback?.SourceRevision ?? edit.ExpectedRevision;
+        await InsertRevision(db, tx, state, sourceRevision, summary?.Text, ct);
         if (rollback is null)
             await Authoring.PropertyStore.CaptureSnapshot(db, tx, actor.Id, state.Id, state.Revision, ct);
         else
@@ -294,14 +285,14 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         if (taxonomy is not null)
             await Content.TaxonomyStore.Replace(db, tx, state.Id, state.Revision, taxonomy.CategoryId, taxonomy.TagIds, ct);
         else if (edit.Id != 0)
-            await Content.TaxonomyStore.CarryForward(db, tx, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision, state.Revision, ct);
+            await Content.TaxonomyStore.CarryForward(db, tx, state.Id, sourceRevision, state.Revision, ct);
         if (rights is not null || edit.Id == 0)
             await Authoring.PublicationRightsStore.Insert(db, tx,
                 rights is null ? Wire.DefaultRights(state.Id, state.Revision) : Wire.RightsPolicy(rights, state.Revision), ct);
         else
-            await Authoring.PublicationRightsStore.CarryForward(db, tx, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision, state.Revision, ct);
+            await Authoring.PublicationRightsStore.CarryForward(db, tx, state.Id, sourceRevision, state.Revision, ct);
         if (edit.Id != 0)
-            await Content.ArticleMediaStore.Copy(db, tx, actor, state.Id, rollback?.SourceRevision ?? edit.ExpectedRevision,
+            await Content.ArticleMediaStore.Copy(db, tx, actor.Id, state.Id, sourceRevision,
                 state.Revision, attachment, ct);
         await using (var record = Sql(db, tx, """
             insert into public.article_command(actor_id,command_id,fingerprint,article_id,revision,title,body,published)
@@ -319,13 +310,51 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         if (action == ArticleAction.Publish)
             await Authoring.PublicationHistoryStore.RecordPublishedOutbox(db, tx, state.Id, state.Revision, ct);
         else
-        {
-            await using var enqueue = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
-                state.Id, state.Revision, attachment is not null ? "draft-media" : rights is not null ? "rights" : schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
-                rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback");
-            await enqueue.ExecuteNonQueryAsync(ct);
-        }
+            await EnqueueRevision(db, tx, state, attachment is not null ? "draft-media" : rights is not null ? "rights" :
+                schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
+                rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback", ct);
         return (state, true);
+    }
+
+    internal static async Task WriteRecoveredDraft(NpgsqlConnection db, NpgsqlTransaction tx, ArticleState draft,
+        long sourceRevision, CancellationToken ct)
+    {
+        await UpdateArticleHead(db, tx, draft, ct);
+        await InsertRevision(db, tx, draft, sourceRevision, null, ct);
+        await Authoring.PropertyStore.CaptureSnapshot(db, tx, draft.Owner, draft.Id, draft.Revision, ct);
+        await Content.TaxonomyStore.CarryForward(db, tx, draft.Id, sourceRevision, draft.Revision, ct);
+        await Authoring.PublicationRightsStore.CarryForward(db, tx, draft.Id, sourceRevision, draft.Revision, ct);
+        await Content.ArticleMediaStore.Copy(db, tx, draft.Owner, draft.Id, sourceRevision, draft.Revision, null, ct);
+        await Authoring.ArticleScheduleStore.Clear(db, tx, draft.Id, ct);
+        await EnqueueRevision(db, tx, draft, "restore", ct);
+    }
+
+    private static async Task UpdateArticleHead(NpgsqlConnection db, NpgsqlTransaction tx, ArticleState state, CancellationToken ct)
+    {
+        await using var command = Sql(db, tx, """
+            update public.article set revision=$2,title=$3,body=$4,published_revision=$5,deleted=$6,updated_at=now() where id=$1
+            """, state.Id, state.Revision, state.Title, state.Body,
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)state.PublishedRevision ?? DBNull.Value }, state.Deleted);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task InsertRevision(NpgsqlConnection db, NpgsqlTransaction tx, ArticleState state, long sourceRevision,
+        string? summary, CancellationToken ct)
+    {
+        await using var command = Sql(db, tx, """
+            insert into public.article_revision(article_id,revision,title,body,happened_at,author_summary)
+            values($1,$2,$3,$4,now(),case when $6::text is not null then nullif($6,'') else
+                (select author_summary from public.article_revision where article_id=$1 and revision=$5) end)
+            """, state.Id, state.Revision, state.Title, state.Body, sourceRevision,
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)summary ?? DBNull.Value });
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task EnqueueRevision(NpgsqlConnection db, NpgsqlTransaction tx, ArticleState state, string kind, CancellationToken ct)
+    {
+        await using var command = Sql(db, tx, "insert into public.blog_outbox(article_id,revision,kind) values($1,$2,$3)",
+            state.Id, state.Revision, kind);
+        await command.ExecuteNonQueryAsync(ct);
     }
 
     internal static async Task<ArticleRightsPolicy> SetRights(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,

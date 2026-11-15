@@ -57,6 +57,11 @@ internal static partial class Migration
             CurrentSchema.HasRootCommentPowPolicyAsync,
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireRootCommentPowPolicy: exists));
 
+    private static Task InitializeAdminArticleTrashRestoreAsync(NpgsqlConnection connection, CancellationToken token) =>
+        InitializeOptionalSchemaAsync(connection, token, "publication-trash-restore-admin.sql", "Verified administrator trash restoration schema.",
+            CurrentSchema.HasAdminArticleTrashRestoreAsync,
+            (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireAdminArticleTrashRestore: exists));
+
     private static Task InitializeAdminInboxReadAsync(NpgsqlConnection connection, CancellationToken token) =>
         InitializeMissingSchemaAsync(connection, token, CurrentSchema.AdminInboxReadRelation,
             "inbox-admin-read.sql", "Verified shared administrator inbox read schema.",

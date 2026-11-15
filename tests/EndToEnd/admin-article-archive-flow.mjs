@@ -5,6 +5,7 @@ import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import {
   decodeAdminArticleArchiveIntent, decodeAdminArticleArchivePreview, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
+  decodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashRestoreReceipt, encodeAdminArticleTrashRestoreIntent,
   FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
@@ -91,6 +92,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert.equal((await context.request.get(admin(availability))).status(), 403)
   assert.equal((await context.request.get(admin(archivePage))).status(), 403)
   assert.equal((await context.request.get(admin(inventoryPath))).status(), 403)
+  assert.equal((await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability))).status(), 403)
   assert.equal((await context.request.get(site(inventoryPath))).status(), 404)
   await deniedPreview(admin(previewPath(1, 3, 3)), 403)
   await deniedPreview(site(previewPath(1, 3, 3)), 404)
@@ -108,6 +110,42 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await inventory.getByRole('button', { name: 'Article trash' }).press('Enter')
   await inventory.getByText('Inventory draft 22', { exact: true }).waitFor()
   assert.equal(await inventory.getByRole('listitem').count(), 1)
+  assert.equal((await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability))).status(), 204)
+  await inventory.getByRole('button', { name: 'Restore to draft', exact: true }).press('Enter')
+  const recover = page.getByRole('dialog', { name: 'Restore deleted article', exact: true })
+  await recover.getByText('Restore revision 1 of Inventory draft 22 to its author as a private draft.', { exact: true }).waitFor()
+  await page.screenshot({ path: join(evidence, 'administrator-article-trash-review.png') })
+  const recoveryRoute = WireRoutes.AdminArticleTrashRestoreExecute
+  const recoveryFrame = intent => Buffer.from(encodeFrame(FrameType.AdminArticleTrashRestoreIntent, encodeAdminArticleTrashRestoreIntent(intent)))
+  let recoveryIntent
+  const recovered = await commitWithLostReceipt({
+    page, url: admin(recoveryRoute), button: recover.getByRole('button', { name: 'Restore draft with Passkey' }),
+    check: inventory.getByRole('button', { name: 'Check restore result' }),
+    async verifyRequest(request, sent) {
+      recoveryIntent = decodeAdminArticleTrashRestoreIntent(decodeFrame(sent, FrameType.AdminArticleTrashRestoreIntent).payload)
+      assert.deepEqual([recoveryIntent.articleId, recoveryIntent.expectedRevision], [23, 1n])
+      const mutation = await request.headerValue(WireHeaders.ClientMutationId)
+      const proof = await request.headerValue(WireHeaders.MfaProof)
+      assert.equal(mutation, recoveryIntent.idempotencyKey)
+      assert.match(proof, /^[A-Za-z0-9_-]{43}$/)
+      const altered = await send(recoveryRoute, recoveryFrame({ ...recoveryIntent, expectedRevision: 2n }), {
+        [WireHeaders.ClientMutationId]: mutation, [WireHeaders.MfaProof]: proof,
+      })
+      assert.equal(altered.status(), 403)
+      await altered.dispose()
+    },
+    readReceipt: bytes => decodeAdminArticleTrashRestoreReceipt(decodeFrame(bytes, FrameType.AdminArticleTrashRestoreReceipt).payload),
+  })
+  assert.deepEqual(recovered, { articleId: 23, revision: 2n })
+  await inventory.getByRole('status').filter({ hasText: '0 deleted articles' }).waitFor()
+  await inventory.getByText('Article 23 restored as private revision 2.', { exact: true }).waitFor()
+  const conflict = await send(recoveryRoute, recoveryFrame({ ...recoveryIntent, expectedRevision: 2n }), {
+    [WireHeaders.ClientMutationId]: recoveryIntent.idempotencyKey,
+  })
+  assert.equal(conflict.status(), 409)
+  await conflict.dispose()
+  assert.equal((await context.request.get(site(WireRoutes.PublicArticle.replace('{id}', '23')))).status(), 404)
+  assert.equal((await context.request.get(site(WireRoutes.Draft.replace('{id:int}', '23')))).status(), 404)
   await inventory.getByRole('button', { name: 'Active articles' }).press('Enter')
   await inventory.getByLabel('Title or summary', { exact: true }).fill('Inventory summary 21')
   await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')

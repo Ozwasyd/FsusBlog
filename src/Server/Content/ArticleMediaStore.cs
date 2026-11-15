@@ -21,7 +21,7 @@ internal static class ArticleMediaStore
         return assets;
     }
 
-    internal static async Task Copy(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int article, long source,
+    internal static async Task Copy(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article, long source,
         long revision, ArticleMediaCommand? change, CancellationToken ct)
     {
         if (change is null)
@@ -41,7 +41,7 @@ internal static class ArticleMediaStore
                 throw new BusinessException(Rejection.Conflict, "This asset is already attached or the attachment limit was reached.");
             await using var available = Store.Sql(db, tx, """
                 SELECT id FROM public.private_media WHERE id=$1 AND owner_id=$2 AND phase=1 FOR UPDATE
-                """, change.AssetId, actor.Id);
+                """, change.AssetId, owner);
             if (await available.ExecuteScalarAsync(ct) is null) throw Missing();
             assets.Add(change.AssetId);
         }

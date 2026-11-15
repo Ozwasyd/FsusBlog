@@ -12,7 +12,7 @@ internal sealed partial class AdminPasskeyStore
 {
     private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
         ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7, ArticleArchive = 8,
-        ActivateRootCommentPow = 9 }
+        ActivateRootCommentPow = 9, RestoreArticleTrash = 10 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -46,11 +46,13 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction action, CancellationToken ct)
     {
         var permission = StepUpPermission(action);
-        var articleRollback = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive;
-        var rollbackLabel = action switch
+        var articleTransition = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or
+            StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash;
+        var transition = action switch
         {
             StepUpAction.DraftArticleRollback => "draft rollback",
             StepUpAction.ArticleArchive => "archive transition",
+            StepUpAction.RestoreArticleTrash => "trash restore",
             _ => "published rollback"
         };
         var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
@@ -60,6 +62,7 @@ internal sealed partial class AdminPasskeyStore
             if (action == StepUpAction.ModerateCommentBatch) await RequireModerationBatchSchema(db, tx, ct);
             if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
             if (action == StepUpAction.ArticleArchive) await RequireArticleArchiveSchema(db, tx, ct);
+            if (action == StepUpAction.RestoreArticleTrash) await RequireTrashRestoreSchema(db, tx, ct);
             await using var consume = Store.Sql(db, tx, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
@@ -69,8 +72,8 @@ internal sealed partial class AdminPasskeyStore
             await using var row = await consume.ExecuteReaderAsync(ct);
             if (!await row.ReadAsync(ct))
             {
-                if (articleRollback)
-                    throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} challenge expired or does not match this session.");
+                if (articleTransition)
+                    throw new BusinessException(Rejection.Forbidden, $"The {transition} challenge expired or does not match this session.");
                 throw Denied();
             }
             return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
@@ -80,9 +83,9 @@ internal sealed partial class AdminPasskeyStore
             RequireCredentialId(request.CredentialId, request.RawId);
             if (request.RememberMe) throw Denied();
         }
-        catch (BusinessException ex) when (articleRollback && ex.Rejection == Rejection.Unauthorized)
+        catch (BusinessException ex) when (articleTransition && ex.Rejection == Rejection.Unauthorized)
         {
-            throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} requires a verified administrator Passkey.");
+            throw new BusinessException(Rejection.Forbidden, $"The {transition} requires a verified administrator Passkey.");
         }
 
         return await WithLiveAdmin(session, permission, async (db, tx, admin) =>
@@ -94,9 +97,9 @@ internal sealed partial class AdminPasskeyStore
                 await VerifyCredential(db, tx, admin.Id, handle, request, AssertionOptions.FromJson(challenge.Options), ct,
                     requireHandle: false);
             }
-            catch (BusinessException ex) when (articleRollback && ex.Rejection == Rejection.Unauthorized)
+            catch (BusinessException ex) when (articleTransition && ex.Rejection == Rejection.Unauthorized)
             {
-                throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} requires a verified administrator Passkey.");
+                throw new BusinessException(Rejection.Forbidden, $"The {transition} requires a verified administrator Passkey.");
             }
             var proof = Token();
             await SaveStepUp(db, tx, admin, proof, action, StepUpProof, challenge.Digest, null, 45, ct);
@@ -160,6 +163,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
         StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
         StepUpAction.ActivateRootCommentPow => "public.admin_root_comment_pow_step_up",
+        StepUpAction.RestoreArticleTrash => "public.admin_article_trash_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -167,7 +171,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive =>
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash =>
             CurrentSchema.ArticleWritePermission,
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,

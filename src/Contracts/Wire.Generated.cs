@@ -95,6 +95,8 @@ public enum FrameType : ushort
     AdminArticleArchiveReceipt = 33000,
     AdminArticleArchivePage = 33001,
     AdminArticleArchivePreview = 33011,
+    AdminArticleTrashRestoreIntent = 33062,
+    AdminArticleTrashRestoreReceipt = 33063,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -391,6 +393,7 @@ public static class WireLimits
     public const int MaxAdminArticleRollbackFrameBytes = 2064;
     public const int MaxAdminArticleDraftRollbackFrameBytes = 2068;
     public const int MaxAdminArticleArchiveFrameBytes = 2068;
+    public const int AdminArticleTrashRestoreIntentFrameBytes = 44;
     public const int AdminArticleArchivePageSize = 20;
     public const int ArticleRightsTokenBytes = 48;
     public const int ArticleRightsHolderBytes = 1024;
@@ -752,6 +755,10 @@ public static class WireRoutes
     public const string AdminArticleDraftRollbackStepUpComplete = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds";
     public const string AdminArticleDraftRollbackExecute = "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds";
     public const string AdminArticleInventory = "/api/v2/admin/identity/articles.aeds";
+    public const string AdminArticleTrashRestoreAvailability = "/api/v2/admin/identity/articles/trash/restore/available.aeds";
+    public const string AdminArticleTrashRestoreBegin = "/api/v2/admin/identity/articles/trash/restore/step-up/begin.aeds";
+    public const string AdminArticleTrashRestoreComplete = "/api/v2/admin/identity/articles/trash/restore/step-up/complete.aeds";
+    public const string AdminArticleTrashRestoreExecute = "/api/v2/admin/identity/articles/trash/restore/execute.aeds";
     public const string AdminArticleArchiveAvailability = "/api/v2/admin/identity/articles/archive/available.aeds";
     public const string AdminArticleArchivePage = "/api/v2/admin/identity/articles/archive/page.aeds";
     public const string AdminArticleArchivePreview = "/api/v2/admin/identity/articles/archive/preview.aeds";
@@ -949,6 +956,8 @@ public sealed record AdminArticleDraftRollbackReceipt(int ArticleId, long Revisi
 public sealed record AdminArticleArchiveIntent(int ArticleId, long ExpectedRevision, long ExpectedReleaseId, long SourceRevision, Guid IdempotencyKey, string Reason, int TargetStatus);
 public sealed record AdminArticleArchiveReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousReleaseId, long ReleaseId, int PublicationNo, long TransitionedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId, int TargetStatus);
 public sealed record AdminArticleArchivePreview(int ArticleId, long Revision, long PrivateReleaseId, string Title, string Markdown);
+public sealed record AdminArticleTrashRestoreIntent(int ArticleId, long ExpectedRevision, Guid IdempotencyKey);
+public sealed record AdminArticleTrashRestoreReceipt(int ArticleId, long Revision);
 public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
 public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
@@ -1318,6 +1327,29 @@ public static partial class Wire
     public static AdminArticleArchivePreview DecodeAdminArticleArchivePreview(ReadOnlySpan<byte> frame) =>
         DecodeRecord<AdminArticleArchivePreview>(FrameType.AdminArticleArchivePreview, frame, static (ref Reader reader) =>
             new AdminArticleArchivePreview(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes)), Validate);
+
+    public static byte[] EncodeAdminArticleTrashRestoreIntent(AdminArticleTrashRestoreIntent value) =>
+        EncodeRecord(FrameType.AdminArticleTrashRestoreIntent, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+        });
+
+    public static AdminArticleTrashRestoreIntent DecodeAdminArticleTrashRestoreIntent(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleTrashRestoreIntent>(FrameType.AdminArticleTrashRestoreIntent, frame, static (ref Reader reader) =>
+            new AdminArticleTrashRestoreIntent(reader.I32(), reader.I64(), reader.Uuid()), Validate);
+
+    public static byte[] EncodeAdminArticleTrashRestoreReceipt(AdminArticleTrashRestoreReceipt value) =>
+        EncodeRecord(FrameType.AdminArticleTrashRestoreReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Revision);
+        });
+
+    public static AdminArticleTrashRestoreReceipt DecodeAdminArticleTrashRestoreReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleTrashRestoreReceipt>(FrameType.AdminArticleTrashRestoreReceipt, frame, static (ref Reader reader) =>
+            new AdminArticleTrashRestoreReceipt(reader.I32(), reader.I64()), Validate);
 
     public static byte[] EncodeAdminSitePages(AdminSitePages value) =>
         EncodeRecord(FrameType.AdminSitePages, value, Validate, static (writer, record) =>

@@ -125,7 +125,8 @@ internal static partial class CurrentSchema
         bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
         bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
-        bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null)
+        bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null,
+        bool? requireAdminArticleTrashRestore = null)
     {
         requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
@@ -183,6 +184,11 @@ internal static partial class CurrentSchema
             await HasAdminArticleDraftRollbackSchemaAsync(connection, transaction, cancellationToken);
         var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
             await HasAdminArticleArchiveSchemaAsync(connection, transaction, cancellationToken);
+        var hasAdminArticleTrashRestore = await HasAdminArticleTrashRestoreAsync(connection, transaction, cancellationToken);
+        if (hasAdminArticleTrashRestore && !requireAdminIdentity)
+            throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
+        RequireSchemaPresence(requireAdminArticleTrashRestore, hasAdminArticleTrashRestore,
+            "The administrator trash restore schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
@@ -307,6 +313,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
+            .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)] : [])
@@ -358,6 +365,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataConstraints : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
+            .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
@@ -446,7 +454,8 @@ internal static partial class CurrentSchema
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
                                    AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up',
                                                       'admin_appearance_step_up', 'comment_appeal_admin_step_up',
-                                                      'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up')
+                                                      'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up',
+                                                      'admin_article_trash_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh')
                                      OR (c.relname = 'author_document_export' AND target.relname IN ('blog_user', 'article_revision'))

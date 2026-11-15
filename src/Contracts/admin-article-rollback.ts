@@ -84,8 +84,8 @@ export async function requestAdminArticleDraftRollbackProof(intent: AdminArticle
 }
 
 export async function requestRollbackProof(begin: string, complete: string, frame: Uint8Array<ArrayBuffer>,
-  signal: AbortSignal): Promise<string> {
-  const assertion = await requestPasskeyAssertion(begin, signal, frame, true);
+  signal: AbortSignal, headers?: HeadersInit): Promise<string> {
+  const assertion = await requestPasskeyAssertion(begin, signal, frame, true, false, headers);
   return request(complete, FrameType.MfaChallengeResult,
     payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
 }

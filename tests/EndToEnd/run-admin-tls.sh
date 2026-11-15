@@ -309,6 +309,9 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 || ${FSUSBLOG_TEST_ADMIN
   export FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT="$scratch/grant-article-rollback"
   permission_fixture "$FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT" grant article.write
   "$dotnet" "$migrate" admin-article-rollback schema > "$evidence/admin-article-rollback-migration.log"
+  "$dotnet" "$migrate" admin-article-trash-restore schema > "$evidence/admin-article-trash-restore-migration.log"
+  "$dotnet" "$migrate" admin-article-trash-restore schema >> "$evidence/admin-article-trash-restore-migration.log"
+  "$dotnet" "$migrate" property-snapshots >> "$evidence/admin-article-trash-restore-migration.log"
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-article-rollback-fixture.sql > "$evidence/admin-article-rollback-fixture.log"
   printf '%s\n' '{"responsibleParty":"Historical publisher","basis":"Recorded original publication approval","reference":"fixture-review-2026-001"}' |
     "$dotnet" "$migrate" article-responsibility record 1 1 >> "$evidence/admin-article-rollback-migration.log"
@@ -743,8 +746,28 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
     union all
     select 'one_archive_publish_event=' || count(*) from public.blog_outbox
       where article_id=1 and revision=4 and kind='publish' and processed_at is not null
+    union all
+    select 'exact_trash_restore=' || count(*) from public.admin_article_trash_restore t
+      join public.admin_principal p on p.id=t.principal_id
+      join public.article a on a.id=t.article_id and a.revision=t.revision
+      join public.blog_user u on u.id=a.owner_id
+      join public.article_revision prior on prior.article_id=a.id and prior.revision=t.previous_revision
+      join public.article_revision draft on draft.article_id=a.id and draft.revision=t.revision
+      join public.article_revision_media m on m.article_id=a.id and m.revision=t.revision
+      join public.article_revision_media old_m on old_m.article_id=a.id and old_m.revision=t.previous_revision and old_m.asset_id=m.asset_id
+      join public.article_revision_category c on c.article_id=a.id and c.revision=t.revision
+      join public.article_revision_category old_c on old_c.article_id=a.id and old_c.revision=t.previous_revision and old_c.category_id=c.category_id
+      join public.article_revision_property_snapshot s on s.article_id=a.id and s.revision=t.revision
+      join public.article_property_snapshot_field f on (f.article_id,f.schema_revision,f.value_revision)=(s.article_id,s.schema_revision,s.value_revision)
+      where a.id=23 and t.previous_revision=1 and t.revision=2 and not a.deleted and a.published_revision is null
+        and p.handle='tls-admin-fixture' and u.name='tls-other-inventory-author' and f.data='\"Private restored property\"'::jsonb
+        and (draft.title,draft.body,draft.author_summary)=(prior.title,prior.body,prior.author_summary)
+        and not exists (select from public.article_publication where article_id=a.id)
+        and not exists (select from public.article_command where article_id=a.id and revision=2)
+    union all
+    select 'one_trash_restore_event=' || count(*) from public.blog_outbox where article_id=23 and revision=2 and kind='restore'
   " > "$evidence/admin-article-archive-counts.txt"
-  for check in exact_admin_archive exact_admin_republication one_archive_retract_event one_archive_publish_event; do
+  for check in exact_admin_archive exact_admin_republication one_archive_retract_event one_archive_publish_event exact_trash_restore one_trash_restore_event; do
     grep -Fxq "$check=1" "$evidence/admin-article-archive-counts.txt"
   done
   "$dotnet" "$migrate" verify > "$evidence/admin-article-archive-schema-verify.log" 2>&1

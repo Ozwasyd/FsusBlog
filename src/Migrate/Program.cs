@@ -42,6 +42,7 @@ internal static partial class Migration
             [("publication-transparency", "enable")] = EnablePublicationTransparencyAsync,
             [("publication-transparency", "head-schema")] = InitializePublicationHeadAsync,
             [("admin-article-rollback", "schema")] = InitializeAdminArticleRollbackAsync,
+            [("admin-article-trash-restore", "schema")] = InitializeAdminArticleTrashRestoreAsync,
             [("article-schedule", null)] = InitializeArticleScheduleAsync,
             [("article", "read-proof-schema")] = InitializeArticleReadSchemaAsync,
             [("private-media-upload", "schema")] = InitializeMediaUploadAsync,
@@ -118,6 +119,8 @@ internal static partial class Migration
                                         Verify a local issuance ledger with a trusted public key manifest
                   admin-article-rollback schema
                                         Add independent published rollback storage with the server stopped
+                  admin-article-trash-restore schema
+                                        Add administrator draft recovery with the server stopped
                   article-responsibility record ARTICLE REVISION
                                         Record explicit historical responsibility JSON from stdin
                   article-schedule      Add pending publication and command receipts with the server stopped

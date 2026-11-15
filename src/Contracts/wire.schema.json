@@ -106,6 +106,8 @@
     "AdminArticleArchiveReceipt": 33000,
     "AdminArticleArchivePage": 33001,
     "AdminArticleArchivePreview": 33011,
+    "AdminArticleTrashRestoreIntent": 33062,
+    "AdminArticleTrashRestoreReceipt": 33063,
     "AdminSitePageRevision": 32915,
     "AdminSitePagePublish": 32916,
     "AdminAppearanceState": 32936,
@@ -362,6 +364,10 @@
     "AdminArticleDraftRollbackStepUpComplete": "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds",
     "AdminArticleDraftRollbackExecute": "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds",
     "AdminArticleInventory": "/api/v2/admin/identity/articles.aeds",
+    "AdminArticleTrashRestoreAvailability": "/api/v2/admin/identity/articles/trash/restore/available.aeds",
+    "AdminArticleTrashRestoreBegin": "/api/v2/admin/identity/articles/trash/restore/step-up/begin.aeds",
+    "AdminArticleTrashRestoreComplete": "/api/v2/admin/identity/articles/trash/restore/step-up/complete.aeds",
+    "AdminArticleTrashRestoreExecute": "/api/v2/admin/identity/articles/trash/restore/execute.aeds",
     "AdminArticleArchiveAvailability": "/api/v2/admin/identity/articles/archive/available.aeds",
     "AdminArticleArchivePage": "/api/v2/admin/identity/articles/archive/page.aeds",
     "AdminArticleArchivePreview": "/api/v2/admin/identity/articles/archive/preview.aeds",
@@ -677,6 +683,7 @@
     "MaxAdminArticleRollbackFrameBytes": 2064,
     "MaxAdminArticleDraftRollbackFrameBytes": 2068,
     "MaxAdminArticleArchiveFrameBytes": 2068,
+    "AdminArticleTrashRestoreIntentFrameBytes": 44,
     "AdminArticleArchivePageSize": 20,
     "ArticleRightsTokenBytes": 48,
     "ArticleRightsHolderBytes": 1024,
@@ -980,6 +987,12 @@
     },
     "AdminArticleArchivePreview": {
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["PrivateReleaseId", "i64"], ["Title", "text", "TitleBytes"], ["Markdown", "text", "BodyBytes"]]
+    },
+    "AdminArticleTrashRestoreIntent": {
+      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"]]
+    },
+    "AdminArticleTrashRestoreReceipt": {
+      "fields": [["ArticleId", "i32"], ["Revision", "i64"]]
     },
     "AdminSitePages": {
       "fields": [["ConfiguredMask", "i32"]]
