@@ -40,4 +40,6 @@
 
 作者全文搜索支持对布尔、单选及多选定义计数，支持单个可搜索文本属性的全文查询和六类可排序属性的类型化排序。定义的 `SearchEligible` 和 `Sortable` 可通过现有属性结构入口的 `33024` 请求修改，并按定义 ID 读取 `33025` 及定义摘要。定义修改沿用所有者权限、schema 与定义版本 CAS 和幂等回执，保留已保存的值。搜索界面通过 `33028` 读取当前会话可操作的投影能力。既有数据库需停服运行 `author-search` 安装文本属性索引。 [作者全文搜索](author-full-text-search.md)
 
-冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。同字段 OR、专用类型化值索引、独立 1,000 字段 / 10,000 文章规模验收及旧库导入仍待交付。[个人保存视图](author-saved-views.md) 已复用现有属性查询。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)
+冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。同字段 OR、专用类型化值索引、完整 1,000 字段 / 10,000 文章矩阵及旧库导入仍待交付。[个人保存视图](author-saved-views.md) 已复用现有属性查询。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)
+
+`PropertyScalePostgresTests` 使用同一隔离 PostgreSQL 18.7 库运行联合规模检查。通过正常 HTTP 创建八种类型的 1,000 个定义，验证超限拒绝、弃用后删除、补建和稳定重命名。夹具装载 10,000 篇文章和 88,000 个属性值，再通过服务读取全部 40 页、核对授权拒绝和类型值，并自主重建作者索引。筛选得到 5,000 条匹配，取两页核对独立的排序、分面、缺失及显式空值计数。本轮最大编辑器 AEDS 响应 2,280 字节。完整历史快照、迁移、千字段浏览器资源与无障碍仍待验收。 [联合规模实库日志](../../artifacts/property-scale-de88453/native-5/verification.log)
