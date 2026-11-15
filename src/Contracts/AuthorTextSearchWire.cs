@@ -7,6 +7,8 @@ public sealed record AuthorTextSearchRow(int Id, long Revision, string Title, in
     byte[] SourceDigest);
 
 public sealed record AuthorTextSearchPage(bool Ready, bool More, IReadOnlyList<AuthorTextSearchRow> Rows);
+public sealed record AuthorTextRankedQuery(string Query, string Cursor);
+public sealed record AuthorTextRankedPage(bool Ready, string NextCursor, IReadOnlyList<AuthorTextSearchRow> Rows);
 
 public static partial class Wire
 {
@@ -40,18 +42,7 @@ public static partial class Wire
         foreach (var row in value.Rows)
         {
             ValidateAuthorTextRow(row, previousId);
-            writer.I32(row.Id);
-            writer.I64(row.Revision);
-            writer.Text(row.Title, WireLimits.TitleBytes);
-            writer.I32(row.Field);
-            writer.Text(row.Snippet, WireLimits.AuthorTextSearchSnippetBytes);
-            writer.I32(row.HighlightStart);
-            writer.I32(row.HighlightEnd);
-            writer.I32(row.SourceStart);
-            writer.I32(row.SourceEnd);
-            writer.I32(row.SourceByteStart);
-            writer.I32(row.SourceByteEnd);
-            writer.FixedBytes(row.SourceDigest);
+            WriteAuthorTextRow(writer, row);
             previousId = row.Id;
         }
         return Aeds.Encode(FrameType.AuthorTextSearchPage, writer.Written);
@@ -68,15 +59,107 @@ public static partial class Wire
         var previousId = 0;
         for (var i = 0; i < rows.Length; i++)
         {
-            var row = new AuthorTextSearchRow(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.I32(),
-                reader.Text(WireLimits.AuthorTextSearchSnippetBytes), reader.I32(), reader.I32(), reader.I32(), reader.I32(),
-                reader.I32(), reader.I32(), reader.FixedBytes(WireLimits.AuthorTextSearchSourceDigestBytes).ToArray());
+            var row = ReadAuthorTextRow(ref reader);
             ValidateAuthorTextRow(row, previousId);
             rows[i] = row;
             previousId = row.Id;
         }
         reader.Finish();
         return new(ready, more, rows);
+    }
+
+    public static byte[] EncodeAuthorTextRankedQuery(AuthorTextRankedQuery value)
+    {
+        ValidateAuthorTextQuery(value.Query);
+        ValidateAuthorTextCursor(value.Cursor);
+        var writer = new Writer();
+        writer.Text(value.Query, WireLimits.AuthorTextSearchQueryBytes);
+        writer.Text(value.Cursor, WireLimits.AuthorTextRankedCursorChars);
+        return Aeds.Encode(FrameType.AuthorTextRankedQuery, writer.Written);
+    }
+
+    public static AuthorTextRankedQuery DecodeAuthorTextRankedQuery(ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length > WireLimits.MaxAuthorTextRankedQueryFrameBytes)
+            throw new ProtocolException("Author text search query exceeds its frame limit.");
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextRankedQuery));
+        var query = reader.Text(WireLimits.AuthorTextSearchQueryBytes);
+        var cursor = reader.Text(WireLimits.AuthorTextRankedCursorChars);
+        reader.Finish();
+        ValidateAuthorTextQuery(query);
+        ValidateAuthorTextCursor(cursor);
+        return new(query, cursor);
+    }
+
+    public static byte[] EncodeAuthorTextRankedPage(AuthorTextRankedPage value)
+    {
+        ValidateAuthorTextCursor(value.NextCursor);
+        ValidateAuthorTextPage(value.Ready, value.NextCursor.Length != 0, value.Rows.Count);
+        var writer = new Writer();
+        writer.Bool(value.Ready);
+        writer.Text(value.NextCursor, WireLimits.AuthorTextRankedCursorChars);
+        writer.I32(value.Rows.Count);
+        var ids = new HashSet<int>();
+        foreach (var row in value.Rows)
+        {
+            ValidateAuthorTextRankedRow(row, ids);
+            WriteAuthorTextRow(writer, row);
+        }
+        return Aeds.Encode(FrameType.AuthorTextRankedPage, writer.Written);
+    }
+
+    public static AuthorTextRankedPage DecodeAuthorTextRankedPage(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextRankedPage));
+        var ready = reader.Bool();
+        var next = reader.Text(WireLimits.AuthorTextRankedCursorChars);
+        var count = reader.I32();
+        ValidateAuthorTextCursor(next);
+        ValidateAuthorTextPage(ready, next.Length != 0, count);
+        var rows = new AuthorTextSearchRow[count];
+        var ids = new HashSet<int>();
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var row = ReadAuthorTextRow(ref reader);
+            ValidateAuthorTextRankedRow(row, ids);
+            rows[i] = row;
+        }
+        reader.Finish();
+        return new(ready, next, rows);
+    }
+
+    private static void WriteAuthorTextRow(Writer writer, AuthorTextSearchRow row)
+    {
+        writer.I32(row.Id);
+        writer.I64(row.Revision);
+        writer.Text(row.Title, WireLimits.TitleBytes);
+        writer.I32(row.Field);
+        writer.Text(row.Snippet, WireLimits.AuthorTextSearchSnippetBytes);
+        writer.I32(row.HighlightStart);
+        writer.I32(row.HighlightEnd);
+        writer.I32(row.SourceStart);
+        writer.I32(row.SourceEnd);
+        writer.I32(row.SourceByteStart);
+        writer.I32(row.SourceByteEnd);
+        writer.FixedBytes(row.SourceDigest);
+    }
+
+    private static AuthorTextSearchRow ReadAuthorTextRow(ref Reader reader) =>
+        new(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.I32(),
+            reader.Text(WireLimits.AuthorTextSearchSnippetBytes), reader.I32(), reader.I32(), reader.I32(), reader.I32(),
+            reader.I32(), reader.I32(), reader.FixedBytes(WireLimits.AuthorTextSearchSourceDigestBytes).ToArray());
+
+    private static void ValidateAuthorTextCursor(string cursor)
+    {
+        if (cursor.Length > WireLimits.AuthorTextRankedCursorChars ||
+            cursor.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '-' and not '_'))
+            throw new ProtocolException("Invalid author text search cursor.");
+    }
+
+    private static void ValidateAuthorTextRankedRow(AuthorTextSearchRow row, HashSet<int> ids)
+    {
+        ValidateAuthorTextRow(row, previousId: 0);
+        if (!ids.Add(row.Id)) throw new ProtocolException("Invalid author text search row.");
     }
 
     private static void ValidateAuthorTextQuery(string query)

@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextSearch, type AuthorTextSearchPage, type AuthorTextSearchRow } from '../../../Contracts/author-text-search'
+import { authorTextRankedSearch } from '../../../Contracts/author-text-ranked-client'
+import type { AuthorTextRankedPage, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
+
+type SearchPage = AuthorTextRankedPage & { cursor: string; previous: readonly string[] }
+const PreviousPageLimit = 500
 
 type Opening = {
   request: AbortController
@@ -17,10 +21,12 @@ type Opening = {
 
 const router = useRouter()
 const details = ref<HTMLDetailsElement>()
+const form = ref<HTMLFormElement>()
 const query = ref('')
 const pending = shallowRef<AbortController>()
 const opening = shallowRef<Opening>()
-const result = shallowRef<AuthorTextSearchPage>()
+const result = shallowRef<SearchPage>()
+const stalePage = ref(false)
 const error = ref('')
 const locationNotice = ref('')
 
@@ -32,6 +38,7 @@ function reset() {
   pending.value = undefined
   opening.value = undefined
   result.value = undefined
+  stalePage.value = false
   error.value = ''
   locationNotice.value = ''
 }
@@ -47,7 +54,34 @@ function toggle(event: Event) {
   if (!(event.currentTarget as HTMLDetailsElement).open) reset()
 }
 
-async function search() {
+function search() {
+  return loadPage('', [], false)
+}
+
+function showNextPage() {
+  const page = result.value
+  if (!page?.ready || !page.nextCursor) return
+  return loadPage(page.nextCursor, [...page.previous.slice(1 - PreviousPageLimit), page.cursor], true)
+}
+
+function showPreviousPage() {
+  const page = result.value
+  const cursor = page?.previous.at(-1)
+  if (!page?.ready || cursor === undefined) return
+  return loadPage(cursor, page.previous.slice(0, -1), true)
+}
+
+function expirePage() {
+  result.value = undefined
+  error.value = ''
+  locationNotice.value = ''
+  stalePage.value = true
+  void nextTick(() => {
+    if (stalePage.value && details.value?.open) form.value?.querySelector<HTMLButtonElement>('button[type=submit]')?.focus()
+  })
+}
+
+async function loadPage(cursor: string, previous: readonly string[], paging: boolean) {
   const session = currentSession.value
   const text = query.value.trim()
   if (!text || pending.value || opening.value || !details.value?.open || !session?.canAuthor ||
@@ -56,7 +90,8 @@ async function search() {
   const epoch = credentialEpoch.value
   const request = new AbortController()
   pending.value = request
-  result.value = undefined
+  if (!paging) result.value = undefined
+  stalePage.value = false
   error.value = ''
   locationNotice.value = ''
   const current = () => {
@@ -67,11 +102,14 @@ async function search() {
   }
 
   try {
-    const response = await authorTextSearch(text, handle, request.signal)
-    if (current()) result.value = response
+    const response = await authorTextRankedSearch({ query: text, cursor }, handle, request.signal)
+    if (!current()) return
+    if (cursor && !response.ready) { expirePage(); return }
+    result.value = { ...response, cursor, previous }
   } catch (failure) {
     if (!current()) return
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
+    if (cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     error.value = failure instanceof ApiError && failure.status === 400
       ? '搜索词格式无效。请检查关键词和双引号。' : '无法完成全文搜索，请重试。'
   } finally {
@@ -117,12 +155,13 @@ async function openMatch(row: AuthorTextSearchRow) {
   signal.addEventListener('abort', revoke, { once: true })
 
   try {
-    const fresh = await authorTextSearch(text, handle, signal)
+    const fresh = await authorTextRankedSearch({ query: text, cursor: page.cursor }, handle, signal)
     if (!current()) return
     signal.throwIfAborted()
     const confirmed = fresh.ready ? fresh.rows.find(candidate => sameMatch(row, candidate)) : undefined
     if (!confirmed) {
-      result.value = fresh
+      if (page.cursor && !fresh.ready) { expirePage(); return }
+      result.value = { ...fresh, cursor: page.cursor, previous: page.previous }
       if (fresh.ready) locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
       return
     }
@@ -159,6 +198,7 @@ async function openMatch(row: AuthorTextSearchRow) {
       locationNotice.value = '未能打开编辑器。请重新选择命中位置。'
       return
     }
+    if (page.cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     result.value = undefined
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
     locationNotice.value = '无法复查此命中。请重新搜索后再定位。'
@@ -173,32 +213,38 @@ async function openMatch(row: AuthorTextSearchRow) {
 <template>
   <details ref="details" class="author-text-search" @toggle="toggle">
     <summary>作者全文搜索</summary>
-    <form aria-label="作者全文搜索" @submit.prevent="search">
-      <p id="author-text-search-help">按词搜索当前保存的标题和正文。用英文双引号查找同一字段中的连续词语。</p>
+    <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
+      <p id="author-text-search-help">可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题，或用 <code>field.markdown-body:</code> 限定正文。</p>
       <ElInput v-model="query" label="全文搜索词" clearable
         v-bind="{ maxlength: WireLimits.AuthorTextSearchQueryChars, 'aria-describedby': 'author-text-search-help' }" />
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
-        {{ result?.ready === false ? '继续搜索' : error ? '重试搜索' : '搜索全文' }}
+        {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
       </ElButton>
     </form>
     <p v-if="opening" role="status">正在复查{{ opening.row.field === 'title' ? '标题' : '正文' }}命中位置…</p>
     <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <p v-if="pending" role="status">正在搜索全文…</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
+    <p v-else-if="stalePage" role="status">搜索结果已变化，请从第一页重新搜索。</p>
     <p v-else-if="result?.ready === false" role="status">索引正在更新，选择「继续搜索」处理下一批文章。</p>
-    <section v-else-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!opening">
+    <section v-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!pending || !!opening">
       <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
           <span class="author-text-search-field">{{ row.field === 'title' ? '标题' : '正文' }}</span>
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
-          <ElButton text native-type="button" v-bind="{ 'aria-disabled': !!opening }" @click="openMatch(row)">
+          <ElButton text native-type="button" v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
             跳到命中位置
           </ElButton>
         </li>
       </ul>
-      <p v-if="result.more" role="status">显示前 {{ result.rows.length }} 条结果，可缩小搜索范围。</p>
+      <nav v-if="result.previous.length || result.nextCursor" aria-label="全文搜索分页">
+        <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.previous.length }"
+          @click="showPreviousPage">上一页</ElButton>
+        <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.nextCursor }"
+          @click="showNextPage">下一页</ElButton>
+      </nav>
     </section>
   </details>
 </template>
@@ -210,6 +256,8 @@ async function openMatch(row: AuthorTextSearchRow) {
 .author-text-search form > p { margin-block-end: 0; }
 .author-text-search ul { display: grid; gap: var(--fsus-space-3); padding-inline-start: 1.25rem; }
 .author-text-search li { overflow-wrap: anywhere; }
+.author-text-search nav { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); }
+.author-text-search nav :deep(.el-button + .el-button) { margin-inline-start: 0; }
 .author-text-search-field { margin-inline-start: var(--fsus-space-2); }
 .author-text-search-snippet { margin-block: var(--fsus-space-1) 0; white-space: pre-wrap; }
 </style>

@@ -56,6 +56,8 @@ inline constexpr uint32_t MaxAuthorRecentOpenCommandFrameBytes = 56;
 inline constexpr uint32_t AuthorTextSearchQueryChars = 128;
 inline constexpr uint32_t AuthorTextSearchQueryBytes = 512;
 inline constexpr uint32_t MaxAuthorTextSearchQueryFrameBytes = 532;
+inline constexpr uint32_t AuthorTextRankedCursorChars = 256;
+inline constexpr uint32_t MaxAuthorTextRankedQueryFrameBytes = 792;
 inline constexpr uint32_t AuthorTextSearchRows = 20;
 inline constexpr uint32_t AuthorTextSearchSnippetBytes = 2048;
 inline constexpr uint32_t AuthorTextSearchSourceDigestBytes = 32;
@@ -530,6 +532,8 @@ enum class FrameType : uint16_t {
     AuthorRecentOpenReceipt = 32960,
     AuthorTextSearchQuery = 33006,
     AuthorTextSearchPage = 33007,
+    AuthorTextRankedQuery = 33010,
+    AuthorTextRankedPage = 33012,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -714,6 +718,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorRecentOpenReceipt:
         case FrameType::AuthorTextSearchQuery:
         case FrameType::AuthorTextSearchPage:
+        case FrameType::AuthorTextRankedQuery:
+        case FrameType::AuthorTextRankedPage:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

@@ -138,4 +138,89 @@ public sealed class AuthorTextProfileTests
         stopped.Cancel();
         Assert.Throws<OperationCanceledException>(() => enumerator.MoveNext());
     }
+
+    [Fact]
+    public void RankedFieldPrefixesAndPhrasesComposeWithoutLosingLexicalGroups()
+    {
+        var query = AuthorTextProfile.ParseRanked("""
+            release field.title:RELEASE-notes-Release "code, code" field.markdown-body:"中 \\ \"Quoted\""
+            """);
+        Assert.Collection(query.Clauses,
+            clause => AssertClause(clause, AuthorTextField.Any, false, "release"),
+            clause => AssertClause(clause, AuthorTextField.Title, false, "release", "notes"),
+            clause => AssertClause(clause, AuthorTextField.Any, true, "code", "code"),
+            clause => AssertClause(clause, AuthorTextField.MarkdownBody, true, "中", "quoted"));
+    }
+
+    [Fact]
+    public void RankedQueriesDeduplicateIdenticalClausesAndKeepDistinctScopes()
+    {
+        var query = AuthorTextProfile.ParseRanked(" blue-green , BLUE-green \"left\" \"left\" field.title:left field.markdown-body:left ");
+        Assert.Collection(query.Clauses,
+            clause => AssertClause(clause, AuthorTextField.Any, false, "blue", "green"),
+            clause => AssertClause(clause, AuthorTextField.Any, true, "left"),
+            clause => AssertClause(clause, AuthorTextField.Title, false, "left"),
+            clause => AssertClause(clause, AuthorTextField.MarkdownBody, false, "left"));
+
+        var punctuation = AuthorTextProfile.ParseRanked("*️⃣ bread and butter \"title: OR/value\"");
+        AssertClause(punctuation.Clauses[0], AuthorTextField.Any, false, "*️⃣");
+        AssertClause(punctuation.Clauses[2], AuthorTextField.Any, false, "and");
+        AssertClause(punctuation.Clauses[^1], AuthorTextField.Any, true, "title", "or", "value");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" , . ")]
+    [InlineData("\rvalue")]
+    [InlineData("\"\"")]
+    [InlineData("\"left\"right")]
+    [InlineData("left\"right\"")]
+    [InlineData("\"left\"\"right\"")]
+    [InlineData("\"unclosed")]
+    [InlineData("\"invalid \\n escape\"")]
+    [InlineData("left\\right")]
+    [InlineData("foo \".\" bar")]
+    [InlineData("title:foo")]
+    [InlineData("Field.title:foo")]
+    [InlineData("field.body:foo")]
+    [InlineData("field.summary:foo")]
+    [InlineData("field.title: foo")]
+    [InlineData("field.title:")]
+    [InlineData("field.title:.")]
+    [InlineData("field.title:\"left\"right")]
+    [InlineData("field.title:foo field.title:\"bar baz\"")]
+    [InlineData("field.markdown-body:foo field.markdown-body:bar")]
+    [InlineData("field.markdown-body:AND")]
+    [InlineData("status:published")]
+    [InlineData("updated-at.before:2026-01-01")]
+    [InlineData("property:priority")]
+    [InlineData("/(?:foo)/u")]
+    [InlineData("foo OR, bar")]
+    [InlineData("foo NEAR bar")]
+    [InlineData("foo -bar")]
+    [InlineData("foo.*")]
+    [InlineData("x x x x x x x x x")]
+    [InlineData("foo$")]
+    [InlineData("field.title:x-x-x-x field.markdown-body:\"x x\" \"x x x\"")]
+    public void UnsupportedAndUnboundedRankedQueriesFailClosed(string query)
+    {
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(query));
+    }
+
+    [Fact]
+    public void RankedLimitsCountTheRawPrefixAndTheNormalizedOperandBytes()
+    {
+        const string prefix = "field.title:";
+        var value = new string('x', WireLimits.AuthorTextSearchQueryChars - prefix.Length);
+        AssertClause(Assert.Single(AuthorTextProfile.ParseRanked(prefix + value).Clauses), AuthorTextField.Title, false, value);
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(prefix + value + 'x'));
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(prefix + new string('\u0958', 86)));
+    }
+
+    private static void AssertClause(AuthorTextClause clause, AuthorTextField field, bool phrase, params string[] terms)
+    {
+        Assert.Equal(field, clause.Field);
+        Assert.Equal(phrase, clause.Phrase);
+        Assert.Equal(terms, clause.Terms);
+    }
 }

@@ -115,6 +115,10 @@ export class PodWriter {
 
   bytes(value: Uint8Array): void {
     this.i32(value.length);
+    this.fixedBytes(value);
+  }
+
+  fixedBytes(value: Uint8Array): void {
     this.parts.push(value);
   }
 

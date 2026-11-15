@@ -5,7 +5,10 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed record AuthorTextQuery(string[] Terms, bool Phrase);
+internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2 }
+internal sealed record AuthorTextClause(AuthorTextField Field, bool Phrase, string[] Terms);
+internal sealed record AuthorTextQuery(AuthorTextClause[] Clauses);
+internal sealed record AuthorTextLegacyQuery(string[] Terms, bool Phrase);
 internal readonly record struct AuthorTextTerm(string Value, int Ordinal, int Start, int End, int ByteStart, int ByteEnd);
 
 /// <summary>Author text profile 1: NFC and Unicode 17 default simple case folding with half-open raw source spans.</summary>
@@ -20,7 +23,7 @@ internal static class AuthorTextProfile
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly FrozenDictionary<int, Rune> SimpleFolds = LoadSimpleFolds();
 
-    internal static AuthorTextQuery Parse(string raw)
+    internal static AuthorTextLegacyQuery Parse(string raw)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
@@ -38,6 +41,89 @@ internal static class AuthorTextProfile
             throw InvalidQuery();
         var terms = tokens.Select(term => term.Value).ToArray();
         return new(phrase ? terms : terms.Distinct(StringComparer.Ordinal).ToArray(), phrase);
+    }
+
+    internal static AuthorTextQuery ParseRanked(string raw)
+    {
+        if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
+            throw InvalidQuery();
+        var named = new HashSet<AuthorTextField>();
+        var clauses = new List<AuthorTextClause>();
+        var remaining = MaxQueryTerms;
+        var offset = 0;
+        while (offset < raw.Length)
+        {
+            if (char.IsWhiteSpace(raw[offset])) { offset++; continue; }
+            var field = ReadField(raw, ref offset);
+            if (field != AuthorTextField.Any && !named.Add(field)) throw InvalidQuery();
+            var phrase = offset < raw.Length && raw[offset] == '"';
+            var value = phrase ? ReadPhrase(raw, ref offset) : ReadBare(raw, ref offset);
+            var tokens = Tokenize(value, CancellationToken.None, bareQuery: !phrase).Take(remaining + 1).ToArray();
+            if (tokens.Length > remaining || tokens.Any(term => ByteCount(term.Value) > MaxTermBytes) ||
+                !phrase && tokens.Any(term => value.AsSpan(term.Start, term.End - term.Start) is "AND" or "OR" or "NOT" or "NEAR"))
+                throw InvalidQuery();
+            if ((phrase || field != AuthorTextField.Any) && tokens.Length == 0) throw InvalidQuery();
+            remaining -= tokens.Length;
+            var terms = tokens.Select(term => term.Value);
+            var operands = (phrase ? terms : terms.Distinct(StringComparer.Ordinal)).ToArray();
+            if (operands.Length != 0 && !clauses.Any(clause => clause.Field == field && clause.Phrase == phrase &&
+                    clause.Terms.SequenceEqual(operands, StringComparer.Ordinal)))
+                clauses.Add(new(field, phrase, operands));
+        }
+        if (clauses.Count == 0) throw InvalidQuery();
+        return new(clauses.ToArray());
+    }
+
+    private static AuthorTextField ReadField(string raw, ref int offset)
+    {
+        var start = offset;
+        while (offset < raw.Length && !char.IsWhiteSpace(raw[offset]) && raw[offset] is not (':' or '"')) offset++;
+        if (offset == raw.Length || raw[offset] != ':')
+        {
+            offset = start;
+            return AuthorTextField.Any;
+        }
+        var field = raw.AsSpan(start, offset - start) switch
+        {
+            "field.title" => AuthorTextField.Title,
+            "field.markdown-body" => AuthorTextField.MarkdownBody,
+            _ => throw InvalidQuery(),
+        };
+        offset++;
+        return field;
+    }
+
+    private static string ReadBare(string raw, ref int offset)
+    {
+        var start = offset;
+        while (offset < raw.Length && !char.IsWhiteSpace(raw[offset]))
+        {
+            if (raw[offset] is '"' or '\\' or '$') throw InvalidQuery();
+            offset++;
+        }
+        return raw[start..offset];
+    }
+
+    private static string ReadPhrase(string raw, ref int offset)
+    {
+        var phrase = new StringBuilder();
+        offset++;
+        while (offset < raw.Length)
+        {
+            var character = raw[offset++];
+            if (character == '"')
+            {
+                if (offset < raw.Length && !char.IsWhiteSpace(raw[offset])) throw InvalidQuery();
+                return phrase.ToString();
+            }
+            if (character == '\\')
+            {
+                if (offset == raw.Length || raw[offset] is not ('"' or '\\')) throw InvalidQuery();
+                character = raw[offset++];
+            }
+            phrase.Append(character);
+        }
+        throw InvalidQuery();
     }
 
     internal static IEnumerable<AuthorTextTerm> Tokenize(string raw, CancellationToken ct) =>

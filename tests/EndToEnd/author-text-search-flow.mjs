@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeAuthorTextSearchPage } from '../../src/Contracts/author-text-search.ts'
-import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeAuthorTextRankedPage } from '../../src/Contracts/author-text-search.ts'
+import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
 export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand }) {
   const page = await publisher.context().newPage()
   let fixture
+  const pagingFixtures = []
   try {
     monitor(page, 'author-full-text')
     await page.addInitScript(() => {
@@ -66,6 +67,61 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await results.getByText('没有匹配的文章。', { exact: true }).waitFor()
     assert.equal(new URL(page.url()).search, '')
     observations.push('At 375px before publication, author full-text finds and highlights a saved body word beyond the inventory summary, folds its case, and matches the quoted mixed-script phrase only in source order.')
+
+    const pagingWord = `rankedpage${randomUUID().replaceAll('-', '')}`
+    for (let i = 0; i <= WireLimits.AuthorTextSearchRows; i++) {
+      pagingFixtures.push(await articleCommand(WireRoutes.Save, 0, 0n, `${pagingWord} ${i}`, 'Saved content'))
+    }
+    const first = (await search(pagingWord)).batch
+    assert.equal(first.rows.length, WireLimits.AuthorTextSearchRows)
+    assert(first.nextCursor)
+    const pager = results.getByRole('navigation', { name: '全文搜索分页', exact: true })
+    const previousPage = pager.getByRole('button', { name: '上一页', exact: true })
+    const nextPage = pager.getByRole('button', { name: '下一页', exact: true })
+    const listUrl = page.url()
+    const navigatePage = async button => {
+      const reply = page.waitForResponse(isSearchReply)
+      await button.press('Enter')
+      const response = await reply
+      const batch = await readSearchReply(response)
+      assert(batch.ready)
+      await results.getByRole('link', { name: batch.rows[0].title, exact: true }).waitFor()
+      await page.getByText('正在搜索全文…', { exact: true }).waitFor({ state: 'detached' })
+      assert.equal(page.url(), listUrl)
+      return { batch, response }
+    }
+    assert.equal(await previousPage.getAttribute('aria-disabled'), 'true')
+    const second = await navigatePage(nextPage)
+    const tail = second.batch.rows[0]
+    assert.equal(second.batch.rows.length, 1)
+    assert.equal(second.batch.nextCursor, '')
+    assert.equal(await nextPage.getAttribute('aria-disabled'), 'true')
+    assert.deepEqual(new Set([...first.rows, ...second.batch.rows].map(row => row.id)), new Set(pagingFixtures.map(row => row.id)))
+    assert.deepEqual((await navigatePage(previousPage)).batch.rows, first.rows)
+    const again = await navigatePage(nextPage)
+    assert.deepEqual(again.batch.rows, second.batch.rows)
+    assert(await nextPage.and(page.locator(':focus')).count())
+
+    const tailIndex = pagingFixtures.findIndex(item => item.id === tail.id)
+    assert(tailIndex >= 0)
+    pagingFixtures[tailIndex] = await articleCommand(WireRoutes.Save, tail.id, tail.revision, tail.title, 'Changed while viewing the second page')
+    const stalePageReply = page.waitForResponse(isSearchReply)
+    await results.getByRole('button', { name: '跳到命中位置', exact: true }).press('Enter')
+    const stalePage = await stalePageReply
+    assert.equal(stalePage.status(), 409)
+    assert.deepEqual(stalePage.request().postDataBuffer(), again.response.request().postDataBuffer())
+    await results.waitFor({ state: 'detached' })
+    const restart = form.getByRole('button', { name: '回到第一页', exact: true })
+    await restart.and(page.locator(':focus')).waitFor()
+    assert.equal(page.url(), listUrl)
+    const restartReply = page.waitForResponse(isSearchReply)
+    await restart.press('Enter')
+    const restarted = await readSearchReply(await restartReply)
+    assert(restarted.ready)
+    await previousPage.waitFor()
+    assert.equal(await previousPage.getAttribute('aria-disabled'), 'true')
+    observations.push('Ranked author search pages at 375px are stable and disjoint. Keyboard navigation returns to the first page, and rechecking a stale second-page hit sends its exact page cursor and requires an explicit restart.')
+
     const nonce = randomUUID().replaceAll('-', '')
     const titleWord = `titlereveal${nonce}`
     const bodyWord = `bodyreveal${nonce}`
@@ -188,7 +244,9 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     observations.push('A concurrently saved revision keeps the stale browser action in the results with focus, and navigating to the trash during its real delayed current check cannot reopen the editor.')
   } finally {
     try {
-      if (fixture) await articleCommand(WireRoutes.Delete, fixture.id, fixture.revision, '', '', FrameType.EmptySuccess)
+      for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {
+        await articleCommand(WireRoutes.Delete, article.id, article.revision, '', '', FrameType.EmptySuccess)
+      }
     } finally {
       await page.close()
     }
@@ -201,7 +259,7 @@ function isSearchReply(response) {
 
 async function readSearchReply(response) {
   assert.equal(response.status(), 200)
-  return decodeAuthorTextSearchPage(decodeFrame(await response.body(), FrameType.AuthorTextSearchPage).payload)
+  return decodeAuthorTextRankedPage(decodeFrame(await response.body(), FrameType.AuthorTextRankedPage).payload)
 }
 
 function exactHit(batch, draft, source, field, word) {

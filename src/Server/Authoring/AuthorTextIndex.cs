@@ -8,6 +8,10 @@ using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Authoring;
 
+internal readonly record struct AuthorTextRankKey(int PhraseRank, int FieldRank, long UpdatedAtUnixMs, int Id);
+internal sealed record AuthorTextRankedRow(AuthorTextSearchRow Match, AuthorTextRankKey Key);
+internal sealed record AuthorTextRankedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation);
+
 internal static class AuthorTextIndex
 {
     private const int BatchSize = 8;
@@ -16,16 +20,35 @@ internal static class AuthorTextIndex
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
     private static readonly string Eligible = $"""
-        select a.id,a.revision from public.article a
+        select a.id,a.revision,floor(extract(epoch from a.updated_at)*1000)::bigint as updated_unix_ms
+        from public.article a
         where a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}
         """;
 
     internal static async Task<AuthorTextSearchPage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
-        AuthorTextQuery input, CancellationToken ct)
+        AuthorTextLegacyQuery input, CancellationToken ct)
+    {
+        AuthorTextClause[] clauses = input.Phrase ? [new(AuthorTextField.Any, true, input.Terms)] :
+            input.Terms.Select(term => new AuthorTextClause(AuthorTextField.Any, false, [term])).ToArray();
+        var page = await Read(db, tx, actor, new(clauses), ranked: false, after: null, expectedGeneration: null, ct);
+        return new(page.Ready, page.More, page.Rows.Select(row => row.Match).ToArray());
+    }
+
+    internal static Task<AuthorTextRankedPage> ReadRanked(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        AuthorTextQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+    {
+        if ((after is null) != (expectedGeneration is null) || expectedGeneration is { Length: not SHA256.HashSizeInBytes } ||
+            after is { } key && (key.Id <= 0 || key.PhraseRank < 0 || key.FieldRank <= 0 || key.PhraseRank > key.FieldRank))
+            throw AuthorTextCursor.Invalid();
+        return Read(db, tx, actor, input, ranked: true, after, expectedGeneration, ct);
+    }
+
+    private static async Task<AuthorTextRankedPage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        AuthorTextQuery input, bool ranked, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
     {
         await Store.LockCommand(db, tx, actor.Id, Scope, ct);
-        await Reconcile(db, tx, actor.Id, ct);
-        return await ReadPage(db, tx, actor.Id, input, ct);
+        if (after is null) await Reconcile(db, tx, actor.Id, ct);
+        return await ReadPage(db, tx, actor.Id, input, ranked, after, expectedGeneration, ct);
     }
 
     // A closed set of current revisions, rather than an outbox high-water mark, witnesses
@@ -117,92 +140,179 @@ internal static class AuthorTextIndex
         }
     }
 
-    private static async Task<AuthorTextSearchPage> ReadPage(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        AuthorTextQuery input, CancellationToken ct)
+    // Title and body weights follow the frozen author search registry. Every clause
+    // contributes at most one match. Repetition cannot increase its weight.
+    internal const string MatchCtes = """
+        requirements as (
+            select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
+                q(clause,field,phrase,step,term)
+        ),
+        clause_hits as materialized (
+            select distinct on (p.article_id,q.clause)
+                p.article_id,q.clause,q.phrase,p.field,p.ordinal,p.start_u16,p.end_u16,p.start_u8,p.end_u8
+            from requirements q join public.author_text_posting p on p.owner_id=$1 and p.term=q.term
+            join eligible e on e.id=p.article_id
+            where (select admitted from witness) and q.step=0 and (q.field=0 or p.field=q.field)
+              and not exists (
+                select from requirements rest where rest.clause=q.clause and rest.step>0 and not exists (
+                    select from public.author_text_posting n
+                    where n.owner_id=p.owner_id and n.article_id=p.article_id and n.field=p.field
+                      and n.term=rest.term and (not q.phrase or n.ordinal=p.ordinal+rest.step)
+                )
+              )
+            order by p.article_id,q.clause,p.field,p.ordinal
+        ),
+        ranked_hits as (
+            select h.article_id,
+                coalesce(sum(case h.field when 1 then 10 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
+                sum(case h.field when 1 then 10 else 1 end)::integer as field_rank
+            from clause_hits h
+            group by h.article_id having count(*)=$7
+        )
+        """;
+
+    internal static object[] MatchArguments(Guid owner, AuthorTextQuery input)
     {
-        var matches = new List<AuthorTextSearchRow>(WireLimits.AuthorTextSearchRows);
+        var clauseIds = new List<int>();
+        var fields = new List<int>();
+        var phrases = new List<bool>();
+        var steps = new List<int>();
+        var terms = new List<byte[]>();
+        for (var index = 0; index < input.Clauses.Length; index++)
+        {
+            var clause = input.Clauses[index];
+            for (var step = 0; step < clause.Terms.Length; step++)
+            {
+                clauseIds.Add(index);
+                fields.Add((int)clause.Field);
+                phrases.Add(clause.Phrase);
+                steps.Add(step);
+                terms.Add(Utf8.GetBytes(clause.Terms[step]));
+            }
+        }
+        return [owner, clauseIds.ToArray(), fields.ToArray(), phrases.ToArray(), steps.ToArray(), terms.ToArray(), input.Clauses.Length];
+    }
+
+    // Fixed-size, network-order fields prevent ambiguous witnesses. updated_at can move
+    // without a revision increment on scheduled publication and affects the keyset order.
+    private const string Generation = """
+        select pg_catalog.sha256(
+            pg_catalog.convert_to('fsusblog-author-text-ranked.v1','UTF8') || pg_catalog.uuid_send($1::uuid) ||
+            coalesce(string_agg(pg_catalog.int4send(e.id) || pg_catalog.int8send(e.revision) ||
+                pg_catalog.int8send(e.updated_unix_ms), ''::bytea order by e.id), ''::bytea))
+        from eligible e
+        """;
+
+    private static async Task<AuthorTextRankedPage> ReadPage(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
+        AuthorTextQuery input, bool ranked, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+    {
+        var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
         var more = false;
-        // This statement witnesses readiness, exact current owner/revision, term positions
-        // and raw readback together. No candidate source is returned while any row is pending.
+        byte[]? generation = null;
+        var ordering = ranked ? "p.phrase_rank desc,p.field_rank desc,p.updated_unix_ms desc,p.article_id" : "p.article_id desc";
+        var highlightOrder = ranked ? "h.phrase desc,h.field,h.start_u16,h.clause" : "h.clause,h.field,h.ordinal";
+        // The statement witnesses eligibility, the complete generation, and the exact
+        // readback together. A stale cursor cannot reach candidate source or snippets.
         await using (var query = Store.Sql(db, tx, $"""
             with {Changed},
-            ready as (select not exists(select from changed) as complete),
-            requirements as (select word,number::integer-1 as step from unnest($2::bytea[]) with ordinality t(word,number)),
+            readiness as (
+                select complete,case when $9 and complete then ({Generation}) end as generation
+                from (select not exists(select from changed) as complete) state
+            ),
+            witness as (
+                select complete,generation,complete and ($10::bytea is null or generation=$10) as admitted from readiness
+            ),
+            {MatchCtes},
+            selected as (
+                select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision
+                from ranked_hits m join eligible e on e.id=m.article_id
+            ),
             picked as materialized (
-                select distinct on (p.article_id)
-                    p.article_id,e.revision,p.field,p.start_u16,p.end_u16,p.start_u8,p.end_u8
-                from public.author_text_posting p join eligible e on e.id=p.article_id
-                where (select complete from ready) and p.owner_id=$1 and p.term=($2::bytea[])[1]
-                  and not exists (
-                    select from requirements q where q.step>0 and not exists (
-                        select from public.author_text_posting n
-                        where n.owner_id=p.owner_id and n.article_id=p.article_id and n.term=q.word
-                          and (not $3 or (n.field=p.field and n.ordinal=p.ordinal+q.step))
-                    )
-                  )
-                order by p.article_id desc,p.field,p.ordinal
-                limit $4
+                select p.* from selected p
+                where $11::integer is null or (p.phrase_rank,p.field_rank,p.updated_unix_ms,-p.article_id)<($11,$12,$13,-$14)
+                order by {ordering} limit $8
             )
-            select ready.complete,p.article_id,p.revision,p.field,p.start_u16,p.end_u16,p.start_u8,p.end_u8,r.title,
-                   case p.field when 1 then r.title else r.body end,
-                   case p.field when 1 then d.title_digest else d.body_digest end
-            from ready left join picked p on ready.complete
+            select witness.admitted,witness.generation,p.article_id,p.revision,h.field,h.start_u16,h.end_u16,h.start_u8,h.end_u8,r.title,
+                   case h.field when 1 then r.title else r.body end,
+                   case h.field when 1 then d.title_digest else d.body_digest end,
+                   h.clause,p.phrase_rank,p.field_rank,p.updated_unix_ms
+            from witness left join picked p on witness.admitted
+            left join lateral (
+                select * from clause_hits h where h.article_id=p.article_id order by {highlightOrder} limit 1
+            ) h on true
             left join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
             left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
-            order by p.article_id desc
-            """, owner, input.Terms.Select(term => Utf8.GetBytes(term)).ToArray(), input.Phrase, WireLimits.AuthorTextSearchRows + 1))
+            order by {ordering}
+            """, [.. MatchArguments(owner, input), WireLimits.AuthorTextSearchRows + 1, ranked,
+                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
+                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
+                after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0]))
         {
             query.CommandTimeout = 3;
             await using var rows = await query.ExecuteReaderAsync(ct);
             while (await rows.ReadAsync(ct))
             {
-                if (!rows.GetBoolean(0)) return new(false, false, []);
-                if (rows.IsDBNull(1)) break;
+                if (!rows.GetBoolean(0))
+                {
+                    if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+                    return new(false, false, [], null);
+                }
+                if (ranked && generation is null) generation = rows.GetFieldValue<byte[]>(1);
+                if (rows.IsDBNull(2)) break;
                 if (matches.Count == WireLimits.AuthorTextSearchRows)
                 {
                     more = true;
                     break;
                 }
-                var raw = rows.GetString(9);
-                var digest = rows.GetFieldValue<byte[]>(10);
-                var start = rows.GetInt32(4);
-                var end = rows.GetInt32(5);
-                var byteStart = rows.GetInt32(6);
-                var byteEnd = rows.GetInt32(7);
+                var raw = rows.GetString(10);
+                var digest = rows.GetFieldValue<byte[]>(11);
+                var start = rows.GetInt32(5);
+                var end = rows.GetInt32(6);
+                var byteStart = rows.GetInt32(7);
+                var byteEnd = rows.GetInt32(8);
+                var expectedTerm = input.Clauses[rows.GetInt32(12)].Terms[0];
                 if (start < 0 || end <= start || end > raw.Length || !CryptographicOperations.FixedTimeEquals(digest, Digest(raw)) ||
-                    !string.Equals(AuthorTextProfile.NormalizeTerm(raw[start..end]), input.Terms[0], StringComparison.Ordinal))
+                    !string.Equals(AuthorTextProfile.NormalizeTerm(raw[start..end]), expectedTerm, StringComparison.Ordinal))
                     throw InvalidIndex();
                 var (snippet, highlightStart, highlightEnd) = Snippet(raw, start, end, byteStart, byteEnd);
-                matches.Add(new(rows.GetInt32(1), rows.GetInt64(2), rows.GetString(8), rows.GetInt32(3), snippet,
-                    highlightStart, highlightEnd, start, end, byteStart, byteEnd, digest));
+                var id = rows.GetInt32(2);
+                var match = new AuthorTextSearchRow(id, rows.GetInt64(3), rows.GetString(9), rows.GetInt32(4), snippet,
+                    highlightStart, highlightEnd, start, end, byteStart, byteEnd, digest);
+                matches.Add(new(match, new(rows.GetInt32(13), rows.GetInt32(14), rows.GetInt64(15), id)));
             }
         }
 
-        if (matches.Count > 0 && !await StillCurrent(db, tx, owner, matches, ct))
-            return new(false, false, []);
-        return new(true, more, matches);
+        if ((ranked || matches.Count > 0) && !await StillCurrent(db, tx, owner, matches, generation, ct))
+        {
+            if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+            if (ranked) throw InvalidIndex();
+            return new(false, false, [], null);
+        }
+        return new(true, more, matches, generation);
     }
 
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        IReadOnlyList<AuthorTextSearchRow> matches, CancellationToken ct)
+        IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct)
     {
-        var ids = matches.Select(row => row.Id).ToArray();
-        await using (var claim = Store.Sql(db, tx, """
-            select a.id from public.article a where a.id=any($1) and a.owner_id=$2 order by a.id for share
-            """, ids, owner))
+        var ids = matches.Select(row => row.Match.Id).ToArray();
+        if (ids.Length > 0)
         {
+            await using var claim = Store.Sql(db, tx, """
+                select a.id from public.article a where a.id=any($1) and a.owner_id=$2 order by a.id for share
+                """, ids, owner);
             claim.CommandTimeout = 3;
             await claim.ExecuteNonQueryAsync(ct);
         }
-        // The previous statement can wait behind an article change; re-read archive status
-        // on the fresh statement after acquiring those locks.
+        // The lock can wait behind an article change. Observe the fresh archive, source
+        // and ranking state in a new statement even when a ranked result has zero rows.
         await using var check = Store.Sql(db, tx, $"""
             with {Changed}
-            select not exists(select from changed) and not exists (
+            select not exists(select from changed) and ($4::bytea is null or $4=({Generation})) and not exists (
                 select from unnest($2::integer[],$3::bigint[]) expected(id,revision)
                 where not exists(select from eligible e where e.id=expected.id and e.revision=expected.revision)
             )
-            """, owner, ids, matches.Select(row => row.Revision).ToArray());
+            """, owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value });
         check.CommandTimeout = 3;
         return await check.ExecuteScalarAsync(ct) is true;
     }
