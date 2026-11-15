@@ -257,7 +257,6 @@ app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream, branch => branch.
 app.UseRateLimiter();
 appearance?.Map(app);
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recoveryKey, persistentSite);
-FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
@@ -286,7 +285,8 @@ FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, 
 FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query);
-FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
+var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
+FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);
 FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");

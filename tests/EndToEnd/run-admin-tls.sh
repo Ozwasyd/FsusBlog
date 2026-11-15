@@ -326,6 +326,25 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   export FSUSBLOG_SITE_PAGES=$(cd "$scratch/pages" && pwd -P)
   printf '# Verified about\n\n<script>literal</script>\n' > "$FSUSBLOG_SITE_PAGES/about.md"
   for slug in privacy guidelines copyright; do printf '# Verified %s\n' "$slug" > "$FSUSBLOG_SITE_PAGES/$slug.md"; done
+  if [[ -n ${FSUSBLOG_TEST_ADMIN_RISK_CASE:-} ]]; then
+    export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=false FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=false
+    risk_root=0 risk_reply=0
+    case "$FSUSBLOG_TEST_ADMIN_RISK_CASE" in
+      disabled) ;;
+      reply-only) FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true ;;
+      root-only) FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true; risk_root=1 ;;
+      notice-absent|notice-present)
+        FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
+        risk_root=1 risk_reply=2
+        if [[ $FSUSBLOG_TEST_ADMIN_RISK_CASE == notice-absent ]]; then
+          "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -c 'drop table public.comment_reply_notice' > "$evidence/risk-legacy-notice-table.log"
+          risk_reply=1
+        fi
+        ;;
+      *) printf 'Unknown administrator risk fixture: %s\n' "$FSUSBLOG_TEST_ADMIN_RISK_CASE" >&2; exit 2 ;;
+    esac
+    export FSUSBLOG_TEST_ADMIN_RISK_EXPECTED="{\"publicReadMode\":1,\"rootWriteMode\":$risk_root,\"replyWriteMode\":$risk_reply,\"forwardingMode\":1,\"dynamicRisk\":0,\"strongAnonymous\":0}"
+  fi
   if [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR:-0} == 1 ]]; then
     export FSUSBLOG_SITE_PAGE_EDITOR=true
     "$dotnet" "$migrate" site-page-editor schema > "$evidence/site-page-editor-migration.log"

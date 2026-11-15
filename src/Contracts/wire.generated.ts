@@ -71,6 +71,7 @@ export const FrameType = {
   SitePasskeys: 32980,
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
+  AdminRiskReadiness: 32851,
   AdminClusterStatus: 32962,
   AdminEffectivePermissions: 32948,
   AdminSignInHistory: 32963,
@@ -602,6 +603,7 @@ export const WireRoutes = {
   AdminAppealStepUpComplete: "/api/v2/admin/identity/comments/appeals/step-up/complete.aeds",
   AdminAppealDecision: "/api/v2/admin/identity/comments/appeals/{id:long}/decision.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
+  AdminRiskReadiness: "/api/v2/admin/identity/operations/risk-readiness.aeds",
   AdminClusterStatus: "/api/v2/admin/identity/operations/cluster.aeds",
   AdminArticleRollbackAvailability: "/api/v2/admin/identity/articles/rollback/available.aeds",
   AdminArticleRollbackPreview: "/api/v2/admin/identity/articles/rollback/preview.aeds",
@@ -1023,6 +1025,40 @@ export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperation
     publicationWatermark: reader.i64(),
     pendingPublicationEvents: reader.i64(),
     oldestPendingAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminRiskReadiness {
+  publicReadMode: number;
+  rootWriteMode: number;
+  replyWriteMode: number;
+  forwardingMode: number;
+  dynamicRisk: number;
+  strongAnonymous: number;
+}
+
+export function encodeAdminRiskReadiness(value: AdminRiskReadiness): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.publicReadMode);
+  writer.i32(value.rootWriteMode);
+  writer.i32(value.replyWriteMode);
+  writer.i32(value.forwardingMode);
+  writer.i32(value.dynamicRisk);
+  writer.i32(value.strongAnonymous);
+  return writer.finish();
+}
+
+export function decodeAdminRiskReadiness(payload: Uint8Array): AdminRiskReadiness {
+  const reader = new PodReader(payload);
+  const value: AdminRiskReadiness = {
+    publicReadMode: reader.i32(),
+    rootWriteMode: reader.i32(),
+    replyWriteMode: reader.i32(),
+    forwardingMode: reader.i32(),
+    dynamicRisk: reader.i32(),
+    strongAnonymous: reader.i32(),
   };
   reader.finish();
   return value;

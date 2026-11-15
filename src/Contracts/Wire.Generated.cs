@@ -72,6 +72,7 @@ public enum FrameType : ushort
     SitePasskeys = 32980,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminRiskReadiness = 32851,
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
@@ -607,6 +608,7 @@ public static class WireRoutes
     public const string AdminAppealStepUpComplete = "/api/v2/admin/identity/comments/appeals/step-up/complete.aeds";
     public const string AdminAppealDecision = "/api/v2/admin/identity/comments/appeals/{id:long}/decision.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminRiskReadiness = "/api/v2/admin/identity/operations/risk-readiness.aeds";
     public const string AdminClusterStatus = "/api/v2/admin/identity/operations/cluster.aeds";
     public const string AdminArticleRollbackAvailability = "/api/v2/admin/identity/articles/rollback/available.aeds";
     public const string AdminArticleRollbackPreview = "/api/v2/admin/identity/articles/rollback/preview.aeds";
@@ -774,6 +776,7 @@ public sealed record AdminModerationDecision(int ArticleId, long CommentId, int 
 public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
+public sealed record AdminRiskReadiness(int PublicReadMode, int RootWriteMode, int ReplyWriteMode, int ForwardingMode, int DynamicRisk, int StrongAnonymous);
 public sealed record AdminClusterStatus(int Mode, string NodeId, Guid InstanceId, string BuildVersion, long StartedAt, long ObservedAt, int LeaseAgeMs, bool SnapshotReady);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
@@ -1019,6 +1022,28 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
         var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminRiskReadiness(AdminRiskReadiness value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.PublicReadMode);
+        writer.I32(value.RootWriteMode);
+        writer.I32(value.ReplyWriteMode);
+        writer.I32(value.ForwardingMode);
+        writer.I32(value.DynamicRisk);
+        writer.I32(value.StrongAnonymous);
+        return Aeds.Encode(FrameType.AdminRiskReadiness, writer.Written);
+    }
+
+    public static AdminRiskReadiness DecodeAdminRiskReadiness(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRiskReadiness));
+        var value = new AdminRiskReadiness(reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32());
         reader.Finish();
         Validate(value);
         return value;

@@ -4,13 +4,18 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { adminClusterFlow } from './admin-cluster-flow.mjs'
+import { adminRiskReadinessFlow } from './admin-risk-readiness-flow.mjs'
 import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
 import { decodeAdminSitePageRevision, encodeAdminSitePagePublish, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function verifyAdminSitePages({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
   const cluster = adminClusterFlow({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie, probe, evidence })
+  const riskFixture = process.env.FSUSBLOG_TEST_ADMIN_RISK_EXPECTED
+  const risk = riskFixture ? adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin, adminCookieName,
+    siteCookie, priorCookie, probe, evidence, expected: JSON.parse(riskFixture) }) : null
   await cluster.denied()
+  await risk?.denied()
   const legacy = '/api/binary/system/admin/page/about'
   const overview = adminOrigin.origin + WireRoutes.AdminSitePages
   const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
@@ -34,6 +39,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await page.reload()
   await logIn(page)
   await cluster.granted()
+  await risk?.granted()
   const allowed = await check()
   assert.equal(allowed.status(), 200)
   assert.match(allowed.headers()['cache-control'], /no-store/)
@@ -67,11 +73,15 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   assert.equal(allowed.headers()[WireHeaders.AdminSitePageEditor.toLowerCase()], editor ? '1' : undefined)
   if (editor) await verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, grantCookie, probe, legacy, evidence })
   else assert.equal(await section.getByRole('button', { name: 'Edit about content', exact: true }).count(), 0)
-  await promisify(execFile)(revoke, [], { timeout: 8_000 })
-  await probe(adminOrigin.origin + legacy, adminCookieName, grantCookie.value, 401)
-  const revision = adminOrigin.origin + WireRoutes.AdminSitePageRevision.replace('{slug}', 'about')
-  await probe(revision, adminCookieName, grantCookie.value, editor ? 401 : 404)
-  assert.equal((await check()).status(), 401)
+  const revokeAndObserve = async () => {
+    await promisify(execFile)(revoke, [], { timeout: 8_000 })
+    await probe(adminOrigin.origin + legacy, adminCookieName, grantCookie.value, 401)
+    const revision = adminOrigin.origin + WireRoutes.AdminSitePageRevision.replace('{slug}', 'about')
+    await probe(revision, adminCookieName, grantCookie.value, editor ? 401 : 404)
+    assert.equal((await check()).status(), 401)
+  }
+  if (risk) await risk.duringRevocation(grantCookie, revokeAndObserve)
+  else await revokeAndObserve()
   await displayed.waitFor({ state: 'hidden' })
   await cluster.cleared(grantCookie)
   await logIn(page)

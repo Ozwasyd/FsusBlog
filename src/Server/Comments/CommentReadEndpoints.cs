@@ -5,9 +5,11 @@ using FsusBlog.V2.Server.Security;
 
 namespace FsusBlog.V2.Server.Comments;
 
+internal readonly record struct InstalledCommentRoutes(bool RootSubmission, bool SignedInReply);
+
 internal static class CommentReadEndpoints
 {
-    internal static void Map(WebApplication app, Publications publications, string cookie,
+    internal static InstalledCommentRoutes Map(WebApplication app, Publications publications, string cookie,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         CommentReports.Map(app, cookie, readFrame);
@@ -83,7 +85,9 @@ internal static class CommentReadEndpoints
                     throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
                 return (frame, input);
             }
+            return new(RootSubmission: true, SignedInReply: replies);
         }
+        return new(RootSubmission: false, SignedInReply: false);
     }
 
     private static async Task<IResult> Read(Publications publications, int article, long? cursor, Func<long?, Task<byte[]>> fetch, Func<byte[]> hidden)

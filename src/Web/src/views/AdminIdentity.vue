@@ -6,6 +6,7 @@ import AdminTaxonomy from './AdminTaxonomy.vue'
 import AdminSitePages from './AdminSitePages.vue'
 import AdminSessionHistory from './AdminSessionHistory.vue'
 import AdminCluster from './AdminCluster.vue'
+import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import AdminInbox from './AdminInbox.vue'
 import AdminArticleRollback from './AdminArticleRollback.vue'
@@ -24,6 +25,7 @@ import {
   type AdminSession,
 } from '../../../Contracts/admin-identity'
 
+const adminUsesHttps = globalThis.location?.protocol === 'https:'
 const permissionLease = 60_000
 const permissionRefresh = 45_000
 const lifetime = new AbortController()
@@ -292,6 +294,8 @@ function logOut() {
     <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
       :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminCluster v-if="authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
+      :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminRiskReadiness v-if="adminUsesHttps && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
       :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminSitePages v-if="permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <p v-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>

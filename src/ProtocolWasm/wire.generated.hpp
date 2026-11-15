@@ -407,6 +407,7 @@ enum class FrameType : uint16_t {
     SitePasskeys = 32980,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminRiskReadiness = 32851,
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
@@ -583,6 +584,7 @@ constexpr bool known(FrameType type) {
         case FrameType::SitePasskeys:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
+        case FrameType::AdminRiskReadiness:
         case FrameType::AdminClusterStatus:
         case FrameType::AdminEffectivePermissions:
         case FrameType::AdminSignInHistory:

@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Passkeys;
 using Microsoft.AspNetCore.RateLimiting;
@@ -47,7 +48,7 @@ internal static class AdminIdentityEndpoints
     }
 
     internal static void Map(WebApplication app, PasskeyConfiguration? config,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy)
     {
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
@@ -129,6 +130,7 @@ internal static class AdminIdentityEndpoints
                 batchModeration ? () => ctx.Response.Headers[WireHeaders.AdminModerationBatchEnabled] = "1" : null))))
             .RequireRateLimiting("command");
         AdminClusterEndpoints.Map(app, store, session, Limit);
+        if (secure) AdminRiskReadinessEndpoints.Map(app, store, session, Limit, commentRoutes, trustLoopbackProxy);
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);

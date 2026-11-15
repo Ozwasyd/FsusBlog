@@ -16,6 +16,12 @@
 
 持有 `audit.read` 的管理员可在管理页面手动查询运行状态，或读取 `GET /api/v2/admin/identity/operations/status.aeds`（AEDS 帧 32850）。接口返回当前公开投影是否就绪、投影水位、待处理发布事件数，以及最旧待处理事件时间。数值来自当前服务进程和 PostgreSQL 账本。无当前管理员会话返回 401，当前会话缺少 `audit.read` 返回 403。v1 的 `/api/binary/author/ops/health` 同样要求 `audit.read`，另含更多依赖检查、固定来源限流和在线查看审计，当前 v2 接口仅覆盖公开投影与待处理事件。 [v1 运维端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs)
 
+HTTPS 管理域上持有 `system.config` 的管理员可在管理页面手动查询已安装的风险控制。 `GET /api/v2/admin/identity/operations/risk-readiness.aeds` 返回 AEDS 帧 32851，响应使用 `no-store` 并绑定当前权限会话。公共域拒绝此路径。无效管理员会话返回 401，当前会话缺少 `system.config` 返回 403。
+
+该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。该表的存在只确认存储组件，账号、文章、出版物及目标评论的资格仍由提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。动态风险策略和强匿名运行时当前均显示未安装。此查询不变更策略、签发证明或写入审批记录。 [固定 v1 风险与强匿名范围](../issues/risk-strong-anonymous.md)
+
+候选树 `f27800a4cf80c86f37f728f4ea06441de9a5e15b` 通过 Server、Migrate 和前端构建。首次恢复因系统默认 SDK 版本不符退出，改用仓库固定的 .NET 10.0.404 后通过。同一候选经 Caddy 2.11.9、Chrome 157 和 PostgreSQL 18 分别验收了投稿关闭、仅打开回复开关、仅注册顶层投稿、回复通知表缺失和回复通知表存在五种场景。均验证公共域拒绝、管理员授权、帧类型和会话绑定，以及撤权后丢弃延迟响应。五次均正常清理。 [构建与验收记录](../../artifacts/admin-risk-readiness-validation-f27800a/)
+
 持有 `comment.moderate` 的管理员可在管理页面审核待处理的站点账号投稿。 `GET /api/v2/admin/identity/comments/queue.aeds`（AEDS 帧 32862）按评论 ID 和文章 ID 正序返回投稿，每页最多 24 条。已删除的评论和文章不进入队列，撤回公开发布的文章保留未完成审核。正文只按文本显示。
 
 领取、续期和释放请求位于 `/api/v2/admin/identity/comments/claim.aeds`、`claim/renew.aeds` 和 `claim/release.aeds`，使用帧 32867 和 32868。系统保存两分钟的领取、领取代次与版本和评论版本。领取绑定当前管理员会话，逾期或会话失效后可由其他有权管理员领取。续期推进领取版本，重新领取推进领取代次和版本。旧收据或评论状态变化返回 409。
