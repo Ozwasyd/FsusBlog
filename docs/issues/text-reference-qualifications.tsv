@@ -638,3 +638,261 @@ https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2551	prerequisite	#2559:10-18;
 https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2552	prerequisite	#2559:10-12; #2559:17-23; #2552:18-23	将实测分布收据的当前摘要绑定预期工件身份。结果成员、可见性和分页仍从计划角色独立计算。
 https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2555	prerequisite	#2559:6-16; #2559:19-23; #2555:10-18; #2559@6053023815:1	评论预期使用 catalog 的独立域和封闭字段，生成精确线程、治理、权限、游标和摘要的只读测试工件，保持与文章及实时查询生产者独立。
 https://github.com/Ozwasyd/FsusBlog/issues/2561	2	1618	prerequisite	#2561:10-24; #2561:64-68; #1640:31-39; #2561@6053024742:1	消费已证的 seed 派生及正常产品读取作为实际侧，逐案与独立预期比较，并另验真实唯一入口和生产包隔离。保留 #1619 的分配器职责冲突及已有冻结状态。
+https://github.com/Ozwasyd/FsusBlog/issues/1927	1	1902	parent	#1927:6; #1902:18	父项将此子项列为「登记 Production physical producer 的文件系统访问域」。子项自述范围为「登记和验证访问事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/1929	1	1901	parent	#1929:6; #1901:18	父项将此子项列为「以 physical producer catalog 取代 exactly-five 拓扑」。子项自述范围为「替换 catalog/validation authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/1932	1	1901	parent	#1932:6; #1901:21	父项将此子项列为「建立唯一 benchmark island」。子项自述范围为「迁移正式 measurement」。
+https://github.com/Ozwasyd/FsusBlog/issues/1934	1	1926	parent	#1934:16; #1926:33	父项将此子项列为「建立 sibling grant 释放到 nested admission 的集成合同」。子项自述范围为「建立 canonical contract fixture」。
+https://github.com/Ozwasyd/FsusBlog/issues/1935	1	1926	parent	#1935:15; #1926:34	父项将此子项列为「对 canonical 长生命周期执行器建立 live-grant uptake conformance」。子项自述范围为「做集成验证与为通过该合同所必需的最小 adapter 修复」。
+https://github.com/Ozwasyd/FsusBlog/issues/1944	1	1904	parent	#1944:6; #1904:23	父项将此子项列为「将 performance verdict 接入 Production summary」。子项自述范围为「负责verdict binding」。
+https://github.com/Ozwasyd/FsusBlog/issues/1946	1	1905	parent	#1946:16; #1905:21	父项将此子项列为「生成 CPU weight 与 minimum 推荐模型」。子项自述范围为「生成recommendation」。
+https://github.com/Ozwasyd/FsusBlog/issues/1947	1	1905	parent	#1947:6; #1905:22	父项将此子项列为「生成 memory grant 与 system reserve 推荐模型」。子项自述范围为「生成recommendation」。
+https://github.com/Ozwasyd/FsusBlog/issues/1949	1	1905	parent	#1949:6; #1905:24	父项将此子项列为「建立 shadow evaluation、active pointer 与 rollback」。子项自述范围为「管理模型生命周期」。
+https://github.com/Ozwasyd/FsusBlog/issues/1951	1	1590	parent	#1951:9; #1590:10	父项将此子项列为「为 mutation-critical 场景提供本轮隔离 production build root」。子项自述范围为「实现 #1590 已明确列出的 mutation isolated build root」。
+https://github.com/Ozwasyd/FsusBlog/issues/1954	1	1591	parent	#1954:10; #1591:9	父项将此子项列为「用受控 positive fixture 签发并验证完整 qualified receipt」。子项自述范围为「验收 #1591 已实现的 qualified receipt 协议与 verifier 正向路径」。
+https://github.com/Ozwasyd/FsusBlog/issues/1956	52	1591	parent	#1956:5; #1591:11	父项将此子项列为「只消费已验证的 qualified reliability receipt」。子项自述范围为「追踪 Release Reliability consumer 收口」。
+https://github.com/Ozwasyd/FsusBlog/issues/2063	1	1683	parent	#2063:6; #1683@5169970435:5	父项将此子项列为「catalog-derived domain inventory与observer contract」。子项自述范围为「冻结领域/observer合同」。
+https://github.com/Ozwasyd/FsusBlog/issues/2066	1	1683	parent	#2066:6; #1683@5169970435:8	父项将此子项列为「lease/fence、high-watermark drain与sealed receipt」。子项自述范围为「负责barrier协议和receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2075	1	1784	parent	#2075:6; #1784@5170135605:6	父项将此子项列为「public asset Kestrel/OpenResty HTTP 与文件系统矩阵」。子项自述范围为「验证public路径」。
+https://github.com/Ozwasyd/FsusBlog/issues/2077	1	1784	parent	#2077:6; #1784@5170135605:8	父项将此子项列为「upload session、chunk、commit promotion 与暂存隔离」。子项自述范围为「验证上传生命周期」。
+https://github.com/Ozwasyd/FsusBlog/issues/2078	1	1784	parent	#2078:6; #1784@5170135605:9	父项将此子项列为「session/commit/orphan/asset cleanup 故障恢复」。子项自述范围为「验证cleanup」。
+https://github.com/Ozwasyd/FsusBlog/issues/2088	36	1541	parent	#2088:4; #1541@5170172758:12	父项将此子项列为「完整聚合、旧双语 runner/硬编码 copy/retry 删除与终态治理」。子项自述范围为「追踪 PublicShell 旧双语/runner清理与十语言 aggregate gate」。
+https://github.com/Ozwasyd/FsusBlog/issues/2089	1	1542	parent	#2089:6; #1542@5170209360:5	父项将此子项列为「风险分组、surface、viewport/zoom/font/state scenario contract」。子项自述范围为「建立机器合同与validators」。
+https://github.com/Ozwasyd/FsusBlog/issues/2093	1	1542	parent	#2093:6; #1542@5170209360:9	父项将此子项列为「LocaleSelector 窄屏/zoom/键盘/焦点」。子项自述范围为「负责selector组件表面」。
+https://github.com/Ozwasyd/FsusBlog/issues/2095	1	1542	parent	#2095:6; #1542@5170209360:11	父项将此子项列为「跨表面必要 locale domains/fonts 与业务 data 不重取」。子项自述范围为「负责跨表面network因果」。
+https://github.com/Ozwasyd/FsusBlog/issues/2096	36	1542	parent	#2096:4; #1542@5170209360:12	父项将此子项列为「完整聚合、旧单表面 fixture/allowlist/OCR/retry/第二 runner 删除与终态治理」。子项自述范围为「追踪 cross-surface locale旧体系删除与唯一 aggregate qualification」。
+https://github.com/Ozwasyd/FsusBlog/issues/2097	1	1900	parent	#2097:6; #1900@5170243064:5	父项将此子项列为「在现有matrix定义八类archetype的唯一 composition contracts」。子项自述范围为「定义合同、schema与validators」。
+https://github.com/Ozwasyd/FsusBlog/issues/2100	1	1900	parent	#2100:6; #1900@5170243064:8	父项将此子项列为「structured rendered visual adjudication schema与independent verifier」。子项自述范围为「建立裁决合同和验证器」。
+https://github.com/Ozwasyd/FsusBlog/issues/2101	1	1900	parent	#2101:6; #1900@5170243064:9	父项将此子项列为「对全部critical archetypes执行真实裁决、绑定现有visual ledger与blocking issues」。子项自述范围为「收集/验证视觉evidence并管理blocking issue links」。
+https://github.com/Ozwasyd/FsusBlog/issues/2102	1	1900	parent	#2102:6; #1900@5170243064:10	父项将此子项列为「唯一聚合命令、18项mutation、local/published、local/CI与release evidence」。子项自述范围为「负责聚合、治理和绑定」。
+https://github.com/Ozwasyd/FsusBlog/issues/2106	1	1909	parent	#2106:6; #1909@5170275788:8	父项将此子项列为「accepted server coordinate的原子local materialization与base更新」。子项自述范围为「负责local materialization语义与receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2108	1	1909	parent	#2108:6; #1909@5170275788:10	父项将此子项列为「唯一planner/writer/materialization/operation authority终态治理」。子项自述范围为「增加测试/治理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2109	1	1910	parent	#2109:6; #1910@5170319371:5	父项将此子项列为「Vault root、canonical path、case/Unicode与control-tree安全」。子项自述范围为「负责路径与文件分类事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2111	38	1910	parent	#2111:4; #1910@5170319371:7	父项将此子项列为「Windows/macOS/Linux native watcher raw facts」。子项自述范围为「追踪 Windows/macOS/Linux native watcher adapters」。
+https://github.com/Ozwasyd/FsusBlog/issues/2114	1	1910	parent	#2114:6; #1910@5170319371:10	父项将此子项列为「install/start/update/crash/reconnect/unlink lifecycle」。子项自述范围为「编排agent本身」。
+https://github.com/Ozwasyd/FsusBlog/issues/2115	39	1910	parent	#2115:4; #1910@5170319371:11	父项将此子项列为「三平台真实filesystem终态矩阵与禁止第二同步器治理」。子项自述范围为「追踪三平台 filesystem-agent qualification」。
+https://github.com/Ozwasyd/FsusBlog/issues/2120	1	1911	parent	#2120:6; #1911@5170356959:9	父项将此子项列为「immutable resolution plans与stale coordinate rejection」。子项自述范围为「生成/验证resolution plans」。
+https://github.com/Ozwasyd/FsusBlog/issues/2121	1	1911	parent	#2121:6; #1911@5170356959:10	父项将此子项列为「canonical execution、recovery journals与rollback语义」。子项自述范围为「负责执行与恢复语义」。
+https://github.com/Ozwasyd/FsusBlog/issues/2123	1	1911	parent	#2123:6; #1911@5170356959:12	父项将此子项列为「merge/Git/recovery/UI全链终态治理」。子项自述范围为「增加测试/治理/terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2124	1	1912	parent	#2124:6; #1912@5170390565:5	父项将此子项列为「portable dependency manifest、graph与immutable plan extension」。子项自述范围为「建立schemas/graph/planner extension」。
+https://github.com/Ozwasyd/FsusBlog/issues/2129	1	1912	parent	#2129:6; #1912@5170390565:10	父项将此子项列为「1000 articles/large assets/cycles/permissions与export/import/Vault round-trip终态治理」。子项自述范围为「增加测试/治理/terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2130	1	1913	parent	#2130:6; #1913@5170432192:5	父项将此子项列为「opt-in connect/initialize/privacy/unlink/delete-local-copy」。子项自述范围为「负责连接与解绑产品流程」。
+https://github.com/Ozwasyd/FsusBlog/issues/2131	1	1913	parent	#2131:6; #1913@5170432192:6	父项将此子项列为「低噪声Vault status/command surface」。子项自述范围为「负责日常状态展示与命令入口」。
+https://github.com/Ozwasyd/FsusBlog/issues/2133	1	1913	parent	#2133:6; #1913@5170432192:8	父项将此子项列为「conflict/recovery machine flows接入日常入口」。子项自述范围为「做产品导航/状态集成」。
+https://github.com/Ozwasyd/FsusBlog/issues/2138	1	1914	parent	#2138:6; #1914@5170479820:6	父项将此子项列为「package identity/signature/trust/update/rollback」。子项自述范围为「管理package supply-chain与版本切换」。
+https://github.com/Ozwasyd/FsusBlog/issues/2139	1	1914	parent	#2139:6; #1914@5170479820:7	父项将此子项列为「Hybrid resolver与trusted host adapter boundary」。子项自述范围为「解析/调度execution class和trusted adapters」。
+https://github.com/Ozwasyd/FsusBlog/issues/2140	1	1914	parent	#2140:6; #1914@5170479820:8	父项将此子项列为「Worker/Wasm sandbox」。子项自述范围为「负责runtime isolation、module loading、message boundary与termination」。
+https://github.com/Ozwasyd/FsusBlog/issues/2141	1	1914	parent	#2141:6; #1914@5170479820:9	父项将此子项列为「out-of-process service broker与owned process isolation」。子项自述范围为「负责service启动/ownership/I/O broker/transport边界」。
+https://github.com/Ozwasyd/FsusBlog/issues/2143	1	1914	parent	#2143:6; #1914@5170479820:11	父项将此子项列为「plugin lifecycle、state migration、disable/uninstall」。子项自述范围为「编排lifecycle/data」。
+https://github.com/Ozwasyd/FsusBlog/issues/2144	1	1914	parent	#2144:6; #1914@5170479820:12	父项将此子项列为「resource budgets、crash isolation与privacy-safe telemetry」。子项自述范围为「负责资源与可观测性」。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	1	1914	parent	#2145:6; #1914@5170479820:13	父项将此子项列为「全链security/isolation/lifecycle/budget终态治理」。子项自述范围为「增加测试/治理/terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2174	1	1724	parent	#2174:6; #1724@5170692036:6	父项将此子项列为「formal transition writer lifecycle variants」。子项自述范围为「负责lifecycle authority facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2177	1	1725	parent	#2177:6; #1725@5170710045:5	父项将此子项列为「canonical comment command、actor、thread、privacy authority transaction」。子项自述范围为「负责初始comment authority transaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2178	1	1725	parent	#2178:6; #1725@5170710045:6	父项将此子项列为「edit/delete/moderation/report/appeal timeline」。子项自述范围为「负责mutation/timeline authority facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2179	1	1725	parent	#2179:6; #1725@5170710045:7	父项将此子项列为「outbox驱动public/admin/queue/cache/reply-notification edges」。子项自述范围为「负责derived chain观察/验证」。
+https://github.com/Ozwasyd/FsusBlog/issues/2181	1	1726	parent	#2181:6; #1726@5170731699:5	父项将此子项列为「canonical/bypass/legacy truth classes与consumer eligibility」。子项自述范围为「建立合同/validators」。
+https://github.com/Ozwasyd/FsusBlog/issues/2182	1	1726	parent	#2182:6; #1726@5170731699:6	父项将此子项列为「production-semantic canonical Passkey/TOTP/Recovery/step-up sessions」。子项自述范围为「负责canonical-authenticated variants」。
+https://github.com/Ozwasyd/FsusBlog/issues/2183	1	1726	parent	#2183:6; #1726@5170731699:7	父项将此子项列为「authorization-bypass与migration-legacy隔离」。子项自述范围为「负责两类隔离」。
+https://github.com/Ozwasyd/FsusBlog/issues/2214	1	1760	parent	#2214:6; #1760@5173993821:8	父项将此子项列为「dependency graph、三 provider、publish residue、mutation 与 startup benchmark 终态治理」。子项自述范围为「增加终态治理、测试和evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2215	1	1761	parent	#2215:6; #1761@5174009203:5	父项将此子项列为「source fingerprint、backup admission 与 immutable offline plan」。子项自述范围为「负责计划与写前验证」。
+https://github.com/Ozwasyd/FsusBlog/issues/2216	1	1761	parent	#2216:6; #1761@5174009203:6	父项将此子项列为「sealed plan apply、三 provider bulk operations 与 durable checkpoints」。子项自述范围为「负责执行和checkpoint」。
+https://github.com/Ozwasyd/FsusBlog/issues/2217	1	1761	parent	#2217:6; #1761@5174009203:7	父项将此子项列为「post-migration semantic verify、current-schema receipt 与 Server admission」。子项自述范围为「负责验证与startup admission」。
+https://github.com/Ozwasyd/FsusBlog/issues/2218	1	1761	parent	#2218:6; #1761@5174009203:8	父项将此子项列为「serve-time bridge、schema windows、previous release 与 old-shape fallback 终态删除」。子项自述范围为「做遗留删除、release边界和验收」。
+https://github.com/Ozwasyd/FsusBlog/issues/2219	1	1762	parent	#2219:6; #1762@5174027163:5	父项将此子项列为「legacy article source readers 与唯一 ArticlePreservationProjection」。子项自述范围为「负责数据库源读取、字段/身份/taxonomy/time/status/rights-responsibility mapping与计划封存」。
+https://github.com/Ozwasyd/FsusBlog/issues/2220	1	1762	parent	#2220:6; #1762@5174027163:6	父项将此子项列为「local-media inventory、path safety、hash 与 immutable copy plan」。子项自述范围为「发现和规划媒体」。
+https://github.com/Ozwasyd/FsusBlog/issues/2221	1	1762	parent	#2221:6; #1762@5174027163:7	父项将此子项列为「三 provider bulk writer 与完整 current article graph」。子项自述范围为「写数据库staging/transaction facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2222	1	1762	parent	#2222:6; #1762@5174027163:8	父项将此子项列为「database/media filesystem 跨资源原子 preservation commit」。子项自述范围为「负责媒体copy和DB/filesystem协调」。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	12	1762	parent	#2223:17; #1762@5174027163:9	父项将此子项列为「逐篇 semantic receipt、三 provider/performance 验收与 runtime legacy filler 删除」。子项自述范围为「增加终态验证、遗留删除和evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2224	1	1763	parent	#2224:6; #1763@5174043085:5	父项将此子项列为「current-only release manifest 与同candidate atomic activation identity」。子项自述范围为「建立current manifest与activation合同」。
+https://github.com/Ozwasyd/FsusBlog/issues/2225	1	1763	parent	#2225:6; #1763@5174043085:6	父项将此子项列为「current immutable asset manifest、Service Worker 与无old-asset fallback」。子项自述范围为「负责current SW/cache/asset loading」。
+https://github.com/Ozwasyd/FsusBlog/issues/2226	1	1763	parent	#2226:6; #1763@5174043085:7	父项将此子项列为「current activation/transaction/backup-owned storage GC 与rollback」。子项自述范围为「负责storage ownership/GC/rollback」。
+https://github.com/Ozwasyd/FsusBlog/issues/2227	12	1763	parent	#2227:17; #1763@5174043085:8	父项将此子项列为「N/N-1 metadata/tools/probes/matrix/finalizer dependencies 终态删除」。子项自述范围为「做遗留删除、matrix/finalizer cutover与终态治理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2229	1	1789	parent	#2229:7; #1789@5174054870:6	父项将此子项列为「同一 current build 上的真实 iOS 17+ Safari 设备 evidence」。子项自述范围为「收集和验证真实iOS Safari设备证据」。
+https://github.com/Ozwasyd/FsusBlog/issues/2230	1	1806	parent	#2230:6; #1806@5174077200:5	父项将此子项列为「user/site-scoped服务端recent article history authority」。子项自述范围为「负责服务端history事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2231	1	1806	parent	#2231:6; #1806@5174077200:6	父项将此子项列为「permission-filtered article query与stable fuzzy ranking API」。子项自述范围为「负责query/search contract、ranking和pagination」。
+https://github.com/Ozwasyd/FsusBlog/issues/2232	1	1806	parent	#2232:6; #1806@5174077200:7	父项将此子项列为「verified client cache、freshness、offline diagnostic state」。子项自述范围为「负责cache、freshness、identity、abort/stale处理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2235	1	1806	parent	#2235:6; #1806@5174077200:10	父项将此子项列为「规模、workspace、a11y、privacy、mutation全链终态治理」。子项自述范围为「增加测试、mutation、static governance和terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2237	1	1808	parent	#2237:6; #1808@5174115358:6	父项将此子项列为「authoritative parse results → unique relation index/rebuild」。子项自述范围为「负责index write/rebuild」。
+https://github.com/Ozwasyd/FsusBlog/issues/2238	1	1808	parent	#2238:6; #1808@5174115358:7	父项将此子项列为「permission-filtered queries与stable delivery URLs」。子项自述范围为「负责query/permissions/pagination」。
+https://github.com/Ozwasyd/FsusBlog/issues/2239	1	1808	parent	#2239:6; #1808@5174115358:8	父项将此子项列为「explainable unlinked mention candidates与ignore decisions」。子项自述范围为「生成候选和ignore facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2240	1	1808	parent	#2240:6; #1808@5174115358:9	父项将此子项列为「broken/visibility-risk prepublish contract」。子项自述范围为「负责prepublish rule/evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2241	1	1808	parent	#2241:6; #1808@5174115358:10	父项将此子项列为「单一inspector links/backlinks/risks/mentions UI」。子项自述范围为「实现UI/interaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2242	1	1808	parent	#2242:6; #1808@5174115358:11	父项将此子项列为「lifecycle/scale/privacy/a11y/mutation全链终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2245	1	1809	parent	#2245:7; #1809@5174145576:6	父项将此子项列为「identity-bound last-valid render cache 与 cancellable refresh」。子项自述范围为「负责render result/cache/stale/refresh」。
+https://github.com/Ozwasyd/FsusBlog/issues/2248	1	2244	parent	#2248:6; #2244:38	父项将此子项列为「将declarations编译到现有weighted DAG与attempt runner」。子项自述范围为「实现通用执行基础和隔离fixtures」。
+https://github.com/Ozwasyd/FsusBlog/issues/2249	1	2244	parent	#2249:6; #2244:50	父项将此子项列为「backend governance三项检查原子化」。子项自述范围为「迁移backend governance」。
+https://github.com/Ozwasyd/FsusBlog/issues/2250	1	1809	parent	#2250:7; #1809@5174145576:8	父项将此子项列为「live/source 与按需工具生命周期的 editor context continuity、低噪声 stale UI」。子项自述范围为「提供continuity context、stale banner与tool lifecycle hooks」。
+https://github.com/Ozwasyd/FsusBlog/issues/2251	1	2244	parent	#2251:6; #2244:59	父项将此子项列为「cross-stack static coherence原子化」。子项自述范围为「迁移static phase」。
+https://github.com/Ozwasyd/FsusBlog/issues/2253	1	1809	parent	#2253:7; #1809@5174145576:9	父项将此子项列为「长文、same-source cross-article、performance、a11y 与 mutation 终态治理」。子项自述范围为「增加测试、mutation、static governance和terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2256	1	1810	parent	#2256:7; #1810@5174167243:5	父项将此子项列为「FsusUI attachment intent、document context 与 transaction adapter」。子项自述范围为「负责intent/context/transaction/input边界」。
+https://github.com/Ozwasyd/FsusBlog/issues/2258	1	1810	parent	#2258:7; #1810@5174167243:6	父项将此子项列为「WASM image runtime、resume upload、AssetId 与 reference ledger provider」。子项自述范围为「负责bytes/provider/upload/ledger」。
+https://github.com/Ozwasyd/FsusBlog/issues/2261	1	1810	parent	#2261:7; #1810@5174167243:7	父项将此子项列为「inline progress/retry/cancel/alt/replace/remove UI」。子项自述范围为「实现UI/interaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2263	1	1810	parent	#2263:7; #1810@5174167243:8	父项将此子项列为「save/leave/recovery/prepublish/preview/revision coordination」。子项自述范围为「负责业务协调」。
+https://github.com/Ozwasyd/FsusBlog/issues/2265	12	1810	parent	#2265:18; #1810@5174167243:9	父项将此子项列为「placeholder/private selection/string replace/old modes/caption越权终态删除」。子项自述范围为「增加遗留删除、测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2268	1	1811	parent	#2268:6; #1811@5174189782:5	父项将此子项列为「immutable compare plan、authorized revision/draft packages与typed metadata registry」。子项自述范围为「建立compare authority、fetch/admission和receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2270	1	1811	parent	#2270:6; #1811@5174189782:6	父项将此子项列为「byte-preserving Markdown line/word/heading-aware diff engine」。子项自述范围为「负责source diff计算/receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2271	1	1811	parent	#2271:6; #1811@5174189782:7	父项将此子项列为「typed metadata/rights/responsibility/release snapshot diff」。子项自述范围为「负责metadata/snapshot diff计算」。
+https://github.com/Ozwasyd/FsusBlog/issues/2273	1	1811	parent	#2273:6; #1811@5174189782:8	父项将此子项列为「单一revision inspector中的unified/split source+metadata UI」。子项自述范围为「实现显示与导航」。
+https://github.com/Ozwasyd/FsusBlog/issues/2274	1	2244	parent	#2274:6; #2244:61	父项将此子项列为「frontend command-manifest groups逐命令原子化」。子项自述范围为「迁移command-manifest groups」。
+https://github.com/Ozwasyd/FsusBlog/issues/2275	1	1811	parent	#2275:6; #1811@5174189782:9	父项将此子项列为「selected old fragment canonical transaction与immutable rollback」。子项自述范围为「负责write actions与receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2277	1	1811	parent	#2277:6; #1811@5174189782:10	父项将此子项列为「large budgets、permissions、a11y、history、mutation终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2278	1	2244	parent	#2278:6; #2244:65	父项将此子项列为「backend/frontend collection与merge显式DAG」。子项自述范围为「迁移collection/merge」。
+https://github.com/Ozwasyd/FsusBlog/issues/2279	1	2244	parent	#2279:6; #2244:51	父项将此子项列为「backend perf governance/native P99/readiness原子化」。子项自述范围为「迁移backend perf执行粒度」。
+https://github.com/Ozwasyd/FsusBlog/issues/2280	1	1814	parent	#2280:6; #1814@5174219968:5	父项将此子项列为「live/source product surface contract与一次性legacy preference migration」。子项自述范围为「负责产品模式合同、状态/偏好/入口和迁移」。
+https://github.com/Ozwasyd/FsusBlog/issues/2282	1	1814	parent	#2282:6; #1814@5174219968:6	父项将此子项列为「FsusUI typed Live capability与session-scoped Source fallback」。子项自述范围为「负责Live capability adapter/fallback」。
+https://github.com/Ozwasyd/FsusBlog/issues/2283	1	1814	parent	#2283:6; #1814@5174219968:7	父项将此子项列为「revision-bound真实public renderer发布预览」。子项自述范围为「实现发布预览产品视图」。
+https://github.com/Ozwasyd/FsusBlog/issues/2284	1	1814	parent	#2284:6; #1814@5174219968:8	父项将此子项列为「temporary Source+renderer compare tool与可关闭同步滚动」。子项自述范围为「实现source compare工具」。
+https://github.com/Ozwasyd/FsusBlog/issues/2285	12	1814	parent	#2285:17; #1814@5174219968:9	父项将此子项列为「old modes/second renderer/content store终态删除与全链治理」。子项自述范围为「增加遗留删除、测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2286	1	1812	parent	#2286:6; #1812@5174246588:5	父项将此子项列为「Focus、Typewriter、Immersive 三个独立 user-scoped preference 与 legacy Zen 迁移」。子项自述范围为「负责preference schema/API/DB/store/migration/validation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2287	1	1812	parent	#2287:6; #1812@5174246588:6	父项将此子项列为「FsusUI Focus/Typewriter public runtime adapter」。子项自述范围为「实现Focus/Typewriter runtime」。
+https://github.com/Ozwasyd/FsusBlog/issues/2288	1	1812	parent	#2288:6; #1812@5174246588:7	父项将此子项列为「可安全退出的 Immersive authoring shell 与低噪声 chrome」。子项自述范围为「负责Immersive页面shell与focus/context恢复」。
+https://github.com/Ozwasyd/FsusBlog/issues/2289	1	1812	parent	#2289:6; #1812@5174246588:8	父项将此子项列为「三项独立 commands、effective-state controller 与组合协调」。子项自述范围为「负责orchestration/commands/effective state」。
+https://github.com/Ozwasyd/FsusBlog/issues/2290	1	1812	parent	#2290:6; #1812@5174246588:9	父项将此子项列为「all-eight combinations、context、a11y、performance 与 legacy Zen 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2295	1	1854	parent	#2295:6; #1854@5174287171:7	父项将此子项列为「compact tab strip、router双向同步与preview/pinned交互」。子项自述范围为「负责tab/router UI和activation projection」。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	1	1854	parent	#2297:6; #1854@5174287171:9	父项将此子项列为「unique sessions、100-document budgets、route/a11y/privacy/mutation终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2298	1	1855	parent	#2298:6; #1855@5174302328:5	父项将此子项列为「最多两组的AuthoringTabGroupRegistry与unique ownership state machine」。子项自述范围为「负责group data/state/commands/invariants」。
+https://github.com/Ozwasyd/FsusBlog/issues/2299	1	1855	parent	#2299:6; #1855@5174302328:6	父项将此子项列为「horizontal two-group layout、splitter、min-width与responsive single-group collapse」。子项自述范围为「负责layout/geometry/effective collapse」。
+https://github.com/Ozwasyd/FsusBlog/issues/2301	1	1855	parent	#2301:6; #1855@5174302328:8	父项将此子项列为「ownership/layout/continuity/mobile/a11y/performance与pane-tree denial终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2303	1	1856	parent	#2303:6; #1856@5174322278:6	父项将此子项列为「verified local cache、multi-tab coordination、flush与offline unsynced state」。子项自述范围为「负责cache/sync coordination」。
+https://github.com/Ozwasyd/FsusBlog/issues/2304	1	1856	parent	#2304:6; #1856@5174322278:7	父项将此子项列为「authoritative restore plan与articles/permissions/tabs/groups/shell reconciliation」。子项自述范围为「负责restore/reconciliation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2305	1	1856	parent	#2305:6; #1856@5174322278:8	父项将此子项列为「legacy layout migration、low-noise restore/offline/reset UX与旧reader删除」。子项自述范围为「负责migration和UX」。
+https://github.com/Ozwasyd/FsusBlog/issues/2306	1	1856	parent	#2306:6; #1856@5174322278:9	父项将此子项列为「reload/browser restart/multi-device/CAS/performance/privacy终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2307	1	1857	parent	#2307:7; #1857@5174342573:5	父项将此子项列为「AuthoringNavigationHistory、visit causes、bounded entries 与 back/forward cursor」。子项自述范围为「负责history数据/commands/invariants」。
+https://github.com/Ozwasyd/FsusBlog/issues/2308	1	1857	parent	#2308:7; #1857@5174342573:6	父项将此子项列为「internal link / Rail / Quick Switcher / relation / search entrypoint adapters 与 browser route 无循环协调」。子项自述范围为「负责entrypoint adapters和route coordination」。
+https://github.com/Ozwasyd/FsusBlog/issues/2310	1	1857	parent	#2310:6; #1857@5174342573:8	父项将此子项列为「entrypoint、route、anchor、privacy、capacity、a11y 与旧 local stack 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2312	1	1858	parent	#2312:6; #1858@5174365409:6	父项将此子项列为「permission-filtered projection 与 deleted/archived/失权 reconciliation」。子项自述范围为「负责服务端读投影/过滤」。
+https://github.com/Ozwasyd/FsusBlog/issues/2313	1	1858	parent	#2313:6; #1858@5174365409:7	父项将此子项列为「Rail/Quick Switcher 同源 projection、toggle 与 accessible reorder UI」。子项自述范围为「实现author UI/interactions」。
+https://github.com/Ozwasyd/FsusBlog/issues/2314	1	1858	parent	#2314:6; #1858@5174365409:8	父项将此子项列为「legacy local favorite/pin inventory、server migration 与双 authority 删除」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2315	1	1858	parent	#2315:6; #1858@5174365409:9	父项将此子项列为「1000-pin scale、多设备、privacy、public-signal denial 与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2316	1	1859	parent	#2316:6; #1859@5174386561:5	父项将此子项列为「full-text document/tokenizer/query/ranking/source-range contracts」。子项自述范围为「建立合同/registry/validators」。
+https://github.com/Ozwasyd/FsusBlog/issues/2320	1	1859	parent	#2320:6; #1859@5174386561:9	父项将此子项列为「legacy title-only/DB LIKE/client scan入口分类迁移与双authority删除」。子项自述范围为「负责legacy inventory、entrypoint cutover与遗留删除」。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	1	1859	parent	#2321:6; #1859@5174386561:10	父项将此子项列为「10,000article scale、Unicode、permissions、a11y、privacy、mutation终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2335	1	1861	parent	#2335:6; #1861@5174456730:6	父项将此子项列为「Dependency resolver、schema migration、immutable query compiler 与唯一 executor」。子项自述范围为「负责 dependency reconciliation、编译和执行事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2337	1	1861	parent	#2337:6; #1861@5174456730:7	父项将此子项列为「Bounded filter builder、Rail/List/Search adapters、deep-link 与 invalid repair UX」。子项自述范围为「实现 UI/interaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2338	1	1861	parent	#2338:6; #1861@5174456730:8	父项将此子项列为「Route query/local bookmark/旧 parser 一次迁移与多 authority 删除」。子项自述范围为「负责 legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2339	1	1861	parent	#2339:6; #1861@5174456730:9	父项将此子项列为「1000 views / 10,000 articles、permissions、performance、a11y 与 automation denial 终态门禁」。子项自述范围为「增加测试、mutation、static governance 与 terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2343	1	1861	parent	#2343:6; #1861@5174474530:6	父项将此子项列为「server SavedView authority、CRUD、pin/default/order 与 CAS」。子项自述范围为「负责保存视图事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2344	1	1862	parent	#2344:6; #1862@5174477981:5	父项将此子项列为「Immutable template definitions/versions、permissions 与 retired lifecycle authority」。子项自述范围为「负责模板事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2346	1	1861	parent	#2346:6; #1861@5174474530:7	父项将此子项列为「通过 canonical article/search/property/relation queries 执行 view」。子项自述范围为「负责执行事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2350	1	1862	parent	#2350:6; #1862@5174477981:7	父项将此子项列为「Blank-or-explicit-template canonical create transaction、new identities 与 zero-write cancel」。子项自述范围为「负责 create writer/transaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2351	1	1861	parent	#2351:6; #1861@5174474530:9	父项将此子项列为「route/bookmark/localStorage legacy migration 与旧authority删除」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2354	1	1861	parent	#2354:6; #1861@5174474530:10	父项将此子项列为「1000 views × 10,000 articles、privacy/performance/a11y 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2356	1	1862	parent	#2356:6; #1862@5174477981:9	父项将此子项列为「Copy-as-template、default/last/recent/auto-apply legacy paths迁移与删除」。子项自述范围为「负责 legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2358	1	1862	parent	#2358:6; #1862@5174477981:10	父项将此子项列为「1000 templates、permissions、performance、a11y 与 auto-template denial终态门禁」。子项自述范围为「增加测试、mutation、static governance 与 terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2364	1	1863	parent	#2364:6; #1863@5174500606:5	父项将此子项列为「Direct atomic create-inbox command、canonical identities、outbox/audit 与 idempotency」。子项自述范围为「负责canonical writer/transaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2370	1	1863	parent	#2370:6; #1863@5174500606:7	父项将此子项列为「Lifecycle inbox 到 Rail、Quick Switcher、system Saved View 的唯一 projection」。子项自述范围为「负责服务端 projection/query adapters」。
+https://github.com/Ozwasyd/FsusBlog/issues/2372	1	1862	parent	#2372:6; #1862@5174496824:9	父项将此子项列为「copy-as-template/default/last-template legacy migration 与 fallback 删除」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2375	1	1862	parent	#2375:6; #1862@5174496824:10	父项将此子项列为「1000 templates、deterministic expansion、zero-write cancel 与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2377	1	1863	parent	#2377:6; #1863@5174500606:9	父项将此子项列为「Local notes、Inbox tag/property/boolean、Draft后改状态和offline fallback退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2378	1	1863	parent	#2378:6; #1863@5174500606:10	父项将此子项列为「10,000 Inbox、permissions、performance、privacy、a11y 与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2380	1	1863	parent	#2380:6; #1863@5174520455:5	父项将此子项列为「canonical Inbox create command、identity、revision 与 outbox transaction」。子项自述范围为「负责canonical create事实」。
+https://github.com/Ozwasyd/FsusBlog/issues/2385	1	1864	parent	#2385:6; #1864@5174529875:6	父项将此子项列为「Per-item-isolated executor、partial/item receipts、cancel与exact retry」。子项自述范围为「负责per-item执行与receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2387	1	1864	parent	#2387:6; #1864@5174529875:7	父项将此子项列为「All-or-nothing lifecycle/schedule commit与zero-write failure proof」。子项自述范围为「负责all-or-nothing execution与receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2388	1	1863	parent	#2388:6; #1863@5174520455:9	父项将此子项列为「删除 local note、Inbox tag/property/boolean 与 hidden-draft compatibility」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2390	1	1863	parent	#2390:6; #1863@5174520455:10	父项将此子项列为「10,000 Inbox、recovery/projection parity 与 local-note denial 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2391	1	1864	parent	#2391:6; #1864@5174529875:9	父项将此子项列为「Client/server loops、dynamic requery、fallback、direct SQL legacy paths退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2393	1	1864	parent	#2393:6; #1864@5174529875:10	父项将此子项列为「10,000 items、permissions、performance、privacy、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance 与 terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2394	1	1864	parent	#2394:6; #1864@5174553576:6	父项将此子项列为「freeze selection/query article set 与 immutable preflight plan」。子项自述范围为「负责plan」。
+https://github.com/Ozwasyd/FsusBlog/issues/2395	1	1864	parent	#2395:6; #1864@5174553576:7	父项将此子项列为「execution journal、item/aggregate receipts、idempotency/cancel/retry」。子项自述范围为「提供执行框架和证据」。
+https://github.com/Ozwasyd/FsusBlog/issues/2396	1	1864	parent	#2396:6; #1864@5174553576:8	父项将此子项列为「per-item-isolated metadata/check/reindex operations」。子项自述范围为「负责这些operations」。
+https://github.com/Ozwasyd/FsusBlog/issues/2397	1	1864	parent	#2397:6; #1864@5174553576:9	父项将此子项列为「all-or-nothing archive/restore/Inbox transitions/schedule commit」。子项自述范围为「负责这些operations」。
+https://github.com/Ozwasyd/FsusBlog/issues/2400	1	1865	parent	#2400:6; #1865@5174564644:6	父项将此子项列为「Frozen deterministic exporter、byte-preserving Markdown、assets与dependency inventory」。子项自述范围为「负责export」。
+https://github.com/Ozwasyd/FsusBlog/issues/2401	1	1864	parent	#2401:6; #1864@5174553576:11	父项将此子项列为「client loops、single-call fallback 与 legacy bulk helpers 退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2402	1	1865	parent	#2402:6; #1865@5174564644:7	父项将此子项列为「Package safety validation、create/update target解析与zero-write immutable import plan」。子项自述范围为「负责安全验证与plan」。
+https://github.com/Ozwasyd/FsusBlog/issues/2403	1	1864	parent	#2403:6; #1864@5174553576:12	父项将此子项列为「10,000-item strategies、zero-write/partial receipts 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2404	1	1865	parent	#2404:6; #1865@5174564644:8	父项将此子项列为「Unknown definitions/links/assets显式map/create/skip与executable replan」。子项自述范围为「负责resolution/replan与definition creation orchestration」。
+https://github.com/Ozwasyd/FsusBlog/issues/2405	1	1865	parent	#2405:6; #1865@5174564644:9	父项将此子项列为「All-or-nothing canonical import executor、new/update identities、asset ledger、revision/outbox/audit」。子项自述范围为「负责import execution」。
+https://github.com/Ozwasyd/FsusBlog/issues/2407	1	1865	parent	#2407:6; #1865@5174564644:11	父项将此子项列为「YAML authority、broad readers、title match、direct SQL、remote fetch与auto-map/skip退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	1	1865	parent	#2409:6; #1865@5174564644:12	父项将此子项列为「1000articles、round-trip、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2412	1	1866	parent	#2412:6; #1866@5174603914:5	父项将此子项列为「Export task authority、frozen input、provider invocation与attempt lifecycle」。子项自述范围为「负责task和frozen input」。
+https://github.com/Ozwasyd/FsusBlog/issues/2413	1	1865	parent	#2413:6; #1865@5174587285:8	父项将此子项列为「unknown definitions/links/assets 显式 resolution 与 replan」。子项自述范围为「负责resolution/replan facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2414	1	1866	parent	#2414:6; #1866@5174603914:6	父项将此子项列为「No-network sandbox host、pinned toolchains、process/resource budgets与cleanup」。子项自述范围为「实现通用host」。
+https://github.com/Ozwasyd/FsusBlog/issues/2416	1	1866	parent	#2416:6; #1866@5174603914:7	父项将此子项列为「Self-contained HTML provider」。子项自述范围为「负责HTML格式」。
+https://github.com/Ozwasyd/FsusBlog/issues/2419	1	1866	parent	#2419:6; #1866@5174603914:9	父项将此子项列为「DOCX OOXML provider与feature-loss receipts」。子项自述范围为「负责DOCX」。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	1	1865	parent	#2420:6; #1865@5174587285:11	父项将此子项列为「1000-article byte roundtrip、path safety 与 authority denial 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2421	1	1866	parent	#2421:6; #1866@5174603914:10	父项将此子项列为「EPUB3 publication/nav/spine/conformance provider」。子项自述范围为「负责EPUB」。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	1	1866	parent	#2422:6; #1866@5174603914:11	父项将此子项列为「Private output store、authorized download、TTL/quota与exact cleanup」。子项自述范围为「负责output storage/download/cleanup」。
+https://github.com/Ozwasyd/FsusBlog/issues/2423	1	1866	parent	#2423:6; #1866@5174624836:5	父项将此子项列为「frozen input、task lifecycle、provider registry 与 support contracts」。子项自述范围为「建立合同/validator」。
+https://github.com/Ozwasyd/FsusBlog/issues/2425	1	1866	parent	#2425:6; #1866@5174624836:6	父项将此子项列为「no-network sandbox、tool broker、resource budgets 与 process ownership」。子项自述范围为「负责隔离执行框架」。
+https://github.com/Ozwasyd/FsusBlog/issues/2427	1	1866	parent	#2427:6; #1866@5174624836:7	父项将此子项列为「deterministic self-contained HTML provider」。子项自述范围为「负责HTML」。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	1	1866	parent	#2428:6; #1866@5174603914:14	父项将此子项列为「Four-provider、sandbox、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2432	1	1866	parent	#2432:6; #1866@5174624836:10	父项将此子项列为「EPUB3 navigation/resources/accessibility provider」。子项自述范围为「负责EPUB」。
+https://github.com/Ozwasyd/FsusBlog/issues/2433	1	1867	parent	#2433:6; #1867@5174625034:6	父项将此子项列为「FsusUI public mapping、editor continuity、font/no-network runtime adapter」。子项自述范围为「负责mapping/runtime continuity」。
+https://github.com/Ozwasyd/FsusBlog/issues/2434	1	1866	parent	#2434:6; #1866@5174624836:11	父项将此子项列为「private output storage、authorized download、TTL 与 cleanup」。子项自述范围为「负责结果交付/清理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2437	1	1867	parent	#2437:6; #1867@5174625034:8	父项将此子项列为「Legacy prose width/font/CSS/localStorage/per-mode paths迁移与删除」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	1	1866	parent	#2438:6; #1866@5174624836:13	父项将此子项列为「four-format semantics、sandbox/private delivery 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2439	1	1867	parent	#2439:6; #1867@5174625034:9	父项将此子项列为「Unicode/mobile/zoom/performance/privacy/a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2441	1	1868	parent	#2441:6; #1868@5174667513:6	父项将此子项列为「Permission-safe article→heading/block target query」。子项自述范围为「负责query/permissions」。
+https://github.com/Ozwasyd/FsusBlog/issues/2442	1	1868	parent	#2442:6; #1868@5174661125:5	父项将此子项列为「canonical anchor target codec、URL mapping 与 permission-scoped query」。子项自述范围为「建立codec/contracts/validators」。
+https://github.com/Ozwasyd/FsusBlog/issues/2444	1	1868	parent	#2444:6; #1868@5174661125:6	父项将此子项列为「FsusUI transaction anchor create/copy/rename/remove adapter」。子项自述范围为「负责source mutation adapter」。
+https://github.com/Ozwasyd/FsusBlog/issues/2447	1	1868	parent	#2447:6; #1868@5174667513:9	父项将此子项列为「Impact freeze、expected-revision rename/delete refactor与history protection」。子项自述范围为「负责cross-article refactor」。
+https://github.com/Ozwasyd/FsusBlog/issues/2448	1	1868	parent	#2448:6; #1868@5174661125:8	父项将此子项列为「impact list 与 expected-revision current-source refactor plans」。子项自述范围为「负责refactor计划/执行」。
+https://github.com/Ozwasyd/FsusBlog/issues/2451	1	1868	parent	#2451:6; #1868@5174661125:10	父项将此子项列为「100,000-anchor scale、standard URL、history denial 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2453	1	1868	parent	#2453:6; #1868@5174667513:12	父项将此子项列为「100,000 anchors、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2459	1	1869	parent	#2459:6; #1869@5174693663:9	父项将此子项列为「frozen dependencies 投影到 Markdown package 与 four-format exports」。子项自述范围为「负责portability/export projection」。
+https://github.com/Ozwasyd/FsusBlog/issues/2460	1	1869	parent	#2460:6; #1869@5174718259:6	父项将此子项列为「Current authorized draft target resolver与article/heading/block projections」。子项自述范围为「负责当前作者视图解析」。
+https://github.com/Ozwasyd/FsusBlog/issues/2462	1	1869	parent	#2462:6; #1869@5174718259:7	父项将此子项列为「Prepublish public eligibility、exact frozen public coordinates与zero-write blockers」。子项自述范围为「负责prepublish/freeze/publication facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2463	1	1869	parent	#2463:6; #1869@5174693663:11	父项将此子项列为「HTML include、latest-target、private-copy 与 compat syntax 退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2464	1	1869	parent	#2464:6; #1869@5174718259:8	父项将此子项列为「Embed dependency graph、cycle detection与depth/size/time budgets」。子项自述范围为「负责dependency graph和relation edge facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2465	1	1869	parent	#2465:6; #1869@5174693663:12	父项将此子项列为「frozen-public/cycle/cache/legacy denial 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2466	1	1869	parent	#2466:6; #1869@5174718259:9	父项将此子项列为「Publication/AOT/HotRead/cache receipts与bounded invalidation」。子项自述范围为「负责publication/cache/AOT projection与invalidation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2467	1	1869	parent	#2467:6; #1869@5174718259:10	父项将此子项列为「Explicit host-draft dependency refresh，source token与existing publication不变」。子项自述范围为「负责refresh command/planner」。
+https://github.com/Ozwasyd/FsusBlog/issues/2468	1	1870	parent	#2468:6; #1870@5174731443:5	父项将此子项列为「local graph query、depth=1 default、filters 与 budgets」。子项自述范围为「负责query facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2471	1	1870	parent	#2471:6; #1870@5174731443:6	父项将此子项列为「bounded deterministic layout 与 ephemeral graph session」。子项自述范围为「负责临时layout/session」。
+https://github.com/Ozwasyd/FsusBlog/issues/2472	1	1869	parent	#2472:6; #1869@5174718259:13	父项将此子项列为「::include/wikilink/HTML/remote/latest/private-copy/auto-refresh legacy paths退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2473	1	1869	parent	#2473:6; #1869@5174718259:14	父项将此子项列为「1000 embeds / 10000 hosts、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2474	1	1870	parent	#2474:6; #1870@5174735982:5	父项将此子项列为「Permission-safe local graph query、depth/scope/budgets与bounded truncation」。子项自述范围为「负责query facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2476	1	1870	parent	#2476:6; #1870@5174735982:6	父项将此子项列为「Transient graph session、deterministic layout、depth reset与resource lifecycle」。子项自述范围为「负责session/layout」。
+https://github.com/Ozwasyd/FsusBlog/issues/2477	1	1870	parent	#2477:6; #1870@5174731443:8	父项将此子项列为「persisted depth/positions、client edge caches 与 experimental paths 退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2478	1	1870	parent	#2478:6; #1870@5174735982:7	父项将此子项列为「Low-noise graph + equivalent list、source navigation与accessible UX」。子项自述范围为「实现UI/navigation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2479	1	1870	parent	#2479:6; #1870@5174731443:9	父项将此子项列为「depth defaults、1000-node usability、list parity 与 read-only 终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2480	1	1870	parent	#2480:6; #1870@5174735982:8	父项将此子项列为「Client scanners、second edge caches、persisted depth/positions、auto-depth与AI paths退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2481	1	1870	parent	#2481:6; #1870@5174735982:9	父项将此子项列为「1000nodes、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2486	1	1872	parent	#2486:6; #1872@5174772067:6	父项将此子项列为「Article/heading/block current-pinned-stale permission-safe reference resolver」。子项自述范围为「负责reference resolution」。
+https://github.com/Ozwasyd/FsusBlog/issues/2487	1	1872	parent	#2487:6; #1872@5174762231:8	父项将此子项列为「explicit edge→article link expected-revision plan」。子项自述范围为「负责plan/execute」。
+https://github.com/Ozwasyd/FsusBlog/issues/2488	1	1872	parent	#2488:6; #1872@5174772067:7	父项将此子项列为「Atomic canvas operations、undo-redo、viewport与10,000-node virtualization」。子项自述范围为「负责canvas operations/runtime」。
+https://github.com/Ozwasyd/FsusBlog/issues/2490	1	1872	parent	#2490:6; #1872@5174772067:8	父项将此子项列为「Explicit canvas-edge→standard article-link plan/transaction」。子项自述范围为「负责显式转换」。
+https://github.com/Ozwasyd/FsusBlog/issues/2491	1	1872	parent	#2491:6; #1872@5174762231:10	父项将此子项列为「独立 portable Canvas package、safe import 与 reference re-resolution」。子项自述范围为「负责package roundtrip」。
+https://github.com/Ozwasyd/FsusBlog/issues/2492	1	1872	parent	#2492:6; #1872@5174772067:9	父项将此子项列为「Bounded Canvas UI、outline/list、source navigation与accessible interactions」。子项自述范围为「实现UI/interaction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2493	1	1872	parent	#2493:6; #1872@5174762231:11	父项将此子项列为「local experiments/body-copy/arbitrary nodes/graph-position reuse 退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	1	1872	parent	#2494:6; #1872@5174762231:12	父项将此子项列为「10,000-node virtualization、reference-only authority 与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2497	1	1872	parent	#2497:6; #1872@5174772067:12	父项将此子项列为「Local canvas、article-copy cards、arbitrary/plugin nodes与auto-relation legacy paths退役」。子项自述范围为「负责legacy inventory/migration/deletion」。
+https://github.com/Ozwasyd/FsusBlog/issues/2498	1	1872	parent	#2498:6; #1872@5174772067:13	父项将此子项列为「10,000nodes、privacy、performance、a11y与终态治理」。子项自述范围为「增加测试、mutation、static governance与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2507	1	1916	parent	#2507:6; #1916@5174837011:6	父项将此子项列为「Plugin filter/operator 到 authoritative article/saved-view query 的服务端映射」。子项自述范围为「负责filter contribution」。
+https://github.com/Ozwasyd/FsusBlog/issues/2508	1	1728	parent	#2508:6; #1728@5174835861:7	父项将此子项列为「Markdown structure/sanitization 与 search token expectation corpus」。子项自述范围为「负责expectation corpus」。
+https://github.com/Ozwasyd/FsusBlog/issues/2509	1	1916	parent	#2509:6; #1916@5174837011:7	父项将此子项列为「Bounded workspace panel slots、layout lifecycle 与 hidden-resource cleanup」。子项自述范围为「负责workspace panel」。
+https://github.com/Ozwasyd/FsusBlog/issues/2510	1	1728	parent	#2510:6; #1728@5174835861:8	父项将此子项列为「shape IDs 绑定article/comment/AOT/search/moderation/visual consumers」。子项自述范围为「负责绑定/投影」。
+https://github.com/Ozwasyd/FsusBlog/issues/2511	1	1728	parent	#2511:6; #1728@5174835861:9	父项将此子项列为「Unicode/Markdown/search覆盖与legacy short-text终态治理」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2512	1	1916	parent	#2512:6; #1916@5174837011:8	父项将此子项列为「三类 contribution conformance、1000规模、privacy、a11y 与终态治理」。子项自述范围为「增加测试、mutation fixtures、静态治理与 terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2514	1	1729	parent	#2514:6; #1729@5174859181:5	父项将此子项列为「MediaShapeCatalog、format/aspect contracts 与 validity classes」。子项自述范围为「定义catalog/validator」。
+https://github.com/Ozwasyd/FsusBlog/issues/2515	1	1918	parent	#2515:6; #1918@5174853554:6	父项将此子项列为「Frozen export provider adapter、no-scan inputs 与 independent output verification」。子项自述范围为「负责export provider」。
+https://github.com/Ozwasyd/FsusBlog/issues/2516	1	1729	parent	#2516:6; #1729@5174859181:6	父项将此子项列为「deterministic media bytes、codec verification 与 AssetId materialization」。子项自述范围为「负责正向assets」。
+https://github.com/Ozwasyd/FsusBlog/issues/2517	1	1918	parent	#2517:6; #1918@5174853554:7	父项将此子项列为「Prepublish diagnostic schema、scope、required policy 与 core-check monotonicity」。子项自述范围为「负责diagnostic」。
+https://github.com/Ozwasyd/FsusBlog/issues/2519	1	1918	parent	#2519:6; #1918@5174853554:8	父项将此子项列为「三类 contribution conformance、1000 providers、privacy、resource lifecycle 与终态治理」。子项自述范围为「增加测试、mutation fixtures、静态治理与terminal evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2520	1	1729	parent	#2520:6; #1729@5174859181:8	父项将此子项列为「media shapes 绑定article/scale/AOT/SPA/visual consumers」。子项自述范围为「负责消费绑定」。
+https://github.com/Ozwasyd/FsusBlog/issues/2521	1	1729	parent	#2521:6; #1729@5174859181:9	父项将此子项列为「codec/scale/consumer parity 与 SVG/fake-WebP 终态治理」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2528	1	1730	parent	#2528:6; #1730@5174887806:7	父项将此子项列为「article/comment/audit producers 迁移」。子项自述范围为「迁移三类producer」。
+https://github.com/Ozwasyd/FsusBlog/issues/2532	1	1730	parent	#2532:6; #1730@5174887806:9	父项将此子项列为「demo/data-scale deterministic temporal migration」。子项自述范围为「迁移demo/scale」。
+https://github.com/Ozwasyd/FsusBlog/issues/2535	1	1730	parent	#2535:6; #1730@5174887806:10	父项将此子项列为「cross-runtime determinism 与 wall-clock retirement 终态治理」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2542	1	1731	parent	#2542:6; #1731@5174912732:7	父项将此子项列为「provider bulk graph writer、atomic batches 与 exact postconditions」。子项自述范围为「负责数据库写入」。
+https://github.com/Ozwasyd/FsusBlog/issues/2543	1	1731	parent	#2543:6; #1731@5174912732:8	父项将此子项列为「production writer vs bulk factory canonical semantic diff」。子项自述范围为「负责差分校准」。
+https://github.com/Ozwasyd/FsusBlog/issues/2544	1	1731	parent	#2544:6; #1731@5174912732:9	父项将此子项列为「full graph/provider parity/legacy five-table seed 终态治理」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2545	1	1732	parent	#2545:6; #1732@5174939844:5	父项将此子项列为「CommentScalePlan、thread/moderation distribution 与 canonical graph schema」。子项自述范围为「建立计划/合同」。
+https://github.com/Ozwasyd/FsusBlog/issues/2546	1	1732	parent	#2546:6; #1732@5174939844:6	父项将此子项列为「CanonicalCommentGraphFactory 与 production-shared rules」。子项自述范围为「负责纯factory」。
+https://github.com/Ozwasyd/FsusBlog/issues/2547	1	1732	parent	#2547:6; #1732@5174939844:7	父项将此子项列为「provider bulk comment graph writer 与 exact postconditions」。子项自述范围为「负责数据库写入」。
+https://github.com/Ozwasyd/FsusBlog/issues/2548	1	1732	parent	#2548:6; #1732@5174939844:8	父项将此子项列为「production writer vs bulk factory semantic diff」。子项自述范围为「负责差分校准」。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	1	1732	parent	#2549:6; #1732@5174939844:9	父项将此子项列为「full graph/provider parity/simplified seed 终态治理」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	1	1733	parent	#2550:6; #1733@5174988733:5	父项将此子项列为「DistributionCatalog、scenario parameters 与 statistical contracts」。子项自述范围为「定义catalog/validator」。
+https://github.com/Ozwasyd/FsusBlog/issues/2551	1	1733	parent	#2551:6; #1733@5174988733:6	父项将此子项列为「deterministic article/comment assignment compiler」。子项自述范围为「负责分配计划」。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	1	1733	parent	#2554:6; #1733@5174988733:9	父项将此子项列为「退役modulo、uniform-only、fake-shape/private-seed并封口终态」。子项自述范围为「测试/治理/清理legacy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2571	1	1735	parent	#2571:6; #1735:54	父项将此子项列为「将runner绑定唯一matrix/profile sequence，证明same-runtime profile switching、cleanup与public-empty」。子项自述范围为「负责scheduler/matrix orchestration」。
+https://github.com/Ozwasyd/FsusBlog/issues/2627	1	1956	parent	#2627:6; #1956:9	父项将此子项列为「release-final finalizer 只消费 verified qualified receipt」。子项自述范围为「修改 release-final consumer」。
+https://github.com/Ozwasyd/FsusBlog/issues/2628	1	1956	parent	#2628:6; #1956:10	父项将此子项列为「publish gate 与 production summary 共享 canonical qualified-receipt consumer」。子项自述范围为「修改 publish/summary 消费面」。
+https://github.com/Ozwasyd/FsusBlog/issues/2649	1	2012	parent	#2649:6; #2012:11	父项将此子项列为「immutable build/artifact、release projection 与 finalizer consumers」。子项自述范围为「负责consumer admission」。
+https://github.com/Ozwasyd/FsusBlog/issues/2660	1	2052	parent	#2660:6; #2052:7	父项将此子项列为「删除旧 readers/default IDs/handles/manifest/discovery/fallback，并建立 consumer inventory」。子项自述范围为「做旧 reader/调用点迁移和删除」。
+https://github.com/Ozwasyd/FsusBlog/issues/2668	1	2096	parent	#2668:6; #2096:7	父项将此子项列为「删除单表面/中英 fixtures、per-surface runner/schema、allowlist/OCR/retry/降级/state restore」。子项自述范围为「做遗留删除和 canonical runner接入」。
+https://github.com/Ozwasyd/FsusBlog/issues/2673	1	2115	parent	#2673:6; #2115:7	父项将此子项列为「真实 Windows + NTFS agent qualification」。子项自述范围为「运行/封存 Windows evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2676	1	2136	parent	#2676:6; #2136:7	父项将此子项列为「真实 Windows/NTFS 产品功能 flows」。子项自述范围为「验证 Windows 产品语义」。
+https://github.com/Ozwasyd/FsusBlog/issues/2710	1	2572	parent	#2710:8; #2572:48	父项将此子项列为「**Mutation recovery functional qualification**」。子项自述范围为「负责功能正确性与 current-run evidence」。
+https://github.com/Ozwasyd/FsusBlog/issues/2711	1	2572	parent	#2711:8; #2572:53	父项将此子项列为「**Legacy restart/reset/repair removal and governance**」。子项自述范围为「负责 legacy 路径删除和治理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2712	1	2572	parent	#2712:8; #2572:58	父项将此子项列为「**Scale/performance/resource qualification**」。子项自述范围为「负责 scale/performance/resource qualification」。
+https://github.com/Ozwasyd/FsusBlog/issues/2713	1	2572	parent	#2713:8; #2572:63	父项将此子项列为「**Privacy/evidence-retention qualification**」。子项自述范围为「负责 privacy 与 evidence-retention qualification」。
