@@ -7,8 +7,13 @@ import argparse
 import hashlib
 import json
 import math
+import os
+import re
 import struct
+import sys
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
@@ -19,6 +24,8 @@ TERM = struct.Struct("<IfIIII")
 DOCUMENT = struct.Struct("<IHHIIIIqIHHIHHIqIqI")
 TAXON = struct.Struct("<IIHHI")
 TAG_REF = struct.Struct("<H")
+FSIM_HEADER = struct.Struct("<4sIiq")
+INT32 = struct.Struct("<i")
 UINT_MAX = (1 << 32) - 1
 
 
@@ -37,6 +44,113 @@ class Shard:
 class Patch:
     tombstones: tuple[int, ...]
     appended: Shard | None
+
+
+@dataclass(frozen=True)
+class ManifestShard:
+    full_url: str
+    full_sha256: str
+    patch_url: str | None
+    patch_sha256: str | None
+    load_phase: int
+
+
+@dataclass(frozen=True)
+class Manifest:
+    generation: str
+    generated_ticks: int
+    shards: dict[int, ManifestShard]
+    initial_roles: tuple[str, ...]
+    background_roles: tuple[str, ...]
+    deep_roles: tuple[str, ...]
+    root: str
+
+
+def decode_manifest(data: bytes) -> Manifest:
+    """Read the canonical fixed writer's FSIM binary v1, schema v4 profile."""
+    if len(data) < FSIM_HEADER.size:
+        raise PatchError("Truncated FSIM header")
+    magic, binary, schema, ticks = FSIM_HEADER.unpack_from(data)
+    if (magic, binary, schema) != (b"FSIM", 1, 4) or not 0 <= ticks <= 3155378975999999999:
+        raise PatchError("Invalid FSIM v1 schema v4 header")
+    at = FSIM_HEADER.size
+
+    def integer() -> int:
+        nonlocal at
+        if at + INT32.size > len(data):
+            raise PatchError("Truncated FSIM integer")
+        value = INT32.unpack_from(data, at)[0]
+        at += INT32.size
+        return value
+
+    def string() -> str:
+        nonlocal at
+        size = integer()
+        if not 0 <= size <= 4096 or at + size > len(data):
+            raise PatchError("Invalid FSIM string length")
+        try:
+            value = data[at:at + size].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise PatchError("Invalid FSIM UTF-8") from error
+        at += size
+        return value
+
+    def optional_string() -> str | None:
+        nonlocal at
+        if at >= len(data) or data[at] not in (0, 1):
+            raise PatchError("Invalid FSIM nullable string flag")
+        present = data[at] == 1
+        at += 1
+        return string() if present else None
+
+    def strings() -> tuple[str, ...]:
+        count = integer()
+        if not 0 <= count <= 32:
+            raise PatchError("Invalid FSIM role list length")
+        return tuple(string() for _ in range(count))
+
+    generation = string()
+    if not re.fullmatch(r"[0-9a-f]{16}", generation) or integer() != len(ROLES):
+        raise PatchError("Invalid FSIM generation or shard count")
+    shards = {}
+    root = None
+    for name, role in ROLES.items():
+        if integer() != role:
+            raise PatchError("FSIM roles must follow core, recent, archive order")
+        shard = ManifestShard(string(), string(), optional_string(), optional_string(), integer())
+        tail = f"/index.{name}.{generation}.bin"
+        if not shard.full_url.endswith(tail) or not re.fullmatch(r"[0-9a-f]{64}", shard.full_sha256):
+            raise PatchError("Invalid FSIM full shard URL or digest")
+        shard_root = shard.full_url[:-len(tail)]
+        if root is None:
+            verify_manifest_root(shard_root)
+            root = shard_root
+        if shard_root != root or shard.load_phase != int(name == "archive"):
+            raise PatchError("Invalid FSIM shard root or load phase")
+        if (shard.patch_url is None) != (shard.patch_sha256 is None):
+            raise PatchError("Incomplete FSIM patch URL or digest")
+        if shard.patch_url is not None:
+            patch_path = rf"{re.escape(root)}/patches/index\.{name}\.[0-9a-f]{{16}}-{generation}\.patch"
+            if not re.fullmatch(patch_path, shard.patch_url) or not re.fullmatch(r"[0-9a-f]{64}", shard.patch_sha256):
+                raise PatchError("Invalid FSIM patch URL or digest")
+        shards[role] = shard
+
+    phase_roles = strings(), strings(), strings()
+    if phase_roles != (("core", "recent"), ("archive",), ()) or at != len(data):
+        raise PatchError("Invalid FSIM role schedule or trailing bytes")
+    return Manifest(generation, ticks, shards, *phase_roles, root)
+
+
+def verify_manifest_root(root: str) -> None:
+    if root == "/search":
+        return
+    release = re.fullmatch(r"/release-derived/([0-9]{14})-[0-9a-f]{12}/search", root)
+    if release is None:
+        raise PatchError("Invalid FSIM asset root")
+    try:
+        datetime.strptime(release[1], "%Y%m%d%H%M%S")
+    except ValueError as error:
+        raise PatchError("Invalid FSIM release timestamp") from error
 
 
 def read_varint(data: memoryview, offset: int, end: int) -> tuple[int, int]:
@@ -222,7 +336,116 @@ def read_artifact(path: Path, expected_sha256: str | None = None) -> tuple[bytes
     return data, digest
 
 
+def encode_patch(tombstones: list[int], appended: bytes) -> bytes:
+    ids = bytearray()
+    prior = 0
+    for article in tombstones:
+        if not prior < article <= UINT_MAX:
+            raise PatchError("Declared tombstones must be unique ascending uint32 IDs")
+        delta = article - prior
+        while delta >= 128:
+            ids.append((delta & 127) | 128)
+            delta >>= 7
+        ids.append(delta)
+        prior = article
+    return PATCH_HEADER.pack(b"FSPT", 3, len(tombstones), len(ids), len(appended), 0) + ids + appended
+
+
+def verify_full_assets(manifest: Manifest, directory: Path, role: int | None) -> tuple[Shard, int] | None:
+    generation = hashlib.sha256()
+    selected = None
+    for expected_role, row in manifest.shards.items():
+        data, _ = read_artifact(directory / Path(row.full_url).name, row.full_sha256)
+        generation.update(data)
+        shard = decode_shard(data)
+        if shard.role != expected_role:
+            raise PatchError("Full FHS2 role does not match FSIM")
+        if expected_role == role:
+            selected = shard, len(data)
+    if generation.hexdigest()[:16] != manifest.generation:
+        raise PatchError("Full FHS2 assembly does not match the FSIM generation")
+    return selected
+
+
+def verify_declared_patch(data: bytes, base: Shard, target: Shard, target_bytes: int) -> Patch:
+    patch = decode_patch(data)
+    inserted = patch.appended.documents if patch.appended is not None else ()
+    if not set(inserted).issubset(patch.tombstones):
+        raise PatchError("A published FSPT mini shard needs declared tombstones for every upsert")
+    target_count = max(len(target.documents), 1)
+    if (not (inserted or patch.tombstones) or len(inserted) * 100 > target_count * 20 or
+            len(patch.tombstones) * 100 > target_count * 15 or len(data) * 100 > max(target_bytes, 1) * 25):
+        raise PatchError("FSPT patch falls outside the fixed writer's emission thresholds")
+    if overlay(base, patch, target.role) != target:
+        raise PatchError("FSPT document or posting membership does not match the target")
+    return patch
+
+
+def catalog_main() -> None:
+    parser = argparse.ArgumentParser(description="Verify a fixed FSIM catalog and reproduce one declared FSPT patch offline.")
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("--assets", type=Path, required=True, help="directory holding the current search assets")
+    parser.add_argument("--manifest-sha256")
+    parser.add_argument("--previous", type=Path, help="previous FSIM manifest for the declared role patch")
+    parser.add_argument("--previous-assets", type=Path)
+    parser.add_argument("--previous-manifest-sha256")
+    parser.add_argument("--role", choices=ROLES)
+    parser.add_argument("--emit", type=Path, help="reproduce a declared, pinned patch into a new file")
+    parser.add_argument("--tombstone", type=int, action="append", default=[])
+    parser.add_argument("--mini-shard", type=Path)
+    args = parser.parse_args(sys.argv[2:])
+    previous_args = (args.previous, args.previous_assets, args.role)
+    if any(previous_args) != all(previous_args) or (args.previous_manifest_sha256 and args.previous is None):
+        parser.error("Specify --previous, --previous-assets and --role together")
+    if args.emit is not None and not (args.role and args.manifest_sha256 and args.previous_manifest_sha256 and args.tombstone):
+        parser.error("Reproduction requires a role, both independent manifest SHA-256 values and declared tombstones")
+    if args.emit is None and (args.tombstone or args.mini_shard is not None):
+        parser.error("--tombstone and --mini-shard require --emit")
+
+    try:
+        manifest_bytes, digest = read_artifact(args.manifest, args.manifest_sha256)
+        manifest = decode_manifest(manifest_bytes)
+        role = ROLES[args.role] if args.role is not None else None
+        current = verify_full_assets(manifest, args.assets, role)
+        report = {"format": "FSIM binary v1 schema v4", "generation": manifest.generation,
+                  "generatedAtTicks": manifest.generated_ticks, "assetRoot": manifest.root,
+                  "manifestSha256": digest, "verifiedFullShards": len(manifest.shards), "rankingChecked": False}
+        if current is not None:
+            previous_bytes, previous_digest = read_artifact(args.previous, args.previous_manifest_sha256)
+            previous = decode_manifest(previous_bytes)
+            base, _ = verify_full_assets(previous, args.previous_assets, role)
+            target, target_bytes = current
+            row = manifest.shards[role]
+            prefix = previous.shards[role].full_sha256[:16]
+            expected = f"{manifest.root}/patches/index.{args.role}.{prefix}-{manifest.generation}.patch"
+            if manifest.root != previous.root or row.patch_url != expected:
+                raise PatchError("FSIM catalogs do not declare this exact role, base digest prefix and target")
+            if args.emit is None:
+                data, patch_digest = read_artifact(args.assets / "patches" / Path(expected).name, row.patch_sha256)
+            else:
+                mini = args.mini_shard.read_bytes() if args.mini_shard is not None else b""
+                data = encode_patch(args.tombstone, mini)
+                patch_digest = hashlib.sha256(data).hexdigest()
+                if patch_digest != row.patch_sha256:
+                    raise PatchError("Reproduced FSPT bytes do not match the pinned FSIM digest")
+            patch = verify_declared_patch(data, base, target, target_bytes)
+            if args.emit is not None:
+                with tempfile.TemporaryDirectory(prefix=".fspt-", dir=args.emit.parent) as scratch:
+                    staged = Path(scratch) / "patch"
+                    staged.write_bytes(data)
+                    os.link(staged, args.emit)
+            report.update(previousManifestSha256=previous_digest, role=args.role,
+                          baseFullSha256=previous.shards[role].full_sha256, targetFullSha256=row.full_sha256,
+                          patchSha256=patch_digest, targetMembershipMatches=True, tombstones=patch.tombstones)
+        print(json.dumps(report, ensure_ascii=False))
+    except (OSError, PatchError, struct.error) as error:
+        parser.exit(1, f"{error}\n")
+
+
 def main() -> None:
+    if sys.argv[1:2] == ["catalog"]:
+        catalog_main()
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("patch", type=Path)
     parser.add_argument("--role", choices=ROLES)

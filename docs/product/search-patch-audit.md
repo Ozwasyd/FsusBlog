@@ -9,6 +9,16 @@ python3 tools/fspt-patch.py change.patch --role recent \
 python3 -B tests/Protocol/fspt-patch.test.py -v
 ```
 
+要核对文件确为清单声明的角色补丁，提供前后两份 FSIM 和各自完整资产目录。离线核验逐个重算 core、recent、archive 的 SHA-256，并按该顺序对原始字节串联计算整组代次。然后核对选定角色补丁的原始路径、前代完整摘要的前 16 位、目标代次、补丁完整摘要、固定生产阈值与完整目标的成员。两份清单均支持 `/search` 与固定发行版 `/release-derived/{releaseId}/search`，配对验证要求使用同一资源根。 [代次算法](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.ArtifactCodec.cs#L233-L242) · [资源根](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.cs#L405-L439)
+
+```sh
+python3 tools/fspt-patch.py catalog "$current_manifest" --assets "$current_assets" \
+  --previous "$previous_manifest" --previous-assets "$previous_assets" --role recent
+python3 -B tests/Protocol/fsim-catalog.test.py -v
+```
+
+追加 `--emit 新路径 --tombstone ID ... --mini-shard 小分片` 可复现目标 FSIM 已声明的补丁。只有删除的补丁可省略 `--mini-shard`。复现要求独立提供 `--manifest-sha256` 和 `--previous-manifest-sha256`，声明的升序 ID 与小分片产生的字节须命中目标条目的完整 SHA-256。校验完成后原子写入新文件，已有目标不被覆盖。仅配对清单无法验证清单来源，来源证明由独立摘要输入提供。
+
 固定来源为 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。以下范围仅使用源码和独立构造字节，未运行 v1 产品。
 
 | 层 | 固定生产格式与行为 |
@@ -41,4 +51,4 @@ python3 -B tests/Protocol/fspt-patch.test.py -v
 | `R-1640-R1`、`R-2555-01`、`R-2556-01`、`R-2563-01` | 真实查询使用预先独立生成的排序、分页和正负成员预期。#2556 在台账保留为测试经验；规模夹具既有验收不能代替在线 FSPT 或 Wasm 对照。 [查询规模](https://github.com/Ozwasyd/FsusBlog/issues/1640) · [独立预期](https://github.com/Ozwasyd/FsusBlog/issues/2556) · [最终验证](https://github.com/Ozwasyd/FsusBlog/issues/2563) |
 | `R-3456-01`、`R-3554-01` | 公开热读仍遵循已有 artifact 路径、容量和失效边界。#3554 单列真实入口验证经验。两条均未指定 FSPT 或排名算法。 [#3456](https://github.com/Ozwasyd/FsusBlog/issues/3456) · [#3554](https://github.com/Ozwasyd/FsusBlog/issues/3554) |
 
-冻结正文与评论未发现独立规定 FSPT 格式或原 Wasm 排名的开放议题。二者按实际固定源码追踪。这次 9 项 Python 测试通过，包括 27 个畸形子样本。原 Wasm、真实补丁传输以及全量排名等价仍是独立证据缺口。 [公开搜索需求台账](../issues/risk-public-search.md)
+冻结正文与评论未发现独立规定 FSPT 格式或原 Wasm 排名的开放议题。二者按实际固定源码追踪。9 项 FSPT 和 11 项 FSIM Python 测试通过，独立构造的配对文件验证全角色摘要、同 ID 替换、复现输出及拒绝路径。固定树没有提交生产清单或补丁字节。原 Wasm、真实补丁传输以及全量排名等价仍是独立证据缺口。 [公开搜索需求台账](../issues/risk-public-search.md)
