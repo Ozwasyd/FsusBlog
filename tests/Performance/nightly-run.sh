@@ -33,6 +33,17 @@ case "${FSUSBLOG_TEST_C11_LIST_TAXONOMY:-0}" in
         ;;
     *) printf 'Set FSUSBLOG_TEST_C11_LIST_TAXONOMY to 0 or 1.\n' >&2; exit 2 ;;
 esac
+comment_probe=false
+case "${FSUSBLOG_TEST_C11_COMMENTS:-0}" in
+    0) ;;
+    1)
+        [[ $profile == nightly && $http_probe == true ]] || {
+            printf 'The comment witness requires nightly with --http.\n' >&2; exit 2;
+        }
+        comment_probe=true
+        ;;
+    *) printf 'Set FSUSBLOG_TEST_C11_COMMENTS to 0 or 1.\n' >&2; exit 2 ;;
+esac
 if [[ $profile == nightly ]]; then articles=100000 nightly=true; else articles=20 nightly=false; fi
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
 dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
@@ -53,6 +64,13 @@ fi
 if [[ $wide_browser == true ]]; then
     command -v "${CADDY_BIN:?Set CADDY_BIN for the wide browser witness}" >/dev/null
     [[ ${FSUSBLOG_TEST_CHROME:-} == /* && -x $FSUSBLOG_TEST_CHROME ]]
+fi
+if [[ $comment_probe == true ]]; then
+    pg_lib=$(pg_config --pkglibdir)
+    [[ -r $pg_lib/auto_explain.dylib || -r $pg_lib/auto_explain.so ]] || {
+        printf 'The comment witness requires the selected PostgreSQL auto_explain module.\n' >&2; exit 2;
+    }
+    node tests/Performance/nightly-comment-plans.mjs --self-test
 fi
 
 mkdir -- "$2"
@@ -194,6 +212,7 @@ source_commit=$(git rev-parse HEAD)
 {
     printf 'run_id=%s\nprofile=%s\nhttp_probe=%s\nlist_taxonomy=%s\nstarted=%s\ndue_unix_ms=%s\n' \
         "$run_id" "$profile" "$http_probe" "$list_taxonomy" "$(date -u +%FT%TZ)" "$due"
+    if [[ $comment_probe == true ]]; then printf 'comment_probe=true\n'; fi
     printf '%s\n' "$source_commit"
     "$dotnet" --version
     psql --version
@@ -218,6 +237,19 @@ if [[ $http_probe == true ]]; then
             printf 'List/taxonomy inputs must match the selected source commit.\n' >&2; exit 1
         fi
         shasum -a 256 "${list_inputs[@]}" >> "$evidence/run.txt"
+    fi
+    if [[ $comment_probe == true ]]; then
+        comment_inputs=(tests/Performance/nightly-comment-{oracle.sql,probe.mjs,plans.mjs}
+            src/Contracts/{client,comment-read}.ts src/Server/{Store.cs,Comments/CommentReadStore.cs})
+        for input in "${comment_inputs[@]}"; do
+            git cat-file -e "$source_commit:$input" || {
+                printf 'Comment witness inputs must exist in the selected source commit.\n' >&2; exit 1;
+            }
+        done
+        if ! git diff --quiet "$source_commit" -- "${comment_inputs[@]}"; then
+            printf 'Comment witness inputs must match the selected source commit.\n' >&2; exit 1;
+        fi
+        shasum -a 256 "${comment_inputs[@]}" >> "$evidence/run.txt"
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     migrate_dll="$scratch/release/migrate/FsusBlogV2.Migrate.dll"
@@ -252,6 +284,30 @@ unset PGHOSTADDR PGSERVICE PGSERVICEFILE PGOPTIONS PGPASSWORD PGPASSFILE PGSSLMO
 stage=postgres-start
 export LC_ALL=C PGHOST="$scratch/socket" PGPORT="$pg_port" PGUSER=fsusv2_nightly_qa
 initdb -D "$data_dir" -U "$PGUSER" --auth-local=trust --auth-host=reject --locale=C -E UTF8 > "$evidence/init.log"
+if [[ $comment_probe == true ]]; then
+    mkdir "$evidence/comment-postgres"
+    ln -s -- "$evidence/comment-postgres" "$data_dir/c11-comment-log"
+    cat >> "$data_dir/postgresql.conf" <<'CONF'
+shared_preload_libraries = 'auto_explain'
+logging_collector = on
+log_destination = 'jsonlog'
+log_directory = 'c11-comment-log'
+log_filename = 'comments'
+log_file_mode = 0600
+log_rotation_age = 0
+log_rotation_size = 0
+log_parameter_max_length = 0
+log_parameter_max_length_on_error = 0
+auto_explain.log_analyze = on
+auto_explain.log_buffers = on
+auto_explain.log_timing = off
+auto_explain.log_format = 'json'
+auto_explain.log_parameter_max_length = 128
+auto_explain.sample_rate = 1
+include = 'c11-comments.conf'
+CONF
+    printf "auto_explain.log_min_duration = -1\nlog_statement = 'none'\n" > "$data_dir/c11-comments.conf"
+fi
 pg_ctl -D "$data_dir" -l "$evidence/postgres.log" -w -t 20 \
     -o "-c listen_addresses='' -p $PGPORT -k $PGHOST -c unix_socket_permissions=0700" start
 maintenance=(psql -X -qAt --no-password -v ON_ERROR_STOP=1 -d postgres)
@@ -365,13 +421,20 @@ if [[ $http_probe == true ]]; then
         "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
             > "$evidence/list-taxonomy-oracle.ndjson" 2> "$evidence/list-taxonomy-oracle.log"
     fi
+    if [[ $comment_probe == true ]]; then
+        stage=http-comment-oracle-before
+        "${oracle[@]}" -f tests/Performance/nightly-comment-oracle.sql \
+            > "$evidence/comment-oracle.ndjson" 2> "$evidence/comment-oracle.log"
+    fi
 
     stage=http-start
     mkdir "$scratch/http-cwd" "$evidence/http-responses"
+    http_db=$FSUSBLOG_DB
+    if [[ $comment_probe == true ]]; then http_db="$http_db;Application Name=fsus-c11-http-$run_id"; fi
     (
         cd -- "$scratch/http-cwd"
         exec env -i PATH="$PATH" LC_ALL=C TZ=UTC ASPNETCORE_ENVIRONMENT=Production \
-            FSUSBLOG_DB="$FSUSBLOG_DB" FSUSBLOG_WEB_DIST="$scratch/release/web" \
+            FSUSBLOG_DB="$http_db" FSUSBLOG_WEB_DIST="$scratch/release/web" \
             Logging__LogLevel__Microsoft=Warning Logging__LogLevel__Microsoft.Hosting.Lifetime=Information \
             "$dotnet" "$scratch/release/server/FsusBlog.V2.Server.dll" --urls http://127.0.0.1:0
     ) > "$evidence/http-server.log" 2>&1 &
@@ -403,8 +466,19 @@ if [[ $http_probe == true ]]; then
     if [[ $list_taxonomy == true ]]; then
         phase http-list-taxonomy env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-list-taxonomy-probe.mjs "$evidence"
     fi
+    if [[ $comment_probe == true ]]; then
+        phase http-comment env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-comment-probe.mjs "$evidence"
+    fi
     stage=http-stop
     stop_http_server
+    if [[ $comment_probe == true ]]; then
+        stage=http-comment-oracle-after
+        "${oracle[@]}" -f tests/Performance/nightly-comment-oracle.sql \
+            > "$evidence/comment-oracle-after.ndjson" 2> "$evidence/comment-oracle-after.log"
+        cmp "$evidence"/comment-oracle{,-after}.ndjson
+        shasum -a 256 "$evidence"/comment-oracle{,-after}.ndjson "$evidence/comments/actual.ndjson" \
+            "$evidence"/comments/{sql-*.json,native-*.ndjson,*.aeds} > "$evidence/comment-proof.sha256"
+    fi
     if [[ $list_taxonomy == true ]]; then
         stage=http-list-taxonomy-oracle-after
         "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
