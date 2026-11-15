@@ -87,4 +87,13 @@
 - 375px Chrome 通过本地 FsusUI 正文查找、替换并保存。DOCX 和 EPUB 的即时及异步多图导出核对了图序、包内引用和下载字节。四种既有结构停服升级、旧产物与摘要 26 项保持一致。Debian ARM64 的真实签名 Worker 和 Chrome 验证取消时撤回未消费授权，新确认仍可运行。 [正文查找](../artifacts/goal-original-9ebbbeb/chrome-editor/editor-readiness-result.json) · [多图](../artifacts/goal-original-9ebbbeb/lanes/portable-images-chrome.json) · [插件](../artifacts/goal-original-9ebbbeb/lanes/plugin-consent-chrome.json)
 - 锁定 Release、140 项 Core、141 项协议、C#、C++、Wasm 向量、3,847 项差分和 22 项定向 PostgreSQL 通过，含真实 PDF。Vue 与 Vite 使用原 FsusUI 源码 alias，三个 Wasm 字节一致。同口径代码量 209,192 NCLOC，超过原上限 646 行。封存包仍使用已有正式结果，四轮短档仅一轮通过，900 秒正式长测待执行。 [合并证据](../artifacts/goal-original-9ebbbeb/) · [计量](../artifacts/goal-original-9ebbbeb/code-volume.json)
 
+## 开发提交 `bf80cb6`
+
+- 复用 C# 与 TypeScript 编解码生命周期，独立比对了 71 种记录的 213 个字节样本、142 个 C# 帧绑定和 220 项 TypeScript 导出声明。省去默认同名的 frame 字段后，三个生成文件逐字节一致。七类管理员 Passkey 验证的目录签名与变更前逐字节一致。顶层评论与回复继续使用各自的 PoW 范围与会话规则，共用请求执行。 [协议对照](../artifacts/goal-followup-76bb581/lanes/independent-wire.log) · [目录签名](../artifacts/admin-step-up-schema-76bb581/shape.sha256) · [实库评论](../artifacts/comment-submission-reuse-76bb581/combined-native.log)
+- 真实 Caddy TLS 和 Chrome 验证了管理员切换根评论证明时限、回滚、旧代挑战拒绝及只消费一次的新证明。首次运行遗漏启用站点管理夹具的参数，保留了审计空结果和停止后的维护库，补齐参数后仅复跑同一个场景。 [首次记录](../artifacts/goal-followup-76bb581/root-pow-chrome/) · [通过记录](../artifacts/goal-followup-76bb581/root-pow-chrome-retry/chromium/root-comment-pow-policy.json)
+- 已就绪的文档任务可下载包含源修订、按序图片、格式、提供方及产物 SHA-256 的回执。发出前复核当前授权、原输入和产物字节。PDF 回执另核对原工具摘要。桌面及窄屏 Chrome 均通过，旧提供方 26 项产物或摘要一致。 [导出回执](../artifacts/goal-followup-76bb581/lanes/document-receipt-chrome.json) · [真实 PDF](../artifacts/goal-followup-76bb581/lanes/document-receipt-pdf.log)
+- 旧 PostgreSQL 归档恢复并保全三条 V1 发布日志及签名检查点原件，篡改签名、链、坐标或公钥会被拒绝。独立演练恢复并启用文本、数值、布尔及日期四类审核过的旧属性定义，重复审批得到相同摘要。已恢复的 Kestrel 向当事作者返回原 ID、版本及摘要，拒绝匿名和其他作者。权利证明相应的完整 outbox、旧公开验签、旧审计签名和生产切换待完成。 [透明链](../artifacts/goal-followup-76bb581/anchored/) · [属性恢复](../artifacts/goal-followup-76bb581/property/) · [属性 HTTP](../artifacts/legacy-property-activation-76bb581/kestrel-probe.log)
+- 确认原生 FsusUI 命令面板在输入法组合期间会把 Enter 误当作执行命令。已提交 issue 和公开复现步骤，命令面板接入留在隔离分支。 [FsusUI #1083](https://github.com/Ozwasyd/FsusUI/issues/1083) · [复现说明](https://github.com/Ozwasyd/FsusUI/issues/1083#issuecomment-6900787751)
+- 锁定 Release、140 项 Core、141 项 Node 协议及 C#、C++、Wasm 验证通过。最终定向 PostgreSQL 14 项通过，含真实 PDF、Caddy、属性和签名日志。构建仍使用本地 FsusUI，三份 Wasm 字节一致。同口径代码量为 208,832 NCLOC，超过原上限 286 行。封存候选及容量结果继续沿用，四轮短档仅一轮通过，900 秒正式长测待执行。 [合并证据](../artifacts/goal-followup-76bb581/) · [计量](../artifacts/goal-followup-76bb581/code-volume-bf80cb6.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
