@@ -10,11 +10,16 @@ internal static partial class Migration
     private sealed record LegacyCheckpointManifest(int ManifestVersion, string CheckpointKind, string ScopeKey,
         string RootHash, long FromSeq, long ToSeq, int EntryCount, long LogHeadSeq, string LogHeadHash, DateTimeOffset CreatedAtUtc);
 
-    private static Dictionary<long, LegacyArchivedTransparency> VerifyLegacyTransparency(LegacyPublishProofSet set,
+    private static Dictionary<(string Kind, long Revision), LegacyArchivedTransparency> VerifyLegacyTransparency(LegacyPublishProofSet set,
         Dictionary<string, LegacyPublishProofKey> keys)
     {
-        var records = set.Rows.Select(ParseLegacyTransparencyRecord).ToDictionary(row => LegacyJsonInt(row, "id"));
-        var entries = new Dictionary<long, LegacyArchivedTransparency>();
+        var records = set.Rows.Select(ParseLegacyTransparencyRecord).ToDictionary(row => (LegacyPublishProofKind, LegacyJsonInt(row, "id")));
+        if (set.RightsProof is { } rights)
+        {
+            var record = ParseLegacyTransparencyRecord(rights);
+            records.Add((LegacyRightsProofKind, LegacyJsonInt(record, "id")), record);
+        }
+        var entries = new Dictionary<(string Kind, long Revision), LegacyArchivedTransparency>();
         var transparency = set.Transparency;
         string previous = new('0', 64);
         var leaves = new List<string>();
@@ -26,7 +31,8 @@ internal static partial class Migration
             var id = LegacyJsonInt(row, "id");
             var proofId = LegacyJsonInt(row, "proof_id");
             var revisionId = LegacyJsonInt(row, "article_revision_id");
-            var proof = records[proofId];
+            var kind = RequiredProofText(row, "entry_type");
+            var proof = records[(kind, proofId)];
             var keyId = RequiredProofText(row, "signing_key_id");
             var signature = RequiredProofText(row, "signature");
             var hash = RequiredProofText(row, "entry_hash");
@@ -38,34 +44,36 @@ internal static partial class Migration
                 revisionNo:i:{LegacyJsonInt(row, "revision_no")}
 
                 """);
-            if (id <= 0 || seq != leaves.Count + 1 || RequiredProofText(row, "entry_type") != LegacyPublishProofKind ||
+            if (id <= 0 || seq != leaves.Count + 1 ||
+                kind == LegacyRightsProofKind && !entries.ContainsKey((LegacyPublishProofKind, revisionId)) ||
                 proof.GetProperty("transparency_log_entry_id").GetInt64() != id || RequiredProofText(proof, "transparency_log_entry_hash") != hash ||
                 LegacyJsonInt(row, "article_id") != LegacyJsonInt(proof, "article_id") || revisionId != LegacyJsonInt(proof, "article_revision_id") ||
                 LegacyJsonInt(row, "revision_no") != LegacyJsonInt(proof, "revision_no") || keyId != RequiredProofText(proof, "signing_key_id") ||
-                signature != RequiredProofText(proof, "signature") || payloadHash != LegacyPublishLogPayloadHash(proof) ||
+                signature != RequiredProofText(proof, "signature") || payloadHash != (kind == LegacyPublishProofKind ? LegacyPublishLogPayloadHash(proof) : LegacyRightsLogPayloadHash(proof)) ||
                 previous != RequiredProofText(row, "prev_entry_hash"))
                 throw new FormatException();
 
             var entry = FormattableString.Invariant($"""
                 fsusblog.integrity.transparency-log-entry.v1
                 seq:i:{seq}
-                {LegacyLogString("entryType", LegacyPublishProofKind)}{coords}entryPayloadHash:h:{payloadHash}
+                {LegacyLogString("entryType", kind)}{coords}entryPayloadHash:h:{payloadHash}
                 prevEntryHash:h:{previous}
                 createdAt:t:{LegacyLogTime(row, "created_at"):yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
                 {LegacyLogString("signingKeyId", keyId)}{LegacyLogString("signature", signature)}
                 """);
             if (hash != Digest(entry) ||
-                !entries.TryAdd(revisionId, new(Encoding.UTF8.GetBytes(raw), checkpoint!)))
+                !entries.TryAdd((kind, revisionId), new(Encoding.UTF8.GetBytes(raw), checkpoint!)))
                 throw new FormatException();
 
             leaves.Add(Digest(FormattableString.Invariant($"fsusblog.integrity.merkle-leaf.v1\nseq:i:{seq}\nlogEntryHash:h:{hash}\n{coords}")));
             previous = hash;
         }
 
-        foreach (var proof in records.Values)
+        foreach (var ((kind, _), proof) in records)
         {
-            bool linked = entries.ContainsKey(LegacyJsonInt(proof, "article_revision_id"));
-            if ((proof.GetProperty("transparency_log_entry_id").ValueKind != JsonValueKind.Null) != linked ||
+            bool linked = entries.ContainsKey((kind, LegacyJsonInt(proof, "article_revision_id")));
+            if (kind == LegacyRightsProofKind && !linked ||
+                (proof.GetProperty("transparency_log_entry_id").ValueKind != JsonValueKind.Null) != linked ||
                 (proof.GetProperty("transparency_log_entry_hash").ValueKind != JsonValueKind.Null) != linked)
                 throw new FormatException();
         }

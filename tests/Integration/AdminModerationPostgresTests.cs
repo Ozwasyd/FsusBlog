@@ -458,6 +458,11 @@ public sealed partial class AdminModerationPostgresTests
         Assert.Single(attempts, result => !result);
         Assert.Equal((short)2, await Scalar("select moderation_status from public.comment where article_id=1 and id=2"));
         Assert.Equal((short)2, await Scalar("select next_status from public.comment_appeal_event where appeal_id=$1 and kind=2", secondAppeal));
+        await Execute(db, """
+            update public.comment_appeal_event e set occurred_at=m.happened_at
+            from public.comment_appeal a join public.admin_comment_moderation m on m.id=a.adverse_id
+            where e.appeal_id=a.id and a.id=$1
+            """, ct, secondAppeal);
         await CheckTimeline(1, 1, 3);
         await CheckTimeline(2, 2, 2);
 

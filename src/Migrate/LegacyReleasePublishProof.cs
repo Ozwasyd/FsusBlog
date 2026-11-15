@@ -16,7 +16,7 @@ internal static partial class Migration
     private sealed record LegacyPublishProofKey(string KeyId, int Version, string Algorithm, string PublicKey,
         DateTimeOffset NotBeforeUtc, DateTimeOffset? NotAfterUtc, DateTimeOffset? RevokedAtUtc, DateTimeOffset? CompromisedAtUtc);
 
-    private static async Task<string> ReadLegacyReleasePublishProofAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+    private static async Task<(string Publish, string Rights)> ReadLegacyReleasePublishProofAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         ImportPlan plan, bool rollback, CancellationToken ct)
     {
         try
@@ -24,7 +24,7 @@ internal static partial class Migration
             var external = await ReadLegacyProofFileAsync(LegacyProofInput, ct);
             var keyBytes = await ReadLegacyProofFileAsync(LegacyProofKeyInput, ct);
             var observed = plan.PublishProofs;
-            if (external is null && keyBytes is null && observed is null) return "{}";
+            if (external is null && keyBytes is null && observed is null) return ("{}", "{}");
             if (!rollback || keyBytes is null || (observed is null) == (external is null) ||
                 observed is not null && Convert.ToHexStringLower(SHA256.HashData(keyBytes)) != observed.KeysSha256)
                 throw new FormatException();
@@ -46,10 +46,23 @@ internal static partial class Migration
                 query.Parameters.AddWithValue(proof.Revision);
                 query.Parameters.AddWithValue("sha256:" + proof.Hash);
                 if (await query.ExecuteScalarAsync(ct) is not long publicationId || !archived.TryAdd(publicationId,
-                    new LegacyArchivedProof(rowBytes, keyBytes, proof.Payload, entries?.GetValueOrDefault(proof.RevisionId))))
+                    new LegacyArchivedProof(rowBytes, keyBytes, proof.Payload, entries?.GetValueOrDefault((LegacyPublishProofKind, proof.RevisionId)))))
                     throw new FormatException();
             }
-            return JsonSerializer.Serialize(archived, OwnerMapJson);
+            string rights = "{}";
+            if (observed?.RightsProof is { } rawRights)
+            {
+                var proof = ParseLegacyTransparencyRecord(rawRights);
+                var parent = LegacyRightsProofParent(observed.Rows, proof);
+                var signed = VerifyLegacyRightsProof(proof, parent, keys);
+                var transparency = entries![(LegacyRightsProofKind, LegacyJsonInt(proof, "article_revision_id"))];
+                var publicationId = await BindLegacyReleaseRightsProofAsync(db, tx, proof, parent, ct);
+                rights = JsonSerializer.Serialize(new Dictionary<long, LegacyArchivedProof>
+                {
+                    [publicationId] = new(Encoding.UTF8.GetBytes(rawRights), keyBytes, signed, transparency)
+                }, OwnerMapJson);
+            }
+            return (JsonSerializer.Serialize(archived, OwnerMapJson), rights);
         }
         catch (Exception error) when (IsLegacyPublishProofError(error))
         {

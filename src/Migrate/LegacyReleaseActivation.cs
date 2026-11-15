@@ -25,9 +25,9 @@ internal static partial class Migration
             throw new InvalidOperationException("The approved runtime site must differ from the source quarantine site.");
         var rollback = plan.Version == ImportPlanWithRollbackOutboxVersion;
         var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, verifiedRollbackEvents, ct);
-        var publishProof = await ReadLegacyReleasePublishProofAsync(source, sourceTx, plan, rollback, ct);
+        var proofs = await ReadLegacyReleasePublishProofAsync(source, sourceTx, plan, rollback, ct);
         var origin = rollback ? await ReadLegacyReleaseOriginAsync(source, sourceTx, planSha, projectionSha,
-            plan.SourceAdminIdentitySha256, plan.SiteAuthor, ct, publishProof) : null;
+            plan.SourceAdminIdentitySha256, plan.SiteAuthor, ct, proofs.Publish, proofs.Rights) : null;
         string? approved = null;
         if (input.Approval is [var path, var digest])
         {
@@ -166,15 +166,17 @@ internal static partial class Migration
             _ => false
         };
         var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;
+        var rightsProof = plan.PublishProofs?.RightsProof is null ? 0 : 1;
         if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
             !validHistory || plan.Media is not null || articles is < 1 or > 32 || counts["shadow_article_rights_policy"] != articles ||
             counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key) &&
                 !(rollback && item.Key == "shadow_article_responsibility_snapshot")) ||
             new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_snapshot" }
                 .Any(table => !counts.TryGetValue(table, out var rows) || rows != publications) ||
-            !counts.TryGetValue(LegacyOutboxParent.Table.Name, out var events) || events != publications + historical ||
+            !counts.TryGetValue(LegacyOutboxParent.Table.Name, out var events) || events != publications + historical + rightsProof ||
             !counts.TryGetValue(LegacyOutboxEdge.Table.Name, out var edges) ||
-            edges != publications * LegacyRequiredOutboxEdges.Length + historical * LegacyKnownOutboxEdges.Count)
+            edges != publications * LegacyRequiredOutboxEdges.Length + historical * LegacyKnownOutboxEdges.Count +
+                rightsProof * (LegacyKnownOutboxEdges.Count + 1))
             throw new InvalidOperationException("Release activation requires a complete verified immediate publication or rollback batch and its retained work.");
         await using var command = new NpgsqlCommand($"""
             SELECT a.owner_id::uuid

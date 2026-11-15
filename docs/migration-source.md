@@ -203,9 +203,15 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 源计划未从表保全任何证明时，仍可按已审核的全局修订 ID 从同一份冻结备份导出一条 `row_to_json` 原记录。为 `release-plan` 和 `release-activate` 提供它的绝对路径 `FSUSBLOG_LEGACY_V1_PROOF` 和独立审核的 `_SHA256`。公钥及原记录文件权限均须为 `0400` 或 `0600`。
 
-旧站透明日志可随发布证明一同迁移。源 PostgreSQL 需包含从序号 1 开始的完整发布证明链及一条覆盖整条链的 V1 `release` Merkle 检查点，当前最多三条日志，不含权利证明、每日检查点或其他日志类型。将独立审核的检查点原行 `row_to_json` UTF-8 字节的小写 SHA-256（不含客户端输出末尾的换行）设置为 `FSUSBLOG_LEGACY_V1_CHECKPOINT_SHA256`，用于源检查和暂存。检查点签名公钥也须在审核过的公钥文件中。工具重算旧版链、发布证明关联、Merkle 根和检查点签名，并将证据编入迁移审批。
+旧站透明日志可随证明一同迁移。源 PostgreSQL 需包含从序号 1 开始的完整链及覆盖整条链的 V1 `release` Merkle 检查点。当前支持最多三条发布证明日志，符合下段条件的权利证明可追加一条。每日检查点和其他日志类型会阻止启用。将独立审核的检查点原行 `row_to_json` UTF-8 字节的小写 SHA-256（不含客户端输出末尾的换行）设置为 `FSUSBLOG_LEGACY_V1_CHECKPOINT_SHA256`，用于源检查和暂存。工具重算证明关联、链、Merkle 根和检查点签名，并将证据编入迁移审批。
 
-未签名、签名或绑定无效、超出已审核范围的记录会阻止迁移。运行副本通过 `legacy_release_origin.evidence.publishProof` 保留原证明行、公钥文件和原签名载荷，关联日志和检查点的原始字节保存在其 `transparency` 字段。旧站权利证明、检查点范围扩展和旧证明的公开验证待完成。
+对于已验证的第三次回滚发布，工具可保全一条处于 READY 的 v1 `article_rights_proof`。核验使用原文章首次发布时间，检查原权利快照、策略与正文摘要、已入链的父发布证明，并要求同一发布坐标有一条完整的终态 `rights-proof-updated` 事件。该事件保留七条必需投递和通知，原回滚另保留完整的九条投递。审批绑定原载荷、公开更新时间、投递键及关联顺序，并将原证据写入 `legacy_release_origin.evidence.rightsProof` 和 `rightsProjection`。待处理、历史修订的额外权利证明和更长日志仍需支持。
+
+未签名、签名或绑定无效、超出已审核范围的记录会阻止迁移。运行副本通过 `legacy_release_origin.evidence.publishProof` 保留原证明行、公钥文件和原签名载荷，关联日志和检查点的原始字节保存在其 `transparency` 字段。
+
+已归档的 V1 发布证明可提供独立的历史验证响应。启用时，以独立审核的公钥文件 SHA-256 和检查点原行 SHA-256 配置 `IntegrityProof:HistoricalV1:KeysSha256` 与 `IntegrityProof:HistoricalV1:CheckpointSha256`。这两项分别对应迁移时的公钥和检查点固定值。发现旧密钥受损后，可通过 `IntegrityProof:HistoricalV1:BlockedKeyIds:<keyId>=true` 拒绝由其签署的证明或检查点。该配置不需要任何私钥。
+
+访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应的 `signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名，再按 `transparency.chain` 核对条目序列和检查点根。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
 
 ### 离线验看附件来源
 

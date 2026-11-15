@@ -18,13 +18,14 @@ internal static partial class Migration
         """, ["idempotency_key"]);
 
     private sealed record LegacyPublishProofSet(string[] Rows, string KeysSha256,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyTransparencySet? Transparency = null)
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyTransparencySet? Transparency = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightsProof = null)
     {
         internal LegacyProjection Project() => new(LegacyPublishProofTable, Rows.Length, DigestMediaDocument(Rows));
     }
 
     private static async Task<LegacyPublishProofSet?> ReadLegacyPublishProofSourceAsync(LegacySource source,
-        DbTransaction transaction, LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, CancellationToken ct)
+        DbTransaction transaction, LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, DateTime? rightsProofEventAt, CancellationToken ct)
     {
         if (transaction is not NpgsqlTransaction tx ||
             catalog.FirstOrDefault(table => table.Name == LegacyPublishProofTable) is not { Kind: "r" } relation ||
@@ -62,9 +63,24 @@ internal static partial class Migration
                 rows.Add(row);
             } while (await reader.ReadAsync(ct));
             await reader.DisposeAsync();
-            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, ct);
-            var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency);
-            VerifyLegacyTransparency(set, trusted);
+            var rightsProof = rightsProofEventAt.HasValue
+                ? await ReadLegacyRightsProofSourceAsync(source, tx, catalog, tables,
+                    rows.Single(row => LegacyJsonInt(ParseLegacyTransparencyRecord(row), "revision_no") == 3), ct)
+                : null;
+            if (rightsProof is not null)
+            {
+                var record = ParseLegacyTransparencyRecord(rightsProof);
+                VerifyLegacyRightsProof(record, LegacyRightsProofParent(rows, record), trusted);
+            }
+            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, rightsProofEventAt.HasValue, ct);
+            var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency, rightsProof);
+            var entries = VerifyLegacyTransparency(set, trusted);
+            if (rightsProof is not null)
+            {
+                var proof = ParseLegacyTransparencyRecord(rightsProof);
+                var entry = entries[(LegacyRightsProofKind, LegacyJsonInt(proof, "article_revision_id"))];
+                VerifyLegacyRightsLogClock(entry, rightsProofEventAt!.Value);
+            }
             return set;
         }
         catch (Exception error) when (IsLegacyPublishProofError(error))
@@ -77,10 +93,14 @@ internal static partial class Migration
     {
         var projection = plan.SourceProjections?.Where(row => row.Table == LegacyPublishProofTable).ToArray() ?? [];
         var logs = plan.SourceProjections?.Where(row => row.Table is LegacyTransparencyTable or LegacyCheckpointTable).ToArray() ?? [];
-        if (plan.PublishProofs is null && projection.Length == 0 && logs.Length == 0) return;
+        var rights = plan.SourceProjections?.Where(row => row.Table == LegacyRightsProofTable).ToArray() ?? [];
+        if (plan.PublishProofs is null && projection.Length == 0 && logs.Length == 0 && rights.Length == 0) return;
         if (plan.PublishProofs is not { Rows.Length: >= 1 and <= 3 } proof || !IsSha256(proof.KeysSha256) ||
             plan.Provider != "postgres" || plan.Version != ImportPlanWithRollbackOutboxVersion || plan.Media is not null ||
-            proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || !ValidLegacyTransparencySet(proof.Transparency, logs) ||
+            proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || !ValidLegacyTransparencySet(proof.Transparency, logs, proof.RightsProof is not null) ||
+            (proof.RightsProof is { } rawRights
+                ? !ValidLegacyTransparencyRow(rawRights) || rights is not [var right] || right != LegacyRightsProofProjection(rawRights)
+                : rights.Length != 0) ||
             projection is not [var measurement] || measurement != proof.Project())
             throw new InvalidOperationException("The legacy import plan contains an invalid publish proof record set.");
     }

@@ -63,7 +63,9 @@ internal sealed partial class AdminPasskeyStore
                 select t.article_id,t.moderation_status,t.moderation_version,t.deleted,
                     e.event_id,e.previous,e.next,e.event_type,e.actor,e.reason,e.happened_at,e.source,e.version,e.principal,e.role,e.appeal
                 from target t left join events e on true
-                order by e.happened_at,e.version nulls last,e.event_type,e.source,e.event_id limit {{CommentTimelineEvents + 1}}
+                order by e.happened_at,e.version nulls last,
+                    case e.event_type when 'appeal' then 1 when 'appeal_decision' then 2 else 0 end,
+                    e.source,e.event_id limit {{CommentTimelineEvents + 1}}
                 """, article is int coordinates ? [id, coordinates] : [id]);
             await using var rows = await select.ExecuteReaderAsync(ct);
             if (!await rows.ReadAsync(ct))

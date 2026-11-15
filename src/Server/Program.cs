@@ -221,7 +221,8 @@ await publications.Refresh(CancellationToken.None);
 app.Use(async (ctx, next) =>
 {
     if ((publicationProofs is not null && PublicationProofs.IsRoute(ctx.Request.Path)) ||
-        ctx.Request.Path.StartsWithSegments(PublicationCheckpointArchive.Prefix)) NoStore(ctx);
+        ctx.Request.Path.StartsWithSegments(PublicationCheckpointArchive.Prefix) ||
+        LegacyReleaseResponsibility.IsHistoricalRoute(ctx.Request.Path)) NoStore(ctx);
     ctx.Response.Headers.XContentTypeOptions = "nosniff";
     ctx.Response.Headers["Referrer-Policy"] = "same-origin";
     var imageRequest = publicMediaEnabled && ctx.Request.Path.StartsWithSegments(PublishedMediaEndpoints.PathPrefix);

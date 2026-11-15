@@ -34,6 +34,7 @@ internal static partial class Migration
             projections.AddRange(SavedViews.Relations.Select(relation => relation.Projection));
             if (SiteAuthor is { } author) projections.Add(author.Projection);
             if (PublishProofs is { } proofs) projections.Add(proofs.Project());
+            if (PublishProofs?.RightsProof is { } rightsProof) projections.Add(LegacyRightsProofProjection(rightsProof));
             if (PublishProofs?.Transparency is { } transparency) projections.AddRange(transparency.Projections());
             return projections.ToArray();
         }
@@ -256,7 +257,9 @@ internal static partial class Migration
         var siteAuthor = outbox.RollbackCount > 0 && !verifiedMedia
             ? await ReadLegacySiteAuthorAsync(source, transaction, catalog, token) : null;
         var proofs = outbox.RollbackCount > 0 && !verifiedMedia
-            ? await ReadLegacyPublishProofSourceAsync(source, transaction, catalog, tables, token) : null;
+            ? await ReadLegacyPublishProofSourceAsync(source, transaction, catalog, tables, outbox.RightsProofEventAt, token) : null;
+        if (outbox.RightsProofEventAt.HasValue && proofs?.RightsProof is null)
+            throw new InvalidOperationException("A legacy rights proof projection requires its verified source proof and signed checkpoint.");
         var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox,
             taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs, token);
         return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor, proofs);
@@ -278,6 +281,7 @@ internal static partial class Migration
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
                 taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name) ||
                 relation == siteAuthor?.Relation || (verifiedPublishProofs is not null && relation.Name == LegacyPublishProofTable) ||
+                (verifiedPublishProofs?.RightsProof is not null && name == LegacyRightsProofTable) ||
                 (verifiedPublishProofs?.Transparency is not null && relation.Name is LegacyTransparencyTable or LegacyCheckpointTable) ||
                 (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)

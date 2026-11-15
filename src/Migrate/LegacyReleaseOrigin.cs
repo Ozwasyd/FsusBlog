@@ -7,7 +7,7 @@ internal static partial class Migration
 
     private static async Task<LegacyReleaseOrigin> ReadLegacyReleaseOriginAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         string planSha, string projectionSha, string actorsSha, string? configuredAuthor, CancellationToken ct,
-        string publishProof)
+        string publishProof, string rightsProof)
     {
         var siteAuthor = ResolveLegacySiteAuthor(configuredAuthor);
         var disclosure = await ReadLegacyResponsibilityDisclosuresAsync(db, tx, siteAuthor, ct);
@@ -26,6 +26,14 @@ internal static partial class Migration
                         || CASE WHEN $7::jsonb ? p.source_publication_id::text
                             THEN jsonb_build_object('publishProof',$7::jsonb -> p.source_publication_id::text)
                             ELSE '{}'::jsonb END
+                        || CASE WHEN $8::jsonb ? p.source_publication_id::text
+                            THEN jsonb_build_object('rightsProof',$8::jsonb -> p.source_publication_id::text,
+                                'rightsProjection',(SELECT jsonb_build_object('event',to_jsonb(edit),
+                                    'edges',(SELECT jsonb_agg(to_jsonb(edge) ORDER BY edge.id)
+                                        FROM {{ImportSchema}}.{{LegacyOutboxEdge.Table.Name}} edge WHERE edge.outbox_event_id=edit.id))
+                                    FROM {{ImportSchema}}.{{LegacyOutboxParent.Table.Name}} edit
+                                    WHERE edit.article_publication_id=p.source_publication_id AND edit.event_type='{{LegacyRightsProofEvent}}'))
+                            ELSE '{}'::jsonb END
                         || CASE WHEN history.records IS NULL THEN '{}'::jsonb
                             ELSE jsonb_build_object('responsibilityHistory',history.records) END AS evidence,
                     jsonb_strip_nulls(jsonb_build_object('schemaVersion',1,'articleId',p.article_id,'revisionNo',p.revision,
@@ -42,6 +50,7 @@ internal static partial class Migration
                 JOIN {{ImportSchema}}.shadow_revision r ON r.source_revision_id=p.source_revision_id AND r.article_id=p.article_id
                 JOIN {{ImportSchema}}.shadow_article_rights_snapshot rights ON rights.id=p.source_rights_snapshot_id
                 JOIN {{ImportSchema}}.{{LegacyOutboxParent.Table.Name}} event ON event.article_publication_id=p.source_publication_id
+                    AND event.event_type=CASE WHEN p.publication_number=1 THEN 'created' ELSE 'updated' END
                 LEFT JOIN LATERAL (
                     SELECT h.* FROM {{ImportSchema}}.shadow_article_responsibility_snapshot h
                     WHERE h.article_id=p.article_id AND h.article_revision_id=p.source_revision_id
@@ -77,6 +86,7 @@ internal static partial class Migration
             NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text, Value = (object?)configuredAuthor ?? DBNull.Value
         });
         query.Parameters.AddWithValue(publishProof);
+        query.Parameters.AddWithValue(rightsProof);
         await using var reader = await query.ExecuteReaderAsync(ct);
         var rows = new List<string>(3);
         var measurement = await MeasureBackupRowsAsync("legacy_release_origin", "r", reader, ct, rows);

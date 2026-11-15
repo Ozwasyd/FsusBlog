@@ -3,6 +3,10 @@
 \else
 \set expected_history 0
 \endif
+\if :{?expected_rights_projection}
+\else
+\set expected_rights_projection 0
+\endif
 \if :{?media_profile}
 \else
 \set media_profile false
@@ -126,8 +130,8 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
 SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=:media_count
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=:media_references AS expected_seal \gset
 \else
-SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count+(:mixed_profile)::int+:expected_history
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*(:publication_count+(:mixed_profile)::int)+9*:expected_history AS expected_seal \gset
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count+(:mixed_profile)::int+:expected_history+:expected_rights_projection
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*(:publication_count+(:mixed_profile)::int)+9*:expected_history+10*:expected_rights_projection AS expected_seal \gset
 \endif
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)

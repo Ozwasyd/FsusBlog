@@ -18,14 +18,14 @@ internal static partial class Migration
     private static bool VerifyLegacyOutboxEnvelope(string json, int articleId, long revisionId, long rightsId,
         long? responsibilityId, int? responsibilityVersion, long? releaseId, DateTime createdAt, int expectedCategory,
         int[] expectedTags, out bool exactDatabaseClock, int? beforeCategory = null, int[]? beforeTags = null,
-        int revisionNumber = 0, int publicationNumber = 0, LegacyHistoricalResponsibility? history = null)
+        int revisionNumber = 0, int publicationNumber = 0, LegacyHistoricalResponsibility? history = null, DateTime? rightsPublicUpdatedAt = null)
     {
         exactDatabaseClock = false;
         bool updated = beforeCategory.HasValue;
         int defaultOrdinal = updated ? 2 : 1;
         int expectedRevision = revisionNumber == 0 ? defaultOrdinal : revisionNumber;
         int? expectedPublication = history is not null ? null : publicationNumber == 0 ? defaultOrdinal : publicationNumber;
-        if (history is null && (updated ? expectedRevision < 2 || expectedPublication < 2 : expectedRevision != 1 || expectedPublication != 1))
+        if (history is null && !rightsPublicUpdatedAt.HasValue && (updated ? expectedRevision < 2 || expectedPublication < 2 : expectedRevision != 1 || expectedPublication != 1))
             return false;
 
         if (json is not { Length: > 0 and <= LegacyOutboxMaxPayloadBytes } || articleId <= 0 || revisionId <= 0 || rightsId <= 0 ||
@@ -45,7 +45,8 @@ internal static partial class Migration
                 AllowDuplicateProperties = false
             });
             var root = document.RootElement;
-            string eventType = history is not null ? LegacyResponsibilityEventType : updated ? "updated" : "created";
+            string eventType = rightsPublicUpdatedAt.HasValue ? LegacyRightsProofEvent :
+                history is not null ? LegacyResponsibilityEventType : updated ? "updated" : "created";
             if (!HasExactLegacyOutboxFields(root, LegacyOutboxEnvelopeFields) ||
                 !LegacyOutboxIntegerMatches(root.GetProperty("schemaVersion"), 2) ||
                 !LegacyOutboxIntegerMatches(root.GetProperty("articleId"), articleId) ||
@@ -59,15 +60,15 @@ internal static partial class Migration
                 !LegacyOutboxIntegerMatches(root.GetProperty("releaseNo"), expectedPublication))
                 return false;
 
-            // Both JSON times come from the same publication instant. PostgreSQL retains microseconds.
+            // PostgreSQL retains microseconds from the v1 event clock.
             if (!TryReadLegacyOutboxUtc(root.GetProperty("occurredAt"), out var occurredAt) ||
                 !TryReadLegacyOutboxUtc(root.GetProperty("publicUpdatedAt"), out var publicUpdatedAt) ||
-                publicUpdatedAt != (history?.PublicUpdatedAt ?? occurredAt) || occurredAt.Ticks - occurredAt.Ticks % 10 != createdAt.Ticks)
+                publicUpdatedAt != (rightsPublicUpdatedAt ?? history?.PublicUpdatedAt ?? occurredAt) || occurredAt.Ticks - occurredAt.Ticks % 10 != createdAt.Ticks)
                 return false;
 
             var before = root.GetProperty("before");
             var visibility = history is null ? "published" : "historical";
-            bool beforeMatches = history is not null ? LegacyOutboxScopeMatches(before, expectedCategory, expectedTags, visibility) :
+            bool beforeMatches = history is not null || rightsPublicUpdatedAt.HasValue ? LegacyOutboxScopeMatches(before, expectedCategory, expectedTags, visibility) :
                 beforeCategory is { } previous ? LegacyOutboxScopeMatches(before, previous, beforeTags!, visibility) :
                 before.ValueKind == JsonValueKind.Null;
             if (!beforeMatches || !LegacyOutboxScopeMatches(root.GetProperty("after"), expectedCategory, expectedTags, visibility))
