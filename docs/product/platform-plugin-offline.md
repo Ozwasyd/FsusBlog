@@ -66,8 +66,10 @@ printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin rend
 
 在相同的 Linux ARM64 部署中，可额外设置 `FSUSBLOG_AUTHOR_PLUGIN_PREVIEW_ID` 为批准包 ID，并配置站点的 `FSUSBLOG_PUBLIC_ORIGIN`。站点使用上面的 `FSUSBLOG_PLATFORM_PLUGIN_ROOT`、Linux 开关及安装摘要。运行站点的非 root 账号必须拥有私有批准目录和可用的 systemd 用户会话，安装目录仍由 root 持有。批准目录须独立于站点 Web 及私有媒体目录。该配置缺省时站点没有预览端点，也不会宣告预览功能。
 
-同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。服务只向工作进程发送修订中已保存的原始 Markdown，输入与输出各限 16 KiB UTF-8。全站最多运行一个预览，繁忙时返回 429；工作进程受原有 cgroup、命名空间、执行期限和回收约束。账号、会话和修订在工作进程退出后复核，批准锁保持到结果送出。批准文件撤回、包失效、工作进程不可用或站点停止时预览失败。
+同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。`consent=1` 只读取签名和修订坐标，返回 204 与已签名插件的标识、版本、包摘要和一次性授权。作者在 Inspector 看到这些信息并确认后，客户端用 `X-Fsus-Plugin-Consent` 发起实际预览。授权 90 秒有效，绑定站点进程、作者、账号代次、会话、文章、修订和精确运维批准。重复取得授权会替换同会话中的旧授权。
+
+服务只向工作进程发送本次已确认修订的原始 Markdown，输入与输出各限 16 KiB UTF-8。全站最多运行一个预览，繁忙时返回 429。工作进程继续受原有 cgroup、命名空间、执行期限和回收约束。账号、会话和修订在工作进程退出后复核，批准锁保持到结果送出。批准文件撤回、变化、包失效、工作进程不可用或站点停止时预览失败。
 
 成功响应是 `text/plain; charset=utf-8`，禁止缓存。Inspector 使用本地 FsusUI Markdown Wasm，按允许的语义元素展示结果。链接和图片以惰性文字展示，预览不会请求嵌入资源。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
 
-原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、执行期间撤回批准、越权和旧修订。375px Chrome 使用受控响应验证 Inspector 的取消、显示和资源加载边界。浏览器与 Debian 工作进程的同环境联调、发布 Hook、通用用户授权和 IO broker 仍待验收。 [原生服务](../../artifacts/online-plugin-preview-749b9ba/debian/test.log) · [浏览器](../../artifacts/online-plugin-preview-749b9ba/preview-browser-retry.log)
+原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、批准失效、越权和旧修订。375px Chrome 的早期受控响应检查覆盖 Inspector 的取消、显示和资源加载边界。发布 Hook、其他用户授权类型和通用 IO broker 仍待验收。 [历史原生服务](../../artifacts/online-plugin-preview-749b9ba/debian/test.log) · [早期浏览器检查](../../artifacts/online-plugin-preview-749b9ba/preview-browser-retry.log)

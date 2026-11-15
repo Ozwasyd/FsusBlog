@@ -26,6 +26,9 @@ public sealed class PureRenderPlugin : IDisposable
 
     public string JavaScript { get; }
     public int TimeoutMs { get; }
+    internal string Version { get; }
+    internal string ArchiveSha256 => _trust.Source.ArchiveSha256;
+    internal string ApprovalDigest => _registryDigest;
 
     public static PureRenderPlugin Open(DirectoryInfo root, string id, TimeProvider clock, CancellationToken ct = default)
     {
@@ -60,7 +63,8 @@ public sealed class PureRenderPlugin : IDisposable
                 !schema.RootElement.TryGetProperty("additionalProperties", out var additional) || additional.ValueKind != JsonValueKind.False)
                 throw Reject("plugin-config-subset");
             trust.RequireCurrent(clock, ct);
-            return new(directory, Utf8.GetString(entries.JavaScript), manifest.Hooks[0].TimeoutMs, clock, start, trust, Digest(json), lease);
+            return new(directory, Utf8.GetString(entries.JavaScript), manifest.Version, manifest.Hooks[0].TimeoutMs,
+                clock, start, trust, Digest(json), lease);
         }
         catch (Exception error)
         {
@@ -70,11 +74,12 @@ public sealed class PureRenderPlugin : IDisposable
         }
     }
 
-    private PureRenderPlugin(string root, string script, int timeout, TimeProvider clock, long started,
+    private PureRenderPlugin(string root, string script, string version, int timeout, TimeProvider clock, long started,
         SignedArchiveTrust trust, string registryDigest, FileStream lease)
     {
         _root = root;
         JavaScript = script;
+        Version = version;
         TimeoutMs = timeout;
         _clock = clock;
         _started = started;

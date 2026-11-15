@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -15,6 +16,11 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
     internal const string Marker = "<meta name=\"fsus-author-plugin-preview\" content=\"1\">";
     internal const string RatePolicy = "author-plugin-preview";
     private const string Route = "/api/v2/authoring/draft/{id:int}/plugin-preview.md";
+    internal const string ConsentHeader = "X-Fsus-Plugin-Consent";
+    private readonly Dictionary<string, Consent> _consents = new(StringComparer.Ordinal);
+
+    private sealed record Scope(Guid Author, long Generation, string Session, int Article, long Revision);
+    private sealed record Consent(Scope Scope, string Token, string Approval, long Issued);
 
     internal static PluginPreviewEndpoints? Read(IConfiguration configuration, string? origin, string dist, string? mediaRoot)
     {
@@ -55,27 +61,45 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false ||
                 id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
                 throw new BusinessException(Rejection.Invalid, "An empty request and a valid current revision are required.");
+            var review = ctx.Request.Query.ContainsKey("consent");
+            if (review && (query(ctx, "consent", 1) != "1" || ctx.Request.Headers.ContainsKey(ConsentHeader)))
+                throw new BusinessException(Rejection.Invalid, "Invalid plugin review request.");
+            var selected = ctx.Request.Headers[ConsentHeader] is { Count: 1 } values ? values[0] : null;
 
             var token = ctx.Request.Cookies[cookie];
             var session = SiteSessions.Requested(ctx);
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped, app.Lifetime.ApplicationStopping);
             lifetime.CancelAfter(TimeSpan.FromSeconds(12));
+            string? expectedApproval = null;
             try
             {
-                var source = await Read(lifetime.Token);
+                if (review)
+                {
+                    var (scope, _) = await Read(lifetime.Token, includeBody: false);
+                    using var approval = PureRenderPlugin.Open(registry, pluginId, TimeProvider.System, lifetime.Token);
+                    approval.VerifyCompletion(lifetime.Token);
+                    ctx.Response.Headers[ConsentHeader] = Offer(scope, approval.ApprovalDigest);
+                    ctx.Response.Headers["X-Fsus-Plugin-Id"] = pluginId;
+                    ctx.Response.Headers["X-Fsus-Plugin-Version"] = approval.Version;
+                    ctx.Response.Headers["X-Fsus-Plugin-Digest"] = approval.ArchiveSha256;
+                    ctx.Response.StatusCode = StatusCodes.Status204NoContent;
+                    return;
+                }
+
+                var source = await Read(lifetime.Token, includeBody: true, consume: true);
                 if (Encoding.UTF8.GetByteCount(source.Body) > PureRenderPlugin.MaximumMarkdownBytes)
                     throw new BusinessException(Rejection.Invalid, "This saved revision exceeds the plugin preview size limit.");
                 await PureRenderInvocation.RunAsync(registry, pluginId, source.Body, worker.RunAsync, async cancellation =>
                 {
                     // The signed worker does not hold account, session or article transaction locks.
-                    if (await Read(cancellation) != source)
+                    if (await Read(cancellation, includeBody: true) != source)
                         throw new BusinessException(Rejection.Conflict, "The saved revision changed. Reload to preview it.");
                 }, (result, cancellation) =>
                 {
                     ctx.Response.ContentType = "text/plain; charset=utf-8";
                     ctx.Response.ContentLength = result.Length;
                     return ctx.Response.Body.WriteAsync(result, cancellation).AsTask();
-                }, lifetime.Token);
+                }, lifetime.Token, expectedApproval ?? throw new InvalidOperationException("Missing plugin approval."));
             }
             catch (Exception error) when (!ctx.Response.HasStarted && IsUnavailable(error, ct))
             {
@@ -85,16 +109,45 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
                 throw new PublicUnavailableException();
             }
 
-            Task<(Guid Author, long Generation, string Body)> Read(CancellationToken cancellation) =>
+            Task<(Scope Scope, string Body)> Read(CancellationToken cancellation, bool includeBody, bool consume = false) =>
                 store.WithSession(token, true, async (db, tx, actor) =>
                 {
                     SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, session);
                     await RevisionHistoryStore.LockCurrent(db, tx, actor, id, revision, cancellation);
-                    var source = await RevisionHistoryStore.ReadSource(db, tx, id, revision, cancellation);
-                    return (actor.Id, actor.Generation, source.Body);
+                    var scope = new Scope(actor.Id, actor.Generation, session!, id, revision);
+                    if (consume) expectedApproval = Take(scope, selected);
+                    return (scope, includeBody ? (await RevisionHistoryStore.ReadSource(db, tx, id, revision, cancellation)).Body : "");
                 }, cancellation);
         }).RequireRateLimiting(RatePolicy);
     }
+
+    private string Offer(Scope scope, string approval)
+    {
+        lock (_consents)
+        {
+            foreach (var key in _consents.Where(item => Expired(item.Value)).Select(item => item.Key).ToArray())
+                _consents.Remove(key);
+            if (_consents.Count >= 128 && !_consents.ContainsKey(scope.Session))
+                throw new PublicUnavailableException();
+            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            _consents[scope.Session] = new(scope, token, approval, TimeProvider.System.GetTimestamp());
+            return token;
+        }
+    }
+
+    private string Take(Scope scope, string? token)
+    {
+        lock (_consents)
+        {
+            if (!_consents.TryGetValue(scope.Session, out var consent) || consent.Scope != scope ||
+                consent.Token != token || Expired(consent))
+                throw new BusinessException(Rejection.Forbidden, "Confirm this signed plugin and saved revision before running it.");
+            _consents.Remove(scope.Session);
+            return consent.Approval;
+        }
+    }
+
+    private static bool Expired(Consent consent) => TimeProvider.System.GetElapsedTime(consent.Issued) >= TimeSpan.FromSeconds(90);
 
     private static bool IsUnavailable(Exception error, CancellationToken request) =>
         error is ExtensionRejectedException or IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or

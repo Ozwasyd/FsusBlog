@@ -69,21 +69,40 @@ public sealed class PluginPreviewPostgresTests
             Assert.Contains("<meta name=\"fsus-author-plugin-preview\" content=\"1\">", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
 
-        await Preview(https, current, owner, HttpStatusCode.OK);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden);
+        var consent = await Grant(current);
+        await Preview(https, large, owner, HttpStatusCode.Forbidden, grant: consent);
+        await Preview(https, current, peer, HttpStatusCode.NotFound, grant: consent);
+        await Preview(https, current, owner, HttpStatusCode.OK, grant: consent);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: consent);
         var registry = Environment.GetEnvironmentVariable("FSUSBLOG_PLATFORM_PLUGIN_ROOT")!;
         var approval = Path.Combine(registry, "platform-plugin.json");
         var withdrawn = Path.Combine(registry, "withdrawn-plugin.json");
+        var beforeWithdrawal = await Grant(current);
         File.Move(approval, withdrawn);
-        try { await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable); }
+        try { await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable, grant: beforeWithdrawal); }
         finally { File.Move(withdrawn, approval); }
-        await Preview(https, current, owner, HttpStatusCode.OK);
+        var firstOffer = await Grant(current);
+        var latestOffer = await Grant(current);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: firstOffer);
+        await Preview(https, current, owner, HttpStatusCode.OK, grant: latestOffer);
+        var beforeChange = await Grant(current);
+        File.Move(approval, withdrawn);
+        try
+        {
+            await File.WriteAllTextAsync(approval, (await File.ReadAllTextAsync(withdrawn, ct)) + "\n", ct);
+            if (OperatingSystem.IsLinux()) File.SetUnixFileMode(approval, File.GetUnixFileMode(withdrawn));
+            await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable, grant: beforeChange);
+            await Preview(https, current, owner, HttpStatusCode.OK, grant: await Grant(current));
+        }
+        finally { File.Move(withdrawn, approval, overwrite: true); }
         await Preview(https, current, null, HttpStatusCode.Unauthorized);
         await Preview(https, current, peer, HttpStatusCode.NotFound);
         await Preview(https, current, reader, HttpStatusCode.Forbidden);
         await Preview(https, current, owner with { Handle = peer.Handle }, HttpStatusCode.Conflict);
         await Preview(https, current, owner with { Handle = null }, HttpStatusCode.Conflict);
         await Preview(https, first, owner, HttpStatusCode.Conflict);
-        await Preview(https, large, owner, HttpStatusCode.BadRequest);
+        await Preview(https, large, owner, HttpStatusCode.BadRequest, grant: await Grant(large));
         await Preview(https, current, owner, HttpStatusCode.BadRequest, body: new byte[] { 1 });
         await Preview(https, current, owner, HttpStatusCode.Forbidden, sendOrigin: false);
         await Preview(server.Client, current, owner, HttpStatusCode.Forbidden, sendOrigin: false);
@@ -99,12 +118,32 @@ public sealed class PluginPreviewPostgresTests
             (await store.WithSession(owner.Token, true, (connection, tx, actor) => Store.Execute(connection, tx, actor, ArticleAction.Save,
                 new(id, revision, Guid.NewGuid(), "Private preview title", markdown), ct), ct)).Article;
 
-        async Task Preview(HttpClient client, ArticleState article, Actor? caller, HttpStatusCode expected, byte[]? body = null, bool sendOrigin = true)
+        async Task<string> Grant(ArticleState article)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, PathFor(article.Id, article.Revision) + "&consent=1");
+            request.Headers.Add("Cookie", $"fsus-v2-session={owner.Token}");
+            request.Headers.Add(WireHeaders.CurrentSession, owner.Handle);
+            request.Headers.Add("Origin", origin);
+            using var response = await https.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
+            Assert.True(response.Headers.CacheControl is { Private: true, NoStore: true });
+            Assert.Equal("fixture.site.render", Assert.Single(response.Headers.GetValues("X-Fsus-Plugin-Id")));
+            Assert.Matches("^[0-9]+\\.[0-9]+\\.[0-9]+$", Assert.Single(response.Headers.GetValues("X-Fsus-Plugin-Version")));
+            Assert.Matches("^[0-9a-f]{64}$", Assert.Single(response.Headers.GetValues("X-Fsus-Plugin-Digest")));
+            var permission = Assert.Single(response.Headers.GetValues("X-Fsus-Plugin-Consent"));
+            Assert.Matches("^[0-9a-f]{64}$", permission);
+            return permission;
+        }
+
+        async Task Preview(HttpClient client, ArticleState article, Actor? caller, HttpStatusCode expected, byte[]? body = null,
+            bool sendOrigin = true, string? grant = null)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, PathFor(article.Id, article.Revision));
             if (caller is not null) request.Headers.Add("Cookie", $"fsus-v2-session={caller.Token}");
             if (caller?.Handle is { } handle) request.Headers.Add(WireHeaders.CurrentSession, handle);
             if (sendOrigin) request.Headers.Add("Origin", origin);
+            if (grant is not null) request.Headers.Add("X-Fsus-Plugin-Consent", grant);
             if (body is not null) request.Content = new ByteArrayContent(body);
             using var response = await client.SendAsync(request, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);

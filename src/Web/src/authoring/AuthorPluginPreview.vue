@@ -3,7 +3,7 @@ import { computed, h, onScopeDispose, ref, shallowRef, useId, watch, type VNodeC
 import { ElButton } from '@ozwasyd/element-plus'
 import { renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime'
 import { ApiError } from '../../../Contracts/aeds'
-import { previewArticlePlugin } from '../../../Contracts/author-plugin-preview'
+import { previewArticlePlugin, reviewArticlePlugin } from '../../../Contracts/author-plugin-preview'
 import { credentialEpoch, currentSession, recheckCredential } from '../session'
 
 const props = defineProps<{ article: number; revision: bigint; active: boolean; disabled: boolean }>()
@@ -13,6 +13,7 @@ const canPreview = computed(() => enabled && props.active && !props.disabled &&
 const regionId = useId()
 const waiting = ref(false)
 const failure = ref('')
+const consent = shallowRef<Awaited<ReturnType<typeof reviewArticlePlugin>>>()
 const preview = shallowRef<{ source: string; formatted?: () => VNodeChild }>()
 let request: AbortController | undefined
 
@@ -49,6 +50,7 @@ function reset() {
   request = undefined
   waiting.value = false
   failure.value = ''
+  consent.value = undefined
   preview.value = undefined
 }
 
@@ -57,6 +59,7 @@ async function run() {
   if (!canPreview.value || !handle || request) return
   const epoch = credentialEpoch.value
   const { article, revision } = props
+  const approval = consent.value
   const controller = new AbortController()
   request = controller
   const current = () => !controller.signal.aborted && request === controller && epoch === credentialEpoch.value &&
@@ -66,7 +69,12 @@ async function run() {
   failure.value = ''
   preview.value = undefined
   try {
-    const source = await previewArticlePlugin(article, revision, handle, controller.signal)
+    if (!approval) {
+      const reviewed = await reviewArticlePlugin(article, revision, handle, controller.signal)
+      if (current()) consent.value = reviewed
+      return
+    }
+    const source = await previewArticlePlugin(article, revision, handle, approval.token, controller.signal)
     if (!current()) return
     const formatted = source && import.meta.env.FSUS_MARKDOWN_NATIVE ? await renderMarkdownResultWithRuntime({
       source, mode: 'preview', allowLatex: false, allowMermaid: false,
@@ -83,6 +91,7 @@ async function run() {
       if (error.status === 409) failure.value = 'Load the current saved revision before running the preview.'
       else if (error.status === 429) failure.value = 'The preview service is busy. Try again.'
       else if (error.status === 503) failure.value = 'The signed plugin is unavailable.'
+      else if (error.status === 403 && approval) failure.value = 'Review the signed plugin again before running it.'
       else if (error.status === 403 || error.status === 404) failure.value = 'This revision is unavailable for preview.'
     }
     if (!failure.value) failure.value = 'Could not run the signed plugin preview. Try again.'
@@ -90,6 +99,7 @@ async function run() {
     if (request === controller) {
       request = undefined
       waiting.value = false
+      if (approval) consent.value = undefined
     }
   }
 }
@@ -100,12 +110,15 @@ onScopeDispose(reset)
 
 <template>
   <section v-if="enabled && active" class="plugin-preview" aria-label="Signed plugin preview">
+    <p v-if="consent" role="status">Allow {{ consent.plugin }} v{{ consent.version }} to read the saved Markdown of revision {{ revision }} for this preview?</p>
+    <p v-if="consent">Package SHA-256 <code>{{ consent.digest }}</code></p>
     <ElButton native-type="button" :disabled="!canPreview" v-bind="{ 'aria-controls': regionId }" @click="waiting ? reset() : run()">
-      {{ waiting ? 'Cancel preview' : 'Run plugin preview' }}
+      {{ waiting ? 'Cancel preview' : consent ? 'Run plugin preview' : 'Review plugin access' }}
     </ElButton>
+    <ElButton v-if="consent && !waiting" native-type="button" text @click="reset">Cancel</ElButton>
     <p v-if="disabled">Save the current draft before running the preview.</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
-    <p role="status">{{ waiting ? 'Running the signed plugin…' : preview ? `Preview ready for revision ${revision}.` : '' }}</p>
+    <p role="status">{{ waiting ? consent ? 'Running the signed plugin…' : 'Checking the signed plugin…' : preview ? `Preview ready for revision ${revision}.` : '' }}</p>
     <div :id="regionId" role="region" aria-label="Plugin preview result" :aria-busy="waiting">
       <template v-if="preview">
         <component :is="preview.formatted" v-if="preview.formatted" />
@@ -121,6 +134,7 @@ onScopeDispose(reset)
 
 <style scoped>
 .plugin-preview { min-inline-size: 0; }
+.plugin-preview code { overflow-wrap: anywhere; }
 .plugin-preview [role=region] { overflow: auto; overflow-wrap: anywhere; }
 .plugin-preview pre { white-space: pre-wrap; }
 </style>
