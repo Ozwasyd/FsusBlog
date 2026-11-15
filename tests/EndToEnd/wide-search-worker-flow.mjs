@@ -121,6 +121,20 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     const recovered = observations.recoveredStorage = await inspectCache(peer, manifest)
     assert.notEqual(recovered.owner, damaged.state.owner)
 
+    const outOfRange = new URLSearchParams({ q: String(fixtureCount), page: '2' })
+    await peer.goto(`${origin}/search?${outOfRange}`)
+    await peer.getByRole('status').filter({ hasText: /^There are no articles on this search result page\.$/ }).waitFor({ timeout })
+    assert.equal(peer.url(), `${origin}/search?${outOfRange}`)
+    assert.equal(await cards(peer).count(), 0)
+    const pagination = peer.getByRole('navigation', { name: 'Search result pages' })
+    assert.equal(await pagination.getByRole('link', { name: 'Next', exact: true }).count(), 0)
+    assertWarm(collect('outOfRangePage'), manifest)
+
+    await pagination.getByRole('link', { name: 'First page', exact: true }).click()
+    await peer.waitForURL(`${origin}/search?q=${fixtureCount}`)
+    await assertCards(peer, [fixtureCount])
+    assertWarm(collect('returnToFirstPage'), manifest)
+
     const finalHead = await holdWindowHead(peer)
     try {
       await submit(peer, withdrawnQuery)

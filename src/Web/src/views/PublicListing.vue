@@ -49,6 +49,8 @@ const reload = ref(0)
 const pageSize = 10
 const maxSearchLength = WireLimits.SearchQueryChars
 const searchTooLong = computed(() => input.value.trim().length > maxSearchLength)
+const searchPageOutOfRange = computed(() => isSearch.value && searchTotal.value > 0 &&
+  (page.value - 1) * pageSize >= searchTotal.value)
 const localSearch = createLocalSearch()
 onScopeDispose(localSearch.dispose)
 
@@ -164,6 +166,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       <ElAlert title="Could not load the articles." type="error" :closable="false" show-icon />
       <ElButton class="retry" @click="reload++">Retry</ElButton>
     </template>
+    <p v-else-if="searchPageOutOfRange" class="muted" role="status">There are no articles on this search result page.</p>
     <p v-else-if="!articles.length" class="muted">
       {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published articles.' : taxonomy ? 'There are no published articles here yet.' : 'No articles have been published yet.' }}
     </p>
@@ -181,7 +184,10 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       </li>
     </ol>
     <nav v-if="isSearch && !loading && !failed && query && (page > 1 || searchTotal > pageSize)" aria-label="Search result pages" class="page-links">
-      <RouterLink v-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">Previous</RouterLink>
+      <RouterLink v-if="searchPageOutOfRange" :to="{ query: { q: query } }" custom v-slot="{ href, navigate }">
+        <ElLink :href="href" @click="navigate">First page</ElLink>
+      </RouterLink>
+      <RouterLink v-else-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">Previous</RouterLink>
       <span aria-current="page">Page {{ page }}</span>
       <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }">Next</RouterLink>
     </nav>

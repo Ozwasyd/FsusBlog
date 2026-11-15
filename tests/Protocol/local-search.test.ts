@@ -131,6 +131,47 @@ test('search uses corpus GET and separately revalidates with HEAD, rejecting mix
   await assert.rejects(searchCorpus('needle', aborted.signal), { name: 'AbortError' });
 });
 
+test('FSR4 empty pages preserve the distinction between no tokens, no matches, and a past-end page', async (t) => {
+  // The fixed v1 empty-page header holds magic, version, total, count, and both offsets.
+  const empty = '465352340400000000000000000000001800000018000000';
+  const pastEnd = '465352340400000001000000000000001800000018000000';
+  const generation = '710';
+  const calls: string[] = [];
+  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
+    const url = new URL(path, 'http://localhost');
+    assert.equal(url.pathname, WireRoutes.PublicSearchCorpus);
+    calls.push(`${init.method} ${url.search}`);
+    const headers = { [WireHeaders.SearchIndexGeneration]: generation };
+    if (init.method === 'HEAD') return new Response(null, { status: 204, headers });
+    return new Response(packageBytes.slice(), { headers: {
+      ...headers,
+      'Content-Type': 'application/octet-stream',
+      [WireHeaders.SearchIndexPages]: '1',
+    } });
+  });
+
+  const search = createCorpusSearch();
+  const tokenless = await search('!!!');
+  assert.equal(tokenless.generation, null);
+  assert.equal(Buffer.from(tokenless.frame).toString('hex'), empty);
+  assert.deepEqual(calls, []);
+
+  const noMatches = await search('absent');
+  assert.equal(noMatches.generation, generation);
+  assert.equal(Buffer.from(noMatches.frame).toString('hex'), empty);
+  assert.deepEqual(decodeLocalSearchResult(noMatches.frame), { items: [], total: 0, nextCursor: null });
+  await verifySearchGeneration(noMatches.generation);
+  assert.deepEqual(calls.splice(0), ['GET ?page=1', 'HEAD ?generation=710']);
+
+  const beyondLastPage = await search('needle', undefined, 2, 1);
+  assert.equal(beyondLastPage.generation, generation);
+  assert.equal(Buffer.from(beyondLastPage.frame).toString('hex'), pastEnd);
+  assert.deepEqual(decodeLocalSearchResult(beyondLastPage.frame), { items: [], total: 1, nextCursor: null });
+  assert.deepEqual(calls, ['HEAD ?generation=710']);
+  await verifySearchGeneration(beyondLastPage.generation);
+  assert.deepEqual(calls, ['HEAD ?generation=710', 'HEAD ?generation=710']);
+});
+
 test('route worker cache reuses only fully admitted pages of the confirmed generation', async (t) => {
   const pageWithId = (id: number) => {
     const result = packageBytes.slice();
