@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Analytics;
 using FsusBlog.V2.Server.Communication;
 using FsusBlog.V2.Server.Content;
@@ -18,6 +19,7 @@ const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
+var adminInboxLive = adminIdentity is not null && builder.Configuration.GetValue(AdminInboxEndpoints.LiveSetting, false);
 var adminArticleRollback = builder.Configuration.GetValue(
     FsusBlog.V2.Server.Administration.AdminArticleRollbackEndpoints.Setting, false);
 if (adminArticleRollback && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
@@ -140,6 +142,8 @@ builder.Services.AddRateLimiter(options =>
         options.AddConcurrencyLimiter(WideSearchCorpusEndpoints.PagePolicy, limiter => { limiter.PermitLimit = 2; limiter.QueueLimit = 0; });
     }
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    if (adminInboxLive)
+        options.AddConcurrencyLimiter(AdminInboxEndpoints.LivePolicy, limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
     if (publicMediaEnabled) PublishedMediaEndpoints.AddRateLimit(options);
@@ -262,7 +266,9 @@ foreach (var asset in new[] { "assets", "dist" })
     if (Directory.Exists(assetDir))
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(assetDir), RequestPath = "/" + asset });
 }
-app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream, branch => branch.UseWebSockets(new WebSocketOptions
+app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream ||
+    adminInboxLive && ctx.GetEndpoint()?.Metadata.GetMetadata<AdminInboxEndpoints.LiveSocket>() is not null,
+    branch => branch.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(10)
 }));

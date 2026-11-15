@@ -2,6 +2,7 @@ import { decodeSuccess, encodeFrame } from './aeds.ts';
 import { ProtocolError, request } from './client.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
+import { watchInboxWake } from './inbox-wake.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
@@ -14,7 +15,7 @@ export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boole
 export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean; sharedAvailable: boolean;
   activityAvailable: boolean };
 export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
-  version: string | null; readSnapshot: { token: string; through: bigint } | null };
+  liveEnabled: boolean; version: string | null; readSnapshot: { token: string; through: bigint } | null };
 
 export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal, shared = false,
   order: AdminInboxOrder = 'created'): Promise<AdminInboxPage> {
@@ -56,14 +57,21 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
       !item.body || index > 0 && item.id <= messages[index - 1].id)) throw invalid();
     reader.finish();
     const flag = headers.get(WireHeaders.AdminInboxReplyEnabled);
+    const live = headers.get(WireHeaders.AdminInboxLive);
     const version = headers.get(WireHeaders.AdminInboxVersion);
     const token = headers.get(WireHeaders.AdminInboxReadSnapshot);
     const through = shared && !before ? messages.filter(message => !message.internal).at(-1)?.id : undefined;
-    if (flag !== null && flag !== '1' || version !== null && !validVersion(version) ||
+    if (flag !== null && flag !== '1' || live !== null && (live !== '1' || conversation.system) ||
+        version !== null && !validVersion(version) ||
         token !== null && !validCursor(token) || (token === null) !== (through === undefined)) throw invalid();
-    return { conversation, previous, messages, repliesEnabled: flag === '1', version,
+    return { conversation, previous, messages, repliesEnabled: flag === '1', liveEnabled: live === '1', version,
       readSnapshot: token !== null && through !== undefined ? { token, through } : null };
   }, signal);
+}
+
+export function watchAdminInboxWake(id: bigint, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
+  const path = WireRoutes.AdminInboxWake.replace('{id:long}', String(id));
+  watchInboxWake(signal, refresh, connected => { if (connected) refresh(); }, onRevoked, path);
 }
 
 export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<AdminInboxThread['readSnapshot']>, signal: AbortSignal) {

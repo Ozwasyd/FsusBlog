@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
-import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter,
+import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, watchAdminInboxWake, type AdminInboxFilter,
   type AdminInboxOrder, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
@@ -176,15 +176,25 @@ function sendNotice() {
   }, 'Could not complete the system notice request. Retry the same form to keep its source event.')
 }
 
+function applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false) {
+  const current = thread.value
+  if (current?.conversation.id !== latest.conversation.id) return false
+  const first = latest.messages[0].id
+  // Keep the earlier pages only when the newest authoritative page still joins them.
+  const overlap = current.messages.findIndex(message => message.id === first)
+  thread.value = {
+    ...latest,
+    previous: overlap > 0 ? current.previous : latest.previous,
+    messages: overlap > 0 ? [...current.messages.slice(0, overlap), ...latest.messages] : latest.messages,
+    readSnapshot: keepReadSnapshot ? current.readSnapshot : latest.readSnapshot,
+  }
+  needsRefresh.value = false
+  return true
+}
+
 async function refreshThread(id: bigint, signal: AbortSignal) {
   const latest = await adminInboxThread(id, null, signal, sharedRead.value)
-  if (signal.aborted) return
-  const current = thread.value
-  if (current?.conversation.id !== id) return
-  const first = latest.messages[0].id
-  const older = current.messages.filter(message => message.id < first)
-  thread.value = older.length ? { ...latest, previous: current.previous, messages: [...older, ...latest.messages] } : latest
-  needsRefresh.value = false
+  if (signal.aborted || !applyLatestThread(latest)) return
   await nextTick()
   await acknowledge(id, signal)
 }
@@ -260,6 +270,51 @@ watch([filter, order], () => {
   loadQueue()
 })
 watch(() => props.sessionSignal, () => { expanded.value = false; filter.value = ''; order.value = 'created'; reset() }, { flush: 'sync' })
+watch(() => thread.value?.liveEnabled ? thread.value.conversation.id : undefined, (id, _, onCleanup) => {
+  if (id === undefined) return
+  const conversationId = id
+  const scope = new AbortController()
+  const signal = AbortSignal.any([props.sessionSignal, operation.signal, scope.signal])
+  let dirty = false
+  let refreshing = false
+  let retry: ReturnType<typeof setTimeout> | undefined
+  let delay = 1_000
+
+  async function refresh() {
+    if (signal.aborted || !dirty || refreshing || pending.value || retry !== undefined) return
+    dirty = false
+    refreshing = true
+    const previous = thread.value
+    try {
+      const snapshot = await adminInboxThread(conversationId, null, signal, sharedRead.value)
+      if (signal.aborted || thread.value?.conversation.id !== conversationId) return
+      if (pending.value || previous !== thread.value) dirty = true
+      else applyLatestThread(snapshot, unreadAckFailed.value)
+      delay = 1_000
+    } catch (error) {
+      if (signal.aborted) return
+      if (error instanceof ApiError && error.status === 401) {
+        emit('sessionLost', error)
+      } else if (!(error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 429)) {
+        dirty = true
+        retry = setTimeout(() => { retry = undefined; void refresh() }, delay)
+        delay = Math.min(delay * 2, 16_000)
+      }
+    } finally {
+      refreshing = false
+      if (dirty) void refresh()
+    }
+  }
+
+  function wake() { dirty = true; void refresh() }
+  const resume = watch(pending, () => { void refresh() })
+  onCleanup(() => {
+    scope.abort()
+    clearTimeout(retry)
+    resume()
+  })
+  watchAdminInboxWake(conversationId, signal, wake, () => emit('sessionLost', new ApiError('Administrator session expired.', 401)))
+})
 onBeforeUnmount(() => operation.abort())
 </script>
 
@@ -310,7 +365,7 @@ onBeforeUnmount(() => operation.abort())
       </div>
       <section v-if="thread" aria-labelledby="admin-inbox-thread" :aria-busy="pending">
         <ElButton native-type="button" text :disabled="pending" @click="closeThread">Back to conversations</ElButton>
-        <ElButton v-if="thread.version || needsRefresh" native-type="button" text :disabled="pending"
+        <ElButton v-if="thread.version || thread.liveEnabled || needsRefresh" native-type="button" text :disabled="pending"
           @click="reloadThread">Reload conversation</ElButton>
         <h3 id="admin-inbox-thread" ref="title" tabindex="-1">{{ thread.conversation.subject }}</h3>
         <p>{{ statuses[thread.conversation.status] }} · {{ thread.conversation.system ? 'System notice' : 'Account ticket' }}</p>

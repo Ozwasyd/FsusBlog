@@ -185,10 +185,15 @@ if [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
     -c "ALTER DATABASE $database SET log_parameter_max_length_on_error = 0" > "$evidence/article-read-proof-postgres.log"
   "$dotnet" "$migrate" article read-proof-schema >> "$evidence/article-read-proof-postgres.log"
 fi
+if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_LIVE:-0} == 1 ]]; then
+  export FSUSBLOG_TEST_ADMIN_INBOX=1 FSUSBLOG_ADMIN_INBOX_LIVE=true FSUSBLOG_PRIVATE_INBOX_WRITES=true
+else
+  export FSUSBLOG_ADMIN_INBOX_LIVE=false
+fi
 if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-inbox-fixture.sql > "$evidence/admin-inbox-fixture.log"
   shasum -a 256 tests/EndToEnd/admin-inbox-fixture.sql >> "$evidence/run.txt"
-  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_REPLY:-0} == 1 ]]; then
+  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_REPLY:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_INBOX_LIVE:-0} == 1 ]]; then
     export FSUSBLOG_ADMIN_INBOX_REPLIES=true
   else
     export FSUSBLOG_ADMIN_INBOX_REPLIES=false

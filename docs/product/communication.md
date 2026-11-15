@@ -20,6 +20,10 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 2026-11-15 使用独立 Caddy TLS 站点、原生 PostgreSQL 和 Chrome 验证管理员登录、队列筛选、桌面和窄屏键盘操作及焦点恢复。账号 API 不返回内部注记，公开站点拒绝管理员队列路径。另用 PostgreSQL 验证分页、游标隔离、已读位置不变和撤销会话。证据位于 `artifacts/admin-inbox-native/`。
 
+设置 `FSUSBLOG_ADMIN_INBOX_LIVE=true` 后，管理员打开的账号工单会在收到该账号已提交的回复后刷新。管理员专用的 `/api/v2/admin/identity/inbox/{id}/wake` 复用现有 `InboxWake` 和 `fsus-inbox-wake.v2`。服务检查管理员来源、独立会话和 `admin.manage` 后，只发送固定 AEDS 成功帧。连接最多四条，无排队。浏览器打开或重连后读取当前工单详情，保留正在编辑的草稿和焦点。历史分页仍可继续读取，共享已读位置仍由打开工单或主动重新加载触发。默认关闭，无需数据库迁移。冻结 v1 将账号新回复投递给管理端，管理端在投影缺失时补读当前工单。 [v1 投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/NotificationStream/MessageCenterService.DeliveryOutbox.cs#L55-L113) · [v1 补读](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useAdminMessageCenter.ts#L505-L539)
+
+现有 Caddy 双身份验收使用 `FSUSBLOG_TEST_ADMIN_INBOX_LIVE=1 bash tests/EndToEnd/run-admin-tls.sh` 检查账号 PoW 回复、管理员同源连接、断线期间已提交消息的补读，以及接收消息后草稿和焦点的保留。再设 `FSUSBLOG_TEST_ADMIN_INBOX_SHARED=1` 检查被动更新后保留共享未读、主动重新加载后确认准确的已读快照。
+
 独立管理员回复默认关闭。先停服执行 `admin-inbox-replies`，再设 `FSUSBLOG_ADMIN_INBOX_REPLIES=true`。回复需要同一管理员会话下的真实 Classic PoW，挑战绑定当前会话、来源、会话编号、命令键和完整请求字节。管理员使用 v1 固定回复请求帧 60 和响应帧 58，经 v2 专用管理员站点 `/api/v2/admin/identity/inbox/{id}/reply.aeds` 使用。已关闭会话拒绝新回复。账号的已读位置不变，回复可通过原有账号详情、回放和 WebSocket 唤醒读取。证明消费、回复、原管理员身份和不可逆会话摘要、幂等命令及账号事件共用一次 PostgreSQL 提交。网络失败可携带同一命令键重新申请证明。
 
 2026-11-15 完成原生 PostgreSQL 工单回归和停服迁移复验。Chrome 经交付 Caddy TLS 验证管理员实际获取并完成挑战、发送后账号站点显示回复，以及默认关闭时隐藏录入。两次浏览器运行均清理临时资源。证据位于 `artifacts/admin-inbox-reply/`。

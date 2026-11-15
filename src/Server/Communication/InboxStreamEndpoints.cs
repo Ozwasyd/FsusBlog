@@ -17,68 +17,73 @@ internal static class InboxStreamEndpoints
     internal static void Map(WebApplication app, string cookie)
     {
         app.MapMethods(WireRoutes.InboxStream, [HttpMethods.Get, HttpMethods.Connect],
-            async (HttpContext ctx, Store store, InboxWake wake, InstanceLease lease) =>
+            (HttpContext ctx, Store store, InboxWake wake, InstanceLease lease) =>
         {
-            VerifyHandshake(ctx);
             var token = ctx.Request.Cookies[cookie];
-            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, lease.Stopped);
-            var cancellation = lifetime.Token;
-            var pulse = wake.Changed;
-            long position;
-            try { position = await Position(store, token, cancellation); }
-            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { throw new PublicUnavailableException(); }
-            using var socket = await ctx.WebSockets.AcceptWebSocketAsync(Protocol);
-            var receive = Receive(socket, lifetime);
-            try
-            {
-                while (!cancellation.IsCancellationRequested)
-                {
-                    // Bound checks even if the DB notification listener is disconnected or busy.
-                    try { await pulse.WaitAsync(Recheck, cancellation); }
-                    catch (TimeoutException) { }
-                    pulse = wake.Changed;
-                    var next = await Position(store, token, cancellation);
-                    if (next != position)
-                    {
-                        lease.RequireCurrent();
-                        using var send = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-                        send.CancelAfter(TimeSpan.FromSeconds(1));
-                        await socket.SendAsync(Wake.AsMemory(), WebSocketMessageType.Binary, true, send.Token);
-                        position = next;
-                    }
-                    // Coalesce bursts and cap the read rate for each admitted connection.
-                    await Task.Delay(TimeSpan.FromMilliseconds(250), cancellation);
-                }
-            }
-            catch (BusinessException failure) when (failure.Rejection == Rejection.Unauthorized)
-            {
-                await CloseAndDrain(socket, receive, WebSocketCloseStatus.PolicyViolation, cancellation);
-            }
-            catch (Exception failure) when (failure is NpgsqlException or PublicUnavailableException)
-            {
-                await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
-            }
-            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
-            {
-                await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
-            }
-            catch (Exception failure) when (failure is WebSocketException or OperationCanceledException) { }
-            finally
-            {
-                if (socket.State == WebSocketState.CloseReceived)
-                    await Close(socket, WebSocketCloseStatus.NormalClosure, ctx.RequestAborted);
-                await lifetime.CancelAsync();
-                await receive;
-            }
+            return Open(ctx, wake, lease, ct => store.WithSession(token, false, (db, tx, actor) =>
+                new InboxStore(db, tx, actor.Id).ReplayPositionAsync(ct), ct));
         }).RequireRateLimiting("inbox-stream");
     }
 
-    private static async Task<long> Position(Store store, string? token, CancellationToken ct)
+    internal static async Task Open(HttpContext ctx, InboxWake wake, InstanceLease lease, Func<CancellationToken, Task<long>> readPosition)
     {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(TimeSpan.FromSeconds(2));
-        return await store.WithSession(token, false, (db, tx, actor) =>
-            new InboxStore(db, tx, actor.Id).ReplayPositionAsync(deadline.Token), deadline.Token);
+        VerifyHandshake(ctx);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, lease.Stopped);
+        var cancellation = lifetime.Token;
+        var pulse = wake.Changed;
+        var position = await Position();
+        using var socket = await ctx.WebSockets.AcceptWebSocketAsync(Protocol);
+        var receive = Receive(socket, lifetime);
+        try
+        {
+            while (!cancellation.IsCancellationRequested)
+            {
+                // Bound checks even if the DB notification listener is disconnected or busy.
+                try { await pulse.WaitAsync(Recheck, cancellation); }
+                catch (TimeoutException) { }
+                pulse = wake.Changed;
+                var next = await Position();
+                if (next != position)
+                {
+                    lease.RequireCurrent();
+                    using var send = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+                    send.CancelAfter(TimeSpan.FromSeconds(1));
+                    await socket.SendAsync(Wake.AsMemory(), WebSocketMessageType.Binary, true, send.Token);
+                    position = next;
+                }
+                // Coalesce bursts and cap the read rate for each admitted connection.
+                await Task.Delay(TimeSpan.FromMilliseconds(250), cancellation);
+            }
+        }
+        catch (BusinessException failure) when (failure.Rejection is Rejection.Unauthorized or Rejection.Forbidden)
+        {
+            await CloseAndDrain(socket, receive, WebSocketCloseStatus.PolicyViolation, cancellation);
+        }
+        catch (Exception failure) when (failure is NpgsqlException or PublicUnavailableException or
+            BusinessException { Rejection: Rejection.NotFound })
+        {
+            await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
+        }
+        catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+        {
+            await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
+        }
+        catch (Exception failure) when (failure is WebSocketException or OperationCanceledException) { }
+        finally
+        {
+            if (socket.State == WebSocketState.CloseReceived)
+                await Close(socket, WebSocketCloseStatus.NormalClosure, ctx.RequestAborted);
+            await lifetime.CancelAsync();
+            await receive;
+        }
+
+        async Task<long> Position()
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            deadline.CancelAfter(TimeSpan.FromSeconds(2));
+            try { return await readPosition(deadline.Token); }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { throw new PublicUnavailableException(); }
+        }
     }
 
     private static void VerifyHandshake(HttpContext ctx)

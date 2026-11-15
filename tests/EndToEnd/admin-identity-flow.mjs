@@ -14,7 +14,7 @@ import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
 import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleArchive } from './admin-article-archive-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
-import { verifyAdminInbox } from './admin-inbox-flow.mjs'
+import { prepareAdminInboxWakeProbe, verifyAdminInbox } from './admin-inbox-flow.mjs'
 import { expectPanelHidden, expectPermissions, verifyMismatchedPermissionSession } from './admin-permissions-flow.mjs'
 import { expectSignInHistory, rejectMismatchedSignInHistory } from './admin-sign-in-history-flow.mjs'
 import {
@@ -223,10 +223,17 @@ try {
   let finalCookie = newCookie
   if (revokeExecutable) {
     phase = 'offline-revocation'
+    const liveInbox = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
+    const checkWakeRevocation = liveInbox ? await prepareAdminInboxWakeProbe(context, adminOrigin.origin) : undefined
+    if (checkWakeRevocation) await admin.bringToFront()
     await context.clearCookies({ name: adminCookieName })
     await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 200)
     await admin.reload()
     await revokeDuringLogin(admin, revokeExecutable)
+    if (checkWakeRevocation) {
+      await checkWakeRevocation()
+      checks.adminInboxWakeRechecksRevocationAndRejectsClientMessages = true
+    }
     assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
     await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 401)
     await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, newCookie.value, 401)
@@ -294,6 +301,8 @@ try {
 
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1') {
     phase = 'support-inbox'
+    if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1')
+      assert(checks.adminInboxWakeRechecksRevocationAndRejectsClientMessages, 'Live administrator inbox acceptance requires the revocation fixture.')
     await verifyAdminInbox(admin, context, adminOrigin.origin, siteOrigin.origin, siteCookie, adminCookieName, credentialProbe, evidence)
     checks.adminInboxOnlyShowsPrivateThreadsToCurrentAdmin = true
   }

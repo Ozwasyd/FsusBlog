@@ -7,6 +7,21 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
+    internal Task<long> InboxAccountReplyPosition(string? token, long id, CancellationToken ct) =>
+        WithLiveAdmin(token, Permission, async (db, tx, _) =>
+        {
+            await using var query = Store.Sql(db, tx, """
+                SELECT COALESCE((
+                    SELECT m.id FROM public.inbox_message m
+                    WHERE m.conversation_id=c.id AND NOT m.is_internal AND m.sender=0
+                    ORDER BY m.id DESC LIMIT 1
+                ), 0::bigint)
+                FROM public.inbox_conversation c WHERE c.id=$1 AND NOT c.is_system AND c.last_message_id IS NOT NULL
+                """, id);
+            return await query.ExecuteScalarAsync(ct) is long position ? position :
+                throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
+        }, ct);
+
     internal Task<AdminInboxPage> ReadInbox(string? token, int filter, string? next, CancellationToken ct, bool shared = false) =>
         WithLiveAdmin(token, Permission, async (db, tx, admin) =>
         {

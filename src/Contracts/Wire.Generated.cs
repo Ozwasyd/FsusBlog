@@ -654,6 +654,7 @@ public static class WireRoutes
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";
+    public const string AdminInboxWake = "/api/v2/admin/identity/inbox/{id:long}/wake";
     public const string AdminInboxReplyPow = "/api/v2/admin/identity/inbox/{id:long}/reply-pow.aeds";
     public const string AdminInboxReply = "/api/v2/admin/identity/inbox/{id:long}/reply.aeds";
     public const string AdminInboxStatusPow = "/api/v2/admin/identity/inbox/{id:long}/status-pow.aeds";
@@ -754,6 +755,7 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";
+    public const string AdminInboxLive = "X-Fsus-Admin-Inbox-Live";
     public const string AdminInboxVersion = "X-Fsus-Admin-Inbox-Version";
     public const string AdminInboxNoticeEnabled = "X-Fsus-Admin-Inbox-Notice-Enabled";
     public const string AdminInboxSharedRead = "X-Fsus-Admin-Inbox-Shared-Read";

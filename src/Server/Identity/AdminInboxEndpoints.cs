@@ -2,6 +2,8 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
+using FsusBlog.V2.Server.Communication;
+using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Security;
 using FsusBlogV2.Storage;
 
@@ -13,6 +15,9 @@ internal static class AdminInboxEndpoints
     internal const string StatusSetting = "FSUSBLOG_ADMIN_INBOX_STATUS";
     internal const string NoticeSetting = "FSUSBLOG_ADMIN_INBOX_NOTICE";
     internal const string SharedReadSetting = "FSUSBLOG_ADMIN_INBOX_SHARED_READ";
+    internal const string LiveSetting = "FSUSBLOG_ADMIN_INBOX_LIVE";
+    internal const string LivePolicy = "admin-inbox-live";
+    internal sealed class LiveSocket;
 
     internal static void Map(WebApplication app, AdminPasskeyStore store, string session,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
@@ -21,6 +26,7 @@ internal static class AdminInboxEndpoints
         var status = app.Configuration.GetValue(StatusSetting, false);
         var notice = app.Configuration.GetValue(NoticeSetting, false);
         var sharedRead = app.Configuration.GetValue(SharedReadSetting, false);
+        var live = app.Configuration.GetValue(LiveSetting, false);
         var activityOrder = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -54,10 +60,19 @@ internal static class AdminInboxEndpoints
             var shared = Shared(ctx);
             var thread = await store.ReadInboxThread(ctx.Request.Cookies[session], id, Query(ctx.Request.Query, "before", 64), ct, shared);
             if (replies) ctx.Response.Headers[WireHeaders.AdminInboxReplyEnabled] = "1";
+            if (live && !thread.Conversation.System) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             if (status) ctx.Response.Headers[WireHeaders.AdminInboxVersion] = thread.Version;
             if (thread.ReadSnapshot is not null) ctx.Response.Headers[WireHeaders.AdminInboxReadSnapshot] = thread.ReadSnapshot;
             return Results.Bytes(Wire.EncodeAdminInboxThread(thread, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
+
+        if (live)
+            app.MapMethods(WireRoutes.AdminInboxWake, [HttpMethods.Get, HttpMethods.Connect],
+                (long id, HttpContext ctx, InboxWake wake, InstanceLease lease) =>
+                {
+                    var token = ctx.Request.Cookies[session];
+                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxAccountReplyPosition(token, id, ct));
+                }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
 
         if (replies)
         {

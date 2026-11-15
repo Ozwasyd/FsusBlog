@@ -1,14 +1,42 @@
 import assert from 'node:assert/strict'
+import { randomBytes } from 'node:crypto'
+import { request } from 'node:https'
 import { join } from 'node:path'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+
+const wakeProtocol = 'fsus-inbox-wake.v2'
+const wakePathPattern = new RegExp(`^${WireRoutes.AdminInboxWake.replace('{id:long}', '[1-9]\\d*')}$`)
 
 export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, siteCookie, adminCookieName, probe, evidence) {
   const queue = adminOrigin + WireRoutes.AdminInboxQueue
   assert.equal((await context.request.get(siteOrigin + WireRoutes.AdminInboxQueue)).status(), 404)
   await probe(queue, siteCookie.name, siteCookie.value, 401)
   await probe(queue, adminCookieName, siteCookie.value, 401)
+
+  const live = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
+  const sockets = []
+  const onSocket = socket => {
+    if (wakePathPattern.test(new URL(socket.url()).pathname)) sockets.push(socket)
+  }
+  page.on('websocket', onSocket)
+  if (live) await page.evaluate(pattern => {
+    const NativeSocket = window.WebSocket
+    const pathPattern = new RegExp(pattern)
+    window.fsusTestAdminInboxSocket = null
+    window.fsusTestRestoreAdminInboxSocket = () => {
+      window.WebSocket = NativeSocket
+      delete window.fsusTestAdminInboxSocket
+      delete window.fsusTestRestoreAdminInboxSocket
+    }
+    window.WebSocket = class extends NativeSocket {
+      constructor(url, protocols) {
+        super(url, protocols)
+        if (pathPattern.test(new URL(this.url).pathname)) window.fsusTestAdminInboxSocket = this
+      }
+    }
+  }, wakePathPattern.source)
 
   const panel = page.getByRole('region', { name: 'Support inbox' })
   await panel.getByRole('button', { name: 'Open support inbox' }).click()
@@ -84,6 +112,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const detail = await response
   assert.equal(detail.status(), 200)
   assert((await detail.headerValue('Cache-Control'))?.includes('no-store'))
+  assert.equal(await detail.headerValue(WireHeaders.AdminInboxLive), live ? '1' : null)
   assert.equal(decodeFrame(await detail.body()).type, shared ? FrameType.AdminInboxSharedThread : FrameType.AdminInboxThread)
   const heading = panel.getByRole('heading', { name: 'Inbox QA support case' })
   await heading.waitFor()
@@ -109,7 +138,33 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const account = await context.request.get(siteOrigin + path)
   assert.equal(account.status(), 200)
   assert.equal((await account.body()).includes(Buffer.from(marker)), false)
-  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_REPLY === '1') {
+  const wakeEndpoint = adminOrigin + WireRoutes.AdminInboxWake.replace('{id:long}', id)
+  if (live) {
+    try {
+      const adminCookie = (await context.cookies(adminOrigin)).find(cookie => cookie.name === adminCookieName)
+      assert(adminCookie)
+      assert.equal(await upgradeStatus(wakeEndpoint, adminOrigin, `${adminCookieName}=${siteCookie.value}`), 401)
+      assert.equal(await upgradeStatus(wakeEndpoint, siteOrigin, `${adminCookieName}=${adminCookie.value}`), 403)
+      await verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, siteOrigin, id, detail.url(), sockets, evidence)
+    } finally { await page.evaluate(() => window.fsusTestRestoreAdminInboxSocket()) }
+    if (shared) {
+      await panel.getByText('2 unread by support', { exact: true }).waitFor()
+      const detailPath = new URL(detail.url()).pathname
+      const readEndpoint = adminOrigin + WireRoutes.AdminInboxAcknowledge.replace('{id:long}', id)
+      const [reloaded, acknowledged] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.request().method() === 'GET'),
+        page.waitForResponse(response => response.url() === readEndpoint && response.request().method() === 'POST'),
+        panel.getByRole('button', { name: 'Reload conversation', exact: true }).click(),
+      ])
+      assert.equal(reloaded.status(), 200)
+      assert.equal(acknowledged.status(), 200)
+      const snapshot = await reloaded.headerValue(WireHeaders.AdminInboxReadSnapshot)
+      assert.match(snapshot, /^[a-zA-Z0-9_-]{64}$/)
+      assert.equal(acknowledged.request().headers()[WireHeaders.AdminInboxReadSnapshot.toLowerCase()], snapshot)
+      assert.equal(await acknowledged.headerValue(WireHeaders.AdminInboxUnread), '0')
+    }
+  } else assert.equal((await context.request.get(wakeEndpoint)).status(), 404)
+  if (live || process.env.FSUSBLOG_TEST_ADMIN_INBOX_REPLY === '1') {
     const reply = 'Inbox QA reply sent by the current administrator.'
     await panel.getByLabel('Reply to the account', { exact: true }).fill(reply)
     const proof = page.waitForResponse(response => response.url().endsWith('/reply-pow.aeds') && response.request().method() === 'POST')
@@ -186,4 +241,166 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   }
   await panel.getByRole('button', { name: 'Close support inbox' }).click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
+  if (!live) assert.equal(sockets.length, 0)
+  page.off('websocket', onSocket)
+}
+
+export async function prepareAdminInboxWakeProbe(context, adminOrigin) {
+  const result = await context.request.get(adminOrigin + WireRoutes.AdminInboxQueue)
+  assert.equal(result.status(), 200)
+  const list = new PodReader(decodeFrame(await result.body(), FrameType.AdminInboxPage).payload)
+  list.text(100)
+  assert(list.i32() > 0)
+  const path = WireRoutes.AdminInboxWake.replace('{id:long}', String(list.i64()))
+  const wakeUrl = new URL(path, adminOrigin)
+  wakeUrl.protocol = 'wss:'
+  const page = await context.newPage()
+  await page.goto(new URL('/admin/identity', adminOrigin).href)
+  const closed = () => page.evaluate(() => window.fsusTestInboxProbeClosed)
+
+  await open(true)
+  const rejected = await closed()
+  assert(rejected, 'Client messages must close the receive-only inbox wake socket.')
+  assert.equal(rejected.frames, 0)
+
+  await open(false)
+  return async () => {
+    try { assert.deepEqual(await closed(), { code: 1008, frames: 0 }) }
+    finally { await page.close() }
+  }
+
+  async function open(sendBody) {
+    await page.evaluate(async ({ url, protocol, sendBody }) => {
+      const socket = new WebSocket(url, protocol)
+      let frames = 0
+      socket.addEventListener('message', () => { frames++ })
+      window.fsusTestInboxProbeClosed = new Promise(resolve => {
+        const deadline = setTimeout(() => { socket.close(); resolve(null) }, 12_000)
+        socket.addEventListener('close', event => {
+          clearTimeout(deadline)
+          resolve({ code: event.code, frames })
+        }, { once: true })
+      })
+      await new Promise((resolve, reject) => {
+        socket.addEventListener('open', resolve, { once: true })
+        socket.addEventListener('close', () => reject(new Error('Inbox wake probe closed before admission.')), { once: true })
+      })
+      if (sendBody) socket.send(new Uint8Array(1))
+    }, { url: wakeUrl.href, protocol: wakeProtocol, sendBody })
+  }
+}
+
+function upgradeStatus(endpoint, origin, cookie) {
+  return new Promise((resolve, reject) => {
+    const upgrade = request(endpoint, {
+      signal: AbortSignal.timeout(5_000),
+      headers: {
+        Connection: 'Upgrade', Upgrade: 'websocket', Origin: origin, Cookie: cookie,
+        'Sec-WebSocket-Key': randomBytes(16).toString('base64'), 'Sec-WebSocket-Version': '13',
+        'Sec-WebSocket-Protocol': wakeProtocol,
+      },
+    }, response => {
+      response.resume()
+      resolve(response.statusCode)
+    })
+    upgrade.once('upgrade', (response, socket) => {
+      socket.destroy()
+      resolve(response.statusCode)
+    })
+    upgrade.once('error', reject)
+    upgrade.end()
+  })
+}
+
+async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, siteOrigin, id, detailUrl, sockets, evidence) {
+  const wakeUrl = new URL(wakeEndpoint)
+  wakeUrl.protocol = 'wss:'
+  const threadPath = new URL(detailUrl).pathname
+  const composer = panel.getByLabel('Reply to the account', { exact: true })
+  const draft = 'Unsent administrator draft retained during account activity.'
+  const reader = await context.newPage()
+  try {
+    await reader.goto(`${siteOrigin}/user/messagebox`)
+    await reader.getByRole('button', { name: /Inbox QA support case/ }).click()
+    const accountThread = reader.getByRole('region', { name: 'Inbox QA support case' })
+    await accountThread.getByText('Inbox QA newest public reply', { exact: true }).waitFor()
+    await page.bringToFront()
+    await composer.fill(draft)
+    await composer.focus()
+    await waitForSocket()
+
+    const socket = sockets.at(-1)
+    assert.equal(socket?.url(), wakeUrl.href)
+    const firstReply = 'Inbox QA account reply while the administrator thread stays open.'
+    const [{ payload }, refreshed] = await Promise.all([
+      socket.waitForEvent('framereceived', { timeout: 15_000 }),
+      waitForDetail(firstReply, 15_000),
+      sendAccountReply(firstReply),
+    ])
+    assert(Buffer.isBuffer(payload))
+    decodeSuccess(decodeFrame(payload, FrameType.EmptySuccess).payload)
+    assert.equal(refreshed.status(), 200)
+    await verifyDraftAfter(firstReply)
+
+    const network = await context.newCDPSession(page)
+    try {
+      await network.send('Network.enable')
+      // Keep this tab's real WSS transport down until the other tab commits a reply.
+      await network.send('Network.setBlockedURLs', { urls: [wakeUrl.href] })
+      const closing = socket.waitForEvent('close', { timeout: 10_000 })
+      await page.evaluate(() => window.fsusTestAdminInboxSocket.close(4001))
+      await closing
+      const offlineReply = 'Inbox QA account reply committed during administrator reconnect.'
+      await sendAccountReply(offlineReply)
+      assert.equal(await page.evaluate(() => window.fsusTestAdminInboxSocket.readyState === WebSocket.OPEN), false)
+      assert.equal(await panel.getByText(offlineReply, { exact: true }).count(), 0)
+      const [recovered] = await Promise.all([
+        waitForDetail(offlineReply, 30_000),
+        network.send('Network.setBlockedURLs', { urls: [] }).then(waitForSocket),
+      ])
+      assert.notEqual(sockets.at(-1), socket)
+      assert.equal(sockets.at(-1)?.url(), wakeUrl.href)
+      assert.equal(recovered.status(), 200)
+      await verifyDraftAfter(offlineReply)
+      assert.equal(await panel.getByText(firstReply, { exact: true }).count(), 1)
+    } finally {
+      await network.send('Network.setBlockedURLs', { urls: [] })
+      await network.detach()
+    }
+    await page.screenshot({ path: join(evidence, 'admin-inbox-live-account-replies.png'), animations: 'disabled' })
+  } finally { await reader.close() }
+
+  function waitForSocket() {
+    return page.waitForFunction(({ url, protocol }) => {
+      const socket = window.fsusTestAdminInboxSocket
+      return socket?.url === url && socket.readyState === WebSocket.OPEN && socket.protocol === protocol
+    }, { url: wakeUrl.href, protocol: wakeProtocol }, { timeout: 30_000 })
+  }
+
+  function waitForDetail(message, timeout) {
+    return page.waitForResponse(async response => response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === threadPath && response.ok() &&
+      (await response.body()).includes(Buffer.from(message)), { timeout })
+  }
+
+  async function sendAccountReply(body) {
+    await reader.getByLabel('回复内容', { exact: true }).fill(body)
+    const challenge = reader.waitForResponse(response => response.url() === siteOrigin +
+      WireRoutes.InboxReplyPowChallenge.replace('{id:long}', id) && response.request().method() === 'POST')
+    const reply = reader.waitForResponse(response => response.url() === siteOrigin +
+      WireRoutes.InboxReply.replace('{id:long}', id) && response.request().method() === 'POST')
+    await reader.getByRole('button', { name: '发送回复', exact: true }).click()
+    assert.equal((await challenge).status(), 200)
+    assert.equal((await reply).status(), 200)
+    await reader.getByText('回复已发送。', { exact: true }).waitFor()
+    await page.bringToFront()
+  }
+
+  async function verifyDraftAfter(message) {
+    const item = panel.getByText(message, { exact: true })
+    await item.waitFor({ timeout: 15_000 })
+    assert.equal(await item.count(), 1)
+    assert.equal(await composer.inputValue(), draft)
+    assert.equal(await composer.evaluate(node => document.activeElement === node), true)
+  }
 }

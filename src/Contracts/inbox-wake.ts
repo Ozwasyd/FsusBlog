@@ -1,8 +1,10 @@
 import { decodeFrame, decodeSuccess, ProtocolError } from './aeds.ts';
 import { FrameType, WireRoutes } from './wire.generated.ts';
 
-export function watchInboxWake(signal: AbortSignal, onWake: () => void, onState: (connected: boolean) => void, onRevoked: () => void) {
-  const endpoint = new URL(WireRoutes.InboxStream, location.href);
+export function watchInboxWake(signal: AbortSignal, onWake: () => void, onState: (connected: boolean) => void, onRevoked: () => void,
+  path: string = WireRoutes.InboxStream) {
+  const endpoint = new URL(path, location.href);
+  if (endpoint.origin !== location.origin) throw new ProtocolError('Inbox wake requires the current origin.');
   endpoint.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   let socket: WebSocket | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
