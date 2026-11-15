@@ -110,7 +110,7 @@ internal static class CommentWriteStore
         SHA256.HashData(parent is long predecessor ? Wire.EncodePublicCommentReply(new(input.ArticleId, input.Publication,
             predecessor, input.DisplayName, input.Body, input.IdempotencyKey, input.ExplicitPublic)) : Wire.EncodePublicCommentSubmission(input));
 
-    private static string Normalize(string raw)
+    internal static string Normalize(string raw)
     {
         var text = raw.Trim().ReplaceLineEndings("\n");
         if (text.Length is 0 or > 1000 || Encoding.UTF8.GetByteCount(text) > WireLimits.PublicCommentBodyBytes ||

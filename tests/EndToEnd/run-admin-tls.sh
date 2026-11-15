@@ -8,6 +8,16 @@ if [[ -z ${FSUSBLOG_TEST_DB:-} || -z ${PGHOST:-} || -z ${PGPORT:-} || -z ${PGUSE
   echo 'Set FSUSBLOG_TEST_DB to a scratch PostgreSQL maintenance DSN and set matching PGHOST, PGPORT and PGUSER.' >&2
   exit 2
 fi
+comment_edit=${FSUSBLOG_TEST_COMMENT_EDIT:-0}
+if [[ $comment_edit != 0 && $comment_edit != 1 ]]; then
+  echo 'Set FSUSBLOG_TEST_COMMENT_EDIT to 0 or 1.' >&2
+  exit 2
+fi
+if [[ $comment_edit == 1 &&
+  ( ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} != 1 || ${FSUSBLOG_TEST_COMMENT_REPLY:-0} != 1 ) ]]; then
+  echo 'The comment edit fixture requires the moderation and comment reply fixtures.' >&2
+  exit 2
+fi
 dotnet=${DOTNET_BIN:-dotnet}
 caddy=${CADDY_BIN:-caddy}
 pg=${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}
@@ -357,7 +367,9 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   fi
   if [[ ${FSUSBLOG_TEST_COMMENT_REPLY:-0} == 1 ]]; then
     export FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
-    FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" operator tls-comment-reply-fixture)
+    reply_operator=(operator tls-comment-reply-fixture)
+    if [[ $comment_edit == 1 ]]; then reply_operator+=(--reader); fi
+    FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" "${reply_operator[@]}")
     export FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
     export FSUSBLOG_TEST_REPLY_PARENT_TICKET="$scratch/issue-reply-parent-ticket"
     cat > "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
@@ -693,9 +705,9 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   " > "$evidence/moderation-audit-counts.txt"
   expected_reply=${FSUSBLOG_TEST_COMMENT_REPLY:-0}
   expected_batch=${FSUSBLOG_TEST_ADMIN_COMMENT_BATCH:-0}
-  grep -Fxq "approved=$(( 1 + expected_reply + 2 * expected_batch ))" "$evidence/moderation-audit-counts.txt"
+  grep -Fxq "approved=$(( 1 + expected_reply + 2 * comment_edit + 2 * expected_batch ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq "rejected=$(( 1 + 2 * expected_batch ))" "$evidence/moderation-audit-counts.txt"
-  grep -Fxq "attributed_decisions=$(( 2 + expected_reply ))" "$evidence/moderation-audit-counts.txt"
+  grep -Fxq "attributed_decisions=$(( 2 + expected_reply + 2 * comment_edit ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'active_claims=0' "$evidence/moderation-audit-counts.txt"
   if [[ $expected_batch == 1 ]]; then
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
@@ -725,6 +737,27 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
              where (e.account_id,e.conversation_id,e.message_id)=(n.recipient_id,n.conversation_id,n.message_id))=array[12,13]::smallint[]
     " > "$evidence/comment-reply-audit.txt"
     grep -Fxq 'attributed_reply_deliveries=1' "$evidence/comment-reply-audit.txt"
+  fi
+  if [[ $comment_edit == 1 ]]; then
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+      select 'edited_reply_reapproved=' || count(*) from public.comment_author_edited e
+      join public.comment c on (c.article_id,c.id)=(e.article_id,e.comment_id)
+      join public.blog_user u on u.id=e.user_id
+      join public.comment_author_edit_outbox o
+        on (o.article_id,o.comment_id,o.comment_version)=(e.article_id,e.comment_id,e.comment_version)
+      join public.comment_reply_notice n on (n.article_id,n.reply_id)=(e.article_id,e.comment_id)
+      join public.admin_comment_moderation approved on (approved.article_id,approved.comment_id,approved.comment_version)
+        =(e.article_id,e.comment_id,e.comment_version) and approved.previous_status=0 and approved.next_status=1
+      where u.name='tls-comment-reply-fixture' and not u.can_author and c.moderation_status=1
+        and c.moderation_version=e.comment_version+1 and c.body=e.body and c.edited_at=e.happened_at
+        and c.parent_id=c.reply_to_id and e.previous_status=1 and e.moderation_status=0 and e.previous_body<>e.body
+        and e.previous_body_digest=pg_catalog.sha256(convert_to(e.previous_body,'UTF8'))
+        and e.body_digest=pg_catalog.sha256(convert_to(e.body,'UTF8'))
+        and o.event_type='CommentEdited' and n.moderation_version=e.previous_version
+        and not exists(select 1 from public.comment_author_edit_challenge q
+          where (q.article_id,q.comment_id)=(e.article_id,e.comment_id))
+    " > "$evidence/comment-edit-audit.txt"
+    grep -Fxq 'edited_reply_reapproved=1' "$evidence/comment-edit-audit.txt"
   fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "

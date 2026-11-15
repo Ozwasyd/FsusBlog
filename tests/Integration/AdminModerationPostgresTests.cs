@@ -15,7 +15,7 @@ using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class AdminModerationPostgresTests
+public sealed partial class AdminModerationPostgresTests
 {
     [PostgresFact]
     public async Task BatchModerationRollsBackClaimsProofAuditAndBothRecipientJournalsOnFailure()

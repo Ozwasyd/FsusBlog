@@ -16,6 +16,7 @@ public enum FrameType : ushort
     PublicCommentEligibility = 32794,
     CommentManagementChallengeRequest = 215,
     CommentManagementChallengeResponse = 216,
+    CommentAuthorEditRequest = 217,
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
@@ -23,6 +24,7 @@ public enum FrameType : ushort
     CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
     CommentAuthorEligibility = 32941,
+    CommentAuthorEditDetail = 33003,
     CommentAuthorAppeals = 32964,
     AdminCommentAppeals = 32965,
     PrivateMediaItems = 32795,
@@ -201,6 +203,8 @@ public static class WireLimits
     public const int PublicCommentReplyFrameBytes = 4541;
     public const int CommentAuthorBatchSize = 100;
     public const int CommentAuthorProofFrameBytes = 512;
+    public const int CommentAuthorEditFrameBytes = 8192;
+    public const int CommentAuthorEditWindowMinutes = 30;
     public const int SubscriptionEmailBytes = 254;
     public const int SubscriptionProofChars = 64;
     public const int MaxSubscriptionPreferenceFrameBytes = 278;
@@ -518,6 +522,8 @@ public static class WireRoutes
     public const string PublicCommentEligibility = "/api/v2/comments/eligibility/{articleId:int}.aeds";
     public const string CommentAuthorEligibility = "/api/v2/comments/{articleId:int}/author/eligibility.aeds";
     public const string CommentAuthorChallenge = "/api/binary/comment/{id:long}/author/challenge";
+    public const string CommentAuthorEditDetail = "/api/v2/comments/{id:long}/author/edit.aeds";
+    public const string CommentAuthorEdit = "/api/binary/comment/{id:long}/author/edit";
     public const string CommentAuthorDelete = "/api/binary/comment/{id:long}/author/delete";
     public const string CommentAuthorAppeal = "/api/binary/comment/{id:long}/author/appeal";
     public const string CommentAuthorAppeals = "/api/v2/comments/me/appeals.aeds";
@@ -722,6 +728,7 @@ public static class WireHeaders
     public const string PowProof = "X-Fsus-Pow-Proof";
     public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string CommentReplyEnabled = "X-Fsus-Comment-Reply-Enabled";
+    public const string CommentAuthorEditEnabled = "X-Fsus-Comment-Author-Edit";
     public const string AdminModerationBatchEnabled = "X-Fsus-Admin-Moderation-Batch-Enabled";
     public const string SubscriptionProof = "X-Fsus-Subscription-Proof";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
@@ -784,6 +791,7 @@ public sealed record AdminAppearanceState(long Revision, string Theme, string Fo
 public sealed record AdminAppearanceCommand(long ExpectedRevision, string CurrentTheme, string CurrentFont, string Theme, string Font, bool Rollback);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
+public sealed record CommentAuthorEditDetail(int ArticleId, long Publication, long CurrentVersion, string Body);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
 public sealed record PublicCommentReply(int ArticleId, long Publication, long ParentId, string DisplayName, string Body, Guid IdempotencyKey, bool ExplicitPublic);
 public sealed record PublicCommentSubmissionResult(int ArticleId, long CommentId, int ModerationStatus, bool Replayed);
@@ -1516,6 +1524,26 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentEligibility));
         var value = new PublicCommentEligibility(reader.I32(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeCommentAuthorEditDetail(CommentAuthorEditDetail value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Publication);
+        writer.I64(value.CurrentVersion);
+        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
+        return Aeds.Encode(FrameType.CommentAuthorEditDetail, writer.Written);
+    }
+
+    public static CommentAuthorEditDetail DecodeCommentAuthorEditDetail(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.CommentAuthorEditDetail));
+        var value = new CommentAuthorEditDetail(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentBodyBytes));
         reader.Finish();
         Validate(value);
         return value;

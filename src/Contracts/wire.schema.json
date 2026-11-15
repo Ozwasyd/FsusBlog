@@ -27,6 +27,7 @@
     "PublicCommentEligibility": 32794,
     "CommentManagementChallengeRequest": 215,
     "CommentManagementChallengeResponse": 216,
+    "CommentAuthorEditRequest": 217,
     "CommentAuthorMutationResult": 218,
     "CommentAuthorStatusRequest": 219,
     "CommentAuthorAppealRequest": 221,
@@ -34,6 +35,7 @@
     "CommentAppealDecisionResult": 227,
     "CommentAuthorEligibilityRequest": 32940,
     "CommentAuthorEligibility": 32941,
+    "CommentAuthorEditDetail": 33003,
     "CommentAuthorAppeals": 32964,
     "AdminCommentAppeals": 32965,
     "PrivateMediaItems": 32795,
@@ -195,6 +197,8 @@
     "PublicCommentEligibility": "/api/v2/comments/eligibility/{articleId:int}.aeds",
     "CommentAuthorEligibility": "/api/v2/comments/{articleId:int}/author/eligibility.aeds",
     "CommentAuthorChallenge": "/api/binary/comment/{id:long}/author/challenge",
+    "CommentAuthorEditDetail": "/api/v2/comments/{id:long}/author/edit.aeds",
+    "CommentAuthorEdit": "/api/binary/comment/{id:long}/author/edit",
     "CommentAuthorDelete": "/api/binary/comment/{id:long}/author/delete",
     "CommentAuthorAppeal": "/api/binary/comment/{id:long}/author/appeal",
     "CommentAuthorAppeals": "/api/v2/comments/me/appeals.aeds",
@@ -397,6 +401,7 @@
     "PowProof": "X-Fsus-Pow-Proof",
     "PowClientNonce": "X-Fsus-Pow-Client-Nonce",
     "CommentReplyEnabled": "X-Fsus-Comment-Reply-Enabled",
+    "CommentAuthorEditEnabled": "X-Fsus-Comment-Author-Edit",
     "AdminModerationBatchEnabled": "X-Fsus-Admin-Moderation-Batch-Enabled",
     "SubscriptionProof": "X-Fsus-Subscription-Proof",
     "ClientMutationId": "X-Fsus-Client-Mutation-Id",
@@ -437,6 +442,8 @@
     "PublicCommentReplyFrameBytes": 4541,
     "CommentAuthorBatchSize": 100,
     "CommentAuthorProofFrameBytes": 512,
+    "CommentAuthorEditFrameBytes": 8192,
+    "CommentAuthorEditWindowMinutes": 30,
     "SubscriptionEmailBytes": 254,
     "SubscriptionProofChars": 64,
     "MaxSubscriptionPreferenceFrameBytes": 278,
@@ -870,6 +877,10 @@
     "PublicCommentEligibility": {
       "frame": "PublicCommentEligibility",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"]]
+    },
+    "CommentAuthorEditDetail": {
+      "frame": "CommentAuthorEditDetail",
+      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["CurrentVersion", "i64"], ["Body", "text", "PublicCommentBodyBytes"]]
     },
     "PublicCommentSubmission": {
       "frame": "PublicCommentSubmission",

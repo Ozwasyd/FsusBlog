@@ -18,17 +18,38 @@ internal static class CommentAuthorDeleteEndpoints
             var ids = Wire.DecodeCommentAuthorEligibilityRequest(await frame(ctx,
                 WireHeader.HeaderSize + sizeof(int) + WireLimits.CommentAuthorBatchSize * sizeof(long), ct));
             return await Run(ctx, store, async (db, tx, actor, _) =>
-                Wire.EncodeCommentAuthorEligibility(await ReadEligible(db, tx, actor.Id, articleId, ids, ct)), ct);
+            {
+                var eligible = await ReadEligible(db, tx, actor.Id, articleId, ids, ct);
+                if (await CurrentSchema.HasCommentAuthorEditSchemaAsync(db, tx, ct))
+                    ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
+                return Wire.EncodeCommentAuthorEligibility(eligible);
+            }, ct);
         }).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.CommentAuthorChallenge, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            var purpose = Wire.ReadCommentAuthorChallengePurpose(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct), allowAppeal: true);
+            var purpose = Wire.ReadCommentAuthorChallengePurpose(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct),
+                allowAppeal: true, allowEdit: true);
             return await Run(ctx, store, async (db, tx, actor, digest) =>
-                Wire.EncodeCommentAuthorChallenge(purpose == "appeal"
-                    ? await CommentAppeals.Issue(db, tx, actor, digest, id, ct)
-                    : await Issue(db, tx, actor, digest, id, ct)), ct);
+                Wire.EncodeCommentAuthorChallenge(purpose switch
+                {
+                    "appeal" => await CommentAppeals.Issue(db, tx, actor, digest, id, ct),
+                    "edit" => await CommentAuthorEdits.Issue(db, tx, actor, digest, id, ct),
+                    _ => await Issue(db, tx, actor, digest, id, ct)
+                }), ct);
         }).RequireRateLimiting("comment-author-challenge");
+
+        app.MapGet(WireRoutes.CommentAuthorEditDetail, (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+            Run(ctx, store, async (db, tx, actor, _) =>
+                Wire.EncodeCommentAuthorEditDetail(await CommentAuthorEdits.Detail(db, tx, actor.Id, id, ct)), ct))
+            .RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.CommentAuthorEdit, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        {
+            var request = Wire.DecodeCommentAuthorEditRequest(await frame(ctx, WireLimits.CommentAuthorEditFrameBytes, ct));
+            return await Run(ctx, store, async (db, tx, actor, digest) =>
+                Wire.EncodeCommentAuthorMutation(await CommentAuthorEdits.Apply(db, tx, actor, digest, id, request, ct)), ct);
+        }).RequireRateLimiting("command");
 
         app.MapGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, (db, tx, actor, _) => CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct), ct))

@@ -39,7 +39,8 @@ remove_sign_in_history() {
 
 remove_moderation_component() {
     remove_sign_in_history
-    "${query[@]}" 'DROP TABLE public.admin_comment_claim, public.admin_comment_moderation;
+    "${query[@]}" 'DROP TABLE IF EXISTS public.comment_author_edit_outbox, public.comment_author_edited, public.comment_author_edit_challenge;
+        DROP TABLE public.admin_comment_claim, public.admin_comment_moderation;
         ALTER TABLE public.comment DROP COLUMN moderation_version'
 }
 

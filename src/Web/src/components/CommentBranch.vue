@@ -6,11 +6,11 @@ import { comments, type CommentNode } from '../../../Contracts/comment-read'
 import { deleteOwnComment } from '../../../Contracts/comment-author'
 import { ApiError } from '../../../Contracts/client'
 import { currentSession, identityEpoch } from '../session'
-import { commentAuthorDelete, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
+import { commentAuthorDelete, commentAuthorEdit, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
 
 const props = defineProps<{
   articleId: number; node: CommentNode; preview?: CommentNode[]; target?: string; contextOnly?: boolean
-  canDelete?: boolean; previewDeletions?: ReadonlySet<string>; threadOpen: boolean
+  canDelete?: boolean; previewDeletions?: ReadonlySet<string>; canEdit?: boolean; previewEdits?: ReadonlySet<string>; threadOpen: boolean
 }>()
 const children = shallowRef(props.preview ?? [])
 const expanded = ref(children.value.length > 0)
@@ -22,9 +22,10 @@ const removing = ref(false)
 const confirmRemoval = ref(false)
 const removalError = ref('')
 const notifyDeleted = inject(commentAuthorDelete)
+const openEditor = inject(commentAuthorEdit)
 const reply = inject(commentReply)
 const previewIds = new Set(props.preview?.map(node => node.id))
-const deletableChildren = useCommentAuthorEligibility(() => props.articleId,
+const authorActions = useCommentAuthorEligibility(() => props.articleId,
   computed(() => expanded.value ? children.value.filter(node => !previewIds.has(node.id)) : []))
 let request: AbortController | undefined
 let removal: AbortController | undefined
@@ -109,6 +110,7 @@ function toggle(show = !expanded.value) {
           <time :datetime="createdAt">{{ displayTime }}</time>
         </RouterLink>
         <span v-if="node.edited">Edited</span>
+        <ElButton v-if="canEdit && !node.deleted && openEditor" text size="small" @click="openEditor?.(node)">Edit my comment</ElButton>
         <ElButton v-if="canDelete && !node.deleted" text size="small" :loading="removing" @click="confirmRemoval = true">Delete my comment</ElButton>
         <ElButton v-if="reply?.available.value && threadOpen && !node.deleted && node.depth < 32" text size="small"
           @click="reply.start(node)">Reply</ElButton>
@@ -130,7 +132,8 @@ function toggle(show = !expanded.value) {
       <div v-if="!contextOnly && node.childCount > 0" v-show="expanded" :id="`comment-replies-${node.id}`">
         <ol v-if="children.length > 0" class="comment-children">
           <CommentBranch v-for="child in children" :key="child.id" :article-id="articleId" :node="child" :target="target"
-            :can-delete="previewDeletions?.has(child.id) || deletableChildren.has(child.id)" :thread-open="threadOpen" />
+            :can-delete="previewDeletions?.has(child.id) || authorActions.deletable.has(child.id)"
+            :can-edit="previewEdits?.has(child.id) || authorActions.editable.has(child.id)" :thread-open="threadOpen" />
         </ol>
         <ElAlert v-if="failed" type="error" title="Could not load replies." :closable="false" />
         <ElButton v-if="!done && children.length < 300" text size="small" :loading="loading" @click="more">

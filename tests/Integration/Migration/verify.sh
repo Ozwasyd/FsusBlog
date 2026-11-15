@@ -127,6 +127,20 @@ rg -A 3 '"name": "article",' "$scratch/inventory.json" | rg -F '"rows": 1'
 pg_dump --no-password --format=custom --dbname "$source_db" --file "$scratch/backup.dump"
 pg_restore --no-password --single-transaction --exit-on-error --dbname "$restore_db" "$scratch/backup.dump"
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+
+# A database older than the edit component still verifies, but a partial installation is invalid.
+"${psql_restore[@]}" -c 'DROP TABLE public.comment_author_edit_outbox'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'Comment author edit storage is incomplete.' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'Comment author edit storage is incomplete.' "${migrate[@]}" comment author-edit-schema
+"${psql_restore[@]}" -c 'DROP TABLE public.comment_author_edit_challenge, public.comment_author_edited'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment author-edit-schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment author-edit-schema
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_author_edited DROP CONSTRAINT comment_author_edited_next_version_check'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${migrate[@]}" comment author-edit-schema
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_author_edited ADD CONSTRAINT comment_author_edited_next_version_check CHECK (comment_version = previous_version + 1)'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+
 source_site=$("${psql_source[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
 restore_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
 [[ -n "$source_site" && "$source_site" == "$restore_site" ]]

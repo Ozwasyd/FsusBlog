@@ -1,7 +1,7 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, PodWriter, ProtocolError, decodeUtf8 } from './binary.ts';
-import { request, validSiteSessionId } from './client.ts';
-import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
+import { ApiError, request, validSiteSessionId } from './client.ts';
+import { decodeCommentAuthorEditDetail, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const positiveId = /^[1-9][0-9]{0,18}$/;
 const proofFormat = /^[a-zA-Z0-9_-]{43}$/;
@@ -27,7 +27,7 @@ export async function commentAuthorEligibility(article: number, candidates: read
   }
   const path = WireRoutes.CommentAuthorEligibility.replace('{articleId:int}', String(article));
   const frame = encodeFrame(FrameType.CommentAuthorEligibilityRequest, writer.finish());
-  return request(path, FrameType.CommentAuthorEligibility, payload => {
+  return request(path, FrameType.CommentAuthorEligibility, (payload, responseHeaders) => {
     const reader = new PodReader(payload);
     const count = reader.i32();
     if (count < 0 || count > supplied.size) throw new ProtocolError('Invalid comment eligibility count');
@@ -38,7 +38,7 @@ export async function commentAuthorEligibility(article: number, candidates: read
       result.push(id);
     }
     reader.finish();
-    return result;
+    return { ids: result, editEnabled: responseHeaders.get(WireHeaders.CommentAuthorEditEnabled) === '1' };
   }, signal, 'POST', frame, headers(handle));
 }
 
@@ -54,9 +54,13 @@ function version(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
-export async function requestCommentAuthorChallenge(id: string, handle: string, purpose: 'delete' | 'appeal', signal: AbortSignal) {
+function authorPath(route: string, id: string): string {
   if (!positiveId.test(id) || BigInt(id) >= (1n << 63n)) throw new ProtocolError('Invalid comment identifier');
-  const path = WireRoutes.CommentAuthorChallenge.replace('{id:long}', id);
+  return route.replace('{id:long}', id);
+}
+
+export async function requestCommentAuthorChallenge(id: string, handle: string, purpose: 'delete' | 'appeal' | 'edit', signal: AbortSignal) {
+  const path = authorPath(WireRoutes.CommentAuthorChallenge, id);
   return request(path, FrameType.CommentManagementChallengeResponse, payload => {
     const value = parse(payload);
     if (value.issued !== true || value.failureCode !== null || !version(value.currentVersion) ||
@@ -79,4 +83,36 @@ export async function deleteOwnComment(id: string, handle: string, signal: Abort
       throw new ProtocolError('Invalid comment deletion result');
   }, signal, 'POST', encodeFrame(FrameType.CommentAuthorStatusRequest,
     encoder.encode(JSON.stringify({ challenge: proof.challenge, capabilitySecret: '' }))), headers(handle));
+}
+
+export function commentAuthorEditDetail(id: string, handle: string, signal: AbortSignal) {
+  return request(authorPath(WireRoutes.CommentAuthorEditDetail, id), FrameType.CommentAuthorEditDetail, payload => {
+    const { articleId, publication, currentVersion, body } = decodeCommentAuthorEditDetail(payload);
+    if (articleId <= 0 || publication <= 0n || currentVersion <= 0n || currentVersion >= BigInt(Number.MAX_SAFE_INTEGER) ||
+        body.length === 0 || body.length > 1000)
+      throw new ProtocolError('Invalid comment edit detail');
+    return { articleId, publication, currentVersion: Number(currentVersion), body };
+  }, signal, 'GET', undefined, headers(handle));
+}
+
+export async function editOwnComment(id: string, expectedVersion: number, content: string, handle: string, signal: AbortSignal) {
+  const path = authorPath(WireRoutes.CommentAuthorEdit, id);
+  if (!version(expectedVersion) || expectedVersion === Number.MAX_SAFE_INTEGER ||
+      !content.trim() || content.length > 1000 || encoder.encode(content).length > WireLimits.PublicCommentBodyBytes)
+    throw new ProtocolError('Invalid comment edit request');
+  const { challenge, currentVersion } = await requestCommentAuthorChallenge(id, handle, 'edit', signal);
+  signal.throwIfAborted();
+  if (currentVersion !== expectedVersion) throw new ApiError('The comment changed.', 409);
+  const frame = encodeFrame(FrameType.CommentAuthorEditRequest, encoder.encode(JSON.stringify({ expectedVersion, content, challenge })));
+  if (frame.length > WireLimits.CommentAuthorEditFrameBytes) throw new ProtocolError('Comment edit request exceeds its byte limit');
+
+  return request(path, FrameType.CommentAuthorMutationResult, payload => {
+    const value = parse(payload);
+    if (value.success !== true || value.code !== 'ok' || value.currentVersion !== expectedVersion + 1 ||
+        value.moderationStatus !== 0 || typeof value.editedAtUtc !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?Z$/.test(value.editedAtUtc) ||
+        !Number.isFinite(Date.parse(value.editedAtUtc)))
+      throw new ProtocolError('Invalid comment edit result');
+    return { currentVersion: value.currentVersion, editedAtUtc: value.editedAtUtc };
+  }, signal, 'POST', frame, headers(handle));
 }

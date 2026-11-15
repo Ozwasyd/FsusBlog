@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, provide, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
-import { comments, type CommentContext, type CommentRoot } from '../../../Contracts/comment-read'
+import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
+import { commentAuthorEditDetail, editOwnComment } from '../../../Contracts/comment-author'
+import { comments, type CommentContext, type CommentNode, type CommentRoot } from '../../../Contracts/comment-read'
+import { ApiError } from '../../../Contracts/client'
 import CommentBranch from './CommentBranch.vue'
 import PublicCommentComposer from './PublicCommentComposer.vue'
-import { identityEpoch } from '../session'
-import { commentAuthorDelete, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
+import { currentSession, identityEpoch } from '../session'
+import { canOpenCommentEditor, commentAuthorDelete, commentAuthorEdit, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
 
 const props = defineProps<{ articleId: number; publication: bigint }>()
 const route = useRoute()
@@ -28,11 +30,22 @@ const composer = ref<HTMLElement>()
 const replyAvailable = ref(false)
 const replyTarget = shallowRef<{ id: string; name: string }>()
 let request: AbortController | undefined
-const deletionNotice = ref('')
-watch(identityEpoch, () => { deletionNotice.value = '' })
+const mutationNotice = ref('')
+const editTarget = shallowRef<{ id: string; session: string }>()
+const editDetail = shallowRef<Awaited<ReturnType<typeof commentAuthorEditDetail>>>()
+const editBody = ref('')
+const editPending = ref(false)
+const editProblem = ref('')
+const editContent = computed(() => editBody.value.trim())
+const editReady = computed(() => !!editDetail.value && !editPending.value && !editProblem.value &&
+  editContent.value.length > 0 && editContent.value.length <= 1000 && editContent.value !== editDetail.value.body)
+let editAction: AbortController | undefined
+watch([identityEpoch, () => props.articleId, () => props.publication], () => { mutationNotice.value = '' })
 watch([identityEpoch, () => props.publication, () => route.hash], () => { replyTarget.value = undefined }, { flush: 'sync' })
+watch([identityEpoch, () => currentSession.value?.siteSessionId, () => props.articleId, () => props.publication,
+  () => route.fullPath], closeEditor, { flush: 'sync' })
 const visibleNodes = computed(() => linked.value ? permalinkNodes.value : roots.value.flatMap(root => [root.node, ...root.preview]))
-const deletable = useCommentAuthorEligibility(() => props.articleId, visibleNodes)
+const authorActions = useCommentAuthorEligibility(() => props.articleId, visibleNodes)
 
 provide(commentReply, {
   available: replyAvailable,
@@ -43,17 +56,91 @@ provide(commentReply, {
   },
 })
 
-provide(commentAuthorDelete, async id => {
+provide(commentAuthorDelete, id => { void refreshAfterMutation(id, 'Comment deleted.') })
+provide(commentAuthorEdit, node => { void openEditor(node) })
+
+async function refreshAfterMutation(id: string, message: string) {
   const epoch = identityEpoch.value
   if (replyTarget.value?.id === id) replyTarget.value = undefined
-  deletionNotice.value = 'Comment deleted.'
+  mutationNotice.value = message
   restart.value++
   await nextTick()
   if (identityEpoch.value === epoch && (route.hash === `#comment-${id}` || document.activeElement === document.body))
     commentTitle.value?.focus()
+}
+
+onBeforeUnmount(() => {
+  request?.abort()
+  closeEditor()
 })
 
-onBeforeUnmount(() => request?.abort())
+function closeEditor() {
+  editAction?.abort()
+  editAction = undefined
+  editTarget.value = undefined
+  editDetail.value = undefined
+  editBody.value = ''
+  editPending.value = false
+  editProblem.value = ''
+}
+
+function dismissEditor(done: () => void) {
+  closeEditor()
+  done()
+}
+
+async function openEditor(node: CommentNode) {
+  const session = currentSession.value
+  if (editTarget.value || !canOpenCommentEditor(node) || !session?.siteSessionId || session.expiresAt <= Date.now()) return
+  const controller = new AbortController()
+  editAction = controller
+  const target = { id: node.id, session: session.siteSessionId }
+  editTarget.value = target
+  editPending.value = true
+  try {
+    const detail = await commentAuthorEditDetail(target.id, target.session, controller.signal)
+    if (controller.signal.aborted) return
+    if (detail.articleId !== props.articleId || detail.publication !== props.publication) {
+      editProblem.value = 'The article changed. Reload the article before editing this comment.'
+      return
+    }
+    editDetail.value = detail
+    editBody.value = detail.body
+  } catch {
+    if (!controller.signal.aborted) editProblem.value = 'This comment could not be opened for editing.'
+  } finally {
+    if (editAction === controller) {
+      editAction = undefined
+      editPending.value = false
+    }
+  }
+}
+
+async function saveEdit() {
+  const target = editTarget.value
+  const detail = editDetail.value
+  const session = currentSession.value
+  if (!editReady.value || !target || !detail || !session || session.siteSessionId !== target.session || session.expiresAt <= Date.now()) return
+  const controller = new AbortController()
+  editAction = controller
+  editPending.value = true
+  try {
+    await editOwnComment(target.id, detail.currentVersion, editContent.value, target.session, controller.signal)
+    if (controller.signal.aborted) return
+    closeEditor()
+    await refreshAfterMutation(target.id, 'Comment edit submitted for review.')
+  } catch (error) {
+    if (!controller.signal.aborted)
+      editProblem.value = error instanceof ApiError && error.status === 409
+        ? 'The comment changed. Reload the article before editing again.'
+        : 'Could not confirm the edit. Reload the article to check its status.'
+  } finally {
+    if (editAction === controller) {
+      editAction = undefined
+      editPending.value = false
+    }
+  }
+}
 
 async function load(follow: boolean, hash?: string) {
   if (follow && request) return
@@ -95,31 +182,48 @@ async function load(follow: boolean, hash?: string) {
   }
 }
 
-watch([() => props.articleId, () => route.hash, restart], ([, hash]) => void load(false, hash), { immediate: true })
+watch([() => props.articleId, () => props.publication, () => route.hash, restart], ([, , hash]) => void load(false, hash), { immediate: true })
 </script>
 
 <template>
   <section class="article-comments" aria-labelledby="article-comments-title">
     <h2 id="article-comments-title" ref="commentTitle" tabindex="-1">Comments</h2>
-    <p v-if="deletionNotice" role="status">{{ deletionNotice }}</p>
+    <p v-if="mutationNotice" role="status">{{ mutationNotice }}</p>
     <p v-if="linked === null" role="status">This comment is unavailable.</p>
     <p v-if="loading" role="status">Loading comments…</p>
     <template v-if="linked">
       <ol class="comment-roots">
         <CommentBranch v-for="node in permalinkNodes"
-          :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="deletable.has(node.id)"
+          :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="authorActions.deletable.has(node.id)"
+          :can-edit="authorActions.editable.has(node.id)"
           :thread-open="node.depth === 0 || linked.ancestors.some(root => root.id === node.rootId && !root.deleted)" context-only />
       </ol>
       <RouterLink :to="{ hash: '#article-comments-title' }">All comments</RouterLink>
     </template>
     <ol v-else-if="roots.length" class="comment-roots">
       <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview"
-        :can-delete="deletable.has(root.node.id)" :preview-deletions="deletable" :thread-open="!root.node.deleted" />
+        :can-delete="authorActions.deletable.has(root.node.id)" :preview-deletions="authorActions.deletable"
+        :can-edit="authorActions.editable.has(root.node.id)" :preview-edits="authorActions.editable" :thread-open="!root.node.deleted" />
     </ol>
     <p v-else-if="!loading && !failed" class="muted">No comments yet.</p>
     <ElAlert v-if="failed" type="error" title="Could not load comments." :closable="false" />
     <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">Retry comments</ElButton>
     <ElButton v-else-if="next && !loading" text @click="load(true)">Load more comments</ElButton>
+    <ElDialog :model-value="!!editTarget" title="Edit your comment" append-to-body destroy-on-close
+      :close-on-click-modal="false" :before-close="dismissEditor" width="min(calc(100vw - 2rem), 36rem)">
+      <p v-if="editPending" role="status">{{ editDetail ? 'Saving edit…' : 'Loading comment…' }}</p>
+      <template v-if="editDetail">
+        <p>Your comment will return to moderation before appearing again.</p>
+        <ElInput v-model="editBody" type="textarea" label="Edited comment" v-bind="{ rows: 5, maxlength: 1000 }"
+          :disabled="editPending" :readonly="!!editProblem" />
+      </template>
+      <ElAlert v-if="editProblem" :title="editProblem" type="error" :closable="false" />
+      <template #footer>
+        <ElButton native-type="button" @click="closeEditor">{{ editProblem ? 'Close' : 'Cancel' }}</ElButton>
+        <ElButton v-if="editDetail && !editProblem" native-type="button" type="primary" :disabled="!editReady"
+          :loading="editPending" @click="saveEdit">Save for review</ElButton>
+      </template>
+    </ElDialog>
     <div v-if="publication" ref="composer" tabindex="-1">
       <PublicCommentComposer :article-id="articleId" :publication="publication" :reply="replyTarget"
         @availability="value => replyAvailable = value" @cancel="replyTarget = undefined" />

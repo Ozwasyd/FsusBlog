@@ -32,7 +32,17 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 从公开文章的评论区可删除当前账号发布、且提交事务留存了账号归属记录的评论。相同显示名称不会授予删除权限。停机执行 `comment author-delete-schema` 可启用旧部署的存储，升级前及导入的评论不自动建立归属。文章已撤回时，作者仍可通过原评论 ID 使用已认证的作者接口。
 
-确认删除后才申请有效期五分钟的一次性证明。服务端核对账号、当前会话和评论版本，并在同一事务内消费证明、标记评论删除、追加删除记录和 outbox 事件。公开评论树保留通往已批准回复所需的占位，正文和原显示名称从公共投影中移除。删除事件保留账号、版本、审核状态和正文摘要。独立通知投递、评论编辑及强匿名评论仍属其他流程。 [v1 作者端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L587) · [#2178](https://github.com/Ozwasyd/FsusBlog/issues/2178)
+确认删除后才申请有效期五分钟的一次性证明。服务端核对账号、当前会话和评论版本，并在同一事务内消费证明、标记评论删除、追加删除记录和 outbox 事件。公开评论树保留通往已批准回复所需的占位，正文和原显示名称从公共投影中移除。删除事件保留账号、版本、审核状态和正文摘要。独立通知投递及强匿名评论仍属其他流程。 [v1 作者端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L587) · [#2178](https://github.com/Ozwasyd/FsusBlog/issues/2178)
+
+### 登录作者编辑
+
+当前账号持有评论归属、评论已批准且在当前公开文章上对访客可见时，作者可在原评论创建后 30 分钟内从评论区打开 FsusUI 编辑框。旧库可停机执行 `comment author-edit-schema` 安装编辑存储。编辑框读取仅该作者可取得的 AEDS 33003，核对文章、出版版本与评论版本后载入服务端正文。
+
+保存沿用 v1 的编辑挑战 215→216 和命令 217→218。一次性证明五分钟有效，在 PostgreSQL 中绑定 `edit` 用途、评论、账户、当前会话与代次、当前出版和评论版本。服务端沿用普通评论的文本规范化和长度检查。编辑必须仍满足公开及地区条件。消费证明、版本 CAS、新旧正文和摘要、待审转移及 `CommentEdited` outbox 同事务提交。版本冲突后需重新载入，编辑期间的会话或文章切换清除旧稿。
+
+固定 v1 按内容、地区和模型审核决定初态，并允许配置编辑窗口。当前 v2 切片统一进入现有人工待审队列，适用对象为仍公开的登录用户评论及回复，窗口从原创建时刻计算。提交后页面重新读取评论树。待审期间公开 API 不输出旧正文或新正文，已批准的后代继续经占位可达。重新通过后沿用原坐标显示新正文及 Edited 标记。同一回复的历史站内通知保留原凭据。 [v1 编辑事务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentAuthorManagementService.cs#L434) · [v1 编辑交互](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useArticleDetailView.ts#L1075)
+
+原生 PostgreSQL 验证一次性证明的版本、会话、代次、期限和出版边界，以及 outbox 写入失败回滚和并发兑换。390px Chrome 经 Caddy TLS 验证普通账号加载原文、取消、编辑后隐藏、子回复继续公开，以及 Passkey 重新批准后保留原链接和一条历史通知。 [原生测试](../../artifacts/comment-author-edit-initial/native.log) · [浏览器与数据库记录](../../artifacts/comment-author-edit-caddy-retry/caddy/)
 
 ### 登录作者申诉
 

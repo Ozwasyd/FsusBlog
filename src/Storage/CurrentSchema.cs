@@ -117,7 +117,7 @@ internal static partial class CurrentSchema
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
-        bool? requireArticleReadTotal = null)
+        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null)
     {
         if (requireArticleMedia is null)
         {
@@ -188,6 +188,10 @@ internal static partial class CurrentSchema
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
+        var hasCommentAuthorEdit = await HasCommentAuthorEditSchemaAsync(connection, transaction, cancellationToken);
+        if ((hasCommentAuthorEdit && !hasCommentAuthorDelete) ||
+            (requireCommentAuthorEdit.HasValue && requireCommentAuthorEdit.Value != hasCommentAuthorEdit))
+            throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
         var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
             throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
@@ -237,6 +241,7 @@ internal static partial class CurrentSchema
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
+            .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
             .Concat(hasCommentAppeal ? CommentAppealColumns : [])
             .Concat(hasCommentReplies ? CommentReplyColumns : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
@@ -274,6 +279,7 @@ internal static partial class CurrentSchema
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
+            .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])

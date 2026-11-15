@@ -30,6 +30,8 @@ inline constexpr uint32_t PublicCommentFrameBytes = 4533;
 inline constexpr uint32_t PublicCommentReplyFrameBytes = 4541;
 inline constexpr uint32_t CommentAuthorBatchSize = 100;
 inline constexpr uint32_t CommentAuthorProofFrameBytes = 512;
+inline constexpr uint32_t CommentAuthorEditFrameBytes = 8192;
+inline constexpr uint32_t CommentAuthorEditWindowMinutes = 30;
 inline constexpr uint32_t SubscriptionEmailBytes = 254;
 inline constexpr uint32_t SubscriptionProofChars = 64;
 inline constexpr uint32_t MaxSubscriptionPreferenceFrameBytes = 278;
@@ -347,6 +349,7 @@ enum class FrameType : uint16_t {
     PublicCommentEligibility = 32794,
     CommentManagementChallengeRequest = 215,
     CommentManagementChallengeResponse = 216,
+    CommentAuthorEditRequest = 217,
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
@@ -354,6 +357,7 @@ enum class FrameType : uint16_t {
     CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
     CommentAuthorEligibility = 32941,
+    CommentAuthorEditDetail = 33003,
     CommentAuthorAppeals = 32964,
     AdminCommentAppeals = 32965,
     PrivateMediaItems = 32795,
@@ -519,6 +523,7 @@ constexpr bool known(FrameType type) {
         case FrameType::PublicCommentEligibility:
         case FrameType::CommentManagementChallengeRequest:
         case FrameType::CommentManagementChallengeResponse:
+        case FrameType::CommentAuthorEditRequest:
         case FrameType::CommentAuthorMutationResult:
         case FrameType::CommentAuthorStatusRequest:
         case FrameType::CommentAuthorAppealRequest:
@@ -526,6 +531,7 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentAppealDecisionResult:
         case FrameType::CommentAuthorEligibilityRequest:
         case FrameType::CommentAuthorEligibility:
+        case FrameType::CommentAuthorEditDetail:
         case FrameType::CommentAuthorAppeals:
         case FrameType::AdminCommentAppeals:
         case FrameType::PrivateMediaItems:

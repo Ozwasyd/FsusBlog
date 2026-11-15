@@ -15,6 +15,7 @@ export const FrameType = {
   PublicCommentEligibility: 32794,
   CommentManagementChallengeRequest: 215,
   CommentManagementChallengeResponse: 216,
+  CommentAuthorEditRequest: 217,
   CommentAuthorMutationResult: 218,
   CommentAuthorStatusRequest: 219,
   CommentAuthorAppealRequest: 221,
@@ -22,6 +23,7 @@ export const FrameType = {
   CommentAppealDecisionResult: 227,
   CommentAuthorEligibilityRequest: 32940,
   CommentAuthorEligibility: 32941,
+  CommentAuthorEditDetail: 33003,
   CommentAuthorAppeals: 32964,
   AdminCommentAppeals: 32965,
   PrivateMediaItems: 32795,
@@ -198,6 +200,8 @@ export const WireLimits = {
   PublicCommentReplyFrameBytes: 4541,
   CommentAuthorBatchSize: 100,
   CommentAuthorProofFrameBytes: 512,
+  CommentAuthorEditFrameBytes: 8192,
+  CommentAuthorEditWindowMinutes: 30,
   SubscriptionEmailBytes: 254,
   SubscriptionProofChars: 64,
   MaxSubscriptionPreferenceFrameBytes: 278,
@@ -513,6 +517,8 @@ export const WireRoutes = {
   PublicCommentEligibility: "/api/v2/comments/eligibility/{articleId:int}.aeds",
   CommentAuthorEligibility: "/api/v2/comments/{articleId:int}/author/eligibility.aeds",
   CommentAuthorChallenge: "/api/binary/comment/{id:long}/author/challenge",
+  CommentAuthorEditDetail: "/api/v2/comments/{id:long}/author/edit.aeds",
+  CommentAuthorEdit: "/api/binary/comment/{id:long}/author/edit",
   CommentAuthorDelete: "/api/binary/comment/{id:long}/author/delete",
   CommentAuthorAppeal: "/api/binary/comment/{id:long}/author/appeal",
   CommentAuthorAppeals: "/api/v2/comments/me/appeals.aeds",
@@ -716,6 +722,7 @@ export const WireHeaders = {
   PowProof: "X-Fsus-Pow-Proof",
   PowClientNonce: "X-Fsus-Pow-Client-Nonce",
   CommentReplyEnabled: "X-Fsus-Comment-Reply-Enabled",
+  CommentAuthorEditEnabled: "X-Fsus-Comment-Author-Edit",
   AdminModerationBatchEnabled: "X-Fsus-Admin-Moderation-Batch-Enabled",
   SubscriptionProof: "X-Fsus-Subscription-Proof",
   ClientMutationId: "X-Fsus-Client-Mutation-Id",
@@ -1807,6 +1814,34 @@ export function decodePublicCommentEligibility(payload: Uint8Array): PublicComme
     articleId: reader.i32(),
     publication: reader.i64(),
     displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface CommentAuthorEditDetail {
+  articleId: number;
+  publication: bigint;
+  currentVersion: bigint;
+  body: string;
+}
+
+export function encodeCommentAuthorEditDetail(value: CommentAuthorEditDetail): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.publication);
+  writer.i64(value.currentVersion);
+  writer.text(value.body, WireLimits.PublicCommentBodyBytes);
+  return writer.finish();
+}
+
+export function decodeCommentAuthorEditDetail(payload: Uint8Array): CommentAuthorEditDetail {
+  const reader = new PodReader(payload);
+  const value: CommentAuthorEditDetail = {
+    articleId: reader.i32(),
+    publication: reader.i64(),
+    currentVersion: reader.i64(),
+    body: reader.text(WireLimits.PublicCommentBodyBytes),
   };
   reader.finish();
   return value;

@@ -123,7 +123,7 @@ try {
   await challenge(outsider, outsiderAuth, root, 404)
   await challenge(publisher, publisherAuth, root, 404)
   await challenge(commenter, commenterAuth, 9007199254740993n, 404)
-  await challenge(commenter, commenterAuth, root, 400, 'edit')
+  await challenge(commenter, commenterAuth, root, 400, 'status')
   await challenge(commenter, outsiderAuth, root, 409)
   await post(commenter, requestPath(WireRoutes.CommentAuthorChallenge, root), FrameType.CommentManagementChallengeRequest,
     json({ purpose: 'delete', capabilitySecret: null }), undefined, { ...commenterAuth, Origin: 'https://not-the-blog.invalid' }, 403)
