@@ -11,6 +11,17 @@ fi
 profile=$1
 http_probe=false
 if [[ $# == 6 ]]; then http_probe=true; fi
+wide_browser=false
+case "${FSUSBLOG_TEST_C11_WIDE_BROWSER:-0}" in
+    0) ;;
+    1)
+        [[ $profile == nightly && $http_probe == true ]] || {
+            printf 'The wide browser witness requires nightly with --http.\n' >&2; exit 2;
+        }
+        wide_browser=true
+        ;;
+    *) printf 'Set FSUSBLOG_TEST_C11_WIDE_BROWSER to 0 or 1.\n' >&2; exit 2 ;;
+esac
 if [[ $profile == nightly ]]; then articles=100000 nightly=true; else articles=20 nightly=false; fi
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
 dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
@@ -27,6 +38,10 @@ done
 for executable in initdb pg_ctl psql python3 git shasum; do command -v "$executable" >/dev/null; done
 if [[ $http_probe == true ]]; then
     for executable in curl lsof node; do command -v "$executable" >/dev/null; done
+fi
+if [[ $wide_browser == true ]]; then
+    command -v "${CADDY_BIN:?Set CADDY_BIN for the wide browser witness}" >/dev/null
+    [[ ${FSUSBLOG_TEST_CHROME:-} == /* && -x $FSUSBLOG_TEST_CHROME ]]
 fi
 
 mkdir -- "$2"
@@ -85,7 +100,7 @@ trap 'exit 143' TERM
 trap 'printf "Nightly fixture preparation failed at line %s.\n" "$LINENO" >&2' ERR
 
 stage_http_release() {
-    python3 -B - "$1" "$2" "$3" "$scratch/release" "$source_commit" <<'PY'
+    python3 -B - "$1" "$2" "$3" "$scratch/release" "$source_commit" "$wide_browser" <<'PY'
 import json
 import os
 import re
@@ -108,12 +123,15 @@ sealed_manifest = stage / "payload.sha256"
 shutil.copyfile(manifest, sealed_manifest)
 entries = verify["read_manifest"](sealed_manifest, "./")
 trees = ("server", "migrate", "web")
+metadata = {"release.txt"}
+if sys.argv[6] == "true":
+    metadata.add("Caddyfile")
 expected = {name for name in entries if name.startswith(tuple(tree + "/" for tree in trees))}
-expected.add("release.txt")
-required = {server_name, migrate_name, "web/index.html", "release.txt"}
+expected.update(metadata)
+required = {server_name, migrate_name, "web/index.html"} | metadata
 if not required <= entries.keys():
     raise SystemExit("Payload manifest is missing a required server, migrate, web, or release entry.")
-present = {"release.txt"}
+present = metadata.copy()
 for tree in trees:
     directory = root / tree
     if directory.is_symlink() or not directory.is_dir():
@@ -180,6 +198,10 @@ if [[ $http_probe == true ]]; then
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     migrate_dll="$scratch/release/migrate/FsusBlogV2.Migrate.dll"
     shasum -a 256 "${decoders[@]}" tests/Performance/nightly-http-{oracle.sql,probe.mjs} >> "$evidence/run.txt"
+    if [[ $wide_browser == true ]]; then
+        shasum -a 256 "$scratch/release/Caddyfile" tests/Performance/proxy.sh \
+            tests/Performance/nightly-wide-search-{oracle.sql,tls.sh,probe.mjs} >> "$evidence/run.txt"
+    fi
 fi
 shasum -a 256 "$migrate_dll" "$test_dll" tests/Performance/{seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql} >> "$evidence/run.txt"
 
@@ -313,9 +335,8 @@ if [[ $http_probe == true ]]; then
     read -r fixture_sha _ <<< "$(shasum -a 256 "$evidence/plan.json")"
     read -r readback_sha < "$evidence/readback.sha256"
     oracle=("${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site"
-        -v profile="$profile" -v due_unix_ms="$due" -v fixture_sha256="$fixture_sha" -v readback_sha256="$readback_sha"
-        -f tests/Performance/nightly-http-oracle.sql)
-    "${oracle[@]}" > "$evidence/http-oracle.json" 2> "$evidence/http-oracle.log"
+        -v profile="$profile" -v due_unix_ms="$due" -v fixture_sha256="$fixture_sha" -v readback_sha256="$readback_sha")
+    "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle.json" 2> "$evidence/http-oracle.log"
 
     stage=http-start
     mkdir "$scratch/http-cwd" "$evidence/http-responses"
@@ -352,8 +373,15 @@ if [[ $http_probe == true ]]; then
         "$origin" "$evidence/http-oracle.json" "$evidence/http-actual.ndjson" "$evidence/http-responses"
     stage=http-stop
     stop_http_server
+    if [[ $wide_browser == true ]]; then
+        stage=wide-browser-oracle
+        "${oracle[@]}" -f tests/Performance/nightly-wide-search-oracle.sql > "$evidence/wide-search-oracle.json" 2> "$evidence/wide-search-oracle.log"
+        mkdir "$evidence/wide-browser"
+        phase wide-browser bash tests/Performance/nightly-wide-search-tls.sh \
+            "$dotnet" "$scratch/release" "$scratch" "$evidence/wide-browser" "$evidence/wide-search-oracle.json"
+    fi
     stage=http-oracle-after
-    "${oracle[@]}" > "$evidence/http-oracle-after.json" 2> "$evidence/http-oracle-after.log"
+    "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle-after.json" 2> "$evidence/http-oracle-after.log"
     cmp "$evidence/http-oracle.json" "$evidence/http-oracle-after.json"
     shasum -a 256 "$evidence"/http-oracle{,-after}.json "$evidence/http-actual.ndjson" > "$evidence/http-proof.sha256"
     printf 'Verified the selected same-database HTTP cases with the sealed PostgreSQL oracle.\n'

@@ -96,7 +96,7 @@
 
 C11 冻结包 `75fd08f` 已在 PostgreSQL 18.7 核对 100,000 篇文章、85,000 个公开坐标、5,000 条管理员归档回执和 1,000,000 条评论。发布坐标偏差为零。最初两次发布历史验证达到原有 150 秒查询期限。满档计划复现显示，外层 `LIMIT 1` 触发预计约 78.6 亿对记录的嵌套循环。修复后的打包迁移工具约 2 秒完成该阶段，另经 404.94 秒重算 100,000 个 canonical 发布摘要。真实 Kestrel 的 14 个绑定 SQL 预期的请求通过，退出后同库预期字节一致，临时资源已清理。 [历史计划诊断](../artifacts/c11-verify-full-plan-21fb652/summary.md) · [C11 满档记录](../artifacts/c11-http-75fd08f/nightly/run.txt) · [其余规模条件](issues/risk-scale-query-cases.md)
 
-宽语料 HTTP 在 macOS 和 Debian ARM64 分别用 40,002 篇实库记录验收。浏览器切片另用 26,002 篇和 Caddy HTTPS 验证两标签页的一次 131 页下载、重开复用、损坏缓存清除、撤回后旧代次 409 和新代次重取。完整浏览器档位和单机容量验收仍待。 [宽语料验证](product/public-search.md) · [容量复测](../tests/Performance/matrix-2026-11-15.md#e31779c-系统采样矩阵)
+宽语料 HTTP 在 macOS 和 Debian ARM64 分别用 40,002 篇实库记录验收。浏览器切片另用 26,002 篇和 Caddy HTTPS 验证两标签页的一次 131 页下载、重开复用、损坏缓存清除、撤回后旧代次 409 和新代次重取。更大的同库浏览器样本已通过第 8,500 页探针，单机容量验收仍待。 [宽语料验证](product/public-search.md) · [容量复测](../tests/Performance/matrix-2026-11-15.md#e31779c-系统采样矩阵)
 
 冻结候选 `ab432b219437e50bdbf0507817fd8c0bc653dc7f` 的 311 个发布文件和 330 个 Git 提交通过独立校验。默认 CLR 下 133 项 Core 和 214 项集成通过，独立 C11 小样本另有 13 个同库 HTTP 请求通过。139 项合并 Node、89 项协议 Node 和 3,847 项 JS/Wasm 差分通过。实际解包产物通过 20 组 Chrome 验证，其中宽语料用例使用 Caddy HTTPS 与真实 IndexedDB。迁移、隔离旧库回滚和 PostgreSQL 物理备库接管均通过。 [联合结果](../artifacts/candidate-ab432b2/checks.txt) · [小样本记录](../artifacts/candidate-ab432b2/nightly-pilot/run.txt) · [独立归档校验](../artifacts/candidate-ab432b2/release-verification.json)
 
