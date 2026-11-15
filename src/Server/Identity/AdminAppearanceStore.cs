@@ -28,6 +28,20 @@ internal sealed partial class AdminPasskeyStore
         WithLiveAdmin(session, AppearancePermission, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
             registry.Available().Select(entry => new AdminAppearancePackage(entry.Id, entry.Version, entry.ArchiveDigest, entry.Font)).ToArray())), ct);
 
+    internal Task<byte[]> AppearanceFontDetail(string? session, AppearanceRegistry registry, string? digest, CancellationToken ct) =>
+        WithLiveAdmin(session, AppearancePermission, (_, _, _) =>
+        {
+            if (digest is not { Length: WireLimits.AdminAppearanceDigestBytes } ||
+                !digest.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+                throw new BusinessException(Rejection.Invalid, "Choose an exact font archive digest.");
+            var detail = registry.FontDetail(digest)
+                ?? throw new BusinessException(Rejection.NotFound, "The font package is unavailable.");
+            return Task.FromResult(Wire.EncodeAdminAppearanceFontDetail(new(detail.Id, detail.Version, detail.ArchiveDigest,
+                detail.Name ?? "", detail.Family ?? "", detail.LicenseName, detail.LicenseText, detail.FaceWeight, detail.FaceStyle,
+                detail.FaceDigest, detail.FaceBytes, detail.UnicodeRange ?? "", detail.Source?.Kind ?? "", detail.Source?.Package ?? "",
+                detail.Source?.Version ?? "", detail.Source?.Upstream ?? "")));
+        }, ct);
+
     internal Task<byte[]> AppearanceHistory(string? session, long? before, int limit, CancellationToken ct) =>
         WithLiveAdmin(session, AppearancePermission, async (db, tx, _) =>
             Wire.EncodeAdminAppearanceHistory(await AppearanceActivationStore.History(db, tx, before, limit, ct), limit), ct);

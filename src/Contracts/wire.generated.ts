@@ -94,6 +94,7 @@ export const FrameType = {
   AdminAppearanceCatalog: 32937,
   AdminAppearanceCommand: 32938,
   AdminAppearanceHistory: 33002,
+  AdminAppearanceFontDetail: 33039,
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
   AdminInboxPage: 32896,
@@ -301,6 +302,11 @@ export const WireLimits = {
   AdminAppearanceCommandFrameBytes: 297,
   AdminAppearanceHistoryPageSize: 20,
   AdminAppearanceHistoryMaximumItems: 50,
+  AdminAppearanceFontMetadataBytes: 384,
+  AdminAppearanceFontLicenseNameBytes: 16,
+  AdminAppearanceFontLicenseBytes: 32768,
+  AdminAppearanceFontAssetBytes: 1048576,
+  AdminAppearanceFontUnicodeRangeBytes: 160,
   SiteConfigBlobBytes: 4096,
   BodyBytes: 1048576,
   MaxPayloadBytes: 4194304,
@@ -714,6 +720,7 @@ export const WireRoutes = {
   AdminAppearanceState: "/api/v2/admin/identity/appearance.aeds",
   AdminAppearanceCatalog: "/api/v2/admin/identity/appearance/catalog.aeds",
   AdminAppearanceHistory: "/api/v2/admin/identity/appearance/history.aeds",
+  AdminAppearanceFontDetail: "/api/v2/admin/identity/appearance/font.aeds",
   AdminAppearanceStepUpBegin: "/api/v2/admin/identity/appearance/step-up/begin.aeds",
   AdminAppearanceStepUpComplete: "/api/v2/admin/identity/appearance/step-up/complete.aeds",
   AdminAppearancePow: "/api/v2/admin/identity/appearance/pow.aeds",
@@ -1991,6 +1998,70 @@ export function decodeAdminAppearanceCommand(payload: Uint8Array): AdminAppearan
     theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
     font: reader.text(WireLimits.AdminAppearanceDigestBytes),
     rollback: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminAppearanceFontDetail {
+  id: string;
+  version: string;
+  archiveDigest: string;
+  name: string;
+  family: string;
+  licenseName: string;
+  licenseText: string;
+  faceWeight: number;
+  faceStyle: string;
+  faceDigest: string;
+  faceBytes: number;
+  unicodeRange: string;
+  sourceKind: string;
+  sourcePackage: string;
+  sourceVersion: string;
+  sourceUpstream: string;
+}
+
+export function encodeAdminAppearanceFontDetail(value: AdminAppearanceFontDetail): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.id, WireLimits.AdminAppearanceIdBytes);
+  writer.text(value.version, WireLimits.AdminAppearanceVersionBytes);
+  writer.text(value.archiveDigest, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.name, WireLimits.AdminAppearanceFontMetadataBytes);
+  writer.text(value.family, WireLimits.AdminAppearanceFontMetadataBytes);
+  writer.text(value.licenseName, WireLimits.AdminAppearanceFontLicenseNameBytes);
+  writer.text(value.licenseText, WireLimits.AdminAppearanceFontLicenseBytes);
+  writer.i32(value.faceWeight);
+  writer.text(value.faceStyle, WireLimits.AdminAppearanceFontLicenseNameBytes);
+  writer.text(value.faceDigest, WireLimits.AdminAppearanceDigestBytes);
+  writer.i32(value.faceBytes);
+  writer.text(value.unicodeRange, WireLimits.AdminAppearanceFontUnicodeRangeBytes);
+  writer.text(value.sourceKind, WireLimits.AdminAppearanceFontLicenseNameBytes);
+  writer.text(value.sourcePackage, WireLimits.AdminAppearanceFontMetadataBytes);
+  writer.text(value.sourceVersion, WireLimits.AdminAppearanceVersionBytes);
+  writer.text(value.sourceUpstream, WireLimits.AdminAppearanceFontMetadataBytes);
+  return writer.finish();
+}
+
+export function decodeAdminAppearanceFontDetail(payload: Uint8Array): AdminAppearanceFontDetail {
+  const reader = new PodReader(payload);
+  const value: AdminAppearanceFontDetail = {
+    id: reader.text(WireLimits.AdminAppearanceIdBytes),
+    version: reader.text(WireLimits.AdminAppearanceVersionBytes),
+    archiveDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    name: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+    family: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+    licenseName: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+    licenseText: reader.text(WireLimits.AdminAppearanceFontLicenseBytes),
+    faceWeight: reader.i32(),
+    faceStyle: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+    faceDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    faceBytes: reader.i32(),
+    unicodeRange: reader.text(WireLimits.AdminAppearanceFontUnicodeRangeBytes),
+    sourceKind: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+    sourcePackage: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+    sourceVersion: reader.text(WireLimits.AdminAppearanceVersionBytes),
+    sourceUpstream: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
   };
   reader.finish();
   return value;

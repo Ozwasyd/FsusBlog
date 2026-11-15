@@ -76,6 +76,7 @@ public sealed class AppearanceRegistryTests
         var registry = AppearanceRegistry.Load(disk.Root, clock);
         var option = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("summer", "1.0", source.ArchiveSha256, false), option);
+        Assert.Null(registry.FontDetail(option.ArchiveDigest));
         Assert.Equal(new AppearanceSelection(), registry.Default);
         Assert.Empty(registry.SelectedStyle(registry.Default, 0)!);
         var selection = new AppearanceSelection(option.ArchiveDigest);
@@ -103,6 +104,10 @@ public sealed class AppearanceRegistryTests
         var listed = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, true), listed);
         Assert.Equal(font, registry.ReadFont(Hash(font)));
+        Assert.Equal(new AppearanceFontDetail("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, "Fixture Sans", "Fixture Sans",
+            "OFL-1.1", "Fixture license.", 400, "normal", Hash(font), font.Length, "U+0000-00FF",
+            new("npm-fontsource", "@fontsource/google-sans", "5.2.1", "Google Fonts")), registry.FontDetail(descriptor.ArchiveSha256));
+        Assert.Null(registry.FontDetail(Hash(font)));
         var style = Assert.IsType<byte[]>(registry.SelectedStyle(registry.Default, 7));
         Assert.Contains("unicode-range:U+0000-00FF", System.Text.Encoding.UTF8.GetString(style));
         Assert.Contains("/font/7/" + Hash(font), System.Text.Encoding.UTF8.GetString(style));
@@ -114,6 +119,10 @@ public sealed class AppearanceRegistryTests
         File.WriteAllBytes(path, data);
         File.SetUnixFileMode(path, UnixFileMode.UserRead);
         Assert.Equal("archive-digest", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+        clock.Now = Now.AddHours(2);
+        Assert.Null(registry.FontDetail(descriptor.ArchiveSha256));
+        clock.Now = Now;
+        Assert.Null(registry.FontDetail(descriptor.ArchiveSha256));
     }
 
     [Theory]

@@ -5,6 +5,10 @@ namespace FsusBlog.V2.Core.Extensions;
 
 public sealed record AppearancePackage(string Id, string Version, string ArchiveDigest, bool Font);
 public sealed record AppearanceSelection(string ThemeDigest = "", string FontDigest = "");
+public sealed record AppearanceFontSource(string Kind, string Package, string Version, string Upstream);
+public sealed record AppearanceFontDetail(string Id, string Version, string ArchiveDigest, string? Name, string? Family,
+    string LicenseName, string LicenseText, int FaceWeight, string FaceStyle, string FaceDigest, int FaceBytes,
+    string? UnicodeRange, AppearanceFontSource? Source);
 
 public sealed partial class AppearanceRegistry
 {
@@ -17,6 +21,12 @@ public sealed partial class AppearanceRegistry
 
     public bool IsCurrent(AppearanceSelection selection)
         => Resolve(selection.ThemeDigest, false, out _) && Resolve(selection.FontDigest, true, out _);
+
+    public AppearanceFontDetail? FontDetail(string archiveDigest) =>
+        Resolve(archiveDigest, true, out var entry) && entry is Font font
+            ? new(font.Id, font.Version, font.Trust.Source.ArchiveSha256, font.Identity?.Name, font.Identity?.Family,
+                font.LicenseName, font.LicenseText, 400, "normal", font.Hash, font.Bytes.Length, font.UnicodeRange, font.Identity?.Source)
+            : null;
 
     public byte[]? SelectedStyle(AppearanceSelection selection, long activation)
     {

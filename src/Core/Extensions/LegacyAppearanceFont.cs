@@ -34,7 +34,7 @@ public sealed partial class AppearanceRegistry
             throw Reject("appearance-fsfont-unsupported");
 
         if (entries.Count != 4 || !entries.ContainsKey(file)) throw Reject("appearance-entry-shape");
-        var source = Decode<LegacyFontSource>(ReadEntry(entries, LegacyLicenseSource, 2048), LegacyFontJson);
+        var source = Decode<AppearanceFontSource>(ReadEntry(entries, LegacyLicenseSource, 2048), LegacyFontJson);
         if (source != manifest.Source || source.Kind is not ("local-vendored" or "npm-fontsource") ||
             !FontVersion(source.Version) || !FontMetadata(source.Package) || !FontMetadata(source.Upstream) ||
             source.Package.Contains(':') || source.Package.StartsWith('/') || source.Upstream.Contains(':') ||
@@ -42,8 +42,9 @@ public sealed partial class AppearanceRegistry
             throw Reject("appearance-font-provenance");
         var license = ReadEntry(entries, LegacyLicense, MaxLicense);
         var content = ReadEntry(entries, file, (int)Math.Min(MaxFont, budgets.TotalBytes));
-        ValidateFontPayload(license, content, digest);
-        return new(id, manifest.Version, trust, digest, content, face.UnicodeRange);
+        var licenseText = ValidateFontPayload(license, content, digest);
+        return new(id, manifest.Version, trust, digest, content, manifest.License.Name, licenseText,
+            face.UnicodeRange, new(manifest.Name, manifest.Family, source));
     }
 
     private static Dictionary<string, ZipArchiveEntry> LegacyFontEntries(ZipArchive archive)
@@ -131,10 +132,9 @@ public sealed partial class AppearanceRegistry
     private sealed record LegacyFontManifest(string Id, string Name, string Version, [property: JsonPropertyName("fsusblog")] string FsusBlog,
         string Type, string Family,
         string Category, string[] Scripts, string[] Locales, LegacyFontFace[] Faces, LegacyFontLicense License,
-        LegacyFontSource Source, LegacyFontBudgets Budgets, LegacyFontLoading Loading);
+        AppearanceFontSource Source, LegacyFontBudgets Budgets, LegacyFontLoading Loading);
     private sealed record LegacyFontFace(int Weight, string Style, string File, string ContentHash, bool Critical, string? UnicodeRange = null);
     private sealed record LegacyFontLicense(string Name, string File, string Source);
-    private sealed record LegacyFontSource(string Kind, string Package, string Version, string Upstream);
     private sealed record LegacyFontBudgets(long CriticalBytes, long TotalBytes, int MaxFaces);
     private sealed record LegacyFontLoading(string Display, string[] Preload, string[] Defer);
 }

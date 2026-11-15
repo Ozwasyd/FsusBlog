@@ -25,6 +25,10 @@ v2 原生 ZIP 包必须含有 `manifest.json`，其中 `Format` 为 1。还需�
 
 启用此模式时，公开 HTML 链接同源 `/site-appearance/current.css`，该路径转向当前版本及字节 SHA-256 对应的样式。字体路径同样包含启用版本和字节摘要。新的启用或回滚均使用新的版本。过期的路径返回 404，即使当前包的内容曾在该版本启用。样式和字体响应设为 `no-store` 和 `Cross-Origin-Resource-Policy: same-origin`，请求用一秒预算取得当前版本并在响应前释放数据库事务。已经获准的响应可以传完，浏览器已加载的样式在重载后更新。密钥到期、检测到时钟回退或部署者更新撤销并重启时，站点恢复内置外观。发布者密钥撤销由运维更新独立批准材料。关闭在线开关后，重启恢复使用部署选定的主题和字体，数据库启用记录保留。
 
+在 **Site appearance** 选择当前受信的签名 `.fsfont` 后，可打开 **Font details** 查看已核验的家族名、许可证正文和名称、字重和字型、WOFF2 字节数及摘要、Unicode 范围和包内来源声明。v2 原生 ZIP 的详情展示其清单核验后的许可证和字体面。包内来源用于许可证追溯，签名信任仍来自运维独立批准的来源与密钥。`GET /api/v2/admin/identity/appearance/font.aeds?digest=<归档 SHA-256>` 要求独立管理员来源、在线外观已启用和当前会话的 `system.config` 权限，以 AEDS 帧 33039 返回 `no-store` 的结果。查询使用原始归档的小写 SHA-256。主题和未知包均无详情。查看详情无需启用所选字体。
+
+浏览器场景用 `FSUSBLOG_TEST_ADMIN_APPEARANCE=1 FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT=1` 启用。该场景比对实际签名归档、许可证和 WOFF2 的摘要及长度，并检查普通站点来源、匿名请求、权限不足和权限撤销后的请求。 [隔离 HTTPS 浏览器实测](../../artifacts/font-registry-detail-0cf1757/browser/admin-identity-result.json)
+
 固定 v1 的 `ThemeAdminEndpoints` 和 `FontAdminEndpoints` 注册了受 `system.config` 保护的 5 个及 3 个只读 AEDS 路由。v1 `ThemeLifecycleService` 核对原包后可更新启用记录。固定 v1 的生产前端使用内置主题的明暗切换。包样式加载器和单独预览流程在基础设施和测试中。v2 在线管理通过独立的 `/api/v2/admin/identity/appearance*` 路由，由公开 FsusUI 根据浅色和深色状态选择已核验 token。通用 v1 主题配置、预览作用域、CSS、字体加载计划及管理帧仍待迁移。 [v1 主题端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs) · [v1 字体端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/FontAdminEndpoints.cs) · [v1 主题运行时](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/themes/runtime-lifecycle.md)
 
 ## 启用兼容的 v1 主题颜色

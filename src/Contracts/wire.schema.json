@@ -106,6 +106,7 @@
     "AdminAppearanceCatalog": 32937,
     "AdminAppearanceCommand": 32938,
     "AdminAppearanceHistory": 33002,
+    "AdminAppearanceFontDetail": 33039,
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
     "AdminInboxPage": 32896,
@@ -348,6 +349,7 @@
     "AdminAppearanceState": "/api/v2/admin/identity/appearance.aeds",
     "AdminAppearanceCatalog": "/api/v2/admin/identity/appearance/catalog.aeds",
     "AdminAppearanceHistory": "/api/v2/admin/identity/appearance/history.aeds",
+    "AdminAppearanceFontDetail": "/api/v2/admin/identity/appearance/font.aeds",
     "AdminAppearanceStepUpBegin": "/api/v2/admin/identity/appearance/step-up/begin.aeds",
     "AdminAppearanceStepUpComplete": "/api/v2/admin/identity/appearance/step-up/complete.aeds",
     "AdminAppearancePow": "/api/v2/admin/identity/appearance/pow.aeds",
@@ -563,6 +565,11 @@
     "AdminAppearanceCommandFrameBytes": 297,
     "AdminAppearanceHistoryPageSize": 20,
     "AdminAppearanceHistoryMaximumItems": 50,
+    "AdminAppearanceFontMetadataBytes": 384,
+    "AdminAppearanceFontLicenseNameBytes": 16,
+    "AdminAppearanceFontLicenseBytes": 32768,
+    "AdminAppearanceFontAssetBytes": 1048576,
+    "AdminAppearanceFontUnicodeRangeBytes": 160,
     "SiteConfigBlobBytes": 4096,
     "BodyBytes": 1048576,
     "MaxPayloadBytes": 4194304,
@@ -988,6 +995,10 @@
     "AdminAppearanceCommand": {
       "frame": "AdminAppearanceCommand",
       "fields": [["ExpectedRevision", "i64"], ["CurrentTheme", "text", "AdminAppearanceDigestBytes"], ["CurrentFont", "text", "AdminAppearanceDigestBytes"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Rollback", "bool"]]
+    },
+    "AdminAppearanceFontDetail": {
+      "frame": "AdminAppearanceFontDetail",
+      "fields": [["Id", "text", "AdminAppearanceIdBytes"], ["Version", "text", "AdminAppearanceVersionBytes"], ["ArchiveDigest", "text", "AdminAppearanceDigestBytes"], ["Name", "text", "AdminAppearanceFontMetadataBytes"], ["Family", "text", "AdminAppearanceFontMetadataBytes"], ["LicenseName", "text", "AdminAppearanceFontLicenseNameBytes"], ["LicenseText", "text", "AdminAppearanceFontLicenseBytes"], ["FaceWeight", "i32"], ["FaceStyle", "text", "AdminAppearanceFontLicenseNameBytes"], ["FaceDigest", "text", "AdminAppearanceDigestBytes"], ["FaceBytes", "i32"], ["UnicodeRange", "text", "AdminAppearanceFontUnicodeRangeBytes"], ["SourceKind", "text", "AdminAppearanceFontLicenseNameBytes"], ["SourcePackage", "text", "AdminAppearanceFontMetadataBytes"], ["SourceVersion", "text", "AdminAppearanceVersionBytes"], ["SourceUpstream", "text", "AdminAppearanceFontMetadataBytes"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

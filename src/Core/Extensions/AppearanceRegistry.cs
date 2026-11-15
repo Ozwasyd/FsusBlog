@@ -143,8 +143,8 @@ public sealed partial class AppearanceRegistry
             var license = ReadEntry(entries, "LICENSE.txt", MaxLicense);
             var content = ReadEntry(entries, "font.woff2", MaxFont);
             if (Digest(license) != font.LicenseSha256) throw Reject("appearance-font-provenance");
-            ValidateFontPayload(license, content, font.FontSha256);
-            return new Font(manifest.Id, manifest.Version, trust, font.FontSha256, content);
+            var licenseText = ValidateFontPayload(license, content, font.FontSha256);
+            return new Font(manifest.Id, manifest.Version, trust, font.FontSha256, content, font.License, licenseText);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or DecoderFallbackException or NotSupportedException)
         {
@@ -152,7 +152,7 @@ public sealed partial class AppearanceRegistry
         }
     }
 
-    private static void ValidateFontPayload(byte[] license, byte[] content, string expectedDigest)
+    private static string ValidateFontPayload(byte[] license, byte[] content, string expectedDigest)
     {
         var licenseText = new UTF8Encoding(false, true).GetString(license);
         if (string.IsNullOrWhiteSpace(licenseText) || licenseText.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t')) ||
@@ -164,6 +164,7 @@ public sealed partial class AppearanceRegistry
             BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(14, 2)) != 0 ||
             BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(16, 4)) > 4 * MaxFont)
             throw Reject("appearance-font-container");
+        return licenseText;
     }
 
     private static void ValidatePalette(Palette value)
@@ -224,6 +225,8 @@ public sealed partial class AppearanceRegistry
     private sealed record FontManifest(string License, string FontSha256, string LicenseSha256);
     private abstract record Entry(string Id, string Version, SignedArchiveTrust Trust);
     private sealed record Theme(string Id, string Version, SignedArchiveTrust Trust, Palette Palette) : Entry(Id, Version, Trust);
-    private sealed record Font(string Id, string Version, SignedArchiveTrust Trust, string Hash, byte[] Bytes, string? UnicodeRange = null)
+    private sealed record Font(string Id, string Version, SignedArchiveTrust Trust, string Hash, byte[] Bytes, string LicenseName,
+        string LicenseText, string? UnicodeRange = null, LegacyFontIdentity? Identity = null)
         : Entry(Id, Version, Trust);
+    private sealed record LegacyFontIdentity(string Name, string Family, AppearanceFontSource Source);
 }

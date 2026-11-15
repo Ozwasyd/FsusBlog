@@ -2,7 +2,7 @@
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCard, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { applyAppearance, readAdminAppearance, readAppearanceCatalog, readAppearanceHistory } from '../../../Contracts/admin-appearance'
+import { applyAppearance, readAdminAppearance, readAppearanceCatalog, readAppearanceFontDetail, readAppearanceHistory } from '../../../Contracts/admin-appearance'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
@@ -13,24 +13,39 @@ const catalog = shallowRef<Awaited<ReturnType<typeof readAppearanceCatalog>>>()
 const history = shallowRef<Awaited<ReturnType<typeof readAppearanceHistory>>>()
 const historyBefore = shallowRef<bigint>()
 const historyHeading = ref<HTMLElement>()
+const fontDetail = shallowRef<Awaited<ReturnType<typeof readAppearanceFontDetail>>>()
+const fontDetailHeading = ref<HTMLElement>()
 const theme = ref('')
 const font = ref('')
 const busy = ref(false)
 const notice = ref('')
 const error = ref('')
+const selectedFont = computed(() => catalog.value?.find(item => item.font && item.archive === font.value))
 const canApply = computed(() => state.value && (theme.value !== state.value.theme || font.value !== state.value.font) &&
   (!theme.value || catalog.value?.some(item => !item.font && item.archive === theme.value)) &&
-  (!font.value || catalog.value?.some(item => item.font && item.archive === font.value)))
+  (!font.value || selectedFont.value))
 
 async function read(request: AbortSignal) {
   const [next, packages] = await Promise.all([readAdminAppearance(request), readAppearanceCatalog(request)])
   if (request.aborted) return
   state.value = next
   catalog.value = packages
+  fontDetail.value = undefined
   history.value = undefined
   historyBefore.value = undefined
   theme.value = next.theme
   font.value = next.font
+}
+
+function readFontDetail(archive: string) {
+  return run(async request => {
+    fontDetail.value = undefined
+    const detail = await readAppearanceFontDetail(archive, request)
+    if (request.aborted || selectedFont.value?.archive !== archive) return
+    fontDetail.value = detail
+    await nextTick()
+    if (!request.aborted) fontDetailHeading.value?.focus()
+  }, 'Font details require system.config.', 'The font package is unavailable. Reload the appearance catalog.')
 }
 
 function readHistory(before?: bigint) {
@@ -53,7 +68,8 @@ function name(digest: string) {
 }
 
 async function run(action: (request: AbortSignal) => Promise<void>,
-  forbidden = 'Appearance requires system.config and current Passkey confirmation.') {
+  forbidden = 'Appearance requires system.config and current Passkey confirmation.',
+  unavailable = 'Online appearance is unavailable.') {
   if (busy.value || props.sessionSignal.aborted) return
   const request = signal()
   busy.value = true
@@ -66,7 +82,7 @@ async function run(action: (request: AbortSignal) => Promise<void>,
     if (cause instanceof ApiError && cause.status === 401 && !cause.details.startsWith('pow_')) {
       emit('session-lost', cause)
     } else if (cause instanceof ApiError && cause.status === 404) {
-      error.value = 'Online appearance is unavailable.'
+      error.value = unavailable
     } else if (cause instanceof ApiError && cause.status === 403) {
       error.value = forbidden
     } else if (cause instanceof ApiError && cause.status === 409) {
@@ -91,12 +107,14 @@ function apply(rollback: boolean) {
   })
 }
 
+watch(font, () => { fontDetail.value = undefined }, { flush: 'sync' })
 watch(() => props.sessionSignal, (current, _, cleanup) => {
   const clear = () => {
     state.value = undefined
     catalog.value = undefined
     history.value = undefined
     historyBefore.value = undefined
+    fontDetail.value = undefined
     theme.value = ''
     font.value = ''
     notice.value = ''
@@ -130,6 +148,36 @@ onScopeDispose(() => lifetime.abort())
         <ElOption value="" label="Built-in" />
         <ElOption v-for="item in catalog.filter(item => item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
       </ElSelect>
+      <ElButton v-if="selectedFont" :disabled="busy" native-type="button" @click="readFontDetail(selectedFont.archive)">
+        Font details
+      </ElButton>
+      <section v-if="fontDetail" class="font-details" aria-labelledby="admin-font-details">
+        <h3 id="admin-font-details" ref="fontDetailHeading" tabindex="-1">Font details</h3>
+        <p>{{ fontDetail.name || fontDetail.id }} {{ fontDetail.version }}</p>
+        <dl>
+          <template v-if="fontDetail.family">
+            <dt>Family</dt>
+            <dd>{{ fontDetail.family }}</dd>
+          </template>
+          <dt>Archive SHA-256</dt>
+          <dd><code>{{ fontDetail.archiveDigest }}</code></dd>
+          <dt>Font face</dt>
+          <dd>{{ fontDetail.faceWeight }} {{ fontDetail.faceStyle }} · {{ fontDetail.faceBytes }} bytes</dd>
+          <dt>Face SHA-256</dt>
+          <dd><code>{{ fontDetail.faceDigest }}</code></dd>
+          <template v-if="fontDetail.unicodeRange">
+            <dt>Unicode range</dt>
+            <dd><code>{{ fontDetail.unicodeRange }}</code></dd>
+          </template>
+          <template v-if="fontDetail.sourceKind">
+            <dt>Source</dt>
+            <dd>{{ fontDetail.sourcePackage }} {{ fontDetail.sourceVersion }} · {{ fontDetail.sourceUpstream }} ({{ fontDetail.sourceKind }})</dd>
+          </template>
+          <dt>License</dt>
+          <dd>{{ fontDetail.licenseName }}</dd>
+        </dl>
+        <pre>{{ fontDetail.licenseText }}</pre>
+      </section>
       <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">Apply appearance with Passkey</ElButton>
       <ElButton v-if="state.canRollback" :disabled="busy" native-type="button" @click="apply(true)">
         Restore {{ name(state.previousTheme) }} / {{ name(state.previousFont) }} with Passkey
@@ -164,5 +212,6 @@ onScopeDispose(() => lifetime.abort())
 
 <style scoped>
 .appearance-history { display: grid; gap: .75rem; padding: 0; list-style: none; }
-.appearance-history dd { margin-inline-start: 0; overflow-wrap: anywhere; }
+.appearance-history dd, .font-details dd { margin-inline-start: 0; overflow-wrap: anywhere; }
+.font-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>

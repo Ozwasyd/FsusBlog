@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAppearanceHistory } from '../../src/Contracts/admin-appearance.ts'
-import { decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand,
+  FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
@@ -22,11 +23,23 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const legacyThemeDigest = legacyTheme ? process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME_SHA256 : undefined
   if (legacyTheme) assert.match(legacyThemeDigest, /^[a-f0-9]{64}$/)
   const fontName = legacyFont ? 'fsusblog.font.fixture' : 'fixture.font'
+  const fontDetailPath = digest => WireRoutes.AdminAppearanceFontDetail + `?digest=${digest}`
+  const fixtureRoot = process.env.FSUSBLOG_APPEARANCE_ROOT
+  const registry = legacyFont ? JSON.parse(await readFile(join(fixtureRoot, 'appearance.json'), 'utf8')) : null
+  const legacyFontDigest = registry?.Packages.find(entry => entry.Format === 'fsfont-v1')?.ArchiveSha256
+  const fontDetailUrl = legacyFontDigest && admin(fontDetailPath(legacyFontDigest))
   const section = page.getByRole('region', { name: 'Site appearance', exact: true })
   const check = () => section.getByRole('button', { name: 'Check active appearance', exact: true }).click()
   assert.equal(await page.locator('link[href^="/site-appearance/"]').count(), 0)
   await probe(stateUrl, adminCookieName, siteCookie.value, 401)
   await probe(historyUrl, adminCookieName, siteCookie.value, 401)
+  if (legacyFont) {
+    assert.match(legacyFontDigest, /^[a-f0-9]{64}$/)
+    await probe(fontDetailUrl, adminCookieName, '', 401)
+    await probe(fontDetailUrl, adminCookieName, siteCookie.value, 401)
+    await probe(pub(fontDetailPath(legacyFontDigest)), adminCookieName, priorCookie.value, 404)
+    assert.equal((await context.request.get(fontDetailUrl)).status(), 403)
+  }
   await probe(pub(WireRoutes.AdminAppearanceState), adminCookieName, priorCookie.value, 404)
   await probe(pub(WireRoutes.AdminAppearanceHistory), adminCookieName, priorCookie.value, 404)
   await probe(admin(alias), adminCookieName, priorCookie.value, 404)
@@ -42,6 +55,11 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await logIn(page)
   await check()
   await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
+  if (fontDetailUrl) {
+    const themeDigest = registry.Sources.find(entry => entry.Reference === 'approved-source/theme').ArchiveSha256
+    await verifyFontDetails({ page, section, context, fontDetailUrl, fontName, legacyFontDigest, themeDigest,
+      detailUrl: digest => admin(fontDetailPath(digest)), fixtureRoot })
+  }
   const history = section.getByRole('region', { name: 'Appearance history', exact: true })
   const checkHistory = () => section.getByRole('button', { name: 'Check appearance history', exact: true }).click()
   await checkHistory()
@@ -205,12 +223,64 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await promisify(execFile)(revoke, [], { timeout: 8_000 })
   await probe(stateUrl, adminCookieName, cookie.value, 401)
   await probe(historyUrl, adminCookieName, cookie.value, 401)
+  if (fontDetailUrl) await probe(fontDetailUrl, adminCookieName, cookie.value, 401)
   await check()
   await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
   await logIn(page)
   assert.equal((await context.request.get(stateUrl)).status(), 403)
   assert.equal((await context.request.get(catalogUrl)).status(), 403)
   assert.equal((await context.request.get(historyUrl)).status(), 403)
+  if (fontDetailUrl) assert.equal((await context.request.get(fontDetailUrl)).status(), 403)
   await section.waitFor({ state: 'detached' })
   return await readCookie(context, stateUrl, adminCookieName)
+}
+
+async function verifyFontDetails({ page, section, context, fontDetailUrl, fontName, legacyFontDigest, themeDigest,
+  detailUrl, fixtureRoot }) {
+  const fontSource = new URL('../../src/Web/node_modules/@fontsource/google-sans/', import.meta.url)
+  const [archive, face, licenseText] = await Promise.all([
+    readFile(join(fixtureRoot, legacyFontDigest + '.fsfont')),
+    readFile(new URL('files/google-sans-latin-400-normal.woff2', fontSource)),
+    readFile(new URL('LICENSE', fontSource), 'utf8'),
+  ])
+  assert.equal(createHash('sha256').update(archive).digest('hex'), legacyFontDigest)
+  assert.equal((await context.request.get(detailUrl('0'.repeat(64)))).status(), 404)
+  assert.equal((await context.request.get(detailUrl(themeDigest))).status(), 404)
+  assert.equal((await context.request.get(detailUrl('A'.repeat(64)))).status(), 400)
+
+  const font = section.getByRole('combobox', { name: 'Font', exact: true })
+  await font.click()
+  await page.getByRole('option', { name: `${fontName} 1.0.0`, exact: true }).click()
+  const served = page.waitForResponse(response => response.url() === fontDetailUrl && response.request().method() === 'GET')
+  await section.getByRole('button', { name: 'Font details', exact: true }).click()
+  const response = await served
+  assert.equal(response.status(), 200)
+  assert.equal(response.headers()['cache-control'], 'no-store')
+  const detail = decodeAdminAppearanceFontDetail(decodeFrame(await response.body(), FrameType.AdminAppearanceFontDetail).payload)
+  const expected = {
+    id: fontName,
+    version: '1.0.0',
+    archiveDigest: legacyFontDigest,
+    name: 'Fixture Sans',
+    family: 'Fixture Sans',
+    licenseName: 'OFL-1.1',
+    licenseText,
+    faceWeight: 400,
+    faceStyle: 'normal',
+    faceDigest: createHash('sha256').update(face).digest('hex'),
+    faceBytes: face.byteLength,
+    unicodeRange: 'U+0000-00FF',
+    sourceKind: 'npm-fontsource',
+    sourcePackage: '@fontsource/google-sans',
+    sourceVersion: '5.2.1',
+    sourceUpstream: 'Google Fonts',
+  }
+  for (const [field, value] of Object.entries(expected)) assert.equal(detail[field], value, field)
+
+  const panel = section.locator('section[aria-labelledby="admin-font-details"]')
+  await panel.getByRole('heading', { name: 'Font details', exact: true }).waitFor()
+  assert.equal(await panel.locator('pre').textContent(), licenseText)
+  const displayed = await panel.textContent()
+  for (const value of [expected.family, expected.licenseName, expected.unicodeRange, expected.sourcePackage, expected.sourceUpstream])
+    assert(displayed.includes(value), `Font detail panel should display ${value}`)
 }

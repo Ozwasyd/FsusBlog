@@ -95,6 +95,7 @@ public enum FrameType : ushort
     AdminAppearanceCatalog = 32937,
     AdminAppearanceCommand = 32938,
     AdminAppearanceHistory = 33002,
+    AdminAppearanceFontDetail = 33039,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -304,6 +305,11 @@ public static class WireLimits
     public const int AdminAppearanceCommandFrameBytes = 297;
     public const int AdminAppearanceHistoryPageSize = 20;
     public const int AdminAppearanceHistoryMaximumItems = 50;
+    public const int AdminAppearanceFontMetadataBytes = 384;
+    public const int AdminAppearanceFontLicenseNameBytes = 16;
+    public const int AdminAppearanceFontLicenseBytes = 32768;
+    public const int AdminAppearanceFontAssetBytes = 1048576;
+    public const int AdminAppearanceFontUnicodeRangeBytes = 160;
     public const int SiteConfigBlobBytes = 4096;
     public const int BodyBytes = 1048576;
     public const int MaxPayloadBytes = 4194304;
@@ -719,6 +725,7 @@ public static class WireRoutes
     public const string AdminAppearanceState = "/api/v2/admin/identity/appearance.aeds";
     public const string AdminAppearanceCatalog = "/api/v2/admin/identity/appearance/catalog.aeds";
     public const string AdminAppearanceHistory = "/api/v2/admin/identity/appearance/history.aeds";
+    public const string AdminAppearanceFontDetail = "/api/v2/admin/identity/appearance/font.aeds";
     public const string AdminAppearanceStepUpBegin = "/api/v2/admin/identity/appearance/step-up/begin.aeds";
     public const string AdminAppearanceStepUpComplete = "/api/v2/admin/identity/appearance/step-up/complete.aeds";
     public const string AdminAppearancePow = "/api/v2/admin/identity/appearance/pow.aeds";
@@ -896,6 +903,7 @@ public sealed record AuthorRecentOpenCommand(int SchemaVersion, long ExpectedRev
 public sealed record AuthorRecentOpenReceipt(int SchemaVersion, long Revision, Guid RequestId, int ArticleId, long ArticleRevision, long OpenedAtUnixMs);
 public sealed record AdminAppearanceState(long Revision, string Theme, string Font, bool Serving, bool CanRollback, string PreviousTheme, string PreviousFont);
 public sealed record AdminAppearanceCommand(long ExpectedRevision, string CurrentTheme, string CurrentFont, string Theme, string Font, bool Rollback);
+public sealed record AdminAppearanceFontDetail(string Id, string Version, string ArchiveDigest, string Name, string Family, string LicenseName, string LicenseText, int FaceWeight, string FaceStyle, string FaceDigest, int FaceBytes, string UnicodeRange, string SourceKind, string SourcePackage, string SourceVersion, string SourceUpstream);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record CommentAuthorEditDetail(int ArticleId, long Publication, long CurrentVersion, string Body);
@@ -1681,6 +1689,38 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceCommand));
         var value = new AdminAppearanceCommand(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminAppearanceFontDetail(AdminAppearanceFontDetail value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Id, WireLimits.AdminAppearanceIdBytes);
+        writer.Text(value.Version, WireLimits.AdminAppearanceVersionBytes);
+        writer.Text(value.ArchiveDigest, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.Name, WireLimits.AdminAppearanceFontMetadataBytes);
+        writer.Text(value.Family, WireLimits.AdminAppearanceFontMetadataBytes);
+        writer.Text(value.LicenseName, WireLimits.AdminAppearanceFontLicenseNameBytes);
+        writer.Text(value.LicenseText, WireLimits.AdminAppearanceFontLicenseBytes);
+        writer.I32(value.FaceWeight);
+        writer.Text(value.FaceStyle, WireLimits.AdminAppearanceFontLicenseNameBytes);
+        writer.Text(value.FaceDigest, WireLimits.AdminAppearanceDigestBytes);
+        writer.I32(value.FaceBytes);
+        writer.Text(value.UnicodeRange, WireLimits.AdminAppearanceFontUnicodeRangeBytes);
+        writer.Text(value.SourceKind, WireLimits.AdminAppearanceFontLicenseNameBytes);
+        writer.Text(value.SourcePackage, WireLimits.AdminAppearanceFontMetadataBytes);
+        writer.Text(value.SourceVersion, WireLimits.AdminAppearanceVersionBytes);
+        writer.Text(value.SourceUpstream, WireLimits.AdminAppearanceFontMetadataBytes);
+        return Aeds.Encode(FrameType.AdminAppearanceFontDetail, writer.Written);
+    }
+
+    public static AdminAppearanceFontDetail DecodeAdminAppearanceFontDetail(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceFontDetail));
+        var value = new AdminAppearanceFontDetail(reader.Text(WireLimits.AdminAppearanceIdBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontUnicodeRangeBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes));
         reader.Finish();
         Validate(value);
         return value;

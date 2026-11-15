@@ -4,7 +4,7 @@ import { request } from './client.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
-import { decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireHeaders, WireLimits, WireRoutes,
+import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireHeaders, WireLimits, WireRoutes,
   type AdminAppearanceCommand } from './wire.generated.ts';
 
 const digest = (value: string) => /^[a-f0-9]{64}$/.test(value);
@@ -52,6 +52,23 @@ export function readAppearanceCatalog(signal: AbortSignal) {
     });
     input.finish();
     return entries;
+  }, signal);
+}
+
+export function readAppearanceFontDetail(archive: string, signal: AbortSignal) {
+  if (!digest(archive)) throw new ProtocolError('Invalid font archive digest');
+  return request(`${WireRoutes.AdminAppearanceFontDetail}?digest=${archive}`, FrameType.AdminAppearanceFontDetail, payload => {
+    const detail = decodeAdminAppearanceFontDetail(payload);
+    if (detail.archiveDigest !== archive || !digest(detail.faceDigest) || !detail.id || !detail.version ||
+        !['OFL-1.1', 'Apache-2.0'].includes(detail.licenseName) || !detail.licenseText ||
+        detail.faceWeight !== 400 || detail.faceStyle !== 'normal' || detail.faceBytes < 1 ||
+        detail.faceBytes > WireLimits.AdminAppearanceFontAssetBytes)
+      throw new ProtocolError('Invalid appearance font detail');
+    const source = [detail.name, detail.family, detail.sourcePackage, detail.sourceVersion, detail.sourceUpstream];
+    if (detail.sourceKind === '' ? [...source, detail.unicodeRange].some(value => value !== '')
+      : !['local-vendored', 'npm-fontsource'].includes(detail.sourceKind) || source.some(value => value === ''))
+      throw new ProtocolError('Invalid appearance font source');
+    return detail;
   }, signal);
 }
 

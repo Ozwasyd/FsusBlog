@@ -22,6 +22,24 @@ public static partial class Wire
             throw new ProtocolException("Invalid appearance activation command");
     }
 
+    private static void Validate(AdminAppearanceFontDetail value)
+    {
+        if (string.IsNullOrWhiteSpace(value.Id) || string.IsNullOrWhiteSpace(value.Version) ||
+            value.ArchiveDigest.Length == 0 || !AppearanceDigest(value.ArchiveDigest) ||
+            value.FaceDigest.Length == 0 || !AppearanceDigest(value.FaceDigest) ||
+            value.LicenseName is not ("OFL-1.1" or "Apache-2.0") || string.IsNullOrWhiteSpace(value.LicenseText) ||
+            value.FaceWeight != 400 || value.FaceStyle != "normal" || value.FaceBytes is < 1 or > WireLimits.AdminAppearanceFontAssetBytes)
+            throw new ProtocolException("Invalid appearance font detail");
+        if (value.SourceKind.Length == 0
+            ? value.Name.Length != 0 || value.Family.Length != 0 || value.SourcePackage.Length != 0 ||
+                value.SourceVersion.Length != 0 || value.SourceUpstream.Length != 0 || value.UnicodeRange.Length != 0
+            : value.SourceKind is not ("local-vendored" or "npm-fontsource") ||
+                string.IsNullOrWhiteSpace(value.Name) || string.IsNullOrWhiteSpace(value.Family) ||
+                string.IsNullOrWhiteSpace(value.SourcePackage) || string.IsNullOrWhiteSpace(value.SourceVersion) ||
+                string.IsNullOrWhiteSpace(value.SourceUpstream))
+            throw new ProtocolException("Invalid appearance font source");
+    }
+
     public static byte[] EncodeAdminAppearanceCatalog(IReadOnlyList<AdminAppearancePackage> packages)
     {
         if (packages.Count > WireLimits.AdminAppearanceMaximumItems)

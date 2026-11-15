@@ -16,6 +16,13 @@ internal static class AdminAppearanceEndpoints
             Frame(await store.ReadAppearance(ctx.Request.Cookies[session], registry, ct))).RequireRateLimiting("query");
         app.MapGet(WireRoutes.AdminAppearanceCatalog, async (HttpContext ctx, CancellationToken ct) =>
             Frame(await store.AppearanceCatalog(ctx.Request.Cookies[session], registry, ct))).RequireRateLimiting("query");
+        app.MapGet(WireRoutes.AdminAppearanceFontDetail, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            ctx.Response.Headers.CacheControl = "no-store";
+            var query = ctx.Request.Query;
+            var digest = query.Count == 1 && query.TryGetValue("digest", out var digests) && digests.Count == 1 ? digests[0] : null;
+            return Frame(await store.AppearanceFontDetail(ctx.Request.Cookies[session], registry, digest, ct));
+        }).RequireRateLimiting("query");
         app.MapGet(WireRoutes.AdminAppearanceHistory, async (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
