@@ -18,6 +18,8 @@ tests/Performance/run.sh proxy artifacts/p2-proxy-1
 FSUSBLOG_PERF_REUSE_CONNECTIONS=1 tests/Performance/run.sh proxy artifacts/p2-proxy-shared-warmup-1
 tests/Performance/run.sh peak artifacts/p2-direct-peak-diagnostic
 tests/Performance/run.sh proxy-peak artifacts/p2-proxy-peak-diagnostic
+tests/Performance/run.sh supplier artifacts/p2-direct-supplier-1
+tests/Performance/run.sh proxy-supplier artifacts/p2-tls-supplier-1
 ```
 
 - `smoke` 用完整数据集和 3 秒 100 QPS 验证接入。`direct` 依次做 30 秒预热和 60 秒采样的 2,000、5,000、8,000、10,500 QPS 档位。`soak` 做 30 秒预热和 15 分钟 8,000 QPS 采样。跨运行比较时留出足够主机容量，避免同时启动编译器、浏览器测试或其他负载。
@@ -38,6 +40,28 @@ soak 和显式启用运行时观察的 smoke 使用私有文件标记划定计�
 当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。运行时观察会增加少量计数、文件采样和诊断事件开销，独立供给者仍需另行验证。
 
 `peak` 和 `proxy-peak` 以同一池完成 30 秒 2,000 QPS 预热及 60 秒 10,500 QPS 计时。两端各记录最多 4,096 条至少 20 ms 的慢请求及超额数量。客户端阈值从计划发车计起，并记录工作线程、写入、响应头、响应体和校验完成时间。Kestrel 阈值从运行时观察中间件计起，覆盖后续应用处理及响应写回，记录声明的响应长度。时间线同时给出供给漏发和 CLR 暂停，并统计慢区间与暂停是否交叉。聚合按各自完成时间分桶。两端可比较绝对时间窗；请求无额外关联标记，时段交叉不能确认因果。观察诊断单独执行，完整验收仍用冻结的矩阵与长测入口。
+
+`supplier` 和 `proxy-supplier` 单独检查供给余量。两种入口复用同一个连接池完成 30 秒 2,000 QPS 预热和 60 秒 11,000 QPS 诊断。请求混合、内容校验、在途上限、期限及服务链与标准矩阵一致。诊断观察计划的 660,000 次请求能否全部完成并通过校验，保留每秒供给时间线和 Go 进程计数。容量验收沿用冻结的 10,500 QPS 档。
+
+在 macOS 上安排专用时段，使用同一干净候选、fixture、拓扑、供电和 GC 配置分别跑有采样和无额外采样的诊断。有采样试验可在第二个终端等待对应运行目录的 `owner.txt` 出现 `readiness=204`，随即采集约 120 秒。下列命令将采样器自身的用时与错误另存，示例对应 `proxy-supplier` 的第二次运行。
+
+```bash
+(
+  umask 077
+  perf_run=artifacts/p2-tls-supplier-2
+  perf_observer=artifacts/p2-tls-supplier-2-observer
+  mkdir "$perf_observer" || exit 1
+  until [[ -s "$perf_run/outcome.txt" ]] || grep -qx 'readiness=204' "$perf_run/owner.txt" 2>/dev/null; do
+    sleep 0.2
+  done
+  [[ ! -s "$perf_run/outcome.txt" ]] || exit 1
+  /usr/bin/time -p -o "$perf_observer/time.txt" sudo -n /usr/bin/powermetrics \
+    -s tasks,cpu_power,thermal -i 200 -n 600 -b 1 -a 0 \
+    > "$perf_observer/powermetrics.txt" 2> "$perf_observer/stderr.txt"
+)
+```
+
+用两个报告的计时起止、进程 PID 和样本时间核对覆盖范围，并对比正确响应数、每秒漏发、最大唤醒和写入后等待时间及每条路由的延迟。200 ms 的采样可观察主机及进程 CPU 压力。需要查看更短的 runnable 延迟时，可在另一次诊断使用 `xcrun xctrace record --template 'System Trace' --all-processes --time-limit 120s --output artifacts/p2-tls-supplier-system.trace`，并单列跟踪开销。
 
 用 `python3 tests/Performance/capacity.py --direct PATH --proxy PATH` 复算已完成矩阵的数字门槛。两种参数均可重复传入独立运行目录。脚本检查冻结档位、请求配比、每条路由的延迟、完整失败分母及清理记录，输出样本的最高档判定；同机供给余量和双次独立资格仍由验收记录确认。
 

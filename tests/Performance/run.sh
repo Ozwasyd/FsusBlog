@@ -8,8 +8,9 @@ repo=$PWD
 mode=${1:-}
 output_arg=${2:-}
 if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold &&
-    "$mode" != proxy-smoke && "$mode" != proxy && "$mode" != peak && "$mode" != proxy-peak ) ]]; then
-  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak} NEW_EVIDENCE_DIRECTORY' >&2
+    "$mode" != proxy-smoke && "$mode" != proxy && "$mode" != peak && "$mode" != proxy-peak &&
+    "$mode" != supplier && "$mode" != proxy-supplier ) ]]; then
+  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak|supplier|proxy-supplier} NEW_EVIDENCE_DIRECTORY' >&2
   exit 2
 fi
 proxy_mode=false
@@ -18,7 +19,7 @@ slow_requests=false
 if [[ "$mode" == *peak ]]; then slow_requests=true; fi
 if [[ "$mode" == soak || "$slow_requests" == true || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
 shared_warmup=false
-if [[ "$slow_requests" == true || "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
+if [[ "$slow_requests" == true || "$mode" == *supplier || "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
   if [[ "$mode" == cold || ( "$mode" == *smoke && "$runtime_evidence" != true ) || "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
     echo 'Connection reuse requires a hot stage with its own warmup and no serial preconnection.' >&2
     exit 2
@@ -401,6 +402,9 @@ case "$mode" in
     ;;
   peak|proxy-peak)
     measure "$mode-10500" 10500 60 30
+    ;;
+  supplier|proxy-supplier)
+    measure "$mode-11000" 11000 60 30
     ;;
   soak)
     if [[ "$shared_warmup" == true ]]; then
