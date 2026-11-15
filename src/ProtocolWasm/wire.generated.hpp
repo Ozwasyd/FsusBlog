@@ -509,6 +509,7 @@ enum class FrameType : uint16_t {
     AdminInboxSharedThread = 32950,
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
+    AdminTagCreateCommand = 33060,
     AdminCategoryMetadataCommand = 33058,
     AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
@@ -739,6 +740,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminInboxSharedThread:
         case FrameType::AdminTagMetadataCommand:
         case FrameType::AdminTagMetadata:
+        case FrameType::AdminTagCreateCommand:
         case FrameType::AdminCategoryMetadataCommand:
         case FrameType::AdminCategoryMetadata:
         case FrameType::AdminModerationIntent:

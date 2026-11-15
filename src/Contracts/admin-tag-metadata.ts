@@ -41,11 +41,15 @@ function readMetadata(bytes: Uint8Array, kind: AdminMetadataKind, id: number): A
 }
 
 function metadataRoutes(kind: AdminMetadataKind, id: number) {
-  if (kind === 'category' && id === 0) {
-    return { command: FrameType.AdminCategoryMetadataCommand, receipt: FrameType.AdminCategoryMetadata,
-      path: WireRoutes.AdminCategoryCreate, pow: WireRoutes.AdminCategoryCreatePow }
-  }
   const tag = kind === 'tag'
+  if (id === 0) {
+    return {
+      command: tag ? FrameType.AdminTagCreateCommand : FrameType.AdminCategoryMetadataCommand,
+      receipt: tag ? FrameType.AdminTagMetadata : FrameType.AdminCategoryMetadata,
+      path: tag ? WireRoutes.AdminTagCreate : WireRoutes.AdminCategoryCreate,
+      pow: tag ? WireRoutes.AdminTagCreatePow : WireRoutes.AdminCategoryCreatePow,
+    }
+  }
   return {
     command: tag ? FrameType.AdminTagMetadataCommand : FrameType.AdminCategoryMetadataCommand,
     receipt: tag ? FrameType.AdminTagMetadata : FrameType.AdminCategoryMetadata,
@@ -61,7 +65,7 @@ export function currentTaxonomyMetadata(kind: AdminMetadataKind, id: number, sig
 }
 
 export async function changeTaxonomyMetadata(kind: AdminMetadataKind, edit: AdminTaxonomyMetadataEdit, signal: AbortSignal) {
-  const creating = kind === 'category' && edit.id === 0
+  const creating = edit.id === 0
   if (creating ? edit.expectedRevision !== 0n : edit.id <= 0 || edit.expectedRevision < 0n)
     throw new ProtocolError(`Invalid ${kind} metadata coordinates.`)
   const normalized = normalizeTaxonomyMetadata(kind, edit.name, edit.description)

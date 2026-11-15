@@ -111,6 +111,7 @@ public enum FrameType : ushort
     AdminInboxSharedThread = 32950,
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
+    AdminTagCreateCommand = 33060,
     AdminCategoryMetadataCommand = 33058,
     AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
@@ -777,6 +778,8 @@ public static class WireRoutes
     public const string AdminTagMetadataAvailability = "/api/v2/admin/identity/taxonomy/tags/edit/available.aeds";
     public const string AdminTagMetadata = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata.aeds";
     public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
+    public const string AdminTagCreate = "/api/v2/admin/identity/taxonomy/tags/create.aeds";
+    public const string AdminTagCreatePow = "/api/v2/admin/identity/taxonomy/tags/create/pow.aeds";
     public const string AdminCategoryMetadataAvailability = "/api/v2/admin/identity/taxonomy/categories/edit/available.aeds";
     public const string AdminCategoryMetadata = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata.aeds";
     public const string AdminCategoryMetadataPow = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata/pow.aeds";

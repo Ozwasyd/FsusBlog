@@ -50,7 +50,8 @@ internal sealed partial class AdminPasskeyStore
             var context = input.Id.ToString(CultureInfo.InvariantCulture);
             var source = ScopedPow.Source(http);
             var command = input with { Name = name, Description = description };
-            var canonical = category ? Wire.EncodeAdminCategoryMetadataCommand(command) : Wire.EncodeAdminTagMetadataCommand(command);
+            var canonical = category ? Wire.EncodeAdminCategoryMetadataCommand(command)
+                : input.Id == 0 ? Wire.EncodeAdminTagCreateCommand(command) : Wire.EncodeAdminTagMetadataCommand(command);
             byte[] Encode(AdminTagMetadata receipt) => category ? Wire.EncodeAdminCategoryMetadata(receipt) : Wire.EncodeAdminTagMetadata(receipt);
             if (invalidate is null)
             {
@@ -70,7 +71,11 @@ internal sealed partial class AdminPasskeyStore
             var changed = current is null || current.Name != name || current.Description != description;
             if (changed)
             {
-                if (current is null) id = await CreateCategory(db, tx, name, description, ct);
+                if (current is null)
+                {
+                    id = await CreateTaxonomy(db, tx, name, description, category, ct);
+                    if (!category) await ReserveTagKeys(db, tx, id, key!, key!, ct);
+                }
                 else
                 {
                     if (!category && current.Name != name)
@@ -100,16 +105,17 @@ internal sealed partial class AdminPasskeyStore
             return Encode(receipt);
         }, ct);
 
-    private static async Task<int> CreateCategory(NpgsqlConnection db, NpgsqlTransaction tx, string name, string description, CancellationToken ct)
+    private static async Task<int> CreateTaxonomy(NpgsqlConnection db, NpgsqlTransaction tx, string name, string description, bool category, CancellationToken ct)
     {
+        var entity = Entity(category);
         // The kind lock also serializes allocation. Imported catalogs can contain explicit IDs ahead of the identity sequence.
-        await using var insert = Store.Sql(db, tx, """
-            with next as (select greatest(coalesce(max(id),0),0)::bigint+1 as id from public.category)
-            insert into public.category(id,name,description)
+        await using var insert = Store.Sql(db, tx, $"""
+            with next as (select greatest(coalesce(max(id),0),0)::bigint+1 as id from public.{entity})
+            insert into public.{entity}(id,name,description)
             select id::integer,$1,nullif($2,'') from next where id<=2147483647
             on conflict do nothing returning id
             """, name, description);
-        return await insert.ExecuteScalarAsync(ct) is int id ? id : throw MetadataChanged(true);
+        return await insert.ExecuteScalarAsync(ct) is int id ? id : throw MetadataChanged(category);
     }
 
     private static async Task<AdminTagMetadata> ReadTaxonomyMetadata(NpgsqlConnection db, NpgsqlTransaction tx, int id, bool category, CancellationToken ct)

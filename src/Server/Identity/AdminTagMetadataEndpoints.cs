@@ -31,19 +31,19 @@ internal static class AdminTagMetadataEndpoints
         app.MapPut(route, (HttpContext ctx, int id, ScopedPow pow, Publications publications, CancellationToken ct) =>
             Protect(ctx, id, pow, publications, false, ct)).RequireRateLimiting("command");
 
-        if (category)
-        {
-            app.MapPost(WireRoutes.AdminCategoryCreatePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+        app.MapPost(category ? WireRoutes.AdminCategoryCreatePow : WireRoutes.AdminTagCreatePow,
+            (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 Protect(ctx, 0, pow, null, true, ct)).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.AdminCategoryCreate, (HttpContext ctx, ScopedPow pow, Publications publications, CancellationToken ct) =>
+        app.MapPost(category ? WireRoutes.AdminCategoryCreate : WireRoutes.AdminTagCreate,
+            (HttpContext ctx, ScopedPow pow, Publications publications, CancellationToken ct) =>
                 Protect(ctx, 0, pow, publications, true, ct)).RequireRateLimiting("command");
-        }
 
         Task<IResult> Protect(HttpContext ctx, int id, ScopedPow pow, Publications? publications, bool create, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await actions.Read(ctx, WireLimits.AdminTagMetadataFrameBytes, ct);
-                var input = category ? Wire.DecodeAdminCategoryMetadataCommand(frame) : Wire.DecodeAdminTagMetadataCommand(frame);
+                var input = category ? Wire.DecodeAdminCategoryMetadataCommand(frame)
+                    : create ? Wire.DecodeAdminTagCreateCommand(frame) : Wire.DecodeAdminTagMetadataCommand(frame);
                 if (input.Id != id || (!create && id <= 0))
                     throw new BusinessException(Rejection.Invalid, category ? "Category ID does not match the request route." : "Tag ID does not match the request route.");
                 Task<byte[]> Apply(Action? invalidate) => category

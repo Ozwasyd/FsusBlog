@@ -1,6 +1,8 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -108,6 +110,96 @@ public sealed class AdminTagMetadataPostgresTests
         async Task<long> Number(string text)
         {
             return (long)(await FixtureSql.ScalarAsync(db, null, ct, text))!;
+        }
+    }
+
+    [PostgresFact]
+    public async Task CreateTagReservesCanonicalNameWithoutTakingExistingAliases()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (_, token, _) = await FixtureSql.AdminAsync(db, ct, "tag-creator", 10, [1], [2], CurrentSchema.ArticleWritePermission);
+        await FixtureSql.ExecuteAsync(db, null, ct,
+            "insert into public.tag(id,name) values(4,'Retired tag successor'),(70,$1)", "Cafe\u0301 existant");
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.tag_url_name values('RETIRED TOPIC',4)");
+        await using var lease = new InstanceLease(fixture.ConnectionString);
+        await lease.Start(NullLogger.Instance, ct, requireAdminTagMetadata: true);
+        var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
+        await publications.Refresh(ct);
+        var before = publications.Snapshot!;
+        Assert.Equal(4, before.Taxonomy.TagByName("retired topic"));
+        Assert.Equal(70, before.Taxonomy.TagByName("CAFÉ EXISTANT"));
+
+        var pow = new ScopedPow(TimeProvider.System);
+        var create = new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), " Nouveau cafe\u0301 ", " New tag description. ");
+        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminTagMetadataCommand(create));
+        var input = Wire.EncodeAdminTagCreateCommand(create);
+        Assert.Throws<ProtocolException>(() => Wire.DecodeAdminTagMetadataCommand(input));
+        Assert.Equal(create, Wire.DecodeAdminTagCreateCommand(input));
+        var output = await Execute(create, await Proof(create));
+        var receipt = Wire.DecodeAdminTagMetadata(output);
+        Assert.True(receipt.Id > 70);
+        Assert.Equal(new AdminTagMetadata(receipt.Id, 1, "Nouveau café", "New tag description.", true), receipt);
+        Assert.Equal(receipt with { Changed = false }, await admin.ReadTagMetadata(token, receipt.Id, ct));
+        var after = publications.Snapshot!;
+        Assert.Equal(before.Watermark, after.Watermark);
+        Assert.Equal(before.TaxonomyEpoch + 1, after.TaxonomyEpoch);
+        Assert.NotEqual(before.Generation, after.Generation);
+        Assert.Equal(receipt.Id, after.Taxonomy.TagByName("NOUVEAU CAFE\u0301"));
+        Assert.Equal(0, after.Taxonomy.ById(true, receipt.Id)!.Value.ArticleCount);
+        Assert.Equal(receipt.Id, Assert.IsType<int>(await FixtureSql.ScalarAsync(db, null, ct,
+            "select tag_id from public.tag_url_name where name_key='NOUVEAU CAFÉ'")));
+        Assert.Equal(output, await Execute(create, null));
+
+        foreach (var existing in new[] { " retired topic ", " CAFÉ EXISTANT " })
+        {
+            var duplicate = create with { RequestId = Guid.NewGuid(), Name = existing };
+            var proof = await Proof(duplicate);
+            var conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(duplicate, proof));
+            Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        }
+        var reusedKey = create with { Name = "Different tag" };
+        Assert.Equal(Rejection.Conflict, (await Assert.ThrowsAsync<BusinessException>(() => Execute(reusedKey, null))).Rejection);
+        Assert.Same(after, publications.Snapshot);
+        Assert.Equal(4, after.Taxonomy.TagByName("Retired topic"));
+        Assert.Equal(70, after.Taxonomy.TagByName("cafe\u0301 existant"));
+        Assert.Equal(3L, await Count("select count(*) from public.tag"));
+        Assert.Equal(2L, await Count("select count(*) from public.tag_url_name"));
+        Assert.Equal(1L, await Count("select count(*) from public.admin_tag_metadata_command where changed"));
+        Assert.Equal(1L, await Count("select count(*) from public.scoped_pow_consumed"));
+        Assert.Equal(0L, await Count("select count(*) from public.blog_outbox"));
+        Assert.Equal(0L, await Count("select count(*) from public.article_revision_tag"));
+
+        async Task<long> Count(string sql) => Assert.IsType<long>(await FixtureSql.ScalarAsync(db, null, ct, sql));
+
+        Task<byte[]> Execute(AdminTagMetadataCommand value, string? proof)
+        {
+            var context = Context();
+            if (proof is not null) context.Request.Headers[WireHeaders.PowProof] = proof;
+            return publications.AdministrativePublication(invalidate => admin.ChangeTagMetadata(token, value,
+                Wire.EncodeAdminTagCreateCommand(value), context, pow, invalidate, ct), ct);
+        }
+
+        async Task<string> Proof(AdminTagMetadataCommand value)
+        {
+            var context = Context();
+            var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+            context.Request.Headers[WireHeaders.PowClientNonce] = nonce;
+            var frame = await admin.ChangeTagMetadata(token, value, Wire.EncodeAdminTagCreateCommand(value), context, pow, null, ct);
+            var body = Aeds.Decode(frame, FrameType.PowChallenge);
+            Assert.Equal(WireLayouts.PowChallengeBytes, body.Length);
+            return SolveProof(new(Encoding.ASCII.GetString(body[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
+                BinaryPrimitives.ReadInt32LittleEndian(body[WireLayouts.PowChallengeSaltBytes..]),
+                BinaryPrimitives.ReadInt64LittleEndian(body[WireLayouts.PowChallengeTimestampOffset..]),
+                Encoding.ASCII.GetString(body[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0')), nonce, ct);
+        }
+
+        static DefaultHttpContext Context()
+        {
+            var context = new DefaultHttpContext();
+            context.Connection.RemoteIpAddress = IPAddress.Loopback;
+            return context;
         }
     }
 

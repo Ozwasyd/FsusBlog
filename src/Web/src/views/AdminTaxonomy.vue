@@ -50,12 +50,10 @@ async function load(index: number) {
     const data = await readAdminTaxonomy(listKind, cursors.value[index] ?? null, current.signal)
     if (current.signal.aborted) return
     page.value = data
-    // Existing category reads don't depend on the optional metadata writer.
-    if (itemKind === 'category') pending.value = false
-    if (itemKind === 'category' || data.items.length) {
-      const enabled = await taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false)
-      if (!current.signal.aborted) canEditMetadata.value = enabled
-    }
+    // Category and empty list reads can render before the optional writer is confirmed.
+    if (itemKind === 'category' || !data.items.length) pending.value = false
+    const enabled = await taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false)
+    if (!current.signal.aborted) canEditMetadata.value = enabled
   } catch (error) {
     if (current.signal.aborted) return
     if (error instanceof ApiError && error.status === 401) emit('session-lost', error)
@@ -83,7 +81,7 @@ async function closeEditor(saved: boolean) {
   edited.value = undefined
   let replacement: Promise<void> | undefined
   if (saved) {
-    notice.value = id === 0 ? 'Category created.' : `${metadataLabel.value} metadata saved.`
+    notice.value = id === 0 ? `${metadataLabel.value} created.` : `${metadataLabel.value} metadata saved.`
     replacement = load(pageNumber.value)
   }
   const view = viewGeneration
@@ -122,8 +120,8 @@ onBeforeUnmount(() => {
       <ElButton native-type="button" text @click="load(pageNumber)">Try again</ElButton>
     </ElAlert>
     <template v-else-if="page">
-      <div v-if="kind === 'categories' && canEditMetadata" class="taxonomy-actions">
-        <ElButton native-type="button" :disabled="edited !== undefined" @click="openEditor(0, $event)">Create category</ElButton>
+      <div v-if="canEditMetadata" class="taxonomy-actions">
+        <ElButton native-type="button" :disabled="edited !== undefined" @click="openEditor(0, $event)">Create {{ metadataKind }}</ElButton>
       </div>
       <AdminTagMetadata v-if="edited !== undefined" :key="`${kind}:${edited}`" :kind="metadataKind" :id="edited"
         @close="closeEditor(false)" @saved="closeEditor(true)"

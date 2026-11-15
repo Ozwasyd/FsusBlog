@@ -15,14 +15,14 @@ const description = ref('')
 const error = ref('')
 const busy = ref(false)
 const stale = ref(false)
-const creating = computed(() => props.kind === 'category' && props.id === 0)
+const creating = computed(() => props.id === 0)
 const label = computed(() => props.kind === 'tag' ? 'Tag' : 'Category')
-const heading = computed(() => creating.value ? 'Create category' : `Edit ${props.kind} metadata`)
+const heading = computed(() => creating.value ? `Create ${props.kind}` : `Edit ${props.kind} metadata`)
 const warning = computed(() => props.kind === 'tag'
   ? 'Use a nonnumeric tag name up to 128 UTF-8 bytes and a description up to 500 characters.'
   : 'Use a category name up to 128 UTF-8 bytes and a description up to 500 characters.')
 const submitLabel = computed(() => {
-  if (creating.value) return outstanding.value ? 'Retry category creation' : 'Create category'
+  if (creating.value) return outstanding.value ? `Retry ${props.kind} creation` : heading.value
   return outstanding.value ? `Retry ${props.kind} update` : `Save ${props.kind} metadata`
 })
 const normalized = computed(() => {
@@ -45,9 +45,9 @@ async function run(action: () => Promise<void>) {
     } else if (failure instanceof ApiError && failure.status === 403) {
       outstanding.value = undefined
       stale.value = true
-      error.value = creating.value ? 'You do not have permission to create a category.'
+      error.value = creating.value ? `You do not have permission to create a ${props.kind}.`
         : `You do not have permission to change this ${props.kind}.`
-    } else error.value = creating.value ? 'Could not confirm category creation. You can retry the same request.'
+    } else error.value = creating.value ? `Could not confirm ${props.kind} creation. You can retry the same request.`
       : `Could not confirm the ${props.kind} change. You can retry the same request.`
   } finally {
     if (!lifetime.signal.aborted) busy.value = false

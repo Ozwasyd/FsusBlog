@@ -112,6 +112,40 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     await row.getByRole('rowheader', { name, exact: true }).waitFor()
     assert.deepEqual(await row.getByRole('cell').allTextContents(), values)
   }
+  async function writeMetadata(form, method, path, powPath, buttonName, commandType, receiptType) {
+    const endpoint = adminOrigin.origin + path
+    const proof = adminOrigin.origin + powPath
+    const [challenge, accepted] = await Promise.all([
+      page.waitForResponse(response => response.url() === proof && response.request().method() === 'POST'),
+      page.waitForResponse(response => response.url() === endpoint && response.request().method() === method),
+      form.getByRole('button', { name: buttonName, exact: true }).click(),
+    ])
+    assert.equal(challenge.status(), 200)
+    assert.equal(accepted.status(), 200)
+    assert.equal(decodePowChallenge(decodeFrame(await challenge.body(), FrameType.PowChallenge).payload).difficulty, WireLimits.PowChallengeDifficulty)
+    const command = accepted.request().postDataBuffer()
+    assert(command)
+    const formBytes = decodeFrame(command, commandType).payload
+    if (method === 'POST') {
+      const coordinates = new PodReader(formBytes)
+      assert.equal(coordinates.i32(), 0)
+      assert.equal(coordinates.i64(), 0n)
+    }
+    assert.deepEqual(challenge.request().postDataBuffer(), command)
+    assert.match(challenge.request().headers()[WireHeaders.PowClientNonce.toLowerCase()], /^[a-f0-9]{32}$/)
+    assert(accepted.request().headers()[WireHeaders.PowProof.toLowerCase()])
+    assert((await accepted.headerValue('Cache-Control'))?.includes('no-store'))
+    return decodeMetadata(accepted, receiptType)
+  }
+
+  async function decodeMetadata(response, receiptType) {
+    const input = new PodReader(decodeFrame(await response.body(), receiptType).payload)
+    const result = { id: input.i32(), revision: input.i64(), name: input.text(WireLimits.TaxonomyNameBytes),
+      description: input.text(WireLimits.TaxonomyDescriptionBytes), changed: input.bool() }
+    input.finish()
+    return result
+  }
+
   async function createAndRenameCategory() {
     await read(categories, categoryEndpoint)
     const availability = WireRoutes.AdminCategoryMetadataAvailability
@@ -144,40 +178,13 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
       return raw.headers()[generationHeader]
     }
 
-    async function write(form, method, path, powPath, buttonName) {
-      const endpoint = adminOrigin.origin + path
-      const proof = adminOrigin.origin + powPath
-      const [challenge, accepted] = await Promise.all([
-        page.waitForResponse(response => response.url() === proof && response.request().method() === 'POST'),
-        page.waitForResponse(response => response.url() === endpoint && response.request().method() === method),
-        form.getByRole('button', { name: buttonName, exact: true }).click(),
-      ])
-      assert.equal(challenge.status(), 200)
-      assert.equal(accepted.status(), 200)
-      assert.equal(decodePowChallenge(decodeFrame(await challenge.body(), FrameType.PowChallenge).payload).difficulty, WireLimits.PowChallengeDifficulty)
-      const command = accepted.request().postDataBuffer()
-      assert(command)
-      decodeFrame(command, FrameType.AdminCategoryMetadataCommand)
-      assert.deepEqual(challenge.request().postDataBuffer(), command)
-      assert.match(challenge.request().headers()[WireHeaders.PowClientNonce.toLowerCase()], /^[a-f0-9]{32}$/)
-      assert(accepted.request().headers()[WireHeaders.PowProof.toLowerCase()])
-      assert((await accepted.headerValue('Cache-Control'))?.includes('no-store'))
-      return decodeCategoryReceipt(accepted)
-    }
-
-    async function decodeCategoryReceipt(response) {
-      const input = new PodReader(decodeFrame(await response.body(), FrameType.AdminCategoryMetadata).payload)
-      const result = { id: input.i32(), revision: input.i64(), name: input.text(WireLimits.TaxonomyNameBytes),
-        description: input.text(WireLimits.TaxonomyDescriptionBytes), changed: input.bool() }
-      input.finish()
-      return result
-    }
-
     await panel.getByRole('button', { name: 'Create category', exact: true }).click()
     const create = panel.getByRole('region', { name: 'Create category', exact: true })
     await create.getByLabel('Category name', { exact: true }).fill(`  ${createdName}  `)
     await create.getByLabel('Category description', { exact: true }).fill(createdDescription)
-    const created = await write(create, 'POST', WireRoutes.AdminCategoryCreate, WireRoutes.AdminCategoryCreatePow, 'Create category')
+    const frames = [FrameType.AdminCategoryMetadataCommand, FrameType.AdminCategoryMetadata]
+    const created = await writeMetadata(create, 'POST', WireRoutes.AdminCategoryCreate, WireRoutes.AdminCategoryCreatePow,
+      'Create category', ...frames)
     assert(created.id > 1 && created.revision > 0n)
     assert.deepEqual({ name: created.name, description: created.description, changed: created.changed },
       { name: createdName, description: createdDescription, changed: true })
@@ -192,13 +199,13 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     await panel.getByLabel('Category to edit').selectOption('1')
     const loaded = await read(panel.getByRole('button', { name: 'Edit selected category', exact: true }), adminOrigin.origin + editPath)
     assert.equal(loaded.status(), 200)
-    const current = await decodeCategoryReceipt(loaded)
+    const current = await decodeMetadata(loaded, FrameType.AdminCategoryMetadata)
     assert.deepEqual({ id: current.id, name: current.name, description: current.description, changed: current.changed },
       { id: 1, name: original, description: '', changed: false })
     const editor = panel.getByRole('region', { name: 'Edit category metadata', exact: true })
     await editor.getByLabel('Category name', { exact: true }).fill(renamed)
     await editor.getByLabel('Category description', { exact: true }).fill(renamedDescription)
-    const updated = await write(editor, 'PUT', editPath, editPow, 'Save category metadata')
+    const updated = await writeMetadata(editor, 'PUT', editPath, editPow, 'Save category metadata', ...frames)
     assert(updated.revision > current.revision)
     assert.deepEqual({ id: updated.id, name: updated.name, description: updated.description, changed: updated.changed },
       { id: 1, name: renamed, description: renamedDescription, changed: true })
@@ -246,6 +253,35 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert.match(await html.text(), /Verified for an unused tag\./)
     assert.notEqual(html.headers()[generationHeader], generation)
     await page.screenshot({ path: join(evidence, 'administrator-tag-metadata-mobile.png'), animations: 'disabled' })
+
+    await panel.getByRole('button', { name: 'Create tag', exact: true }).click()
+    const create = panel.getByRole('region', { name: 'Create tag', exact: true })
+    const createdName = 'Taxonomy new Café tag'
+    const description = 'Created by the scoped tag editor.'
+    await create.getByLabel('Tag name', { exact: true }).fill('  Taxonomy new Cafe\u0301 tag  ')
+    await create.getByLabel('Tag description', { exact: true }).fill(description)
+    const created = await writeMetadata(create, 'POST', WireRoutes.AdminTagCreate, WireRoutes.AdminTagCreatePow,
+      'Create tag', FrameType.AdminTagCreateCommand, FrameType.AdminTagMetadata)
+    assert(created.id > 26 && created.revision > 0n)
+    assert.deepEqual([created.name, created.description, created.changed], [createdName, description, true])
+    await panel.getByText('Tag created.', { exact: true }).waitFor()
+    await read(panel.getByRole('button', { name: 'Next page', exact: true }), `${tagEndpoint}?after=25`)
+    await assertRow('Tag usage', createdName, ['0', '0', '0', '0', '0', '0'])
+
+    const alias = '/tag/' + encodeURIComponent('Taxonomy new CAFE\u0301 tag') + '?page=2'
+    const redirect = await context.request.get(siteOrigin.origin + alias, { maxRedirects: 0 })
+    assert.equal(redirect.status(), 301)
+    assert.equal(redirect.headers().location, `/tag/${created.id}?page=2`)
+    const publicPath = WireRoutes.TagMetadata.replace('{id:int}', String(created.id))
+    const publicRead = await context.request.get(siteOrigin.origin + publicPath)
+    assert.equal(publicRead.status(), 200)
+    assert.deepEqual(decodeTaxonomyMetadata(decodeFrame(await publicRead.body(), FrameType.TaxonomyExactMetadata).payload),
+      { id: created.id, name: createdName, description })
+    assert(publicRead.headers()[generationHeader] && publicRead.headers()[generationHeader] !== html.headers()[generationHeader])
+    const canonical = await context.request.get(`${siteOrigin.origin}/tag/${created.id}`)
+    assert.equal(canonical.status(), 200)
+    assert((await canonical.text()).includes(description))
+    await page.screenshot({ path: join(evidence, 'administrator-tag-create-mobile.png'), animations: 'disabled' })
   }
 }
 
