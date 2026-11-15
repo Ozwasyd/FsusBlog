@@ -15,9 +15,17 @@
 
 ## 开发提交 `6a53e4d`
 
-- 当前 Passkey 可重新验证并撤销另一台设备的凭据、会话、持久刷新链和待完成 MFA 登录。实际 Chrome 覆盖两台虚拟认证器、重复提交拒绝及 PostgreSQL 故障时的完整回滚。合并后原生测试 14 项通过。恢复授权下移除当前或最后一枚 Passkey 仍待完成。 [浏览器](../artifacts/passkey-removal-09e4b27/) · [实库](../artifacts/delivery-integration-09e4b27/passkey-native.log)
+- 当前 Passkey 可重新验证并撤销另一台设备的凭据、会话、持久刷新链和待完成 MFA 登录。实际 Chrome 覆盖两台虚拟认证器、重复提交拒绝及 PostgreSQL 故障时的完整回滚。合并后原生测试 14 项通过。 [浏览器](../artifacts/passkey-removal-09e4b27/) · [实库](../artifacts/delivery-integration-09e4b27/passkey-native.log)
 - 属性 Inspector 修复了键盘打开编辑和取消时的焦点。真实 Chrome 通过 100%、150%、200% 缩放与浅深主题的六组组合，覆盖八种属性控件、历史比较和真实 409 的可访问性警报。VoiceOver 实际播报待验证。 [浏览器](../artifacts/property-accessibility-09e4b27/chromium-4/property-inspector-scale-result.json)
 - 固定 v1 DDL 的定义演练只读核对文本、数值、布尔、日期四种定义，以及源摘要和目标修订。两个所有者、三个旧 PNG、四条私有修订引用的批次通过隔离启用、重跑、备份恢复和权限校验，仍兼容旧的单件审批。完整旧属性值与审计迁移、其余旧媒体及生产切换待完成。 [定义实库](../artifacts/delivery-integration-09e4b27/property-migration-process.log) · [媒体批次](../artifacts/delivery-integration-09e4b27/media-activation.log) · [旧审批兼容](../artifacts/legacy-media-batch-09e4b27/native-single-compat-final-2.log)
 - 锁定依赖的 .NET Release 编译、协议生成检查、140 项 Node 协议测试及 C#、C++、Wasm 验证通过。严格 Vue 类型检查、前端构建及三个 FsusUI Wasm 源产物字节对比通过。封存 `f303f5c` 及其正式验收结果继续保留，`6a53e4d` 的证据用于本批开发变更。 [编译和 Wasm 校验](../artifacts/delivery-integration-09e4b27/) · [协议](../artifacts/passkey-removal-09e4b27/main-protocol-all.txt) · [冻结容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
+## 开发提交 `4556f8e`
+
+- 恢复密钥加当前 Passkey 的重新验证可移除当前或最后一个凭据。Chrome 经 Caddy TLS 验证了最后凭据撤销、旧会话失效、同一恢复密钥重绑及既有 MFA。原生检查验证预先签发的普通票据拒绝、缺少可选结构的请求拒绝及其他账号的会话。 [合并提交实测](../artifacts/targeted-delivery-82d0180/combined-runtime/)
+- 私有属性筛选、全文约束和保存视图复用同字段任一匹配。实库验证不同字段仍取交集、游标绑定完整候选、旧视图编码及跨作者拒绝。375px Chrome 以键盘建立两条候选条件，重新打开保存视图后仍得到同一文章。 [实库和浏览器](../artifacts/property-alternatives-82d0180/) · [查询合同](https://github.com/Ozwasyd/FsusBlog/issues/2341)
+- 旧私有媒体在隔离运行副本启用两个 PNG 与一个 JPEG，恢复后 JPEG 的原件和预览均返回同一规范化字节，兼容旧单件 PNG 审批。原生 Chrome 验证了授权修订的一张私有图片可嵌入 EPUB，桌面及 375px 都可无网络打开。旧保存视图的主排序无法沿现有文章 ID 语义启用，继续保留在隔离数据中。 [媒体](../artifacts/legacy-media-jpeg-82d0180/) · [EPUB](../artifacts/targeted-delivery-82d0180/epub/) · [迁移约束](migration-source.md)
+- 12 个可选结构安装器共用两段既有事务流程。PostgreSQL 的 43 项新旧 CLI 对照通过，退出码、输出、结构及数据一致。合并提交通过锁定编译、严格 Vue 类型检查、三份 FsusUI Wasm 字节核对、141 项 Node 协议检查及 C#、C++、Wasm 向量。 [CLI 对照](../artifacts/targeted-delivery-82d0180/optional-schema/compare.log) · [合并构建](../artifacts/targeted-delivery-82d0180/)
+- 公开 Canvas 标题、段落及代码块定位仍缺 FsusUI 的精确目标映射，匿名 Chrome 复现已提交至既有 issue。正式容量沿用封存包结果，四轮短档 1 次通过，900 秒正式长测未开始。 [FsusUI 复现](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348) · [容量结果](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
