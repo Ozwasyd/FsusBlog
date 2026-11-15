@@ -307,7 +307,9 @@ import json
 import pathlib
 import sys
 
-admission = json.loads(pathlib.Path(sys.argv[1]).read_text())['importAdmission']
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert report['propertyInventory'] is None
+admission = report['importAdmission']
 assert not admission['classificationComplete'] and not admission['eligibleForCandidatePlanning']
 PY
 fi

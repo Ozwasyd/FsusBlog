@@ -55,7 +55,7 @@ internal static partial class Migration
         await using var transaction = await BeginLegacyReadAsync(connection, token);
         var catalog = await ReadLegacyCatalogAsync(source, transaction, token);
         var (tables, blockers) = SelectLegacyTables(source, catalog);
-        var properties = provider == "postgres" && (mode is "inventory" or "plan")
+        var properties = blockers.Count == 0 && provider == "postgres" && (mode is "inventory" or "plan")
             ? await ReadLegacyPropertyInventoryAsync(source, transaction, catalog, token) : null;
 
         var audit = blockers.Count == 0
