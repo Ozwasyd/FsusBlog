@@ -112,7 +112,7 @@ internal static partial class CurrentSchema
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null)
+        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationMedia = null)
     {
         if (requireArticleMedia is null)
         {
@@ -188,12 +188,17 @@ internal static partial class CurrentSchema
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
             (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
             throw new InvalidOperationException("The native publication canonical schema presence does not match the requested operation.");
+        var hasPublicationMedia = await HasPublicationMediaAsync(connection, transaction, cancellationToken);
+        if ((hasPublicationMedia && (!requirePublicationHistory || !requireArticleMedia.Value)) ||
+            (requirePublicationMedia.HasValue && requirePublicationMedia.Value != hasPublicationMedia))
+            throw new InvalidOperationException("The article publication media schema presence does not match the requested operation.");
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
+            .Concat(hasPublicationMedia ? PublicationMediaColumns : [])
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
@@ -222,6 +227,7 @@ internal static partial class CurrentSchema
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
+            .Concat(hasPublicationMedia ? PublicationMediaConstraints : [])
             .Concat(hasAdminArticleRollback ? PublicationHistoryAdminRollbackConstraints : [])
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])

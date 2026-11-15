@@ -157,6 +157,21 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     internal Task<T> AdministrativePublication<T>(Func<Action, Task<T>> transact, CancellationToken ct) =>
         Change(invalidate: true, transact, ct);
 
+    internal Task<(ArticleState Article, bool Changed)> PublishWithImages(Store store, string? token, string? expectedSession,
+        PublishedMediaStore media, int articleId, long expectedRevision, Guid commandKey, IReadOnlyList<Guid> assetIds,
+        CancellationToken ct)
+    {
+        var edit = Publishing.Validate(ArticleAction.Publish, new(articleId, expectedRevision, commandKey, "", ""));
+        var selection = PublishedMediaSelection.Create(assetIds);
+        return Change(invalidate: true, invalidate => store.WithSession(token, true, async (connection, tx, actor) =>
+        {
+            FsusBlog.V2.Server.Sessions.SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expectedSession);
+            var result = await Store.PublishWithImages(connection, tx, actor, edit, media, selection, ct);
+            if (result.Changed) invalidate();
+            return result;
+        }, ct), ct);
+    }
+
     private async Task<T> Change<T>(bool invalidate, Func<Action, Task<T>> transact, CancellationToken ct)
     {
         lease?.RequireCurrent();

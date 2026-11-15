@@ -124,6 +124,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
     internal static Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct) => Execute(db, tx, actor, action, edit, ct, null);
 
+    internal static Task<(ArticleState Article, bool Changed)> PublishWithImages(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, Edit edit, Content.PublishedMediaStore media, Content.PublishedMediaSelection selection, CancellationToken ct) =>
+        Execute(db, tx, actor, ArticleAction.Publish, edit, ct, null, publishedMedia: (media, selection));
+
     internal static async Task<DraftTaxonomy> AssignTaxonomy(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         TaxonomyAssignment input, CancellationToken ct)
     {
@@ -142,9 +146,11 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
 
     private static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
-        ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null)
+        ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
+        (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null)
     {
-        var fingerprint = attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
+        var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
+            attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
             rights is not null ? SHA256.HashData(Wire.EncodeArticleRightsCommand(rights)) :
             schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
@@ -166,6 +172,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             }
         }
         ArticleState state;
+        IReadOnlyList<Content.PublishedMediaReference>? images = null;
         if (edit.Id == 0)
         {
             await using var create = Sql(db, tx, """
@@ -190,6 +197,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 edit = edit with { Title = source.Title, Body = source.Body };
             }
             state = Publishing.Change(action, edit, current, actor);
+            if (publishedMedia is { } share)
+                images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);
             await using var update = Sql(db, tx, """
                 update public.article set revision=$2,title=$3,body=$4,published_revision=$5,deleted=$6,updated_at=now() where id=$1
                 """, state.Id, state.Revision, state.Title, state.Body,
@@ -217,7 +226,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, actor.Id, edit.Key, fingerprint, state.Id, state.Revision, state.Title, state.Body, state.PublishedRevision.HasValue))
             await record.ExecuteNonQueryAsync(ct);
         if (action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete)
-            await Authoring.PublicationHistoryStore.Apply(db, tx, actor.Id, edit.Key, action, current!, state, ct);
+            await Authoring.PublicationHistoryStore.Apply(db, tx, actor.Id, edit.Key, action, current!, state, ct, images);
         if (rollback is not null)
             await Authoring.RevisionHistoryStore.RecordRollback(db, tx, actor, state.Revision, rollback, ct);
         if (schedule is not null)

@@ -55,6 +55,7 @@ internal static partial class Migration
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
+                  article-public-media  Add explicit publication attachment storage with the server stopped
                   authoring-workspace Add private workspace layout storage with the server stopped
                   author-recent-opens Add private recent article opens with the server stopped
                   saved-views          Add private author saved views with the server stopped
@@ -252,6 +253,9 @@ internal static partial class Migration
                 case ["article-private-media"]:
                     await InitializeArticleMediaAsync(connection, token);
                     break;
+                case ["article-public-media"]:
+                    await InitializePublicationMediaAsync(connection, token);
+                    break;
                 case ["authoring-workspace"]:
                     await InitializeAuthoringWorkspaceAsync(connection, token);
                     break;
@@ -378,7 +382,7 @@ internal static partial class Migration
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
-            requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true);
+            requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationMedia: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);
@@ -392,6 +396,7 @@ internal static partial class Migration
         await ReportMissingPublicationRights(connection, transaction, token);
         await VerifyPublicationHistoryAsync(connection, transaction, token);
         await VerifyArticleScheduleAsync(connection, transaction, token);
+        await VerifyPublicationMediaAsync(connection, transaction, token);
         await using (var pending = new NpgsqlCommand("""
             select count(*) from public.article a where a.publication_count>0 and not exists (
                 select from public.article_publication_history h where h.article_id=a.id

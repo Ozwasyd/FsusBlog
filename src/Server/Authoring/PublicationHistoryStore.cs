@@ -10,12 +10,13 @@ internal static class PublicationHistoryStore
 
     // Store.Execute owns the article row lock and has already written the new private revision and command.
     internal static Task Apply(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
-        ArticleAction action, ArticleState prior, ArticleState next, CancellationToken ct) =>
-        Apply(db, tx, actor, command, action, next.Id, prior.Revision, prior.PublishedRevision, next.Revision, ct);
+        ArticleAction action, ArticleState prior, ArticleState next, CancellationToken ct,
+        IReadOnlyList<Content.PublishedMediaReference>? selected = null) =>
+        Apply(db, tx, actor, command, action, next.Id, prior.Revision, prior.PublishedRevision, next.Revision, ct, selected: selected);
 
     internal static async Task Apply(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
         ArticleAction action, int articleId, long previousRevision, long? publishedRevision, long nextRevision,
-        CancellationToken ct, bool scheduled = false)
+        CancellationToken ct, bool scheduled = false, IReadOnlyList<Content.PublishedMediaReference>? selected = null)
     {
         int publicationCount;
         int eventNo;
@@ -59,6 +60,8 @@ internal static class PublicationHistoryStore
                 active is null ? "publish" : "replace", reason,
                 published.PublishedAt, actor, command);
             await PublicationRightsStore.Attach(db, tx, articleId, nextRevision, published.Id, ct);
+            if (selected is not null)
+                await Content.PublishedMediaStore.Attach(db, tx, articleId, published.Id, nextRevision, selected, ct);
         }
         else
         {
