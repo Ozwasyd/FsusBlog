@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed record DocumentExportAttachment(string Name, MediaFormat Format, int Width, int Height, byte[] Bytes, byte[]? VerifiedDigest = null)
 {
-    private const int MaximumBytes = 512 * 1024;
+    internal const int MaximumBytes = 512 * 1024;
     internal const int MaximumImages = 4;
 
     internal static bool PrivateTransport(HttpContext ctx) =>
@@ -79,6 +79,8 @@ internal sealed record DocumentExportAttachment(string Name, MediaFormat Format,
         var name = multiple ? string.Create(CultureInfo.InvariantCulture, $"attachment-{number}") : "attachment";
         return $"{name}.{ContentType["image/".Length..]}";
     }
+
+    internal string InlineFigure() => Figure($"data:{ContentType};base64,{Convert.ToBase64String(Bytes)}", xhtml: false);
 
     internal string Figure(string source, bool xhtml)
     {

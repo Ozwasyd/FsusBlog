@@ -20,7 +20,7 @@ CREATE TABLE public.author_document_export (
     attachment_ids uuid[],
     CHECK ((provider = 3) = (attachment_id IS NOT NULL)),
     CHECK ((provider = 4) = (attachment_ids IS NOT NULL)),
-    CHECK (attachment_ids IS NULL OR (format <> 2 AND cardinality(attachment_ids) BETWEEN 2 AND 4
+    CHECK (attachment_ids IS NULL OR (format BETWEEN 1 AND 4 AND cardinality(attachment_ids) BETWEEN 2 AND 4
         AND array_ndims(attachment_ids) = 1 AND array_position(attachment_ids, NULL) IS NULL)),
     PRIMARY KEY (owner_id, id),
     FOREIGN KEY (article_id, source_revision)

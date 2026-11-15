@@ -75,10 +75,12 @@ internal static class LegacyReleaseResponsibility
                         select case when $5 then jsonb_build_object(
                             'publicationId',origin.publication_id,'revisionId',origin.source_revision_id,
                             'proof',origin.evidence->'publishProof',
-                            'entries',(select jsonb_agg(item.evidence #> '{publishProof,transparency,sourceRow}')
+                            'entries',(select jsonb_agg(entry.value)
                                 from public.legacy_release_origin item
+                                cross join lateral (values (item.evidence #> '{publishProof,transparency,sourceRow}'),
+                                    (item.evidence #> '{rightsProof,transparency,sourceRow}')) entry(value)
                                 where item.article_id=origin.article_id and item.revision<=active.revision
-                                and item.evidence #> '{publishProof,transparency,sourceRow}' is not null))
+                                and entry.value is not null))
                         else origin.manifest end as document
                     ) observed
                     where origin.article_id=active.article_id and octet_length(observed.document::text)<=131072 and (

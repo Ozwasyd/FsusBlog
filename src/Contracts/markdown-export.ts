@@ -21,7 +21,7 @@ export async function exportArticleRevision(format: ArticleExportFormat, article
   headers.set('Accept', type)
   if (attachment) {
     const ids = attachment.id.split(',')
-    const limit = format === 'md' || format === 'pdf' ? 0 : maxDocumentExportImages
+    const limit = format === 'md' ? 0 : maxDocumentExportImages
     if (ids.length > limit || new Set(ids).size !== ids.length || ids.some(id =>
       !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id) || id === '00000000-0000-0000-0000-000000000000'))
       throw new ProtocolError('Invalid document attachment selection')

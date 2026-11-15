@@ -1,10 +1,12 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Sessions;
+using Npgsql;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -26,17 +28,28 @@ internal static class MarkdownExportEndpoints
         if (pdf is not null)
         {
             var (type, extension) = DocumentExportEndpoints.Presentation(DocumentExportFormat.Pdf);
-            Download(DocumentRoute(extension), type, $"article.{extension}", async (_, store, token, source, ct) =>
+            Download(DocumentRoute(extension), type, $"article.{extension}", async (ctx, store, token, source, ct) =>
             {
-                var revision = await ReadSource(store, token, source, ct);
+                var revision = await store.WithSession(token, true,
+                    (db, tx, actor) => ReadSource(ctx, db, tx, actor, token, source, ct), ct);
                 using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
                 var result = await DocumentExportInput.Render(DocumentExportFormat.Pdf, revision.Title, revision.Body,
-                    revision.HappenedAt, [], pdf, lifetime.Token);
-                // The subprocess did not hold database locks. Recheck the same owner and revision before delivery.
-                await store.WithSession(token, true, (db, tx, actor) =>
-                    RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, lifetime.Token), lifetime.Token);
+                    revision.HappenedAt, revision.Attachments, pdf, lifetime.Token);
+                // Rendering releases database locks. Recheck the same permissions and frozen image proof before delivery.
+                await store.WithSession(token, true, async (db, tx, actor) =>
+                {
+                    if (source.Attachments.Length == 0)
+                        return await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, lifetime.Token);
+                    var current = await ReadSource(ctx, db, tx, actor, token, source, lifetime.Token);
+                    var request = new DocumentExportCreate(Guid.Empty, source.Id, source.Expected, source.Selected, DocumentExportFormat.Pdf);
+                    var provider = DocumentExportInput.ProviderFor(source.Attachments);
+                    if (!CryptographicOperations.FixedTimeEquals(revision.Digest(request, provider, pdf.ToolDigest),
+                        current.Digest(request, provider, pdf.ToolDigest)))
+                        throw new PublicUnavailableException();
+                    return source.Expected;
+                }, lifetime.Token);
                 return result;
-            }, policy: PdfDocumentExport.RatePolicy);
+            }, policy: PdfDocumentExport.RatePolicy, attachmentLimit: DocumentExportAttachment.MaximumImages);
         }
 
         void AttachDocument(DocumentExportFormat format)
@@ -56,18 +69,22 @@ internal static class MarkdownExportEndpoints
             => Download(route, mediaType, filename, (ctx, store, token, source, ct) =>
                 store.WithSession(token, true, async (db, tx, actor) =>
                 {
-                    if (source.Attachments.Length != 0)
-                    {
-                        if (!DocumentExportAttachment.PrivateTransport(ctx))
-                            throw ArticleMediaStore.Missing();
-                        SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
-                    }
-                    await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
-                    var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
-                    var attachment = source.Attachments.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx,
-                        app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, source.Attachments, ct);
-                    return await render(title, body, source.Selected, happenedAt, attachment, ct);
+                    var input = await ReadSource(ctx, db, tx, actor, token, source, ct);
+                    return await render(input.Title, input.Body, source.Selected, input.HappenedAt, input.Attachments, ct);
                 }, ct), contentSecurityPolicy, attachmentLimit: attachmentLimit);
+
+        async Task<DocumentExportInput> ReadSource(HttpContext ctx, NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+            string? token, DownloadSource source, CancellationToken ct)
+        {
+            if (source.Attachments.Length != 0)
+            {
+                if (!DocumentExportAttachment.PrivateTransport(ctx)) throw ArticleMediaStore.Missing();
+                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
+            }
+            await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
+            return await DocumentExportInput.Read(db, tx, source.Id, source.Selected, app.Services.GetService<MediaFiles>(),
+                actor.Id, source.Attachments, ct);
+        }
 
         void Download(string route, string mediaType, string filename,
             Func<HttpContext, Store, string?, DownloadSource, CancellationToken, Task<byte[]>> render,
@@ -92,14 +109,6 @@ internal static class MarkdownExportEndpoints
     }
 
     private readonly record struct DownloadSource(int Id, long Expected, long Selected, Guid[] Attachments);
-
-    private static Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(
-        Store store, string? token, DownloadSource source, CancellationToken ct)
-        => store.WithSession(token, true, async (db, tx, actor) =>
-        {
-            await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
-            return await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
-        }, ct);
 
     private static byte[] Encode(string title, string body, long revision)
     {

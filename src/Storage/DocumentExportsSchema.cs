@@ -2,6 +2,8 @@ using Npgsql;
 
 namespace FsusBlogV2.Storage;
 
+internal enum ExportImageScope { Html, Portable, All }
+
 internal static partial class CurrentSchema
 {
     private const string DocumentExportColumns =
@@ -59,17 +61,30 @@ internal static partial class CurrentSchema
         return await query.ExecuteScalarAsync(ct) is true;
     }
 
-    internal static string ExportImageListCondition(bool portable) =>
-        $"attachment_idsISNULLORformat{(portable ? "<>2" : "=1")}ANDcardinality(attachment_ids)>=2ANDcardinality(attachment_ids)<=4ANDarray_ndims(attachment_ids)=1ANDarray_position(attachment_ids,NULL::uuid)ISNULL";
+    internal static string ExportImageListCondition(ExportImageScope scope)
+    {
+        var formats = scope switch
+        {
+            ExportImageScope.All => "format>=1ANDformat<=4",
+            ExportImageScope.Portable => "format<>2",
+            _ => "format=1"
+        };
+        return $"attachment_idsISNULLOR{formats}ANDcardinality(attachment_ids)>=2ANDcardinality(attachment_ids)<=4ANDarray_ndims(attachment_ids)=1ANDarray_position(attachment_ids,NULL::uuid)ISNULL";
+    }
 
-    internal static async Task<string?> FindExportImageListConstraintAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, bool portable)
+    internal static async Task<ExportImageScope> ReadExportImageScopeAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
+        => await FindExportImageListConstraintAsync(db, tx, ct, ExportImageScope.All) is not null ? ExportImageScope.All
+            : await FindExportImageListConstraintAsync(db, tx, ct, ExportImageScope.Portable) is not null
+                ? ExportImageScope.Portable : ExportImageScope.Html;
+
+    internal static async Task<string?> FindExportImageListConstraintAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, ExportImageScope scope)
     {
         await using var query = new NpgsqlCommand("""
             select conname::text from pg_catalog.pg_constraint
             where conrelid=pg_catalog.to_regclass('public.author_document_export') and contype='c' and convalidated
             and regexp_replace(pg_catalog.pg_get_expr(conbin,conrelid,true),'[[:space:]]','','g')=$1
             """, db, tx);
-        query.Parameters.AddWithValue(ExportImageListCondition(portable));
+        query.Parameters.AddWithValue(ExportImageListCondition(scope));
         return await query.ExecuteScalarAsync(ct) as string;
     }
 

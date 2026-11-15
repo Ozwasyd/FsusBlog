@@ -36,11 +36,19 @@ internal static class DocumentExportStore
         if (request.Format == DocumentExportFormat.Pdf && pdfToolDigest is null)
             throw new BusinessException(Rejection.Invalid, "The PDF provider is unavailable.");
         await RevisionHistoryStore.LockCurrent(db, tx, actor, request.Article, request.Revision, ct);
-        if (assets.Length > 0 && !(assets.Length > 1 && request.Format != DocumentExportFormat.Html
-            ? await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: true) is not null
-            : await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: assets.Length > 1)))
-            throw new BusinessException(Rejection.Invalid, "The document export attachment schema is unavailable.");
-        var input = await DocumentExportInput.Read(db, tx, request, media, actor.Id, assets, ct);
+        if (assets.Length > 0)
+        {
+            var scope = request.Format switch
+            {
+                DocumentExportFormat.Pdf => ExportImageScope.All,
+                DocumentExportFormat.Docx or DocumentExportFormat.Epub when assets.Length > 1 => ExportImageScope.Portable,
+                _ => ExportImageScope.Html
+            };
+            if (!await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: assets.Length > 1) ||
+                scope > ExportImageScope.Html && await CurrentSchema.ReadExportImageScopeAsync(db, tx, ct) < scope)
+                throw new BusinessException(Rejection.Invalid, "The document export attachment schema is unavailable.");
+        }
+        var input = await DocumentExportInput.Read(db, tx, request.Article, request.SourceRevision, media, actor.Id, assets, ct);
 
         await using (var remove = Store.Sql(db, tx, """
             delete from public.author_document_export

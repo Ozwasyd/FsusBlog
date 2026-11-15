@@ -13,6 +13,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
 {
     private const string Algorithm = "ECDSA_P256_SHA256";
     private const string ProofKind = "publish-proof";
+    private const string RightsProofKind = "article-rights-proof";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = false, AllowDuplicateProperties = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
@@ -20,11 +21,11 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
 
     private sealed record ArchivedPublicKey(string KeyId, int Version, string Algorithm, string PublicKey,
         DateTimeOffset NotBeforeUtc, DateTimeOffset? NotAfterUtc, DateTimeOffset? RevokedAtUtc, DateTimeOffset? CompromisedAtUtc);
-    private sealed record LogEntry([property: JsonIgnore] long Id, long Seq, long ProofId, int ArticleId, long ArticleRevisionId, int RevisionNo,
-        string EntryPayloadHash, string PrevEntryHash, string EntryHash, DateTimeOffset CreatedAtUtc, string SigningKeyId, string Signature)
+    private sealed record LogEntry([property: JsonIgnore] long Id, long Seq, string EntryType,
+        [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] long ProofId, int ArticleId,
+        [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] long ArticleRevisionId, int RevisionNo, string EntryPayloadHash, string PrevEntryHash, string EntryHash,
+        DateTimeOffset CreatedAtUtc, string SigningKeyId, string Signature)
     {
-        public string EntryType => ProofKind;
-
         internal string Coordinates() => FormattableString.Invariant(
             $"proofId:i:{ProofId}\narticleId:i:{ArticleId}\narticleRevisionId:i:{ArticleRevisionId}\nrevisionNo:i:{RevisionNo}\n");
     }
@@ -86,11 +87,11 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             if (!signed.AsSpan().SequenceEqual(payload) || !VerifySignature(key, signedAt, signed, signature)) return null;
 
             var rows = evidence.GetProperty("entries");
-            if (rows.GetArrayLength() is < 1 or > 3) return null;
+            if (rows.GetArrayLength() is < 1 or > 4) return null;
             var chain = rows.EnumerateArray().Select(row => ReadEntry(ReadJson(row.GetBytesFromBase64())))
                 .OrderBy(entry => entry.Seq).ToArray();
             var selected = ReadEntry(ReadJson(transparency.GetProperty("sourceRow").GetBytesFromBase64()));
-            if (!chain.Contains(selected) || selected.Id != Number(source, "transparency_log_entry_id") ||
+            if (selected.EntryType != ProofKind || !chain.Contains(selected) || selected.Id != Number(source, "transparency_log_entry_id") ||
                 selected.EntryHash != Required(source, "transparency_log_entry_hash") || selected.ProofId != proofId ||
                 selected.ArticleId != articleId || selected.ArticleRevisionId != original || selected.RevisionNo != revisionNo ||
                 selected.SigningKeyId != key.KeyId || selected.Signature != signature)
@@ -124,7 +125,8 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             return JsonSerializer.SerializeToUtf8Bytes(new
             {
                 manifestVersion = 1, kind = "legacy-v1-publication-proof-archive",
-                articleId, revisionNo, articleRevisionId = original, proofId,
+                articleId, revisionNo, articleRevisionId = original.ToString(CultureInfo.InvariantCulture),
+                proofId = proofId.ToString(CultureInfo.InvariantCulture),
                 signedAtUtc = signedAt, signedPayload = payload, signature, key,
                 transparency = new { entrySeq = selected.Seq, chain, checkpoint = manifest,
                     signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey }
@@ -158,6 +160,8 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
     {
         string previous = new('0', 64);
         var leaves = new List<string>(chain.Length);
+        var published = new HashSet<(long RevisionId, int RevisionNo)>();
+        bool rights = false;
         foreach (var entry in chain)
         {
             var coordinates = entry.Coordinates();
@@ -166,10 +170,21 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 !ArticlePublicationProofPayloadV2.ValidKeyId(entry.SigningKeyId) ||
                 entry.Signature.Length != 86 || entry.Signature.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not ('-' or '_')))
                 throw new FormatException();
+            var revision = (entry.ArticleRevisionId, entry.RevisionNo);
+            if (entry.EntryType == ProofKind)
+            {
+                if (published.Count == 3 || !published.Add(revision)) throw new FormatException();
+            }
+            else
+            {
+                if (rights || !published.Contains(revision)) throw new FormatException();
+                rights = true;
+            }
+
             var transcript = FormattableString.Invariant($"""
                 fsusblog.integrity.transparency-log-entry.v1
                 seq:i:{entry.Seq}
-                {Field("entryType", ProofKind)}{coordinates}entryPayloadHash:h:{entry.EntryPayloadHash}
+                {Field("entryType", entry.EntryType)}{coordinates}entryPayloadHash:h:{entry.EntryPayloadHash}
                 prevEntryHash:h:{previous}
                 createdAt:t:{entry.CreatedAtUtc:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
                 {Field("signingKeyId", entry.SigningKeyId)}{Field("signature", entry.Signature)}
@@ -191,8 +206,9 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
 
     private static LogEntry ReadEntry(JsonElement row)
     {
-        if (Required(row, "entry_type") != ProofKind) throw new FormatException();
-        return new(Number(row, "id"), Number(row, "seq"), Number(row, "proof_id"), row.GetProperty("article_id").GetInt32(),
+        var kind = Required(row, "entry_type");
+        if (kind is not (ProofKind or RightsProofKind)) throw new FormatException();
+        return new(Number(row, "id"), Number(row, "seq"), kind, Number(row, "proof_id"), row.GetProperty("article_id").GetInt32(),
             Number(row, "article_revision_id"), row.GetProperty("revision_no").GetInt32(),
             Required(row, "entry_payload_hash"), Required(row, "prev_entry_hash"), Required(row, "entry_hash"),
             Time(row, "created_at"), Required(row, "signing_key_id"), Required(row, "signature"));

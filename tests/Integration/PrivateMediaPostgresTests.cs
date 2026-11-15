@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
@@ -204,7 +205,12 @@ public sealed partial class PrivateMediaPostgresTests
     }
 
     [PostgresFact]
-    public async Task DraftAttachmentsPinPrivateImagesAndTicketsRequireCurrentRevisionAndSession()
+    public Task DraftAttachmentsPinPrivateImagesAndTicketsRequireCurrentRevisionAndSession() => CheckDraftAttachments(pdf: false);
+
+    [PdfPostgresFact]
+    public Task PdfIncludesOnlyApprovedSavedImagesAndPinsTheirOrder() => CheckDraftAttachments(pdf: true);
+
+    private async Task CheckDraftAttachments(bool pdf)
     {
         if (OperatingSystem.IsWindows()) return;
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -217,8 +223,8 @@ public sealed partial class PrivateMediaPostgresTests
         var settings = new Dictionary<string, string>
         {
             [MediaEndpoints.StorageSetting] = root, ["FSUSBLOG_DOCUMENT_EXPORT_TASKS"] = "true",
-            ["FSUSBLOG_PDF_TOOL_ROOT"] = "", ["FSUSBLOG_PDF_TOOL_SHA256"] = ""
         };
+        if (!pdf) settings["FSUSBLOG_PDF_TOOL_ROOT"] = settings["FSUSBLOG_PDF_TOOL_SHA256"] = "";
         ServerProcess? server = null;
         try
         {
@@ -422,7 +428,8 @@ public sealed partial class PrivateMediaPostgresTests
             pin.Parameters.AddWithValue(asset);
             Assert.Equal(3L, await pin.ExecuteScalarAsync(ct));
 
-            using var secondUpload = await Upload(client, owner, Guid.NewGuid(), "second.jpg", "image/jpeg", EncodeImage(SKEncodedImageFormat.Jpeg), ct);
+            var jpeg = pdf ? EncodeImage(SKEncodedImageFormat.Jpeg, 24, 12) : EncodeImage(SKEncodedImageFormat.Jpeg);
+            using var secondUpload = await Upload(client, owner, Guid.NewGuid(), "second.jpg", "image/jpeg", jpeg, ct);
             Assert.Equal(HttpStatusCode.OK, secondUpload.StatusCode);
             var second = First(await secondUpload.Content.ReadAsByteArrayAsync(ct), 1);
             var secondBytes = await File.ReadAllBytesAsync(Path.Combine(root, $"{second:N}.media"), ct);
@@ -448,6 +455,15 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(secondBytes, await ReadEntry(images[0]));
                 Assert.Equal(normalized, await ReadEntry(images[1]));
             }
+            if (pdf)
+            {
+                using var direct = await Export("pdf", single.Revision, both.Revision, owner, null, selection: selectedPair);
+                Assert.Equal(HttpStatusCode.OK, direct.StatusCode);
+                bodies.Add(DocumentExportFormat.Pdf, await ReadPdf(direct));
+                await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.Conflict, both.Revision, both.Revision, owner, null, selection: selectedPair);
+                await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.NotFound, single.Revision, single.Revision, owner, null, selection: selectedPair);
+                await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.NotFound, single.Revision, both.Revision, owner, null, selection: $"{second:D},{foreign:D}");
+            }
             var figures = System.Text.RegularExpressions.Regex.Matches(markup, """<img src="data:image/(jpeg|png);base64,([^"]+)" alt="([^"]+)"[^>]*>""");
             Assert.Equal(new[] { ("jpeg", Convert.ToBase64String(secondBytes), "second.jpg"),
                 ("png", Convert.ToBase64String(normalized), "draft &amp; proof.png") },
@@ -469,6 +485,8 @@ public sealed partial class PrivateMediaPostgresTests
                 using var badBundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, badBundle.StatusCode);
                 Assert.DoesNotContain("data:image/", await badBundle.Content.ReadAsStringAsync(ct));
+                if (pdf) await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.ServiceUnavailable,
+                    single.Revision, both.Revision, owner, null, selection: selectedPair);
             }, ct);
 
             using var saveExternal = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
@@ -508,7 +526,8 @@ public sealed partial class PrivateMediaPostgresTests
             await using var remove = db.DataSource.CreateCommand("delete from public.author_document_export where id=$1");
             remove.Parameters.AddWithValue(plainRequest.Id);
             Assert.Equal(1, await remove.ExecuteNonQueryAsync(ct));
-            var bundleTasks = bodies.Keys.Select(format => jobInput with
+            // The existing fixture covers queued DOCX separately. Leave a quota slot for the native PDF.
+            var bundleTasks = bodies.Keys.Where(format => !pdf || format != DocumentExportFormat.Docx).Select(format => jobInput with
                 { Id = Guid.NewGuid(), SourceRevision = both.Revision, Format = format }).ToArray();
             foreach (var task in bundleTasks)
             {
@@ -548,7 +567,24 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(DocumentExportState.Succeeded, task.State);
                 using var deliveredBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Request.Id));
                 Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
-                Assert.Equal(bodies[task.Request.Format], await deliveredBundle.Content.ReadAsByteArrayAsync(ct));
+                if (task.Request.Format == DocumentExportFormat.Pdf)
+                {
+                    var bytes = await ReadPdf(deliveredBundle);
+                    Assert.Equal(task.OutputDigest, SHA256.HashData(bytes));
+                    var pdfReceipt = JsonNode.Parse(await ExportResponseFixture.Receipt(client, task.Request.Id,
+                        owner.Token, owner.SiteSessionId, HttpStatusCode.OK, ct))!;
+                    Assert.Equal("Attachments", (string?)pdfReceipt["metadata"]?["title"]);
+                    Assert.Equal(Digest("Original body."u8.ToArray()), (string?)pdfReceipt["bodySha256"]);
+                    Assert.Equal(Environment.GetEnvironmentVariable("FSUSBLOG_PDF_TOOL_SHA256"), (string?)pdfReceipt["toolchainSha256"]);
+                    Assert.Equal(new[] { (second, Digest(secondBytes)), (asset, Digest(normalized)) }, pdfReceipt["assets"]!.AsArray()
+                        .Select(image => (image!["id"]!.GetValue<Guid>(), (string)image["sha256"]!)));
+                    if (Environment.GetEnvironmentVariable("FSUSBLOG_TEST_PDF_IMAGE_EVIDENCE") is { } evidence)
+                    {
+                        await File.WriteAllBytesAsync(Path.Combine(evidence, "direct.pdf"), bodies[DocumentExportFormat.Pdf], ct);
+                        await File.WriteAllBytesAsync(Path.Combine(evidence, "queued.pdf"), bytes, ct);
+                    }
+                }
+                else Assert.Equal(bodies[task.Request.Format], await deliveredBundle.Content.ReadAsByteArrayAsync(ct));
             }
             var batch = Assert.Single(finishedBundles, task => task.Request.Format == DocumentExportFormat.Html);
             var batchReceipt = await ResultReceipt(HttpStatusCode.OK);
@@ -637,11 +673,21 @@ public sealed partial class PrivateMediaPostgresTests
             }
 
             async Task ExpectExportFailure(string format, string mediaType, HttpStatusCode status, long expected, long selected,
-                MediaFixture.Session? actor, Guid image, string? handle = null)
+                MediaFixture.Session? actor, Guid? image, string? handle = null, string? selection = null)
             {
-                using var unavailable = await Export(format, expected, selected, actor, image, handle);
+                using var unavailable = await Export(format, expected, selected, actor, image, handle, selection);
                 Assert.Equal(status, unavailable.StatusCode);
                 Assert.NotEqual(mediaType, unavailable.Content.Headers.ContentType?.MediaType);
+            }
+
+            async Task<byte[]> ReadPdf(HttpResponseMessage response)
+            {
+                ExportResponseFixture.Attachment(response, "application/pdf", "article.pdf");
+                Assert.True(response.Headers.CacheControl?.NoStore);
+                var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                Assert.Equal("%PDF-", Encoding.ASCII.GetString(bytes, 0, 5));
+                Assert.EndsWith("%%EOF", Encoding.ASCII.GetString(bytes[^16..]).TrimEnd(), StringComparison.Ordinal);
+                return bytes;
             }
 
             async Task<byte[]> ReadEntry(ZipArchiveEntry entry)

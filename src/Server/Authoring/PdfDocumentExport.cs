@@ -35,14 +35,23 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
     }
 
     internal async Task<byte[]> WriteAsync(string title, string markdown, DateTimeOffset happenedAt, CancellationToken ct,
-        bool includeTables = true)
+        bool includeTables = true, DocumentExportAttachment[]? images = null)
     {
         ct.ThrowIfCancellationRequested();
         if (Encoding.UTF8.GetByteCount(markdown) > MaximumMarkdown) throw HtmlDocumentExport.TooLarge("PDF");
         var body = HtmlDocumentExport.RenderBody(title, markdown, "PDF", ct, includeTables);
         var created = happenedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
-        var document = HtmlDocumentExport.Wrap(title, body, $"<meta name=\"dcterms.created\" content=\"{created}\">");
+        var metadata = $"<meta name=\"dcterms.created\" content=\"{created}\">";
+        var document = HtmlDocumentExport.Wrap(title, body, metadata);
         if (Encoding.UTF8.GetByteCount(document) > MaximumInput) throw HtmlDocumentExport.TooLarge("PDF");
+        if (images is { Length: > 0 })
+        {
+            if (images.Length > DocumentExportAttachment.MaximumImages ||
+                images.Sum(image => (long)image.Bytes.Length) > DocumentExportAttachment.MaximumBytes ||
+                images.Sum(image => (long)image.Width * image.Height) > 4 * 1024 * 1024)
+                throw HtmlDocumentExport.TooLarge("PDF");
+            document = HtmlDocumentExport.Wrap(title, body + string.Concat(images.Select(image => image.InlineFigure())), metadata);
+        }
 
         await rendererSlot.WaitAsync(ct);
         try

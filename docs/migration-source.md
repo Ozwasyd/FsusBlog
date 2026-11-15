@@ -211,7 +211,7 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 已归档的 V1 发布证明可提供独立的历史验证响应。启用时，以独立审核的公钥文件 SHA-256 和检查点原行 SHA-256 配置 `IntegrityProof:HistoricalV1:KeysSha256` 与 `IntegrityProof:HistoricalV1:CheckpointSha256`。这两项分别对应迁移时的公钥和检查点固定值。发现旧密钥受损后，可通过 `IntegrityProof:HistoricalV1:BlockedKeyIds:<keyId>=true` 拒绝由其签署的证明或检查点。该配置不需要任何私钥。
 
-访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应的 `signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名，再按 `transparency.chain` 核对条目序列和检查点根。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
+访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应以十进制字符串保留原始修订标识和证明标识。`signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名，再按 `transparency.chain` 核对条目序列和检查点根。混合链只公开重算条目哈希所需的权利证明日志字段。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
 
 ### 离线验看附件来源
 

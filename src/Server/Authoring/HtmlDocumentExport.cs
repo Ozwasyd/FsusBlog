@@ -30,7 +30,7 @@ internal static class HtmlDocumentExport
         var content = new StringBuilder(RenderBody(title, body, "HTML", ct, includeTables));
         var documentPolicy = attachments.Length == 0 ? DocumentPolicy : DocumentImagePolicy;
         foreach (var attachment in attachments)
-            content.Append(attachment.Figure($"data:{attachment.ContentType};base64,{Convert.ToBase64String(attachment.Bytes)}", xhtml: false));
+            content.Append(attachment.InlineFigure());
         var metadata = $"""
             <meta http-equiv="Content-Security-Policy" content="{documentPolicy}">
             <meta name="viewport" content="width=device-width, initial-scale=1">

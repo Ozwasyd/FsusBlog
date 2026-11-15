@@ -111,8 +111,8 @@ function readTask(reader: PodReader): DocumentExportTask {
   const coordinates = readCoordinates(reader);
   const [statusCode, failureCode, provider] = reader.fixedBytes(3);
   const status = statuses[statusCode - 1], failure = failures[failureCode];
-  if (!status || !failure || (provider !== 1 && provider !== 2 && provider !== 3 && provider !== 4) ||
-      (provider === 4 && coordinates.format === 'pdf')) throw new ProtocolError('Invalid document export task state');
+  if (!status || !failure || (provider !== 1 && provider !== 2 && provider !== 3 && provider !== 4))
+    throw new ProtocolError('Invalid document export task state');
   const createdUnixMs = reader.i64(), startedUnixMs = reader.i64(), finishedUnixMs = reader.i64(), expiresUnixMs = reader.i64();
   const failed = status === 'failed' || status === 'blocked';
   const terminal = failed || status === 'succeeded' || status === 'cancelled';

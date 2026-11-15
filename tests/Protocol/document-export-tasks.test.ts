@@ -76,12 +76,10 @@ test('document export receipt has exact timestamps, hashes and byte count', () =
     throws(() => decodeDocumentExportTask(unknown), ProtocolError);
   }
   newerProvider[39] = 4;
-  for (const [code, format] of [[1, 'html'], [3, 'docx'], [4, 'epub']] as const) {
+  for (const [code, format] of [[1, 'html'], [2, 'pdf'], [3, 'docx'], [4, 'epub']] as const) {
     newerProvider[36] = code;
     deepEqual(decodeDocumentExportTask(newerProvider), { ...task, format, provider: 4 });
   }
-  newerProvider[36] = 2;
-  throws(() => decodeDocumentExportTask(newerProvider), ProtocolError);
   const noOutput = Buffer.from(taskBytes);
   noOutput.writeInt32LE(0, 136);
   throws(() => decodeDocumentExportTask(noOutput), ProtocolError);

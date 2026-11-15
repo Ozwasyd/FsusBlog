@@ -30,7 +30,9 @@ EPUB 使用与 HTML 相同的基础 Markdown，并检查章节的 XHTML 结构�
 
 启用本机 PDF 提供方后，`GET /api/v2/authoring/draft/{id}/export.pdf` 使用相同授权和两个修订参数。Inspector 的 **Download saved PDF** 和历史对照的 **Download revision PDF** 下载 `article.pdf`，响应为 `application/pdf` 和 `private, no-store`。服务读取所选修订，释放数据库锁后用 WeasyPrint 66.0 生成可打印的 A4 页面。服务在发送附件前再次核验会话、文章归属和当前修订。
 
-PDF 读取与 HTML 相同的基础 Markdown。可用字形由离线 Noto Sans CJK SC 2.004 提供。链接、图片、渲染围栏、缺失的字形和超出限制的修订返回 400。Markdown 正文最多 256 KiB，传给渲染器的 HTML 最多 384 KiB，附件最多 4 MiB 和 48 页。每个服务进程只允许一个 PDF 请求，额外请求返回 429。渲染子进程的 CPU 时间上限为 8 秒，服务最多等待 12 秒。请求取消和超时都会结束子进程并清理私有临时目录。
+PDF 读取与 HTML 相同的基础 Markdown。可用字形由离线 Noto Sans CJK SC 2.004 提供。Markdown 内的链接、图片语法、渲染围栏、缺失字形和超出限制的修订返回 400。Markdown 正文最多 256 KiB，正文 HTML 最多 384 KiB，产物最多 4 MiB 和 48 页。每个服务进程只允许一个 PDF 请求，额外请求返回 429。渲染子进程的 CPU 时间上限为 8 秒，服务最多等待 12 秒。请求取消和超时都会结束子进程并清理私有临时目录。
+
+随 PDF 内嵌的 1 至 4 张 PNG、JPEG 或 WebP 必须来自同一所选的已保存修订，合计最多 512 KiB、4,194,304 像素。PDF 子进程只从本次输入中读取已校验图片的内存字节。即时下载在渲染后再次核验会话和该组图片的摘要。
 
 PDF 默认关闭。当 `FSUSBLOG_PDF_TOOL_ROOT` 为本机工具链的绝对路径，且 `FSUSBLOG_PDF_TOOL_SHA256` 匹配该目录内 `toolchain.json` 的 SHA-256 时，macOS 服务才提供此下载。启动时验证清单列出的工具文件，部署时应将验证过的工具链目录保持为服务只读。Seatbelt 子进程以固定参数启动，资源读取仅限工具、字体和私有临时目录，网络与额外资源加载均被阻止。渲染器在接收正文前检查实际沙箱。配置不完整或工具校验失败会阻止启动。 [WeasyPrint 安全说明](https://doc.courtbouillon.org/weasyprint/v66.0/first_steps.html#security)
 
@@ -50,7 +52,7 @@ PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结
 
 停服执行 `document-exports` 后，私有附件预览可以将当前选中的一张图片加入 HTML 任务。任务 API 也接受 EPUB 的 PNG、JPEG、WebP，以及 Word 的 PNG、JPEG。第 3 版任务持久化附件标识，并将所选修订和核验过的图片字节、格式、名称及尺寸绑定到输入摘要。重启后按同一摘要渲染，下载时复核归属和摘要。未选择附件的任务继续用现有提供方版本。
 
-再次停服运行 `document-exports` 后，HTML、EPUB 和 Word 任务能导出包含当前修订全部已保存图片的文档。第 4 版任务按请求顺序记录 2 至 4 张图片，共用 512 KiB 上限。在执行和下载时重新核验每张图片。Word 支持 PNG 和 JPEG，HTML 和 EPUB 也支持 WebP。旧任务保持原版本和摘要。
+再次停服运行 `document-exports` 后，HTML、EPUB、Word 和 PDF 任务能导出包含当前修订全部已保存图片的文档。第 4 版任务按请求顺序记录 2 至 4 张图片，共用 512 KiB 上限。在执行和下载时重新核验每张图片。Word 支持 PNG 和 JPEG，HTML、EPUB 和 PDF 也支持 WebP。旧任务保持原版本和摘要。Debian 的服务程序与配套渲染包需一起升级。部署前处理仍在排队的旧 PDF 任务。工具摘要改变后，本次升级前生成的无图 PDF 仍可按原授权下载。相应旧工具不可用时，其回执会拒绝交付。
 
 下载就绪任务时可另存导出回执。回执记录所选修订的标题、保存时间与正文摘要、按顺序核验的图片清单、提供方版本和布局、产物的 MIME、长度和 SHA-256，以及执行时间和到期时间。PDF 回执还绑定创建任务时固定的工具摘要。服务复核当前授权、原输入承诺和实际产物字节后才交付回执。回执不含正文或图片原始字节。
 

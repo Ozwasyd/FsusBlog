@@ -34,8 +34,7 @@ internal static class DocumentExportEndpoints
             var request = Wire.DecodeDocumentExportCreate(await readFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
             return await Session(ctx, store, async (db, tx, actor) =>
             {
-                var assets = DocumentExportAttachment.ReadSelections(ctx,
-                    request.Format == DocumentExportFormat.Pdf ? 0 : DocumentExportAttachment.MaximumImages);
+                var assets = DocumentExportAttachment.ReadSelections(ctx, DocumentExportAttachment.MaximumImages);
                 if (assets.Length > 0 && !DocumentExportAttachment.PrivateTransport(ctx)) throw Missing();
                 var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, assets, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
@@ -103,8 +102,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
 
     internal byte[] Digest(DocumentExportCreate request, byte provider, byte[]? pdfToolDigest)
     {
-        if (Assets.Length != Attachments.Length || (provider != ProviderFor(Assets) && !(provider == 1 && Assets.Length == 0)) ||
-            (Assets.Length > 0 && request.Format == DocumentExportFormat.Pdf))
+        if (Assets.Length != Attachments.Length || (provider != ProviderFor(Assets) && !(provider == 1 && Assets.Length == 0)))
             throw new PublicUnavailableException();
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(provider switch
@@ -158,11 +156,10 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
     };
 
     internal static async Task<DocumentExportInput> Read(NpgsqlConnection db, NpgsqlTransaction tx,
-        DocumentExportCreate request, MediaFiles? media, Guid owner, Guid[] assets, CancellationToken ct)
+        int article, long revision, MediaFiles? media, Guid owner, Guid[] assets, CancellationToken ct)
     {
-        var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, request.Article, request.SourceRevision, ct);
-        var attachments = assets.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx, media, owner, request.Article,
-            request.SourceRevision, assets, ct);
+        var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, article, revision, ct);
+        var attachments = assets.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx, media, owner, article, revision, assets, ct);
         return new(title, body, happenedAt, assets, attachments);
     }
 
@@ -171,7 +168,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         byte[]? pdfToolDigest, CancellationToken ct)
     {
         var assets = await DocumentExportStore.ReadAttachmentIds(db, tx, owner, request.Id, provider, ct);
-        var input = await Read(db, tx, request, media, owner, assets, ct);
+        var input = await Read(db, tx, request.Article, request.SourceRevision, media, owner, assets, ct);
         if (provider is < 1 or > ImageListProvider ||
             !CryptographicOperations.FixedTimeEquals(sourceDigest, input.Digest(request, (byte)provider, pdfToolDigest)))
             throw new PublicUnavailableException();
@@ -183,7 +180,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         format switch
         {
             DocumentExportFormat.Html => HtmlDocumentExport.Write(title, body, images, ct, includeTables),
-            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(title, body, happenedAt, ct, includeTables),
+            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(title, body, happenedAt, ct, includeTables, images),
             DocumentExportFormat.Docx => WordDocumentExport.WriteWithImages(title, body, images, ct, includeTables),
             DocumentExportFormat.Epub => EpubDocumentExport.WriteWithImages(title, body, happenedAt, images, ct, includeTables),
             _ => throw new PublicUnavailableException(),

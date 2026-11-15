@@ -63,7 +63,8 @@ async function download() {
     else if (format === 'docx' && attachment && error instanceof ApiError && error.status === 400)
       failure.value = 'Use PNG or JPEG images totaling up to 512 KiB. The Word file must fit within 2 MiB.'
     else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
-      failure.value = 'PDF requires basic text Markdown and supported characters within the page and size limits.'
+      failure.value = attachment ? 'Use supported text and saved images totaling up to 512 KiB and 4,194,304 pixels.' :
+        'PDF requires basic text Markdown and supported characters within the page and size limits.'
     else failure.value = `Could not download ${formatLabels[format]}. Try again.`
   } finally {
     if (request === controller) {

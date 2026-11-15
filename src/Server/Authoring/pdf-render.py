@@ -1,6 +1,9 @@
+import base64
+import binascii
 import errno
 import hashlib
 from html.parser import HTMLParser
+from io import BytesIO
 import os
 from pathlib import Path
 import resource
@@ -9,7 +12,14 @@ import sys
 from xml.etree import ElementTree
 
 
-MAX_INPUT = 384 * 1024
+MAX_HTML = 384 * 1024
+MAX_IMAGE_BYTES = 512 * 1024
+MAX_IMAGE_PIXELS = 4 * 1024 * 1024
+MAX_IMAGES = 4
+MAX_IMAGE_MARKUP = 8 * 1024
+MAX_INPUT = MAX_HTML + 4 * ((MAX_IMAGE_BYTES + 2 * MAX_IMAGES + 2) // 3) + MAX_IMAGE_MARKUP
+IMAGE_FORMATS = {'image/png': 'PNG', 'image/jpeg': 'JPEG', 'image/webp': 'WEBP'}
+IMAGE_STYLES = 'figure { margin: 8pt 0; break-inside: avoid; } img { max-width: 100%; max-height: 220mm; }'
 MAX_OUTPUT = 4 * 1024 * 1024
 MAX_PAGES = 48
 MAX_FONT = 32 * 1024 * 1024
@@ -86,10 +96,43 @@ def load_font(font_source, expected_font_digest, scratch):
     return font
 
 
-class FontCoverage(HTMLParser):
+class DocumentInput(HTMLParser):
     def __init__(self, codepoints):
         super().__init__(convert_charrefs=True)
         self.codepoints = codepoints
+        self.images = {}
+        self.count = self.byte_count = self.pixels = self.encoded_bytes = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag != 'img':
+            return
+        from PIL import Image
+
+        self.count += 1
+        fields = dict(attrs)
+        if len(attrs) != 4 or fields.keys() != {'src', 'alt', 'width', 'height'} or not fields['src']:
+            raise InputRejected('pdf-resources')
+        url = fields['src']
+        descriptor, separator, encoded = url.partition(',')
+        mime = descriptor.removeprefix('data:').removesuffix(';base64')
+        if not separator or mime not in IMAGE_FORMATS or descriptor != f'data:{mime};base64':
+            raise InputRejected('pdf-resources')
+        if self.count > MAX_IMAGES or len(encoded) > 4 * ((MAX_IMAGE_BYTES + 2) // 3):
+            raise InputRejected('pdf-budget')
+        try:
+            data = base64.b64decode(encoded, validate=True)
+            with Image.open(BytesIO(data), formats=[IMAGE_FORMATS[mime]]) as image:
+                width, height = image.size
+                if str(width) != fields.get('width') or str(height) != fields.get('height'):
+                    raise InputRejected('pdf-resources')
+        except (binascii.Error, OSError, Image.DecompressionBombError, ValueError):
+            raise InputRejected('pdf-resources') from None
+        self.byte_count += len(data)
+        self.pixels += width * height
+        self.encoded_bytes += len(encoded)
+        if self.byte_count > MAX_IMAGE_BYTES or self.pixels > MAX_IMAGE_PIXELS:
+            raise InputRejected('pdf-budget')
+        self.images[url] = {'string': data, 'mime_type': mime}
 
     def handle_data(self, text):
         if any(not character.isspace() and ord(character) not in self.codepoints for character in text):
@@ -107,24 +150,34 @@ def render(payload, font):
     with TTFont(font, lazy=True) as selected:
         if selected['name'].getBestFamilyName() != FONT_FAMILY:
             raise RuntimeError('font family verification failed')
-        coverage = FontCoverage(selected.getBestCmap())
-        coverage.feed(html)
-        coverage.close()
+        source = DocumentInput(selected.getBestCmap())
+        source.feed(html)
+        source.close()
+    if len(payload) - source.encoded_bytes > MAX_HTML + (MAX_IMAGE_MARKUP if source.count else 0):
+        raise InputRejected('pdf-budget')
 
     fetched = False
+    used_images = set()
 
     def deny_resource(*args, **kwargs):
         nonlocal fetched
         fetched = True
         raise ValueError('resource denied')
 
+    def fetch_image(url):
+        if url not in source.images:
+            return deny_resource()
+        used_images.add(url)
+        return source.images[url].copy()
+
     font_config = FontConfiguration()
-    stylesheet = CSS(string=STYLESHEET, font_config=font_config, url_fetcher=deny_resource)
-    document = HTML(string=html, url_fetcher=deny_resource).render(stylesheets=[stylesheet], font_config=font_config)
+    styles = STYLESHEET + IMAGE_STYLES if source.images else STYLESHEET
+    stylesheet = CSS(string=styles, font_config=font_config, url_fetcher=deny_resource)
+    document = HTML(string=html, url_fetcher=fetch_image).render(stylesheets=[stylesheet], font_config=font_config)
     if not 1 <= len(document.pages) <= MAX_PAGES:
         raise InputRejected('pdf-budget')
     result = document.write_pdf()
-    if fetched:
+    if fetched or used_images != source.images.keys():
         raise InputRejected('pdf-resources')
     if len(result) > MAX_OUTPUT:
         raise InputRejected('pdf-budget')

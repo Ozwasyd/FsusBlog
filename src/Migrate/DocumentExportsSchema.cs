@@ -13,7 +13,7 @@ internal static partial class Migration
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
         const string imageListCheck = """
-            check (attachment_ids is null or (format<>2 and cardinality(attachment_ids) between 2 and 4
+            check (attachment_ids is null or (format between 1 and 4 and cardinality(attachment_ids) between 2 and 4
                 and array_ndims(attachment_ids)=1 and array_position(attachment_ids,null) is null))
             """;
         if (!exists)
@@ -46,16 +46,17 @@ internal static partial class Migration
                 """, db, tx);
             await upgrade.ExecuteNonQueryAsync(ct);
         }
-        else if (await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: false) is { } htmlOnly)
+        else if ((await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, ExportImageScope.Portable) ??
+            await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, ExportImageScope.Html)) is { } previous)
         {
             using var quoting = new NpgsqlCommandBuilder();
             await using var extend = new NpgsqlCommand($"""
-                alter table public.author_document_export drop constraint {quoting.QuoteIdentifier(htmlOnly)},
+                alter table public.author_document_export drop constraint {quoting.QuoteIdentifier(previous)},
                     add {imageListCheck}
                 """, db, tx);
             await extend.ExecuteNonQueryAsync(ct);
         }
-        if (await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: true) is null)
+        if (await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, ExportImageScope.All) is null)
             throw new InvalidOperationException("The document export attachment schema is unavailable.");
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireDocumentExports: true);
         await tx.CommitAsync(ct);

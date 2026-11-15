@@ -27,7 +27,8 @@ const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
 const preview = shallowRef<{ id: string; path: string; type: string; taskId?: string; queued?: boolean }>()
-const batchFormats = { html: 'HTML', epub: 'EPUB', docx: 'Word' } as const
+const batchFormats = { html: 'HTML', epub: 'EPUB', docx: 'Word', pdf: 'PDF' } as const
+const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
 type BatchFormat = keyof typeof batchFormats
 type QueuedExport = { taskId?: string; queued?: boolean }
 const batchExport = shallowRef<Partial<Record<BatchFormat, QueuedExport>>>({})
@@ -196,14 +197,16 @@ onBeforeUnmount(() => {
           </li>
         </ul>
         <p v-else-if="!pending">No images are attached to this revision.</p>
-        <div v-if="attached.length > 1 && attached.length <= maxDocumentExportImages" class="attachment-actions">
+        <div v-if="attached.length && attached.length <= maxDocumentExportImages" class="attachment-actions">
           <template v-for="(label, format) in batchFormats" :key="format">
+            <template v-if="format === 'pdf' ? pdfAvailable : attached.length > 1">
             <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" :format="format"
               :attachment="savedImages" :disabled="pending || !credential" />
             <ElButton v-if="documentTasks" native-type="button"
               :disabled="pending || !credential || batchExport[format]?.queued" @click="queueDocument(format, true)">
               {{ batchExport[format]?.queued ? `${label} task with saved images added` : `Queue ${label} with saved images` }}
             </ElButton>
+            </template>
           </template>
         </div>
         <div v-if="publishEnabled && attached.length" class="publication-actions">
