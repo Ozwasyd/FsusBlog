@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElLink } from '@ozwasyd/element-plus'
 import { api, ApiError, type ArticleCard } from '../../../Contracts/client'
 import type { PopularArticle } from '../../../Contracts/article-hot'
+import { normalizeLocalSearchQuery } from '../../../Contracts/local-search.ts'
 import {
   taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
 } from '../../../Contracts/taxonomy-client'
@@ -16,6 +17,7 @@ import { WireLimits } from '../../../Contracts/wire.generated.ts'
 const route = useRoute()
 const router = useRouter()
 function search() {
+  if (searchTooLong.value) return
   const text = input.value.trim()
   void router.push({ name: 'search', query: text ? { q: text } : {} })
 }
@@ -48,7 +50,8 @@ const failed = ref(false)
 const reload = ref(0)
 const pageSize = 10
 const maxSearchLength = WireLimits.SearchQueryChars
-const searchTooLong = computed(() => input.value.trim().length > maxSearchLength)
+const searchTooLong = computed(() => normalizeLocalSearchQuery(input.value.trim()) === undefined)
+const searchRouteTooLong = computed(() => normalizeLocalSearchQuery(query.value) === undefined)
 const searchPageOutOfRange = computed(() => isSearch.value && searchTotal.value > 0 &&
   (page.value - 1) * pageSize >= searchTotal.value)
 const localSearch = createLocalSearch()
@@ -71,7 +74,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
   failed.value = false
   input.value = text
   if (!search) localSearch.dispose()
-  if (search && (!text || text.length > maxSearchLength)) {
+  if (search && (!text || searchRouteTooLong.value)) {
     loading.value = false
     return
   }
@@ -155,7 +158,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </li>
       </ol>
     </section>
-    <p v-if="isSearch && searchTooLong" role="status">Use at most {{ maxSearchLength }} characters.</p>
+    <p v-if="isSearch && (searchTooLong || searchRouteTooLong)" role="status">Use at most {{ maxSearchLength }} characters, including after normalization.</p>
     <p v-else-if="loading" role="status">Loading articles…</p>
     <template v-else-if="cursorExpired">
       <p role="status">This page link has expired. Start at the first page to see the current articles.</p>
@@ -183,7 +186,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </article>
       </li>
     </ol>
-    <nav v-if="isSearch && !loading && !failed && query && (page > 1 || searchTotal > pageSize)" aria-label="Search result pages" class="page-links">
+    <nav v-if="isSearch && !loading && !failed && !searchRouteTooLong && query && (page > 1 || searchTotal > pageSize)" aria-label="Search result pages" class="page-links">
       <RouterLink v-if="searchPageOutOfRange" :to="{ query: { q: query } }" custom v-slot="{ href, navigate }">
         <ElLink :href="href" @click="navigate">First page</ElLink>
       </RouterLink>

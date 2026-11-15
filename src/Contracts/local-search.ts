@@ -95,10 +95,15 @@ function murmur(bytes: Uint8Array): number {
   return (hash ^ (hash >>> 16)) >>> 0;
 }
 
-export function searchTerms(query: string): readonly number[] {
-  requireWire(query.length <= Limit.SearchQueryChars, 'query length');
+export function normalizeLocalSearchQuery(query: string): string | undefined {
+  if (query.length > Limit.SearchQueryChars) return undefined;
   const normalized = query.normalize('NFKC');
-  requireWire(normalized.length <= Limit.SearchQueryChars, 'normalized query length');
+  return normalized.length <= Limit.SearchQueryChars ? normalized : undefined;
+}
+
+export function searchTerms(query: string): readonly number[] {
+  const normalized = normalizeLocalSearchQuery(query);
+  requireWire(normalized !== undefined, query.length > Limit.SearchQueryChars ? 'query length' : 'normalized query length');
   const words = normalized.match(/[a-zA-Z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|[\p{Letter}\p{Decimal_Number}]/gu) ?? [];
   const tokens = words.flatMap(word => cjk.test(word) ? segmentCjk(word) : [word.replace(/[A-Z]/g, letter => letter.toLowerCase())]);
   return tokens.map(word => murmur(utf8.encode(word)));

@@ -121,6 +121,30 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     const recovered = observations.recoveredStorage = await inspectCache(peer, manifest)
     assert.notEqual(recovered.owner, damaged.state.owner)
 
+    const normalizedBoundary = String(fixtureCount) + '…'.repeat(41)
+    assert.equal(normalizedBoundary.normalize('NFKC').length, WireLimits.SearchQueryChars)
+    await submit(peer, normalizedBoundary)
+    await assertCards(peer, [fixtureCount])
+    const atLimit = collect('normalizedLengthAtLimit')
+    assert(!atLimit.requests.some(call => call.kind === 'fas4'))
+    assertWarm(atLimit, manifest)
+
+    const beyondNormalizedBoundary = normalizedBoundary + '.'
+    assert(beyondNormalizedBoundary.length < WireLimits.SearchQueryChars)
+    assert.equal(beyondNormalizedBoundary.normalize('NFKC').length, WireLimits.SearchQueryChars + 1)
+    await peer.goto(`${origin}/search?${new URLSearchParams({ q: beyondNormalizedBoundary })}`)
+    const bookmarked = new URL(peer.url())
+    assert.equal(bookmarked.pathname, '/search')
+    assert.equal(bookmarked.searchParams.get('q'), beyondNormalizedBoundary)
+    await peer.getByRole('status').filter({ hasText: /^Use at most 128 characters, including after normalization\.$/ }).waitFor({ timeout })
+    const queryForm = peer.locator('form.search-form')
+    assert.equal(await queryForm.getByRole('textbox', { name: 'Search articles' }).inputValue(), beyondNormalizedBoundary)
+    assert(await queryForm.getByRole('button', { name: 'Search', exact: true }).isDisabled())
+    assert.equal(await cards(peer).count(), 0)
+    assert.equal(await peer.getByRole('alert').count(), 0)
+    assert.equal(await peer.getByRole('button', { name: 'Retry', exact: true }).count(), 0)
+    assert.deepEqual(collect('normalizedLengthOverLimit'), { requests: [], responses: [] })
+
     const outOfRange = new URLSearchParams({ q: String(fixtureCount), page: '2' })
     await peer.goto(`${origin}/search?${outOfRange}`)
     await peer.getByRole('status').filter({ hasText: /^There are no articles on this search result page\.$/ }).waitFor({ timeout })
@@ -212,7 +236,8 @@ function searchCall(request, origin) {
   const url = new URL(request.url())
   if (url.origin !== origin) return undefined
   const kind = url.pathname === WireRoutes.PublicSearchWideManifest ? 'manifest' :
-    url.pathname === WireRoutes.PublicSearchCorpus ? 'legacy' : url.pathname.startsWith(pagePrefix) ? 'raw' : undefined
+    url.pathname === WireRoutes.PublicSearchCorpus ? 'legacy' : url.pathname.startsWith(pagePrefix) ? 'raw' :
+      url.pathname === WireRoutes.PublicSearch ? 'fas4' : undefined
   if (!kind) return undefined
   return {
     method: request.method(), kind, page: kind === 'raw' ? Number(url.pathname.slice(pagePrefix.length)) : null,

@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
-  createCorpusSearch, decodeLocalSearchResult, encodeLocalSearchResult, queryCorpusPage, searchCorpus, searchTerms,
-  verifySearchGeneration,
+  createCorpusSearch, decodeLocalSearchResult, encodeLocalSearchResult, normalizeLocalSearchQuery, queryCorpusPage,
+  searchCorpus, searchTerms, verifySearchGeneration,
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
@@ -45,6 +45,24 @@ test('position ranges reward contiguous ordered tokens in one field, including r
   assert.deepEqual(searchTerms('ｎｅｅｄｌｅ雪'), searchTerms('needle 雪'));
   assert.deepEqual(searchTerms('cafe\u0301'), searchTerms('café'));
   assert.throws(() => searchTerms('㍿'.repeat(128)), /normalized query length/);
+});
+
+test('local search enforces both raw and NFKC-normalized query length limits', async (t) => {
+  const expandsToLimit = `needle${'…'.repeat(40)}..`;
+  const rawAtLimit = `needle${'．'.repeat(122)}`;
+  const normalizedAtLimit = `needle${'.'.repeat(122)}`;
+  assert.equal(normalizeLocalSearchQuery(expandsToLimit), normalizedAtLimit);
+  assert.equal(normalizeLocalSearchQuery(rawAtLimit), normalizedAtLimit);
+  assert.deepEqual(searchTerms(expandsToLimit), searchTerms('needle'));
+  assert.equal(normalizeLocalSearchQuery(`${rawAtLimit}.`), undefined);
+
+  const beyondNormalizedLimit = `${expandsToLimit}.`;
+  const normalizedLengthError = { name: 'ProtocolError', message: 'Invalid local search normalized query length' };
+  assert.equal(normalizeLocalSearchQuery(beyondNormalizedLimit), undefined);
+  assert.throws(() => searchTerms(beyondNormalizedLimit), normalizedLengthError);
+  const fetch = t.mock.method(globalThis, 'fetch', () => assert.fail('Rejected query fetched the corpus'));
+  await assert.rejects(createCorpusSearch()(beyondNormalizedLimit), normalizedLengthError);
+  assert.equal(fetch.mock.callCount(), 0);
 });
 
 test('weighted CJK words preserve width, scalar matches, and non-positional stopwords', () => {
