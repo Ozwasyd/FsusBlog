@@ -2,15 +2,19 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextRankedSearch } from '../../../Contracts/author-text-ranked-client'
-import type { AuthorTextRankedPage, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
+import { authorTextFacetedSearch } from '../../../Contracts/author-text-ranked-client'
+import type { AuthorTextFacetedPage, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
 
-type SearchPage = AuthorTextRankedPage & { cursor: string; previous: readonly string[] }
+type SearchPage = AuthorTextFacetedPage & { cursor: string; previous: readonly string[] }
 const PreviousPageLimit = 500
+const states = [
+  { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
+  { value: 'published', label: '已发布' }, { value: 'retracted', label: '已撤回' },
+] as const
 
 type Opening = {
   request: AbortController
@@ -102,7 +106,7 @@ async function loadPage(cursor: string, previous: readonly string[], paging: boo
   }
 
   try {
-    const response = await authorTextRankedSearch({ query: text, cursor }, handle, request.signal)
+    const response = await authorTextFacetedSearch({ query: text, cursor }, handle, request.signal)
     if (!current()) return
     if (cursor && !response.ready) { expirePage(); return }
     result.value = { ...response, cursor, previous }
@@ -111,7 +115,7 @@ async function loadPage(cursor: string, previous: readonly string[], paging: boo
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
     if (cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     error.value = failure instanceof ApiError && failure.status === 400
-      ? '搜索词格式无效。请检查关键词和双引号。' : '无法完成全文搜索，请重试。'
+      ? '搜索词格式无效。请检查关键词、引号和筛选条件。' : '无法完成全文搜索，请重试。'
   } finally {
     if (pending.value === request) pending.value = undefined
   }
@@ -155,7 +159,7 @@ async function openMatch(row: AuthorTextSearchRow) {
   signal.addEventListener('abort', revoke, { once: true })
 
   try {
-    const fresh = await authorTextRankedSearch({ query: text, cursor: page.cursor }, handle, signal)
+    const fresh = await authorTextFacetedSearch({ query: text, cursor: page.cursor }, handle, signal)
     if (!current()) return
     signal.throwIfAborted()
     const confirmed = fresh.ready ? fresh.rows.find(candidate => sameMatch(row, candidate)) : undefined
@@ -214,7 +218,10 @@ async function openMatch(row: AuthorTextSearchRow) {
   <details ref="details" class="author-text-search" @toggle="toggle">
     <summary>作者全文搜索</summary>
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
-      <p id="author-text-search-help">可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题，或用 <code>field.markdown-body:</code> 限定正文。</p>
+      <p id="author-text-search-help">
+        可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题，或用 <code>field.markdown-body:</code> 限定正文。
+        可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
+      </p>
       <ElInput v-model="query" label="全文搜索词" clearable
         v-bind="{ maxlength: WireLimits.AuthorTextSearchQueryChars, 'aria-describedby': 'author-text-search-help' }" />
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
@@ -228,6 +235,30 @@ async function openMatch(row: AuthorTextSearchRow) {
     <p v-else-if="stalePage" role="status">搜索结果已变化，请从第一页重新搜索。</p>
     <p v-else-if="result?.ready === false" role="status">索引正在更新，选择「继续搜索」处理下一批文章。</p>
     <section v-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!pending || !!opening">
+      <p role="status">共 {{ result.total }} 篇</p>
+      <div v-if="result.total" class="author-text-search-facets">
+        <dl aria-label="状态分面">
+          <div v-for="(state, index) in states" :key="state.value">
+            <dt>{{ state.label }} <code>status:{{ state.value }}</code></dt>
+            <dd>{{ result.stateCounts[index] }}</dd>
+          </div>
+        </dl>
+        <template v-for="facet in [
+          { label: '分类', key: 'category', items: result.categories, more: result.moreCategories },
+          { label: '标签', key: 'tag', items: result.tags, more: result.moreTags },
+        ]" :key="facet.key">
+          <section v-if="facet.items.length" :aria-label="`${facet.label}分面`">
+            <h3>{{ facet.label }}</h3>
+            <dl>
+              <div v-for="item in facet.items" :key="item.id">
+                <dt><span dir="auto">{{ item.name }}</span> <code>{{ facet.key }}:{{ item.id }}</code></dt>
+                <dd>{{ item.count }}</dd>
+              </div>
+            </dl>
+            <p v-if="facet.more">还有其他{{ facet.label }}。</p>
+          </section>
+        </template>
+      </div>
       <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
@@ -255,7 +286,10 @@ async function openMatch(row: AuthorTextSearchRow) {
 .author-text-search form { display: grid; gap: var(--fsus-space-2); justify-items: start; }
 .author-text-search form > p { margin-block-end: 0; }
 .author-text-search ul { display: grid; gap: var(--fsus-space-3); padding-inline-start: 1.25rem; }
-.author-text-search li { overflow-wrap: anywhere; }
+.author-text-search li, .author-text-search-facets dt { overflow-wrap: anywhere; }
+.author-text-search-facets dl { display: grid; gap: var(--fsus-space-1); }
+.author-text-search-facets dl div { display: flex; justify-content: space-between; gap: var(--fsus-space-2); }
+.author-text-search-facets dd { margin: 0; font-variant-numeric: tabular-nums; }
 .author-text-search nav { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); }
 .author-text-search nav :deep(.el-button + .el-button) { margin-inline-start: 0; }
 .author-text-search-field { margin-inline-start: var(--fsus-space-2); }

@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 
 namespace FsusBlog.V2.Server.Authoring;
@@ -16,7 +17,7 @@ internal sealed class AuthorTextCursor(TimeProvider time)
     private const long LifetimeSeconds = 15 * 60;
     private readonly byte[] key = RandomNumberGenerator.GetBytes(32);
 
-    internal string Encode(AuthorTextRankKey position, byte[] generation, Identity actor, byte[] session, string query)
+    internal string Encode(AuthorTextRankKey position, byte[] generation, Identity actor, byte[] session, string query, FrameType mode)
     {
         Span<byte> payload = stackalloc byte[PayloadBytes];
         BinaryPrimitives.WriteInt64LittleEndian(payload, Now + LifetimeSeconds);
@@ -31,11 +32,11 @@ internal sealed class AuthorTextCursor(TimeProvider time)
         var nonce = encoded[..NonceBytes];
         RandomNumberGenerator.Fill(nonce);
         using var aes = new AesGcm(key, TagBytes);
-        aes.Encrypt(nonce, payload, encoded.Slice(NonceBytes, PayloadBytes), encoded[^TagBytes..], Context(actor, session, query));
+        aes.Encrypt(nonce, payload, encoded.Slice(NonceBytes, PayloadBytes), encoded[^TagBytes..], Context(actor, session, query, mode));
         return Base64Url.EncodeToString(encoded);
     }
 
-    internal (AuthorTextRankKey Position, byte[] Generation) Decode(string cursor, Identity actor, byte[] session, string query)
+    internal (AuthorTextRankKey Position, byte[] Generation) Decode(string cursor, Identity actor, byte[] session, string query, FrameType mode)
     {
         Span<byte> encoded = stackalloc byte[NonceBytes + PayloadBytes + TagBytes];
         if (cursor.Length != EncodedChars || !Base64Url.TryDecodeFromChars(cursor, encoded, out var size) ||
@@ -47,7 +48,7 @@ internal sealed class AuthorTextCursor(TimeProvider time)
         try
         {
             aes.Decrypt(encoded[..NonceBytes], encoded.Slice(NonceBytes, PayloadBytes), encoded[^TagBytes..], payload,
-                Context(actor, session, query));
+                Context(actor, session, query, mode));
         }
         catch (AuthenticationTagMismatchException)
         {
@@ -61,14 +62,15 @@ internal sealed class AuthorTextCursor(TimeProvider time)
 
     private long Now => time.GetUtcNow().ToUnixTimeSeconds();
 
-    private static byte[] Context(Identity actor, byte[] session, string query)
+    private static byte[] Context(Identity actor, byte[] session, string query, FrameType mode)
     {
-        var context = new byte[92];
+        var context = new byte[94];
         BinaryPrimitives.WriteInt32LittleEndian(context, AuthorTextProfile.Version);
         actor.Id.TryWriteBytes(context.AsSpan(4, 16));
         BinaryPrimitives.WriteInt64LittleEndian(context.AsSpan(20), actor.Generation);
         session.CopyTo(context, 28);
-        SHA256.HashData(Encoding.UTF8.GetBytes(query), context.AsSpan(60));
+        SHA256.HashData(Encoding.UTF8.GetBytes(query), context.AsSpan(60, 32));
+        BinaryPrimitives.WriteUInt16LittleEndian(context.AsSpan(92), (ushort)mode);
         return context;
     }
 

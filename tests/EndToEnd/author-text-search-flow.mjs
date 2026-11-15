@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeAuthorTextRankedPage } from '../../src/Contracts/author-text-search.ts'
+import { decodeAuthorTextFacetedPage } from '../../src/Contracts/author-text-search.ts'
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
-export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand }) {
+export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand, publicFixture }) {
   const page = await publisher.context().newPage()
   let fixture
   const pagingFixtures = []
@@ -59,20 +59,51 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.equal(await results.locator('mark').textContent(), bodyTerm)
     }
 
-    await search(bodyTerm.toUpperCase())
+    const unfiltered = (await search(bodyTerm.toUpperCase())).batch
+    assert.equal(unfiltered.total, 1)
+    await results.getByText('共 1 篇', { exact: true }).waitFor()
     await verifyBodyMatch()
     await search(`"${bodyTerm} 博客搜索"`)
     await verifyBodyMatch()
-    await search(`"博客搜索 ${bodyTerm}"`)
+    const noPhrase = (await search(`"博客搜索 ${bodyTerm}"`)).batch
+    assert.equal(noPhrase.total, 0)
+    assert.deepEqual(noPhrase.stateCounts, [0, 0, 0, 0])
     await results.getByText('没有匹配的文章。', { exact: true }).waitFor()
     assert.equal(new URL(page.url()).search, '')
     observations.push('At 375px before publication, author full-text finds and highlights a saved body word beyond the inventory summary, folds its case, and matches the quoted mixed-script phrase only in source order.')
+
+    if (publicFixture) {
+      const filtered = (await search(`${bodyTerm} category:1 tag:4`)).batch
+      assert.deepEqual(filtered.rows.map(row => row.id), [article.id])
+      assert.equal(filtered.total, 1)
+      assert.deepEqual(filtered.categories, [{ id: 1, name: 'Web engineering', count: 1 }])
+      assert.deepEqual(filtered.tags, [{ id: 4, name: 'Café', count: 1 }])
+      assert.equal(filtered.moreCategories || filtered.moreTags, false)
+      await results.getByRole('region', { name: '分类分面', exact: true }).getByText('Web engineering', { exact: true }).waitFor()
+      await results.getByRole('region', { name: '标签分面', exact: true }).getByText('Café', { exact: true }).waitFor()
+      const otherCategory = (await search(`${bodyTerm} category:2 tag:4`)).batch
+      assert.equal(otherCategory.total, 0)
+      assert.deepEqual(otherCategory.categories, [])
+      assert.deepEqual(otherCategory.tags, [])
+    }
+    await query.fill(`${bodyTerm} category:0`)
+    const invalidFilter = page.waitForResponse(isSearchReply)
+    await start.press('Enter')
+    assert.equal((await invalidFilter).status(), 400)
+    await page.getByText('搜索词格式无效。请检查关键词、引号和筛选条件。', { exact: true }).waitFor()
+    assert.equal(await results.count(), 0)
 
     const pagingWord = `rankedpage${randomUUID().replaceAll('-', '')}`
     for (let i = 0; i <= WireLimits.AuthorTextSearchRows; i++) {
       pagingFixtures.push(await articleCommand(WireRoutes.Save, 0, 0n, `${pagingWord} ${i}`, 'Saved content'))
     }
-    const first = (await search(pagingWord)).batch
+    const publishedOnly = (await search(`${pagingWord} status:published`)).batch
+    assert.equal(publishedOnly.total, 0)
+    assert.deepEqual(publishedOnly.stateCounts, [0, 0, 0, 0])
+    const first = (await search(`${pagingWord} status:draft`)).batch
+    assert.equal(first.total, pagingFixtures.length)
+    assert.deepEqual(first.stateCounts, [pagingFixtures.length, 0, 0, 0])
+    await results.getByText(`共 ${pagingFixtures.length} 篇`, { exact: true }).waitFor()
     assert.equal(first.rows.length, WireLimits.AuthorTextSearchRows)
     assert(first.nextCursor)
     const pager = results.getByRole('navigation', { name: '全文搜索分页', exact: true })
@@ -85,6 +116,8 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       const response = await reply
       const batch = await readSearchReply(response)
       assert(batch.ready)
+      assert.equal(batch.total, first.total)
+      assert.deepEqual(batch.stateCounts, first.stateCounts)
       await results.getByRole('link', { name: batch.rows[0].title, exact: true }).waitFor()
       await page.getByText('正在搜索全文…', { exact: true }).waitFor({ state: 'detached' })
       assert.equal(page.url(), listUrl)
@@ -118,9 +151,11 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await restart.press('Enter')
     const restarted = await readSearchReply(await restartReply)
     assert(restarted.ready)
+    assert.equal(restarted.total, first.total)
+    assert.deepEqual(restarted.stateCounts, first.stateCounts)
     await previousPage.waitFor()
     assert.equal(await previousPage.getAttribute('aria-disabled'), 'true')
-    observations.push('Ranked author search pages at 375px are stable and disjoint. Keyboard navigation returns to the first page, and rechecking a stale second-page hit sends its exact page cursor and requires an explicit restart.')
+    observations.push('Draft facets count every authorized text match across both ranked pages. Keyboard navigation and exact-cursor stale recovery work at 375px.')
 
     const nonce = randomUUID().replaceAll('-', '')
     const titleWord = `titlereveal${nonce}`
@@ -259,7 +294,7 @@ function isSearchReply(response) {
 
 async function readSearchReply(response) {
   assert.equal(response.status(), 200)
-  return decodeAuthorTextRankedPage(decodeFrame(await response.body(), FrameType.AuthorTextRankedPage).payload)
+  return decodeAuthorTextFacetedPage(decodeFrame(await response.body(), FrameType.AuthorTextFacetedPage).payload)
 }
 
 function exactHit(batch, draft, source, field, word) {

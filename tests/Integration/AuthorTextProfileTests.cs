@@ -217,6 +217,80 @@ public sealed class AuthorTextProfileTests
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(prefix + new string('\u0958', 86)));
     }
 
+    [Fact]
+    public void FacetsPreserveTheFieldScopedTextAndRemainOutsideItsTokenBudget()
+    {
+        var query = AuthorTextProfile.ParseFaceted("category:0042 field.title:Release status:published field.markdown-body:\"source map\" tag:2147483647");
+        Assert.Equal(AuthorArticleState.Published, query.Status);
+        Assert.Equal(42, query.CategoryId);
+        Assert.Equal(int.MaxValue, query.TagId);
+        Assert.Collection(query.Text.Clauses,
+            clause => AssertClause(clause, AuthorTextField.Title, false, "release"),
+            clause => AssertClause(clause, AuthorTextField.MarkdownBody, true, "source", "map"));
+
+        var atTokenLimit = AuthorTextProfile.ParseFaceted("x x x x x x x x status:draft category:7 tag:42");
+        AssertClause(Assert.Single(atTokenLimit.Text.Clauses), AuthorTextField.Any, false, "x");
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseFaceted("x x x x x x x x x status:draft"));
+        const string prefix = "status:draft ";
+        var atRawLimit = new string('x', WireLimits.AuthorTextSearchQueryChars - prefix.Length);
+        AssertClause(Assert.Single(AuthorTextProfile.ParseFaceted(prefix + atRawLimit).Text.Clauses), AuthorTextField.Any, false, atRawLimit);
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseFaceted(prefix + atRawLimit + 'x'));
+    }
+
+    [Theory]
+    [InlineData("draft", AuthorArticleState.Draft)]
+    [InlineData("scheduled", AuthorArticleState.Scheduled)]
+    [InlineData("published", AuthorArticleState.Published)]
+    [InlineData("retracted", AuthorArticleState.Retracted)]
+    public void OnlyExplicitlyFacetedQueriesAdmitTheSupportedStatusWords(string name, AuthorArticleState expected)
+    {
+        var text = "status:" + name + " word";
+        var faceted = AuthorTextProfile.ParseFaceted(text);
+        Assert.Equal(expected, faceted.Status);
+        Assert.Null(faceted.CategoryId);
+        Assert.Null(faceted.TagId);
+        AssertClause(Assert.Single(faceted.Text.Clauses), AuthorTextField.Any, false, "word");
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(text));
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.Parse(text));
+    }
+
+    [Fact]
+    public void QuotedTextContainingFacetSyntaxIsStillText()
+    {
+        var faceted = AuthorTextProfile.ParseFaceted("\"status:draft\"");
+        Assert.Null(faceted.Status);
+        Assert.Null(faceted.CategoryId);
+        Assert.Null(faceted.TagId);
+        AssertClause(Assert.Single(faceted.Text.Clauses), AuthorTextField.Any, true, "status", "draft");
+    }
+
+    [Theory]
+    [InlineData("status:draft category:2 tag:3")]
+    [InlineData("status:draft , .")]
+    [InlineData("status:archived word")]
+    [InlineData("status:deleted word")]
+    [InlineData("status:Draft word")]
+    [InlineData("status:\"draft\" word")]
+    [InlineData("status: draft word")]
+    [InlineData("status:draft status:published word")]
+    [InlineData("category:2 category:02 word")]
+    [InlineData("tag:3 tag:3 word")]
+    [InlineData("category:\"42\" word")]
+    [InlineData("tag:0 word")]
+    [InlineData("category:+1 word")]
+    [InlineData("tag:-1 word")]
+    [InlineData("category:2147483648 word")]
+    [InlineData("tag:١ word")]
+    [InlineData("category:1.0 word")]
+    [InlineData("word tag:")]
+    [InlineData("word updated-at.before:2026-01-01")]
+    [InlineData("word property:priority")]
+    [InlineData("word Tag:42")]
+    public void InvalidOrFilterOnlyFacetedQueriesFailClosed(string query)
+    {
+        Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseFaceted(query));
+    }
+
     private static void AssertClause(AuthorTextClause clause, AuthorTextField field, bool phrase, params string[] terms)
     {
         Assert.Equal(field, clause.Field);

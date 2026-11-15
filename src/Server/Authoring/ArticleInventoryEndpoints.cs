@@ -58,14 +58,9 @@ internal static class ArticleInventoryEndpoints
         await using var cmd = Store.Sql(db, tx, $"""
             with matched as materialized (
                 select a.id,a.revision,a.title,a.updated_at,c.id as category_id,c.name as category,s.due_at,
-                    case when a.deleted then 5 when s.due_at is not null then 2 when a.published_revision is not null then 3
-                         when (select h.kind='retract' and h.reason='administrator-rollback-draft'
-                               from public.article_publication_history h
-                               where h.article_id=a.id order by h.event_no desc limit 1) then 1
-                         when a.publication_count>0 then 4 else 1 end as state
+                    {CurrentState} as state
                 from public.article a
-                left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
-                    and s.actor_id=a.owner_id and s.generation=$2 and not a.deleted
+                {CurrentSchedule(2)}
                 left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
                 left join public.category c on c.id=rc.category_id
                 where a.owner_id=$1 and a.deleted=$3 and ($10=0 or a.id=$10)
@@ -111,6 +106,19 @@ internal static class ArticleInventoryEndpoints
         }
         return new(total, more ? list[^1].Id : 0, list);
     }
+
+    internal const string CurrentState = """
+        case when a.deleted then 5 when s.due_at is not null then 2 when a.published_revision is not null then 3
+             when (select h.kind='retract' and h.reason='administrator-rollback-draft'
+                   from public.article_publication_history h
+                   where h.article_id=a.id order by h.event_no desc limit 1) then 1
+             when a.publication_count>0 then 4 else 1 end
+        """;
+
+    internal static string CurrentSchedule(int generationParameter) => $"""
+        left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
+            and s.actor_id=a.owner_id and s.generation=${generationParameter.ToString(CultureInfo.InvariantCulture)} and not a.deleted
+        """;
 
     internal static string KeywordPredicate(int keywordParameter, int? includeSummaryParameter = null)
     {

@@ -176,6 +176,8 @@ public enum FrameType : ushort
     AuthorTextSearchPage = 33007,
     AuthorTextRankedQuery = 33010,
     AuthorTextRankedPage = 33012,
+    AuthorTextFacetedQuery = 33013,
+    AuthorTextFacetedPage = 33014,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -244,6 +246,8 @@ public static class WireLimits
     public const int AuthorTextRankedCursorChars = 256;
     public const int MaxAuthorTextRankedQueryFrameBytes = 792;
     public const int AuthorTextSearchRows = 20;
+    public const int AuthorTextSearchStateCount = 4;
+    public const int AuthorTextSearchFacetRows = 12;
     public const int AuthorTextSearchSnippetBytes = 2048;
     public const int AuthorTextSearchSourceDigestBytes = 32;
     public const int TaxonomyAssignmentFrameBytes = 180;

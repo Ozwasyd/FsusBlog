@@ -8,6 +8,7 @@ namespace FsusBlog.V2.Server.Authoring;
 internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2 }
 internal sealed record AuthorTextClause(AuthorTextField Field, bool Phrase, string[] Terms);
 internal sealed record AuthorTextQuery(AuthorTextClause[] Clauses);
+internal sealed record AuthorTextFacetedQuery(AuthorTextQuery Text, AuthorArticleState? Status, int? CategoryId, int? TagId);
 internal sealed record AuthorTextLegacyQuery(string[] Terms, bool Phrase);
 internal readonly record struct AuthorTextTerm(string Value, int Ordinal, int Start, int End, int ByteStart, int ByteEnd);
 
@@ -43,19 +44,52 @@ internal static class AuthorTextProfile
         return new(phrase ? terms : terms.Distinct(StringComparer.Ordinal).ToArray(), phrase);
     }
 
-    internal static AuthorTextQuery ParseRanked(string raw)
+    internal static AuthorTextQuery ParseRanked(string raw) => ParseQuery(raw, faceted: false).Text;
+
+    internal static AuthorTextFacetedQuery ParseFaceted(string raw) => ParseQuery(raw, faceted: true);
+
+    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
-        var named = new HashSet<AuthorTextField>();
+        var named = new HashSet<string>(StringComparer.Ordinal);
         var clauses = new List<AuthorTextClause>();
+        AuthorArticleState? status = null;
+        int? categoryId = null;
+        int? tagId = null;
         var remaining = MaxQueryTerms;
         var offset = 0;
         while (offset < raw.Length)
         {
             if (char.IsWhiteSpace(raw[offset])) { offset++; continue; }
-            var field = ReadField(raw, ref offset);
-            if (field != AuthorTextField.Any && !named.Add(field)) throw InvalidQuery();
+            var prefix = ReadPrefix(raw, ref offset);
+            if (prefix is not null && !named.Add(prefix)) throw InvalidQuery();
+            switch (prefix)
+            {
+                case "status" when faceted:
+                    status = ReadBare(raw, ref offset) switch
+                    {
+                        "draft" => AuthorArticleState.Draft,
+                        "scheduled" => AuthorArticleState.Scheduled,
+                        "published" => AuthorArticleState.Published,
+                        "retracted" => AuthorArticleState.Retracted,
+                        _ => throw InvalidQuery(),
+                    };
+                    continue;
+                case "category" when faceted:
+                    categoryId = ReadPositiveId(raw, ref offset);
+                    continue;
+                case "tag" when faceted:
+                    tagId = ReadPositiveId(raw, ref offset);
+                    continue;
+            }
+            var field = prefix switch
+            {
+                null => AuthorTextField.Any,
+                "field.title" => AuthorTextField.Title,
+                "field.markdown-body" => AuthorTextField.MarkdownBody,
+                _ => throw InvalidQuery(),
+            };
             var phrase = offset < raw.Length && raw[offset] == '"';
             var value = phrase ? ReadPhrase(raw, ref offset) : ReadBare(raw, ref offset);
             var tokens = Tokenize(value, CancellationToken.None, bareQuery: !phrase).Take(remaining + 1).ToArray();
@@ -71,26 +105,28 @@ internal static class AuthorTextProfile
                 clauses.Add(new(field, phrase, operands));
         }
         if (clauses.Count == 0) throw InvalidQuery();
-        return new(clauses.ToArray());
+        return new(new(clauses.ToArray()), status, categoryId, tagId);
     }
 
-    private static AuthorTextField ReadField(string raw, ref int offset)
+    private static string? ReadPrefix(string raw, ref int offset)
     {
         var start = offset;
         while (offset < raw.Length && !char.IsWhiteSpace(raw[offset]) && raw[offset] is not (':' or '"')) offset++;
         if (offset == raw.Length || raw[offset] != ':')
         {
             offset = start;
-            return AuthorTextField.Any;
+            return null;
         }
-        var field = raw.AsSpan(start, offset - start) switch
-        {
-            "field.title" => AuthorTextField.Title,
-            "field.markdown-body" => AuthorTextField.MarkdownBody,
-            _ => throw InvalidQuery(),
-        };
+        var prefix = raw[start..offset];
         offset++;
-        return field;
+        return prefix;
+    }
+
+    private static int ReadPositiveId(string raw, ref int offset)
+    {
+        var value = ReadBare(raw, ref offset);
+        return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0
+            ? id : throw InvalidQuery();
     }
 
     private static string ReadBare(string raw, ref int offset)

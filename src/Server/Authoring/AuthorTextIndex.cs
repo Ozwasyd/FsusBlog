@@ -11,18 +11,25 @@ namespace FsusBlog.V2.Server.Authoring;
 internal readonly record struct AuthorTextRankKey(int PhraseRank, int FieldRank, long UpdatedAtUnixMs, int Id);
 internal sealed record AuthorTextRankedRow(AuthorTextSearchRow Match, AuthorTextRankKey Key);
 internal sealed record AuthorTextRankedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation);
+internal sealed record AuthorTextFacetedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation,
+    int Total, int[] StateCounts, IReadOnlyList<AuthorTextTaxonomyFacet> Categories, bool MoreCategories,
+    IReadOnlyList<AuthorTextTaxonomyFacet> Tags, bool MoreTags);
 
 internal static class AuthorTextIndex
 {
     private const int BatchSize = 8;
     private const int BatchSourceCharacters = 250_000;
+    private const string RankOrder = "p.phrase_rank desc,p.field_rank desc,p.updated_unix_ms desc,p.article_id";
+    private const string RankHighlightOrder = "h.phrase desc,h.field,h.start_u16,h.clause";
+    private const string RankTime = "floor(extract(epoch from a.updated_at)*1000)::bigint";
+    private const string OwnerEligible = $"a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}";
     private static readonly Guid Scope = new("d02dce0a-3e06-42e4-a637-c6985a327eb1");
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
     private static readonly string Eligible = $"""
-        select a.id,a.revision,floor(extract(epoch from a.updated_at)*1000)::bigint as updated_unix_ms
+        select a.id,a.revision,{RankTime} as updated_unix_ms
         from public.article a
-        where a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}
+        where {OwnerEligible}
         """;
 
     internal static async Task<AuthorTextSearchPage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
@@ -37,10 +44,24 @@ internal static class AuthorTextIndex
     internal static Task<AuthorTextRankedPage> ReadRanked(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
     {
+        ValidateContinuation(after, expectedGeneration);
+        return Read(db, tx, actor, input, ranked: true, after, expectedGeneration, ct);
+    }
+
+    internal static async Task<AuthorTextFacetedPage> ReadFaceted(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+    {
+        ValidateContinuation(after, expectedGeneration);
+        await Store.LockCommand(db, tx, actor.Id, Scope, ct);
+        if (after is null) await Reconcile(db, tx, actor.Id, ct);
+        return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct);
+    }
+
+    private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
+    {
         if ((after is null) != (expectedGeneration is null) || expectedGeneration is { Length: not SHA256.HashSizeInBytes } ||
             after is { } key && (key.Id <= 0 || key.PhraseRank < 0 || key.FieldRank <= 0 || key.PhraseRank > key.FieldRank))
             throw AuthorTextCursor.Invalid();
-        return Read(db, tx, actor, input, ranked: true, after, expectedGeneration, ct);
     }
 
     private static async Task<AuthorTextRankedPage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
@@ -55,10 +76,14 @@ internal static class AuthorTextIndex
     // completeness. A late-committing writer is seen as an exact mismatch on the next read.
     private static string Changed => $"""
         eligible as materialized ({Eligible}),
+        {IndexChanges("eligible")}
+        """;
+
+    private static string IndexChanges(string scope) => $"""
         indexed as materialized (select article_id,revision from public.author_text_document where owner_id=$1 and profile={AuthorTextProfile.Version}),
         changed as (
             select coalesce(e.id,d.article_id) as id,e.revision
-            from eligible e full join indexed d on d.article_id=e.id
+            from {scope} e full join indexed d on d.article_id=e.id
             where e.revision is distinct from d.revision
         )
         """;
@@ -209,8 +234,8 @@ internal static class AuthorTextIndex
         var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
         var more = false;
         byte[]? generation = null;
-        var ordering = ranked ? "p.phrase_rank desc,p.field_rank desc,p.updated_unix_ms desc,p.article_id" : "p.article_id desc";
-        var highlightOrder = ranked ? "h.phrase desc,h.field,h.start_u16,h.clause" : "h.clause,h.field,h.ordinal";
+        var ordering = ranked ? RankOrder : "p.article_id desc";
+        var highlightOrder = ranked ? RankHighlightOrder : "h.clause,h.field,h.ordinal";
         // The statement witnesses eligibility, the complete generation, and the exact
         // readback together. A stale cursor cannot reach candidate source or snippets.
         await using (var query = Store.Sql(db, tx, $"""
@@ -264,21 +289,7 @@ internal static class AuthorTextIndex
                     more = true;
                     break;
                 }
-                var raw = rows.GetString(10);
-                var digest = rows.GetFieldValue<byte[]>(11);
-                var start = rows.GetInt32(5);
-                var end = rows.GetInt32(6);
-                var byteStart = rows.GetInt32(7);
-                var byteEnd = rows.GetInt32(8);
-                var expectedTerm = input.Clauses[rows.GetInt32(12)].Terms[0];
-                if (start < 0 || end <= start || end > raw.Length || !CryptographicOperations.FixedTimeEquals(digest, Digest(raw)) ||
-                    !string.Equals(AuthorTextProfile.NormalizeTerm(raw[start..end]), expectedTerm, StringComparison.Ordinal))
-                    throw InvalidIndex();
-                var (snippet, highlightStart, highlightEnd) = Snippet(raw, start, end, byteStart, byteEnd);
-                var id = rows.GetInt32(2);
-                var match = new AuthorTextSearchRow(id, rows.GetInt64(3), rows.GetString(9), rows.GetInt32(4), snippet,
-                    highlightStart, highlightEnd, start, end, byteStart, byteEnd, digest);
-                matches.Add(new(match, new(rows.GetInt32(13), rows.GetInt32(14), rows.GetInt64(15), id)));
+                matches.Add(ReadMatch(rows, input));
             }
         }
 
@@ -291,8 +302,196 @@ internal static class AuthorTextIndex
         return new(true, more, matches, generation);
     }
 
+    private static string NameWitness(string column) =>
+        $"pg_catalog.int4send(octet_length(pg_catalog.convert_to({column},'UTF8'))) || pg_catalog.convert_to({column},'UTF8')";
+
+    private static string FacetMetadata(int generationParameter) => $$"""
+        owner_scope as materialized (
+            select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventoryEndpoints.CurrentState}} as state,
+                coalesce(c.id,0) as category_id,coalesce(c.name,'') as category_name,
+                coalesce(t.ids,'{}'::integer[]) as tag_ids,coalesce(t.witness,''::bytea) as tag_witness
+            from public.article a
+            {{ArticleInventoryEndpoints.CurrentSchedule(generationParameter)}}
+            left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
+            left join public.category c on c.id=rc.category_id
+            left join lateral (
+                select array_agg(tag.id order by tag.id) as ids,
+                    string_agg(pg_catalog.int4send(tag.id) || {{NameWitness("tag.name")}}, ''::bytea order by tag.id) as witness
+                from public.article_revision_tag link join public.tag tag on tag.id=link.tag_id
+                where link.article_id=a.id and link.revision=a.revision
+            ) t on true
+            where {{OwnerEligible}}
+        ),
+        {{IndexChanges("owner_scope")}}
+        """;
+
+    // Every article contributes its exact current lifecycle and ordered taxonomy facts.
+    // Names are prefixed by their UTF-8 byte length and tags by their count.
+    private static readonly string FacetedGeneration = $"""
+        select pg_catalog.sha256(
+            pg_catalog.convert_to('fsusblog-author-text-facets.v1','UTF8') || pg_catalog.uuid_send($1::uuid) ||
+            coalesce(string_agg(
+                pg_catalog.int4send(e.id) || pg_catalog.int8send(e.revision) || pg_catalog.int8send(e.updated_unix_ms) ||
+                pg_catalog.int4send(e.state) || pg_catalog.int4send(e.category_id) || {NameWitness("e.category_name")} ||
+                pg_catalog.int4send(cardinality(e.tag_ids)) || e.tag_witness,
+                ''::bytea order by e.id), ''::bytea))
+        from owner_scope e
+        """;
+
+    private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+    {
+        var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
+        var total = 0;
+        int[] states = new int[WireLimits.AuthorTextSearchStateCount];
+        IReadOnlyList<AuthorTextTaxonomyFacet> categories = [];
+        IReadOnlyList<AuthorTextTaxonomyFacet> tags = [];
+        var more = false;
+        var moreCategories = false;
+        var moreTags = false;
+        byte[]? generation = null;
+
+        await using (var query = Store.Sql(db, tx, $$"""
+            with {{FacetMetadata(14)}},
+            eligible as materialized (
+                select * from owner_scope e
+                where ($15=0 or e.state=$15) and ($16=0 or e.category_id=$16)
+                    and ($17=0 or $17=any(e.tag_ids))
+            ),
+            readiness as (
+                select case when not exists(select from changed) then ({{FacetedGeneration}}) end as generation
+            ),
+            witness as (
+                select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
+            ),
+            {{MatchCtes}},
+            selected as materialized (
+                select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision,
+                    e.state,e.category_id,e.category_name,e.tag_ids
+                from ranked_hits m join eligible e on e.id=m.article_id
+            ),
+            totals as (
+                select count(*)::integer as total,array[
+                    count(*) filter (where state=1),count(*) filter (where state=2),
+                    count(*) filter (where state=3),count(*) filter (where state=4)
+                ]::integer[] as states
+                from selected
+            ),
+            category_counts as (
+                select category_id as id,category_name as name,count(*)::integer as hits
+                from selected where category_id>0 group by category_id,category_name
+                order by hits desc,id limit {{WireLimits.AuthorTextSearchFacetRows + 1}}
+            ),
+            tag_counts as (
+                select tag.id,tag.name,count(*)::integer as hits
+                from selected m cross join lateral unnest(m.tag_ids) link(id)
+                join public.tag tag on tag.id=link.id
+                group by tag.id,tag.name order by hits desc,tag.id limit {{WireLimits.AuthorTextSearchFacetRows + 1}}
+            ),
+            category_buckets as (
+                select array_agg(id order by hits desc,id) as ids,array_agg(name order by hits desc,id) as names,
+                    array_agg(hits order by hits desc,id) as hits from category_counts
+            ),
+            tag_buckets as (
+                select array_agg(id order by hits desc,id) as ids,array_agg(name order by hits desc,id) as names,
+                    array_agg(hits order by hits desc,id) as hits from tag_counts
+            ),
+            picked as materialized (
+                select p.article_id,p.phrase_rank,p.field_rank,p.updated_unix_ms,p.revision from selected p
+                where $10::integer is null or
+                    (p.phrase_rank,p.field_rank,p.updated_unix_ms,-p.article_id)<($10,$11,$12,-$13)
+                order by {{RankOrder}} limit $8
+            )
+            select witness.admitted,witness.generation,p.article_id,p.revision,h.field,h.start_u16,h.end_u16,h.start_u8,h.end_u8,r.title,
+                case h.field when 1 then r.title else r.body end,
+                case h.field when 1 then d.title_digest else d.body_digest end,
+                h.clause,p.phrase_rank,p.field_rank,p.updated_unix_ms,
+                totals.total,totals.states,cb.ids,cb.names,cb.hits,tb.ids,tb.names,tb.hits
+            from witness cross join totals cross join category_buckets cb cross join tag_buckets tb
+            left join picked p on witness.admitted
+            left join lateral (
+                select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder}} limit 1
+            ) h on true
+            left join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
+            left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
+            order by {{RankOrder}}
+            """, [.. MatchArguments(actor.Id, input.Text), WireLimits.AuthorTextSearchRows + 1,
+                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
+                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
+                after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0, actor.Generation,
+                (int?)input.Status ?? 0, input.CategoryId ?? 0, input.TagId ?? 0]))
+        {
+            query.CommandTimeout = 3;
+            await using var rows = await query.ExecuteReaderAsync(ct);
+            while (await rows.ReadAsync(ct))
+            {
+                if (!rows.GetBoolean(0))
+                {
+                    if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+                    return new(false, false, [], null, 0, states, [], false, [], false);
+                }
+                if (generation is null)
+                {
+                    generation = rows.GetFieldValue<byte[]>(1);
+                    total = rows.GetInt32(16);
+                    states = rows.GetFieldValue<int[]>(17);
+                    (categories, moreCategories) = ReadBuckets(rows, 18);
+                    (tags, moreTags) = ReadBuckets(rows, 21);
+                }
+                if (rows.IsDBNull(2)) break;
+                if (matches.Count == WireLimits.AuthorTextSearchRows)
+                {
+                    more = true;
+                    break;
+                }
+                matches.Add(ReadMatch(rows, input.Text));
+            }
+        }
+
+        if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation))
+            throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
+        return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags);
+    }
+
+    private static (IReadOnlyList<AuthorTextTaxonomyFacet> Facets, bool More) ReadBuckets(NpgsqlDataReader rows, int column)
+    {
+        if (rows.IsDBNull(column)) return ([], false);
+        var ids = rows.GetFieldValue<int[]>(column);
+        var names = rows.GetFieldValue<string[]>(column + 1);
+        var counts = rows.GetFieldValue<int[]>(column + 2);
+        var facets = new AuthorTextTaxonomyFacet[Math.Min(ids.Length, WireLimits.AuthorTextSearchFacetRows)];
+        for (var index = 0; index < facets.Length; index++)
+        {
+            var id = ids[index];
+            var name = names[index];
+            if (id <= 0 || string.IsNullOrEmpty(name) || Utf8.GetByteCount(name) > WireLimits.TaxonomyNameBytes)
+                throw InvalidIndex();
+            facets[index] = new(id, name, counts[index]);
+        }
+        return (facets, ids.Length > WireLimits.AuthorTextSearchFacetRows);
+    }
+
+    private static AuthorTextRankedRow ReadMatch(NpgsqlDataReader rows, AuthorTextQuery input)
+    {
+        var raw = rows.GetString(10);
+        var digest = rows.GetFieldValue<byte[]>(11);
+        var start = rows.GetInt32(5);
+        var end = rows.GetInt32(6);
+        var byteStart = rows.GetInt32(7);
+        var byteEnd = rows.GetInt32(8);
+        var expectedTerm = input.Clauses[rows.GetInt32(12)].Terms[0];
+        if (start < 0 || end <= start || end > raw.Length || !CryptographicOperations.FixedTimeEquals(digest, Digest(raw)) ||
+            !string.Equals(AuthorTextProfile.NormalizeTerm(raw[start..end]), expectedTerm, StringComparison.Ordinal))
+            throw InvalidIndex();
+        var (snippet, highlightStart, highlightEnd) = Snippet(raw, start, end, byteStart, byteEnd);
+        var id = rows.GetInt32(2);
+        var match = new AuthorTextSearchRow(id, rows.GetInt64(3), rows.GetString(9), rows.GetInt32(4), snippet,
+            highlightStart, highlightEnd, start, end, byteStart, byteEnd, digest);
+        return new(match, new(rows.GetInt32(13), rows.GetInt32(14), rows.GetInt64(15), id));
+    }
+
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct)
+        IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null)
     {
         var ids = matches.Select(row => row.Match.Id).ToArray();
         if (ids.Length > 0)
@@ -305,14 +504,19 @@ internal static class AuthorTextIndex
         }
         // The lock can wait behind an article change. Observe the fresh archive, source
         // and ranking state in a new statement even when a ranked result has zero rows.
+        var scope = facetAuthorityGeneration.HasValue ? "owner_scope" : "eligible";
+        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5) : Changed;
+        var sourceGeneration = facetAuthorityGeneration.HasValue ? FacetedGeneration : Generation;
+        var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
+        if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
         await using var check = Store.Sql(db, tx, $"""
-            with {Changed}
-            select not exists(select from changed) and ($4::bytea is null or $4=({Generation})) and not exists (
+            with {metadata}
+            select not exists(select from changed) and ($4::bytea is null or $4=({sourceGeneration})) and not exists (
                 select from unnest($2::integer[],$3::bigint[]) expected(id,revision)
-                where not exists(select from eligible e where e.id=expected.id and e.revision=expected.revision)
+                where not exists(select from {scope} e where e.id=expected.id and e.revision=expected.revision)
             )
-            """, owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value });
+            """, parameters.ToArray());
         check.CommandTimeout = 3;
         return await check.ExecuteScalarAsync(ct) is true;
     }

@@ -20,31 +20,52 @@ internal static class AuthorTextSearchEndpoints
                 var digest = Store.TokenDigest(token)!;
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 Aeds.Decode(frame, out var type);
-                var ranked = type == FrameType.AuthorTextRankedQuery ? Wire.DecodeAuthorTextRankedQuery(frame) : null;
-                var legacyInput = ranked is null ? AuthorTextProfile.Parse(Wire.DecodeAuthorTextSearchQuery(frame)) : null;
-                var rankedInput = ranked is null ? null : AuthorTextProfile.ParseRanked(ranked.Query);
-                if (!await CurrentSchema.HasAuthorTextIndexAsync(db, tx, ct))
-                    throw new BusinessException(Rejection.NotFound, "The private article index is not installed.");
-
                 // Serialize under the account/session and exact result article locks.
                 // WithSession rechecks expiry and commits before sending any response.
                 byte[] encoded;
-                if (ranked is null)
+                if (type == FrameType.AuthorTextSearchQuery)
                 {
-                    var page = await AuthorTextIndex.Read(db, tx, actor, legacyInput!, ct);
+                    var input = AuthorTextProfile.Parse(Wire.DecodeAuthorTextSearchQuery(frame));
+                    await RequireIndex();
+                    var page = await AuthorTextIndex.Read(db, tx, actor, input, ct);
                     encoded = Wire.EncodeAuthorTextSearchPage(page);
                 }
                 else
                 {
-                    (AuthorTextRankKey Position, byte[] Generation)? after = ranked.Cursor.Length == 0
-                        ? null : cursors.Decode(ranked.Cursor, actor, digest, ranked.Query);
-                    var page = await AuthorTextIndex.ReadRanked(db, tx, actor, rankedInput!, after?.Position, after?.Generation, ct);
-                    var next = page.More ? cursors.Encode(page.Rows[^1].Key, page.Generation!, actor, digest, ranked.Query) : "";
-                    encoded = Wire.EncodeAuthorTextRankedPage(new(page.Ready, next, page.Rows.Select(row => row.Match).ToArray()));
+                    var faceted = type == FrameType.AuthorTextFacetedQuery;
+                    var request = faceted ? Wire.DecodeAuthorTextFacetedQuery(frame) : Wire.DecodeAuthorTextRankedQuery(frame);
+                    (AuthorTextRankKey Position, byte[] Generation)? after = request.Cursor.Length == 0
+                        ? null : cursors.Decode(request.Cursor, actor, digest, request.Query, type);
+                    if (faceted)
+                    {
+                        var input = AuthorTextProfile.ParseFaceted(request.Query);
+                        await RequireIndex();
+                        var page = await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct);
+                        var next = Next(page.More, page.Rows, page.Generation);
+                        encoded = Wire.EncodeAuthorTextFacetedPage(new(page.Ready, next, page.Total, page.StateCounts,
+                            page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
+                    }
+                    else
+                    {
+                        var input = AuthorTextProfile.ParseRanked(request.Query);
+                        await RequireIndex();
+                        var page = await AuthorTextIndex.ReadRanked(db, tx, actor, input, after?.Position, after?.Generation, ct);
+                        var next = Next(page.More, page.Rows, page.Generation);
+                        encoded = Wire.EncodeAuthorTextRankedPage(new(page.Ready, next, page.Rows.Select(row => row.Match).ToArray()));
+                    }
+
+                    string Next(bool more, IReadOnlyList<AuthorTextRankedRow> rows, byte[]? generation) =>
+                        more ? cursors.Encode(rows[^1].Key, generation!, actor, digest, request.Query, type) : "";
                 }
                 ct.ThrowIfCancellationRequested();
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 return encoded;
+
+                async Task RequireIndex()
+                {
+                    if (!await CurrentSchema.HasAuthorTextIndexAsync(db, tx, ct))
+                        throw new BusinessException(Rejection.NotFound, "The private article index is not installed.");
+                }
             }, ct);
             return Results.Bytes(payload, Aeds.ContentType);
         }).RequireRateLimiting("command");

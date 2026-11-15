@@ -59,6 +59,8 @@ inline constexpr uint32_t MaxAuthorTextSearchQueryFrameBytes = 532;
 inline constexpr uint32_t AuthorTextRankedCursorChars = 256;
 inline constexpr uint32_t MaxAuthorTextRankedQueryFrameBytes = 792;
 inline constexpr uint32_t AuthorTextSearchRows = 20;
+inline constexpr uint32_t AuthorTextSearchStateCount = 4;
+inline constexpr uint32_t AuthorTextSearchFacetRows = 12;
 inline constexpr uint32_t AuthorTextSearchSnippetBytes = 2048;
 inline constexpr uint32_t AuthorTextSearchSourceDigestBytes = 32;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
@@ -534,6 +536,8 @@ enum class FrameType : uint16_t {
     AuthorTextSearchPage = 33007,
     AuthorTextRankedQuery = 33010,
     AuthorTextRankedPage = 33012,
+    AuthorTextFacetedQuery = 33013,
+    AuthorTextFacetedPage = 33014,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -720,6 +724,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextSearchPage:
         case FrameType::AuthorTextRankedQuery:
         case FrameType::AuthorTextRankedPage:
+        case FrameType::AuthorTextFacetedQuery:
+        case FrameType::AuthorTextFacetedPage:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

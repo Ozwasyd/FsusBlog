@@ -21,6 +21,18 @@ export type AuthorTextSearchRow = Readonly<{
 export type AuthorTextSearchPage = Readonly<{ ready: boolean; more: boolean; rows: readonly AuthorTextSearchRow[] }>;
 export type AuthorTextRankedQuery = Readonly<{ query: string; cursor: string }>;
 export type AuthorTextRankedPage = Readonly<{ ready: boolean; nextCursor: string; rows: readonly AuthorTextSearchRow[] }>;
+export type AuthorTextTaxonomyFacet = Readonly<{ id: number; name: string; count: number }>;
+export type AuthorTextFacetedPage = Readonly<{
+  ready: boolean;
+  nextCursor: string;
+  total: number;
+  stateCounts: readonly [number, number, number, number];
+  moreCategories: boolean;
+  categories: readonly AuthorTextTaxonomyFacet[];
+  moreTags: boolean;
+  tags: readonly AuthorTextTaxonomyFacet[];
+  rows: readonly AuthorTextSearchRow[];
+}>;
 
 const utf8 = new TextEncoder();
 
@@ -54,15 +66,31 @@ export function decodeAuthorTextSearchPage(payload: Uint8Array): AuthorTextSearc
 }
 
 export function encodeAuthorTextRankedQuery(value: AuthorTextRankedQuery): Uint8Array<ArrayBuffer> {
+  return encodeCursorQuery(value, FrameType.AuthorTextRankedQuery);
+}
+
+export function encodeAuthorTextFacetedQuery(value: AuthorTextRankedQuery): Uint8Array<ArrayBuffer> {
+  return encodeCursorQuery(value, FrameType.AuthorTextFacetedQuery);
+}
+
+function encodeCursorQuery(value: AuthorTextRankedQuery, frameType: FrameType): Uint8Array<ArrayBuffer> {
   validateQuery(value.query);
   validateCursor(value.cursor);
   const writer = new PodWriter();
   writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes);
   writer.text(value.cursor, WireLimits.AuthorTextRankedCursorChars);
-  return encodeFrame(FrameType.AuthorTextRankedQuery, writer.finish());
+  return encodeFrame(frameType, writer.finish());
 }
 
 export function decodeAuthorTextRankedQuery(payload: Uint8Array): AuthorTextRankedQuery {
+  return decodeCursorQuery(payload);
+}
+
+export function decodeAuthorTextFacetedQuery(payload: Uint8Array): AuthorTextRankedQuery {
+  return decodeCursorQuery(payload);
+}
+
+function decodeCursorQuery(payload: Uint8Array): AuthorTextRankedQuery {
   const reader = new PodReader(payload);
   const query = reader.text(WireLimits.AuthorTextSearchQueryBytes);
   const cursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
@@ -95,6 +123,52 @@ export function decodeAuthorTextRankedPage(payload: Uint8Array): AuthorTextRanke
   const count = reader.i32();
   validateCursor(nextCursor);
   validatePage(ready, nextCursor.length !== 0, count);
+  const rows = readRankedRows(reader, count);
+  reader.finish();
+  return { ready, nextCursor, rows };
+}
+
+export function decodeAuthorTextFacetedPage(payload: Uint8Array): AuthorTextFacetedPage {
+  const reader = new PodReader(payload);
+  const ready = reader.bool();
+  const nextCursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
+  const total = reader.i32();
+  // Draft, scheduled, published, retracted.
+  const stateCounts = [reader.i32(), reader.i32(), reader.i32(), reader.i32()] as const;
+  const { more: moreCategories, facets: categories } = readFacets(reader, total);
+  const { more: moreTags, facets: tags } = readFacets(reader, total);
+  const count = reader.i32();
+  validateCursor(nextCursor);
+  validatePage(ready, nextCursor.length !== 0, count);
+  if (total < count || (!ready && total !== 0) || (nextCursor && total <= WireLimits.AuthorTextSearchRows) ||
+      stateCounts.some(value => value < 0) || stateCounts.reduce((sum, value) => sum + value, 0) !== total)
+    throw new ProtocolError('Invalid faceted author text search page');
+  const rows = readRankedRows(reader, count);
+  reader.finish();
+  return { ready, nextCursor, total, stateCounts, moreCategories, categories, moreTags, tags, rows };
+}
+
+function readFacets(reader: PodReader, total: number) {
+  const more = reader.bool();
+  const count = reader.i32();
+  if (count < 0 || count > WireLimits.AuthorTextSearchFacetRows || (more && count !== WireLimits.AuthorTextSearchFacetRows))
+    throw new ProtocolError('Invalid author text search facet count');
+  const facets: AuthorTextTaxonomyFacet[] = [];
+  const ids = new Set<number>();
+  for (let i = 0; i < count; i++) {
+    const facet = { id: reader.i32(), name: reader.text(WireLimits.TaxonomyNameBytes), count: reader.i32() };
+    const previous = facets[i - 1];
+    if (facet.id <= 0 || facet.count <= 0 || facet.count > total || ids.has(facet.id) ||
+        !facet.name || facet.name.includes('\0') ||
+        (previous && (facet.count > previous.count || (facet.count === previous.count && facet.id <= previous.id))))
+      throw new ProtocolError('Invalid author text search facet');
+    ids.add(facet.id);
+    facets.push(facet);
+  }
+  return { more, facets };
+}
+
+function readRankedRows(reader: PodReader, count: number): AuthorTextSearchRow[] {
   const rows: AuthorTextSearchRow[] = [];
   const ids = new Set<number>();
   for (let i = 0; i < count; i++) {
@@ -102,8 +176,7 @@ export function decodeAuthorTextRankedPage(payload: Uint8Array): AuthorTextRanke
     recordRankedId(ids, row.id);
     rows.push(row);
   }
-  reader.finish();
-  return { ready, nextCursor, rows };
+  return rows;
 }
 
 function readRow(reader: PodReader): AuthorTextSearchRow {
