@@ -14,7 +14,9 @@
 
 测试使用真实签名 ZIP、受控时钟和本地磁盘，覆盖错误签名、来源、密钥撤销边界、时钟回退、非法条目、版本冲突、越权请求、重放、异步暂存期间撤销、并发同请求和磁盘碰撞。安装测试覆盖第二写者拒绝、打开持久化目录恢复激活、降级、ZIP 和签名篡改、账本篡改、旧账本重放、密钥轮换和签名有效期到期。运行 `dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj --filter FullyQualifiedName~ExtensionAuthorityTests`。
 
-生产接入仍需宿主管理信任与检查点、真实会话与用户同意、文档和导出的正式 IO broker、运行宿主与隔离验证。v1 通用 `.fspkg` Hook 运行时、主题和字体属于 P5 的独立能力。本模块没有在服务端注册扩展端点或装载入口。
+服务端的保存修订读取 custodian 复用 PostgreSQL 的登录会话、站点 ID 和文章修订所有权。宿主绑定此 custodian 后，`ExtensionDocumentBroker.ReadRangeAsync` 接收既有 `DocumentRangeRead` 授权下的一次性请求，在原安装存储保留签名包范围，并在当前会话、未归档文章和当前修订的锁内核对授权并形成结果。结果只包含指定 UTF-16 范围的文字和绑定坐标，拒绝整篇读取、越界、截断代理项和超出 UTF-8 预算。原生数据库测试覆盖真实签名启用、异步等待期间撤销与取消、会话不匹配和过期修订。 [固定 v1 文档读取边界](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs#L538)
+
+服务启动还没有注册通用创作扩展执行入口。生产接入仍需真实用户同意、受信的编辑器选区来源、运行宿主及部署验证。v1 通用 `.fspkg` Hook 运行时、主题和字体属于 P5 的独立能力。
 
 ## 离线运维
 

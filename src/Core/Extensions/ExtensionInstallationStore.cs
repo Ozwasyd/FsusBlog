@@ -37,6 +37,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     private bool _closed;
     private bool _brokerHeld;
     private ExtensionStaging? _staging;
+    private ExtensionDocumentBroker? _documentReader;
 
     public static ExtensionInstallationStore Create(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key,
         IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources, TimeProvider clock) =>
@@ -268,11 +269,22 @@ public sealed class ExtensionInstallationStore : IDisposable
         }
     }
 
-    private IDisposable RetainBrokerScope(ExtensionStaging broker)
+    internal ExtensionDocumentBroker BindDocumentReader(IExtensionDocumentCustodian custodian)
+    {
+        lock (_gate)
+        {
+            RequireOperationAuthority();
+            if (_documentReader is not null) throw Reject("document-read-broker-already-bound");
+            return _documentReader = new ExtensionDocumentBroker(custodian);
+        }
+    }
+
+    private IDisposable RetainBrokerScope(object broker)
     {
         // Admission runs under the same gate as package verification and all store mutations.
         RequireOperationAuthority();
-        if (!ReferenceEquals(_staging, broker)) throw Reject("staging-broker-not-bound");
+        if (!ReferenceEquals(_staging, broker) && !ReferenceEquals(_documentReader, broker))
+            throw Reject(broker is ExtensionStaging ? "staging-broker-not-bound" : "document-read-broker-not-bound");
         if (_brokerHeld) throw Reject("installation-store-broker-busy");
         _brokerHeld = true;
         return new BrokerScope(this);

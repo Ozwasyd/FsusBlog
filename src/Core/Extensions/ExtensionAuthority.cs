@@ -37,7 +37,7 @@ public sealed class ExtensionAuthority
 {
     private readonly object _gate;
     private readonly Action<VerifiedExtensionPackage, CancellationToken, bool>? _verifyInstalled;
-    private readonly Func<ExtensionStaging, IDisposable>? _holdPackage;
+    private readonly Func<object, IDisposable>? _holdPackage;
     private readonly Dictionary<string, VerifiedExtensionPackage> _packages = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ExtensionInstalledVersion> _lastActivated = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, ExtensionOwner> _owners = new();
@@ -51,7 +51,7 @@ public sealed class ExtensionAuthority
     public ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock) : this(verifier, clock, new(), null, null) { }
 
     internal ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock, object gate,
-        Action<VerifiedExtensionPackage, CancellationToken, bool>? verifyInstalled, Func<ExtensionStaging, IDisposable>? holdPackage)
+        Action<VerifiedExtensionPackage, CancellationToken, bool>? verifyInstalled, Func<object, IDisposable>? holdPackage)
     {
         _verifier = verifier;
         _clock = clock;
@@ -243,7 +243,7 @@ public sealed class ExtensionAuthority
         private readonly ExtensionAuthority _authority;
         private readonly Grant _grant;
         private readonly long _started;
-        private bool _stagingPending;
+        private bool _brokerPending;
         private bool _closed;
 
         internal Operation(ExtensionAuthority authority, ExtensionProposal proposal, Grant grant)
@@ -261,15 +261,21 @@ public sealed class ExtensionAuthority
             lock (_authority._gate) Check(cancellationToken);
         }
 
-        internal StagingScope BeginStaging(ExtensionStaging broker, CancellationToken cancellationToken)
+        internal BrokerScope BeginStaging(ExtensionStaging broker, CancellationToken cancellationToken) =>
+            BeginBroker(broker, "staging-already-started", "staging-installed-scope-required", cancellationToken);
+
+        internal BrokerScope BeginDocumentRead(ExtensionDocumentBroker broker, CancellationToken cancellationToken) =>
+            BeginBroker(broker, "document-read-already-started", "document-read-installed-scope-required", cancellationToken);
+
+        private BrokerScope BeginBroker(object broker, string busyError, string missingScopeError, CancellationToken cancellationToken)
         {
             lock (_authority._gate)
             {
-                if (_stagingPending) throw Deny("staging-already-started");
+                if (_brokerPending) throw Deny(busyError);
                 try
                 {
                     Check(cancellationToken, verifyInstalled: true);
-                    if (_authority._holdPackage is not { } holdPackage) throw Deny("staging-installed-scope-required");
+                    if (_authority._holdPackage is not { } holdPackage) throw Deny(missingScopeError);
                     var clock = _authority._clock;
                     var wall = _grant.Package.Manifest.Limits.WallClock - clock.GetElapsedTime(_started);
                     var consent = _grant.Scope.ExpiresAt - clock.GetUtcNow();
@@ -277,8 +283,8 @@ public sealed class ExtensionAuthority
                     var budget = new CancellationTokenSource(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, clock);
                     try
                     {
-                        var scope = new StagingScope(this, holdPackage(broker), budget);
-                        _stagingPending = true;
+                        var scope = new BrokerScope(this, holdPackage(broker), budget);
+                        _brokerPending = true;
                         return scope;
                     }
                     catch
@@ -295,11 +301,12 @@ public sealed class ExtensionAuthority
             }
         }
 
-        public void Complete(Action publish, CancellationToken cancellationToken = default)
+        internal void Complete(Action publish, CancellationToken cancellationToken = default)
         {
             lock (_authority._gate)
             {
                 if (Proposal is ExtensionProposal.StageFile) throw Deny("staging-broker-required");
+                if (_brokerPending) throw Deny("operation-broker-pending");
                 try
                 {
                     Check(cancellationToken, verifyInstalled: true);
@@ -328,7 +335,7 @@ public sealed class ExtensionAuthority
         {
             if (_closed) return;
             _closed = true;
-            if (!_stagingPending) ReleaseActive();
+            if (!_brokerPending) ReleaseActive();
         }
 
         private void ReleaseActive()
@@ -338,19 +345,23 @@ public sealed class ExtensionAuthority
             else _authority._active[_grant.Package] = left;
         }
 
-        internal sealed class StagingScope(Operation operation, IDisposable package, CancellationTokenSource budget) : IDisposable
+        internal sealed class BrokerScope(Operation operation, IDisposable package, CancellationTokenSource budget) : IDisposable
         {
             private bool _disposed;
 
             internal CancellationToken Token => budget.Token;
 
-            internal void Complete(CancellationToken cancellationToken)
+            internal ExtensionOwner Owner => operation._grant.Scope.Owner;
+            internal int MaximumResponseBytes => operation._grant.Package.Manifest.Limits.MaximumResponseBytes;
+
+            internal T Complete<T>(T result, CancellationToken cancellationToken)
             {
                 lock (operation._authority._gate)
                 {
                     if (_disposed) throw Deny("operation-closed");
                     operation.Check(cancellationToken, verifyInstalled: true);
                     operation.Close();
+                    return result;
                 }
             }
 
@@ -361,7 +372,7 @@ public sealed class ExtensionAuthority
                     if (_disposed) return;
                     _disposed = true;
                     operation.Close();
-                    operation._stagingPending = false;
+                    operation._brokerPending = false;
                     operation.ReleaseActive();
                     try { package.Dispose(); }
                     finally { budget.Dispose(); }

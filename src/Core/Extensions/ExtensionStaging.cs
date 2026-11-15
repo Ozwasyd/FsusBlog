@@ -30,7 +30,7 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
 
     [UnsupportedOSPlatform("windows")]
     private async Task<string> StageHeld(ExtensionAuthority.Operation operation, ExtensionProposal.StageFile proposal, Stream data,
-        ExtensionAuthority.Operation.StagingScope scope, CancellationToken cancellationToken)
+        ExtensionAuthority.Operation.BrokerScope scope, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, scope.Token);
         // The opaque request ID is a leaf name only. CreateNew decides whether this operation owns its content.
@@ -96,7 +96,6 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
         if (workFailure is not null) ExceptionDispatchInfo.Capture(workFailure).Throw();
         if (cleanupFailure is not null) ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
         var receipt = digest ?? throw new InvalidOperationException("Staging completed without a digest.");
-        scope.Complete(timeout.Token);
-        return receipt;
+        return scope.Complete(receipt, timeout.Token);
     }
 }
