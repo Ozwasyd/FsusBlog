@@ -24,13 +24,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
     private sealed record LogEntry([property: JsonIgnore] long Id, long Seq, string EntryType,
         [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] long ProofId, int ArticleId,
         [property: JsonNumberHandling(JsonNumberHandling.WriteAsString)] long ArticleRevisionId, int RevisionNo, string EntryPayloadHash, string PrevEntryHash, string EntryHash,
-        DateTimeOffset CreatedAtUtc, string SigningKeyId, string Signature)
-    {
-        internal string Coordinates() => FormattableString.Invariant(
-            $"proofId:i:{ProofId}\narticleId:i:{ArticleId}\narticleRevisionId:i:{ArticleRevisionId}\nrevisionNo:i:{RevisionNo}\n");
-    }
-    private sealed record Checkpoint(int ManifestVersion, string CheckpointKind, string ScopeKey, string RootHash,
-        long FromSeq, long ToSeq, int EntryCount, long LogHeadSeq, string LogHeadHash, DateTimeOffset CreatedAtUtc);
+        DateTimeOffset CreatedAtUtc, string SigningKeyId, string Signature);
 
     private sealed record RightsClaims(string ArticleRightsSnapshotId, string PublishProofId, string RightsPolicyHash, string ContentCanonicalHash);
     private sealed record ArchivedSignature(JsonElement Source, long Id, ArchivedPublicKey Key, DateTimeOffset SignedAt,
@@ -99,23 +93,16 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             var scope = Required(anchor, "scope_key");
             var signedCheckpointAt = Time(anchor, "created_at");
             var count = chain.Length;
-            var manifest = new Checkpoint(1, "release", scope, root, 1, count, count, count, head, signedCheckpointAt);
+            var manifest = new LegacyTransparencyCheckpoint(1, "release", scope, root, 1, count, count, count, head, signedCheckpointAt);
             if (scope.Length is < 1 or > 64 || Required(anchor, "checkpoint_kind") != "release" ||
                 Required(anchor, "root_hash") != root || Required(anchor, "log_head_hash") != head ||
                 Number(anchor, "from_seq") != 1 || Number(anchor, "to_seq") != count || Number(anchor, "log_head_seq") != count ||
-                Number(anchor, "entry_count") != count || JsonSerializer.Deserialize<Checkpoint>(Required(anchor, "manifest_json"), Json) != manifest)
+                Number(anchor, "entry_count") != count || JsonSerializer.Deserialize<LegacyTransparencyCheckpoint>(Required(anchor, "manifest_json"), Json) != manifest)
                 return null;
             var checkpointKey = registry[Required(anchor, "signing_key_id")];
             var checkpointSignature = Required(anchor, "signature");
-            var bound = count.ToString(CultureInfo.InvariantCulture);
-            var checkpointPayload = SiteProofPayload.Canonicalize("merkle-checkpoint", $"checkpoint:release:{scope}",
-                Required(anchor, "manifest_hash"), signedCheckpointAt, new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["checkpointKind"] = "release", ["entryCount"] = bound, ["fromSeq"] = "1",
-                    ["logHeadHash"] = head, ["logHeadSeq"] = bound, ["manifestVersion"] = "1",
-                    ["rootHash"] = root, ["scopeKey"] = scope, ["toSeq"] = bound
-                });
-            if (Required(anchor, "signing_algorithm") != checkpointKey.Algorithm ||
+            var (digest, checkpointPayload) = LegacyTransparencyPayload.CheckpointSigningPayload(manifest);
+            if (Required(anchor, "manifest_hash") != digest || Required(anchor, "signing_algorithm") != checkpointKey.Algorithm ||
                 !VerifySignature(checkpointKey, signedCheckpointAt, checkpointPayload, checkpointSignature))
                 return null;
 
@@ -224,7 +211,6 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
         var rights = new HashSet<(long RevisionId, int RevisionNo)>();
         foreach (var entry in chain)
         {
-            var coordinates = entry.Coordinates();
             if (entry.ArticleId != article || entry.Id <= 0 || entry.ProofId <= 0 || entry.ArticleRevisionId <= 0 || entry.RevisionNo <= 0 ||
                 entry.Seq != leaves.Count + 1 || entry.PrevEntryHash != previous || !IsHash(entry.EntryPayloadHash) ||
                 !ArticlePublicationProofPayloadV2.ValidKeyId(entry.SigningKeyId) ||
@@ -240,27 +226,13 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 if (!published.Contains(revision) || !rights.Add(revision)) throw new FormatException();
             }
 
-            var transcript = FormattableString.Invariant($"""
-                fsusblog.integrity.transparency-log-entry.v1
-                seq:i:{entry.Seq}
-                {Field("entryType", entry.EntryType)}{coordinates}entryPayloadHash:h:{entry.EntryPayloadHash}
-                prevEntryHash:h:{previous}
-                createdAt:t:{entry.CreatedAtUtc:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
-                {Field("signingKeyId", entry.SigningKeyId)}{Field("signature", entry.Signature)}
-                """);
-            if (entry.EntryHash != Digest(Encoding.UTF8.GetBytes(transcript))) throw new FormatException();
-            leaves.Add(Digest(Encoding.UTF8.GetBytes(FormattableString.Invariant(
-                $"fsusblog.integrity.merkle-leaf.v1\nseq:i:{entry.Seq}\nlogEntryHash:h:{entry.EntryHash}\n{coordinates}"))));
-            previous = entry.EntryHash;
+            var (hash, leaf) = LegacyTransparencyPayload.HashProofEntry(new(entry.Seq, entry.EntryType, entry.ProofId, entry.ArticleId,
+                entry.ArticleRevisionId, entry.RevisionNo, entry.EntryPayloadHash, previous, entry.CreatedAtUtc, entry.SigningKeyId, entry.Signature));
+            if (entry.EntryHash != hash) throw new FormatException();
+            leaves.Add(leaf);
+            previous = hash;
         }
-        while (leaves.Count > 1)
-        {
-            var parents = new List<string>((leaves.Count + 1) / 2);
-            for (int i = 0; i < leaves.Count; i += 2)
-                parents.Add(Digest(Encoding.UTF8.GetBytes($"fsusblog.integrity.merkle-node.v1\nleft:h:{leaves[i]}\nright:h:{leaves[Math.Min(i + 1, leaves.Count - 1)]}\n")));
-            leaves = parents;
-        }
-        return (leaves[0], previous);
+        return (LegacyTransparencyPayload.MerkleRoot(leaves), previous);
     }
 
     private static LogEntry ReadEntry(JsonElement row)
@@ -285,7 +257,6 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
     private static DateTimeOffset Time(JsonElement row, string field) => DateTimeOffset.ParseExact(Required(row, field),
         ["yyyy-MM-dd'T'HH:mm:ssK", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK"], CultureInfo.InvariantCulture,
         DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
-    private static string Field(string name, string text) => name + ":s:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(text)) + "\n";
     private static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
     private static bool IsHash(string? text) => text is { Length: 64 } && text.All(char.IsAsciiHexDigitLower);
 }
