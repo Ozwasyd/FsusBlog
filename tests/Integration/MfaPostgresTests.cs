@@ -25,12 +25,8 @@ public sealed class MfaPostgresTests
         var first = Store.TokenDigest(firstToken)!;
         var second = Store.TokenDigest(secondToken)!;
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'MFA fixture',true,true,1)", id);
-        await Execute("insert into public.passkey_subject(user_id,user_handle) values($1,$2)", id, RandomNumberGenerator.GetBytes(32));
-        await Execute("""
-            insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-            values($1,$2,$3,0,false,false)
-            """, credential, id, RandomNumberGenerator.GetBytes(32));
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, "MFA fixture", canAuthor: true);
+        await FixtureSql.SitePasskeyAsync(db, null, ct, id, credential, RandomNumberGenerator.GetBytes(32));
         foreach (var digest in new[] { first, second })
         {
             await Execute("""
@@ -86,11 +82,8 @@ public sealed class MfaPostgresTests
         Assert.Equal(true, await verify.ExecuteScalarAsync(ct));
         CryptographicOperations.ZeroMemory(seed);
 
-        async Task Execute(string sql, params object[] parameters)
-        {
-            await using var command = Store.Sql(db, null, sql, parameters);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] parameters) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
     }
 
     private static FrameType DecodeType(byte[] frame)

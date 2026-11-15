@@ -206,14 +206,8 @@ public sealed class SitePasskeyMetadataPostgresTests
     private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct, bool enabled = true)
     {
         var owner = Guid.NewGuid();
-        await using (var insert = Store.Sql(db, null, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,$3,1)
-            """, owner, name, enabled))
-            await insert.ExecuteNonQueryAsync(ct);
-        await using var subject = Store.Sql(db, null, """
-            insert into public.passkey_subject(user_id,user_handle) values($1,$2)
-            """, owner, RandomNumberGenerator.GetBytes(32));
-        await subject.ExecuteNonQueryAsync(ct);
+        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: false, enabled);
+        await FixtureSql.SitePasskeySubjectAsync(db, null, ct, owner);
         return owner;
     }
 
@@ -234,15 +228,8 @@ public sealed class SitePasskeyMetadataPostgresTests
     private static async Task<(string Token, string Id)> AddSession(NpgsqlConnection db, Guid owner, DateTimeOffset expiry,
         byte[]? credential, CancellationToken ct, long generation = 1)
     {
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var digest = Store.TokenDigest(token)!;
-        var passkey = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)credential ?? DBNull.Value };
-        await using var insert = Store.Sql(db, null, """
-            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id)
-            values($1,$2,$3,$4,$5)
-            """, digest, owner, generation, expiry, passkey);
-        await insert.ExecuteNonQueryAsync(ct);
-        return (token, SiteSessions.Id(owner, digest));
+        var (token, id, _) = await FixtureSql.SiteSessionAsync(db, owner, expiry, ct, generation, credential);
+        return (token, id);
     }
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>

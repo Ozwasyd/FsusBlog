@@ -116,11 +116,8 @@ public sealed class PublicationHistoryPostgresTests
             return result.ToArray();
         }
 
-        async Task Execute(string sql, params object[] values)
-        {
-            await using var cmd = Store.Sql(db, null, sql, values);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, values);
 
         async Task<T> Scalar<T>(string sql, params object[] values)
         {

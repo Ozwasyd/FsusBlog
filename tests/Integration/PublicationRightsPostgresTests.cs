@@ -185,11 +185,8 @@ public sealed class PublicationRightsPostgresTests
             string Slice(int slot) => Encoding.UTF8.GetString(bytes, blob + BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(rights + slot)),
                 BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(rights + slot + 4)));
         }
-        async Task Execute(string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
         Task<long> Count(string sql, params object[] args) => Scalar<long>(sql, args);
         async Task<T> Scalar<T>(string sql, params object[] args)
         {

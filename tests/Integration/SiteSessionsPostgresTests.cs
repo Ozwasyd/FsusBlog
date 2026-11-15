@@ -3,7 +3,6 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Sessions;
 using Npgsql;
-using NpgsqlTypes;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -116,41 +115,20 @@ public sealed class SiteSessionsPostgresTests
     private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct)
     {
         var id = Guid.NewGuid();
-        await using var insert = Store.Sql(db, null, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,true,1)
-            """, id, name);
-        await insert.ExecuteNonQueryAsync(ct);
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, name, canAuthor: false);
         return id;
     }
 
     private static async Task<byte[]> AddCredential(NpgsqlConnection db, Guid account, CancellationToken ct)
     {
-        await using (var subject = Store.Sql(db, null, """
-            insert into public.passkey_subject(user_id,user_handle) values($1,$2)
-            """, account, RandomNumberGenerator.GetBytes(32)))
-            await subject.ExecuteNonQueryAsync(ct);
         var credential = RandomNumberGenerator.GetBytes(32);
-        await using var insert = Store.Sql(db, null, """
-            insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-            values($1,$2,$3,0,false,false)
-            """, credential, account, RandomNumberGenerator.GetBytes(32));
-        await insert.ExecuteNonQueryAsync(ct);
+        await FixtureSql.SitePasskeyAsync(db, null, ct, account, credential, RandomNumberGenerator.GetBytes(32));
         return credential;
     }
 
-    private static async Task<(string Token, string Id, byte[] Digest)> AddSession(NpgsqlConnection db, Guid account,
-        DateTimeOffset expiry, CancellationToken ct, long generation = 1, byte[]? credential = null, bool mfa = false)
-    {
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var digest = Store.TokenDigest(token)!;
-        var passkey = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)credential ?? DBNull.Value };
-        await using var insert = Store.Sql(db, null, """
-            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
-            values($1,$2,$3,$4,$5,case when $6 then clock_timestamp() else null end)
-            """, digest, account, generation, expiry, passkey, mfa);
-        await insert.ExecuteNonQueryAsync(ct);
-        return (token, SiteSessions.Id(account, digest), digest);
-    }
+    private static Task<(string Token, string Id, byte[] Digest)> AddSession(NpgsqlConnection db, Guid account,
+        DateTimeOffset expiry, CancellationToken ct, long generation = 1, byte[]? credential = null, bool mfa = false) =>
+        FixtureSql.SiteSessionAsync(db, account, expiry, ct, generation, credential, mfa);
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>
         Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);

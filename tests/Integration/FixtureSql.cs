@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -29,6 +31,38 @@ internal static class FixtureSql
             """, id, handle, RandomNumberGenerator.GetBytes(32), credential, key,
             grants.Prepend(CurrentSchema.AdminManagePermission).ToArray(), digest, minutes);
         return (id, token, digest);
+    }
+
+    internal static Task<int> SiteAccountAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
+        Guid id, string name, bool canAuthor, bool enabled = true) => ExecuteAsync(db, tx, ct, """
+            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,$4,1)
+            """, id, name, canAuthor, enabled);
+
+    internal static Task<int> SitePasskeySubjectAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, Guid account) =>
+        ExecuteAsync(db, tx, ct, "insert into public.passkey_subject(user_id,user_handle) values($1,$2)",
+            account, RandomNumberGenerator.GetBytes(32));
+
+    internal static async Task SitePasskeyAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
+        Guid account, byte[] credential, byte[] key)
+    {
+        await SitePasskeySubjectAsync(db, tx, ct, account);
+        await ExecuteAsync(db, tx, ct, """
+            insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
+            values($1,$2,$3,0,false,false)
+            """, credential, account, key);
+    }
+
+    internal static async Task<(string Token, string Id, byte[] Digest)> SiteSessionAsync(NpgsqlConnection db,
+        Guid account, DateTimeOffset expiry, CancellationToken ct, long generation, byte[]? credential, bool mfa = false)
+    {
+        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var digest = Store.TokenDigest(token)!;
+        var passkey = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)credential ?? DBNull.Value };
+        await ExecuteAsync(db, null, ct, """
+            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
+            values($1,$2,$3,$4,$5,case when $6 then clock_timestamp() else null end)
+            """, digest, account, generation, expiry, passkey, mfa);
+        return (token, SiteSessions.Id(account, digest), digest);
     }
 
     internal static async Task<int> ExecuteAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,

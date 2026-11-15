@@ -235,11 +235,8 @@ public sealed class ArticleSchedulePostgresTests
             Assert.True(response.Headers.CacheControl?.NoStore);
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
-        async Task Execute(string sql, params object[] values)
-        {
-            await using var cmd = Store.Sql(db, null, sql, values);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, values);
         async Task<T> Scalar<T>(string sql, params object[] values)
         {
             return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;

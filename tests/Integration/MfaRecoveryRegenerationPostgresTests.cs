@@ -132,12 +132,8 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         var replayFloor = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / Totp.StepSeconds;
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await Execute(db, tx, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,true,1)", account, name);
-            await Execute(db, tx, ct, "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", account, RandomNumberGenerator.GetBytes(32));
-            await Execute(db, tx, ct, """
-                insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-                values($1,$2,$3,0,false,false)
-                """, credential, account, RandomNumberGenerator.GetBytes(32));
+            await FixtureSql.SiteAccountAsync(db, tx, ct, account, name, canAuthor: false);
+            await FixtureSql.SitePasskeyAsync(db, tx, ct, account, credential, RandomNumberGenerator.GetBytes(32));
             await Execute(db, tx, ct, """
                 insert into public.mfa_totp(user_id,sealed_seed,last_step,verified_at,retry_after,failed_count)
                 values($1,$2,$3,clock_timestamp(),clock_timestamp(),0)
@@ -189,11 +185,8 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         return digests.ToArray();
     }
 
-    private static async Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] args)
-    {
-        await using var command = Store.Sql(db, tx, sql, args);
-        await command.ExecuteNonQueryAsync(ct);
-    }
+    private static Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] args) =>
+        FixtureSql.ExecuteAsync(db, tx, ct, sql, args);
 
     private static MfaAttempt Attempt(string token, string action, string recovery) => new(token, action, "", recovery);
 

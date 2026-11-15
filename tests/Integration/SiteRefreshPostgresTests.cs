@@ -235,19 +235,8 @@ public sealed class SiteRefreshPostgresTests
     {
         var owner = Guid.NewGuid();
         var credential = RandomNumberGenerator.GetBytes(32);
-        await using var account = Store.Sql(db, null, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)
-            """, owner, name);
-        await account.ExecuteNonQueryAsync(ct);
-        await using var subject = Store.Sql(db, null, """
-            insert into public.passkey_subject(user_id,user_handle) values($1,$2)
-            """, owner, RandomNumberGenerator.GetBytes(32));
-        await subject.ExecuteNonQueryAsync(ct);
-        await using var passkey = Store.Sql(db, null, """
-            insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-            values($1,$2,$3,0,false,false)
-            """, credential, owner, RandomNumberGenerator.GetBytes(32));
-        await passkey.ExecuteNonQueryAsync(ct);
+        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: true);
+        await FixtureSql.SitePasskeyAsync(db, null, ct, owner, credential, RandomNumberGenerator.GetBytes(32));
         return (owner, credential);
     }
 

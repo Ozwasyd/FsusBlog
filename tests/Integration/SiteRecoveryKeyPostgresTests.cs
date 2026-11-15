@@ -226,12 +226,8 @@ public sealed class SiteRecoveryKeyPostgresTests
     private static async Task<Account> AddAccount(NpgsqlConnection db, RecoveryKeySecret secrets, string name, CancellationToken ct)
     {
         var id = Guid.NewGuid();
-        await Execute(db, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,true,1)", ct, id, name);
-        await Execute(db, "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", ct, id, RandomNumberGenerator.GetBytes(32));
-        await Execute(db, """
-            insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-            values($1,$2,$3,0,false,false)
-            """, ct, RandomNumberGenerator.GetBytes(32), id, new byte[] { 2 });
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, name, canAuthor: false);
+        await FixtureSql.SitePasskeyAsync(db, null, ct, id, RandomNumberGenerator.GetBytes(32), [2]);
         var generated = secrets.Generate();
         await Execute(db, """
             insert into public.site_recovery_key(user_id,lookup_digest,salt,verifier,version,created_at,failed_count)
@@ -251,17 +247,11 @@ public sealed class SiteRecoveryKeyPostgresTests
         return token;
     }
 
-    private static async Task<object?> Scalar(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
-    {
-        await using var command = Store.Sql(db, null, sql, values);
-        return await command.ExecuteScalarAsync(ct);
-    }
+    private static Task<object?> Scalar(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values) =>
+        FixtureSql.ScalarAsync(db, null, ct, sql, values);
 
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
-    {
-        await using var command = Store.Sql(db, null, sql, values);
-        await command.ExecuteNonQueryAsync(ct);
-    }
+    private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values) =>
+        FixtureSql.ExecuteAsync(db, null, ct, sql, values);
 
     private static async Task Denied(Func<Task> operation) =>
         Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(operation)).Rejection);
