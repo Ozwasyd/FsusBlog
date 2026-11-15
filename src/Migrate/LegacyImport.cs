@@ -38,10 +38,17 @@ internal static partial class Migration
         int SchemaVersion, string SchemaSha256, DatabaseTarget Target, Guid TargetSiteId, string BackupManifestSha256,
         string OwnerMapSha256, string SourceAdminIdentitySha256, LegacyProjection[] SourceProjections,
         ShadowCount[] ExpectedTables, ImportFinding[] Findings, bool ReadyToApply, bool ReadyToStage,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportMediaSeal? Media = null);
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
+        LegacyImportMediaInput? media = null;
+        if (arguments is [.. var core, "--media", var mediaPath, var mediaDigest])
+        {
+            media = new(mediaPath, mediaDigest);
+            arguments = core;
+        }
         if (arguments is [("project" or "verify") and var projectionMode, var plan, var planDigest,
                 var backupDirectory, var backupDigest, .. var options])
         {
@@ -51,7 +58,7 @@ internal static partial class Migration
                 ["--evaluate-schedules-at", var timestamp] => ParseLegacyScheduleEvaluation(timestamp),
                 _ => throw new ArgumentException("Use --evaluate-schedules-at with one UTC evaluation timestamp.")
             };
-            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, evaluation, token);
+            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, evaluation, media, token);
         }
         if (arguments.Length is < 5 or > 6 || arguments[0] is not ("plan" or "apply") ||
             (arguments[0] == "apply") != (arguments.Length == 6))
@@ -62,7 +69,7 @@ internal static partial class Migration
         var ct = timeout.Token;
         try
         {
-            var actual = await ImportLegacyAsync(arguments, ct);
+            var actual = await ImportLegacyAsync(arguments, media, ct);
             return actual;
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested && timeout.IsCancellationRequested)
@@ -75,13 +82,17 @@ internal static partial class Migration
         }
     }
 
-    private static async Task<int> ImportLegacyAsync(string[] arguments, CancellationToken token)
+    private static async Task<int> ImportLegacyAsync(string[] arguments, LegacyImportMediaInput? media, CancellationToken token)
     {
         var (mode, provider, ownerPath, backupDirectory, backupDigest) =
             (arguments[0], arguments[1], arguments[2], arguments[3], arguments[4]);
         var expected = mode == "apply"
             ? await ReadImportPlanAsync(arguments[5], token)
             : null;
+        if (media is not null && provider != "postgres")
+            throw new InvalidOperationException("Joined media requires the reviewed PostgreSQL source cluster, database and schema.");
+        var mediaPackage = await ReadLegacyImportMediaAsync(media, expected, token);
+        var mediaBinding = mediaPackage is null ? null : LegacyImportMediaBinding(media!, mediaPackage);
         var backup = await ReadLegacyImportBackupAsync(backupDirectory, backupDigest, token);
         var settings = ParseImportTarget();
         var source = ParseLegacySource(provider);
@@ -105,11 +116,16 @@ internal static partial class Migration
         if (audit.Issues.Count != 0)
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
-        var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy, token);
+        var mediaSource = mediaPackage is null ? null : await ReadLegacyImportMediaSourceAsync(mediaPackage, source,
+            sourceTransaction, sourceSeal, catalog, tables, principal, token);
+        var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy,
+            token, mediaSource is not null);
         var (commands, outbox, _, readingHistory, savedViews, findings) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries, readingHistory.Rows, savedViews.Relations);
+        var counts = mediaPackage is null ? shadow.Report.Counts :
+            [.. shadow.Report.Counts, .. await StageLegacyImportMediaShadowAsync(shadow, mediaPackage, token)];
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -119,10 +135,20 @@ internal static partial class Migration
         if (provider == "postgres" && expected is { SourceSeal: null } && !quarantined)
             throw new InvalidOperationException("Create a new sealed PostgreSQL plan before staging a fresh legacy candidate.");
         var schemaDigest = Digest(await SchemaSqlAsync(token));
+        if (mediaBinding is not null)
+        {
+            if (siteId != mediaPackage!.Review.TargetSiteId || schemaDigest != mediaPackage.Review.TargetSchemaSha256 ||
+                shadow.Report.SourceAdminIdentitySha256 != mediaPackage.Review.SourceAdminIdentitySha256)
+                throw new InvalidOperationException("The joined media package disagrees with the candidate site, schema or principals.");
+            await using var read = await BeginReadOnlyAsync(target, token);
+            await CheckLegacyImportMediaTargetAsync(target, read, mediaBinding, mediaSource!.Cluster, token);
+            await read.RollbackAsync(token);
+        }
         // Previously admitted empty derived tables were not sealed. An existing approved plan can replay that empty case.
         var includeTaxonomy = taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
             prior.Any(row => IsLegacyTaxonomyRelation(row.Table));
         var sourceProjections = evidence.SourceProjections(audit, includeTaxonomy);
+        if (mediaSource is not null) sourceProjections = [.. sourceProjections, .. mediaSource.Projections];
         var version = outbox.RollbackCount > 0 ? ImportPlanWithRollbackOutboxVersion :
             outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
             outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
@@ -130,7 +156,8 @@ internal static partial class Migration
         var plan = new ImportPlan(version,
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
-            sourceProjections, shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0, SourceSeal: sourceSeal);
+            sourceProjections, counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0,
+            SourceSeal: sourceSeal, Media: mediaBinding);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -181,20 +208,20 @@ internal static partial class Migration
 
     private static async Task<LegacyImportEvidence> ReadLegacyImportEvidenceAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyTaxonomyEvidence taxonomy,
-        CancellationToken token)
+        CancellationToken token, bool verifiedMedia = false)
     {
         var commands = await ReadLegacyCreateCommandsAsync(source, transaction, catalog, tables, principal, token);
         var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
         var history = await ReadLegacyReadingHistoryAsync(source, transaction, tables[Article], catalog, token);
         var savedViews = await ReadLegacySavedViewsAsync(source, transaction, catalog, principal, token);
-        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, savedViews, token);
+        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, savedViews, verifiedMedia, token);
         return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
         LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
-        CancellationToken token)
+        bool verifiedMedia, CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
@@ -205,7 +232,8 @@ internal static partial class Migration
         {
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
-                taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name)) continue;
+                taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name) ||
+                (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)

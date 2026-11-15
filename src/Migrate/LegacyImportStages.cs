@@ -44,7 +44,7 @@ internal static partial class Migration
     {
         var definitions = BaseCandidateDefinitions(plan);
         var readingHistory = LegacyReadingHistoryDefinitions(plan);
-        return [.. definitions, .. readingHistory, .. LegacySavedViewDefinitions(plan)];
+        return [.. definitions, .. readingHistory, .. LegacySavedViewDefinitions(plan), .. LegacyImportMediaDefinitions(plan)];
     }
 
     private static CandidateTable[] BaseCandidateDefinitions(ImportPlan plan) => plan.Version switch
@@ -226,8 +226,8 @@ internal static partial class Migration
             throw new InvalidOperationException($"Candidate table {table.Name} shape differs.");
         if (table == LegacyReadingHistoryShadow && !await HasLegacyReadingHistoryKeyAsync(tx, ImportSchema, table.Name, table.NonNull!, token))
             throw new InvalidOperationException($"Candidate table {table.Name} shape differs.");
-        if (LegacySavedViewRelations.Any(relation => relation.Target == table) &&
-            !await HasSavedViewKeysAsync(tx, ImportSchema, table.Name, table, [], token))
+        if ((LegacySavedViewRelations.Any(relation => relation.Target == table) ||
+            table == LegacyMediaAssetShadow || table == LegacyMediaReferenceShadow) && !await HasSavedViewKeysAsync(tx, ImportSchema, table.Name, table, [], token))
             throw new InvalidOperationException($"Candidate table {table.Name} shape differs.");
         await using (var catalog = new NpgsqlCommand("""
             SELECT a.attname,t.typname

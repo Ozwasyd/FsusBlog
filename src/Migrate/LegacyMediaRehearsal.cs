@@ -36,7 +36,7 @@ internal static partial class Migration
             {
                 case ["verify", var package, var manifestDigest]:
                     var verified = await VerifyLegacyMediaPackageAsync(package, manifestDigest, ct);
-                    WriteLegacyMediaReceipt(manifestDigest, verified);
+                    WriteLegacyMediaReceipt(manifestDigest, verified.Files.Length);
                     return 0;
                 case ["plan", var provider, var publicRoot, var privateRoot, var sourceSite, var targetSite]:
                     return await CaptureLegacyMediaAsync(provider, publicRoot, privateRoot,

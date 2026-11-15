@@ -35,6 +35,25 @@ receipt_counts_after_restore = (
 )
 
 
+
+def asset_constraint_forms(name, field, choices, suffix):
+    # A PostgreSQL 18 logical restore distributes the original text[] cast over identical literals.
+    varying = [f"'{choice}'::character varying" for choice in choices]
+    before = f"(ARRAY[{', '.join(varying)}])::text[]"
+    after = "ARRAY[" + ", ".join(f"({value})::text" for value in varying) + "]"
+    head = f"    CONSTRAINT {name} CHECK ((({field})::text = ANY ("
+    return ((head + before + ")))" + suffix + "\n").encode("ascii"),
+            (head + after + ")))" + suffix + "\n").encode("ascii"))
+
+
+exact_check_renderings = dict([
+    (receipt_counts_before_restore, receipt_counts_after_restore),
+    asset_constraint_forms("content_asset_state_check", "state", ("active", "pending_delete"), ","),
+    asset_constraint_forms("content_asset_storage_class_check", "storage_class", ("public", "private"), ""),
+    asset_constraint_forms("content_asset_reference_source_kind_check", "source_kind", ("article", "draft", "revision"), ""),
+])
+
+
 def tools_for_owned_fixture(source, restored):
     prefix = re.fullmatch(r"(fsusv2_import_[0-9a-f]{24})_source", source)
     backup.ensure(prefix and restored == prefix[1] + "_source_restore", "Use the rehearsal's owned source and restore database names.")
@@ -76,15 +95,14 @@ def measure_dump(args, env, snapshot=None):
         _, raw = backup.copy_checked(observed, limit=limit)
         observed.seek(0)
         logical = hashlib.sha256()
-        rewrites = 0
+        rewritten = set()
         for line in observed:
-            # PostgreSQL 18 re-parses this exact v1 CHECK into the same six AND operands with different grouping.
-            if line == receipt_counts_before_restore:
-                line = receipt_counts_after_restore
-                rewrites += 1
+            if line in exact_check_renderings:
+                backup.ensure(line not in rewritten, "A known CHECK rendering appears more than once in the test fixture dump.")
+                rewritten.add(line)
+                line = exact_check_renderings[line]
             logical.update(line)
-        backup.ensure(rewrites <= 1, "The saved-view receipt-count check appears more than once in the fixture dump.")
-        return raw, logical.hexdigest(), rewrites
+        return raw, logical.hexdigest(), len(rewritten)
 
 
 def capture_and_restore(source, restored, archive_dir):

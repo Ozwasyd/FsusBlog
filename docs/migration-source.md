@@ -68,9 +68,9 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 目标结构摘要与原计划匹配时，已有未封存的 PostgreSQL 计划仍可与原已隔离候选一同续跑或离线复验。新的 PostgreSQL 候选分阶段写入需要当前工具生成的封存计划。SQLite 和 MySQL 的计划格式继续沿用当前各自的来源核验。
 
-`bash tests/Integration/Migration/legacy-import.sh postgres --source-backup` 在私有 PostgreSQL 演练中从导出的旧源快照生成真实 custom archive。工具把同一只读文件描述符交给 `pg_restore`，复查实际原库和恢复库的结构及数据读取摘要，并确认数据库身份不同。测量保留两份原生读取摘要。结构及数据比较只归一化 PostgreSQL 18 对固定 v1 保存视图计数约束的等价括号写法。恢复会压缩先前删除的列所留下的物理位置，目录摘要按各自数据库记录。随后用只读恢复库生成导入计划，核对其业务投影与原库一致，并验证原库不能替代计划中的恢复来源。输出关联已消费归档、候选计划、隔离投影和用于目标回退的 v2 备份。演练同时验证目标断点续跑及独立回退。原始 v1 加密包的身份认证和同一次数据库／非空媒体启用仍须按原始备份与恢复合约验收。
+`bash tests/Integration/Migration/legacy-import.sh postgres --source-backup` 在私有 PostgreSQL 演练中从导出的旧源快照生成真实 custom archive。工具把同一只读文件描述符交给 `pg_restore`，复查实际原库和恢复库的结构及数据读取摘要，并确认数据库身份不同。测量保留两份原生读取摘要。结构及数据比较只归一化 PostgreSQL 18 对固定 v1 保存视图计数约束和附件枚举约束的已知等价写法。恢复会压缩先前删除的列所留下的物理位置，目录摘要按各自数据库记录。随后用只读恢复库生成导入计划，核对其业务投影与原库一致，并验证原库不能替代计划中的恢复来源。输出关联已消费归档、候选计划、隔离投影和用于目标回退的 v2 备份。演练同时验证目标断点续跑及独立回退。原始 v1 加密包的身份认证和同一次数据库／非空媒体启用仍须按原始备份与恢复合约验收。
 
-候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
+候选仍返回 `readyToApply: false`。默认报告逐类列出附件、旧角色或凭据、额外字段和未注册持久表的阻塞行数。符合下文条件的私有附件可随文章隔离暂存。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
 旧站已安装 `20260904-post-author-saved-view` 且有记录时，PostgreSQL `legacy import plan/apply` 按固定 v1 形状核验八张表，保全旧管理员整数与站点范围、视图 UUID、默认与置顶状态、条件与操作数、排序和投影、回执、变更明细与幂等记录。源事务检查键、空值约束、默认引用归属、回执次序及幂等关系。每表最多 5,000 行，总文本预算 128 MB。计划报告行数、摘要和阻塞项。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs) · [v1 持久化](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs)
 
@@ -173,7 +173,7 @@ dotnet run --no-build --project src/Migrate -- legacy assets postgres \
 
 在 macOS 或 Linux 上，此步骤以只读事务和无符号链接跟随的目录句柄检查旧库 `content_asset` 与 `content_asset_reference`。逐件检查 UUID、存储类型、字节数、数据库声明的 SHA-256 和实读 SHA-256。私有件还检查 UUID 对应的存储路径及旧 `admin_principal` 所有者存在。引用使用旧文章 ID 或全局修订 ID，核对修订所属文章；报告保留元数据与关联摘要，省略文件路径及替代文本。一次最多检查 5,000 件附件、20,000 条引用和 1 GiB 字节。
 
-报告的 `issues` 按类计数。旧公有件无原始摘要、文件缺失或改变、私有件所有者未解析、草稿或模板关联、清理状态及尚存的旧 URL 附件表会有对应的条目。退出码 2 表示读取完成且存在这些未解决项，退出码 1 表示提供者、数据格式或输入失败。报告始终返回 `readyToApply: false`。核查只读，现有 `legacy import` 仍拒绝含附件的来源，授权映射、字节落库、历史链接改写与激活仍需实现。
+报告的 `issues` 按类计数。旧公有件无原始摘要、文件缺失或改变、私有件所有者未解析、草稿或模板关联、清理状态及尚存的旧 URL 附件表会有对应的条目。退出码 2 表示读取完成且存在这些未解决项，退出码 1 表示提供者、数据格式或输入失败。报告始终返回 `readyToApply: false`。核查只读。默认的 `legacy import` 会拒绝非空附件关系，下文给出已核实的私有修订附件暂存方式。授权迁移、运行时媒体安装、历史链接改写和启用仍需实现。
 
 旧版编号 `20260826-post-content-asset-id-cutover` 的附件迁移 DDL 以 PostgreSQL 注册。SQLite 与 MySQL 可验看对同一字段结构的离线快照，MySQL 的测试使用 `CHAR(36)` UUID；这只确认快照读取能力。编号切换前的 URL-only 来源无法出具字节权威报告。
 
@@ -203,6 +203,14 @@ dotnet run --no-build --project src/Migrate -- legacy assets rehearsal verify \
 包只写入离线目录，目录模式 0500、单链接普通文件模式 0400。密封清单保存原始附件标识、存储类、精确路径和摘要，保留旧文章及全局修订 ID、引用计数、替代文本及已审核归属。请按原始私有附件保管包。成功回读后输出 `manifestSha256`，应独立保存该值。无数据库连接的 `verify` 按此值核对清单、精确文件集合及每件摘要。该流程不写入任何数据库或站点媒体目录，`readyToApply` 恒为 `false`。
 
 2026-11-15 在 macOS ARM64 使用 SDK 10.0.404 运行 `tests/Integration/Migration/legacy-asset-rehearsal.sh`。SQLite 3.54.0 与独立 PostgreSQL 18.7 源均完成公有和私有件打包及离线回读。验证覆盖同集群跨库、已暂存库、审核与目标站点变化、所有者不符、已有包名称、文件篡改、链接、额外成员与扩展 ACL。输入及候选业务状态均保持一致，自建实例、数据库和目录已清理。MySQL 的附件盘点另有测试，打包链路及 Linux 文件实现尚未实测。原始结果见 `artifacts/native-migration/assets-package-final-20261114T171139.log`。
+
+### 私有修订附件与数据库共同恢复演练
+
+在上述两个独立 PostgreSQL 实例间，先用实际恢复的 v1 来源库和冻结媒体完成 `legacy assets rehearsal copy`，然后向同一个候选执行 `legacy import`。`plan`、`apply`、`project`、`verify` 都在末尾追加 `--media "$package" "$media_manifest_sha256"`。有时间评估选项时先传 `--evaluate-schedules-at UTC`。使用独立保存的原始清单摘要，恢复副本可用不同的合规目录。来源和目标数据库身份、已审核站点、附件 SHA-256、两张来源表的实测摘要、旧管理员及目标作者、文章 ID 和旧全局修订号必须吻合。目标作者的映射须与文章归属映射相同。范围限于启用的非空私有文件，以及未曾发布的修订引用。旧版附件切换会保留既有的非公有引用。 [固定 v1 回填实现](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/ContentAssetCutoverBackfill.cs#L536-L592)
+
+文章、修订与附件的类型化影子行一并提交第一阶段检查点。原文件保持在只读包内。后续投影或回读缺少同一个包及原摘要时会拒绝，现有 `public.private_media` 和文章媒体关联保持空，候选版本为 `-1`。公有文件、已发布修订、正文或封面内链接、草稿来源以及未完成清理依然阻塞。此路径需要有集群标识读取权限的专用旧库只读身份。其他 PostgreSQL 导入可继续使用目录及连接端点核验。
+
+`bash tests/Integration/Migration/legacy-joined-media.sh` 需要已构建的迁移 CLI 和 PostgreSQL 18 客户端及服务端。2026-11-16 在两个一次性 PostgreSQL 18.7 Unix socket 实例通过。原生归档恢复至不同 v1 数据库 OID，3 字节私有文件从独立副本恢复。旧文章 `42` 的全局修订 `5000000003` 及旧管理员 `7` 在同一检查点回读核验。错误来源库、已发布修订、引用或字节变更、省略文件包、已改的候选关联、恢复后的其他目标库均被拒绝。成功续跑的三个检查点相同，重新放入私有目录的密封包通过了候选回读，另一个空库从导入前备份恢复并核对了数据库及其空媒体集。候选仍拒绝启动，两个实例和成功运行的临时目录已清理。本地证据为 `artifacts/legacy-joined-media-2ec1b97/native-3.log`。此演练还未验证实际 v1 加密备份包、非空 v2 运行时媒体安装或生产切换。
 
 ### 离线核对身份兼容性
 

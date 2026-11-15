@@ -11,7 +11,7 @@ internal static partial class Migration
     private const string LegacyProjectionReceipt = "current_projection";
 
     private static async Task<int> RunLegacyProjectionAsync(string mode, string planPath, string planDigest, string backupPath,
-        string backupDigest, DateTimeOffset? scheduleEvaluation, CancellationToken token)
+        string backupDigest, DateTimeOffset? scheduleEvaluation, LegacyImportMediaInput? mediaInput, CancellationToken token)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -26,6 +26,7 @@ internal static partial class Migration
                 plan.BackupManifestSha256 != backupDigest || CanonicalImportPlanDigest(plan) != planDigest)
                 throw new InvalidOperationException("The independently recorded staging plan and current schema must match exactly.");
             var definitions = CandidateDefinitions(plan);
+            await ReadLegacyImportMediaAsync(mediaInput, plan, ct);
             var backup = await ReadLegacyImportBackupAsync(backupPath, backupDigest, ct);
             var settings = ParseImportTarget();
             await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -36,6 +37,8 @@ internal static partial class Migration
                 : await target.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
             await ExecuteAsync(target, tx, "SET LOCAL search_path TO pg_catalog", ct);
             await SetBackupRepresentationAsync(target, tx, ct);
+            if (plan.Media is { } mediaSeal)
+                await CheckLegacyImportMediaTargetAsync(target, tx, mediaSeal, null, ct);
 
             bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, definitions, scheduleEvaluation.HasValue, ct);
             var savedViewDigests = await VerifyRetainedLegacySavedViewDigestsAsync(target, tx, definitions, ct);

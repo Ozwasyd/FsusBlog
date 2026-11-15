@@ -7,11 +7,7 @@ internal static partial class Migration
     private static async Task CopyLegacyMediaAsync(AssetSnapshot snapshot, string publicPath, string privatePath,
         LegacyMediaReview approved, MediaOutput output, CancellationToken token)
     {
-        var owners = approved.Owners.ToDictionary(mapping => mapping.SourceAdminPrincipalId, mapping => mapping.TargetUserId);
-        var objects = snapshot.Metadata.Select(asset => new LegacyMediaObject(asset.Id, asset.StorageClass, asset.Key,
-            asset.Bytes, asset.Digest!.ToLowerInvariant(), asset.MediaType, asset.Extension, asset.Width, asset.Height,
-            NormalizeLegacyMediaTime(asset.Created), NormalizeLegacyMediaTime(asset.Updated), asset.Owner,
-            asset.Owner is { } id ? owners[id] : null)).ToArray();
+        var objects = LegacyMediaObjects(snapshot.Metadata, approved.Owners);
         var manifest = new LegacyMediaManifest(MediaPackageFormat, approved, output.ReviewDigest, objects,
             snapshot.References.Bindings, ReadyToApply: false);
         ValidateLegacyMediaManifest(manifest);
@@ -36,10 +32,19 @@ internal static partial class Migration
         }
 
         var verified = await VerifyLegacyMediaPackageAsync(Path.Join(output.Parent, output.Name), manifestDigest, token);
-        WriteLegacyMediaReceipt(manifestDigest, verified);
+        WriteLegacyMediaReceipt(manifestDigest, verified.Files.Length);
     }
 
-    private static async Task<int> VerifyLegacyMediaPackageAsync(string path, string approvedDigest, CancellationToken token)
+    private static LegacyMediaObject[] LegacyMediaObjects(AssetMeta[] metadata, LegacyMediaOwner[] approved)
+    {
+        var owners = approved.ToDictionary(mapping => mapping.SourceAdminPrincipalId, mapping => mapping.TargetUserId);
+        return metadata.Select(asset => new LegacyMediaObject(asset.Id, asset.StorageClass, asset.Key,
+            asset.Bytes, asset.Digest!.ToLowerInvariant(), asset.MediaType, asset.Extension, asset.Width, asset.Height,
+            NormalizeLegacyMediaTime(asset.Created), NormalizeLegacyMediaTime(asset.Updated), asset.Owner,
+            asset.Owner is { } id ? owners[id] : null)).ToArray();
+    }
+
+    private static async Task<LegacyMediaManifest> VerifyLegacyMediaPackageAsync(string path, string approvedDigest, CancellationToken token)
     {
         if (!IsSha256(approvedDigest))
             throw new ArgumentException("Supply the independently recorded lowercase manifest SHA-256.");
@@ -57,7 +62,7 @@ internal static partial class Migration
                 throw new InvalidOperationException("A quarantined media payload does not match its manifest length or SHA-256.");
         }
         package.RequireExactFiles(manifest.Files.Select(asset => asset.AssetId));
-        return manifest.Files.Length;
+        return manifest;
     }
 
     private static void WriteLegacyMediaReceipt(string sha256, int files) =>
