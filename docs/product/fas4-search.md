@@ -1,0 +1,9 @@
+# 公开 FAS4 服务端检索
+
+`GET /api/binary/article/search/query.aeds?q=…` 返回当前公开快照的 FAS4 ArticleSearch 帧，使用相同的公开代次和 `Cache-Control: no-store`。空查询返回 AEDS 400。原始参数最多 256 个 UTF-16 单元。查询先做 NFKC、压缩空白及小写转换，再按固定 v1 的 128 单元边界截取。文章字段以已有的正文和修订元数据建立词元，CJK 词保留命中的词典子词。 [固定 v1 路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs#L121) · [固定 v1 查询归一化](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.CacheAndInvalidation.cs#L414) · [固定 v1 词元来源](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs#L52)
+
+独立查询词元采用并集召回，再计算整份公开语料的 BM25。标题、摘要、分类和标签、正文各次命中的权重分别为 16、8、5、2。文档长度使用前 256 Ki 个 UTF-16 单元的正文，清除 Markdown 链接目标、行内 HTML 标签和标记符号后计数。已选结果最多 200 篇，排序按得分、创建时间和文章 ID 降序。v2 用当前已发布摘要及分类标签。未录入分类的文章没有分类词元。旧站阅读次数和原始摘要字段尚待迁移对账。 [固定 v1 索引及候选排序](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.RuntimePersistence.cs#L65) · [固定 v1 BM25](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Search/SearchRuntimeScorer.cs)
+
+快照内只保留文章引用、长度归一化系数、词元区间和紧凑倒排记录。构建上限为 40,000 篇、262,144 个词元、3,000,000 条倒排记录及 128 Mi 个扫描 UTF-16 单元。超出上限时专用查询返回 AEDS 503。查询在内存评分，以 200 项堆筛选结果，编码前后受当前快照的可见性控制。浏览器分片及列表路由继续使用各自的投影。 [浏览器全文检索](public-search.md)
+
+两项 Release 检查通过。PostgreSQL 与 Kestrel 验证了 FAS4 字节布局及发布坐标、不同字段的排序、CJK 词典边界、并集和去重、200 条上限及撤回投影失败后的拒绝与重放。六次查询返回 200，其请求归因的 PostgreSQL 命令和物理连接增量均为零。独立索引诊断用 12,050 篇合成发布文章、61,708,288 字节正文，构建用时约 748 毫秒，分配约 71.5 MB，完整垃圾回收后净保留约 14.5 MB。该诊断记录独立索引开销，完整服务的容量和长时预算由 P2 矩阵验收。 [原生检查](../../artifacts/fas4-http-search/native.log) · [独立诊断证据](../../artifacts/fas4-http-search/profile.json)

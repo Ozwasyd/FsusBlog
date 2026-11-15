@@ -16,13 +16,13 @@ namespace FsusBlog.V2.Server;
 
 internal sealed class PublicSnapshot
 {
-    private readonly IReadOnlyList<Article> _ordered;
     private readonly byte[][] _index;
     private readonly IReadOnlyList<byte[]>? _corpus;
     private readonly EntityTagHeaderValue[] _corpusTags;
     private readonly FrozenDictionary<int, Article> _byId;
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
+    private readonly ArticleSearchIndex? _search;
     private readonly PublishedMediaProjection? _media;
     internal long Generation { get; }
     internal string GenerationHeader { get; }
@@ -47,7 +47,7 @@ internal sealed class PublicSnapshot
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
-        _ordered = articles;
+        _search = ArticleSearchIndex.Build(articles, cancellationToken);
         _byId = articles.ToFrozenDictionary(article => article.Id);
         _media = media;
         _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media);
@@ -84,10 +84,11 @@ internal sealed class PublicSnapshot
         CancellationToken ct, Func<Article, bool>? filter = null) =>
         _listing.Read(PublicListQuery.Parse(scope, page, size, keyword, sort, cursor), ct, filter);
 
-    internal byte[] Search(string? keyword)
+    internal byte[]? Search(string keyword, CancellationToken ct)
     {
-        var matching = Match(keyword);
-        return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
+        if (_search is null) return null;
+        var matching = _search.Search(keyword, ct);
+        return PublicArticles.EncodeSearch(matching, matching.Length);
     }
 
     private static EntityTagHeaderValue[] CorpusTags(IReadOnlyList<byte[]> pages, CancellationToken ct)
@@ -109,6 +110,7 @@ internal sealed class PublicSnapshot
         // One coordinate covers every HTTP representation. A restart with unchanged
         // article rows still cannot serve changed corpus bytes at the old coordinate.
         hash.AppendData("public-generation-corpus-v1\0"u8);
+        hash.AppendData("public-search-bm25-v1\0"u8);
         AppendNumber(corpus?.Count ?? -1);
         if (corpus is not null)
         {
@@ -144,16 +146,6 @@ internal sealed class PublicSnapshot
             hash.AppendData(number);
         }
     }
-
-    private Article[] Match(string? keyword)
-    {
-        IEnumerable<Article> query = _ordered;
-        if (!string.IsNullOrWhiteSpace(keyword))
-            query = query.Where(article => article.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                                           article.Body.Contains(keyword, StringComparison.OrdinalIgnoreCase));
-        return query.ToArray();
-    }
-
 }
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,

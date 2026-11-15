@@ -299,9 +299,9 @@ app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
     var keyword = Query(ctx, "q", 256)?.Trim();
     if (string.IsNullOrEmpty(keyword)) return Error(ctx, 400, "A search term is required.");
     var snapshot = Snapshot(ctx);
-    var bytes = snapshot.Search(keyword);
+    var bytes = snapshot.Search(keyword, ctx.RequestAborted);
     RequireCurrentSnapshot(ctx, snapshot);
-    return Results.Bytes(bytes, Binary);
+    return bytes is null ? Error(ctx, 503, "The article search projection is unavailable.") : Results.Bytes(bytes, Binary);
 }).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
 {

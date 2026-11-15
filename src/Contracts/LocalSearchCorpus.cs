@@ -380,7 +380,7 @@ public static class LocalSearchCorpus
     private static Token DictionaryToken(ReadOnlySpan<char> word, int advance) =>
         new(HashWord(word), word.Length, advance, SearchLexicon.IsStopword(word));
 
-    private static uint HashWord(ReadOnlySpan<char> word)
+    internal static uint HashWord(ReadOnlySpan<char> word)
     {
         if (word.Length == 1) return HashRune(new Rune(word[0]));
         Span<byte> bytes = stackalloc byte[word.Length * 3];
@@ -394,7 +394,7 @@ public static class LocalSearchCorpus
         return FinishHash(hash, tail, length);
     }
 
-    private static uint HashAscii(ReadOnlySpan<char> token)
+    internal static uint HashAscii(ReadOnlySpan<char> token)
     {
         uint hash = 0;
         var offset = 0;
@@ -411,7 +411,7 @@ public static class LocalSearchCorpus
         return FinishHash(hash, tail, token.Length);
     }
 
-    private static uint HashRune(Rune rune)
+    internal static uint HashRune(Rune rune)
     {
         Span<byte> encoded = stackalloc byte[4];
         var bytes = encoded[..rune.EncodeToUtf8(encoded)];
