@@ -7,8 +7,9 @@ import { encodeSignIn, FrameType, WireHeaders, WireLayouts, WireRoutes } from '.
 
 const inputs = process.argv.slice(2)
 const rollback = inputs.length === 12 && inputs[11] === '--rollback'
-assert(inputs.length === 11 || rollback,
-  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY" "SUMMARY" [--rollback]')
+const republish = inputs.length === 12 && inputs[11] === '--republish'
+assert(inputs.length === 11 || rollback || republish,
+  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY" "SUMMARY" [--rollback|--republish]')
 const [url, articleInput, revisionInput, publicationInput, rightsInput, categoryInput, tagName, alias, title, body, summary] = inputs
 const base = new URL(url)
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
@@ -76,7 +77,7 @@ async function frame(label, path, type) {
 function checkArticle(article) {
   assert(article, 'Expected the retained article in the public projection.')
   assert.deepEqual([article.id, article.revision, article.publication, article.revisionNo, article.publicationNo],
-    [id, expectedRevision, expectedPublication, Number(expectedRevision), rollback ? 3 : 1])
+    [id, expectedRevision, expectedPublication, Number(expectedRevision), Number(expectedRevision)])
   assert.equal(article.title, title)
   assert.equal(article.category.id, categoryId)
   assert(article.tags.some(tag => tag.name === tagName), 'Expected the retained public taxonomy assignment.')
@@ -168,10 +169,12 @@ if (rollback) {
   const retainedQuery = `${WireRoutes.PublicSearch}?${new URLSearchParams({ q: summary })}`
   const retained = decodeSearch(await frame('retainedSummarySearch', retainedQuery, FrameType.ArticleSearch))
   assert.deepEqual(retained.articles.map(item => [item.id, item.summary]), [[id, summary]])
-
+}
+if (rollback || republish) {
+  if (republish) assert(!html.includes('<h1>First</h1>'), 'The first publication must be superseded.')
   const relatedPath = publication => `${WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(id))}?publication=${publication}`
   await frame('activeRelated', relatedPath(expectedPublication), FrameType.ArticleRelatedReading)
-  for (const publication of [900000001n, 900000002n]) {
+  for (const publication of rollback ? [900000001n, 900000002n] : [900000001n]) {
     await reject(`supersededRelated${publication}`, relatedPath(publication), 409)
     await reject(`supersededProof${publication}`, proofPath(publication), 404)
   }

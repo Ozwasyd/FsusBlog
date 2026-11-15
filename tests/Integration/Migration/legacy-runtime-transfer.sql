@@ -3,6 +3,10 @@
 \else
 \set media_profile false
 \endif
+\if :{?republish_profile}
+\else
+\set republish_profile false
+\endif
 \if :media_profile
 \set revision_count 3
 \set public_revision 2
@@ -16,6 +20,19 @@
 \set publication_next 900000003
 \set rights_next 702
 \set owner_enabled true
+\elif :republish_profile
+\set revision_count 2
+\set public_revision 2
+\set publication_count 2
+\set responsibility_count 0
+\set proof_binding false
+\set publication_id 900000002
+\set rights_id 701
+\set category_next 13
+\set tag_next 24
+\set publication_next 900000003
+\set rights_next 702
+\set owner_enabled false
 \elif :rollback_profile
 \set revision_count 3
 \set public_revision 3

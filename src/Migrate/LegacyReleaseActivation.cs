@@ -8,7 +8,7 @@ using Npgsql;
 internal static partial class Migration
 {
     private const string LegacyReleaseActivationVariable = "FSUSBLOG_RELEASE_ACTIVATION_DB";
-    private static readonly Lazy<HashSet<string>> FirstReleaseShadows = new(() => StagingDefinitions.Value.Select(table => table.Name)
+    private static readonly Lazy<HashSet<string>> ReleaseActivationShadows = new(() => StagingDefinitions.Value.Select(table => table.Name)
         .Where(name => name != "shadow_article_responsibility_snapshot")
         .Concat([LegacyOutboxParent.Table.Name, LegacyOutboxEdge.Table.Name]).ToHashSet(StringComparer.Ordinal));
 
@@ -19,11 +19,11 @@ internal static partial class Migration
 
     private static async Task RunLegacyReleaseActivationAsync(NpgsqlConnection source, NpgsqlTransaction sourceTx,
         ImportPlan plan, string planSha, string projectionSha, LegacyReleaseActivationInput input,
-        ProjectionRelation[] projection, List<BackupRelation> business, CancellationToken ct)
+        ProjectionRelation[] projection, List<BackupRelation> business, int verifiedRepublishEvents, CancellationToken ct)
     {
         if (input.Site == plan.TargetSiteId)
             throw new InvalidOperationException("The approved runtime site must differ from the source quarantine site.");
-        var owners = await VerifyLegacyFirstReleaseScopeAsync(source, sourceTx, plan, ct);
+        var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, ct);
         string? approved = null;
         if (input.Approval is [var path, var digest])
         {
@@ -128,17 +128,26 @@ internal static partial class Migration
         }, Json));
     }
 
-    private static async Task<Guid[]> VerifyLegacyFirstReleaseScopeAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        ImportPlan plan, CancellationToken ct)
+    private static async Task<Guid[]> VerifyLegacyReleaseScopeAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+        ImportPlan plan, int verifiedRepublishEvents, CancellationToken ct)
     {
         var counts = plan.ExpectedTables.ToDictionary(row => row.Table, row => row.Rows, StringComparer.Ordinal);
         var articles = counts["shadow_article"];
+        var releases = plan.Version switch
+        {
+            ImportPlanWithProcessedOutboxVersion => 1,
+            ImportPlanWithRepublishOutboxVersion => 2,
+            _ => 0
+        };
+        var publications = articles * releases;
         if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
-            plan.Version != ImportPlanWithProcessedOutboxVersion || plan.Media is not null || articles is < 1 or > 32 ||
-            counts.Any(item => item.Value != 0 && !FirstReleaseShadows.Value.Contains(item.Key)) ||
-            new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_policy", "shadow_article_rights_snapshot", LegacyOutboxParent.Table.Name }
-                .Any(table => counts[table] != articles) || counts[LegacyOutboxEdge.Table.Name] != articles * LegacyRequiredOutboxEdges.Length)
-            throw new InvalidOperationException("Release activation requires a complete batch of first immediate publications and their retained work.");
+            releases == 0 || plan.Media is not null || articles is < 1 or > 32 ||
+            verifiedRepublishEvents != articles * (releases - 1) || counts["shadow_article_rights_policy"] != articles ||
+            counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key)) ||
+            new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_snapshot", LegacyOutboxParent.Table.Name }
+                .Any(table => !counts.TryGetValue(table, out var rows) || rows != publications) ||
+            !counts.TryGetValue(LegacyOutboxEdge.Table.Name, out var edges) || edges != publications * LegacyRequiredOutboxEdges.Length)
+            throw new InvalidOperationException("Release activation requires a complete batch of immediate first publications or ordinary republishes and their retained work.");
         await using var command = new NpgsqlCommand($"""
             SELECT a.owner_id::uuid
             FROM {ImportSchema}.shadow_article a
@@ -146,27 +155,33 @@ internal static partial class Migration
             JOIN {ImportSchema}.shadow_publication p ON p.source_publication_id=a.current_publication_id
             JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
             JOIN {ImportSchema}.shadow_article_rights_policy q ON q.id=s.article_rights_policy_id AND q.article_id=a.id
-            WHERE a.source_status=2 AND a.deleted=0 AND a.current_revision=1 AND a.current_public_revision_candidate=1
-              AND a.last_publication_number=1 AND a.summary IS NOT DISTINCT FROM r.summary
-              AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=1
-              AND p.publication_number=1 AND p.revision=1 AND p.source_transition='immediate-publish'
+            WHERE a.source_status=2 AND a.deleted=0 AND a.current_revision=$1 AND a.current_public_revision_candidate=$1
+              AND a.last_publication_number=$1 AND a.summary IS NOT DISTINCT FROM r.summary
+              AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=$1
+              AND p.publication_number=$1 AND p.revision=$1 AND p.source_transition='immediate-publish'
               AND p.source_responsibility_snapshot_id IS NULL AND s.enabled=1 AND s.proof_binding_enabled=0
               AND (q.enabled,q.license_type,q.copyright_holder,q.copyright_year,q.rights_statement,q.attribution_template,
                 q.copy_policy,q.max_excerpt_chars,q.allow_code_copy,q.show_public_badge,q.proof_binding_enabled)
                   IS NOT DISTINCT FROM (s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,s.attribution_template,
                     s.copy_policy,s.max_excerpt_chars,s.allow_code_copy,s.show_public_badge,s.proof_binding_enabled)
               AND EXISTS (SELECT FROM {ImportSchema}.{LegacyOutboxParent.Table.Name} e
-                  WHERE e.event_type='created' AND e.aggregate_id=a.id AND e.article_revision_id=r.source_revision_id
+                  WHERE e.event_type=CASE WHEN $1=1 THEN 'created' ELSE 'updated' END AND e.aggregate_id=a.id AND e.article_revision_id=r.source_revision_id
                     AND e.article_publication_id=p.source_publication_id AND e.rights_snapshot_id=s.id)
+              AND NOT EXISTS (SELECT FROM {ImportSchema}.shadow_publication old
+                  JOIN {ImportSchema}.shadow_article_rights_snapshot rights ON rights.id=old.source_rights_snapshot_id
+                  WHERE old.article_id=a.id AND (old.revision IS DISTINCT FROM old.publication_number
+                    OR old.source_transition<>'immediate-publish' OR old.source_responsibility_snapshot_id IS NOT NULL
+                    OR rights.enabled<>1 OR rights.proof_binding_enabled<>0))
               AND NOT EXISTS (SELECT FROM {ImportSchema}.shadow_article_revision_content_block b
                   WHERE NOT EXISTS (SELECT FROM {ImportSchema}.shadow_revision x WHERE x.source_content_block_id=b.id))
             ORDER BY a.id
             """, db, tx);
+        command.Parameters.AddWithValue(releases);
         var owners = new List<Guid>();
         await using var rows = await command.ExecuteReaderAsync(ct);
         while (await rows.ReadAsync(ct)) owners.Add(rows.GetGuid(0));
         if (owners.Count != articles)
-            throw new InvalidOperationException("A first-release article, approved owner, rights policy or retained delivery differs.");
+            throw new InvalidOperationException("A legacy release article, approved owner, rights policy or retained delivery differs.");
         return owners.Distinct().Order().ToArray();
     }
 }

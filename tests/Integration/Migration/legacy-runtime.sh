@@ -6,6 +6,7 @@ repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$repo"
 fixture="$repo/tests/Integration/Migration"
 activate=false
+republish_profile=false
 case "$# ${1:-}" in
     '0 '|'1 --activate')
         if [[ "${1:-}" == --activate ]]; then activate=true; fi
@@ -13,12 +14,18 @@ case "$# ${1:-}" in
         source_overlays=("$fixture/legacy-runtime-first-publication-fixture.sql")
         public_expectation=(42 1 900000001 700 11 'News' 'Blog News' 'Legacy first publication' 'Verified starlight rehearsal.' 'Verified starlight rehearsal.')
         ;;
+    '1 --activate-republish')
+        activate=true republish_profile=true
+        profile=republish plan_version=4 expected_publications=2 rollback_profile=false
+        source_overlays=("$fixture/legacy-republish-outbox-fixture.sql")
+        public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
+        ;;
     '1 --rollback')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
         source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish]\n' "$0" >&2; exit 2 ;;
 esac
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
@@ -131,6 +138,12 @@ for db in "$source_db" "$quarantine_db" "$runtime_db" "$restore_db"; do
     psql_db postgres -c "CREATE DATABASE $db TEMPLATE template0"
 done
 for source_fixture in "${source_fixtures[@]}"; do psql_db "$source_db" -f "$source_fixture"; done
+if [[ "$republish_profile" == true ]]; then
+    # Both actual publications have null responsibility. The v1 policy digest excludes the proof-binding flag.
+    psql_db "$source_db" -c "DELETE FROM article_responsibility_snapshot; UPDATE article_rights_snapshot SET proof_binding_enabled=false;
+        UPDATE article_rights_policy SET proof_binding_enabled=false;
+        INSERT INTO tag_url_alias VALUES ('IN PROGRESS',22,'In progress','2026-09-07 00:00:00')"
+fi
 if [[ "$activate" == true ]]; then
     psql_db postgres -c "CREATE DATABASE $recovered_source TEMPLATE template0"
     psql_db postgres -c "CREATE DATABASE $restored_seed TEMPLATE template0"
@@ -234,8 +247,8 @@ for row in reports:
     assert not row["readyToApply"] and row["retainedLegacyPublicationRows"] == publications
     assert row["retainedLegacyCreateCommands"] == row["retainedInitialSchedules"] == 0
     assert row["retainedLegacyOutboxEvents"] == publications and row["retainedLegacyOutboxEdges"] == 7 * publications
-    assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRepublishOutboxEvents"] == \
-        row["retainedLegacyRollbackOutboxEvents"] == (1 if publications == 3 else 0)
+    assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRollbackOutboxEvents"] == (1 if publications == 3 else 0)
+    assert row["retainedLegacyRepublishOutboxEvents"] == (1 if publications >= 2 else 0)
 PY
 if [[ "$rollback_profile" == true ]]; then
     custody_query="$fixture/legacy-runtime-rollback-custody.sql"
@@ -290,7 +303,7 @@ transfer() {
     local db=$1 oid=$2 site=$3 dir=$4 mode=$5 seal=$6 interrupt=$7
     (cd -- "$dir" && psql_db "$db" -v database_name="$db" -v database_oid="$oid" -v site_id="$site" \
         -v plan_sha="$plan_sha" -v projection_sha="$projection_sha" -v owner_id="$owner" \
-        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" \
+        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" -v republish_profile="$republish_profile" \
         -f "$fixture/legacy-runtime-transfer.sql")
 }
 transfer "$quarantine_db" "$quarantine_oid" "$quarantine_site" "$scratch/transfer" true true false
@@ -311,9 +324,17 @@ if [[ "$activate" == true ]]; then
     psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='Unreviewed change'"
     if run_release > "$evidence/release-wrong-rights.log" 2>&1; then exit 1; fi
     rg -Fq 'Staged source has changed: shadow_article_rights_policy' "$evidence/release-wrong-rights.log"
-    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='Retained fixture rights.'"
+    policy='Retained fixture rights.'
+    if [[ "$republish_profile" == true ]]; then policy='Updated rights'; fi
+    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='$policy'"
     FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
     run_release > "$evidence/release-activated.json"
+    if [[ "$republish_profile" == true ]]; then
+        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='Unapproved first revision' WHERE revision=1"
+        if run_release > "$evidence/release-wrong-history.log" 2>&1; then exit 1; fi
+        rg -Fq 'match neither the empty rollback nor this complete approved batch' "$evidence/release-wrong-history.log"
+        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='first' WHERE revision=1"
+    fi
     run_release > "$evidence/release-retry.json"
     python3 - "$evidence/release-activated.json" "$evidence/release-retry.json" "$release_sha" <<'RELEASE_REPLAY'
 import json, pathlib, sys
@@ -323,6 +344,11 @@ assert applied['activationSha256'] == retried['activationSha256'] == sys.argv[3]
 assert applied['publications'] == 1 and not applied['legacyCandidateServing'] and not applied['readyToApply']
 RELEASE_REPLAY
 else
+    if [[ "$rollback_profile" == true ]]; then
+        if migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "$runtime_site" \
+            "$scratch/backups/runtime-seed" "$runtime_empty_sha" > "$evidence/release-rollback-refused.log" 2>&1; then exit 1; fi
+        rg -Fq 'requires a complete batch of immediate first publications or ordinary republishes' "$evidence/release-rollback-refused.log"
+    fi
     if transfer "$runtime_db" "$runtime_oid" "$quarantine_site" "$scratch/transfer" false false false > "$evidence/wrong-site.log" 2>&1; then exit 1; fi
     rg -Fq 'Rehearsal transfer database identity or ownership lock differs' "$evidence/wrong-site.log"
     if transfer "$runtime_db" "$runtime_oid" "$runtime_site" "$scratch/transfer" false false true > "$evidence/interrupted.log" 2>&1; then exit 1; fi

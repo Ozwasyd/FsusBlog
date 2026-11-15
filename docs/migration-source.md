@@ -161,13 +161,13 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 在 PostgreSQL 18.7 使用 SDK 10.0.404、Node 24.16.0 和独立校验的 `f14cb4d` 前端包通过。公开 HTML、AEDS、分类、标签别名、搜索和索引代次重启前后摘要相同。匿名草稿和旧格式登录请求被拒绝，也未暴露媒体或证明。停服后的全表和序列测量与演练备份一致，原隔离库再次通过只读核验，临时资源已清理。此脚本只供合成数据演练。真实旧站的全部领域数据、凭据、附件、权利证明和写入冻结仍按本文启用条件独立核验。见 `artifacts/native-migration/legacy-runtime.KVmUu9ae/run.txt` 和 `artifacts/native-migration/legacy-runtime-native-20261115T020944Z.log`。
 
-`bash tests/Integration/Migration/legacy-runtime.sh --rollback` 使用已核验的计划版本 5 夹具，按首发、再发布和公开回滚的顺序比对旧源与原隔离库。回滚从旧修订 1 复制正文和分类标签，创建修订 3 和第三次发布。原全局修订标识、发布时间、责任快照、旧操作者、回滚理由及三条事件和 21 条投递边在原隔离库核验并留存。新库保留三条 v2 修订及对应的权利关联，并用一个 `retained-active` 发布边界表示仍公开的修订 3。旧摘要继续保留在原隔离库，新页面从公开正文导出摘要。原权利快照的证明绑定开启，夹具没有已签发的证明。默认服务可以读取第三次发布的权利和正文，旧发布坐标不可用于公开读取，过往签名和新投递事件均不会由演练生成。[旧源与隔离库比对](../tests/Integration/Migration/legacy-runtime-rollback-custody.sql)
+`bash tests/Integration/Migration/legacy-runtime.sh --rollback` 使用已核验的计划版本 5 夹具，按首发、再发布和公开回滚的顺序比对旧源与原隔离库。回滚从旧修订 1 复制正文和分类标签，创建修订 3 和第三次发布。原全局修订标识、发布时间、责任快照、旧操作者、回滚理由及三条事件和 21 条投递边在原隔离库核验并留存。新库保留三条 v2 修订及对应的权利关联，并用一个 `retained-active` 发布边界表示仍公开的修订 3。新页面保留公开修订的旧作者摘要。原权利快照的证明绑定开启，夹具没有已签发的证明。默认服务可以读取第三次发布的权利和正文，旧发布坐标不可用于公开读取，过往签名和新投递事件均不会由演练生成。[旧源与隔离库比对](../tests/Integration/Migration/legacy-runtime-rollback-custody.sql)
 
 2026-11-15 使用已独立校验的 `ecbff9d` 发布包，在 PostgreSQL 18.7 上通过回滚与首发两种演练。回滚模式在原库和隔离库之间逐项比对 44 条记录，复验三条原始事件 JSON 的摘要和 21 条投递键。副本恢复后公开修订 3、发布 `900000003` 和权利 `702`。前两次发布坐标被拒绝，第二次发布的内容不出现在公开页面或搜索中。两个模式都完成重启摘要复验、停止后的全表及序列比较，并清理各自拥有的数据库、副本和临时目录。见 `artifacts/native-migration/legacy-runtime.7jHj6mG1/run.txt` 和 `artifacts/native-migration/legacy-runtime-rollback-native-20261115T022901Z.log`。
 
-### 启用已审核的即时首发文章
+### 启用已审核的即时发布文章
 
-对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇仅有首次即时发布的文章。每篇必须有完整的首修订、发布坐标、匹配的当前及发布权利，以及已完成的原出站事件和七条投递边。附件、额外历史、责任快照、证明绑定及其他未转换的有效数据均阻塞本切片。原始旧投递仍由隔离库保管。
+对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇文章。计划版本 3 要求每篇只有首次即时发布，版本 4 要求每篇依次即时首发、普通再发布。两种计划均要求完整修订、发布坐标、对应权利、每次发布的原出站事件和七条已完成的投递边，并核对当前权利与最后一次公开快照。附件、定时发布、责任快照、已启用的证明绑定及其他未转换的有效数据仍会阻塞启用。旧版管理员操作者、出站事件及投递边留在隔离库。
 
 为运行副本独立审核并预置原映射 UUID 对应的禁用所有者。目标须为 `fsusv2_import_runtime_*` 当前库，通过所有者专用 Unix socket 连接且 PostgreSQL 不监听 TCP。另行备份该基线并保存清单 SHA-256。使用 `FSUSBLOG_IMPORT_DB` 指向原隔离库，使用 `FSUSBLOG_RELEASE_ACTIVATION_DB` 指向运行副本。导出计划，审核绑定的来源、目标及回退摘要和待写关系，再独立保管审批文件 SHA-256。
 
@@ -179,9 +179,11 @@ release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sh
 "${migrate[@]}" legacy import release-activate "${release_args[@]}" "$release_approval" "$approved_sha256"
 ```
 
-启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
+启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 的公开回滚仍须保留并转换旧责任治理、历史责任快照和对应的公开读取契约。当前启动副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
+
+PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢复首发与再发布链。两条原事件和 14 条投递边仍由隔离库保管。正式命令启用运行副本并接受同一审批的复验，修改已被取代的第一条修订会使复验失败。再次归档并恢复后的 Kestrel 返回修订 2、发布 `900000002` 和权利 `701`，拒绝前一发布的公开关联与证明坐标。相同构建也通过首发启用，并拒绝把版本 5 的责任快照作为普通再发布启用。见 `artifacts/legacy-republish-activation-72d684d/native-suite-status-2.txt`。
 
 ### 离线验看附件来源
 

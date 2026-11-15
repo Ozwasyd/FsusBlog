@@ -83,7 +83,7 @@ internal static partial class Migration
             await SaveOrVerifyProjectionReceiptAsync(target, tx, already, planDigest, projectionDigest, ct);
             if (release is not null)
             {
-                await RunLegacyReleaseActivationAsync(target, tx, plan, planDigest, projectionDigest, release, projection, business, ct);
+                await RunLegacyReleaseActivationAsync(target, tx, plan, planDigest, projectionDigest, release, projection, business, verifiedRepublishEvents, ct);
                 await tx.CommitAsync(ct);
                 return 0;
             }
