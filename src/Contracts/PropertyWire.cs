@@ -71,6 +71,22 @@ public static partial class Wire
             throw new ProtocolException("Invalid property definition command.");
     }
 
+    internal static void Validate(PropertyDefinitionProjectionCommand input)
+    {
+        if (input.RequestId == Guid.Empty || !ValidProjectionCoordinates(input.DefinitionId, input.SchemaRevision, input.DefinitionRevision))
+            throw new ProtocolException("Invalid property definition projection command.");
+    }
+
+    internal static void Validate(PropertyDefinitionProjection output)
+    {
+        if (!ValidProjectionCoordinates(output.DefinitionId, output.SchemaRevision, output.DefinitionRevision) ||
+            output.Digest.Length != WireLimits.PropertyDefinitionDigestBytes || !output.Digest.All(char.IsAsciiHexDigitLower))
+            throw new ProtocolException("Invalid property definition projection.");
+    }
+
+    private static bool ValidProjectionCoordinates(Guid definition, long schemaRevision, long definitionRevision) =>
+        definition != Guid.Empty && definitionRevision > 0 && definitionRevision <= schemaRevision;
+
     internal static void Validate(PropertyWorkspaceRequest input)
     {
         if (input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.SchemaRevision < 0 || input.ValueRevision < 0

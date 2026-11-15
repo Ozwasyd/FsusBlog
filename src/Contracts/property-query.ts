@@ -25,7 +25,8 @@ export type PropertyMatches = Readonly<{
   nextCursor: string; rows: readonly Readonly<{ id: number; revision: bigint; title: string }>[]
 }>
 
-export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: string; schema: bigint }): Promise<FilterCatalog> {
+export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: string; schema: bigint },
+  session?: string): Promise<FilterCatalog> {
   const url = after ? WireRoutes.PropertyFilterCatalog + '?' + new URLSearchParams({ after: after.key, schema: String(after.schema) })
     : WireRoutes.PropertyFilterCatalog
   return request(url, FrameType.PropertyFilterCatalog, bytes => {
@@ -52,7 +53,7 @@ export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: strin
     if (nextKey && (count !== WireLimits.PropertyPageSize || nextKey !== previous))
       throw new ProtocolError('Invalid property catalog continuation')
     return { revision, nextKey, fields }
-  }, signal)
+  }, signal, 'GET', undefined, siteSessionHeader(session))
 }
 
 export function setPropertyFilterable(input: PropertyFilterabilityCommand, signal?: AbortSignal) {
@@ -72,10 +73,12 @@ export function encodePropertyQuery(query: PropertyQuery) {
   return encodeFrame(keyword ? FrameType.PropertyKeywordQuery : FrameType.PropertyArticleQueryGroup, output.finish())
 }
 
+type EmptyPropertySchema = 'disallowed' | 'zero' | 'positive'
+
 export function writePropertyConditions(
-  output: PodWriter, schema: bigint, conditions: readonly PropertyCondition[], allowEmpty = false,
+  output: PodWriter, schema: bigint, conditions: readonly PropertyCondition[], emptySchema: EmptyPropertySchema = 'disallowed',
 ): void {
-  validateConditionCount(schema, conditions.length, allowEmpty)
+  validateConditionCount(schema, conditions.length, emptySchema)
   const seen = new Set<string>()
   output.i32(conditions.length)
   for (const { field, comparison, value } of conditions) {
@@ -91,9 +94,11 @@ export function writePropertyConditions(
   }
 }
 
-export function readPropertyConditions(input: PodReader, schema: bigint, allowEmpty = false): PropertyQueryOperand[] {
+export function readPropertyConditions(
+  input: PodReader, schema: bigint, emptySchema: EmptyPropertySchema = 'disallowed',
+): PropertyQueryOperand[] {
   const count = input.i32()
-  validateConditionCount(schema, count, allowEmpty)
+  validateConditionCount(schema, count, emptySchema)
   const seen = new Set<string>()
   return Array.from({ length: count }, () => {
     const definitionId = input.uuid(), definitionRevision = input.i64()
@@ -104,9 +109,11 @@ export function readPropertyConditions(input: PodReader, schema: bigint, allowEm
   })
 }
 
-function validateConditionCount(schema: bigint, count: number, allowEmpty: boolean): void {
-  if (count < (allowEmpty ? 0 : 1) || count > WireLimits.PropertyQueryConditionCount ||
-      (count === 0 ? schema !== 0n : schema <= 0n))
+function validateConditionCount(schema: bigint, count: number, emptySchema: EmptyPropertySchema): void {
+  const valid = count === 0
+    ? emptySchema === 'zero' ? schema === 0n : emptySchema === 'positive' && schema > 0n
+    : schema > 0n
+  if (!valid || count < 0 || count > WireLimits.PropertyQueryConditionCount)
     throw new ProtocolError('Invalid property condition count or schema revision')
 }
 

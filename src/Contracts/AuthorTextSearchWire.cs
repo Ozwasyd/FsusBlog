@@ -108,6 +108,12 @@ public static partial class Wire
     {
         ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
         var writer = new Writer();
+        WriteAuthorTextQualifiedQuery(writer, value);
+        return Aeds.Encode(type, writer.Written);
+    }
+
+    private static void WriteAuthorTextQualifiedQuery(Writer writer, AuthorTextQualifiedQuery value)
+    {
         writer.Text(value.Query, WireLimits.AuthorTextSearchQueryBytes);
         writer.Text(value.Cursor, WireLimits.AuthorTextRankedCursorChars);
         writer.Bool(value.UpdatedFromUnixMs.HasValue);
@@ -116,7 +122,6 @@ public static partial class Wire
         if (value.UpdatedUntilUnixMs is { } until) writer.I64(until);
         writer.I64(value.SchemaRevision);
         WritePropertyConditions(writer, value.Conditions);
-        return Aeds.Encode(type, writer.Written);
     }
 
     private static AuthorTextQualifiedQuery DecodeAuthorTextQualifiedQuery(ReadOnlySpan<byte> frame, FrameType type)
@@ -124,23 +129,30 @@ public static partial class Wire
         if (frame.Length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes)
             throw new ProtocolException("Author text search query exceeds its frame limit.");
         var reader = new Reader(Aeds.Decode(frame, type));
+        var value = ReadAuthorTextQualifiedQuery(ref reader);
+        reader.Finish();
+        ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
+        return value;
+    }
+
+    private static AuthorTextQualifiedQuery ReadAuthorTextQualifiedQuery(ref Reader reader)
+    {
         var query = reader.Text(WireLimits.AuthorTextSearchQueryBytes);
         var cursor = reader.Text(WireLimits.AuthorTextRankedCursorChars);
         long? from = reader.Bool() ? reader.I64() : null;
         long? until = reader.Bool() ? reader.I64() : null;
         var schema = reader.I64();
         var conditions = ReadPropertyConditions(ref reader, allowEmpty: true);
-        reader.Finish();
-        var value = new AuthorTextQualifiedQuery(query, cursor, from, until, schema, conditions);
-        ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
-        return value;
+        return new(query, cursor, from, until, schema, conditions);
     }
 
-    private static void ValidateAuthorTextQualifiedQuery(AuthorTextQualifiedQuery value, bool requireQualifier)
+    private static void ValidateAuthorTextQualifiedQuery(AuthorTextQualifiedQuery value, bool requireQualifier,
+        bool propertyFacet = false)
     {
         ValidateAuthorTextQuery(value.Query);
         ValidateAuthorTextCursor(value.Cursor);
-        ValidatePropertyConditions(value.SchemaRevision, value.Conditions, allowEmpty: true);
+        var conditionSchema = propertyFacet && value.Conditions.Count == 0 ? 0 : value.SchemaRevision;
+        ValidatePropertyConditions(conditionSchema, value.Conditions, allowEmpty: true);
         const long minUnixMs = -62_135_596_800_000;
         const long maxUnixMs = 253_402_300_799_999;
         if (value.UpdatedFromUnixMs is < minUnixMs or > maxUnixMs ||
@@ -224,21 +236,33 @@ public static partial class Wire
 
     private static byte[] EncodeAuthorTextFacetedPage(AuthorTextFacetedPage page, FrameType type)
     {
-        ValidateAuthorTextFacetedPage(page.Ready, page.NextCursor, page.Total, page.StateCounts, page.Rows.Count);
         var writer = new Writer();
+        WriteAuthorTextFacetedPage(writer, page, AuthorTextMaxField(type));
+        return Aeds.Encode(type, writer.Written);
+    }
+
+    private static void WriteAuthorTextFacetedPage(Writer writer, AuthorTextFacetedPage page, int maxField)
+    {
+        ValidateAuthorTextFacetedPage(page.Ready, page.NextCursor, page.Total, page.StateCounts, page.Rows.Count);
         writer.Bool(page.Ready);
         writer.Text(page.NextCursor, WireLimits.AuthorTextRankedCursorChars);
         writer.I32(page.Total);
         foreach (var count in page.StateCounts) writer.I32(count);
         WriteAuthorTextFacets(writer, page.MoreCategories, page.Categories, page.Total);
         WriteAuthorTextFacets(writer, page.MoreTags, page.Tags, page.Total);
-        WriteAuthorTextRankedRows(writer, page.Rows, AuthorTextMaxField(type));
-        return Aeds.Encode(type, writer.Written);
+        WriteAuthorTextRankedRows(writer, page.Rows, maxField);
     }
 
     private static AuthorTextFacetedPage DecodeAuthorTextFacetedPage(ReadOnlySpan<byte> frame, FrameType type)
     {
         var reader = new Reader(Aeds.Decode(frame, type));
+        var page = ReadAuthorTextFacetedPage(ref reader, AuthorTextMaxField(type));
+        reader.Finish();
+        return page;
+    }
+
+    private static AuthorTextFacetedPage ReadAuthorTextFacetedPage(ref Reader reader, int maxField)
+    {
         var ready = reader.Bool();
         var next = reader.Text(WireLimits.AuthorTextRankedCursorChars);
         var total = reader.I32();
@@ -250,8 +274,7 @@ public static partial class Wire
         var tags = ReadAuthorTextFacets(ref reader, moreTags, total);
         var count = reader.I32();
         ValidateAuthorTextFacetedPage(ready, next, total, states, count);
-        var rows = ReadAuthorTextRankedRows(ref reader, count, AuthorTextMaxField(type));
-        reader.Finish();
+        var rows = ReadAuthorTextRankedRows(ref reader, count, maxField);
         return new(ready, next, total, states, moreCategories, categories, moreTags, tags, rows);
     }
 

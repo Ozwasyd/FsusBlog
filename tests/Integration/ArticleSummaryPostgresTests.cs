@@ -83,11 +83,22 @@ public sealed class ArticleSummaryPostgresTests
         var revised = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, Wire.EncodeArticleSummaryCommand(
             new(published.Id, published.Revision, Guid.NewGuid(), "next-summary"))));
         Assert.Equal("next-summary", (await Read(revised.Id, revised.Revision)).Text);
+        var summaryBase = SummaryUrl(revised.Id, revised.Revision);
+        var historical = $"{summaryBase}&sourceRevision={saved.Revision}";
+        var earlier = Wire.DecodeArticleSummary(await Send(HttpMethod.Get, historical));
+        Assert.Equal(new ArticleSummary(saved.Id, saved.Revision, manual), earlier);
+        Assert.Equal(hit.SourceDigest, SHA256.HashData(Encoding.UTF8.GetBytes(earlier.Text)));
+        await Send(HttpMethod.Get, historical, status: HttpStatusCode.NotFound, caller: stranger);
+        await Send(HttpMethod.Get, historical, status: HttpStatusCode.Conflict, caller: owner with { Handle = stranger.Handle });
+        foreach (var invalid in new[] { "", "0", $"0{saved.Revision}", revised.Revision.ToString(),
+            (revised.Revision + 1).ToString(), $"{saved.Revision}&sourceRevision={saved.Revision}" })
+            await Send(HttpMethod.Get, $"{summaryBase}&sourceRevision={invalid}", status: HttpStatusCode.BadRequest);
         await WaitForIndex(marker, "next-summary");
         Assert.Empty((await Search(qualified)).Rows);
 
         var restored = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.DraftRollback,
             Wire.EncodeDraftRollback(new(revised.Id, revised.Revision, saved.Revision, Guid.NewGuid(), "Restore saved summary"))));
+        await Send(HttpMethod.Get, historical, status: HttpStatusCode.Conflict);
         Assert.Equal((body, manual), (restored.Body, (await Read(restored.Id, restored.Revision)).Text));
         Assert.Equal(restored.Revision, Assert.Single((await Search(qualified)).Rows).Revision);
 

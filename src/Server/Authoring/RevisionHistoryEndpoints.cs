@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -37,12 +38,16 @@ internal static class RevisionHistoryEndpoints
             var expected = Expected(ctx, id);
             if (sourceRevision <= 0 || sourceRevision >= expected)
                 throw new BusinessException(Rejection.Invalid, "A historical source revision is required.");
-            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            var token = ctx.Request.Cookies[cookie];
+            var handle = SiteSessions.Requested(ctx);
+            return store.WithSession(token, true, async (db, tx, actor) =>
             {
+                if (handle is not null) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
                 var current = await RevisionHistoryStore.ReadSource(db, tx, id, expected, ct);
                 var source = await RevisionHistoryStore.ReadSource(db, tx, id, sourceRevision, ct);
                 var comparison = new RevisionComparison(id, expected, sourceRevision, current.Title, current.Body, source.Title, source.Body);
+                if (handle is not null) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                 return Results.Bytes(Wire.EncodeRevisionComparison(comparison), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");

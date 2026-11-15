@@ -59,6 +59,7 @@ inline constexpr uint32_t MaxAuthorTextSearchQueryFrameBytes = 532;
 inline constexpr uint32_t AuthorTextRankedCursorChars = 256;
 inline constexpr uint32_t MaxAuthorTextRankedQueryFrameBytes = 792;
 inline constexpr uint32_t MaxAuthorTextQualifiedQueryFrameBytes = 263110;
+inline constexpr uint32_t MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
 inline constexpr uint32_t AuthorTextSearchRows = 20;
 inline constexpr uint32_t AuthorTextSearchStateCount = 4;
 inline constexpr uint32_t AuthorTextSearchFacetRows = 12;
@@ -157,6 +158,7 @@ inline constexpr uint32_t CanvasBundleMaxReferences = 10000;
 inline constexpr uint32_t CanvasBundleExecuteFrameBytes = 3660124;
 inline constexpr uint32_t PropertyKeyBytes = 64;
 inline constexpr uint32_t PropertyLabelBytes = 1024;
+inline constexpr uint32_t PropertyDefinitionDigestBytes = 64;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
 inline constexpr uint32_t PropertyPageSize = 25;
@@ -551,6 +553,10 @@ enum class FrameType : uint16_t {
     AuthorTextSummaryPage = 33019,
     AuthorTextHeadingQuery = 33020,
     AuthorTextHeadingPage = 33021,
+    AuthorTextPropertyFacetQuery = 33022,
+    AuthorTextPropertyFacetPage = 33023,
+    PropertyDefinitionProjectionCommand = 33024,
+    PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -746,6 +752,10 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextSummaryPage:
         case FrameType::AuthorTextHeadingQuery:
         case FrameType::AuthorTextHeadingPage:
+        case FrameType::AuthorTextPropertyFacetQuery:
+        case FrameType::AuthorTextPropertyFacetPage:
+        case FrameType::PropertyDefinitionProjectionCommand:
+        case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

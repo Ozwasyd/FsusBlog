@@ -196,6 +196,10 @@
     "AuthorTextSummaryPage": 33019,
     "AuthorTextHeadingQuery": 33020,
     "AuthorTextHeadingPage": 33021,
+    "AuthorTextPropertyFacetQuery": 33022,
+    "AuthorTextPropertyFacetPage": 33023,
+    "PropertyDefinitionProjectionCommand": 33024,
+    "PropertyDefinitionProjection": 33025,
     "DraftTaxonomy": 32790,
     "TaxonomyAssignment": 32791,
     "MfaSetupStart": 48,
@@ -512,6 +516,7 @@
     "AuthorTextRankedCursorChars": 256,
     "MaxAuthorTextRankedQueryFrameBytes": 792,
     "MaxAuthorTextQualifiedQueryFrameBytes": 263110,
+    "MaxAuthorTextPropertyFacetQueryFrameBytes": 263135,
     "AuthorTextSearchRows": 20,
     "AuthorTextSearchStateCount": 4,
     "AuthorTextSearchFacetRows": 12,
@@ -610,6 +615,7 @@
     "CanvasBundleExecuteFrameBytes": 3660124,
     "PropertyKeyBytes": 64,
     "PropertyLabelBytes": 1024,
+    "PropertyDefinitionDigestBytes": 64,
     "PropertyValueBytes": 65536,
     "PropertyMaxCommandBytes": 65792,
     "PropertyPageSize": 25,
@@ -1071,6 +1077,14 @@
     "PropertyFilterabilityCommand": {
       "frame": "PropertyFilterabilityCommand",
       "fields": [["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Enabled", "bool"]]
+    },
+    "PropertyDefinitionProjectionCommand": {
+      "frame": "PropertyDefinitionProjectionCommand",
+      "fields": [["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["SearchEligible", "bool"], ["Sortable", "bool"]]
+    },
+    "PropertyDefinitionProjection": {
+      "frame": "PropertyDefinitionProjection",
+      "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Deprecated", "bool"], ["SearchEligible", "bool"], ["Filterable", "bool"], ["Sortable", "bool"], ["Digest", "text", "PropertyDefinitionDigestBytes"]]
     },
     "PropertyTextCommand": {
       "frame": "PropertyTextCommand",

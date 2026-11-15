@@ -5,7 +5,7 @@ import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element
 import { ApiError } from '../../../Contracts/client'
 import {
   propertyFilterCatalog, queryPropertyArticles, setPropertyFilterable,
-  type FilterCatalog, type PropertyComparison, type PropertyCondition, type PropertyMatches, type PropertyQuery,
+  type FilterCatalog, type FilterField, type PropertyComparison, type PropertyCondition, type PropertyMatches, type PropertyQuery,
 } from '../../../Contracts/property-query'
 import { normalizePropertyDecimal, type PropertyValue } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
@@ -14,15 +14,17 @@ import { credentialEpoch, currentSession, identityEpoch, invalidateSession } fro
 
 const props = defineProps<{ keyword?: string; embedded?: boolean }>()
 const emit = defineEmits<{
+  'facet-change': [value: { schema: bigint; field: FilterField } | undefined]
   'conditions-change': [value: Pick<PropertyQuery, 'schema' | 'conditions'> | undefined]
   edit: []
 }>()
-const fieldId = useId(), operatorId = useId(), valueId = useId()
+const fieldId = useId(), operatorId = useId(), valueId = useId(), facetId = useId()
 const embeddedCredential = computed(() => props.embedded ? credentialEpoch.value : 0)
 const open = ref(false)
 const retry = ref(0)
 const catalog = shallowRef<FilterCatalog>()
 const selection = ref('')
+const facetSelection = ref('')
 const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
@@ -49,6 +51,9 @@ const savable = computed(() => submitted.value ? { ...submitted.value, cursor: '
 const result = shallowRef<PropertyMatches>()
 const selectableFields = computed(() => (catalog.value?.fields ?? []).filter(item => !props.embedded || item.enabled))
 const field = computed(() => selectableFields.value.find(item => item.id === selection.value))
+const facetFields = computed(() => selectableFields.value.filter(item => item.enabled &&
+  (item.kind === 'boolean' || item.kind === 'single-select' || item.kind === 'multi-select')))
+const facetField = computed(() => facetFields.value.find(item => item.id === facetSelection.value))
 const rangeComparisons = computed(() => {
   const labels = field.value?.kind === 'date' ? dateComparisons : field.value?.kind === 'number' ? comparisons : undefined
   return labels ? Object.entries(labels).filter(([comparison]) => comparison !== 'equal') : []
@@ -83,13 +88,15 @@ watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, att
   reset()
   catalog.value = undefined
   selection.value = ''
+  facetSelection.value = ''
   if (!show || epoch !== previousEpoch) pendingField.value = ''
-  if (!show) return
+  const handle = props.embedded ? currentSession.value?.siteSessionId : undefined
+  if (!show || props.embedded && !handle) return
   const load = new AbortController()
   cleanup(() => load.abort())
   operationBusy.value = true
   try {
-    const page = await propertyFilterCatalog(load.signal)
+    const page = await propertyFilterCatalog(load.signal, undefined, handle)
     if (!load.signal.aborted) {
       catalog.value = page
       selection.value = page.fields.some(item => item.id === pendingField.value) ? pendingField.value : ''
@@ -116,6 +123,9 @@ watch([selection, mode, text, choice, multiple, flag, conditions, () => props.ke
 }, { flush: 'sync' })
 watch(conditions, value => {
   if (props.embedded) emit('conditions-change', value.length && catalog.value ? { schema: catalog.value.revision, conditions: value } : undefined)
+}, { flush: 'sync' })
+watch([facetField, () => catalog.value?.revision], ([field, schema]) => {
+  if (props.embedded) emit('facet-change', field && schema ? { field, schema } : undefined)
 }, { flush: 'sync' })
 
 function clearResults() {
@@ -166,10 +176,27 @@ function currentCondition(): PropertyCondition {
   const value = operand(), active = field.value
   if (!active?.enabled || !value) throw Error('Incomplete property condition')
   const comparison = mode.value === 'missing' || mode.value === 'null' ? 'equal' : mode.value
-  if (conditions.value.some(item => item.field.id === active.id && item.comparison === comparison))
+  if (conditionAlreadyAdded(active, comparison))
     throw Error('Repeated property condition')
   return { field: active, comparison, value }
 }
+
+function conditionAlreadyAdded(field: FilterField, comparison: PropertyComparison): boolean {
+  return conditions.value.some(item => item.field.id === field.id && item.comparison === comparison)
+}
+
+function canAddFacetCondition(schema: bigint, candidate: PropertyCondition): boolean {
+  return !!props.embedded && !busy.value && !!catalog.value && catalog.value.revision === schema &&
+    facetField.value === candidate.field && canAdd.value && !conditionAlreadyAdded(candidate.field, candidate.comparison)
+}
+
+function addFacetCondition(schema: bigint, candidate: PropertyCondition): boolean {
+  if (!canAddFacetCondition(schema, candidate)) return false
+  conditions.value = [...conditions.value, candidate]
+  return true
+}
+
+defineExpose({ canAddFacetCondition, addFacetCondition })
 
 function add() {
   if (!canAdd.value) return
@@ -199,13 +226,14 @@ function conditionText(condition: PropertyCondition) {
 
 async function later() {
   const current = catalog.value
-  if (!current?.nextKey || busy.value || pendingChange.value) return
+  const handle = props.embedded ? currentSession.value?.siteSessionId : undefined
+  if (!current?.nextKey || busy.value || pendingChange.value || props.embedded && !handle) return
   const request = operation = new AbortController()
   operationBusy.value = true
   operationError.value = ''
   queryError.value = ''
   try {
-    const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision })
+    const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision }, handle)
     if (!request.signal.aborted) catalog.value = { ...next, fields: [...current.fields, ...next.fields] }
   } catch (failure) {
     if (!request.signal.aborted) report(failure, '暂时无法读取更多属性。')
@@ -290,6 +318,14 @@ async function search(more = false) {
     <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
     <p v-else-if="embedded && selectableFields.length">添加的条件会用于下一次全文搜索。</p>
     <template v-if="catalog?.fields.length">
+      <template v-if="embedded && facetFields.length">
+        <label :for="facetId">属性分面字段</label>
+        <ElSelect :id="facetId" v-model="facetSelection" ariaLabel="属性分面字段" :disabled="busy">
+          <ElOption value="" label="不显示属性分面" />
+          <ElOption v-for="item in facetFields" :key="item.id" :value="item.id"
+            :label="`${item.label} · ${item.machineKey}`" />
+        </ElSelect>
+      </template>
       <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
       <ul v-if="conditions.length" aria-label="已有筛选条件">
         <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}`">

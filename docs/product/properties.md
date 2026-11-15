@@ -38,4 +38,6 @@
 
 同一查询入口支持最多四条条件，文章须同时满足每条条件。数值使用精确十进制，日期使用毫秒精度 UTC。两者都支持小于、小于或等于、大于和大于或等于。可给同一字段分别设置上下限，各端点独立选择是否包含。缺失和空值不会落入有序范围，同一字段上的重复操作符会拒绝。续页游标绑定当前会话和规范化后的完整条件组，交换条件次序不影响续页。PostgreSQL 通过作者、字段及文章顺序缩小候选，再执行类型化数值和时间比较；新建数据库扩展该键索引，已有数据库保留字节协议和查询行为。
 
-冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。全文、分面、按属性排序、同字段 OR、专用值索引、独立 1,000 字段 / 10,000 文章规模验收及旧库导入仍待交付。[个人保存视图](author-saved-views.md) 已复用现有属性查询。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)
+作者全文搜索支持对布尔、单选及多选定义计数。定义的 `SearchEligible` 和 `Sortable` 可通过现有属性结构入口的 `33024` 请求修改，并按定义 ID 读取 `33025` 及定义摘要。定义修改沿用所有者权限、schema 与定义版本 CAS 和幂等回执，保留已保存的值。 [作者全文搜索](author-full-text-search.md)
+
+冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。属性值的全文索引、按属性排序、同字段 OR、专用值索引、独立 1,000 字段 / 10,000 文章规模验收及旧库导入仍待交付。[个人保存视图](author-saved-views.md) 已复用现有属性查询。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)

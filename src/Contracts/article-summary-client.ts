@@ -5,11 +5,16 @@ import { decodeDraft, FrameType, WireHeaders, WireRoutes } from './wire.generate
 
 export type DraftSummaryEdit = Readonly<{ articleId: number; revision: bigint; credential: string; text: string }>;
 
-export function draftSummary(id: number, revision: bigint, session: string, signal: AbortSignal): Promise<ArticleSummary> {
+export function draftSummary(id: number, revision: bigint, session: string, signal: AbortSignal,
+  sourceRevision?: bigint): Promise<ArticleSummary> {
+  if (sourceRevision !== undefined && (sourceRevision <= 0n || sourceRevision >= revision))
+    throw new ProtocolError('Invalid historical summary coordinates');
   const path = WireRoutes.ArticleSummary.replace('{id:int}', String(id));
-  return request(`${path}?revision=${revision}`, FrameType.ArticleSummary, payload => {
+  const query = new URLSearchParams({ revision: String(revision) });
+  if (sourceRevision !== undefined) query.set('sourceRevision', String(sourceRevision));
+  return request(`${path}?${query}`, FrameType.ArticleSummary, payload => {
     const summary = decodeArticleSummary(payload);
-    if (summary.id !== id || summary.revision !== revision) throw new ProtocolError('Invalid article summary coordinates');
+    if (summary.id !== id || summary.revision !== (sourceRevision ?? revision)) throw new ProtocolError('Invalid article summary coordinates');
     return summary;
   }, signal, 'GET', undefined, siteSessionHeader(session));
 }

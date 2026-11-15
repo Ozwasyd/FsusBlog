@@ -184,6 +184,10 @@ export const FrameType = {
   AuthorTextSummaryPage: 33019,
   AuthorTextHeadingQuery: 33020,
   AuthorTextHeadingPage: 33021,
+  AuthorTextPropertyFacetQuery: 33022,
+  AuthorTextPropertyFacetPage: 33023,
+  PropertyDefinitionProjectionCommand: 33024,
+  PropertyDefinitionProjection: 33025,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,
@@ -250,6 +254,7 @@ export const WireLimits = {
   AuthorTextRankedCursorChars: 256,
   MaxAuthorTextRankedQueryFrameBytes: 792,
   MaxAuthorTextQualifiedQueryFrameBytes: 263110,
+  MaxAuthorTextPropertyFacetQueryFrameBytes: 263135,
   AuthorTextSearchRows: 20,
   AuthorTextSearchStateCount: 4,
   AuthorTextSearchFacetRows: 12,
@@ -348,6 +353,7 @@ export const WireLimits = {
   CanvasBundleExecuteFrameBytes: 3660124,
   PropertyKeyBytes: 64,
   PropertyLabelBytes: 1024,
+  PropertyDefinitionDigestBytes: 64,
   PropertyValueBytes: 65536,
   PropertyMaxCommandBytes: 65792,
   PropertyPageSize: 25,
@@ -2839,6 +2845,80 @@ export function decodePropertyFilterabilityCommand(payload: Uint8Array): Propert
     schemaRevision: reader.i64(),
     definitionRevision: reader.i64(),
     enabled: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyDefinitionProjectionCommand {
+  definitionId: string;
+  requestId: string;
+  schemaRevision: bigint;
+  definitionRevision: bigint;
+  searchEligible: boolean;
+  sortable: boolean;
+}
+
+export function encodePropertyDefinitionProjectionCommand(value: PropertyDefinitionProjectionCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.definitionId);
+  writer.uuid(value.requestId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.definitionRevision);
+  writer.bool(value.searchEligible);
+  writer.bool(value.sortable);
+  return writer.finish();
+}
+
+export function decodePropertyDefinitionProjectionCommand(payload: Uint8Array): PropertyDefinitionProjectionCommand {
+  const reader = new PodReader(payload);
+  const value: PropertyDefinitionProjectionCommand = {
+    definitionId: reader.uuid(),
+    requestId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    definitionRevision: reader.i64(),
+    searchEligible: reader.bool(),
+    sortable: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyDefinitionProjection {
+  definitionId: string;
+  schemaRevision: bigint;
+  definitionRevision: bigint;
+  deprecated: boolean;
+  searchEligible: boolean;
+  filterable: boolean;
+  sortable: boolean;
+  digest: string;
+}
+
+export function encodePropertyDefinitionProjection(value: PropertyDefinitionProjection): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.definitionId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.definitionRevision);
+  writer.bool(value.deprecated);
+  writer.bool(value.searchEligible);
+  writer.bool(value.filterable);
+  writer.bool(value.sortable);
+  writer.text(value.digest, WireLimits.PropertyDefinitionDigestBytes);
+  return writer.finish();
+}
+
+export function decodePropertyDefinitionProjection(payload: Uint8Array): PropertyDefinitionProjection {
+  const reader = new PodReader(payload);
+  const value: PropertyDefinitionProjection = {
+    definitionId: reader.uuid(),
+    schemaRevision: reader.i64(),
+    definitionRevision: reader.i64(),
+    deprecated: reader.bool(),
+    searchEligible: reader.bool(),
+    filterable: reader.bool(),
+    sortable: reader.bool(),
+    digest: reader.text(WireLimits.PropertyDefinitionDigestBytes),
   };
   reader.finish();
   return value;

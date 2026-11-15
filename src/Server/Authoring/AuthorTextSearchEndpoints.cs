@@ -13,7 +13,7 @@ internal static class AuthorTextSearchEndpoints
         var cursors = new AuthorTextCursor(TimeProvider.System);
         app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, CancellationToken ct) =>
         {
-            var frame = await readFrame(context, WireLimits.MaxAuthorTextQualifiedQueryFrameBytes, ct);
+            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
             var payload = await store.WithSession(token, true, async (db, tx, actor) =>
@@ -21,6 +21,8 @@ internal static class AuthorTextSearchEndpoints
                 var digest = Store.TokenDigest(token)!;
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 Aeds.Decode(frame, out var type);
+                if (type != FrameType.AuthorTextPropertyFacetQuery && frame.Length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes)
+                    throw new BadHttpRequestException("Request too large.", 413);
                 // Serialize under the account/session and exact result article locks.
                 // WithSession rechecks expiry and commits before sending any response.
                 byte[] encoded;
@@ -33,10 +35,12 @@ internal static class AuthorTextSearchEndpoints
                 }
                 else
                 {
-                    var includeHeading = type == FrameType.AuthorTextHeadingQuery;
-                    var includeSummary = includeHeading || type == FrameType.AuthorTextSummaryQuery;
+                    var propertyFacet = type == FrameType.AuthorTextPropertyFacetQuery ? Wire.DecodeAuthorTextPropertyFacetQuery(frame) : null;
+                    var includeHeading = type == FrameType.AuthorTextHeadingQuery || propertyFacet?.IncludeHeading == true;
+                    var includeSummary = includeHeading || propertyFacet is not null || type == FrameType.AuthorTextSummaryQuery;
                     var qualified = type switch
                     {
+                        FrameType.AuthorTextPropertyFacetQuery => propertyFacet!.Search,
                         FrameType.AuthorTextHeadingQuery => Wire.DecodeAuthorTextHeadingQuery(frame),
                         FrameType.AuthorTextSummaryQuery => Wire.DecodeAuthorTextSummaryQuery(frame),
                         FrameType.AuthorTextQualifiedQuery => Wire.DecodeAuthorTextQualifiedQuery(frame),
@@ -48,6 +52,7 @@ internal static class AuthorTextSearchEndpoints
                     // Re-encode the exact requested criteria without its cursor to bind both filters and text.
                     var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(SHA256.HashData(type switch
                     {
+                        FrameType.AuthorTextPropertyFacetQuery => Wire.EncodeAuthorTextPropertyFacetQuery(propertyFacet! with { Search = qualified with { Cursor = "" } }),
                         FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingQuery(qualified with { Cursor = "" }),
                         FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryQuery(qualified with { Cursor = "" }),
                         _ => Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" }),
@@ -56,23 +61,21 @@ internal static class AuthorTextSearchEndpoints
                         ? null : cursors.Decode(request.Cursor, actor, digest, cursorQuery, type);
                     if (faceted)
                     {
-                        var input = type switch
-                        {
-                            FrameType.AuthorTextHeadingQuery => AuthorTextProfile.ParseHeading(request.Query),
-                            FrameType.AuthorTextSummaryQuery => AuthorTextProfile.ParseSummary(request.Query),
-                            _ => AuthorTextProfile.ParseFaceted(request.Query),
-                        };
+                        var input = includeHeading ? AuthorTextProfile.ParseHeading(request.Query) :
+                            includeSummary ? AuthorTextProfile.ParseSummary(request.Query) : AuthorTextProfile.ParseFaceted(request.Query);
                         await RequireIndex();
                         var page = qualified is null
                             ? await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct)
                             : await AuthorTextIndex.ReadQualified(db, tx, actor, input, qualified.UpdatedFromUnixMs,
                                 qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
-                                after?.Generation, ct, includeSummary: includeSummary, includeHeading: includeHeading);
+                                after?.Generation, ct, includeSummary: includeSummary, includeHeading: includeHeading,
+                                facet: propertyFacet is null ? null : new(propertyFacet.DefinitionId, propertyFacet.DefinitionRevision));
                         var next = Next(page.More, page.Rows, page.Generation);
                         var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
                             page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
                         encoded = type switch
                         {
+                            FrameType.AuthorTextPropertyFacetQuery => Wire.EncodeAuthorTextPropertyFacetPage(new(response, page.PropertyFacet), includeHeading),
                             FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingPage(response),
                             FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryPage(response),
                             _ => Wire.EncodeAuthorTextFacetedPage(response),

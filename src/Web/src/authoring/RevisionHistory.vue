@@ -5,20 +5,39 @@ import { ApiError } from '../../../Contracts/aeds'
 import {
   compareDraftRevision, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
 } from '../../../Contracts/revision-history'
+import { draftSummary } from '../../../Contracts/article-summary-client'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 import { credentialEpoch } from '../session'
+import type { HistoricalSearchSeek } from './canvasEditorHandoff'
+import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
 
-const props = defineProps<{ articleId: number; revision: bigint; canRollback: boolean }>()
+const props = defineProps<{
+  articleId: number
+  revision: bigint
+  canRollback: boolean
+  historicalSeek?: HistoricalSearchSeek
+  inspectorReady: boolean
+}>()
 const emit = defineEmits<{
   restore: [selection: { sourceRevision: bigint; reason: string }]
   'comparison-modal': [active: boolean]
+  'historical-revealed': [seek: HistoricalSearchSeek, success: boolean]
+  'historical-closed': [seek: HistoricalSearchSeek]
 }>()
 const open = ref(false)
 const items = shallowRef<readonly RevisionHistoryItem[]>([])
 const cursor = ref<string | null>(null)
 const published = ref<bigint | null>(null)
 const pair = shallowRef<RevisionComparison>()
+const historical = shallowRef<{ seek: HistoricalSearchSeek; source: string }>()
+const historicalControl = ref<HTMLTextAreaElement>()
+const historicalLabel = {
+  title: 'Earlier revision title',
+  body: 'Earlier revision Markdown',
+  summary: 'Earlier revision summary',
+  heading: 'Earlier revision Markdown',
+} as const
 const comparisonOpen = ref(false)
 let ownsModal = false
 const comparisonError = ref('')
@@ -51,18 +70,29 @@ function reset() {
 }
 
 function closeComparison() {
+  const source = historical.value
   comparisonOpen.value = false
   compareRequest?.abort()
   pair.value = undefined
+  historical.value = undefined
   reason.value = ''
   comparisonError.value = ''
   comparing.value = false
+  if (source) emit('historical-closed', source.seek)
 }
 
 function releaseComparisonModal() {
   if (!ownsModal) return
   ownsModal = false
   emit('comparison-modal', false)
+}
+
+function openComparisonModal() {
+  if (!ownsModal) {
+    ownsModal = true
+    emit('comparison-modal', true)
+  }
+  comparisonOpen.value = true
 }
 
 async function load(more = false) {
@@ -93,11 +123,7 @@ async function load(more = false) {
 async function compare(source: bigint) {
   compareRequest?.abort()
   const controller = compareRequest = new AbortController()
-  if (!ownsModal) {
-    ownsModal = true
-    emit('comparison-modal', true)
-  }
-  comparisonOpen.value = true
+  openComparisonModal()
   comparing.value = true
   comparisonError.value = ''
   reason.value = ''
@@ -124,6 +150,59 @@ async function compare(source: bigint) {
     if (!controller.signal.aborted) comparing.value = false
   }
 }
+
+async function readHistoricalSource(seek: HistoricalSearchSeek, signal: AbortSignal) {
+  const { target, currentRevision, credential } = seek
+  if (target.field === 'summary') {
+    const summary = await draftSummary(target.articleId, currentRevision, credential, signal, target.revision)
+    return summary.text
+  }
+  const pair = await compareDraftRevision(target.articleId, currentRevision, target.revision, signal, credential)
+  return target.field === 'title' ? pair.sourceTitle : pair.sourceBody
+}
+
+function revealHistorical() {
+  const view = historical.value
+  if (!view) return
+  const { seek, source } = view
+  const input = historicalControl.value
+  const { sourceStart: start, sourceEnd: end } = seek.target
+  const range = input && seek.current() && textareaSourceRange(source, input.value, { start, end }, 'native')
+  let success = false
+  if (input && range && input.isConnected && input.readOnly && !input.closest('[inert]') && input.getClientRects().length) {
+    input.focus()
+    if (document.activeElement === input && seek.current()) {
+      input.setSelectionRange(range.start, range.end)
+      success = input.selectionStart === range.start && input.selectionEnd === range.end
+    }
+  }
+  emit('historical-revealed', seek, success)
+}
+
+watch([() => props.historicalSeek, () => props.inspectorReady], async ([seek, inspectorReady], _, cleanup) => {
+  if (!seek || !inspectorReady) return
+  const request = new AbortController()
+  cleanup(() => {
+    request.abort()
+    if (historical.value?.seek === seek) closeComparison()
+  })
+  const current = () => !request.signal.aborted && props.historicalSeek === seek && seek.current() && props.inspectorReady &&
+    props.articleId === seek.target.articleId && props.revision === seek.currentRevision && !ownsModal
+  try {
+    if (current()) {
+      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(10_000)])
+      const source = await readHistoricalSource(seek, signal)
+      if (current() && await verifySourceMatch(source, seek.target) && current() && !signal.aborted) {
+        historical.value = { seek, source }
+        openComparisonModal()
+        return
+      }
+    }
+  } catch {
+    // An inaccessible or changed source is never mounted in the dialog.
+  }
+  if (!request.signal.aborted && props.historicalSeek === seek) emit('historical-revealed', seek, false)
+}, { immediate: true, flush: 'post' })
 
 function requestError(cause: unknown) {
   if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
@@ -152,6 +231,7 @@ watch(() => [open.value, props.articleId, props.revision], () => {
 watch(credentialEpoch, () => {
   historyRequest?.abort()
   compareRequest?.abort()
+  if (historical.value) closeComparison()
   if (comparisonOpen.value && comparing.value) {
     comparing.value = false
     comparisonError.value = 'The session renewed while loading. Close the comparison and try again.'
@@ -191,11 +271,17 @@ onScopeDispose(() => {
     </ul>
     <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">Older revisions</ElButton>
     <ElDialog
-      :model-value="comparisonOpen" title="Revision comparison" append-to-body destroy-on-close
+      :model-value="comparisonOpen" :title="historical ? 'Historical search position' : 'Revision comparison'" append-to-body destroy-on-close
       width="min(72rem, calc(100vw - 2rem))" top="4vh"
+      @opened="revealHistorical"
       @close="closeComparison"
       @closed="releaseComparisonModal"
     >
+      <section v-if="historical" class="revision-comparison">
+        <p>Earlier saved revision {{ historical.seek.target.revision }}</p>
+        <textarea ref="historicalControl" class="historical-source" :value="historical.source"
+          :aria-label="historicalLabel[historical.seek.target.field]" readonly rows="8" />
+      </section>
       <p v-if="comparing" role="status">Loading both saved revisions…</p>
       <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
       <div v-if="pair && changed" class="revision-comparison">
@@ -227,6 +313,16 @@ onScopeDispose(() => {
 .revision-items { list-style: none; margin: .75rem 0 0; padding: 0; }
 .revision-items > li { padding: .5rem 0; overflow-wrap: anywhere; }
 .revision-comparison { display: grid; gap: .6rem; }
+.historical-source {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-block-size: min(55dvh, 24rem);
+  padding: .65rem;
+  color: var(--fsus-ink);
+  background: var(--fsus-paper);
+  border: 1px solid var(--fsus-border);
+  font: inherit;
+}
 .revision-comparison p, .revision-source h3 { margin: 0; }
 .revision-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fsus-space-4); }
 .revision-source {

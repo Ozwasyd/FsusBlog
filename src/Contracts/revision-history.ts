@@ -1,6 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { request } from './client.ts';
+import { request, siteSessionHeader } from './client.ts';
 import {
   decodeDraft, decodeRevisionComparison, encodeDraftRollback, FrameType, WireHeaders, WireLimits, WireRoutes,
   type Draft, type DraftRollback, type RevisionComparison,
@@ -62,7 +62,8 @@ export function draftRevisionHistory(id: number, revision: bigint, signal?: Abor
   }, signal);
 }
 
-export function compareDraftRevision(id: number, revision: bigint, sourceRevision: bigint, signal?: AbortSignal): Promise<RevisionComparison> {
+export function compareDraftRevision(id: number, revision: bigint, sourceRevision: bigint, signal?: AbortSignal,
+  session?: string): Promise<RevisionComparison> {
   const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(id))
     .replace('{sourceRevision:long}', String(sourceRevision));
   return request(`${path}?revision=${revision}`, FrameType.RevisionComparison, payload => {
@@ -71,7 +72,7 @@ export function compareDraftRevision(id: number, revision: bigint, sourceRevisio
       sourceRevision <= 0n || sourceRevision >= revision || !pair.title || !pair.sourceTitle)
       throw new ProtocolError('Invalid draft revision comparison');
     return pair;
-  }, signal);
+  }, signal, 'GET', undefined, siteSessionHeader(session));
 }
 
 export function rollbackDraft(input: DraftRollback, signal?: AbortSignal): Promise<Draft> {

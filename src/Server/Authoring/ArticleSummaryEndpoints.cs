@@ -2,6 +2,7 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
+using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -13,20 +14,23 @@ internal static class ArticleSummaryEndpoints
         {
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
-            var values = context.Request.Query["revision"];
-            if (id <= 0 || values.Count != 1 || !long.TryParse(values[0], NumberStyles.None, CultureInfo.InvariantCulture, out var revision) ||
-                revision <= 0 || values[0] != revision.ToString(CultureInfo.InvariantCulture))
+            if (id <= 0 || !TryRevision(context.Request.Query["revision"], out var revision))
                 throw new BusinessException(Rejection.Invalid, "An exact article revision is required.");
+            var selected = revision;
+            if (context.Request.Query.TryGetValue("sourceRevision", out var source) &&
+                (!TryRevision(source, out selected) || selected >= revision))
+                throw new BusinessException(Rejection.Invalid, "An earlier saved article revision is required.");
             var frame = await store.WithSession(token, true, async (db, tx, actor) =>
             {
                 SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, revision, ct);
                 await using var summary = Store.Sql(db, tx, """
                     select coalesce(author_summary,'') from public.article_revision where article_id=$1 and revision=$2
-                    """, id, revision);
+                    """, id, selected);
                 if (await summary.ExecuteScalarAsync(ct) is not string text)
                     throw new BusinessException(Rejection.NotFound, "Article summary is unavailable.");
-                return Wire.EncodeArticleSummary(new(id, revision, text));
+                if (selected != revision) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
+                return Wire.EncodeArticleSummary(new(id, selected, text));
             }, ct);
             return Results.Bytes(frame, Aeds.ContentType);
         }).RequireRateLimiting("command");
@@ -47,5 +51,12 @@ internal static class ArticleSummaryEndpoints
             }, ct);
             return Results.Bytes(frame, Aeds.ContentType);
         }).RequireRateLimiting("command");
+    }
+
+    private static bool TryRevision(StringValues values, out long revision)
+    {
+        revision = 0;
+        return values.Count == 1 && long.TryParse(values[0], NumberStyles.None, CultureInfo.InvariantCulture, out revision) &&
+            revision > 0 && values[0] == revision.ToString(CultureInfo.InvariantCulture);
     }
 }

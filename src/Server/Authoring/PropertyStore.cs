@@ -68,6 +68,26 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     internal Task<PropertyCommandReceipt> Change(PropertyDefinitionCommand input, CancellationToken ct) =>
         Change(new PropertySchemaInput(input, PropertyFieldKind.Text, []), textOnly: true, ct);
 
+    internal async Task<PropertyDefinitionProjection> ReadProjection(Guid id, CancellationToken ct)
+    {
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        if (schema.Find(id) is not { Status: PropertyStatus.Active or PropertyStatus.Deprecated } definition)
+            throw Missing();
+        var flags = definition.Settings;
+        return new(id, schema.Revision, definition.Revision, definition.Status == PropertyStatus.Deprecated,
+            flags.SearchEligible, flags.Filterable, flags.Sortable, definition.Digest);
+    }
+
+    internal async Task<PropertyCommandReceipt> Change(PropertyDefinitionProjectionCommand input, CancellationToken ct)
+    {
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        if (schema.Find(input.DefinitionId) is null) throw Missing();
+        return await ApplyChange(schema, new(actor.Id, input.RequestId, input.SchemaRevision, input.DefinitionRevision,
+            new PropertyChange.SetProjectionFlags(input.DefinitionId, input.SearchEligible, input.Sortable)), ct);
+    }
+
     internal async Task<PropertyCommandReceipt> Change(PropertySchemaInput details, bool textOnly, CancellationToken ct)
     {
         var input = details.Command;

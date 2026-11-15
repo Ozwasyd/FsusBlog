@@ -14,7 +14,7 @@ internal sealed record AuthorTextRankedRow(AuthorTextSearchRow Match, AuthorText
 internal sealed record AuthorTextRankedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation);
 internal sealed record AuthorTextFacetedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation,
     int Total, int[] StateCounts, IReadOnlyList<AuthorTextTaxonomyFacet> Categories, bool MoreCategories,
-    IReadOnlyList<AuthorTextTaxonomyFacet> Tags, bool MoreTags);
+    IReadOnlyList<AuthorTextTaxonomyFacet> Tags, bool MoreTags, AuthorTextPropertyFacet? PropertyFacet = null);
 
 internal static class AuthorTextIndex
 {
@@ -60,16 +60,18 @@ internal static class AuthorTextIndex
     internal static async Task<AuthorTextFacetedPage> ReadQualified(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, long? updatedFromUnixMs, long? updatedUntilUnixMs, long schemaRevision,
         IReadOnlyList<PropertyCondition> conditions, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
-        bool includeSummary = false, bool includeHeading = false)
+        bool includeSummary = false, bool includeHeading = false, PropertyStore.FacetSelection? facet = null)
     {
         ValidateContinuation(after, expectedGeneration);
         includeSummary |= includeHeading;
         var properties = new PropertyStore(db, tx, actor);
         PropertyStore.Condition[] resolved = [];
+        PropertyStore.FacetDefinition? facetDefinition = null;
         try
         {
             // The property scope precedes any article locks and stays held through readback.
-            if (conditions.Count != 0) resolved = await properties.ResolveQuery(schemaRevision, conditions, ct);
+            if (conditions.Count != 0 || facet.HasValue)
+                (resolved, facetDefinition) = await properties.ResolveSearchQuery(schemaRevision, conditions, facet, ct);
             await Store.LockCommand(db, tx, actor.Id, Scope, ct);
             if (resolved.Length != 0) await properties.ValidateQueryReferences(resolved, ct);
         }
@@ -88,7 +90,7 @@ internal static class AuthorTextIndex
 
         if (after is null) await Reconcile(db, tx, actor.Id, ct, includeSummary, includeHeading);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(updatedFromUnixMs, updatedUntilUnixMs, resolved), includeSummary, includeHeading);
+            new(updatedFromUnixMs, updatedUntilUnixMs, resolved, facetDefinition), includeSummary, includeHeading);
     }
 
     private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
@@ -432,10 +434,10 @@ internal static class AuthorTextIndex
         from owner_scope e
         """;
 
-    private static string SourceGeneration(List<object> parameters, PropertyStore.Condition[]? conditions)
+    private static string SourceGeneration(List<object> parameters, QualifiedFilters? qualification)
     {
-        if (conditions is not { Length: > 0 }) return FacetedGeneration;
-        var references = PropertyStore.ReferenceDependencyWitness(conditions, parameters);
+        if (qualification is null || (qualification.Conditions.Length == 0 && qualification.Facet is null)) return FacetedGeneration;
+        var references = PropertyStore.ReferenceDependencyWitness(qualification.Conditions, parameters);
         return $"""
             select pg_catalog.sha256(pg_catalog.convert_to('fsusblog-author-text-typed.v1','UTF8') || ({FacetedGeneration}) ||
                 pg_catalog.int8send(coalesce((select revision from public.property_schema where owner_id=$1),0)) ||
@@ -447,7 +449,8 @@ internal static class AuthorTextIndex
             """;
     }
 
-    private sealed record QualifiedFilters(long? UpdatedFromUnixMs, long? UpdatedUntilUnixMs, PropertyStore.Condition[] Conditions);
+    private sealed record QualifiedFilters(long? UpdatedFromUnixMs, long? UpdatedUntilUnixMs, PropertyStore.Condition[] Conditions,
+        PropertyStore.FacetDefinition? Facet);
 
     private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
@@ -461,6 +464,7 @@ internal static class AuthorTextIndex
         var more = false;
         var moreCategories = false;
         var moreTags = false;
+        AuthorTextPropertyFacet? propertyFacet = null;
         byte[]? generation = null;
 
         List<object> parameters = [.. MatchArguments(actor.Id, input.Text), WireLimits.AuthorTextSearchRows + 1,
@@ -481,7 +485,9 @@ internal static class AuthorTextIndex
         }
         if (qualification is not null)
             foreach (var condition in qualification.Conditions) PropertyStore.AppendCondition(filter, parameters, condition);
-        var sourceGeneration = SourceGeneration(parameters, qualification?.Conditions);
+        var sourceGeneration = SourceGeneration(parameters, qualification);
+        var facet = qualification?.Facet;
+        var facetCtes = facet is null ? "" : PropertyStore.FacetCtes(facet, parameters);
 
         await using (var query = Store.Sql(db, tx, $$"""
             with {{FacetMetadata(14, includeSummary, includeHeading)}},
@@ -502,6 +508,7 @@ internal static class AuthorTextIndex
                     e.state,e.category_id,e.category_name,e.tag_ids
                 from ranked_hits m join eligible e on e.id=m.article_id
             ),
+            {{facetCtes}}
             totals as (
                 select count(*)::integer as total,array[
                     count(*) filter (where state=1),count(*) filter (where state=2),
@@ -539,7 +546,9 @@ internal static class AuthorTextIndex
                 case h.field when 1 then d.title_digest {{(includeSummary ? "when 3 then d.summary_digest" : "")}} else d.body_digest end,
                 h.clause,p.phrase_rank,p.field_rank,p.updated_unix_ms,
                 totals.total,totals.states,cb.ids,cb.names,cb.hits,tb.ids,tb.names,tb.hits
+                {{(facet is null ? "" : ",pb.missing,pb.explicit_null,pb.empty,pb.hits")}}
             from witness cross join totals cross join category_buckets cb cross join tag_buckets tb
+            {{(facet is null ? "" : "cross join property_facet_buckets pb")}}
             left join picked p on witness.admitted
             left join lateral (
                 select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder(includeSummary, includeHeading)}} limit 1
@@ -565,6 +574,7 @@ internal static class AuthorTextIndex
                     states = rows.GetFieldValue<int[]>(17);
                     (categories, moreCategories) = ReadBuckets(rows, 18);
                     (tags, moreTags) = ReadBuckets(rows, 21);
+                    if (facet is not null) propertyFacet = PropertyStore.ReadFacet(facet, rows, 24);
                 }
                 if (rows.IsDBNull(2)) break;
                 if (matches.Count == WireLimits.AuthorTextSearchRows)
@@ -577,9 +587,9 @@ internal static class AuthorTextIndex
         }
 
         if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation,
-                qualification?.Conditions, includeSummary, includeHeading))
+                qualification, includeSummary, includeHeading))
             throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
-        return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags);
+        return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags, propertyFacet);
     }
 
     private static (IReadOnlyList<AuthorTextTaxonomyFacet> Facets, bool More) ReadBuckets(NpgsqlDataReader rows, int column)
@@ -622,7 +632,7 @@ internal static class AuthorTextIndex
 
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null,
-        PropertyStore.Condition[]? conditions = null, bool includeSummary = false, bool includeHeading = false)
+        QualifiedFilters? qualification = null, bool includeSummary = false, bool includeHeading = false)
     {
         var ids = matches.Select(row => row.Match.Id).ToArray();
         if (ids.Length > 0)
@@ -640,7 +650,7 @@ internal static class AuthorTextIndex
         var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
-        var sourceGeneration = facetAuthorityGeneration.HasValue ? SourceGeneration(parameters, conditions) : Generation;
+        var sourceGeneration = facetAuthorityGeneration.HasValue ? SourceGeneration(parameters, qualification) : Generation;
         await using var check = Store.Sql(db, tx, $"""
             with {metadata}
             select not exists(select from changed) and ($4::bytea is null or $4=({sourceGeneration})) and not exists (

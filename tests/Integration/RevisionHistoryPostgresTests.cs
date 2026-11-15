@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 
 public sealed class RevisionHistoryPostgresTests
@@ -59,6 +60,11 @@ public sealed class RevisionHistoryPostgresTests
         var pair = Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token));
         Assert.Equal((current.Title, current.Body, article.Title, article.Body), (pair.Title, pair.Body, pair.SourceTitle, pair.SourceBody));
         await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound);
+        var ownerHandle = SiteSessions.Id(owner.User.Id, Store.TokenDigest(owner.Token)!);
+        Assert.Equal(pair, Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token, handle: ownerHandle)));
+        await Request(HttpMethod.Get, compare, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
+        var outsiderHandle = SiteSessions.Id(outsider.User.Id, Store.TokenDigest(outsider.Token)!);
+        await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
         var input = new DraftRollback(article.Id, current.Revision, article.Revision, Guid.NewGuid(), "Restore the original draft. 📝");
         await Restore(input, outsider.Token, HttpStatusCode.NotFound);
 
@@ -133,10 +139,12 @@ public sealed class RevisionHistoryPostgresTests
         Task<byte[]> Restore(DraftRollback rollback, string token, HttpStatusCode status = HttpStatusCode.OK) =>
             Request(HttpMethod.Post, WireRoutes.DraftRollback, token, Wire.EncodeDraftRollback(rollback), status);
 
-        async Task<byte[]> Request(HttpMethod method, string path, string? token, byte[]? body = null, HttpStatusCode status = HttpStatusCode.OK)
+        async Task<byte[]> Request(HttpMethod method, string path, string? token, byte[]? body = null,
+            HttpStatusCode status = HttpStatusCode.OK, string? handle = null)
         {
             using var request = new HttpRequestMessage(method, path);
             if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            if (handle is not null) request.Headers.Add(WireHeaders.CurrentSession, handle);
             if (body is not null)
             {
                 request.Content = new ByteArrayContent(body);

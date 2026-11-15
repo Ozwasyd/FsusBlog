@@ -27,7 +27,7 @@ import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import { recentArticleOpens } from '../authoring/recentArticleOpens'
 import {
-  acceptEditorSourceHandoff, editorSourceHandoffKey, type EditorSourceSeek, type EditorSourceTarget,
+  acceptEditorSourceHandoff, editorSourceHandoffKey, type EditorSourceSeek, type EditorSourceTarget, type HistoricalSearchSeek,
 } from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
@@ -65,6 +65,7 @@ let sourceArrival: { articleId: number | undefined; source?: EditorSourceTarget;
   sourceToken === undefined ? undefined : { articleId: id.value }
 let sourceSessionVerified = false
 const sourceSeek = shallowRef<EditorSourceSeek>()
+const historicalSeek = shallowRef<HistoricalSearchSeek>()
 const summarySeek = computed(() => {
   const seek = sourceSeek.value
   if (seek?.kind === 'search' && seek.target.field === 'summary') return seek
@@ -396,17 +397,23 @@ watch(identityEpoch, () => {
 })
 watch(credentialEpoch, () => {
   sourceSeek.value = undefined
-  if (sourceArrival?.source?.kind === 'search') sourceArrival.source = undefined
+  historicalSeek.value = undefined
+  if (sourceArrival?.source && sourceArrival.source.kind !== 'canvas') sourceArrival.source = undefined
 }, { flush: 'sync' })
 watch(id, () => {
   sourceArrival = undefined
   sourceSeek.value = undefined
+  historicalSeek.value = undefined
 }, { flush: 'sync' })
 watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, metadataDirty, composing, closingTabs,
   revisionComparisonActive], ([items, recovering, risk, property, metadata, composition, closing, comparing]) => {
-  if (sourceSeek.value?.kind === 'search' && (items.length > 0 || recovering || risk !== 'clean' || property || metadata ||
-    composition !== undefined || closing || comparing)) {
+  const busy = items.length > 0 || recovering || risk !== 'clean' || property || metadata || composition !== undefined || closing
+  if (sourceSeek.value?.kind === 'search' && (busy || comparing)) {
     sourceSeek.value = undefined
+    notice.value = searchPositionUnavailable
+  }
+  if (historicalSeek.value && busy) {
+    historicalSeek.value = undefined
     notice.value = searchPositionUnavailable
   }
 }, { flush: 'sync' })
@@ -461,11 +468,12 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
   const routeIntent = navigation
   const current = () => valid && !lifetime.signal.aborted && epoch === credentialEpoch.value &&
     routeIntent === navigation && currentSession.value?.siteSessionId === handle
-  const result = await activateArticle(articleId, undefined, undefined, source ? current : undefined, source?.target.revision)
+  const requiredRevision = source?.kind === 'search-history' ? source.currentRevision : source?.target.revision
+  const result = await activateArticle(articleId, undefined, undefined, source ? current : undefined, requiredRevision)
   if (!valid || identity !== identityEpoch.value) return
   loading.value = false
   if (result.kind !== 'ready') {
-    if (source?.kind === 'search') {
+    if (source && source.kind !== 'canvas') {
       if (sourceArrival) sourceArrival.source = undefined
       failure.value = result.kind === 'superseded' || result.kind === 'blocked' && result.reason === 'stale-reference'
         ? searchPositionUnavailable : activationFailure(result)
@@ -493,6 +501,19 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
       editable.value && !pending.value && !revisionComparisonActive.value && registry.activeEditSequence === edit &&
       original.value?.revision === target.revision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
     if (target.field === 'summary') setInspectorOpen(true)
+  } else if (source.kind === 'search-history') {
+    const { currentRevision, target } = source
+    if (!handle || !persistentWorkspace.value || result.witnessedRevision !== currentRevision ||
+      recoveryItems.value.length > 0 || recoveryWorking.value || revisionComparisonActive.value) {
+      notice.value = searchPositionUnavailable
+      return
+    }
+    const edit = registry.activeEditSequence
+    historicalSeek.value = { target, currentRevision, credential: handle, current: () =>
+      current() && tab.value?.sessionId === sessionId && tab.value.risk === 'clean' && !recoveryBlocked.value &&
+      canSwitch.value && editable.value && !pending.value && registry.activeEditSequence === edit &&
+      original.value?.revision === currentRevision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
+    setInspectorOpen(true)
   }
 }, { immediate: true })
 
@@ -516,6 +537,21 @@ function finishSourceSeek(seek: EditorSourceSeek, success: boolean) {
   }
   recordRecentOpen(seek.target.articleId, seek.target.revision)
   notice.value = 'Opened the search result at its saved position.'
+}
+
+function finishHistoricalSeek(seek: HistoricalSearchSeek, success: boolean) {
+  if (historicalSeek.value !== seek) return
+  if (!success || !seek.current()) {
+    historicalSeek.value = undefined
+    notice.value = searchPositionUnavailable
+    return
+  }
+  recordRecentOpen(seek.target.articleId, seek.currentRevision)
+  notice.value = 'Opened the search result in its earlier saved revision.'
+}
+
+function closeHistoricalSeek(seek: HistoricalSearchSeek) {
+  if (historicalSeek.value === seek) historicalSeek.value = undefined
 }
 
 function activationFailure(receipt: Activation): string {
@@ -655,6 +691,7 @@ function arrangeGroups(destination?: WorkspaceGroup) {
 function setInspectorOpen(open: boolean) {
   if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
   if (!open && summarySeek.value) finishSourceSeek(summarySeek.value, false)
+  if (!open) historicalSeek.value = undefined
 }
 
 const openAddress = computed(() => {
@@ -1209,9 +1246,11 @@ async function reloadDraft() {
           :key="identityEpoch"
           :article-id="original.id"
           :revision="original.revision"
+          :historical-seek="historicalSeek" :inspector-ready="inspectorReady && !recoveryBlocked"
           :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @restore="submit('rollback-history', undefined, $event)"
           @comparison-modal="revisionComparisonActive = $event"
+          @historical-revealed="finishHistoricalSeek" @historical-closed="closeHistoricalSeek"
         />
         <ArticleSchedule
           :key="`schedule-${identityEpoch}`"

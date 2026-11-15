@@ -75,13 +75,28 @@ internal sealed partial class PropertyStore
         if (referenceIds.Length != 0 && !(await ReadReferences(referenceIds, ct)).SetEquals(referenceIds)) throw Missing();
     }
 
-    internal async Task<Condition[]> ResolveQuery(long schemaRevision, IReadOnlyList<PropertyCondition> conditions, CancellationToken ct)
+    internal async Task<Condition[]> ResolveQuery(long schemaRevision, IReadOnlyList<PropertyCondition> conditions, CancellationToken ct) =>
+        (await ResolveSearchQuery(schemaRevision, conditions, null, ct)).Conditions;
+
+    internal async Task<(Condition[] Conditions, FacetDefinition? Facet)> ResolveSearchQuery(long schemaRevision,
+        IReadOnlyList<PropertyCondition> conditions, FacetSelection? facet, CancellationToken ct)
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
         if (schema.Revision != schemaRevision) throw Conflict();
-        return conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+        var resolved = conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
+        if (facet is not { } selection) return (resolved, null);
+
+        var definition = schema.Find(selection.DefinitionId) ?? throw Missing();
+        if (definition.Revision != selection.DefinitionRevision) throw Conflict();
+        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable) throw Missing();
+        var kind = FieldKind(definition.Settings.Kind);
+        if (kind is not (PropertyFieldKind.Boolean or PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect)) throw Invalid();
+        var optionIds = definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
+            .Select(option => option.Id).Order().ToArray();
+        if (optionIds.Length > WireLimits.PropertyOptionCount) throw Invalid();
+        return (resolved, new(definition.Id, definition.Revision, kind, optionIds));
     }
 
     private static int[] QueryReferenceIds(Condition[] conditions) =>
@@ -123,6 +138,61 @@ internal sealed partial class PropertyStore
     }
 
     internal sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
+    internal readonly record struct FacetSelection(Guid DefinitionId, long DefinitionRevision);
+    internal sealed record FacetDefinition(Guid Id, long Revision, PropertyFieldKind Kind, Guid[] OptionIds);
+
+    internal static string FacetCtes(FacetDefinition facet, List<object> parameters)
+    {
+        parameters.Add(facet.Id);
+        var definition = parameters.Count;
+        parameters.Add(PropertyTypeTag(facet.Kind));
+        var kind = parameters.Count;
+        string[] keys = facet.Kind == PropertyFieldKind.Boolean ? ["false", "true"] : facet.OptionIds.Select(id => id.ToString("D")).ToArray();
+        parameters.Add(keys);
+        var values = parameters.Count;
+        var (member, jsonType) = facet.Kind switch
+        {
+            PropertyFieldKind.Boolean => ("Value", "boolean"),
+            PropertyFieldKind.SingleSelect => ("OptionId", "string"),
+            PropertyFieldKind.MultiSelect => ("OptionIds", "array"),
+            _ => throw Invalid(),
+        };
+        var value = $"v.data->'{member}'";
+        var multi = facet.Kind == PropertyFieldKind.MultiSelect;
+        var array = multi ? value : $"jsonb_build_array({value})";
+        var empty = multi ? $"count(*) filter (where v.data->>'$type'=${kind} and {value}='[]'::jsonb)::integer" : "0";
+        return $"""
+            property_facet_values as materialized (
+                select s.article_id,v.data from selected s
+                left join public.property_value v on v.owner_id=$1 and v.article_id=s.article_id and v.definition_id=${definition}
+            ),
+            property_facet_counts as (
+                select item.key,count(distinct v.article_id)::integer as hits from property_facet_values v
+                cross join lateral jsonb_array_elements_text(case when v.data->>'$type'=${kind}
+                    and jsonb_typeof({value})='{jsonType}' then {array} else '[]'::jsonb end) item(key)
+                where item.key=any(${values}::text[]) group by item.key
+            ),
+            property_facet_buckets as (
+                select count(*) filter (where v.data is null)::integer as missing,
+                    count(*) filter (where v.data->>'$type'='null')::integer as explicit_null,
+                    {empty} as empty,
+                    array(select coalesce(c.hits,0) from unnest(${values}::text[]) with ordinality keys(key,ordinal)
+                        left join property_facet_counts c on c.key=keys.key order by keys.ordinal) as hits
+                from property_facet_values v
+            ),
+            """;
+    }
+
+    internal static AuthorTextPropertyFacet ReadFacet(FacetDefinition facet, NpgsqlDataReader row, int column)
+    {
+        PropertyFieldValue[] values = facet.Kind == PropertyFieldKind.Boolean
+            ? [new PropertyFieldValue.Boolean(false), new PropertyFieldValue.Boolean(true)]
+            : facet.OptionIds.Select(id => (PropertyFieldValue)new PropertyFieldValue.SingleSelect(id)).ToArray();
+        var hits = row.GetFieldValue<int[]>(column + 3);
+        if (hits.Length != values.Length) throw Conflict();
+        var buckets = values.Select((value, index) => new AuthorTextPropertyFacetBucket(value, hits[index])).ToArray();
+        return new(facet.Id, facet.Revision, facet.Kind, row.GetInt32(column), row.GetInt32(column + 1), row.GetInt32(column + 2), buckets);
+    }
 
     private static byte[] CursorBinding(string session, long revision, Condition[] conditions, string keyword)
     {

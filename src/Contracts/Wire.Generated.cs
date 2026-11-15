@@ -185,6 +185,10 @@ public enum FrameType : ushort
     AuthorTextSummaryPage = 33019,
     AuthorTextHeadingQuery = 33020,
     AuthorTextHeadingPage = 33021,
+    AuthorTextPropertyFacetQuery = 33022,
+    AuthorTextPropertyFacetPage = 33023,
+    PropertyDefinitionProjectionCommand = 33024,
+    PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -253,6 +257,7 @@ public static class WireLimits
     public const int AuthorTextRankedCursorChars = 256;
     public const int MaxAuthorTextRankedQueryFrameBytes = 792;
     public const int MaxAuthorTextQualifiedQueryFrameBytes = 263110;
+    public const int MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
     public const int AuthorTextSearchRows = 20;
     public const int AuthorTextSearchStateCount = 4;
     public const int AuthorTextSearchFacetRows = 12;
@@ -351,6 +356,7 @@ public static class WireLimits
     public const int CanvasBundleExecuteFrameBytes = 3660124;
     public const int PropertyKeyBytes = 64;
     public const int PropertyLabelBytes = 1024;
+    public const int PropertyDefinitionDigestBytes = 64;
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
     public const int PropertyPageSize = 25;
@@ -895,6 +901,8 @@ public sealed record CanvasLinked(Guid PlanId, int ArticleId, long ArticleRevisi
 public sealed record PropertyDefinitionCommand(int Operation, Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, string MachineKey, string Label);
 public sealed record PropertyWorkspaceRequest(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, string AfterKey);
 public sealed record PropertyFilterabilityCommand(Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, bool Enabled);
+public sealed record PropertyDefinitionProjectionCommand(Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, bool SearchEligible, bool Sortable);
+public sealed record PropertyDefinitionProjection(Guid DefinitionId, long SchemaRevision, long DefinitionRevision, bool Deprecated, bool SearchEligible, bool Filterable, bool Sortable, string Digest);
 public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
 public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
 
@@ -2239,6 +2247,52 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyFilterabilityCommand));
         var value = new PropertyFilterabilityCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyDefinitionProjectionCommand(PropertyDefinitionProjectionCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.DefinitionId);
+        writer.Uuid(value.RequestId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.DefinitionRevision);
+        writer.Bool(value.SearchEligible);
+        writer.Bool(value.Sortable);
+        return Aeds.Encode(FrameType.PropertyDefinitionProjectionCommand, writer.Written);
+    }
+
+    public static PropertyDefinitionProjectionCommand DecodePropertyDefinitionProjectionCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionProjectionCommand));
+        var value = new PropertyDefinitionProjectionCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyDefinitionProjection(PropertyDefinitionProjection value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.DefinitionId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.DefinitionRevision);
+        writer.Bool(value.Deprecated);
+        writer.Bool(value.SearchEligible);
+        writer.Bool(value.Filterable);
+        writer.Bool(value.Sortable);
+        writer.Text(value.Digest, WireLimits.PropertyDefinitionDigestBytes);
+        return Aeds.Encode(FrameType.PropertyDefinitionProjection, writer.Written);
+    }
+
+    public static PropertyDefinitionProjection DecodePropertyDefinitionProjection(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionProjection));
+        var value = new PropertyDefinitionProjection(reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.PropertyDefinitionDigestBytes));
         reader.Finish();
         Validate(value);
         return value;

@@ -21,6 +21,7 @@ import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { exercisePropertyFilter } from './property-filter-flow.mjs'
 import { exerciseAuthorTextSearch, exerciseSummarySearchReveal } from './author-text-search-flow.mjs'
+import { exerciseAuthorTextPropertyFacet } from './author-text-property-facet-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -334,6 +335,7 @@ try {
   await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations, articleCommand)
   await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand,
     publicFixture: config.publicFixture })
+  await exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand })
 
   const summaryTerm = `summaryprobe${token}`
   const firstSummary = `摘要 🧭 Cafe\u0301\nDraft ${summaryTerm}`

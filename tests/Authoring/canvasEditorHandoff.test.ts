@@ -6,6 +6,7 @@ import {
   cancelCanvasEditorHandoff,
   cancelEditorSourceHandoff,
   offerCanvasEditorHandoff,
+  offerHistoricalSearchEditorHandoff,
   offerSearchEditorHandoff,
 } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
@@ -68,4 +69,24 @@ test('the search target shares the opaque one-use slot and belongs to the exact 
   const canceled = offerSearchEditorHandoff(match, 12, 'first-handle')
   cancelEditorSourceHandoff(canceled)
   assert.equal(acceptEditorSourceHandoff(canceled, 43, 12, 'first-handle'), undefined)
+})
+
+test('a historical search handoff separates the current head from its exact one-use saved match', () => {
+  const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
+  const hit = {
+    articleId: 43, revision: 7n, field: 'summary' as const, sourceStart: 10, sourceEnd: 11,
+    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
+  }
+  assert.throws(() => offerHistoricalSearchEditorHandoff(hit, 7n, 12, 'selected-session'), RangeError)
+  const token = offerHistoricalSearchEditorHandoff(hit, 9n, 12, 'selected-session')
+  sourceDigest[0] = 8
+  assert.deepEqual(acceptEditorSourceHandoff(token, 43, 12, 'selected-session'), {
+    kind: 'search-history', currentRevision: 9n,
+    target: { ...hit, sourceDigest: Uint8Array.from({ length: 32 }, () => 3) },
+  })
+  assert.equal(acceptEditorSourceHandoff(token, 43, 12, 'selected-session'), undefined)
+
+  const mismatched = offerHistoricalSearchEditorHandoff(hit, 9n, 12, 'selected-session')
+  assert.equal(acceptEditorSourceHandoff(mismatched, 43, 12, 'rotated-session'), undefined)
+  assert.equal(acceptEditorSourceHandoff(mismatched, 43, 12, 'selected-session'), undefined)
 })

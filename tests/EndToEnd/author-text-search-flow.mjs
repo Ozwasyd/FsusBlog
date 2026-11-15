@@ -319,9 +319,43 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(await field('Title').count(), 0)
     assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
 
+    const viewHistorical = page.getByRole('button', { name: '查看原保存修订的命中位置', exact: true })
+    await viewHistorical.waitFor()
+    const currentAuthority = page.waitForResponse(isSearchReply)
+    const currentRead = page.waitForResponse(isDraftReply)
+    const comparePath = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(fixture.id))
+      .replace('{sourceRevision:long}', String(prior.revision))
+    const earlierRead = page.waitForResponse(response => response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === comparePath)
+    await viewHistorical.press('Enter')
+    const authority = await currentAuthority
+    assert.deepEqual(authority.request().postDataBuffer(), old.response.request().postDataBuffer())
+    assert.deepEqual(exactHit(await readSearchReply(authority), fixture, revisedRaw, 'body', bodyWord), moved)
+    await expectSavedDraft(await currentRead)
+    const compared = await earlierRead
+    assert.equal(compared.status(), 200)
+    assert.equal(new URL(compared.url()).searchParams.get('revision'), String(fixture.revision))
+    const matchSession = await authority.request().headerValue(WireHeaders.CurrentSession)
+    assert(matchSession)
+    assert.equal(await compared.request().headerValue(WireHeaders.CurrentSession), matchSession)
+    const historical = page.getByRole('dialog', { name: 'Historical search position', exact: true })
+    const earlierBody = historical.getByRole('textbox', { name: 'Earlier revision Markdown', exact: true })
+    await earlierBody.and(page.locator(':focus')).waitFor()
+    const originalOffset = projected.indexOf(bodyWord)
+    assert.deepEqual(await earlierBody.evaluate(control => ({ readOnly: control.readOnly, text: control.value,
+      start: control.selectionStart, end: control.selectionEnd })),
+    { readOnly: true, text: projected, start: originalOffset, end: originalOffset + bodyWord.length })
+    await expectEditorHistory(true)
+    await page.keyboard.press('Escape')
+    await historical.waitFor({ state: 'hidden' })
+    await field('Title').waitFor()
+    await backToSearch()
+    await search(bodyWord)
+
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
     observations.push('Private full-text jump rechecks a real saved revision, places the native body caret through CRLF/Unicode, selects the exact title range, preserves the plain editor link, and leaves only a one-use opaque value in history.')
     observations.push('A concurrently saved revision keeps the stale browser action in the results with focus, and navigating to the trash during its real delayed current check cannot reopen the editor.')
+    observations.push('At 375px an explicit historical search action rechecks the newer saved revision and selects the original CRLF/Unicode hit in a read-only dialog without replacing the current draft.')
   } finally {
     try {
       for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {

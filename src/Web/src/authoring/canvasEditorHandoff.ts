@@ -19,11 +19,19 @@ export type SearchEditorTarget = Readonly<{
 export type EditorSourceTarget =
   | Readonly<{ kind: 'canvas'; target: CanvasEditorTarget }>
   | Readonly<{ kind: 'search'; target: SearchEditorTarget }>
+  | Readonly<{ kind: 'search-history'; target: SearchEditorTarget; currentRevision: bigint }>
 
 type SeekGuard = Readonly<{ sessionId: number; current: () => boolean }>
 export type EditorSourceSeek =
   | (SeekGuard & Readonly<{ kind: 'canvas'; revision: bigint; offset: number }>)
   | (SeekGuard & Readonly<{ kind: 'search'; target: SearchEditorTarget }>)
+
+export type HistoricalSearchSeek = Readonly<{
+  target: SearchEditorTarget
+  currentRevision: bigint
+  credential: string
+  current: () => boolean
+}>
 
 type Handoff = Readonly<{
   token: string
@@ -50,6 +58,13 @@ export function offerCanvasEditorHandoff(target: CanvasEditorTarget, credentialE
 
 export function offerSearchEditorHandoff(target: SearchEditorTarget, credentialEpoch: number, handle: string): string {
   return offer({ kind: 'search', target: { ...target, sourceDigest: target.sourceDigest.slice() } }, credentialEpoch, handle)
+}
+
+export function offerHistoricalSearchEditorHandoff(target: SearchEditorTarget, currentRevision: bigint,
+  credentialEpoch: number, handle: string): string {
+  if (target.revision <= 0n || currentRevision <= target.revision) throw new RangeError('An earlier saved revision is required')
+  return offer({ kind: 'search-history', currentRevision, target: { ...target, sourceDigest: target.sourceDigest.slice() } },
+    credentialEpoch, handle)
 }
 
 export function acceptEditorSourceHandoff(token: unknown, articleId: number, credentialEpoch: number,

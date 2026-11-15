@@ -7,6 +7,8 @@ import {
   decodeAuthorTextRankedPage, decodeAuthorTextRankedQuery, decodeAuthorTextSearchPage,
   decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery, encodeAuthorTextSummaryQuery,
   decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, encodeAuthorTextHeadingQuery,
+  decodeAuthorTextPropertyFacetPage, decodeAuthorTextPropertyFacetQuery, encodeAuthorTextPropertyFacetQuery,
+  type AuthorTextPropertyFacetQuery,
   encodeAuthorTextRankedPage, encodeAuthorTextRankedQuery, type AuthorTextSearchRow, type AuthorTextTaxonomyFacet,
 } from '../../src/Contracts/author-text-search.ts';
 import type { FilterField } from '../../src/Contracts/property-query.ts';
@@ -319,4 +321,101 @@ test('heading result uses raw body limits and is rejected by earlier faceted pag
   overBound.writeInt32LE(WireLimits.BodyBytes - 4, 90);
   overBound.writeInt32LE(WireLimits.BodyBytes + 1, 94);
   throws(() => decodeAuthorTextHeadingPage(overBound), ProtocolError);
+});
+
+
+const propertyFacetQuery: AuthorTextPropertyFacetQuery = {
+  search: { query: 'Orbit', cursor: '', schema: 10n, conditions: [], updatedFromUnixMs: null, updatedUntilUnixMs: null },
+  includeHeading: false,
+  definitionId: dateProperty.id,
+  definitionRevision: 3n,
+};
+
+test('property facet query independently binds one schema revision, selected definition, and heading mode', () => {
+  const golden = Buffer.from(
+    '050000004f726269740000000000000a000000000000000000000000111111111111411181111111111111110300000000000000',
+    'hex');
+  const frame = encodeAuthorTextPropertyFacetQuery(propertyFacetQuery);
+  equal(FrameType.AuthorTextPropertyFacetQuery, 33022);
+  const { payload } = decodeFrame(frame, FrameType.AuthorTextPropertyFacetQuery);
+  deepEqual(Buffer.from(payload), golden);
+  deepEqual(decodeAuthorTextPropertyFacetQuery(golden), propertyFacetQuery);
+  throws(() => decodeFrame(frame, FrameType.AuthorTextHeadingQuery), ProtocolError);
+  throws(() => decodeAuthorTextHeadingQuery(golden), ProtocolError);
+
+  const withConditions = { ...propertyFacetQuery, search: qualified, includeHeading: true };
+  const filtered = decodeFrame(encodeAuthorTextPropertyFacetQuery(withConditions)).payload;
+  deepEqual(filtered.subarray(0, -25), decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload);
+  equal(decodeAuthorTextPropertyFacetQuery(filtered).includeHeading, true);
+
+  const badBool = Buffer.from(golden);
+  badBool[27] = 2;
+  throws(() => decodeAuthorTextPropertyFacetQuery(badBool), ProtocolError);
+  throws(() => decodeAuthorTextPropertyFacetQuery(golden.subarray(0, -1)), ProtocolError);
+  for (const invalid of [
+    { ...propertyFacetQuery, search: { ...propertyFacetQuery.search, schema: 0n } },
+    { ...propertyFacetQuery, definitionRevision: 0n },
+    { ...propertyFacetQuery, definitionRevision: propertyFacetQuery.search.schema + 1n },
+    { ...propertyFacetQuery, definitionId: '00000000-0000-0000-0000-000000000000' },
+  ]) throws(() => encodeAuthorTextPropertyFacetQuery(invalid), ProtocolError);
+});
+
+test('property facet response preserves false, zero true, missing and null separately', () => {
+  const golden = Buffer.from(
+    '010000000004000000040000000000000000000000000000000000000000000000000000000000' +
+    '111111111111411181111111111111110300000000000000020000000100000002000000000000000200000000010000000100000000',
+    'hex');
+  equal(FrameType.AuthorTextPropertyFacetPage, 33023);
+  const result = decodeAuthorTextPropertyFacetPage(golden);
+  equal(result.search.total, 4);
+  deepEqual(result.facet, {
+    definitionId: propertyFacetQuery.definitionId, definitionRevision: 3n, kind: 'boolean', missing: 1, null: 2, empty: 0,
+    buckets: [{ value: { kind: 'boolean', value: false }, count: 1 }, { value: { kind: 'boolean', value: true }, count: 0 }],
+  });
+  throws(() => decodeAuthorTextHeadingPage(golden), ProtocolError);
+  // The known fixture offsets refer to kind, absent-state counters, bucket length, and Boolean values/counts.
+  for (const [offset, value] of [[63, 6], [67, 3], [75, 1], [79, 1], [83, 1], [84, 0], [88, 0], [89, 2]]) {
+    const invalid = Buffer.from(golden);
+    invalid[offset] = value;
+    throws(() => decodeAuthorTextPropertyFacetPage(invalid), ProtocolError);
+  }
+  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  equal(decodeAuthorTextPropertyFacetPage(pending).facet, null);
+  throws(() => decodeAuthorTextPropertyFacetPage(golden.subarray(0, pending.length)), ProtocolError);
+  throws(() => decodeAuthorTextPropertyFacetPage(Buffer.concat([pending, golden.subarray(pending.length)])), ProtocolError);
+});
+
+test('property facet response counts overlapping multi-select options under exact stable identities', () => {
+  const uuid = (id: string) => Buffer.from(id.replaceAll('-', ''), 'hex');
+  function integer(value: number) {
+    const bytes = Buffer.alloc(4);
+    bytes.writeInt32LE(value);
+    return bytes;
+  }
+  function selectedPayload(kind: number, empty: number, counts: readonly number[], options: readonly string[]) {
+    const revision = Buffer.alloc(8);
+    revision.writeBigInt64LE(3n);
+    return Buffer.concat([facetedPayload({ total: 5, states: [5, 0, 0, 0], rows: [] }),
+      uuid(propertyFacetQuery.definitionId), revision, integer(kind), integer(1), integer(1), integer(empty), integer(counts.length),
+      ...counts.flatMap((count, index) => [uuid(options[index]), integer(count)]),
+    ]);
+  }
+  const optionIds = Array.from({ length: 33 }, (_, index) => `aaaaaaaa-aaaa-4aaa-8aaa-${(index + 1).toString(16).padStart(12, '0')}`);
+  const result = decodeAuthorTextPropertyFacetPage(selectedPayload(5, 1, [2, 2, 0], optionIds));
+  deepEqual(result.facet, {
+    definitionId: propertyFacetQuery.definitionId, definitionRevision: 3n, kind: 'multi-select', missing: 1, null: 1, empty: 1,
+    buckets: [2, 2, 0].map((count, index) => ({ value: { kind: 'single-select', value: optionIds[index] }, count })),
+  });
+  equal(decodeAuthorTextPropertyFacetPage(selectedPayload(4, 0, [2, 1, 0], optionIds)).facet?.kind, 'single-select');
+  equal(decodeAuthorTextPropertyFacetPage(selectedPayload(5, 1, new Array(32).fill(0), optionIds)).facet?.buckets.length, 32);
+  for (const payload of [
+    selectedPayload(4, 0, [2, 2, 0], optionIds),
+    selectedPayload(4, 1, [1, 1, 0], optionIds),
+    selectedPayload(5, 1, [3, 2, 0], optionIds),
+    selectedPayload(5, 1, [-1, 2, 0], optionIds),
+    selectedPayload(5, 1, [0, 0], [optionIds[1], optionIds[0]]),
+    selectedPayload(5, 1, [0, 0], [optionIds[0], optionIds[0]]),
+    selectedPayload(5, 1, [0], ['00000000-0000-0000-0000-000000000000']),
+    selectedPayload(5, 1, new Array(33).fill(0), optionIds),
+  ]) throws(() => decodeAuthorTextPropertyFacetPage(payload), ProtocolError);
 });

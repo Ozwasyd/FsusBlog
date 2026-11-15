@@ -20,14 +20,30 @@ internal static class PropertyEndpoints
         Map(WireRoutes.PropertyEditor, async (store, frame, ct) =>
             Wire.EncodePropertyEditor(await store.ReadEditor(Wire.DecodePropertyWorkspaceRequest(frame), kind: null, ct)));
         Map(WireRoutes.PropertySchemaCommand, async (store, frame, ct) =>
-            Wire.EncodePropertyCommandReceipt(await store.Change(Wire.DecodePropertySchemaInput(frame), textOnly: false, ct)));
+        {
+            Aeds.Decode(frame, out var type);
+            var receipt = type == FrameType.PropertyDefinitionProjectionCommand
+                ? await store.Change(Wire.DecodePropertyDefinitionProjectionCommand(frame), ct)
+                : await store.Change(Wire.DecodePropertySchemaInput(frame), textOnly: false, ct);
+            return Wire.EncodePropertyCommandReceipt(receipt);
+        });
         Map(WireRoutes.PropertyValueCommand, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.Write(Wire.DecodePropertyValueInput(frame), textOnly: false, frame, ct)));
         Map(WireRoutes.PropertyFilterability, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.SetFilterable(Wire.DecodePropertyFilterabilityCommand(frame), ct)));
 
+        app.MapGet(WireRoutes.PropertySchemaCommand, (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            if (!Guid.TryParseExact(query(ctx, "definition", 36), "D", out var id) || id == Guid.Empty)
+                throw new BusinessException(Rejection.Invalid, "Invalid property definition.");
+            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+                Results.Bytes(Wire.EncodePropertyDefinitionProjection(await new PropertyStore(db, tx, actor).ReadProjection(id, ct)),
+                    Aeds.ContentType), ct);
+        }).RequireRateLimiting("command");
         app.MapGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
+            var token = ctx.Request.Cookies[cookie];
+            var expected = SiteSessions.Requested(ctx);
             var after = query(ctx, "after", WireLimits.PropertyKeyBytes);
             var schema = query(ctx, "schema", 19);
             long version = 0;
@@ -35,9 +51,14 @@ internal static class PropertyEndpoints
                 !long.TryParse(schema, NumberStyles.None, CultureInfo.InvariantCulture, out version) || version <= 0) ||
                 after is null && schema is not null)
                 throw new BusinessException(Rejection.Invalid, "Invalid property catalog page.");
-            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                Results.Bytes(Wire.EncodePropertyFilterCatalog(await new PropertyStore(db, tx, actor).Catalog(after, version, ct)),
-                    Aeds.ContentType), ct);
+            return store.WithSession(token, true, async (db, tx, actor) =>
+            {
+                SiteSessions.IfCurrent(actor.Id, token, expected);
+                var catalog = await new PropertyStore(db, tx, actor).Catalog(after, version, ct);
+                ct.ThrowIfCancellationRequested();
+                SiteSessions.IfCurrent(actor.Id, token, expected);
+                return Results.Bytes(Wire.EncodePropertyFilterCatalog(catalog), Aeds.ContentType);
+            }, ct);
         }).RequireRateLimiting("command");
         MapSession(WireRoutes.PropertyArticleQuery, async (store, actor, ctx, frame, session, ct) =>
         {
