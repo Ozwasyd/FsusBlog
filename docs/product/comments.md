@@ -51,3 +51,11 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 持有 `comment.moderate` 的另一名独立管理员可使用当前 Passkey 复核，原审核人不能裁决。确认时重新检查原驳回版本和待复核状态，授权、裁决、审计和事件同事务提交。通过后公开评论读取按现有文章、地区及线程可见性恢复正文。驳回后保留原审核状态。理由和审核身份留在授权范围内。当前没有采用线上独立凭据的隐藏操作，旧数据库角色审核及强匿名评论无法使用本流程。申诉结果的专门通知、对外通用审核时间线和管理员广播待接入。 [固定 v1 治理实现](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentGovernanceService.cs#L75)
 
 PostgreSQL 验证两名管理员授权、挑战与评论版本绑定、并发裁决、拒绝复核和审计失败回滚。Chrome 经 Caddy TLS 验证作者提交、原审核人看不到待复核项、独立管理员使用 Passkey 通过，以及作者与访客各自读取结果。停机迁移可重跑，并拒绝不完整的表集合。[本地验证记录](../../artifacts/comment-appeal/)
+
+### 登录账号举报
+
+普通登录账号可从公开评论的 FsusUI 入口选择原因并提交说明。原因沿用 v1 的七项，说明可留空，去除首尾空白后最多为 1,000 个 UTF-16 单元。旧库可停机执行 `comment report-schema`。站点核对当前浏览器会话，按文章与评论的组合坐标准入。评论必须在当前出版物上已批准且仍可公开读取。 [v1 举报端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L656) · [v1 举报原因](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Entities/CommentGovernance.cs#L59)
+
+`POST /api/v2/comments/{articleId}/{id}/report.aeds` 沿用 v1 的 AEDS JSON 223→224。PostgreSQL 以评论坐标与举报账号去重，保留第一份报告。对仍公开的同一评论重复提交时，当前账号取得原报告编号及重复标记。编号为安全整数范围内的随机值。已隐藏、待审、已删、地区受限或已撤回文章上的评论统一按不可举报处理。举报的独立记录保存原因、说明和出版坐标，评论公开状态与审核决定仍由原有流程维护。 [v1 重复回执](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentGovernanceService.cs#L156)
+
+原生 PostgreSQL 验证并发去重、同评论 ID 的跨文章隔离、不同账号以及不可见目标拒绝。390px Chrome 经 Caddy TLS 验证普通账号取消和提交、访客和旧会话拒绝、重复回执相同及公开评论字节一致。停机验证确认旧库可缺少该表，补装可重跑，损坏的去重约束会被拒绝。 [原生测试](../../artifacts/comment-report-retry/native.log) · [浏览器记录](../../artifacts/comment-report-retry/caddy/comment-report-result.json) · [迁移记录](../../artifacts/comment-report-old-catalog/catalog.log)

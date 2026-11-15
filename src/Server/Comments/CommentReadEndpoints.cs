@@ -10,6 +10,7 @@ internal static class CommentReadEndpoints
     internal static void Map(WebApplication app, Publications publications, string cookie,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
+        CommentReports.Map(app, cookie, readFrame);
         app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
             Read(publications, articleId, Cursor(ctx), cursor => store.Roots(articleId, cursor, Limit(ctx, 10, 50), ct),
                 () => CommentReadWire.Roots([], null))).RequireRateLimiting("query");

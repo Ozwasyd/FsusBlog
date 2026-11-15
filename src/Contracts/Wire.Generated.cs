@@ -20,6 +20,8 @@ public enum FrameType : ushort
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
+    CommentReportRequest = 223,
+    CommentReportResult = 224,
     CommentAppealDecisionRequest = 226,
     CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
@@ -205,6 +207,8 @@ public static class WireLimits
     public const int CommentAuthorProofFrameBytes = 512;
     public const int CommentAuthorEditFrameBytes = 8192;
     public const int CommentAuthorEditWindowMinutes = 30;
+    public const int CommentReportDetailChars = 1000;
+    public const int CommentReportFrameBytes = 8192;
     public const int SubscriptionEmailBytes = 254;
     public const int SubscriptionProofChars = 64;
     public const int MaxSubscriptionPreferenceFrameBytes = 278;
@@ -527,6 +531,8 @@ public static class WireRoutes
     public const string CommentAuthorDelete = "/api/binary/comment/{id:long}/author/delete";
     public const string CommentAuthorAppeal = "/api/binary/comment/{id:long}/author/appeal";
     public const string CommentAuthorAppeals = "/api/v2/comments/me/appeals.aeds";
+    public const string CommentReportAvailability = "/api/v2/comments/report-availability.aeds";
+    public const string CommentReport = "/api/v2/comments/{articleId:int}/{id:long}/report.aeds";
     public const string CommentRoots = "/api/binary/comment/{articleId:int}";
     public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";

@@ -1,11 +1,16 @@
 import { computed, onBeforeUnmount, shallowRef, watch, type ComputedRef, type InjectionKey, type Ref } from 'vue'
 import { commentAuthorEligibility } from '../../../Contracts/comment-author'
+import { commentReportingAvailable } from '../../../Contracts/comment-reports'
 import type { CommentNode } from '../../../Contracts/comment-read'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 
 export const commentAuthorDelete: InjectionKey<(id: string) => void> = Symbol('comment author delete')
 export const commentAuthorEdit: InjectionKey<(node: CommentNode) => void> = Symbol('comment author edit')
+export const commentReport: InjectionKey<{
+  available: Readonly<Ref<boolean>>
+  start: (node: CommentNode) => void
+}> = Symbol('comment report')
 export const commentReply: InjectionKey<{
   available: Readonly<Ref<boolean>>
   start: (node: CommentNode) => void
@@ -17,6 +22,25 @@ function editDeadline(node: CommentNode) {
 
 export function canOpenCommentEditor(node: CommentNode, now = Date.now()) {
   return node.author.mode === 'public' && !node.deleted && now < editDeadline(node)
+}
+
+export function useCommentReportingAvailability() {
+  const available = shallowRef(false)
+  watch([identityEpoch, () => currentSession.value?.siteSessionId], async ([epoch, handle], _, cleanup) => {
+    available.value = false
+    const session = currentSession.value
+    if (!handle || !session || session.expiresAt <= Date.now()) return
+    const controller = new AbortController()
+    cleanup(() => controller.abort())
+    try {
+      await commentReportingAvailable(handle, controller.signal)
+      if (!controller.signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === handle)
+        available.value = true
+    } catch {
+      // Report availability is optional on an older catalog.
+    }
+  }, { immediate: true, flush: 'sync' })
+  return available
 }
 
 export function useCommentAuthorEligibility(article: () => number, nodes: ComputedRef<readonly CommentNode[]>) {

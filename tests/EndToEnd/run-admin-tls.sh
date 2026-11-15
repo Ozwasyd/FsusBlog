@@ -9,13 +9,14 @@ if [[ -z ${FSUSBLOG_TEST_DB:-} || -z ${PGHOST:-} || -z ${PGPORT:-} || -z ${PGUSE
   exit 2
 fi
 comment_edit=${FSUSBLOG_TEST_COMMENT_EDIT:-0}
-if [[ $comment_edit != 0 && $comment_edit != 1 ]]; then
-  echo 'Set FSUSBLOG_TEST_COMMENT_EDIT to 0 or 1.' >&2
+comment_report=${FSUSBLOG_TEST_COMMENT_REPORT:-0}
+if [[ ( $comment_edit != 0 && $comment_edit != 1 ) || ( $comment_report != 0 && $comment_report != 1 ) ]]; then
+  echo 'Set FSUSBLOG_TEST_COMMENT_EDIT and FSUSBLOG_TEST_COMMENT_REPORT to 0 or 1.' >&2
   exit 2
 fi
-if [[ $comment_edit == 1 &&
+if [[ ( $comment_edit == 1 || $comment_report == 1 ) &&
   ( ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} != 1 || ${FSUSBLOG_TEST_COMMENT_REPLY:-0} != 1 ) ]]; then
-  echo 'The comment edit fixture requires the moderation and comment reply fixtures.' >&2
+  echo 'The comment edit and report fixtures require the moderation and comment reply fixtures.' >&2
   exit 2
 fi
 dotnet=${DOTNET_BIN:-dotnet}
@@ -368,7 +369,7 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   if [[ ${FSUSBLOG_TEST_COMMENT_REPLY:-0} == 1 ]]; then
     export FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
     reply_operator=(operator tls-comment-reply-fixture)
-    if [[ $comment_edit == 1 ]]; then reply_operator+=(--reader); fi
+    if [[ $comment_edit == 1 || $comment_report == 1 ]]; then reply_operator+=(--reader); fi
     FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" "${reply_operator[@]}")
     export FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
     export FSUSBLOG_TEST_REPLY_PARENT_TICKET="$scratch/issue-reply-parent-ticket"
@@ -737,6 +738,19 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
              where (e.account_id,e.conversation_id,e.message_id)=(n.recipient_id,n.conversation_id,n.message_id))=array[12,13]::smallint[]
     " > "$evidence/comment-reply-audit.txt"
     grep -Fxq 'attributed_reply_deliveries=1' "$evidence/comment-reply-audit.txt"
+  fi
+  if [[ $comment_report == 1 ]]; then
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+      select 'signed_in_report_receipts=' || count(*) from public.comment_report r
+      join public.blog_user u on u.id=r.reporter_id
+      join public.comment c on (c.article_id,c.id)=(r.article_id,r.comment_id)
+      join public.article_publication p on (p.article_id,p.publication_id)=(r.article_id,r.publication_id)
+      where u.name='tls-comment-reply-fixture' and not u.can_author and c.moderation_status=1 and not c.deleted
+        and r.reason_code='spam' and r.detail='Private report detail for a real visible native comment.';
+      select 'total_reports=' || count(*) from public.comment_report
+    " > "$evidence/comment-report-audit.txt"
+    grep -Fxq 'signed_in_report_receipts=1' "$evidence/comment-report-audit.txt"
+    grep -Fxq 'total_reports=1' "$evidence/comment-report-audit.txt"
   fi
   if [[ $comment_edit == 1 ]]; then
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "

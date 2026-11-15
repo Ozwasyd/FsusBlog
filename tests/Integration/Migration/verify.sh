@@ -141,6 +141,15 @@ FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mi
 "${psql_restore[@]}" -c 'ALTER TABLE public.comment_author_edited ADD CONSTRAINT comment_author_edited_next_version_check CHECK (comment_version = previous_version + 1)'
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 
+"${psql_restore[@]}" -c 'DROP TABLE public.comment_report'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment report-schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" comment report-schema
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_report DROP CONSTRAINT comment_report_article_id_comment_id_reporter_id_key'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${migrate[@]}" comment report-schema
+"${psql_restore[@]}" -c 'ALTER TABLE public.comment_report ADD UNIQUE (article_id, comment_id, reporter_id)'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+
 source_site=$("${psql_source[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
 restore_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
 [[ -n "$source_site" && "$source_site" == "$restore_site" ]]

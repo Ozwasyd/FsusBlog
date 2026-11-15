@@ -32,6 +32,8 @@ inline constexpr uint32_t CommentAuthorBatchSize = 100;
 inline constexpr uint32_t CommentAuthorProofFrameBytes = 512;
 inline constexpr uint32_t CommentAuthorEditFrameBytes = 8192;
 inline constexpr uint32_t CommentAuthorEditWindowMinutes = 30;
+inline constexpr uint32_t CommentReportDetailChars = 1000;
+inline constexpr uint32_t CommentReportFrameBytes = 8192;
 inline constexpr uint32_t SubscriptionEmailBytes = 254;
 inline constexpr uint32_t SubscriptionProofChars = 64;
 inline constexpr uint32_t MaxSubscriptionPreferenceFrameBytes = 278;
@@ -353,6 +355,8 @@ enum class FrameType : uint16_t {
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
+    CommentReportRequest = 223,
+    CommentReportResult = 224,
     CommentAppealDecisionRequest = 226,
     CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
@@ -527,6 +531,8 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentAuthorMutationResult:
         case FrameType::CommentAuthorStatusRequest:
         case FrameType::CommentAuthorAppealRequest:
+        case FrameType::CommentReportRequest:
+        case FrameType::CommentReportResult:
         case FrameType::CommentAppealDecisionRequest:
         case FrameType::CommentAppealDecisionResult:
         case FrameType::CommentAuthorEligibilityRequest:

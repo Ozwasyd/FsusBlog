@@ -104,6 +104,7 @@ internal static partial class Migration
                                         Send an idempotent system notice from a UTF-8 JSON object on stdin
                   comment author-delete-schema  Add signed-in comment deletion storage with the server stopped
                   comment author-edit-schema  Add signed-in comment edit storage with the server stopped
+                  comment report-schema  Add signed-in comment report storage with the server stopped
                   comment appeal-schema  Add signed-in comment appeals with the server stopped
                   comment replies-schema  Add signed-in comment reply notices with the server stopped
                   comment bulk-schema    Add administrator comment batch moderation storage with the server stopped
@@ -359,6 +360,9 @@ internal static partial class Migration
                 case ["comment", "author-edit-schema"]:
                     await InitializeCommentAuthorEditAsync(connection, token);
                     break;
+                case ["comment", "report-schema"]:
+                    await InitializeCommentReportAsync(connection, token);
+                    break;
                 case ["comment", "appeal-schema"]:
                     await InitializeCommentAppealAsync(connection, token);
                     break;
@@ -446,7 +450,7 @@ internal static partial class Migration
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
             requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
-            requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true);
+            requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

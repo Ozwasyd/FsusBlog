@@ -117,7 +117,7 @@ internal static partial class CurrentSchema
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
-        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null)
+        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null)
     {
         if (requireArticleMedia is null)
         {
@@ -192,6 +192,9 @@ internal static partial class CurrentSchema
         if ((hasCommentAuthorEdit && !hasCommentAuthorDelete) ||
             (requireCommentAuthorEdit.HasValue && requireCommentAuthorEdit.Value != hasCommentAuthorEdit))
             throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
+        var hasCommentReport = await HasCommentReportSchemaAsync(connection, transaction, cancellationToken);
+        if (requireCommentReport.HasValue && requireCommentReport.Value != hasCommentReport)
+            throw new InvalidOperationException("Comment report schema presence does not match the requested operation.");
         var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
             throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
@@ -242,6 +245,7 @@ internal static partial class CurrentSchema
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
+            .Concat(hasCommentReport ? [CommentReportColumns] : [])
             .Concat(hasCommentAppeal ? CommentAppealColumns : [])
             .Concat(hasCommentReplies ? CommentReplyColumns : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
@@ -280,6 +284,7 @@ internal static partial class CurrentSchema
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
+            .Concat(hasCommentReport ? CommentReportConstraints : [])
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])

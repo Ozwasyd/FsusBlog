@@ -92,6 +92,10 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     if (process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1')
       await verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId: receipt.commentId,
         body, permalink, inboxUrl: inboxThread.url(), approve })
+    if (process.env.FSUSBLOG_TEST_COMMENT_REPORT === '1') {
+      const { verifySignedInCommentReport } = await import('./comment-report-flow.mjs')
+      await verifySignedInCommentReport({ browser, author, siteOrigin, articleId, parentId, evidence })
+    }
     assert.deepEqual(errors, [])
   } finally {
     await authorContext.close()

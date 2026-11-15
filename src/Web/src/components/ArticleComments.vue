@@ -6,9 +6,11 @@ import { commentAuthorEditDetail, editOwnComment } from '../../../Contracts/comm
 import { comments, type CommentContext, type CommentNode, type CommentRoot } from '../../../Contracts/comment-read'
 import { ApiError } from '../../../Contracts/client'
 import CommentBranch from './CommentBranch.vue'
+import CommentReportDialog from './CommentReportDialog.vue'
 import PublicCommentComposer from './PublicCommentComposer.vue'
 import { currentSession, identityEpoch } from '../session'
-import { canOpenCommentEditor, commentAuthorDelete, commentAuthorEdit, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
+import { canOpenCommentEditor, commentAuthorDelete, commentAuthorEdit, commentReply, commentReport, useCommentAuthorEligibility,
+  useCommentReportingAvailability } from './commentAuthorActions'
 
 const props = defineProps<{ articleId: number; publication: bigint }>()
 const route = useRoute()
@@ -29,6 +31,8 @@ const commentTitle = ref<HTMLElement>()
 const composer = ref<HTMLElement>()
 const replyAvailable = ref(false)
 const replyTarget = shallowRef<{ id: string; name: string }>()
+const reportTarget = ref<string>()
+const reportingAvailable = useCommentReportingAvailability()
 let request: AbortController | undefined
 const mutationNotice = ref('')
 const editTarget = shallowRef<{ id: string; session: string }>()
@@ -43,7 +47,7 @@ let editAction: AbortController | undefined
 watch([identityEpoch, () => props.articleId, () => props.publication], () => { mutationNotice.value = '' })
 watch([identityEpoch, () => props.publication, () => route.hash], () => { replyTarget.value = undefined }, { flush: 'sync' })
 watch([identityEpoch, () => currentSession.value?.siteSessionId, () => props.articleId, () => props.publication,
-  () => route.fullPath], closeEditor, { flush: 'sync' })
+  () => route.fullPath], () => { closeEditor(); reportTarget.value = undefined }, { flush: 'sync' })
 const visibleNodes = computed(() => linked.value ? permalinkNodes.value : roots.value.flatMap(root => [root.node, ...root.preview]))
 const authorActions = useCommentAuthorEligibility(() => props.articleId, visibleNodes)
 
@@ -58,6 +62,12 @@ provide(commentReply, {
 
 provide(commentAuthorDelete, id => { void refreshAfterMutation(id, 'Comment deleted.') })
 provide(commentAuthorEdit, node => { void openEditor(node) })
+provide(commentReport, {
+  available: reportingAvailable,
+  start(node) {
+    if (reportingAvailable.value && !node.deleted) reportTarget.value = node.id
+  },
+})
 
 async function refreshAfterMutation(id: string, message: string) {
   const epoch = identityEpoch.value
@@ -224,6 +234,7 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
           :loading="editPending" @click="saveEdit">Save for review</ElButton>
       </template>
     </ElDialog>
+    <CommentReportDialog :article-id="articleId" :comment-id="reportTarget" @close="reportTarget = undefined" />
     <div v-if="publication" ref="composer" tabindex="-1">
       <PublicCommentComposer :article-id="articleId" :publication="publication" :reply="replyTarget"
         @availability="value => replyAvailable = value" @cancel="replyTarget = undefined" />

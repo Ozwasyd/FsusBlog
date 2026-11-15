@@ -6,7 +6,7 @@ import { comments, type CommentNode } from '../../../Contracts/comment-read'
 import { deleteOwnComment } from '../../../Contracts/comment-author'
 import { ApiError } from '../../../Contracts/client'
 import { currentSession, identityEpoch } from '../session'
-import { commentAuthorDelete, commentAuthorEdit, commentReply, useCommentAuthorEligibility } from './commentAuthorActions'
+import { commentAuthorDelete, commentAuthorEdit, commentReply, commentReport, useCommentAuthorEligibility } from './commentAuthorActions'
 
 const props = defineProps<{
   articleId: number; node: CommentNode; preview?: CommentNode[]; target?: string; contextOnly?: boolean
@@ -24,6 +24,7 @@ const removalError = ref('')
 const notifyDeleted = inject(commentAuthorDelete)
 const openEditor = inject(commentAuthorEdit)
 const reply = inject(commentReply)
+const report = inject(commentReport)
 const previewIds = new Set(props.preview?.map(node => node.id))
 const authorActions = useCommentAuthorEligibility(() => props.articleId,
   computed(() => expanded.value ? children.value.filter(node => !previewIds.has(node.id)) : []))
@@ -114,6 +115,7 @@ function toggle(show = !expanded.value) {
         <ElButton v-if="canDelete && !node.deleted" text size="small" :loading="removing" @click="confirmRemoval = true">Delete my comment</ElButton>
         <ElButton v-if="reply?.available.value && threadOpen && !node.deleted && node.depth < 32" text size="small"
           @click="reply.start(node)">Reply</ElButton>
+        <ElButton v-if="report?.available.value && !node.deleted" text size="small" @click="report.start(node)">Report comment</ElButton>
       </header>
       <p class="comment-text" :lang="node.author.language">{{ node.content }}</p>
       <p v-if="removalError" role="alert">{{ removalError }}</p>
