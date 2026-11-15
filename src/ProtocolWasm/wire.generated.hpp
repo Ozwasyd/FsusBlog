@@ -44,6 +44,7 @@ inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t AdminTaxonomyPageSize = 24;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t AdminTagNameBytes = 128;
+inline constexpr uint32_t AdminCategoryNameBytes = 128;
 inline constexpr uint32_t AdminTagMetadataFrameBytes = 2180;
 inline constexpr uint32_t TaxonomyTagCount = 32;
 inline constexpr uint32_t AuthoringWorkspaceTabs = 100;
@@ -508,6 +509,8 @@ enum class FrameType : uint16_t {
     AdminInboxSharedThread = 32950,
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
+    AdminCategoryMetadataCommand = 33058,
+    AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
@@ -736,6 +739,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminInboxSharedThread:
         case FrameType::AdminTagMetadataCommand:
         case FrameType::AdminTagMetadata:
+        case FrameType::AdminCategoryMetadataCommand:
+        case FrameType::AdminCategoryMetadata:
         case FrameType::AdminModerationIntent:
         case FrameType::AdminModerationClaimRequest:
         case FrameType::AdminModerationClaim:

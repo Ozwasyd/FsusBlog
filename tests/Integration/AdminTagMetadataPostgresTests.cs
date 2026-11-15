@@ -99,20 +99,7 @@ public sealed class AdminTagMetadataPostgresTests
             var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
             var challenge = pow.Issue(PowScope.AdminTagMetadata, change.Id.ToString(CultureInfo.InvariantCulture), token,
                 IPAddress.Loopback, nonce, Wire.EncodeAdminTagMetadataCommand(change));
-            var number = 0;
-            while (!ScopedPow.HasWork(challenge.Salt, number.ToString(CultureInfo.InvariantCulture), nonce, challenge.Difficulty)) ++number;
-            using var output = new MemoryStream();
-            using var writer = new BinaryWriter(output);
-            writer.Write("FPOW\u0001"u8);
-            writer.Write(challenge.Difficulty);
-            writer.Write(challenge.Timestamp);
-            foreach (var value in new[] { challenge.Salt, number.ToString(CultureInfo.InvariantCulture), challenge.Signature, nonce })
-            {
-                writer.Write((ushort)value.Length);
-                writer.Write(System.Text.Encoding.ASCII.GetBytes(value));
-            }
-            writer.Flush();
-            return Convert.ToBase64String(output.ToArray());
+            return SolveProof(challenge, nonce, ct);
         }
 
         Task Sql(string text, params object[] values) =>
@@ -122,5 +109,28 @@ public sealed class AdminTagMetadataPostgresTests
         {
             return (long)(await FixtureSql.ScalarAsync(db, null, ct, text))!;
         }
+    }
+
+    internal static string SolveProof(PowChallenge challenge, string clientNonce, CancellationToken ct)
+    {
+        var number = 0;
+        while (!ScopedPow.HasWork(challenge.Salt, number.ToString(CultureInfo.InvariantCulture), clientNonce, challenge.Difficulty))
+        {
+            ct.ThrowIfCancellationRequested();
+            ++number;
+        }
+
+        using var output = new MemoryStream();
+        using var writer = new BinaryWriter(output);
+        writer.Write("FPOW\u0001"u8);
+        writer.Write(challenge.Difficulty);
+        writer.Write(challenge.Timestamp);
+        foreach (var value in new[] { challenge.Salt, number.ToString(CultureInfo.InvariantCulture), challenge.Signature, clientNonce })
+        {
+            writer.Write((ushort)value.Length);
+            writer.Write(System.Text.Encoding.ASCII.GetBytes(value));
+        }
+        writer.Flush();
+        return Convert.ToBase64String(output.ToArray());
     }
 }

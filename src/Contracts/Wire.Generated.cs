@@ -111,6 +111,8 @@ public enum FrameType : ushort
     AdminInboxSharedThread = 32950,
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
+    AdminCategoryMetadataCommand = 33058,
+    AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
@@ -271,6 +273,7 @@ public static class WireLimits
     public const int AdminTaxonomyPageSize = 24;
     public const int TaxonomyDescriptionBytes = 2000;
     public const int AdminTagNameBytes = 128;
+    public const int AdminCategoryNameBytes = 128;
     public const int AdminTagMetadataFrameBytes = 2180;
     public const int TaxonomyTagCount = 32;
     public const int AuthoringWorkspaceTabs = 100;
@@ -773,6 +776,11 @@ public static class WireRoutes
     public const string AdminTagMetadataAvailability = "/api/v2/admin/identity/taxonomy/tags/edit/available.aeds";
     public const string AdminTagMetadata = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata.aeds";
     public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
+    public const string AdminCategoryMetadataAvailability = "/api/v2/admin/identity/taxonomy/categories/edit/available.aeds";
+    public const string AdminCategoryMetadata = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata.aeds";
+    public const string AdminCategoryMetadataPow = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata/pow.aeds";
+    public const string AdminCategoryCreate = "/api/v2/admin/identity/taxonomy/categories/create.aeds";
+    public const string AdminCategoryCreatePow = "/api/v2/admin/identity/taxonomy/categories/create/pow.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminCommentRevisions = "/api/binary/author/comments/{id:long}/revisions";
     public const string AdminCommentTimeline = "/api/binary/author/comments/{id:long}/moderation-timeline";

@@ -2,21 +2,31 @@
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { changeTagMetadata, currentTagMetadata, normalizeTagMetadata, type AdminTagMetadata,
-  type AdminTagMetadataEdit } from '../../../Contracts/admin-tag-metadata'
+import { changeTaxonomyMetadata, currentTaxonomyMetadata, normalizeTaxonomyMetadata, type AdminMetadataKind,
+  type AdminTaxonomyMetadata, type AdminTaxonomyMetadataEdit } from '../../../Contracts/admin-tag-metadata'
 
-const props = defineProps<{ id: number }>()
+const props = defineProps<{ kind: AdminMetadataKind; id: number }>()
 const emit = defineEmits<{ close: []; saved: []; 'session-lost': [error: ApiError] }>()
 const lifetime = new AbortController()
-const current = shallowRef<AdminTagMetadata>()
-const outstanding = shallowRef<AdminTagMetadataEdit>()
+const current = shallowRef<AdminTaxonomyMetadata>()
+const outstanding = shallowRef<AdminTaxonomyMetadataEdit>()
 const name = ref('')
 const description = ref('')
 const error = ref('')
 const busy = ref(false)
 const stale = ref(false)
+const creating = computed(() => props.kind === 'category' && props.id === 0)
+const label = computed(() => props.kind === 'tag' ? 'Tag' : 'Category')
+const heading = computed(() => creating.value ? 'Create category' : `Edit ${props.kind} metadata`)
+const warning = computed(() => props.kind === 'tag'
+  ? 'Use a nonnumeric tag name up to 128 UTF-8 bytes and a description up to 500 characters.'
+  : 'Use a category name up to 128 UTF-8 bytes and a description up to 500 characters.')
+const submitLabel = computed(() => {
+  if (creating.value) return outstanding.value ? 'Retry category creation' : 'Create category'
+  return outstanding.value ? `Retry ${props.kind} update` : `Save ${props.kind} metadata`
+})
 const normalized = computed(() => {
-  try { return normalizeTagMetadata(name.value, description.value) }
+  try { return normalizeTaxonomyMetadata(props.kind, name.value, description.value) }
   catch { return undefined }
 })
 
@@ -30,13 +40,15 @@ async function run(action: () => Promise<void>) {
     if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) emit('session-lost', failure)
     else if (failure instanceof ApiError && failure.status === 409) {
       outstanding.value = undefined
-      stale.value = true
+      stale.value = !creating.value
       error.value = failure.message
     } else if (failure instanceof ApiError && failure.status === 403) {
       outstanding.value = undefined
       stale.value = true
-      error.value = 'You do not have permission to change this tag.'
-    } else error.value = 'Could not confirm the tag change. You can retry the same request.'
+      error.value = creating.value ? 'You do not have permission to create a category.'
+        : `You do not have permission to change this ${props.kind}.`
+    } else error.value = creating.value ? 'Could not confirm category creation. You can retry the same request.'
+      : `Could not confirm the ${props.kind} change. You can retry the same request.`
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
@@ -44,7 +56,7 @@ async function run(action: () => Promise<void>) {
 
 async function load() {
   await run(async () => {
-    const metadata = await currentTagMetadata(props.id, lifetime.signal)
+    const metadata = await currentTaxonomyMetadata(props.kind, props.id, lifetime.signal)
     if (lifetime.signal.aborted) return
     current.value = metadata
     name.value = metadata.name
@@ -54,37 +66,36 @@ async function load() {
 }
 
 function save() {
-  if (!current.value || !normalized.value || stale.value) return
+  if ((!creating.value && !current.value) || !normalized.value || stale.value || busy.value) return
   const input = outstanding.value ??= {
-    ...normalized.value, id: props.id, expectedRevision: current.value.revision, requestId: crypto.randomUUID(),
+    ...normalized.value, id: props.id, expectedRevision: current.value?.revision ?? 0n, requestId: crypto.randomUUID(),
   }
   void run(async () => {
-    await changeTagMetadata(input, lifetime.signal)
+    await changeTaxonomyMetadata(props.kind, input, lifetime.signal)
     if (!lifetime.signal.aborted) emit('saved')
   })
 }
 
-onMounted(load)
+onMounted(() => { if (!creating.value) void load() })
 onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
-  <section class="tag-metadata-editor" aria-label="Edit tag metadata" :aria-busy="busy">
-    <h3>Edit tag metadata</h3>
+  <section class="tag-metadata-editor" :aria-label="heading" :aria-busy="busy">
+    <h3>{{ heading }}</h3>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <form v-if="current" @submit.prevent="save">
-      <label for="admin-tag-name">Tag name</label>
-      <ElInput id="admin-tag-name" v-model="name" :disabled="busy || !!outstanding || stale" />
-      <label for="admin-tag-description">Tag description</label>
-      <ElInput id="admin-tag-description" v-model="description" type="textarea" :disabled="busy || !!outstanding || stale" />
-      <ElAlert v-if="!normalized" title="Use a nonnumeric tag name up to 128 UTF-8 bytes and a description up to 500 characters."
-        type="warning" :closable="false" />
+    <form v-if="creating || current" @submit.prevent="save">
+      <label :for="`admin-${kind}-name`">{{ label }} name</label>
+      <ElInput :id="`admin-${kind}-name`" v-model="name" :disabled="busy || !!outstanding || stale" />
+      <label :for="`admin-${kind}-description`">{{ label }} description</label>
+      <ElInput :id="`admin-${kind}-description`" v-model="description" type="textarea" :disabled="busy || !!outstanding || stale" />
+      <ElAlert v-if="!normalized" :title="warning" type="warning" :closable="false" />
       <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
-        {{ outstanding ? 'Retry tag update' : 'Save tag metadata' }}
+        {{ submitLabel }}
       </ElButton>
     </form>
-    <ElButton v-if="stale || !current" native-type="button" :disabled="busy" @click="load">Reload tag metadata</ElButton>
-    <ElButton native-type="button" :disabled="busy" @click="emit('close')">Close tag editor</ElButton>
+    <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">Reload {{ kind }} metadata</ElButton>
+    <ElButton native-type="button" :disabled="busy" @click="emit('close')">Close {{ kind }} editor</ElButton>
   </section>
 </template>
 

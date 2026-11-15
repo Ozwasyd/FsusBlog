@@ -66,7 +66,7 @@ internal static partial class CurrentSchema
     internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null,
-        bool? requireArticleSummary = null, bool? requireDocumentExports = null)
+        bool? requireArticleSummary = null, bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -94,7 +94,7 @@ internal static partial class CurrentSchema
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch,
             requireAuthorTextIndex: requireAuthorTextIndex, requireArticleSummary: requireArticleSummary,
-            requireDocumentExports: requireDocumentExports);
+            requireDocumentExports: requireDocumentExports, requireAdminCategoryMetadata: requireAdminCategoryMetadata);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -125,7 +125,7 @@ internal static partial class CurrentSchema
         bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
         bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
-        bool? requireDocumentExports = null)
+        bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null)
     {
         requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
@@ -171,6 +171,11 @@ internal static partial class CurrentSchema
         var hasAdminTagMetadata = await HasAdminTagMetadataAsync(connection, transaction, cancellationToken);
         RequireSchemaPresence(requireAdminTagMetadata, hasAdminTagMetadata,
             "The administrator tag metadata schema presence does not match the requested operation.");
+        var hasAdminCategoryMetadata = await HasAdminCategoryMetadataAsync(connection, transaction, cancellationToken);
+        if (hasAdminCategoryMetadata && !hasAdminTagMetadata)
+            throw new InvalidOperationException("The administrator category metadata schema requires the taxonomy epoch.");
+        RequireSchemaPresence(requireAdminCategoryMetadata, hasAdminCategoryMetadata,
+            "The administrator category metadata schema is unavailable. Run category-metadata with the server stopped.");
         var hasAdminArticleRollback = await HasAdminArticleRollbackSchemaAsync(connection, transaction, cancellationToken);
         RequireSchemaPresence(requireAdminArticleRollback, hasAdminArticleRollback,
             "The administrator article rollback schema presence does not match the requested operation.");
@@ -300,6 +305,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViews ? SavedViewColumns : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
+            .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
@@ -350,6 +356,7 @@ internal static partial class CurrentSchema
             .Concat(hasSavedViews ? SavedViewConstraints : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
+            .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataConstraints : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
@@ -383,7 +390,7 @@ internal static partial class CurrentSchema
         RequireSchemaPresence(requireArticleSummary, hasArticleSummary,
             "The article author summary schema presence does not match the requested operation.");
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
-        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
+        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, hasAdminCategoryMetadata, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
         if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
         if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);

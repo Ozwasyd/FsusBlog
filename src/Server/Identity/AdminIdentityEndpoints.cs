@@ -141,6 +141,8 @@ internal static class AdminIdentityEndpoints
         AdminCommentRevisions.Map(app, store, session);
         if (app.Configuration.GetValue(AdminTagMetadataEndpoints.Setting, false))
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
+        if (app.Configuration.GetValue(AdminTagMetadataEndpoints.CategorySetting, false))
+            AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame, category: true);
         if (app.Configuration.GetValue(AdminArticleRollbackEndpoints.Setting, false))
             AdminArticleRollbackEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         if (app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().EditorEnabled)

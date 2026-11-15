@@ -60,6 +60,7 @@ internal static partial class Migration
             [("document-exports", null)] = InitializeDocumentExportsAsync,
             [("saved-views", null)] = InitializeSavedViewsAsync,
             [("tag-metadata", null)] = InitializeAdminTagMetadataAsync,
+            [("category-metadata", null)] = InitializeAdminCategoryMetadataAsync,
             [("admin-inbox-replies", null)] = InitializeAdminInboxRepliesAsync,
             [("admin-inbox-status", null)] = InitializeAdminInboxStatusAsync,
             [("admin-inbox-notice", null)] = InitializeAdminInboxNoticeAsync,
@@ -141,6 +142,7 @@ internal static partial class Migration
                   site-passkey-names   Add owner Passkey names with the server stopped
                   saved-views          Add private author saved views with the server stopped
                   tag-metadata        Add the administrator tag metadata schema with the server stopped
+                  category-metadata   Add administrator category metadata after tag-metadata, with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
                   admin-inbox-status    Add administrator status auditing with the server stopped
                   admin-inbox-notice    Add targeted administrator notice auditing with the server stopped
@@ -446,7 +448,7 @@ internal static partial class Migration
             throw new InvalidOperationException("Article body edits were not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
-            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
+            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true, requireAdminCategoryMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
             requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
             requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,

@@ -77,7 +77,7 @@ internal sealed class InstanceLease : IAsyncDisposable
     internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null,
         bool? requireAdminInboxReply = null, bool? requireSitePageEditor = null, bool? requireSiteRefresh = null,
         bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null, bool requireDocumentExports = false)
+        bool? requirePublicationMedia = null, bool requireDocumentExports = false, bool? requireAdminCategoryMetadata = null)
     {
         await _owner.OpenAsync(ct);
         await using (var acquire = Store.Sql(_owner, null, "select pg_catalog.pg_try_advisory_lock($1)", OwnershipKey))
@@ -95,7 +95,7 @@ internal sealed class InstanceLease : IAsyncDisposable
             requireSitePageEditor: requireSitePageEditor, requireSiteRefresh: requireSiteRefresh,
             requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireArticleSummary: true,
-            requireDocumentExports: requireDocumentExports ? true : null);
+            requireDocumentExports: requireDocumentExports ? true : null, requireAdminCategoryMetadata: requireAdminCategoryMetadata);
         if (requireDocumentExports && !await CurrentSchema.HasCurrentDocumentExportProviderAsync(_owner, null, ct))
             throw new InvalidOperationException("Run the document-exports migration with the service stopped.");
         // The catalog verifier has already rejected partial or malformed installations.

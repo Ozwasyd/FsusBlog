@@ -26,15 +26,37 @@ internal static partial class CurrentSchema
         "admin_tag_metadata_command c session_reference octet_length(session_reference)=32"
     ];
 
+    private static readonly string[] AdminCategoryMetadataColumns =
+    [
+        "admin_category_metadata_command principal_id:uuid request_id:uuid category_id:int4 revision:int8 old_name:text old_description:text name:text description:text changed:bool fingerprint:bytea session_reference:bytea happened_at:timestamptz"
+    ];
+
+    private static readonly string[] AdminCategoryMetadataConstraints =
+    [
+        "admin_category_metadata_command p principal_id,request_id",
+        "admin_category_metadata_command f principal_id public.admin_principal:id",
+        "admin_category_metadata_command f category_id public.category:id",
+        "admin_category_metadata_command c revision revision>=0",
+        "admin_category_metadata_command c fingerprint octet_length(fingerprint)=32",
+        "admin_category_metadata_command c session_reference octet_length(session_reference)=32"
+    ];
+
     internal static Task<bool> HasAdminTagMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The administrator tag metadata schema is incomplete.",
             "public.taxonomy_epoch", "public.admin_tag_metadata_command");
 
-    private static async Task VerifyTaxonomyEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    internal static Task<bool> HasAdminCategoryMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The administrator category metadata schema is incomplete.",
+            "public.admin_category_metadata_command");
+
+    private static async Task VerifyTaxonomyEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, bool category, CancellationToken ct)
     {
-        await using var query = new NpgsqlCommand("""
-            select revision=coalesce((select max(revision) from public.admin_tag_metadata_command where changed),0)
-            from public.taxonomy_epoch where singleton
+        var categoryHistory = category ? "union all select revision from public.admin_category_metadata_command where changed" : "";
+        await using var query = new NpgsqlCommand($"""
+            select revision=coalesce((select max(revision) from (
+                select revision from public.admin_tag_metadata_command where changed
+                {categoryHistory}
+            ) as history),0) from public.taxonomy_epoch where singleton
             """, db, tx);
         if (await query.ExecuteScalarAsync(ct) is not true)
             throw new InvalidOperationException("The taxonomy epoch and durable command history do not agree.");

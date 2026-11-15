@@ -5,9 +5,12 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAdminTaxonomyPage } from '../../src/Contracts/admin-taxonomy.ts'
+import { PodReader } from '../../src/Contracts/binary.ts'
+import { decodePowChallenge } from '../../src/Contracts/pow.ts'
+import { decodeTaxonomyMetadata } from '../../src/Contracts/taxonomy.ts'
 import {
   decodeDraft, decodeDraftTaxonomy, encodeArticleCommand, encodeArticleScheduleCommand, encodeTaxonomyAssignment,
-  FrameType, WireHeaders, WireRoutes,
+  FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const run = promisify(execFile)
@@ -50,6 +53,10 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     retracted: 0, deleted: 1, retainedArticles: 3,
   }])
   await assertRow('Category usage', 'Taxonomy QA category', ['0', '1', '1', '0', '1', '3'])
+  if (process.env.FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA !== '1') {
+    assert.equal((await context.request.get(adminOrigin.origin + WireRoutes.AdminCategoryMetadataAvailability)).status(), 404)
+    assert.equal(await panel.getByRole('button', { name: 'Create category', exact: true }).count(), 0)
+  }
   const referencedTag = {
     id: 2, name: 'Taxonomy QA tag', published: 0, drafts: 0, scheduled: 1,
     retracted: 0, deleted: 0, retainedArticles: 2,
@@ -78,6 +85,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   await page.screenshot({ path: join(evidence, 'administrator-taxonomy-mobile.png'), animations: 'disabled' })
   if (process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
     await editUnusedTag()
+  if (process.env.FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA === '1')
+    await createAndRenameCategory()
 
   await run(revoke, [], { timeout: 8_000 })
   await probe(tagEndpoint, adminCookieName, grantedCookie.value, 401)
@@ -103,6 +112,109 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     await row.getByRole('rowheader', { name, exact: true }).waitFor()
     assert.deepEqual(await row.getByRole('cell').allTextContents(), values)
   }
+  async function createAndRenameCategory() {
+    await read(categories, categoryEndpoint)
+    const availability = WireRoutes.AdminCategoryMetadataAvailability
+    assert.equal((await context.request.get(adminOrigin.origin + availability)).status(), 204)
+    await probe(siteOrigin.origin + availability, adminCookieName, grantedCookie.value, 404)
+    const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
+    const original = 'Taxonomy QA category'
+    const renamed = 'Taxonomy linked renamed Café'
+    const renamedDescription = 'Verified metadata for the same linked category.'
+    const createdName = 'Taxonomy new Cafe\u0301'
+    const createdDescription = 'Created in the administrator category editor.'
+    const route = (template, id) => template.replace('{id:int}', String(id))
+    const lookup = id => siteOrigin.origin + route(WireRoutes.CategoryMetadata, id)
+    const before = await context.request.get(lookup(1))
+    assert.equal(before.status(), 200)
+    assert.deepEqual(decodeTaxonomyMetadata(decodeFrame(await before.body(), FrameType.TaxonomyExactMetadata).payload),
+      { id: 1, name: original, description: null })
+    const previousGeneration = before.headers()[generationHeader]
+    assert(previousGeneration)
+
+    async function publicCategory(id, name, description) {
+      const raw = await context.request.get(lookup(id))
+      assert.equal(raw.status(), 200)
+      assert.deepEqual(decodeTaxonomyMetadata(decodeFrame(await raw.body(), FrameType.TaxonomyExactMetadata).payload),
+        { id, name, description })
+      const html = await context.request.get(siteOrigin.origin + `/category/${id}`)
+      assert.equal(html.status(), 200)
+      assert((await html.text()).includes(description))
+      assert.equal(html.headers()[generationHeader], raw.headers()[generationHeader])
+      return raw.headers()[generationHeader]
+    }
+
+    async function write(form, method, path, powPath, buttonName) {
+      const endpoint = adminOrigin.origin + path
+      const proof = adminOrigin.origin + powPath
+      const [challenge, accepted] = await Promise.all([
+        page.waitForResponse(response => response.url() === proof && response.request().method() === 'POST'),
+        page.waitForResponse(response => response.url() === endpoint && response.request().method() === method),
+        form.getByRole('button', { name: buttonName, exact: true }).click(),
+      ])
+      assert.equal(challenge.status(), 200)
+      assert.equal(accepted.status(), 200)
+      assert.equal(decodePowChallenge(decodeFrame(await challenge.body(), FrameType.PowChallenge).payload).difficulty, WireLimits.PowChallengeDifficulty)
+      const command = accepted.request().postDataBuffer()
+      assert(command)
+      decodeFrame(command, FrameType.AdminCategoryMetadataCommand)
+      assert.deepEqual(challenge.request().postDataBuffer(), command)
+      assert.match(challenge.request().headers()[WireHeaders.PowClientNonce.toLowerCase()], /^[a-f0-9]{32}$/)
+      assert(accepted.request().headers()[WireHeaders.PowProof.toLowerCase()])
+      assert((await accepted.headerValue('Cache-Control'))?.includes('no-store'))
+      return decodeCategoryReceipt(accepted)
+    }
+
+    async function decodeCategoryReceipt(response) {
+      const input = new PodReader(decodeFrame(await response.body(), FrameType.AdminCategoryMetadata).payload)
+      const result = { id: input.i32(), revision: input.i64(), name: input.text(WireLimits.TaxonomyNameBytes),
+        description: input.text(WireLimits.TaxonomyDescriptionBytes), changed: input.bool() }
+      input.finish()
+      return result
+    }
+
+    await panel.getByRole('button', { name: 'Create category', exact: true }).click()
+    const create = panel.getByRole('region', { name: 'Create category', exact: true })
+    await create.getByLabel('Category name', { exact: true }).fill(`  ${createdName}  `)
+    await create.getByLabel('Category description', { exact: true }).fill(createdDescription)
+    const created = await write(create, 'POST', WireRoutes.AdminCategoryCreate, WireRoutes.AdminCategoryCreatePow, 'Create category')
+    assert(created.id > 1 && created.revision > 0n)
+    assert.deepEqual({ name: created.name, description: created.description, changed: created.changed },
+      { name: createdName, description: createdDescription, changed: true })
+    await panel.getByText('Category created.', { exact: true }).waitFor()
+    await assertRow('Category usage', createdName, ['0', '0', '0', '0', '0', '0'])
+    const createdGeneration = await publicCategory(created.id, createdName, createdDescription)
+    assert(createdGeneration && createdGeneration !== previousGeneration)
+    assert.equal((await context.request.post(siteOrigin.origin + WireRoutes.AdminCategoryCreate)).status(), 404)
+
+    const editPath = route(WireRoutes.AdminCategoryMetadata, 1)
+    const editPow = route(WireRoutes.AdminCategoryMetadataPow, 1)
+    await panel.getByLabel('Category to edit').selectOption('1')
+    const loaded = await read(panel.getByRole('button', { name: 'Edit selected category', exact: true }), adminOrigin.origin + editPath)
+    assert.equal(loaded.status(), 200)
+    const current = await decodeCategoryReceipt(loaded)
+    assert.deepEqual({ id: current.id, name: current.name, description: current.description, changed: current.changed },
+      { id: 1, name: original, description: '', changed: false })
+    const editor = panel.getByRole('region', { name: 'Edit category metadata', exact: true })
+    await editor.getByLabel('Category name', { exact: true }).fill(renamed)
+    await editor.getByLabel('Category description', { exact: true }).fill(renamedDescription)
+    const updated = await write(editor, 'PUT', editPath, editPow, 'Save category metadata')
+    assert(updated.revision > current.revision)
+    assert.deepEqual({ id: updated.id, name: updated.name, description: updated.description, changed: updated.changed },
+      { id: 1, name: renamed, description: renamedDescription, changed: true })
+    await panel.getByText('Category metadata saved.', { exact: true }).waitFor()
+    await assertRow('Category usage', renamed, ['0', '1', '1', '0', '1', '3'])
+    const after = await read(categories, categoryEndpoint)
+    await expectPage(after, [{ id: 1, name: renamed, published: 0, drafts: 1, scheduled: 1,
+      retracted: 0, deleted: 1, retainedArticles: 3 }, { id: created.id, name: createdName, published: 0, drafts: 0, scheduled: 0,
+      retracted: 0, deleted: 0, retainedArticles: 0 }])
+    const renamedGeneration = await publicCategory(1, renamed, renamedDescription)
+    assert(renamedGeneration && renamedGeneration !== createdGeneration)
+    await probe(siteOrigin.origin + editPath, adminCookieName, grantedCookie.value, 404)
+    assert.equal((await context.request.put(siteOrigin.origin + editPath)).status(), 404)
+    await page.screenshot({ path: join(evidence, 'administrator-category-metadata-mobile.png'), animations: 'disabled' })
+  }
+
   async function editUnusedTag() {
     const current = 'Taxonomy QA filler 3'
     const renamed = 'Taxonomy renamed Café'

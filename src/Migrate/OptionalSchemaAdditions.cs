@@ -41,6 +41,12 @@ internal static partial class Migration
             CurrentSchema.HasAdminTagMetadataAsync,
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requireAdminTagMetadata: exists));
 
+    private static Task InitializeAdminCategoryMetadataAsync(NpgsqlConnection connection, CancellationToken token) =>
+        InitializeOptionalSchemaAsync(connection, token, "taxonomy_category_metadata.sql", "Verified the administrator category metadata schema.",
+            CurrentSchema.HasAdminCategoryMetadataAsync,
+            (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true,
+                requireAdminTagMetadata: true, requireAdminCategoryMetadata: exists));
+
     private static Task InitializeAppearanceActivationAsync(NpgsqlConnection connection, CancellationToken token) =>
         InitializeOptionalSchemaAsync(connection, token, "appearance-activation.sql", "Verified the optional signed appearance activation schema.",
             CurrentSchema.HasAppearanceActivationAsync,

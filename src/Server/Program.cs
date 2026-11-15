@@ -34,6 +34,9 @@ if (adminArticleRollback && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
 var adminTagMetadata = builder.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.Setting, false);
 if (adminTagMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
     throw new InvalidOperationException("Tag metadata editing requires a dedicated HTTPS administrator origin.");
+var adminCategoryMetadata = builder.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.CategorySetting, false);
+if (adminCategoryMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
+    throw new InvalidOperationException("Category metadata editing requires a dedicated HTTPS administrator origin.");
 var sitePageEditor = builder.Configuration.GetValue(SitePages.EditorSetting, false);
 var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
 var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
@@ -210,7 +213,7 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
     requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
     requireAdminTagMetadata: adminTagMetadata ? true : null, requirePublicationMedia: publicMediaEnabled ? true : null,
-    requireDocumentExports: documentExportTasks);
+    requireDocumentExports: documentExportTasks, requireAdminCategoryMetadata: adminCategoryMetadata ? true : null);
 var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
 var publicationProofs = app.Services.GetService<PublicationProofs>();
