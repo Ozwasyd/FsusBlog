@@ -8,11 +8,13 @@ export FSUSBLOG_MIGRATE_DLL="${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Debug/
 migrate=("$DOTNET_BIN" "$FSUSBLOG_MIGRATE_DLL")
 prepared=false
 activate=false
+batch=false
 case "$# ${1:-}" in
     '0 ') ;;
     '1 --prepared') prepared=true ;;
     '1 --activate') prepared=true; activate=true ;;
-    *) printf 'Usage: %s [--prepared|--activate]\n' "$0" >&2; exit 2 ;;
+    '1 --activate-batch') prepared=true; activate=true; batch=true ;;
+    *) printf 'Usage: %s [--prepared|--activate|--activate-batch]\n' "$0" >&2; exit 2 ;;
 esac
 [[ -f "$FSUSBLOG_MIGRATE_DLL" ]]
 if [[ "$prepared" == true ]]; then
@@ -89,6 +91,20 @@ asset=2b550000-0000-4000-8000-000000000002
 payload=2b550000000040008000000000000002
 asset_sha=cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34
 asset_bytes=3
+article_count=1
+asset_count=1
+reference_count=1
+owner2=
+if [[ "$batch" == true ]]; then
+    owner2=3cc70000-0000-4000-b000-000000000008
+    historical_asset=3c550000-0000-4000-8000-000000000003
+    current_asset=4d550000-0000-4000-8000-000000000004
+    historical_leaf="${historical_asset//-/}"
+    current_leaf="${current_asset//-/}"
+    article_count=2
+    asset_count=3
+    reference_count=4
+fi
 extension=txt
 if [[ "$prepared" == true ]]; then
     extension=png
@@ -129,6 +145,33 @@ FIXTURE_PNG
 else
     printf 'def' > "$private"
 fi
+if [[ "$batch" == true ]]; then
+    mkdir "$scratch/private/3c" "$scratch/private/4d"
+    historical_file="$scratch/private/3c/$historical_leaf.png"
+    current_file="$scratch/private/4d/$current_leaf.png"
+    python3 - "$historical_file" "$current_file" <<'BATCH_PNG'
+import pathlib, struct, sys, zlib
+
+def chunk(tag, data):
+    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))
+
+for path, pixel in zip(sys.argv[1:], (bytes([84, 19, 160, 255]), bytes([191, 99, 16, 255]))):
+    header = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)
+    rows = (b'\x00' + pixel * 2) * 2
+    pathlib.Path(path).write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
+BATCH_PNG
+    pg source "$source" -v historical_asset="$historical_asset" -v historical_key="3c/$historical_leaf.png" \
+        -v historical_bytes="$(wc -c < "$historical_file" | tr -d ' ')" -v historical_sha="$(sha "$historical_file")" \
+        -v current_asset="$current_asset" -v current_key="4d/$current_leaf.png" \
+        -v current_bytes="$(wc -c < "$current_file" | tr -d ' ')" -v current_sha="$(sha "$current_file")" \
+        -f tests/Integration/Migration/legacy-media-batch-source.sql
+    cp "$historical_file" "$current_file" "$scratch/source-media-backup/"
+    chmod 0400 "$scratch/source-media-backup/$historical_leaf.png" "$scratch/source-media-backup/$current_leaf.png"
+fi
+total_private_bytes="$asset_bytes"
+if [[ "$batch" == true ]]; then
+    total_private_bytes=$((asset_bytes + $(wc -c < "$historical_file") + $(wc -c < "$current_file")))
+fi
 cp "$private" "$private_backup"
 chmod 0400 "$private_backup"
 [[ "$(sha "$private_backup")" == "$asset_sha" ]]
@@ -137,6 +180,12 @@ PGHOST="$scratch/source-s" PYTHONDONTWRITEBYTECODE=1 python3 tests/Integration/M
 rm "$private"
 cp "$private_backup" "$private"
 [[ "$(sha "$private")" == "$asset_sha" ]]
+if [[ "$batch" == true ]]; then
+    for original in "$historical_file" "$current_file"; do
+        rm "$original"
+        cp "$scratch/source-media-backup/${original##*/}" "$original"
+    done
+fi
 pg source postgres -c 'CREATE ROLE joined_reader LOGIN'
 for db in "$source" "$restored"; do
     pg source "$db" -c 'GRANT USAGE ON SCHEMA public TO joined_reader;
@@ -154,6 +203,9 @@ export PGHOST="$scratch/target-s" PGDATABASE="$target"
 "${migrate[@]}" plan > "$scratch/bootstrap.json"
 "${migrate[@]}" apply "$scratch/bootstrap.json"
 pg target "$target" -c "INSERT INTO public.blog_user VALUES ('$owner','Joined fixture owner',true,true,1)"
+if [[ "$batch" == true ]]; then
+    pg target "$target" -c "INSERT INTO public.blog_user VALUES ('$owner2','Joined second fixture owner',true,true,1)"
+fi
 target_site="$(pg target "$target" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')"
 mkdir -m 700 "$scratch/target-backup" "$scratch/target-media" "$scratch/packages"
 export PYTHONDONTWRITEBYTECODE=1
@@ -172,13 +224,14 @@ target_state() {
 intake_rc=0
 "${migrate[@]}" legacy plan postgres > "$scratch/intake.json" || intake_rc=$?
 [[ "$intake_rc" == 2 ]]
-python3 - "$scratch/intake.json" "$scratch/owners.json" "$owner" <<'PY'
+python3 - "$scratch/intake.json" "$scratch/owners.json" "$owner" "$owner2" <<'PY'
 import json, pathlib, sys
 intake = json.loads(pathlib.Path(sys.argv[1]).read_text())
 article = next(row for row in intake['audit']['projections'] if row['table'] == 'article')
 pathlib.Path(sys.argv[2]).write_text(json.dumps({
     'sourceArticleSha256': article['sha256'], 'sourceAdminIdentitySha256': intake['sourceAdminIdentitySha256'],
-    'owners': [{'articleId': 42, 'legacyAdminId': 7, 'v2UserId': sys.argv[3]}]
+    'owners': [{'articleId': 42, 'legacyAdminId': 7, 'v2UserId': sys.argv[3]}] +
+              ([{'articleId': 43, 'legacyAdminId': 8, 'v2UserId': sys.argv[4]}] if sys.argv[4] else [])
 }))
 PY
 plan=("${migrate[@]}" legacy import plan postgres "$scratch/owners.json" "$backup" "$backup_sha")
@@ -197,11 +250,12 @@ pack_media() {
     local name="$1"
     local legacy_assets=("${migrate[@]}" legacy assets rehearsal)
     "${legacy_assets[@]}" plan postgres "$scratch/public" "$scratch/private" "$source_site" "$target_site" > "$scratch/$name-review.json"
-    python3 - "$scratch/$name-review.json" "$owner" <<'PY'
+    python3 - "$scratch/$name-review.json" "$owner" "$owner2" <<'PY'
 import json, pathlib, sys
 file = pathlib.Path(sys.argv[1]); review = json.loads(file.read_text())
-assert review['owners'] == [{'sourceAdminPrincipalId': 7, 'targetUserId': None}]
-review['owners'][0]['targetUserId'] = sys.argv[2]
+owners = [value for value in sys.argv[2:] if value]
+assert review['owners'] == [{'sourceAdminPrincipalId': 7 + i, 'targetUserId': None} for i, _ in enumerate(owners)]
+for mapping, user in zip(review['owners'], owners): mapping['targetUserId'] = user
 file.write_text(json.dumps(review))
 PY
     "${legacy_assets[@]}" copy postgres "$scratch/public" "$scratch/private" "$scratch/$name-review.json" \
@@ -238,8 +292,9 @@ pg source "$restored" -c "UPDATE content_asset_reference SET alt_text='Retained 
 # Corrupt a separate stand-in package. Do not change the already sealed independent package.
 mkdir -m 700 "$scratch/packages/bad"
 cp "$package/manifest.json" "$scratch/packages/bad/manifest.json"
+if [[ "$batch" == true ]]; then cp "$package/$historical_leaf.blob" "$package/$current_leaf.blob" "$scratch/packages/bad/"; fi
 printf 'bag' > "$scratch/packages/bad/$payload.blob"
-chmod 0400 "$scratch/packages/bad/manifest.json" "$scratch/packages/bad/$payload.blob"
+chmod 0400 "$scratch/packages/bad/manifest.json" "$scratch/packages/bad/"*.blob
 chmod 0500 "$scratch/packages/bad"
 refuse 'does not match its manifest length or SHA-256' package-byte-drift "${apply[@]}" --media "$scratch/packages/bad" "$media_sha"
 [[ "$(target_state "$target")" == '1|t|0|0|0|0' ]]
@@ -249,10 +304,10 @@ refuse 'does not match its manifest length or SHA-256' package-byte-drift "${app
 "${apply[@]}" "${media[@]}" > "$scratch/retry.json"
 [[ "$(target_state "$target")" == '-1|f|0|0|0|0' ]]
 shadow_rows() {
-    pg target "$target" -Atc 'SELECT a.id,a.owner_admin_principal_id,a.target_owner_id,a.byte_length,a.sha256,
+    pg target "$target" -Atc "SELECT a.id,a.owner_admin_principal_id,a.target_owner_id,a.byte_length,a.sha256,
         r.source_kind,r.source_id,r.article_id,r.revision,r.reference_count,r.alt_text,s.title
         FROM fsus_legacy_candidate.shadow_content_asset a JOIN fsus_legacy_candidate.shadow_content_asset_reference r ON r.asset_id=a.id
-        JOIN fsus_legacy_candidate.shadow_revision s ON (s.source_revision_id,s.article_id,s.revision)=(r.source_id,r.article_id,r.revision)'
+        JOIN fsus_legacy_candidate.shadow_revision s ON (s.source_revision_id,s.article_id,s.revision)=(r.source_id,r.article_id,r.revision) WHERE a.id='$asset'"
 }
 [[ "$(shadow_rows)" == "$asset|7|$owner|$asset_bytes|$asset_sha|revision|5000000003|42|3|1|Retained private file|Private edit" ]]
 plan_sha="$(json_value planSha256 "$scratch/applied.json")"
@@ -261,7 +316,7 @@ verify=("${migrate[@]}" legacy import verify "$scratch/import.json" "$plan_sha" 
 refuse 'original joined media package' project-without-package "${project[@]}"
 [[ "$(target_state "$target")" == '-1|f|0|0|0|0' ]]
 "${project[@]}" "${media[@]}" > "$scratch/projected.json"
-[[ "$(target_state "$target")" == '-1|f|1|0|0|0' ]]
+[[ "$(target_state "$target")" == "-1|f|$article_count|0|0|0" ]]
 refuse 'isolated legacy import candidate and cannot serve' runtime "${migrate[@]}" verify
 pg target "$target" -c 'UPDATE fsus_legacy_candidate.shadow_content_asset_reference SET reference_count=2'
 refuse 'Staged source has changed: shadow_content_asset_reference.' candidate-drift "${verify[@]}" "${media[@]}"
@@ -269,8 +324,8 @@ pg target "$target" -c 'UPDATE fsus_legacy_candidate.shadow_content_asset_refere
 
 # Recover the joined custody from the original sealed package in a new private directory and verify it against the quarantined DB.
 mkdir -m 700 "$scratch/packages/recovered"
-cp "$package/manifest.json" "$package/$payload.blob" "$scratch/packages/recovered/"
-chmod 0400 "$scratch/packages/recovered/manifest.json" "$scratch/packages/recovered/$payload.blob"
+cp "$package/manifest.json" "$package/"*.blob "$scratch/packages/recovered/"
+chmod 0400 "$scratch/packages/recovered/manifest.json" "$scratch/packages/recovered/"*.blob
 chmod 0500 "$scratch/packages/recovered"
 "${verify[@]}" --media "$scratch/packages/recovered" "$media_sha" > "$scratch/verified.json"
 
@@ -306,10 +361,13 @@ NORMALIZER_FILES
     python3 - "$request" "$scratch/alternate-request.json" "$alternate_manifest" "$alternate_sha" <<'OTHER_REQUEST'
 import json, pathlib, sys
 original, destination, manifest, raw = sys.argv[1:]
-request = json.loads(pathlib.Path(original).read_bytes())
-request['custodyManifestSha256'] = manifest
-request['assets'][0]['rawSha256'] = raw
-pathlib.Path(destination).write_text(json.dumps(request, ensure_ascii=True, separators=(',', ':')))
+original_bytes = pathlib.Path(original).read_bytes()
+request = json.loads(original_bytes)
+# Replace only the two approved hex fields. Leave the original canonical Unicode escaping intact.
+for before, after in ((request['custodyManifestSha256'], manifest), (request['assets'][0]['rawSha256'], raw)):
+    assert original_bytes.count(before.encode()) == 1
+    original_bytes = original_bytes.replace(before.encode(), after.encode())
+pathlib.Path(destination).write_bytes(original_bytes)
 OTHER_REQUEST
     "${preparer[@]}" prepare "$scratch/alternate-request.json" "$(sha "$scratch/alternate-request.json")" \
         "$alternate_package" "$normalizer_sha" "$scratch/packages" prepared_alternate > "$scratch/prepared-alternate.json"
@@ -327,32 +385,35 @@ content = bytearray(pathlib.Path(sys.argv[1]).read_bytes())
 content[-1] ^= 1
 pathlib.Path(sys.argv[2]).write_bytes(content)
 CHANGE_BYTE
-    chmod 0400 "$corrupt/manifest.json" "$corrupt/$payload.blob"
+    if [[ "$batch" == true ]]; then
+        cp "$scratch/packages/prepared/$historical_leaf.blob" "$scratch/packages/prepared/$current_leaf.blob" "$corrupt/"
+    fi
+    chmod 0400 "$corrupt/manifest.json" "$corrupt/"*.blob
     chmod 0500 "$corrupt"
     refuse 'prepared media payload differs' changed-output-bytes "${verify_media[@]}" \
         --prepared "$corrupt" "$prepared_sha" "$normalizer_sha" "${media[@]}"
 
     recovered="$scratch/packages/prepared_restored"
     mkdir -m 700 "$recovered"
-    cp "$scratch/packages/prepared/manifest.json" "$scratch/packages/prepared/$payload.blob" "$recovered/"
-    chmod 0400 "$recovered/manifest.json" "$recovered/$payload.blob"
+    cp "$scratch/packages/prepared/manifest.json" "$scratch/packages/prepared/"*.blob "$recovered/"
+    chmod 0400 "$recovered/manifest.json" "$recovered/"*.blob
     chmod 0500 "$recovered"
     "${verify_media[@]}" --prepared "$recovered" "$prepared_sha" "$normalizer_sha" \
         --media "$scratch/packages/recovered" "$media_sha" > "$scratch/prepared-verified.json"
-    python3 - "$request" "$recovered/manifest.json" "$scratch/prepared-verified.json" "$asset_sha" "$owner" <<'VERIFIED_ORIGIN'
+    python3 - "$request" "$recovered/manifest.json" "$scratch/prepared-verified.json" "$asset_sha" "$owner" "$asset_count" "$reference_count" <<'VERIFIED_ORIGIN'
 import json, pathlib, sys
 request, result, verified = [json.loads(pathlib.Path(name).read_bytes()) for name in sys.argv[1:4]]
-raw, owner = sys.argv[4:]
-assert request['references'] == [{'assetId': request['assets'][0]['assetId'], 'articleId': 42,
+raw, owner, files, references = sys.argv[4:]
+assert request['references'][:1] == [{'assetId': request['assets'][0]['assetId'], 'articleId': 42,
     'sourceRevisionId': 5000000003, 'revision': 3, 'referenceCount': 1, 'altText': 'Retained private file'}]
 assert request['assets'][0]['rawSha256'] == result['assets'][0]['rawSha256'] == raw
 assert request['assets'][0]['targetOwnerId'] == owner and request['assets'][0]['sourceOwnerId'] == 7
 assert result['assets'][0]['normalizedSha256'] != raw and result['assets'][0]['format'] == 1
 assert result['assets'][0]['width'] == result['assets'][0]['height'] == 2
-assert verified['files'] == verified['references'] == 1 and not verified['readyToApply']
+assert (verified['files'], verified['references']) == (int(files), int(references)) and not verified['readyToApply']
 print(json.dumps(dict(verified, rawSha256=raw, normalizedSha256=result['assets'][0]['normalizedSha256']), sort_keys=True))
 VERIFIED_ORIGIN
-    [[ "$(target_state "$target")" == '-1|f|1|0|0|0' ]]
+    [[ "$(target_state "$target")" == "-1|f|$article_count|0|0|0" ]]
 else
     refuse 'Preparation requires supported private images' text-preparation "${migrate[@]}" legacy import media-request \
         "$scratch/import.json" "$plan_sha" "$backup" "$backup_sha" "${media[@]}"
@@ -374,7 +435,7 @@ FSUSBLOG_DB="$rollback_dsn" python3 tools/site-backup.py verify-restored "$backu
 refuse 'does not belong to this independent candidate database' wrong-target env FSUSBLOG_IMPORT_DB="$rollback_dsn" "${plan[@]}" "${media[@]}"
 [[ "$(target_state "$rollback")" == '1|t|0|0|0|0' ]]
 
-python3 - "$scratch" "$backup_sha" "$media_sha" "$asset_bytes" <<'PY'
+python3 - "$scratch" "$backup_sha" "$media_sha" "$total_private_bytes" "$asset_count" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1]); read = lambda n: json.loads((root / f'{n}.json').read_text())
 plan, applied, retry, projected, verified = [read(name) for name in ('import','applied','retry','projected','verified')]
@@ -388,6 +449,6 @@ assert projected['projectionSha256'] == verified['projectionSha256']
 print(json.dumps({'sourceRestore': read('source-restore'), 'targetRollbackManifestSha256': sys.argv[2],
                   'mediaManifestSha256': sys.argv[3], 'articlePlanSha256': applied['planSha256'],
                   'firstPhaseSha256': applied['phases'][0]['sha256'], 'projectionSha256': verified['projectionSha256'],
-                  'mediaFiles': 1, 'privateBytes': int(sys.argv[4]), 'readyToApply': False}, sort_keys=True))
+                  'mediaFiles': int(sys.argv[5]), 'privateBytes': int(sys.argv[4]), 'readyToApply': False}, sort_keys=True))
 PY
 printf '%s\n' 'Legacy database and nonempty private media joined and restored in native isolation.'

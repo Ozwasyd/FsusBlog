@@ -5,7 +5,7 @@ import { api } from '../../../src/Contracts/client.ts'
 import { articleMedia, privateArticlePreview } from '../../../src/Contracts/article-media.ts'
 import { WireRoutes } from '../../../src/Contracts/wire.generated.ts'
 
-const [base, asset, ownerFile, outsiderFile, normalized] = process.argv.slice(2)
+const [base, asset, ownerFile, outsiderFile, normalized, historical, secondCurrent, historicalFile, secondCurrentFile] = process.argv.slice(2)
 const url = new URL(base)
 assert.equal(url.hostname, '127.0.0.1')
 assert.equal(url.protocol, 'http:')
@@ -31,12 +31,12 @@ async function signIn(file) {
 }
 
 const raw = WireRoutes.PrivateMediaRead.replace('{id}', asset)
-async function readImage(path, headers = {}) {
+async function readImage(path, headers = {}, expected = bytes) {
   const response = await fetch(path, { headers })
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('content-type'), 'image/png')
   assert.equal(response.headers.get('cache-control'), 'private,no-store')
-  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes)
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), expected)
 }
 async function hidden(path, headers = {}) {
   const response = await fetch(path, { headers })
@@ -54,7 +54,27 @@ assert.deepEqual(Buffer.from(await (await privateArticlePreview(listing.entries[
 const previewHeader = { Authorization: `Bearer ${listing.entries[0].ticket}` }
 await hidden(raw, { Range: 'bytes=0-0' })
 await hidden(WireRoutes.ArticleMediaPreview)
-await signIn(outsiderFile)
+const rawFor = id => WireRoutes.PrivateMediaRead.replace('{id}', id)
+if (historical) {
+  await hidden(rawFor(historical))
+  await hidden(rawFor(secondCurrent))
+}
+const secondSession = await signIn(outsiderFile)
+if (historical) {
+  await readImage(rawFor(historical), {}, await readFile(historicalFile))
+  const secondBytes = await readFile(secondCurrentFile)
+  await readImage(rawFor(secondCurrent), {}, secondBytes)
+  const second = await articleMedia(43, 2n, secondSession)
+  assert.deepEqual(second.entries.map(entry => entry.id), [secondCurrent])
+  assert.deepEqual(Buffer.from(await (await privateArticlePreview(second.entries[0].ticket)).arrayBuffer()), secondBytes)
+  const stale = WireRoutes.ArticleMedia.replace('{id:int}', '43') + '?revision=1'
+  const rejected = await fetch(stale)
+  assert.equal(rejected.status, 409)
+  await rejected.body?.cancel()
+  const draft = await fetch('/article/43')
+  assert.equal(draft.status, 404)
+  await draft.body?.cancel()
+}
 await hidden(raw)
 await hidden(WireRoutes.ArticleMediaPreview, previewHeader)
 cookie = undefined
@@ -64,5 +84,6 @@ const publicPage = await fetch('/article/42')
 assert.equal(publicPage.status, 200)
 const html = await publicPage.text()
 assert(/published (?:☃|&#9731;|&#x2603;)/i.test(html) && !html.includes('Private edit') && !html.includes(asset))
-console.log(JSON.stringify({ restoredOwnerReads: 2, rejectedPrivateReads: 6, retainedPublicRevision: 2,
+console.log(JSON.stringify({ restoredOwnerReads: historical ? 5 : 2, rejectedPrivateReads: historical ? 8 : 6,
+  historicalPreviewRejected: Boolean(historical), retainedPublicRevision: 2,
   bytes: bytes.length, contentSha256: createHash('sha256').update(bytes).digest('hex') }))

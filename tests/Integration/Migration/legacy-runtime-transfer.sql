@@ -44,6 +44,22 @@
 \set owner_enabled false
 \endif
 
+\if :{?media_batch}
+\else
+\set media_batch false
+\endif
+\if :media_batch
+\set article_count 2
+\set media_count 3
+\set media_references 4
+\set article_next 44
+\else
+\set article_count 1
+\set media_count 1
+\set media_references 1
+\set article_next 43
+\endif
+
 \if :copy_out
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 \else
@@ -76,8 +92,8 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:publication_count
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count AS expected_seal \gset
 \if :media_profile
-SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=1
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=1 AS expected_seal \gset
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=:media_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=:media_references AS expected_seal \gset
 \else
 SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*:publication_count AS expected_seal \gset
@@ -85,7 +101,7 @@ SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
     AND to_regnamespace('fsus_legacy_candidate') IS NULL
-    AND (SELECT count(*) FROM public.blog_user)=1
+    AND (SELECT count(*) FROM public.blog_user)=:article_count
     AND (SELECT enabled=:owner_enabled AND can_author=:owner_enabled FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
 \endif
 \if :expected_seal
@@ -93,7 +109,7 @@ SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
 DO $$ BEGIN RAISE EXCEPTION 'Rehearsal source seal or runtime readback identity differs'; END $$;
 \endif
 
-SELECT (SELECT count(*) FROM public.article)=1
+SELECT (SELECT count(*) FROM public.article)=:article_count
     AND (SELECT count(*) FROM public.article_publication)=1
     AND (SELECT NOT deleted AND revision=:revision_count AND published_revision=:public_revision
              AND publication_count=:publication_count AND owner_id=:'owner_id'::uuid
@@ -117,7 +133,7 @@ SELECT (SELECT count(*) FROM public.article)=1
     AND NOT EXISTS (SELECT FROM public.blog_outbox)
     AND NOT EXISTS (SELECT FROM public.article_publication_canonical)
     AND NOT EXISTS (SELECT FROM public.article_publication_proof)
-    AND (SELECT last_value=43 AND NOT is_called FROM public.article_id_seq)
+    AND (SELECT last_value=:article_next AND NOT is_called FROM public.article_id_seq)
     AND (SELECT last_value=:category_next AND NOT is_called FROM public.category_id_seq)
     AND (SELECT last_value=:tag_next AND NOT is_called FROM public.tag_id_seq)
     AND (SELECT last_value=:publication_next AND NOT is_called FROM public.article_publication_publication_id_seq)
@@ -125,6 +141,17 @@ SELECT (SELECT count(*) FROM public.article)=1
 \if :eligible
 \else
 DO $$ BEGIN RAISE EXCEPTION 'Sealed source differs from the supported publication rehearsal'; END $$;
+\endif
+
+\if :media_batch
+SELECT (SELECT NOT deleted AND revision=2 AND published_revision IS NULL AND publication_count=0
+        AND owner_id=:'owner2'::uuid FROM public.article WHERE id=43)
+    AND (SELECT array_agg(revision ORDER BY revision)=ARRAY[1::bigint,2::bigint] FROM public.article_revision WHERE article_id=43)
+    AND (SELECT enabled AND can_author FROM public.blog_user WHERE id=:'owner2'::uuid) AS verified_second_article \gset
+\if :verified_second_article
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Second private article or its reviewed owner differs'; END $$;
+\endif
 \endif
 
 \copy (SELECT id,name,description FROM public.category ORDER BY id) TO 'category.csv' CSV
@@ -152,6 +179,10 @@ DO $$ BEGIN RAISE EXCEPTION 'Rehearsal runtime target is not pristine'; END $$;
 
 INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
     VALUES (:'owner_id'::uuid,'Legacy rehearsal custodian',:owner_enabled,:owner_enabled,1);
+\if :media_batch
+INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
+    VALUES (:'owner2'::uuid,'Legacy rehearsal second custodian',true,true,1);
+\endif
 \copy public.category (id,name,description) FROM 'category.csv' CSV
 \copy public.tag (id,name,description) FROM 'tag.csv' CSV
 \copy public.tag_url_name (name_key,tag_id) FROM 'tag_url_name.csv' CSV
@@ -163,7 +194,7 @@ INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
 \copy public.article_publication_history (article_id,event_no,revision,publication_no,publication_id,supersedes_id,kind,reason,happened_at,recorded_at,actor_id,command_id) FROM 'article_publication_history.csv' CSV
 \copy public.article_revision_rights (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled) FROM 'article_revision_rights.csv' CSV
 \copy public.article_publication_rights (id,article_id,publication_id,revision) FROM 'article_publication_rights.csv' CSV
-ALTER SEQUENCE public.article_id_seq RESTART WITH 43;
+ALTER SEQUENCE public.article_id_seq RESTART WITH :article_next;
 ALTER SEQUENCE public.category_id_seq RESTART WITH :category_next;
 ALTER SEQUENCE public.tag_id_seq RESTART WITH :tag_next;
 ALTER SEQUENCE public.article_publication_publication_id_seq RESTART WITH :publication_next;

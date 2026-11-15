@@ -154,7 +154,7 @@ internal static partial class Migration
                   legacy import media-activation-plan|media-activate PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
                     [--approval APPROVAL.json SHA256] --destination MEDIA_ROOT SITE_ID ROLLBACK_DIR ROLLBACK_SHA256
                     --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
-                                        Plan or activate a single approved private image in the isolated runtime copy
+                                        Plan or activate an approved private image batch in the isolated runtime copy
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
                   legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID

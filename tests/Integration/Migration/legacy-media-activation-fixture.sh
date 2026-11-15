@@ -36,7 +36,7 @@ prove_media_activation() {
     original_oid="$(pg target "$target" -Atc 'SELECT oid FROM pg_database WHERE datname=current_database()')"
     [[ "$runtime_site" != "$target_site" && "$runtime_oid" != "$original_oid" ]]
     local db_args=(-v plan_sha="$plan_sha" -v projection_sha="$(json_value projectionSha256 "$scratch/projected.json")"
-        -v owner_id="$owner" -v rollback_profile=false -v media_profile=true -v interrupt_transfer=false)
+        -v owner_id="$owner" -v owner2="$owner2" -v rollback_profile=false -v media_profile=true -v media_batch="$batch" -v interrupt_transfer=false)
     (cd "$tmproot" && pg target "$target" "${db_args[@]}" -v database_name="$target" -v database_oid="$original_oid" \
         -v site_id="$target_site" -v copy_out=true -v source_seal=true -f "$transfer_query")
     (cd "$tmproot" && pg target "$runtime" "${db_args[@]}" -v database_name="$runtime" -v database_oid="$runtime_oid" \
@@ -49,7 +49,7 @@ prove_media_activation() {
         --exit-on-error --no-owner --no-privileges "$target_backup/database.dump"
     FSUSBLOG_DB="$(dsn target "$restored_rollback")" python3 tools/site-backup.py verify-restored \
         "$target_backup" "$target_backup_sha" "$rollback_root"
-    [[ "$(target_state "$restored_rollback")" == '1|t|1|0|0|0' ]]
+    [[ "$(target_state "$restored_rollback")" == "1|t|$article_count|0|0|0" ]]
     export FSUSBLOG_MEDIA_ACTIVATION_DB="$runtime_dsn"
     local destination=(--destination "$runtime_root" "$runtime_site" "$target_backup" "$target_backup_sha"
         --prepared "$recovered" "$prepared_sha" "$normalizer_sha" "${media[@]}")
@@ -57,30 +57,60 @@ prove_media_activation() {
     local base=("$scratch/import.json" "$plan_sha" "$backup" "$backup_sha")
     "${migrate[@]}" legacy import media-activation-plan "${base[@]}" "${destination[@]}" > "$approval"
     activation_sha="$(sha "$approval")"
+    if [[ "$batch" == false && -n "${FSUSBLOG_V1_ACTIVATION_MIGRATE_DLL:-}" ]]; then
+        "$DOTNET_BIN" "$FSUSBLOG_V1_ACTIVATION_MIGRATE_DLL" legacy import media-activation-plan "${base[@]}" "${destination[@]}" > "$scratch/approval/old-approval.json"
+        cmp "$approval" "$scratch/approval/old-approval.json"
+        approval="$scratch/approval/old-approval.json"
+        printf '%s\n' 'Original v1 approval bytes match and will be consumed by the new command.'
+    fi
     local apply_media=("${migrate[@]}" legacy import media-activate "${base[@]}" --approval "$approval" "$activation_sha" "${destination[@]}")
     refuse 'local Unix socket and a separately authorized' activation-quarantine env FSUSBLOG_MEDIA_ACTIVATION_DB="$FSUSBLOG_IMPORT_DB" "${apply_media[@]}"
     pg target "$runtime" -c "UPDATE public.article SET title = 'Unreviewed other draft' WHERE id=42"
     refuse 'does not match the original private article and revision' changed-runtime-draft "${apply_media[@]}"
     pg target "$runtime" -c "UPDATE public.article SET title = 'Private edit' WHERE id=42"
-    [[ ! -e "$stable" && "$(target_state "$runtime")" == '1|t|1|0|0|0' ]]
+    [[ ! -e "$stable" && "$(target_state "$runtime")" == "1|t|$article_count|0|0|0" ]]
     FSUSBLOG_DB="$runtime_dsn" python3 tools/site-backup.py verify-restored "$target_backup" "$target_backup_sha" "$runtime_root"
 
+    if [[ "$batch" == true ]]; then
+        python3 - "$recovered/$current_leaf.blob" "$runtime_root/$current_leaf.media" <<'BAD_FILE'
+import pathlib, sys
+content = bytearray(pathlib.Path(sys.argv[1]).read_bytes()); content[-1] ^= 1
+pathlib.Path(sys.argv[2]).write_bytes(content)
+BAD_FILE
+        chmod 0400 "$runtime_root/$current_leaf.media"
+        refuse 'Media bytes do not match' corrupt-batch-subset "${apply_media[@]}"
+        [[ ! -e "$stable" && ! -e "$runtime_root/$historical_leaf.media" && "$(target_state "$runtime")" == "1|t|$article_count|0|0|0" ]]
+        rm "$runtime_root/$current_leaf.media"
+    fi
     "${apply_media[@]}" > "$scratch/activated.json"
     cmp "$stable" "$recovered/$payload.blob"
     "${apply_media[@]}" > "$scratch/activation-retry.json"
     [[ "$(json_value result "$scratch/activated.json")" == activated ]]
     [[ "$(json_value result "$scratch/activation-retry.json")" == revalidated ]]
     [[ "$(json_value activationSha256 "$scratch/activated.json")" == "$activation_sha" ]]
-    [[ "$(target_state "$runtime")" == '1|t|1|1|1|0' ]]
+    [[ "$(target_state "$runtime")" == "1|t|$article_count|$asset_count|$reference_count|0" ]]
     state="$(pg target "$runtime" -Atc "SELECT m.id,m.owner_id,m.command_id IS NULL,m.request_hash IS NULL,
         i.source_site_id,i.target_site_id,i.source_owner_id,encode(i.activation_sha256,'hex'),
         r.article_id,r.revision,r.source_revision_id,r.reference_count,r.alt_text
-        FROM private_media m JOIN private_media_import i ON i.asset_id=m.id JOIN article_revision_media_import r ON r.asset_id=i.asset_id")"
+        FROM private_media m JOIN private_media_import i ON i.asset_id=m.id JOIN article_revision_media_import r ON r.asset_id=i.asset_id
+        WHERE m.id='$asset'")"
     [[ "$state" == "$asset|$owner|t|t|$source_site|$runtime_site|7|$activation_sha|42|3|5000000003|1|Retained private file" ]]
+    if [[ "$batch" == true ]]; then
+        state="$(pg target "$runtime" -Atc "SELECT m.id,m.owner_id,m.command_id IS NULL,m.request_hash IS NULL,
+            i.source_owner_id,encode(i.activation_sha256,'hex'),r.article_id,r.revision,r.source_revision_id,r.reference_count,r.alt_text
+            FROM private_media m JOIN private_media_import i ON i.asset_id=m.id JOIN article_revision_media_import r ON r.asset_id=i.asset_id
+            WHERE m.owner_id='$owner2' ORDER BY r.revision,m.id")"
+        [[ "$state" == "$historical_asset|$owner2|t|t|8|$activation_sha|43|1|5000000004|1|历史附件"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|43|1|5000000004|1|Previous second owner"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|43|2|5000000005|1|Current second owner" ]]
+        pg target "$runtime" -c "BEGIN; DELETE FROM article_revision_media_import WHERE asset_id='$current_asset';
+            DELETE FROM article_revision_media WHERE asset_id='$current_asset'; COMMIT"
+        refuse 'does not match the reviewed pre-activation backup or this exact committed media activation' partial-batch-db "${apply_media[@]}"
+        [[ "$(target_state "$runtime")" == "1|t|$article_count|$asset_count|2|0" ]]
+    fi
     # Simulate database rollback after a verified file is durable. The real materialized file stays unchanged.
     pg target "$runtime" -c 'BEGIN; DELETE FROM article_revision_media_import; DELETE FROM article_revision_media;
         DELETE FROM private_media; DELETE FROM private_media_import; COMMIT'
-    [[ "$(target_state "$runtime")" == '1|t|1|0|0|0' ]]
+    [[ "$(target_state "$runtime")" == "1|t|$article_count|0|0|0" ]]
+    if [[ "$batch" == true ]]; then rm "$runtime_root/$current_leaf.media"; fi
     "${apply_media[@]}" > "$scratch/recovered-file-only.json"
     cmp "$scratch/activated.json" "$scratch/recovered-file-only.json"
     cmp "$stable" "$recovered/$payload.blob"
@@ -89,7 +119,7 @@ prove_media_activation() {
     refuse 'committed imported media file is missing' committed-file-unavailable "${apply_media[@]}"
     mv "$scratch/held-normalized.blob" "$stable"
     cmp "$stable" "$recovered/$payload.blob"
-    [[ "$(target_state "$target")" == '-1|f|1|0|0|0' ]]
+    [[ "$(target_state "$target")" == "-1|f|$article_count|0|0|0" ]]
 
     outcome="$(PGDATABASE="$runtime" FSUSBLOG_DB="$runtime_dsn" python3 tools/site-backup.py capture "$scratch/target-backup" activation_ready "$runtime_root")"
     ready_sha="${outcome##* }"
@@ -97,14 +127,20 @@ prove_media_activation() {
     python3 tools/site-backup.py verify "$ready_backup" "$ready_sha"
     pg_restore --no-password -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" --dbname "$restored_app" --single-transaction \
         --exit-on-error --no-owner --no-privileges "$ready_backup/database.dump"
-    cp "$ready_backup/media/$payload.media" "$restored_root/$payload.media"
-    chmod 0400 "$restored_root/$payload.media"
+    cp "$ready_backup/media/"*.media "$restored_root/"
+    chmod 0400 "$restored_root/"*.media
     local restore_dsn; restore_dsn="$(dsn target "$restored_app")"
     FSUSBLOG_DB="$restore_dsn" python3 tools/site-backup.py verify-restored "$ready_backup" "$ready_sha" "$restored_root"
     current_site="$(pg target "$restored_app" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')"
-    [[ "$current_site" == "$runtime_site" && "$(target_state "$restored_app")" == '1|t|1|1|1|0' ]]
+    [[ "$current_site" == "$runtime_site" && "$(target_state "$restored_app")" == "1|t|$article_count|$asset_count|$reference_count|0" ]]
     FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" ticket 'Legacy rehearsal custodian' > "$scratch/owner-ticket"
-    FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" operator 'Activation outsider' > "$scratch/outsider-ticket"
+    local extra_probe=()
+    if [[ "$batch" == true ]]; then
+        FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" ticket 'Legacy rehearsal second custodian' > "$scratch/outsider-ticket"
+        extra_probe=("$historical_asset" "$current_asset" "$recovered/$historical_leaf.blob" "$recovered/$current_leaf.blob")
+    else
+        FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" operator 'Activation outsider' > "$scratch/outsider-ticket"
+    fi
     (
         cd "$scratch/runtime-work"
         exec env -i PATH="$PATH" LC_ALL=C TZ=UTC ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS=http://127.0.0.1:0 \
@@ -120,7 +156,7 @@ prove_media_activation() {
         sleep 0.1
     done
     [[ "$step" -lt 150 ]]
-    node tests/Integration/Migration/legacy-media-activation-probe.mjs "$url" "$asset" "$scratch/owner-ticket" "$scratch/outsider-ticket" "$stable"
+    node tests/Integration/Migration/legacy-media-activation-probe.mjs "$url" "$asset" "$scratch/owner-ticket" "$scratch/outsider-ticket" "$stable" ${extra_probe[@]+"${extra_probe[@]}"}
     stop_runtime
     printf 'activation_sha256=%s runtime_backup_sha256=%s runtime_rollback_sha256=%s\n' "$activation_sha" "$ready_sha" "$target_backup_sha"
 }

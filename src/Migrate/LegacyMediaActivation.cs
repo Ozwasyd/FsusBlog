@@ -12,6 +12,10 @@ using NpgsqlTypes;
 internal static partial class Migration
 {
     private const string LegacyMediaActivationFormat = "fsusblog.legacy-private-media-activation.v1";
+    private const string LegacyMediaBatchActivationFormat = "fsusblog.legacy-private-media-activation.v2";
+    private const int MaxActivationAssets = 32;
+    private const int MaxActivationReferences = 128;
+    private const int MaxActivationBytes = 64 * 1024 * 1024;
     private const string LegacyMediaActivationVariable = "FSUSBLOG_MEDIA_ACTIVATION_DB";
     private const string LegacyMediaRuntimePrefix = "fsusv2_import_runtime_";
     private static readonly string[] ActivatedMediaRelations =
@@ -26,25 +30,53 @@ internal static partial class Migration
         string MediaRoot, string BackupManifestSha256, string ArticleSha256, DateTimeOffset CreatedAtUtc,
         LegacyMediaPreparationAsset Source, LegacyMediaPreparedAsset Image, LegacyMediaPreparationReference Reference);
 
+    private sealed record LegacyMediaActivationAsset(LegacyMediaPreparationAsset Source, LegacyMediaPreparedAsset Image,
+        DateTimeOffset CreatedAtUtc)
+    {
+        internal string Leaf() => $"{Source.AssetId:N}.media";
+    }
+
+    private sealed record LegacyMediaArticleWitness(string Sha256, bool Current);
+    private sealed record LegacyMediaActivationReference(LegacyMediaPreparationReference Reference, LegacyMediaArticleWitness Article);
+    private sealed record LegacyMediaActivationBatch(string Format, string LegacyPlanSha256, string ProjectionSha256,
+        string CustodyManifestSha256, string RequestSha256, string PreparedManifestSha256, string NormalizerSha256,
+        Guid SourceSiteId, Guid QuarantineSiteId, Guid DestinationSiteId, DatabaseTarget Database, string Cluster,
+        string MediaRoot, string BackupManifestSha256, LegacyMediaActivationAsset[] Assets, LegacyMediaActivationReference[] References);
+
     private static async Task RunLegacyMediaActivationAsync(NpgsqlConnection quarantine, NpgsqlTransaction quarantineTx,
         ImportPlan import, string quarantineBackup, LegacyImportMediaInput custody, LegacyMediaManifest media,
         PreparedLegacyMediaInput prepared, LegacyMediaActivationInput activation, LegacyMediaPreparationRequest request,
         byte[] requestBytes, CancellationToken ct)
     {
-        if (request.Assets is not [var source] || request.References is not [var reference] ||
-            source.AssetId != reference.AssetId || reference.ReferenceCount != 1 || source.MediaType != "image/png")
-            throw new InvalidOperationException("Activation currently requires one reviewed private PNG with one exact revision reference.");
+        if (request.Assets.Length is < 1 or > MaxActivationAssets || request.References.Length is < 1 or > MaxActivationReferences ||
+            request.Assets.Any(asset => asset.MediaType != "image/png") ||
+            request.References.Any(reference => reference.ReferenceCount != 1) ||
+            request.References.GroupBy(reference => (reference.ArticleId, reference.Revision))
+                .Any(revision => revision.Count() > ArticlePublishImages.Maximum))
+            throw new InvalidOperationException("Activation requires a bounded batch of reviewed PNGs and exact private revision references.");
         if (activation.Site == request.SourceSiteId || activation.Site == request.TargetSiteId)
             throw new InvalidOperationException("The runtime destination must have its own reviewed site identity.");
         var approvalSha = await ReadLegacyMediaActivationApprovalAsync(activation, ct);
         var preActivation = await ReadLegacyImportBackupAsync(activation.Backup, activation.BackupSha256, ct);
-        byte[]? encoded = null;
-        var result = await ReadPreparedLegacyMediaAsync(prepared, request, requestBytes, ct, bytes => encoded = bytes);
-        var image = result.Assets.Single();
-        var created = DateTimeOffset.ParseExact(media.Files.Single().CreatedAtUtc, "O", CultureInfo.InvariantCulture);
-        if (created.Offset != TimeSpan.Zero || encoded is null)
-            throw new InvalidOperationException("The original private media timestamp or prepared image is unavailable.");
-        var article = await ReadLegacyMediaActivationArticleAsync(quarantine, quarantineTx, source.TargetOwnerId, reference, ct);
+        var bytes = new Dictionary<Guid, byte[]>(request.Assets.Length);
+        long totalBytes = 0;
+        var result = await ReadPreparedLegacyMediaAsync(prepared, request, requestBytes, ct, (image, encoded) =>
+        {
+            totalBytes += encoded.Length;
+            if (totalBytes > MaxActivationBytes)
+                throw new InvalidOperationException("The prepared legacy activation batch exceeds its 64 MiB byte bound.");
+            bytes.Add(image.AssetId, encoded);
+        });
+        var original = media.Files.ToDictionary(asset => asset.AssetId);
+        var assets = request.Assets.Zip(result.Assets, (source, image) => new LegacyMediaActivationAsset(source, image,
+            DateTimeOffset.ParseExact(original[source.AssetId].CreatedAtUtc, "O", CultureInfo.InvariantCulture))).ToArray();
+        var owners = assets.ToDictionary(asset => asset.Source.AssetId, asset => asset.Source.TargetOwnerId);
+        var references = new List<LegacyMediaActivationReference>(request.References.Length);
+        foreach (var reference in request.References)
+        {
+            var witness = await ReadLegacyMediaActivationArticleAsync(quarantine, quarantineTx, owners[reference.AssetId], reference, ct);
+            references.Add(new(reference, witness));
+        }
         var settings = ParseLegacyMediaActivationDatabase();
         await using var destination = new NpgsqlConnection(settings.ConnectionString);
         await destination.OpenAsync(ct);
@@ -58,8 +90,9 @@ internal static partial class Migration
         if (identity == import.Target)
             throw new InvalidOperationException("An isolated legacy candidate cannot be the activation destination.");
         var cluster = await ReadLegacyPostgresClusterAsync(destination, tx, ct);
-        if (article != await ReadLegacyMediaActivationArticleAsync(destination, tx, source.TargetOwnerId, reference, ct))
-            throw new InvalidOperationException("The approved runtime copy does not match the original private article and revision.");
+        foreach (var (reference, witness) in references)
+            if (witness != await ReadLegacyMediaActivationArticleAsync(destination, tx, owners[reference.AssetId], reference, ct))
+                throw new InvalidOperationException("The approved runtime copy does not match the original private article and revision.");
 
         var separate = new List<string> { quarantineBackup, custody.Path, prepared.Package, activation.Backup };
         if (activation.Approval is { } approval) separate.Add(Path.GetDirectoryName(approval)!);
@@ -67,22 +100,28 @@ internal static partial class Migration
             if (Environment.GetEnvironmentVariable(setting) is { Length: > 0 } path) separate.Add(path);
         RequireLegacyMediaPath(activation.Root);
         using var directory = new MediaObjectDirectory(activation.Root, LegacyMediaPreparation.MaxFileBytes, separate);
-        var plan = new LegacyMediaActivationPlan(LegacyMediaActivationFormat, request.PlanSha256, request.ProjectionSha256,
+        var plan = new LegacyMediaActivationBatch(LegacyMediaBatchActivationFormat, request.PlanSha256, request.ProjectionSha256,
             request.CustodyManifestSha256, result.RequestSha256, prepared.ManifestSha256, result.NormalizerSha256,
             request.SourceSiteId, request.TargetSiteId, activation.Site, identity, cluster, directory.Root,
-            activation.BackupSha256, article, created, source, image, reference);
-        var planBytes = JsonSerializer.SerializeToUtf8Bytes(plan, OwnerMapJson);
+            activation.BackupSha256, assets, references.ToArray());
+        // Keep the exact predecessor bytes for already approved one-file/current-draft operations.
+        var single = assets is [var one] && references is [{ Article.Current: true } link]
+            ? new LegacyMediaActivationPlan(LegacyMediaActivationFormat, plan.LegacyPlanSha256, plan.ProjectionSha256,
+                plan.CustodyManifestSha256, plan.RequestSha256, plan.PreparedManifestSha256, plan.NormalizerSha256,
+                plan.SourceSiteId, plan.QuarantineSiteId, plan.DestinationSiteId, plan.Database, plan.Cluster,
+                plan.MediaRoot, plan.BackupManifestSha256, link.Article.Sha256, one.CreatedAtUtc, one.Source, one.Image, link.Reference)
+            : null;
+        var planBytes = single is not null ? JsonSerializer.SerializeToUtf8Bytes(single, OwnerMapJson) :
+            JsonSerializer.SerializeToUtf8Bytes(plan, OwnerMapJson);
+        if (planBytes.Length > 256_000) throw new InvalidOperationException("The activation plan exceeds its approval byte bound.");
         var activationSha = Convert.ToHexStringLower(SHA256.HashData(planBytes));
         if (approvalSha is not null && approvalSha != activationSha)
             throw new InvalidOperationException("The approved activation plan differs from the artifact, runtime database, site or media root.");
 
         var already = await VerifyLegacyMediaRuntimeBackupAsync(destination, tx, preActivation, plan, activationSha, approvalSha is not null, ct);
-        var leaf = $"{source.AssetId:N}.media";
-        var hash = Convert.FromHexString(image.NormalizedSha256);
-        RequireLegacyMediaActivationRoot(directory.Root, leaf, approvalSha is not null);
-        var existing = await directory.Read(leaf, image.Length, hash, ct);
-        if (already && existing is null)
-            throw new InvalidOperationException("The committed imported media file is missing. Restore the approved database and media pair.");
+        var leaves = assets.Select(asset => asset.Leaf()).ToHashSet(StringComparer.Ordinal);
+        RequireLegacyMediaActivationRoot(directory.Root, leaves, approvalSha is not null);
+        await VerifyLegacyMediaActivationFilesAsync(directory, assets, requireAll: already, ct);
         if (approvalSha is null)
         {
             await tx.RollbackAsync(ct);
@@ -91,34 +130,53 @@ internal static partial class Migration
         }
         if (!already)
         {
-            await using var insert = LegacyMediaActivationCommand(destination, tx, plan, activationSha, """
-                INSERT INTO public.private_media_import (asset_id,owner_id,source_site_id,target_site_id,source_owner_id,
-                    activation_sha256,plan_sha256,projection_sha256,custody_manifest_sha256,request_sha256,
-                    prepared_manifest_sha256,normalizer_sha256,raw_sha256)
-                VALUES (@asset,@owner,@source_site,@site,@old_owner,@approval,@plan,@projection,@custody,@request,@prepared,@normalizer,@raw);
-                INSERT INTO public.private_media (id,owner_id,content_hash,name,format,length,width,height,phase,created_at,import_origin_id)
-                VALUES (@asset,@owner,@content,@name,1,@bytes,@width,@height,1,@created,@asset);
-                INSERT INTO public.article_revision_media (article_id,revision,asset_id) VALUES (@article,@revision,@asset);
-                INSERT INTO public.article_revision_media_import (article_id,revision,asset_id,source_revision_id,reference_count,alt_text)
-                VALUES (@article,@revision,@asset,@source_revision,@reference_count,@alt);
-                SET CONSTRAINTS ALL IMMEDIATE;
-                """);
-            await insert.ExecuteNonQueryAsync(ct);
+            foreach (var asset in assets)
+            {
+                await using var insert = LegacyMediaActivationCommand(destination, tx, plan, activationSha, asset, """
+                    INSERT INTO public.private_media_import (asset_id,owner_id,source_site_id,target_site_id,source_owner_id,
+                        activation_sha256,plan_sha256,projection_sha256,custody_manifest_sha256,request_sha256,
+                        prepared_manifest_sha256,normalizer_sha256,raw_sha256)
+                    VALUES (@asset,@owner,@source_site,@site,@old_owner,@approval,@plan,@projection,@custody,@request,@prepared,@normalizer,@raw);
+                    INSERT INTO public.private_media (id,owner_id,content_hash,name,format,length,width,height,phase,created_at,import_origin_id)
+                    VALUES (@asset,@owner,@content,@name,1,@bytes,@width,@height,1,@created,@asset);
+                    """);
+                await insert.ExecuteNonQueryAsync(ct);
+            }
+            foreach (var (reference, _) in references)
+            {
+                await using var insert = new NpgsqlCommand("""
+                    INSERT INTO public.article_revision_media (article_id,revision,asset_id) VALUES (@article,@revision,@asset);
+                    INSERT INTO public.article_revision_media_import (article_id,revision,asset_id,source_revision_id,reference_count,alt_text)
+                    VALUES (@article,@revision,@asset,@source_revision,@reference_count,@alt);
+                    """, destination, tx);
+                insert.Parameters.AddWithValue("asset", reference.AssetId);
+                BindLegacyMediaActivationReference(insert, reference);
+                await insert.ExecuteNonQueryAsync(ct);
+            }
+            await ExecuteAsync(destination, tx, "SET CONSTRAINTS ALL IMMEDIATE", ct);
             if (!await MatchesLegacyMediaActivationAsync(destination, tx, plan, activationSha, ct))
                 throw new InvalidOperationException("Imported runtime media failed independent database readback.");
-            // A lost commit acknowledgement can leave this exact file with zero or one committed job.
-            // Do not unlink a file on an indeterminate commit. The same approval rechecks both sides.
-            await directory.Materialize(leaf, encoded, hash, ct);
-            if (await directory.Read(leaf, image.Length, hash, ct) is null)
-                throw new IOException("The staged private media file failed durable readback.");
+            // A lost commit acknowledgement can leave approved files already present while the DB is empty or complete.
+            // Keep exact files on an indeterminate commit. The same approval rechecks every row and file before continuing.
+            foreach (var asset in assets)
+                await directory.Materialize(asset.Leaf(), bytes[asset.Source.AssetId], Convert.FromHexString(asset.Image.NormalizedSha256), ct);
+            await VerifyLegacyMediaActivationFilesAsync(directory, assets, requireAll: true, ct);
         }
-        RequireLegacyMediaActivationRoot(directory.Root, leaf, allowExactFile: true);
+        RequireLegacyMediaActivationRoot(directory.Root, leaves, allowExactFiles: true);
         await tx.CommitAsync(ct);
-        Console.WriteLine(JsonSerializer.Serialize(new
-        {
-            activationSha256 = activationSha, assetId = source.AssetId, articleId = reference.ArticleId, reference.Revision,
-            targetSiteId = activation.Site, result = already ? "revalidated" : "activated", legacyCandidateServing = false
-        }, Json));
+        var status = already ? "revalidated" : "activated";
+        if (single is not null)
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                activationSha256 = activationSha, assetId = single.Source.AssetId, articleId = single.Reference.ArticleId,
+                single.Reference.Revision, targetSiteId = activation.Site, result = status, legacyCandidateServing = false
+            }, Json));
+        else
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                activationSha256 = activationSha, assets = assets.Length, references = references.Count,
+                targetSiteId = activation.Site, result = status, legacyCandidateServing = false
+            }, Json));
     }
 
     private static async Task<string?> ReadLegacyMediaActivationApprovalAsync(LegacyMediaActivationInput activation, CancellationToken ct)
@@ -126,7 +184,7 @@ internal static partial class Migration
         if (activation.Approval is null) return null;
         if (!IsSha256(activation.ApprovalSha256)) throw new ArgumentException("Supply an independently approved activation SHA-256.");
         await using var input = OpenLegacyMediaReviewFile(activation.Approval);
-        if (input.Length is < 1 or > 32_768 ||
+        if (input.Length is < 1 or > 256_000 ||
             Convert.ToHexStringLower(await SHA256.HashDataAsync(input, ct)) != activation.ApprovalSha256)
             throw new InvalidOperationException("The legacy media activation approval file differs from its recorded SHA-256.");
         return activation.ApprovalSha256;
@@ -167,83 +225,105 @@ internal static partial class Migration
         await VerifyPublicationHistoryAsync(db, tx, ct);
     }
 
-    private static async Task<string> ReadLegacyMediaActivationArticleAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        Guid owner, LegacyMediaPreparationReference reference, CancellationToken ct)
+    private static async Task<LegacyMediaArticleWitness> ReadLegacyMediaActivationArticleAsync(NpgsqlConnection db,
+        NpgsqlTransaction tx, Guid owner, LegacyMediaPreparationReference reference, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand("""
             SELECT jsonb_build_array(to_jsonb(a),to_jsonb(r),to_jsonb(p),
-                (SELECT jsonb_agg(h ORDER BY h.event_no) FROM public.article_publication_history h WHERE h.article_id=a.id))::text
+                (SELECT jsonb_agg(h ORDER BY h.event_no) FROM public.article_publication_history h WHERE h.article_id=a.id))::text,
+                a.revision=r.revision
             FROM public.article a JOIN public.blog_user u ON u.id=a.owner_id
-            JOIN public.article_revision r ON r.article_id=a.id AND r.revision=a.revision
+            JOIN public.article_revision r ON r.article_id=a.id AND r.revision=$2
             LEFT JOIN public.article_publication p ON p.article_id=a.id
-            WHERE a.id=$1 AND a.revision=$2 AND u.id=$3 AND u.enabled AND u.can_author
-                AND NOT a.deleted AND a.published_revision IS DISTINCT FROM a.revision
-                AND p.revision IS DISTINCT FROM a.revision
+            WHERE a.id=$1 AND u.id=$3 AND u.enabled AND u.can_author AND NOT a.deleted
+                AND a.published_revision IS DISTINCT FROM r.revision AND p.revision IS DISTINCT FROM r.revision
+                AND NOT EXISTS (SELECT FROM public.article_publication_rights x WHERE (x.article_id,x.revision)=(a.id,r.revision))
                 AND (SELECT h.kind='retract' AND h.reason='administrator-rollback-archived'
                      FROM public.article_publication_history h WHERE h.article_id=a.id ORDER BY h.event_no DESC LIMIT 1) IS NOT true
             """, db, tx);
         command.Parameters.AddWithValue(reference.ArticleId);
         command.Parameters.AddWithValue(reference.Revision);
         command.Parameters.AddWithValue(owner);
-        var observed = await command.ExecuteScalarAsync(ct) as string;
-        return observed is not null ? DigestMediaDocument(observed) :
-            throw new InvalidOperationException("The original reviewed attachment must refer to the owner's exact current private revision.");
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct))
+            throw new InvalidOperationException("Each reviewed attachment must refer to its owner's exact unpublished revision.");
+        return new(DigestMediaDocument(row.GetString(0)), row.GetBoolean(1));
     }
 
     private static async Task<bool> VerifyLegacyMediaRuntimeBackupAsync(NpgsqlConnection db, NpgsqlTransaction tx, ImportBackup backup,
-        LegacyMediaActivationPlan plan, string approvalSha, bool hasApproval, CancellationToken ct)
+        LegacyMediaActivationBatch plan, string approvalSha, bool hasApproval, CancellationToken ct)
     {
         var (relations, media) = await ReadBackupSiteAsync(db, tx, ct);
         var previous = backup.Site.Relations.ToDictionary(relation => relation.Name, StringComparer.Ordinal);
         bool already = media.Count != 0;
+        long ExpectedRows(string relation) => !already ? 0 : relation.StartsWith("private_media", StringComparison.Ordinal)
+            ? plan.Assets.Length : plan.References.Length;
         if (db.PostgreSqlVersion.Major.ToString(CultureInfo.InvariantCulture) != backup.Site.PostgreSqlMajor ||
             relations.Count != previous.Count || relations.Count(item => ActivatedMediaRelations.Contains(item.Name, StringComparer.Ordinal)) != ActivatedMediaRelations.Length ||
             relations.Any(item => !previous.TryGetValue(item.Name, out var prior) ||
                 (ActivatedMediaRelations.Contains(item.Name, StringComparer.Ordinal) ? prior.Kind != "r" || prior.Rows != 0 ||
-                    item.Kind != "r" || item.Rows != (already ? 1 : 0) || !already && item != prior : item != prior)) ||
-            already && (!hasApproval || media is not [var activated] ||
-                activated != new BackupMedia(plan.Source.AssetId.ToString("N"), plan.Image.Length, plan.Image.NormalizedSha256) ||
+                    item.Kind != "r" || item.Rows != ExpectedRows(item.Name) || !already && item != prior : item != prior)) ||
+            already && (!hasApproval || !media.ToHashSet().SetEquals(plan.Assets.Select(asset =>
+                new BackupMedia(asset.Source.AssetId.ToString("N"), asset.Image.Length, asset.Image.NormalizedSha256))) ||
                 !await MatchesLegacyMediaActivationAsync(db, tx, plan, approvalSha, ct)))
             throw new InvalidOperationException("Runtime database does not match the reviewed pre-activation backup or this exact committed media activation.");
         return already;
     }
 
-    private static void RequireLegacyMediaActivationRoot(string path, string leaf, bool allowExactFile)
+    private static void RequireLegacyMediaActivationRoot(string path, HashSet<string> approved, bool allowExactFiles)
     {
         using var root = OpenImportBackupDirectory(path);
-        if (EnumerateLegacyMediaLeaves(root).Any(name => !allowExactFile || name != leaf))
-            throw new InvalidOperationException("The approved runtime media root contains unexpected files. Recover the reviewed backup pair before continuing.");
+        foreach (var name in EnumerateLegacyMediaLeaves(root))
+        {
+            if (!allowExactFiles || !approved.Contains(name))
+                throw new InvalidOperationException("The approved runtime media root contains unexpected files. Recover the reviewed backup pair before continuing.");
+            using var leaf = OpenLegacyMediaFile(root, name);
+        }
+    }
+
+    private static async Task VerifyLegacyMediaActivationFilesAsync(MediaObjectDirectory directory,
+        LegacyMediaActivationAsset[] assets, bool requireAll, CancellationToken ct)
+    {
+        foreach (var asset in assets)
+            if (await directory.Read(asset.Leaf(), asset.Image.Length, Convert.FromHexString(asset.Image.NormalizedSha256), ct) is null && requireAll)
+                throw new InvalidOperationException("A committed imported media file is missing. Restore the approved database and media pair.");
     }
 
     private static async Task<bool> MatchesLegacyMediaActivationAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        LegacyMediaActivationPlan plan, string approvalSha, CancellationToken ct)
+        LegacyMediaActivationBatch plan, string approvalSha, CancellationToken ct)
     {
-        await using var command = LegacyMediaActivationCommand(db, tx, plan, approvalSha, """
-            SELECT EXISTS (SELECT FROM public.private_media m JOIN public.private_media_import i ON i.asset_id=m.import_origin_id
-                JOIN public.article_revision_media_import r ON r.asset_id=i.asset_id
-                JOIN public.article_revision_media a ON (a.article_id,a.revision,a.asset_id)=(r.article_id,r.revision,r.asset_id)
-                WHERE m.id=@asset AND m.owner_id=@owner AND m.command_id IS NULL AND m.request_hash IS NULL
-                    AND m.content_hash=@content AND m.name=@name AND m.format=1 AND m.length=@bytes AND m.width=@width
-                    AND m.height=@height AND m.phase=1 AND m.created_at=@created
-                    AND i.owner_id=@owner AND i.source_site_id=@source_site AND i.target_site_id=@site AND i.source_owner_id=@old_owner
-                    AND i.activation_sha256=@approval AND i.plan_sha256=@plan AND i.projection_sha256=@projection
-                    AND i.custody_manifest_sha256=@custody AND i.request_sha256=@request AND i.prepared_manifest_sha256=@prepared
-                    AND i.normalizer_sha256=@normalizer AND i.raw_sha256=@raw
-                    AND r.article_id=@article AND r.revision=@revision AND r.source_revision_id=@source_revision
-                    AND r.reference_count=@reference_count AND r.alt_text IS NOT DISTINCT FROM @alt)
-            """);
-        return await command.ExecuteScalarAsync(ct) is true;
+        var assets = plan.Assets.ToDictionary(asset => asset.Source.AssetId);
+        foreach (var (reference, _) in plan.References)
+        {
+            await using var command = LegacyMediaActivationCommand(db, tx, plan, approvalSha, assets[reference.AssetId], """
+                SELECT EXISTS (SELECT FROM public.private_media m JOIN public.private_media_import i ON i.asset_id=m.import_origin_id
+                    JOIN public.article_revision_media_import r ON r.asset_id=i.asset_id
+                    JOIN public.article_revision_media a ON (a.article_id,a.revision,a.asset_id)=(r.article_id,r.revision,r.asset_id)
+                    WHERE m.id=@asset AND m.owner_id=@owner AND m.command_id IS NULL AND m.request_hash IS NULL
+                        AND m.content_hash=@content AND m.name=@name AND m.format=1 AND m.length=@bytes AND m.width=@width
+                        AND m.height=@height AND m.phase=1 AND m.created_at=@created
+                        AND i.owner_id=@owner AND i.source_site_id=@source_site AND i.target_site_id=@site AND i.source_owner_id=@old_owner
+                        AND i.activation_sha256=@approval AND i.plan_sha256=@plan AND i.projection_sha256=@projection
+                        AND i.custody_manifest_sha256=@custody AND i.request_sha256=@request AND i.prepared_manifest_sha256=@prepared
+                        AND i.normalizer_sha256=@normalizer AND i.raw_sha256=@raw
+                        AND r.article_id=@article AND r.revision=@revision AND r.source_revision_id=@source_revision
+                        AND r.reference_count=@reference_count AND r.alt_text IS NOT DISTINCT FROM @alt)
+                """);
+            BindLegacyMediaActivationReference(command, reference);
+            if (await command.ExecuteScalarAsync(ct) is not true) return false;
+        }
+        return true;
     }
 
     private static NpgsqlCommand LegacyMediaActivationCommand(NpgsqlConnection db, NpgsqlTransaction tx,
-        LegacyMediaActivationPlan plan, string approvalSha, string sql)
+        LegacyMediaActivationBatch plan, string approvalSha, LegacyMediaActivationAsset asset, string sql)
     {
         var command = new NpgsqlCommand(sql, db, tx);
-        command.Parameters.AddWithValue("asset", plan.Source.AssetId);
-        command.Parameters.AddWithValue("owner", plan.Source.TargetOwnerId);
+        command.Parameters.AddWithValue("asset", asset.Source.AssetId);
+        command.Parameters.AddWithValue("owner", asset.Source.TargetOwnerId);
         command.Parameters.AddWithValue("source_site", plan.SourceSiteId);
         command.Parameters.AddWithValue("site", plan.DestinationSiteId);
-        command.Parameters.AddWithValue("old_owner", plan.Source.SourceOwnerId);
+        command.Parameters.AddWithValue("old_owner", asset.Source.SourceOwnerId);
         command.Parameters.AddWithValue("approval", Convert.FromHexString(approvalSha));
         command.Parameters.AddWithValue("plan", Convert.FromHexString(plan.LegacyPlanSha256));
         command.Parameters.AddWithValue("projection", Convert.FromHexString(plan.ProjectionSha256));
@@ -251,19 +331,23 @@ internal static partial class Migration
         command.Parameters.AddWithValue("request", Convert.FromHexString(plan.RequestSha256));
         command.Parameters.AddWithValue("prepared", Convert.FromHexString(plan.PreparedManifestSha256));
         command.Parameters.AddWithValue("normalizer", Convert.FromHexString(plan.NormalizerSha256));
-        command.Parameters.AddWithValue("raw", Convert.FromHexString(plan.Source.RawSha256));
-        command.Parameters.AddWithValue("content", Convert.FromHexString(plan.Image.NormalizedSha256));
-        command.Parameters.AddWithValue("name", $"{plan.Source.AssetId:N}.png");
-        command.Parameters.AddWithValue("bytes", plan.Image.Length);
-        command.Parameters.AddWithValue("width", plan.Image.Width);
-        command.Parameters.AddWithValue("height", plan.Image.Height);
-        command.Parameters.AddWithValue("created", plan.CreatedAtUtc);
-        command.Parameters.AddWithValue("article", plan.Reference.ArticleId);
-        command.Parameters.AddWithValue("revision", plan.Reference.Revision);
-        command.Parameters.AddWithValue("source_revision", plan.Reference.SourceRevisionId);
-        command.Parameters.AddWithValue("reference_count", plan.Reference.ReferenceCount);
-        command.Parameters.AddWithValue("alt", NpgsqlDbType.Text, (object?)plan.Reference.AltText ?? DBNull.Value);
+        command.Parameters.AddWithValue("raw", Convert.FromHexString(asset.Source.RawSha256));
+        command.Parameters.AddWithValue("content", Convert.FromHexString(asset.Image.NormalizedSha256));
+        command.Parameters.AddWithValue("name", $"{asset.Source.AssetId:N}.png");
+        command.Parameters.AddWithValue("bytes", asset.Image.Length);
+        command.Parameters.AddWithValue("width", asset.Image.Width);
+        command.Parameters.AddWithValue("height", asset.Image.Height);
+        command.Parameters.AddWithValue("created", asset.CreatedAtUtc);
         return command;
+    }
+
+    private static void BindLegacyMediaActivationReference(NpgsqlCommand command, LegacyMediaPreparationReference reference)
+    {
+        command.Parameters.AddWithValue("article", reference.ArticleId);
+        command.Parameters.AddWithValue("revision", reference.Revision);
+        command.Parameters.AddWithValue("source_revision", reference.SourceRevisionId);
+        command.Parameters.AddWithValue("reference_count", reference.ReferenceCount);
+        command.Parameters.AddWithValue("alt", NpgsqlDbType.Text, (object?)reference.AltText ?? DBNull.Value);
     }
 
     private static async Task InitializePrivateMediaImportOriginAsync(NpgsqlConnection db, CancellationToken ct)
