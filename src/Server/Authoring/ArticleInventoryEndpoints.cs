@@ -30,7 +30,7 @@ internal static class ArticleInventoryEndpoints
                     _ => throw Invalid()
                 };
                 var keyword = query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
-                if (keyword.Any(char.IsControl)) throw Invalid();
+                if (!Wire.IsCanonicalAuthorArticleKeyword(keyword)) throw Invalid();
                 var summary = query(ctx, "match", 13) switch
                 {
                     null or "title" => false,
@@ -70,8 +70,7 @@ internal static class ArticleInventoryEndpoints
                 left join public.category c on c.id=rc.category_id
                 where a.owner_id=$1 and a.deleted=$3 and ($10=0 or a.id=$10)
                     and {ArchivedArticleAuthority.Available}
-                    and ($4='' or strpos(lower(a.title), lower($4))>0
-                         or ($11 and strpos(lower(left(a.body,200)),lower($4))>0))
+                    and {KeywordPredicate(4, 11)}
                     and ($5=0 or rc.category_id=$5)
                     and ($6=0 or exists(select from public.article_revision_tag rt where rt.article_id=a.id and rt.revision=a.revision and rt.tag_id=$6))
             ), filtered as materialized (
@@ -111,6 +110,14 @@ internal static class ArticleInventoryEndpoints
                 rows.IsDBNull(7) ? 0 : rows.GetFieldValue<DateTimeOffset>(7).ToUnixTimeMilliseconds(), category, tags));
         }
         return new(total, more ? list[^1].Id : 0, list);
+    }
+
+    internal static string KeywordPredicate(int keywordParameter, int? includeSummaryParameter = null)
+    {
+        var keyword = "$" + keywordParameter.ToString(CultureInfo.InvariantCulture);
+        var includeSummary = includeSummaryParameter is { } index ? "$" + index.ToString(CultureInfo.InvariantCulture) + " and " : "";
+        return $"({keyword}='' or strpos(lower(a.title),lower({keyword}))>0 or " +
+            $"({includeSummary}strpos(lower(left(a.body,200)),lower({keyword}))>0))";
     }
 
     private static BusinessException Invalid() => new(Rejection.Invalid, "Invalid article inventory filters.");

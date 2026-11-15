@@ -6,6 +6,7 @@ const exportsByFormat = {
   docx: { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', maxBytes: 2 * 1024 * 1024 },
   html: { type: 'text/html', maxBytes: 2 * 1024 * 1024 },
   epub: { type: 'application/epub+zip', maxBytes: 2 * 1024 * 1024 },
+  pdf: { type: 'application/pdf', maxBytes: 4 * 1024 * 1024 },
 } as const
 export type ArticleExportFormat = keyof typeof exportsByFormat
 

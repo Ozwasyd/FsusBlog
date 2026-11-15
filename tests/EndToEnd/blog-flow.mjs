@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
 import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
@@ -19,7 +19,7 @@ import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { exercisePropertyFilter } from './property-filter-flow.mjs'
-import { readEpubDownload, readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -31,15 +31,23 @@ const config = {
   browserPath: process.env.FSUSBLOG_TEST_CHROME,
   requireNative: process.env.FSUSBLOG_TEST_REQUIRE_NATIVE === '1',
   publicFixture: process.env.FSUSBLOG_TEST_PUBLIC_FIXTURE === '1',
+  pdfEnabled: Boolean(process.env.FSUSBLOG_PDF_TOOL_ROOT && process.env.FSUSBLOG_PDF_TOOL_SHA256),
+  pdfFixture: process.env.FSUSBLOG_TEST_PDF_FIXTURE,
 }
 assert(config.origin && config.ticket, 'Provide FSUSBLOG_TEST_URL and FSUSBLOG_TEST_TICKET for an isolated server fixture.')
+if (config.pdfFixture) {
+  assert(config.pdfEnabled, 'Provide the pinned PDF toolchain to capture the PDF fixture.')
+  assert(isAbsolute(config.pdfFixture), 'The PDF fixture path must be absolute.')
+}
 await mkdir(config.evidence, { recursive: true })
 
 const token = `fsusv2${Date.now()}`
 const title = `Browser flow ${token}`
 const bodyTerm = `publicationneedle${Date.now()}`
 const padding = 'Padding paragraph. '.repeat(15)
-const body = `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n${bodyTerm} 博客搜索.\n`
+const pdfPagination = config.pdfFixture ? '\n## 中文分页验收首段\n\n' + Array.from({ length: 72 }, (_, index) =>
+  `第 ${index + 1} 段记录离线文档中的中文排版。每一页都应保留清晰的文字。\n\n`).join('') + '中文分页验收末段。\n' : ''
+const body = `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n${bodyTerm} 博客搜索.\n${pdfPagination}`
 const origin = new URL(config.origin).origin
 const nativeFetch = globalThis.fetch
 const repository = fileURLToPath(new URL('../../', import.meta.url))
@@ -193,6 +201,11 @@ try {
   const epub = await readEpubDownload(publisher, button(publisher, 'Download saved EPUB'))
   if (process.env.FSUSBLOG_TEST_EPUB_FIXTURE)
     await epub.saveAs(process.env.FSUSBLOG_TEST_EPUB_FIXTURE)
+  const savedPdf = button(publisher, 'Download saved PDF')
+  if (config.pdfEnabled) {
+    await readPdfDownload(publisher, savedPdf, writtenId, initialExport.revision, initialExport.revision)
+    observations.push('The saved draft downloads the same private PDF bytes returned by the exact revision endpoint.')
+  } else assert.equal(await savedPdf.count(), 0)
   await verifyOfflineHtmlDownload(publisher, button(publisher, 'Download saved HTML'), title, bodyTerm)
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
   observations.push('The saved editor downloads byte-exact Markdown and an HTML attachment that renders offline without resource requests.')
@@ -391,7 +404,7 @@ try {
 
   const reversedTitle = `Reverse order ${token}`
   const reversed = await articleCommand(WireRoutes.Save, 0, 0n, reversedTitle,
-    `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n搜索博客 ${bodyTerm}.\n`)
+    `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n搜索博客 ${bodyTerm}.\n${pdfPagination}`)
   const comparison = await articleCommand(WireRoutes.Publish, reversed.id, reversed.revision)
   const orderedLinks = visitor.locator('ol.article-list h2 a')
   const normalizedTerm = [...bodyTerm].map(letter => String.fromCodePoint(letter.codePointAt(0) + 0xfee0)).join('')
@@ -424,7 +437,8 @@ try {
 
   await exerciseDraftRevision({
     page: publisher, origin, articleId: writtenId, sourceRevision: publicArticle.revision,
-    originalBody: body, publicArticle: api.publicArticle, screenshot: screen, observations,
+    originalBody: body, publicArticle: api.publicArticle, screenshot: screen, observations, pdfEnabled: config.pdfEnabled,
+    pdfFixture: config.pdfFixture,
   })
   await exerciseCanvas({
     page: publisher, origin, targetArticle: publicArticle, screenshot: screen, monitor, observations,

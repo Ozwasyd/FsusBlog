@@ -38,17 +38,22 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     return page.url()
   }
 
-  async function add(kind, { anchor, pinned, articleId = article.id } = {}) {
+  async function fillReference(kind, { anchor, pinned, articleId = article.id } = {}) {
     await button('Add reference').click()
     const dialog = page.getByRole('dialog', { name: 'Add node' })
     await dialog.getByLabel('Reference type').selectOption(kind)
     await dialog.getByLabel('Article ID', { exact: true }).fill(String(articleId))
     if (anchor !== undefined) await dialog.getByLabel('Anchor ID').fill(anchor)
     if (pinned) await dialog.getByLabel('Pinned revision (optional)').fill(String(pinned))
+    return dialog
+  }
+
+  async function add(kind, options = {}) {
+    const dialog = await fillReference(kind, options)
     await dialog.getByRole('button', { name: 'Save node', exact: true }).click()
     await dialog.waitFor({ state: 'hidden' })
     const nodeName = { 'article-reference': 'Article', 'heading-reference': 'Heading', 'block-reference': 'Block' }[kind]
-    await outline().getByRole('button', { name: `${nodeName} reference ${articleId}`, exact: true }).first().waitFor()
+    await outline().getByRole('button', { name: `${nodeName} reference ${options.articleId ?? article.id}`, exact: true }).first().waitFor()
   }
 
   async function returnToCanvas(mode = 'canvas') {
@@ -119,16 +124,15 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), canvasEditorHandoffKey)
   }
 
-  async function advanceArticle() {
-    const body = `A newer draft 🧪.\n\n${sourceBody}`
-    const command = encodeArticleCommand({ id: article.id, expectedRevision: article.revision, idempotencyKey: randomUUID(), title: articleTitle, body })
+  async function replaceDraft(previous, body) {
+    const command = encodeArticleCommand({ id: previous.id, expectedRevision: previous.revision, idempotencyKey: randomUUID(), title: previous.title, body })
     const response = await page.request.post(`${origin}${WireRoutes.Save}`, {
       data: Buffer.from(encodeFrame(FrameType.ArticleCommand, command)), headers: { 'Content-Type': 'application/octet-stream' },
     })
     assert.equal(response.status(), 200)
     const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
-    assert.equal(updated.id, article.id)
-    assert(updated.revision > article.revision)
+    assert.equal(updated.id, previous.id)
+    assert.equal(updated.revision, previous.revision + 1n)
     assert.equal(updated.body, body)
     return updated.revision
   }
@@ -228,8 +232,22 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await openResolved(headingWitness, 'planning')
     await returnToCanvas('outline')
 
-    await add('block-reference', { anchor: 'twice' })
-    await outline().getByRole('button', { name: `Block reference ${article.id}`, exact: true }).click()
+    const rejected = await fillReference('block-reference', { anchor: 'twice' })
+    const rejectedWrite = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url() === origin + WireRoutes.CanvasGraphWrite)
+    await rejected.getByRole('button', { name: 'Save node', exact: true }).click()
+    const denied = await rejectedWrite
+    assert.equal(denied.status(), 404)
+    decodeFrame(await denied.body(), FrameType.ApiError)
+    await rejected.getByRole('alert').filter({ hasText: 'Canvas reference is unavailable.' }).waitFor()
+    await rejected.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await rejected.waitFor({ state: 'hidden' })
+    assert.equal(await outline().getByRole('button', { name: `Block reference ${article.id}`, exact: true }).count(), 0)
+
+    const aging = await createDraft('Anchor from an earlier draft', 'Duplicate first ^twice')
+    await add('block-reference', { anchor: 'twice', articleId: aging.id })
+    await replaceDraft(aging, 'Duplicate first ^twice\n\nDuplicate second ^twice')
+    await outline().getByRole('button', { name: `Block reference ${aging.id}`, exact: true }).click()
     assert.equal(await resolved().count(), 0)
     await preview().getByRole('button', { name: 'Resolve reference', exact: true }).click()
     await preview().getByRole('status').filter({ hasText: 'The anchor is ambiguous at this revision.' }).waitFor()
@@ -286,7 +304,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
       try {
         const fresh = await route.fetch({ maxRedirects: 0, maxRetries: 0 })
         assert.deepEqual(await readReference(fresh), race.resolution)
-        const revision = await advanceArticle()
+        const revision = await replaceDraft(article, `A newer draft 🧪.\n\n${sourceBody}`)
         await route.fulfill({ response: fresh })
         changed.resolve(revision)
       } catch (error) {
@@ -324,7 +342,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await preview().getByText(/A paragraph with ‹tag›/).waitFor()
     assert.equal(page.url(), canvasUrl)
     assert.equal(await nativeEditor().count(), 0)
-    observations.push('Canvas resolves a heading and a pinned block through the author-only reference API, reports ambiguity, and clears previews after viewport changes and reload.')
+    observations.push('Canvas saves a unique heading and pinned block through the author-only API, refuses an ambiguous new anchor, reports ambiguity after a valid anchor becomes duplicated, and clears previews after viewport changes and reload.')
     observations.push('Canvas opens the exact current article with no retained handoff, reveals verified heading and block anchors at their UTF-16 source offsets in FsusUI, refuses an intervening draft revision before mounting the editor, and retains the historical pinned preview with no action for ambiguous anchors.')
     await exerciseCrlf()
   } catch (error) {

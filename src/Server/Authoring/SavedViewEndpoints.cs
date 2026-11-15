@@ -28,7 +28,7 @@ internal static class SavedViewEndpoints
 
         app.MapPost(WireRoutes.SavedViews, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var command = Wire.DecodeSavedViewCommand(await readFrame(ctx, WireLimits.SavedViewCommandFrameBytes, ct));
+            var command = Wire.DecodeSavedViewCommand(await readFrame(ctx, WireLimits.SavedViewKeywordCommandFrameBytes, ct));
             return await Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewReceipt(await view.Change(command, token)), ct);
         }).RequireRateLimiting("command");
 

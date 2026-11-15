@@ -29,7 +29,7 @@ export interface EditorTransport<Draft> {
     current: Draft
     currentEdit: number
     dirty: boolean
-  }>): void
+  }>, signal?: AbortSignal): void | Promise<boolean>
 }
 
 type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string) => Promise<DraftSave<Draft>>
@@ -56,7 +56,7 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
 export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft; selected: boolean }>
 export type RecoverableCloseDraft<Draft> = Readonly<{ draft: Draft; edit: number }>
-export type DiscardReservation<Draft> = Readonly<{
+export type CloseReservation<Draft> = Readonly<{
   drafts: readonly RecoverableCloseDraft<Draft>[]
   signal: AbortSignal
   current: () => boolean
@@ -78,7 +78,7 @@ export type Activation =
   | Readonly<{ kind: 'capacity' }>
 
 type SaveReceipt =
-  | Readonly<{ kind: 'saved'; articleId: number; revision: bigint }>
+  | Readonly<{ kind: 'saved'; articleId: number; revision: bigint; recoverySettled?: boolean }>
   | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' | 'rejected' }>
   | Blocked
 
@@ -102,7 +102,7 @@ type Session<Draft> = {
   pending: boolean
   block?: WorkspaceBlock
   edit: number
-  request?: { command: WriteCommand; key: string; draft: Draft; edit: number; perform: ContentCommand<Draft> }
+  request?: { command: WriteCommand; key: string; draft: Draft; edit: number; perform: ContentCommand<Draft>; settleRecovery?: boolean }
 }
 
 const equalIdentity = (a: WorkspaceIdentity | null, b: WorkspaceIdentity | null): boolean =>
@@ -141,7 +141,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #retainedSource: Session<Draft> | undefined
   #inspectorOpen = false
   #opening: AbortController | undefined
-  #discarding: { reservation: DiscardReservation<Draft>; controller: AbortController; sessions: Set<Session<Draft>> } | undefined
+  #closing: { reservation: CloseReservation<Draft>; mode: 'discard' | 'save'; controller: AbortController; sessions: Set<Session<Draft>> } | undefined
   #activation = 0
   #sequence = 0
   #editSequence = 0
@@ -368,7 +368,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!Number.isSafeInteger(articleId) || articleId < 0) return blocked('missing')
     if (!this.#currentIdentity()) return blocked(this.#identity ? 'expired' : 'forbidden')
     if (group !== 'main' && group !== 'secondary') return blocked('unavailable')
-    if (this.#discarding) return blocked('unavailable')
+    if (this.#closing) return blocked('unavailable')
 
     const intent = ++this.#activation
     this.#opening?.abort()
@@ -465,7 +465,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   startDraft(draft: Draft, group: WorkspaceGroup = this.#active?.group ?? 'main'): Promise<Activation> {
     if (draft.id !== 0 || draft.revision !== 0n) return Promise.resolve(blocked('missing'))
     if (!this.#currentIdentity()) return Promise.resolve(blocked(this.#identity ? 'expired' : 'forbidden'))
-    if (this.#discarding) return Promise.resolve(blocked('unavailable'))
+    if (this.#closing) return Promise.resolve(blocked('unavailable'))
     if (group !== 'main' && group !== 'secondary') return Promise.resolve(blocked('unavailable'))
     if (!this.#sessions.has(0)) {
       const visibleCount = Array.from(this.#sessions.values()).filter(session => session.phase !== 'loading').length
@@ -534,6 +534,14 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return this.#write(tab, 'save', (draft, signal, key) => this.#transport.save(draft, signal, key))
   }
 
+  saveReserved(tab: EditorSessionRef, reservation: CloseReservation<Draft>): Promise<SaveReceipt> {
+    const held = this.#closing
+    const session = this.#find(tab, reservation)
+    if (!session || !held || held.reservation !== reservation || held.mode !== 'save' || !held.sessions.has(session))
+      return Promise.resolve({ kind: 'superseded' })
+    return this.#write(tab, 'save', (draft, signal, key) => this.#transport.save(draft, signal, key), reservation)
+  }
+
   commit(tab: EditorSessionRef, command: Exclude<WriteCommand, 'save'>, perform: ContentCommand<Draft>): Promise<SaveReceipt> {
     return this.#write(tab, command, perform)
   }
@@ -543,8 +551,9 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return request ? this.#write(tab, request.command, request.perform) : Promise.resolve({ kind: 'superseded' })
   }
 
-  async #write(tab: EditorSessionRef, command: WriteCommand, perform: ContentCommand<Draft>): Promise<SaveReceipt> {
-    const session = this.#find(tab)
+  async #write(tab: EditorSessionRef, command: WriteCommand, perform: ContentCommand<Draft>,
+    reservation?: CloseReservation<Draft>): Promise<SaveReceipt> {
+    const session = this.#find(tab, reservation)
     if (!session?.draft) return { kind: 'superseded' }
     if (session.writing || session.pending || session.recovery) return { kind: 'busy' }
     if (session.conflict) return { kind: 'conflict' }
@@ -552,26 +561,31 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!session.request && command === 'save' && !session.dirty) return { kind: 'clean' }
     if (!session.request && command !== 'save' && (session.dirty || session.id === 0)) return { kind: 'dirty' }
 
-    const { draft, edit, key, perform: performCommand } = session.request ??= {
+    const request: NonNullable<Session<Draft>['request']> = session.request ??= {
       command, key: this.#newRequestKey(), draft: structuredClone(session.draft), edit: session.edit, perform,
     }
+    if (reservation) request.settleRecovery = true
+    const { draft, edit, key, perform: performCommand } = request
+    const signal = reservation ? AbortSignal.any([reservation.signal, session.controller.signal]) : session.controller.signal
     session.writing = command
     this.#changed()
 
-    const result = await untilAborted(session.controller.signal, () => performCommand(structuredClone(draft), session.controller.signal, key))
+    const result = await untilAborted(signal, () => performCommand(structuredClone(draft), signal, key))
       .catch(() => blocked('unavailable'))
-    if (!result || this.#find(tab) !== session || session.phase !== 'ready' || !session.draft) {
+    if (!result || this.#find(tab, reservation) !== session || session.phase !== 'ready' || !session.draft) {
       return { kind: 'superseded' }
     }
-    delete session.writing
+    let recoverySettled: boolean | undefined
     if (result.kind === 'conflict') session.conflict = true
     if (result.kind === 'conflict' || result.kind === 'rejected') delete session.request
     if (result.kind === 'saved') {
       const articleId = result.draft.id
       const creating = session.id === 0
-      if (result.draft.revision <= draft.revision || (creating
-        ? !Number.isSafeInteger(articleId) || articleId < 1 || this.#sessions.has(articleId)
-        : articleId !== session.id)) {
+      const wrongRevision = request.settleRecovery ? result.draft.revision !== draft.revision + 1n : result.draft.revision <= draft.revision
+      const wrongArticle = creating
+        ? !Number.isSafeInteger(articleId) || articleId < 1 || this.#sessions.has(articleId) : articleId !== session.id
+      if (wrongRevision || wrongArticle) {
+        delete session.writing
         this.#changed()
         return blocked('unavailable')
       }
@@ -586,18 +600,23 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       } else {
         session.draft = { ...session.draft, id: articleId, revision: result.draft.revision }
       }
-      delete session.request
       try {
-        this.#transport.confirmed?.({
+        const confirmed = this.#transport.confirmed?.({
           command, sessionId: session.sessionId, previousArticleId: draft.id, acknowledgedEdit: edit,
           current: structuredClone(session.draft), currentEdit: session.edit, dirty: session.dirty,
-        })
+        }, request.settleRecovery ? signal : undefined)
+        if (request.settleRecovery) recoverySettled = await confirmed === true
+        else void Promise.resolve(confirmed).catch(() => {})
       } catch {
-        // A local recovery failure cannot change an acknowledged server write.
+        if (request.settleRecovery) recoverySettled = false
       }
+      if (recoverySettled !== false) delete session.request
     }
+    delete session.writing
+    if (!this.#currentIdentity() || this.#sessions.get(session.id) !== session || session.phase !== 'ready')
+      return { kind: 'superseded' }
     if (result.kind === 'blocked' && result.reason !== 'unavailable') {
-      this.invalidate(tab, result.reason)
+      this.#invalidate(session, result.reason)
     } else {
       this.#changed()
     }
@@ -605,12 +624,17 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!this.#currentIdentity() || this.#sessions.get(session.id) !== session || session.phase !== 'ready') {
       return { kind: 'superseded' }
     }
-    return { kind: 'saved', articleId: session.id, revision: result.draft.revision }
+    return { kind: 'saved', articleId: session.id, revision: result.draft.revision,
+      ...(recoverySettled === undefined ? {} : { recoverySettled }) }
   }
 
   invalidate(tab: EditorSessionRef, reason: WorkspaceBlock): boolean {
     const session = this.#find(tab)
-    if (!session || session.phase !== 'ready') return false
+    return session ? this.#invalidate(session, reason) : false
+  }
+
+  #invalidate(session: Session<Draft>, reason: WorkspaceBlock): boolean {
+    if (session.phase !== 'ready') return false
     session.phase = 'blocked'
     session.block = reason
     delete session.draft
@@ -651,7 +675,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return { kind: 'closed' }
   }
 
-  recoveryDraftsForClose(plan: ClosePlan): readonly RecoverableCloseDraft<Draft>[] | undefined {
+  recoveryDraftsForClose(plan: ClosePlan, saving = false): readonly RecoverableCloseDraft<Draft>[] | undefined {
     if (plan.revision !== this.#revision) return undefined
     const sources: RecoverableCloseDraft<Draft>[] = []
     for (const tab of plan.tabs) {
@@ -659,17 +683,19 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       if (!session || session.phase !== 'ready' || !session.draft) return undefined
       const risk = this.#risk(session)
       if (risk === 'clean') continue
-      if (risk !== 'dirty' || session.id <= 0 || session.edit <= 0) return undefined
+      const retry = saving && risk === 'recovery' && !session.recovery && !session.pending &&
+        session.request?.command === 'save' && session.request.edit === session.edit
+      if ((risk !== 'dirty' && !retry) || session.id <= 0 || session.edit <= 0) return undefined
       sources.push({ draft: structuredClone(session.draft), edit: session.edit })
     }
     return sources
   }
 
-  reserveDiscard(plan: ClosePlan): DiscardReservation<Draft> | undefined {
+  reserveClose(plan: ClosePlan, mode: 'discard' | 'save'): CloseReservation<Draft> | undefined {
     const active = this.#active
-    if (!active || this.#discarding || this.#opening || Array.from(this.#sessions.values()).some(session => session.phase === 'loading'))
+    if (!active || this.#closing || this.#opening || Array.from(this.#sessions.values()).some(session => session.phase === 'loading'))
       return undefined
-    const drafts = this.recoveryDraftsForClose(plan)
+    const drafts = this.recoveryDraftsForClose(plan, mode === 'save')
     if (!drafts?.length) return undefined
     const sessions = new Set<Session<Draft>>()
     for (const tab of plan.tabs) {
@@ -678,19 +704,19 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       sessions.add(session)
     }
     const controller = new AbortController()
-    const reservation: DiscardReservation<Draft> = Object.freeze({
+    const reservation: CloseReservation<Draft> = Object.freeze({
       drafts, signal: controller.signal,
-      current: () => this.#discarding?.reservation === reservation && this.#currentIdentity(),
+      current: () => this.#closing?.reservation === reservation && this.#currentIdentity(),
     })
-    this.#discarding = { reservation, controller, sessions }
+    this.#closing = { reservation, mode, controller, sessions }
     return reservation
   }
 
-  completeDiscard(reservation: DiscardReservation<Draft>, committed: boolean): CloseReceipt {
-    const held = this.#discarding
+  completeClose(reservation: CloseReservation<Draft>, committed: boolean): CloseReceipt {
+    const held = this.#closing
     if (!held || held.reservation !== reservation || !reservation.current()) return { kind: 'stale' }
-    this.#discarding = undefined
-    if (!committed) {
+    this.#closing = undefined
+    if (!committed || held.mode === 'save' && Array.from(held.sessions).some(session => this.#risk(session) !== 'clean')) {
       held.controller.abort()
       return { kind: 'protected' }
     }
@@ -745,10 +771,12 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return false
   }
 
-  #find(tab: EditorSessionRef): Session<Draft> | undefined {
+  #find(tab: EditorSessionRef, reservation?: CloseReservation<Draft>): Session<Draft> | undefined {
     if (!this.#currentIdentity()) return undefined
     const session = this.#sessions.get(tab.articleId)
-    return session && session.sessionId === tab.sessionId && !this.#discarding?.sessions.has(session) ? session : undefined
+    const closing = this.#closing
+    return session && session.sessionId === tab.sessionId &&
+      (!closing || !closing.sessions.has(session) || closing.reservation === reservation) ? session : undefined
   }
 
   #cleanPreview(group: WorkspaceGroup): Session<Draft> | undefined {
@@ -759,7 +787,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #groupChange(tab: EditorSessionRef, expectedRevision: number): Session<Draft> | undefined {
     const session = this.#find(tab)
     if (this.#revision !== expectedRevision || !session || session !== this.#active || session.phase !== 'ready' ||
-        this.#opening || this.#discarding || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
+        this.#opening || this.#closing || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
     return session
   }
 
@@ -830,8 +858,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   #clear(): void {
-    this.#discarding?.controller.abort()
-    this.#discarding = undefined
+    this.#closing?.controller.abort()
+    this.#closing = undefined
     const previous = Array.from(this.#sessions.values())
     this.#sessions.clear()
     this.#recent.length = 0

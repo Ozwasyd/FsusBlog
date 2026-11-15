@@ -10,7 +10,8 @@ const props = withDefaults(defineProps<{ article: number; revision: bigint; sele
 })
 const failure = ref('')
 const loading = ref(false)
-const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML', epub: 'EPUB' }
+const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML', epub: 'EPUB', pdf: 'PDF' }
+const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
 let request: AbortController | undefined
 
 function reset() {
@@ -53,6 +54,8 @@ async function download() {
       failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
     else if (format === 'epub' && error instanceof ApiError && error.status === 400)
       failure.value = 'EPUB requires a title and basic text Markdown without links, images, or render directives. It must fit within 2 MiB.'
+    else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
+      failure.value = 'PDF requires basic text Markdown and supported characters within the page and size limits.'
     else failure.value = `Could not download ${formatLabels[format]}. Try again.`
   } finally {
     if (request === controller) {
@@ -67,7 +70,7 @@ onScopeDispose(reset)
 </script>
 
 <template>
-  <span class="markdown-export">
+  <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
       Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}
     </ElButton>

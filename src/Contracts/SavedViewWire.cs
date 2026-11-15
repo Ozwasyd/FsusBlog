@@ -11,6 +11,7 @@ public sealed record SavedViewSummary(Guid Id, long Revision, string Name);
 public sealed record SavedViewCatalog(long CollectionRevision, Guid NextId, IReadOnlyList<SavedViewSummary> Views);
 public sealed record SavedViewExecute(Guid Id, long Revision, string Cursor);
 public sealed record SavedViewCondition(Guid DefinitionId, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyFieldValue Value);
+public sealed record SavedViewDefinition(IReadOnlyList<SavedViewCondition> Conditions, string Keyword);
 
 public static partial class Wire
 {
@@ -38,6 +39,7 @@ public static partial class Wire
 
     public static SavedViewCommand DecodeSavedViewCommand(ReadOnlySpan<byte> frame)
     {
+        if (frame.Length > WireLimits.SavedViewKeywordCommandFrameBytes) throw InvalidSavedView();
         var reader = new Reader(Aeds.Decode(frame, FrameType.SavedViewCommand));
         var action = (SavedViewAction)reader.I32();
         var id = reader.Uuid();
@@ -45,11 +47,13 @@ public static partial class Wire
         var collection = reader.I64();
         var request = reader.Uuid();
         var name = reader.Text(WireLimits.SavedViewNameBytes);
-        var query = reader.Bytes(WireLimits.PropertyQueryGroupFrameBytes);
+        var query = reader.Bytes(WireLimits.PropertyKeywordQueryFrameBytes);
         var result = new SavedViewCommand(action, id, revision, collection, request, name,
             query.IsEmpty ? null : DecodePropertyArticleQueryGroup(query));
         reader.Finish();
         Validate(result);
+        if (result.Query is not { Keyword.Length: > 0 } && frame.Length > WireLimits.SavedViewCommandFrameBytes)
+            throw InvalidSavedView();
         return result;
     }
 
@@ -125,11 +129,11 @@ public static partial class Wire
         return result;
     }
 
-    public static byte[] EncodeSavedViewDefinition(IReadOnlyList<SavedViewCondition> conditions)
+    public static byte[] EncodeSavedViewDefinition(IReadOnlyList<SavedViewCondition> conditions, string keyword = "")
     {
         Validate(new PropertyArticleQueryGroup(1, conditions.Select(item => new PropertyCondition(item.DefinitionId, 1,
-            item.Comparison, item.Value)).ToArray(), ""));
-        var version = conditions.Max(item => item.Comparison switch
+            item.Comparison, item.Value)).ToArray(), "", keyword));
+        var version = keyword.Length != 0 ? 6 : conditions.Max(item => item.Comparison switch
         {
             PropertyComparison.ReferenceAnyOf => 5,
             PropertyComparison.SingleSelectAnyOf => 4,
@@ -139,6 +143,7 @@ public static partial class Wire
         });
         var writer = new Writer();
         writer.I32(version);
+        if (version == 6) writer.Text(keyword, WireLimits.AuthorArticleKeywordChars * 4);
         writer.I32(conditions.Count);
         foreach (var item in conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison))
         {
@@ -165,19 +170,21 @@ public static partial class Wire
         return writer.Written.ToArray();
     }
 
-    public static SavedViewCondition[] DecodeSavedViewDefinition(ReadOnlySpan<byte> encoded, byte[] digest)
+    public static SavedViewDefinition DecodeSavedViewDefinition(ReadOnlySpan<byte> encoded, byte[] digest)
     {
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
-        if (reader.I32() is not (1 or 2 or 3 or 4 or 5)) throw InvalidSavedView();
+        var version = reader.I32();
+        if (version is < 1 or > 6) throw InvalidSavedView();
+        var keyword = version == 6 ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];
         for (var i = 0; i < count; ++i)
             conditions[i] = new(reader.Uuid(), ReadKind(ref reader), (PropertyComparison)reader.I32(), ReadValue(ref reader));
         reader.Finish();
-        if (!encoded.SequenceEqual(EncodeSavedViewDefinition(conditions))) throw InvalidSavedView();
-        return conditions;
+        if (!encoded.SequenceEqual(EncodeSavedViewDefinition(conditions, keyword))) throw InvalidSavedView();
+        return new(conditions, keyword);
     }
 
     private static void Validate(SavedViewExecute value)

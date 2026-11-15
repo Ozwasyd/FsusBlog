@@ -314,21 +314,21 @@ export class DraftJournal {
     return this.#closed || !active ? [] : Object.freeze(candidates.sort((a, b) => b.updatedAt - a.updatedAt))
   }
 
-  acknowledge(target: DraftTarget, confirmedEditSequence: number): Promise<void> {
+  acknowledge(target: DraftTarget, confirmedEditSequence: number, signal?: AbortSignal): Promise<boolean> {
     const document = documentKey(target)
     this.#cancelPending(document, pending => pending.sequence <= confirmedEditSequence)
     return this.#remove(record => this.#matches(document, record) && record.writer === this.#writer
-      && record.editSequence <= confirmedEditSequence)
+      && record.editSequence <= confirmedEditSequence, false, signal)
   }
 
-  discard(target: DraftTarget, candidate: Pick<RecoveryCandidate, 'writer' | 'editSequence'>): Promise<void> {
+  discard(target: DraftTarget, candidate: Pick<RecoveryCandidate, 'writer' | 'editSequence'>): Promise<boolean> {
     const document = documentKey(target)
     if (candidate.writer === this.#writer) this.#cancelPending(document, pending => pending.sequence === candidate.editSequence)
     return this.#remove(record => this.#matches(document, record) && record.writer === candidate.writer
       && record.editSequence === candidate.editSequence)
   }
 
-  purge(target?: DraftTarget): Promise<void> {
+  purge(target?: DraftTarget): Promise<boolean> {
     const document = target && documentKey(target)
     this.#cancelPending(document, () => true)
     return this.#remove(record => this.#matches(document, record), document === undefined)
@@ -350,11 +350,12 @@ export class DraftJournal {
     }
   }
 
-  #remove(match: (record: RecoveryRecord) => boolean, revokeScope = false): Promise<void> {
-    return this.#closed ? Promise.resolve() : transaction(this.#database, this.#scope, (store, live, generation, revoke) => {
-      if (this.#generation !== generation) return
+  #remove(match: (record: RecoveryRecord) => boolean, revokeScope = false, signal?: AbortSignal): Promise<boolean> {
+    return this.#closed ? Promise.resolve(false) : transaction(this.#database, this.#scope, (store, live, generation, revoke) => {
+      if (this.#closed || this.#generation !== generation) return false
       if (revokeScope) revoke()
       for (const record of live) if (match(record)) store.delete(record.key)
-    })
+      return true
+    }, { signal })
   }
 }

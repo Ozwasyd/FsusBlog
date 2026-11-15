@@ -1,6 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request } from './client.ts'
+import { request, siteSessionHeader } from './client.ts'
 import { propertyKinds, writeValue, type PropertyKind, type PropertyOption, type PropertyValue } from './property-values.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyFilterabilityCommand, FrameType, WireLimits, WireRoutes,
@@ -17,7 +17,7 @@ export const propertyComparisons = [
 ] as const
 export type PropertyComparison = typeof propertyComparisons[number]
 export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
-export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string }>
+export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string; keyword?: string }>
 export type PropertyMatches = Readonly<{
   nextCursor: string; rows: readonly Readonly<{ id: number; revision: bigint; title: string }>[]
 }>
@@ -60,8 +60,12 @@ export function setPropertyFilterable(input: PropertyFilterabilityCommand, signa
 export function encodePropertyQuery(query: PropertyQuery) {
   if (!query.conditions.length || query.conditions.length > WireLimits.PropertyQueryConditionCount)
     throw new ProtocolError('Invalid property condition count')
+  const keyword = query.keyword ?? ''
+  if (keyword.length > WireLimits.AuthorArticleKeywordChars || /(^\p{Z}|\p{Z}$|\p{Cc}|\p{Cs})/u.test(keyword))
+    throw new ProtocolError('Invalid article keyword')
   const output = new PodWriter()
   output.i64(query.schema)
+  if (keyword) output.text(keyword, WireLimits.AuthorArticleKeywordChars * 4)
   output.i32(query.conditions.length)
   for (const condition of query.conditions) {
     if (condition.comparison === 'is-present' && condition.value.kind !== 'missing')
@@ -81,7 +85,7 @@ export function encodePropertyQuery(query: PropertyQuery) {
     writeValue(output, condition.value)
   }
   output.text(query.cursor, WireLimits.PropertyQueryCursorChars)
-  return encodeFrame(FrameType.PropertyArticleQueryGroup, output.finish())
+  return encodeFrame(keyword ? FrameType.PropertyKeywordQuery : FrameType.PropertyArticleQueryGroup, output.finish())
 }
 
 export function decodePropertyMatches(bytes: Uint8Array): PropertyMatches {
@@ -101,7 +105,7 @@ export function decodePropertyMatches(bytes: Uint8Array): PropertyMatches {
   return { nextCursor, rows }
 }
 
-export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal): Promise<PropertyMatches> {
+export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal, session?: string): Promise<PropertyMatches> {
   return request(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, decodePropertyMatches,
-    signal, 'POST', encodePropertyQuery(query))
+    signal, 'POST', encodePropertyQuery(query), query.keyword ? siteSessionHeader(session) : undefined)
 }

@@ -20,10 +20,13 @@ public sealed class PropertyQueryPostgresTests
         var owner = await SignIn("First owner");
         var outsider = await SignIn("Second owner");
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
-        var primary = await Article("Match", owner);
-        var empty = await Article("Empty", owner);
+        const string matchText = "C12%_Needle";
+        const string keyword = "c12%_needle";
+        var summaryPrefix = string.Concat(Enumerable.Repeat("😀", 200 - matchText.Length));
+        var primary = await Article("Match " + matchText, owner);
+        var empty = await Article("Empty " + matchText, owner);
         var missing = await Article("Missing", owner);
-        var foreign = await Article("Other owner", outsider);
+        var foreign = await Article("Other owner " + matchText, outsider);
         var target = await Article("Reference target", owner);
         target = (await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Publish,
             new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;
@@ -84,10 +87,13 @@ public sealed class PropertyQueryPostgresTests
         Assert.Empty((await Filter(1, new PropertyFieldValue.Number(9007199254740993.1234568m))).Rows);
         await Filter(1, new PropertyFieldValue.Text("0"), HttpStatusCode.BadRequest);
 
+        var summaryMatches = new List<int>();
         for (var i = 0; i < WireLimits.PropertyPageSize; i++)
         {
-            var article = await Article($"Number page {i}", owner);
+            var body = (i == 0 ? summaryPrefix : "Private ") + matchText;
+            var article = await Article($"Number page {i}", owner, body);
             await Put(article, fields[1], definitions[1].Item2, 0, 2);
+            summaryMatches.Add(article.Id);
         }
         var firstPage = await Filter(1, definitions[1].Item2);
         Assert.Equal(WireLimits.PropertyPageSize, firstPage.Rows.Count);
@@ -337,6 +343,77 @@ public sealed class PropertyQueryPostgresTests
         await Saved(WireRoutes.SavedViewExecute, openReferences, HttpStatusCode.Conflict);
         Assert.Equal(primary.Id, Assert.Single((await Group([ReferenceAnyOf(target.Id)])).Rows).Id);
 
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(
+            new(fields[1], Guid.NewGuid(), schema++, 4, true)), owner);
+        var afterSummary = await Article("Beyond the excerpt", owner, summaryPrefix + "x" + matchText);
+        var wildcardOnly = await Article("C12XYNeedle", owner);
+        await Put(afterSummary, fields[1], definitions[1].Item2, 0, 5);
+        await Put(wildcardOnly, fields[1], definitions[1].Item2, 0, 5);
+        var scoreMatch = new PropertyCondition(fields[1], 5, PropertyComparison.Equal, definitions[1].Item2);
+        var scoreOnly = await Group([scoreMatch]);
+        Assert.Contains(scoreOnly.Rows, row => row.Id == afterSummary.Id);
+        Assert.Contains(scoreOnly.Rows, row => row.Id == wildcardOnly.Id);
+
+        await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(new(
+            new(1, fields[1], Guid.NewGuid(), 2, 0, "same-score", "Same score"), PropertyFieldKind.Number, [])), outsider);
+        await Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(new(foreignTarget.Id, foreignTarget.Revision, 3, 2,
+            fields[1], 1, Guid.NewGuid(), definitions[1].Item2)), outsider);
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(
+            new(fields[1], Guid.NewGuid(), 3, 1, true)), outsider);
+        var outsideKeyword = Wire.EncodePropertyArticleQueryGroup(new(4, [scoreMatch with { DefinitionRevision = 2 }], "", keyword));
+        var outsidePage = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, outsideKeyword, outsider, sessionId: outsiderHandle));
+        Assert.Equal(foreignTarget.Id, Assert.Single(outsidePage.Rows).Id);
+
+        var keywordQuery = new PropertyArticleQueryGroup(schema, [scoreMatch], "", keyword);
+        var keywordFrame = Wire.EncodePropertyArticleQueryGroup(keywordQuery);
+        await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, HttpStatusCode.Conflict);
+        await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, HttpStatusCode.Conflict, peerHandle);
+        var keywordPage = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, sessionId: handle));
+        Assert.Equal(summaryMatches.AsEnumerable().Reverse(), keywordPage.Rows.Select(row => row.Id));
+        Assert.NotEmpty(keywordPage.NextCursor);
+        var combinedFrame = Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Conditions = [scoreMatch, Present(2)] });
+        var combinedPage = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, combinedFrame, owner, sessionId: handle));
+        Assert.Equal(primary.Id, Assert.Single(combinedPage.Rows).Id);
+        var keywordContinuation = keywordQuery with { Cursor = keywordPage.NextCursor };
+        var continuationFrame = Wire.EncodePropertyArticleQueryGroup(keywordContinuation);
+        var keywordTail = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, continuationFrame, owner, sessionId: handle));
+        Assert.Equal(primary.Id, Assert.Single(keywordTail.Rows).Id);
+        Assert.Empty(keywordTail.NextCursor);
+        await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQueryGroup(keywordContinuation with { Keyword = keyword[1..] }),
+            owner, HttpStatusCode.BadRequest, handle);
+        await Group([scoreMatch], keywordPage.NextCursor, HttpStatusCode.BadRequest);
+        await Send(WireRoutes.PropertyArticleQuery, continuationFrame, anotherOwnerSession, HttpStatusCode.BadRequest, peerHandle);
+
+        var keywordViewId = Guid.NewGuid();
+        var keywordView = new SavedViewCommand(SavedViewAction.Save, keywordViewId, 0, 15, Guid.NewGuid(), "Keyword and score", keywordQuery);
+        var keywordSaveFrame = Wire.EncodeSavedViewCommand(keywordView);
+        var keywordSave = await Saved(WireRoutes.SavedViews, keywordSaveFrame);
+        Assert.Equal(keywordSave, await Saved(WireRoutes.SavedViews, keywordSaveFrame));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(keywordView with
+        {
+            Query = keywordQuery with { Keyword = keyword[1..] },
+        }), HttpStatusCode.Conflict);
+        var savedKeywordPage = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute,
+            Wire.EncodeSavedViewExecute(new(keywordViewId, 1, ""))));
+        Assert.Equal(keywordPage.Rows.ToArray(), savedKeywordPage.Rows.ToArray());
+        Assert.NotEmpty(savedKeywordPage.NextCursor);
+        var savedKeywordTail = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute,
+            Wire.EncodeSavedViewExecute(new(keywordViewId, 1, savedKeywordPage.NextCursor))));
+        Assert.Equal(keywordTail.Rows.ToArray(), savedKeywordTail.Rows.ToArray());
+        Assert.Empty(savedKeywordTail.NextCursor);
+        await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(keywordViewId, 1, keywordPage.NextCursor)), HttpStatusCode.BadRequest);
+        Assert.Equal(1, await SavedDefinitionVersion(secondId));
+        Assert.Equal(5, await SavedDefinitionVersion(referenceViewId));
+        Assert.Equal(6, await SavedDefinitionVersion(keywordViewId));
+
+        async Task<int> SavedDefinitionVersion(Guid id)
+        {
+            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
+            await using var command = Store.Sql(conn, null,
+                "select get_byte(definition,0) from public.author_saved_view where owner_id=$1 and id=$2", ownerId, id);
+            return Assert.IsType<int>(await command.ExecuteScalarAsync(ct));
+        }
+
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
 
@@ -367,8 +444,8 @@ public sealed class PropertyQueryPostgresTests
         Task<byte[]> Put(ArticleState article, Guid field, PropertyFieldValue value, long version, long definition) =>
             Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(new(article.Id, article.Revision, schema, version,
                 field, definition, Guid.NewGuid(), value)), owner);
-        async Task<ArticleState> Article(string title, string token) => (await store.WithSession(token, true, (c, t, a) =>
-            Store.Execute(c, t, a, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, "Private"), ct), ct)).Article;
+        async Task<ArticleState> Article(string title, string token, string body = "Private") => (await store.WithSession(token, true, (c, t, a) =>
+            Store.Execute(c, t, a, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body), ct), ct)).Article;
         async Task<ArticleState> Publication(ArticleState article, ArticleAction action, string token) =>
             (await store.WithSession(token, true, (c, t, a) => Store.Execute(c, t, a, action,
                 new(article.Id, article.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;

@@ -47,7 +47,8 @@ internal static class PropertyValueVectors
         ], "");
         BytesEqual(groupBytes, Wire.EncodePropertyArticleQueryGroup(group));
         var decoded = Wire.DecodePropertyArticleQueryGroup(groupBytes);
-        if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || !decoded.Conditions.SequenceEqual(group.Conditions))
+        if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || decoded.Keyword != "" ||
+            !decoded.Conditions.SequenceEqual(group.Conditions))
             throw new InvalidOperationException("Property group differs from the independent byte vector.");
         var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
         invalidGroup[36] = 9;
@@ -101,11 +102,38 @@ internal static class PropertyValueVectors
         var referenceDefinition = Wire.EncodeSavedViewDefinition([referenceView]);
         BytesEqual(Convert.FromHexString("05000000010000000000000000004000800000000000000606000000080000000600000002000000110000002a000000"),
             referenceDefinition);
-        BytesEqual(referenceDefinition, Wire.EncodeSavedViewDefinition(Wire.DecodeSavedViewDefinition(referenceDefinition,
-            SHA256.HashData(referenceDefinition))));
+        var decodedReference = Wire.DecodeSavedViewDefinition(referenceDefinition, SHA256.HashData(referenceDefinition));
+        BytesEqual(referenceDefinition, Wire.EncodeSavedViewDefinition(decodedReference.Conditions, decodedReference.Keyword));
         Reject(() => Wire.EncodeSavedViewDefinition([referenceView with { Kind = PropertyFieldKind.MultiSelect }]));
         referenceDefinition[0] = 4;
         Reject(() => Wire.DecodeSavedViewDefinition(referenceDefinition, SHA256.HashData(referenceDefinition)));
+
+        const string keyword = "%_雪";
+        var keywordBytes = Fixture("property-query-keyword");
+        var keywordQuery = new PropertyArticleQueryGroup(10, [presence], "", keyword);
+        BytesEqual(keywordBytes, Wire.EncodePropertyArticleQueryGroup(keywordQuery));
+        var decodedKeyword = Wire.DecodePropertyArticleQueryGroup(keywordBytes);
+        if (decodedKeyword.Keyword != keyword || decodedKeyword.SchemaRevision != 10 || decodedKeyword.Cursor != "" ||
+            decodedKeyword.Conditions.Single() != presence)
+            throw new InvalidOperationException("The keyword frame lost its exact search and property coordinates.");
+        var invalidKeyword = Aeds.Decode(presenceBytes, FrameType.PropertyArticleQueryGroup).ToArray().ToList();
+        invalidKeyword.InsertRange(8, new byte[4]);
+        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyKeywordQuery, invalidKeyword.ToArray())));
+        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = " " + keyword }));
+        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = new string('雪', 129) }));
+        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = "a\u0085b" }));
+        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = "\ud800" }));
+        var storedKeyword = Wire.EncodeSavedViewDefinition([saved], keyword);
+        BytesEqual(Convert.FromHexString("0600000005000000255fe99baa01000000000000000000400080000000000000060100000005000000feffffff"),
+            storedKeyword);
+        var decodedStoredKeyword = Wire.DecodeSavedViewDefinition(storedKeyword, SHA256.HashData(storedKeyword));
+        if (decodedStoredKeyword.Keyword != keyword || decodedStoredKeyword.Conditions.Single() != saved)
+            throw new InvalidOperationException("Stored v6 saved view lost its search or property condition.");
+        var invalidStoredKeyword = Wire.EncodeSavedViewDefinition([saved]).ToList();
+        invalidStoredKeyword[0] = 6;
+        invalidStoredKeyword.InsertRange(4, new byte[4]);
+        var storedWithoutKeyword = invalidStoredKeyword.ToArray();
+        Reject(() => Wire.DecodeSavedViewDefinition(storedWithoutKeyword, SHA256.HashData(storedWithoutKeyword)));
 
         var schemaBytes = Fixture("property-definition-options");
         var schema = new PropertySchemaInput(new(1, Guid.Parse("00000000-0000-4000-8000-000000000004"), requestId,
@@ -125,7 +153,8 @@ internal static class PropertyValueVectors
         expected[0] = version;
         expected[28] = (byte)condition.Comparison;
         BytesEqual(expected, definition);
-        if (Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)).Single() != condition)
+        var decoded = Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition));
+        if (decoded.Keyword != "" || decoded.Conditions.Single() != condition)
             throw new InvalidOperationException("Stored saved view lost its original comparison.");
         definition[0] = 3;
         Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
@@ -138,9 +167,10 @@ internal static class PropertyValueVectors
         var expected = Convert.FromHexString(hex);
         var definition = Wire.EncodeSavedViewDefinition([overlap]);
         BytesEqual(expected, definition);
-        BytesEqual(expected, Wire.EncodeSavedViewDefinition(Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition))));
+        var decoded = Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition));
+        BytesEqual(expected, Wire.EncodeSavedViewDefinition(decoded.Conditions, decoded.Keyword));
         var mixed = Wire.EncodeSavedViewDefinition([overlap, presence]);
-        if (mixed[0] != version || Wire.DecodeSavedViewDefinition(mixed, SHA256.HashData(mixed)).Length != 2)
+        if (mixed[0] != version || Wire.DecodeSavedViewDefinition(mixed, SHA256.HashData(mixed)).Conditions.Count != 2)
             throw new InvalidOperationException("Mixed comparisons did not use the overlap definition revision.");
         var otherKind = overlap.Kind == PropertyFieldKind.SingleSelect ? PropertyFieldKind.MultiSelect : PropertyFieldKind.SingleSelect;
         Reject(() => Wire.EncodeSavedViewDefinition([overlap with { Kind = otherKind }]));

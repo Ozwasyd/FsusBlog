@@ -6,7 +6,7 @@ import {
   decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand, normalizePropertyDecimal, propertyApi,
   type PropertySchemaCommand, type PropertyValueCommand,
 } from '../../src/Contracts/property-values.ts'
-import { encodePropertyCommandReceipt, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { encodePropertyCommandReceipt, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { encodePropertyQuery, queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
@@ -114,6 +114,28 @@ test('property presence uses the operand-free comparison bytes', () => {
     fixture('property-query-presence'))
   assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ field, comparison: 'is-present', value: { kind: 'null' } }] }),
     ProtocolError)
+})
+
+test('title or summary keyword has its own exact frame and current-session witness', async t => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
+    enabled: true, deprecated: false, options: [] }
+  const query = { schema: 10n, cursor: '', keyword: '%_雪',
+    conditions: [{ field, comparison: 'is-present', value: { kind: 'missing' } }] } as const
+  const bytes = fixture('property-query-keyword')
+  assert.deepEqual(encodePropertyQuery(query), bytes)
+  assert.deepEqual(encodePropertyQuery({ ...query, keyword: '' }), fixture('property-query-presence'))
+  for (const keyword of ['\u00a0a', 'a\u0085b', '\ud800', '雪'.repeat(129)])
+    assert.throws(() => encodePropertyQuery({ ...query, keyword }), ProtocolError)
+  assert.doesNotThrow(() => encodePropertyQuery({ ...query, keyword: '🐈'.repeat(64) }))
+  const session = 'a'.repeat(WireLimits.SiteSessionIdBytes)
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url, init) => {
+    assert.equal(new Headers(init?.headers).get(WireHeaders.CurrentSession), session)
+    assert.deepEqual(new Uint8Array(await new Response(init?.body).arrayBuffer()), bytes)
+    return new Response(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)),
+      { headers: { 'content-type': 'application/octet-stream' } })
+  })
+  assert.deepEqual(await queryPropertyArticles(query, undefined, session), { nextCursor: '', rows: [] })
+  assert.equal(fetch.mock.callCount(), 1)
 })
 
 test('multi-select alternatives preserve independent query bytes', () => {

@@ -82,7 +82,6 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         if (current.Revision != revision) throw Conflict();
         var graph = await LoadGraph(current, ct);
         await CheckReferences(graph.Nodes, ct);
-        await CanvasBundleStore.ValidateAnchors(db, tx, graph.Nodes, ct);
         var view = current.Viewport;
         return CanvasPortableBundle.Export(current.Title, new(view.X, view.Y, view.Zoom), revision, graph).Encode();
     }
@@ -99,7 +98,6 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             mapping => new CanvasPortableTarget(mapping.ArticleId, mapping.PinnedRevision));
         var graph = bundle.Materialize(mappings, input.CanvasId);
         await CheckReferences(graph.Nodes, ct);
-        await CanvasBundleStore.ValidateAnchors(db, tx, graph.Nodes, ct);
         var view = bundle.Viewport;
         return await Create(input.CanvasId, input.CommandId, ImportBundleKind, fingerprint, Title(bundle.Title),
             Viewport(new(view.X, view.Y, view.Zoom)), graph, ct);
@@ -175,7 +173,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         {
             var before = await LoadGraph(current, ct);
             var after = payload.Patch.Apply(before, forward: !undo);
-            current = await ApplyPatch(current, after, payload.Patch, forward: !undo, ct);
+            current = await ApplyPatch(current, after, payload.Patch, forward: !undo, ct, replay: true);
         }
         var result = await Advance(current with { Title = Title(desired.Title), Viewport = Viewport(desired.Viewport) },
             command.CommandId, (int)command.Action, fingerprint, ct);
@@ -193,13 +191,17 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     }
 
     private async Task<CanvasGraphReceipt> ApplyPatch(CanvasGraphReceipt current, CanvasGraph after,
-        CanvasHistoryPatch patch, bool forward, CancellationToken ct)
+        CanvasHistoryPatch patch, bool forward, CancellationToken ct, bool replay = false)
     {
         var nodes = patch.Nodes.Select(entry => (Expected: forward ? entry.Before : entry.After, Desired: forward ? entry.After : entry.Before)).ToArray();
         var edges = patch.Edges.Select(entry => (Id: entry.Id, Desired: forward ? entry.After : entry.Before)).ToArray();
-        await CheckReferences(nodes.Where(pair => pair.Desired is not null &&
-            (pair.Expected?.ArticleId, pair.Expected?.PinnedRevision) != (pair.Desired.ArticleId, pair.Desired.PinnedRevision))
-                .Select(pair => pair.Desired!), ct);
+        var changed = nodes.Where(pair => pair.Desired?.ArticleId is not null &&
+            (pair.Expected?.ArticleId, pair.Expected?.Anchor, pair.Expected?.PinnedRevision) !=
+            (pair.Desired.ArticleId, pair.Desired.Anchor, pair.Desired.PinnedRevision))
+            .Select(pair => pair.Desired!).ToArray();
+        // Replaying a saved reference still needs access to the article and its pin.
+        // Its current anchor may have changed since the original Canvas operation.
+        await CheckReferences(changed, ct, requireResolved: !replay);
         await DeleteIds(current.Id, "delete from public.canvas_edge where canvas_id=$1 and id=any($2)",
             edges.Where(pair => pair.Desired is null).Select(pair => pair.Id).ToArray(), ct);
         foreach (var pair in nodes)
@@ -323,7 +325,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         await record.ExecuteNonQueryAsync(ct);
     }
 
-    private async Task CheckReferences(IEnumerable<CanvasNode> nodes, CancellationToken ct)
+    private async Task CheckReferences(IReadOnlyList<CanvasNode> nodes, CancellationToken ct, bool requireResolved = true)
     {
         var references = nodes.Where(node => node.ArticleId.HasValue)
             .Select(node => (Id: node.ArticleId!.Value, Pin: node.PinnedRevision ?? 0))
@@ -344,6 +346,8 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         }
         if (verified != references.Length || await ArchivedArticleAuthority.AnyLockedArchived(db, tx, ids, ct))
             throw new BusinessException(Rejection.NotFound, "Canvas reference is unavailable.");
+        if (requireResolved)
+            await CanvasReferenceStore.ValidateLockedAnchors(db, tx, nodes, ct);
     }
 
     private async Task<List<CanvasNode>> ReadNodes(Guid id, int offset, int limit, CancellationToken ct)

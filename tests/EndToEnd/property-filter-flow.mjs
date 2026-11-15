@@ -82,6 +82,7 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     await verifyMultiSelect(page, article, field, comparison, result, observations)
     await verifySingleSelect(page, article, field, comparison, result, observations)
     await verifyReferenceAlternatives(page, article, target.id, field, comparison, result, observations)
+    await verifyInventoryKeyword(page, article, target.id, field, result, observations)
   } finally {
     await page.close()
     await articleCommand(WireRoutes.Retract, target.id, target.revision)
@@ -210,7 +211,34 @@ async function verifyReferenceAlternatives(page, article, referenceId, field, co
   observations.push('At 375px, the reference filter accepts empty alternatives, rejects a mixed published and private target list, and reopens the saved match for a current published target.')
 }
 
-async function saveAndReopen(page, article, title) {
+async function verifyInventoryKeyword(page, article, referenceId, field, result, observations) {
+  await page.goto(new URL('/user/manage/article/list', page.url()).href)
+  await page.getByText('按文章属性筛选', { exact: true }).click()
+  await field('Editorial reference · editorial-reference')
+  await page.getByLabel('属性值', { exact: true }).fill(String(referenceId))
+  const form = page.getByRole('form', { name: '筛选文章', exact: true })
+  const keyword = form.getByLabel('标题或摘要', { exact: true })
+  const apply = form.getByRole('button', { name: '搜索', exact: true })
+  const filter = page.getByRole('button', { name: '筛选属性', exact: true })
+  const summary = 'THIS RELEASE NOTE CONTAINS'
+  await keyword.fill(summary)
+  await apply.click()
+  await page.getByText(`属性结果同时匹配已应用的标题或摘要：${summary}`, { exact: true }).waitFor()
+  await filter.click()
+  await result.getByRole('link', { name: article.title, exact: true }).waitFor()
+
+  await keyword.fill('%')
+  assert.equal(await result.getByRole('link', { name: article.title, exact: true }).count(), 1)
+  await apply.click()
+  await page.getByText('属性结果同时匹配已应用的标题或摘要：%', { exact: true }).waitFor()
+  await result.waitFor({ state: 'detached' })
+  await filter.click()
+  await result.getByText('没有匹配的文章。', { exact: true }).waitFor()
+  await saveAndReopen(page, article, 'Literal title or summary and reference', false)
+  observations.push('At 375px, properties combine with the applied title or summary text, keep their result while the search box is edited, and preserve a literal percent sign on saved view reopen.')
+}
+
+async function saveAndReopen(page, article, title, expectMatch = true) {
   await page.getByText('保存视图', { exact: true }).click()
   await page.getByLabel('保存视图名称', { exact: true }).fill(title)
   await page.getByRole('button', { name: '保存当前筛选', exact: true }).click()
@@ -221,7 +249,9 @@ async function saveAndReopen(page, article, title) {
   await page.goto(new URL(href, page.url()).href)
   const saved = page.getByRole('region', { name: '保存视图结果' })
   await saved.getByRole('heading', { name: title, exact: true }).waitFor()
-  assert.equal(await saved.getByRole('link', { name: article.title, exact: true }).getAttribute('href'), `/user/manage/article/edit/${article.id}`)
+  if (expectMatch)
+    assert.equal(await saved.getByRole('link', { name: article.title, exact: true }).getAttribute('href'), `/user/manage/article/edit/${article.id}`)
+  else await saved.getByText('没有匹配的文章。', { exact: true }).waitFor()
 }
 
 async function verifySavedView(page, article, observations) {

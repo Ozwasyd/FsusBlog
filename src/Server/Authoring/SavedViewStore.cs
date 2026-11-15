@@ -113,8 +113,8 @@ internal sealed partial class SavedViewStore(NpgsqlConnection db, NpgsqlTransact
         if (input.Revision != view.Revision) throw Changed();
         try
         {
-            var conditions = Wire.DecodeSavedViewDefinition(view.Definition, view.Digest);
-            return await new PropertyStore(db, tx, actor).OpenSavedView(conditions, session, input, ct);
+            var definition = Wire.DecodeSavedViewDefinition(view.Definition, view.Digest);
+            return await new PropertyStore(db, tx, actor).OpenSavedView(definition, session, input, ct);
         }
         catch (BusinessException failure) when (failure.Rejection == Rejection.NotFound) { throw PropertyStore.SavedViewDependency(); }
         catch (PropertyValidationException) { throw PropertyStore.SavedViewDependency(); }

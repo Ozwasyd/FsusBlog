@@ -4,7 +4,7 @@ import {
   DraftJournal, type DraftTarget, type PendingSource, type RecoveryCandidate,
 } from './draftJournal'
 import { verifyDraftScope } from './draftScope'
-import type { DiscardReservation, EditorTransport, RecoverableCloseDraft, WorkspaceTab } from './workspaceRegistry'
+import type { CloseReservation, EditorTransport, RecoverableCloseDraft, WorkspaceTab } from './workspaceRegistry'
 
 type Confirmation = Parameters<NonNullable<EditorTransport<Draft>['confirmed']>>[0]
 type ActiveDraft = { tab: WorkspaceTab; draft: Draft; edit: number }
@@ -118,25 +118,28 @@ export function editorRecovery() {
     })
   }
 
-  function confirmed(write: Confirmation) {
+  async function confirmed(write: Confirmation, closeSignal?: AbortSignal): Promise<boolean> {
     const owner = journal
-    if (!owner) return
+    if (!owner) return false
+    const signal = closeSignal ? AbortSignal.any([scopeRequest.signal, closeSignal]) : scopeRequest.signal
     // Capture the prior key before the registry publishes the persisted article id.
     const previous = target(write.previousArticleId, write.sessionId)
     const next = target(write.current.id, write.sessionId)
     const promote = write.previousArticleId !== write.current.id
     if (promote) createTargets.delete(write.sessionId)
-    void (async () => {
+    try {
       if (write.dirty) {
         const result = await owner.write(next, source(write.current, write.currentEdit))
         if (result !== 'stored' && result !== 'stale') throw Error('Recovery write was not recorded')
       }
       if (write.command === 'publish') await owner.purge(previous)
-      else if (write.command === 'save') await owner.acknowledge(previous, write.acknowledgedEdit)
+      else if (write.command === 'save' && !await owner.acknowledge(previous, write.acknowledgedEdit, signal)) return false
       if (promote && write.dirty) await owner.acknowledge(previous, write.currentEdit)
-    })().catch(() => {
+      return journal === owner
+    } catch {
       if (journal === owner) failure.value = true
-    })
+      return false
+    }
   }
 
   async function remove(candidate: RecoveryCandidate, keep?: { draft: Draft; edit: number }) {
@@ -180,7 +183,7 @@ export function editorRecovery() {
     }
   }
 
-  async function discardCloseCopies(reservation: DiscardReservation<Draft>): Promise<boolean> {
+  async function discardCloseCopies(reservation: CloseReservation<Draft>): Promise<boolean> {
     const owner = journal
     if (!owner) return false
     try {

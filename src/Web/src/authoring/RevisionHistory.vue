@@ -211,6 +211,7 @@ onScopeDispose(() => {
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="docx" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="html" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="epub" />
+        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="pdf" />
         <label :for="`${compareId}-reason`">Reason for restoring this draft</label>
         <ElInput :id="`${compareId}-reason`" v-model="reason" />
         <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, and any stored rights policy into a new draft.</p>

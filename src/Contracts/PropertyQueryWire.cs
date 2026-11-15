@@ -1,3 +1,6 @@
+using System.Buffers;
+using System.Text;
+
 namespace FsusBlog.V2.Contracts;
 
 public sealed record PropertyFilterField(Guid Id, long Revision, string MachineKey, string Label, PropertyFieldKind Kind,
@@ -11,7 +14,8 @@ public enum PropertyComparison
     ReferenceAnyOf = 8,
 }
 public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value);
-public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor);
+public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor,
+    string Keyword = "");
 public sealed record PropertyArticleRow(int Id, long Revision, string Title);
 public sealed record PropertyArticlePage(string NextCursor, IReadOnlyList<PropertyArticleRow> Rows);
 
@@ -84,6 +88,8 @@ public static partial class Wire
         Validate(input);
         var writer = new Writer();
         writer.I64(input.SchemaRevision);
+        var hasKeyword = input.Keyword.Length != 0;
+        if (hasKeyword) writer.Text(input.Keyword, WireLimits.AuthorArticleKeywordChars * 4);
         writer.I32(input.Conditions.Count);
         foreach (var condition in input.Conditions)
         {
@@ -93,27 +99,32 @@ public static partial class Wire
             WriteValue(writer, condition.Value);
         }
         writer.Text(input.Cursor, WireLimits.PropertyQueryCursorChars);
-        return Aeds.Encode(FrameType.PropertyArticleQueryGroup, writer.Written);
+        return Aeds.Encode(hasKeyword ? FrameType.PropertyKeywordQuery : FrameType.PropertyArticleQueryGroup, writer.Written);
     }
 
     public static PropertyArticleQueryGroup DecodePropertyArticleQueryGroup(ReadOnlySpan<byte> frame)
     {
         var payload = Aeds.Decode(frame, out var type);
+        var hasKeyword = type == FrameType.PropertyKeywordQuery;
+        if (frame.Length > (hasKeyword ? WireLimits.PropertyKeywordQueryFrameBytes : WireLimits.PropertyQueryGroupFrameBytes))
+            throw InvalidProperty();
         if (type == FrameType.PropertyArticleQuery)
         {
             var exact = ReadPropertyArticleQuery(payload);
             return new(exact.SchemaRevision,
                 [new(exact.DefinitionId, exact.DefinitionRevision, PropertyComparison.Equal, exact.Value)], exact.Cursor);
         }
-        if (type != FrameType.PropertyArticleQueryGroup) throw InvalidProperty();
+        if (type != FrameType.PropertyArticleQueryGroup && !hasKeyword) throw InvalidProperty();
         var reader = new Reader(payload);
         var revision = reader.I64();
+        var keyword = hasKeyword ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
+        if (hasKeyword && keyword.Length == 0) throw InvalidProperty();
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
         var conditions = new PropertyCondition[count];
         for (var i = 0; i < count; i++)
             conditions[i] = new(reader.Uuid(), reader.I64(), (PropertyComparison)reader.I32(), ReadValue(ref reader));
-        var input = new PropertyArticleQueryGroup(revision, conditions, reader.Text(WireLimits.PropertyQueryCursorChars));
+        var input = new PropertyArticleQueryGroup(revision, conditions, reader.Text(WireLimits.PropertyQueryCursorChars), keyword);
         reader.Finish();
         Validate(input);
         return input;
@@ -160,7 +171,8 @@ public static partial class Wire
 
     private static void Validate(PropertyArticleQueryGroup input)
     {
-        if (input.Conditions.Count is < 1 or > WireLimits.PropertyQueryConditionCount || !ValidCursor(input.Cursor))
+        if (input.Conditions.Count is < 1 or > WireLimits.PropertyQueryConditionCount || !ValidCursor(input.Cursor) ||
+            !IsCanonicalAuthorArticleKeyword(input.Keyword))
             throw InvalidProperty();
         var unique = new HashSet<(Guid, PropertyComparison)>();
         foreach (var condition in input.Conditions)
@@ -187,4 +199,18 @@ public static partial class Wire
 
     private static bool ValidCursor(string cursor) => cursor.Length == 0 || cursor.Length == WireLimits.PropertyQueryCursorChars &&
         cursor.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+
+    public static bool IsCanonicalAuthorArticleKeyword(string keyword)
+    {
+        var remaining = keyword.AsSpan();
+        if (remaining.Length > WireLimits.AuthorArticleKeywordChars || remaining.Trim().Length != remaining.Length)
+            return false;
+        while (!remaining.IsEmpty)
+        {
+            if (Rune.DecodeFromUtf16(remaining, out var scalar, out var width) != OperationStatus.Done || Rune.IsControl(scalar))
+                return false;
+            remaining = remaining[width..];
+        }
+        return true;
+    }
 }

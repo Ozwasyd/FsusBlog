@@ -43,7 +43,7 @@ internal sealed partial class PropertyStore
         var schema = await ReadSchema(ct);
         var conditions = Resolve(schema, input);
         await ValidateQueryReferences(conditions, ct);
-        return await Filter(conditions, schema.Revision, session, input.Cursor, ct);
+        return await Filter(conditions, schema.Revision, session, input.Cursor, input.Keyword, ct);
     }
 
     internal async Task<byte[]> CaptureSavedView(PropertyArticleQueryGroup input, CancellationToken ct)
@@ -54,21 +54,21 @@ internal sealed partial class PropertyStore
         await ValidateQueryReferences(conditions, ct);
         var references = conditions.SelectMany(item => ReferenceIds(item.Value)).ToHashSet();
         return Wire.EncodeSavedViewDefinition(conditions.Select(item => new SavedViewCondition(item.DefinitionId, item.Kind,
-            item.Comparison, item.Value is null ? new PropertyFieldValue.Missing() : VisibleValue(item.Value, references))).ToArray());
+            item.Comparison, item.Value is null ? new PropertyFieldValue.Missing() : VisibleValue(item.Value, references))).ToArray(), input.Keyword);
     }
 
-    internal async Task<PropertyArticlePage> OpenSavedView(SavedViewCondition[] saved, string session, SavedViewExecute request, CancellationToken ct)
+    internal async Task<PropertyArticlePage> OpenSavedView(SavedViewDefinition saved, string session, SavedViewExecute request, CancellationToken ct)
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
-        var conditions = saved.Select(item =>
+        var conditions = saved.Conditions.Select(item =>
         {
             var definition = schema.Find(item.DefinitionId) ?? throw SavedViewDependency();
             if (FieldKind(definition.Settings.Kind) != item.Kind) throw SavedViewDependency();
             return Normalize(definition, new(item.DefinitionId, definition.Revision, item.Comparison, item.Value));
         }).ToArray();
         await ValidateQueryReferences(conditions, ct);
-        return await Filter(conditions, schema.Revision, $"saved:{request.Id:D}:{request.Revision}:{session}", request.Cursor, ct);
+        return await Filter(conditions, schema.Revision, $"saved:{request.Id:D}:{request.Revision}:{session}", request.Cursor, saved.Keyword, ct);
     }
 
     internal static BusinessException SavedViewDependency() => new(Rejection.Conflict, "A saved view dependency is unavailable. Update its conditions.");
@@ -86,9 +86,10 @@ internal sealed partial class PropertyStore
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
     }
 
-    private async Task<PropertyArticlePage> Filter(Condition[] conditions, long schema, string session, string cursor, CancellationToken ct)
+    private async Task<PropertyArticlePage> Filter(Condition[] conditions, long schema, string session, string cursor, string keyword,
+        CancellationToken ct)
     {
-        var binding = CursorBinding(session, schema, conditions);
+        var binding = CursorBinding(session, schema, conditions, keyword);
         var before = 0;
         if (cursor.Length != 0)
         {
@@ -103,6 +104,11 @@ internal sealed partial class PropertyStore
             """);
         var parameters = new List<object> { actor.Id, before, WireLimits.PropertyPageSize + 1 };
         sql.Append(before != 0 ? " and a.id<$2" : " and a.id>$2");
+        if (keyword.Length != 0)
+        {
+            parameters.Add(keyword);
+            sql.Append(" and ").Append(ArticleInventoryEndpoints.KeywordPredicate(parameters.Count));
+        }
         foreach (var condition in conditions) AppendCondition(sql, parameters, condition);
         sql.Append(" order by a.id desc limit $3");
         await using var query = Store.Sql(db, tx, sql.ToString(), parameters.ToArray());
@@ -117,7 +123,7 @@ internal sealed partial class PropertyStore
 
     private sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
 
-    private static byte[] CursorBinding(string session, long revision, Condition[] conditions)
+    private static byte[] CursorBinding(string session, long revision, Condition[] conditions, string keyword)
     {
         using var data = new MemoryStream();
         using var writer = new BinaryWriter(data, Encoding.UTF8, leaveOpen: true);
@@ -130,6 +136,11 @@ internal sealed partial class PropertyStore
             writer.Write(condition.DefinitionRevision);
             writer.Write((int)condition.Comparison);
             writer.Write(condition.Value is null ? "" : (string)Json(condition.Value).Value!);
+        }
+        if (keyword.Length != 0)
+        {
+            writer.Write("title-summary");
+            writer.Write(keyword);
         }
         writer.Flush();
         return SHA256.HashData(data.GetBuffer().AsSpan(0, (int)data.Length));

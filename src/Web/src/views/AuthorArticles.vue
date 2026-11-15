@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
         </div>
         <p v-if="taxonomyError" class="author-articles-note" role="status">部分分类或标签暂不可用。</p>
       </form>
-      <AuthorPropertyFilter v-if="!trash" />
+      <AuthorPropertyFilter v-if="!trash" :keyword="filters.keyword" />
       <section aria-labelledby="author-list-heading" :aria-busy="pending">
         <header class="author-list-heading">
           <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? '已删除文章' : '文章列表' }}</h2>

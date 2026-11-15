@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { readEpubDownload, readMarkdownDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
-export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations }) {
+export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations,
+  pdfEnabled, pdfFixture }) {
   const currentBody = `${originalBody}\nNewer saved revision.`
   assert.equal(await page.getByLabel('Body', { exact: true }).inputValue(), currentBody)
   const pane = page.getByRole('complementary', { name: 'Article inspector' })
@@ -59,6 +60,12 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await verifyOfflineHtmlDownload(page, comparison.getByRole('button', { name: 'Download revision HTML', exact: true }),
     savedBefore.title, 'Draft milestone', 'Newer saved revision.')
   await readEpubDownload(page, comparison.getByRole('button', { name: 'Download revision EPUB', exact: true }))
+  const revisionPdf = comparison.getByRole('button', { name: 'Download revision PDF', exact: true })
+  if (pdfEnabled) {
+    const pdf = await readPdfDownload(page, revisionPdf, articleId, savedBefore.revision, sourceRevision)
+    if (pdfFixture) await pdf.saveAs(pdfFixture)
+    observations.push('The narrow revision comparison downloads the selected historical PDF against the current saved revision.')
+  } else assert.equal(await revisionPdf.count(), 0)
   await screenshot(page, 'editor-revision-comparison-mobile')
   await page.setViewportSize(wide)
 

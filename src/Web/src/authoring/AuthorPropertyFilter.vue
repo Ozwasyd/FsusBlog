@@ -10,8 +10,9 @@ import {
 import { normalizePropertyDecimal, type PropertyValue } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import SavedViewPanel from './SavedViewPanel.vue'
-import { identityEpoch, invalidateSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, invalidateSession } from '../session'
 
+const props = defineProps<{ keyword?: string }>()
 const open = ref(false)
 const retry = ref(0)
 const catalog = shallowRef<FilterCatalog>()
@@ -30,8 +31,12 @@ const text = ref('')
 const choice = ref('')
 const multiple = ref<string[]>([])
 const flag = ref(false)
-const busy = ref(false)
-const error = ref('')
+const operationBusy = ref(false)
+const queryRequest = shallowRef<AbortController>()
+const busy = computed(() => operationBusy.value || !!queryRequest.value)
+const operationError = ref('')
+const queryError = ref('')
+const error = computed(() => operationError.value || queryError.value)
 const submitted = shallowRef<PropertyQuery>()
 const savable = computed(() => submitted.value ? { ...submitted.value, cursor: '' } : undefined)
 const result = shallowRef<PropertyMatches>()
@@ -43,13 +48,16 @@ const rangeComparisons = computed(() => {
 const pendingChange = shallowRef<Parameters<typeof setPropertyFilterable>[0]>()
 const pendingField = ref('')
 let operation: AbortController | undefined
-onBeforeUnmount(() => operation?.abort())
+onBeforeUnmount(() => {
+  operation?.abort()
+  queryRequest.value?.abort()
+})
 
 function reset() {
   operation?.abort()
   operation = undefined
-  busy.value = false
-  error.value = ''
+  operationBusy.value = false
+  operationError.value = ''
   pendingChange.value = undefined
   conditions.value = []
   clearResults()
@@ -63,7 +71,7 @@ watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cle
   if (!show) return
   const load = new AbortController()
   cleanup(() => load.abort())
-  busy.value = true
+  operationBusy.value = true
   try {
     const page = await propertyFilterCatalog(load.signal)
     if (!load.signal.aborted) {
@@ -74,7 +82,7 @@ watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cle
   } catch (failure) {
     if (!load.signal.aborted) report(failure, '暂时无法读取属性定义。')
   } finally {
-    if (!load.signal.aborted) busy.value = false
+    if (!load.signal.aborted) operationBusy.value = false
   }
 }, { flush: 'sync' })
 
@@ -86,9 +94,13 @@ watch(selection, () => {
   flag.value = false
 }, { flush: 'sync' })
 
-watch([selection, mode, text, choice, multiple, flag, conditions], clearResults, { flush: 'sync' })
+watch([selection, mode, text, choice, multiple, flag, conditions, () => props.keyword, credentialEpoch],
+  clearResults, { flush: 'sync' })
 
 function clearResults() {
+  queryRequest.value?.abort()
+  queryRequest.value = undefined
+  queryError.value = ''
   submitted.value = undefined
   result.value = undefined
 }
@@ -97,9 +109,9 @@ function toggle(event: Event) {
   open.value = (event.currentTarget as HTMLDetailsElement).open
 }
 
-function report(failure: unknown, fallback: string) {
-  if (failure instanceof ApiError && failure.status === 401) invalidateSession()
-  error.value = failure instanceof ApiError && [404, 409].includes(failure.status)
+function report(failure: unknown, fallback: string, message = operationError) {
+  if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
+  message.value = failure instanceof ApiError && [404, 409].includes(failure.status)
     ? '筛选字段、引用或修订已不可用。请重新加载属性定义。' : fallback
 }
 
@@ -143,9 +155,9 @@ function add() {
   try {
     conditions.value = [...conditions.value, currentCondition()]
     selection.value = ''
-    error.value = ''
+    operationError.value = ''
   } catch {
-    error.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
+    queryError.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
   }
 }
 
@@ -168,15 +180,16 @@ async function later() {
   const current = catalog.value
   if (!current?.nextKey || busy.value || pendingChange.value) return
   const request = operation = new AbortController()
-  busy.value = true
-  error.value = ''
+  operationBusy.value = true
+  operationError.value = ''
+  queryError.value = ''
   try {
     const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision })
     if (!request.signal.aborted) catalog.value = { ...next, fields: [...current.fields, ...next.fields] }
   } catch (failure) {
     if (!request.signal.aborted) report(failure, '暂时无法读取更多属性。')
   } finally {
-    if (!request.signal.aborted) busy.value = false
+    if (!request.signal.aborted) operationBusy.value = false
   }
 }
 
@@ -190,8 +203,8 @@ async function changeFilterability() {
   clearResults()
   pendingField.value = input.definitionId
   const request = operation = new AbortController()
-  busy.value = true
-  error.value = ''
+  operationBusy.value = true
+  operationError.value = ''
   try {
     await setPropertyFilterable(input, request.signal)
     if (!request.signal.aborted) retry.value++
@@ -200,41 +213,49 @@ async function changeFilterability() {
     if (failure instanceof ApiError && failure.status < 500) pendingChange.value = undefined
     report(failure, '无法确认属性设置。请重试原操作。')
   } finally {
-    if (!request.signal.aborted) busy.value = false
+    if (!request.signal.aborted) operationBusy.value = false
   }
 }
 
 async function search(more = false) {
-  if (busy.value || pendingChange.value || !catalog.value) return
+  const session = currentSession.value
+  if (busy.value || pendingChange.value || !catalog.value || !session?.canAuthor ||
+    !session.siteSessionId || session.expiresAt <= Date.now()) return
+  const handle = session.siteSessionId
+  const epoch = credentialEpoch.value
+  const keyword = props.keyword
   let filter: PropertyQuery | undefined
   if (more) {
     if (submitted.value && result.value?.nextCursor) filter = { ...submitted.value, cursor: result.value.nextCursor }
   } else {
     try {
       const active = field.value ? [...conditions.value, currentCondition()] : conditions.value
-      if (active.length) filter = { schema: catalog.value.revision, conditions: active, cursor: '' }
+      if (active.length) filter = { schema: catalog.value.revision, conditions: active, cursor: '', keyword }
     } catch {
-      error.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
+      queryError.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
       return
     }
   }
-  if (!filter) { error.value = '请输入有效的属性值。'; return }
-  const request = operation = new AbortController()
-  busy.value = true
-  error.value = ''
+  if (!filter) { queryError.value = '请输入有效的属性值。'; return }
+  const request = new AbortController()
+  queryRequest.value = request
+  const current = () => queryRequest.value === request && !request.signal.aborted && credentialEpoch.value === epoch &&
+    currentSession.value?.siteSessionId === handle && (currentSession.value?.expiresAt ?? 0) > Date.now() && props.keyword === keyword
+  operationError.value = ''
+  queryError.value = ''
   if (!more) result.value = undefined
   try {
-    const page = await queryPropertyArticles(filter, request.signal)
-    if (!request.signal.aborted) {
+    const page = await queryPropertyArticles(filter, request.signal, handle)
+    if (current()) {
       submitted.value = filter
       result.value = { ...page, rows: more ? [...(result.value?.rows ?? []), ...page.rows] : page.rows }
     }
   } catch (failure) {
-    if (request.signal.aborted) return
+    if (!current()) return
     result.value = undefined
-    report(failure, '无法执行筛选。请检查属性值后重试。')
+    report(failure, '无法执行筛选。请检查属性值后重试。', queryError)
   } finally {
-    if (!request.signal.aborted) busy.value = false
+    if (queryRequest.value === request) queryRequest.value = undefined
   }
 }
 </script>
@@ -247,6 +268,7 @@ async function search(more = false) {
     <ElButton v-if="error && !busy && !pendingChange" text @click="retry++">重新加载属性定义</ElButton>
     <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
     <template v-if="catalog?.fields.length">
+      <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
       <ul v-if="conditions.length" aria-label="已有筛选条件">
         <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}`">
           <span>{{ conditionText(condition) }}</span>

@@ -260,6 +260,8 @@ public sealed class CanvasPostgresTests
         var current = await test.Save(owner.Token, "New private title", "# Latest heading ^overview\n\n" +
             "First instance ^ambiguous\n\nSecond instance ^ambiguous\n\n" +
             "```markdown\n# Looks like a heading ^hidden\n```", initial.Id, initial.Revision);
+        var aging = await test.Save(owner.Token, "Initially valid anchors",
+            "First instance ^ambiguous\n\n# Visible heading ^hidden\n\n# Original heading ^kind");
 
         Guid canvas = Guid.NewGuid();
         Guid heading = Guid.NewGuid();
@@ -281,12 +283,22 @@ public sealed class CanvasPostgresTests
             Node(crlfBlock, 2, crlfSource.Id, "detail", null),
             Node(crlfArticle, 0, crlfSource.Id, null, null),
             .. unsupported.Select(source => Node(source.Node, 2, source.Article, "detail", null)),
-            Node(ambiguous, 2, current.Id, "ambiguous", null),
-            Node(hidden, 1, current.Id, "hidden", null),
-            Node(mismatchedKind, 1, current.Id, "detail", initial.Revision),
+            Node(ambiguous, 2, aging.Id, "ambiguous", null),
+            Node(hidden, 1, aging.Id, "hidden", null),
+            Node(mismatchedKind, 1, aging.Id, "kind", null),
             Node(wrong, 0, current.Id, null, null)
         ]);
         await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
+        foreach (var rejected in new[] {
+            Node(ambiguous, 2, current.Id, "ambiguous", null),
+            Node(hidden, 1, current.Id, "hidden", null),
+            Node(mismatchedKind, 1, current.Id, "detail", initial.Revision)
+        })
+        {
+            var command = input with { CommandId = Guid.NewGuid(), Changes = [rejected] };
+            await Request(HttpMethod.Post, WireRoutes.CanvasGraphWrite, owner.Token, HttpStatusCode.NotFound,
+                Wire.EncodeCanvasGraphCommand(command));
+        }
         var frame = Wire.EncodeCanvasGraphCommand(input);
         var created = Wire.DecodeCanvasGraphReceipt(await Request(HttpMethod.Post, WireRoutes.CanvasGraphWrite, owner.Token, HttpStatusCode.OK, frame));
         Assert.Equal(1, created.Revision);
@@ -318,6 +330,8 @@ public sealed class CanvasPostgresTests
             Assert.Equal(source.Body.IndexOf("^detail", StringComparison.Ordinal), preview.SourceOffset);
             Assert.Equal(Stale(source.Node), await Resolve(source.Node, requireCurrent: true));
         }
+        await test.Save(owner.Token, "Changed anchors", current.Body + "\n\nNow an ordinary paragraph ^kind",
+            aging.Id, aging.Revision);
         foreach (var (node, expected) in new[] {
             (ambiguous, CanvasReferenceState.DuplicateAnchor), (hidden, CanvasReferenceState.MissingAnchor),
             (mismatchedKind, CanvasReferenceState.MissingAnchor)
@@ -387,6 +401,71 @@ public sealed class CanvasPostgresTests
             if (status != HttpStatusCode.OK) Aeds.Decode(bytes, FrameType.ApiError);
             return bytes;
         }
+    }
+
+    [PostgresFact]
+    public async Task AnchorEditsValidateOnlyChangedCoordinatesAndReplayOwnedHistory()
+    {
+        await using var test = await Fixture.Open();
+        var owner = await test.Author("Canvas anchor editor");
+        var other = await test.Author("Other Canvas anchor owner");
+        var source = await test.Save(owner.Token, "Reference source", "# Heading ^title\n\nParagraph ^block");
+        var foreign = await test.Save(other.Token, "Foreign source", "Foreign paragraph ^block");
+        var canvas = Guid.NewGuid();
+        var node = new CanvasNodeFrame(Guid.NewGuid(), 2, 0, 0, 12000, 8000, source.Id, Anchor: "block");
+        var create = new CanvasGraphCommand(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Anchor history", null,
+            [new CanvasChangeFrame.PutNode(node)]);
+        var created = await Write(create);
+        var pinned = node with { PinnedRevision = source.Revision };
+        var pin = Edit(created.Revision, pinned);
+        var pinnedReceipt = await Write(pin);
+        Assert.Equal(pinnedReceipt, await Write(pin));
+        await test.Save(owner.Token, "Reference source changed", "# Heading ^title", source.Id, source.Revision);
+        var articleRows = await test.Scalar("select count(*) from public.article_revision");
+        var outboxRows = await test.Scalar("select count(*) from public.blog_outbox");
+
+        foreach (var rejected in new[] {
+            Edit(pinnedReceipt.Revision, pinned with { Anchor = "missing" }),
+            Edit(pinnedReceipt.Revision, pinned with { ArticleId = foreign.Id }),
+            Edit(pinnedReceipt.Revision, node) with
+            {
+                Title = "Rejected title",
+                Changes = [new CanvasChangeFrame.PutNode(new(Guid.NewGuid(), 3, 100, 100, 12000, 8000, Text: "Rejected note")),
+                    new CanvasChangeFrame.PutNode(node)]
+            }
+        })
+            await Denied(Rejection.NotFound, Write(rejected));
+        Assert.Equal(pinnedReceipt.Revision, await test.Scalar("select revision from public.authoring_canvas where id=$1", canvas));
+        Assert.Equal("Anchor history", await test.Scalar("select title from public.authoring_canvas where id=$1", canvas));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", canvas));
+        Assert.Equal(2L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", canvas));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1", canvas));
+
+        var undo = new CanvasGraphCommand(canvas, Guid.NewGuid(), pinnedReceipt.Revision, CanvasGraphAction.Undo, "", null, []);
+        var undone = await Write(undo);
+        var unresolved = await test.WithGraph(owner.Token, graph => graph.Resolve(canvas, node.Id, undone.Revision, false, test.Token));
+        Assert.Equal(CanvasReferenceState.MissingAnchor, unresolved.State);
+        Assert.Null(unresolved.Excerpt);
+        var redone = await Write(undo with { CommandId = Guid.NewGuid(), ExpectedRevision = undone.Revision, Action = CanvasGraphAction.Redo });
+        var pinnedAgain = await test.WithGraph(owner.Token, graph => graph.Resolve(canvas, node.Id, redone.Revision, false, test.Token));
+        Assert.True(pinnedAgain.Pinned);
+        Assert.Equal(source.Revision, pinnedAgain.ArticleRevision);
+
+        undone = await Write(undo with { CommandId = Guid.NewGuid(), ExpectedRevision = redone.Revision });
+        var moved = await Write(Edit(undone.Revision, node with { X = 100 }));
+        var stillUnresolved = await test.WithGraph(owner.Token, graph => graph.Resolve(canvas, node.Id, moved.Revision, false, test.Token));
+        Assert.Equal(CanvasReferenceState.MissingAnchor, stillUnresolved.State);
+        Assert.Equal(100, await test.Scalar("select x from public.canvas_node where canvas_id=$1 and id=$2", canvas, node.Id));
+        Assert.Equal(articleRows, await test.Scalar("select count(*) from public.article_revision"));
+        Assert.Equal(outboxRows, await test.Scalar("select count(*) from public.blog_outbox"));
+
+        async Task<CanvasGraphReceipt> Write(CanvasGraphCommand command)
+        {
+            byte[] digest = SHA256.HashData(Wire.EncodeCanvasGraphCommand(command));
+            return await test.WithGraph(owner.Token, graph => graph.Write(command, digest, test.Token));
+        }
+        CanvasGraphCommand Edit(long revision, CanvasNodeFrame value) =>
+            new(canvas, Guid.NewGuid(), revision, CanvasGraphAction.Edit, "", null, [new CanvasChangeFrame.PutNode(value)]);
     }
 
     [PostgresFact]

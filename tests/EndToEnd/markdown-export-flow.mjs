@@ -22,7 +22,7 @@ export async function readMarkdownDownload(page, button, body) {
   return { title: JSON.parse(title.slice('title: '.length)), revision: BigInt(revision.slice('revision: '.length)) }
 }
 
-async function readPackageDownload(page, button, format, type) {
+async function readAttachmentDownload(page, button, format, type) {
   const attachment = page.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/export.${format}`))
   const download = page.waitForEvent('download')
   await button.click()
@@ -34,8 +34,13 @@ async function readPackageDownload(page, button, format, type) {
   assert.equal(result.suggestedFilename(), `article.${format}`)
   const actual = await readFile(await result.path())
   assert.deepEqual(actual, await response.body())
-  assert.deepEqual(actual.subarray(0, 4), Buffer.from([0x50, 0x4b, 0x03, 0x04]))
-  return { result, actual }
+  return { result, actual, response }
+}
+
+async function readPackageDownload(page, button, format, type) {
+  const attachment = await readAttachmentDownload(page, button, format, type)
+  assert.deepEqual(attachment.actual.subarray(0, 4), Buffer.from([0x50, 0x4b, 0x03, 0x04]))
+  return attachment
 }
 
 export async function readWordDownload(page, button) {
@@ -50,6 +55,19 @@ export async function readEpubDownload(page, button) {
   assert.equal(actual.readUInt16LE(26), 8)
   assert.equal(actual.readUInt16LE(28), 0)
   assert.equal(actual.subarray(30, 58).toString('ascii'), 'mimetypeapplication/epub+zip')
+  return result
+}
+
+export async function readPdfDownload(page, button, article, current, selected) {
+  const { result, actual, response } = await readAttachmentDownload(page, button, 'pdf', 'application/pdf')
+  const url = new URL(response.url())
+  assert.equal(url.pathname, `/api/v2/authoring/draft/${article}/export.pdf`)
+  assert.deepEqual([...url.searchParams], [['revision', String(current)], ['sourceRevision', String(selected)]])
+  assert.match(response.headers()['content-disposition'], /^attachment;.*article\.pdf/u)
+  assert.equal(response.headers()['x-content-type-options'], 'nosniff')
+  assert(actual.length <= 4 * 1024 * 1024)
+  assert.equal(actual.subarray(0, 5).toString('ascii'), '%PDF-')
+  assert.equal(actual.subarray(-16).toString('ascii').trimEnd().endsWith('%%EOF'), true)
   return result
 }
 

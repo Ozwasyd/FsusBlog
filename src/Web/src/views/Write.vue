@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
-import { ElAlert, ElButton, ElCheckbox, ElInput, ElMessageBox } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElMessageBox, ElRadio, ElRadioGroup } from '@ozwasyd/element-plus'
 import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
@@ -107,18 +107,19 @@ const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'c
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
 const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
-  composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
+  !closingGroupTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const encoder = new TextEncoder()
-const titleLength = computed(() => encoder.encode(original.value?.title.trim() ?? '').length)
-const validTitle = computed(() => titleLength.value > 0 && titleLength.value <= WireLimits.TitleBytes
-  && !/[\x00-\x1f\x7f-\x9f]/.test(original.value?.title.trim() ?? ''))
-const validBody = computed(() => {
-  const body = original.value?.body ?? ''
-  return body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
-})
+function validDraftTitle(title: string) {
+  const name = title.trim()
+  return name.length > 0 && encoder.encode(name).length <= WireLimits.TitleBytes && !/[\x00-\x1f\x7f-\x9f]/.test(name)
+}
+const validDraftBody = (body: string) => body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
+const validTitle = computed(() => validDraftTitle(original.value?.title ?? ''))
+const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
-const cannotWrite = computed(() => pending.value || recoveryBlocked.value || hasConflict.value || taxonomyDirty.value || !validBody.value || !validTitle.value)
+const cannotWrite = computed(() => closingGroupTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
+  taxonomyDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
 const editorArea = ref<HTMLElement>()
 const wideEditorArea = ref(false)
@@ -130,11 +131,11 @@ const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.
 const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
 const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
-  composing.value === undefined && !revisionComparisonActive.value)
+  !closingGroupTabs.value && composing.value === undefined && !revisionComparisonActive.value)
 const activeGroupTabs = computed(() => workspaceTabs.value.filter(candidate => candidate.group === tab.value?.group))
 const activeGroupIndex = computed(() => activeGroupTabs.value.findIndex(candidate => candidate.active))
 const canCloseGroupTabs = computed(() => editable.value && canSwitch.value && !opening.value &&
-  !revisionComparisonActive.value && !closingGroupTabs.value)
+  !revisionComparisonActive.value)
 const canPublishImages = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
   !cannotWrite.value && !dirty.value && !retry.value && !!original.value?.body.trim())
 let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
@@ -611,20 +612,58 @@ const closeRiskLabel = {
   recovery: 'draft recovery', pending: 'pending change', blocked: 'unavailable',
 } satisfies Record<Exclude<WorkspaceTab['risk'], 'clean'>, string>
 
+async function saveGroupAndClose(plan: ClosePlan, current: () => boolean) {
+  const reservation = registry.reserveClose(plan, 'save')
+  if (!reservation) return 'stale'
+  const saved: string[] = []
+  try {
+    for (const { draft } of reservation.drafts) {
+      const target = plan.tabs.find(tab => tab.articleId === draft.id)
+      if (!target || !current() || !reservation.current()) return 'stale'
+      const result = await registry.saveReserved(target, reservation)
+      if (result.kind === 'saved') saved.push(target.title)
+      if (result.kind === 'saved' && result.recoverySettled) continue
+      const failure = result.kind === 'conflict' ? `${target.title} changed on the server. Reload its revision before saving.`
+        : result.kind === 'saved' ? `Recovery cleanup for ${target.title} could not be confirmed.`
+        : result.kind === 'rejected' ? `The server rejected changes to ${target.title}.`
+        : result.kind === 'blocked' && result.reason !== 'unavailable' ? `Could not save ${target.title}. ${failureByReason[result.reason]}`
+        : `Could not confirm the save for ${target.title}. Retry the same save from its tab.`
+      return { message: `${saved.length ? `Saved ${saved.join(', ')}. ` : ''}${failure} The tabs are still open.` }
+    }
+    if (!current()) return 'stale'
+    const result = registry.completeClose(reservation, true)
+    if (result.kind === 'protected') return { message: `Saved ${saved.join(', ')}. The tabs are still open.` }
+    return result.kind
+  } finally {
+    if (reservation.current()) registry.completeClose(reservation, false)
+  }
+}
+
 async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
   const drafts = registry.recoveryDraftsForClose(plan)
-  if (!drafts?.length) return 'protected'
-  let discard = false
+  const saveDrafts = drafts ?? registry.recoveryDraftsForClose(plan, true)
+  const allSaved = plan.tabs.every(tab => tab.articleId > 0)
+  const canSave = allSaved && !!saveDrafts?.length && saveDrafts.every(({ draft }) =>
+    validDraftTitle(draft.title) && validDraftBody(draft.body))
+  if (!drafts?.length && !canSave) return 'protected'
+  const choice = ref<'keep' | 'discard' | 'save'>(drafts?.length ? 'keep' : 'save')
   const message = h(() => current() ? h('div', [
-    h('p', 'Unsaved edits are kept in browser recovery by default.'),
     h('ul', {
       'aria-label': 'Tabs to close', tabindex: 0,
       style: { maxBlockSize: 'min(40vh, 16rem)', overflowY: 'auto', overflowWrap: 'anywhere', paddingInlineStart: '1.5rem' },
     }, plan.tabs.map(({ title, risk, articleId, sessionId }) => h('li', { key: sessionId },
       `${title} (${risk === 'clean' ? 'up to date' : closeRiskLabel[risk]})${articleId ? ` · Article ${articleId}` : ''}`))),
-    plan.tabs.every(tab => tab.articleId > 0) ? h(ElCheckbox, {
-      'onUpdate:modelValue': (value: unknown) => { discard = value === true },
-    }, { default: () => 'Discard unsaved edits from this browser' }) : null,
+    h(ElRadioGroup, {
+      modelValue: choice.value, label: 'Unsaved edits',
+      style: { display: 'grid', justifyItems: 'start' },
+      'onUpdate:modelValue': (value: unknown) => {
+        if (value === 'keep' || value === 'discard' || value === 'save') choice.value = value
+      },
+    }, { default: () => [
+      drafts?.length ? h(ElRadio, { value: 'keep' }, () => 'Keep browser recovery copies') : null,
+      canSave ? h(ElRadio, { value: 'save' }, () => 'Save drafts before closing') : null,
+      allSaved && drafts?.length ? h(ElRadio, { value: 'discard' }, () => 'Discard unsaved edits from this browser') : null,
+    ] }),
   ]) : h('p', 'The workspace changed while this confirmation was open.'))
   closingGroupTabs.value = true
   try {
@@ -634,14 +673,15 @@ async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
       })
     if (!consent.ok) return 'cancelled'
     if (!current() || registry.revision !== plan.revision) return 'stale'
-    if (discard) {
-      const reservation = registry.reserveDiscard(plan)
+    if (choice.value === 'save') return canSave ? await saveGroupAndClose(plan, current) : 'protected'
+    if (choice.value === 'discard') {
+      const reservation = registry.reserveClose(plan, 'discard')
       if (!reservation) return 'stale'
       const committed = await recovery.discardCloseCopies(reservation)
-      const result = registry.completeDiscard(reservation, committed)
+      const result = registry.completeClose(reservation, committed)
       return committed || result.kind === 'stale' ? result.kind : 'discard-unavailable'
     }
-    if (!await recovery.verifyCloseCopies(drafts)) return 'copies-unavailable'
+    if (!drafts?.length || !await recovery.verifyCloseCopies(drafts)) return 'copies-unavailable'
     return current() ? registry.discardMany(plan).kind : 'stale'
   } catch {
     return 'cancelled'
@@ -669,7 +709,8 @@ async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
   if (outcome !== 'closed') {
     groupNotice.value = ''
     const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${closeRiskLabel[risk]})`]) ?? []
-    navigationNotice.value = outcome === 'protected' ? `Could not close tabs. ${blocked.join(', ')}.`
+    navigationNotice.value = typeof outcome === 'object' ? outcome.message
+      : outcome === 'protected' ? `Could not close tabs. ${blocked.join(', ')}.`
       : outcome === 'copies-unavailable' ? 'Could not verify recovery copies. Save the drafts before closing these tabs.'
       : outcome === 'discard-unavailable' ? 'Could not discard the recovery copies. The tabs are still open.'
       : outcome === 'stale' ? 'Tabs changed before closing. Try again.' : ''
@@ -684,7 +725,7 @@ async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
 }
 
 async function closeTab(target: WorkspaceTab) {
-  if (target.active && !canSwitch.value) {
+  if (closingGroupTabs.value || target.active && !canSwitch.value) {
     navigationNotice.value = 'Apply or cancel the pending changes before closing this tab.'
     return
   }
@@ -737,7 +778,7 @@ function flushHiddenWorkspace() {
 }
 
 async function allowLeave(allTabs = false) {
-  if (propertyPending.value) return false
+  if (propertyPending.value || closingGroupTabs.value) return false
   const candidates = (allTabs ? workspaceTabs.value : tab.value ? [tab.value] : [])
     .filter(item => item.risk !== 'clean' || item.active && taxonomyDirty.value)
   if (!candidates.length) return true
@@ -775,7 +816,7 @@ onBeforeRouteLeave(async () => {
 function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (paneFocused(pane) && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
+  if (paneFocused(pane) && !closingGroupTabs.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
     if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
@@ -805,7 +846,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
   const current = tab.value
   const document = original.value
   const siteSession = currentSession.value?.siteSessionId
-  if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
+  if (!current || !document || !editable.value || closingGroupTabs.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
   } else if (action === 'publish-images') {
@@ -864,6 +905,10 @@ async function finishSubmission(action: Action, current: WorkspaceTab, document:
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
   if (result.kind === 'saved') {
+    if (result.recoverySettled === false) {
+      failure.value = 'Draft saved. Recovery cleanup is unfinished. Try again.'
+      return
+    }
     notice.value = {
       save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.',
       'publish-images': 'Article and selected images published.',
@@ -900,7 +945,7 @@ async function reloadDraft() {
         <span v-if="editable" class="metadata">{{ original?.published ? 'Published' : 'Draft' }}</span>
       </div>
       <div v-if="editable" class="editor-actions">
-        <ElButton v-if="retry" type="primary" :disabled="pending" @click="submit(retry)">Try again</ElButton>
+        <ElButton v-if="retry" type="primary" :disabled="closingGroupTabs || pending" @click="submit(retry)">Try again</ElButton>
         <ElButton v-else native-type="button" :disabled="cannotWrite || !articleDirty" @click="submit('save')">Save draft</ElButton>
         <ElButton
           v-if="!retry" native-type="button" :type="original?.published ? 'default' : 'primary'"
@@ -984,7 +1029,7 @@ async function reloadDraft() {
       <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
-          :blocked="pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
+          :blocked="closingGroupTabs || pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="canvasSeek?.sessionId === pane.tab.sessionId ? canvasSeek : undefined" @source-revealed="finishCanvasSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
@@ -1030,6 +1075,8 @@ async function reloadDraft() {
           :disabled="pending || hasConflict" format="html" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" format="epub" />
+        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+          :disabled="pending || hasConflict" format="pdf" />
         <ArticleMedia :article-id="original.id" :revision="original.revision"
           :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"

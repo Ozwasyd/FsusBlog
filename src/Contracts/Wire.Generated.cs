@@ -152,6 +152,7 @@ public enum FrameType : ushort
     PropertyArticleQuery = 32882,
     PropertyArticlePage = 32883,
     PropertyArticleQueryGroup = 32912,
+    PropertyKeywordQuery = 33005,
     SavedViewCatalog = 32930,
     SavedViewCommand = 32931,
     SavedViewReceipt = 32932,
@@ -321,10 +322,12 @@ public static class WireLimits
     public const int PropertyQueryCursorChars = 48;
     public const int PropertyQueryConditionCount = 4;
     public const int PropertyQueryGroupFrameBytes = 262368;
+    public const int PropertyKeywordQueryFrameBytes = 262884;
     public const int SavedViewNameBytes = 512;
     public const int SavedViewPageSize = 25;
     public const int SavedViewMaxCount = 1000;
     public const int SavedViewCommandFrameBytes = 262976;
+    public const int SavedViewKeywordCommandFrameBytes = 263492;
     public const int SavedViewExecuteFrameBytes = 92;
     public const int SavedViewPlacementFrameBytes = 84;
     public const int PropertyOptionCount = 32;

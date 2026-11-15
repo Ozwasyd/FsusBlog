@@ -56,6 +56,9 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+var pdfExport = FsusBlog.V2.Server.Authoring.PdfDocumentExport.Read(builder.Configuration);
+if (pdfExport is not null)
+    template = template.Replace("</head>", FsusBlog.V2.Server.Authoring.PdfDocumentExport.PageMarker + "</head>", StringComparison.Ordinal);
 if (builder.Configuration.GetValue(PublicHotArticles.Setting, false))
 {
     template = template.Replace("</head>", PublicHotArticles.PageMarker + "</head>", StringComparison.Ordinal);
@@ -130,6 +133,9 @@ builder.Services.AddRateLimiter(options =>
         (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    if (pdfExport is not null)
+        options.AddConcurrencyLimiter(FsusBlog.V2.Server.Authoring.PdfDocumentExport.RatePolicy,
+            limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
     options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
     if (proofKeys is not null || checkpointArchive is not null)
@@ -302,7 +308,7 @@ FsusBlog.V2.Server.Authoring.RevisionHistoryEndpoints.Map(app, Cookie, Query, Re
 FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
-FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query);
+FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query, pdfExport);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);
 FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);

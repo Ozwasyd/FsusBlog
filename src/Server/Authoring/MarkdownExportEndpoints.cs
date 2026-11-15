@@ -13,7 +13,8 @@ internal static class MarkdownExportEndpoints
     internal const string ContentType = "text/markdown; charset=utf-8";
     internal const int MaxBytes = WireLimits.BodyBytes + WireLimits.TitleBytes * 6 + 128;
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
+        PdfDocumentExport? pdf)
     {
         Attach(Route, ContentType, DownloadName, (title, body, revision, _, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
@@ -23,8 +24,32 @@ internal static class MarkdownExportEndpoints
         Attach("/api/v2/authoring/draft/{id:int}/export.epub", EpubDocumentExport.ContentType, "article.epub",
             (title, body, _, happenedAt, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct));
 
+        if (pdf is not null)
+            Download("/api/v2/authoring/draft/{id:int}/export.pdf", PdfDocumentExport.ContentType, "article.pdf",
+                async (store, token, source, ct) =>
+                {
+                    var revision = await ReadSource(store, token, source, ct);
+                    using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
+                    var result = await pdf.WriteAsync(revision.Title, revision.Body, revision.HappenedAt, lifetime.Token);
+                    // The subprocess did not hold database locks. Recheck the same owner and revision before delivery.
+                    await store.WithSession(token, true, (db, tx, actor) =>
+                        RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, lifetime.Token), lifetime.Token);
+                    return result;
+                }, policy: PdfDocumentExport.RatePolicy);
+
         void Attach(string route, string mediaType, string filename, Func<string, string, long, DateTimeOffset, CancellationToken, byte[]> render,
             string? contentSecurityPolicy = null)
+            => Download(route, mediaType, filename, (store, token, source, ct) =>
+                store.WithSession(token, true, async (db, tx, actor) =>
+                {
+                    await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
+                    var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
+                    return render(title, body, source.Selected, happenedAt, ct);
+                }, ct), contentSecurityPolicy);
+
+        void Download(string route, string mediaType, string filename,
+            Func<Store, string?, DownloadSource, CancellationToken, Task<byte[]>> render,
+            string? contentSecurityPolicy = null, string policy = "command")
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
@@ -33,19 +58,24 @@ internal static class MarkdownExportEndpoints
                 if (id <= 0 || selected > expected)
                     throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
 
-                var document = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                {
-                    await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-                    var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, id, selected, ct);
-                    return render(title, body, selected, happenedAt, ct);
-                }, ct);
+                var document = await render(store, ctx.Request.Cookies[cookie], new(id, expected, selected), ct);
                 ct.ThrowIfCancellationRequested();
                 ctx.Response.Headers.CacheControl = "private, no-store";
                 if (contentSecurityPolicy is not null) ctx.Response.Headers.ContentSecurityPolicy = contentSecurityPolicy;
                 return Results.Bytes(document, mediaType, filename);
-            }).RequireRateLimiting("command");
+            }).RequireRateLimiting(policy);
         }
     }
+
+    private readonly record struct DownloadSource(int Id, long Expected, long Selected);
+
+    private static Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(
+        Store store, string? token, DownloadSource source, CancellationToken ct)
+        => store.WithSession(token, true, async (db, tx, actor) =>
+        {
+            await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
+            return await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
+        }, ct);
 
     private static byte[] Encode(string title, string body, long revision)
     {

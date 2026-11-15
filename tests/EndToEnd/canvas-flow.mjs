@@ -11,7 +11,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
   const other = await page.context().newPage()
   monitor(other, 'canvas-stale')
   const title = `Browser planning ${Date.now()}`
-  const sourceBody = 'Unchanged article source before link review.'
+  const sourceBody = 'Unchanged article source before link review.\n\n# Planning ^planning\n\nReview later. ^later'
   const source = await createDraft('Canvas draft source', sourceBody)
   const button = (name, page = client) => page.getByRole('button', { name, exact: true })
   const dialog = name => client.getByRole('dialog', { name, exact: true })

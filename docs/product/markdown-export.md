@@ -18,4 +18,10 @@ HTML 附件无脚本、外链、样式、字体或其他资源引用，HTTP 响�
 
 EPUB 使用与 HTML 相同的基础 Markdown，并检查章节的 XHTML 结构。链接、图片、指定渲染围栏、XML 无法表示的字符、空标题和超出 2 MiB 的章节或文件返回 400。基础文件只含文本和包内导航，字体由阅读器选择。资源内嵌、多章及完整导出任务仍待验收。 [EPUB 可访问性元数据](https://www.w3.org/TR/epub-a11y-11/#sec-discov-meta)
 
+启用本机 PDF 提供方后，`GET /api/v2/authoring/draft/{id}/export.pdf` 使用相同授权和两个修订参数。Inspector 的 **Download saved PDF** 和历史对照的 **Download revision PDF** 下载 `article.pdf`，响应为 `application/pdf` 和 `private, no-store`。服务读取所选修订，释放数据库锁后用 WeasyPrint 66.0 生成可打印的 A4 页面。服务在发送附件前再次核验会话、文章归属和当前修订。
+
+PDF 读取与 HTML 相同的基础 Markdown。可用字形由离线 Noto Sans CJK SC 2.004 提供。链接、图片、渲染围栏、缺失的字形和超出限制的修订返回 400。Markdown 正文最多 256 KiB，传给渲染器的 HTML 最多 384 KiB，附件最多 4 MiB 和 48 页。每个服务进程只允许一个 PDF 请求，额外请求返回 429。渲染子进程的 CPU 时间上限为 8 秒，服务最多等待 12 秒。请求取消和超时都会结束子进程并清理私有临时目录。
+
+PDF 默认关闭。当 `FSUSBLOG_PDF_TOOL_ROOT` 为本机工具链的绝对路径，且 `FSUSBLOG_PDF_TOOL_SHA256` 匹配该目录内 `toolchain.json` 的 SHA-256 时，macOS 服务才提供此下载。启动时验证清单列出的工具文件，部署时应将验证过的工具链目录保持为服务只读。Seatbelt 子进程以固定参数启动，资源读取仅限工具、字体和私有临时目录，网络与额外资源加载均被阻止。渲染器在接收正文前检查实际沙箱。配置不完整或工具校验失败会阻止启动。 [WeasyPrint 安全说明](https://doc.courtbouillon.org/weasyprint/v66.0/first_steps.html#security)
+
 v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站点备份。固定 v1 的文档导出源码包含 HTML 提供方、下载处理器和注册方法，常规二进制路由入口没有调用该注册方法。提供方目录将 DOCX 标记为未实现。 [v1 文档提供方目录](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/DocumentExport/DocumentExportContracts.cs#L261-L320) · [v1 路由入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs#L60-L80)

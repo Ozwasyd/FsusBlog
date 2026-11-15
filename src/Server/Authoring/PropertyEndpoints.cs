@@ -2,6 +2,7 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -38,14 +39,18 @@ internal static class PropertyEndpoints
                 Results.Bytes(Wire.EncodePropertyFilterCatalog(await new PropertyStore(db, tx, actor).Catalog(after, version, ct)),
                     Aeds.ContentType), ct);
         }).RequireRateLimiting("command");
-        MapSession(WireRoutes.PropertyArticleQuery, async (store, frame, session, ct) =>
-            Wire.EncodePropertyArticlePage(await store.Filter(Wire.DecodePropertyArticleQueryGroup(frame), session, ct)),
-            WireLimits.PropertyQueryGroupFrameBytes);
+        MapSession(WireRoutes.PropertyArticleQuery, async (store, actor, ctx, frame, session, ct) =>
+        {
+            var input = Wire.DecodePropertyArticleQueryGroup(frame);
+            if (input.Keyword.Length != 0)
+                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(session)!, SiteSessions.Requested(ctx));
+            return Wire.EncodePropertyArticlePage(await store.Filter(input, session, ct));
+        }, WireLimits.PropertyKeywordQueryFrameBytes);
 
         void Map(string path, Func<PropertyStore, byte[], CancellationToken, Task<byte[]>> operation) =>
-            MapSession(path, (store, frame, _, ct) => operation(store, frame, ct));
+            MapSession(path, (store, _, _, frame, _, ct) => operation(store, frame, ct));
 
-        void MapSession(string path, Func<PropertyStore, byte[], string, CancellationToken, Task<byte[]>> operation,
+        void MapSession(string path, Func<PropertyStore, Identity, HttpContext, byte[], string, CancellationToken, Task<byte[]>> operation,
             int frameBytes = WireLimits.PropertyMaxCommandBytes)
         {
             app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -55,7 +60,7 @@ internal static class PropertyEndpoints
                 try
                 {
                     var result = await store.WithSession(session, true,
-                        (db, tx, actor) => operation(new PropertyStore(db, tx, actor), frame, session!, ct), ct);
+                        (db, tx, actor) => operation(new PropertyStore(db, tx, actor), actor, ctx, frame, session!, ct), ct);
                     return Results.Bytes(result, Aeds.ContentType);
                 }
                 catch (PropertyValidationException)

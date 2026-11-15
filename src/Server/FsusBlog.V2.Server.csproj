@@ -8,5 +8,6 @@
     <PackageReference Include="SkiaSharp" Version="[3.119.4]" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="[3.119.4]" />
     <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Authoring/pdf-render.py" LogicalName="FsusBlog.PdfRender" />
   </ItemGroup>
 </Project>
