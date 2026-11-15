@@ -53,6 +53,8 @@ internal static partial class Migration
                   article-responsibility record ARTICLE REVISION
                                         Record explicit historical responsibility JSON from stdin
                   article-schedule      Add pending publication and command receipts with the server stopped
+                  article read-proof-schema
+                                        Add optional article read aggregates with the server stopped
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
@@ -256,6 +258,9 @@ internal static partial class Migration
                 case ["article-schedule"]:
                     await InitializeArticleScheduleAsync(connection, token);
                     break;
+                case ["article", "read-proof-schema"]:
+                    await InitializeArticleReadSchemaAsync(connection, token);
+                    break;
                 case ["private-media-upload", "schema"]:
                     await InitializeMediaUploadAsync(connection, token);
                     break;
@@ -410,7 +415,7 @@ internal static partial class Migration
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
-            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true);
+            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

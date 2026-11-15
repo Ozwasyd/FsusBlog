@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Analytics;
 using FsusBlog.V2.Server.Communication;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
@@ -52,6 +53,15 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+var articleReadEnabled = builder.Configuration.GetValue(ArticleReadEndpoints.Setting, false);
+if (articleReadEnabled)
+{
+    if (publicSite.Origin is null)
+        throw new InvalidOperationException("Article read proof requires an explicit public HTTPS origin.");
+    template = template.Replace("</head>", ArticleReadEndpoints.PageMarker + "</head>", StringComparison.Ordinal);
+    builder.Services.AddSingleton(services => new ArticleReadAuthority(connectionString,
+        services.GetRequiredService<InstanceLease>(), TimeProvider.System));
+}
 using var proofKeys = PublicationProofKeys.Read(builder.Configuration, integrityKeys, publicSite.Origin, dist);
 if (proofKeys is not null)
 {
@@ -107,6 +117,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
     if (proofKeys is not null) options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+    if (articleReadEnabled) ArticleReadEndpoints.AddRateLimit(options);
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
@@ -251,6 +262,7 @@ integrityKeys.Map(app);
 publicationProofs?.Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
+if (articleReadEnabled) ArticleReadEndpoints.Map(app, publicSite.Origin!, publications, ReadFrame);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);

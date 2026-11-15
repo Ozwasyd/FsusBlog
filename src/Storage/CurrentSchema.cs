@@ -115,7 +115,8 @@ internal static partial class CurrentSchema
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
-        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null)
+        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
+        bool? requireArticleRead = null)
     {
         if (requireArticleMedia is null)
         {
@@ -213,6 +214,9 @@ internal static partial class CurrentSchema
         if ((hasPublicationProof && !hasPublicationCanonical) ||
             (requirePublicationProof.HasValue && requirePublicationProof.Value != hasPublicationProof))
             throw new InvalidOperationException("The native publication proof schema presence does not match the requested operation.");
+        var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
+        if (requireArticleRead.HasValue && requireArticleRead.Value != hasArticleRead)
+            throw new InvalidOperationException("The article read aggregate schema presence does not match the requested operation.");
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
@@ -244,6 +248,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalColumns : [])
             .Concat(hasPublicationProof ? PublicationProofColumns : [])
+            .Concat(hasArticleRead ? ArticleReadColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
@@ -279,6 +284,7 @@ internal static partial class CurrentSchema
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
             .Concat(hasPublicationProof ? PublicationProofConstraints : [])
+            .Concat(hasArticleRead ? ArticleReadConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """
@@ -363,6 +369,7 @@ internal static partial class CurrentSchema
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
+        if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
     }
 
     private static void AssertShape(string kind, string[] expected, List<string> observed)

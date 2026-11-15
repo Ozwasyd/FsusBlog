@@ -31,6 +31,10 @@ public enum FrameType : ushort
     ArticleMediaCommand = 32871,
     ArticlePublishImages = 32967,
     PublicArticleMedia = 32968,
+    ArticleReadChallengeRequest = 32976,
+    ArticleReadChallenge = 32977,
+    ArticleReadSubmit = 32978,
+    ArticleReadReceipt = 32979,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -387,6 +391,8 @@ public static class WireLayouts
     public const int ArticleListCursorMagic = 0x41535046;
     public const int ArticleListCursorVersion = 2;
     public const int ArticleListCursorMaxBytes = 512;
+    public const int ArticleReadDwellMs = 8000;
+    public const int ArticleReadTicketSize = 56;
     public const int ArticleListRecordSizeCurrent = 100;
     public const int ArticleSearchV4Magic = 0x34534146;
     public const int RelatedReadingHeaderSize = 8;
@@ -531,6 +537,8 @@ public static class WireRoutes
     public const string ArticleMediaCommand = "/api/v2/authoring/draft/media.aeds";
     public const string ArticlePublishImages = "/api/v2/authoring/draft/publish-images.aeds";
     public const string PublicArticleMedia = "/api/v2/public/articles/{id:int}/{publication:long}/media.aeds";
+    public const string ArticleReadChallenge = "/api/v2/public/articles/{id:int}/{publication:long}/read/challenge.aeds";
+    public const string ArticleReadSubmit = "/api/v2/public/articles/{id:int}/{publication:long}/read/submit.aeds";
     public const string PublicArticleMediaFile = "/public-media/{id:int}/{publication:long}/{digest}";
     public const string ArticleMediaPreview = "/api/v2/media/draft-preview";
     public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";

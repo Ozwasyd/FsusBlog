@@ -227,6 +227,8 @@ inline constexpr uint32_t ArticleRightsKnownFlags = 2047;
 inline constexpr uint32_t ArticleListCursorMagic = 0x41535046;
 inline constexpr uint32_t ArticleListCursorVersion = 2;
 inline constexpr uint32_t ArticleListCursorMaxBytes = 512;
+inline constexpr uint32_t ArticleReadDwellMs = 8000;
+inline constexpr uint32_t ArticleReadTicketSize = 56;
 inline constexpr uint32_t ArticleListRecordSizeCurrent = 100;
 inline constexpr uint32_t ArticleSearchV4Magic = 0x34534146;
 inline constexpr uint32_t RelatedReadingHeaderSize = 8;
@@ -349,6 +351,10 @@ enum class FrameType : uint16_t {
     ArticleMediaCommand = 32871,
     ArticlePublishImages = 32967,
     PublicArticleMedia = 32968,
+    ArticleReadChallengeRequest = 32976,
+    ArticleReadChallenge = 32977,
+    ArticleReadSubmit = 32978,
+    ArticleReadReceipt = 32979,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -509,6 +515,10 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleMediaCommand:
         case FrameType::ArticlePublishImages:
         case FrameType::PublicArticleMedia:
+        case FrameType::ArticleReadChallengeRequest:
+        case FrameType::ArticleReadChallenge:
+        case FrameType::ArticleReadSubmit:
+        case FrameType::ArticleReadReceipt:
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:
