@@ -4,7 +4,7 @@
 
 | 阶段 | 已产出 | 尚未达到的退出条件 |
 | --- | --- | --- |
-| P0 | 固定 v1 源。[开放 issue 源快照和台账](issues/)覆盖 808 个议题和 2,562 条冻结评论。完成[界面与功能](product/)、[代码量](baseline-source.md)和[依赖基线](baseline-dependencies.md)，逐项核对 17 个 FsusUI 关联、115 条高风险条款、712 条历史评论来源和 469 个精确引用位置。另按当前 GitHub 记录核实了 183 个原缺冻结状态的目标，核实查询分配与执行职责、保存视图的唯一执行任务。 | 全部自由文本、完整的当前查询用例和测试映射仍待核对。 |
+| P0 | 固定 v1 源。[开放 issue 源快照和台账](issues/)覆盖 808 个议题和 2,562 条冻结评论。完成[界面与功能](product/)、[代码量](baseline-source.md)和[依赖基线](baseline-dependencies.md)，逐项核对 17 个 FsusUI 关联、115 条高风险条款、712 条历史评论来源和 524 个精确引用位置。另按当前 GitHub 记录核实了 183 个原缺冻结状态的目标，核实查询分配与执行职责、保存视图的唯一执行任务。 | 全部自由文本、完整的当前查询用例和测试映射仍待核对。 |
 | P1 | .NET 模块化单体、当前 schema 独立工具、真实 FsusUI 本地类型与运行入口、AEDS 生成及跨语言测试。SDK 10.0.404 和本机运行库 10.0.15 已验证。独立 NuGet 本地源和 pnpm 离线缓存可恢复锁定依赖并实际构建、类型检查。 | 生产配置、通用 PoW 风险、管理员权限矩阵及旧凭据的切换仍待验证。 |
 | P2 | PostgreSQL 与 Chrome 跑通登录、保存、CAS 冲突、发布、公开 HTML/AEDS、Worker 全文索引、撤回和注销。真实数据库故障验证写入回滚、发布投影恢复与重启旧代失效。原生 [256 请求冷读](../tests/Performance/cold-2026-11-14.md)全部正确。浏览器验证同代搜索复用与撤回。C# 与浏览器共用固定 v1 词表，离线 FSDL 逐字节独立验证。已验证 FSPT 在线分片补丁。 | 固定排名的原语义差异，以及符合供给者余量条件的两轮容量矩阵和后续长时验收仍待完成。 |
 | P3 | 原生 HTTPS 和 PostgreSQL 验证身份恢复、持久登录、账号及管理员 Passkey、工单、通知、站内信、评论和一次性取消订阅。真实浏览器覆盖私有附件、选定公开图片分发、登录回复、作者删除、独立申诉复核、待审批量确认及双 HTTPS 管理。已验证公开热门列表、真实撤稿失效及定时替换后各订阅源同代。 | 公网部署、完整管理员权限、动态风险与强匿名、旧凭据切换、剩余评论状态、完整网关预算与 v1 页面写协议待验收。 |
@@ -108,4 +108,6 @@ C11 冻结包 `75fd08f` 已在 PostgreSQL 18.7 核对 100,000 篇文章、85,000
 
 `00db88d` 的原生 Caddy 与 Chromium 验证了 FSPT 在线补丁，220 篇夹具中的目标页为 17,124 字节，实际传输的补丁为 157 字节。独立重建与全页字节一致，错误基页沿当前完整页恢复，撤回后旧代请求返回 409。 [浏览器证据](../artifacts/search-patch-78fffce/verification.jvievw/chromium/search-corpus-reuse.json)
 
-`331e20f` 合并了作者标题或摘要加类型化属性筛选、批量保存后关闭、Canvas 引用坐标校验和 macOS 私有 PDF。锁定构建、严格 Vue 检查、协议向量、28 项 PostgreSQL 集成和两组真实 Chromium 验证通过。真实历史修订 PDF 有 4 页 A4、72 段可提取的中文以及嵌入式 Unicode Noto 子集。浏览器的排序夹具和重开对话框两处失败保留了原始日志，修正夹具后两次定向复验均通过。完整作者全文、单标签保存关闭和 Linux PDF 仍需各自验证。 [验收汇总](../artifacts/original-authoring-batch/) · [PDF 元数据](../artifacts/original-authoring-batch/third-browser/pdf-info.txt)
+`331e20f` 合并了作者标题或摘要加类型化属性筛选、批量保存后关闭、Canvas 引用坐标校验和 macOS 私有 PDF。锁定构建、严格 Vue 检查、协议向量、28 项 PostgreSQL 集成和两组真实 Chromium 验证通过。真实历史修订 PDF 有 4 页 A4、72 段可提取的中文以及嵌入式 Unicode Noto 子集。浏览器的排序夹具和重开对话框两处失败保留了原始日志，修正夹具后两次定向复验均通过。完整作者全文和 Linux PDF 仍需各自验证。 [验收汇总](../artifacts/original-authoring-batch/) · [PDF 元数据](../artifacts/original-authoring-batch/third-browser/pdf-info.txt)
+
+单标签关闭 `d63403f` 复用已验过的 Server 构建。真实 Chromium 验证取消保留路由及焦点、IndexedDB 中止保留原草稿、显式丢弃只重开持久版本，以及两次内容坐标不匹配的成功帧均保留标签和幂等请求。真实正确回执到达后才关闭。`5a9efcd` 的原生 PostgreSQL 盘点、导入、篡改拒绝及备份恢复通过，SQLite 无浏览计数字段的旧计划仍兼容。`c1b7236` 的 5 项私有媒体实库检查通过，包括有效读取占齐四个席位后的拒绝和合法字节核对。 [浏览器结果](../artifacts/original-authoring-batch/single-close/browser/workspace-split-result.json) · [迁移与媒体原生记录](../artifacts/p5-read-history-media-native/attempt-1/timeline.txt)
