@@ -380,14 +380,18 @@ try {
   // A response from the old authenticated read cannot appear after the account changes.
   await page.setViewportSize({ width: 375, height: 850 })
   await page.goto(workspace)
+  const ownerState = await author.storageState()
+  const peerCookies = await outsider.cookies()
+  async function switchAccount(cookies) {
+    await author.addCookies(cookies)
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
+  }
   assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), expectedRecents)
   const delayedResults = await hold(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
   await button(page, 'Article library').click()
   try {
     assert.equal(await delayedResults.reached, 200)
-    const cookies = await outsider.cookies()
-    await author.addCookies(cookies)
-    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
+    await switchAccount(peerCookies)
     await expect(page.getByRole('dialog', { name: 'Article library' })).toBeHidden()
   } finally { delayedResults.release() }
   await delayedResults.done
@@ -396,6 +400,53 @@ try {
   await expect(drawer.getByText(title, { exact: true })).toHaveCount(0)
   await button(drawer, 'Recent opens').click()
   await expect(drawer.getByText('No recent opens.', { exact: true })).toBeVisible()
+
+  await switchAccount(ownerState.cookies)
+  await expect(drawer).toBeHidden()
+  const seeding = await browser.newContext({ storageState: ownerState })
+  const keyword = 'Identity return witness'
+  const staleTitle = `${keyword} before`, freshTitle = `${keyword} after`
+  const witness = await create(seeding, staleTitle)
+  const quick = page.getByRole('dialog', { name: 'Quick switch articles', exact: true })
+  const searchInput = quick.getByRole('combobox', { name: 'Search draft titles', exact: true })
+  await page.evaluate(({ path, keyword }) => {
+    const fetch = window.fetch.bind(window)
+    let first = true
+    window.fetch = async (input, options) => {
+      const url = new URL(input, location.href)
+      if (!first || url.pathname !== path || url.searchParams.get('keyword') !== keyword) return fetch(input, options)
+      first = false
+      // Deliver the actual old HTTP body even if the UI aborts its original waiter.
+      const response = await fetch(input, { ...options, signal: undefined })
+      window.oldAuthorQueryStatus = response.status
+      return response
+    }
+  }, { path: WireRoutes.AuthorArticles, keyword })
+  const old = await hold(page, url => url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('keyword') === keyword)
+  try {
+    await button(page, 'Quick switch articles').click()
+    await searchInput.fill(keyword)
+    assert.equal(await old.reached, 200)
+    await switchAccount(peerCookies)
+    await expect(quick).toBeHidden()
+    await button(page, 'Quick switch articles').click()
+    await searchInput.fill(foreign.title)
+    await expect(quick.getByRole('option', { name: new RegExp(foreign.title) })).toBeVisible()
+    await save(seeding, { ...witness, title: freshTitle }, witness.body)
+    await switchAccount(ownerState.cookies)
+    await expect(quick).toBeHidden()
+    await button(page, 'Quick switch articles').click()
+    await searchInput.fill(keyword)
+    await expect(quick.getByRole('option', { name: new RegExp(freshTitle) })).toBeVisible()
+  } finally {
+    old.release()
+    await seeding.close()
+  }
+  await old.done
+  await page.waitForFunction(() => window.oldAuthorQueryStatus === 200)
+  await expect(quick.getByRole('option', { name: new RegExp(freshTitle) })).toBeVisible()
+  await expect(quick.getByRole('option', { name: new RegExp(staleTitle) })).toHaveCount(0)
+  observations.push({ sameCredentialOwnerPeerOwner: true, delayedRealQueryReachedBrowserDespiteAbort: true, staleQuerySuppressed: true })
   observations.push({ ownerAndCredentialFence: true, exactActiveRevealOutsidePage: true, distinctDuplicateArticleIds: true,
     boundedPages: true, routeWaitsForOwnedDraft: true, separateBrowserTab: true, editorWidthBefore: width, editorWidthAfter: openWidth,
     mobileDrawerAndFocusReturn: true, latePreviousAccountReadSuppressed: true, exactDurableRecentOpens: true })

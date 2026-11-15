@@ -50,7 +50,7 @@
     "标记原验收不变": 20
   },
   "adoptedComments": 414,
-  "adoptedCommentsMissingExplicitRequirementId": 4,
+  "adoptedCommentsMissingExplicitRequirementId": 0,
   "pendingCountsByIssue": {},
   "allCommentsSubstantivelyReviewed": false
 }
