@@ -181,6 +181,11 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   else
     export FSUSBLOG_ADMIN_INBOX_SHARED_READ=false
   fi
+  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_ACTIVITY:-0} == 1 ]]; then
+    export FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=true
+  else
+    export FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=false
+  fi
 fi
 FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture admin.manage)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET

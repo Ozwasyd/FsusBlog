@@ -11,7 +11,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> ReplyInbox(string? session, long id, string key, string body, byte[] frame, ScopedPow pow,
-        string context, HttpContext http, bool issue, CancellationToken ct) =>
+        string context, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
         WithLiveAdmin(session, Permission, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxReply;
@@ -34,7 +34,7 @@ internal sealed partial class AdminPasskeyStore
                 previous.Body, admin.Snapshot.Handle, Replayed: true));
 
             var recipient = await FindInboxRecipient(db, tx, id, ct);
-            var appended = await new InboxStore(db, tx, recipient).AppendAdministratorReply(id, body, ct);
+            var appended = await new InboxStore(db, tx, recipient, fenceVisibleMessages).AppendAdministratorReply(id, body, ct);
             await using var receipt = Store.Sql(db, tx, """
                 INSERT INTO public.inbox_admin_reply (principal_id,command_id,fingerprint,session_reference,conversation_id,message_id)
                 VALUES ($1,$2,$3,$4,$5,$6)

@@ -639,6 +639,7 @@ public static class WireHeaders
     public const string AdminInboxVersion = "X-Fsus-Admin-Inbox-Version";
     public const string AdminInboxNoticeEnabled = "X-Fsus-Admin-Inbox-Notice-Enabled";
     public const string AdminInboxSharedRead = "X-Fsus-Admin-Inbox-Shared-Read";
+    public const string AdminInboxActivityOrder = "X-Fsus-Admin-Inbox-Activity-Order";
     public const string AdminInboxReadSnapshot = "X-Fsus-Admin-Inbox-Read-Snapshot";
     public const string AdminInboxUnread = "X-Fsus-Admin-Inbox-Unread";
     public const string SourceEventId = "X-Fsus-Source-Event-Id";

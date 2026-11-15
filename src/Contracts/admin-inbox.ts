@@ -6,30 +6,37 @@ import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed' | 'unread' | 'system';
+export type AdminInboxOrder = 'created' | 'activity';
 export type AdminInboxStatus = 0 | 1 | 2;
 export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number;
   unread: number | null };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
-export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean; sharedAvailable: boolean };
+export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean; sharedAvailable: boolean;
+  activityAvailable: boolean };
 export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
   version: string | null; readSnapshot: { token: string; through: bigint } | null };
 
-export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal, shared = false): Promise<AdminInboxPage> {
+export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal, shared = false,
+  order: AdminInboxOrder = 'created'): Promise<AdminInboxPage> {
   const query = new URLSearchParams();
   if (filter) query.set('status', filter);
   if (next) query.set('cursor', next);
   if (shared) query.set('shared', '1');
+  if (order === 'activity') query.set('order', 'activity');
   const frame = shared ? FrameType.AdminInboxSharedPage : FrameType.AdminInboxPage;
   return request(`${WireRoutes.AdminInboxQueue}?${query}`, frame, (payload, headers) => {
     const reader = new PodReader(payload);
-    const following = cursor(reader);
+    const following = cursor(reader, order === 'activity' ? 75 : 64);
     const rows = Array.from({ length: count(reader, following) }, () => row(reader, shared));
-    if (rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
+    if (new Set(rows.map(item => item.id)).size !== rows.length ||
+        order === 'created' && rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
     reader.finish();
     const flag = headers.get(WireHeaders.AdminInboxNoticeEnabled);
     const capability = headers.get(WireHeaders.AdminInboxSharedRead);
-    if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1') throw invalid();
-    return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1' };
+    const activity = headers.get(WireHeaders.AdminInboxActivityOrder);
+    if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1' ||
+        activity !== null && activity !== '1' || order === 'activity' && activity !== '1') throw invalid();
+    return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1', activityAvailable: activity === '1' };
   }, signal);
 }
 
@@ -149,13 +156,13 @@ function row(reader: PodReader, shared: boolean): AdminInboxRow {
   return item;
 }
 
-function cursor(reader: PodReader) {
+function cursor(reader: PodReader, length = 64) {
   const value = reader.text(100);
-  if (value && !validCursor(value)) throw invalid();
+  if (value && !validCursor(value, length)) throw invalid();
   return value || null;
 }
 
-function validCursor(value: string) { return /^[a-zA-Z0-9_-]{64}$/.test(value); }
+function validCursor(value: string, length = 64) { return value.length === length && /^[a-zA-Z0-9_-]+$/.test(value); }
 
 function count(reader: PodReader, more: string | null) {
   const value = reader.i32();

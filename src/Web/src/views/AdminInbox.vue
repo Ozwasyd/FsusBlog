@@ -3,7 +3,8 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
-import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter, type AdminInboxRow,
+import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter,
+  type AdminInboxOrder, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -12,6 +13,7 @@ const rows = shallowRef<AdminInboxRow[]>([])
 const thread = shallowRef<AdminInboxThread>()
 const next = ref<string | null>(null)
 const filter = ref<AdminInboxFilter>('')
+const order = ref<AdminInboxOrder>('created')
 const expanded = ref(false)
 const pending = ref(false)
 const failed = ref('')
@@ -22,6 +24,7 @@ const destination = ref<AdminInboxStatus>()
 const reason = ref('')
 const needsRefresh = ref(false)
 const sharedRead = ref(false)
+const activityAvailable = ref(false)
 const unreadAckFailed = ref(false)
 const noticesEnabled = ref(false)
 const composeNotice = ref(false)
@@ -51,6 +54,7 @@ function reset() {
   clearNotice()
   noticesEnabled.value = false
   sharedRead.value = false
+  activityAvailable.value = false
   unreadAckFailed.value = false
 }
 
@@ -77,14 +81,15 @@ async function read(load: (signal: AbortSignal) => Promise<void>, message = 'Cou
 
 function loadQueue(cursor: string | null = null) {
   void read(async signal => {
-    let page = await adminInbox(filter.value, cursor, signal, sharedRead.value)
+    let page = await adminInbox(filter.value, cursor, signal, sharedRead.value, order.value)
     if (!cursor && !sharedRead.value && page.sharedAvailable)
-      page = await adminInbox(filter.value, null, signal, true)
+      page = await adminInbox(filter.value, null, signal, true, order.value)
     if (signal.aborted) return
     rows.value = cursor ? [...rows.value, ...page.rows] : page.rows
     next.value = page.next
     noticesEnabled.value = page.noticesEnabled
     sharedRead.value = page.sharedAvailable
+    activityAvailable.value = page.activityAvailable
   })
 }
 
@@ -162,7 +167,7 @@ function sendNotice() {
     if (signal.aborted) return
     clearNotice()
     notice.value = 'System notice sent to the account.'
-    const page = await adminInbox(filter.value, null, signal, sharedRead.value)
+    const page = await adminInbox(filter.value, null, signal, sharedRead.value, order.value)
     if (!signal.aborted) {
       rows.value = page.rows
       next.value = page.next
@@ -240,18 +245,21 @@ function reloadThread() {
 function toggle() {
   expanded.value = !expanded.value
   filter.value = ''
+  order.value = 'created'
   reset()
   if (expanded.value) loadQueue()
 }
 
-watch(filter, () => {
+watch([filter, order], () => {
   if (!expanded.value) return
   const shared = sharedRead.value
+  const activity = activityAvailable.value
   reset()
   sharedRead.value = shared
+  activityAvailable.value = activity
   loadQueue()
 })
-watch(() => props.sessionSignal, () => { expanded.value = false; filter.value = ''; reset() }, { flush: 'sync' })
+watch(() => props.sessionSignal, () => { expanded.value = false; filter.value = ''; order.value = 'created'; reset() }, { flush: 'sync' })
 onBeforeUnmount(() => operation.abort())
 </script>
 
@@ -269,6 +277,10 @@ onBeforeUnmount(() => operation.abort())
           <ElOption label="Closed" value="closed" />
           <ElOption v-if="sharedRead" label="Unread by support" value="unread" />
           <ElOption v-if="sharedRead" label="System notices" value="system" />
+        </ElSelect>
+        <ElSelect v-if="activityAvailable" v-model="order" ariaLabel="Sort support inbox" :disabled="pending">
+          <ElOption label="Newest conversations" value="created" />
+          <ElOption label="Latest visible message" value="activity" />
         </ElSelect>
         <ElButton native-type="button" text :loading="pending" @click="loadQueue()">Refresh conversations</ElButton>
         <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="pending"

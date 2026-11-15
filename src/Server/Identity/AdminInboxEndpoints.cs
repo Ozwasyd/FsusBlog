@@ -3,6 +3,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
 using FsusBlog.V2.Server.Security;
+using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
@@ -20,6 +21,7 @@ internal static class AdminInboxEndpoints
         var status = app.Configuration.GetValue(StatusSetting, false);
         var notice = app.Configuration.GetValue(NoticeSetting, false);
         var sharedRead = app.Configuration.GetValue(SharedReadSetting, false);
+        var activityOrder = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
             var shared = Shared(ctx);
@@ -29,9 +31,20 @@ internal static class AdminInboxEndpoints
                 "unread" when shared => 3, "system" when shared => 4,
                 _ => throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox filter.")
             };
-            var page = await store.ReadInbox(ctx.Request.Cookies[session], filter, Query(ctx.Request.Query, "cursor", 64), ct, shared);
+            var activity = Query(ctx.Request.Query, "order", 8) switch
+            {
+                null => false,
+                "activity" when activityOrder => true,
+                "activity" => throw new BusinessException(Rejection.NotFound, "Administrator inbox activity order is unavailable."),
+                _ => throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox order.")
+            };
+            var admin = ctx.Request.Cookies[session];
+            var cursor = Query(ctx.Request.Query, "cursor", activity ? AdminInboxActivityCursor.EncodedLength : 64);
+            var page = activity ? await store.ReadInboxByActivity(admin, filter, cursor, shared, ct) :
+                await store.ReadInbox(admin, filter, cursor, ct, shared);
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
+            if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
             return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
@@ -101,7 +114,8 @@ internal static class AdminInboxEndpoints
                 var frame = await readFrame(ctx, InboxWire.MaxRequestFrameBytes, ct);
                 var body = InboxRules.Body(InboxWire.DecodeAdminReply(frame));
                 var context = string.Create(CultureInfo.InvariantCulture, $"{id}:{key}");
-                return await store.ReplyInbox(ctx.Request.Cookies[session], id, key, body, frame, pow, context, ctx, issue, ct);
+                return await store.ReplyInbox(ctx.Request.Cookies[session], id, key, body, frame, pow, context, ctx, issue,
+                    activityOrder, ct);
             }, PowScope.AdminInboxReply);
 
         Task<IResult> ChangeStatus(long id, HttpContext ctx, ScopedPow pow, bool issue, CancellationToken ct) =>
@@ -128,7 +142,7 @@ internal static class AdminInboxEndpoints
                     throw new BusinessException(Rejection.Invalid, "Set a positive source event ID.");
                 var frame = await readFrame(ctx, Wire.MaxAdminInboxNoticeFrameBytes, ct);
                 return await store.SendInboxNotice(ctx.Request.Cookies[session], eventId, Wire.DecodeAdminInboxNotice(frame),
-                    frame, pow, ctx, issue, ct);
+                    frame, pow, ctx, issue, activityOrder, ct);
             }, PowScope.AdminInboxNotice);
     }
 

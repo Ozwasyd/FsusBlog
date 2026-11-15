@@ -18,6 +18,7 @@ BEGIN
     INSERT INTO public.inbox_conversation (account_id,subject,status,is_system,last_message_at)
     VALUES (recipient,'Inbox QA closed case',2,false,now()) RETURNING id INTO thread;
     INSERT INTO public.inbox_message (conversation_id,sender,is_internal,body,sent_at)
-    VALUES (thread,0,false,'Inbox QA closed message',now()) RETURNING id INTO last_message;
-    UPDATE public.inbox_conversation SET read_through=last_message,last_message_id=last_message WHERE id=thread;
+    VALUES (thread,0,false,'Inbox QA closed message',now()-interval '1 second') RETURNING id INTO last_message;
+    UPDATE public.inbox_conversation SET read_through=last_message,last_message_id=last_message,
+        last_message_at=now()-interval '1 second' WHERE id=thread;
 END $$;

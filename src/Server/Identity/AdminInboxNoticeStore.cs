@@ -12,7 +12,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> SendInboxNotice(string? session, long eventId, AdminInboxNotice input, byte[] frame,
-        ScopedPow pow, HttpContext http, bool issue, CancellationToken ct) =>
+        ScopedPow pow, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
         WithLiveAdmin(session, Permission, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxNotice;
@@ -28,7 +28,7 @@ internal sealed partial class AdminPasskeyStore
                 new Guid(InboxRules.Fingerprint("administrator-system-notice", eventId, 0, "", "").AsSpan(0, 16)), ct);
             var fingerprint = InboxRules.Fingerprint("system", 0, 0, subject, body);
             var replay = await FindNotice(db, tx, admin.Id, eventId, input.Account, fingerprint, ct);
-            var inbox = new InboxStore(db, tx, input.Account);
+            var inbox = new InboxStore(db, tx, input.Account, fenceVisibleMessages);
             long conversation = replay ?? await CreateNotice();
             var current = await inbox.GetAsync(conversation, null, 50, ct) ??
                 throw new InvalidOperationException("Administrator system notice has no account-visible conversation.");

@@ -16,7 +16,7 @@ internal static partial class Migration
         InboxNoticeReceipt receipt;
         try
         {
-            var inbox = new InboxStore(connection, transaction, account);
+            var inbox = new InboxStore(connection, transaction, account, fenceVisibleMessages: true);
             var sent = await inbox.SendNoticeAsync(eventId, message.Subject, message.Body, ct);
             receipt = new InboxNoticeReceipt(account, sent.Message.ConversationId, sent.Message.Id, sent.Replayed);
         }

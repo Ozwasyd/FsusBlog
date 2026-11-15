@@ -15,6 +15,7 @@ internal static class InboxWriteEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var enabled = app.Configuration.GetValue(Setting, false);
+        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         app.MapGet(WireRoutes.InboxWriteAvailability, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var packet = await store.WithSession(ctx.Request.Cookies[cookie], false,
@@ -57,7 +58,7 @@ internal static class InboxWriteEndpoints
                     if (ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var expected))
                         SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(session)!, expected.Count == 1 ? expected[0] : null);
                     var input = Read(bytes, conversation);
-                    var inbox = new InboxStore(db, tx, actor.Id);
+                    var inbox = new InboxStore(db, tx, actor.Id, fenceVisibleMessages);
                     if (issue)
                     {
                         if (conversation is long existing)

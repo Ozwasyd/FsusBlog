@@ -633,6 +633,7 @@ export const WireHeaders = {
   AdminInboxVersion: "X-Fsus-Admin-Inbox-Version",
   AdminInboxNoticeEnabled: "X-Fsus-Admin-Inbox-Notice-Enabled",
   AdminInboxSharedRead: "X-Fsus-Admin-Inbox-Shared-Read",
+  AdminInboxActivityOrder: "X-Fsus-Admin-Inbox-Activity-Order",
   AdminInboxReadSnapshot: "X-Fsus-Admin-Inbox-Read-Snapshot",
   AdminInboxUnread: "X-Fsus-Admin-Inbox-Unread",
   SourceEventId: "X-Fsus-Source-Event-Id",

@@ -6,7 +6,8 @@ using Npgsql;
 namespace FsusBlogV2.Storage;
 
 /// <summary>Account inbox. Call account methods after verifying the current session in this transaction.</summary>
-internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid accountId)
+internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid accountId,
+    bool fenceVisibleMessages = false)
 {
     internal const string ConversationActivity = """
         greatest(c.last_message_at, (SELECT e.occurred_at FROM public.inbox_event e
@@ -366,6 +367,8 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
 
     private async Task<InboxMessage> AppendAsync(long conversationId, InboxSender sender, string body, CancellationToken cancellationToken)
     {
+        if (fenceVisibleMessages)
+            await InboxActivityFence.TakeAsync(connection, transaction, shared: true, cancellationToken);
         await using var append = Command("""
             WITH added AS (
                 INSERT INTO public.inbox_message (conversation_id, sender, is_internal, body, sent_at)

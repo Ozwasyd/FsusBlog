@@ -16,6 +16,19 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const closed = panel.getByRole('button', { name: 'Inbox QA closed case' })
   await subject.waitFor()
   await closed.waitFor()
+  const activity = process.env.FSUSBLOG_TEST_ADMIN_INBOX_ACTIVITY === '1'
+  const order = panel.getByRole('combobox', { name: 'Sort support inbox' })
+  if (activity) {
+    const first = panel.getByRole('list').getByRole('button').first()
+    assert.equal(await first.textContent(), 'Inbox QA closed case')
+    await order.click()
+    const activityPage = page.waitForResponse(response => new URL(response.url()).searchParams.get('order') === 'activity')
+    await page.getByRole('option', { name: 'Latest visible message', exact: true }).click()
+    const sorted = await activityPage
+    assert.equal(sorted.status(), 200)
+    assert.equal(await sorted.headerValue(WireHeaders.AdminInboxActivityOrder), '1')
+    await first.filter({ hasText: 'Inbox QA support case' }).waitFor()
+  } else assert.equal(await order.count(), 0)
   const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
   const visibleRow = subject.locator('..')
   if (shared) await visibleRow.getByText('1 unread by support', { exact: true }).waitFor()
