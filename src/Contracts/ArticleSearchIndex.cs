@@ -4,10 +4,10 @@ using System.Runtime.InteropServices;
 namespace FsusBlog.V2.Contracts;
 
 /// <summary>In-memory weighted BM25 over the active snapshot's public article coordinates.</summary>
-public sealed class ArticleSearchIndex
+public sealed partial class ArticleSearchIndex
 {
     private const int MaxResults = 200;
-    private const int MaxDocuments = WireLimits.SearchIndexMaxPages * WireLimits.SearchIndexPageSize;
+    private const int CompactMaxDocuments = WireLimits.SearchIndexMaxPages * WireLimits.SearchIndexPageSize;
     private const int MaxTerms = 262_144;
     private const int MaxPostings = 3_000_000;
     private const long MaxScannedChars = 128 * 1024 * 1024;
@@ -17,88 +17,41 @@ public sealed class ArticleSearchIndex
     private readonly Document[] _documents;
     private readonly Term[] _terms;
     private readonly Posting[] _postings;
+    private readonly WideBlock[]? _wide;
 
-    private ArticleSearchIndex(Document[] documents, Term[] terms, Posting[] postings) =>
-        (_documents, _terms, _postings) = (documents, terms, postings);
+    private ArticleSearchIndex(Document[] documents, Term[] terms, Posting[] postings, WideBlock[]? wide = null) =>
+        (_documents, _terms, _postings, _wide) = (documents, terms, postings, wide);
+
+    public bool UsesWideProfile => _wide is not null;
 
     public static ArticleSearchIndex? Build(IReadOnlyList<Article> articles, CancellationToken ct)
     {
-        if (articles.Count > MaxDocuments) return null;
+        if (articles.Count > CompactMaxDocuments) return BuildWide(articles, ct);
 
         var lengths = new int[articles.Count];
-        var totalLength = 0L;
-        var remainingChars = MaxScannedChars;
-        var frequencies = new Dictionary<uint, int>();
-        var heads = new Dictionary<uint, Bucket>();
-        var pending = new List<PendingPosting>();
-        for (var ordinal = 0; ordinal < articles.Count; ordinal++)
-        {
-            ct.ThrowIfCancellationRequested();
-            var article = articles[ordinal];
-            frequencies.Clear();
-            if (!Index(article.Title, 16) || !Index(article.Summary ?? "", 8) ||
-                !Index(article.Category?.Name ?? "", 5))
-                return null;
-            foreach (var tag in article.Tags ?? [])
-            {
-                if (!Index(tag.Name, 5)) return null;
-            }
-            if (!Index(article.Body, 2)) return null;
-            var length = ArticleSearchTokens.DocumentLength(article.Body);
-            lengths[ordinal] = length;
-            totalLength += length;
+        var builder = new PostingBuilder(MaxScannedChars);
+        if (!builder.Collect(articles, 0, lengths, MaxTerms, MaxPostings, ct)) return null;
 
-            if (frequencies.Count > MaxPostings - pending.Count) return null;
-            foreach (var (hash, weight) in frequencies)
-            {
-                ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(heads, hash, out var found);
-                if (!found)
-                {
-                    if (heads.Count > MaxTerms) return null;
-                    bucket = new Bucket(-1, 0);
-                }
-                pending.Add(new PendingPosting(new Posting(ordinal, weight), bucket.Head));
-                bucket = new Bucket(pending.Count - 1, bucket.Count + 1);
-            }
-        }
-
-        var average = Math.Max((double)totalLength / Math.Max(articles.Count, 1), 1);
-        var documents = new Document[articles.Count];
-        for (var ordinal = 0; ordinal < documents.Length; ordinal++)
-            documents[ordinal] = new Document(articles[ordinal], K1 * (1 - B + B * lengths[ordinal] / average));
-
-        var terms = new Term[heads.Count];
-        var postings = new Posting[pending.Count];
+        var terms = new Term[builder.Heads.Count];
+        var postings = new Posting[builder.Pending.Count];
         var termIndex = 0;
         var start = 0;
-        foreach (var (hash, bucket) in heads)
+        foreach (var (hash, bucket) in builder.Heads)
         {
             ct.ThrowIfCancellationRequested();
             terms[termIndex++] = new Term(hash, start, bucket.Count);
-            for (var entry = bucket.Head; entry >= 0; entry = pending[entry].Previous)
-                postings[start++] = pending[entry].Value;
+            for (var entry = bucket.Head; entry >= 0; entry = builder.Pending[entry].Previous)
+                postings[start++] = builder.Pending[entry].Value;
         }
         Array.Sort(terms, Term.ByHash);
-        return new ArticleSearchIndex(documents, terms, postings);
-
-        bool Index(string text, int weight)
-        {
-            remainingChars -= text.Length;
-            if (remainingChars < 0) return false;
-            foreach (var hash in ArticleSearchTokens.Hashes(text, ct))
-            {
-                ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(frequencies, hash, out _);
-                frequency += weight;
-                if (frequencies.Count > MaxTerms) return false;
-            }
-            return true;
-        }
+        return new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), terms, postings);
     }
 
     public Article[] Search(string query, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         if (_documents.Length == 0) return [];
+        if (_wide is { } blocks) return SearchWide(blocks, query, ct);
         var hashes = new HashSet<uint>();
         var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
         var buffer = ArrayPool<double>.Shared.Rent(_documents.Length);
@@ -112,36 +65,122 @@ public sealed class ArticleSearchIndex
                 var position = Array.BinarySearch(_terms, new Term(hash, 0, 0), Term.ByHash);
                 if (position < 0) continue;
                 var term = _terms[position];
-                var idf = Math.Log(1 + (_documents.Length - term.Count + 0.5) / (term.Count + 0.5));
+                var idf = InverseFrequency(term.Count);
                 for (var i = 0; i < term.Count; i++)
                 {
                     if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
                     var posting = _postings[term.Start + i];
                     var normalization = _documents[posting.Ordinal].Normalization;
-                    scores[posting.Ordinal] += idf * ((posting.Weight * (K1 + 1)) / (posting.Weight + normalization));
+                    scores[posting.Ordinal] += Score(posting.Weight, normalization, idf);
                 }
             }
-
-            for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
-            {
-                if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
-                var score = scores[ordinal];
-                if (score <= 0) continue;
-                var article = _documents[ordinal].Article;
-                var rank = (score, article.CreatedAt.UtcTicks, article.Id);
-                if (candidates.Count < MaxResults) candidates.Enqueue(article, rank);
-                else candidates.EnqueueDequeue(article, rank);
-            }
+            Select(scores, 0, candidates, ct);
         }
         finally
         {
             ArrayPool<double>.Shared.Return(buffer);
         }
 
+        return Ordered(candidates);
+    }
+
+    private double InverseFrequency(int documentFrequency) =>
+        Math.Log(1 + (_documents.Length - documentFrequency + 0.5) / (documentFrequency + 0.5));
+
+    private static double Score(int weight, double normalization, double idf) =>
+        idf * ((weight * (K1 + 1)) / (weight + normalization));
+
+    private void Select(ReadOnlySpan<double> scores, int start,
+        PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates, CancellationToken ct)
+    {
+        for (var ordinal = 0; ordinal < scores.Length; ordinal++)
+        {
+            if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+            var score = scores[ordinal];
+            if (score <= 0) continue;
+            var article = _documents[start + ordinal].Article;
+            var rank = (score, article.CreatedAt.UtcTicks, article.Id);
+            if (candidates.Count < MaxResults) candidates.Enqueue(article, rank);
+            else candidates.EnqueueDequeue(article, rank);
+        }
+    }
+
+    private static Article[] Ordered(PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates)
+    {
         var result = new Article[candidates.Count];
         for (var index = result.Length - 1; index >= 0; index--)
             result[index] = candidates.Dequeue();
         return result;
+    }
+
+    private static Document[] Normalize(IReadOnlyList<Article> articles, ReadOnlySpan<int> lengths, long totalLength,
+        CancellationToken ct)
+    {
+        var average = Math.Max((double)totalLength / Math.Max(articles.Count, 1), 1);
+        var documents = new Document[articles.Count];
+        for (var ordinal = 0; ordinal < documents.Length; ordinal++)
+        {
+            if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+            documents[ordinal] = new Document(articles[ordinal], K1 * (1 - B + B * lengths[ordinal] / average));
+        }
+        return documents;
+    }
+
+    private sealed class PostingBuilder(long remainingChars)
+    {
+        private readonly Dictionary<uint, int> _frequencies = [];
+        internal readonly Dictionary<uint, Bucket> Heads = [];
+        internal readonly List<PendingPosting> Pending = [];
+        internal long TotalLength { get; private set; }
+
+        internal bool Collect(IReadOnlyList<Article> articles, int first, Span<int> lengths,
+            int termLimit, int postingLimit, CancellationToken ct)
+        {
+            Heads.Clear();
+            Pending.Clear();
+            for (var ordinal = 0; ordinal < lengths.Length; ordinal++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var article = articles[first + ordinal];
+                _frequencies.Clear();
+                if (!Index(article.Title, 16) || !Index(article.Summary ?? "", 8) ||
+                    !Index(article.Category?.Name ?? "", 5))
+                    return false;
+                foreach (var tag in article.Tags ?? [])
+                    if (!Index(tag.Name, 5)) return false;
+                if (!Index(article.Body, 2)) return false;
+                lengths[ordinal] = ArticleSearchTokens.DocumentLength(article.Body);
+                TotalLength += lengths[ordinal];
+
+                if (_frequencies.Count > postingLimit - Pending.Count) return false;
+                foreach (var (hash, weight) in _frequencies)
+                {
+                    ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(Heads, hash, out var found);
+                    if (!found)
+                    {
+                        if (Heads.Count > termLimit) return false;
+                        bucket = new Bucket(-1, 0);
+                    }
+                    Pending.Add(new PendingPosting(new Posting(ordinal, weight), bucket.Head));
+                    bucket = new Bucket(Pending.Count - 1, bucket.Count + 1);
+                }
+            }
+            return true;
+
+            bool Index(string text, int weight)
+            {
+                remainingChars -= text.Length;
+                if (remainingChars < 0) return false;
+                foreach (var hash in ArticleSearchTokens.Hashes(text, ct))
+                {
+                    ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
+                    if (frequency > int.MaxValue - weight) return false;
+                    frequency += weight;
+                    if (_frequencies.Count > termLimit) return false;
+                }
+                return true;
+            }
+        }
     }
 
     private readonly record struct Posting(int Ordinal, int Weight);

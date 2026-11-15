@@ -43,11 +43,11 @@ internal sealed class PublicSnapshot
         TaxonomyEpoch = taxonomyEpoch;
         _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
         _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, cancellationToken);
-        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus, cancellationToken);
+        _search = ArticleSearchIndex.Build(articles, cancellationToken);
+        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus, _search?.UsesWideProfile is true, cancellationToken);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
-        _search = ArticleSearchIndex.Build(articles, cancellationToken);
         _byId = articles.ToFrozenDictionary(article => article.Id);
         _media = media;
         _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media);
@@ -103,7 +103,7 @@ internal sealed class PublicSnapshot
     }
 
     private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch,
-        IReadOnlyList<byte[]>? corpus, CancellationToken ct)
+        IReadOnlyList<byte[]>? corpus, bool wideSearch, CancellationToken ct)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> coordinates = stackalloc byte[20];
@@ -111,6 +111,7 @@ internal sealed class PublicSnapshot
         // article rows still cannot serve changed corpus bytes at the old coordinate.
         hash.AppendData("public-generation-corpus-v1\0"u8);
         hash.AppendData("public-search-bm25-v1\0"u8);
+        if (wideSearch) hash.AppendData("public-search-bm25-wide-v1\0"u8);
         AppendNumber(corpus?.Count ?? -1);
         if (corpus is not null)
         {

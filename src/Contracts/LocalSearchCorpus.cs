@@ -20,6 +20,12 @@ public static class LocalSearchCorpus
 
     public static IReadOnlyList<byte[]>? Build(IReadOnlyList<Article> articles, CancellationToken ct = default)
     {
+        // Every page holds at most this many documents even when the byte budget would fit more.
+        if (articles.Count > checked(MaxPages * WireLimits.SearchIndexPageSize))
+        {
+            ct.ThrowIfCancellationRequested();
+            return null;
+        }
         var pages = new List<byte[]>();
         var docs = new List<Document>();
         using var postingBytes = new MemoryStream();
