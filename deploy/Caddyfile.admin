@@ -6,9 +6,9 @@ import Caddyfile
 
 	@wrong_tls_host expression `{http.request.tls.server_name}.lowerAscii() != {http.request.host}.lowerAscii()`
 	@admin_routes path /admin/identity /api/v2/admin/identity/* /assets/* /dist/*
-	@admin_page_read {
+	@admin_legacy_read {
 		method GET
-		path_regexp admin_page_read (?i)^/api/binary/system/admin/page/[^/]+/?$
+		path_regexp admin_legacy_read (?i)^/api/binary/(system/admin/page/[^/]+|author/comments/[0-9]+/(revisions|moderation-timeline))/?$
 	}
 	@admin_page_write {
 		method PUT
@@ -19,7 +19,7 @@ import Caddyfile
 		handle @admin_routes {
 			import fsusblog_upstream
 		}
-		handle @admin_page_read {
+		handle @admin_legacy_read {
 			import fsusblog_upstream
 		}
 		handle @admin_page_write {

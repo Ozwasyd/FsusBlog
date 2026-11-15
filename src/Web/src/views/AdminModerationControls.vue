@@ -14,6 +14,7 @@ import {
 } from '../../../Contracts/admin-moderation'
 import { claimModerationBatch, proveAndDecideModerationBatch, readModerationBatchConflicts } from '../../../Contracts/admin-moderation-batch'
 import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up'
+import { readModerationTimeline, validModerationCoordinates, type ModerationTimeline } from '../../../Contracts/comment-moderation-timeline'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import AdminAppealReview from './AdminAppealReview.vue'
 
@@ -38,6 +39,14 @@ const batchAvailable = computed(() => queue.value?.batchEnabled === true &&
 const busy = ref(false)
 const failure = ref('')
 const notice = ref('')
+const historyArticle = ref('')
+const historyComment = ref('')
+const history = shallowRef<ModerationTimeline | null>(null)
+const statuses = ['Pending', 'Approved', 'Rejected', 'Hidden'] as const
+const eventLabels: Record<string, string> = {
+  create: 'Submitted', approve: 'Approved', reject: 'Rejected', hide: 'Hidden', edit: 'Edited', delete: 'Deleted',
+  appeal: 'Appeal submitted', appeal_decision: 'Appeal decided',
+}
 const lifetime = new AbortController()
 let cursor: AdminCommentCursor | null = null
 let claimTimer: ReturnType<typeof setTimeout> | undefined
@@ -66,6 +75,8 @@ watch(() => props.sessionSignal, (signal, _, onCleanup) => {
   }
 }, { immediate: true, flush: 'sync' })
 
+watch([historyArticle, historyComment], () => { history.value = null }, { flush: 'sync' })
+
 function clearReview() {
   setClaim(null)
   clearBatch()
@@ -74,6 +85,9 @@ function clearReview() {
   busy.value = false
   notice.value = ''
   failure.value = ''
+  historyArticle.value = ''
+  historyComment.value = ''
+  history.value = null
 }
 
 function isClaimed(row: AdminCommentCursor): boolean {
@@ -132,6 +146,18 @@ function load(after: AdminCommentCursor | null = null) {
     cursor = after
     queue.value = response
   }, () => 'Could not load the moderation queue. Try again.')
+}
+
+function loadHistory() {
+  const article = historyArticle.value
+  const comment = historyComment.value
+  if (!validModerationCoordinates(article, comment)) return
+  return run(async signal => {
+    history.value = null
+    const result = await readModerationTimeline(article, comment, signal)
+    if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) history.value = result
+  }, error => error instanceof ApiError && error.status === 404
+    ? 'Comment history was not found for these IDs.' : 'Could not load comment history. Try again.')
 }
 
 function claimForReview(target: AdminCommentCursor) {
@@ -302,6 +328,29 @@ function decideBatch(decision: 1 | 2) {
     <h2 id="admin-moderation-heading">Moderation queue</h2>
     <ElButton native-type="button" :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">Load moderation queue</ElButton>
     <AdminAppealReview :session-signal="sessionSignal" @session-lost="emit('sessionLost', $event)" />
+    <section class="moderation-claim" aria-labelledby="admin-comment-history-heading">
+      <h3 id="admin-comment-history-heading">Comment moderation history</h3>
+      <form class="moderation-claim" @submit.prevent="loadHistory">
+        <label for="admin-comment-history-article">Article ID</label>
+        <ElInput id="admin-comment-history-article" v-model="historyArticle" v-bind="{ inputmode: 'numeric', maxlength: 10 }" :disabled="busy" />
+        <label for="admin-comment-history-comment">Comment ID</label>
+        <ElInput id="admin-comment-history-comment" v-model="historyComment" v-bind="{ inputmode: 'numeric', maxlength: 19 }" :disabled="busy" />
+        <div><ElButton native-type="submit" :disabled="busy || !validModerationCoordinates(historyArticle, historyComment)">Load comment history</ElButton></div>
+      </form>
+      <template v-if="history">
+        <p role="status">Current status: {{ history.deleted ? 'Deleted' : statuses[history.currentStatus] }}.</p>
+        <ElAlert v-if="!history.consistent" title="The recorded history does not establish the current status." type="warning" :closable="false" />
+        <p v-if="history.events.length === 0">No moderation events were recorded.</p>
+        <ol v-else class="moderation-history-list">
+          <li v-for="(event, index) in history.events" :key="index">
+            <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? eventLabels[event.eventType] : event.eventType }}</strong>
+            · {{ statuses[event.nextStatus] }} · {{ event.actorType }}
+            · <time :datetime="event.occurredAtUtc">{{ new Date(event.occurredAtUtc).toLocaleString() }}</time>
+            <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
+          </li>
+        </ol>
+      </template>
+    </section>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
     <ElAlert v-if="notice" :title="notice" type="success" :closable="false" show-icon />
     <template v-if="queue">
@@ -390,4 +439,5 @@ function decideBatch(decision: 1 | 2) {
 .moderation-claim p, .moderation-claim h3 { margin: 0; }
 .moderation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .moderation-actions .moderation-action { margin-inline-start: 0; }
+.moderation-history-list { display: grid; gap: var(--fsus-space-2); padding-inline-start: 1.5rem; overflow-wrap: anywhere; }
 </style>

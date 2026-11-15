@@ -534,6 +534,36 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
+  const historyPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', row.commentId.toString()) + `?articleId=${articleId}`
+  const history = section.getByRole('region', { name: 'Comment moderation history' })
+  const historyArticle = history.getByLabel('Article ID', { exact: true })
+  const historyComment = history.getByLabel('Comment ID', { exact: true })
+  assert.equal(await historyComment.getAttribute('inputmode'), 'numeric')
+  await historyArticle.fill(String(articleId))
+  await historyComment.fill(row.commentId.toString())
+  const [timeline] = await Promise.all([
+    page.waitForResponse(adminOrigin.origin + historyPath), historyComment.press('Enter'),
+  ])
+  assert.equal(timeline.status(), 200)
+  assert.equal(await timeline.headerValue('cache-control'), 'no-store')
+  assert.equal((await context.request.get(siteOrigin.origin + historyPath)).status(), 404)
+  assert.equal((await context.request.post(adminOrigin.origin + historyPath)).status(), 404)
+  await history.getByRole('status').filter({ hasText: 'Current status: Approved.' }).waitFor()
+  const entries = history.getByRole('listitem')
+  assert.deepEqual(await entries.locator('strong').allTextContents(), ['Submitted', 'Approved'])
+  assert((await entries.last().textContent()).includes('Moderation integration fixture'))
+  await page.setViewportSize({ width: 375, height: 800 })
+  await history.scrollIntoViewIfNeeded()
+  assert(await history.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'History must fit the narrow layout.')
+  await history.screenshot({ path: join(evidence, 'administrator-comment-history-375.png') })
+  await historyComment.fill('9007199254740993')
+  assert.equal(await entries.count(), 0, 'Changing the coordinate must clear the previous timeline.')
+  const missingPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', '9007199254740993') + `?articleId=${articleId}`
+  const [missing] = await Promise.all([page.waitForResponse(adminOrigin.origin + missingPath), historyComment.press('Enter')])
+  assert.equal(missing.status(), 404)
+  await section.getByRole('alert').filter({ hasText: 'Comment history was not found for these IDs.' }).waitFor()
+  await page.setViewportSize({ width: 1280, height: 800 })
+  checks.commentModerationHistory = true
   if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH === '1') {
     const { verifyAdminModerationBatch } = await import('./admin-comment-batch-flow.mjs')
     await verifyAdminModerationBatch({ page, context, section, adminOrigin: adminOrigin.origin, publicRoute, evidence })
@@ -560,6 +590,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   }
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
+  await credentialProbe(adminOrigin.origin + historyPath, adminCookieName, grantedCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
   assert.equal((await checkQueue()).status(), 401)
   await revoked.waitFor()
@@ -568,6 +599,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert((await snapshot(context)).principal.generation > granted.principal.generation)
   assert.equal((await postModerationIntent(context.request, intent)).status(), 403)
   assert.equal((await context.request.get(endpoint)).status(), 403, 'Removing moderation authority must preserve only login.')
+  assert.equal((await context.request.get(adminOrigin.origin + historyPath)).status(), 403)
   await expectPanelHidden(page, 'Moderation queue')
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
