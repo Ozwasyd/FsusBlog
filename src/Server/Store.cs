@@ -184,10 +184,11 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
         (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null,
         ArticleSummaryCommand? summary = null, ArticleBodyInsertionCommand? insertion = null,
-        ArticleBodyInsertionsCommand? insertions = null, ArticleBodyEditsCommand? bodyEdits = null)
+        ArticleBodyInsertionsCommand? insertions = null, ArticleBodyEditsCommand? bodyEdits = null, ArticleCoverCommand? cover = null)
     {
         var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
             attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
+            cover is not null ? SHA256.HashData(Wire.EncodeArticleCoverCommand(cover)) :
             rights is not null ? SHA256.HashData(Wire.EncodeArticleRightsCommand(rights)) :
             schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
@@ -197,7 +198,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             insertions is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionsCommand(insertions)) :
             insertion is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionCommand(insertion)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
-        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null || summary is not null
+        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null || cover is not null || summary is not null
             ? await Find(db, tx, actor, edit.Id, true, ct) : null;
         ArticleState? replay = null;
         await using (var existing = Sql(db, tx, """
@@ -238,7 +239,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         else
         {
             current ??= await Find(db, tx, actor, edit.Id, true, ct, includeDeleted: action == ArticleAction.Restore);
-            if (taxonomy is not null || rights is not null || attachment is not null || summary is not null)
+            if (taxonomy is not null || rights is not null || attachment is not null || cover is not null || summary is not null)
                 edit = edit with { Title = current.Title, Body = current.Body };
             if (schedule is not null)
             {
@@ -293,7 +294,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             await Authoring.PublicationRightsStore.CarryForward(db, tx, state.Id, sourceRevision, state.Revision, ct);
         if (edit.Id != 0)
             await Content.ArticleMediaStore.Copy(db, tx, actor.Id, state.Id, sourceRevision,
-                state.Revision, attachment, ct);
+                state.Revision, attachment, ct, cover);
         await using (var record = Sql(db, tx, """
             insert into public.article_command(actor_id,command_id,fingerprint,article_id,revision,title,body,published)
             values($1,$2,$3,$4,$5,$6,$7,$8)
@@ -310,7 +311,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         if (action == ArticleAction.Publish)
             await Authoring.PublicationHistoryStore.RecordPublishedOutbox(db, tx, state.Id, state.Revision, ct);
         else
-            await EnqueueRevision(db, tx, state, attachment is not null ? "draft-media" : rights is not null ? "rights" :
+            await EnqueueRevision(db, tx, state, attachment is not null || cover is not null ? "draft-media" : rights is not null ? "rights" :
                 schedule is not null ? (schedule.DueUnixMs == 0 ? "schedule-cancel" : "schedule") :
                 rollback is null ? action.ToString().ToLowerInvariant() : "draft-rollback", ct);
         return (state, true);
@@ -371,6 +372,15 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
         var saved = await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, attachment: input);
         return saved.Article;
+    }
+
+    internal static async Task<ArticleState> SetCover(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleCoverCommand input, CancellationToken ct)
+    {
+        if (!await CurrentSchema.HasArticleCoverAsync(db, tx, ct))
+            throw new BusinessException(Rejection.NotFound, "Saved article covers are unavailable.");
+        var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
+        return (await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, cover: input)).Article;
     }
 
     internal static async Task<ArticleSchedule> Schedule(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,

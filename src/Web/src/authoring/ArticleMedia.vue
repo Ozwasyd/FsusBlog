@@ -17,6 +17,7 @@ const available = ref(true)
 const expanded = ref(false)
 const pending = ref(false)
 const error = ref('')
+const cover = ref<string | null>();
 const attached = shallowRef<readonly ArticleAttachment[]>([])
 const library = shallowRef<readonly PrivateMediaItem[]>([])
 const more = ref(false)
@@ -60,6 +61,7 @@ async function load() {
     library.value = page.items
     more.value = page.hasMore
     attached.value = existing.entries
+    cover.value = existing.cover
     if (existing.entries.length <= maxDocumentExportImages) exportSelection.value = existing.entries.map(asset => asset.id)
     publishEnabled.value = existing.publishImages
     error.value = ''
@@ -165,6 +167,7 @@ watch([() => props.articleId, () => props.revision, () => props.credential, cred
   task.abort()
   task = new AbortController()
   attached.value = []
+  cover.value = undefined
   imageExports.clear()
   exportSelection.value = []
   selected.value = undefined
@@ -197,6 +200,11 @@ onBeforeUnmount(() => {
         <ul v-if="attached.length" class="attachment-list">
           <li v-for="asset in attached" :key="asset.id">
             <span>{{ label(asset.id) }}</span>
+            <span v-if="cover === asset.id">Draft cover</span>
+            <ElButton v-if="cover !== undefined" native-type="button" text :disabled="pending || !canChange"
+              @click="emit('save', { cover: cover === asset.id ? null : asset.id })">
+              {{ cover === asset.id ? 'Remove draft cover' : `Use ${label(asset.id)} as draft cover` }}
+            </ElButton>
             <ElButton native-type="button" text :disabled="pending" @click="openPreview(asset.id)">Preview {{ label(asset.id) }}</ElButton>
             <ElButton native-type="button" text :disabled="pending || !canChange" @click="emit('save', { assetId: asset.id, attach: false })">Detach {{ label(asset.id) }}</ElButton>
             <ElCheckbox v-if="attached.length > 1" :model-value="exportSelection.includes(asset.id)"

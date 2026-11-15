@@ -54,6 +54,7 @@ internal static class RevisionHistoryEndpoints
                 {
                     ctx.Response.Headers.CacheControl = "no-store";
                     var metadata = await RevisionHistoryStore.ReadMetadata(db, tx, id, expected, sourceRevision, ct);
+                    await Content.ArticleMediaStore.WriteCoverHeaders(db, tx, ctx.Response, id, expected, ct, sourceRevision);
                     return Reply(metadata, pair => Wire.EncodeRevisionMetadataComparison(id, expected, sourceRevision, pair.Current, pair.Source));
                 }
                 if (map == "properties")

@@ -100,6 +100,12 @@ internal static partial class Migration
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: exists),
             requiresAdminIdentity: false);
 
+    private static Task InitializeArticleCoverAsync(NpgsqlConnection connection, CancellationToken token) =>
+        InitializeOptionalSchemaAsync(connection, token, "zzzz-article-cover.sql", "Verified the saved article cover schema.",
+            CurrentSchema.HasArticleCoverAsync,
+            (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requireArticleCover: exists),
+            verifyWhenInstalled: true, requiresAdminIdentity: false);
+
     private static Task InitializePropertySnapshotsAsync(NpgsqlConnection connection, CancellationToken token) =>
         InitializeRecoverySchemaAsync(connection, token, "property-snapshots.sql",
             "Verified the private article property snapshot schema.", CurrentSchema.HasPropertySnapshotsAsync);

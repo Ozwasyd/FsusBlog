@@ -50,6 +50,7 @@ internal static partial class Migration
             [("private-media-import-origin", "schema")] = InitializePrivateMediaImportOriginAsync,
             [("legacy", "release-origin-schema")] = InitializeLegacyReleaseOriginSchemaAsync,
             [("article-private-media", null)] = InitializeArticleMediaAsync,
+            [("article-cover", "schema")] = InitializeArticleCoverAsync,
             [("article-public-media", null)] = InitializePublicationMediaAsync,
             [("authoring-workspace", null)] = InitializeAuthoringWorkspaceAsync,
             [("author-recent-opens", null)] = InitializeAuthorRecentOpensAsync,
@@ -132,6 +133,7 @@ internal static partial class Migration
                   private-media-import-origin schema
                                         Install the offline private-media import origin schema
                   article-private-media Add article revision attachment storage with the server stopped
+                  article-cover schema  Add saved article covers with the server stopped
                   article-public-media  Add explicit publication attachment storage with the server stopped
                   article-public-media verify|rebuild SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
                                         Check historical image objects or rebuild missing objects from retained private bytes

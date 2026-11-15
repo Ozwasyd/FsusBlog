@@ -1256,7 +1256,7 @@ async function finishSubmission(action: Action, current: WorkspaceTab, document:
       'assign-taxonomy': 'Classification saved.', 'rollback-history': 'Revision restored to a new draft.',
       'schedule-publication': 'Publication schedule updated.',
       'save-rights': 'Publication rights saved.',
-      'save-attachment': 'Private attachments saved.',
+      'save-attachment': 'Private article media saved.',
       'save-summary': 'Summary saved.',
     }[action]
     if (!document.id) await router.replace({ ...address(result.articleId), state: persistentWorkspace.value ? workspaceState : undefined })

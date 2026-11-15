@@ -104,7 +104,8 @@ const metadataChanges = computed(() => {
   const tags = (item: typeof source) => item.tags.map(tag => tag.id).join(',')
   return [source.summary !== current.summary ? 'Summary changed.' : 'Summary unchanged.',
     source.category?.id !== current.category?.id ? 'Category changed.' : 'Category unchanged.',
-    tags(source) !== tags(current) ? 'Tags changed.' : 'Tags unchanged.'].join(' ')
+    tags(source) !== tags(current) ? 'Tags changed.' : 'Tags unchanged.',
+    !source.cover && !current.cover ? '' : source.cover === current.cover ? 'Cover unchanged.' : 'Cover changed.'].filter(Boolean).join(' ')
 })
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
@@ -392,6 +393,9 @@ onScopeDispose(() => {
                   <dt>Summary</dt><dd>{{ fields.summary || 'No saved summary' }}</dd>
                   <dt>Category</dt><dd>{{ fields.category?.name ?? 'No category' }}</dd>
                   <dt>Tags</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || 'No tags' }}</dd>
+                  <template v-if="comparisonMetadata.source.cover || comparisonMetadata.current.cover">
+                    <dt>Cover</dt><dd>{{ fields.cover ? `Private image ${fields.cover}` : 'No draft cover' }}</dd>
+                  </template>
                 </dl>
               </section>
             </div>
@@ -415,7 +419,7 @@ onScopeDispose(() => {
           :active="comparisonOpen" />
         <label :for="`${compareId}-reason`">Reason for restoring this draft</label>
         <ElInput :id="`${compareId}-reason`" v-model="reason" />
-        <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, and any stored rights policy into a new draft.</p>
+        <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, private attachments, draft cover, and rights policy into a new draft.</p>
         <p v-if="!props.canRollback">Save pending changes before restoring a revision.</p>
         <ElButton :disabled="!allowed" @click="restore">Restore as new draft</ElButton>
       </div>
@@ -448,7 +452,7 @@ onScopeDispose(() => {
   overflow-wrap: anywhere;
 }
 .revision-source h3 { font-size: 1rem; }
-.revision-metadata dd { margin-inline-start: 0; white-space: pre-wrap; }
+.revision-metadata dd { margin-inline-start: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .revision-source pre {
   white-space: pre-wrap;
   max-block-size: min(40dvh, 24rem);

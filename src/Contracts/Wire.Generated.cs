@@ -119,6 +119,7 @@ public enum FrameType : ushort
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
     AdminTagCreateCommand = 33060,
+    ArticleCoverCommand = 33061,
     AdminCategoryMetadataCommand = 33058,
     AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
@@ -697,6 +698,7 @@ public static class WireRoutes
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
     public const string ArticleMedia = "/api/v2/authoring/draft/{id:int}/media.aeds";
     public const string ArticleMediaCommand = "/api/v2/authoring/draft/media.aeds";
+    public const string ArticleCoverSave = "/api/v2/authoring/draft/cover.aeds";
     public const string ArticlePublishImages = "/api/v2/authoring/draft/publish-images.aeds";
     public const string PublicArticleMedia = "/api/v2/public/articles/{id:int}/{publication:long}/media.aeds";
     public const string ArticleReadChallenge = "/api/v2/public/articles/{id:int}/{publication:long}/read/challenge.aeds";
@@ -932,6 +934,8 @@ public static class WireHeaders
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string PrivateMediaWebp = "X-Fsus-Private-Media-WebP";
     public const string ArticlePublishImagesEnabled = "X-Fsus-Article-Publish-Images";
+    public const string ArticleCover = "X-Fsus-Article-Cover";
+    public const string SourceArticleCover = "X-Fsus-Source-Article-Cover";
     public const string PublicArticleMediaPresent = "X-Fsus-Public-Article-Media";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";

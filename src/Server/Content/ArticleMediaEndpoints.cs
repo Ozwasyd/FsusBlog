@@ -22,6 +22,8 @@ internal static class ArticleMediaEndpoints
                 var digest = Store.TokenDigest(session)!;
                 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var entries = ids.Select(asset => new ArticleMediaEntry(asset, new ArticleMediaTicket(id, revision, asset).Encode(digest, now))).ToArray();
+                if (SiteSessions.Requested(ctx) is not null)
+                    await ArticleMediaStore.WriteCoverHeaders(db, tx, ctx.Response, id, revision, ct);
                 if (publishedMedia) ctx.Response.Headers[WireHeaders.ArticlePublishImagesEnabled] = "1";
                 return Results.Bytes(Wire.EncodeArticleMedia(id, revision, entries), Aeds.ContentType);
             }, ct);
@@ -42,6 +44,23 @@ internal static class ArticleMediaEndpoints
                 SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(session)!,
                     MediaEndpoints.Only(ctx.Request.Headers[WireHeaders.CurrentSession], WireLimits.SiteSessionIdBytes));
                 var saved = await Store.SetPrivateAttachment(db, tx, actor, command, ct);
+                return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
+            }, ct);
+        }).RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.ArticleCoverSave, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            if (ctx.Request.ContentType != Aeds.ContentType || ctx.Request.ContentLength != ArticleCoverCommand.FrameBytes)
+                throw new BusinessException(Rejection.Invalid, "Expected a bounded saved cover command.");
+            if (ctx.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                limit.MaxRequestBodySize = ArticleCoverCommand.FrameBytes;
+            var frame = new byte[ArticleCoverCommand.FrameBytes];
+            await ctx.Request.Body.ReadExactlyAsync(frame, ct);
+            var command = Wire.DecodeArticleCoverCommand(frame);
+            ClientMutationHeader.Require(ctx, command.IdempotencyKey, required: true);
+            return await SiteSessions.WithCurrentAuthor(store, ctx.Request.Cookies[cookie], SiteSessions.Requested(ctx), async (db, tx, actor, _) =>
+            {
+                var saved = await Store.SetCover(db, tx, actor, command, ct);
                 return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");

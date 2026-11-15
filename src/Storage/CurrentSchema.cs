@@ -126,9 +126,14 @@ internal static partial class CurrentSchema
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
         bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
         bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null,
-        bool? requireAdminArticleTrashRestore = null)
+        bool? requireAdminArticleTrashRestore = null, bool? requireArticleCover = null)
     {
         requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
+        var hasArticleCover = await HasArticleCoverAsync(connection, transaction, cancellationToken);
+        RequireSchemaPresence(requireArticleCover, hasArticleCover,
+            "The saved article cover schema presence does not match the requested operation.");
+        if (hasArticleCover && !requireArticleMedia.Value)
+            throw new InvalidOperationException("Saved article covers require the article attachment schema.");
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
         var hasLegacyReleaseOrigin = await HasLegacyReleaseOriginAsync(connection, transaction, cancellationToken);
         if (hasPrivateMediaImportOrigin && !requireArticleMedia.Value)
@@ -304,6 +309,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
+            .Concat(hasArticleCover ? ArticleCoverColumns : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
@@ -356,6 +362,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
+            .Concat(hasArticleCover ? ArticleCoverConstraints : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])

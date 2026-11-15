@@ -519,6 +519,7 @@ enum class FrameType : uint16_t {
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
     AdminTagCreateCommand = 33060,
+    ArticleCoverCommand = 33061,
     AdminCategoryMetadataCommand = 33058,
     AdminCategoryMetadata = 33059,
     AdminModerationIntent = 32866,
@@ -689,8 +690,7 @@ inline constexpr FrameRange frameRanges[] = {
     {32967, 32980},
     {32997, 33030},
     {33032, 33049},
-    {33055, 33060},
-    {33062, 33066},
+    {33055, 33066},
     {33068, 33068},
     {33070, 33070},
 };

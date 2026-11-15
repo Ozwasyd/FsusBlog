@@ -1,6 +1,7 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Authoring;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
@@ -22,7 +23,7 @@ internal static class ArticleMediaStore
     }
 
     internal static async Task Copy(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article, long source,
-        long revision, ArticleMediaCommand? change, CancellationToken ct)
+        long revision, ArticleMediaCommand? change, CancellationToken ct, ArticleCoverCommand? cover = null)
     {
         if (change is null)
         {
@@ -30,7 +31,8 @@ internal static class ArticleMediaStore
                 INSERT INTO public.article_revision_media(article_id,revision,asset_id)
                 SELECT article_id,$3,asset_id FROM public.article_revision_media WHERE article_id=$1 AND revision=$2
                 """, article, source, revision);
-            await copy.ExecuteNonQueryAsync(ct);
+            if (await copy.ExecuteNonQueryAsync(ct) > 0 || cover is not null)
+                await CopyCover(db, tx, article, source, revision, cover, ct);
             return;
         }
 
@@ -53,6 +55,41 @@ internal static class ArticleMediaStore
             SELECT $1,$2,asset FROM pg_catalog.unnest($3) AS refs(asset)
             """, article, revision, assets.ToArray());
         await insert.ExecuteNonQueryAsync(ct);
+        await CopyCover(db, tx, article, source, revision, cover, ct);
+    }
+
+    private static async Task CopyCover(NpgsqlConnection db, NpgsqlTransaction tx, int article, long source,
+        long revision, ArticleCoverCommand? change, CancellationToken ct)
+    {
+        if (change is { AssetId: var value } && value == Guid.Empty) return;
+        if (change is null && !await CurrentSchema.HasArticleCoverAsync(db, tx, ct)) return;
+
+        // Join the copied attachment so removing it also clears the cover on that successor alone.
+        var selection = change is null
+            ? "(select asset_id from public.article_revision_cover where article_id=$1 and revision=$3)"
+            : "$3";
+        await using var copy = Store.Sql(db, tx, $"""
+            INSERT INTO public.article_revision_cover(article_id,revision,asset_id)
+            SELECT article_id,revision,asset_id FROM public.article_revision_media
+            WHERE article_id=$1 AND revision=$2 AND asset_id={selection}
+            """, article, revision, (object?)change?.AssetId ?? source);
+        if (await copy.ExecuteNonQueryAsync(ct) != 1 && change is not null) throw Missing();
+    }
+
+    internal static async Task WriteCoverHeaders(NpgsqlConnection db, NpgsqlTransaction tx, HttpResponse response,
+        int article, long current, CancellationToken ct, long? source = null)
+    {
+        if (!await CurrentSchema.HasArticleCoverAsync(db, tx, ct)) return;
+        await using var command = Store.Sql(db, tx, """
+            SELECT revision,asset_id FROM public.article_revision_cover
+            WHERE article_id=$1 AND revision IN ($2,$3)
+            """, article, current, source ?? current);
+        await using var rows = await command.ExecuteReaderAsync(ct);
+        response.Headers[WireHeaders.ArticleCover] = "none";
+        if (source is not null) response.Headers[WireHeaders.SourceArticleCover] = "none";
+        while (await rows.ReadAsync(ct))
+            response.Headers[rows.GetInt64(0) == current ? WireHeaders.ArticleCover : WireHeaders.SourceArticleCover] =
+                rows.GetGuid(1).ToString("D");
     }
 
     internal static async Task<bool> Contains(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article,

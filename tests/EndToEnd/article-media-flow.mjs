@@ -6,8 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
+import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { PodWriter } from '../../src/Contracts/binary.ts'
 import { uploadMedia } from '../../src/Contracts/private-media.ts'
-import { WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -127,6 +129,36 @@ try {
       await choose.press('Enter')
       await page.getByRole('option', { name: 'companion-' + file, exact: true }).click()
       await page.getByRole('button', { name: 'Attach image' }).click()
+      await page.getByRole('button', { name: `Use ${file} as draft cover`, exact: true }).waitFor()
+      const coverRead = response => new URL(response.url()).pathname === WireRoutes.ArticleMedia.replace('{id:int}', draft.id)
+      const [savedCover, attachedCover] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.ArticleCoverSave),
+        page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === asset.id),
+        page.getByRole('button', { name: `Use ${file} as draft cover`, exact: true }).click(),
+      ])
+      assert.equal(savedCover.status(), 200)
+      assert.equal(attachedCover.headers()['cache-control'], 'no-store')
+      const covered = decodeDraft(decodeFrame(await savedCover.body(), FrameType.Draft).payload)
+      assert.equal(covered.revision, draft.revision + 3n)
+      assert.equal(covered.body, draft.body)
+      const command = savedCover.request()
+      const headers = {
+        'Content-Type': await command.headerValue('content-type'),
+        [WireHeaders.CurrentSession]: await command.headerValue(WireHeaders.CurrentSession.toLowerCase()),
+        [WireHeaders.ClientMutationId]: await command.headerValue(WireHeaders.ClientMutationId.toLowerCase()),
+      }
+      const data = command.postDataBuffer()
+      const postCover = origin + WireRoutes.ArticleCoverSave
+      const replay = await author.request.post(postCover, { headers, data })
+      assert.equal(replay.status(), 200)
+      assert.deepEqual(await replay.body(), await savedCover.body())
+      assert.equal((await author.request.post(postCover, { headers: { ...headers, [WireHeaders.CurrentSession]: 'invalid' }, data })).status(), 409)
+      const staleKey = crypto.randomUUID()
+      const staleData = coverFrame(draft.id, covered.revision - 1n, staleKey, second.id)
+      assert.equal((await author.request.post(postCover, { headers: { ...headers, [WireHeaders.ClientMutationId]: staleKey }, data: staleData })).status(), 409)
+      assert.equal((await fetch(postCover, { method: 'POST', headers, body: data })).status, 401)
+      await page.getByText('Draft cover', { exact: true }).waitFor()
+
       const [selection, images] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === `/api/v2/authoring/draft/${draft.id}/export.html`),
         page.waitForEvent('download'), page.getByRole('button', { name: 'Download saved HTML with these images' }).click(),
@@ -136,8 +168,38 @@ try {
         [asset.id, second.id].sort())
       assert.equal((await readFile(await images.path(), 'utf8')).split('data:image/png;base64,' + previewBytes.toString('base64')).length, 3)
       await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
+      const [withOtherDetached] = await Promise.all([
+        page.waitForResponse(response => coverRead(response) && new URL(response.url()).searchParams.get('revision') === String(covered.revision + 1n)),
+        page.getByRole('button', { name: 'Detach companion-' + file, exact: true }).click(),
+      ])
+      assert.equal(withOtherDetached.headers()['x-fsus-article-cover'], asset.id)
+      const [cleared] = await Promise.all([
+        page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === 'none'),
+        page.getByRole('button', { name: 'Remove draft cover', exact: true }).click(),
+      ])
+      const current = BigInt(new URL(cleared.url()).searchParams.get('revision'))
+      assert.equal(current, covered.revision + 2n)
+      const unattachedKey = crypto.randomUUID()
+      const unattached = coverFrame(draft.id, current, unattachedKey, second.id)
+      assert.equal((await author.request.post(postCover, {
+        headers: { ...headers, [WireHeaders.ClientMutationId]: unattachedKey }, data: unattached,
+      })).status(), 404)
+      await page.getByText('Revision history', { exact: true }).click()
+      await page.getByRole('button', { name: `Compare revision ${covered.revision}`, exact: true }).click()
+      const comparison = page.getByRole('dialog', { name: 'Revision comparison', exact: true })
+      const [fields] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).searchParams.get('map') === 'metadata'),
+        comparison.getByText('Saved summary and classification', { exact: true }).press('Enter'),
+      ])
+      assert.equal(fields.headers()['x-fsus-article-cover'], 'none')
+      assert.equal(fields.headers()['x-fsus-source-article-cover'], asset.id)
+      await comparison.getByText(`Private image ${asset.id}`, { exact: true }).waitFor()
+      await comparison.getByLabel('Reason for restoring this draft').fill('Restore the selected private cover.')
+      await comparison.getByRole('button', { name: 'Restore as new draft', exact: true }).click()
+      await comparison.waitFor({ state: 'hidden' })
+      await page.getByText('Draft cover', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'Detach companion-' + file, exact: true }).click()
-      await page.getByRole('button', { name: `Detach ${file}` }).click()
+      await page.getByRole('button', { name: `Detach ${file}`, exact: true }).click()
       await page.getByText('No images are attached to this revision.', { exact: true }).waitFor()
       assert.equal((await author.request.get(previewUrl, { headers: { Authorization: authorization } })).status(), 404)
       revokedPreviewUrl = objectUrl
@@ -150,7 +212,7 @@ try {
       assert.deepEqual(diagnostics, [])
       assertions.push({ name, viewport, title: await page.title(), uploadedAssetAttached: true, privatePreviewRendered: true,
         anonymousDenied: true, previousTicketInvalidAfterDetach: true, authorizationHeaderOnly: true,
-        objectUrlRevoked: true, offlineHtmlImage: true, htmlImageBatch: true, offlineEpubImage: true, privateWordImage: true, taskWithImage, keyboard: true })
+        objectUrlRevoked: true, offlineHtmlImage: true, htmlImageBatch: true, offlineEpubImage: true, privateWordImage: true, storedCover: true, coverReplay: true, historicalCover: true, restoredCover: true, taskWithImage, keyboard: true })
     } finally { await author.close() }
   }
 } catch (error) { failure = error }
@@ -159,7 +221,16 @@ finally {
   await writeFile(join(evidence, 'article-media-browser.json'), JSON.stringify({ assertions, failure: failure?.stack }, null, 2))
 }
 if (failure) throw failure
-console.log('Native private previews and HTML, EPUB and Word image downloads passed in desktop and narrow Chrome.')
+console.log('Native private previews, draft cover lifecycle and image downloads passed in desktop and narrow Chrome.')
+
+function coverFrame(article, revision, key, asset) {
+  const writer = new PodWriter()
+  writer.i32(article)
+  writer.i64(revision)
+  writer.uuid(key)
+  writer.uuid(asset)
+  return Buffer.from(encodeFrame(FrameType.ArticleCoverCommand, writer.finish()))
+}
 
 async function downloadAttachment(page, draft, assetId, format, extension = format.toLowerCase()) {
   const button = page.getByRole('button', { name: `Download saved ${format} with this image`, exact: true })
