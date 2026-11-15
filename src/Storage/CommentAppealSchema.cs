@@ -12,7 +12,7 @@ internal static partial class CurrentSchema
         "comment_appeal id:int8:a article_id:int4 comment_id:int8 user_id:uuid adverse_id:int8 comment_version:int8 reason:text submitted_at:timestamptz",
         "comment_appeal_decision appeal_id:int8 principal_id:uuid session_reference:bytea granted:bool reason:text decided_at:timestamptz",
         "comment_appeal_event appeal_id:int8 kind:int2 previous_status:int2 next_status:int2 occurred_at:timestamptz",
-        "comment_appeal_admin_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"
+        StepUpColumns("comment_appeal_admin_step_up")
     ];
 
     private static readonly string[] CommentAppealConstraints =
@@ -41,16 +41,7 @@ internal static partial class CurrentSchema
         "comment_appeal_event c kind kind>=1ANDkind<=2",
         "comment_appeal_event c previous_status previous_status=2",
         "comment_appeal_event c next_status next_status>=1ANDnext_status<=2",
-        "comment_appeal_admin_step_up p digest",
-        "comment_appeal_admin_step_up f principal_id public.admin_principal:id",
-        "comment_appeal_admin_step_up f session_digest public.admin_session:digest delete-cascade",
-        "comment_appeal_admin_step_up u session_digest,kind",
-        "comment_appeal_admin_step_up c digest octet_length(digest)=32",
-        "comment_appeal_admin_step_up c session_digest octet_length(session_digest)=32",
-        "comment_appeal_admin_step_up c generation generation>0",
-        "comment_appeal_admin_step_up c action action=5",
-        "comment_appeal_admin_step_up c body_digest octet_length(body_digest)=32",
-        "comment_appeal_admin_step_up c kind kind>=1ANDkind<=2"
+        ..StepUpConstraints("comment_appeal_admin_step_up", "action=5", validateOptions: false)
     ];
 
     internal static Task<bool> HasCommentAppealSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>

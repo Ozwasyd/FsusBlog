@@ -220,11 +220,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                 var prefix = Keys + id + "__";
                 var spki = key.ExportSubjectPublicKeyInfo();
                 var material = WebEncoders.Base64UrlEncode(spki);
-                config[prefix + "Version"] = version.ToString(CultureInfo.InvariantCulture);
-                config[prefix + "Algorithm"] = ArticlePublicationProofPayloadV2.Algorithm;
-                config[prefix + "PublicKey"] = material;
-                config[prefix + "NotBeforeUtc"] = Time(from);
-                config[prefix + "NotAfterUtc"] = Time(until);
+                PublicationFixture.ConfigureKey(config, id, version.ToString(CultureInfo.InvariantCulture), spki, Time(from), Time(until));
                 if (revoked is { } at) config[prefix + "RevokedAtUtc"] = Time(at);
                 return new { keyId = id, keyVersion = version, keySha256 = Hex(SHA256.HashData(spki)), publicKey = material,
                     notBeforeUtc = Time(from), notAfterUtc = Time(until), revokedAtUtc = revoked is { } mark ? Time(mark) : null,

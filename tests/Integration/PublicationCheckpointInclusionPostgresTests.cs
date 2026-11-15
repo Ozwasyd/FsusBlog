@@ -35,10 +35,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var connection = await fixture.DataSource.OpenConnectionAsync(ct);
-        var directory = Directory.CreateDirectory(Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : "/tmp",
-            $"fsus-daily-inclusion-{Guid.NewGuid():N}"));
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(directory.FullName,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var directory = PublicationFixture.PrivateScratch("fsus-daily-inclusion");
         var succeeded = false;
         try
         {
@@ -53,32 +50,17 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             var before = publishedAt.AddDays(-1);
             var after = headAt.AddDays(30);
             var day = publishedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var privateFile = Path.Combine(directory.FullName, "key.pkcs8");
-            await WriteKey(privateFile, key);
-            var settings = new Dictionary<string, string>
-            {
-                ["FSUSBLOG_PUBLIC_ORIGIN"] = origin,
-                ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
-                [Signing + "NativeV2Enabled"] = "true",
-                [Signing + "CurrentKeyId"] = Key,
-                [Signing + "NativeV2PrivateKeyFile"] = privateFile,
-                [Signing + "Keys__fixture__Version"] = "1",
-                [Signing + "Keys__fixture__Algorithm"] = ArticlePublicationProofPayloadV2.Algorithm,
-                [Signing + "Keys__fixture__PublicKey"] = WebEncoders.Base64UrlEncode(spki),
-                [Signing + "Keys__fixture__NotBeforeUtc"] = Time(before),
-                [Signing + "Keys__fixture__NotAfterUtc"] = Time(after),
-                [Archive + "Enabled"] = "true",
-                [Archive + "Path"] = Path.Combine(directory.FullName, "archive.json"),
-            };
+            var privateFile = PublicationFixture.PrivateKey(directory, "key.pkcs8", key);
+            var settings = PublicationFixture.NativeSettings(origin, Key, privateFile);
+            PublicationFixture.ConfigureKey(settings, Key, "1", spki, Time(before), Time(after));
+            settings[Archive + "Enabled"] = "true";
+            settings[Archive + "Path"] = Path.Combine(directory.FullName, "archive.json");
             var migration = Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!;
             var runner = Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet";
             await Run(runner, [migration, "publication-transparency", "enable"], migrationEnvironment: true);
 
-            var owner = Guid.NewGuid();
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await Scalar(null, "insert into public.blog_user values($1,'Daily member fixture',true,true,1)", owner);
-            await Scalar(null, "insert into public.login_ticket values($1,$2,now()+interval '5 minutes')", SHA256.HashData(ticket), owner);
-            var (session, author) = await new Store(fixture.DataSource).SignIn(Hex(ticket), ct);
+            var (_, ticket) = await fixture.IssueTicket("Daily member fixture", ct, minutes: 5);
+            var (session, author) = await new Store(fixture.DataSource).SignIn(ticket, ct);
             Member covered;
             Member omitted;
             Member oddLeaf;
@@ -191,14 +173,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
 
             async Task CheckAutomatic()
             {
-                var checkpointFile = Path.Combine(directory.FullName, "checkpoint.pkcs8");
-                await WriteKey(checkpointFile, checkpointKey);
-                const string checkpointConfig = Signing + "Keys__checkpoint__";
-                settings[checkpointConfig + "Version"] = "1";
-                settings[checkpointConfig + "Algorithm"] = ArticlePublicationProofPayloadV2.Algorithm;
-                settings[checkpointConfig + "PublicKey"] = WebEncoders.Base64UrlEncode(checkpointSpki);
-                settings[checkpointConfig + "NotBeforeUtc"] = Time(before);
-                settings[checkpointConfig + "NotAfterUtc"] = Time(after);
+                var checkpointFile = PublicationFixture.PrivateKey(directory, "checkpoint.pkcs8", checkpointKey);
+                PublicationFixture.ConfigureKey(settings, "checkpoint", "1", checkpointSpki, Time(before), Time(after));
                 settings[Signing + "NativeV2PublicHeadAnchor"] = Coordinate(covered.Sequence) + ":" + Hex(covered.Entry);
                 settings.Remove(Archive + "Enabled");
                 await Scalar(null, """
@@ -294,14 +270,6 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                     if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(replacement, UnixFileMode.UserRead);
                     File.Move(replacement, sealedPath, overwrite: true);
                 }
-            }
-
-            async Task WriteKey(string path, ECDsa signer)
-            {
-                var privateBytes = signer.ExportPkcs8PrivateKey();
-                try { await File.WriteAllBytesAsync(path, privateBytes, ct); }
-                finally { CryptographicOperations.ZeroMemory(privateBytes); }
-                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead);
             }
 
             async Task<Member> Publish(NpgsqlTransaction tx, string title)

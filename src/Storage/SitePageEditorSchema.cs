@@ -11,7 +11,7 @@ internal static partial class CurrentSchema
     [
         "site_page_content slug:text revision:int8 markdown:text?",
         "site_page_publish_audit slug:text revision:int8 principal_id:uuid previous_digest:bytea next_digest:bytea happened_at:timestamptz",
-        "admin_site_page_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"
+        StepUpColumns("admin_site_page_step_up")
     ];
 
     private static readonly string[] SitePageEditorConstraints =
@@ -26,17 +26,7 @@ internal static partial class CurrentSchema
         "site_page_publish_audit c revision revision>0",
         "site_page_publish_audit c previous_digest octet_length(previous_digest)=32",
         "site_page_publish_audit c next_digest octet_length(next_digest)=32",
-        "admin_site_page_step_up p digest",
-        "admin_site_page_step_up f principal_id public.admin_principal:id",
-        "admin_site_page_step_up f session_digest public.admin_session:digest delete-cascade",
-        "admin_site_page_step_up u session_digest,kind",
-        "admin_site_page_step_up c digest octet_length(digest)=32",
-        "admin_site_page_step_up c session_digest octet_length(session_digest)=32",
-        "admin_site_page_step_up c generation generation>0",
-        "admin_site_page_step_up c action action=2",
-        "admin_site_page_step_up c body_digest octet_length(body_digest)=32",
-        "admin_site_page_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
-        "admin_site_page_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+        ..StepUpConstraints("admin_site_page_step_up", "action=2")
     ];
 
     internal static Task<bool> HasSitePageEditorSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>

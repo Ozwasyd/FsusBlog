@@ -1,7 +1,6 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Security;
 
 namespace FsusBlog.V2.Server.Comments;
 
@@ -32,7 +31,7 @@ internal static class CommentReadEndpoints
         if (app.Configuration.GetValue("FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS", false))
         {
             var replies = app.Configuration.GetValue(CommentReplies.Setting, false);
-            if (replies) CommentReplyEndpoints.Map(app, cookie, readFrame);
+            CommentSubmissionEndpoints.Map(app, cookie, readFrame, replies, rootPowPolicy);
             app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
             {
                 if (!long.TryParse(ctx.Request.Query["publication"].FirstOrDefault(), NumberStyles.None,
@@ -48,44 +47,6 @@ internal static class CommentReadEndpoints
                     }, ct);
                 return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
             }).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.PublicCommentPowChallenge, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
-                ScopedPow.Protect(ctx, async () =>
-                {
-                    var (frame, input) = await ReadSubmission(ctx, ct);
-                    var session = ctx.Request.Cookies[cookie];
-                    var source = ScopedPow.Source(ctx);
-                    var nonce = ScopedPow.ReadClientNonce(ctx);
-                    var challenge = await store.WithSession(session, false, async (db, tx, actor) =>
-                    {
-                        await CommentWriteStore.AdmitChallenge(db, tx, actor, input, ct);
-                        var policy = rootPowPolicy ? await RootCommentPowPolicy.Read(db, tx, ct) : null;
-                        return pow.Issue(PowScope.PublicCommentSubmit, "", session!, source, nonce, frame, policy);
-                    }, ct);
-                    return PowWire.EncodeChallenge(challenge);
-                })).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.SubmitPublicComment, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
-                ScopedPow.Protect(ctx, async () =>
-                {
-                    var (frame, input) = await ReadSubmission(ctx, ct);
-                    var session = ctx.Request.Cookies[cookie];
-                    var source = ScopedPow.Source(ctx);
-                    var receipt = await store.WithSession(session, false, async (db, tx, actor) =>
-                    {
-                        var proof = ScopedPow.ReadProof(ctx);
-                        var policy = rootPowPolicy ? await RootCommentPowPolicy.Read(db, tx, ct) : null;
-                        await pow.Consume(db, tx, PowScope.PublicCommentSubmit, "", session!, source, frame, proof, ct, policy);
-                        return await CommentWriteStore.Submit(db, tx, actor, input, ct);
-                    }, ct);
-                    return Wire.EncodePublicCommentSubmissionResult(receipt);
-                })).RequireRateLimiting("command");
-
-            async Task<(byte[] Frame, PublicCommentSubmission Input)> ReadSubmission(HttpContext ctx, CancellationToken ct)
-            {
-                var frame = await readFrame(ctx, WireLimits.PublicCommentFrameBytes, ct);
-                var input = Wire.DecodePublicCommentSubmission(frame);
-                ClientMutationHeader.Require(ctx, input.IdempotencyKey, required: true);
-                return (frame, input);
-            }
             return new(RootSubmission: true, SignedInReply: replies, RootPowPolicy: rootPowPolicy);
         }
         return new(RootSubmission: false, SignedInReply: false, RootPowPolicy: false);

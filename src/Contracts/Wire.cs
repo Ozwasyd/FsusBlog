@@ -8,6 +8,25 @@ public static partial class Wire
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
+    private delegate T ReadRecord<T>(ref Reader reader);
+
+    private static byte[] EncodeRecord<T>(FrameType type, T value, Action<T> validate, Action<Writer, T> write)
+    {
+        validate(value);
+        var writer = new Writer();
+        write(writer, value);
+        return Aeds.Encode(type, writer.Written);
+    }
+
+    private static T DecodeRecord<T>(FrameType type, ReadOnlySpan<byte> frame, ReadRecord<T> read, Action<T> validate)
+    {
+        var reader = new Reader(Aeds.Decode(frame, type));
+        var value = read(ref reader);
+        reader.Finish();
+        validate(value);
+        return value;
+    }
+
     public static byte[] EncodeEmptySuccess() => Aeds.Encode(FrameType.EmptySuccess, [1, 0, 0, 0]);
 
     public static byte[] EncodeError(int status, string message, string? details = null, string? traceId = null)

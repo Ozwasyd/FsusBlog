@@ -10,7 +10,7 @@ internal static partial class CurrentSchema
         "article_publication_responsibility publication_id:int8 article_id:int4 revision:int8 snapshot_id:int8",
         "admin_article_rollback principal_id:uuid command_id:uuid fingerprint:bytea article_id:int4 previous_revision:int8 source_revision:int8 revision:int8 source_publication_id:int8 previous_publication_id:int8 publication_id:int8 publication_no:int4 published_at:timestamptz rights_snapshot_id:int8 responsibility_snapshot_id:int8 reason:text"
             + (draft ? " destination:int4=2" : "") + (archive ? " from_archive:bool=false" : ""),
-        "admin_article_rollback_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"
+        StepUpColumns("admin_article_rollback_step_up")
     ];
 
     private static string[] GetAdminArticleRollbackConstraints(bool draft, bool archive) =>
@@ -51,17 +51,7 @@ internal static partial class CurrentSchema
             "admin_article_rollback c destination destination=ANY(ARRAY[0,2,3])",
             "admin_article_rollback c from_archive,destination NOTfrom_archiveORdestination=2"
         } : draft ? ["admin_article_rollback c destination destination=ANY(ARRAY[0,2])"] : []),
-        "admin_article_rollback_step_up p digest",
-        "admin_article_rollback_step_up f principal_id public.admin_principal:id",
-        "admin_article_rollback_step_up f session_digest public.admin_session:digest delete-cascade",
-        "admin_article_rollback_step_up u session_digest,kind",
-        "admin_article_rollback_step_up c digest octet_length(digest)=32",
-        "admin_article_rollback_step_up c session_digest octet_length(session_digest)=32",
-        "admin_article_rollback_step_up c generation generation>0",
-        "admin_article_rollback_step_up c action " + (archive ? "action=ANY(ARRAY[3,7,8])" : draft ? "action=ANY(ARRAY[3,7])" : "action=3"),
-        "admin_article_rollback_step_up c body_digest octet_length(body_digest)=32",
-        "admin_article_rollback_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
-        "admin_article_rollback_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+        ..StepUpConstraints("admin_article_rollback_step_up", archive ? "action=ANY(ARRAY[3,7,8])" : draft ? "action=ANY(ARRAY[3,7])" : "action=3")
     ];
 
     internal static async Task<bool> HasAdminArticleRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)

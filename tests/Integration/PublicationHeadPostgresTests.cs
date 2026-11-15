@@ -4,8 +4,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -33,31 +31,17 @@ public sealed class PublicationHeadPostgresTests
         await Migrate("head-schema");
         await Migrate("enable");
 
-        var owner = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Scalar("insert into public.blog_user values($1,'Public head fixture',true,true,1)", owner);
-        await Scalar("insert into public.login_ticket values($1,$2,now()+interval '5 minutes')", SHA256.HashData(ticket), owner);
-        var (session, _) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
-        var parent = OperatingSystem.IsMacOS() ? "/private/tmp" : "/tmp";
-        var scratch = Directory.CreateDirectory(Path.Combine(parent, $"fsus-head-{Guid.NewGuid():N}"));
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(scratch.FullName,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var (_, session, _) = await fixture.SignIn("Public head fixture", ct, minutes: 5);
+        var scratch = PublicationFixture.PrivateScratch("fsus-head");
         using var currentKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var nextKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         try
         {
             var currentPath = PublicationFixture.PrivateKey(scratch, "current.pkcs8", currentKey);
             var nextPath = PublicationFixture.PrivateKey(scratch, "next.pkcs8", nextKey);
-            var config = new Dictionary<string, string>
-            {
-                ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin,
-                ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
-                [Settings + "NativeV2Enabled"] = "true",
-                [Settings + "CurrentKeyId"] = "first",
-                [Settings + "NativeV2PrivateKeyFile"] = currentPath,
-            };
-            SetKey("first", 1, currentKey);
-            SetKey("next", 2, nextKey);
+            var config = PublicationFixture.NativeSettings(Origin, "first", currentPath);
+            PublicationFixture.ConfigureKey(config, "first", "1", currentKey.ExportSubjectPublicKeyInfo());
+            PublicationFixture.ConfigureKey(config, "next", "2", nextKey.ExportSubjectPublicKeyInfo());
             await using (var server = await Start()) await Status(server, HttpStatusCode.NotFound);
 
             config[Anchor] = "genesis";
@@ -72,7 +56,7 @@ public sealed class PublicationHeadPostgresTests
                 firstPin = "1:" + JsonNode.Parse(first)!["entrySha256"]!.GetValue<string>();
                 first = await VerifyIndependently(server, first);
                 await Scalar("create temporary table first_head as table public.publication_transparency_head");
-                var proofUrl = await ProofPath(release.Id);
+                var proofUrl = await PublicationFixture.ProofPath(db, release.Id, ct);
                 using (var proof = await Send(server, HttpMethod.Get, proofUrl))
                 {
                     proof.EnsureSuccessStatusCode();
@@ -197,7 +181,7 @@ public sealed class PublicationHeadPostgresTests
             {
                 await Status(server, HttpStatusCode.ServiceUnavailable);
                 var next = await Publish(server, "Native proof survives optional head refusal");
-                var proofUrl = await ProofPath(next.Id);
+                var proofUrl = await PublicationFixture.ProofPath(db, next.Id, ct);
                 for (var attempt = 0; ; attempt++)
                 {
                     using var proof = await Send(server, HttpMethod.Get, proofUrl);
@@ -216,28 +200,10 @@ public sealed class PublicationHeadPostgresTests
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
-            void SetKey(string id, int version, ECDsa value)
-            {
-                var prefix = Settings + "Keys__" + id + "__";
-                config[prefix + "Version"] = version.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                config[prefix + "Algorithm"] = "ECDSA_P256_SHA256";
-                config[prefix + "PublicKey"] = WebEncoders.Base64UrlEncode(value.ExportSubjectPublicKeyInfo());
-                config[prefix + "NotBeforeUtc"] = "2020-01-01T00:00:00.000000Z";
-                config[prefix + "NotAfterUtc"] = "2099-01-01T00:00:00.000000Z";
-            }
-
             async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url, byte[]? body = null,
                 string host = Host, string scheme = "https")
             {
-                using var request = new HttpRequestMessage(method, url);
-                PublicationFixture.Forward(request, host, scheme);
-                if (body is not null)
-                {
-                    request.Headers.Add("Cookie", "fsus-v2-session=" + session);
-                    request.Content = new ByteArrayContent(body);
-                    request.Content.Headers.ContentType = new(Aeds.ContentType);
-                }
-                var response = await server.Client.SendAsync(request, ct);
+                var response = await PublicationFixture.SendForwarded(server, method, url, host, session, body, ct, scheme);
                 if (url == Head && config.ContainsKey(Anchor)) Assert.True(response.Headers.CacheControl?.NoStore);
                 return response;
             }
@@ -281,18 +247,11 @@ public sealed class PublicationHeadPostgresTests
                 return await Edit(server, WireRoutes.Publish, draft.Id, draft.Revision);
             }
 
-            async Task<Draft> Edit(ServerProcess server, string action, int article, long revision, string title = "", string body = "")
-            {
-                using var response = await Send(server, HttpMethod.Post, action,
-                    Wire.EncodeArticleCommand(new(article, revision, Guid.NewGuid(), title, body)));
-                response.EnsureSuccessStatusCode();
-                return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-            }
+            Task<Draft> Edit(ServerProcess server, string action, int article, long revision, string title = "", string body = "") =>
+                PublicationFixture.Edit(server, Host, session, action, new(article, revision, Guid.NewGuid(), title, body), ct);
         }
         finally { scratch.Delete(recursive: true); }
 
-        async Task<string> ProofPath(int article) => $"/integrity/v2/article/{article}/{await Scalar(
-            "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
         Task<object?> Scalar(string sql, params object[] args) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, args);
 

@@ -10,7 +10,7 @@ internal static partial class CurrentSchema
     [
         "admin_comment_batch id:int8:a principal_id:uuid session_reference:bytea decision:int2 item_count:int4 decided_at:timestamptz",
         "admin_comment_batch_item batch_id:int8 moderation_id:int8",
-        "admin_comment_batch_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"
+        StepUpColumns("admin_comment_batch_step_up")
     ];
 
     private static readonly string[] AdminCommentBatchConstraints =
@@ -24,17 +24,7 @@ internal static partial class CurrentSchema
         "admin_comment_batch_item u moderation_id",
         "admin_comment_batch_item f batch_id public.admin_comment_batch:id",
         "admin_comment_batch_item f moderation_id public.admin_comment_moderation:id",
-        "admin_comment_batch_step_up p digest",
-        "admin_comment_batch_step_up f principal_id public.admin_principal:id",
-        "admin_comment_batch_step_up f session_digest public.admin_session:digest delete-cascade",
-        "admin_comment_batch_step_up u session_digest,kind",
-        "admin_comment_batch_step_up c digest octet_length(digest)=32",
-        "admin_comment_batch_step_up c session_digest octet_length(session_digest)=32",
-        "admin_comment_batch_step_up c generation generation>0",
-        "admin_comment_batch_step_up c action action=6",
-        "admin_comment_batch_step_up c body_digest octet_length(body_digest)=32",
-        "admin_comment_batch_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
-        "admin_comment_batch_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+        ..StepUpConstraints("admin_comment_batch_step_up", "action=6")
     ];
 
     internal static Task<bool> HasAdminCommentBatchSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,

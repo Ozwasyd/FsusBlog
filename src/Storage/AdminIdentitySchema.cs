@@ -70,7 +70,10 @@ internal static partial class CurrentSchema
         "admin_identity_audit c actor octet_length(actor)>=1ANDoctet_length(actor)<=255"
     ];
 
-    private const string AdminStepUpColumns = "admin_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2";
+    private static readonly string AdminStepUpColumns = StepUpColumns("admin_step_up");
+
+    private static string StepUpColumns(string table) =>
+        $"{table} digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2";
     private const string AdminSessionColumns = "admin_session digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz";
     private static readonly string[] AdminSignInColumns =
     [
@@ -93,19 +96,24 @@ internal static partial class CurrentSchema
 
     private const string PriorPermissionConstraint = "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text";
 
-    private static readonly string[] AdminStepUpConstraints =
+    private static readonly string[] AdminStepUpConstraints = StepUpConstraints("admin_step_up", "action=1");
+
+    private static string[] StepUpConstraints(string table, string action, bool validateOptions = true) =>
     [
-        "admin_step_up p digest",
-        "admin_step_up f principal_id public.admin_principal:id",
-        "admin_step_up f session_digest public.admin_session:digest delete-cascade",
-        "admin_step_up u session_digest,kind",
-        "admin_step_up c digest octet_length(digest)=32",
-        "admin_step_up c session_digest octet_length(session_digest)=32",
-        "admin_step_up c generation generation>0",
-        "admin_step_up c action action=1",
-        "admin_step_up c body_digest octet_length(body_digest)=32",
-        "admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
-        "admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+        $"{table} p digest",
+        $"{table} f principal_id public.admin_principal:id",
+        $"{table} f session_digest public.admin_session:digest delete-cascade",
+        $"{table} u session_digest,kind",
+        $"{table} c digest octet_length(digest)=32",
+        $"{table} c session_digest octet_length(session_digest)=32",
+        $"{table} c generation generation>0",
+        $"{table} c action {action}",
+        $"{table} c body_digest octet_length(body_digest)=32",
+        ..(validateOptions ? new[]
+        {
+            $"{table} c options octet_length(options)>=1ANDoctet_length(options)<=8192",
+            $"{table} c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+        } : [$"{table} c kind kind>=1ANDkind<=2"])
     ];
 
     private static readonly string[] AdminSignInConstraints =

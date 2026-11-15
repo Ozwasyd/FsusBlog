@@ -987,1539 +987,1042 @@ public sealed record PropertyValueBatchReceipt(int ArticleId, long SchemaRevisio
 
 public static partial class Wire
 {
-    public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Operation);
-        return Aeds.Encode(FrameType.RecoveryKeyOperation, writer.Written);
-    }
-
-    public static RecoveryKeyOperation DecodeRecoveryKeyOperation(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyOperation));
-        var value = new RecoveryKeyOperation(reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeRecoveryKeyIssued(RecoveryKeyIssued value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Key, WireLimits.RecoveryKeyBytes);
-        writer.I64(value.Version);
-        writer.I64(value.CreatedAt);
-        return Aeds.Encode(FrameType.RecoveryKeyIssued, writer.Written);
-    }
-
-    public static RecoveryKeyIssued DecodeRecoveryKeyIssued(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyIssued));
-        var value = new RecoveryKeyIssued(reader.Text(WireLimits.RecoveryKeyBytes), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeRecoveryKeyStatus(RecoveryKeyStatus value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Bool(value.Active);
-        return Aeds.Encode(FrameType.RecoveryKeyStatus, writer.Written);
-    }
-
-    public static RecoveryKeyStatus DecodeRecoveryKeyStatus(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyStatus));
-        var value = new RecoveryKeyStatus(reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeRecoveryKeyVerify(RecoveryKeyVerify value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Key, WireLimits.RecoveryKeyBytes);
-        return Aeds.Encode(FrameType.RecoveryKeyVerify, writer.Written);
-    }
-
-    public static RecoveryKeyVerify DecodeRecoveryKeyVerify(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyVerify));
-        var value = new RecoveryKeyVerify(reader.Text(WireLimits.RecoveryKeyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminModerationClaimRequest(AdminModerationClaimRequest value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CommentId);
-        return Aeds.Encode(FrameType.AdminModerationClaimRequest, writer.Written);
-    }
-
-    public static AdminModerationClaimRequest DecodeAdminModerationClaimRequest(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationClaimRequest));
-        var value = new AdminModerationClaimRequest(reader.I32(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminModerationClaim(AdminModerationClaim value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CommentId);
-        writer.I64(value.CommentVersion);
-        writer.Text(value.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
-        writer.I64(value.ClaimGeneration);
-        writer.I64(value.ClaimVersion);
-        writer.I64(value.ExpiresAt);
-        return Aeds.Encode(FrameType.AdminModerationClaim, writer.Written);
-    }
-
-    public static AdminModerationClaim DecodeAdminModerationClaim(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationClaim));
-        var value = new AdminModerationClaim(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminModerationDecision(AdminModerationDecision value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CommentId);
-        writer.I32(value.ExpectedStatus);
-        writer.I32(value.Decision);
-        writer.Text(value.Reason, WireLimits.AdminModerationReasonBytes);
-        writer.I64(value.CommentVersion);
-        writer.Text(value.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
-        writer.I64(value.ClaimGeneration);
-        writer.I64(value.ClaimVersion);
-        return Aeds.Encode(FrameType.AdminModerationDecision, writer.Written);
-    }
-
-    public static AdminModerationDecision DecodeAdminModerationDecision(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationDecision));
-        var value = new AdminModerationDecision(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminModerationIntent(AdminModerationIntent value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CommentId);
-        writer.I32(value.ExpectedStatus);
-        writer.I32(value.Decision);
-        writer.Text(value.Reason, WireLimits.AdminModerationReasonBytes);
-        return Aeds.Encode(FrameType.AdminModerationIntent, writer.Written);
-    }
-
-    public static AdminModerationIntent DecodeAdminModerationIntent(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationIntent));
-        var value = new AdminModerationIntent(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminSessionSnapshot(AdminSessionSnapshot value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Handle, WireLimits.NameBytes);
-        writer.I64(value.Generation);
-        writer.I64(value.ExpiresAt);
-        return Aeds.Encode(FrameType.AdminSessionSnapshot, writer.Written);
-    }
-
-    public static AdminSessionSnapshot DecodeAdminSessionSnapshot(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSessionSnapshot));
-        var value = new AdminSessionSnapshot(reader.Text(WireLimits.NameBytes), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminOperationsStatus(AdminOperationsStatus value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Bool(value.SnapshotReady);
-        writer.I64(value.PublicationWatermark);
-        writer.I64(value.PendingPublicationEvents);
-        writer.I64(value.OldestPendingAt);
-        return Aeds.Encode(FrameType.AdminOperationsStatus, writer.Written);
-    }
-
-    public static AdminOperationsStatus DecodeAdminOperationsStatus(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
-        var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminRiskReadiness(AdminRiskReadiness value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.PublicReadMode);
-        writer.I32(value.RootWriteMode);
-        writer.I32(value.ReplyWriteMode);
-        writer.I32(value.ForwardingMode);
-        writer.I32(value.DynamicRisk);
-        writer.I32(value.StrongAnonymous);
-        return Aeds.Encode(FrameType.AdminRiskReadiness, writer.Written);
-    }
-
-    public static AdminRiskReadiness DecodeAdminRiskReadiness(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRiskReadiness));
-        var value = new AdminRiskReadiness(reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminRootCommentPowPolicy(AdminRootCommentPowPolicy value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I64(value.Generation);
-        writer.Text(value.Digest, WireLimits.RootCommentPowDigestBytes);
-        writer.I32(value.ProofSeconds);
-        writer.I32(value.PreviousSeconds);
-        return Aeds.Encode(FrameType.AdminRootCommentPowPolicy, writer.Written);
-    }
-
-    public static AdminRootCommentPowPolicy DecodeAdminRootCommentPowPolicy(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRootCommentPowPolicy));
-        var value = new AdminRootCommentPowPolicy(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminRootCommentPowCommand(AdminRootCommentPowCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I64(value.ExpectedGeneration);
-        writer.Text(value.ExpectedDigest, WireLimits.RootCommentPowDigestBytes);
-        writer.I32(value.ProofSeconds);
-        writer.Bool(value.Rollback);
-        return Aeds.Encode(FrameType.AdminRootCommentPowCommand, writer.Written);
-    }
-
-    public static AdminRootCommentPowCommand DecodeAdminRootCommentPowCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRootCommentPowCommand));
-        var value = new AdminRootCommentPowCommand(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminClusterStatus(AdminClusterStatus value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Mode);
-        writer.Text(value.NodeId, WireLimits.AdminClusterNodeIdBytes);
-        writer.Uuid(value.InstanceId);
-        writer.Text(value.BuildVersion, WireLimits.AdminClusterVersionBytes);
-        writer.I64(value.StartedAt);
-        writer.I64(value.ObservedAt);
-        writer.I32(value.LeaseAgeMs);
-        writer.Bool(value.SnapshotReady);
-        return Aeds.Encode(FrameType.AdminClusterStatus, writer.Written);
-    }
-
-    public static AdminClusterStatus DecodeAdminClusterStatus(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminClusterStatus));
-        var value = new AdminClusterStatus(reader.I32(), reader.Text(WireLimits.AdminClusterNodeIdBytes), reader.Uuid(), reader.Text(WireLimits.AdminClusterVersionBytes), reader.I64(), reader.I64(), reader.I32(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.ExpectedRevision);
-        writer.I64(value.ExpectedPublicationId);
-        writer.I64(value.SourceRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
-        return Aeds.Encode(FrameType.AdminArticleRollbackIntent, writer.Written);
-    }
-
-    public static AdminArticleRollbackIntent DecodeAdminArticleRollbackIntent(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackIntent));
-        var value = new AdminArticleRollbackIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleRollbackPreview(AdminArticleRollbackPreview value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CurrentRevision);
-        writer.I64(value.CurrentPublicationId);
-        writer.I64(value.SourceRevision);
-        writer.I64(value.SourcePublicationId);
-        writer.Text(value.SourceTitle, WireLimits.TitleBytes);
-        writer.Bool(value.PackageComplete);
-        writer.I32(value.BlockingReason);
-        return Aeds.Encode(FrameType.AdminArticleRollbackPreview, writer.Written);
-    }
-
-    public static AdminArticleRollbackPreview DecodeAdminArticleRollbackPreview(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackPreview));
-        var value = new AdminArticleRollbackPreview(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Bool(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleRollbackReceipt(AdminArticleRollbackReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.I64(value.PreviousPublicationId);
-        writer.I64(value.PublicationId);
-        writer.I32(value.PublicationNo);
-        writer.I64(value.PublishedUnixMs);
-        writer.I64(value.RightsSnapshotId);
-        writer.I64(value.ResponsibilitySnapshotId);
-        return Aeds.Encode(FrameType.AdminArticleRollbackReceipt, writer.Written);
-    }
-
-    public static AdminArticleRollbackReceipt DecodeAdminArticleRollbackReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackReceipt));
-        var value = new AdminArticleRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleDraftRollbackIntent(AdminArticleDraftRollbackIntent value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.ExpectedRevision);
-        writer.I64(value.ExpectedPublicationId);
-        writer.I64(value.SourceRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
-        writer.I32(value.TargetStatus);
-        return Aeds.Encode(FrameType.AdminArticleDraftRollbackIntent, writer.Written);
-    }
-
-    public static AdminArticleDraftRollbackIntent DecodeAdminArticleDraftRollbackIntent(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleDraftRollbackIntent));
-        var value = new AdminArticleDraftRollbackIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleDraftRollbackReceipt(AdminArticleDraftRollbackReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.I64(value.PreviousPublicationId);
-        writer.I64(value.PrivateReleaseId);
-        writer.I32(value.PublicationNo);
-        writer.I64(value.TransitionedUnixMs);
-        writer.I64(value.RightsSnapshotId);
-        writer.I64(value.ResponsibilitySnapshotId);
-        writer.I32(value.TargetStatus);
-        return Aeds.Encode(FrameType.AdminArticleDraftRollbackReceipt, writer.Written);
-    }
-
-    public static AdminArticleDraftRollbackReceipt DecodeAdminArticleDraftRollbackReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleDraftRollbackReceipt));
-        var value = new AdminArticleDraftRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleArchiveIntent(AdminArticleArchiveIntent value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.ExpectedRevision);
-        writer.I64(value.ExpectedReleaseId);
-        writer.I64(value.SourceRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
-        writer.I32(value.TargetStatus);
-        return Aeds.Encode(FrameType.AdminArticleArchiveIntent, writer.Written);
-    }
-
-    public static AdminArticleArchiveIntent DecodeAdminArticleArchiveIntent(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchiveIntent));
-        var value = new AdminArticleArchiveIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleArchiveReceipt(AdminArticleArchiveReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.I64(value.PreviousReleaseId);
-        writer.I64(value.ReleaseId);
-        writer.I32(value.PublicationNo);
-        writer.I64(value.TransitionedUnixMs);
-        writer.I64(value.RightsSnapshotId);
-        writer.I64(value.ResponsibilitySnapshotId);
-        writer.I32(value.TargetStatus);
-        return Aeds.Encode(FrameType.AdminArticleArchiveReceipt, writer.Written);
-    }
-
-    public static AdminArticleArchiveReceipt DecodeAdminArticleArchiveReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchiveReceipt));
-        var value = new AdminArticleArchiveReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminArticleArchivePreview(AdminArticleArchivePreview value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Revision);
-        writer.I64(value.PrivateReleaseId);
-        writer.Text(value.Title, WireLimits.TitleBytes);
-        writer.Text(value.Markdown, WireLimits.BodyBytes);
-        return Aeds.Encode(FrameType.AdminArticleArchivePreview, writer.Written);
-    }
-
-    public static AdminArticleArchivePreview DecodeAdminArticleArchivePreview(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchivePreview));
-        var value = new AdminArticleArchivePreview(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminSitePages(AdminSitePages value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ConfiguredMask);
-        return Aeds.Encode(FrameType.AdminSitePages, writer.Written);
-    }
-
-    public static AdminSitePages DecodeAdminSitePages(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePages));
-        var value = new AdminSitePages(reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminSitePageRevision(AdminSitePageRevision value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Slug, WireLimits.AdminSitePageSlugBytes);
-        writer.I64(value.Revision);
-        writer.Text(value.Digest, WireLimits.AdminSitePageDigestBytes);
-        writer.Text(value.Markdown, WireLimits.PageContentBytes);
-        return Aeds.Encode(FrameType.AdminSitePageRevision, writer.Written);
-    }
-
-    public static AdminSitePageRevision DecodeAdminSitePageRevision(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePageRevision));
-        var value = new AdminSitePageRevision(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminSitePagePublish(AdminSitePagePublish value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Slug, WireLimits.AdminSitePageSlugBytes);
-        writer.I64(value.ExpectedRevision);
-        writer.Text(value.ExpectedDigest, WireLimits.AdminSitePageDigestBytes);
-        writer.Text(value.Markdown, WireLimits.PageContentBytes);
-        return Aeds.Encode(FrameType.AdminSitePagePublish, writer.Written);
-    }
-
-    public static AdminSitePagePublish DecodeAdminSitePagePublish(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePagePublish));
-        var value = new AdminSitePagePublish(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceSnapshot(AuthoringWorkspaceSnapshot value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.Revision);
-        writer.I64(value.UpdatedAtUnixMs);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.I32(value.Skipped);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceSnapshot, writer.Written);
-    }
-
-    public static AuthoringWorkspaceSnapshot DecodeAuthoringWorkspaceSnapshot(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceSnapshot));
-        var value = new AuthoringWorkspaceSnapshot(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceCommand(AuthoringWorkspaceCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.ExpectedRevision);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceCommand, writer.Written);
-    }
-
-    public static AuthoringWorkspaceCommand DecodeAuthoringWorkspaceCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceCommand));
-        var value = new AuthoringWorkspaceCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceLayout(AuthoringWorkspaceLayout value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.Revision);
-        writer.I64(value.UpdatedAtUnixMs);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.I32(value.Skipped);
-        writer.Bool(value.InspectorOpen);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceLayout, writer.Written);
-    }
-
-    public static AuthoringWorkspaceLayout DecodeAuthoringWorkspaceLayout(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceLayout));
-        var value = new AuthoringWorkspaceLayout(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceLayoutCommand(AuthoringWorkspaceLayoutCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.ExpectedRevision);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.Bool(value.InspectorOpen);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceLayoutCommand, writer.Written);
-    }
-
-    public static AuthoringWorkspaceLayoutCommand DecodeAuthoringWorkspaceLayoutCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceLayoutCommand));
-        var value = new AuthoringWorkspaceLayoutCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceGroups(AuthoringWorkspaceGroups value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.Revision);
-        writer.I64(value.UpdatedAtUnixMs);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.I32(value.Skipped);
-        writer.Bool(value.InspectorOpen);
-        writer.I32(value.SecondaryActiveArticleId);
-        writer.I32s(value.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.I32(value.FocusedGroup);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceGroups, writer.Written);
-    }
-
-    public static AuthoringWorkspaceGroups DecodeAuthoringWorkspaceGroups(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceGroups));
-        var value = new AuthoringWorkspaceGroups(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32(), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthoringWorkspaceGroupsCommand(AuthoringWorkspaceGroupsCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.ExpectedRevision);
-        writer.I32(value.ActiveArticleId);
-        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.Bool(value.InspectorOpen);
-        writer.I32(value.SecondaryActiveArticleId);
-        writer.I32s(value.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
-        writer.I32(value.FocusedGroup);
-        return Aeds.Encode(FrameType.AuthoringWorkspaceGroupsCommand, writer.Written);
-    }
-
-    public static AuthoringWorkspaceGroupsCommand DecodeAuthoringWorkspaceGroupsCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceGroupsCommand));
-        var value = new AuthoringWorkspaceGroupsCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthorRecentOpenCommand(AuthorRecentOpenCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.RequestId);
-        writer.I32(value.ArticleId);
-        writer.I64(value.ArticleRevision);
-        return Aeds.Encode(FrameType.AuthorRecentOpenCommand, writer.Written);
-    }
-
-    public static AuthorRecentOpenCommand DecodeAuthorRecentOpenCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorRecentOpenCommand));
-        var value = new AuthorRecentOpenCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAuthorRecentOpenReceipt(AuthorRecentOpenReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.SchemaVersion);
-        writer.I64(value.Revision);
-        writer.Uuid(value.RequestId);
-        writer.I32(value.ArticleId);
-        writer.I64(value.ArticleRevision);
-        writer.I64(value.OpenedAtUnixMs);
-        return Aeds.Encode(FrameType.AuthorRecentOpenReceipt, writer.Written);
-    }
-
-    public static AuthorRecentOpenReceipt DecodeAuthorRecentOpenReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorRecentOpenReceipt));
-        var value = new AuthorRecentOpenReceipt(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminAppearanceState(AdminAppearanceState value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I64(value.Revision);
-        writer.Text(value.Theme, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.Font, WireLimits.AdminAppearanceDigestBytes);
-        writer.Bool(value.Serving);
-        writer.Bool(value.CanRollback);
-        writer.Text(value.PreviousTheme, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.PreviousFont, WireLimits.AdminAppearanceDigestBytes);
-        return Aeds.Encode(FrameType.AdminAppearanceState, writer.Written);
-    }
-
-    public static AdminAppearanceState DecodeAdminAppearanceState(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceState));
-        var value = new AdminAppearanceState(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool(), reader.Bool(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminAppearanceCommand(AdminAppearanceCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I64(value.ExpectedRevision);
-        writer.Text(value.CurrentTheme, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.CurrentFont, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.Theme, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.Font, WireLimits.AdminAppearanceDigestBytes);
-        writer.Bool(value.Rollback);
-        return Aeds.Encode(FrameType.AdminAppearanceCommand, writer.Written);
-    }
-
-    public static AdminAppearanceCommand DecodeAdminAppearanceCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceCommand));
-        var value = new AdminAppearanceCommand(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeAdminAppearanceFontDetail(AdminAppearanceFontDetail value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Id, WireLimits.AdminAppearanceIdBytes);
-        writer.Text(value.Version, WireLimits.AdminAppearanceVersionBytes);
-        writer.Text(value.ArchiveDigest, WireLimits.AdminAppearanceDigestBytes);
-        writer.Text(value.Name, WireLimits.AdminAppearanceFontMetadataBytes);
-        writer.Text(value.Family, WireLimits.AdminAppearanceFontMetadataBytes);
-        writer.Text(value.LicenseName, WireLimits.AdminAppearanceFontLicenseNameBytes);
-        writer.Text(value.LicenseText, WireLimits.AdminAppearanceFontLicenseBytes);
-        writer.I32(value.FaceWeight);
-        writer.Text(value.FaceStyle, WireLimits.AdminAppearanceFontLicenseNameBytes);
-        writer.Text(value.FaceDigest, WireLimits.AdminAppearanceDigestBytes);
-        writer.I32(value.FaceBytes);
-        writer.Text(value.UnicodeRange, WireLimits.AdminAppearanceFontUnicodeRangeBytes);
-        writer.Text(value.SourceKind, WireLimits.AdminAppearanceFontLicenseNameBytes);
-        writer.Text(value.SourcePackage, WireLimits.AdminAppearanceFontMetadataBytes);
-        writer.Text(value.SourceVersion, WireLimits.AdminAppearanceVersionBytes);
-        writer.Text(value.SourceUpstream, WireLimits.AdminAppearanceFontMetadataBytes);
-        return Aeds.Encode(FrameType.AdminAppearanceFontDetail, writer.Written);
-    }
-
-    public static AdminAppearanceFontDetail DecodeAdminAppearanceFontDetail(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceFontDetail));
-        var value = new AdminAppearanceFontDetail(reader.Text(WireLimits.AdminAppearanceIdBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontUnicodeRangeBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeDraftRecoveryScope(DraftRecoveryScope value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.SiteId);
-        writer.Uuid(value.UserId);
-        return Aeds.Encode(FrameType.DraftRecoveryScope, writer.Written);
-    }
-
-    public static DraftRecoveryScope DecodeDraftRecoveryScope(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRecoveryScope));
-        var value = new DraftRecoveryScope(reader.Uuid(), reader.Uuid());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePublicCommentEligibility(PublicCommentEligibility value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Publication);
-        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
-        return Aeds.Encode(FrameType.PublicCommentEligibility, writer.Written);
-    }
-
-    public static PublicCommentEligibility DecodePublicCommentEligibility(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentEligibility));
-        var value = new PublicCommentEligibility(reader.I32(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCommentAuthorEditDetail(CommentAuthorEditDetail value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Publication);
-        writer.I64(value.CurrentVersion);
-        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
-        return Aeds.Encode(FrameType.CommentAuthorEditDetail, writer.Written);
-    }
-
-    public static CommentAuthorEditDetail DecodeCommentAuthorEditDetail(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CommentAuthorEditDetail));
-        var value = new CommentAuthorEditDetail(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentBodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePublicCommentSubmission(PublicCommentSubmission value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Publication);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Bool(value.ExplicitPublic);
-        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
-        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
-        return Aeds.Encode(FrameType.PublicCommentSubmission, writer.Written);
-    }
-
-    public static PublicCommentSubmission DecodePublicCommentSubmission(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmission));
-        var value = new PublicCommentSubmission(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePublicCommentReply(PublicCommentReply value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.Publication);
-        writer.I64(value.ParentId);
-        writer.Text(value.DisplayName, WireLimits.PublicCommentHandleBytes);
-        writer.Text(value.Body, WireLimits.PublicCommentBodyBytes);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Bool(value.ExplicitPublic);
-        return Aeds.Encode(FrameType.PublicCommentReply, writer.Written);
-    }
-
-    public static PublicCommentReply DecodePublicCommentReply(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentReply));
-        var value = new PublicCommentReply(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes), reader.Uuid(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePublicCommentSubmissionResult(PublicCommentSubmissionResult value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.CommentId);
-        writer.I32(value.ModerationStatus);
-        writer.Bool(value.Replayed);
-        return Aeds.Encode(FrameType.PublicCommentSubmissionResult, writer.Written);
-    }
-
-    public static PublicCommentSubmissionResult DecodePublicCommentSubmissionResult(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmissionResult));
-        var value = new PublicCommentSubmissionResult(reader.I32(), reader.I64(), reader.I32(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeSubscriptionPreferenceRequest(SubscriptionPreferenceRequest value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Email, WireLimits.SubscriptionEmailBytes);
-        writer.I32(value.Channel);
-        return Aeds.Encode(FrameType.SubscriptionPreferenceRequest, writer.Written);
-    }
-
-    public static SubscriptionPreferenceRequest DecodeSubscriptionPreferenceRequest(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.SubscriptionPreferenceRequest));
-        var value = new SubscriptionPreferenceRequest(reader.Text(WireLimits.SubscriptionEmailBytes), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeDraftTaxonomy(DraftTaxonomy value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I32(value.CategoryId);
-        writer.I32s(value.TagIds, WireLimits.TaxonomyTagCount);
-        return Aeds.Encode(FrameType.DraftTaxonomy, writer.Written);
-    }
-
-    public static DraftTaxonomy DecodeDraftTaxonomy(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftTaxonomy));
-        var value = new DraftTaxonomy(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeTaxonomyAssignment(TaxonomyAssignment value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.I32(value.CategoryId);
-        writer.I32s(value.TagIds, WireLimits.TaxonomyTagCount);
-        return Aeds.Encode(FrameType.TaxonomyAssignment, writer.Written);
-    }
-
-    public static TaxonomyAssignment DecodeTaxonomyAssignment(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.TaxonomyAssignment));
-        var value = new TaxonomyAssignment(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeSignIn(SignIn value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Ticket, WireLimits.TicketBytes);
-        return Aeds.Encode(FrameType.OperatorSignIn, writer.Written);
-    }
-
-    public static SignIn DecodeSignIn(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.OperatorSignIn));
-        var value = new SignIn(reader.Text(WireLimits.TicketBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeSession(Session value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Text(value.Name, WireLimits.NameBytes);
-        writer.I64(value.Generation);
-        writer.Bool(value.CanAuthor);
-        return Aeds.Encode(FrameType.OperatorSession, writer.Written);
-    }
-
-    public static Session DecodeSession(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.OperatorSession));
-        var value = new Session(reader.Text(WireLimits.NameBytes), reader.I64(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeDraft(Draft value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.Text(value.Title, WireLimits.TitleBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
-        writer.Bool(value.Published);
-        return Aeds.Encode(FrameType.Draft, writer.Written);
-    }
-
-    public static Draft DecodeDraft(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.Draft));
-        var value = new Draft(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeDraftRollback(DraftRollback value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.I64(value.SourceRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
-        return Aeds.Encode(FrameType.DraftRollback, writer.Written);
-    }
-
-    public static DraftRollback DecodeDraftRollback(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRollback));
-        var value = new DraftRollback(reader.I32(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleRightsPolicy(ArticleRightsPolicy value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.Bool(value.Present);
-        writer.Bool(value.Enabled);
-        writer.Text(value.LicenseType, WireLimits.ArticleRightsTokenBytes);
-        writer.Text(value.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
-        writer.I32(value.CopyrightYear);
-        writer.Text(value.RightsStatement, WireLimits.ArticleRightsTextBytes);
-        writer.Text(value.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
-        writer.Text(value.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
-        writer.I32(value.MaxExcerptChars);
-        writer.Bool(value.AllowCodeCopy);
-        writer.Bool(value.ShowPublicBadge);
-        writer.Bool(value.ProofBindingEnabled);
-        return Aeds.Encode(FrameType.ArticleRightsPolicy, writer.Written);
-    }
-
-    public static ArticleRightsPolicy DecodeArticleRightsPolicy(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleRightsPolicy));
-        var value = new ArticleRightsPolicy(reader.I32(), reader.I64(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleRightsCommand(ArticleRightsCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Bool(value.Enabled);
-        writer.Text(value.LicenseType, WireLimits.ArticleRightsTokenBytes);
-        writer.Text(value.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
-        writer.I32(value.CopyrightYear);
-        writer.Text(value.RightsStatement, WireLimits.ArticleRightsTextBytes);
-        writer.Text(value.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
-        writer.Text(value.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
-        writer.I32(value.MaxExcerptChars);
-        writer.Bool(value.AllowCodeCopy);
-        writer.Bool(value.ShowPublicBadge);
-        writer.Bool(value.ProofBindingEnabled);
-        return Aeds.Encode(FrameType.ArticleRightsCommand, writer.Written);
-    }
-
-    public static ArticleRightsCommand DecodeArticleRightsCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleRightsCommand));
-        var value = new ArticleRightsCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleSchedule(ArticleSchedule value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.DueUnixMs);
-        writer.I64(value.PublishedRevision);
-        return Aeds.Encode(FrameType.ArticleSchedule, writer.Written);
-    }
-
-    public static ArticleSchedule DecodeArticleSchedule(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleSchedule));
-        var value = new ArticleSchedule(reader.I32(), reader.I64(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleScheduleCommand(ArticleScheduleCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.I64(value.DueUnixMs);
-        return Aeds.Encode(FrameType.ArticleScheduleCommand, writer.Written);
-    }
-
-    public static ArticleScheduleCommand DecodeArticleScheduleCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleScheduleCommand));
-        var value = new ArticleScheduleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeRevisionComparison(RevisionComparison value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.Text(value.Title, WireLimits.TitleBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
-        writer.Text(value.SourceTitle, WireLimits.TitleBytes);
-        writer.Text(value.SourceBody, WireLimits.BodyBytes);
-        return Aeds.Encode(FrameType.RevisionComparison, writer.Written);
-    }
-
-    public static RevisionComparison DecodeRevisionComparison(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.RevisionComparison));
-        var value = new RevisionComparison(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleCommand(ArticleCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Title, WireLimits.TitleBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
-        return Aeds.Encode(FrameType.ArticleCommand, writer.Written);
-    }
-
-    public static ArticleCommand DecodeArticleCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleCommand));
-        var value = new ArticleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeArticleBodyInsertionCommand(ArticleBodyInsertionCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Text(value.Title, WireLimits.TitleBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
-        writer.I32(value.Offset);
-        writer.I32(value.Length);
-        return Aeds.Encode(FrameType.ArticleBodyInsertionCommand, writer.Written);
-    }
-
-    public static ArticleBodyInsertionCommand DecodeArticleBodyInsertionCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleBodyInsertionCommand));
-        var value = new ArticleBodyInsertionCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.I32(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeDraftRevisionBodyInsertion(DraftRevisionBodyInsertion value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.Bool(value.Available);
-        writer.I32(value.Offset);
-        writer.I32(value.Length);
-        writer.Text(value.SourceDigest, WireLimits.ArticleBodyInsertionDigestBytes);
-        writer.Text(value.Digest, WireLimits.ArticleBodyInsertionDigestBytes);
-        writer.Text(value.SourceBody, WireLimits.BodyBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
-        return Aeds.Encode(FrameType.DraftRevisionBodyInsertion, writer.Written);
-    }
-
-    public static DraftRevisionBodyInsertion DecodeDraftRevisionBodyInsertion(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRevisionBodyInsertion));
-        var value = new DraftRevisionBodyInsertion(reader.I32(), reader.I64(), reader.I64(), reader.Bool(), reader.I32(), reader.I32(), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.BodyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasCreate(CanvasCreate value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.CanvasId);
-        writer.Uuid(value.EdgeId);
-        writer.I32(value.HostArticleId);
-        writer.I32(value.TargetArticleId);
-        return Aeds.Encode(FrameType.CanvasCreate, writer.Written);
-    }
-
-    public static CanvasCreate DecodeCanvasCreate(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasCreate));
-        var value = new CanvasCreate(reader.Uuid(), reader.Uuid(), reader.I32(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasCreated(CanvasCreated value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.CanvasId);
-        writer.Uuid(value.EdgeId);
-        writer.I64(value.CanvasRevision);
-        return Aeds.Encode(FrameType.CanvasCreated, writer.Written);
-    }
-
-    public static CanvasCreated DecodeCanvasCreated(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasCreated));
-        var value = new CanvasCreated(reader.Uuid(), reader.Uuid(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasPreview(CanvasPreview value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.CanvasId);
-        writer.Uuid(value.EdgeId);
-        writer.I64(value.CanvasRevision);
-        writer.I64(value.HostRevision);
-        writer.I64(value.TargetRevision);
-        writer.I32(value.SourceOffset);
-        return Aeds.Encode(FrameType.CanvasPreview, writer.Written);
-    }
-
-    public static CanvasPreview DecodeCanvasPreview(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasPreview));
-        var value = new CanvasPreview(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasLinkPlan(CanvasLinkPlan value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.PlanId);
-        writer.I64(value.CanvasRevision);
-        writer.I32(value.HostArticleId);
-        writer.I64(value.HostRevision);
-        writer.I32(value.TargetArticleId);
-        writer.I64(value.TargetRevision);
-        writer.I32(value.SourceOffset);
-        writer.Text(value.InsertedMarkdown, WireLimits.CanvasInsertionBytes);
-        writer.I64(value.ExpiresAtUnixSeconds);
-        return Aeds.Encode(FrameType.CanvasLinkPlan, writer.Written);
-    }
-
-    public static CanvasLinkPlan DecodeCanvasLinkPlan(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasLinkPlan));
-        var value = new CanvasLinkPlan(reader.Uuid(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.Text(WireLimits.CanvasInsertionBytes), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasConfirm(CanvasConfirm value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.PlanId);
-        return Aeds.Encode(FrameType.CanvasConfirm, writer.Written);
-    }
-
-    public static CanvasConfirm DecodeCanvasConfirm(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasConfirm));
-        var value = new CanvasConfirm(reader.Uuid());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodeCanvasLinked(CanvasLinked value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.PlanId);
-        writer.I32(value.ArticleId);
-        writer.I64(value.ArticleRevision);
-        writer.I64(value.CanvasRevision);
-        return Aeds.Encode(FrameType.CanvasLinked, writer.Written);
-    }
-
-    public static CanvasLinked DecodeCanvasLinked(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.CanvasLinked));
-        var value = new CanvasLinked(reader.Uuid(), reader.I32(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyDefinitionCommand(PropertyDefinitionCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.Operation);
-        writer.Uuid(value.DefinitionId);
-        writer.Uuid(value.RequestId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.DefinitionRevision);
-        writer.Text(value.MachineKey, WireLimits.PropertyKeyBytes);
-        writer.Text(value.Label, WireLimits.PropertyLabelBytes);
-        return Aeds.Encode(FrameType.PropertyDefinitionCommand, writer.Written);
-    }
-
-    public static PropertyDefinitionCommand DecodePropertyDefinitionCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionCommand));
-        var value = new PropertyDefinitionCommand(reader.I32(), reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes), reader.Text(WireLimits.PropertyLabelBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyWorkspaceRequest(PropertyWorkspaceRequest value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.ArticleRevision);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.ValueRevision);
-        writer.Text(value.AfterKey, WireLimits.PropertyKeyBytes);
-        return Aeds.Encode(FrameType.PropertyWorkspaceRequest, writer.Written);
-    }
-
-    public static PropertyWorkspaceRequest DecodePropertyWorkspaceRequest(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyWorkspaceRequest));
-        var value = new PropertyWorkspaceRequest(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyFilterabilityCommand(PropertyFilterabilityCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.DefinitionId);
-        writer.Uuid(value.RequestId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.DefinitionRevision);
-        writer.Bool(value.Enabled);
-        return Aeds.Encode(FrameType.PropertyFilterabilityCommand, writer.Written);
-    }
-
-    public static PropertyFilterabilityCommand DecodePropertyFilterabilityCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyFilterabilityCommand));
-        var value = new PropertyFilterabilityCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyDefinitionProjectionCommand(PropertyDefinitionProjectionCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.DefinitionId);
-        writer.Uuid(value.RequestId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.DefinitionRevision);
-        writer.Bool(value.SearchEligible);
-        writer.Bool(value.Sortable);
-        return Aeds.Encode(FrameType.PropertyDefinitionProjectionCommand, writer.Written);
-    }
-
-    public static PropertyDefinitionProjectionCommand DecodePropertyDefinitionProjectionCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionProjectionCommand));
-        var value = new PropertyDefinitionProjectionCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyDefinitionProjection(PropertyDefinitionProjection value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.DefinitionId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.DefinitionRevision);
-        writer.Bool(value.Deprecated);
-        writer.Bool(value.SearchEligible);
-        writer.Bool(value.Filterable);
-        writer.Bool(value.Sortable);
-        writer.Text(value.Digest, WireLimits.PropertyDefinitionDigestBytes);
-        return Aeds.Encode(FrameType.PropertyDefinitionProjection, writer.Written);
-    }
-
-    public static PropertyDefinitionProjection DecodePropertyDefinitionProjection(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyDefinitionProjection));
-        var value = new PropertyDefinitionProjection(reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.PropertyDefinitionDigestBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyTextCommand(PropertyTextCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.ArticleRevision);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.ValueRevision);
-        writer.Uuid(value.DefinitionId);
-        writer.I64(value.DefinitionRevision);
-        writer.Uuid(value.RequestId);
-        writer.Bool(value.Remove);
-        writer.Text(value.Value, WireLimits.PropertyValueBytes);
-        return Aeds.Encode(FrameType.PropertyTextCommand, writer.Written);
-    }
-
-    public static PropertyTextCommand DecodePropertyTextCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyTextCommand));
-        var value = new PropertyTextCommand(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PropertyValueBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyCommandReceipt(PropertyCommandReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.DefinitionId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.Revision);
-        return Aeds.Encode(FrameType.PropertyCommandReceipt, writer.Written);
-    }
-
-    public static PropertyCommandReceipt DecodePropertyCommandReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyCommandReceipt));
-        var value = new PropertyCommandReceipt(reader.Uuid(), reader.I64(), reader.I64());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyValueBatchReceipt(PropertyValueBatchReceipt value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32(value.ArticleId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.ValueRevision);
-        writer.Uuid(value.RequestId);
-        return Aeds.Encode(FrameType.PropertyValueBatchReceipt, writer.Written);
-    }
-
-    public static PropertyValueBatchReceipt DecodePropertyValueBatchReceipt(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyValueBatchReceipt));
-        var value = new PropertyValueBatchReceipt(reader.I32(), reader.I64(), reader.I64(), reader.Uuid());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
+    public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value) =>
+        EncodeRecord(FrameType.RecoveryKeyOperation, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Operation);
+        });
+
+    public static RecoveryKeyOperation DecodeRecoveryKeyOperation(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<RecoveryKeyOperation>(FrameType.RecoveryKeyOperation, frame, static (ref Reader reader) =>
+            new RecoveryKeyOperation(reader.I32()), Validate);
+
+    public static byte[] EncodeRecoveryKeyIssued(RecoveryKeyIssued value) =>
+        EncodeRecord(FrameType.RecoveryKeyIssued, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Key, WireLimits.RecoveryKeyBytes);
+            writer.I64(record.Version);
+            writer.I64(record.CreatedAt);
+        });
+
+    public static RecoveryKeyIssued DecodeRecoveryKeyIssued(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<RecoveryKeyIssued>(FrameType.RecoveryKeyIssued, frame, static (ref Reader reader) =>
+            new RecoveryKeyIssued(reader.Text(WireLimits.RecoveryKeyBytes), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeRecoveryKeyStatus(RecoveryKeyStatus value) =>
+        EncodeRecord(FrameType.RecoveryKeyStatus, value, Validate, static (writer, record) =>
+        {
+            writer.Bool(record.Active);
+        });
+
+    public static RecoveryKeyStatus DecodeRecoveryKeyStatus(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<RecoveryKeyStatus>(FrameType.RecoveryKeyStatus, frame, static (ref Reader reader) =>
+            new RecoveryKeyStatus(reader.Bool()), Validate);
+
+    public static byte[] EncodeRecoveryKeyVerify(RecoveryKeyVerify value) =>
+        EncodeRecord(FrameType.RecoveryKeyVerify, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Key, WireLimits.RecoveryKeyBytes);
+        });
+
+    public static RecoveryKeyVerify DecodeRecoveryKeyVerify(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<RecoveryKeyVerify>(FrameType.RecoveryKeyVerify, frame, static (ref Reader reader) =>
+            new RecoveryKeyVerify(reader.Text(WireLimits.RecoveryKeyBytes)), Validate);
+
+    public static byte[] EncodeAdminModerationClaimRequest(AdminModerationClaimRequest value) =>
+        EncodeRecord(FrameType.AdminModerationClaimRequest, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CommentId);
+        });
+
+    public static AdminModerationClaimRequest DecodeAdminModerationClaimRequest(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminModerationClaimRequest>(FrameType.AdminModerationClaimRequest, frame, static (ref Reader reader) =>
+            new AdminModerationClaimRequest(reader.I32(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminModerationClaim(AdminModerationClaim value) =>
+        EncodeRecord(FrameType.AdminModerationClaim, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CommentId);
+            writer.I64(record.CommentVersion);
+            writer.Text(record.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
+            writer.I64(record.ClaimGeneration);
+            writer.I64(record.ClaimVersion);
+            writer.I64(record.ExpiresAt);
+        });
+
+    public static AdminModerationClaim DecodeAdminModerationClaim(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminModerationClaim>(FrameType.AdminModerationClaim, frame, static (ref Reader reader) =>
+            new AdminModerationClaim(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminModerationDecision(AdminModerationDecision value) =>
+        EncodeRecord(FrameType.AdminModerationDecision, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CommentId);
+            writer.I32(record.ExpectedStatus);
+            writer.I32(record.Decision);
+            writer.Text(record.Reason, WireLimits.AdminModerationReasonBytes);
+            writer.I64(record.CommentVersion);
+            writer.Text(record.ClaimToken, WireLimits.AdminModerationClaimTokenBytes);
+            writer.I64(record.ClaimGeneration);
+            writer.I64(record.ClaimVersion);
+        });
+
+    public static AdminModerationDecision DecodeAdminModerationDecision(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminModerationDecision>(FrameType.AdminModerationDecision, frame, static (ref Reader reader) =>
+            new AdminModerationDecision(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes), reader.I64(), reader.Text(WireLimits.AdminModerationClaimTokenBytes), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminModerationIntent(AdminModerationIntent value) =>
+        EncodeRecord(FrameType.AdminModerationIntent, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CommentId);
+            writer.I32(record.ExpectedStatus);
+            writer.I32(record.Decision);
+            writer.Text(record.Reason, WireLimits.AdminModerationReasonBytes);
+        });
+
+    public static AdminModerationIntent DecodeAdminModerationIntent(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminModerationIntent>(FrameType.AdminModerationIntent, frame, static (ref Reader reader) =>
+            new AdminModerationIntent(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes)), Validate);
+
+    public static byte[] EncodeAdminSessionSnapshot(AdminSessionSnapshot value) =>
+        EncodeRecord(FrameType.AdminSessionSnapshot, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Handle, WireLimits.NameBytes);
+            writer.I64(record.Generation);
+            writer.I64(record.ExpiresAt);
+        });
+
+    public static AdminSessionSnapshot DecodeAdminSessionSnapshot(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSessionSnapshot>(FrameType.AdminSessionSnapshot, frame, static (ref Reader reader) =>
+            new AdminSessionSnapshot(reader.Text(WireLimits.NameBytes), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminOperationsStatus(AdminOperationsStatus value) =>
+        EncodeRecord(FrameType.AdminOperationsStatus, value, Validate, static (writer, record) =>
+        {
+            writer.Bool(record.SnapshotReady);
+            writer.I64(record.PublicationWatermark);
+            writer.I64(record.PendingPublicationEvents);
+            writer.I64(record.OldestPendingAt);
+        });
+
+    public static AdminOperationsStatus DecodeAdminOperationsStatus(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminOperationsStatus>(FrameType.AdminOperationsStatus, frame, static (ref Reader reader) =>
+            new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminRiskReadiness(AdminRiskReadiness value) =>
+        EncodeRecord(FrameType.AdminRiskReadiness, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.PublicReadMode);
+            writer.I32(record.RootWriteMode);
+            writer.I32(record.ReplyWriteMode);
+            writer.I32(record.ForwardingMode);
+            writer.I32(record.DynamicRisk);
+            writer.I32(record.StrongAnonymous);
+        });
+
+    public static AdminRiskReadiness DecodeAdminRiskReadiness(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminRiskReadiness>(FrameType.AdminRiskReadiness, frame, static (ref Reader reader) =>
+            new AdminRiskReadiness(reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32(), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminRootCommentPowPolicy(AdminRootCommentPowPolicy value) =>
+        EncodeRecord(FrameType.AdminRootCommentPowPolicy, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.Generation);
+            writer.Text(record.Digest, WireLimits.RootCommentPowDigestBytes);
+            writer.I32(record.ProofSeconds);
+            writer.I32(record.PreviousSeconds);
+        });
+
+    public static AdminRootCommentPowPolicy DecodeAdminRootCommentPowPolicy(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminRootCommentPowPolicy>(FrameType.AdminRootCommentPowPolicy, frame, static (ref Reader reader) =>
+            new AdminRootCommentPowPolicy(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminRootCommentPowCommand(AdminRootCommentPowCommand value) =>
+        EncodeRecord(FrameType.AdminRootCommentPowCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.ExpectedGeneration);
+            writer.Text(record.ExpectedDigest, WireLimits.RootCommentPowDigestBytes);
+            writer.I32(record.ProofSeconds);
+            writer.Bool(record.Rollback);
+        });
+
+    public static AdminRootCommentPowCommand DecodeAdminRootCommentPowCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminRootCommentPowCommand>(FrameType.AdminRootCommentPowCommand, frame, static (ref Reader reader) =>
+            new AdminRootCommentPowCommand(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.Bool()), Validate);
+
+    public static byte[] EncodeAdminClusterStatus(AdminClusterStatus value) =>
+        EncodeRecord(FrameType.AdminClusterStatus, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Mode);
+            writer.Text(record.NodeId, WireLimits.AdminClusterNodeIdBytes);
+            writer.Uuid(record.InstanceId);
+            writer.Text(record.BuildVersion, WireLimits.AdminClusterVersionBytes);
+            writer.I64(record.StartedAt);
+            writer.I64(record.ObservedAt);
+            writer.I32(record.LeaseAgeMs);
+            writer.Bool(record.SnapshotReady);
+        });
+
+    public static AdminClusterStatus DecodeAdminClusterStatus(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminClusterStatus>(FrameType.AdminClusterStatus, frame, static (ref Reader reader) =>
+            new AdminClusterStatus(reader.I32(), reader.Text(WireLimits.AdminClusterNodeIdBytes), reader.Uuid(), reader.Text(WireLimits.AdminClusterVersionBytes), reader.I64(), reader.I64(), reader.I32(), reader.Bool()), Validate);
+
+    public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value) =>
+        EncodeRecord(FrameType.AdminArticleRollbackIntent, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ExpectedRevision);
+            writer.I64(record.ExpectedPublicationId);
+            writer.I64(record.SourceRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Reason, WireLimits.RollbackReasonBytes);
+        });
+
+    public static AdminArticleRollbackIntent DecodeAdminArticleRollbackIntent(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleRollbackIntent>(FrameType.AdminArticleRollbackIntent, frame, static (ref Reader reader) =>
+            new AdminArticleRollbackIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes)), Validate);
+
+    public static byte[] EncodeAdminArticleRollbackPreview(AdminArticleRollbackPreview value) =>
+        EncodeRecord(FrameType.AdminArticleRollbackPreview, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CurrentRevision);
+            writer.I64(record.CurrentPublicationId);
+            writer.I64(record.SourceRevision);
+            writer.I64(record.SourcePublicationId);
+            writer.Text(record.SourceTitle, WireLimits.TitleBytes);
+            writer.Bool(record.PackageComplete);
+            writer.I32(record.BlockingReason);
+        });
+
+    public static AdminArticleRollbackPreview DecodeAdminArticleRollbackPreview(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleRollbackPreview>(FrameType.AdminArticleRollbackPreview, frame, static (ref Reader reader) =>
+            new AdminArticleRollbackPreview(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Bool(), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminArticleRollbackReceipt(AdminArticleRollbackReceipt value) =>
+        EncodeRecord(FrameType.AdminArticleRollbackReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Revision);
+            writer.I64(record.SourceRevision);
+            writer.I64(record.PreviousPublicationId);
+            writer.I64(record.PublicationId);
+            writer.I32(record.PublicationNo);
+            writer.I64(record.PublishedUnixMs);
+            writer.I64(record.RightsSnapshotId);
+            writer.I64(record.ResponsibilitySnapshotId);
+        });
+
+    public static AdminArticleRollbackReceipt DecodeAdminArticleRollbackReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleRollbackReceipt>(FrameType.AdminArticleRollbackReceipt, frame, static (ref Reader reader) =>
+            new AdminArticleRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminArticleDraftRollbackIntent(AdminArticleDraftRollbackIntent value) =>
+        EncodeRecord(FrameType.AdminArticleDraftRollbackIntent, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ExpectedRevision);
+            writer.I64(record.ExpectedPublicationId);
+            writer.I64(record.SourceRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Reason, WireLimits.RollbackReasonBytes);
+            writer.I32(record.TargetStatus);
+        });
+
+    public static AdminArticleDraftRollbackIntent DecodeAdminArticleDraftRollbackIntent(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleDraftRollbackIntent>(FrameType.AdminArticleDraftRollbackIntent, frame, static (ref Reader reader) =>
+            new AdminArticleDraftRollbackIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminArticleDraftRollbackReceipt(AdminArticleDraftRollbackReceipt value) =>
+        EncodeRecord(FrameType.AdminArticleDraftRollbackReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Revision);
+            writer.I64(record.SourceRevision);
+            writer.I64(record.PreviousPublicationId);
+            writer.I64(record.PrivateReleaseId);
+            writer.I32(record.PublicationNo);
+            writer.I64(record.TransitionedUnixMs);
+            writer.I64(record.RightsSnapshotId);
+            writer.I64(record.ResponsibilitySnapshotId);
+            writer.I32(record.TargetStatus);
+        });
+
+    public static AdminArticleDraftRollbackReceipt DecodeAdminArticleDraftRollbackReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleDraftRollbackReceipt>(FrameType.AdminArticleDraftRollbackReceipt, frame, static (ref Reader reader) =>
+            new AdminArticleDraftRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminArticleArchiveIntent(AdminArticleArchiveIntent value) =>
+        EncodeRecord(FrameType.AdminArticleArchiveIntent, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ExpectedRevision);
+            writer.I64(record.ExpectedReleaseId);
+            writer.I64(record.SourceRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Reason, WireLimits.RollbackReasonBytes);
+            writer.I32(record.TargetStatus);
+        });
+
+    public static AdminArticleArchiveIntent DecodeAdminArticleArchiveIntent(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleArchiveIntent>(FrameType.AdminArticleArchiveIntent, frame, static (ref Reader reader) =>
+            new AdminArticleArchiveIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminArticleArchiveReceipt(AdminArticleArchiveReceipt value) =>
+        EncodeRecord(FrameType.AdminArticleArchiveReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Revision);
+            writer.I64(record.SourceRevision);
+            writer.I64(record.PreviousReleaseId);
+            writer.I64(record.ReleaseId);
+            writer.I32(record.PublicationNo);
+            writer.I64(record.TransitionedUnixMs);
+            writer.I64(record.RightsSnapshotId);
+            writer.I64(record.ResponsibilitySnapshotId);
+            writer.I32(record.TargetStatus);
+        });
+
+    public static AdminArticleArchiveReceipt DecodeAdminArticleArchiveReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleArchiveReceipt>(FrameType.AdminArticleArchiveReceipt, frame, static (ref Reader reader) =>
+            new AdminArticleArchiveReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32()), Validate);
+
+    public static byte[] EncodeAdminArticleArchivePreview(AdminArticleArchivePreview value) =>
+        EncodeRecord(FrameType.AdminArticleArchivePreview, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Revision);
+            writer.I64(record.PrivateReleaseId);
+            writer.Text(record.Title, WireLimits.TitleBytes);
+            writer.Text(record.Markdown, WireLimits.BodyBytes);
+        });
+
+    public static AdminArticleArchivePreview DecodeAdminArticleArchivePreview(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminArticleArchivePreview>(FrameType.AdminArticleArchivePreview, frame, static (ref Reader reader) =>
+            new AdminArticleArchivePreview(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes)), Validate);
+
+    public static byte[] EncodeAdminSitePages(AdminSitePages value) =>
+        EncodeRecord(FrameType.AdminSitePages, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ConfiguredMask);
+        });
+
+    public static AdminSitePages DecodeAdminSitePages(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSitePages>(FrameType.AdminSitePages, frame, static (ref Reader reader) =>
+            new AdminSitePages(reader.I32()), Validate);
+
+    public static byte[] EncodeAdminSitePageRevision(AdminSitePageRevision value) =>
+        EncodeRecord(FrameType.AdminSitePageRevision, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Slug, WireLimits.AdminSitePageSlugBytes);
+            writer.I64(record.Revision);
+            writer.Text(record.Digest, WireLimits.AdminSitePageDigestBytes);
+            writer.Text(record.Markdown, WireLimits.PageContentBytes);
+        });
+
+    public static AdminSitePageRevision DecodeAdminSitePageRevision(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSitePageRevision>(FrameType.AdminSitePageRevision, frame, static (ref Reader reader) =>
+            new AdminSitePageRevision(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes)), Validate);
+
+    public static byte[] EncodeAdminSitePagePublish(AdminSitePagePublish value) =>
+        EncodeRecord(FrameType.AdminSitePagePublish, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Slug, WireLimits.AdminSitePageSlugBytes);
+            writer.I64(record.ExpectedRevision);
+            writer.Text(record.ExpectedDigest, WireLimits.AdminSitePageDigestBytes);
+            writer.Text(record.Markdown, WireLimits.PageContentBytes);
+        });
+
+    public static AdminSitePagePublish DecodeAdminSitePagePublish(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSitePagePublish>(FrameType.AdminSitePagePublish, frame, static (ref Reader reader) =>
+            new AdminSitePagePublish(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes)), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceSnapshot(AuthoringWorkspaceSnapshot value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceSnapshot, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.Revision);
+            writer.I64(record.UpdatedAtUnixMs);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.I32(record.Skipped);
+        });
+
+    public static AuthoringWorkspaceSnapshot DecodeAuthoringWorkspaceSnapshot(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceSnapshot>(FrameType.AuthoringWorkspaceSnapshot, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceSnapshot(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32()), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceCommand(AuthoringWorkspaceCommand value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.ExpectedRevision);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+        });
+
+    public static AuthoringWorkspaceCommand DecodeAuthoringWorkspaceCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceCommand>(FrameType.AuthoringWorkspaceCommand, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs)), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceLayout(AuthoringWorkspaceLayout value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceLayout, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.Revision);
+            writer.I64(record.UpdatedAtUnixMs);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.I32(record.Skipped);
+            writer.Bool(record.InspectorOpen);
+        });
+
+    public static AuthoringWorkspaceLayout DecodeAuthoringWorkspaceLayout(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceLayout>(FrameType.AuthoringWorkspaceLayout, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceLayout(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32(), reader.Bool()), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceLayoutCommand(AuthoringWorkspaceLayoutCommand value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceLayoutCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.ExpectedRevision);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.Bool(record.InspectorOpen);
+        });
+
+    public static AuthoringWorkspaceLayoutCommand DecodeAuthoringWorkspaceLayoutCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceLayoutCommand>(FrameType.AuthoringWorkspaceLayoutCommand, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceLayoutCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool()), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceGroups(AuthoringWorkspaceGroups value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceGroups, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.Revision);
+            writer.I64(record.UpdatedAtUnixMs);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.I32(record.Skipped);
+            writer.Bool(record.InspectorOpen);
+            writer.I32(record.SecondaryActiveArticleId);
+            writer.I32s(record.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.I32(record.FocusedGroup);
+        });
+
+    public static AuthoringWorkspaceGroups DecodeAuthoringWorkspaceGroups(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceGroups>(FrameType.AuthoringWorkspaceGroups, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceGroups(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32(), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32()), Validate);
+
+    public static byte[] EncodeAuthoringWorkspaceGroupsCommand(AuthoringWorkspaceGroupsCommand value) =>
+        EncodeRecord(FrameType.AuthoringWorkspaceGroupsCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.ExpectedRevision);
+            writer.I32(record.ActiveArticleId);
+            writer.I32s(record.Tabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.Bool(record.InspectorOpen);
+            writer.I32(record.SecondaryActiveArticleId);
+            writer.I32s(record.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+            writer.I32(record.FocusedGroup);
+        });
+
+    public static AuthoringWorkspaceGroupsCommand DecodeAuthoringWorkspaceGroupsCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthoringWorkspaceGroupsCommand>(FrameType.AuthoringWorkspaceGroupsCommand, frame, static (ref Reader reader) =>
+            new AuthoringWorkspaceGroupsCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32()), Validate);
+
+    public static byte[] EncodeAuthorRecentOpenCommand(AuthorRecentOpenCommand value) =>
+        EncodeRecord(FrameType.AuthorRecentOpenCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.RequestId);
+            writer.I32(record.ArticleId);
+            writer.I64(record.ArticleRevision);
+        });
+
+    public static AuthorRecentOpenCommand DecodeAuthorRecentOpenCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorRecentOpenCommand>(FrameType.AuthorRecentOpenCommand, frame, static (ref Reader reader) =>
+            new AuthorRecentOpenCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64()), Validate);
+
+    public static byte[] EncodeAuthorRecentOpenReceipt(AuthorRecentOpenReceipt value) =>
+        EncodeRecord(FrameType.AuthorRecentOpenReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.SchemaVersion);
+            writer.I64(record.Revision);
+            writer.Uuid(record.RequestId);
+            writer.I32(record.ArticleId);
+            writer.I64(record.ArticleRevision);
+            writer.I64(record.OpenedAtUnixMs);
+        });
+
+    public static AuthorRecentOpenReceipt DecodeAuthorRecentOpenReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorRecentOpenReceipt>(FrameType.AuthorRecentOpenReceipt, frame, static (ref Reader reader) =>
+            new AuthorRecentOpenReceipt(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeAdminAppearanceState(AdminAppearanceState value) =>
+        EncodeRecord(FrameType.AdminAppearanceState, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.Revision);
+            writer.Text(record.Theme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.Font, WireLimits.AdminAppearanceDigestBytes);
+            writer.Bool(record.Serving);
+            writer.Bool(record.CanRollback);
+            writer.Text(record.PreviousTheme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.PreviousFont, WireLimits.AdminAppearanceDigestBytes);
+        });
+
+    public static AdminAppearanceState DecodeAdminAppearanceState(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminAppearanceState>(FrameType.AdminAppearanceState, frame, static (ref Reader reader) =>
+            new AdminAppearanceState(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool(), reader.Bool(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes)), Validate);
+
+    public static byte[] EncodeAdminAppearanceCommand(AdminAppearanceCommand value) =>
+        EncodeRecord(FrameType.AdminAppearanceCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.ExpectedRevision);
+            writer.Text(record.CurrentTheme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.CurrentFont, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.Theme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.Font, WireLimits.AdminAppearanceDigestBytes);
+            writer.Bool(record.Rollback);
+        });
+
+    public static AdminAppearanceCommand DecodeAdminAppearanceCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminAppearanceCommand>(FrameType.AdminAppearanceCommand, frame, static (ref Reader reader) =>
+            new AdminAppearanceCommand(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool()), Validate);
+
+    public static byte[] EncodeAdminAppearanceFontDetail(AdminAppearanceFontDetail value) =>
+        EncodeRecord(FrameType.AdminAppearanceFontDetail, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Id, WireLimits.AdminAppearanceIdBytes);
+            writer.Text(record.Version, WireLimits.AdminAppearanceVersionBytes);
+            writer.Text(record.ArchiveDigest, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(record.Name, WireLimits.AdminAppearanceFontMetadataBytes);
+            writer.Text(record.Family, WireLimits.AdminAppearanceFontMetadataBytes);
+            writer.Text(record.LicenseName, WireLimits.AdminAppearanceFontLicenseNameBytes);
+            writer.Text(record.LicenseText, WireLimits.AdminAppearanceFontLicenseBytes);
+            writer.I32(record.FaceWeight);
+            writer.Text(record.FaceStyle, WireLimits.AdminAppearanceFontLicenseNameBytes);
+            writer.Text(record.FaceDigest, WireLimits.AdminAppearanceDigestBytes);
+            writer.I32(record.FaceBytes);
+            writer.Text(record.UnicodeRange, WireLimits.AdminAppearanceFontUnicodeRangeBytes);
+            writer.Text(record.SourceKind, WireLimits.AdminAppearanceFontLicenseNameBytes);
+            writer.Text(record.SourcePackage, WireLimits.AdminAppearanceFontMetadataBytes);
+            writer.Text(record.SourceVersion, WireLimits.AdminAppearanceVersionBytes);
+            writer.Text(record.SourceUpstream, WireLimits.AdminAppearanceFontMetadataBytes);
+        });
+
+    public static AdminAppearanceFontDetail DecodeAdminAppearanceFontDetail(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminAppearanceFontDetail>(FrameType.AdminAppearanceFontDetail, frame, static (ref Reader reader) =>
+            new AdminAppearanceFontDetail(reader.Text(WireLimits.AdminAppearanceIdBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.I32(), reader.Text(WireLimits.AdminAppearanceFontUnicodeRangeBytes), reader.Text(WireLimits.AdminAppearanceFontLicenseNameBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes), reader.Text(WireLimits.AdminAppearanceVersionBytes), reader.Text(WireLimits.AdminAppearanceFontMetadataBytes)), Validate);
+
+    public static byte[] EncodeDraftRecoveryScope(DraftRecoveryScope value) =>
+        EncodeRecord(FrameType.DraftRecoveryScope, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.SiteId);
+            writer.Uuid(record.UserId);
+        });
+
+    public static DraftRecoveryScope DecodeDraftRecoveryScope(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<DraftRecoveryScope>(FrameType.DraftRecoveryScope, frame, static (ref Reader reader) =>
+            new DraftRecoveryScope(reader.Uuid(), reader.Uuid()), Validate);
+
+    public static byte[] EncodePublicCommentEligibility(PublicCommentEligibility value) =>
+        EncodeRecord(FrameType.PublicCommentEligibility, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Publication);
+            writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+        });
+
+    public static PublicCommentEligibility DecodePublicCommentEligibility(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PublicCommentEligibility>(FrameType.PublicCommentEligibility, frame, static (ref Reader reader) =>
+            new PublicCommentEligibility(reader.I32(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes)), Validate);
+
+    public static byte[] EncodeCommentAuthorEditDetail(CommentAuthorEditDetail value) =>
+        EncodeRecord(FrameType.CommentAuthorEditDetail, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Publication);
+            writer.I64(record.CurrentVersion);
+            writer.Text(record.Body, WireLimits.PublicCommentBodyBytes);
+        });
+
+    public static CommentAuthorEditDetail DecodeCommentAuthorEditDetail(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CommentAuthorEditDetail>(FrameType.CommentAuthorEditDetail, frame, static (ref Reader reader) =>
+            new CommentAuthorEditDetail(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentBodyBytes)), Validate);
+
+    public static byte[] EncodePublicCommentSubmission(PublicCommentSubmission value) =>
+        EncodeRecord(FrameType.PublicCommentSubmission, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Publication);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Bool(record.ExplicitPublic);
+            writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+            writer.Text(record.Body, WireLimits.PublicCommentBodyBytes);
+        });
+
+    public static PublicCommentSubmission DecodePublicCommentSubmission(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PublicCommentSubmission>(FrameType.PublicCommentSubmission, frame, static (ref Reader reader) =>
+            new PublicCommentSubmission(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes)), Validate);
+
+    public static byte[] EncodePublicCommentReply(PublicCommentReply value) =>
+        EncodeRecord(FrameType.PublicCommentReply, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.Publication);
+            writer.I64(record.ParentId);
+            writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+            writer.Text(record.Body, WireLimits.PublicCommentBodyBytes);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Bool(record.ExplicitPublic);
+        });
+
+    public static PublicCommentReply DecodePublicCommentReply(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PublicCommentReply>(FrameType.PublicCommentReply, frame, static (ref Reader reader) =>
+            new PublicCommentReply(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Text(WireLimits.PublicCommentBodyBytes), reader.Uuid(), reader.Bool()), Validate);
+
+    public static byte[] EncodePublicCommentSubmissionResult(PublicCommentSubmissionResult value) =>
+        EncodeRecord(FrameType.PublicCommentSubmissionResult, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.CommentId);
+            writer.I32(record.ModerationStatus);
+            writer.Bool(record.Replayed);
+        });
+
+    public static PublicCommentSubmissionResult DecodePublicCommentSubmissionResult(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PublicCommentSubmissionResult>(FrameType.PublicCommentSubmissionResult, frame, static (ref Reader reader) =>
+            new PublicCommentSubmissionResult(reader.I32(), reader.I64(), reader.I32(), reader.Bool()), Validate);
+
+    public static byte[] EncodeSubscriptionPreferenceRequest(SubscriptionPreferenceRequest value) =>
+        EncodeRecord(FrameType.SubscriptionPreferenceRequest, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Email, WireLimits.SubscriptionEmailBytes);
+            writer.I32(record.Channel);
+        });
+
+    public static SubscriptionPreferenceRequest DecodeSubscriptionPreferenceRequest(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SubscriptionPreferenceRequest>(FrameType.SubscriptionPreferenceRequest, frame, static (ref Reader reader) =>
+            new SubscriptionPreferenceRequest(reader.Text(WireLimits.SubscriptionEmailBytes), reader.I32()), Validate);
+
+    public static byte[] EncodeDraftTaxonomy(DraftTaxonomy value) =>
+        EncodeRecord(FrameType.DraftTaxonomy, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.I32(record.CategoryId);
+            writer.I32s(record.TagIds, WireLimits.TaxonomyTagCount);
+        });
+
+    public static DraftTaxonomy DecodeDraftTaxonomy(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<DraftTaxonomy>(FrameType.DraftTaxonomy, frame, static (ref Reader reader) =>
+            new DraftTaxonomy(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount)), Validate);
+
+    public static byte[] EncodeTaxonomyAssignment(TaxonomyAssignment value) =>
+        EncodeRecord(FrameType.TaxonomyAssignment, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.I32(record.CategoryId);
+            writer.I32s(record.TagIds, WireLimits.TaxonomyTagCount);
+        });
+
+    public static TaxonomyAssignment DecodeTaxonomyAssignment(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<TaxonomyAssignment>(FrameType.TaxonomyAssignment, frame, static (ref Reader reader) =>
+            new TaxonomyAssignment(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I32s(WireLimits.TaxonomyTagCount)), Validate);
+
+    public static byte[] EncodeSignIn(SignIn value) =>
+        EncodeRecord(FrameType.OperatorSignIn, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Ticket, WireLimits.TicketBytes);
+        });
+
+    public static SignIn DecodeSignIn(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SignIn>(FrameType.OperatorSignIn, frame, static (ref Reader reader) =>
+            new SignIn(reader.Text(WireLimits.TicketBytes)), Validate);
+
+    public static byte[] EncodeSession(Session value) =>
+        EncodeRecord(FrameType.OperatorSession, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Name, WireLimits.NameBytes);
+            writer.I64(record.Generation);
+            writer.Bool(record.CanAuthor);
+        });
+
+    public static Session DecodeSession(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<Session>(FrameType.OperatorSession, frame, static (ref Reader reader) =>
+            new Session(reader.Text(WireLimits.NameBytes), reader.I64(), reader.Bool()), Validate);
+
+    public static byte[] EncodeDraft(Draft value) =>
+        EncodeRecord(FrameType.Draft, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.Text(record.Title, WireLimits.TitleBytes);
+            writer.Text(record.Body, WireLimits.BodyBytes);
+            writer.Bool(record.Published);
+        });
+
+    public static Draft DecodeDraft(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<Draft>(FrameType.Draft, frame, static (ref Reader reader) =>
+            new Draft(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Bool()), Validate);
+
+    public static byte[] EncodeDraftRollback(DraftRollback value) =>
+        EncodeRecord(FrameType.DraftRollback, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.I64(record.SourceRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Reason, WireLimits.RollbackReasonBytes);
+        });
+
+    public static DraftRollback DecodeDraftRollback(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<DraftRollback>(FrameType.DraftRollback, frame, static (ref Reader reader) =>
+            new DraftRollback(reader.I32(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes)), Validate);
+
+    public static byte[] EncodeArticleRightsPolicy(ArticleRightsPolicy value) =>
+        EncodeRecord(FrameType.ArticleRightsPolicy, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.Bool(record.Present);
+            writer.Bool(record.Enabled);
+            writer.Text(record.LicenseType, WireLimits.ArticleRightsTokenBytes);
+            writer.Text(record.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
+            writer.I32(record.CopyrightYear);
+            writer.Text(record.RightsStatement, WireLimits.ArticleRightsTextBytes);
+            writer.Text(record.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
+            writer.Text(record.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
+            writer.I32(record.MaxExcerptChars);
+            writer.Bool(record.AllowCodeCopy);
+            writer.Bool(record.ShowPublicBadge);
+            writer.Bool(record.ProofBindingEnabled);
+        });
+
+    public static ArticleRightsPolicy DecodeArticleRightsPolicy(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleRightsPolicy>(FrameType.ArticleRightsPolicy, frame, static (ref Reader reader) =>
+            new ArticleRightsPolicy(reader.I32(), reader.I64(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool()), Validate);
+
+    public static byte[] EncodeArticleRightsCommand(ArticleRightsCommand value) =>
+        EncodeRecord(FrameType.ArticleRightsCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Bool(record.Enabled);
+            writer.Text(record.LicenseType, WireLimits.ArticleRightsTokenBytes);
+            writer.Text(record.CopyrightHolder, WireLimits.ArticleRightsHolderBytes);
+            writer.I32(record.CopyrightYear);
+            writer.Text(record.RightsStatement, WireLimits.ArticleRightsTextBytes);
+            writer.Text(record.AttributionTemplate, WireLimits.ArticleRightsTextBytes);
+            writer.Text(record.CopyPolicy, WireLimits.ArticleRightsTokenBytes);
+            writer.I32(record.MaxExcerptChars);
+            writer.Bool(record.AllowCodeCopy);
+            writer.Bool(record.ShowPublicBadge);
+            writer.Bool(record.ProofBindingEnabled);
+        });
+
+    public static ArticleRightsCommand DecodeArticleRightsCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleRightsCommand>(FrameType.ArticleRightsCommand, frame, static (ref Reader reader) =>
+            new ArticleRightsCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.Text(WireLimits.ArticleRightsHolderBytes), reader.I32(), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTextBytes), reader.Text(WireLimits.ArticleRightsTokenBytes), reader.I32(), reader.Bool(), reader.Bool(), reader.Bool()), Validate);
+
+    public static byte[] EncodeArticleSchedule(ArticleSchedule value) =>
+        EncodeRecord(FrameType.ArticleSchedule, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.I64(record.DueUnixMs);
+            writer.I64(record.PublishedRevision);
+        });
+
+    public static ArticleSchedule DecodeArticleSchedule(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleSchedule>(FrameType.ArticleSchedule, frame, static (ref Reader reader) =>
+            new ArticleSchedule(reader.I32(), reader.I64(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodeArticleScheduleCommand(ArticleScheduleCommand value) =>
+        EncodeRecord(FrameType.ArticleScheduleCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.I64(record.DueUnixMs);
+        });
+
+    public static ArticleScheduleCommand DecodeArticleScheduleCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleScheduleCommand>(FrameType.ArticleScheduleCommand, frame, static (ref Reader reader) =>
+            new ArticleScheduleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I64()), Validate);
+
+    public static byte[] EncodeRevisionComparison(RevisionComparison value) =>
+        EncodeRecord(FrameType.RevisionComparison, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.I64(record.SourceRevision);
+            writer.Text(record.Title, WireLimits.TitleBytes);
+            writer.Text(record.Body, WireLimits.BodyBytes);
+            writer.Text(record.SourceTitle, WireLimits.TitleBytes);
+            writer.Text(record.SourceBody, WireLimits.BodyBytes);
+        });
+
+    public static RevisionComparison DecodeRevisionComparison(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<RevisionComparison>(FrameType.RevisionComparison, frame, static (ref Reader reader) =>
+            new RevisionComparison(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes)), Validate);
+
+    public static byte[] EncodeArticleCommand(ArticleCommand value) =>
+        EncodeRecord(FrameType.ArticleCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Title, WireLimits.TitleBytes);
+            writer.Text(record.Body, WireLimits.BodyBytes);
+        });
+
+    public static ArticleCommand DecodeArticleCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleCommand>(FrameType.ArticleCommand, frame, static (ref Reader reader) =>
+            new ArticleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes)), Validate);
+
+    public static byte[] EncodeArticleBodyInsertionCommand(ArticleBodyInsertionCommand value) =>
+        EncodeRecord(FrameType.ArticleBodyInsertionCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Title, WireLimits.TitleBytes);
+            writer.Text(record.Body, WireLimits.BodyBytes);
+            writer.I32(record.Offset);
+            writer.I32(record.Length);
+        });
+
+    public static ArticleBodyInsertionCommand DecodeArticleBodyInsertionCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleBodyInsertionCommand>(FrameType.ArticleBodyInsertionCommand, frame, static (ref Reader reader) =>
+            new ArticleBodyInsertionCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.I32(), reader.I32()), Validate);
+
+    public static byte[] EncodeDraftRevisionBodyInsertion(DraftRevisionBodyInsertion value) =>
+        EncodeRecord(FrameType.DraftRevisionBodyInsertion, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.Revision);
+            writer.I64(record.SourceRevision);
+            writer.Bool(record.Available);
+            writer.I32(record.Offset);
+            writer.I32(record.Length);
+            writer.Text(record.SourceDigest, WireLimits.ArticleBodyInsertionDigestBytes);
+            writer.Text(record.Digest, WireLimits.ArticleBodyInsertionDigestBytes);
+            writer.Text(record.SourceBody, WireLimits.BodyBytes);
+            writer.Text(record.Body, WireLimits.BodyBytes);
+        });
+
+    public static DraftRevisionBodyInsertion DecodeDraftRevisionBodyInsertion(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<DraftRevisionBodyInsertion>(FrameType.DraftRevisionBodyInsertion, frame, static (ref Reader reader) =>
+            new DraftRevisionBodyInsertion(reader.I32(), reader.I64(), reader.I64(), reader.Bool(), reader.I32(), reader.I32(), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.BodyBytes)), Validate);
+
+    public static byte[] EncodeCanvasCreate(CanvasCreate value) =>
+        EncodeRecord(FrameType.CanvasCreate, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.CanvasId);
+            writer.Uuid(record.EdgeId);
+            writer.I32(record.HostArticleId);
+            writer.I32(record.TargetArticleId);
+        });
+
+    public static CanvasCreate DecodeCanvasCreate(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasCreate>(FrameType.CanvasCreate, frame, static (ref Reader reader) =>
+            new CanvasCreate(reader.Uuid(), reader.Uuid(), reader.I32(), reader.I32()), Validate);
+
+    public static byte[] EncodeCanvasCreated(CanvasCreated value) =>
+        EncodeRecord(FrameType.CanvasCreated, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.CanvasId);
+            writer.Uuid(record.EdgeId);
+            writer.I64(record.CanvasRevision);
+        });
+
+    public static CanvasCreated DecodeCanvasCreated(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasCreated>(FrameType.CanvasCreated, frame, static (ref Reader reader) =>
+            new CanvasCreated(reader.Uuid(), reader.Uuid(), reader.I64()), Validate);
+
+    public static byte[] EncodeCanvasPreview(CanvasPreview value) =>
+        EncodeRecord(FrameType.CanvasPreview, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.CanvasId);
+            writer.Uuid(record.EdgeId);
+            writer.I64(record.CanvasRevision);
+            writer.I64(record.HostRevision);
+            writer.I64(record.TargetRevision);
+            writer.I32(record.SourceOffset);
+        });
+
+    public static CanvasPreview DecodeCanvasPreview(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasPreview>(FrameType.CanvasPreview, frame, static (ref Reader reader) =>
+            new CanvasPreview(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.I64(), reader.I32()), Validate);
+
+    public static byte[] EncodeCanvasLinkPlan(CanvasLinkPlan value) =>
+        EncodeRecord(FrameType.CanvasLinkPlan, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.PlanId);
+            writer.I64(record.CanvasRevision);
+            writer.I32(record.HostArticleId);
+            writer.I64(record.HostRevision);
+            writer.I32(record.TargetArticleId);
+            writer.I64(record.TargetRevision);
+            writer.I32(record.SourceOffset);
+            writer.Text(record.InsertedMarkdown, WireLimits.CanvasInsertionBytes);
+            writer.I64(record.ExpiresAtUnixSeconds);
+        });
+
+    public static CanvasLinkPlan DecodeCanvasLinkPlan(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasLinkPlan>(FrameType.CanvasLinkPlan, frame, static (ref Reader reader) =>
+            new CanvasLinkPlan(reader.Uuid(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.Text(WireLimits.CanvasInsertionBytes), reader.I64()), Validate);
+
+    public static byte[] EncodeCanvasConfirm(CanvasConfirm value) =>
+        EncodeRecord(FrameType.CanvasConfirm, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.PlanId);
+        });
+
+    public static CanvasConfirm DecodeCanvasConfirm(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasConfirm>(FrameType.CanvasConfirm, frame, static (ref Reader reader) =>
+            new CanvasConfirm(reader.Uuid()), Validate);
+
+    public static byte[] EncodeCanvasLinked(CanvasLinked value) =>
+        EncodeRecord(FrameType.CanvasLinked, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.PlanId);
+            writer.I32(record.ArticleId);
+            writer.I64(record.ArticleRevision);
+            writer.I64(record.CanvasRevision);
+        });
+
+    public static CanvasLinked DecodeCanvasLinked(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasLinked>(FrameType.CanvasLinked, frame, static (ref Reader reader) =>
+            new CanvasLinked(reader.Uuid(), reader.I32(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodePropertyDefinitionCommand(PropertyDefinitionCommand value) =>
+        EncodeRecord(FrameType.PropertyDefinitionCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Operation);
+            writer.Uuid(record.DefinitionId);
+            writer.Uuid(record.RequestId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.DefinitionRevision);
+            writer.Text(record.MachineKey, WireLimits.PropertyKeyBytes);
+            writer.Text(record.Label, WireLimits.PropertyLabelBytes);
+        });
+
+    public static PropertyDefinitionCommand DecodePropertyDefinitionCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyDefinitionCommand>(FrameType.PropertyDefinitionCommand, frame, static (ref Reader reader) =>
+            new PropertyDefinitionCommand(reader.I32(), reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes), reader.Text(WireLimits.PropertyLabelBytes)), Validate);
+
+    public static byte[] EncodePropertyWorkspaceRequest(PropertyWorkspaceRequest value) =>
+        EncodeRecord(FrameType.PropertyWorkspaceRequest, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ArticleRevision);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.ValueRevision);
+            writer.Text(record.AfterKey, WireLimits.PropertyKeyBytes);
+        });
+
+    public static PropertyWorkspaceRequest DecodePropertyWorkspaceRequest(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyWorkspaceRequest>(FrameType.PropertyWorkspaceRequest, frame, static (ref Reader reader) =>
+            new PropertyWorkspaceRequest(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes)), Validate);
+
+    public static byte[] EncodePropertyFilterabilityCommand(PropertyFilterabilityCommand value) =>
+        EncodeRecord(FrameType.PropertyFilterabilityCommand, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.DefinitionId);
+            writer.Uuid(record.RequestId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.DefinitionRevision);
+            writer.Bool(record.Enabled);
+        });
+
+    public static PropertyFilterabilityCommand DecodePropertyFilterabilityCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyFilterabilityCommand>(FrameType.PropertyFilterabilityCommand, frame, static (ref Reader reader) =>
+            new PropertyFilterabilityCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool()), Validate);
+
+    public static byte[] EncodePropertyDefinitionProjectionCommand(PropertyDefinitionProjectionCommand value) =>
+        EncodeRecord(FrameType.PropertyDefinitionProjectionCommand, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.DefinitionId);
+            writer.Uuid(record.RequestId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.DefinitionRevision);
+            writer.Bool(record.SearchEligible);
+            writer.Bool(record.Sortable);
+        });
+
+    public static PropertyDefinitionProjectionCommand DecodePropertyDefinitionProjectionCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyDefinitionProjectionCommand>(FrameType.PropertyDefinitionProjectionCommand, frame, static (ref Reader reader) =>
+            new PropertyDefinitionProjectionCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool()), Validate);
+
+    public static byte[] EncodePropertyDefinitionProjection(PropertyDefinitionProjection value) =>
+        EncodeRecord(FrameType.PropertyDefinitionProjection, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.DefinitionId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.DefinitionRevision);
+            writer.Bool(record.Deprecated);
+            writer.Bool(record.SearchEligible);
+            writer.Bool(record.Filterable);
+            writer.Bool(record.Sortable);
+            writer.Text(record.Digest, WireLimits.PropertyDefinitionDigestBytes);
+        });
+
+    public static PropertyDefinitionProjection DecodePropertyDefinitionProjection(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyDefinitionProjection>(FrameType.PropertyDefinitionProjection, frame, static (ref Reader reader) =>
+            new PropertyDefinitionProjection(reader.Uuid(), reader.I64(), reader.I64(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Bool(), reader.Text(WireLimits.PropertyDefinitionDigestBytes)), Validate);
+
+    public static byte[] EncodePropertyTextCommand(PropertyTextCommand value) =>
+        EncodeRecord(FrameType.PropertyTextCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.ArticleRevision);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.ValueRevision);
+            writer.Uuid(record.DefinitionId);
+            writer.I64(record.DefinitionRevision);
+            writer.Uuid(record.RequestId);
+            writer.Bool(record.Remove);
+            writer.Text(record.Value, WireLimits.PropertyValueBytes);
+        });
+
+    public static PropertyTextCommand DecodePropertyTextCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyTextCommand>(FrameType.PropertyTextCommand, frame, static (ref Reader reader) =>
+            new PropertyTextCommand(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.I64(), reader.Uuid(), reader.Bool(), reader.Text(WireLimits.PropertyValueBytes)), Validate);
+
+    public static byte[] EncodePropertyCommandReceipt(PropertyCommandReceipt value) =>
+        EncodeRecord(FrameType.PropertyCommandReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.DefinitionId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.Revision);
+        });
+
+    public static PropertyCommandReceipt DecodePropertyCommandReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyCommandReceipt>(FrameType.PropertyCommandReceipt, frame, static (ref Reader reader) =>
+            new PropertyCommandReceipt(reader.Uuid(), reader.I64(), reader.I64()), Validate);
+
+    public static byte[] EncodePropertyValueBatchReceipt(PropertyValueBatchReceipt value) =>
+        EncodeRecord(FrameType.PropertyValueBatchReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.ArticleId);
+            writer.I64(record.SchemaRevision);
+            writer.I64(record.ValueRevision);
+            writer.Uuid(record.RequestId);
+        });
+
+    public static PropertyValueBatchReceipt DecodePropertyValueBatchReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyValueBatchReceipt>(FrameType.PropertyValueBatchReceipt, frame, static (ref Reader reader) =>
+            new PropertyValueBatchReceipt(reader.I32(), reader.I64(), reader.I64(), reader.Uuid()), Validate);
 
 }

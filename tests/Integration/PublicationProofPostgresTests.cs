@@ -2,8 +2,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -20,28 +18,16 @@ public sealed class PublicationProofPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var actor = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user values($1,'Proof author',true,true,1)", actor);
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.login_ticket values($1,$2,now()+interval '5 minutes')", SHA256.HashData(ticket), actor);
-        var (session, _) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
+        var (_, session, _) = await fixture.SignIn("Proof author", ct, minutes: 5);
         using var previous = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var next = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var parent = OperatingSystem.IsMacOS() ? "/private/tmp" : "/tmp";
-        var scratch = Directory.CreateDirectory(Path.Combine(parent, "fsus-proof-" + Guid.NewGuid().ToString("N")));
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(scratch.FullName,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var scratch = PublicationFixture.PrivateScratch("fsus-proof");
         try
         {
             var aPath = PublicationFixture.PrivateKey(scratch, "a.pkcs8", previous);
             var bPath = PublicationFixture.PrivateKey(scratch, "b.pkcs8", next);
-            var settings = new Dictionary<string, string>
-            {
-                ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin, ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
-                [Settings + "NativeV2Enabled"] = "true", [Settings + "CurrentKeyId"] = "a",
-                [Settings + "NativeV2PrivateKeyFile"] = aPath,
-            };
-            AddKey("a", 1, previous);
+            var settings = PublicationFixture.NativeSettings(Origin, "a", aPath);
+            PublicationFixture.ConfigureKey(settings, "a", "1", previous.ExportSubjectPublicKeyInfo());
             settings[Settings + "NativeV2PrivateKeyFile"] = bPath;
             var wrongKey = await Assert.ThrowsAsync<InvalidOperationException>(async () => { await using var _ = await Start(); });
             Assert.Contains("Invalid native publication signing configuration or private key.", wrongKey.Message);
@@ -55,7 +41,7 @@ public sealed class PublicationProofPostgresTests
                 var draft = await Edit(server, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Évidence", "Frozen body 🐈\n"));
                 Assert.Equal("0", (await Scalar("select count(*) from public.article_publication_proof"))?.ToString());
                 first = await Edit(server, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
-                firstUrl = await PathOf(first);
+                firstUrl = await PublicationFixture.ProofPath(db, first.Id, ct);
                 firstProof = await WaitProof(server, firstUrl);
                 await VerifyIndependently(server, firstProof);
                 var originalSignature = (byte[])(await Scalar("select signature from public.article_publication_proof"))!;
@@ -77,7 +63,7 @@ public sealed class PublicationProofPostgresTests
             settings[Settings + "Keys__a__RevokedAtUtc"] = ArticlePublicationProofPayloadV2.Time(oldIssued.AddSeconds(1));
             settings[Settings + "CurrentKeyId"] = "b";
             settings[Settings + "NativeV2PrivateKeyFile"] = bPath;
-            AddKey("b", 2, next);
+            PublicationFixture.ConfigureKey(settings, "b", "2", next.ExportSubjectPublicKeyInfo());
             Draft second;
             string secondUrl;
             await using (var server = await Start())
@@ -86,14 +72,14 @@ public sealed class PublicationProofPostgresTests
                 await VerifyIndependently(server, firstProof);
                 var draft = await Edit(server, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Second", "New signing key"));
                 second = await Edit(server, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
-                secondUrl = await PathOf(second);
+                secondUrl = await PublicationFixture.ProofPath(db, second.Id, ct);
                 var signed = await WaitProof(server, secondUrl);
                 Assert.Equal("b", JsonNode.Parse(signed)!["keyId"]!.GetValue<string>());
                 await VerifyIndependently(server, signed);
                 var previousUrl = secondUrl;
                 var successor = await Edit(server, WireRoutes.Save, new(second.Id, second.Revision, Guid.NewGuid(), "Replacement", "New release"));
                 second = await Edit(server, WireRoutes.Publish, new(second.Id, successor.Revision, Guid.NewGuid(), "", ""));
-                secondUrl = await PathOf(second);
+                secondUrl = await PublicationFixture.ProofPath(db, second.Id, ct);
                 using (var replaced = await Send(server, HttpMethod.Get, previousUrl))
                     Assert.Equal(HttpStatusCode.NotFound, replaced.StatusCode);
                 await VerifyIndependently(server, await WaitProof(server, secondUrl));
@@ -103,7 +89,7 @@ public sealed class PublicationProofPostgresTests
                 Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
                 var revision = Wire.DecodeArticleRightsPolicy(await updated.Content.ReadAsByteArrayAsync(ct)).Revision;
                 var visible = await Edit(server, WireRoutes.Publish, new(denied.Id, revision, Guid.NewGuid(), "", ""));
-                using var notSigned = await Send(server, HttpMethod.Get, await PathOf(visible));
+                using var notSigned = await Send(server, HttpMethod.Get, await PublicationFixture.ProofPath(db, visible.Id, ct));
                 Assert.Equal(HttpStatusCode.NotFound, notSigned.StatusCode);
             }
 
@@ -137,18 +123,7 @@ public sealed class PublicationProofPostgresTests
             var rejected = await Assert.ThrowsAsync<InvalidOperationException>(async () => { await using var _ = await Start(); });
             Assert.Contains("cannot be rebound or unrevoked", rejected.Message);
 
-            void AddKey(string id, int version, ECDsa key)
-            {
-                var prefix = Settings + "Keys__" + id + "__";
-                settings[prefix + "Algorithm"] = "ECDSA_P256_SHA256";
-                settings[prefix + "Version"] = version.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                settings[prefix + "PublicKey"] = WebEncoders.Base64UrlEncode(key.ExportSubjectPublicKeyInfo());
-                settings[prefix + "NotBeforeUtc"] = "2020-01-01T00:00:00.000000Z";
-                settings[prefix + "NotAfterUtc"] = "2099-01-01T00:00:00.000000Z";
-            }
-
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, settings, request => PublicationFixture.Forward(request, "proof.example.test"));
-            async Task<string> PathOf(Draft draft) => $"/integrity/v2/article/{draft.Id}/{await Scalar("select publication_id from public.article_publication where article_id=$1", draft.Id)}/rights.json";
 
             async Task<Draft> Edit(ServerProcess server, string route, ArticleCommand input)
             {
@@ -160,15 +135,7 @@ public sealed class PublicationProofPostgresTests
             async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url,
                 string host = "proof.example.test", byte[]? body = null)
             {
-                using var request = new HttpRequestMessage(method, url);
-                PublicationFixture.Forward(request, host);
-                if (body is not null)
-                {
-                    request.Headers.Add("Cookie", "fsus-v2-session=" + session);
-                    request.Content = new ByteArrayContent(body);
-                    request.Content.Headers.ContentType = new(Aeds.ContentType);
-                }
-                var response = await server.Client.SendAsync(request, ct);
+                var response = await PublicationFixture.SendForwarded(server, method, url, host, session, body, ct);
                 if (url.StartsWith("/integrity/v2", StringComparison.Ordinal))
                     Assert.True(response.Headers.CacheControl?.NoStore);
                 return response;

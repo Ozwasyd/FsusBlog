@@ -909,24 +909,34 @@ export const WireHeaders = {
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
 
+function bindWriter<T>(write: (writer: PodWriter, value: T) => void): (value: T) => Uint8Array {
+  return value => {
+    const writer = new PodWriter();
+    write(writer, value);
+    return writer.finish();
+  };
+}
+
+function bindReader<T>(read: (reader: PodReader) => T): (payload: Uint8Array) => T {
+  return payload => {
+    const reader = new PodReader(payload);
+    const value = read(reader);
+    reader.finish();
+    return value;
+  };
+}
+
 export interface RecoveryKeyOperation {
   operation: number;
 }
 
-export function encodeRecoveryKeyOperation(value: RecoveryKeyOperation): Uint8Array {
-  const writer = new PodWriter();
+export const encodeRecoveryKeyOperation = /* @__PURE__ */ bindWriter<RecoveryKeyOperation>((writer, value) => {
   writer.i32(value.operation);
-  return writer.finish();
-}
+});
 
-export function decodeRecoveryKeyOperation(payload: Uint8Array): RecoveryKeyOperation {
-  const reader = new PodReader(payload);
-  const value: RecoveryKeyOperation = {
-    operation: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeRecoveryKeyOperation = /* @__PURE__ */ bindReader<RecoveryKeyOperation>(reader => ({
+  operation: reader.i32(),
+}));
 
 export interface RecoveryKeyIssued {
   key: string;
@@ -934,84 +944,56 @@ export interface RecoveryKeyIssued {
   createdAt: bigint;
 }
 
-export function encodeRecoveryKeyIssued(value: RecoveryKeyIssued): Uint8Array {
-  const writer = new PodWriter();
+export const encodeRecoveryKeyIssued = /* @__PURE__ */ bindWriter<RecoveryKeyIssued>((writer, value) => {
   writer.text(value.key, WireLimits.RecoveryKeyBytes);
   writer.i64(value.version);
   writer.i64(value.createdAt);
-  return writer.finish();
-}
+});
 
-export function decodeRecoveryKeyIssued(payload: Uint8Array): RecoveryKeyIssued {
-  const reader = new PodReader(payload);
-  const value: RecoveryKeyIssued = {
-    key: reader.text(WireLimits.RecoveryKeyBytes),
-    version: reader.i64(),
-    createdAt: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeRecoveryKeyIssued = /* @__PURE__ */ bindReader<RecoveryKeyIssued>(reader => ({
+  key: reader.text(WireLimits.RecoveryKeyBytes),
+  version: reader.i64(),
+  createdAt: reader.i64(),
+}));
 
 export interface RecoveryKeyStatus {
   active: boolean;
 }
 
-export function encodeRecoveryKeyStatus(value: RecoveryKeyStatus): Uint8Array {
-  const writer = new PodWriter();
+export const encodeRecoveryKeyStatus = /* @__PURE__ */ bindWriter<RecoveryKeyStatus>((writer, value) => {
   writer.bool(value.active);
-  return writer.finish();
-}
+});
 
-export function decodeRecoveryKeyStatus(payload: Uint8Array): RecoveryKeyStatus {
-  const reader = new PodReader(payload);
-  const value: RecoveryKeyStatus = {
-    active: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeRecoveryKeyStatus = /* @__PURE__ */ bindReader<RecoveryKeyStatus>(reader => ({
+  active: reader.bool(),
+}));
 
 export interface RecoveryKeyVerify {
   key: string;
 }
 
-export function encodeRecoveryKeyVerify(value: RecoveryKeyVerify): Uint8Array {
-  const writer = new PodWriter();
+export const encodeRecoveryKeyVerify = /* @__PURE__ */ bindWriter<RecoveryKeyVerify>((writer, value) => {
   writer.text(value.key, WireLimits.RecoveryKeyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeRecoveryKeyVerify(payload: Uint8Array): RecoveryKeyVerify {
-  const reader = new PodReader(payload);
-  const value: RecoveryKeyVerify = {
-    key: reader.text(WireLimits.RecoveryKeyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeRecoveryKeyVerify = /* @__PURE__ */ bindReader<RecoveryKeyVerify>(reader => ({
+  key: reader.text(WireLimits.RecoveryKeyBytes),
+}));
 
 export interface AdminModerationClaimRequest {
   articleId: number;
   commentId: bigint;
 }
 
-export function encodeAdminModerationClaimRequest(value: AdminModerationClaimRequest): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminModerationClaimRequest = /* @__PURE__ */ bindWriter<AdminModerationClaimRequest>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.commentId);
-  return writer.finish();
-}
+});
 
-export function decodeAdminModerationClaimRequest(payload: Uint8Array): AdminModerationClaimRequest {
-  const reader = new PodReader(payload);
-  const value: AdminModerationClaimRequest = {
-    articleId: reader.i32(),
-    commentId: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminModerationClaimRequest = /* @__PURE__ */ bindReader<AdminModerationClaimRequest>(reader => ({
+  articleId: reader.i32(),
+  commentId: reader.i64(),
+}));
 
 export interface AdminModerationClaim {
   articleId: number;
@@ -1023,8 +1005,7 @@ export interface AdminModerationClaim {
   expiresAt: bigint;
 }
 
-export function encodeAdminModerationClaim(value: AdminModerationClaim): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminModerationClaim = /* @__PURE__ */ bindWriter<AdminModerationClaim>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.commentId);
   writer.i64(value.commentVersion);
@@ -1032,23 +1013,17 @@ export function encodeAdminModerationClaim(value: AdminModerationClaim): Uint8Ar
   writer.i64(value.claimGeneration);
   writer.i64(value.claimVersion);
   writer.i64(value.expiresAt);
-  return writer.finish();
-}
+});
 
-export function decodeAdminModerationClaim(payload: Uint8Array): AdminModerationClaim {
-  const reader = new PodReader(payload);
-  const value: AdminModerationClaim = {
-    articleId: reader.i32(),
-    commentId: reader.i64(),
-    commentVersion: reader.i64(),
-    claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
-    claimGeneration: reader.i64(),
-    claimVersion: reader.i64(),
-    expiresAt: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminModerationClaim = /* @__PURE__ */ bindReader<AdminModerationClaim>(reader => ({
+  articleId: reader.i32(),
+  commentId: reader.i64(),
+  commentVersion: reader.i64(),
+  claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
+  claimGeneration: reader.i64(),
+  claimVersion: reader.i64(),
+  expiresAt: reader.i64(),
+}));
 
 export interface AdminModerationDecision {
   articleId: number;
@@ -1062,8 +1037,7 @@ export interface AdminModerationDecision {
   claimVersion: bigint;
 }
 
-export function encodeAdminModerationDecision(value: AdminModerationDecision): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminModerationDecision = /* @__PURE__ */ bindWriter<AdminModerationDecision>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.commentId);
   writer.i32(value.expectedStatus);
@@ -1073,25 +1047,19 @@ export function encodeAdminModerationDecision(value: AdminModerationDecision): U
   writer.text(value.claimToken, WireLimits.AdminModerationClaimTokenBytes);
   writer.i64(value.claimGeneration);
   writer.i64(value.claimVersion);
-  return writer.finish();
-}
+});
 
-export function decodeAdminModerationDecision(payload: Uint8Array): AdminModerationDecision {
-  const reader = new PodReader(payload);
-  const value: AdminModerationDecision = {
-    articleId: reader.i32(),
-    commentId: reader.i64(),
-    expectedStatus: reader.i32(),
-    decision: reader.i32(),
-    reason: reader.text(WireLimits.AdminModerationReasonBytes),
-    commentVersion: reader.i64(),
-    claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
-    claimGeneration: reader.i64(),
-    claimVersion: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminModerationDecision = /* @__PURE__ */ bindReader<AdminModerationDecision>(reader => ({
+  articleId: reader.i32(),
+  commentId: reader.i64(),
+  expectedStatus: reader.i32(),
+  decision: reader.i32(),
+  reason: reader.text(WireLimits.AdminModerationReasonBytes),
+  commentVersion: reader.i64(),
+  claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
+  claimGeneration: reader.i64(),
+  claimVersion: reader.i64(),
+}));
 
 export interface AdminModerationIntent {
   articleId: number;
@@ -1101,28 +1069,21 @@ export interface AdminModerationIntent {
   reason: string;
 }
 
-export function encodeAdminModerationIntent(value: AdminModerationIntent): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminModerationIntent = /* @__PURE__ */ bindWriter<AdminModerationIntent>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.commentId);
   writer.i32(value.expectedStatus);
   writer.i32(value.decision);
   writer.text(value.reason, WireLimits.AdminModerationReasonBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminModerationIntent(payload: Uint8Array): AdminModerationIntent {
-  const reader = new PodReader(payload);
-  const value: AdminModerationIntent = {
-    articleId: reader.i32(),
-    commentId: reader.i64(),
-    expectedStatus: reader.i32(),
-    decision: reader.i32(),
-    reason: reader.text(WireLimits.AdminModerationReasonBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminModerationIntent = /* @__PURE__ */ bindReader<AdminModerationIntent>(reader => ({
+  articleId: reader.i32(),
+  commentId: reader.i64(),
+  expectedStatus: reader.i32(),
+  decision: reader.i32(),
+  reason: reader.text(WireLimits.AdminModerationReasonBytes),
+}));
 
 export interface AdminSessionSnapshot {
   handle: string;
@@ -1130,24 +1091,17 @@ export interface AdminSessionSnapshot {
   expiresAt: bigint;
 }
 
-export function encodeAdminSessionSnapshot(value: AdminSessionSnapshot): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminSessionSnapshot = /* @__PURE__ */ bindWriter<AdminSessionSnapshot>((writer, value) => {
   writer.text(value.handle, WireLimits.NameBytes);
   writer.i64(value.generation);
   writer.i64(value.expiresAt);
-  return writer.finish();
-}
+});
 
-export function decodeAdminSessionSnapshot(payload: Uint8Array): AdminSessionSnapshot {
-  const reader = new PodReader(payload);
-  const value: AdminSessionSnapshot = {
-    handle: reader.text(WireLimits.NameBytes),
-    generation: reader.i64(),
-    expiresAt: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminSessionSnapshot = /* @__PURE__ */ bindReader<AdminSessionSnapshot>(reader => ({
+  handle: reader.text(WireLimits.NameBytes),
+  generation: reader.i64(),
+  expiresAt: reader.i64(),
+}));
 
 export interface AdminOperationsStatus {
   snapshotReady: boolean;
@@ -1156,26 +1110,19 @@ export interface AdminOperationsStatus {
   oldestPendingAt: bigint;
 }
 
-export function encodeAdminOperationsStatus(value: AdminOperationsStatus): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminOperationsStatus = /* @__PURE__ */ bindWriter<AdminOperationsStatus>((writer, value) => {
   writer.bool(value.snapshotReady);
   writer.i64(value.publicationWatermark);
   writer.i64(value.pendingPublicationEvents);
   writer.i64(value.oldestPendingAt);
-  return writer.finish();
-}
+});
 
-export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperationsStatus {
-  const reader = new PodReader(payload);
-  const value: AdminOperationsStatus = {
-    snapshotReady: reader.bool(),
-    publicationWatermark: reader.i64(),
-    pendingPublicationEvents: reader.i64(),
-    oldestPendingAt: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminOperationsStatus = /* @__PURE__ */ bindReader<AdminOperationsStatus>(reader => ({
+  snapshotReady: reader.bool(),
+  publicationWatermark: reader.i64(),
+  pendingPublicationEvents: reader.i64(),
+  oldestPendingAt: reader.i64(),
+}));
 
 export interface AdminRiskReadiness {
   publicReadMode: number;
@@ -1186,30 +1133,23 @@ export interface AdminRiskReadiness {
   strongAnonymous: number;
 }
 
-export function encodeAdminRiskReadiness(value: AdminRiskReadiness): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminRiskReadiness = /* @__PURE__ */ bindWriter<AdminRiskReadiness>((writer, value) => {
   writer.i32(value.publicReadMode);
   writer.i32(value.rootWriteMode);
   writer.i32(value.replyWriteMode);
   writer.i32(value.forwardingMode);
   writer.i32(value.dynamicRisk);
   writer.i32(value.strongAnonymous);
-  return writer.finish();
-}
+});
 
-export function decodeAdminRiskReadiness(payload: Uint8Array): AdminRiskReadiness {
-  const reader = new PodReader(payload);
-  const value: AdminRiskReadiness = {
-    publicReadMode: reader.i32(),
-    rootWriteMode: reader.i32(),
-    replyWriteMode: reader.i32(),
-    forwardingMode: reader.i32(),
-    dynamicRisk: reader.i32(),
-    strongAnonymous: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminRiskReadiness = /* @__PURE__ */ bindReader<AdminRiskReadiness>(reader => ({
+  publicReadMode: reader.i32(),
+  rootWriteMode: reader.i32(),
+  replyWriteMode: reader.i32(),
+  forwardingMode: reader.i32(),
+  dynamicRisk: reader.i32(),
+  strongAnonymous: reader.i32(),
+}));
 
 export interface AdminRootCommentPowPolicy {
   generation: bigint;
@@ -1218,26 +1158,19 @@ export interface AdminRootCommentPowPolicy {
   previousSeconds: number;
 }
 
-export function encodeAdminRootCommentPowPolicy(value: AdminRootCommentPowPolicy): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminRootCommentPowPolicy = /* @__PURE__ */ bindWriter<AdminRootCommentPowPolicy>((writer, value) => {
   writer.i64(value.generation);
   writer.text(value.digest, WireLimits.RootCommentPowDigestBytes);
   writer.i32(value.proofSeconds);
   writer.i32(value.previousSeconds);
-  return writer.finish();
-}
+});
 
-export function decodeAdminRootCommentPowPolicy(payload: Uint8Array): AdminRootCommentPowPolicy {
-  const reader = new PodReader(payload);
-  const value: AdminRootCommentPowPolicy = {
-    generation: reader.i64(),
-    digest: reader.text(WireLimits.RootCommentPowDigestBytes),
-    proofSeconds: reader.i32(),
-    previousSeconds: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminRootCommentPowPolicy = /* @__PURE__ */ bindReader<AdminRootCommentPowPolicy>(reader => ({
+  generation: reader.i64(),
+  digest: reader.text(WireLimits.RootCommentPowDigestBytes),
+  proofSeconds: reader.i32(),
+  previousSeconds: reader.i32(),
+}));
 
 export interface AdminRootCommentPowCommand {
   expectedGeneration: bigint;
@@ -1246,26 +1179,19 @@ export interface AdminRootCommentPowCommand {
   rollback: boolean;
 }
 
-export function encodeAdminRootCommentPowCommand(value: AdminRootCommentPowCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminRootCommentPowCommand = /* @__PURE__ */ bindWriter<AdminRootCommentPowCommand>((writer, value) => {
   writer.i64(value.expectedGeneration);
   writer.text(value.expectedDigest, WireLimits.RootCommentPowDigestBytes);
   writer.i32(value.proofSeconds);
   writer.bool(value.rollback);
-  return writer.finish();
-}
+});
 
-export function decodeAdminRootCommentPowCommand(payload: Uint8Array): AdminRootCommentPowCommand {
-  const reader = new PodReader(payload);
-  const value: AdminRootCommentPowCommand = {
-    expectedGeneration: reader.i64(),
-    expectedDigest: reader.text(WireLimits.RootCommentPowDigestBytes),
-    proofSeconds: reader.i32(),
-    rollback: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminRootCommentPowCommand = /* @__PURE__ */ bindReader<AdminRootCommentPowCommand>(reader => ({
+  expectedGeneration: reader.i64(),
+  expectedDigest: reader.text(WireLimits.RootCommentPowDigestBytes),
+  proofSeconds: reader.i32(),
+  rollback: reader.bool(),
+}));
 
 export interface AdminClusterStatus {
   mode: number;
@@ -1278,8 +1204,7 @@ export interface AdminClusterStatus {
   snapshotReady: boolean;
 }
 
-export function encodeAdminClusterStatus(value: AdminClusterStatus): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminClusterStatus = /* @__PURE__ */ bindWriter<AdminClusterStatus>((writer, value) => {
   writer.i32(value.mode);
   writer.text(value.nodeId, WireLimits.AdminClusterNodeIdBytes);
   writer.uuid(value.instanceId);
@@ -1288,24 +1213,18 @@ export function encodeAdminClusterStatus(value: AdminClusterStatus): Uint8Array 
   writer.i64(value.observedAt);
   writer.i32(value.leaseAgeMs);
   writer.bool(value.snapshotReady);
-  return writer.finish();
-}
+});
 
-export function decodeAdminClusterStatus(payload: Uint8Array): AdminClusterStatus {
-  const reader = new PodReader(payload);
-  const value: AdminClusterStatus = {
-    mode: reader.i32(),
-    nodeId: reader.text(WireLimits.AdminClusterNodeIdBytes),
-    instanceId: reader.uuid(),
-    buildVersion: reader.text(WireLimits.AdminClusterVersionBytes),
-    startedAt: reader.i64(),
-    observedAt: reader.i64(),
-    leaseAgeMs: reader.i32(),
-    snapshotReady: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminClusterStatus = /* @__PURE__ */ bindReader<AdminClusterStatus>(reader => ({
+  mode: reader.i32(),
+  nodeId: reader.text(WireLimits.AdminClusterNodeIdBytes),
+  instanceId: reader.uuid(),
+  buildVersion: reader.text(WireLimits.AdminClusterVersionBytes),
+  startedAt: reader.i64(),
+  observedAt: reader.i64(),
+  leaseAgeMs: reader.i32(),
+  snapshotReady: reader.bool(),
+}));
 
 export interface AdminArticleRollbackIntent {
   articleId: number;
@@ -1316,30 +1235,23 @@ export interface AdminArticleRollbackIntent {
   reason: string;
 }
 
-export function encodeAdminArticleRollbackIntent(value: AdminArticleRollbackIntent): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleRollbackIntent = /* @__PURE__ */ bindWriter<AdminArticleRollbackIntent>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.expectedRevision);
   writer.i64(value.expectedPublicationId);
   writer.i64(value.sourceRevision);
   writer.uuid(value.idempotencyKey);
   writer.text(value.reason, WireLimits.RollbackReasonBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleRollbackIntent(payload: Uint8Array): AdminArticleRollbackIntent {
-  const reader = new PodReader(payload);
-  const value: AdminArticleRollbackIntent = {
-    articleId: reader.i32(),
-    expectedRevision: reader.i64(),
-    expectedPublicationId: reader.i64(),
-    sourceRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    reason: reader.text(WireLimits.RollbackReasonBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleRollbackIntent = /* @__PURE__ */ bindReader<AdminArticleRollbackIntent>(reader => ({
+  articleId: reader.i32(),
+  expectedRevision: reader.i64(),
+  expectedPublicationId: reader.i64(),
+  sourceRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  reason: reader.text(WireLimits.RollbackReasonBytes),
+}));
 
 export interface AdminArticleRollbackPreview {
   articleId: number;
@@ -1352,8 +1264,7 @@ export interface AdminArticleRollbackPreview {
   blockingReason: number;
 }
 
-export function encodeAdminArticleRollbackPreview(value: AdminArticleRollbackPreview): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleRollbackPreview = /* @__PURE__ */ bindWriter<AdminArticleRollbackPreview>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.currentRevision);
   writer.i64(value.currentPublicationId);
@@ -1362,24 +1273,18 @@ export function encodeAdminArticleRollbackPreview(value: AdminArticleRollbackPre
   writer.text(value.sourceTitle, WireLimits.TitleBytes);
   writer.bool(value.packageComplete);
   writer.i32(value.blockingReason);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleRollbackPreview(payload: Uint8Array): AdminArticleRollbackPreview {
-  const reader = new PodReader(payload);
-  const value: AdminArticleRollbackPreview = {
-    articleId: reader.i32(),
-    currentRevision: reader.i64(),
-    currentPublicationId: reader.i64(),
-    sourceRevision: reader.i64(),
-    sourcePublicationId: reader.i64(),
-    sourceTitle: reader.text(WireLimits.TitleBytes),
-    packageComplete: reader.bool(),
-    blockingReason: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleRollbackPreview = /* @__PURE__ */ bindReader<AdminArticleRollbackPreview>(reader => ({
+  articleId: reader.i32(),
+  currentRevision: reader.i64(),
+  currentPublicationId: reader.i64(),
+  sourceRevision: reader.i64(),
+  sourcePublicationId: reader.i64(),
+  sourceTitle: reader.text(WireLimits.TitleBytes),
+  packageComplete: reader.bool(),
+  blockingReason: reader.i32(),
+}));
 
 export interface AdminArticleRollbackReceipt {
   articleId: number;
@@ -1393,8 +1298,7 @@ export interface AdminArticleRollbackReceipt {
   responsibilitySnapshotId: bigint;
 }
 
-export function encodeAdminArticleRollbackReceipt(value: AdminArticleRollbackReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleRollbackReceipt = /* @__PURE__ */ bindWriter<AdminArticleRollbackReceipt>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.revision);
   writer.i64(value.sourceRevision);
@@ -1404,25 +1308,19 @@ export function encodeAdminArticleRollbackReceipt(value: AdminArticleRollbackRec
   writer.i64(value.publishedUnixMs);
   writer.i64(value.rightsSnapshotId);
   writer.i64(value.responsibilitySnapshotId);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleRollbackReceipt(payload: Uint8Array): AdminArticleRollbackReceipt {
-  const reader = new PodReader(payload);
-  const value: AdminArticleRollbackReceipt = {
-    articleId: reader.i32(),
-    revision: reader.i64(),
-    sourceRevision: reader.i64(),
-    previousPublicationId: reader.i64(),
-    publicationId: reader.i64(),
-    publicationNo: reader.i32(),
-    publishedUnixMs: reader.i64(),
-    rightsSnapshotId: reader.i64(),
-    responsibilitySnapshotId: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleRollbackReceipt = /* @__PURE__ */ bindReader<AdminArticleRollbackReceipt>(reader => ({
+  articleId: reader.i32(),
+  revision: reader.i64(),
+  sourceRevision: reader.i64(),
+  previousPublicationId: reader.i64(),
+  publicationId: reader.i64(),
+  publicationNo: reader.i32(),
+  publishedUnixMs: reader.i64(),
+  rightsSnapshotId: reader.i64(),
+  responsibilitySnapshotId: reader.i64(),
+}));
 
 export interface AdminArticleDraftRollbackIntent {
   articleId: number;
@@ -1434,8 +1332,7 @@ export interface AdminArticleDraftRollbackIntent {
   targetStatus: number;
 }
 
-export function encodeAdminArticleDraftRollbackIntent(value: AdminArticleDraftRollbackIntent): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleDraftRollbackIntent = /* @__PURE__ */ bindWriter<AdminArticleDraftRollbackIntent>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.expectedRevision);
   writer.i64(value.expectedPublicationId);
@@ -1443,23 +1340,17 @@ export function encodeAdminArticleDraftRollbackIntent(value: AdminArticleDraftRo
   writer.uuid(value.idempotencyKey);
   writer.text(value.reason, WireLimits.RollbackReasonBytes);
   writer.i32(value.targetStatus);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleDraftRollbackIntent(payload: Uint8Array): AdminArticleDraftRollbackIntent {
-  const reader = new PodReader(payload);
-  const value: AdminArticleDraftRollbackIntent = {
-    articleId: reader.i32(),
-    expectedRevision: reader.i64(),
-    expectedPublicationId: reader.i64(),
-    sourceRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    reason: reader.text(WireLimits.RollbackReasonBytes),
-    targetStatus: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleDraftRollbackIntent = /* @__PURE__ */ bindReader<AdminArticleDraftRollbackIntent>(reader => ({
+  articleId: reader.i32(),
+  expectedRevision: reader.i64(),
+  expectedPublicationId: reader.i64(),
+  sourceRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  reason: reader.text(WireLimits.RollbackReasonBytes),
+  targetStatus: reader.i32(),
+}));
 
 export interface AdminArticleDraftRollbackReceipt {
   articleId: number;
@@ -1474,8 +1365,7 @@ export interface AdminArticleDraftRollbackReceipt {
   targetStatus: number;
 }
 
-export function encodeAdminArticleDraftRollbackReceipt(value: AdminArticleDraftRollbackReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleDraftRollbackReceipt = /* @__PURE__ */ bindWriter<AdminArticleDraftRollbackReceipt>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.revision);
   writer.i64(value.sourceRevision);
@@ -1486,26 +1376,20 @@ export function encodeAdminArticleDraftRollbackReceipt(value: AdminArticleDraftR
   writer.i64(value.rightsSnapshotId);
   writer.i64(value.responsibilitySnapshotId);
   writer.i32(value.targetStatus);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleDraftRollbackReceipt(payload: Uint8Array): AdminArticleDraftRollbackReceipt {
-  const reader = new PodReader(payload);
-  const value: AdminArticleDraftRollbackReceipt = {
-    articleId: reader.i32(),
-    revision: reader.i64(),
-    sourceRevision: reader.i64(),
-    previousPublicationId: reader.i64(),
-    privateReleaseId: reader.i64(),
-    publicationNo: reader.i32(),
-    transitionedUnixMs: reader.i64(),
-    rightsSnapshotId: reader.i64(),
-    responsibilitySnapshotId: reader.i64(),
-    targetStatus: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleDraftRollbackReceipt = /* @__PURE__ */ bindReader<AdminArticleDraftRollbackReceipt>(reader => ({
+  articleId: reader.i32(),
+  revision: reader.i64(),
+  sourceRevision: reader.i64(),
+  previousPublicationId: reader.i64(),
+  privateReleaseId: reader.i64(),
+  publicationNo: reader.i32(),
+  transitionedUnixMs: reader.i64(),
+  rightsSnapshotId: reader.i64(),
+  responsibilitySnapshotId: reader.i64(),
+  targetStatus: reader.i32(),
+}));
 
 export interface AdminArticleArchiveIntent {
   articleId: number;
@@ -1517,8 +1401,7 @@ export interface AdminArticleArchiveIntent {
   targetStatus: number;
 }
 
-export function encodeAdminArticleArchiveIntent(value: AdminArticleArchiveIntent): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleArchiveIntent = /* @__PURE__ */ bindWriter<AdminArticleArchiveIntent>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.expectedRevision);
   writer.i64(value.expectedReleaseId);
@@ -1526,23 +1409,17 @@ export function encodeAdminArticleArchiveIntent(value: AdminArticleArchiveIntent
   writer.uuid(value.idempotencyKey);
   writer.text(value.reason, WireLimits.RollbackReasonBytes);
   writer.i32(value.targetStatus);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleArchiveIntent(payload: Uint8Array): AdminArticleArchiveIntent {
-  const reader = new PodReader(payload);
-  const value: AdminArticleArchiveIntent = {
-    articleId: reader.i32(),
-    expectedRevision: reader.i64(),
-    expectedReleaseId: reader.i64(),
-    sourceRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    reason: reader.text(WireLimits.RollbackReasonBytes),
-    targetStatus: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleArchiveIntent = /* @__PURE__ */ bindReader<AdminArticleArchiveIntent>(reader => ({
+  articleId: reader.i32(),
+  expectedRevision: reader.i64(),
+  expectedReleaseId: reader.i64(),
+  sourceRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  reason: reader.text(WireLimits.RollbackReasonBytes),
+  targetStatus: reader.i32(),
+}));
 
 export interface AdminArticleArchiveReceipt {
   articleId: number;
@@ -1557,8 +1434,7 @@ export interface AdminArticleArchiveReceipt {
   targetStatus: number;
 }
 
-export function encodeAdminArticleArchiveReceipt(value: AdminArticleArchiveReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleArchiveReceipt = /* @__PURE__ */ bindWriter<AdminArticleArchiveReceipt>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.revision);
   writer.i64(value.sourceRevision);
@@ -1569,26 +1445,20 @@ export function encodeAdminArticleArchiveReceipt(value: AdminArticleArchiveRecei
   writer.i64(value.rightsSnapshotId);
   writer.i64(value.responsibilitySnapshotId);
   writer.i32(value.targetStatus);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleArchiveReceipt(payload: Uint8Array): AdminArticleArchiveReceipt {
-  const reader = new PodReader(payload);
-  const value: AdminArticleArchiveReceipt = {
-    articleId: reader.i32(),
-    revision: reader.i64(),
-    sourceRevision: reader.i64(),
-    previousReleaseId: reader.i64(),
-    releaseId: reader.i64(),
-    publicationNo: reader.i32(),
-    transitionedUnixMs: reader.i64(),
-    rightsSnapshotId: reader.i64(),
-    responsibilitySnapshotId: reader.i64(),
-    targetStatus: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleArchiveReceipt = /* @__PURE__ */ bindReader<AdminArticleArchiveReceipt>(reader => ({
+  articleId: reader.i32(),
+  revision: reader.i64(),
+  sourceRevision: reader.i64(),
+  previousReleaseId: reader.i64(),
+  releaseId: reader.i64(),
+  publicationNo: reader.i32(),
+  transitionedUnixMs: reader.i64(),
+  rightsSnapshotId: reader.i64(),
+  responsibilitySnapshotId: reader.i64(),
+  targetStatus: reader.i32(),
+}));
 
 export interface AdminArticleArchivePreview {
   articleId: number;
@@ -1598,47 +1468,33 @@ export interface AdminArticleArchivePreview {
   markdown: string;
 }
 
-export function encodeAdminArticleArchivePreview(value: AdminArticleArchivePreview): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminArticleArchivePreview = /* @__PURE__ */ bindWriter<AdminArticleArchivePreview>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.revision);
   writer.i64(value.privateReleaseId);
   writer.text(value.title, WireLimits.TitleBytes);
   writer.text(value.markdown, WireLimits.BodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminArticleArchivePreview(payload: Uint8Array): AdminArticleArchivePreview {
-  const reader = new PodReader(payload);
-  const value: AdminArticleArchivePreview = {
-    articleId: reader.i32(),
-    revision: reader.i64(),
-    privateReleaseId: reader.i64(),
-    title: reader.text(WireLimits.TitleBytes),
-    markdown: reader.text(WireLimits.BodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminArticleArchivePreview = /* @__PURE__ */ bindReader<AdminArticleArchivePreview>(reader => ({
+  articleId: reader.i32(),
+  revision: reader.i64(),
+  privateReleaseId: reader.i64(),
+  title: reader.text(WireLimits.TitleBytes),
+  markdown: reader.text(WireLimits.BodyBytes),
+}));
 
 export interface AdminSitePages {
   configuredMask: number;
 }
 
-export function encodeAdminSitePages(value: AdminSitePages): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminSitePages = /* @__PURE__ */ bindWriter<AdminSitePages>((writer, value) => {
   writer.i32(value.configuredMask);
-  return writer.finish();
-}
+});
 
-export function decodeAdminSitePages(payload: Uint8Array): AdminSitePages {
-  const reader = new PodReader(payload);
-  const value: AdminSitePages = {
-    configuredMask: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminSitePages = /* @__PURE__ */ bindReader<AdminSitePages>(reader => ({
+  configuredMask: reader.i32(),
+}));
 
 export interface AdminSitePageRevision {
   slug: string;
@@ -1647,26 +1503,19 @@ export interface AdminSitePageRevision {
   markdown: string;
 }
 
-export function encodeAdminSitePageRevision(value: AdminSitePageRevision): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminSitePageRevision = /* @__PURE__ */ bindWriter<AdminSitePageRevision>((writer, value) => {
   writer.text(value.slug, WireLimits.AdminSitePageSlugBytes);
   writer.i64(value.revision);
   writer.text(value.digest, WireLimits.AdminSitePageDigestBytes);
   writer.text(value.markdown, WireLimits.PageContentBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminSitePageRevision(payload: Uint8Array): AdminSitePageRevision {
-  const reader = new PodReader(payload);
-  const value: AdminSitePageRevision = {
-    slug: reader.text(WireLimits.AdminSitePageSlugBytes),
-    revision: reader.i64(),
-    digest: reader.text(WireLimits.AdminSitePageDigestBytes),
-    markdown: reader.text(WireLimits.PageContentBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminSitePageRevision = /* @__PURE__ */ bindReader<AdminSitePageRevision>(reader => ({
+  slug: reader.text(WireLimits.AdminSitePageSlugBytes),
+  revision: reader.i64(),
+  digest: reader.text(WireLimits.AdminSitePageDigestBytes),
+  markdown: reader.text(WireLimits.PageContentBytes),
+}));
 
 export interface AdminSitePagePublish {
   slug: string;
@@ -1675,26 +1524,19 @@ export interface AdminSitePagePublish {
   markdown: string;
 }
 
-export function encodeAdminSitePagePublish(value: AdminSitePagePublish): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminSitePagePublish = /* @__PURE__ */ bindWriter<AdminSitePagePublish>((writer, value) => {
   writer.text(value.slug, WireLimits.AdminSitePageSlugBytes);
   writer.i64(value.expectedRevision);
   writer.text(value.expectedDigest, WireLimits.AdminSitePageDigestBytes);
   writer.text(value.markdown, WireLimits.PageContentBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminSitePagePublish(payload: Uint8Array): AdminSitePagePublish {
-  const reader = new PodReader(payload);
-  const value: AdminSitePagePublish = {
-    slug: reader.text(WireLimits.AdminSitePageSlugBytes),
-    expectedRevision: reader.i64(),
-    expectedDigest: reader.text(WireLimits.AdminSitePageDigestBytes),
-    markdown: reader.text(WireLimits.PageContentBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminSitePagePublish = /* @__PURE__ */ bindReader<AdminSitePagePublish>(reader => ({
+  slug: reader.text(WireLimits.AdminSitePageSlugBytes),
+  expectedRevision: reader.i64(),
+  expectedDigest: reader.text(WireLimits.AdminSitePageDigestBytes),
+  markdown: reader.text(WireLimits.PageContentBytes),
+}));
 
 export interface AuthoringWorkspaceSnapshot {
   schemaVersion: number;
@@ -1705,30 +1547,23 @@ export interface AuthoringWorkspaceSnapshot {
   skipped: number;
 }
 
-export function encodeAuthoringWorkspaceSnapshot(value: AuthoringWorkspaceSnapshot): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceSnapshot = /* @__PURE__ */ bindWriter<AuthoringWorkspaceSnapshot>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.revision);
   writer.i64(value.updatedAtUnixMs);
   writer.i32(value.activeArticleId);
   writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
   writer.i32(value.skipped);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceSnapshot(payload: Uint8Array): AuthoringWorkspaceSnapshot {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceSnapshot = {
-    schemaVersion: reader.i32(),
-    revision: reader.i64(),
-    updatedAtUnixMs: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    skipped: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceSnapshot = /* @__PURE__ */ bindReader<AuthoringWorkspaceSnapshot>(reader => ({
+  schemaVersion: reader.i32(),
+  revision: reader.i64(),
+  updatedAtUnixMs: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  skipped: reader.i32(),
+}));
 
 export interface AuthoringWorkspaceCommand {
   schemaVersion: number;
@@ -1737,26 +1572,19 @@ export interface AuthoringWorkspaceCommand {
   tabs: readonly number[];
 }
 
-export function encodeAuthoringWorkspaceCommand(value: AuthoringWorkspaceCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceCommand = /* @__PURE__ */ bindWriter<AuthoringWorkspaceCommand>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.expectedRevision);
   writer.i32(value.activeArticleId);
   writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceCommand(payload: Uint8Array): AuthoringWorkspaceCommand {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceCommand = {
-    schemaVersion: reader.i32(),
-    expectedRevision: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceCommand = /* @__PURE__ */ bindReader<AuthoringWorkspaceCommand>(reader => ({
+  schemaVersion: reader.i32(),
+  expectedRevision: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+}));
 
 export interface AuthoringWorkspaceLayout {
   schemaVersion: number;
@@ -1768,8 +1596,7 @@ export interface AuthoringWorkspaceLayout {
   inspectorOpen: boolean;
 }
 
-export function encodeAuthoringWorkspaceLayout(value: AuthoringWorkspaceLayout): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceLayout = /* @__PURE__ */ bindWriter<AuthoringWorkspaceLayout>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.revision);
   writer.i64(value.updatedAtUnixMs);
@@ -1777,23 +1604,17 @@ export function encodeAuthoringWorkspaceLayout(value: AuthoringWorkspaceLayout):
   writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
   writer.i32(value.skipped);
   writer.bool(value.inspectorOpen);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceLayout(payload: Uint8Array): AuthoringWorkspaceLayout {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceLayout = {
-    schemaVersion: reader.i32(),
-    revision: reader.i64(),
-    updatedAtUnixMs: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    skipped: reader.i32(),
-    inspectorOpen: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceLayout = /* @__PURE__ */ bindReader<AuthoringWorkspaceLayout>(reader => ({
+  schemaVersion: reader.i32(),
+  revision: reader.i64(),
+  updatedAtUnixMs: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  skipped: reader.i32(),
+  inspectorOpen: reader.bool(),
+}));
 
 export interface AuthoringWorkspaceLayoutCommand {
   schemaVersion: number;
@@ -1803,28 +1624,21 @@ export interface AuthoringWorkspaceLayoutCommand {
   inspectorOpen: boolean;
 }
 
-export function encodeAuthoringWorkspaceLayoutCommand(value: AuthoringWorkspaceLayoutCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceLayoutCommand = /* @__PURE__ */ bindWriter<AuthoringWorkspaceLayoutCommand>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.expectedRevision);
   writer.i32(value.activeArticleId);
   writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
   writer.bool(value.inspectorOpen);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceLayoutCommand(payload: Uint8Array): AuthoringWorkspaceLayoutCommand {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceLayoutCommand = {
-    schemaVersion: reader.i32(),
-    expectedRevision: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    inspectorOpen: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceLayoutCommand = /* @__PURE__ */ bindReader<AuthoringWorkspaceLayoutCommand>(reader => ({
+  schemaVersion: reader.i32(),
+  expectedRevision: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  inspectorOpen: reader.bool(),
+}));
 
 export interface AuthoringWorkspaceGroups {
   schemaVersion: number;
@@ -1839,8 +1653,7 @@ export interface AuthoringWorkspaceGroups {
   focusedGroup: number;
 }
 
-export function encodeAuthoringWorkspaceGroups(value: AuthoringWorkspaceGroups): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceGroups = /* @__PURE__ */ bindWriter<AuthoringWorkspaceGroups>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.revision);
   writer.i64(value.updatedAtUnixMs);
@@ -1851,26 +1664,20 @@ export function encodeAuthoringWorkspaceGroups(value: AuthoringWorkspaceGroups):
   writer.i32(value.secondaryActiveArticleId);
   writer.i32s(value.secondaryTabs, WireLimits.AuthoringWorkspaceTabs);
   writer.i32(value.focusedGroup);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceGroups(payload: Uint8Array): AuthoringWorkspaceGroups {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceGroups = {
-    schemaVersion: reader.i32(),
-    revision: reader.i64(),
-    updatedAtUnixMs: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    skipped: reader.i32(),
-    inspectorOpen: reader.bool(),
-    secondaryActiveArticleId: reader.i32(),
-    secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    focusedGroup: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceGroups = /* @__PURE__ */ bindReader<AuthoringWorkspaceGroups>(reader => ({
+  schemaVersion: reader.i32(),
+  revision: reader.i64(),
+  updatedAtUnixMs: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  skipped: reader.i32(),
+  inspectorOpen: reader.bool(),
+  secondaryActiveArticleId: reader.i32(),
+  secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  focusedGroup: reader.i32(),
+}));
 
 export interface AuthoringWorkspaceGroupsCommand {
   schemaVersion: number;
@@ -1883,8 +1690,7 @@ export interface AuthoringWorkspaceGroupsCommand {
   focusedGroup: number;
 }
 
-export function encodeAuthoringWorkspaceGroupsCommand(value: AuthoringWorkspaceGroupsCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthoringWorkspaceGroupsCommand = /* @__PURE__ */ bindWriter<AuthoringWorkspaceGroupsCommand>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.expectedRevision);
   writer.i32(value.activeArticleId);
@@ -1893,24 +1699,18 @@ export function encodeAuthoringWorkspaceGroupsCommand(value: AuthoringWorkspaceG
   writer.i32(value.secondaryActiveArticleId);
   writer.i32s(value.secondaryTabs, WireLimits.AuthoringWorkspaceTabs);
   writer.i32(value.focusedGroup);
-  return writer.finish();
-}
+});
 
-export function decodeAuthoringWorkspaceGroupsCommand(payload: Uint8Array): AuthoringWorkspaceGroupsCommand {
-  const reader = new PodReader(payload);
-  const value: AuthoringWorkspaceGroupsCommand = {
-    schemaVersion: reader.i32(),
-    expectedRevision: reader.i64(),
-    activeArticleId: reader.i32(),
-    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    inspectorOpen: reader.bool(),
-    secondaryActiveArticleId: reader.i32(),
-    secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
-    focusedGroup: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthoringWorkspaceGroupsCommand = /* @__PURE__ */ bindReader<AuthoringWorkspaceGroupsCommand>(reader => ({
+  schemaVersion: reader.i32(),
+  expectedRevision: reader.i64(),
+  activeArticleId: reader.i32(),
+  tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  inspectorOpen: reader.bool(),
+  secondaryActiveArticleId: reader.i32(),
+  secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  focusedGroup: reader.i32(),
+}));
 
 export interface AuthorRecentOpenCommand {
   schemaVersion: number;
@@ -1920,28 +1720,21 @@ export interface AuthorRecentOpenCommand {
   articleRevision: bigint;
 }
 
-export function encodeAuthorRecentOpenCommand(value: AuthorRecentOpenCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthorRecentOpenCommand = /* @__PURE__ */ bindWriter<AuthorRecentOpenCommand>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.expectedRevision);
   writer.uuid(value.requestId);
   writer.i32(value.articleId);
   writer.i64(value.articleRevision);
-  return writer.finish();
-}
+});
 
-export function decodeAuthorRecentOpenCommand(payload: Uint8Array): AuthorRecentOpenCommand {
-  const reader = new PodReader(payload);
-  const value: AuthorRecentOpenCommand = {
-    schemaVersion: reader.i32(),
-    expectedRevision: reader.i64(),
-    requestId: reader.uuid(),
-    articleId: reader.i32(),
-    articleRevision: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthorRecentOpenCommand = /* @__PURE__ */ bindReader<AuthorRecentOpenCommand>(reader => ({
+  schemaVersion: reader.i32(),
+  expectedRevision: reader.i64(),
+  requestId: reader.uuid(),
+  articleId: reader.i32(),
+  articleRevision: reader.i64(),
+}));
 
 export interface AuthorRecentOpenReceipt {
   schemaVersion: number;
@@ -1952,30 +1745,23 @@ export interface AuthorRecentOpenReceipt {
   openedAtUnixMs: bigint;
 }
 
-export function encodeAuthorRecentOpenReceipt(value: AuthorRecentOpenReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAuthorRecentOpenReceipt = /* @__PURE__ */ bindWriter<AuthorRecentOpenReceipt>((writer, value) => {
   writer.i32(value.schemaVersion);
   writer.i64(value.revision);
   writer.uuid(value.requestId);
   writer.i32(value.articleId);
   writer.i64(value.articleRevision);
   writer.i64(value.openedAtUnixMs);
-  return writer.finish();
-}
+});
 
-export function decodeAuthorRecentOpenReceipt(payload: Uint8Array): AuthorRecentOpenReceipt {
-  const reader = new PodReader(payload);
-  const value: AuthorRecentOpenReceipt = {
-    schemaVersion: reader.i32(),
-    revision: reader.i64(),
-    requestId: reader.uuid(),
-    articleId: reader.i32(),
-    articleRevision: reader.i64(),
-    openedAtUnixMs: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAuthorRecentOpenReceipt = /* @__PURE__ */ bindReader<AuthorRecentOpenReceipt>(reader => ({
+  schemaVersion: reader.i32(),
+  revision: reader.i64(),
+  requestId: reader.uuid(),
+  articleId: reader.i32(),
+  articleRevision: reader.i64(),
+  openedAtUnixMs: reader.i64(),
+}));
 
 export interface AdminAppearanceState {
   revision: bigint;
@@ -1987,8 +1773,7 @@ export interface AdminAppearanceState {
   previousFont: string;
 }
 
-export function encodeAdminAppearanceState(value: AdminAppearanceState): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminAppearanceState = /* @__PURE__ */ bindWriter<AdminAppearanceState>((writer, value) => {
   writer.i64(value.revision);
   writer.text(value.theme, WireLimits.AdminAppearanceDigestBytes);
   writer.text(value.font, WireLimits.AdminAppearanceDigestBytes);
@@ -1996,23 +1781,17 @@ export function encodeAdminAppearanceState(value: AdminAppearanceState): Uint8Ar
   writer.bool(value.canRollback);
   writer.text(value.previousTheme, WireLimits.AdminAppearanceDigestBytes);
   writer.text(value.previousFont, WireLimits.AdminAppearanceDigestBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminAppearanceState(payload: Uint8Array): AdminAppearanceState {
-  const reader = new PodReader(payload);
-  const value: AdminAppearanceState = {
-    revision: reader.i64(),
-    theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    font: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    serving: reader.bool(),
-    canRollback: reader.bool(),
-    previousTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    previousFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminAppearanceState = /* @__PURE__ */ bindReader<AdminAppearanceState>(reader => ({
+  revision: reader.i64(),
+  theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  font: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  serving: reader.bool(),
+  canRollback: reader.bool(),
+  previousTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  previousFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
+}));
 
 export interface AdminAppearanceCommand {
   expectedRevision: bigint;
@@ -2023,30 +1802,23 @@ export interface AdminAppearanceCommand {
   rollback: boolean;
 }
 
-export function encodeAdminAppearanceCommand(value: AdminAppearanceCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminAppearanceCommand = /* @__PURE__ */ bindWriter<AdminAppearanceCommand>((writer, value) => {
   writer.i64(value.expectedRevision);
   writer.text(value.currentTheme, WireLimits.AdminAppearanceDigestBytes);
   writer.text(value.currentFont, WireLimits.AdminAppearanceDigestBytes);
   writer.text(value.theme, WireLimits.AdminAppearanceDigestBytes);
   writer.text(value.font, WireLimits.AdminAppearanceDigestBytes);
   writer.bool(value.rollback);
-  return writer.finish();
-}
+});
 
-export function decodeAdminAppearanceCommand(payload: Uint8Array): AdminAppearanceCommand {
-  const reader = new PodReader(payload);
-  const value: AdminAppearanceCommand = {
-    expectedRevision: reader.i64(),
-    currentTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    currentFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    font: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    rollback: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminAppearanceCommand = /* @__PURE__ */ bindReader<AdminAppearanceCommand>(reader => ({
+  expectedRevision: reader.i64(),
+  currentTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  currentFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  font: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  rollback: reader.bool(),
+}));
 
 export interface AdminAppearanceFontDetail {
   id: string;
@@ -2067,8 +1839,7 @@ export interface AdminAppearanceFontDetail {
   sourceUpstream: string;
 }
 
-export function encodeAdminAppearanceFontDetail(value: AdminAppearanceFontDetail): Uint8Array {
-  const writer = new PodWriter();
+export const encodeAdminAppearanceFontDetail = /* @__PURE__ */ bindWriter<AdminAppearanceFontDetail>((writer, value) => {
   writer.text(value.id, WireLimits.AdminAppearanceIdBytes);
   writer.text(value.version, WireLimits.AdminAppearanceVersionBytes);
   writer.text(value.archiveDigest, WireLimits.AdminAppearanceDigestBytes);
@@ -2085,54 +1856,41 @@ export function encodeAdminAppearanceFontDetail(value: AdminAppearanceFontDetail
   writer.text(value.sourcePackage, WireLimits.AdminAppearanceFontMetadataBytes);
   writer.text(value.sourceVersion, WireLimits.AdminAppearanceVersionBytes);
   writer.text(value.sourceUpstream, WireLimits.AdminAppearanceFontMetadataBytes);
-  return writer.finish();
-}
+});
 
-export function decodeAdminAppearanceFontDetail(payload: Uint8Array): AdminAppearanceFontDetail {
-  const reader = new PodReader(payload);
-  const value: AdminAppearanceFontDetail = {
-    id: reader.text(WireLimits.AdminAppearanceIdBytes),
-    version: reader.text(WireLimits.AdminAppearanceVersionBytes),
-    archiveDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    name: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
-    family: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
-    licenseName: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
-    licenseText: reader.text(WireLimits.AdminAppearanceFontLicenseBytes),
-    faceWeight: reader.i32(),
-    faceStyle: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
-    faceDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
-    faceBytes: reader.i32(),
-    unicodeRange: reader.text(WireLimits.AdminAppearanceFontUnicodeRangeBytes),
-    sourceKind: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
-    sourcePackage: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
-    sourceVersion: reader.text(WireLimits.AdminAppearanceVersionBytes),
-    sourceUpstream: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeAdminAppearanceFontDetail = /* @__PURE__ */ bindReader<AdminAppearanceFontDetail>(reader => ({
+  id: reader.text(WireLimits.AdminAppearanceIdBytes),
+  version: reader.text(WireLimits.AdminAppearanceVersionBytes),
+  archiveDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  name: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+  family: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+  licenseName: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+  licenseText: reader.text(WireLimits.AdminAppearanceFontLicenseBytes),
+  faceWeight: reader.i32(),
+  faceStyle: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+  faceDigest: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  faceBytes: reader.i32(),
+  unicodeRange: reader.text(WireLimits.AdminAppearanceFontUnicodeRangeBytes),
+  sourceKind: reader.text(WireLimits.AdminAppearanceFontLicenseNameBytes),
+  sourcePackage: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+  sourceVersion: reader.text(WireLimits.AdminAppearanceVersionBytes),
+  sourceUpstream: reader.text(WireLimits.AdminAppearanceFontMetadataBytes),
+}));
 
 export interface DraftRecoveryScope {
   siteId: string;
   userId: string;
 }
 
-export function encodeDraftRecoveryScope(value: DraftRecoveryScope): Uint8Array {
-  const writer = new PodWriter();
+export const encodeDraftRecoveryScope = /* @__PURE__ */ bindWriter<DraftRecoveryScope>((writer, value) => {
   writer.uuid(value.siteId);
   writer.uuid(value.userId);
-  return writer.finish();
-}
+});
 
-export function decodeDraftRecoveryScope(payload: Uint8Array): DraftRecoveryScope {
-  const reader = new PodReader(payload);
-  const value: DraftRecoveryScope = {
-    siteId: reader.uuid(),
-    userId: reader.uuid(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeDraftRecoveryScope = /* @__PURE__ */ bindReader<DraftRecoveryScope>(reader => ({
+  siteId: reader.uuid(),
+  userId: reader.uuid(),
+}));
 
 export interface PublicCommentEligibility {
   articleId: number;
@@ -2140,24 +1898,17 @@ export interface PublicCommentEligibility {
   displayName: string;
 }
 
-export function encodePublicCommentEligibility(value: PublicCommentEligibility): Uint8Array {
-  const writer = new PodWriter();
+export const encodePublicCommentEligibility = /* @__PURE__ */ bindWriter<PublicCommentEligibility>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.publication);
   writer.text(value.displayName, WireLimits.PublicCommentHandleBytes);
-  return writer.finish();
-}
+});
 
-export function decodePublicCommentEligibility(payload: Uint8Array): PublicCommentEligibility {
-  const reader = new PodReader(payload);
-  const value: PublicCommentEligibility = {
-    articleId: reader.i32(),
-    publication: reader.i64(),
-    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePublicCommentEligibility = /* @__PURE__ */ bindReader<PublicCommentEligibility>(reader => ({
+  articleId: reader.i32(),
+  publication: reader.i64(),
+  displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+}));
 
 export interface CommentAuthorEditDetail {
   articleId: number;
@@ -2166,26 +1917,19 @@ export interface CommentAuthorEditDetail {
   body: string;
 }
 
-export function encodeCommentAuthorEditDetail(value: CommentAuthorEditDetail): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCommentAuthorEditDetail = /* @__PURE__ */ bindWriter<CommentAuthorEditDetail>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.publication);
   writer.i64(value.currentVersion);
   writer.text(value.body, WireLimits.PublicCommentBodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeCommentAuthorEditDetail(payload: Uint8Array): CommentAuthorEditDetail {
-  const reader = new PodReader(payload);
-  const value: CommentAuthorEditDetail = {
-    articleId: reader.i32(),
-    publication: reader.i64(),
-    currentVersion: reader.i64(),
-    body: reader.text(WireLimits.PublicCommentBodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCommentAuthorEditDetail = /* @__PURE__ */ bindReader<CommentAuthorEditDetail>(reader => ({
+  articleId: reader.i32(),
+  publication: reader.i64(),
+  currentVersion: reader.i64(),
+  body: reader.text(WireLimits.PublicCommentBodyBytes),
+}));
 
 export interface PublicCommentSubmission {
   articleId: number;
@@ -2196,30 +1940,23 @@ export interface PublicCommentSubmission {
   body: string;
 }
 
-export function encodePublicCommentSubmission(value: PublicCommentSubmission): Uint8Array {
-  const writer = new PodWriter();
+export const encodePublicCommentSubmission = /* @__PURE__ */ bindWriter<PublicCommentSubmission>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.publication);
   writer.uuid(value.idempotencyKey);
   writer.bool(value.explicitPublic);
   writer.text(value.displayName, WireLimits.PublicCommentHandleBytes);
   writer.text(value.body, WireLimits.PublicCommentBodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodePublicCommentSubmission(payload: Uint8Array): PublicCommentSubmission {
-  const reader = new PodReader(payload);
-  const value: PublicCommentSubmission = {
-    articleId: reader.i32(),
-    publication: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    explicitPublic: reader.bool(),
-    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
-    body: reader.text(WireLimits.PublicCommentBodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePublicCommentSubmission = /* @__PURE__ */ bindReader<PublicCommentSubmission>(reader => ({
+  articleId: reader.i32(),
+  publication: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  explicitPublic: reader.bool(),
+  displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+  body: reader.text(WireLimits.PublicCommentBodyBytes),
+}));
 
 export interface PublicCommentReply {
   articleId: number;
@@ -2231,8 +1968,7 @@ export interface PublicCommentReply {
   explicitPublic: boolean;
 }
 
-export function encodePublicCommentReply(value: PublicCommentReply): Uint8Array {
-  const writer = new PodWriter();
+export const encodePublicCommentReply = /* @__PURE__ */ bindWriter<PublicCommentReply>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.publication);
   writer.i64(value.parentId);
@@ -2240,23 +1976,17 @@ export function encodePublicCommentReply(value: PublicCommentReply): Uint8Array 
   writer.text(value.body, WireLimits.PublicCommentBodyBytes);
   writer.uuid(value.idempotencyKey);
   writer.bool(value.explicitPublic);
-  return writer.finish();
-}
+});
 
-export function decodePublicCommentReply(payload: Uint8Array): PublicCommentReply {
-  const reader = new PodReader(payload);
-  const value: PublicCommentReply = {
-    articleId: reader.i32(),
-    publication: reader.i64(),
-    parentId: reader.i64(),
-    displayName: reader.text(WireLimits.PublicCommentHandleBytes),
-    body: reader.text(WireLimits.PublicCommentBodyBytes),
-    idempotencyKey: reader.uuid(),
-    explicitPublic: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePublicCommentReply = /* @__PURE__ */ bindReader<PublicCommentReply>(reader => ({
+  articleId: reader.i32(),
+  publication: reader.i64(),
+  parentId: reader.i64(),
+  displayName: reader.text(WireLimits.PublicCommentHandleBytes),
+  body: reader.text(WireLimits.PublicCommentBodyBytes),
+  idempotencyKey: reader.uuid(),
+  explicitPublic: reader.bool(),
+}));
 
 export interface PublicCommentSubmissionResult {
   articleId: number;
@@ -2265,48 +1995,34 @@ export interface PublicCommentSubmissionResult {
   replayed: boolean;
 }
 
-export function encodePublicCommentSubmissionResult(value: PublicCommentSubmissionResult): Uint8Array {
-  const writer = new PodWriter();
+export const encodePublicCommentSubmissionResult = /* @__PURE__ */ bindWriter<PublicCommentSubmissionResult>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.commentId);
   writer.i32(value.moderationStatus);
   writer.bool(value.replayed);
-  return writer.finish();
-}
+});
 
-export function decodePublicCommentSubmissionResult(payload: Uint8Array): PublicCommentSubmissionResult {
-  const reader = new PodReader(payload);
-  const value: PublicCommentSubmissionResult = {
-    articleId: reader.i32(),
-    commentId: reader.i64(),
-    moderationStatus: reader.i32(),
-    replayed: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePublicCommentSubmissionResult = /* @__PURE__ */ bindReader<PublicCommentSubmissionResult>(reader => ({
+  articleId: reader.i32(),
+  commentId: reader.i64(),
+  moderationStatus: reader.i32(),
+  replayed: reader.bool(),
+}));
 
 export interface SubscriptionPreferenceRequest {
   email: string;
   channel: number;
 }
 
-export function encodeSubscriptionPreferenceRequest(value: SubscriptionPreferenceRequest): Uint8Array {
-  const writer = new PodWriter();
+export const encodeSubscriptionPreferenceRequest = /* @__PURE__ */ bindWriter<SubscriptionPreferenceRequest>((writer, value) => {
   writer.text(value.email, WireLimits.SubscriptionEmailBytes);
   writer.i32(value.channel);
-  return writer.finish();
-}
+});
 
-export function decodeSubscriptionPreferenceRequest(payload: Uint8Array): SubscriptionPreferenceRequest {
-  const reader = new PodReader(payload);
-  const value: SubscriptionPreferenceRequest = {
-    email: reader.text(WireLimits.SubscriptionEmailBytes),
-    channel: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeSubscriptionPreferenceRequest = /* @__PURE__ */ bindReader<SubscriptionPreferenceRequest>(reader => ({
+  email: reader.text(WireLimits.SubscriptionEmailBytes),
+  channel: reader.i32(),
+}));
 
 export interface DraftTaxonomy {
   id: number;
@@ -2315,26 +2031,19 @@ export interface DraftTaxonomy {
   tagIds: readonly number[];
 }
 
-export function encodeDraftTaxonomy(value: DraftTaxonomy): Uint8Array {
-  const writer = new PodWriter();
+export const encodeDraftTaxonomy = /* @__PURE__ */ bindWriter<DraftTaxonomy>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.i32(value.categoryId);
   writer.i32s(value.tagIds, WireLimits.TaxonomyTagCount);
-  return writer.finish();
-}
+});
 
-export function decodeDraftTaxonomy(payload: Uint8Array): DraftTaxonomy {
-  const reader = new PodReader(payload);
-  const value: DraftTaxonomy = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    categoryId: reader.i32(),
-    tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeDraftTaxonomy = /* @__PURE__ */ bindReader<DraftTaxonomy>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  categoryId: reader.i32(),
+  tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
+}));
 
 export interface TaxonomyAssignment {
   id: number;
@@ -2344,47 +2053,33 @@ export interface TaxonomyAssignment {
   tagIds: readonly number[];
 }
 
-export function encodeTaxonomyAssignment(value: TaxonomyAssignment): Uint8Array {
-  const writer = new PodWriter();
+export const encodeTaxonomyAssignment = /* @__PURE__ */ bindWriter<TaxonomyAssignment>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.uuid(value.idempotencyKey);
   writer.i32(value.categoryId);
   writer.i32s(value.tagIds, WireLimits.TaxonomyTagCount);
-  return writer.finish();
-}
+});
 
-export function decodeTaxonomyAssignment(payload: Uint8Array): TaxonomyAssignment {
-  const reader = new PodReader(payload);
-  const value: TaxonomyAssignment = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    categoryId: reader.i32(),
-    tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeTaxonomyAssignment = /* @__PURE__ */ bindReader<TaxonomyAssignment>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  categoryId: reader.i32(),
+  tagIds: reader.i32s(WireLimits.TaxonomyTagCount),
+}));
 
 export interface SignIn {
   ticket: string;
 }
 
-export function encodeSignIn(value: SignIn): Uint8Array {
-  const writer = new PodWriter();
+export const encodeSignIn = /* @__PURE__ */ bindWriter<SignIn>((writer, value) => {
   writer.text(value.ticket, WireLimits.TicketBytes);
-  return writer.finish();
-}
+});
 
-export function decodeSignIn(payload: Uint8Array): SignIn {
-  const reader = new PodReader(payload);
-  const value: SignIn = {
-    ticket: reader.text(WireLimits.TicketBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeSignIn = /* @__PURE__ */ bindReader<SignIn>(reader => ({
+  ticket: reader.text(WireLimits.TicketBytes),
+}));
 
 export interface Session {
   name: string;
@@ -2392,24 +2087,17 @@ export interface Session {
   canAuthor: boolean;
 }
 
-export function encodeSession(value: Session): Uint8Array {
-  const writer = new PodWriter();
+export const encodeSession = /* @__PURE__ */ bindWriter<Session>((writer, value) => {
   writer.text(value.name, WireLimits.NameBytes);
   writer.i64(value.generation);
   writer.bool(value.canAuthor);
-  return writer.finish();
-}
+});
 
-export function decodeSession(payload: Uint8Array): Session {
-  const reader = new PodReader(payload);
-  const value: Session = {
-    name: reader.text(WireLimits.NameBytes),
-    generation: reader.i64(),
-    canAuthor: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeSession = /* @__PURE__ */ bindReader<Session>(reader => ({
+  name: reader.text(WireLimits.NameBytes),
+  generation: reader.i64(),
+  canAuthor: reader.bool(),
+}));
 
 export interface Draft {
   id: number;
@@ -2419,28 +2107,21 @@ export interface Draft {
   published: boolean;
 }
 
-export function encodeDraft(value: Draft): Uint8Array {
-  const writer = new PodWriter();
+export const encodeDraft = /* @__PURE__ */ bindWriter<Draft>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.text(value.title, WireLimits.TitleBytes);
   writer.text(value.body, WireLimits.BodyBytes);
   writer.bool(value.published);
-  return writer.finish();
-}
+});
 
-export function decodeDraft(payload: Uint8Array): Draft {
-  const reader = new PodReader(payload);
-  const value: Draft = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    title: reader.text(WireLimits.TitleBytes),
-    body: reader.text(WireLimits.BodyBytes),
-    published: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeDraft = /* @__PURE__ */ bindReader<Draft>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  title: reader.text(WireLimits.TitleBytes),
+  body: reader.text(WireLimits.BodyBytes),
+  published: reader.bool(),
+}));
 
 export interface DraftRollback {
   id: number;
@@ -2450,28 +2131,21 @@ export interface DraftRollback {
   reason: string;
 }
 
-export function encodeDraftRollback(value: DraftRollback): Uint8Array {
-  const writer = new PodWriter();
+export const encodeDraftRollback = /* @__PURE__ */ bindWriter<DraftRollback>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.i64(value.sourceRevision);
   writer.uuid(value.idempotencyKey);
   writer.text(value.reason, WireLimits.RollbackReasonBytes);
-  return writer.finish();
-}
+});
 
-export function decodeDraftRollback(payload: Uint8Array): DraftRollback {
-  const reader = new PodReader(payload);
-  const value: DraftRollback = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    sourceRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    reason: reader.text(WireLimits.RollbackReasonBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeDraftRollback = /* @__PURE__ */ bindReader<DraftRollback>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  sourceRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  reason: reader.text(WireLimits.RollbackReasonBytes),
+}));
 
 export interface ArticleRightsPolicy {
   id: number;
@@ -2490,8 +2164,7 @@ export interface ArticleRightsPolicy {
   proofBindingEnabled: boolean;
 }
 
-export function encodeArticleRightsPolicy(value: ArticleRightsPolicy): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleRightsPolicy = /* @__PURE__ */ bindWriter<ArticleRightsPolicy>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.bool(value.present);
@@ -2506,30 +2179,24 @@ export function encodeArticleRightsPolicy(value: ArticleRightsPolicy): Uint8Arra
   writer.bool(value.allowCodeCopy);
   writer.bool(value.showPublicBadge);
   writer.bool(value.proofBindingEnabled);
-  return writer.finish();
-}
+});
 
-export function decodeArticleRightsPolicy(payload: Uint8Array): ArticleRightsPolicy {
-  const reader = new PodReader(payload);
-  const value: ArticleRightsPolicy = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    present: reader.bool(),
-    enabled: reader.bool(),
-    licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
-    copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
-    copyrightYear: reader.i32(),
-    rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
-    attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
-    copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
-    maxExcerptChars: reader.i32(),
-    allowCodeCopy: reader.bool(),
-    showPublicBadge: reader.bool(),
-    proofBindingEnabled: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleRightsPolicy = /* @__PURE__ */ bindReader<ArticleRightsPolicy>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  present: reader.bool(),
+  enabled: reader.bool(),
+  licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
+  copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
+  copyrightYear: reader.i32(),
+  rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
+  attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
+  copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
+  maxExcerptChars: reader.i32(),
+  allowCodeCopy: reader.bool(),
+  showPublicBadge: reader.bool(),
+  proofBindingEnabled: reader.bool(),
+}));
 
 export interface ArticleRightsCommand {
   id: number;
@@ -2548,8 +2215,7 @@ export interface ArticleRightsCommand {
   proofBindingEnabled: boolean;
 }
 
-export function encodeArticleRightsCommand(value: ArticleRightsCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleRightsCommand = /* @__PURE__ */ bindWriter<ArticleRightsCommand>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.uuid(value.idempotencyKey);
@@ -2564,30 +2230,24 @@ export function encodeArticleRightsCommand(value: ArticleRightsCommand): Uint8Ar
   writer.bool(value.allowCodeCopy);
   writer.bool(value.showPublicBadge);
   writer.bool(value.proofBindingEnabled);
-  return writer.finish();
-}
+});
 
-export function decodeArticleRightsCommand(payload: Uint8Array): ArticleRightsCommand {
-  const reader = new PodReader(payload);
-  const value: ArticleRightsCommand = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    enabled: reader.bool(),
-    licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
-    copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
-    copyrightYear: reader.i32(),
-    rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
-    attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
-    copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
-    maxExcerptChars: reader.i32(),
-    allowCodeCopy: reader.bool(),
-    showPublicBadge: reader.bool(),
-    proofBindingEnabled: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleRightsCommand = /* @__PURE__ */ bindReader<ArticleRightsCommand>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  enabled: reader.bool(),
+  licenseType: reader.text(WireLimits.ArticleRightsTokenBytes),
+  copyrightHolder: reader.text(WireLimits.ArticleRightsHolderBytes),
+  copyrightYear: reader.i32(),
+  rightsStatement: reader.text(WireLimits.ArticleRightsTextBytes),
+  attributionTemplate: reader.text(WireLimits.ArticleRightsTextBytes),
+  copyPolicy: reader.text(WireLimits.ArticleRightsTokenBytes),
+  maxExcerptChars: reader.i32(),
+  allowCodeCopy: reader.bool(),
+  showPublicBadge: reader.bool(),
+  proofBindingEnabled: reader.bool(),
+}));
 
 export interface ArticleSchedule {
   id: number;
@@ -2596,26 +2256,19 @@ export interface ArticleSchedule {
   publishedRevision: bigint;
 }
 
-export function encodeArticleSchedule(value: ArticleSchedule): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleSchedule = /* @__PURE__ */ bindWriter<ArticleSchedule>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.i64(value.dueUnixMs);
   writer.i64(value.publishedRevision);
-  return writer.finish();
-}
+});
 
-export function decodeArticleSchedule(payload: Uint8Array): ArticleSchedule {
-  const reader = new PodReader(payload);
-  const value: ArticleSchedule = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    dueUnixMs: reader.i64(),
-    publishedRevision: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleSchedule = /* @__PURE__ */ bindReader<ArticleSchedule>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  dueUnixMs: reader.i64(),
+  publishedRevision: reader.i64(),
+}));
 
 export interface ArticleScheduleCommand {
   id: number;
@@ -2624,26 +2277,19 @@ export interface ArticleScheduleCommand {
   dueUnixMs: bigint;
 }
 
-export function encodeArticleScheduleCommand(value: ArticleScheduleCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleScheduleCommand = /* @__PURE__ */ bindWriter<ArticleScheduleCommand>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.uuid(value.idempotencyKey);
   writer.i64(value.dueUnixMs);
-  return writer.finish();
-}
+});
 
-export function decodeArticleScheduleCommand(payload: Uint8Array): ArticleScheduleCommand {
-  const reader = new PodReader(payload);
-  const value: ArticleScheduleCommand = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    dueUnixMs: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleScheduleCommand = /* @__PURE__ */ bindReader<ArticleScheduleCommand>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  dueUnixMs: reader.i64(),
+}));
 
 export interface RevisionComparison {
   id: number;
@@ -2655,8 +2301,7 @@ export interface RevisionComparison {
   sourceBody: string;
 }
 
-export function encodeRevisionComparison(value: RevisionComparison): Uint8Array {
-  const writer = new PodWriter();
+export const encodeRevisionComparison = /* @__PURE__ */ bindWriter<RevisionComparison>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.i64(value.sourceRevision);
@@ -2664,23 +2309,17 @@ export function encodeRevisionComparison(value: RevisionComparison): Uint8Array 
   writer.text(value.body, WireLimits.BodyBytes);
   writer.text(value.sourceTitle, WireLimits.TitleBytes);
   writer.text(value.sourceBody, WireLimits.BodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeRevisionComparison(payload: Uint8Array): RevisionComparison {
-  const reader = new PodReader(payload);
-  const value: RevisionComparison = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    sourceRevision: reader.i64(),
-    title: reader.text(WireLimits.TitleBytes),
-    body: reader.text(WireLimits.BodyBytes),
-    sourceTitle: reader.text(WireLimits.TitleBytes),
-    sourceBody: reader.text(WireLimits.BodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeRevisionComparison = /* @__PURE__ */ bindReader<RevisionComparison>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  sourceRevision: reader.i64(),
+  title: reader.text(WireLimits.TitleBytes),
+  body: reader.text(WireLimits.BodyBytes),
+  sourceTitle: reader.text(WireLimits.TitleBytes),
+  sourceBody: reader.text(WireLimits.BodyBytes),
+}));
 
 export interface ArticleCommand {
   id: number;
@@ -2690,28 +2329,21 @@ export interface ArticleCommand {
   body: string;
 }
 
-export function encodeArticleCommand(value: ArticleCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleCommand = /* @__PURE__ */ bindWriter<ArticleCommand>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.uuid(value.idempotencyKey);
   writer.text(value.title, WireLimits.TitleBytes);
   writer.text(value.body, WireLimits.BodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeArticleCommand(payload: Uint8Array): ArticleCommand {
-  const reader = new PodReader(payload);
-  const value: ArticleCommand = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    title: reader.text(WireLimits.TitleBytes),
-    body: reader.text(WireLimits.BodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleCommand = /* @__PURE__ */ bindReader<ArticleCommand>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  title: reader.text(WireLimits.TitleBytes),
+  body: reader.text(WireLimits.BodyBytes),
+}));
 
 export interface ArticleBodyInsertionCommand {
   id: number;
@@ -2723,8 +2355,7 @@ export interface ArticleBodyInsertionCommand {
   length: number;
 }
 
-export function encodeArticleBodyInsertionCommand(value: ArticleBodyInsertionCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodeArticleBodyInsertionCommand = /* @__PURE__ */ bindWriter<ArticleBodyInsertionCommand>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.expectedRevision);
   writer.uuid(value.idempotencyKey);
@@ -2732,23 +2363,17 @@ export function encodeArticleBodyInsertionCommand(value: ArticleBodyInsertionCom
   writer.text(value.body, WireLimits.BodyBytes);
   writer.i32(value.offset);
   writer.i32(value.length);
-  return writer.finish();
-}
+});
 
-export function decodeArticleBodyInsertionCommand(payload: Uint8Array): ArticleBodyInsertionCommand {
-  const reader = new PodReader(payload);
-  const value: ArticleBodyInsertionCommand = {
-    id: reader.i32(),
-    expectedRevision: reader.i64(),
-    idempotencyKey: reader.uuid(),
-    title: reader.text(WireLimits.TitleBytes),
-    body: reader.text(WireLimits.BodyBytes),
-    offset: reader.i32(),
-    length: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeArticleBodyInsertionCommand = /* @__PURE__ */ bindReader<ArticleBodyInsertionCommand>(reader => ({
+  id: reader.i32(),
+  expectedRevision: reader.i64(),
+  idempotencyKey: reader.uuid(),
+  title: reader.text(WireLimits.TitleBytes),
+  body: reader.text(WireLimits.BodyBytes),
+  offset: reader.i32(),
+  length: reader.i32(),
+}));
 
 export interface DraftRevisionBodyInsertion {
   id: number;
@@ -2763,8 +2388,7 @@ export interface DraftRevisionBodyInsertion {
   body: string;
 }
 
-export function encodeDraftRevisionBodyInsertion(value: DraftRevisionBodyInsertion): Uint8Array {
-  const writer = new PodWriter();
+export const encodeDraftRevisionBodyInsertion = /* @__PURE__ */ bindWriter<DraftRevisionBodyInsertion>((writer, value) => {
   writer.i32(value.id);
   writer.i64(value.revision);
   writer.i64(value.sourceRevision);
@@ -2775,26 +2399,20 @@ export function encodeDraftRevisionBodyInsertion(value: DraftRevisionBodyInserti
   writer.text(value.digest, WireLimits.ArticleBodyInsertionDigestBytes);
   writer.text(value.sourceBody, WireLimits.BodyBytes);
   writer.text(value.body, WireLimits.BodyBytes);
-  return writer.finish();
-}
+});
 
-export function decodeDraftRevisionBodyInsertion(payload: Uint8Array): DraftRevisionBodyInsertion {
-  const reader = new PodReader(payload);
-  const value: DraftRevisionBodyInsertion = {
-    id: reader.i32(),
-    revision: reader.i64(),
-    sourceRevision: reader.i64(),
-    available: reader.bool(),
-    offset: reader.i32(),
-    length: reader.i32(),
-    sourceDigest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
-    digest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
-    sourceBody: reader.text(WireLimits.BodyBytes),
-    body: reader.text(WireLimits.BodyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeDraftRevisionBodyInsertion = /* @__PURE__ */ bindReader<DraftRevisionBodyInsertion>(reader => ({
+  id: reader.i32(),
+  revision: reader.i64(),
+  sourceRevision: reader.i64(),
+  available: reader.bool(),
+  offset: reader.i32(),
+  length: reader.i32(),
+  sourceDigest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
+  digest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
+  sourceBody: reader.text(WireLimits.BodyBytes),
+  body: reader.text(WireLimits.BodyBytes),
+}));
 
 export interface CanvasCreate {
   canvasId: string;
@@ -2803,26 +2421,19 @@ export interface CanvasCreate {
   targetArticleId: number;
 }
 
-export function encodeCanvasCreate(value: CanvasCreate): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasCreate = /* @__PURE__ */ bindWriter<CanvasCreate>((writer, value) => {
   writer.uuid(value.canvasId);
   writer.uuid(value.edgeId);
   writer.i32(value.hostArticleId);
   writer.i32(value.targetArticleId);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasCreate(payload: Uint8Array): CanvasCreate {
-  const reader = new PodReader(payload);
-  const value: CanvasCreate = {
-    canvasId: reader.uuid(),
-    edgeId: reader.uuid(),
-    hostArticleId: reader.i32(),
-    targetArticleId: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasCreate = /* @__PURE__ */ bindReader<CanvasCreate>(reader => ({
+  canvasId: reader.uuid(),
+  edgeId: reader.uuid(),
+  hostArticleId: reader.i32(),
+  targetArticleId: reader.i32(),
+}));
 
 export interface CanvasCreated {
   canvasId: string;
@@ -2830,24 +2441,17 @@ export interface CanvasCreated {
   canvasRevision: bigint;
 }
 
-export function encodeCanvasCreated(value: CanvasCreated): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasCreated = /* @__PURE__ */ bindWriter<CanvasCreated>((writer, value) => {
   writer.uuid(value.canvasId);
   writer.uuid(value.edgeId);
   writer.i64(value.canvasRevision);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasCreated(payload: Uint8Array): CanvasCreated {
-  const reader = new PodReader(payload);
-  const value: CanvasCreated = {
-    canvasId: reader.uuid(),
-    edgeId: reader.uuid(),
-    canvasRevision: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasCreated = /* @__PURE__ */ bindReader<CanvasCreated>(reader => ({
+  canvasId: reader.uuid(),
+  edgeId: reader.uuid(),
+  canvasRevision: reader.i64(),
+}));
 
 export interface CanvasPreview {
   canvasId: string;
@@ -2858,30 +2462,23 @@ export interface CanvasPreview {
   sourceOffset: number;
 }
 
-export function encodeCanvasPreview(value: CanvasPreview): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasPreview = /* @__PURE__ */ bindWriter<CanvasPreview>((writer, value) => {
   writer.uuid(value.canvasId);
   writer.uuid(value.edgeId);
   writer.i64(value.canvasRevision);
   writer.i64(value.hostRevision);
   writer.i64(value.targetRevision);
   writer.i32(value.sourceOffset);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasPreview(payload: Uint8Array): CanvasPreview {
-  const reader = new PodReader(payload);
-  const value: CanvasPreview = {
-    canvasId: reader.uuid(),
-    edgeId: reader.uuid(),
-    canvasRevision: reader.i64(),
-    hostRevision: reader.i64(),
-    targetRevision: reader.i64(),
-    sourceOffset: reader.i32(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasPreview = /* @__PURE__ */ bindReader<CanvasPreview>(reader => ({
+  canvasId: reader.uuid(),
+  edgeId: reader.uuid(),
+  canvasRevision: reader.i64(),
+  hostRevision: reader.i64(),
+  targetRevision: reader.i64(),
+  sourceOffset: reader.i32(),
+}));
 
 export interface CanvasLinkPlan {
   planId: string;
@@ -2895,8 +2492,7 @@ export interface CanvasLinkPlan {
   expiresAtUnixSeconds: bigint;
 }
 
-export function encodeCanvasLinkPlan(value: CanvasLinkPlan): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasLinkPlan = /* @__PURE__ */ bindWriter<CanvasLinkPlan>((writer, value) => {
   writer.uuid(value.planId);
   writer.i64(value.canvasRevision);
   writer.i32(value.hostArticleId);
@@ -2906,44 +2502,31 @@ export function encodeCanvasLinkPlan(value: CanvasLinkPlan): Uint8Array {
   writer.i32(value.sourceOffset);
   writer.text(value.insertedMarkdown, WireLimits.CanvasInsertionBytes);
   writer.i64(value.expiresAtUnixSeconds);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasLinkPlan(payload: Uint8Array): CanvasLinkPlan {
-  const reader = new PodReader(payload);
-  const value: CanvasLinkPlan = {
-    planId: reader.uuid(),
-    canvasRevision: reader.i64(),
-    hostArticleId: reader.i32(),
-    hostRevision: reader.i64(),
-    targetArticleId: reader.i32(),
-    targetRevision: reader.i64(),
-    sourceOffset: reader.i32(),
-    insertedMarkdown: reader.text(WireLimits.CanvasInsertionBytes),
-    expiresAtUnixSeconds: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasLinkPlan = /* @__PURE__ */ bindReader<CanvasLinkPlan>(reader => ({
+  planId: reader.uuid(),
+  canvasRevision: reader.i64(),
+  hostArticleId: reader.i32(),
+  hostRevision: reader.i64(),
+  targetArticleId: reader.i32(),
+  targetRevision: reader.i64(),
+  sourceOffset: reader.i32(),
+  insertedMarkdown: reader.text(WireLimits.CanvasInsertionBytes),
+  expiresAtUnixSeconds: reader.i64(),
+}));
 
 export interface CanvasConfirm {
   planId: string;
 }
 
-export function encodeCanvasConfirm(value: CanvasConfirm): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasConfirm = /* @__PURE__ */ bindWriter<CanvasConfirm>((writer, value) => {
   writer.uuid(value.planId);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasConfirm(payload: Uint8Array): CanvasConfirm {
-  const reader = new PodReader(payload);
-  const value: CanvasConfirm = {
-    planId: reader.uuid(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasConfirm = /* @__PURE__ */ bindReader<CanvasConfirm>(reader => ({
+  planId: reader.uuid(),
+}));
 
 export interface CanvasLinked {
   planId: string;
@@ -2952,26 +2535,19 @@ export interface CanvasLinked {
   canvasRevision: bigint;
 }
 
-export function encodeCanvasLinked(value: CanvasLinked): Uint8Array {
-  const writer = new PodWriter();
+export const encodeCanvasLinked = /* @__PURE__ */ bindWriter<CanvasLinked>((writer, value) => {
   writer.uuid(value.planId);
   writer.i32(value.articleId);
   writer.i64(value.articleRevision);
   writer.i64(value.canvasRevision);
-  return writer.finish();
-}
+});
 
-export function decodeCanvasLinked(payload: Uint8Array): CanvasLinked {
-  const reader = new PodReader(payload);
-  const value: CanvasLinked = {
-    planId: reader.uuid(),
-    articleId: reader.i32(),
-    articleRevision: reader.i64(),
-    canvasRevision: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodeCanvasLinked = /* @__PURE__ */ bindReader<CanvasLinked>(reader => ({
+  planId: reader.uuid(),
+  articleId: reader.i32(),
+  articleRevision: reader.i64(),
+  canvasRevision: reader.i64(),
+}));
 
 export interface PropertyDefinitionCommand {
   operation: number;
@@ -2983,8 +2559,7 @@ export interface PropertyDefinitionCommand {
   label: string;
 }
 
-export function encodePropertyDefinitionCommand(value: PropertyDefinitionCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyDefinitionCommand = /* @__PURE__ */ bindWriter<PropertyDefinitionCommand>((writer, value) => {
   writer.i32(value.operation);
   writer.uuid(value.definitionId);
   writer.uuid(value.requestId);
@@ -2992,23 +2567,17 @@ export function encodePropertyDefinitionCommand(value: PropertyDefinitionCommand
   writer.i64(value.definitionRevision);
   writer.text(value.machineKey, WireLimits.PropertyKeyBytes);
   writer.text(value.label, WireLimits.PropertyLabelBytes);
-  return writer.finish();
-}
+});
 
-export function decodePropertyDefinitionCommand(payload: Uint8Array): PropertyDefinitionCommand {
-  const reader = new PodReader(payload);
-  const value: PropertyDefinitionCommand = {
-    operation: reader.i32(),
-    definitionId: reader.uuid(),
-    requestId: reader.uuid(),
-    schemaRevision: reader.i64(),
-    definitionRevision: reader.i64(),
-    machineKey: reader.text(WireLimits.PropertyKeyBytes),
-    label: reader.text(WireLimits.PropertyLabelBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyDefinitionCommand = /* @__PURE__ */ bindReader<PropertyDefinitionCommand>(reader => ({
+  operation: reader.i32(),
+  definitionId: reader.uuid(),
+  requestId: reader.uuid(),
+  schemaRevision: reader.i64(),
+  definitionRevision: reader.i64(),
+  machineKey: reader.text(WireLimits.PropertyKeyBytes),
+  label: reader.text(WireLimits.PropertyLabelBytes),
+}));
 
 export interface PropertyWorkspaceRequest {
   articleId: number;
@@ -3018,28 +2587,21 @@ export interface PropertyWorkspaceRequest {
   afterKey: string;
 }
 
-export function encodePropertyWorkspaceRequest(value: PropertyWorkspaceRequest): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyWorkspaceRequest = /* @__PURE__ */ bindWriter<PropertyWorkspaceRequest>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.articleRevision);
   writer.i64(value.schemaRevision);
   writer.i64(value.valueRevision);
   writer.text(value.afterKey, WireLimits.PropertyKeyBytes);
-  return writer.finish();
-}
+});
 
-export function decodePropertyWorkspaceRequest(payload: Uint8Array): PropertyWorkspaceRequest {
-  const reader = new PodReader(payload);
-  const value: PropertyWorkspaceRequest = {
-    articleId: reader.i32(),
-    articleRevision: reader.i64(),
-    schemaRevision: reader.i64(),
-    valueRevision: reader.i64(),
-    afterKey: reader.text(WireLimits.PropertyKeyBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyWorkspaceRequest = /* @__PURE__ */ bindReader<PropertyWorkspaceRequest>(reader => ({
+  articleId: reader.i32(),
+  articleRevision: reader.i64(),
+  schemaRevision: reader.i64(),
+  valueRevision: reader.i64(),
+  afterKey: reader.text(WireLimits.PropertyKeyBytes),
+}));
 
 export interface PropertyFilterabilityCommand {
   definitionId: string;
@@ -3049,28 +2611,21 @@ export interface PropertyFilterabilityCommand {
   enabled: boolean;
 }
 
-export function encodePropertyFilterabilityCommand(value: PropertyFilterabilityCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyFilterabilityCommand = /* @__PURE__ */ bindWriter<PropertyFilterabilityCommand>((writer, value) => {
   writer.uuid(value.definitionId);
   writer.uuid(value.requestId);
   writer.i64(value.schemaRevision);
   writer.i64(value.definitionRevision);
   writer.bool(value.enabled);
-  return writer.finish();
-}
+});
 
-export function decodePropertyFilterabilityCommand(payload: Uint8Array): PropertyFilterabilityCommand {
-  const reader = new PodReader(payload);
-  const value: PropertyFilterabilityCommand = {
-    definitionId: reader.uuid(),
-    requestId: reader.uuid(),
-    schemaRevision: reader.i64(),
-    definitionRevision: reader.i64(),
-    enabled: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyFilterabilityCommand = /* @__PURE__ */ bindReader<PropertyFilterabilityCommand>(reader => ({
+  definitionId: reader.uuid(),
+  requestId: reader.uuid(),
+  schemaRevision: reader.i64(),
+  definitionRevision: reader.i64(),
+  enabled: reader.bool(),
+}));
 
 export interface PropertyDefinitionProjectionCommand {
   definitionId: string;
@@ -3081,30 +2636,23 @@ export interface PropertyDefinitionProjectionCommand {
   sortable: boolean;
 }
 
-export function encodePropertyDefinitionProjectionCommand(value: PropertyDefinitionProjectionCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyDefinitionProjectionCommand = /* @__PURE__ */ bindWriter<PropertyDefinitionProjectionCommand>((writer, value) => {
   writer.uuid(value.definitionId);
   writer.uuid(value.requestId);
   writer.i64(value.schemaRevision);
   writer.i64(value.definitionRevision);
   writer.bool(value.searchEligible);
   writer.bool(value.sortable);
-  return writer.finish();
-}
+});
 
-export function decodePropertyDefinitionProjectionCommand(payload: Uint8Array): PropertyDefinitionProjectionCommand {
-  const reader = new PodReader(payload);
-  const value: PropertyDefinitionProjectionCommand = {
-    definitionId: reader.uuid(),
-    requestId: reader.uuid(),
-    schemaRevision: reader.i64(),
-    definitionRevision: reader.i64(),
-    searchEligible: reader.bool(),
-    sortable: reader.bool(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyDefinitionProjectionCommand = /* @__PURE__ */ bindReader<PropertyDefinitionProjectionCommand>(reader => ({
+  definitionId: reader.uuid(),
+  requestId: reader.uuid(),
+  schemaRevision: reader.i64(),
+  definitionRevision: reader.i64(),
+  searchEligible: reader.bool(),
+  sortable: reader.bool(),
+}));
 
 export interface PropertyDefinitionProjection {
   definitionId: string;
@@ -3117,8 +2665,7 @@ export interface PropertyDefinitionProjection {
   digest: string;
 }
 
-export function encodePropertyDefinitionProjection(value: PropertyDefinitionProjection): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyDefinitionProjection = /* @__PURE__ */ bindWriter<PropertyDefinitionProjection>((writer, value) => {
   writer.uuid(value.definitionId);
   writer.i64(value.schemaRevision);
   writer.i64(value.definitionRevision);
@@ -3127,24 +2674,18 @@ export function encodePropertyDefinitionProjection(value: PropertyDefinitionProj
   writer.bool(value.filterable);
   writer.bool(value.sortable);
   writer.text(value.digest, WireLimits.PropertyDefinitionDigestBytes);
-  return writer.finish();
-}
+});
 
-export function decodePropertyDefinitionProjection(payload: Uint8Array): PropertyDefinitionProjection {
-  const reader = new PodReader(payload);
-  const value: PropertyDefinitionProjection = {
-    definitionId: reader.uuid(),
-    schemaRevision: reader.i64(),
-    definitionRevision: reader.i64(),
-    deprecated: reader.bool(),
-    searchEligible: reader.bool(),
-    filterable: reader.bool(),
-    sortable: reader.bool(),
-    digest: reader.text(WireLimits.PropertyDefinitionDigestBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyDefinitionProjection = /* @__PURE__ */ bindReader<PropertyDefinitionProjection>(reader => ({
+  definitionId: reader.uuid(),
+  schemaRevision: reader.i64(),
+  definitionRevision: reader.i64(),
+  deprecated: reader.bool(),
+  searchEligible: reader.bool(),
+  filterable: reader.bool(),
+  sortable: reader.bool(),
+  digest: reader.text(WireLimits.PropertyDefinitionDigestBytes),
+}));
 
 export interface PropertyTextCommand {
   articleId: number;
@@ -3158,8 +2699,7 @@ export interface PropertyTextCommand {
   value: string;
 }
 
-export function encodePropertyTextCommand(value: PropertyTextCommand): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyTextCommand = /* @__PURE__ */ bindWriter<PropertyTextCommand>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.articleRevision);
   writer.i64(value.schemaRevision);
@@ -3169,25 +2709,19 @@ export function encodePropertyTextCommand(value: PropertyTextCommand): Uint8Arra
   writer.uuid(value.requestId);
   writer.bool(value.remove);
   writer.text(value.value, WireLimits.PropertyValueBytes);
-  return writer.finish();
-}
+});
 
-export function decodePropertyTextCommand(payload: Uint8Array): PropertyTextCommand {
-  const reader = new PodReader(payload);
-  const value: PropertyTextCommand = {
-    articleId: reader.i32(),
-    articleRevision: reader.i64(),
-    schemaRevision: reader.i64(),
-    valueRevision: reader.i64(),
-    definitionId: reader.uuid(),
-    definitionRevision: reader.i64(),
-    requestId: reader.uuid(),
-    remove: reader.bool(),
-    value: reader.text(WireLimits.PropertyValueBytes),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyTextCommand = /* @__PURE__ */ bindReader<PropertyTextCommand>(reader => ({
+  articleId: reader.i32(),
+  articleRevision: reader.i64(),
+  schemaRevision: reader.i64(),
+  valueRevision: reader.i64(),
+  definitionId: reader.uuid(),
+  definitionRevision: reader.i64(),
+  requestId: reader.uuid(),
+  remove: reader.bool(),
+  value: reader.text(WireLimits.PropertyValueBytes),
+}));
 
 export interface PropertyCommandReceipt {
   definitionId: string;
@@ -3195,24 +2729,17 @@ export interface PropertyCommandReceipt {
   revision: bigint;
 }
 
-export function encodePropertyCommandReceipt(value: PropertyCommandReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyCommandReceipt = /* @__PURE__ */ bindWriter<PropertyCommandReceipt>((writer, value) => {
   writer.uuid(value.definitionId);
   writer.i64(value.schemaRevision);
   writer.i64(value.revision);
-  return writer.finish();
-}
+});
 
-export function decodePropertyCommandReceipt(payload: Uint8Array): PropertyCommandReceipt {
-  const reader = new PodReader(payload);
-  const value: PropertyCommandReceipt = {
-    definitionId: reader.uuid(),
-    schemaRevision: reader.i64(),
-    revision: reader.i64(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyCommandReceipt = /* @__PURE__ */ bindReader<PropertyCommandReceipt>(reader => ({
+  definitionId: reader.uuid(),
+  schemaRevision: reader.i64(),
+  revision: reader.i64(),
+}));
 
 export interface PropertyValueBatchReceipt {
   articleId: number;
@@ -3221,23 +2748,16 @@ export interface PropertyValueBatchReceipt {
   requestId: string;
 }
 
-export function encodePropertyValueBatchReceipt(value: PropertyValueBatchReceipt): Uint8Array {
-  const writer = new PodWriter();
+export const encodePropertyValueBatchReceipt = /* @__PURE__ */ bindWriter<PropertyValueBatchReceipt>((writer, value) => {
   writer.i32(value.articleId);
   writer.i64(value.schemaRevision);
   writer.i64(value.valueRevision);
   writer.uuid(value.requestId);
-  return writer.finish();
-}
+});
 
-export function decodePropertyValueBatchReceipt(payload: Uint8Array): PropertyValueBatchReceipt {
-  const reader = new PodReader(payload);
-  const value: PropertyValueBatchReceipt = {
-    articleId: reader.i32(),
-    schemaRevision: reader.i64(),
-    valueRevision: reader.i64(),
-    requestId: reader.uuid(),
-  };
-  reader.finish();
-  return value;
-}
+export const decodePropertyValueBatchReceipt = /* @__PURE__ */ bindReader<PropertyValueBatchReceipt>(reader => ({
+  articleId: reader.i32(),
+  schemaRevision: reader.i64(),
+  valueRevision: reader.i64(),
+  requestId: reader.uuid(),
+}));
