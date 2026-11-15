@@ -12,6 +12,8 @@ internal static class AdminModerationEndpoints
         var authority = origin.GetLeftPart(UriPartial.Authority);
         var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame);
+        if (app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false))
+            AdminModerationBatchEndpoints.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
         app.MapPost(WireRoutes.AdminModerationClaim, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireOrigin(ctx, authority);

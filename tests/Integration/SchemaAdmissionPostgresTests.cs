@@ -1,4 +1,5 @@
 using System.Net;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -45,6 +46,35 @@ public sealed class SchemaAdmissionPostgresTests
         using var ready = await accepted.Client.GetAsync("/health/ready", ct);
         Assert.Equal(HttpStatusCode.NoContent, ready.StatusCode);
         Assert.Equal(valid, await ReadState(connection, ct));
+    }
+
+    [PostgresFact]
+    public async Task CommentBatchSchemaAcceptsLegacyAbsenceAndRejectsPartialOrWrongPurposeStorage()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var ct = timeout.Token;
+        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var connection = await database.DataSource.OpenConnectionAsync(ct);
+        await CurrentSchema.VerifyAsync(connection, ct, requireAdminCommentBatch: true);
+
+        await Execute(connection, "ALTER TABLE public.admin_comment_batch_item RENAME TO incomplete_comment_batch_item", ct);
+        var partial = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
+        Assert.Contains("batch storage is incomplete", partial.Message, StringComparison.OrdinalIgnoreCase);
+        await Execute(connection, "ALTER TABLE public.incomplete_comment_batch_item RENAME TO admin_comment_batch_item", ct);
+
+        await Execute(connection, """
+            ALTER TABLE public.admin_comment_batch_step_up
+                DROP CONSTRAINT admin_comment_batch_step_up_action_check,
+                ADD CHECK (action = 1)
+            """, ct);
+        var wrongPurpose = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
+        Assert.Contains("admin_comment_batch_step_up c action action=6", wrongPurpose.Message, StringComparison.Ordinal);
+
+        await Execute(connection, "DROP TABLE public.admin_comment_batch_item, public.admin_comment_batch, public.admin_comment_batch_step_up", ct);
+        await CurrentSchema.VerifyAsync(connection, ct);
+        var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CurrentSchema.VerifyAsync(connection, ct, requireAdminCommentBatch: true));
+        Assert.Contains("batch schema presence", missing.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)

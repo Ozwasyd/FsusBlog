@@ -65,7 +65,7 @@ internal static partial class CurrentSchema
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null)
+        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -91,7 +91,7 @@ internal static partial class CurrentSchema
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
-            requirePublicationMedia: requirePublicationMedia);
+            requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -115,7 +115,7 @@ internal static partial class CurrentSchema
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
-        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null)
+        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null)
     {
         if (requireArticleMedia is null)
         {
@@ -188,6 +188,10 @@ internal static partial class CurrentSchema
         var hasCommentReplies = await HasCommentReplySchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentReplies && !hasCommentAuthorDelete || requireCommentReplies.HasValue && requireCommentReplies.Value != hasCommentReplies)
             throw new InvalidOperationException("Comment reply notice schema presence does not match the requested operation.");
+        var hasAdminCommentBatch = await HasAdminCommentBatchSchemaAsync(connection, transaction, cancellationToken);
+        if ((hasAdminCommentBatch && !requireModerationVersion) ||
+            (requireAdminCommentBatch.HasValue && requireAdminCommentBatch.Value != hasAdminCommentBatch))
+            throw new InvalidOperationException("Administrator comment batch schema presence does not match the requested operation.");
         var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
         var hasWorkspaceGroups = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceGroupsAsync(connection, transaction, cancellationToken);
         if ((hasWorkspaceGroups && !hasWorkspaceLayout) ||
@@ -214,6 +218,7 @@ internal static partial class CurrentSchema
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAppeal ? CommentAppealColumns : [])
             .Concat(hasCommentReplies ? CommentReplyColumns : [])
+            .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
@@ -246,6 +251,7 @@ internal static partial class CurrentSchema
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
+            .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
@@ -317,7 +323,8 @@ internal static partial class CurrentSchema
                          CASE WHEN k.confmatchtype <> 's' THEN ' unexpected-action'
                               WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
-                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up', 'admin_appearance_step_up', 'comment_appeal_admin_step_up')
+                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up',
+                                                      'admin_appearance_step_up', 'comment_appeal_admin_step_up', 'admin_comment_batch_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
                                    THEN ' delete-cascade'

@@ -86,6 +86,12 @@ inline constexpr uint32_t AdminModerationClaimTokenBytes = 43;
 inline constexpr uint32_t AdminModerationClaimRequestFrameBytes = 28;
 inline constexpr uint32_t AdminModerationClaimFrameBytes = 107;
 inline constexpr uint32_t AdminModerationDecisionFrameBytes = 1135;
+inline constexpr uint32_t AdminModerationBatchMinimum = 2;
+inline constexpr uint32_t AdminModerationBatchCount = 20;
+inline constexpr uint32_t AdminModerationBatchTargetsFrameBytes = 260;
+inline constexpr uint32_t AdminModerationBatchClaimsFrameBytes = 1840;
+inline constexpr uint32_t AdminModerationBatchDecisionFrameBytes = 2792;
+inline constexpr uint32_t AdminModerationBatchReceiptFrameBytes = 28;
 inline constexpr uint32_t RecoveryKeyBytes = 80;
 inline constexpr uint32_t RecoveryKeyVerifyFrameBytes = 100;
 inline constexpr uint32_t RecoveryKeyOperationFrameBytes = 20;
@@ -399,6 +405,10 @@ enum class FrameType : uint16_t {
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
     AdminModerationDecision = 32869,
+    AdminModerationBatchTargets = 32972,
+    AdminModerationBatchClaims = 32973,
+    AdminModerationBatchDecision = 32974,
+    AdminModerationBatchReceipt = 32975,
     RecoveryKeyOperation = 32900,
     RecoveryKeyIssued = 32901,
     RecoveryKeyStatus = 32902,
@@ -555,6 +565,10 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminModerationClaimRequest:
         case FrameType::AdminModerationClaim:
         case FrameType::AdminModerationDecision:
+        case FrameType::AdminModerationBatchTargets:
+        case FrameType::AdminModerationBatchClaims:
+        case FrameType::AdminModerationBatchDecision:
+        case FrameType::AdminModerationBatchReceipt:
         case FrameType::RecoveryKeyOperation:
         case FrameType::RecoveryKeyIssued:
         case FrameType::RecoveryKeyStatus:

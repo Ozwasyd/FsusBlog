@@ -26,7 +26,11 @@ export type AdminPermission = typeof adminPermissions[number];
 export type AdminOperationsStatus = Readonly<Omit<WireAdminOperationsStatus, 'oldestPendingAt'> & { oldestPendingAt: number | null }>;
 export type AdminCommentCursor = Readonly<{ articleId: number; commentId: bigint }>;
 type AdminQueuedComment = Readonly<AdminCommentCursor & { createdAt: number; displayName: string; body: string }>;
-export type AdminCommentQueue = Readonly<{ comments: readonly AdminQueuedComment[]; next: AdminCommentCursor | null }>;
+export type AdminCommentQueue = Readonly<{
+  comments: readonly AdminQueuedComment[];
+  next: AdminCommentCursor | null;
+  batchEnabled: boolean;
+}>;
 
 export function validAdminBootstrapToken(ticket: string): boolean {
   return /^[0-9a-f]{64}$/.test(ticket);
@@ -96,10 +100,14 @@ export function readAdminCommentQueue(after: AdminCommentCursor | null, signal?:
   const path = after === null ? WireRoutes.AdminCommentQueue : `${WireRoutes.AdminCommentQueue}?${new URLSearchParams({
     afterComment: String(after.commentId), afterArticle: String(after.articleId),
   })}`;
-  return request(path, FrameType.AdminCommentQueue, payload => readCommentQueue(payload, after), signal);
+  return request(path, FrameType.AdminCommentQueue, (payload, headers) => {
+    const enabled = headers.get(WireHeaders.AdminModerationBatchEnabled);
+    if (enabled !== null && enabled !== '1') throw new ProtocolError('Invalid administrator batch availability.');
+    return { ...readCommentQueue(payload, after), batchEnabled: enabled === '1' };
+  }, signal);
 }
 
-function readCommentQueue(payload: Uint8Array, after: AdminCommentCursor | null): AdminCommentQueue {
+function readCommentQueue(payload: Uint8Array, after: AdminCommentCursor | null): Omit<AdminCommentQueue, 'batchEnabled'> {
   const reader = new PodReader(payload);
   const hasMore = reader.bool();
   const count = reader.i32();

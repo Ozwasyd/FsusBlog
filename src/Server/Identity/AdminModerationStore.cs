@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Comments;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -14,39 +15,43 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<AdminModerationClaim> AcquireCommentClaim(string? session, AdminModerationClaimRequest target,
         CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
-        {
-            var version = await LockPendingComment(db, tx, target.ArticleId, target.CommentId, ct);
-            var token = Token();
-            await using var cmd = Store.Sql(db, tx, """
-                insert into public.admin_comment_claim as claim
-                    (article_id,comment_id,principal_id,session_digest,admin_generation,claim_digest,
-                     claim_generation,claim_version,claimed_comment_version,expires_at,state)
-                values($1,$2,$3,$4,$5,$6,1,1,$7,clock_timestamp()+interval '2 minutes',$8)
-                on conflict(article_id,comment_id) do update set
-                    principal_id=excluded.principal_id,session_digest=excluded.session_digest,
-                    admin_generation=excluded.admin_generation,claim_digest=excluded.claim_digest,
-                    claim_generation=claim.claim_generation+1,claim_version=claim.claim_version+1,
-                    claimed_comment_version=excluded.claimed_comment_version,
-                    expires_at=clock_timestamp()+interval '2 minutes',state=excluded.state
-                where claim.state<>$8 or claim.expires_at<=clock_timestamp()
-                    or claim.claimed_comment_version<>excluded.claimed_comment_version
-                    or not exists (
-                        select from public.admin_principal p join public.admin_session s on s.principal_id=p.id
-                        where p.id=claim.principal_id and p.enabled and p.generation=claim.admin_generation
-                            and s.digest=claim.session_digest and s.generation=p.generation and s.expires_at>clock_timestamp()
-                            and exists (select from public.admin_permission where principal_id=p.id and permission=$9)
-                            and exists (select from public.admin_permission where principal_id=p.id and permission=$10)
-                            and exists (select from public.admin_passkey_credential where principal_id=p.id)
-                    )
-                returning claim_generation,claim_version,expires_at
-                """, target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
-                ClaimDigest(token), version, ClaimActive, Permission, CurrentSchema.CommentModeratePermission);
-            await using var row = await cmd.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "The pending comment is already claimed.");
-            return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
-                row.GetInt64(1), row.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds());
-        }, ct);
+        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission,
+            (db, tx, admin) => AcquireCommentClaim(db, tx, admin, target, ct), ct);
+
+    private static async Task<AdminModerationClaim> AcquireCommentClaim(NpgsqlConnection db, NpgsqlTransaction tx,
+        LiveAdmin admin, AdminModerationClaimRequest target, CancellationToken ct)
+    {
+        var version = await LockPendingComment(db, tx, target.ArticleId, target.CommentId, ct);
+        var token = Token();
+        await using var cmd = Store.Sql(db, tx, """
+            insert into public.admin_comment_claim as claim
+                (article_id,comment_id,principal_id,session_digest,admin_generation,claim_digest,
+                 claim_generation,claim_version,claimed_comment_version,expires_at,state)
+            values($1,$2,$3,$4,$5,$6,1,1,$7,clock_timestamp()+interval '2 minutes',$8)
+            on conflict(article_id,comment_id) do update set
+                principal_id=excluded.principal_id,session_digest=excluded.session_digest,
+                admin_generation=excluded.admin_generation,claim_digest=excluded.claim_digest,
+                claim_generation=claim.claim_generation+1,claim_version=claim.claim_version+1,
+                claimed_comment_version=excluded.claimed_comment_version,
+                expires_at=clock_timestamp()+interval '2 minutes',state=excluded.state
+            where claim.state<>$8 or claim.expires_at<=clock_timestamp()
+                or claim.claimed_comment_version<>excluded.claimed_comment_version
+                or not exists (
+                    select from public.admin_principal p join public.admin_session s on s.principal_id=p.id
+                    where p.id=claim.principal_id and p.enabled and p.generation=claim.admin_generation
+                        and s.digest=claim.session_digest and s.generation=p.generation and s.expires_at>clock_timestamp()
+                        and exists (select from public.admin_permission where principal_id=p.id and permission=$9)
+                        and exists (select from public.admin_permission where principal_id=p.id and permission=$10)
+                        and exists (select from public.admin_passkey_credential where principal_id=p.id)
+                )
+            returning claim_generation,claim_version,expires_at
+            """, target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
+            ClaimDigest(token), version, ClaimActive, Permission, CurrentSchema.CommentModeratePermission);
+        await using var row = await cmd.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "The pending comment is already claimed.");
+        return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
+            row.GetInt64(1), row.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds());
+    }
 
     internal Task<AdminModerationClaim> RenewCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
         WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
@@ -83,23 +88,30 @@ internal sealed partial class AdminPasskeyStore
                 throw new ModerationProofRequiredException();
             await CheckClaim(db, tx, admin, Receipt(decision), ct);
             var status = checked((short)decision.Decision);
-            await using var update = Store.Sql(db, tx, """
-                update public.comment set moderation_status=$4, moderation_version=moderation_version+1
-                where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=0 and not deleted
-                returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
-                """, decision.ArticleId, decision.CommentId, decision.CommentVersion, status);
-            if (await update.ExecuteScalarAsync(ct) is not bool signedReply) throw ModerationChanged();
-            await CloseClaim(db, tx, decision.ArticleId, decision.CommentId, ClaimCompleted, ct);
-            await Execute(db, tx, ct, """
-                insert into public.admin_comment_moderation
-                    (article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
-                values($1,$2,$3,0,$4,$5,clock_timestamp(),$6)
-                """, decision.ArticleId, decision.CommentId, admin.Id, status, decision.Reason, decision.CommentVersion);
-            if (status == 1 && signedReply)
-                await FsusBlog.V2.Server.Comments.CommentReplies.DeliverApproved(db, tx, decision.ArticleId, decision.CommentId,
-                    fenceVisibleMessages, ct);
+            var (_, notice) = await ApplyCommentDecision(db, tx, admin, Receipt(decision), status, decision.Reason, ct);
+            if (notice)
+                await CommentReplies.DeliverApproved(db, tx, decision.ArticleId, decision.CommentId, fenceVisibleMessages, ct);
             return true;
         }, ct);
+
+    private static async Task<(long AuditId, bool Notice)> ApplyCommentDecision(NpgsqlConnection db, NpgsqlTransaction tx,
+        LiveAdmin admin, ClaimCoordinates claim, short status, string reason, CancellationToken ct)
+    {
+        await using var update = Store.Sql(db, tx, """
+            update public.comment set moderation_status=$4, moderation_version=moderation_version+1
+            where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=0 and not deleted
+            returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
+            """, claim.ArticleId, claim.CommentId, claim.CommentVersion, status);
+        if (await update.ExecuteScalarAsync(ct) is not bool signedReply) throw ModerationChanged();
+        await CloseClaim(db, tx, claim.ArticleId, claim.CommentId, ClaimCompleted, ct);
+        await using var audit = Store.Sql(db, tx, """
+            insert into public.admin_comment_moderation
+                (article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
+            values($1,$2,$3,0,$4,$5,clock_timestamp(),$6)
+            returning id
+            """, claim.ArticleId, claim.CommentId, admin.Id, status, reason, claim.CommentVersion);
+        return ((long)(await audit.ExecuteScalarAsync(ct))!, status == 1 && signedReply);
+    }
 
     private sealed record ClaimCoordinates(int ArticleId, long CommentId, long CommentVersion, string Token, long Generation, long Version);
 

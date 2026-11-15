@@ -87,6 +87,10 @@ public enum FrameType : ushort
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
     AdminModerationDecision = 32869,
+    AdminModerationBatchTargets = 32972,
+    AdminModerationBatchClaims = 32973,
+    AdminModerationBatchDecision = 32974,
+    AdminModerationBatchReceipt = 32975,
     RecoveryKeyOperation = 32900,
     RecoveryKeyIssued = 32901,
     RecoveryKeyStatus = 32902,
@@ -241,6 +245,12 @@ public static class WireLimits
     public const int AdminModerationClaimRequestFrameBytes = 28;
     public const int AdminModerationClaimFrameBytes = 107;
     public const int AdminModerationDecisionFrameBytes = 1135;
+    public const int AdminModerationBatchMinimum = 2;
+    public const int AdminModerationBatchCount = 20;
+    public const int AdminModerationBatchTargetsFrameBytes = 260;
+    public const int AdminModerationBatchClaimsFrameBytes = 1840;
+    public const int AdminModerationBatchDecisionFrameBytes = 2792;
+    public const int AdminModerationBatchReceiptFrameBytes = 28;
     public const int RecoveryKeyBytes = 80;
     public const int RecoveryKeyVerifyFrameBytes = 100;
     public const int RecoveryKeyOperationFrameBytes = 20;
@@ -595,6 +605,10 @@ public static class WireRoutes
     public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";
     public const string AdminModerationStepUpBegin = "/api/v2/admin/identity/comments/step-up/begin.aeds";
     public const string AdminModerationDecision = "/api/v2/admin/identity/comments/decision.aeds";
+    public const string AdminModerationBatchClaim = "/api/v2/admin/identity/comments/moderation/batch/claim.aeds";
+    public const string AdminModerationBatchStepUpBegin = "/api/v2/admin/identity/comments/moderation/batch/step-up/begin.aeds";
+    public const string AdminModerationBatchStepUpComplete = "/api/v2/admin/identity/comments/moderation/batch/step-up/complete.aeds";
+    public const string AdminModerationBatchDecision = "/api/v2/admin/identity/comments/moderation/batch/decision.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
@@ -669,6 +683,7 @@ public static class WireHeaders
     public const string PowProof = "X-Fsus-Pow-Proof";
     public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string CommentReplyEnabled = "X-Fsus-Comment-Reply-Enabled";
+    public const string AdminModerationBatchEnabled = "X-Fsus-Admin-Moderation-Batch-Enabled";
     public const string SubscriptionProof = "X-Fsus-Subscription-Proof";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";

@@ -18,6 +18,178 @@ namespace FsusBlog.V2.Integration.Tests;
 public sealed class AdminModerationPostgresTests
 {
     [PostgresFact]
+    public async Task BatchModerationRollsBackClaimsProofAuditAndBothRecipientJournalsOnFailure()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (first, second) = await SeedBatchReplies(db, 2, ct);
+        var moderator = await AddModerator(db, "batch-reviewer", ct);
+        var other = await AddModerator(db, "another-batch-reviewer", ct);
+        var service = CreateStore(fixture);
+
+        var held = await service.AcquireCommentClaim(other.Token, new(1, 4), ct);
+        var rejectedClaims = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
+            service.AcquireModerationBatch(moderator.Token, [new(1, 4), new(1, 99), new(1, 3)], ct));
+        // Request positions, not the database lock order: held and absent conflict; the valid third target rolls back.
+        Assert.Equal(0b011, rejectedClaims.Positions);
+        Assert.True(await ReadDatabase<bool>(db, """
+            select (select count(*) from public.admin_comment_claim)=1 and exists (
+                select from public.admin_comment_claim where comment_id=4 and principal_id=$1 and state=1 and claim_version=$2)
+            """, ct, other.Id, held.ClaimVersion));
+        await service.ReleaseCommentClaim(other.Token, held, ct);
+
+        var claims = await service.AcquireModerationBatch(moderator.Token, [new(1, 3), new(1, 4)], ct);
+        Assert.Equal(new long[] { 3, 4 }, claims.Select(claim => claim.CommentId));
+        var renewed = await service.RenewCommentClaim(moderator.Token, claims[1], ct);
+        const string reason = "Reviewed both attributed replies";
+        var intent = new AdminModerationBatchDecision(1, reason, [BatchItem(claims[0]), BatchItem(renewed)]);
+        var staleIntent = intent with { Rows = [BatchItem(claims[0]), BatchItem(claims[1])] };
+        var stale = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
+            service.BeginModerationBatchStepUp(moderator.Token, Wire.EncodeAdminModerationBatchDecision(staleIntent), ct));
+        Assert.Equal(0b10, stale.Positions);
+        Assert.Equal(0L, await ReadDatabase<long>(db, "select count(*) from public.admin_comment_batch_step_up", ct));
+
+        var frame = Wire.EncodeAdminModerationBatchDecision(intent);
+        var challenge = await service.BeginModerationBatchStepUp(moderator.Token, frame, ct);
+        Aeds.Decode(challenge, FrameType.PasskeyLoginBegin);
+        Assert.True(await ReadDatabase<bool>(db, """
+            select exists (select from public.admin_comment_batch_step_up
+                where principal_id=$1 and session_digest=$2 and action=6 and kind=1 and options is not null and body_digest=$3)
+            """, ct, moderator.Id, moderator.Digest, SHA256.HashData(frame)));
+        // The browser fixture exercises the real Passkey ceremony. These receipts test the database proof boundary
+        // with deliberately chosen principals, actions, request bytes and rollback conditions.
+        var (proof, digest) = await SeedDecisionProof(db, moderator, frame, batch: true, ct);
+        var (foreignProof, foreignDigest) = await SeedDecisionProof(db, other, frame, batch: true, ct);
+        var (singleProof, singleDigest) = await SeedDecisionProof(db, moderator, frame, batch: false, ct);
+        await ProofRejected(moderator.Token, singleProof, frame);
+        await ProofRejected(moderator.Token, foreignProof, frame);
+        await ProofRejected(other.Token, proof, frame);
+        await ProofRejected(moderator.Token, proof, Wire.EncodeAdminModerationBatchDecision(intent with { Reason = "Changed reason" }));
+        await ProofRejected(moderator.Token, proof, Wire.EncodeAdminModerationBatchDecision(intent with { Rows = [intent.Rows[1], intent.Rows[0]] }));
+
+        await Execute(db, "insert into public.comment_blocked_region values(1,4,'ZZ')", ct);
+        var blocked = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
+            service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
+        Assert.Equal(0b10, blocked.Positions);
+        await AssertRolledBack();
+        await Execute(db, "delete from public.comment_blocked_region where article_id=1 and comment_id=4", ct);
+
+        await Execute(db, """
+            alter table public.comment_reply_notice add constraint fixture_deny_second_reply_notice check (reply_id<>4)
+            """, ct);
+        var failure = await Assert.ThrowsAsync<PostgresException>(() =>
+            service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
+        Assert.Equal("fixture_deny_second_reply_notice", failure.ConstraintName);
+        await AssertRolledBack();
+        await Execute(db, "alter table public.comment_reply_notice drop constraint fixture_deny_second_reply_notice", ct);
+
+        var receipt = await service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct);
+        Assert.True(receipt.BatchId > 0);
+        Assert.Equal(2, receipt.Count);
+        await ProofRejected(moderator.Token, proof, frame);
+        Assert.True(await ReadDatabase<bool>(db, """
+            select (select count(*) from public.admin_comment_batch)=1
+                and exists (select from public.admin_comment_batch where id=$1 and principal_id=$2
+                    and session_reference=$3 and decision=1 and item_count=2)
+                and (select count(*) from public.admin_comment_batch_item i
+                    join public.admin_comment_moderation a on a.id=i.moderation_id
+                    join public.comment c on (c.article_id,c.id)=(a.article_id,a.comment_id)
+                    join public.admin_comment_claim q on (q.article_id,q.comment_id)=(a.article_id,a.comment_id)
+                    where i.batch_id=$1 and a.article_id=1 and a.comment_id in (3,4) and a.principal_id=$2
+                        and a.previous_status=0 and a.next_status=1 and a.reason=$4 and c.moderation_status=1
+                        and c.moderation_version=a.comment_version+1 and q.state=3 and q.principal_id=$2)=2
+                and (select count(*) from public.admin_comment_moderation)=2
+                and not exists (select from public.admin_comment_batch_step_up where digest=$5)
+                and exists (select from public.admin_comment_batch_step_up where digest=$6)
+                and exists (select from public.admin_step_up where digest=$7)
+            """, ct, receipt.BatchId, moderator.Id, SHA256.HashData(moderator.Digest), reason, digest, foreignDigest, singleDigest));
+        Assert.True(await ReadDatabase<bool>(db, """
+            select (select count(*) from public.inbox_conversation)=2 and (select count(*) from public.inbox_event)=4
+                and (select count(*) from public.comment_reply_notice n
+                    join public.inbox_delivery d on d.account_id=n.recipient_id
+                    join public.comment c on (c.article_id,c.id)=(n.article_id,n.reply_id)
+                    join public.comment_account_owner p on (p.article_id,p.comment_id,p.user_id)=(c.article_id,c.parent_id,n.recipient_id)
+                    where (n.reply_id,n.recipient_id) in ((3,$1),(4,$2)) and d.last_sequence=2
+                        and (select array_agg(e.kind order by e.sequence) from public.inbox_event e
+                            where (e.account_id,e.conversation_id,e.message_id)=(n.recipient_id,n.conversation_id,n.message_id))
+                            =array[12,13]::smallint[])=2
+            """, ct, first, second));
+        await AssertPrivateNotice(first, second, 3);
+        await AssertPrivateNotice(second, first, 4);
+
+        Task ProofRejected(string session, string token, byte[] candidate) => Assert.ThrowsAsync<ModerationProofRequiredException>(() =>
+            service.DecideModerationBatch(session, token, candidate, fenceVisibleMessages: true, ct));
+
+        async Task AssertRolledBack()
+        {
+            Assert.True(await ReadDatabase<bool>(db, """
+                select (select count(*) from public.comment where article_id=1 and id in (3,4)
+                            and moderation_status=0 and moderation_version=1)=2
+                    and (select count(*) from public.admin_comment_claim where article_id=1 and comment_id in (3,4)
+                            and state=1 and principal_id=$1 and ((comment_id=3 and claim_version=$2)
+                                or (comment_id=4 and claim_version=$3)))=2
+                    and exists (select from public.admin_comment_batch_step_up where digest=$4 and kind=2)
+                    and not exists (select from public.admin_comment_batch)
+                    and not exists (select from public.admin_comment_batch_item)
+                    and not exists (select from public.admin_comment_moderation)
+                    and not exists (select from public.comment_reply_notice)
+                    and not exists (select from public.inbox_conversation)
+                    and not exists (select from public.inbox_message)
+                    and not exists (select from public.inbox_delivery)
+                    and not exists (select from public.inbox_event)
+                """, ct, moderator.Id, claims[0].ClaimVersion, renewed.ClaimVersion, digest));
+        }
+
+        async Task AssertPrivateNotice(Guid recipient, Guid stranger, long reply)
+        {
+            var conversation = await ReadDatabase<long>(db, "select conversation_id from public.comment_reply_notice where reply_id=$1", ct, reply);
+            await using var read = await db.BeginTransactionAsync(ct);
+            var own = await new InboxStore(db, read, recipient).GetAsync(conversation, null, 2, ct);
+            Assert.NotNull(own);
+            Assert.Contains($"Reply fixture {reply}。定位：/article/1#comment-{reply}", Assert.Single(own.Messages).Body, StringComparison.Ordinal);
+            Assert.Null(await new InboxStore(db, read, stranger).GetAsync(conversation, null, 2, ct));
+        }
+    }
+
+    [PostgresFact]
+    public async Task ConcurrentBatchesWithOppositeRecipientOrderCommitBothPrivateJournals()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (first, second) = await SeedBatchReplies(db, 4, ct);
+        var left = await AddModerator(db, "batch-left-reviewer", ct);
+        var right = await AddModerator(db, "batch-right-reviewer", ct);
+        var service = CreateStore(fixture);
+        // Descending comment locks encounter B,A in the left batch and A,B in the right batch.
+        var leftClaims = await service.AcquireModerationBatch(left.Token, [new(1, 3), new(1, 4)], ct);
+        var rightClaims = await service.AcquireModerationBatch(right.Token, [new(1, 5), new(1, 6)], ct);
+        var leftFrame = Wire.EncodeAdminModerationBatchDecision(new(1, "Left batch review", leftClaims.Select(BatchItem).ToArray()));
+        var rightFrame = Wire.EncodeAdminModerationBatchDecision(new(1, "Right batch review", rightClaims.Select(BatchItem).ToArray()));
+        var (leftProof, _) = await SeedDecisionProof(db, left, leftFrame, batch: true, ct);
+        var (rightProof, _) = await SeedDecisionProof(db, right, rightFrame, batch: true, ct);
+
+        var results = await Task.WhenAll(
+            service.DecideModerationBatch(left.Token, leftProof, leftFrame, fenceVisibleMessages: true, ct),
+            service.DecideModerationBatch(right.Token, rightProof, rightFrame, fenceVisibleMessages: true, ct));
+        Assert.All(results, result => Assert.Equal(2, result.Count));
+        Assert.NotEqual(results[0].BatchId, results[1].BatchId);
+        Assert.True(await ReadDatabase<bool>(db, """
+            select (select count(*) from public.admin_comment_batch)=2
+                and (select count(*) from public.admin_comment_batch_item)=4
+                and (select count(*) from public.admin_comment_moderation)=4
+                and (select count(*) from public.comment_reply_notice where (reply_id,recipient_id) in ((3,$1),(4,$2),(5,$2),(6,$1)))=4
+                and (select count(*) from public.inbox_delivery)=2
+                and (select count(*) from public.inbox_delivery where account_id in ($1,$2) and last_sequence=4)=2
+                and (select count(*) from public.inbox_event)=8
+            """, ct, first, second));
+    }
+
+    [PostgresFact]
     public async Task ApprovedReplyNotifiesOnlyTheVisibleDirectParentOwnerAndRollsBackWithModeration()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
@@ -476,6 +648,66 @@ public sealed class AdminModerationPostgresTests
 
     private static AdminPasskeyStore CreateStore(ScratchDatabase fixture) =>
         new(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+
+    private static async Task<(Guid First, Guid Second)> SeedBatchReplies(NpgsqlConnection db, int count, CancellationToken ct)
+    {
+        await AddPendingComment(db, ct);
+        var first = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var second = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var sender = Guid.NewGuid();
+        await Execute(db, """
+            insert into public.blog_user(id,name,can_author,enabled,generation)
+            values($1,'First parent author',false,true,1),($2,'Second parent author',false,true,1),($3,'Reply author',false,true,1)
+            """, ct, first, second, sender);
+        await Execute(db, """
+            insert into public.article_publication(article_id,revision,published_at) values(1,1,now());
+            insert into public.article_revision_rights values(1,1,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true);
+            insert into public.article_publication_rights(article_id,publication_id,revision)
+                select article_id,publication_id,revision from public.article_publication where article_id=1;
+            update public.article set published_revision=1,publication_count=1 where id=1;
+            update public.comment set moderation_status=1,moderation_version=2 where article_id=1 and id=1;
+            insert into public.comment(article_id,id,root_id,depth,moderation_status,moderation_version,deleted,
+                body,author_mode,display_name,display_language,created_at)
+                values(1,2,2,0,1,2,false,'Second visible parent',3,'Second parent','en',clock_timestamp());
+            """, ct);
+        await Execute(db, "insert into public.comment_account_owner values(1,1,$1),(1,2,$2)", ct, first, second);
+        for (var i = 0; i < count; i++)
+        {
+            var reply = i + 3L;
+            var parent = i % 4 is 0 or 3 ? 1L : 2L;
+            await Execute(db, """
+                insert into public.comment(article_id,id,root_id,parent_id,parent_depth,reply_to_id,depth,moderation_status,
+                    deleted,body,author_mode,display_name,display_language,created_at)
+                values(1,$1,$2,$2,0,$2,1,0,false,$3,3,'Batch reply author','en',clock_timestamp())
+                """, ct, reply, parent, FormattableString.Invariant($"Reply fixture {reply}"));
+            await Execute(db, "insert into public.comment_account_owner values(1,$1,$2)", ct, reply, sender);
+            await Execute(db, "insert into public.comment_submit_command values($1,$2,$3,1,$4)", ct,
+                sender, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32), reply);
+        }
+        return (first, second);
+    }
+
+    private static AdminModerationBatchItem BatchItem(AdminModerationClaim claim) =>
+        new(claim.ArticleId, claim.CommentId, claim.CommentVersion, claim.ClaimToken, claim.ClaimGeneration, claim.ClaimVersion, 0);
+
+    private static async Task<(string Token, byte[] Digest)> SeedDecisionProof(NpgsqlConnection db, Moderator moderator,
+        byte[] frame, bool batch, CancellationToken ct)
+    {
+        var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        var digest = SHA256.HashData(Encoding.ASCII.GetBytes(token));
+        var table = batch ? "admin_comment_batch_step_up" : "admin_step_up";
+        await Execute(db, $"""
+            insert into public.{table}(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
+            values($1,$2,$3,1,$4,$5,null,clock_timestamp()+interval '45 seconds',2)
+            """, ct, digest, moderator.Id, moderator.Digest, batch ? 6 : 1, SHA256.HashData(frame));
+        return (token, digest);
+    }
+
+    private static async Task<T> ReadDatabase<T>(NpgsqlConnection db, string sql, CancellationToken ct, params object[] parameters)
+    {
+        await using var query = Store.Sql(db, null, sql, parameters);
+        return Assert.IsType<T>(await query.ExecuteScalarAsync(ct));
+    }
 
     private static async Task AddPendingComment(NpgsqlConnection db, CancellationToken ct)
     {

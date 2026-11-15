@@ -20,6 +20,12 @@
 
 领取、续期和释放请求位于 `/api/v2/admin/identity/comments/claim.aeds`、`claim/renew.aeds` 和 `claim/release.aeds`，使用帧 32867 和 32868。系统保存两分钟的领取、领取代次与版本和评论版本。领取绑定当前管理员会话，逾期或会话失效后可由其他有权管理员领取。续期推进领取版本，重新领取推进领取代次和版本。旧收据或评论状态变化返回 409。
 
-在管理页面填写审核理由后，可用 Passkey 批准或拒绝一条待审评论。`comments/step-up/begin.aeds` 检查当前领取，并为帧 32869 的完整决定签发挑战。`step-up/passkey/complete.aeds` 验证已登记的凭据和用户后签发 45 秒一次性证明。客户端在同源请求 `comments/decision.aeds` 中提交证明及原决定。服务端在同个事务内校验权限、领取、评论版本，消费证明，写入决定并记录真实管理员主体及理由。缺失、过期、内容不符或已用过的证明返回 428。原 `step-up/passkey/begin.aeds` 签发的意向证明与领取绑定证明分开验证。当前接口覆盖单条批准和拒绝。v1 另有历史状态、批量审核、风险治理和消息投递。 [v1 评论审核端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs) [v1 管理员二次验证](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L338-L401)
+在管理页面填写审核理由后，可用 Passkey 批准或拒绝一条待审评论。`comments/step-up/begin.aeds` 检查当前领取，并为帧 32869 的完整决定签发挑战。`step-up/passkey/complete.aeds` 验证已登记的凭据和用户后签发 45 秒一次性证明。客户端在同源请求 `comments/decision.aeds` 中提交证明及原决定。服务端在同个事务内校验权限、领取、评论版本，消费证明，写入决定并记录真实管理员主体及理由。缺失、过期、内容不符或已用过的证明返回 428。原 `step-up/passkey/begin.aeds` 签发的意向证明与领取绑定证明分开验证。 [v1 评论审核端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs) [v1 管理员二次验证](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L338-L401)
+
+批量审核默认关闭。旧部署停机执行 `comment bulk-schema` 后，设 `FSUSBLOG_ADMIN_COMMENT_BATCH=true`。持有 `comment.moderate` 的管理员可在当前页明确选择 2–20 条待审评论，一次领取后逐条复核，再用一个理由和管理员 Passkey 批准或驳回。取消会尝试释放每条领取，暂时不可释放的领取会在两分钟内到期。凭据绑定当前管理员主体、会话及完整批量请求，单条审核和申诉的证明不能提交批次。
+
+领取和决定分别以事务执行。每条决定须匹配原待审状态、评论版本、领取密钥、领取代数、领取版本及有效期。批量批准拒绝含当前地区屏蔽记录的评论。任一目标失配时，409 响应按原请求顺序标出冲突项，整个批次保持原状。成功的批次汇总关联所有逐条审核记录，并和相应的私密回复提醒一并提交。同一证明再次提交返回 428。当前范围为待审到批准或驳回。v1 的 90/115 帧、其他历史状态迁移和封禁联动仍待接入。 [固定 v1 批量服务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs#L307-L471)
+
+PostgreSQL 回归覆盖逐条冲突、独立证明、两名收件账号的通知与审核共同回滚，以及收件顺序相反的并发批次。Chrome 经 Caddy HTTPS 验证 390px 管理页面的选择、领取、取消、重新领取和 Passkey 批准与驳回。停机迁移可重复执行，并拒绝用途约束被移除的结构。 [验证记录](../../artifacts/admin-comment-batch/)
 
 认证接口位于 `/api/v2/admin/identity/`。WebAuthn 复用 AEDS 帧 63、64、66、67，当前管理员会话查询使用 v2 帧 32830。v1 还有 JWT 轮换、长时会话、敏感动作的独立验证与其他业务权限。现有内容接口继续使用各自的权限判断。 [v1 管理认证契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/contracts.md#independent-admin-principal-aeds-endpoints)

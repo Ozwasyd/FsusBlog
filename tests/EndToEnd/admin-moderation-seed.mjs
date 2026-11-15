@@ -39,7 +39,10 @@ try {
     execFileSync(dotnet, [migrate, 'comment', 'handle', responder, 'Reply fixture writer'])
   }
 
-  for (const comment of [body, body + ' [reject fixture]']) {
+  const comments = [body, body + ' [reject fixture]']
+  if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH === '1')
+    comments.push('Batch approve fixture one', 'Batch approve fixture two', 'Batch reject fixture one', 'Batch reject fixture two')
+  for (const comment of comments) {
     const key = randomUUID()
     const payload = encodePublicCommentSubmission({ articleId, publication, displayName, body: comment, idempotencyKey: key, explicitPublic: true })
     const clientNonce = randomBytes(16).toString('hex')

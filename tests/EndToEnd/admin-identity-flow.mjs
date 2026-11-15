@@ -495,6 +495,13 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
+  if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH === '1') {
+    const { verifyAdminModerationBatch } = await import('./admin-comment-batch-flow.mjs')
+    await verifyAdminModerationBatch({ page, context, section, adminOrigin: adminOrigin.origin, publicRoute, evidence })
+  } else {
+    assert.equal(await section.getByRole('button', { name: 'Claim selected comments' }).count(), 0)
+    assert.equal((await context.request.post(adminOrigin.origin + WireRoutes.AdminModerationBatchClaim)).status(), 404)
+  }
   if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
     const { verifyApprovedReply } = await import('./comment-reply-flow.mjs')
     await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
@@ -565,7 +572,8 @@ async function verifyOnlineModeration(page, context, section, publicRoute, expec
   await applyModerationDecision(page, context, rejectCard, rejected, 2, 'Reject with Passkey', 'Comment rejected.')
   await rejectCard.waitFor({ state: 'hidden' })
   assert.equal((await checkQueue()).status(), 200)
-  await section.getByText('No comments are waiting for moderation.', { exact: true }).waitFor()
+  if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH !== '1')
+    await section.getByText('No comments are waiting for moderation.', { exact: true }).waitFor()
 
   const anonymous = await request.newContext()
   try {

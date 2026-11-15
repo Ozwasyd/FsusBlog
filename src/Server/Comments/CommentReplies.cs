@@ -10,6 +10,7 @@ internal static class CommentReplies
 {
     internal const string Setting = "FSUSBLOG_SIGNED_IN_COMMENT_REPLIES";
     internal sealed record Parent(long Root, int Depth);
+    internal sealed record ApprovedNotice(int Article, long Reply, Guid Recipient, string Name, string Body, long Version);
 
     internal static async Task<Parent> LockParent(NpgsqlConnection db, NpgsqlTransaction tx, int article, long parent,
         CancellationToken ct)
@@ -51,7 +52,13 @@ internal static class CommentReplies
         bool fenceVisibleMessages, CancellationToken ct)
     {
         if (!await CurrentSchema.HasCommentReplySchemaAsync(db, tx, ct)) return;
+        var notice = await FindApprovedNotice(db, tx, article, reply, ct);
+        if (notice is not null) await DeliverNotice(db, tx, notice, fenceVisibleMessages, ct);
+    }
 
+    internal static async Task<ApprovedNotice?> FindApprovedNotice(NpgsqlConnection db, NpgsqlTransaction tx, int article, long reply,
+        CancellationToken ct)
+    {
         await using var due = Store.Sql(db, tx, """
             select recipient.id,c.display_name,c.body,c.moderation_version
             from public.comment c
@@ -75,22 +82,22 @@ internal static class CommentReplies
                     where delivered.article_id=c.article_id and delivered.reply_id=c.id)
             for share of recipient,p,r,a,publication,snapshot,rights,target,author
             """, article, reply);
-        Guid recipient;
-        string displayed, comment;
-        long version;
-        await using (var row = await due.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) return;
-            (recipient, displayed, comment, version) = (row.GetGuid(0), row.GetString(1), row.GetString(2), row.GetInt64(3));
-        }
-        var excerpt = string.Concat(comment.EnumerateRunes().Take(40).Select(rune => rune.ToString()));
-        var text = string.Create(CultureInfo.InvariantCulture, $"{displayed} 回复了您的评论：{excerpt}。定位：/article/{article}#comment-{reply}");
-        var inbox = new InboxStore(db, tx, recipient, fenceVisibleMessages);
+        await using var row = await due.ExecuteReaderAsync(ct);
+        return await row.ReadAsync(ct) ? new(article, reply, row.GetGuid(0), row.GetString(1), row.GetString(2), row.GetInt64(3)) : null;
+    }
+
+    internal static async Task DeliverNotice(NpgsqlConnection db, NpgsqlTransaction tx, ApprovedNotice notice,
+        bool fenceVisibleMessages, CancellationToken ct)
+    {
+        var excerpt = string.Concat(notice.Body.EnumerateRunes().Take(40).Select(rune => rune.ToString()));
+        var text = string.Create(CultureInfo.InvariantCulture,
+            $"{notice.Name} 回复了您的评论：{excerpt}。定位：/article/{notice.Article}#comment-{notice.Reply}");
+        var inbox = new InboxStore(db, tx, notice.Recipient, fenceVisibleMessages);
         var delivered = await inbox.SendAttributedNotice("收到新的评论回复", text, ct);
         await using var record = Store.Sql(db, tx, """
             insert into public.comment_reply_notice(article_id,reply_id,recipient_id,conversation_id,message_id,moderation_version,delivered_at)
             values($1,$2,$3,$4,$5,$6,$7)
-            """, article, reply, recipient, delivered.ConversationId, delivered.Id, version, delivered.SentAt);
+            """, notice.Article, notice.Reply, notice.Recipient, delivered.ConversationId, delivered.Id, notice.Version, delivered.SentAt);
         await record.ExecuteNonQueryAsync(ct);
     }
 }

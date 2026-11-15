@@ -337,6 +337,9 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   export FSUSBLOG_TEST_ADMIN_MODERATOR_BODY='Moderation fixture <strong data-moderation-fixture="1">literal</strong>'
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT" grant comment.moderate
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE" revoke comment.moderate
+  if [[ ${FSUSBLOG_TEST_ADMIN_COMMENT_BATCH:-0} == 1 ]]; then
+    export FSUSBLOG_ADMIN_COMMENT_BATCH=true
+  fi
   if [[ ${FSUSBLOG_TEST_COMMENT_REPLY:-0} == 1 ]]; then
     export FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
     FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" operator tls-comment-reply-fixture)
@@ -582,10 +585,27 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
     union all select 'active_claims=' || count(*) from public.admin_comment_claim where state=1
   " > "$evidence/moderation-audit-counts.txt"
   expected_reply=${FSUSBLOG_TEST_COMMENT_REPLY:-0}
-  grep -Fxq "approved=$(( 1 + expected_reply ))" "$evidence/moderation-audit-counts.txt"
-  grep -Fxq 'rejected=1' "$evidence/moderation-audit-counts.txt"
+  expected_batch=${FSUSBLOG_TEST_ADMIN_COMMENT_BATCH:-0}
+  grep -Fxq "approved=$(( 1 + expected_reply + 2 * expected_batch ))" "$evidence/moderation-audit-counts.txt"
+  grep -Fxq "rejected=$(( 1 + 2 * expected_batch ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq "attributed_decisions=$(( 2 + expected_reply ))" "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'active_claims=0' "$evidence/moderation-audit-counts.txt"
+  if [[ $expected_batch == 1 ]]; then
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+      select 'batch_audit_' || b.decision || '=' || count(*) from public.admin_comment_batch b
+      join public.admin_principal principal on principal.id=b.principal_id
+      join public.admin_comment_batch_item item on item.batch_id=b.id
+      join public.admin_comment_moderation m on m.id=item.moderation_id
+      join public.comment c on (c.article_id,c.id)=(m.article_id,m.comment_id)
+      join public.admin_comment_claim claim on (claim.article_id,claim.comment_id)=(c.article_id,c.id)
+      where b.item_count=2 and principal.handle='tls-admin-fixture' and m.principal_id=b.principal_id and claim.principal_id=b.principal_id
+        and m.previous_status=0 and m.next_status=b.decision and c.moderation_status=b.decision
+        and c.moderation_version=m.comment_version+1 and claim.state=3
+      group by b.decision order by b.decision
+    " > "$evidence/comment-batch-audit.txt"
+    grep -Fxq 'batch_audit_1=2' "$evidence/comment-batch-audit.txt"
+    grep -Fxq 'batch_audit_2=2' "$evidence/comment-batch-audit.txt"
+  fi
   if [[ $expected_reply == 1 ]]; then
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
       select 'attributed_reply_deliveries=' || count(*) from public.comment_reply_notice n

@@ -10,7 +10,8 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4, ReviewCommentAppeal = 5 }
+    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
+        ReviewCommentAppeal = 5, ModerateCommentBatch = 6 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -48,6 +49,7 @@ internal sealed partial class AdminPasskeyStore
         {
             if (action == StepUpAction.ReviewCommentAppeal)
                 await FsusBlog.V2.Server.Comments.CommentAppeals.RequireSchema(db, tx, ct);
+            if (action == StepUpAction.ModerateCommentBatch) await RequireModerationBatchSchema(db, tx, ct);
             await using var consume = Store.Sql(db, tx, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
@@ -144,6 +146,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.PublishArticleRollback => "public.admin_article_rollback_step_up",
         StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
+        StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -154,6 +157,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.PublishArticleRollback => CurrentSchema.ArticleWritePermission,
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
+        StepUpAction.ModerateCommentBatch => CurrentSchema.CommentModeratePermission,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

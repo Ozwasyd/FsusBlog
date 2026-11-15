@@ -92,6 +92,7 @@ internal static partial class Migration
                   comment author-delete-schema  Add signed-in comment deletion storage with the server stopped
                   comment appeal-schema  Add signed-in comment appeals with the server stopped
                   comment replies-schema  Add signed-in comment reply notices with the server stopped
+                  comment bulk-schema    Add administrator comment batch moderation storage with the server stopped
                   comment handle ACCOUNT_ID DISPLAY_NAME
                                         Assign an explicit public comment display name to an enabled account
                   comment policy ARTICLE_ID enable|disable
@@ -329,6 +330,9 @@ internal static partial class Migration
                 case ["comment", "replies-schema"]:
                     await InitializeCommentReplyAsync(connection, token);
                     break;
+                case ["comment", "bulk-schema"]:
+                    await InitializeAdminCommentBatchAsync(connection, token);
+                    break;
                 case ["comment", "policy", var article, var state]:
                     await CommentMaintenance.SetArticlePolicy(connection, article, state, token);
                     break;
@@ -406,7 +410,7 @@ internal static partial class Migration
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
-            requireAuthoringWorkspaceGroups: true);
+            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);
