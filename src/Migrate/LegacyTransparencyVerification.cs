@@ -14,7 +14,7 @@ internal static partial class Migration
         Dictionary<string, LegacyPublishProofKey> keys)
     {
         var records = set.Rows.Select(ParseLegacyTransparencyRecord).ToDictionary(row => (LegacyPublishProofKind, LegacyJsonInt(row, "id")));
-        if (set.RightsProof is { } rights)
+        foreach (var rights in set.RightsRows())
         {
             var record = ParseLegacyTransparencyRecord(rights);
             records.Add((LegacyRightsProofKind, LegacyJsonInt(record, "id")), record);

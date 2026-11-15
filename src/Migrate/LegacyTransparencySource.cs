@@ -28,9 +28,9 @@ internal static partial class Migration
     }
 
     private static async Task<LegacyTransparencySet?> ReadLegacyTransparencySourceAsync(LegacySource source,
-        DbTransaction tx, LegacyTable[] catalog, bool rights, CancellationToken ct)
+        DbTransaction tx, LegacyTable[] catalog, int rights, CancellationToken ct)
     {
-        var log = await ReadTransparencyRowsAsync(LegacyTransparencyShape, "seq", rights ? 4 : 3);
+        var log = await ReadTransparencyRowsAsync(LegacyTransparencyShape, "seq", 3 + rights);
         if (log.Length == 0) return null;
         var checkpoints = await ReadTransparencyRowsAsync(LegacyCheckpointShape, "id", 1);
         if (checkpoints is not [var checkpoint] || Digest(checkpoint) !=
@@ -65,10 +65,10 @@ internal static partial class Migration
         }
     }
 
-    private static bool ValidLegacyTransparencySet(LegacyTransparencySet? transparency, LegacyProjection[] projections, bool rights)
+    private static bool ValidLegacyTransparencySet(LegacyTransparencySet? transparency, LegacyProjection[] projections, int rights)
     {
-        if (transparency is null) return !rights && projections.Length == 0;
-        return transparency.Rows is { Length: >= 1 } && transparency.Rows.Length <= (rights ? 4 : 3) && transparency.Rows.All(ValidLegacyTransparencyRow) &&
+        if (transparency is null) return rights == 0 && projections.Length == 0;
+        return transparency.Rows is { Length: >= 1 } && transparency.Rows.Length <= 3 + rights && transparency.Rows.All(ValidLegacyTransparencyRow) &&
             ValidLegacyTransparencyRow(transparency.Checkpoint) && projections.SequenceEqual(transparency.Projections());
     }
 

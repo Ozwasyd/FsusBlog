@@ -34,10 +34,11 @@ internal static partial class Migration
     private sealed record LegacyOutboxDefinition(string Source, CandidateTable Table, LegacyField[] Fields);
     private sealed record LegacyOutboxEntry(CandidateTable Table, LegacyProjection Projection, object?[][] Rows);
     private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings,
-        int RepublishCount = 0, int RollbackCount = 0, DateTime? RightsProofEventAt = null);
+        int RepublishCount = 0, int RollbackCount = 0, LegacyRightsDelivery[]? RightsDeliveries = null);
+    private sealed record LegacyRightsDelivery(int PublicationNumber, DateTime CreatedAt, DateTime? RetiredAt);
     private sealed record LegacyTerminalEvent(string EventId, int Article, long? PublicationId, DateTime CreatedAt,
         DateTime ProcessedAt, bool ExactDatabaseClock, LegacyPublishedOutboxUpdate? Update, object?[] Values, HashSet<string> Edges,
-        LegacyHistoricalResponsibility? History, bool RightsProof)
+        LegacyHistoricalResponsibility? History, LegacyRightsDelivery? RightsDelivery)
     {
         internal int PublicationNumber => Update?.PublicationNumber ?? 1;
     }
@@ -121,14 +122,17 @@ internal static partial class Migration
                 item.History.PreviousSnapshotId != (index == 0 ? null : historyEvents[index - 1].History!.SnapshotId) ||
                 index > 0 && item.CreatedAt <= historyEvents[index - 1].CreatedAt).Any())
             findings.Add(new ImportFinding("legacy-outbox-responsibility-history", LegacyOutboxSource, historyEvents.Length));
-        var rightsEvents = events.Values.Where(item => item.RightsProof).ToArray();
-        if (rightsEvents.Length > 0 && (rightsEvents is not [var rightsEvent] ||
-                !rightsEvent.Edges.SetEquals(LegacyKnownOutboxEdges.Where(edge => edge != "integrity-proof")) ||
-                !events.Values.Any(item => item.Update?.PublicationNumber == 3 && item.Article == rightsEvent.Article &&
-                    item.PublicationId == rightsEvent.PublicationId && item.CreatedAt < rightsEvent.CreatedAt &&
-                    item.Edges.SetEquals(LegacyKnownOutboxEdges))))
+        var rightsEvents = events.Values.Where(item => item.RightsDelivery is not null).ToArray();
+        var rightsDeliveries = rightsEvents.Select(item => item.RightsDelivery!).ToArray();
+        var byNumber = events.Values.Where(item => item.History is null && item.RightsDelivery is null)
+            .ToDictionary(item => (item.Article, item.PublicationNumber));
+        if (rightsDeliveries.Select(item => item.PublicationNumber).Distinct().Count() != rightsDeliveries.Length ||
+            rightsEvents.Where((item, i) =>
+                !item.Edges.SetEquals(LegacyKnownOutboxEdges.Where(edge => edge != "integrity-proof")) ||
+                !byNumber.TryGetValue((item.Article, rightsDeliveries[i].PublicationNumber), out var original) ||
+                original.PublicationId != item.PublicationId || original.CreatedAt >= item.CreatedAt ||
+                original.ProcessedAt >= rightsDeliveries[i].RetiredAt || !original.Edges.SetEquals(LegacyKnownOutboxEdges)).Any())
             findings.Add(new ImportFinding("legacy-outbox-rights-proof", LegacyOutboxSource, rightsEvents.Length));
-        var byNumber = events.Values.Where(item => item.History is null && !item.RightsProof).ToDictionary(item => (item.Article, item.PublicationNumber));
         var updates = events.Values.Where(item => item.Update is not null).ToArray();
         int missingPredecessors = updates.Count(update =>
         {
@@ -144,7 +148,7 @@ internal static partial class Migration
         return new LegacyOutboxRead(relations,
             [MakeOutboxEntry(LegacyOutboxParent, events.Values.Select(item => item.Values).ToArray()),
              MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], [], updates.Count(item => item.PublicationNumber == 2),
-            updates.Count(item => item.PublicationNumber == 3), rightsEvents.SingleOrDefault()?.CreatedAt);
+            updates.Count(item => item.PublicationNumber == 3), rightsDeliveries);
 
         async Task<bool> KnownOutboxShapeAsync(LegacyTable[] selection, LegacyOutboxDefinition definition)
         {
@@ -194,6 +198,8 @@ internal static partial class Migration
         string P(string name) => "p." + source.Field(tables[Publication], name);
         string S(string name) => "s." + source.Field(tables[RightsSnapshot], name);
         string H(string name) => "h." + source.Field(tables[Responsibility], name);
+        string F(string name) => "f." + source.Field(tables[Responsibility], name);
+        string N(string name) => "n." + source.Field(tables[Publication], name);
         var fields = LegacyOutboxParent.Fields;
         var projection = fields.Select(field => (field.Name switch
         {
@@ -210,12 +216,22 @@ internal static partial class Migration
                     ({E("event_type")}='updated' AND {P("transition_kind")}='rollback')) AND {S("created_at")}={E("created_at")}
                 AND {P("responsibility_snapshot_id")} IS NOT DISTINCT FROM {E("responsibility_snapshot_id")}
                 AND ({E("responsibility_snapshot_id")} IS NULL OR {H("id")} IS NOT NULL) AS exact_graph,
-                CASE WHEN {E("event_type")}='{LegacyRightsProofEvent}' AND {P("transition_kind")}='rollback'
-                    AND {P("publication_no")}=3 AND {P("revision_no")}=3 AND {P("published_at")}<{E("created_at")}
-                    AND {A("current_publication_id")}={P("id")} AND {A("current_revision_id")}={R("id")}
-                    AND {A("status")}=2 AND NOT {A("isdeleted")} AND {A("public_updated_at")}={P("published_at")}
-                    AND {P("responsibility_snapshot_id")}={H("id")} AND {S("proof_binding_enabled")}
-                    THEN {SelectRepresentableLegacyOutboxClock(A("public_updated_at"))} END
+                CASE WHEN {E("event_type")}='{LegacyRightsProofEvent}' AND {P("revision_no")}={P("publication_no")}
+                    AND {P("published_at")}<{E("created_at")} AND {A("status")}=2 AND NOT {A("isdeleted")}
+                    AND {S("proof_binding_enabled")}
+                    AND (({P("publication_no")}=3 AND {P("transition_kind")}='rollback'
+                        AND {P("responsibility_snapshot_id")}={H("id")}
+                        AND {A("current_publication_id")}={P("id")} AND {A("current_revision_id")}={R("id")}
+                        AND {A("public_updated_at")}={P("published_at")})
+                        OR ({P("publication_no")}=1 AND {P("transition_kind")}='immediate-publish'
+                            AND {H("created_at")}<={E("created_at")} AND {N("published_at")}>{E("processed_at")} AND {A("published_at")}={P("published_at")}
+                            AND {H("id")}=COALESCE({P("responsibility_snapshot_id")}, (
+                                SELECT {F("id")} FROM {source.Table(tables[Responsibility])} f
+                                WHERE {F("article_id")}={A("id")} AND {F("article_revision_id")}={R("id")}
+                                    AND {F("created_at")}<={E("created_at")}
+                                ORDER BY {F("responsibility_version")} DESC,{F("id")} DESC LIMIT 1))))
+                    THEN {SelectRepresentableLegacyOutboxClock(P("published_at"))} END,
+                {SelectRepresentableLegacyOutboxClock(N("published_at"))}
             FROM {source.Table(relation)} e
             LEFT JOIN {source.Table(tables[Article])} a ON {A("id")}={E("aggregate_id")}
             LEFT JOIN {source.Table(tables[Revision])} r ON {R("id")}={E("article_revision_id")}
@@ -230,6 +246,9 @@ internal static partial class Migration
             LEFT JOIN {source.Table(tables[Responsibility])} h ON {H("id")}={E("responsibility_snapshot_id")}
                 AND {H("article_id")}={E("aggregate_id")} AND {H("article_revision_id")}={E("article_revision_id")}
                 AND {H("revision_no")}={E("revision_no")} AND {H("responsibility_version")}={E("responsibility_version")}
+            LEFT JOIN {source.Table(tables[Publication])} n ON {N("article_id")}={P("article_id")}
+                AND {N("publication_no")}=2 AND {N("revision_no")}=2 AND {P("publication_no")}=1
+                AND {E("event_type")}='{LegacyRightsProofEvent}'
             ORDER BY {E("id")} LIMIT {RehearsalLimit + 1}
             """);
         await using var reader = await query.ExecuteReaderAsync(ct);
@@ -283,13 +302,14 @@ internal static partial class Migration
             var releaseId = reader.IsDBNull(10) ? (long?)null : reader.GetInt64(10);
             bool rightsProof = eventType == LegacyRightsProofEvent;
             var sourcePublicClock = reader.IsDBNull(shape + 3) ? (DateTime?)null : reader.GetDateTime(shape + 3);
-            var expectedRelease = rightsProof ? 3 : evidence?.PublicationNumber ?? 1;
+            var expectedRelease = rightsProof && sourcePublicClock.HasValue ? reader.GetInt32(11) : evidence?.PublicationNumber ?? 1;
+            var retiredAt = reader.IsDBNull(shape + 4) ? (DateTime?)null : reader.GetDateTime(shape + 4);
             var responsibility = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8);
             var responsibilityVersion = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
             var validGraph = history is not null
                 ? eventType == LegacyResponsibilityEventType && releaseId is null && reader.IsDBNull(11) &&
                     responsibility == history.SnapshotId && responsibilityVersion == history.Version
-                : rightsProof ? sourcePublicClock.HasValue && releaseId > 0 && reader.GetInt32(15) == 0 &&
+                : rightsProof ? sourcePublicClock.HasValue && (expectedRelease == 3 || retiredAt.HasValue) && releaseId > 0 && reader.GetInt32(15) == 0 &&
                     reader.GetDateTime(clocks[2]) == created
                 : eventType is ("created" or "updated") && releaseId > 0 && !reader.IsDBNull(11) &&
                     reader.GetInt32(11) == expectedRelease &&
@@ -323,7 +343,8 @@ internal static partial class Migration
                 continue;
             }
             accepted.Add(id, new LegacyTerminalEvent(eventId, article, releaseId, created, reader.GetDateTime(clocks[1]),
-                exactClock, evidence, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal), history, rightsProof));
+                exactClock, evidence, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal), history,
+                rightsProof ? new(expectedRelease, created, retiredAt) : null));
         }
 
         if (invalidState > 0) findings.Add(new ImportFinding("legacy-outbox-state", relation.Name, invalidState));

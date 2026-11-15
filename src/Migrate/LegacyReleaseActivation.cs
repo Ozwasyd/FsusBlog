@@ -166,17 +166,17 @@ internal static partial class Migration
             _ => false
         };
         var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;
-        var rightsProof = plan.PublishProofs?.RightsProof is null ? 0 : 1;
+        var rightsProofs = plan.PublishProofs?.RightsRows().Count() ?? 0;
         if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
             !validHistory || plan.Media is not null || articles is < 1 or > 32 || counts["shadow_article_rights_policy"] != articles ||
             counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key) &&
                 !(rollback && item.Key == "shadow_article_responsibility_snapshot")) ||
             new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_snapshot" }
                 .Any(table => !counts.TryGetValue(table, out var rows) || rows != publications) ||
-            !counts.TryGetValue(LegacyOutboxParent.Table.Name, out var events) || events != publications + historical + rightsProof ||
+            !counts.TryGetValue(LegacyOutboxParent.Table.Name, out var events) || events != publications + historical + rightsProofs ||
             !counts.TryGetValue(LegacyOutboxEdge.Table.Name, out var edges) ||
             edges != publications * LegacyRequiredOutboxEdges.Length + historical * LegacyKnownOutboxEdges.Count +
-                rightsProof * (LegacyKnownOutboxEdges.Count + 1))
+                rightsProofs * (LegacyKnownOutboxEdges.Count + 1))
             throw new InvalidOperationException("Release activation requires a complete verified immediate publication or rollback batch and its retained work.");
         await using var command = new NpgsqlCommand($"""
             SELECT a.owner_id::uuid

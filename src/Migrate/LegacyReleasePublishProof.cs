@@ -49,20 +49,17 @@ internal static partial class Migration
                     new LegacyArchivedProof(rowBytes, keyBytes, proof.Payload, entries?.GetValueOrDefault((LegacyPublishProofKind, proof.RevisionId)))))
                     throw new FormatException();
             }
-            string rights = "{}";
-            if (observed?.RightsProof is { } rawRights)
+            var rights = new Dictionary<long, LegacyArchivedProof>();
+            foreach (var rawRights in observed?.RightsRows() ?? [])
             {
                 var proof = ParseLegacyTransparencyRecord(rawRights);
-                var parent = LegacyRightsProofParent(observed.Rows, proof);
+                var parent = LegacyRightsProofParent(observed!.Rows, proof);
                 var signed = VerifyLegacyRightsProof(proof, parent, keys);
                 var transparency = entries![(LegacyRightsProofKind, LegacyJsonInt(proof, "article_revision_id"))];
                 var publicationId = await BindLegacyReleaseRightsProofAsync(db, tx, proof, parent, ct);
-                rights = JsonSerializer.Serialize(new Dictionary<long, LegacyArchivedProof>
-                {
-                    [publicationId] = new(Encoding.UTF8.GetBytes(rawRights), keyBytes, signed, transparency)
-                }, OwnerMapJson);
+                rights.Add(publicationId, new(Encoding.UTF8.GetBytes(rawRights), keyBytes, signed, transparency));
             }
-            return (JsonSerializer.Serialize(archived, OwnerMapJson), rights);
+            return (JsonSerializer.Serialize(archived, OwnerMapJson), JsonSerializer.Serialize(rights, OwnerMapJson));
         }
         catch (Exception error) when (IsLegacyPublishProofError(error))
         {

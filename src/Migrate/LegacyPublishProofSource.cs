@@ -19,13 +19,26 @@ internal static partial class Migration
 
     private sealed record LegacyPublishProofSet(string[] Rows, string KeysSha256,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyTransparencySet? Transparency = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightsProof = null)
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightsProof = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FirstRightsProof = null)
     {
         internal LegacyProjection Project() => new(LegacyPublishProofTable, Rows.Length, DigestMediaDocument(Rows));
+        internal IEnumerable<string> RightsRows()
+        {
+            if (FirstRightsProof is { } first) yield return first;
+            if (RightsProof is { } active) yield return active;
+        }
+
+        internal LegacyProjection? ProjectRights() => RightsRows().ToArray() switch
+        {
+            [] => null,
+            [var row] => new(LegacyRightsProofTable, 1, Digest(row)),
+            var rows => new(LegacyRightsProofTable, rows.Length, DigestMediaDocument(rows))
+        };
     }
 
     private static async Task<LegacyPublishProofSet?> ReadLegacyPublishProofSourceAsync(LegacySource source,
-        DbTransaction transaction, LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, DateTime? rightsProofEventAt, CancellationToken ct)
+        DbTransaction transaction, LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyRightsDelivery[] deliveries, CancellationToken ct)
     {
         if (transaction is not NpgsqlTransaction tx ||
             catalog.FirstOrDefault(table => table.Name == LegacyPublishProofTable) is not { Kind: "r" } relation ||
@@ -37,11 +50,11 @@ internal static partial class Migration
         {
             var table = source.Table(relation);
             var publications = source.Table(tables[Publication]);
-            var rights = source.Table(tables[RightsSnapshot]);
+            var snapshots = source.Table(tables[RightsSnapshot]);
             await using var query = new NpgsqlCommand($"""
                 SELECT CASE WHEN p.tableoid=to_regclass($1)
                     AND octet_length(row_to_json(p)::text)<=8192
-                    AND EXISTS (SELECT FROM {publications} release JOIN {rights} claim ON claim.id=release.rights_snapshot_id
+                    AND EXISTS (SELECT FROM {publications} release JOIN {snapshots} claim ON claim.id=release.rights_snapshot_id
                         WHERE release.article_id=p.article_id AND release.article_revision_id=p.article_revision_id
                             AND release.revision_no=p.revision_no AND claim.content_canonical_hash=
                                 'sha256:' || regexp_replace(lower(trim(p.canonical_hash)),'^sha256:',''))
@@ -63,23 +76,18 @@ internal static partial class Migration
                 rows.Add(row);
             } while (await reader.ReadAsync(ct));
             await reader.DisposeAsync();
-            var rightsProof = rightsProofEventAt.HasValue
-                ? await ReadLegacyRightsProofSourceAsync(source, tx, catalog, tables,
-                    rows.Single(row => LegacyJsonInt(ParseLegacyTransparencyRecord(row), "revision_no") == 3), ct)
-                : null;
-            if (rightsProof is not null)
-            {
-                var record = ParseLegacyTransparencyRecord(rightsProof);
-                VerifyLegacyRightsProof(record, LegacyRightsProofParent(rows, record), trusted);
-            }
-            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, rightsProofEventAt.HasValue, ct);
-            var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency, rightsProof);
+            Dictionary<int, string> rights = deliveries.Length == 0 ? [] :
+                await ReadLegacyRightsProofSourceAsync(source, tx, catalog, tables, relation, deliveries, ct);
+            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, deliveries.Length, ct);
+            var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency,
+                rights.GetValueOrDefault(3), rights.GetValueOrDefault(1));
             var entries = VerifyLegacyTransparency(set, trusted);
-            if (rightsProof is not null)
+            foreach (var delivery in deliveries)
             {
-                var proof = ParseLegacyTransparencyRecord(rightsProof);
+                var proof = ParseLegacyTransparencyRecord(rights[delivery.PublicationNumber]);
+                VerifyLegacyRightsProof(proof, LegacyRightsProofParent(rows, proof), trusted);
                 var entry = entries[(LegacyRightsProofKind, LegacyJsonInt(proof, "article_revision_id"))];
-                VerifyLegacyRightsLogClock(entry, rightsProofEventAt!.Value);
+                VerifyLegacyRightsLogClock(entry, delivery);
             }
             return set;
         }
@@ -97,10 +105,9 @@ internal static partial class Migration
         if (plan.PublishProofs is null && projection.Length == 0 && logs.Length == 0 && rights.Length == 0) return;
         if (plan.PublishProofs is not { Rows.Length: >= 1 and <= 3 } proof || !IsSha256(proof.KeysSha256) ||
             plan.Provider != "postgres" || plan.Version != ImportPlanWithRollbackOutboxVersion || plan.Media is not null ||
-            proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || !ValidLegacyTransparencySet(proof.Transparency, logs, proof.RightsProof is not null) ||
-            (proof.RightsProof is { } rawRights
-                ? !ValidLegacyTransparencyRow(rawRights) || rights is not [var right] || right != LegacyRightsProofProjection(rawRights)
-                : rights.Length != 0) ||
+            proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || proof.RightsRows().Any(row => !ValidLegacyTransparencyRow(row)) ||
+            !ValidLegacyTransparencySet(proof.Transparency, logs, proof.RightsRows().Count()) ||
+            (proof.ProjectRights() is { } measure ? rights is not [var right] || right != measure : rights.Length != 0) ||
             projection is not [var measurement] || measurement != proof.Project())
             throw new InvalidOperationException("The legacy import plan contains an invalid publish proof record set.");
     }
