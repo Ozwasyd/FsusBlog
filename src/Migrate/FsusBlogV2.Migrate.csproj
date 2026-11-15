@@ -11,6 +11,9 @@
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <PackageReference Include="Fido2" Version="[4.0.1]" />
     <Compile Include="../Server/Identity/PasskeyVerification.cs" Link="PasskeyVerification.cs" />
+    <Compile Include="../Server/Identity/TotpSecret.cs" Link="TotpSecret.cs" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Using Include="Microsoft.Extensions.Configuration" />
     <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
     <EmbeddedResource Include="*.sql" LogicalName="FsusBlogV2.Schema.%(Filename)%(Extension)" />
     <EmbeddedResource Include="OptionalSchema/private-media-import-origin.sql"

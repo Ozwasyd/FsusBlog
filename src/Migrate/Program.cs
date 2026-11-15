@@ -226,7 +226,7 @@ internal static partial class Migration
                   legacy assets rehearsal verify PACKAGE MANIFEST_SHA256
                                         Rehearse an offline, quarantined attachment copy
                   legacy identity PROVIDER
-                  legacy passkey plan SOURCE_SITE TARGET_SITE ACCOUNT TARGET_USER OLD_ORIGIN OLD_RP BACKUP SHA
+                  legacy passkey plan|plan-mfa SOURCE_SITE TARGET_SITE ACCOUNT TARGET_USER OLD_ORIGIN OLD_RP BACKUP SHA
                   legacy passkey apply REVIEW REVIEW_SHA ASSERTION ASSERTION_SHA BACKUP SHA
                                         Audit account and administrator compatibility without activating credentials
                   legacy admin plan PROVIDER SOURCE_SITE_UUID TARGET_SITE_UUID BACKUP_DIR MANIFEST_SHA256 ADMIN_ID...

@@ -5,7 +5,7 @@ using NpgsqlTypes;
 internal static partial class Migration
 {
     private static async Task<(LegacyPasskeyCredential[] Credentials, string Sha)> ReadLegacyPasskeyCredentialsAsync(LegacySource source,
-        NpgsqlTransaction tx, int account, CancellationToken ct)
+        NpgsqlTransaction tx, int account, bool keepMfa, CancellationToken ct)
     {
         var catalog = await ReadLegacyCatalogAsync(source, tx, ct);
         if (catalog.Any(table => table.Name.Equals("v2_schema", StringComparison.OrdinalIgnoreCase)))
@@ -14,7 +14,7 @@ internal static partial class Migration
         var credentials = LegacyPasskeyTable(catalog, "passkey_credential");
         foreach (var (name, owner) in new[] { ("user_mfa_profile", "user_id"), ("account_recovery_key", "account_id") })
         {
-            if (catalog.All(table => table.Name != name)) continue;
+            if (keepMfa && name == "user_mfa_profile" || catalog.All(table => table.Name != name)) continue;
             var relation = LegacyPasskeyTable(catalog, name);
             await using var dependants = new NpgsqlCommand($"SELECT EXISTS(SELECT FROM {source.Table(relation)} WHERE {owner}=$1)", tx.Connection, tx);
             dependants.Parameters.AddWithValue(account);
@@ -34,7 +34,7 @@ internal static partial class Migration
             WHERE u.id=$1 AND u.tableoid=to_regclass($2)
                 AND u.identity_kind='anonymous_account' AND u.registration_state='active' AND u.status=0 AND u.deleted_at IS NULL
                 AND u.ban_state_generation=1 AND u.passkey_enabled
-                AND NOT u.mfaenabled AND NOT u.recovery_enabled
+                AND u.mfaenabled=$4 AND NOT u.recovery_enabled
                 AND (u.public_handle IS NULL OR octet_length(u.public_handle)<=256)
                 AND NOT EXISTS (SELECT FROM {source.Table(users)} other_user WHERE other_user.id<>u.id
                     AND (other_user.passkey_user_handle=u.passkey_user_handle OR other_user.account_subject_hash=u.account_subject_hash))
@@ -43,6 +43,7 @@ internal static partial class Migration
         query.Parameters.AddWithValue(account);
         query.Parameters.AddWithValue(source.Table(users));
         query.Parameters.AddWithValue(source.Table(credentials));
+        query.Parameters.AddWithValue(keepMfa);
         await using var row = await query.ExecuteReaderAsync(ct);
         var observed = new List<LegacyPasskeyCredential>();
         var commitments = new List<string>();
@@ -112,9 +113,10 @@ internal static partial class Migration
     }
 
     private static async Task VerifyLegacyPasskeyPriorAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        BackupRelation[] baseline, CancellationToken ct)
+        BackupRelation[] baseline, bool keepMfa, CancellationToken ct)
     {
-        foreach (var (relation, key) in new[] { ("blog_user", "id"), ("passkey_subject", "user_id"), ("passkey_credential", "credential_id") })
+        var prior = new (string Relation, string Key)[] { ("blog_user", "id"), ("passkey_subject", "user_id"), ("passkey_credential", "credential_id") };
+        foreach (var (relation, key) in keepMfa ? [.. prior, ("mfa_totp", "user_id")] : prior)
         {
             var filter = relation == "blog_user" ? "" : "WHERE t.user_id<>$1";
             await using var query = new NpgsqlCommand($"""

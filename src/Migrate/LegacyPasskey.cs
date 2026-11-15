@@ -19,7 +19,8 @@ internal static partial class Migration
     private sealed record LegacyPasskeyPlan(int Version, string SourceReference, LegacyPasskeySelection Selection,
         LegacyPostgresSourceSeal Source, string TargetSha256, string CredentialSha256, string BackupSha256, string Nonce, DateTimeOffset Expires,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CredentialCount = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPasskeySequence? SequenceBefore = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPasskeySequence? SequenceBefore = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyMfaApproval? Mfa = null);
     private sealed record LegacyPasskeySequence(long LastValue, bool IsCalled)
     {
         internal long Next => LastValue + (IsCalled ? 1 : 0);
@@ -27,6 +28,10 @@ internal static partial class Migration
     private sealed record LegacyPasskeyCredential(byte[] Handle, byte[] Id, byte[] Key, uint Counter, bool Eligible,
         bool BackedUp, DateTimeOffset Created, DateTimeOffset? LastUsed);
     private sealed record LegacyVerifiedPasskey(LegacyPasskeyCredential Credential, uint Counter);
+    private sealed record LegacyPasskeyReceipt(string ReviewSha256, int SourceAccount, string Result, int CopiedSessions,
+        int CopiedMfaSecrets, string OldSessions, string OldRecovery, string OldEnrollmentMetadata,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Mfa = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OldMfaRecoveryCodes = null);
 
     private static async Task<int> RunLegacyPasskeyAsync(string[] args, CancellationToken ct)
     {
@@ -34,7 +39,8 @@ internal static partial class Migration
         byte[]? approvalBytes = null;
         LegacyPasskeySelection selection;
         string backupPath, backupSha;
-        if (args is ["plan", var oldSite, var newSite, var account, var user, var origin, var rp, var path, var sha] &&
+        bool keepMfa = args.FirstOrDefault() == "plan-mfa";
+        if (args is ["plan" or "plan-mfa", var oldSite, var newSite, var account, var user, var origin, var rp, var path, var sha] &&
             int.TryParse(account, NumberStyles.None, CultureInfo.InvariantCulture, out int number))
             (selection, backupPath, backupSha) = (new(ParseLegacySiteId(oldSite), ParseLegacySiteId(newSite), number,
                 ParseLegacySiteId(user), origin, rp), path, sha);
@@ -43,13 +49,15 @@ internal static partial class Migration
             approvalBytes = await ReadLegacyPasskeyInputAsync(review, reviewSha, 8192, ct);
             approved = JsonSerializer.Deserialize<LegacyPasskeyPlan>(approvalBytes, OwnerMapJson);
             if (approved is not { SourceReference: LegacyReference, Selection: not null, Source: not null } ||
-                approved is not ({ Version: 1, CredentialCount: null, SequenceBefore: null } or
-                    { Version: 2, CredentialCount: >= 2 and <= LegacyPasskeyCredentialLimit, SequenceBefore: null } or
-                    { Version: 3, CredentialCount: >= 1 and <= LegacyPasskeyCredentialLimit, SequenceBefore: not null }) ||
+                approved is not ({ Version: 1, CredentialCount: null, SequenceBefore: null, Mfa: null } or
+                    { Version: 2, CredentialCount: >= 2 and <= LegacyPasskeyCredentialLimit, SequenceBefore: null, Mfa: null } or
+                    { Version: 3, CredentialCount: >= 1 and <= LegacyPasskeyCredentialLimit, SequenceBefore: not null, Mfa: null } or
+                    { Version: 4, CredentialCount: >= 1 and <= LegacyPasskeyCredentialLimit, Mfa: not null }) ||
                 approved.BackupSha256 != restoreSha || !IsCanonicalIdentityBytes(approved.Nonce, 32, 32) ||
                 approved.Expires > DateTimeOffset.UtcNow.AddMinutes(10))
                 throw new InvalidOperationException("Invalid independently approved Passkey plan.");
             (selection, backupPath, backupSha) = (approved.Selection, restore, restoreSha);
+            keepMfa = approved.Version == 4;
         }
         else throw new ArgumentException("Use legacy passkey plan or apply with the documented arguments.");
 
@@ -70,8 +78,8 @@ internal static partial class Migration
         await db.OpenAsync(ct);
         await RequireBackupDatabaseLockAsync(db, ct);
         await using var tx = approved is null ? await BeginReadOnlyAsync(db, ct) : await db.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
-        if (approved?.Version == 3)
-            await ExecuteAsync(db, tx, "LOCK TABLE public.blog_user,public.passkey_subject,public.passkey_credential IN SHARE ROW EXCLUSIVE MODE", ct);
+        if (approved?.Version is 3 or 4)
+            await ExecuteAsync(db, tx, "LOCK TABLE public.blog_user,public.passkey_subject,public.passkey_credential,public.mfa_totp IN SHARE ROW EXCLUSIVE MODE", ct);
         await ExecuteAsync(db, tx, "SET LOCAL search_path=pg_catalog", ct);
         await SetBackupRepresentationAsync(db, tx, ct);
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct);
@@ -87,10 +95,11 @@ internal static partial class Migration
                 AND NOT EXISTS (SELECT FROM public.login_ticket WHERE user_id=$1)
                 AND NOT EXISTS (SELECT FROM public.user_session WHERE user_id=$1)
                 AND NOT EXISTS (SELECT FROM public.passkey_challenge)
-                AND NOT EXISTS (SELECT FROM public.mfa_totp WHERE user_id=$1)
+                AND ($3 OR NOT EXISTS (SELECT FROM public.mfa_totp WHERE user_id=$1))
             """, db, tx);
         gate.Parameters.AddWithValue(selection.User);
         gate.Parameters.AddWithValue(CurrentSchema.Version);
+        gate.Parameters.AddWithValue(keepMfa);
         if (await gate.ExecuteScalarAsync(ct) is not true ||
             await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct) != selection.TargetSite ||
             await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, selection.User, ct))
@@ -98,9 +107,10 @@ internal static partial class Migration
 
         var (observed, media) = await ReadBackupSiteAsync(db, tx, ct);
         var baseline = backup.Site.Relations;
+        bool IsChanged(BackupRelation row) => IsLegacyPasskeyDestinationRelation(row) || keepMfa && row.Name == "mfa_totp";
         if (media.Count != 0 || backup.Site.PostgreSqlMajor != db.PostgreSqlVersion.Major.ToString(CultureInfo.InvariantCulture) ||
-            baseline.Count(IsLegacyPasskeyDestinationRelation) != 3 ||
-            !baseline.Where(row => !IsLegacyPasskeyDestinationRelation(row)).SequenceEqual(observed.Where(row => !IsLegacyPasskeyDestinationRelation(row))))
+            baseline.Count(IsChanged) != (keepMfa ? 4 : 3) ||
+            !baseline.Where(row => !IsChanged(row)).SequenceEqual(observed.Where(row => !IsChanged(row))))
             throw new InvalidOperationException("The Passkey runtime differs from the reviewed rollback baseline.");
         bool pristine = baseline.SequenceEqual(observed);
         bool additive = baseline.Any(row => row.Name == "passkey_subject" && row.Rows > 0);
@@ -113,7 +123,7 @@ internal static partial class Migration
         if (storedSequence != (pristine ? before : after))
             throw new InvalidOperationException("The Passkey sequence differs from the approved before or after state.");
         if (!pristine)
-            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, ct);
+            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, keepMfa, ct);
 
         var source = ParseLegacySource("postgres");
         await using var oldDb = (NpgsqlConnection)source.Connection;
@@ -122,13 +132,15 @@ internal static partial class Migration
         if (await ReadLegacyPostgresClusterAsync(oldDb, oldTx, ct) == targetCluster)
             throw new InvalidOperationException("Passkey proof requires a separate restored source cluster.");
         var sourceSeal = await SealLegacyPostgresSourceAsync(source, oldDb, oldTx, ct);
-        var (credentials, credentialSha) = await ReadLegacyPasskeyCredentialsAsync(source, oldTx, selection.Account, ct);
+        var (credentials, credentialSha) = await ReadLegacyPasskeyCredentialsAsync(source, oldTx, selection.Account, keepMfa, ct);
+        var oldMfa = keepMfa ? await ReadLegacyMfaAsync(source, oldTx, selection.Account, ct) : null;
         await oldTx.RollbackAsync(ct);
-        int? credentialCount = additive || credentials.Length > 1 ? credentials.Length : null;
-        var observedPlan = new LegacyPasskeyPlan(additive ? 3 : credentialCount.HasValue ? 2 : 1, LegacyReference,
+        var mfaApproval = oldMfa is null ? null : ObserveLegacyMfaApproval(oldMfa);
+        int? credentialCount = keepMfa || additive || credentials.Length > 1 ? credentials.Length : null;
+        var observedPlan = new LegacyPasskeyPlan(keepMfa ? 4 : additive ? 3 : credentialCount.HasValue ? 2 : 1, LegacyReference,
             selection, sourceSeal, targetSha, credentialSha,
             backupSha, approved?.Nonce ?? Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32)),
-            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10), credentialCount, additive ? before : null);
+            approved?.Expires ?? DateTimeOffset.UtcNow.AddMinutes(10), credentialCount, additive ? before : null, mfaApproval);
 
         if (approved is null)
         {
@@ -140,23 +152,23 @@ internal static partial class Migration
         if (approved != observedPlan || pristine && approved.Expires <= DateTimeOffset.UtcNow)
             throw new InvalidOperationException("The approved Passkey source, destination or validity interval differs.");
         var verified = await VerifyLegacyPasskeyAssertionsAsync(selection, credentials, SHA256.HashData(approvalBytes!), args[3], args[4], ct);
+        using var mfaProof = oldMfa is null ? null : await ProveLegacyMfaAsync(db, tx, selection.User, oldMfa, mfaApproval!, pristine, ct);
         if (pristine)
         {
             await VerifyLegacyPasskeyAvailableAsync(db, tx, selection, credentials, ct);
             await WriteLegacyPasskeysAsync(db, tx, selection, verified, before != after ? after.LastValue : null, ct);
-            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, ct);
+            if (mfaProof is not null) await WriteLegacyMfaAsync(db, tx, selection.User, oldMfa!, mfaProof, ct);
+            await VerifyLegacyPasskeyPriorAsync(db, tx, selection.User, baseline, keepMfa, ct);
             var (writtenSequence, _) = await ReadLegacyPasskeySequenceAsync(db, tx, selection.User, ct);
             if (writtenSequence != after)
                 throw new InvalidOperationException("The updated Passkey sequence cannot be verified.");
         }
         await VerifyLegacyPasskeyDestinationAsync(db, tx, selection, verified, ct);
+        if (mfaProof is not null) await VerifyLegacyMfaDestinationAsync(db, tx, selection.User, oldMfa!, mfaProof, ct);
         await tx.CommitAsync(ct);
-        Console.WriteLine(JsonSerializer.Serialize(new
-        {
-            reviewSha256 = args[2], sourceAccount = selection.Account, result = pristine ? "imported" : "revalidated",
-            copiedSessions = 0, copiedMfaSecrets = 0, oldSessions = "reauthenticate",
-            oldRecovery = "reenroll separately", oldEnrollmentMetadata = "retained at source"
-        }, Json));
+        Console.WriteLine(JsonSerializer.Serialize(new LegacyPasskeyReceipt(args[2], selection.Account,
+            pristine ? "imported" : "revalidated", 0, keepMfa ? 1 : 0, "reauthenticate", "reenroll separately",
+            "retained at source", keepMfa ? "retained" : null, keepMfa ? "regenerate" : null), Json));
         return 0;
     }
 

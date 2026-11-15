@@ -352,6 +352,16 @@ dotnet run --no-build --project src/Migrate -- legacy passkey apply \
 
 写入和重试均重新核对原所有者、主体和凭据的备份摘要。目标账号已有主体时拒绝再次分配，包括撤销最后一枚凭据后留下的空主体。主体号、用户 handle 和凭据 ID 均核对冲突。新账号导入或服务产生后续写入后，旧审批不再属于当前可复验状态；此时应从对应备份核对原回执。
 
+### 连续接续旧 TOTP
+
+旧站 TOTP 使用 SHA1、六位验证码、30 秒和同样的 20 字节种子。正常 Passkey 导入仍会拒绝旧 MFA 权威。需要保留已启用的旧 TOTP 时，使用同一参数执行 `legacy passkey plan-mfa`。版本 4 审批绑定旧 MFA 记录、原 Data Protection 密钥环和证书的独立摘要，以及新站 AES 封装密钥摘要。
+
+`FSUSBLOG_LEGACY_TOTP_RING` 指向私有 UTF-8 JSON 数组，包含原站完整证书保护密钥环的 XML 文档，包括撤销记录。按原始文件字节固定 `FSUSBLOG_LEGACY_TOTP_RING_SHA256`。将可以解开该旧种子的独立审核 PKCS#12 设置为 `FSUSBLOG_LEGACY_TOTP_CERT`，固定对应的 `_SHA256`，密码通过私有环境变量 `FSUSBLOG_LEGACY_TOTP_CERT_PASSWORD` 提供。新站 `FSUSBLOG_TOTP_KEY_HEX` 提供专用的 32 字节封装密钥。
+
+使用原 `apply` 命令，并从 `FSUSBLOG_LEGACY_TOTP_PROOF` 提供原认证器的新六位码。证明文件仅含六个 ASCII 数字，以 `FSUSBLOG_LEGACY_TOTP_PROOF_SHA256` 固定字节。工具先核对全部原 Passkey 签名，再按固定的旧名称和用途解开种子，要求验证码时间步超过冻结旧库的防重放下限。凭据和新 UUID 绑定的 AES 封装在同一事务提交。已使用的证明时间步进入新站防重放记录；服务签发会话前仍须核对 TOTP。
+
+原 TOTP 恢复码使用不同的哈希方案，按审批留在冻结归档。用原认证器登录新站后，通过已认证的恢复码再生成流程取得新码。仍有独立站点恢复密钥、待完成的 MFA 登记、缺少证书或密钥环、原环已撤销对应密钥，或者无法证明原 TOTP 时，账号停在迁移前状态。本路径不转移旧会话。
+
 ### 演练选定的独立管理员
 
 该流程使用单独的新 v2 PostgreSQL 候选，`FSUSBLOG_IMPORT_DB` 指向本机 Unix socket 的 `fsusv2_import_*` 数据库。用当前迁移工具初始化空库，先生成并独立验证其备份，再保留清单 SHA-256。目标 UUID 读取候选的 `authoring_recovery_site.site_id`，旧站 UUID 由操作者用独立站点记录确认。PostgreSQL 旧源与候选必须属于不同的集群，连接需具备读取 `pg_catalog.pg_control_system()` 的权限。将旧数据库置为冻结的只读来源，SQLite 的来源绑定包含规范文件位置及已选元数据，凭据页不参与读取摘要。
