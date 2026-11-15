@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
-import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   compareDraftRevision, compareRevisionMetadata, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
 } from '../../../Contracts/revision-history'
-import { draftSummary } from '../../../Contracts/article-summary-client'
-import type { RevisionComparison } from '../../../Contracts/wire.generated'
+import { draftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
+import type { ArticleTaxonomy } from '../../../Contracts/author-articles'
+import type { Draft, RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 import DocumentExportTasks from './DocumentExportTasks.vue'
 import RevisionPropertyPage from './RevisionPropertyPage.vue'
-import { credentialEpoch, currentSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch } from '../session'
 import type { HistoricalSearchSeek } from './canvasEditorHandoff'
 import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
 
@@ -20,6 +21,9 @@ const props = defineProps<{
   canRollback: boolean
   historicalSeek?: HistoricalSearchSeek
   inspectorReady: boolean
+  editorDraft?: Draft
+  editorSummary?: DraftSummaryEdit
+  editorTaxonomy?: { articleId: number; revision: bigint; identity: number; category: ArticleTaxonomy | null; tags: ArticleTaxonomy[] }
 }>()
 const emit = defineEmits<{
   restore: [selection: { sourceRevision: bigint; reason: string }]
@@ -32,6 +36,8 @@ const items = shallowRef<readonly RevisionHistoryItem[]>([])
 const cursor = ref<string | null>(null)
 const published = ref<bigint | null>(null)
 const pair = shallowRef<RevisionComparison>()
+const pairCredential = ref<string>()
+const compareEditor = ref(false)
 const historical = shallowRef<{ seek: HistoricalSearchSeek; source: string }>()
 const historicalControl = ref<HTMLTextAreaElement>()
 const historicalLabel = {
@@ -54,18 +60,47 @@ const comparing = ref(false)
 const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const allowed = computed(() => !!pair.value && props.canRollback && validRollbackReason(reason.value.trim()))
 const compareId = useId()
-const sources = computed(() => pair.value ? [
-  { key: 'earlier', label: 'Earlier revision', revision: pair.value.sourceRevision, title: pair.value.sourceTitle, body: pair.value.sourceBody },
-  { key: 'current', label: 'Current saved revision', revision: pair.value.revision, title: pair.value.title, body: pair.value.body },
-] : [])
-const changed = computed(() => pair.value ? {
-  title: pair.value.title !== pair.value.sourceTitle,
-  body: pair.value.body !== pair.value.sourceBody,
-  markdownDelta: pair.value.sourceBody.length - pair.value.body.length,
-} : undefined)
+const editor = computed(() => {
+  const live = props.editorDraft
+  return pair.value && live?.id === pair.value.id && live.revision === pair.value.revision &&
+    pairCredential.value && currentSession.value?.siteSessionId === pairCredential.value ? live : undefined
+})
+const usingEditor = computed(() => compareEditor.value && !!editor.value)
+const sources = computed(() => {
+  const saved = pair.value
+  if (!saved) return []
+  const current = usingEditor.value && editor.value ? editor.value : saved
+  return [
+    { key: 'earlier', label: 'Earlier revision', coordinate: String(saved.sourceRevision), title: saved.sourceTitle, body: saved.sourceBody },
+    { key: 'current', label: usingEditor.value ? 'Current editor' : 'Current saved revision',
+      coordinate: usingEditor.value ? `Based on saved revision ${saved.revision}` : String(saved.revision), title: current.title, body: current.body },
+  ]
+})
+const changed = computed(() => {
+  const [earlier, current] = sources.value
+  if (earlier && current) return {
+    title: earlier.title !== current.title, body: earlier.body !== current.body,
+    markdownDelta: earlier.body.length - current.body.length,
+  }
+})
+const comparisonMetadata = computed(() => {
+  const saved = metadata.value
+  const live = editor.value
+  if (!saved || !usingEditor.value || !live) return saved
+  const summary = props.editorSummary
+  const taxonomy = props.editorTaxonomy
+  const current = { ...saved.current }
+  if (summary?.articleId === live.id && summary.revision === live.revision && summary.credential === pairCredential.value)
+    current.summary = summary.text
+  if (taxonomy?.articleId === live.id && taxonomy.revision === live.revision && taxonomy.identity === identityEpoch.value) {
+    current.category = taxonomy.category
+    current.tags = taxonomy.tags
+  }
+  return { source: saved.source, current }
+})
 const metadataChanges = computed(() => {
-  if (!metadata.value) return ''
-  const { source, current } = metadata.value
+  if (!comparisonMetadata.value) return ''
+  const { source, current } = comparisonMetadata.value
   const tags = (item: typeof source) => item.tags.map(tag => tag.id).join(',')
   return [source.summary !== current.summary ? 'Summary changed.' : 'Summary unchanged.',
     source.category?.id !== current.category?.id ? 'Category changed.' : 'Category unchanged.',
@@ -91,6 +126,8 @@ function closeComparison() {
   metadataOpen.value = false
   compareRequest?.abort()
   pair.value = undefined
+  pairCredential.value = undefined
+  compareEditor.value = false
   historical.value = undefined
   reason.value = ''
   comparisonError.value = ''
@@ -147,9 +184,15 @@ async function compare(source: bigint) {
   comparisonError.value = ''
   reason.value = ''
   pair.value = undefined
+  pairCredential.value = undefined
+  compareEditor.value = false
+  const session = currentSession.value?.siteSessionId
   try {
-    const result = await compareDraftRevision(props.articleId, props.revision, source, controller.signal)
-    if (!controller.signal.aborted) pair.value = result
+    const result = await compareDraftRevision(props.articleId, props.revision, source, controller.signal, session)
+    if (!controller.signal.aborted) {
+      pairCredential.value = session
+      pair.value = result
+    }
   } catch (cause) {
     if (controller.signal.aborted) return
     if (cause instanceof ApiError && [401, 403, 409].includes(cause.status)) {
@@ -270,6 +313,8 @@ watch(() => [open.value, props.articleId, props.revision], () => {
 watch(credentialEpoch, () => {
   historyRequest?.abort()
   compareRequest?.abort()
+  compareEditor.value = false
+  pairCredential.value = undefined
   if (historical.value) closeComparison()
   if (comparisonOpen.value && comparing.value) {
     comparing.value = false
@@ -324,23 +369,24 @@ onScopeDispose(() => {
       <p v-if="comparing" role="status">Loading both saved revisions…</p>
       <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
       <div v-if="pair && changed" class="revision-comparison">
+        <ElCheckbox v-if="editor" :model-value="compareEditor" @update:model-value="compareEditor = $event === true">Compare with current editor</ElCheckbox>
         <p>{{ changed.title ? 'Title changed.' : 'Title unchanged.' }} {{ changed.body ? 'Markdown changed.' : 'Markdown unchanged.' }}</p>
         <p v-if="changed.body">Earlier Markdown length difference (UTF-16): {{ changed.markdownDelta > 0 ? '+' : '' }}{{ changed.markdownDelta }}</p>
         <div class="revision-sources">
           <section v-for="source in sources" :key="source.key" class="revision-source" :aria-labelledby="`${compareId}-${source.key}`">
-            <h3 :id="`${compareId}-${source.key}`">{{ source.label }} · {{ source.revision }}</h3>
+            <h3 :id="`${compareId}-${source.key}`">{{ source.label }} · {{ source.coordinate }}</h3>
             <p>{{ source.title }}</p>
             <pre tabindex="0" :aria-label="`${source.label} Markdown`">{{ source.body }}</pre>
           </section>
         </div>
         <details @toggle="metadataOpen = ($event.currentTarget as HTMLDetailsElement).open">
-          <summary>Saved summary and classification</summary>
+          <summary>{{ usingEditor ? 'Summary and classification' : 'Saved summary and classification' }}</summary>
           <p v-if="metadataOpen && !metadata && !metadataFailure" role="status">Loading saved metadata…</p>
           <p v-if="metadataFailure" role="alert">{{ metadataFailure }}</p>
-          <template v-if="metadata">
+          <template v-if="comparisonMetadata">
             <p>{{ metadataChanges }}</p>
             <div class="revision-sources">
-              <section v-for="(fields, index) in [metadata.source, metadata.current]" :key="index" class="revision-source">
+              <section v-for="(fields, index) in [comparisonMetadata.source, comparisonMetadata.current]" :key="index" class="revision-source">
                 <h4>{{ sources[index].label }}</h4>
                 <dl class="revision-metadata">
                   <dt>Summary</dt><dd>{{ fields.summary || 'No saved summary' }}</dd>

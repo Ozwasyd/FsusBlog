@@ -36,6 +36,12 @@ const error = ref('')
 const dirty = computed(() => !!loaded.value && text.value !== loaded.value.text)
 const valid = computed(() => text.value.length <= WireLimits.ArticleSummaryEditChars &&
   !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/.test(text.value))
+const comparisonSummary = computed<DraftSummaryEdit | undefined>(() => {
+  const summary = loaded.value
+  if (dirty.value && summary && props.credential)
+    return { articleId: summary.id, revision: summary.revision, credential: props.credential, text: text.value }
+})
+defineExpose({ comparisonSummary })
 
 watch(dirty, value => emit('change', value), { flush: 'sync' })
 watch(() => [props.articleId, props.revision, props.credential, opened.value, retry.value] as const,

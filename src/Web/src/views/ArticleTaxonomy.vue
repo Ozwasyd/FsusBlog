@@ -2,7 +2,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import {
-  draftTaxonomy, taxonomyList, type TaxonomySelection,
+  draftTaxonomy, taxonomyList, type DraftTaxonomy, type TaxonomySelection,
 } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyListItem } from '../../../Contracts/taxonomy'
 import { ApiError } from '../../../Contracts/client'
@@ -18,7 +18,7 @@ const emit = defineEmits<{
   save: [selection: TaxonomySelection]
   stale: []
 }>()
-const original = shallowRef<TaxonomySelection>()
+const original = shallowRef<DraftTaxonomy & { identity: number }>()
 const categoryOptions = shallowRef<TaxonomyListItem[]>([])
 const tagOptions = shallowRef<TaxonomyListItem[]>([])
 const category = ref(0)
@@ -36,8 +36,20 @@ const dirty = computed(() => Boolean(original.value && (
   || selected.value.tagIds.join(',') !== original.value.tagIds.join(',')
 )))
 
+const comparisonTaxonomy = computed(() => {
+  const baseline = original.value
+  if (!dirty.value || !baseline) return
+  const named = (id: number, options: TaxonomyListItem[]) => options.find(item => item.id === id) ?? { id, name: `#${id}` }
+  return {
+    articleId: baseline.id, revision: baseline.revision, identity: baseline.identity,
+    category: category.value ? named(category.value, categoryOptions.value) : null,
+    tags: selected.value.tagIds.map(id => named(id, tagOptions.value)),
+  }
+})
+defineExpose({ comparisonTaxonomy })
+
 watch(dirty, value => emit('change', value), { flush: 'sync' })
-watch(() => [props.articleId, props.revision, props.identity, retry.value] as const, async (_, __, cleanup) => {
+watch(() => [props.articleId, props.revision, props.identity, retry.value] as const, async ([article, revision, identity], __, cleanup) => {
   const request = new AbortController()
   cleanup(() => request.abort())
   original.value = undefined
@@ -50,17 +62,16 @@ watch(() => [props.articleId, props.revision, props.identity, retry.value] as co
 
   try {
     const [draft, categories, tagsForSite] = await Promise.all([
-      draftTaxonomy(props.articleId, props.revision, request.signal),
+      draftTaxonomy(article, revision, request.signal),
       taxonomyList('category', request.signal),
       taxonomyList('tag', request.signal),
     ])
     if (request.signal.aborted) return
     categoryOptions.value = categories
     tagOptions.value = tagsForSite
-    const received = { categoryId: draft.categoryId, tagIds: [...draft.tagIds].sort((a, b) => a - b) }
-    category.value = received.categoryId ?? 0
-    tags.value = [...received.tagIds]
-    original.value = received
+    category.value = draft.categoryId ?? 0
+    tags.value = [...draft.tagIds]
+    original.value = { ...draft, identity }
   } catch (cause) {
     if (request.signal.aborted) return
     if (cause instanceof ApiError && cause.status === 409) {

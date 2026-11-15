@@ -109,6 +109,8 @@ const metadataDirty = computed(() => taxonomyDirty.value || summaryDirty.value)
 const taxonomyStale = ref(false)
 const propertyPending = ref(false)
 const revisionComparisonActive = ref(false)
+const summaryEditor = shallowRef<InstanceType<typeof ArticleSummary>>()
+const taxonomyEditor = shallowRef<InstanceType<typeof ArticleTaxonomy>>()
 const recovery = editorRecovery()
 const recoveryItems = recovery.candidates
 const recoveryFailure = recovery.failure
@@ -1438,7 +1440,7 @@ async function reloadDraft() {
           :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" @publish-images="publishSelectedImages" />
-        <ArticleTaxonomy
+        <ArticleTaxonomy ref="taxonomyEditor"
           :article-id="original.id"
           :revision="original.revision"
           :identity="identityEpoch"
@@ -1460,6 +1462,9 @@ async function reloadDraft() {
           :article-id="original.id"
           :revision="original.revision"
           :historical-seek="historicalSeek" :inspector-ready="inspectorReady && !recoveryBlocked"
+          :editor-draft="editable && !pending && !hasConflict && !recoveryBlocked ? original : undefined"
+          :editor-summary="summaryEditor?.comparisonSummary"
+          :editor-taxonomy="taxonomyEditor?.comparisonTaxonomy"
           :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @restore="submit('rollback-history', undefined, $event)"
           @comparison-modal="revisionComparisonActive = $event"
@@ -1479,7 +1484,7 @@ async function reloadDraft() {
           :can-change="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-rights', undefined, undefined, undefined, $event)"
         />
-        <ArticleSummary :article-id="original.id" :revision="original.revision" :credential="credential"
+        <ArticleSummary ref="summaryEditor" :article-id="original.id" :revision="original.revision" :credential="credential"
           :can-change="canChangeSummary" :saving="articlePending && summaryDirty"
           :source-target="summarySeek" :inspector-ready="inspectorReady" @source-revealed="finishSourceSeek"
           @change="summaryDirty = $event" @save="saveSummary" />
