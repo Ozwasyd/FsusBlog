@@ -13,35 +13,32 @@ internal static class MfaEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, Action<HttpContext> origin,
         Action<HttpContext, SiteRefreshStore.Issued> issueSession, Func<string, CookieOptions> cookie, bool persistentEnabled)
     {
+        var post = new SiteMfaPostRoutes(app, origin);
         app.MapGet(WireRoutes.MfaProfile, async (HttpContext ctx, CancellationToken ct) =>
         {
             origin(ctx);
             return Frame(await store.Profile(Session(ctx), ct));
         });
-        app.MapPost(WireRoutes.PasskeyStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
+        post.Post(WireRoutes.PasskeyStepUpBegin, async (ctx, ct) =>
         {
-            origin(ctx);
             var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             if (action != MfaWire.Setup) throw Forbidden();
             return Frame(await passkeys.BeginSetupProof(Session(ctx), ct));
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.PasskeyStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        post.Post(WireRoutes.PasskeyStepUpComplete, async (ctx, ct) =>
         {
-            origin(ctx);
             var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return Frame(await passkeys.CompleteSetupProof(Session(ctx), request, ct));
-        }).RequireRateLimiting("mfa");
+        });
 
-        app.MapPost(WireRoutes.MfaSetupStart, async (HttpContext ctx, CancellationToken ct) =>
+        post.Post(WireRoutes.MfaSetupStart, async (ctx, ct) =>
         {
-            origin(ctx);
             if (Proof(ctx) is not { } proof) return Precondition(ctx);
             try { return Frame(await store.BeginSetup(Session(ctx), proof, ct)); }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.MfaSetupVerify, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        post.Post(WireRoutes.MfaSetupVerify, async (ctx, ct) =>
         {
-            origin(ctx);
             var code = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaSetupVerifyRequest, 6);
             try
             {
@@ -53,11 +50,10 @@ internal static class MfaEndpoints
             {
                 return Error(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
             }
-        }).RequireRateLimiting("mfa");
+        });
 
-        app.MapPost(WireRoutes.MfaChallengeStart, async (HttpContext ctx, CancellationToken ct) =>
+        post.Post(WireRoutes.MfaChallengeStart, async (ctx, ct) =>
         {
-            origin(ctx);
             var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             return action switch
             {
@@ -65,10 +61,9 @@ internal static class MfaEndpoints
                 MfaWire.Regenerate => Frame(await store.BeginRecoveryRegeneration(Session(ctx), ct, SiteSessions.Requested(ctx))),
                 _ => throw Forbidden()
             };
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.MfaChallengeVerify, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        post.Post(WireRoutes.MfaChallengeVerify, async (ctx, ct) =>
         {
-            origin(ctx);
             var attempt = MfaWire.ReadAttempt(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct));
             if (attempt.Action == MfaWire.Disable)
                 return Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
@@ -79,10 +74,9 @@ internal static class MfaEndpoints
             ctx.Response.Cookies.Delete(LoginCookie, cookie(WireRoutes.MfaChallengeVerify));
             issueSession(ctx, session);
             return Frame(MfaWire.EncodeChallenge(true, MfaWire.Login, account: number));
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.MfaDisable, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        post.Post(WireRoutes.MfaDisable, async (ctx, ct) =>
         {
-            origin(ctx);
             if (Proof(ctx) is not { } proof) return Precondition(ctx);
             try
             {
@@ -91,10 +85,9 @@ internal static class MfaEndpoints
                 return Frame(Wire.EncodeEmptySuccess());
             }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.MfaRecoveryRegenerate, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        post.Post(WireRoutes.MfaRecoveryRegenerate, async (ctx, ct) =>
         {
-            origin(ctx);
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>() is { CanHaveBody: true })
                 throw new BusinessException(Rejection.Invalid, "This operation does not accept a body.");
             try { return Frame(await store.RegenerateRecoveryCodes(Session(ctx), Proof(ctx), ct, SiteSessions.Requested(ctx))); }
@@ -103,7 +96,7 @@ internal static class MfaEndpoints
             {
                 return Error(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
             }
-        }).RequireRateLimiting("mfa");
+        });
 
         string? Session(HttpContext ctx) => ctx.Request.Cookies[sessionName];
     }

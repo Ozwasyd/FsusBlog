@@ -54,28 +54,25 @@ internal static class PasskeyEndpoints
             var rows = await SitePasskeys.Manage(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
             return Results.Bytes(Wire.EncodeSitePasskeyManagement(rows), Aeds.ContentType);
         }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.SitePasskeyRenameBegin, async (HttpContext ctx, CancellationToken ct) =>
+        var management = new SiteMfaPostRoutes(app, RequireManagementOrigin);
+        management.Post(WireRoutes.SitePasskeyRenameBegin, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = Wire.DecodeSitePasskeyRename(await readFrame(ctx, WireLimits.MaxSitePasskeyRenameFrameBytes, ct));
             return Results.Bytes(await passkeys.BeginSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyRenameComplete, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyRenameComplete, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             await passkeys.CompleteSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyRemoveBegin, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyRemoveBegin, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = Wire.DecodeSitePasskeyRemove(await readFrame(ctx, WireLimits.MaxSitePasskeyRemoveFrameBytes, ct));
             return Results.Bytes(await passkeys.BeginSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyRemoveComplete, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyRemoveComplete, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             if (await passkeys.CompleteSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct))
             {
@@ -83,27 +80,24 @@ internal static class PasskeyEndpoints
                 SiteRefreshEndpoints.ClearRefreshCookie(ctx);
             }
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyEnrollBegin, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyEnrollBegin, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false)
                 throw new BusinessException(Rejection.Invalid, "Passkey enrollment begins without a body.");
             return Results.Bytes(await passkeys.BeginSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyEnrollApprove, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyEnrollApprove, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return Results.Bytes(await passkeys.ApproveSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
-        app.MapPost(WireRoutes.SitePasskeyEnrollComplete, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        management.Post(WireRoutes.SitePasskeyEnrollComplete, async (ctx, ct) =>
         {
-            RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             await passkeys.CompleteSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
-        }).RequireRateLimiting("mfa");
+        });
         app.MapPost(WireRoutes.PasskeyLoginBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireHost(ctx);
