@@ -331,6 +331,10 @@ try {
   assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
   await credentialProbe(adminOrigin.origin + permissions, adminCookieName, finalCookie.value, 401)
   await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, finalCookie.value, 401)
+  if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
+    await credentialProbe(adminOrigin.origin + adminPath + '/articles.aeds', adminCookieName, finalCookie.value, 401)
+    await expectPanelHidden(admin, 'Article inventory')
+  }
   const stillSignedIn = await context.request.get(siteOrigin.origin + siteSession)
   assert.equal(stillSignedIn.status(), 200)
   assert((await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,

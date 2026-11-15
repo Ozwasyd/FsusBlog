@@ -347,7 +347,7 @@ if (documentExportTasks) DocumentExportEndpoints.Map(app, Cookie, pdfExport, Rea
 pluginPreview?.Map(app, Cookie, Query);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
     lease.RootCommentPowPolicyInstalled);
-FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);
+FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy, Query);
 FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");

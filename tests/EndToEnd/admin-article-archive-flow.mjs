@@ -13,6 +13,8 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   const { admin, site, section, send, grantAndSignIn, previewRollback, inspect: content, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const archive = section.getByRole('region', { name: 'Archived articles', exact: true })
+  const inventory = page.getByRole('region', { name: 'Article inventory', exact: true })
+  const inventoryPath = '/api/v2/admin/identity/articles.aeds'
   const sourceBody = 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n'
   const availability = WireRoutes.AdminArticleArchiveAvailability
   const archivePage = WireRoutes.AdminArticleArchivePage
@@ -88,6 +90,8 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert(beforeIndex.items.some(article => article.id === 1 && article.revision === 2n && article.publication === 2n))
   assert.equal((await context.request.get(admin(availability))).status(), 403)
   assert.equal((await context.request.get(admin(archivePage))).status(), 403)
+  assert.equal((await context.request.get(admin(inventoryPath))).status(), 403)
+  assert.equal((await context.request.get(site(inventoryPath))).status(), 404)
   await deniedPreview(admin(previewPath(1, 3, 3)), 403)
   await deniedPreview(site(previewPath(1, 3, 3)), 404)
   assert.equal((await context.request.get(site(availability))).status(), 404)
@@ -96,6 +100,23 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await archive.waitFor()
   assert.equal((await context.request.get(admin(availability))).status(), 204)
   assert.deepEqual(await archivedRows(), [])
+  await inventory.getByRole('button', { name: 'Active articles' }).press('Enter')
+  await inventory.getByRole('status').filter({ hasText: '22 active articles' }).waitFor()
+  await inventory.getByRole('button', { name: 'Next page' }).press('Enter')
+  await inventory.getByText('Inventory draft 1', { exact: true }).waitFor()
+  assert.equal(await inventory.getByText('Inventory draft 21', { exact: true }).count(), 0)
+  await inventory.getByRole('button', { name: 'Article trash' }).press('Enter')
+  await inventory.getByText('Inventory draft 22', { exact: true }).waitFor()
+  assert.equal(await inventory.getByRole('listitem').count(), 1)
+  await inventory.getByRole('button', { name: 'Active articles' }).press('Enter')
+  await inventory.getByLabel('Title or summary', { exact: true }).fill('Inventory summary 21')
+  await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
+  await inventory.getByText('Inventory draft 21', { exact: true }).waitFor()
+  assert.equal(await inventory.getByRole('listitem').count(), 1)
+  await page.setViewportSize({ width: 375, height: 800 })
+  assert(await inventory.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
+  await inventory.screenshot({ path: join(evidence, 'administrator-article-inventory.png') })
+  await page.setViewportSize({ width: 1280, height: 800 })
 
   await previewRollback()
   const archiveIntent = {

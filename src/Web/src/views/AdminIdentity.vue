@@ -10,6 +10,7 @@ import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import AdminInbox from './AdminInbox.vue'
 import AdminArticleRollback from './AdminArticleRollback.vue'
+import AdminArticleInventory from './AdminArticleInventory.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
@@ -302,6 +303,7 @@ function logOut() {
       </div>
     </section>
     <AdminTaxonomy v-if="permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
+    <AdminArticleInventory v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminArticleRollback v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
       :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />

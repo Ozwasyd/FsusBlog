@@ -61,7 +61,15 @@ export function decodeAuthorArticlePage(bytes: Uint8Array): AuthorArticlePage {
   return { total, nextId: nextId || null, items };
 }
 
-export async function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
+export function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
+  return listArticles(WireRoutes.AuthorArticles, query, signal, session);
+}
+
+export function listAdminArticles(query: AuthorArticleQuery, signal: AbortSignal): Promise<AuthorArticlePage> {
+  return listArticles('/api/v2/admin/identity/articles.aeds', query, signal);
+}
+
+async function listArticles(path: string, query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
   const parameters = new URLSearchParams({ scope: query.trash ? 'trash' : 'active' });
   if (query.keyword) parameters.set('keyword', query.keyword);
   if (query.match) parameters.set('match', query.match);
@@ -71,7 +79,7 @@ export async function listAuthorArticles(query: AuthorArticleQuery, signal?: Abo
   if (query.beforeId !== undefined) parameters.set('before', String(query.beforeId));
   if (query.articleId !== undefined) parameters.set('article', String(query.articleId));
   if (session !== undefined && !validSiteSessionId(session)) throw new ProtocolError('Invalid author inventory session');
-  const page = await request(`${WireRoutes.AuthorArticles}?${parameters}`, FrameType.AuthorArticlePage, decodeAuthorArticlePage,
+  const page = await request(`${path}?${parameters}`, FrameType.AuthorArticlePage, decodeAuthorArticlePage,
     signal, 'GET', undefined, session === undefined ? undefined : { [WireHeaders.CurrentSession]: session });
   if (page.items.some(row => (row.state === 'deleted') !== query.trash || query.state !== undefined && row.state !== query.state ||
       query.articleId !== undefined && row.id !== query.articleId) || query.articleId !== undefined && (page.total > 1 || page.nextId !== null))

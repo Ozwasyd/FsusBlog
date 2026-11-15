@@ -49,7 +49,8 @@ internal static class AdminIdentityEndpoints
     }
 
     internal static void Map(WebApplication app, PasskeyConfiguration? config,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy,
+        Func<HttpContext, string, int, string?> query)
     {
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
@@ -155,6 +156,11 @@ internal static class AdminIdentityEndpoints
         app.MapGet(WireRoutes.AdminTags, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], true, ctx.Request.Query, publications, ct))))
             .RequireRateLimiting("command");
+        app.MapGet(ApiPath + "/articles.aeds", (HttpContext ctx, CancellationToken ct) =>
+        {
+            ctx.Response.Headers.CacheControl = "no-store";
+            return store.ArticleInventory(ctx.Request.Cookies[session], ctx, query, ct);
+        }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
         {
             await store.SignOut(ctx.Request.Cookies[session], ct);

@@ -9,6 +9,10 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
+    internal Task<IResult> ArticleInventory(string? session, HttpContext ctx, Func<HttpContext, string, int, string?> query, CancellationToken ct) =>
+        WithSession(session, CurrentSchema.ArticleWritePermission,
+            (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
+
     // Check the exact current article, historical tail, and retained private release together.
     private const string CurrentArchive = $"""
         from public.admin_article_rollback archived

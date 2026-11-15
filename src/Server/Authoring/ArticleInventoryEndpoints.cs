@@ -3,6 +3,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -16,43 +17,49 @@ internal static class ArticleInventoryEndpoints
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
                 SiteSessions.IfCurrent(actor.Id, token, SiteSessions.Requested(ctx));
-                var scope = query(ctx, "scope", 6) switch
-                {
-                    null or "active" => false, "trash" => true, _ => throw Invalid()
-                };
-                var state = query(ctx, "state", 9) switch
-                {
-                    null => (AuthorArticleState?)null,
-                    "draft" when !scope => AuthorArticleState.Draft,
-                    "scheduled" when !scope => AuthorArticleState.Scheduled,
-                    "published" when !scope => AuthorArticleState.Published,
-                    "retracted" when !scope => AuthorArticleState.Retracted,
-                    _ => throw Invalid()
-                };
-                var keyword = query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
-                if (!Wire.IsCanonicalAuthorArticleKeyword(keyword)) throw Invalid();
-                var summary = query(ctx, "match", 13) switch
-                {
-                    null or "title" => false,
-                    "title-summary" => true,
-                    _ => throw Invalid()
-                };
-                var page = await Read(db, tx, actor, scope, state, keyword, summary, Number(ctx, "category"), Number(ctx, "tag"),
-                    Number(ctx, "before"), Number(ctx, "article"), ct);
-                return Results.Bytes(Wire.EncodeAuthorArticlePage(page), Aeds.ContentType);
+                return await ReadPage(ctx, query, db, tx, actor, ct);
             }, ct);
         }).RequireRateLimiting("command");
+    }
 
-        int Number(HttpContext context, string name)
+    internal static async Task<IResult> ReadPage(HttpContext ctx, Func<HttpContext, string, int, string?> query,
+        NpgsqlConnection db, NpgsqlTransaction tx, Identity? author, CancellationToken ct)
+    {
+        var scope = query(ctx, "scope", 6) switch
         {
-            if (query(context, name, 10) is not { } raw) return 0;
+            null or "active" => false, "trash" => true, _ => throw Invalid()
+        };
+        var state = query(ctx, "state", 9) switch
+        {
+            null => (AuthorArticleState?)null,
+            "draft" when !scope => AuthorArticleState.Draft,
+            "scheduled" when !scope => AuthorArticleState.Scheduled,
+            "published" when !scope => AuthorArticleState.Published,
+            "retracted" when !scope => AuthorArticleState.Retracted,
+            _ => throw Invalid()
+        };
+        var keyword = query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
+        if (!Wire.IsCanonicalAuthorArticleKeyword(keyword)) throw Invalid();
+        var summary = query(ctx, "match", 13) switch
+        {
+            null or "title" => false,
+            "title-summary" => true,
+            _ => throw Invalid()
+        };
+        var page = await Read(db, tx, author, scope, state, keyword, summary, Number("category"), Number("tag"),
+            Number("before"), Number("article"), ct);
+        return Results.Bytes(Wire.EncodeAuthorArticlePage(page), Aeds.ContentType);
+
+        int Number(string name)
+        {
+            if (query(ctx, name, 10) is not { } raw) return 0;
             if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0) return value;
             throw Invalid();
         }
     }
 
     // Same statement and identity snapshot for count, page, revision metadata, and scheduling. Fetch tags only for emitted rows.
-    private static async Task<AuthorArticlePage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, bool trash,
+    private static async Task<AuthorArticlePage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity? author, bool trash,
         AuthorArticleState? state, string keyword, bool summary, int categoryId, int tagId, int beforeId, int articleId, CancellationToken ct)
     {
         await using var cmd = Store.Sql(db, tx, $"""
@@ -60,10 +67,10 @@ internal static class ArticleInventoryEndpoints
                 select a.id,a.revision,a.title,a.updated_at,c.id as category_id,c.name as category,s.due_at,
                     {CurrentState} as state
                 from public.article a
-                {CurrentSchedule(2)}
+                {CurrentSchedule(2, author is null)}
                 left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
                 left join public.category c on c.id=rc.category_id
-                where a.owner_id=$1 and a.deleted=$3 and ($10=0 or a.id=$10)
+                where ($1::uuid is null or a.owner_id=$1) and a.deleted=$3 and ($10=0 or a.id=$10)
                     and {ArchivedArticleAuthority.Available}
                     and {KeywordPredicate(4, 11)}
                     and ($5=0 or rc.category_id=$5)
@@ -82,7 +89,8 @@ internal static class ArticleInventoryEndpoints
                 where link.article_id=p.id and link.revision=p.revision
             ) t on true
             order by p.id desc
-            """, actor.Id, actor.Generation, trash, keyword, categoryId, tagId, (int?)state ?? 0, beforeId,
+            """, new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)author?.Id ?? DBNull.Value },
+                author?.Generation ?? 0L, trash, keyword, categoryId, tagId, (int?)state ?? 0, beforeId,
                 WireLimits.AuthorArticlePageSize + 1, articleId, summary);
         var list = new List<AuthorArticleRow>(WireLimits.AuthorArticlePageSize);
         var total = 0;
@@ -115,10 +123,15 @@ internal static class ArticleInventoryEndpoints
              when a.publication_count>0 then 4 else 1 end
         """;
 
-    internal static string CurrentSchedule(int generationParameter) => $"""
-        left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
-            and s.actor_id=a.owner_id and s.generation=${generationParameter.ToString(CultureInfo.InvariantCulture)} and not a.deleted
-        """;
+    internal static string CurrentSchedule(int generationParameter, bool crossAuthor = false)
+    {
+        var generation = "$" + generationParameter.ToString(CultureInfo.InvariantCulture);
+        if (crossAuthor) generation = $"coalesce((select u.generation from public.blog_user u where u.id=a.owner_id and u.enabled and u.can_author),{generation})";
+        return $"""
+            left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
+                and s.actor_id=a.owner_id and s.generation={generation} and not a.deleted
+            """;
+    }
 
     internal static string KeywordPredicate(int keywordParameter, int? includeSummaryParameter = null)
     {

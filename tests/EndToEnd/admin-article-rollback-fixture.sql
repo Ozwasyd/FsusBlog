@@ -34,4 +34,15 @@ VALUES
     (1,1,true,'all-rights-reserved','Historical fixture rights',2024,'Retained rights policy','','append-attribution',60,false,true,true),
     (1,2,true,'all-rights-reserved','Current fixture rights',2026,'Current rights policy','','append-attribution',120,true,true,true);
 INSERT INTO public.article_publication_rights (article_id,publication_id,revision) VALUES (1,1,1),(1,2,2);
+INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
+VALUES ('a8e91b13-7706-4c71-8ead-61b201df1f7b','tls-other-inventory-author',true,true,1);
+WITH added AS (
+    INSERT INTO public.article (owner_id,revision,title,body,deleted)
+    SELECT CASE WHEN n=1 THEN u.id ELSE 'a8e91b13-7706-4c71-8ead-61b201df1f7b'::uuid END,
+           1,'Inventory draft '||n,'Inventory summary '||n,n=22
+    FROM generate_series(1,22) n CROSS JOIN public.blog_user u WHERE u.name='tls-site-fixture'
+    ORDER BY n RETURNING *
+)
+INSERT INTO public.article_revision (article_id,revision,title,body,happened_at)
+SELECT id,revision,title,body,created_at FROM added;
 COMMIT;
