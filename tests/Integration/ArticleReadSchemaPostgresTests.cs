@@ -34,6 +34,31 @@ public sealed class ArticleReadSchemaPostgresTests
 
         await Execute(db, "DROP TABLE public.article_read_hour, public.article_read_dwell, public.article_read_epoch", ct);
         Assert.False(await CurrentSchema.HasArticleReadSchemaAsync(db, null, ct));
+        var totalsWithoutAggregates = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
+        Assert.Contains("article read total schema presence", totalsWithoutAggregates.Message, StringComparison.Ordinal);
+        await Execute(db, "DROP TABLE public.article_read_total", ct);
+        await CurrentSchema.VerifyAsync(db, ct);
+    }
+
+    [PostgresFact]
+    public async Task ReadTotalSchemaRequiresBothDescendingIndexKeys()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = timeout.Token;
+        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await database.DataSource.OpenConnectionAsync(ct);
+        Assert.True(await CurrentSchema.HasArticleReadTotalSchemaAsync(db, null, ct));
+
+        await Execute(db, "DROP INDEX public.article_read_total_rank", ct);
+        var missing = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
+        Assert.Contains("descending btree index", missing.Message, StringComparison.Ordinal);
+
+        await Execute(db, "CREATE INDEX article_read_total_rank ON public.article_read_total (views DESC, article_id)", ct);
+        var wrongOrder = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
+        Assert.Contains("descending btree index", wrongOrder.Message, StringComparison.Ordinal);
+
+        await Execute(db, "DROP TABLE public.article_read_total", ct);
+        Assert.False(await CurrentSchema.HasArticleReadTotalSchemaAsync(db, null, ct));
         await CurrentSchema.VerifyAsync(db, ct);
     }
 

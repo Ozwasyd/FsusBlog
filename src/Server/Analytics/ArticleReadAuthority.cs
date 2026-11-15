@@ -63,7 +63,7 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
                 insert into pg_temp.article_read_seen(viewer) values($1) on conflict do nothing
                 """, viewer);
             if (await consume.ExecuteNonQueryAsync(token) != 1) return false;
-            await AddCount(session.Connection, tx, id, now, epoch, ArticleReadTickets.DwellBucket(dwellMs), token);
+            await AddCount(session.Connection, tx, id, now, epoch, ArticleReadTickets.DwellBucket(dwellMs), session.TrackTotals, token);
             await InstanceLease.CommitProtected(tx, lease, token);
             session.Accepted = rollover ? 1 : session.Accepted + 1;
             session.CountEpoch = epoch;
@@ -107,6 +107,7 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
             await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
             await RequirePrivateSession(connection, tx, ct);
             if (!await CurrentSchema.HasArticleReadSchemaAsync(connection, tx, ct)) throw new PublicUnavailableException();
+            var trackTotals = await CurrentSchema.HasArticleReadTotalSchemaAsync(connection, tx, ct);
             await using var read = Store.Sql(connection, tx, "select last_epoch from public.article_read_epoch where singleton");
             var watermark = await read.ExecuteScalarAsync(ct);
             if (watermark is not (DBNull or long)) throw new PublicUnavailableException();
@@ -115,7 +116,7 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
                 """);
             await create.ExecuteNonQueryAsync(ct);
             await InstanceLease.CommitProtected(tx, lease, ct);
-            return new(connection, new ArticleReadTickets(clock), watermark is long epoch ? epoch : -1);
+            return new(connection, new ArticleReadTickets(clock), watermark is long epoch ? epoch : -1, trackTotals);
         }
         catch
         {
@@ -147,17 +148,29 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
     }
 
     private static async Task AddCount(NpgsqlConnection db, NpgsqlTransaction tx, int id, DateTimeOffset utc,
-        long epoch, int dwellBucket, CancellationToken ct)
+        long epoch, int dwellBucket, bool trackTotals, CancellationToken ct)
     {
         var hour = new DateTimeOffset(utc.Year, utc.Month, utc.Day, utc.Hour, 0, 0, TimeSpan.Zero);
         await using var watermark = Store.Sql(db, tx, """
             update public.article_read_epoch set last_epoch=$1 where singleton and (last_epoch is null or last_epoch<=$1)
             """, epoch);
         if (await watermark.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
-        await using var count = Store.Sql(db, tx, """
+        const string incrementHour = """
             insert into public.article_read_hour(article_id,hour_utc,count) values($1,$2,1)
             on conflict(article_id,hour_utc) do update set count=article_read_hour.count+1
-            """, id, hour);
+            """;
+        // A saturated total remains at Int32.MaxValue while the accepted hourly aggregate continues independently.
+        const string incrementHourAndTotal = $"""
+            with counted as (
+                {incrementHour}
+                returning article_id
+            )
+            insert into public.article_read_total(article_id,views)
+            select article_id,1 from counted
+            on conflict(article_id) do update set views=article_read_total.views+1
+            where article_read_total.views<2147483647
+            """;
+        await using var count = Store.Sql(db, tx, trackTotals ? incrementHourAndTotal : incrementHour, id, hour);
         await count.ExecuteNonQueryAsync(ct);
         await using var dwell = Store.Sql(db, tx, """
             insert into public.article_read_dwell(article_id,day_utc,bucket,count) values($1,$2,$3,1)
@@ -184,10 +197,11 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
         finally { _owner.Dispose(); }
     }
 
-    private sealed class Session(NpgsqlConnection connection, ArticleReadTickets tickets, long restoreWatermark)
+    private sealed class Session(NpgsqlConnection connection, ArticleReadTickets tickets, long restoreWatermark, bool trackTotals)
     {
         internal NpgsqlConnection Connection { get; } = connection;
         internal ArticleReadTickets Tickets { get; } = tickets;
+        internal bool TrackTotals { get; } = trackTotals;
         internal long CountEpoch { get; set; } = -1;
         internal int Accepted { get; set; }
         private readonly long _restoreWatermark = restoreWatermark;

@@ -116,7 +116,8 @@ internal static partial class CurrentSchema
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
-        bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null)
+        bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
+        bool? requireArticleReadTotal = null)
     {
         if (requireArticleMedia is null)
         {
@@ -226,6 +227,9 @@ internal static partial class CurrentSchema
         var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
         if (requireArticleRead.HasValue && requireArticleRead.Value != hasArticleRead)
             throw new InvalidOperationException("The article read aggregate schema presence does not match the requested operation.");
+        var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
+        if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
+            throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
@@ -260,6 +264,7 @@ internal static partial class CurrentSchema
             .Concat(hasPublicationTransparency ? PublicationTransparencyColumns : [])
             .Concat(hasPublicationHead ? PublicationHeadColumns : [])
             .Concat(hasArticleRead ? ArticleReadColumns : [])
+            .Concat(hasArticleReadTotal ? ArticleReadTotalColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
@@ -298,6 +303,7 @@ internal static partial class CurrentSchema
             .Concat(hasPublicationTransparency ? PublicationTransparencyConstraints : [])
             .Concat(hasPublicationHead ? PublicationHeadConstraints : [])
             .Concat(hasArticleRead ? ArticleReadConstraints : [])
+            .Concat(hasArticleReadTotal ? ArticleReadTotalConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """

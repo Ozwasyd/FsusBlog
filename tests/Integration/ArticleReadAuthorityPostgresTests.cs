@@ -56,6 +56,7 @@ public sealed class ArticleReadAuthorityPostgresTests
             await authority.Submit(id, publication, IPAddress.Loopback, browser, first, 8000, ct));
         Assert.Equal(0L, await Count(db, "article_read_hour", ct));
         Assert.Equal(0L, await Count(db, "article_read_dwell", ct));
+        Assert.Equal(0, await Total(db, id, ct));
         Assert.Equal(DBNull.Value, await Scalar(db, "select last_epoch from public.article_read_epoch", ct));
         await Execute(db, "alter table public.article_read_dwell drop constraint synthetic_failure", ct);
 
@@ -67,6 +68,7 @@ public sealed class ArticleReadAuthorityPostgresTests
         Assert.False(await authority.Submit(id, publication, IPAddress.Loopback, browser, next, 8000, ct));
         Assert.Equal(1L, await Count(db, "article_read_hour", ct));
         Assert.Equal(1L, await Count(db, "article_read_dwell", ct));
+        Assert.Equal(1, await Total(db, id, ct));
         Assert.Equal(epoch, await Scalar(db, "select last_epoch from public.article_read_epoch", ct));
 
         Assert.Equal(true, await Scalar(db, """
@@ -85,6 +87,7 @@ public sealed class ArticleReadAuthorityPostgresTests
         Assert.True(await authority.Submit(id, publication, IPAddress.Loopback, browser, afterRestart, 8000, ct));
         Assert.Equal(2L, await Count(db, "article_read_hour", ct));
         Assert.Equal(2L, await Count(db, "article_read_dwell", ct));
+        Assert.Equal(2, await Total(db, id, ct));
         Assert.Equal(epoch + 1, await Scalar(db, "select last_epoch from public.article_read_epoch", ct));
     }
 
@@ -111,6 +114,7 @@ public sealed class ArticleReadAuthorityPostgresTests
         await lost.WaitAsync(ct);
         Assert.Equal(1L, await Count(db, "article_read_hour", ct));
         Assert.Equal(1L, await Count(db, "article_read_dwell", ct));
+        Assert.Equal(1, await Total(db, id, ct));
         Assert.Equal(ArticleReadTickets.Epoch(clock.GetUtcNow()), await Scalar(db, "select last_epoch from public.article_read_epoch", ct));
 
         clock.Advance(TimeSpan.FromSeconds(5));
@@ -119,9 +123,66 @@ public sealed class ArticleReadAuthorityPostgresTests
         Assert.False(await authority.Submit(id, publication, IPAddress.Loopback, browser, ticket, 8000, ct));
         Assert.Equal(1L, await Count(db, "article_read_hour", ct));
         Assert.Equal(1L, await Count(db, "article_read_dwell", ct));
+        Assert.Equal(1, await Total(db, id, ct));
         Assert.Equal(true, await Scalar(db, """
             select bool_and(relpersistence='t') from pg_catalog.pg_class where relname='article_read_seen'
             """, ct));
+    }
+
+    [PostgresFact]
+    public async Task RankedTotalSaturatesWhileHourlyAndDwellAggregatesContinue()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = timeout.Token;
+        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await database.DataSource.OpenConnectionAsync(ct);
+        await using var lease = new InstanceLease(database.ConnectionString);
+        await lease.Start(NullLogger.Instance, ct);
+        var (id, publication) = await Publish(db, ct);
+        var clock = new ReadClock();
+        var now = clock.GetUtcNow();
+        var prior = ArticleReadTickets.Epoch(now) - 1;
+        await using (var seed = Store.Sql(db, null, """
+            with hourly as (
+                insert into public.article_read_hour(article_id,hour_utc,count) values($1,$2,2147483646) returning article_id
+            ), total as (
+                insert into public.article_read_total(article_id,views) select article_id,2147483646 from hourly
+            )
+            update public.article_read_epoch set last_epoch=$3 where singleton
+            """, id, now, prior))
+            await seed.ExecuteNonQueryAsync(ct);
+
+        await using var authority = new ArticleReadAuthority(PrivateConnection(database.ConnectionString), lease, clock);
+        foreach (var viewer in new[] { IPAddress.Loopback, IPAddress.IPv6Loopback })
+        {
+            var ticket = Assert.IsType<byte[]>(await authority.Challenge(id, publication, viewer, "Read probe", ct));
+            clock.Advance(TimeSpan.FromSeconds(8));
+            Assert.True(await authority.Submit(id, publication, viewer, "Read probe", ticket, 8000, ct));
+            Assert.Equal(int.MaxValue, await Total(db, id, ct));
+        }
+        Assert.Equal((long)int.MaxValue + 1, await Count(db, "article_read_hour", ct));
+        Assert.Equal(2L, await Count(db, "article_read_dwell", ct));
+    }
+
+    [PostgresFact]
+    public async Task OlderAggregateSchemaCountsReadsWithoutTheOptionalTotal()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = timeout.Token;
+        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await database.DataSource.OpenConnectionAsync(ct);
+        await Execute(db, "drop table public.article_read_total", ct);
+        await using var lease = new InstanceLease(database.ConnectionString);
+        await lease.Start(NullLogger.Instance, ct);
+        var (id, publication) = await Publish(db, ct);
+        var clock = new ReadClock();
+        await using var authority = new ArticleReadAuthority(PrivateConnection(database.ConnectionString), lease, clock);
+
+        var ticket = Assert.IsType<byte[]>(await authority.Challenge(id, publication, IPAddress.Loopback, "Read probe", ct));
+        clock.Advance(TimeSpan.FromSeconds(8));
+        Assert.True(await authority.Submit(id, publication, IPAddress.Loopback, "Read probe", ticket, 8000, ct));
+        Assert.Equal(1L, await Count(db, "article_read_hour", ct));
+        Assert.Equal(1L, await Count(db, "article_read_dwell", ct));
     }
 
     private static string PrivateConnection(string connection)
@@ -146,6 +207,12 @@ public sealed class ArticleReadAuthorityPostgresTests
 
     private static async Task<long> Count(NpgsqlConnection db, string table, CancellationToken ct) =>
         (long)(await Scalar(db, $"select coalesce(sum(count),0)::bigint from public.{table}", ct))!;
+
+    private static async Task<int> Total(NpgsqlConnection db, int article, CancellationToken ct)
+    {
+        await using var query = Store.Sql(db, null, "select views from public.article_read_total where article_id=$1", article);
+        return await query.ExecuteScalarAsync(ct) is int views ? views : 0;
+    }
 
     private static async Task<object?> Scalar(NpgsqlConnection db, string sql, CancellationToken ct)
     {
