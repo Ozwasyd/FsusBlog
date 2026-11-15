@@ -118,7 +118,8 @@ public sealed partial class ExtensionAuthorityTests
     {
         if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var (authority, owner, _, _) = Host(key);
+        using var disk = new InstallationDisk();
+        using var authority = OpenStagingStore(disk, key, out var owner);
         var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
         var root = Directory.CreateTempSubdirectory("fsus-extension-check-");
         // Resolve macOS /var when the OS gives the conventional symlink rather than /private/var.
@@ -126,7 +127,7 @@ public sealed partial class ExtensionAuthorityTests
         try
         {
             File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = new ExtensionStaging("scratch", root);
+            var staging = authority.BindStaging("scratch", root);
             var collision = NewOperation();
             var existing = Path.Combine(root.FullName, $"{collision.Proposal.RequestId:N}.stage");
             await File.WriteAllTextAsync(existing, "earlier request owns this");
@@ -154,7 +155,8 @@ public sealed partial class ExtensionAuthorityTests
     {
         if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var (authority, owner, _, _) = Host(key);
+        using var disk = new InstallationDisk();
+        using var authority = OpenStagingStore(disk, key, out var owner);
         var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
         using var operation = authority.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
         var root = Directory.CreateTempSubdirectory("fsus-extension-revoke-");
@@ -162,12 +164,13 @@ public sealed partial class ExtensionAuthorityTests
         try
         {
             File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = new ExtensionStaging("scratch", root);
+            var staging = authority.BindStaging("scratch", root);
             using var input = new PausedStream();
             var pending = staging.Stage(operation, input);
             await input.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
             var concurrent = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(operation, Stream.Null));
             Assert.Equal("staging-already-started", concurrent.Code);
+            AssertRejected("installation-store-broker-busy", () => authority.Deactivate("fixture.extension"));
             authority.RevokeConsent(grant);
             input.Resume.SetResult();
             var revoked = await Assert.ThrowsAsync<ExtensionRejectedException>(() => pending);

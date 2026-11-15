@@ -35,6 +35,8 @@ public sealed class ExtensionInstallationStore : IDisposable
     private ExtensionPackageVerifier _verifier;
     private bool _poisoned;
     private bool _closed;
+    private bool _brokerHeld;
+    private ExtensionStaging? _staging;
 
     public static ExtensionInstallationStore Create(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key,
         IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources, TimeProvider clock) =>
@@ -83,7 +85,7 @@ public sealed class ExtensionInstallationStore : IDisposable
             }
 
             if (expectedCheckpoint is not null && expectedCheckpoint != _checkpoint) throw Reject("activation-checkpoint-mismatch");
-            _authority = new(_verifier, _clock, _gate, ReverifyActive);
+            _authority = new(_verifier, _clock, _gate, ReverifyActive, RetainBrokerScope);
             foreach (var installation in _ledger.Installations)
             {
                 _authority.RestoreVersion(installation.Id, installation.Version);
@@ -113,7 +115,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         lock (_gate)
         {
-            RequireLedger(cancellationToken);
+            RequireMutablePackage(cancellationToken);
             RequirePackageSize(archive.Length, signature.Length);
             // Keep private snapshots of caller-owned memory for both validation and publication.
             var data = archive.ToArray();
@@ -148,7 +150,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         lock (_gate)
         {
-            RequireLedger(CancellationToken.None);
+            RequireMutablePackage(CancellationToken.None);
             // Rotate trust conservatively so old grants and successful approvals cannot survive the change.
             var next = _ledger with
             {
@@ -167,7 +169,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         lock (_gate)
         {
-            RequireLedger(CancellationToken.None);
+            RequireMutablePackage(CancellationToken.None);
             var installed = FindInstallation(extensionId);
             if (!installed.Active) return;
             Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Active = false }) });
@@ -179,7 +181,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         lock (_gate)
         {
-            RequireLedger(CancellationToken.None);
+            RequireMutablePackage(CancellationToken.None);
             if (!IsIdentifier(reason)) throw Reject("quarantine-reason");
             var installed = FindInstallation(extensionId);
             if (installed.Quarantine is { ReleasedAt: null } previous)
@@ -199,7 +201,7 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         lock (_gate)
         {
-            RequireLedger(CancellationToken.None);
+            RequireMutablePackage(CancellationToken.None);
             var installed = FindInstallation(extensionId);
             if (installed.Quarantine is not { ReleasedAt: null } quarantine || quarantine.Receipt != receipt ||
                 approval == Guid.Empty || approval == receipt) throw Reject("quarantine-approval");
@@ -254,6 +256,33 @@ public sealed class ExtensionInstallationStore : IDisposable
         CancellationToken cancellationToken = default)
     {
         lock (_gate) { RequireOperationAuthority(); return _authority.Begin(owner, contributionId, purpose, proposal, cancellationToken); }
+    }
+
+    public ExtensionStaging BindStaging(string rootId, DirectoryInfo privateRoot)
+    {
+        lock (_gate)
+        {
+            RequireOperationAuthority();
+            if (_staging is not null) throw Reject("staging-broker-already-bound");
+            return _staging = new ExtensionStaging(rootId, privateRoot);
+        }
+    }
+
+    private IDisposable RetainBrokerScope(ExtensionStaging broker)
+    {
+        // Admission runs under the same gate as package verification and all store mutations.
+        RequireOperationAuthority();
+        if (!ReferenceEquals(_staging, broker)) throw Reject("staging-broker-not-bound");
+        if (_brokerHeld) throw Reject("installation-store-broker-busy");
+        _brokerHeld = true;
+        return new BrokerScope(this);
+    }
+
+    private void RequireMutablePackage(CancellationToken cancellationToken)
+    {
+        RequireOpen();
+        if (_brokerHeld) throw Reject("installation-store-broker-busy");
+        RequireLedger(cancellationToken);
     }
 
     private void ReverifyActive(VerifiedExtensionPackage package, CancellationToken cancellationToken, bool readInstalled)
@@ -423,7 +452,23 @@ public sealed class ExtensionInstallationStore : IDisposable
             if (_closed) return;
             _closed = true;
             CryptographicOperations.ZeroMemory(_key);
-            _ownership.Dispose();
+            if (!_brokerHeld) _ownership.Dispose();
+        }
+    }
+
+    private sealed class BrokerScope(ExtensionInstallationStore store) : IDisposable
+    {
+        private bool _released;
+
+        public void Dispose()
+        {
+            lock (store._gate)
+            {
+                if (_released) return;
+                _released = true;
+                store._brokerHeld = false;
+                if (store._closed) store._ownership.Dispose();
+            }
         }
     }
 

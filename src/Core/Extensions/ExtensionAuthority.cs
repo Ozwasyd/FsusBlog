@@ -37,6 +37,7 @@ public sealed class ExtensionAuthority
 {
     private readonly object _gate;
     private readonly Action<VerifiedExtensionPackage, CancellationToken, bool>? _verifyInstalled;
+    private readonly Func<ExtensionStaging, IDisposable>? _holdPackage;
     private readonly Dictionary<string, VerifiedExtensionPackage> _packages = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ExtensionInstalledVersion> _lastActivated = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, ExtensionOwner> _owners = new();
@@ -47,15 +48,16 @@ public sealed class ExtensionAuthority
     private readonly TimeProvider _clock;
     private long _trustRevision;
 
-    public ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock) : this(verifier, clock, new(), null) { }
+    public ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock) : this(verifier, clock, new(), null, null) { }
 
     internal ExtensionAuthority(ExtensionPackageVerifier verifier, TimeProvider clock, object gate,
-        Action<VerifiedExtensionPackage, CancellationToken, bool>? verifyInstalled)
+        Action<VerifiedExtensionPackage, CancellationToken, bool>? verifyInstalled, Func<ExtensionStaging, IDisposable>? holdPackage)
     {
         _verifier = verifier;
         _clock = clock;
         _gate = gate;
         _verifyInstalled = verifyInstalled;
+        _holdPackage = holdPackage;
     }
 
     public void ReplaceTrust(ExtensionPackageVerifier updated)
@@ -241,7 +243,7 @@ public sealed class ExtensionAuthority
         private readonly ExtensionAuthority _authority;
         private readonly Grant _grant;
         private readonly long _started;
-        private bool _stagingStarted;
+        private bool _stagingPending;
         private bool _closed;
 
         internal Operation(ExtensionAuthority authority, ExtensionProposal proposal, Grant grant)
@@ -259,19 +261,37 @@ public sealed class ExtensionAuthority
             lock (_authority._gate) Check(cancellationToken);
         }
 
-        internal CancellationTokenSource BeginStaging(CancellationToken cancellationToken)
+        internal StagingScope BeginStaging(ExtensionStaging broker, CancellationToken cancellationToken)
         {
             lock (_authority._gate)
             {
-                Check(cancellationToken);
-                if (_stagingStarted) throw Deny("staging-already-started");
-                var clock = _authority._clock;
-                var wall = _grant.Package.Manifest.Limits.WallClock - clock.GetElapsedTime(_started);
-                var consent = _grant.Scope.ExpiresAt - clock.GetUtcNow();
-                var remaining = wall < consent ? wall : consent;
-                var budget = new CancellationTokenSource(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, clock);
-                _stagingStarted = true;
-                return budget;
+                if (_stagingPending) throw Deny("staging-already-started");
+                try
+                {
+                    Check(cancellationToken, verifyInstalled: true);
+                    if (_authority._holdPackage is not { } holdPackage) throw Deny("staging-installed-scope-required");
+                    var clock = _authority._clock;
+                    var wall = _grant.Package.Manifest.Limits.WallClock - clock.GetElapsedTime(_started);
+                    var consent = _grant.Scope.ExpiresAt - clock.GetUtcNow();
+                    var remaining = wall < consent ? wall : consent;
+                    var budget = new CancellationTokenSource(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, clock);
+                    try
+                    {
+                        var scope = new StagingScope(this, holdPackage(broker), budget);
+                        _stagingPending = true;
+                        return scope;
+                    }
+                    catch
+                    {
+                        budget.Dispose();
+                        throw;
+                    }
+                }
+                catch
+                {
+                    Close();
+                    throw;
+                }
             }
         }
 
@@ -279,6 +299,7 @@ public sealed class ExtensionAuthority
         {
             lock (_authority._gate)
             {
+                if (Proposal is ExtensionProposal.StageFile) throw Deny("staging-broker-required");
                 try
                 {
                     Check(cancellationToken, verifyInstalled: true);
@@ -307,9 +328,45 @@ public sealed class ExtensionAuthority
         {
             if (_closed) return;
             _closed = true;
+            if (!_stagingPending) ReleaseActive();
+        }
+
+        private void ReleaseActive()
+        {
             var left = _authority._active[_grant.Package] - 1;
             if (left == 0) _authority._active.Remove(_grant.Package);
             else _authority._active[_grant.Package] = left;
+        }
+
+        internal sealed class StagingScope(Operation operation, IDisposable package, CancellationTokenSource budget) : IDisposable
+        {
+            private bool _disposed;
+
+            internal CancellationToken Token => budget.Token;
+
+            internal void Complete(CancellationToken cancellationToken)
+            {
+                lock (operation._authority._gate)
+                {
+                    if (_disposed) throw Deny("operation-closed");
+                    operation.Check(cancellationToken, verifyInstalled: true);
+                    operation.Close();
+                }
+            }
+
+            public void Dispose()
+            {
+                lock (operation._authority._gate)
+                {
+                    if (_disposed) return;
+                    _disposed = true;
+                    operation.Close();
+                    operation._stagingPending = false;
+                    operation.ReleaseActive();
+                    try { package.Dispose(); }
+                    finally { budget.Dispose(); }
+                }
+            }
         }
     }
 }

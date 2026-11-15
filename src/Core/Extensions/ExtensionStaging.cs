@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.ExceptionServices;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using static FsusBlog.V2.Core.Extensions.ExtensionDisk;
 
@@ -16,9 +17,22 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
         if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (operation.Proposal is not ExtensionProposal.StageFile proposal || proposal.Root != rootId)
             throw new ExtensionRejectedException("operation-is-not-staging-for-root");
-        using var budget = operation.BeginStaging(cancellationToken);
-        using var scope = operation;
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
+        var scope = operation.BeginStaging(this, cancellationToken);
+        Exception? first = null;
+        try { return await StageHeld(operation, proposal, data, scope, cancellationToken); }
+        catch (Exception error) { first = error; throw; }
+        finally
+        {
+            try { scope.Dispose(); }
+            catch (Exception release) when (first is not null) { throw new AggregateException(first, release); }
+        }
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<string> StageHeld(ExtensionAuthority.Operation operation, ExtensionProposal.StageFile proposal, Stream data,
+        ExtensionAuthority.Operation.StagingScope scope, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, scope.Token);
         // The opaque request ID is a leaf name only. CreateNew decides whether this operation owns its content.
         var file = Path.Combine(_path, $"{proposal.RequestId:N}.stage");
         FileStream? owned = null;
@@ -82,7 +96,7 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
         if (workFailure is not null) ExceptionDispatchInfo.Capture(workFailure).Throw();
         if (cleanupFailure is not null) ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
         var receipt = digest ?? throw new InvalidOperationException("Staging completed without a digest.");
-        operation.Complete(static () => { }, timeout.Token);
+        scope.Complete(timeout.Token);
         return receipt;
     }
 }
