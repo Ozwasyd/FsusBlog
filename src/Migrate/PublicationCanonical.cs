@@ -38,13 +38,17 @@ internal static partial class Migration
         long count = 0;
         string? receipt = null;
         await using (var command = new NpgsqlCommand($"""
+            with canonical_outbox as materialized (
+                select e.* from public.article_publication_canonical e
+                join public.blog_outbox o on o.id=e.outbox_id and o.article_id=e.article_id and o.revision=e.revision and o.kind=e.outbox_kind
+                where ($1 is null or e.publication_id=$1)
+            )
             select {PublicationCanonicalFacts.Columns},e.outbox_id,e.content_sha256,e.policy_sha256
-            from public.article_publication_canonical e join public.article_publication_history h
+            from canonical_outbox e join public.article_publication_history h
               on h.publication_id=e.publication_id and h.article_id=e.article_id and h.revision=e.revision
               and h.publication_no=e.publication_no and h.happened_at=e.published_at and h.kind=e.transition
             {PublicationCanonicalFacts.RevisionJoins}
-            join public.blog_outbox o on o.id=e.outbox_id and o.article_id=e.article_id and o.revision=e.revision and o.kind=e.outbox_kind
-            where ($1 is null or e.publication_id=$1) and s.id=e.rights_snapshot_id
+            where s.id=e.rights_snapshot_id
             order by e.publication_id
             """, connection, tx))
         {
