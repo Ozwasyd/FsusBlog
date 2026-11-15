@@ -195,6 +195,8 @@ public enum FrameType : ushort
     ArticleBodyInsertionCommand = 33032,
     DraftRevisionBodyInsertion = 33033,
     PropertyTextHitRequest = 33034,
+    AuthorTextPropertyTextQualifiedQuery = 33035,
+    AuthorTextPropertyTextQualifiedPage = 33036,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -268,6 +270,7 @@ public static class WireLimits
     public const int MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
     public const int MaxAuthorTextPropertySortQueryFrameBytes = 263161;
     public const int MaxAuthorTextPropertyTextQueryFrameBytes = 263134;
+    public const int MaxAuthorTextPropertyTextQualifiedQueryFrameBytes = 263185;
     public const int AuthorTextPropertyTextSourceChars = 16384;
     public const int AuthorTextSearchRows = 20;
     public const int AuthorTextSearchStateCount = 4;

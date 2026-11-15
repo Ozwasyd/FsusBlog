@@ -62,6 +62,7 @@ inline constexpr uint32_t MaxAuthorTextQualifiedQueryFrameBytes = 263110;
 inline constexpr uint32_t MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
 inline constexpr uint32_t MaxAuthorTextPropertySortQueryFrameBytes = 263161;
 inline constexpr uint32_t MaxAuthorTextPropertyTextQueryFrameBytes = 263134;
+inline constexpr uint32_t MaxAuthorTextPropertyTextQualifiedQueryFrameBytes = 263185;
 inline constexpr uint32_t AuthorTextPropertyTextSourceChars = 16384;
 inline constexpr uint32_t AuthorTextSearchRows = 20;
 inline constexpr uint32_t AuthorTextSearchStateCount = 4;
@@ -569,6 +570,8 @@ enum class FrameType : uint16_t {
     ArticleBodyInsertionCommand = 33032,
     DraftRevisionBodyInsertion = 33033,
     PropertyTextHitRequest = 33034,
+    AuthorTextPropertyTextQualifiedQuery = 33035,
+    AuthorTextPropertyTextQualifiedPage = 33036,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -776,6 +779,8 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleBodyInsertionCommand:
         case FrameType::DraftRevisionBodyInsertion:
         case FrameType::PropertyTextHitRequest:
+        case FrameType::AuthorTextPropertyTextQualifiedQuery:
+        case FrameType::AuthorTextPropertyTextQualifiedPage:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

@@ -31,6 +31,8 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var flag = await Create(owner, "visible", PropertyFieldKind.Boolean);
         flag = Advance(owner, flag, await Send(WireRoutes.PropertyFilterability,
             Wire.EncodePropertyFilterabilityCommand(new(flag.Id, Guid.NewGuid(), owner.SchemaRevision, flag.Revision, true)), owner));
+        var order = await Create(owner, "priority", PropertyFieldKind.Number);
+        order = await ChangeFlags(owner, order, searchEligible: false, sortable: true);
         var foreignField = await Create(stranger, "research", PropertyFieldKind.Text, selected.Id);
         foreignField = await EnableText(stranger, foreignField, true);
 
@@ -46,9 +48,14 @@ public sealed class AuthorTextPropertyTextPostgresTests
             await Put(owner, article, selected, new PropertyFieldValue.Text(input));
         }
         await Put(owner, cohort[0], flag, new PropertyFieldValue.Boolean(true));
+        await Put(owner, cohort[^1], flag, new PropertyFieldValue.Boolean(false));
+        await Put(owner, cohort[0], order, new PropertyFieldValue.Number(20));
+        await Put(owner, cohort[^1], order, new PropertyFieldValue.Number(10));
         var unrelated = await Save(owner, "Café orbit in the title", "Café orbit in the body");
         await Put(owner, unrelated, selected, new PropertyFieldValue.Text("Café distant orbit"));
         await Put(owner, unrelated, other, new PropertyFieldValue.Text(input));
+        await Put(owner, unrelated, flag, new PropertyFieldValue.Boolean(true));
+        await Put(owner, unrelated, order, new PropertyFieldValue.Number(0));
         var foreign = await Save(stranger, "Foreign property article", "Independent body");
         await Put(stranger, foreign, foreignField, new PropertyFieldValue.Text(input));
 
@@ -127,6 +134,50 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var filteredPage = await Ready(filtered, owner);
         Assert.Equal(1, filteredPage.Total);
         Assert.Equal(cohort[0].Id, Assert.Single(filteredPage.Rows).Id);
+
+        var composition = new AuthorTextPropertyTextQualifiedQuery(query.Search with
+        {
+            Query = $"field.property:{phrase} status:draft",
+            UpdatedFromUnixMs = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeMilliseconds(),
+        }, selected.Id, selected.Revision, new(flag.Id, flag.Revision),
+            new(order.Id, order.Revision, AuthorTextPropertySortDirection.Ascending));
+        var composed = await ReadComposed(composition, owner);
+        Assert.True(composed.Search.Ready);
+        Assert.Equal(cohort.Count, composed.Search.Total);
+        Assert.Equal(new[] { cohort[^1].Id, cohort[0].Id }, composed.Search.Rows.Take(2).Select(row => row.Id));
+        Assert.All(composed.Search.Rows, row =>
+        {
+            Assert.Equal(5, row.Field);
+            Assert.Equal("Café", row.Snippet[row.HighlightStart..row.HighlightEnd]);
+        });
+        Assert.DoesNotContain(composed.Search.Rows, row => row.Id == unrelated.Id || row.Id == foreign.Id);
+        RequireBooleanFacet(composed, cohort.Count - 2, falseCount: 1, trueCount: 1);
+        Assert.NotEmpty(composed.Search.NextCursor);
+        var composedAfter = composition with { Search = composition.Search with { Cursor = composed.Search.NextCursor } };
+        var composedLast = await ReadComposed(composedAfter, owner);
+        Assert.Empty(composedLast.Search.NextCursor);
+        Assert.Single(composedLast.Search.Rows);
+        RequireBooleanFacet(composedLast, cohort.Count - 2, falseCount: 1, trueCount: 1);
+        Assert.Equal(cohort.Select(article => article.Id).Order(),
+            composed.Search.Rows.Concat(composedLast.Search.Rows).Select(row => row.Id).Order());
+        await RejectComposed(composedAfter with
+        {
+            Sort = composition.Sort! with { Direction = AuthorTextPropertySortDirection.Descending },
+        }, owner, HttpStatusCode.Conflict);
+        await RejectComposed(composedAfter with { Facet = null }, owner, HttpStatusCode.Conflict);
+        await Reject(new(composedAfter.Search, selected.Id, selected.Revision), owner, HttpStatusCode.Conflict);
+
+        RequireBooleanFacet(await ReadComposed(composition with { Sort = null }, owner), cohort.Count - 2, falseCount: 1, trueCount: 1);
+        var orderedOnly = await ReadComposed(composition with { Facet = null }, owner);
+        Assert.Null(orderedOnly.Facet);
+        Assert.Equal(composed.Search.Rows.Select(row => row.Id), orderedOnly.Search.Rows.Select(row => row.Id));
+        var narrowed = await ReadComposed(composition with
+        {
+            Search = composition.Search with { Conditions = filtered.Search.Conditions },
+        }, owner);
+        Assert.Equal(cohort[0].Id, Assert.Single(narrowed.Search.Rows).Id);
+        RequireBooleanFacet(narrowed, 0, falseCount: 0, trueCount: 1);
+
         Assert.Equal(unrelated.Id, Assert.Single((await Ready(Query(owner, other, phrase), owner)).Rows).Id);
         Assert.Equal(foreign.Id, Assert.Single((await Ready(Query(stranger, foreignField, phrase), stranger)).Rows).Id);
         await Reject(Query(owner, selected, "field.title:café"), owner, HttpStatusCode.BadRequest);
@@ -161,6 +212,24 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await ReadHit(pinned, owner, HttpStatusCode.Conflict);
         Assert.Equal(revisions[hit.ArticleId], Wire.DecodePropertyEditor(await ReadHit(hit, owner)).ValueRevision);
 
+        var beforeSortEdit = await ReadComposed(composition, owner);
+        var beforeSortEditAfter = composition with { Search = composition.Search with { Cursor = beforeSortEdit.Search.NextCursor } };
+        var offPage = Assert.Single((await ReadComposed(beforeSortEditAfter, owner)).Search.Rows);
+        await Put(owner, Assert.Single(cohort, article => article.Id == offPage.Id), order, new PropertyFieldValue.Number(-100));
+        await RejectComposed(beforeSortEditAfter, owner, HttpStatusCode.Conflict);
+        var moved = await ReadComposed(composition, owner);
+        Assert.Equal(offPage.Id, moved.Search.Rows[0].Id);
+        Assert.Equal(offPage.Revision, moved.Search.Rows[0].Revision);
+        Assert.Equal(offPage.SourceDigest, moved.Search.Rows[0].SourceDigest);
+        RequireBooleanFacet(moved, cohort.Count - 2, falseCount: 1, trueCount: 1);
+
+        order = await ChangeFlags(owner, order, searchEligible: false, sortable: false);
+        await RejectComposed(composition with
+        {
+            Search = composition.Search with { SchemaRevision = owner.SchemaRevision },
+            Sort = composition.Sort! with { DefinitionRevision = order.Revision },
+        }, owner, HttpStatusCode.NotFound);
+
         selected = await EnableText(owner, selected, false);
         await Reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
         await using var count = Store.Sql(db, null, "select count(*) from public.author_text_document where owner_id=$1", owner.Id);
@@ -186,6 +255,24 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         Task<byte[]> Reject(AuthorTextPropertyTextQuery request, Actor actor, HttpStatusCode status) =>
             Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQuery(request), actor, status);
+
+        async Task<AuthorTextPropertySortPage> ReadComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor) =>
+            Wire.DecodeAuthorTextPropertyTextQualifiedPage(
+                await Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor),
+                expectFacet: request.Facet is not null);
+
+        Task<byte[]> RejectComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor, HttpStatusCode status) =>
+            Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor, status);
+
+        void RequireBooleanFacet(AuthorTextPropertySortPage page, int missing, int falseCount, int trueCount)
+        {
+            var facet = Assert.IsType<AuthorTextPropertyFacet>(page.Facet);
+            Assert.Equal((flag.Id, flag.Revision, PropertyFieldKind.Boolean, missing, 0, 0),
+                (facet.DefinitionId, facet.DefinitionRevision, facet.Kind, facet.Missing, facet.Null, facet.Empty));
+            Assert.Collection(facet.Buckets,
+                bucket => Assert.Equal(new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(false), falseCount), bucket),
+                bucket => Assert.Equal(new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(true), trueCount), bucket));
+        }
 
         Task<byte[]> ReadHit(PropertyTextHitRequest request, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
             Send(WireRoutes.PropertyEditor, Wire.EncodePropertyTextHitRequest(request), actor, status);
@@ -223,9 +310,13 @@ public sealed class AuthorTextPropertyTextPostgresTests
             return Advance(actor, field, await Send(WireRoutes.PropertySchemaCommand, data, actor));
         }
 
-        async Task<Field> EnableText(Actor actor, Field field, bool enabled)
+        Task<Field> EnableText(Actor actor, Field field, bool enabled) =>
+            ChangeFlags(actor, field, searchEligible: enabled, sortable: false);
+
+        async Task<Field> ChangeFlags(Actor actor, Field field, bool searchEligible, bool sortable)
         {
-            var flags = Wire.EncodePropertyDefinitionProjectionCommand(new(field.Id, Guid.NewGuid(), actor.SchemaRevision, field.Revision, enabled, false));
+            var flags = Wire.EncodePropertyDefinitionProjectionCommand(new(field.Id, Guid.NewGuid(), actor.SchemaRevision, field.Revision,
+                searchEligible, sortable));
             return Advance(actor, field, await Send(WireRoutes.PropertySchemaCommand, flags, actor));
         }
 

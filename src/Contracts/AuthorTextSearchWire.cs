@@ -229,7 +229,7 @@ public static partial class Wire
 
     private static int AuthorTextMaxField(FrameType type) => type switch
     {
-        FrameType.AuthorTextPropertyTextPage => 5,
+        FrameType.AuthorTextPropertyTextPage or FrameType.AuthorTextPropertyTextQualifiedPage => 5,
         FrameType.AuthorTextHeadingPage => 4,
         FrameType.AuthorTextSummaryPage => 3,
         _ => 2,

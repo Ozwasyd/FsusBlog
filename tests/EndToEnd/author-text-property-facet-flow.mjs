@@ -5,6 +5,7 @@ import {
   decodeAuthorTextPropertyFacetPage, decodeAuthorTextPropertyFacetQuery,
   decodeAuthorTextPropertySortPage, decodeAuthorTextPropertySortQuery,
   decodeAuthorTextPropertyTextPage, decodeAuthorTextPropertyTextQuery, decodeAuthorTextSummaryPage,
+  decodeAuthorTextPropertyTextQualifiedPage, decodeAuthorTextPropertyTextQualifiedQuery,
 } from '../../src/Contracts/author-text-search.ts'
 import { decodePropertyEditor, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import { decodePropertyTextHitRequest } from '../../src/Contracts/property-text-hit.ts'
@@ -195,8 +196,6 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       const jump = draft => results.getByRole('listitem').filter({ has: page.getByRole('link', { name: draft.title, exact: true }) })
         .getByRole('button', { name: '跳到命中位置', exact: true })
       let current = await openPropertySearch()
-      assert.equal(await sortSelector.count(), 0)
-      assert.equal(await selector.count(), 0)
       const lexical = await searchProperty()
       assert.equal(lexical.page.total, 2)
       assert.deepEqual(new Set(lexical.page.rows.map(row => row.id)), new Set([drafts[0].id, drafts[2].id]))
@@ -228,7 +227,16 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       observations.push('At 375px the explicitly selected Text property matches saved private text without body fallback, retains date/status and Boolean conditions, exposes the normal article link, and returns to ordinary body search when cleared.')
 
       current = await openPropertySearch()
-      const positive = await searchProperty()
+      await selector.click()
+      await page.getByRole('option', { name: 'Editorial approval · editorial-approval', exact: true }).click()
+      await sortSelector.click()
+      await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).click()
+      const positive = await searchProperty(true)
+      assert.deepEqual(positive.query.facet, { definitionId: fields.approval.definitionId, definitionRevision: fields.approval.definitionRevision })
+      assert.deepEqual(positive.query.sort, { definitionId: fields.score.definitionId, definitionRevision: sortable.revision, direction: 'ascending' })
+      assert.deepEqual(positive.page.rows.map(row => row.id), [drafts[0].id, drafts[2].id])
+      await facet.getByRole('heading', { name: 'Editorial approval', exact: true }).waitFor()
+      await counts({ 尚未设置: 1, 显式空值: 0, 否: 1, 是: 0 })
       const draft = drafts[2]
       const hit = exactPropertyRow(positive.page, draft)
       const editor = `${origin}/user/manage/article/edit/${draft.id}`
@@ -259,6 +267,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
       assert.equal(new URL(page.url()).search, '')
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+      observations.push('At 375px a selected Text field combines with a Boolean property facet and numeric ordering. Normal body text is excluded, and the sorted, faceted query is replayed exactly before opening the private property hit.')
       observations.push('At 375px a keyboard property hit replays identical search bytes, pins the exact saved value revision, and focuses and selects its UTF-16 range in the native FsusUI Inspector input.')
 
       current = await openPropertySearch()
@@ -335,7 +344,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
         assert.equal(response.status(), 200)
         assert.equal(response.request().headers()[credential], current)
         assert.deepEqual(response.request().postDataBuffer(), previous.response.request().postDataBuffer())
-        const fresh = decodeAuthorTextPropertyTextPage(decodeFrame(await response.body(), FrameType.AuthorTextPropertyTextPage).payload)
+        const fresh = previous.decode(decodeFrame(await response.body(), previous.frame).payload)
         assert.deepEqual(exactPropertyRow(fresh, draft), hit)
       }
 
@@ -394,15 +403,19 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
           value: { kind: 'text', value: privateText } })
       }
 
-      async function searchProperty() {
-        const found = await submitSearch(FrameType.AuthorTextPropertyTextPage, decodeAuthorTextPropertyTextPage)
-        const sent = decodeAuthorTextPropertyTextQuery(decodeFrame(found.response.request().postDataBuffer(), FrameType.AuthorTextPropertyTextQuery).payload)
+      async function searchProperty(qualified = false) {
+        const frame = qualified ? FrameType.AuthorTextPropertyTextQualifiedPage : FrameType.AuthorTextPropertyTextPage
+        const decode = qualified ? payload => decodeAuthorTextPropertyTextQualifiedPage(payload, true).search : decodeAuthorTextPropertyTextPage
+        const requestFrame = qualified ? FrameType.AuthorTextPropertyTextQualifiedQuery : FrameType.AuthorTextPropertyTextQuery
+        const decodeQuery = qualified ? decodeAuthorTextPropertyTextQualifiedQuery : decodeAuthorTextPropertyTextQuery
+        const found = await submitSearch(frame, decode)
+        const sent = decodeQuery(decodeFrame(found.response.request().postDataBuffer(), requestFrame).payload)
         assert.equal(sent.search.query, `status:draft ${textMarker}`)
         assert.equal(sent.search.schema, eligible.schemaRevision)
         assert.equal(sent.definitionId, fields.subtitle.definitionId)
         assert.equal(sent.definitionRevision, eligible.revision)
         assert(found.page.rows.every(row => row.field === 'property-text' && row.snippet.slice(row.highlightStart, row.highlightEnd) === textMarker))
-        return { ...found, query: sent }
+        return { ...found, query: sent, frame, decode }
       }
 
       async function submitSearch(frame, decode) {

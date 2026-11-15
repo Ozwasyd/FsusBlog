@@ -9,19 +9,22 @@ internal static partial class AuthorTextIndex
 {
     internal static async Task<AuthorTextFacetedPage> ReadPropertyText(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextPropertyTextQuery query, AuthorTextRankKey? after, byte[]? expectedGeneration,
-        CancellationToken ct)
+        CancellationToken ct, PropertyStore.FacetSelection? facet = null, PropertyStore.SortSelection? sort = null)
     {
         ValidateContinuation(after, expectedGeneration);
         var properties = new PropertyStore(db, tx, actor);
         var search = query.Search;
         AuthorTextPropertyScope text;
         PropertyStore.Condition[] conditions = [];
+        PropertyStore.FacetDefinition? facetDefinition = null;
+        PropertyStore.SortDefinition? sortDefinition = null;
         try
         {
             // Hold the property scope before any reference or result article locks.
             text = await properties.ResolveTextProjection(search.SchemaRevision, query.DefinitionId, query.DefinitionRevision, ct);
-            if (search.Conditions.Count != 0)
-                conditions = await properties.ResolveQuery(search.SchemaRevision, search.Conditions, ct);
+            if (search.Conditions.Count != 0 || facet.HasValue || sort.HasValue)
+                (conditions, facetDefinition, sortDefinition) =
+                    await properties.ResolveSearchQuery(search.SchemaRevision, search.Conditions, facet, sort, ct);
             await Store.LockCommand(db, tx, actor.Id, Scope, ct);
             if (conditions.Length != 0) await properties.ValidateQueryReferences(conditions, ct);
         }
@@ -40,7 +43,7 @@ internal static partial class AuthorTextIndex
 
         if (after is null) await properties.ReconcileTextProjection(text, ct);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, null, PropertyText: text));
+            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, facetDefinition, sortDefinition, text));
     }
 
     private readonly record struct PropertyTextParameters(int Definition, int Revision);

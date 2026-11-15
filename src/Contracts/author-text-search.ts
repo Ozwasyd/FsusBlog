@@ -72,6 +72,9 @@ export type AuthorTextPropertyFacetBucket = Readonly<{
 }>;
 
 export type AuthorTextPropertySortDirection = 'ascending' | 'descending';
+export type AuthorTextPropertySortSelector = AuthorTextPropertyFacetSelector & Readonly<{
+  direction: AuthorTextPropertySortDirection;
+}>;
 export type AuthorTextPropertySortQuery = Readonly<{
   search: AuthorTextQualifiedQuery;
   includeHeading: boolean;
@@ -87,6 +90,14 @@ export type AuthorTextPropertySortPage = AuthorTextPropertyFacetPage;
 
 export type AuthorTextPropertyTextQuery = AuthorTextPropertyFacetSelector & Readonly<{ search: AuthorTextQualifiedQuery }>;
 export type DecodedAuthorTextPropertyTextQuery = Omit<AuthorTextPropertyTextQuery, 'search'> & Readonly<{
+  search: DecodedAuthorTextQualifiedQuery;
+}>;
+
+export type AuthorTextPropertyTextQualifiedQuery = AuthorTextPropertyTextQuery & Readonly<{
+  facet: AuthorTextPropertyFacetSelector | null;
+  sort: AuthorTextPropertySortSelector | null;
+}>;
+export type DecodedAuthorTextPropertyTextQualifiedQuery = Omit<AuthorTextPropertyTextQualifiedQuery, 'search'> & Readonly<{
   search: DecodedAuthorTextQualifiedQuery;
 }>;
 
@@ -377,8 +388,12 @@ function validatePropertySortQuery(value: AuthorTextPropertySortQuery | DecodedA
 export function decodeAuthorTextPropertySortPage(
   payload: Uint8Array, includeHeading = true, expectFacet?: boolean,
 ): AuthorTextPropertySortPage {
+  return decodeOptionalPropertyFacetPage(payload, includeHeading ? 4 : 3, expectFacet);
+}
+
+function decodeOptionalPropertyFacetPage(payload: Uint8Array, maxField: number, expectFacet?: boolean): AuthorTextPropertySortPage {
   const reader = new PodReader(payload);
-  const search = readFacetedPage(reader, includeHeading ? 4 : 3);
+  const search = readFacetedPage(reader, maxField);
   const facet = search.ready && reader.bool() ? readPropertyFacet(reader, search.total) : null;
   reader.finish();
   if (search.ready && expectFacet !== undefined && expectFacet !== (facet !== null))
@@ -408,9 +423,67 @@ export function decodeAuthorTextPropertyTextQuery(payload: Uint8Array): DecodedA
 
 export function decodeAuthorTextPropertyTextPage(payload: Uint8Array): AuthorTextFacetedPage {
   const page = decodeFacetedPage(payload, 5);
+  validatePropertyTextRows(page);
+  return page;
+}
+
+export function encodeAuthorTextPropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery): Uint8Array<ArrayBuffer> {
+  validatePropertyTextQualifiedQuery(value);
+  const writer = new PodWriter();
+  writeQualifiedQuery(writer, value.search, false, true);
+  writer.uuid(value.definitionId);
+  writer.i64(value.definitionRevision);
+  writer.bool(value.facet !== null);
+  if (value.facet !== null) {
+    writer.uuid(value.facet.definitionId);
+    writer.i64(value.facet.definitionRevision);
+  }
+  writer.bool(value.sort !== null);
+  if (value.sort !== null) {
+    writer.uuid(value.sort.definitionId);
+    writer.i64(value.sort.definitionRevision);
+    writer.bool(value.sort.direction === 'descending');
+  }
+  return encodeFrame(FrameType.AuthorTextPropertyTextQualifiedQuery, writer.finish());
+}
+
+export function decodeAuthorTextPropertyTextQualifiedQuery(payload: Uint8Array): DecodedAuthorTextPropertyTextQualifiedQuery {
+  if (payload.length > WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes - WireHeader.HeaderSize)
+    throw new ProtocolError('Author text search query exceeds its frame limit');
+  const reader = new PodReader(payload);
+  const search = readQualifiedQuery(reader, false, true);
+  const definitionId = reader.uuid(), definitionRevision = reader.i64();
+  const facet = reader.bool() ? { definitionId: reader.uuid(), definitionRevision: reader.i64() } : null;
+  const sort: AuthorTextPropertySortSelector | null = reader.bool() ? {
+    definitionId: reader.uuid(), definitionRevision: reader.i64(), direction: reader.bool() ? 'descending' : 'ascending',
+  } : null;
+  reader.finish();
+  const value = { search, definitionId, definitionRevision, facet, sort };
+  validatePropertyTextQualifiedQuery(value);
+  return value;
+}
+
+export function decodeAuthorTextPropertyTextQualifiedPage(payload: Uint8Array, expectFacet: boolean): AuthorTextPropertySortPage {
+  const page = decodeOptionalPropertyFacetPage(payload, 5, expectFacet);
+  validatePropertyTextRows(page.search);
+  return page;
+}
+
+function validatePropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery | DecodedAuthorTextPropertyTextQualifiedQuery): void {
+  const schema = value.search.schema;
+  validatePropertySelector(value, schema);
+  if (value.facet === null && value.sort === null) throw new ProtocolError('A property facet or sort is required');
+  if (value.facet !== null) validatePropertySelector(value.facet, schema);
+  if (value.sort !== null) {
+    validatePropertySelector(value.sort, schema);
+    if (value.sort.direction !== 'ascending' && value.sort.direction !== 'descending')
+      throw new ProtocolError('Invalid author text property sort direction');
+  }
+}
+
+function validatePropertyTextRows(page: AuthorTextFacetedPage): void {
   if (page.rows.some(row => row.field !== 'property-text'))
     throw new ProtocolError('Invalid author text property search row');
-  return page;
 }
 
 function readPropertyFacet(reader: PodReader, total: number): AuthorTextPropertyFacet {

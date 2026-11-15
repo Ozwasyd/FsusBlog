@@ -6,6 +6,7 @@ import {
   decodeAuthorTextPropertyFacetPage, encodeAuthorTextPropertyFacetQuery,
   decodeAuthorTextPropertySortPage, encodeAuthorTextPropertySortQuery,
   decodeAuthorTextPropertyTextPage, encodeAuthorTextPropertyTextQuery, type AuthorTextPropertyTextQuery,
+  decodeAuthorTextPropertyTextQualifiedPage, encodeAuthorTextPropertyTextQualifiedQuery, type AuthorTextPropertyTextQualifiedQuery,
   type AuthorTextPropertySortPage, type AuthorTextPropertySortQuery,
   type AuthorTextPropertyFacetPage, type AuthorTextPropertyFacetQuery,
   type AuthorTextFacetedPage, type AuthorTextQualifiedQuery,
@@ -69,4 +70,12 @@ export function authorTextPropertyTextSearch(
 ): Promise<AuthorTextFacetedPage> {
   return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextPage, decodeAuthorTextPropertyTextPage,
     signal, 'POST', encodeAuthorTextPropertyTextQuery(input), siteSessionHeader(session));
+}
+
+export function authorTextPropertyTextQualifiedSearch(
+  input: AuthorTextPropertyTextQualifiedQuery, session: string, signal: AbortSignal,
+): Promise<AuthorTextPropertySortPage> {
+  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextQualifiedPage,
+    payload => decodeAuthorTextPropertyTextQualifiedPage(payload, input.facet !== null), signal, 'POST',
+    encodeAuthorTextPropertyTextQualifiedQuery(input), siteSessionHeader(session));
 }

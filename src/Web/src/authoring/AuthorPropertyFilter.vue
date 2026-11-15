@@ -346,7 +346,7 @@ async function search(more = false) {
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
       </template>
-      <template v-if="embedded && !textSource && facetFields.length">
+      <template v-if="embedded && facetFields.length">
         <label :for="facetId">属性分面字段</label>
         <ElSelect :id="facetId" v-model="facetSelection" ariaLabel="属性分面字段" :disabled="busy">
           <ElOption value="" label="不显示属性分面" />
@@ -354,7 +354,7 @@ async function search(more = false) {
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
       </template>
-      <template v-if="embedded && !textSource && sortFields.length">
+      <template v-if="embedded && sortFields.length">
         <label :for="sortId">属性排序字段</label>
         <ElSelect :id="sortId" v-model="sortSelection" ariaLabel="属性排序字段" :disabled="busy">
           <ElOption value="" label="默认搜索顺序" />

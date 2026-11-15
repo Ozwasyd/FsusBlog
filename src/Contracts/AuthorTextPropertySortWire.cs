@@ -2,6 +2,7 @@ namespace FsusBlog.V2.Contracts;
 
 public enum AuthorTextPropertySortDirection { Ascending = 0, Descending = 1 }
 public sealed record AuthorTextPropertyFacetSelector(Guid DefinitionId, long DefinitionRevision);
+public sealed record AuthorTextPropertySortSelector(Guid DefinitionId, long DefinitionRevision, AuthorTextPropertySortDirection Direction);
 public sealed record AuthorTextPropertySortQuery(AuthorTextQualifiedQuery Search, bool IncludeHeading, Guid DefinitionId,
     long DefinitionRevision, AuthorTextPropertySortDirection Direction, AuthorTextPropertyFacetSelector? Facet);
 public sealed record AuthorTextPropertySortPage(AuthorTextFacetedPage Search, AuthorTextPropertyFacet? Facet);
@@ -42,24 +43,31 @@ public static partial class Wire
         return value;
     }
 
-    public static byte[] EncodeAuthorTextPropertySortPage(AuthorTextPropertySortPage value, bool includeHeading = true)
+    public static byte[] EncodeAuthorTextPropertySortPage(AuthorTextPropertySortPage value, bool includeHeading = true) =>
+        EncodeAuthorTextOptionalPropertyFacetPage(value, FrameType.AuthorTextPropertySortPage, AuthorTextPropertyFacetMaxField(includeHeading));
+
+    private static byte[] EncodeAuthorTextOptionalPropertyFacetPage(AuthorTextPropertySortPage value, FrameType type, int maxField)
     {
         if (!value.Search.Ready && value.Facet is not null) throw InvalidAuthorTextPropertySort();
         var writer = new Writer();
-        WriteAuthorTextFacetedPage(writer, value.Search, AuthorTextPropertyFacetMaxField(includeHeading));
+        WriteAuthorTextFacetedPage(writer, value.Search, maxField);
         if (value.Search.Ready)
         {
             writer.Bool(value.Facet is not null);
             if (value.Facet is { } facet) WriteAuthorTextPropertyFacet(writer, facet, value.Search.Total);
         }
-        return Aeds.Encode(FrameType.AuthorTextPropertySortPage, writer.Written);
+        return Aeds.Encode(type, writer.Written);
     }
 
     public static AuthorTextPropertySortPage DecodeAuthorTextPropertySortPage(ReadOnlySpan<byte> frame, bool includeHeading = true,
-        bool? expectFacet = null)
+        bool? expectFacet = null) =>
+        DecodeAuthorTextOptionalPropertyFacetPage(frame, FrameType.AuthorTextPropertySortPage, AuthorTextPropertyFacetMaxField(includeHeading), expectFacet);
+
+    private static AuthorTextPropertySortPage DecodeAuthorTextOptionalPropertyFacetPage(ReadOnlySpan<byte> frame, FrameType type,
+        int maxField, bool? expectFacet)
     {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertySortPage));
-        var search = ReadAuthorTextFacetedPage(ref reader, AuthorTextPropertyFacetMaxField(includeHeading));
+        var reader = new Reader(Aeds.Decode(frame, type));
+        var search = ReadAuthorTextFacetedPage(ref reader, maxField);
         var facet = search.Ready && reader.Bool() ? ReadAuthorTextPropertyFacet(ref reader, search.Total) : null;
         reader.Finish();
         if (search.Ready && expectFacet.HasValue && expectFacet.Value != (facet is not null))

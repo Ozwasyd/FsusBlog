@@ -100,4 +100,41 @@ if (Wire.DecodeAdminClusterStatus(Fixture("admin-cluster-status-v2.hex")) != clu
 Reject(() => Wire.EncodeAdminClusterStatus(cluster with { LeaseAgeMs = 1000 }));
 Reject(() => Wire.EncodeAdminClusterStatus(cluster with { NodeId = "lab-a\n" }));
 Reject(() => Wire.EncodeAdminClusterStatus(cluster with { Mode = 2 }));
+var propertyText = new AuthorTextPropertyTextQuery(new("Orbit", "", null, null, 10, []),
+    Guid.Parse("11111111-1111-4111-8111-111111111111"), 3);
+var facetSelector = new AuthorTextPropertyFacetSelector(Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-000000000007"), 4);
+var sortSelector = new AuthorTextPropertySortSelector(Guid.Parse("12345678-1234-4000-9000-123456789abc"), 5,
+    AuthorTextPropertySortDirection.Descending);
+var qualifiedPropertyText = new AuthorTextPropertyTextQualifiedQuery(propertyText.Search, propertyText.DefinitionId,
+    propertyText.DefinitionRevision, facetSelector, sortSelector);
+var propertyTextPayload = Convert.FromHexString(
+    "050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000");
+var qualifiedPropertyPayload = Convert.FromHexString(
+    "01aaaaaaaaaaaa4aaa8aaa00000000000704000000000000000112345678123440009000123456789abc050000000000000001");
+Equal(propertyTextPayload, Aeds.Decode(Wire.EncodeAuthorTextPropertyTextQuery(propertyText), FrameType.AuthorTextPropertyTextQuery));
+var qualifiedPropertyFrame = Aeds.Encode(FrameType.AuthorTextPropertyTextQualifiedQuery, [.. propertyTextPayload, .. qualifiedPropertyPayload]);
+Equal(qualifiedPropertyFrame, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(qualifiedPropertyText));
+Equal(qualifiedPropertyFrame, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(Wire.DecodeAuthorTextPropertyTextQualifiedQuery(qualifiedPropertyFrame)));
+Reject(() => Wire.DecodeAuthorTextPropertyTextQuery(qualifiedPropertyFrame));
+Reject(() => Wire.EncodeAuthorTextPropertyTextQualifiedQuery(qualifiedPropertyText with { Facet = null, Sort = null }));
+Reject(() => Wire.DecodeAuthorTextPropertyTextQualifiedQuery(Aeds.Encode(FrameType.AuthorTextPropertyTextQualifiedQuery,
+    [.. propertyTextPayload, 0, 0])));
+
+var propertySourceDigest = Convert.FromHexString("88c0ad4bb018b4f9fa932dff490c9616d779ca27e05d87a6288d37483d5a0ddd");
+var propertyHit = new AuthorTextSearchRow(4, 23, "Harbor", 5, "Orbit", 0, 5, 16_379, 16_384, 49_137, 49_142, propertySourceDigest);
+var lexicalPage = new AuthorTextFacetedPage(true, "", 1, [1, 0, 0, 0], false, [], false, [], [propertyHit]);
+var facetData = new AuthorTextPropertyFacet(facetSelector.DefinitionId, facetSelector.DefinitionRevision, PropertyFieldKind.Boolean,
+    0, 0, 0, [new(new PropertyFieldValue.Boolean(false), 1), new(new PropertyFieldValue.Boolean(true), 0)]);
+var lexicalFacetFixture = Convert.FromHexString(
+    "0100000000010000000100000000000000000000000000000000000000000000000000010000000400000017" +
+    "0000000000000006000000486172626f7205000000050000004f726269740000000005000000fb3f00000040" +
+    "0000f1bf0000f6bf000088c0ad4bb018b4f9fa932dff490c9616d779ca27e05d87a6288d37483d5a0ddd" +
+    "01aaaaaaaaaaaa4aaa8aaa0000000000070400000000000000020000000000000000000000000000000200000000010000000100000000");
+var lexicalFacetFrame = Wire.EncodeAuthorTextPropertyTextQualifiedPage(new(lexicalPage, facetData));
+Equal(lexicalFacetFixture, Aeds.Decode(lexicalFacetFrame, FrameType.AuthorTextPropertyTextQualifiedPage));
+Equal(lexicalFacetFrame, Wire.EncodeAuthorTextPropertyTextQualifiedPage(Wire.DecodeAuthorTextPropertyTextQualifiedPage(lexicalFacetFrame, true)));
+Reject(() => Wire.DecodeAuthorTextPropertyTextQualifiedPage(lexicalFacetFrame, false));
+Reject(() => Wire.DecodeAuthorTextPropertySortPage(lexicalFacetFrame));
+Reject(() => Wire.EncodeAuthorTextPropertyTextQualifiedPage(new(lexicalPage with { Rows = [propertyHit with { Field = 2 }] }, facetData)));
+
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

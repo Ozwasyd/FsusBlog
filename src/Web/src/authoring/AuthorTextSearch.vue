@@ -3,7 +3,8 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
 import {
-  authorTextHeadingSearch, authorTextPropertyFacetSearch, authorTextPropertySortSearch, authorTextPropertyTextSearch,
+  authorTextHeadingSearch, authorTextPropertyFacetSearch, authorTextPropertySortSearch,
+  authorTextPropertyTextQualifiedSearch, authorTextPropertyTextSearch,
   authorTextSummarySearch,
 } from '../../../Contracts/author-text-ranked-client'
 import type {
@@ -147,8 +148,7 @@ function search() {
   return loadPage({
     query: text, includeHeading, updatedFromUnixMs: from, updatedUntilUnixMs: until,
     schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [],
-    facet: textSource.value ? undefined : facet.value, sort: textSource.value ? undefined : sort.value,
-    textSource: textSource.value,
+    facet: facet.value, sort: sort.value, textSource: textSource.value,
   }, '', [], false)
 }
 
@@ -160,14 +160,22 @@ async function readPage({ includeHeading, facet, sort, textSource, ...input }: S
     return read({ ...input, cursor }, session, signal)
   }
   const { schema } = selectedProperty
-  if ((input.schema && input.schema !== schema) || (facet && facet.schema !== schema))
+  if ((input.schema && input.schema !== schema) || (facet && facet.schema !== schema) || (sort && sort.schema !== schema))
     throw new ProtocolError('Inconsistent property catalog revision')
   const search = { ...input, schema, cursor }
   const selection = { definitionId: selectedProperty.field.id, definitionRevision: selectedProperty.field.revision }
-  if (textSource) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
-  const page = sort ? await authorTextPropertySortSearch({ search, includeHeading, ...selection, direction: sort.direction,
-    facet: facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null }, session, signal)
-    : await authorTextPropertyFacetSearch({ search, includeHeading, ...selection }, session, signal)
+  const facetSelection = facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null
+  let page
+  if (textSource) {
+    if (!facet && !sort) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
+    page = await authorTextPropertyTextQualifiedSearch({ search, ...selection, facet: facetSelection,
+      sort: sort ? { definitionId: sort.field.id, definitionRevision: sort.field.revision, direction: sort.direction } : null }, session, signal)
+  } else if (sort) {
+    page = await authorTextPropertySortSearch({ search, includeHeading, ...selection, direction: sort.direction,
+      facet: facetSelection }, session, signal)
+  } else {
+    page = await authorTextPropertyFacetSearch({ search, includeHeading, ...selection }, session, signal)
+  }
   if (!facet || !page.search.ready) return page.search
   const { field } = facet
   const matched = page.facet
@@ -226,7 +234,8 @@ function queryAvailabilityError(input: SearchInput, failure: unknown): string | 
   if (!(failure instanceof ApiError)) return
   if (input.includeHeading && failure.status === 422) return '有文章超出章节标题解析上限。仍可按标题、摘要或正文搜索。'
   if (input.textSource && (failure.status === 404 || failure.status === 409))
-    return '文本属性搜索来源已失效。请重新加载属性定义。'
+    return input.facet || input.sort ? '文本属性搜索的来源、排序或分面已失效。请重新加载属性定义。'
+      : '文本属性搜索来源已失效。请重新加载属性定义。'
   if (input.sort && (failure.status === 404 || failure.status === 409))
     return input.facet ? '属性排序或分面已失效。请重新加载属性定义。' : '属性排序已失效。请重新加载属性定义。'
   if (input.facet && (failure.status === 404 || failure.status === 409))

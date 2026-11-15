@@ -13,7 +13,7 @@ internal static class AuthorTextSearchEndpoints
         var cursors = new AuthorTextCursor(TimeProvider.System);
         app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, AuthorTextRebuildWorker rebuild, CancellationToken ct) =>
         {
-            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes, ct);
+            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
             var payload = await store.WithSession(token, true, async (db, tx, actor) =>
@@ -23,6 +23,7 @@ internal static class AuthorTextSearchEndpoints
                 Aeds.Decode(frame, out var type);
                 var maximum = type switch
                 {
+                    FrameType.AuthorTextPropertyTextQualifiedQuery => WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes,
                     FrameType.AuthorTextPropertyTextQuery => WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes,
                     FrameType.AuthorTextPropertySortQuery => WireLimits.MaxAuthorTextPropertySortQueryFrameBytes,
                     FrameType.AuthorTextPropertyFacetQuery => WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes,
@@ -32,25 +33,32 @@ internal static class AuthorTextSearchEndpoints
                 // Serialize under the account/session and exact result article locks.
                 // WithSession rechecks expiry and commits before sending any response.
                 byte[] encoded;
-                if (type == FrameType.AuthorTextPropertyTextQuery)
+                if (type is FrameType.AuthorTextPropertyTextQuery or FrameType.AuthorTextPropertyTextQualifiedQuery)
                 {
-                    var query = Wire.DecodeAuthorTextPropertyTextQuery(frame);
+                    var qualifiedText = type == FrameType.AuthorTextPropertyTextQualifiedQuery
+                        ? Wire.DecodeAuthorTextPropertyTextQualifiedQuery(frame) : null;
+                    var query = qualifiedText is null ? Wire.DecodeAuthorTextPropertyTextQuery(frame) :
+                        new AuthorTextPropertyTextQuery(qualifiedText.Search, qualifiedText.DefinitionId, qualifiedText.DefinitionRevision);
                     var search = query.Search;
                     var input = AuthorTextProfile.ParsePropertyText(search.Query);
                     if (!await CurrentSchema.HasAuthorTextPropertyIndexAsync(db, tx, ct))
                         throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
-                    var cursorQuery = Convert.ToHexStringLower(SHA256.HashData(Wire.EncodeAuthorTextPropertyTextQuery(query with
-                    {
-                        Search = search with { Cursor = "" },
-                    })));
+                    var cursorSearch = search with { Cursor = "" };
+                    var cursorQuery = Convert.ToHexStringLower(SHA256.HashData(qualifiedText is null
+                        ? Wire.EncodeAuthorTextPropertyTextQuery(query with { Search = cursorSearch })
+                        : Wire.EncodeAuthorTextPropertyTextQualifiedQuery(qualifiedText with { Search = cursorSearch })));
                     (AuthorTextRankKey Position, byte[] Generation)? after = search.Cursor.Length == 0
                         ? null : cursors.Decode(search.Cursor, actor, digest, cursorQuery, type);
-                    var page = await AuthorTextIndex.ReadPropertyText(db, tx, actor, input, query, after?.Position, after?.Generation, ct);
+                    var page = await AuthorTextIndex.ReadPropertyText(db, tx, actor, input, query, after?.Position, after?.Generation, ct,
+                        facet: qualifiedText?.Facet is { } facet ? new(facet.DefinitionId, facet.DefinitionRevision) : null,
+                        sort: qualifiedText?.Sort is { } sort ? new(sort.DefinitionId, sort.DefinitionRevision, sort.Direction) : null);
                     if (!page.Ready)
                         await rebuild.EnqueueProperty(db, tx, actor, query.DefinitionId, search.SchemaRevision, query.DefinitionRevision, ct);
                     var next = page.More ? cursors.Encode(page.Rows[^1].Key, page.Generation!, actor, digest, cursorQuery, type) : "";
-                    encoded = Wire.EncodeAuthorTextPropertyTextPage(new(page.Ready, next, page.Total, page.StateCounts,
-                        page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
+                    var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
+                        page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
+                    encoded = qualifiedText is null ? Wire.EncodeAuthorTextPropertyTextPage(response) :
+                        Wire.EncodeAuthorTextPropertyTextQualifiedPage(new(response, page.PropertyFacet));
                 }
                 else if (type == FrameType.AuthorTextSearchQuery)
                 {
