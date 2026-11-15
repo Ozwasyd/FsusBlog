@@ -7,6 +7,7 @@ public enum FrameType : ushort
     ArticleDetail = 2,
     ArticleHot = 3,
     ArticleSearch = 4,
+    PublicSearchWideManifest = 33004,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
     PowChallenge = 30,
@@ -254,6 +255,8 @@ public static class WireLimits
     public const int SearchCorpusPageBytes = 8388608;
     public const int SearchCorpusTotalBytes = 67108864;
     public const int SearchCorpusMaxPages = 128;
+    public const int SearchWideCorpusMaxPages = 512;
+    public const int SearchWideCorpusTotalBytes = 268435456;
     public const int SearchQueryChars = 128;
     public const int PublicArticleHotMaxSize = 100;
     public const int RelatedReadingMaxItems = 6;
@@ -436,6 +439,9 @@ public static class WireLayouts
     public const int SearchShardMagic = 0x32534846;
     public const int SearchResultMagic = 0x34525346;
     public const int SearchArtifactVersion = 4;
+    public const int SearchWideManifestVersion = 1;
+    public const int SearchWideManifestHeaderSize = 60;
+    public const int SearchWideManifestPageRecordSize = 60;
     public const int SearchPackageEntryOffset = 12;
     public const int SearchPackagePayloadOffset = 32;
     public const int SearchShardHeaderSize = 72;
@@ -556,6 +562,8 @@ public static class WireRoutes
     public const string TaxonomyAssignment = "/api/v2/authoring/taxonomy/assign.aeds";
     public const string PublicIndex = "/api/v2/public/index.aeds";
     public const string PublicSearchCorpus = "/api/v2/public/search-corpus";
+    public const string PublicSearchWideManifest = "/api/v2/public/search-corpus/wide/v1/manifest.aeds";
+    public const string PublicSearchWidePage = "/api/v2/public/search-corpus/wide/v1/pages/{page}";
     public const string InboxList = "/api/binary/messages/conversations";
     public const string InboxCreatePowChallenge = "/api/v2/notifications/inbox/pow-create.aeds";
     public const string InboxWriteAvailability = "/api/v2/notifications/inbox/write-availability.aeds";
@@ -742,6 +750,7 @@ public static class WireHeaders
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
+    public const string SearchCorpusDigest = "X-Fsus-Search-Corpus-Digest";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";

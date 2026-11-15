@@ -30,6 +30,7 @@ var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Con
 var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
 var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
+var wideSearchCorpus = builder.Configuration.GetValue(WideSearchCorpusEndpoints.Setting, false);
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var integrityKeys = new IntegrityKeys(builder.Configuration);
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
@@ -92,7 +93,13 @@ builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePag
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicSite,
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
+builder.Services.AddSingleton<PublicProjection>();
 builder.Services.AddSingleton<Publications>();
+if (wideSearchCorpus)
+{
+    builder.Services.AddSingleton<WideSearchCorpusSignal>();
+    builder.Services.AddHostedService<WideSearchCorpusWorker>();
+}
 builder.Services.AddSingleton(services => new InboxWake(connectionString, services.GetRequiredService<ILogger<InboxWake>>()));
 builder.Services.AddHostedService(services => services.GetRequiredService<InboxWake>());
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
@@ -127,6 +134,11 @@ builder.Services.AddRateLimiter(options =>
         options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     if (articleReadEnabled) ArticleReadEndpoints.AddRateLimit(options);
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    if (wideSearchCorpus)
+    {
+        options.AddConcurrencyLimiter(WideSearchCorpusEndpoints.ManifestPolicy, limiter => { limiter.PermitLimit = 8; limiter.QueueLimit = 0; });
+        options.AddConcurrencyLimiter(WideSearchCorpusEndpoints.PagePolicy, limiter => { limiter.PermitLimit = 2; limiter.QueueLimit = 0; });
+    }
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
@@ -313,6 +325,7 @@ app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
     RequireCurrentSnapshot(ctx, snapshot);
     return bytes is null ? Error(ctx, 503, "The article search projection is unavailable.") : Results.Bytes(bytes, Binary);
 }).RequireRateLimiting("query");
+if (wideSearchCorpus) WideSearchCorpusEndpoints.Map(app, app.Services.GetRequiredService<PublicProjection>(), lease);
 if (app.Services.GetService<PublicHotArticles>() is { } hotArticles)
 {
     app.MapMethods(WireRoutes.PublicArticleHot, [HttpMethods.Get, HttpMethods.Head], (HttpContext ctx, string size) =>

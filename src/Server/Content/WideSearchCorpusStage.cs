@@ -1,15 +1,11 @@
-using System.Buffers.Binary;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal readonly record struct WideSearchCorpusPage(int Number, int DocumentCount, int FirstArticleId, int LastArticleId,
-    long Offset, int Length, string Sha256);
-
-internal sealed record WideSearchCorpusManifest(int DocumentCount, long ByteCount, string ContentDigest,
-    IReadOnlyList<WideSearchCorpusPage> Pages);
+internal sealed class WideSearchCorpusCleanupException(Exception cause)
+    : IOException("Wide search spool cleanup could not be confirmed.", cause);
 
 /// <summary>Owns an unpublished, sealed FSPK artifact through one unlinked file handle.</summary>
 internal sealed class WideSearchCorpusStage : IDisposable
@@ -57,7 +53,7 @@ internal sealed class WideSearchCorpusStage : IDisposable
                 return null;
 
             file.Flush();
-            var manifest = Seal(documentCount, file.Length, pages);
+            var manifest = WideSearchCorpusWire.Seal(documentCount, file.Length, pages);
             ct.ThrowIfCancellationRequested();
             var artifact = new WideSearchCorpusStage(file, manifest);
             transferred = true;
@@ -71,9 +67,10 @@ internal sealed class WideSearchCorpusStage : IDisposable
         finally
         {
             try { if (!transferred) file.Dispose(); }
-            catch (Exception cleanup) when (workFailure is { } failure)
+            catch (Exception cleanup)
             {
-                throw new AggregateException(failure, cleanup);
+                throw new WideSearchCorpusCleanupException(workFailure is { } failure
+                    ? new AggregateException(failure, cleanup) : cleanup);
             }
         }
     }
@@ -130,8 +127,9 @@ internal sealed class WideSearchCorpusStage : IDisposable
         }
         catch (Exception error)
         {
-            _closed.SetException(error);
-            throw;
+            var failure = new WideSearchCorpusCleanupException(error);
+            _closed.SetException(failure);
+            throw failure;
         }
     }
 
@@ -169,39 +167,12 @@ internal sealed class WideSearchCorpusStage : IDisposable
                 try { owner.Release(); }
                 catch (Exception cleanup) when (workFailure is { } failure)
                 {
-                    throw new AggregateException(failure, cleanup);
+                    throw new WideSearchCorpusCleanupException(new AggregateException(failure, cleanup));
                 }
             }
         }
 
         public void Dispose() => Interlocked.Exchange(ref _owner, null)?.Release();
-    }
-
-    private static WideSearchCorpusManifest Seal(int documentCount, long byteCount, List<WideSearchCorpusPage> pages)
-    {
-        if (pages.Count == 0 || pages.Sum(page => page.DocumentCount) != documentCount ||
-            pages[^1].Offset + pages[^1].Length != byteCount)
-            throw new InvalidDataException("The staged search corpus does not match its manifest.");
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData("public-search-fspk-manifest-v1\0"u8);
-        Span<byte> record = stackalloc byte[28];
-        BinaryPrimitives.WriteInt32LittleEndian(record, documentCount);
-        BinaryPrimitives.WriteInt32LittleEndian(record[4..], pages.Count);
-        BinaryPrimitives.WriteInt64LittleEndian(record[8..], byteCount);
-        hash.AppendData(record[..16]);
-        foreach (var page in pages)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(record, page.Number);
-            BinaryPrimitives.WriteInt32LittleEndian(record[4..], page.DocumentCount);
-            BinaryPrimitives.WriteInt32LittleEndian(record[8..], page.FirstArticleId);
-            BinaryPrimitives.WriteInt32LittleEndian(record[12..], page.LastArticleId);
-            BinaryPrimitives.WriteInt64LittleEndian(record[16..], page.Offset);
-            BinaryPrimitives.WriteInt32LittleEndian(record[24..], page.Length);
-            hash.AppendData(record);
-            hash.AppendData(Convert.FromHexString(page.Sha256));
-        }
-        return new WideSearchCorpusManifest(documentCount, byteCount, Convert.ToHexStringLower(hash.GetHashAndReset()),
-            pages.AsReadOnly());
     }
 
     private static FileStream OpenUnlinked()
@@ -244,7 +215,7 @@ internal sealed class WideSearchCorpusStage : IDisposable
             }
             catch (Exception cleanup)
             {
-                throw new AggregateException(failure, cleanup);
+                throw new WideSearchCorpusCleanupException(new AggregateException(failure, cleanup));
             }
             throw;
         }

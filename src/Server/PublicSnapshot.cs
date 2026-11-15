@@ -34,6 +34,8 @@ internal sealed class PublicSnapshot
     internal DistributionSnapshot? Distribution { get; }
     internal int IndexPageCount => _index.Length;
     internal int CorpusPageCount => _corpus?.Count ?? 0;
+    internal int PublicArticleCount => _byId.Count;
+    internal IReadOnlyList<Article> WideSearchArticles => _byId.Values;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
@@ -150,14 +152,15 @@ internal sealed class PublicSnapshot
 }
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
-    RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null)
+    RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null,
+    PublicProjection? projection = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
-    private PublicSnapshot? _snapshot;
+    private readonly PublicProjection _projection = projection ?? new();
     private PublicSnapshot? _lastProjection;
     private bool? _taxonomyEpochInstalled;
-    internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : Volatile.Read(ref _snapshot);
+    internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : _projection.Current?.Source;
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
@@ -206,7 +209,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             {
                 // After an ambiguous commit or interruption, the old public bytes remain unservable.
                 // The worker rebuilds from the committed durable state.
-                if (invalidate) Volatile.Write(ref _snapshot, null);
+                if (invalidate) _projection.Replace(null);
             });
 
             if (invalidate && Snapshot is null)
@@ -250,7 +253,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
         if (await Authoring.ArticleScheduleStore.PublishDue(connection, tx, ct) != 0)
-            Volatile.Write(ref _snapshot, null);
+            _projection.Replace(null);
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
@@ -323,7 +326,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             """)) await advance.ExecuteNonQueryAsync(ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         _lastProjection = next;
-        Volatile.Write(ref _snapshot, next);
+        _projection.Replace(next);
         evidence?.CountRefresh(rebuilt);
     }
 

@@ -113,7 +113,7 @@ public sealed class ArticleSearchWideHttpPostgresTests
         }
     }
 
-    private static async Task<string> Seed(ScratchDatabase fixture, CancellationToken ct)
+    internal static async Task<string> Seed(ScratchDatabase fixture, CancellationToken ct)
     {
         var author = Guid.NewGuid();
         var secret = RandomNumberGenerator.GetBytes(32);

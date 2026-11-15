@@ -78,6 +78,8 @@ inline constexpr uint32_t SearchIndexMaxPages = 200;
 inline constexpr uint32_t SearchCorpusPageBytes = 8388608;
 inline constexpr uint32_t SearchCorpusTotalBytes = 67108864;
 inline constexpr uint32_t SearchCorpusMaxPages = 128;
+inline constexpr uint32_t SearchWideCorpusMaxPages = 512;
+inline constexpr uint32_t SearchWideCorpusTotalBytes = 268435456;
 inline constexpr uint32_t SearchQueryChars = 128;
 inline constexpr uint32_t PublicArticleHotMaxSize = 100;
 inline constexpr uint32_t RelatedReadingMaxItems = 6;
@@ -259,6 +261,9 @@ inline constexpr uint32_t SearchPackageMagic = 0x4b505346;
 inline constexpr uint32_t SearchShardMagic = 0x32534846;
 inline constexpr uint32_t SearchResultMagic = 0x34525346;
 inline constexpr uint32_t SearchArtifactVersion = 4;
+inline constexpr uint32_t SearchWideManifestVersion = 1;
+inline constexpr uint32_t SearchWideManifestHeaderSize = 60;
+inline constexpr uint32_t SearchWideManifestPageRecordSize = 60;
 inline constexpr uint32_t SearchPackageEntryOffset = 12;
 inline constexpr uint32_t SearchPackagePayloadOffset = 32;
 inline constexpr uint32_t SearchShardHeaderSize = 72;
@@ -342,6 +347,7 @@ enum class FrameType : uint16_t {
     ArticleDetail = 2,
     ArticleHot = 3,
     ArticleSearch = 4,
+    PublicSearchWideManifest = 33004,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
     PowChallenge = 30,
@@ -519,6 +525,7 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleDetail:
         case FrameType::ArticleHot:
         case FrameType::ArticleSearch:
+        case FrameType::PublicSearchWideManifest:
         case FrameType::ArticleRelatedReading:
         case FrameType::CommentThreadReplyCursor:
         case FrameType::PowChallenge:
