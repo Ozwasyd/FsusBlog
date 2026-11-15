@@ -6,7 +6,7 @@ namespace FsusBlog.V2.Core.Authoring;
 public sealed record CanvasEdge(Guid CanvasId, Guid EdgeId, long Revision, int HostArticleId, int TargetArticleId,
     bool ExplicitReference);
 public sealed record CanvasLinkIntent(Guid CanvasId, Guid EdgeId, long CanvasRevision, long HostRevision,
-    long TargetRevision, int SourceOffset);
+    long TargetRevision, int SourceOffset, bool VisualOnly = false);
 public sealed record CanvasTarget(int Id, Guid Owner, long Revision, string Title);
 
 public static class CanvasLink
@@ -27,8 +27,8 @@ public static class CanvasLink
             host.Id != edge.HostArticleId || target.Id != edge.TargetArticleId || host.Id == target.Id ||
             host.Owner != actor.Id || target.Owner != actor.Id || host.Deleted)
             throw new BusinessException(Rejection.NotFound, "Canvas link is unavailable.");
-        if (!edge.ExplicitReference)
-            throw new BusinessException(Rejection.Invalid, "This edge does not support link conversion.");
+        if (edge.ExplicitReference == intent.VisualOnly)
+            throw new BusinessException(Rejection.Invalid, "Choose a conversion that matches the selected Canvas edge.");
         if (edge.Revision != intent.CanvasRevision || host.Revision != intent.HostRevision ||
             target.Revision != intent.TargetRevision || host.Body.Length != intent.SourceOffset)
             throw new BusinessException(Rejection.Conflict, "A Canvas link coordinate changed. Review it again.");

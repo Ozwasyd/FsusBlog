@@ -33,12 +33,12 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         return new(input.CanvasId, input.EdgeId, receipt.Revision);
     }
 
-    internal async Task<CanvasLinkPlan> Preview(CanvasPreview input, CancellationToken ct)
+    internal async Task<CanvasLinkPlan> Preview(CanvasPreview input, CancellationToken ct, bool visualOnly = false)
     {
         var edge = await ReadEdge(input.CanvasId, input.EdgeId, ct) ?? throw Missing();
         var articles = await FindArticles(edge.HostArticleId, edge.TargetArticleId, ct);
         var intent = new CanvasLinkIntent(input.CanvasId, input.EdgeId, input.CanvasRevision, input.HostRevision,
-            input.TargetRevision, input.SourceOffset);
+            input.TargetRevision, input.SourceOffset, visualOnly);
         var change = Build(edge, intent, articles.Host, articles.Target, actor);
         await using (var clean = Store.Sql(db, tx, """
             delete from public.canvas_link_plan where canvas_id=$1 and applied_revision is null and expires_at<=clock_timestamp()
@@ -56,7 +56,7 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,date_trunc('second', clock_timestamp()) + interval '2 minutes')
             returning expires_at
             """, planId, edge.CanvasId, edge.EdgeId, intent.CanvasRevision, intent.HostRevision,
-            intent.TargetRevision, intent.SourceOffset, Digest(change.Inserted), sessionDigest, actor.Generation);
+            intent.TargetRevision, intent.SourceOffset, Digest(change.Inserted, intent.VisualOnly), sessionDigest, actor.Generation);
         var expires = (DateTime)(await plan.ExecuteScalarAsync(ct))!;
         return new(planId, edge.Revision, edge.HostArticleId, intent.HostRevision, edge.TargetArticleId,
             intent.TargetRevision, intent.SourceOffset, change.Inserted, new DateTimeOffset(expires).ToUnixTimeSeconds());
@@ -92,8 +92,9 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         var articles = await FindArticles(edge.HostArticleId, edge.TargetArticleId, ct);
         if (saved.Receipt is not null) return saved.Receipt;
         if (!saved.Current) throw Conflict();
-        var change = Build(edge, saved.Intent, articles.Host, articles.Target, actor);
-        if (!CryptographicOperations.FixedTimeEquals(saved.Digest, Digest(change.Inserted))) throw Conflict();
+        var intent = saved.Intent with { VisualOnly = !edge.ExplicitReference };
+        var change = Build(edge, intent, articles.Host, articles.Target, actor);
+        if (!CryptographicOperations.FixedTimeEquals(saved.Digest, Digest(change.Inserted, intent.VisualOnly))) throw Conflict();
 
         var edit = Publishing.Validate(ArticleAction.Save,
             new(articles.Host.Id, articles.Host.Revision, id, articles.Host.Title, change.Body));
@@ -163,7 +164,9 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         return change;
     }
 
-    private static byte[] Digest(string value) => SHA256.HashData(Encoding.UTF8.GetBytes(value));
+    // Keep existing reference plans valid. A visual plan can only be created by an explicit visual preview.
+    private static byte[] Digest(string value, bool visualOnly) =>
+        SHA256.HashData(Encoding.UTF8.GetBytes(visualOnly ? "canvas-link/visual-only\0" + value : value));
     private static BusinessException Missing() => new(Rejection.NotFound, "Canvas link is unavailable.");
     private static BusinessException Conflict() => new(Rejection.Conflict, "This Canvas link changed or its plan expired.");
     private sealed record Plan(CanvasLinkIntent Intent, byte[] Digest, bool Current, CanvasLinked? Receipt);

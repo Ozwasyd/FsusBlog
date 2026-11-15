@@ -5,8 +5,9 @@ import {
   FrameType, WireRoutes, type CanvasLinkPlan, type CanvasPreview,
 } from './wire.generated.ts'
 
-export function previewCanvasLink(input: CanvasPreview, host: number, target: number, signal?: AbortSignal) {
-  return request(WireRoutes.CanvasPreview, FrameType.CanvasLinkPlan, bytes => {
+export function previewCanvasLink(input: CanvasPreview, host: number, target: number, signal?: AbortSignal, visualOnly = false) {
+  const route = visualOnly ? `${WireRoutes.CanvasPreview}?edge=visual-only` : WireRoutes.CanvasPreview
+  return request(route, FrameType.CanvasLinkPlan, bytes => {
     const plan = decodeCanvasLinkPlan(bytes)
     if (plan.canvasRevision !== input.canvasRevision || plan.hostRevision !== input.hostRevision ||
       plan.targetRevision !== input.targetRevision || plan.hostArticleId !== host || plan.targetArticleId !== target ||

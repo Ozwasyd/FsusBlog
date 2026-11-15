@@ -44,7 +44,7 @@ const bulkProgress = ref(0)
 const nodeId = ref('')
 const edgeId = ref('')
 const retry = shallowRef<CanvasGraphCommand>()
-const plan = shallowRef<CanvasLinkPlan>()
+const plan = shallowRef<CanvasLinkPlan & { edgeKind: CanvasGraphEdge['kind'] }>()
 const linkPending = ref(false)
 const linkUnconfirmed = ref(false)
 const graphReadFailure = ref(false)
@@ -82,8 +82,7 @@ const involved = computed(() => selectedEdge.value && {
 })
 const activeLink = computed(() => {
   const pair = involved.value
-  if (!pair || selectedEdge.value?.kind !== 'explicit-reference-note' ||
-    pair.from?.kind !== 'article-reference' || pair.to?.kind !== 'article-reference' ||
+  if (!pair || pair.from?.kind !== 'article-reference' || pair.to?.kind !== 'article-reference' ||
     pair.from.pinnedRevision || pair.to.pinnedRevision || pair.from.articleId === pair.to.articleId) return undefined
   return { from: pair.from, to: pair.to }
 })
@@ -615,8 +614,9 @@ async function prepareLink() {
     const [host, target] = await Promise.all([api.draft(pair.from.articleId, signal), api.publicArticle(pair.to.articleId, signal)])
     if (!scoped(signal) || document.value !== canvas || selectedEdge.value !== edge) return
     const preview = await previewCanvasLink({ canvasId: canvas.id, edgeId: edge.id, canvasRevision: canvas.revision,
-      hostRevision: host.revision, targetRevision: target.revision, sourceOffset: host.body.length }, host.id, target.id, signal)
-    if (scoped(signal) && document.value === canvas && selectedEdge.value === edge) plan.value = preview
+      hostRevision: host.revision, targetRevision: target.revision, sourceOffset: host.body.length }, host.id, target.id, signal,
+    edge.kind === 'visual-only')
+    if (scoped(signal) && document.value === canvas && selectedEdge.value === edge) plan.value = { ...preview, edgeKind: edge.kind }
   } catch (cause) { recordError(cause, signal, 'Could not prepare the article link.') }
   finally { if (scoped(signal)) linkPending.value = false }
 }
@@ -772,7 +772,9 @@ function edgeLabel(edge: CanvasGraphEdge) {
               <h2>{{ selectedEdge.kind === 'visual-only' ? 'Visual connection' : 'Explicit reference' }}</h2>
               <p>{{ edgeLabel(selectedEdge) }}</p>
               <div class="canvas-toolbar">
-                <ElButton v-if="activeLink" :disabled="disabled" @click="prepareLink">Review article link</ElButton>
+                <ElButton v-if="activeLink" :disabled="disabled" @click="prepareLink">
+                  {{ selectedEdge.kind === 'visual-only' ? 'Review visual connection' : 'Review article link' }}
+                </ElButton>
                 <ElButton :disabled="disabled" @click="showEdgeForm(selectedEdge)">Edit edge</ElButton>
                 <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-edge', id: selectedEdge.id }])">Remove edge</ElButton>
               </div>
@@ -856,6 +858,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
       :close-on-press-escape="!linkPending && !linkUnconfirmed" :close-on-click-modal="!linkPending && !linkUnconfirmed" @close="cancelLink">
       <div v-if="plan">
         <p>Add this Markdown to the end of article {{ plan.hostArticleId }}'s private draft.</p>
+        <p v-if="plan.edgeKind === 'visual-only'">Use the selected visual connection as an article link. The connection stays in the Canvas.</p>
         <pre class="canvas-link-preview">{{ plan.insertedMarkdown }}</pre>
         <p v-if="error" role="alert">{{ error }}</p>
         <div class="canvas-toolbar">

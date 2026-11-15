@@ -31,6 +31,10 @@ public sealed class CanvasPostgresTests
             CanvasStore.Build(edge, intent with { SourceOffset = body.Length - 1 }, host, target, actor)).Rejection);
         Assert.Equal(Rejection.Invalid, Assert.Throws<BusinessException>(() =>
             CanvasStore.Build(edge with { ExplicitReference = false }, intent, host, target, actor)).Rejection);
+        Assert.Equal(appended, CanvasStore.Build(edge with { ExplicitReference = false },
+            intent with { VisualOnly = true }, host, target, actor));
+        Assert.Equal(Rejection.Invalid, Assert.Throws<BusinessException>(() =>
+            CanvasStore.Build(edge, intent with { VisualOnly = true }, host, target, actor)).Rejection);
         Assert.Equal(Rejection.Invalid, Assert.Throws<BusinessException>(() =>
             CanvasStore.Build(edge, intent with { SourceOffset = 3 }, host with { Body = "```" }, target, actor)).Rejection);
     }
@@ -56,6 +60,36 @@ public sealed class CanvasPostgresTests
         var receipt = Wire.DecodeCanvasLinked(await Post(WireRoutes.CanvasConfirm, Wire.EncodeCanvasConfirm(new(plan.PlanId)),
             HttpStatusCode.OK, owner.Token));
         Assert.Equal(new(plan.PlanId, host.Id, host.Revision + 1, canvas.CanvasRevision + 1), receipt);
+
+        var current = await test.Read(owner.Token, host.Id);
+        const string visualSelection = "?edge=visual-only";
+        var wrongSelection = Wire.EncodeCanvasPreview(new(canvas.CanvasId, canvas.EdgeId, receipt.CanvasRevision,
+            current.Revision, target.Revision, current.Body.Length));
+        Aeds.Decode(await Post(WireRoutes.CanvasPreview + visualSelection, wrongSelection, HttpStatusCode.BadRequest, owner.Token), FrameType.ApiError);
+
+        var document = Guid.NewGuid();
+        var from = Guid.NewGuid();
+        var to = Guid.NewGuid();
+        var visualEdge = Guid.NewGuid();
+        var visualGraph = new CanvasGraphCommand(document, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Visual plan", new(0, 0, 1000),
+        [
+            new CanvasChangeFrame.PutNode(new(from, 0, 0, 0, 12000, 8000, host.Id)),
+            new CanvasChangeFrame.PutNode(new(to, 0, 16000, 0, 12000, 8000, target.Id)),
+            new CanvasChangeFrame.PutEdge(new(visualEdge, 0, from, to, 0, null)),
+        ]);
+        await Post(WireRoutes.CanvasGraphWrite, Wire.EncodeCanvasGraphCommand(visualGraph), HttpStatusCode.OK, owner.Token);
+        var visual = Wire.EncodeCanvasPreview(new(document, visualEdge, 1, current.Revision, target.Revision, current.Body.Length));
+        Aeds.Decode(await Post(WireRoutes.CanvasPreview, visual, HttpStatusCode.BadRequest, owner.Token), FrameType.ApiError);
+        Aeds.Decode(await Post(WireRoutes.CanvasPreview + visualSelection + "&edge=visual-only", visual,
+            HttpStatusCode.BadRequest, owner.Token), FrameType.ApiError);
+        var visualPlan = Wire.DecodeCanvasLinkPlan(await Post(WireRoutes.CanvasPreview + visualSelection, visual, HttpStatusCode.OK, owner.Token));
+        Assert.Equal(current, await test.Read(owner.Token, host.Id));
+        var confirmation = Wire.EncodeCanvasConfirm(new(visualPlan.PlanId));
+        var visualReceipt = Wire.DecodeCanvasLinked(await Post(WireRoutes.CanvasConfirm, confirmation, HttpStatusCode.OK, owner.Token));
+        Assert.Equal(new(visualPlan.PlanId, host.Id, current.Revision + 1, 2), visualReceipt);
+        Assert.Equal(visualReceipt, Wire.DecodeCanvasLinked(await Post(WireRoutes.CanvasConfirm, confirmation, HttpStatusCode.OK, owner.Token)));
+        Assert.Equal(current.Body + visualPlan.InsertedMarkdown, (await test.Read(owner.Token, host.Id)).Body);
+        Assert.Equal(false, await test.Scalar("select explicit_reference from public.canvas_edge where canvas_id=$1 and id=$2", document, visualEdge));
 
         await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
         Aeds.Decode(await Post(WireRoutes.CanvasConfirm, Wire.EncodeCanvasConfirm(new(plan.PlanId)),
@@ -487,6 +521,11 @@ public sealed class CanvasPostgresTests
         var changed = await test.Publish(author.Token,
             await test.Save(author.Token, "New target label", target.Body, target.Id, target.Revision));
         await Denied(Rejection.Conflict, test.WithCanvas(author.Token, op => op.Confirm(stale.PlanId, test.Token)));
+        await test.Mutate("update public.canvas_edge set explicit_reference=false where canvas_id=$1", canvas.CanvasId);
+        var visualIntent = preview with { TargetRevision = changed.Revision };
+        var visualPlan = await test.WithCanvas(author.Token, op => op.Preview(visualIntent, test.Token, true));
+        await test.Mutate("update public.canvas_edge set explicit_reference=true where canvas_id=$1", canvas.CanvasId);
+        await Denied(Rejection.Conflict, test.WithCanvas(author.Token, op => op.Confirm(visualPlan.PlanId, test.Token)));
         await test.Mutate("update public.canvas_edge set explicit_reference=false where canvas_id=$1", canvas.CanvasId);
         await Denied(Rejection.Invalid, test.WithCanvas(author.Token, op => op.Preview(
             preview with { TargetRevision = changed.Revision }, test.Token)));

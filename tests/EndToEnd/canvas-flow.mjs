@@ -24,11 +24,16 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     assert.equal(response.status(), 200)
     return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
   }
-  async function state() {
+  async function state(offset = 0, revision) {
     const id = new URL(client.url()).pathname.split('/').at(-1)
-    const response = await client.request.get(origin + WireRoutes.CanvasGraphPage.replace('{id:guid}', id))
+    const address = new URL(WireRoutes.CanvasGraphPage.replace('{id:guid}', id), origin)
+    if (offset) {
+      address.searchParams.set('offset', String(offset))
+      address.searchParams.set('revision', String(revision))
+    }
+    const response = await client.request.get(address.href)
     assert.equal(response.status(), 200)
-    return decodeCanvasGraphPage(decodeFrame(await response.body(), FrameType.CanvasGraphPage).payload)
+    return decodeCanvasGraphPage(decodeFrame(await response.body(), FrameType.CanvasGraphPage).payload, offset)
   }
   async function addReference(id, label) {
     await button('Add reference').click()
@@ -114,6 +119,12 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await connect.getByRole('button', { name: 'Save edge', exact: true }).click()
     await outline().getByRole('button', { name: 'Visual planning line', exact: true }).click()
     assert.equal(await button('Review article link').count(), 0)
+    const review = dialog('Review article link')
+    await button('Review visual connection').click()
+    await review.getByText('Use the selected visual connection as an article link. The connection stays in the Canvas.', { exact: true }).waitFor()
+    await review.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await review.waitFor({ state: 'hidden' })
+    assert.equal((await draft()).body, sourceBody)
     await outline().getByRole('button', { name: `Article reference ${source.id}`, exact: true }).click()
     await button('Connect').click()
     await connect.getByLabel('Target node').selectOption({ label: `Article reference ${targetArticle.id}` })
@@ -122,7 +133,6 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await connect.getByRole('button', { name: 'Save edge', exact: true }).click()
     await outline().getByRole('button', { name: 'Article source link', exact: true }).click()
     await button('Review article link').click()
-    const review = dialog('Review article link')
     await review.getByText(`Add this Markdown to the end of article ${source.id}'s private draft.`, { exact: true }).waitFor()
     const snippet = await review.locator('pre').innerText()
     assert(snippet.endsWith(`](/article/${targetArticle.id})`))
@@ -135,6 +145,28 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     assert.equal(linked.revision, source.revision + 1n)
     assert(linked.body.startsWith(sourceBody))
     assert(linked.body.endsWith(`](/article/${targetArticle.id})`))
+
+    await outline().getByRole('button', { name: 'Visual planning line', exact: true }).click()
+    const selectedPreview = client.waitForResponse(response => {
+      const url = new URL(response.url())
+      return url.pathname === WireRoutes.CanvasPreview && url.searchParams.get('edge') === 'visual-only'
+    })
+    await button('Review visual connection').click()
+    assert.equal((await selectedPreview).status(), 200)
+    const visualInsertion = await review.locator('pre').textContent()
+    assert(visualInsertion.endsWith(`](/article/${targetArticle.id})`))
+    assert.equal((await draft()).body, linked.body)
+    const visualConfirm = client.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.CanvasConfirm)
+    await review.getByRole('button', { name: 'Confirm link', exact: true }).click()
+    assert.equal((await visualConfirm).status(), 200)
+    await review.waitFor({ state: 'hidden' })
+    const visualLinked = await draft()
+    assert.equal(visualLinked.revision, linked.revision + 1n)
+    assert.equal(visualLinked.body, linked.body + visualInsertion)
+    const nodePage = await state()
+    assert(nodePage.nextOffset !== null)
+    const edgePage = await state(nodePage.nextOffset, nodePage.header.revision)
+    assert.equal(edgePage.edges.find(edge => edge.label === 'Visual planning line')?.kind, 'visual-only')
 
     await button('Rename Canvas', other).click()
     const rename = other.getByRole('dialog', { name: 'Rename Canvas', exact: true })
@@ -165,10 +197,10 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await client.getByRole('dialog', { name: 'Delete Canvas', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click()
     await heading('Canvases').waitFor()
     assert.equal(await client.getByRole('link', { name: title, exact: true }).count(), 0)
-    assert.equal((await draft()).body, linked.body)
+    assert.equal((await draft()).body, visualLinked.body)
     await exerciseCanvasReferences({ page: client, origin, createDraft, screenshot, observations })
     await exerciseCanvasBundle({ page: client, origin, createDraft, screenshot, observations })
-    observations.push('Canvas saves pointer and keyboard moves, all five node kinds and both edge kinds, previews without writing, confirms the same authoritative link transaction, rejects a stale tab, reloads at 375px, and deletes only the Canvas.')
+    observations.push('Canvas saves pointer and keyboard moves, all five node kinds and both edge kinds, previews without writing, confirms explicit and selected visual links while preserving their edge kinds, rejects a stale tab, reloads at 375px, and deletes only the Canvas.')
   } catch (error) {
     await screenshot(client, 'canvas-failed').catch(() => {})
     throw error
