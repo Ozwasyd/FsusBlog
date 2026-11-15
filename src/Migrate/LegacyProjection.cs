@@ -75,6 +75,8 @@ internal static partial class Migration
                 retainedLegacyPublicationRows = plan.ExpectedTables.Single(row => row.Table == "shadow_publication").Rows,
                 verifiedPublishedRollbackRows = verifiedRollbacks,
                 retainedLegacyCreateCommands = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyCreateCommandShadow.Name)?.Rows ?? 0,
+                retainedLegacyOutboxEvents = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyOutboxParent.Table.Name)?.Rows ?? 0,
+                retainedLegacyOutboxEdges = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyOutboxEdge.Table.Name)?.Rows ?? 0,
                 retainedInitialSchedules = schedules.Length,
                 scheduleEvaluatedAtUtc = scheduleEvaluation,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",

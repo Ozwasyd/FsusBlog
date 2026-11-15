@@ -1,0 +1,377 @@
+using System.Data.Common;
+using System.Globalization;
+using System.Security.Cryptography;
+
+internal static partial class Migration
+{
+    private const string LegacyOutboxSource = "article_mutation_outbox";
+    private const string LegacyOutboxEdgeSource = "article_mutation_outbox_edge";
+    private const int LegacyOutboxMaxPayloadBytes = 16 * 1024;
+    private const int LegacyOutboxTotalPayloadBytes = 32 * 1024 * 1024;
+    private const int LegacyOutboxMaxEdges = RehearsalLimit * 9;
+
+    private static readonly string[] LegacyRequiredOutboxEdges =
+    [
+        "public-aot-invalidation", "http-cache-invalidation", "search-projection", "article-detail-aeds",
+        "taxonomy-projection", "public-artifact-revocation", "public-hot-read"
+    ];
+    private static readonly HashSet<string> LegacyKnownOutboxEdges =
+        [.. LegacyRequiredOutboxEdges, "integrity-proof", "notification"];
+
+    private static readonly LegacyOutboxDefinition LegacyOutboxParent = OutboxDefinition(LegacyOutboxSource, """
+        id/bigint event_id/varchar(36) aggregate_type/varchar(32) aggregate_id/integer schema_version/integer
+        article_revision_id/bigint? revision_no/integer? rights_snapshot_id/bigint? responsibility_snapshot_id/bigint?
+        responsibility_version/integer? article_publication_id/bigint? publication_no/integer? event_type/varchar(64)
+        payload_json/text status/varchar(24) retry_count/integer next_retry_at/timestamp created_at/timestamp
+        processed_at/timestamp? last_error/varchar(1024)? claim_token/varchar(64)? claimed_by/varchar(128)?
+        claimed_at/timestamp? heartbeat_at/timestamp? claim_expires_at/timestamp?
+        """, ["event_id"]);
+    private static readonly LegacyOutboxDefinition LegacyOutboxEdge = OutboxDefinition(LegacyOutboxEdgeSource, """
+        id/bigint outbox_event_id/bigint edge_name/varchar(64) status/varchar(24) attempt_count/integer
+        last_error/varchar(1024)? updated_at/timestamp delivery_key/varchar(64)?
+        """, ["outbox_event_id", "edge_name"]);
+
+    private sealed record LegacyOutboxDefinition(string Source, CandidateTable Table, LegacyField[] Fields);
+    private sealed record LegacyOutboxEntry(CandidateTable Table, LegacyProjection Projection, object?[][] Rows);
+    private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings);
+    private sealed record LegacyTerminalEvent(string EventId, DateTime CreatedAt, DateTime ProcessedAt, object?[] Values,
+        HashSet<string> Edges);
+
+    private static readonly string[] LegacyOutboxUnsettledStates = ["pending", "processing", "poison"];
+    private static readonly string[] LegacyOutboxSensitiveFields =
+        ["last_error", "claim_token", "claimed_by", "claimed_at", "heartbeat_at", "claim_expires_at"];
+
+    private static LegacyOutboxDefinition OutboxDefinition(string source, string shape, string[] unique)
+    {
+        var fields = new List<LegacyField>();
+        var columns = new List<CandidateColumn>();
+        var required = new List<string>();
+        foreach (var item in shape.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var split = item.IndexOf('/');
+            var name = item[..split];
+            var type = item[(split + 1)..];
+            if (type.EndsWith('?')) type = type[..^1];
+            else required.Add(name);
+            var physical = type switch
+            {
+                "timestamp" => "timestamp without time zone",
+                _ when type.StartsWith("varchar", StringComparison.Ordinal) => "character varying" + type[7..],
+                _ => type
+            };
+            fields.Add(new LegacyField(name, physical));
+            columns.Add(new CandidateColumn(name, type is "bigint" or "integer" ? "INTEGER" : "TEXT"));
+        }
+        var table = new CandidateTable("shadow_" + source, 3, "id", columns.ToArray(), unique, required.ToArray());
+        return new LegacyOutboxDefinition(source, table, fields.ToArray());
+    }
+
+    private static CandidateTable[] OptionalLegacyCommandDefinition(ImportPlan plan)
+    {
+        if (plan.SourceProjections.Any(row => row.Table == LegacyCreateCommandSource) ||
+            plan.ExpectedTables.Any(row => row.Table == LegacyCreateCommandShadow.Name))
+            return HasCompleteLegacyCommandPlan(plan) ? [LegacyCreateCommandShadow] :
+                throw new InvalidOperationException("The legacy outbox plan contains incomplete create-command coordinates.");
+        return [];
+    }
+
+    private static bool HasCompleteLegacyOutboxPlan(ImportPlan plan) =>
+        CompleteLegacyOutboxPlanEntry(plan, LegacyOutboxParent, RehearsalLimit) &&
+        CompleteLegacyOutboxPlanEntry(plan, LegacyOutboxEdge, LegacyOutboxMaxEdges);
+
+    // Source and target hash formats use distinct relation names and bind the same positive cardinalities.
+    private static bool CompleteLegacyOutboxPlanEntry(ImportPlan plan, LegacyOutboxDefinition definition, int limit) =>
+        plan.SourceProjections?.Where(row => row.Table == definition.Source).ToArray() is [var source] &&
+        plan.ExpectedTables?.Where(row => row.Table == definition.Table.Name).ToArray() is [var target] &&
+        source.Rows is >= 1 && source.Rows <= limit && source.Rows == target.Rows && IsSha256(source.Sha256) && IsSha256(target.Sha256);
+
+    private static async Task<LegacyOutboxRead> ReadLegacyProcessedOutboxAsync(LegacySource source, DbTransaction tx,
+        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, CancellationToken ct)
+    {
+        if (source.Provider != "postgres") return new LegacyOutboxRead([], [], []);
+        var parents = catalog.Where(table => table.Name.Equals(LegacyOutboxSource, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var edges = catalog.Where(table => table.Name.Equals(LegacyOutboxEdgeSource, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (parents.Length == 0 && edges.Length == 0) return new LegacyOutboxRead([], [], []);
+        LegacyTable[] relations = [.. parents, .. edges];
+        var findings = new List<ImportFinding>();
+        var parentsKnown = await KnownOutboxShapeAsync(parents, LegacyOutboxParent);
+        var edgesKnown = await KnownOutboxShapeAsync(edges, LegacyOutboxEdge);
+        if (!parentsKnown || !edgesKnown)
+            return new LegacyOutboxRead(relations, [], findings.ToArray());
+
+        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], findings, ct);
+        var edgeRows = await ReadLegacyTerminalEdgesAsync(source, tx, edges[0], events, findings, ct);
+        int incomplete = events.Values.Count(item => LegacyRequiredOutboxEdges.Any(edge => !item.Edges.Contains(edge)));
+        if (incomplete > 0) findings.Add(new ImportFinding("legacy-outbox-missing-required-edge", LegacyOutboxSource, incomplete));
+        if (findings.Count != 0 || events.Count == 0) return new LegacyOutboxRead(relations, [], findings.ToArray());
+
+        return new LegacyOutboxRead(relations,
+            [MakeOutboxEntry(LegacyOutboxParent, events.Values.Select(item => item.Values).ToArray()),
+             MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], []);
+
+        async Task<bool> KnownOutboxShapeAsync(LegacyTable[] selection, LegacyOutboxDefinition definition)
+        {
+            if (selection is [var relation] && relation.Name == definition.Source && relation.Kind == "r" &&
+                relation.Columns.ToHashSet().SetEquals(definition.Fields) &&
+                await HasLegacyJournalCatalogAsync(tx, source.Schema, relation.Name, definition.Table, ct)) return true;
+            findings.Add(new ImportFinding("legacy-outbox-catalog", definition.Source, 1));
+            return false;
+        }
+    }
+
+    private static LegacyOutboxEntry MakeOutboxEntry(LegacyOutboxDefinition definition, object?[][] rows)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendLegacyValue(hash, definition.Source);
+        foreach (var field in definition.Fields) AppendLegacyValue(hash, field.Name);
+        foreach (var row in rows)
+            foreach (var value in row) AppendLegacyValue(hash, value);
+        return new LegacyOutboxEntry(definition.Table,
+            new LegacyProjection(definition.Source, rows.Length, Convert.ToHexStringLower(hash.GetHashAndReset())), rows);
+    }
+
+    private static object?[] LegacyOutboxValues(DbDataReader reader, int columns)
+    {
+        var result = new object?[columns];
+        for (int index = 0; index < columns; index++)
+        {
+            result[index] = reader.GetValue(index) switch
+            {
+                DBNull => null,
+                DateTime timestamp => DateTime.SpecifyKind(timestamp, DateTimeKind.Unspecified).ToString("O", CultureInfo.InvariantCulture),
+                int narrow => (long)narrow,
+                var value => value
+            };
+        }
+        return result;
+    }
+
+    private static async Task<SortedDictionary<long, LegacyTerminalEvent>> ReadLegacyTerminalEventsAsync(LegacySource source,
+        DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable relation, List<ImportFinding> findings, CancellationToken ct)
+    {
+        string E(string name) => "e." + source.Field(relation, name);
+        string A(string name) => "a." + source.Field(tables[Article], name);
+        string R(string name) => "r." + source.Field(tables[Revision], name);
+        string P(string name) => "p." + source.Field(tables[Publication], name);
+        string S(string name) => "s." + source.Field(tables[RightsSnapshot], name);
+        string H(string name) => "h." + source.Field(tables[Responsibility], name);
+        var fields = LegacyOutboxParent.Fields;
+        var projection = fields.Select(field => (field.Name switch
+        {
+            "last_error" or "claim_token" or "claimed_by" => $"CASE WHEN {E(field.Name)} IS NOT NULL THEN 'present'::text END",
+            "payload_json" => $"CASE WHEN {source.Utf8Length(E(field.Name))}<={LegacyOutboxMaxPayloadBytes} THEN {E(field.Name)} END",
+            "created_at" or "processed_at" or "next_retry_at" => SelectRepresentableLegacyOutboxClock(E(field.Name)),
+            _ => E(field.Name)
+        }) + " AS " + source.Quote(field.Name));
+        await using var query = CreateLegacyCommand(tx, $"""
+            SELECT {string.Join(',', projection)}, {R("categoryid")}, {R("tag_ids")},
+                {A("createtime")}={E("created_at")} AND {R("created_at")}={E("created_at")}
+                AND {P("created_at")}={E("created_at")} AND {P("published_at")}={E("created_at")}
+                AND {P("transition_kind")}='immediate-publish' AND {S("created_at")}={E("created_at")}
+                AND {P("responsibility_snapshot_id")} IS NOT DISTINCT FROM {E("responsibility_snapshot_id")}
+                AND ({E("responsibility_snapshot_id")} IS NULL OR {H("id")} IS NOT NULL) AS exact_graph
+            FROM {source.Table(relation)} e
+            LEFT JOIN {source.Table(tables[Article])} a ON {A("id")}={E("aggregate_id")}
+            LEFT JOIN {source.Table(tables[Revision])} r ON {R("id")}={E("article_revision_id")}
+                AND {R("article_id")}={E("aggregate_id")} AND {R("revision_no")}={E("revision_no")}
+            LEFT JOIN {source.Table(tables[Publication])} p ON {P("id")}={E("article_publication_id")}
+                AND {P("article_id")}={E("aggregate_id")} AND {P("article_revision_id")}={E("article_revision_id")}
+                AND {P("revision_no")}={E("revision_no")} AND {P("publication_no")}={E("publication_no")}
+                AND {P("rights_snapshot_id")}={E("rights_snapshot_id")}
+            LEFT JOIN {source.Table(tables[RightsSnapshot])} s ON {S("id")}={E("rights_snapshot_id")}
+                AND {S("article_id")}={E("aggregate_id")} AND {S("article_revision_id")}={E("article_revision_id")}
+                AND {S("revision_no")}={E("revision_no")}
+            LEFT JOIN {source.Table(tables[Responsibility])} h ON {H("id")}={E("responsibility_snapshot_id")}
+                AND {H("article_id")}={E("aggregate_id")} AND {H("article_revision_id")}={E("article_revision_id")}
+                AND {H("revision_no")}={E("revision_no")} AND {H("responsibility_version")}={E("responsibility_version")}
+            ORDER BY {E("id")} LIMIT {RehearsalLimit + 1}
+            """);
+        await using var reader = await query.ExecuteReaderAsync(ct);
+        var clocks = new[] { "created_at", "processed_at", "next_retry_at" }.Select(reader.GetOrdinal).ToArray();
+        var sensitive = LegacyOutboxSensitiveFields.Select(reader.GetOrdinal).ToArray();
+        var statusIndex = reader.GetOrdinal("status");
+        var accepted = new SortedDictionary<long, LegacyTerminalEvent>();
+        var observedIds = new HashSet<long>();
+        var eventIds = new HashSet<string>(StringComparer.Ordinal);
+        var createdArticles = new HashSet<int>();
+        var invalidState = 0;
+        var invalidEnvelope = 0;
+        var unsettled = new int[LegacyOutboxUnsettledStates.Length];
+        long payloadBytes = 0;
+        var count = 0;
+        while (await reader.ReadAsync(ct))
+        {
+            if (++count > RehearsalLimit)
+                throw new InvalidOperationException($"Legacy outbox event count exceeds the {RehearsalLimit}-row observation limit.");
+            var status = reader.GetString(statusIndex);
+            var unsettledIndex = Array.IndexOf(LegacyOutboxUnsettledStates, status);
+            if (unsettledIndex >= 0)
+            {
+                unsettled[unsettledIndex]++;
+                continue;
+            }
+            var id = reader.GetInt64(0);
+            var eventId = reader.GetString(1);
+            if (clocks.Any(reader.IsDBNull))
+            {
+                invalidState++;
+                continue;
+            }
+            var created = reader.GetDateTime(clocks[0]);
+            if (id <= 0 || !observedIds.Add(id) || !eventIds.Add(eventId) ||
+                !Guid.TryParseExact(eventId, "N", out var guid) || guid == Guid.Empty || guid.ToString("N") != eventId ||
+                reader.GetString(2) != "article" || status != "processed" || reader.GetInt32(15) < 0 ||
+                reader.GetDateTime(clocks[1]) < created || reader.GetDateTime(clocks[2]) < created || !sensitive.All(reader.IsDBNull))
+            {
+                invalidState++;
+                continue;
+            }
+
+            var shape = fields.Length;
+            var article = reader.GetInt32(3);
+            var responsibility = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8);
+            var responsibilityVersion = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
+            if (article <= 0 || reader.GetInt32(4) != 2 || reader.GetString(12) != "created" ||
+                reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) || reader.GetInt32(6) != 1 ||
+                reader.IsDBNull(7) || reader.GetInt64(7) <= 0 || reader.IsDBNull(10) || reader.GetInt64(10) <= 0 ||
+                reader.IsDBNull(11) || reader.GetInt32(11) != 1 ||
+                (responsibility is null) != (responsibilityVersion is null) || responsibility is <= 0 || responsibilityVersion is <= 0 ||
+                reader.IsDBNull(13) || reader.IsDBNull(shape) || reader.IsDBNull(shape + 1) || reader.IsDBNull(shape + 2) ||
+                !reader.GetBoolean(shape + 2))
+            {
+                invalidEnvelope++;
+                continue;
+            }
+            var payload = reader.GetString(13);
+            payloadBytes += StrictUtf8.GetByteCount(payload);
+            if (payloadBytes > LegacyOutboxTotalPayloadBytes)
+                throw new InvalidOperationException("Legacy outbox envelopes exceed their cumulative observation byte budget.");
+            var tags = reader.GetString(shape + 1);
+            var expectedTags = tags.Length == 0 ? [] : tags.Split(',').Select(ParseRevisionTag).ToArray();
+            if (!VerifyLegacyOutboxEnvelope(payload, article, reader.GetInt64(5), reader.GetInt64(7), responsibility,
+                responsibilityVersion, reader.GetInt64(10), created, reader.GetInt32(shape), expectedTags) || !createdArticles.Add(article))
+            {
+                invalidEnvelope++;
+                continue;
+            }
+            accepted.Add(id, new LegacyTerminalEvent(eventId, created, reader.GetDateTime(clocks[1]), LegacyOutboxValues(reader, shape),
+                new HashSet<string>(StringComparer.Ordinal)));
+        }
+
+        if (invalidState > 0) findings.Add(new ImportFinding("legacy-outbox-state", relation.Name, invalidState));
+        for (int i = 0; i < unsettled.Length; i++)
+            if (unsettled[i] > 0) findings.Add(new ImportFinding("legacy-outbox-" + LegacyOutboxUnsettledStates[i], relation.Name, unsettled[i]));
+        if (invalidEnvelope > 0) findings.Add(new ImportFinding("legacy-outbox-envelope", relation.Name, invalidEnvelope));
+        return accepted;
+    }
+
+    private static string SelectRepresentableLegacyOutboxClock(string column) => $"""
+        CASE WHEN {column} BETWEEN TIMESTAMP '0001-01-01 00:00:00' AND TIMESTAMP '9999-12-31 23:59:59.999999' THEN {column} END
+        """;
+
+    private static async Task<object?[][]> ReadLegacyTerminalEdgesAsync(LegacySource source, DbTransaction tx, LegacyTable relation,
+        SortedDictionary<long, LegacyTerminalEvent> events, List<ImportFinding> findings, CancellationToken ct)
+    {
+        var fields = LegacyOutboxEdge.Fields;
+        var projection = fields.Select(field =>
+        {
+            var column = "x." + source.Field(relation, field.Name);
+            return field.Name switch
+            {
+                "last_error" => $"CASE WHEN {column} IS NOT NULL THEN 'present'::text END",
+                "updated_at" => SelectRepresentableLegacyOutboxClock(column),
+                _ => column
+            };
+        });
+        await using var query = CreateLegacyCommand(tx, $"""
+            SELECT {string.Join(',', projection)}, parent.id IS NOT NULL
+            FROM {source.Table(relation)} x
+            LEFT JOIN {source.Quote(source.Schema)}.{source.Quote(LegacyOutboxSource)} parent ON parent.id=x.outbox_event_id
+            ORDER BY x.id LIMIT {LegacyOutboxMaxEdges + 1}
+            """);
+        await using var reader = await query.ExecuteReaderAsync(ct);
+        var rows = new List<object?[]>();
+        var observedIds = new HashSet<long>();
+        var invalid = 0;
+        var orphan = 0;
+        var count = 0;
+        while (await reader.ReadAsync(ct))
+        {
+            if (++count > LegacyOutboxMaxEdges)
+                throw new InvalidOperationException($"Legacy outbox edge count exceeds the {LegacyOutboxMaxEdges}-row observation limit.");
+            if (!reader.GetBoolean(fields.Length))
+            {
+                orphan++;
+                continue;
+            }
+            if (!events.TryGetValue(reader.GetInt64(1), out var parent)) continue;
+            var id = reader.GetInt64(0);
+            var edge = reader.GetString(2);
+            if (id <= 0 || !observedIds.Add(id) || !LegacyKnownOutboxEdges.Contains(edge) || reader.GetString(3) != "completed" ||
+                reader.GetInt32(4) <= 0 || !reader.IsDBNull(5) || reader.IsDBNull(7) ||
+                reader.GetString(7) != Digest(parent.EventId + ":" + edge) || reader.IsDBNull(6) ||
+                reader.GetDateTime(6) < parent.CreatedAt || reader.GetDateTime(6) > parent.ProcessedAt || !parent.Edges.Add(edge))
+            {
+                invalid++;
+                continue;
+            }
+            rows.Add(LegacyOutboxValues(reader, fields.Length));
+        }
+
+        if (invalid > 0) findings.Add(new ImportFinding("legacy-outbox-edge", relation.Name, invalid));
+        if (orphan > 0) findings.Add(new ImportFinding("legacy-outbox-orphan-edge", relation.Name, orphan));
+        return rows.ToArray();
+    }
+
+    private static async Task WriteLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry, CancellationToken ct)
+    {
+        var table = entry.Table;
+        var fields = table.Columns.Select(column => $"{column.Name} {column.Kind}" +
+            (table.NonNull!.Contains(column.Name, StringComparer.Ordinal) ? " NOT NULL" : ""));
+        await using (var create = CreateLegacyCommand(tx, $"""
+            CREATE TABLE {table.Name} ({string.Join(',', fields)}, PRIMARY KEY (id),
+                UNIQUE ({string.Join(',', table.Unique!)})) STRICT
+            """)) await create.ExecuteNonQueryAsync(ct);
+
+        var parameters = table.Columns.Select(column => "@" + column.Name).ToArray();
+        await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table.Name} VALUES ({string.Join(',', parameters)})");
+        foreach (var name in parameters)
+        {
+            var parameter = insert.CreateParameter();
+            parameter.ParameterName = name;
+            insert.Parameters.Add(parameter);
+        }
+        foreach (var row in entry.Rows)
+        {
+            for (int field = 0; field < row.Length; field++) insert.Parameters[field].Value = row[field] ?? DBNull.Value;
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+    }
+
+    private static async Task<ShadowCount> VerifyLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry, CancellationToken ct)
+    {
+        var table = entry.Table;
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendLegacyValue(hash, table.Name);
+        await using var read = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY id");
+        await using var reader = await read.ExecuteReaderAsync(ct);
+        for (int field = 0; field < table.Columns.Length; field++)
+        {
+            var name = reader.GetName(field);
+            if (name != table.Columns[field].Name) throw new InvalidOperationException("A legacy outbox shadow column changed.");
+            AppendLegacyValue(hash, name);
+        }
+        foreach (var row in entry.Rows)
+        {
+            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy outbox shadow rows are missing.");
+            for (int field = 0; field < row.Length; field++)
+            {
+                object? observed = reader.IsDBNull(field) ? null : reader.GetValue(field);
+                if (!Equals(observed, row[field])) throw new InvalidOperationException("A legacy outbox shadow value changed.");
+                AppendLegacyValue(hash, observed);
+            }
+        }
+        if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy outbox shadow has additional rows.");
+        return new ShadowCount(table.Name, entry.Rows.Length, Convert.ToHexStringLower(hash.GetHashAndReset()));
+    }
+}

@@ -11,6 +11,7 @@ internal static partial class Migration
     private const string ImportVariable = "FSUSBLOG_IMPORT_DB";
     private const int ImportPlanVersion = 1;
     private const int ImportPlanWithCreateCommandsVersion = 2;
+    private const int ImportPlanWithProcessedOutboxVersion = 3;
     private const int ImportQuarantineVersion = -1;
     private const long ImportBackupBytes = 1024L * 1024 * 1024;
 
@@ -81,10 +82,11 @@ internal static partial class Migration
         if (audit.Issues.Count != 0)
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var commands = await ReadLegacyCreateCommandsAsync(source, sourceTransaction, catalog, tables, principal, token);
-        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, token);
+        var outbox = await ReadLegacyProcessedOutboxAsync(source, sourceTransaction, catalog, tables, token);
+        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, outbox, token);
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
-            commands.Rows);
+            commands.Rows, outbox.Entries);
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -94,7 +96,10 @@ internal static partial class Migration
         var schemaDigest = Digest(await SchemaSqlAsync(token));
         var sourceProjections = audit.Projections.ToArray();
         if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
-        var plan = new ImportPlan(commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion,
+        sourceProjections = [.. sourceProjections, ..outbox.Entries.Select(entry => entry.Projection)];
+        var version = outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
+            commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion;
+        var plan = new ImportPlan(version,
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
             sourceProjections, shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0);
@@ -141,14 +146,16 @@ internal static partial class Migration
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
+        LegacyOutboxRead outbox,
         CancellationToken token)
     {
         var found = new List<ImportFinding>();
         if (commands.Finding is { } finding) found.Add(finding);
+        found.AddRange(outbox.Findings);
         foreach (var relation in catalog)
         {
             var name = relation.Name.ToLowerInvariant();
-            if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation) continue;
+            if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)

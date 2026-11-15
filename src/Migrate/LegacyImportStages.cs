@@ -7,7 +7,8 @@ using NpgsqlTypes;
 internal static partial class Migration
 {
     private sealed record CandidateColumn(string Name, string Kind);
-    private sealed record CandidateTable(string Name, int Phase, string Key, CandidateColumn[] Columns);
+    private sealed record CandidateTable(string Name, int Phase, string Key, CandidateColumn[] Columns,
+        string[]? Unique = null, string[]? NonNull = null);
     private sealed record StageResult(int Phase, string Sha256, string Result);
 
     private static readonly Lazy<CandidateTable[]> StagingDefinitions = new(() =>
@@ -44,13 +45,16 @@ internal static partial class Migration
         ImportPlanVersion => StagingDefinitions.Value,
         ImportPlanWithCreateCommandsVersion when plan.Provider == "postgres" && HasCompleteLegacyCommandPlan(plan) =>
             [.. StagingDefinitions.Value, LegacyCreateCommandShadow],
+        ImportPlanWithProcessedOutboxVersion when plan.Provider == "postgres" && HasCompleteLegacyOutboxPlan(plan) =>
+            [.. StagingDefinitions.Value, .. OptionalLegacyCommandDefinition(plan), LegacyOutboxParent.Table, LegacyOutboxEdge.Table],
         _ => throw new InvalidOperationException("The legacy import plan version and provider do not support this projection.")
     };
 
-    private static CandidateTable Candidate(string name, int phase, string key, string fields) =>
+    private static CandidateTable Candidate(string name, int phase, string key, string fields, string[]? unique = null,
+        string[]? nonNull = null) =>
         new(name, phase, key, fields.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
             .Select(field => field.EndsWith(":text", StringComparison.Ordinal)
-                ? new CandidateColumn(field[..^5], "TEXT") : new CandidateColumn(field, "INTEGER")).ToArray());
+                ? new CandidateColumn(field[..^5], "TEXT") : new CandidateColumn(field, "INTEGER")).ToArray(), unique, nonNull);
 
     private static CandidateTable ReleaseCandidate(string name, int phase, string key) =>
         new("shadow_" + name, phase, key, LegacyColumns[name].Select(field =>
@@ -178,12 +182,12 @@ internal static partial class Migration
         var fields = table.Columns.Select(column => quote.QuoteIdentifier(column.Name)).ToArray();
         var types = table.Columns.Select(column => column.Kind == "TEXT" ? "text" : "bigint").ToArray();
         var fieldList = string.Join(", ", fields);
-        bool isCommand = table == LegacyCreateCommandShadow;
-        var declarations = string.Join(", ", fields.Zip(types, (field, type) => $"{field} {type}" + (isCommand ? " NOT NULL" : "")));
-        var commandIdentity = isCommand ? ", UNIQUE (admin_principal_id,client_mutation_id)" : "";
+        var declarations = string.Join(", ", table.Columns.Select((column, index) => $"{fields[index]} {types[index]}" +
+            (table.NonNull?.Contains(column.Name, StringComparer.Ordinal) == true ? " NOT NULL" : "")));
+        var unique = table.Unique is { } keys ? $", UNIQUE ({string.Join(',', keys)})" : "";
         var pkFields = table.Key.Replace(" COLLATE BINARY", "", StringComparison.Ordinal);
         await ExecuteAsync(target, tx,
-            $"CREATE TABLE {ImportSchema}.{table.Name} ({declarations}, PRIMARY KEY ({pkFields}){commandIdentity})", token);
+            $"CREATE TABLE {ImportSchema}.{table.Name} ({declarations}, PRIMARY KEY ({pkFields}){unique})", token);
 
         await using var command = shadow.CreateCommand();
         command.CommandText = $"SELECT {fieldList} FROM {table.Name} ORDER BY {table.Key}";
@@ -210,7 +214,7 @@ internal static partial class Migration
     private static async Task<ShadowCount> MeasureCandidateTableAsync(NpgsqlConnection target, NpgsqlTransaction tx,
         CandidateTable table, CancellationToken token)
     {
-        if (table == LegacyCreateCommandShadow && !await HasLegacyCreateCommandCatalogAsync(tx, ImportSchema, table.Name, token))
+        if (table.Unique is not null && !await HasLegacyJournalCatalogAsync(tx, ImportSchema, table.Name, table, token))
             throw new InvalidOperationException($"Candidate table {table.Name} shape differs.");
         await using (var catalog = new NpgsqlCommand("""
             SELECT a.attname,t.typname

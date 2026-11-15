@@ -99,13 +99,23 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 `legacy import plan` 会在 PostgreSQL 旧源按固定结构读取非空的 `article_mutation_command`，最多 5,000 条。计划版本 2 绑定源表和候选表的精确行数和摘要。`apply` 在第三个检查点写入 `fsus_legacy_candidate.shadow_article_mutation_command`，保留旧管理员整数 ID、客户端 UUID 字符串、原请求 SHA-256、首次修订和权利快照、发布坐标以及原 UTC 创建时间。原始 v1 请求字节不在回执中，因此只保存摘要和验证格式。首次发布须和对应的历史发布精确匹配。创建时未发布的记录保留 `0/0` 发布坐标。先前发布或创作后续修订不会改写该回执。
 
-重跑重新读取旧源并核对原计划。`legacy import project` 或 `verify` 会复验候选回执数量和摘要，保留其隔离状态。新站运行用的 `article_command`、定时发布回执和 `blog_outbox` 不读取这些记录。旧授权证明和原请求不能从回执重建，不匹配首次版本或权利谱系的回执阻止暂存。新版 v1 `article_create_request` / `article_create_receipt`、文章出站事件及其边状态为不同权威来源，含记录时仍会阻止该候选的暂存。SQLite 与 MySQL 暂无这一回执表的获验历史注册，保留原计划版本 1 路径和未支持表门禁。
+重跑重新读取旧源并核对原计划。`legacy import project` 或 `verify` 会复验候选回执数量和摘要，保留其隔离状态。新站运行用的 `article_command`、定时发布回执和 `blog_outbox` 不读取这些记录。旧授权证明和原请求不能从回执重建，不匹配首次版本或权利谱系的回执阻止暂存。新版 v1 `article_create_request` / `article_create_receipt` 属于独立的创作权威，含记录时仍会阻止暂存。SQLite 与 MySQL 暂无这一回执表的获验历史注册，保留原计划版本 1 路径和未支持表门禁。
 
 固定 PostgreSQL 定义见 [回执迁移](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs#L15-L40)，运行时摘要写入见 [v1 命令服务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.cs#L986-L1012)。
 
 2026-11-15 在 PostgreSQL 18.7 使用固定回执 DDL 和合成旧数据，验证了版本 2 暂存、中断恢复、源摘要变化拒绝、原备份独立恢复和断开旧库后的只读投影校验。源或候选移除对应唯一性约束时均被拒绝。SQLite 3.54.0 与 MySQL 8.4.13 的版本 1 文章导入及 SQLite 旧源的定时、回滚和权利投影回归也通过。原始输出与输入摘要见 `artifacts/native-migration/legacy-create-command-20261114T194650Z.log`。
 
 旧出站事件由 `article_mutation_outbox` 主行与 `article_mutation_outbox_edge` 逐边记录共同描述。旧分派器在七个必需边为 `completed` 或 `skipped` 后才将主行标为 `processed`，并清空认领信息。通知和完整性证明属于可选边，核对时继续区分。后续可先保全这类已完成的主行与边、原始 JSON 和投递键。`pending`、`processing`、`poison` 则需要先排空或单独对账，迁移工具不能从旧回执判定下游已投递。有效的版本 2 草稿创建事件可无发布、版权和责任坐标。PostgreSQL 边表有可复用的固定历史 DDL，主表最终结构来自 v1 CodeFirst 实体及后续列迁移。冻结版本的 SQLite 与 MySQL 离线代表性源库注册不含这两个表。[完成条件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#L968-L998) · [草稿写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs#L195-L217) · [边表和认领迁移](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs#L345-L396)
+
+#### 保全已处理的首次发布出站事件
+
+当前范围接受 PostgreSQL 中由常规文章创建流程生成、初始即发布的版本 2 `created` 事件。每篇文章只接受一条。主行须有正整数存储 ID、精确的非空小写 `N` 格式事件 UUID、`processed`、处理时间和空认领字段。JSON 须符合固定写入字段集，重复键及旧别名会被拒绝。文章、首次修订、首次发布和版权快照必须一致。若原事件绑定了责任快照，同时核对其 ID 和版本。分类和标签与首次修订比较。保留 JSON 的原始时间字节，两个时间先作完整精度比较，再与数据库微秒坐标相比。保留 `next_retry_at` 原值，领取时写入的租约截止可能晚于完成时间。[固定写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticlePublicationTransition.cs#L208-L232) · [领取时钟](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#L654-L677)
+
+逐行核验主键、每个事件的边名唯一性、孤立边、七个必需边及投递键。七个必需边必须全部为 `completed`，可选通知与证明边可缺失，存在时也必须为 `completed`。只保留每边最后状态、尝试次数和更新时间。可选边失败、旧 `skipped` 原因、诊断边 `article-outbox-replay`、范围外事件或活动认领均会停止整批。`pending`、`processing` 和 `poison` 分别报告计数。投递键为原事件 ID 与边名按固定规则计算的 SHA-256。键值一致可以核对记录，外部投递结果还要单独对账。[边契约与键](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleMutationSideEffects.cs#L42-L117) · [可选边失败](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleMutationSideEffects.cs#L410-L442)
+
+工具在同一个只读来源快照中按主键枚举两张表，最多读取 5,000 个事件、45,000 条边和累计 32 MiB 的 JSON，单条 JSON 上限为 16 KiB。表只存在一侧、数据越界或存在未支持状态时整批停止。现有迁移命令使用计划版本 3，绑定精确行数、顺序摘要和备份，并允许同一计划同时带入可验证的旧建文回执。第三检查点在一个事务内写入 `shadow_article_mutation_outbox` 和 `shadow_article_mutation_outbox_edge`，复验数量和原数据摘要后提交。候选永远禁止启动，隔离记录不参与运行时 `blog_outbox` 或公开投影水位。此前 v1 的 PostgreSQL 源码测试覆盖了重试与重新认领、过期事件跳过、重启防重复投递，部分下游由测试替身提供。[重试及重新认领](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/tests/backend/Integration/SchemaMigrationIntegrationTests.cs#L1229-L1278) · [跳过和重启](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/tests/backend/Integration/ArticleMutationVersionedOutboxIntegrationTests.cs#L510-L568)
+
+2026-11-15 用 PostgreSQL 18.7 和 SDK 10.0.404，通过冻结边表 DDL 及与固定实体一致的合成主表测试。回读保留了一个事件、八条边和原 JSON 字节。测试覆盖第三阶段中断恢复、逐边摘要、原源只读、断开源库后的验证、篡改拒绝和永久隔离。实际旧部署数据及其下游投递仍待核对。见 `artifacts/native-migration/legacy-processed-outbox-20261115T003938Z.log`。
 
 ### 离线验看附件来源
 

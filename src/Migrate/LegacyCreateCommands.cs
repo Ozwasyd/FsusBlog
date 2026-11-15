@@ -5,10 +5,16 @@ using System.Security.Cryptography;
 internal static partial class Migration
 {
     private const string LegacyCreateCommandSource = "article_mutation_command";
-    private static readonly CandidateTable LegacyCreateCommandShadow = Candidate("shadow_article_mutation_command", 3, "id", """
-        id admin_principal_id client_mutation_id:text request_hash:text article_id revision_id revision_no
-        release_id release_no status rights_snapshot_id rights_revision_no created_at_utc:text
-        """);
+    private static readonly CandidateTable LegacyCreateCommandShadow = CreateCommandDefinition();
+
+    private static CandidateTable CreateCommandDefinition()
+    {
+        var definition = Candidate("shadow_article_mutation_command", 3, "id", """
+            id admin_principal_id client_mutation_id:text request_hash:text article_id revision_id revision_no
+            release_id release_no status rights_snapshot_id rights_revision_no created_at_utc:text
+            """, unique: ["admin_principal_id", "client_mutation_id"]);
+        return definition with { NonNull = definition.Columns.Select(column => column.Name).ToArray() };
+    }
 
     private static readonly string[] LegacyCreateCommandPostgresTypes =
     [
@@ -32,7 +38,7 @@ internal static partial class Migration
         var columns = LegacyCreateCommandShadow.Columns;
         var expected = columns.Zip(LegacyCreateCommandPostgresTypes, (column, type) => new LegacyField(column.Name, type));
         var supported = relation.Columns.ToHashSet().SetEquals(expected);
-        if (!supported || !await HasLegacyCreateCommandCatalogAsync(tx, source.Schema, relation.Name, ct))
+        if (!supported || !await HasLegacyJournalCatalogAsync(tx, source.Schema, relation.Name, LegacyCreateCommandShadow, ct))
             return new LegacyCreateCommandRead();
 
         string C(string name) => "c." + source.Field(relation, name);
@@ -117,10 +123,12 @@ internal static partial class Migration
         plan.ExpectedTables?.Where(row => row.Table == LegacyCreateCommandShadow.Name).ToArray() is [var target] &&
         source.Rows is >= 1 and <= RehearsalLimit && source.Rows == target.Rows && IsSha256(source.Sha256) && IsSha256(target.Sha256);
 
-    private static async Task<bool> HasLegacyCreateCommandCatalogAsync(DbTransaction tx, string schema, string table, CancellationToken ct)
+    private static async Task<bool> HasLegacyJournalCatalogAsync(DbTransaction tx, string schema, string table,
+        CandidateTable definition, CancellationToken ct)
     {
         await using var query = CreateLegacyCommand(tx, """
-            SELECT (SELECT count(*)=13 AND bool_and(a.attnotnull) FROM pg_catalog.pg_attribute a
+            SELECT (SELECT count(*)=@columns AND bool_and(a.attnotnull=(a.attname::text=ANY(@required)))
+                FROM pg_catalog.pg_attribute a
                 WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)
                 AND (SELECT count(DISTINCT indexed.signature)=2 FROM (
                     SELECT i.indisprimary, array_agg(a.attname::text ORDER BY k.ordinality) AS signature
@@ -130,12 +138,14 @@ internal static partial class Migration
                     WHERE i.indrelid=c.oid AND i.indisvalid AND i.indisunique AND i.indimmediate
                         AND i.indpred IS NULL AND i.indexprs IS NULL AND i.indnkeyatts=i.indnatts
                     GROUP BY i.indexrelid,i.indisprimary
-                    ) indexed WHERE (indexed.indisprimary AND indexed.signature=ARRAY['id'])
-                        OR (NOT indexed.indisprimary AND indexed.signature=ARRAY['admin_principal_id','client_mutation_id']))
+                    ) indexed WHERE (indexed.indisprimary AND indexed.signature=ARRAY[@primary])
+                        OR (NOT indexed.indisprimary AND indexed.signature=@unique))
             FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname=@schema AND c.relname=@table AND c.relkind='r' AND c.relpersistence='p' AND NOT c.relrowsecurity
             """);
-        foreach (var (name, value) in new[] { ("schema", schema), ("table", table) })
+        foreach (var (name, value) in new (string, object)[] { ("schema", schema), ("table", table),
+                     ("columns", definition.Columns.Length), ("required", definition.NonNull!), ("primary", definition.Key),
+                     ("unique", definition.Unique!) })
         {
             var parameter = query.CreateParameter();
             parameter.ParameterName = name;
