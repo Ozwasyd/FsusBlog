@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -35,7 +36,8 @@ internal static partial class Migration
     private sealed record ImportPlan(int Version, string SourceReference, string Provider, string SourceSchema,
         int SchemaVersion, string SchemaSha256, DatabaseTarget Target, Guid TargetSiteId, string BackupManifestSha256,
         string OwnerMapSha256, string SourceAdminIdentitySha256, LegacyProjection[] SourceProjections,
-        ShadowCount[] ExpectedTables, ImportFinding[] Findings, bool ReadyToApply, bool ReadyToStage);
+        ShadowCount[] ExpectedTables, ImportFinding[] Findings, bool ReadyToApply, bool ReadyToStage,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null);
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
@@ -85,6 +87,11 @@ internal static partial class Migration
         await using var sourceConnection = source.Connection;
         await sourceConnection.OpenAsync(token);
         await using var sourceTransaction = await BeginLegacyReadAsync(sourceConnection, token);
+        var sourceSeal = sourceConnection is NpgsqlConnection postgres && (expected is null || expected.SourceSeal is not null)
+            ? await SealLegacyPostgresSourceAsync(source, postgres, (NpgsqlTransaction)sourceTransaction, token)
+            : null;
+        if (expected?.SourceSeal is { } recorded && recorded != sourceSeal)
+            throw new InvalidOperationException("The import plan no longer matches the PostgreSQL source identity or catalog.");
         var catalog = await ReadLegacyCatalogAsync(source, sourceTransaction, token);
         var (tables, blockers) = SelectLegacyTables(source, catalog);
         if (blockers.Count != 0)
@@ -108,6 +115,8 @@ internal static partial class Migration
         await target.OpenAsync(token);
         await RequireBackupDatabaseLockAsync(target, token);
         var (identity, siteId, quarantined) = await ObserveLegacyTargetAsync(target, backup, shadow.Owners, token);
+        if (provider == "postgres" && expected is { SourceSeal: null } && !quarantined)
+            throw new InvalidOperationException("Create a new sealed PostgreSQL plan before staging a fresh legacy candidate.");
         var schemaDigest = Digest(await SchemaSqlAsync(token));
         // Previously admitted empty derived tables were not sealed. An existing approved plan can replay that empty case.
         var includeTaxonomy = taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
@@ -120,7 +129,7 @@ internal static partial class Migration
         var plan = new ImportPlan(version,
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
-            sourceProjections, shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0);
+            sourceProjections, shadow.Report.Counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0, SourceSeal: sourceSeal);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -276,8 +285,11 @@ internal static partial class Migration
     {
         await using var input = File.OpenRead(path);
         if (input.Length is <= 0 or > 2_000_000) throw new InvalidOperationException("The legacy import plan is outside its size boundary.");
-        return await JsonSerializer.DeserializeAsync<ImportPlan>(input, OwnerMapJson, token) ??
+        var plan = await JsonSerializer.DeserializeAsync<ImportPlan>(input, OwnerMapJson, token) ??
             throw new InvalidOperationException("Expected an exact legacy import plan.");
+        if (plan.SourceSeal is { } seal && (plan.Provider != "postgres" || !seal.IsValid()))
+            throw new InvalidOperationException("The legacy import plan contains an invalid PostgreSQL source seal.");
+        return plan;
     }
 
     private static string CanonicalImportPlanDigest(ImportPlan plan)

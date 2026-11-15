@@ -25,8 +25,11 @@ root="$(cd "$root" && pwd -P)"
 database="fsusv2_import_$(openssl rand -hex 12)"
 restore="${database}_restore"
 source_db="${database}_source"
+source_clone="${database}_source_clone"
+source_reader="fsusv2_reader_${database#fsusv2_import_}"
 maintenance=(psql -X -q --no-password -v ON_ERROR_STOP=1 -d postgres)
 created=()
+created_reader=false
 cleanup() {
     local code=$? db
     for db in "${created[@]}"; do
@@ -35,6 +38,10 @@ cleanup() {
             if [[ "$code" == 0 ]]; then code=1; fi
         fi
     done
+    if [[ "$created_reader" == true ]] && ! "${maintenance[@]}" -c "DROP ROLE \"$source_reader\""; then
+        printf 'Could not drop owned source read role %s\n' "$source_reader" >&2
+        if [[ "$code" == 0 ]]; then code=1; fi
+    fi
     if [[ "$provider" == mysql ]] && ! stop_mysql_scratch "$root"; then
         printf 'Could not stop and clean owned MySQL instance. Preserving %s\n' "$root" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
@@ -70,7 +77,18 @@ case "$provider" in
         created+=("$source_db")
         psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -f "${fixture[0]}" -f "${fixture[1]}" \
             -f tests/Integration/Migration/legacy-article-command-fixture.sql
-        export FSUSBLOG_V1_DB="${FSUSBLOG_TEST_DB%;};Database=$source_db;Options=-c default_transaction_read_only=on"
+        "${maintenance[@]}" -c "CREATE ROLE \"$source_reader\" LOGIN"
+        created_reader=true
+        psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -c "
+            GRANT CONNECT ON DATABASE \"$source_db\" TO \"$source_reader\";
+            GRANT USAGE ON SCHEMA public TO \"$source_reader\";
+            GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"$source_reader\";
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO \"$source_reader\";
+            REVOKE EXECUTE ON FUNCTION pg_catalog.pg_control_system() FROM PUBLIC;"
+        [[ "$(psql -X -qAt --no-password -v ON_ERROR_STOP=1 -U "$source_reader" -d "$source_db" -c \
+            "SELECT current_user || '|' || CASE WHEN has_function_privilege('pg_catalog.pg_control_system()', 'EXECUTE') THEN 'allowed' ELSE 'denied' END")" == "$source_reader|denied" ]]
+        source_admin_dsn="${FSUSBLOG_TEST_DB%;};Database=$source_db;Options=-c default_transaction_read_only=on"
+        export FSUSBLOG_V1_DB="$source_admin_dsn;Username=$source_reader;Password="
         export FSUSBLOG_V1_SCHEMA=public
         source_sql=(psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -c)
         ;;
@@ -159,14 +177,68 @@ assert plan["readyToStage"] is True and plan["readyToApply"] is False
 assert not plan["findings"]
 if sys.argv[2] == "postgres":
     assert plan["version"] == 2 and len(plan["sourceProjections"]) == len(plan["expectedTables"]) == 13
+    seal = plan["sourceSeal"]
+    assert seal["version"] == 1 and seal["provenance"] == "catalog-and-endpoint"
+    assert all(re.fullmatch(r"[0-9a-f]{64}", seal[key]) for key in ("databaseSha256", "catalogSha256"))
     for rows, table in ((plan["sourceProjections"], "article_mutation_command"),
                         (plan["expectedTables"], "shadow_article_mutation_command")):
         receipt = next(item for item in rows if item["table"] == table)
         assert receipt["rows"] == 1 and re.fullmatch(r"[0-9a-f]{64}", receipt["sha256"]), receipt
 else:
     assert plan["version"] == 1 and len(plan["sourceProjections"]) == len(plan["expectedTables"]) == 12
+    assert "sourceSeal" not in plan
 PY
 if [[ "$provider" == postgres ]]; then
+    FSUSBLOG_V1_DB="$source_admin_dsn" "${plan[@]}" > "$root/cluster-plan.json"
+    python3 - "$root/import.json" "$root/cluster-plan.json" "$root/unsealed.json" <<'PY'
+import json, pathlib, sys
+reader, cluster = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:3]]
+limited, strong = reader.pop("sourceSeal"), cluster.pop("sourceSeal")
+assert strong["provenance"] == "cluster-and-catalog" and strong["version"] == limited["version"]
+assert strong["databaseSha256"] != limited["databaseSha256"] and strong["catalogSha256"] == limited["catalogSha256"]
+assert reader == cluster and reader["readyToStage"] and not reader["readyToApply"]
+pathlib.Path(sys.argv[3]).write_text(json.dumps(reader))
+PY
+    if "${apply[@]:0:${#apply[@]}-1}" "$root/unsealed.json" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -Fx 'Create a new sealed PostgreSQL plan before staging a fresh legacy candidate.' "$root/error.log"
+
+    expect_source_seal_refused() {
+        if "$@" > "$root/error.log" 2>&1; then exit 1; fi
+        rg -Fx 'The import plan no longer matches the PostgreSQL source identity or catalog.' "$root/error.log"
+        [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
+    }
+    "${maintenance[@]}" -c "CREATE DATABASE \"$source_clone\" TEMPLATE \"$source_db\""
+    created+=("$source_clone")
+    clone_dsn="$FSUSBLOG_V1_DB;Database=$source_clone"
+    FSUSBLOG_V1_DB="$clone_dsn" "${plan[@]}" > "$root/clone-plan.json"
+    python3 - "$root/import.json" "$root/clone-plan.json" <<'PY'
+import json, pathlib, sys
+original, clone = (json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:])
+before, after = original.pop("sourceSeal"), clone.pop("sourceSeal")
+assert before["catalogSha256"] == after["catalogSha256"] and before["databaseSha256"] != after["databaseSha256"]
+assert original == clone
+PY
+    expect_source_seal_refused env FSUSBLOG_V1_DB="$clone_dsn" "${apply[@]}"
+    expect_source_seal_refused env FSUSBLOG_V1_DB="$source_admin_dsn" "${apply[@]}"
+
+    "${source_sql[@]}" 'CREATE TABLE legacy_empty_source_shape (id integer NOT NULL PRIMARY KEY)'
+    expect_source_seal_refused "${apply[@]}"
+    "${source_sql[@]}" 'DROP TABLE legacy_empty_source_shape; ALTER TABLE article ADD COLUMN extra_source_field text'
+    expect_source_seal_refused "${apply[@]}"
+    "${source_sql[@]}" 'ALTER TABLE article DROP COLUMN extra_source_field; ALTER TABLE article ADD CONSTRAINT extra_source_check CHECK (id > 0)'
+    "${plan[@]}" > "$root/changed-catalog.json"
+    python3 - "$root/import.json" "$root/changed-catalog.json" <<'PY'
+import json, pathlib, sys
+before, after = (json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:])
+original, changed = before.pop("sourceSeal"), after.pop("sourceSeal")
+assert original["databaseSha256"] == changed["databaseSha256"] and original["catalogSha256"] != changed["catalogSha256"]
+assert before == after
+PY
+    expect_source_seal_refused "${apply[@]}"
+    "${source_sql[@]}" 'ALTER TABLE article DROP CONSTRAINT extra_source_check'
+    "${plan[@]}" > "$root/restored-catalog.json"
+    cmp "$root/import.json" "$root/restored-catalog.json"
+
     expect_command_refused() {
         local exit_code=0
         "${plan[@]}" > "$root/rejected.json" || exit_code=$?
@@ -237,6 +309,10 @@ assert not plan["readyToApply"] and not plan["readyToStage"]
 assert plan["findings"] == [{"category":"attachments","source":"content_asset","rows":2}]
 PY
 if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+if [[ "$provider" == postgres ]]; then
+    rg -Fx 'The import plan no longer matches the PostgreSQL source identity or catalog.' "$root/error.log"
+    if "${apply[@]:0:${#apply[@]}-1}" "$root/blocked.json" > "$root/error.log" 2>&1; then exit 1; fi
+fi
 rg -F 'contains unsupported rows' "$root/error.log"
 "${source_sql[@]}" 'DROP TABLE content_asset'
 "${source_sql[@]}" "UPDATE admin_principal SET permissions='[\"article.publish\"]', isroot=true"
@@ -276,6 +352,9 @@ added = new["sourceProjections"][len(old["sourceProjections"]):]
 assert added == proof["projections"] and {row["table"]: row["rows"] for row in added} == counts
 assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in added)
 new["sourceProjections"] = new["sourceProjections"][:-len(added)]
+assert new["sourceSeal"]["databaseSha256"] == old["sourceSeal"]["databaseSha256"]
+assert new["sourceSeal"]["catalogSha256"] != old["sourceSeal"]["catalogSha256"]
+new["sourceSeal"] = old["sourceSeal"]
 assert new == old
 PY
     expect_taxonomy_refused() {

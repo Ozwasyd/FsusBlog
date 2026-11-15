@@ -64,6 +64,10 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 计划绑定全部支持的源投影、所有者映射、源管理员摘要、目标标识、结构和备份。应用重新对照这些内容，取得 PostgreSQL 独占写者锁，写入禁止启动的结构标记，再分三个事务保存文章谱系、分类标签、权利责任。各事务在记录检查点前独立回读行数和摘要。中断后用原始计划重跑，工具逐段重新验证现有数据并续跑；改过的计划、源数据、目标数据、备份或阶段都被拒绝。恢复需在另一个独立空库运行原备份的 `pg_restore` 和回读检查。候选保留在 `fsus_legacy_candidate` 中，现有公开业务表不接收导入数据。
 
+新生成的 PostgreSQL 导入计划在同一只读、可重复读源事务封存数据库与 schema 身份，以及所选 schema 中关系、列、默认值、约束、索引和继承边的结构摘要。若当前源身份已有 `pg_control_system()` 执行权，`sourceSeal.provenance` 为 `cluster-and-catalog`，数据库摘要绑定集群系统标识。其他只读身份继续使用 `catalog-and-endpoint`，摘要绑定实际选中的数据库和 schema 目录标识以及配置的连接端点。后一种来源仍需要独立备份和实例证明，切换运行时的要求见启用条件。报告只写摘要和来源级别。应用在打开目标连接前拒绝已封存的来源或目录变化。
+
+目标结构摘要与原计划匹配时，已有未封存的 PostgreSQL 计划仍可与原已隔离候选一同续跑或离线复验。新的 PostgreSQL 候选分阶段写入需要当前工具生成的封存计划。SQLite 和 MySQL 的计划格式继续沿用当前各自的来源核验。
+
 候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
 固定 v1 完成 `taxonomy-projection` 出站边时维护三张 PostgreSQL 派生表。`category_public_article_count` 与 `tag_public_article_count` 分别以 `category_id`、`tag_id` 为整数主键，保存 `bigint` 计数和 `updated_at_utc`。`article_public_taxonomy_projection` 以整数 `article_id` 为主键，保存可空的整数 `category_id`、排序后的文本 `tag_ids` 及 `updated_at_utc`。固定 v1 按可见性选择文章，再读取该文章的当前分类与标签关系。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs#L1275-L1310) · [出站边](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleMutationSideEffects.cs#L502-L513) · [可见性与关系来源](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Taxonomy/TaxonomyCountProjectionService.cs#L133-L181)
