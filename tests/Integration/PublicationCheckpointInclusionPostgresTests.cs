@@ -145,6 +145,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 var dayRoute = $"{Checkpoints}/daily/{day}.json";
                 var aggregate = await Get(client, dayRoute, HttpStatusCode.OK);
                 Assert.Equal("{\"checkpoint\":" + checkpoint.ToJsonString() + ",\"inclusion\":null}", aggregate);
+                Assert.Equal(aggregate, await Get(client, Checkpoints + "/latest.json", HttpStatusCode.OK));
                 foreach (var (member, expected) in new[] { (covered, first), (oddLeaf, last) })
                 {
                     var bundle = await Get(client, member.Path, HttpStatusCode.OK);

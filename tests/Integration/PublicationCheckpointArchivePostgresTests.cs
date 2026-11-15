@@ -15,6 +15,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
 {
     private const string Host = "checkpoints.example.test";
     private const string Prefix = "/integrity/v2/checkpoints";
+    private const string Latest = Prefix + "/latest.json";
     private const string Settings = "IntegrityProof__CheckpointArchive__";
     private const string Keys = "IntegrityProof__Signing__Keys__";
 
@@ -40,6 +41,8 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
             var cutover = headTime.AddHours(1);
             var signedAt = cutover.AddHours(1);
             var day = midnight.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var backfilledDay = midnight.AddDays(-2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var tiedDay = midnight.AddDays(-3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var address = viaCaddy ? NativeCaddyProxy.NewAddress() : new Uri("https://" + Host);
             var origin = address.GetLeftPart(UriPartial.Authority);
             var path = Path.Combine(scratch.FullName, "archive.json");
@@ -67,29 +70,31 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                 sequence = "3", entrySha256 = Hex(headDigest), keyId = "old", keyVersion = 1, keySha256 = Hex(head.KeySha256),
                 attestedAtUtc = Time(headTime), signature = Sign(retired, head.Payload()),
             })!;
-            var signedDay = JsonSerializer.SerializeToNode(new
-            {
-                checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = "daily", algorithm = ArticlePublicationProofPayloadV2.Algorithm,
-                origin, scopeKey = day, fromSequence = "0", toSequence = "0", entryCount = 0, rootSha256 = Hex(dayReceipt.RootSha256),
-                headSequence = "3", headEntrySha256 = Hex(headDigest), keyId = "next", keyVersion = 2, keySha256 = Hex(dayReceipt.KeySha256),
-                attestedAtUtc = Time(signedAt), signature = Sign(current, dayReceipt.Payload()),
-            })!;
+            var signedDay = SignedDay(dayReceipt);
+            var backfilledAt = signedAt.AddMinutes(1);
+            var backfilled = SignedDay(dayReceipt with { ScopeKey = backfilledDay, AttestedAt = backfilledAt });
+            var tied = SignedDay(dayReceipt with { ScopeKey = tiedDay, AttestedAt = backfilledAt });
             var archived = new JsonObject
             {
                 ["archiveVersion"] = 2, ["head"] = signedHead.DeepClone(),
                 ["bridgeReceiptSha256"] = new JsonArray(JsonValue.Create(Hex(receipt))),
-                ["checkpoints"] = new JsonArray(signedDay.DeepClone()),
+                ["checkpoints"] = new JsonArray(signedDay.DeepClone(), backfilled.DeepClone(), tied),
             };
             await Install(archived);
             var validPin = "4:" + Hex(PublicationTransparencyV2.EntryDigest(4, headDigest, receipt));
             config[Settings + "CurrentAnchor"] = validPin;
             var route = $"{Prefix}/daily/{day}.json";
-            await WithServer(client => Read(client, route, HttpStatusCode.NotFound));
+            await WithServer(async client =>
+            {
+                await Read(client, route, HttpStatusCode.NotFound);
+                await Read(client, Latest, HttpStatusCode.NotFound);
+            });
             config[Settings + "Enabled"] = "true";
             await WithServer(async client =>
             {
                 var servedDay = await Read(client, route, HttpStatusCode.OK);
                 var servedHead = await Read(client, Prefix + "/head.json", HttpStatusCode.OK);
+                var servedLatest = await Read(client, Latest, HttpStatusCode.OK);
                 Assert.True(JsonNode.DeepEquals(signedHead, JsonNode.Parse(servedHead)));
                 Assert.Equal(signedHead.ToJsonString(), servedHead);
                 Assert.Equal("{\"checkpoint\":" + signedDay.ToJsonString() + ",\"inclusion\":null}", servedDay);
@@ -99,18 +104,25 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                 Assert.True(JsonNode.DeepEquals(signedDay, publicBundle["checkpoint"]));
                 Assert.DoesNotContain(Hex(receipt), servedDay);
                 Assert.DoesNotContain(Hex(receipt), servedHead);
+                Assert.Equal("{\"checkpoint\":" + backfilled.ToJsonString() + ",\"inclusion\":null}", servedLatest);
+                Assert.Equal(await Read(client, $"{Prefix}/daily/{backfilledDay}.json", HttpStatusCode.OK), servedLatest);
+                Assert.DoesNotContain(Hex(receipt), servedLatest);
                 await Read(client, Prefix + "/daily/2020-01-01.json", HttpStatusCode.NotFound);
                 await Read(client, Prefix + "/daily/2026-02-30.json", HttpStatusCode.BadRequest);
                 if (!viaCaddy)
                 {
                     await Read(client, route, HttpStatusCode.NotFound, "another.example.test");
                     await Read(client, route, HttpStatusCode.Forbidden, transport: "http");
+                    await Read(client, Latest, HttpStatusCode.NotFound, "another.example.test");
+                    await Read(client, Latest, HttpStatusCode.Forbidden, transport: "http");
                 }
                 await Read(client, "/integrity/v2/keys.json", HttpStatusCode.NotFound);
                 await IndependentlyVerify(servedDay, servedHead, day, oldKey, nextKey);
+                await IndependentlyVerify(servedLatest, servedHead, backfilledDay, oldKey, nextKey);
                 if (viaCaddy)
                     evidence.WriteLine($"Node verified {day}, signed head SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedHead)))}, "
-                        + $"daily response SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedDay)))}.");
+                        + $"daily response SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedDay)))}. "
+                        + $"Node verified latest attestation for {backfilledDay}, response SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedLatest)))}.");
             });
 
             if (viaCaddy)
@@ -160,6 +172,14 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
             config[Keys + "old__CompromisedAtUtc"] = Time(cutover);
             await Withheld();
 
+            JsonNode SignedDay(PublicationCheckpointV2 claim) => JsonSerializer.SerializeToNode(new
+            {
+                checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = "daily", algorithm = ArticlePublicationProofPayloadV2.Algorithm,
+                origin, scopeKey = claim.ScopeKey, fromSequence = "0", toSequence = "0", entryCount = 0, rootSha256 = Hex(claim.RootSha256),
+                headSequence = "3", headEntrySha256 = Hex(headDigest), keyId = "next", keyVersion = 2, keySha256 = Hex(claim.KeySha256),
+                attestedAtUtc = Time(claim.AttestedAt), signature = Sign(current, claim.Payload()),
+            })!;
+
             async Task WithServer(Func<HttpClient, Task> check)
             {
                 await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, config,
@@ -178,6 +198,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
             {
                 await Read(client, route, HttpStatusCode.ServiceUnavailable);
                 await Read(client, Prefix + "/head.json", HttpStatusCode.ServiceUnavailable);
+                await Read(client, Latest, HttpStatusCode.ServiceUnavailable);
                 if (viaCaddy)
                 {
                     using var ready = await client.GetAsync("/health/ready", ct);

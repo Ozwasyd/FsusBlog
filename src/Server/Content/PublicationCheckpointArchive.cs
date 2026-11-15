@@ -19,7 +19,7 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
 
     internal sealed record Inclusion(string Day, byte[] EntrySha256, string Proof);
     internal sealed record Day(string Checkpoint, byte[] Response);
-    internal sealed record Snapshot(byte[] Head, IReadOnlyDictionary<string, Day> Days,
+    internal sealed record Snapshot(byte[] Head, byte[] Latest, IReadOnlyDictionary<string, Day> Days,
         IReadOnlyDictionary<long, Inclusion> Inclusions, DateTimeOffset EarliestClock);
 
     internal static PublicationCheckpointArchive? Read(IConfiguration configuration, IntegrityKeys publicKeys, string? origin,
@@ -51,6 +51,7 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
     {
         if (snapshot is null) app.Logger.LogWarning("The opted-in daily publication checkpoint archive could not be verified.");
         app.MapGet(Prefix + "/head.json", (HttpContext ctx) => ReadResponse(ctx, null)).RequireRateLimiting(Limit);
+        app.MapGet(Prefix + "/latest.json", (HttpContext ctx) => ReadResponse(ctx, null, latest: true)).RequireRateLimiting(Limit);
         app.MapGet(Prefix + "/daily/{day}.json", (HttpContext ctx, string day) => ReadResponse(ctx, day)).RequireRateLimiting(Limit);
     }
 
@@ -63,13 +64,13 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
             ? Bundle(snapshot.Days[inclusion.Day].Checkpoint, inclusion.Proof) : null;
     }
 
-    private Task ReadResponse(HttpContext ctx, string? day)
+    private Task ReadResponse(HttpContext ctx, string? day, bool latest = false)
     {
         if (origin is null || !ctx.Request.IsHttps || !string.Equals(ctx.Request.Host.Value, origin.Authority, StringComparison.OrdinalIgnoreCase))
             return Status(StatusCodes.Status404NotFound);
         if (day is not null && !PublicationCheckpointV2.TryDay(day, out _)) return Status(StatusCodes.Status400BadRequest);
         if (snapshot is null || clock.GetUtcNow() < snapshot.EarliestClock) return Status(StatusCodes.Status503ServiceUnavailable);
-        var response = day is null ? snapshot.Head : snapshot.Days.GetValueOrDefault(day)?.Response;
+        var response = day is not null ? snapshot.Days.GetValueOrDefault(day)?.Response : latest ? snapshot.Latest : snapshot.Head;
         return response is null ? Status(StatusCodes.Status404NotFound) : PublicResponse.Write(ctx, response, Json);
 
         Task Status(int status)
@@ -118,20 +119,20 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
         VerifyBridge(archive.GetProperty("bridgeReceiptSha256"), head, anchor);
         var checkpoints = archive.GetProperty("checkpoints");
         if (checkpoints.GetArrayLength() is < 1 or > MaxDays) throw new FormatException();
-        var latest = head.AttestedAt;
         var days = new Dictionary<string, Day>(StringComparer.Ordinal);
         var signedDays = new Dictionary<string, PublicationCheckpointV2>(StringComparer.Ordinal);
         foreach (var node in checkpoints.EnumerateArray())
         {
             var checkpoint = ValidateDay(node, head, keys);
-            if (checkpoint.AttestedAt > latest) latest = checkpoint.AttestedAt;
             var raw = node.GetRawText();
             if (!signedDays.TryAdd(checkpoint.ScopeKey, checkpoint)) throw new FormatException();
             days.Add(checkpoint.ScopeKey, new(raw, Bundle(raw, "null")));
         }
-        if (now < latest) throw new FormatException();
+        var latest = signedDays.Values.OrderByDescending(checkpoint => checkpoint.AttestedAt)
+            .ThenByDescending(checkpoint => checkpoint.ScopeKey, StringComparer.Ordinal).First();
+        if (now < latest.AttestedAt) throw new FormatException();
         var inclusions = version == 3 ? ValidateInclusions(archive.GetProperty("inclusions"), signedDays) : [];
-        return new(Encoding.UTF8.GetBytes(signedHead.GetRawText()), days, inclusions, latest);
+        return new(Encoding.UTF8.GetBytes(signedHead.GetRawText()), days[latest.ScopeKey].Response, days, inclusions, latest.AttestedAt);
     }
 
     private static Dictionary<long, Inclusion> ValidateInclusions(JsonElement array, IReadOnlyDictionary<string, PublicationCheckpointV2> days)

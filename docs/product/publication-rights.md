@@ -72,7 +72,7 @@
 
 ## 公开历史日检查点归档
 
-显式开启 `IntegrityProof__CheckpointArchive__Enabled=true` 后，公开 HTTPS 源可提供 `GET /integrity/v2/checkpoints/daily/{YYYY-MM-DD}.json` 和 `GET /integrity/v2/checkpoints/head.json`。前者返回原签名日检查点和空成员路径，后者返回它使用的原签名日志头。覆盖范围仍止于该历史头。使用上节的 Node 命令及最新独立持有的可信公钥目录核验两份 JSON。
+显式开启 `IntegrityProof__CheckpointArchive__Enabled=true` 后，公开 HTTPS 源可提供 `GET /integrity/v2/checkpoints/daily/{YYYY-MM-DD}.json`、`GET /integrity/v2/checkpoints/latest.json` 和 `GET /integrity/v2/checkpoints/head.json`。指定日读取返回原签名日检查点和空成员路径。最新入口按归档检查点的原签发时间选最新一份，时间相同时选较晚的 UTC 日期，返回与所选指定日入口逐字节相同的响应。补签较早日期也可以成为最新签发的检查点。日志头入口返回这份归档使用的原签名头，覆盖范围止于该头。使用上节的 Node 命令及最新独立持有的可信公钥目录核验两份 JSON。 [固定 v1 最新签发排序](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityVerificationManifest.cs#L418-L439)
 
 从停机命令生成的日检查点中选取 `checkpoint` 对象。归档使用以下 JSON 形状。同一归档内所有日期必须使用 `head` 所载原签名日志头。
 
@@ -85,7 +85,7 @@ jq -n --slurpfile head head.json --slurpfile day day.json \
 
 读取器从 `IntegrityProof__Signing__Keys` 加载部署时的公开验证密钥及撤销／泄露状态，验签后将归档固定在内存中。收到密钥泄露或需要更换信任配置时，停止提供该归档，用最新配置重启以重新验证。当前 UTC 时钟必须至少到达所有归档签名的时间。这个下限用于拒绝时钟落后的运行环境，归档仍为历史摘要。匿名请求检查公开 HTTPS 源和现有应用租约，读取过程只访问已验签的内存数据。公钥目录的获取沿用已建立的独立渠道。此读取器可以在原生在线签名关闭、无私钥的部署中工作。
 
-未启用或未收录的日期返回 404，格式错误返回 400。配置启用而归档缺失、损坏、不可信或时钟不足时，公开归档返回 503，普通站点仍可提供服务。响应使用 `no-store`。固定 v1 的 `latest`、指定日原始路径和 v1 清单格式仍不在此接口范围。 [归档读取器](../../src/Server/Content/PublicationCheckpointArchive.cs)
+归档未启用或日期未收录时返回 404，日期格式错误时返回 400。配置启用而归档缺失、损坏、不可信或时钟不足时，公开归档返回 503，普通站点仍可提供服务。响应使用 `no-store` 和原生 v2 检查点格式。 [归档读取器](../../src/Server/Content/PublicationCheckpointArchive.cs)
 
 随包 Caddy 配置通过原生 TLS 和 HTTP/2 验证。匿名读取返回原签名日检查点和日志头，经过独立 Node 验签。错误日期、未收录日期和无关锚点分别返回 400、404 和 503，均使用 `no-store`。 [原生 TLS 集成结果](../../artifacts/checkpoint-archive-tls-6a02786/native/integration.txt)
 
