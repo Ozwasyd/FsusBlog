@@ -896,3 +896,154 @@ https://github.com/Ozwasyd/FsusBlog/issues/2710	1	2572	parent	#2710:8; #2572:48	
 https://github.com/Ozwasyd/FsusBlog/issues/2711	1	2572	parent	#2711:8; #2572:53	父项将此子项列为「**Legacy restart/reset/repair removal and governance**」。子项自述范围为「负责 legacy 路径删除和治理」。
 https://github.com/Ozwasyd/FsusBlog/issues/2712	1	2572	parent	#2712:8; #2572:58	父项将此子项列为「**Scale/performance/resource qualification**」。子项自述范围为「负责 scale/performance/resource qualification」。
 https://github.com/Ozwasyd/FsusBlog/issues/2713	1	2572	parent	#2713:8; #2572:63	父项将此子项列为「**Privacy/evidence-retention qualification**」。子项自述范围为「负责 privacy 与 evidence-retention qualification」。
+https://github.com/Ozwasyd/FsusBlog/issues/1591	44	1590	acceptance-gate	#1591:189	每项证据必须引用 #1590 定义的精确分类。
+https://github.com/Ozwasyd/FsusBlog/issues/1606	1	1604	prerequisite	#1606:116	原文明确引用的能力或过程为「Receipt 定位必须使用 #1604 current-run locator，不允许扫描目录找“最近三轮”」。
+https://github.com/Ozwasyd/FsusBlog/issues/1613	1	1626	acceptance-gate	#1613:137	原文明确引用的能力或过程为「本票必须消费 #1626 实际 env builder、forbidden override 扫描和 source-bound receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/1615	1	1626	acceptance-gate	#1615:163	原文明确引用的能力或过程为「本票消费 #1626 实际 effective environment builder、forbidden override 扫描与 receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/1621	1	1616	acceptance-gate	#1621:128	原文明确引用的能力或过程为「复用#1616逐请求structured probes生成固定load」。
+https://github.com/Ozwasyd/FsusBlog/issues/1621	1	1623	acceptance-gate	#1621:201	原文明确引用的能力或过程为「本票显式等待 #1623 的唯一 sealed identity/actual observer/per-window re-observation 与 restart/PID-reuse refusal」。
+https://github.com/Ozwasyd/FsusBlog/issues/1621	1	1626	acceptance-gate	#1621:203	原文明确引用的能力或过程为「原 threshold 被 env 改大时启动前拒绝必须消费 #1626 的实际 env builder/forbidden override receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/1622	1	1616	acceptance-gate	#1622:132	原文明确引用的能力或过程为「复用#1616固定load samples，不允许请求失败被吞掉」。
+https://github.com/Ozwasyd/FsusBlog/issues/1622	1	1623	acceptance-gate	#1622:206	原文明确引用的能力或过程为「先取得 #1623 唯一 sealed backend identity、actual platform observer、per-window re-observation 与 drift/restart/PID-reuse 拒绝」。
+https://github.com/Ozwasyd/FsusBlog/issues/1622	1	1626	acceptance-gate	#1622:208	原文明确引用的能力或过程为「原 threshold 被 env 改大时启动前拒绝必须经过 #1626 实际 env builder/forbidden override receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/1623	1	1611	prerequisite	#1623:186	先消费 #1611 提供的实际平台观察器、验证器、租约绑定和 runtime-owner 收据。
+https://github.com/Ozwasyd/FsusBlog/issues/1719	1	1710	prerequisite	#1719:49	原文明确引用的能力或过程为「reader只读取#1710最终receipt及其确定化projection，不访问DB/Redis、不执行producer、不读取demo/旧manifest」。
+https://github.com/Ozwasyd/FsusBlog/issues/1812	1	1814	prerequisite	#1812:74	原文明确引用的能力或过程为「document epoch/文章切换不由写作辅助管理，消费 #1814 的 editor identity」。
+https://github.com/Ozwasyd/FsusBlog/issues/1853	1	2230	prerequisite	#1853:38	原文明确引用的能力或过程为「Rail 的 recent history 只消费 #2230 服务端 authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/1863	1	1813	conditional-prerequisite	#1863:45	原文明确引用的能力或过程为「网络/保存失败时使用 #1813 同源未确认恢复，不新建另一套本地便签系统」。
+https://github.com/Ozwasyd/FsusBlog/issues/1863	1	1854	prerequisite	#1863:54	原文明确引用的能力或过程为「捕获成功后使用 #1854 openOrActivate打开唯一 session；不得创建隐藏的第二草稿实例，也不得自动改为Draft」。
+https://github.com/Ozwasyd/FsusBlog/issues/1863	1	1908	prerequisite	#1863:5	Quick Capture 创建的文章必须进入 #1908 定义的正式文章状态。
+https://github.com/Ozwasyd/FsusBlog/issues/1872	1	1868	prerequisite	#1872:54	原文明确引用的能力或过程为「引用解析使用 #1868 stable article/heading/block identity；不得按标题、slug、内容 hash 或 DOM path 持久化」。
+https://github.com/Ozwasyd/FsusBlog/issues/1912	1	1779	prerequisite	#1912:27	原文明确引用的能力或过程为「资产使用 #1779 AssetId + content digest；Vault path/file name只是 materialized projection」。
+https://github.com/Ozwasyd/FsusBlog/issues/1913	1	1909	prerequisite	#1913:55	原文明确引用的能力或过程为「可提供手动 同步现在、仅拉取计划、仅推送计划，但三者都调用 #1909 同一 planner/executor」。
+https://github.com/Ozwasyd/FsusBlog/issues/1914	1	1873	prerequisite	#1914:11; #1873:80-82	Hybrid 宿主实现采用 #1873 的组合边界，涵盖清单、RPC、隔离、权限和生命周期。
+https://github.com/Ozwasyd/FsusBlog/issues/1918	1	1914	conditional-prerequisite	#1918:14	原文明确引用的能力或过程为「import/export 默认在 isolated Worker/Wasm；需要filesystem/network/large compute时必须使用 #1914 out-of-process service与exact broker capability」。
+https://github.com/Ozwasyd/FsusBlog/issues/1935	2	1934	acceptance-gate	#1935:31	原文明确引用的能力或过程为「对四类 executor 使用 #1934 的 canonical timeline和event schema」。
+https://github.com/Ozwasyd/FsusBlog/issues/1940	2	1937	conditional-prerequisite	#1940:12	原文明确引用的能力或过程为「失效后精确使用#1937 fallback，不与旧calibration取max/min/平均」。
+https://github.com/Ozwasyd/FsusBlog/issues/2023	36	2020	acceptance-gate	#2023:46	原文明确引用的能力或过程为「Infra/product/contract/determinism failures使用 #2020 taxonomy，不按日志文本」。
+https://github.com/Ozwasyd/FsusBlog/issues/2024	38	2020	acceptance-gate	#2024:48	原文明确引用的能力或过程为「使用 #2020 canonical failure taxonomy」。
+https://github.com/Ozwasyd/FsusBlog/issues/2026	2	1604	prerequisite	#2026:16	原文明确引用的能力或过程为「写入current-run checkpoint/manifest时使用#1604 explicit content-addressed ref，append-only，禁止latest/mtime/first-match」。
+https://github.com/Ozwasyd/FsusBlog/issues/2026	2	2025	prerequisite	#2026:15	原文明确引用的能力或过程为「Aggregate fingerprint使用#2025 canonicalizer/policy；schema/algorithm/version exact一致」。
+https://github.com/Ozwasyd/FsusBlog/issues/2030	2	2028	prerequisite	#2030:11	原文明确引用的能力或过程为「使用#2028 independent verifier逐字段验证payload、authority refs、versions与candidate digest」。
+https://github.com/Ozwasyd/FsusBlog/issues/2031	2	1604	prerequisite	#2031:11	原文明确引用的能力或过程为「使用#1604 locator加载run outcome/cleanup/runtime receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2035	2	2034	prerequisite	#2035:6	原文明确引用的能力或过程为「严格消费#2034中指定ordinal的sealed plan」。
+https://github.com/Ozwasyd/FsusBlog/issues/2037	2	2036	acceptance-gate	#2037:11	原文明确引用的能力或过程为「所有consumer exact-one调用#2036 independent verifier」。
+https://github.com/Ozwasyd/FsusBlog/issues/2046	2	1710	prerequisite	#2046:19	原文明确引用的能力或过程为「Reader只读取#1710最终receipt及其确定化projections，不访问DB/Redis、不执行producer、不读取demo/旧manifest」。
+https://github.com/Ozwasyd/FsusBlog/issues/2052	37	2046	acceptance-gate	#2052:29	原文明确引用的能力或过程为「全部 consumers exact-one 使用 #2046 reader/admission」。
+https://github.com/Ozwasyd/FsusBlog/issues/2055	2	1710	acceptance-gate	#2055:12	原文明确引用的能力或过程为「Fixture-verify调用#1710 independent verifier，只有verified receipt exact匹配step plan时consumer edge满足」。
+https://github.com/Ozwasyd/FsusBlog/issues/2060	2	1604	prerequisite	#2060:12	原文明确引用的能力或过程为「Locator只能消费#1604 current-run binding；0个、多于1个、explicit mismatch、cross-run、tamper立即失败且不搜索替代」。
+https://github.com/Ozwasyd/FsusBlog/issues/2061	2	2060	prerequisite	#2061:6	原文明确引用的能力或过程为「将 check-release-final.mjs、finalizer与最终manifest切换为只消费#2060逐authority verified binding receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2090	2	1541	acceptance-gate	#2090:11	原文明确引用的能力或过程为「Public场景复用#1541真实locale harness/contract；Auth/Account/Admin使用正式production-equivalent routes、services与current-run fixture receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2091	2	2090	acceptance-gate	#2091:6	原文明确引用的能力或过程为「使用#2090唯一runner验证de-DE、fr-FR、es-419、pt-BR、ru-RU及基准locale在Public/Auth/Account/Admin代表表面中的长文本、plural与布局几何」。
+https://github.com/Ozwasyd/FsusBlog/issues/2092	2	1540	acceptance-gate	#2092:6	原文明确引用的能力或过程为「验证zh-CN、zh-Hant、ja-JP、ko-KR、ru-RU及Latin Extended代表文本在Public/Auth/Account/Admin/Selector表面使用#1540要求的实际font face、script-specific glyph与font prepare/commit边界」。
+https://github.com/Ozwasyd/FsusBlog/issues/2101	2	2100	acceptance-gate	#2101:6	原文明确引用的能力或过程为「使用#2100十项rubric签发per-archetype receipts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2106	2	2105	prerequisite	#2106:6	原文明确引用的能力或过程为「消费#2105 accepted server result」。
+https://github.com/Ozwasyd/FsusBlog/issues/2110	2	2106	prerequisite	#2110:14	原文明确引用的能力或过程为「Atomic writer只消费#2106 materialization instruction」。
+https://github.com/Ozwasyd/FsusBlog/issues/2116	2	1909	prerequisite	#2116:6	各类冲突绑定 #1909 封存的 base/local/server 坐标。
+https://github.com/Ozwasyd/FsusBlog/issues/2125	2	1779	prerequisite	#2125:13	原文明确引用的能力或过程为「Upload只调用#1779唯一asset store/ledger API，幂等绑定operation/plan/AssetId/content digest；禁止direct storage/DB/second ledger」。
+https://github.com/Ozwasyd/FsusBlog/issues/2126	2	1868	prerequisite	#2126:6	原文明确引用的能力或过程为「links只使用#1868 portable article+anchor identity」。
+https://github.com/Ozwasyd/FsusBlog/issues/2132	2	1909	prerequisite	#2132:6	原文明确引用的能力或过程为「三种动作必须调用#1909同一planner/executor」。
+https://github.com/Ozwasyd/FsusBlog/issues/2139	2	2137	prerequisite	#2139:23; #2137:6	Resolver 只接收 #2137 验证的 manifest、contribution 与 executionClass。
+https://github.com/Ozwasyd/FsusBlog/issues/2139	2	2138	prerequisite	#2139:23; #2138:6	Resolver 只接收 #2138 已安装包身份。
+https://github.com/Ozwasyd/FsusBlog/issues/2140	2	2137	prerequisite	#2140:10; #2137:6	Worker/Wasm 只能加载 #2137 声明的 entrypoint。
+https://github.com/Ozwasyd/FsusBlog/issues/2140	2	2138	prerequisite	#2140:10; #2138:6	Worker/Wasm 仅从 #2138 验证的包加载入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2140	2	2139	prerequisite	#2140:10; #2139:37	Worker/Wasm 仅加载 #2139 映射至 isolated-worker/wasm 的入口，实际沙箱由消费方实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2141	2	2137	prerequisite	#2141:10; #2137:6	Service broker 只能启动 #2137 明确声明的入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2141	2	2138	prerequisite	#2141:10; #2138:6	Service broker 的可执行入口必须来自 #2138 验证的安装包。
+https://github.com/Ozwasyd/FsusBlog/issues/2141	2	2139	prerequisite	#2141:10; #2139:38	Broker 只启动 #2139 映射为 out-of-process-service 的入口，实际 Broker 由消费方实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2142	2	2141	prerequisite	#2142:27; #2141:26	Network/filesystem RPC 只委托 #2141 Broker，文档 RPC、权限及变更合同仍由 #2142 拥有。
+https://github.com/Ozwasyd/FsusBlog/issues/2143	2	2138	prerequisite	#2143:13; #2138:27	更新先由 #2138 暂存包，再由 #2143 运行封闭状态与数据迁移。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2137	acceptance-gate	#2145:10; #2145:31; #2137:6	终态证据从注册表枚举用例并绑定其实际摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2138	acceptance-gate	#2145:19; #2145:31; #2138:6	终态核对实际包信任矩阵并绑定 package 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2139	acceptance-gate	#2145:31; #2139:6	终态收据明确绑定 Hybrid resolver 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2140	acceptance-gate	#2145:20; #2145:31; #2140:6	终态核对实际 Worker/Wasm 隔离并绑定 sandbox 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2141	acceptance-gate	#2145:21; #2145:31; #2141:6	终态核对实际 service broker 矩阵并绑定 broker 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2142	acceptance-gate	#2145:22; #2145:31; #2142:6	终态核对统一 RPC、授权及 mutation 收据并绑定 RPC 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2143	acceptance-gate	#2145:23; #2145:31; #2143:6	终态核对启停、迁移、回滚及卸载清理并绑定 lifecycle 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2145	2	2144	acceptance-gate	#2145:24; #2145:31; #2144:6	终态核对资源预算、崩溃隔离和回收并绑定 budget 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2216	2	2215	prerequisite	#2216:6	原文明确引用的能力或过程为「只消费#2215 sealed plan」。
+https://github.com/Ozwasyd/FsusBlog/issues/2221	2	2219	prerequisite	#2221:6	原文明确引用的能力或过程为「消费#2219 verified ArticlePreservationProjection」。
+https://github.com/Ozwasyd/FsusBlog/issues/2225	2	2224	prerequisite	#2225:6	原文明确引用的能力或过程为「将frontend asset integrity与Service Worker一次性切换为只消费#2224 current immutable asset manifest」。
+https://github.com/Ozwasyd/FsusBlog/issues/2231	2	2230	prerequisite	#2231:14	原文明确引用的能力或过程为「Recent bucket只消费#2230 verified history projection，不按article.updatedAt或local访问顺序排序」。
+https://github.com/Ozwasyd/FsusBlog/issues/2241	2	2239	prerequisite	#2241:16	原文明确引用的能力或过程为「Unlinked mention允许ignore和进入link picker；不提供auto-link/AI建议/批量“全部链接”，ignore调用#2239正式CAS command」。
+https://github.com/Ozwasyd/FsusBlog/issues/2248	2	1600	acceptance-gate	#2248:31	回放检查用 #1600 提供的 replay plan/ref。
+https://github.com/Ozwasyd/FsusBlog/issues/2248	2	2009	acceptance-gate	#2248:23	原文明确引用的能力或过程为「每个atomic correctness producer exact-one调用#2009 attempt runner，固定#2010 allowedRetries=0、attemptNumber=1」。
+https://github.com/Ozwasyd/FsusBlog/issues/2257	2	1995	acceptance-gate	#2257:24	原文明确引用的能力或过程为「每个reset复用#1995真实postcondition barrier，command exit 0单独无效」。
+https://github.com/Ozwasyd/FsusBlog/issues/2264	2	1995	acceptance-gate	#2264:28	原文明确引用的能力或过程为「reset-pre-notification-stream使用#1995真实postcondition，声明settledDependsOn: load-public-api；第一个window failure后仍运行」。
+https://github.com/Ozwasyd/FsusBlog/issues/2273	2	2268	prerequisite	#2273:11	前端消费 #2268 提供的权限、已删除和过期状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2279	2	2249	acceptance-gate	#2279:22	原文明确引用的能力或过程为「Governance producer只消费#2249 receipts，不重复运行backend governance checks」。
+https://github.com/Ozwasyd/FsusBlog/issues/2300	2	2296	prerequisite	#2300:69	原文明确引用的能力或过程为「任何 close/teardown 必须消费 #2296 protected-close authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/2309	2	2308	conditional-prerequisite	#2309:15	原文明确引用的能力或过程为「Group still exists时返回原group；group missing时使用#2308明确active-group fallback，并显示必要原因，不创建third group或移动existing tab」。
+https://github.com/Ozwasyd/FsusBlog/issues/2313	2	2312	prerequisite	#2313:6	原文明确引用的能力或过程为「在ArticleLibraryRail与Quick Switcher中消费#2312同一pin projection」。
+https://github.com/Ozwasyd/FsusBlog/issues/2337	2	2332	prerequisite	#2337:14	原文明确引用的能力或过程为「Save/create/rename/delete/retire/pin/default/reorder 调用 #2332 CAS commands；pending/failure/conflict/stale 有明确 machine states，不 optimistic 永久生效」。
+https://github.com/Ozwasyd/FsusBlog/issues/2349	2	2325	prerequisite	#2349:17	原文明确引用的能力或过程为「Filter rows紧凑，字段/operator/value层级清晰；properties使用#2325 typed controls，dates/timezone/null语义可见」。
+https://github.com/Ozwasyd/FsusBlog/issues/2349	2	2343	prerequisite	#2349:11	原文明确引用的能力或过程为「View CRUD/pin/default/reorder调用#2343 commands和expected revisions；pending/failure/conflict/stale明确，server success前不永久optimistic」。
+https://github.com/Ozwasyd/FsusBlog/issues/2350	2	2347	conditional-prerequisite	#2350:6	原文明确引用的能力或过程为「实现文章新建的唯一 canonical transaction，严格区分 blank 与 explicit-template 两种请求：主新建缺少 templateId/version 时创建空白 Draft；显式模板请求只消费 #2347 immutable plan，原子创建全新 article/draft/revision/metadata/property/asset/outbox/audit facts。该 issue 只负责 create writer/transaction，不实现模板 UI、authority、legacy migration 或终态治理」。
+https://github.com/Ozwasyd/FsusBlog/issues/2352	2	2350	prerequisite	#2352:10	原文明确引用的能力或过程为「主“新建文章”动作直接调用 #2350 blank create，不打开模板选择器、不读取默认/上次/最近/推荐模板」。
+https://github.com/Ozwasyd/FsusBlog/issues/2366	2	1813	prerequisite	#2366:10	原文明确引用的能力或过程为「Capture journal record使用#1813唯一schema/policy扩展或正式consumer projection」。
+https://github.com/Ozwasyd/FsusBlog/issues/2369	2	2360	prerequisite	#2369:18	原文明确引用的能力或过程为「Template manager消费#2360 commands，支持create/new-version/rename/retire/delete与permissions；旧version immutable且不能在UI原地编辑」。
+https://github.com/Ozwasyd/FsusBlog/issues/2369	2	2365	prerequisite	#2369:10	原文明确引用的能力或过程为「主“新建文章”动作直接调用#2365 blank create并进入编辑器；模板选择仅通过独立“从模板新建”次级入口」。
+https://github.com/Ozwasyd/FsusBlog/issues/2373	2	1908	prerequisite	#2373:18	原文明确引用的能力或过程为「Inbox状态文案明确“待整理/收件箱”，不能称普通Draft/已发布；publish/schedule controls不可用，organize-to-draft调用#1908正式command」。
+https://github.com/Ozwasyd/FsusBlog/issues/2373	2	2364	prerequisite	#2373:14	原文明确引用的能力或过程为「Save调用#2364 same idempotency request；save-and-open在verified success后调用#2293openOrActivate。Open不会改变lifecycle，仍显示Inbox与正式“整理为草稿”command」。
+https://github.com/Ozwasyd/FsusBlog/issues/2373	2	2366	prerequisite	#2373:16	原文明确引用的能力或过程为「Pending/network failure/ambiguous success/storage unavailable/crash recovery只消费#2366 machine states；retry使用same idempotency，不新建第二capture」。
+https://github.com/Ozwasyd/FsusBlog/issues/2378	2	1908	prerequisite	#2378:16	原文明确引用的能力或过程为「Rail、Quick Switcher、system Saved View exact消费#1908 lifecycle projection；system view只读，tag/property/boolean/local list零参与」。
+https://github.com/Ozwasyd/FsusBlog/issues/2380	2	1908	prerequisite	#2380:11	Inbox 初始状态由 #1908 canonical writer 写入同一事务。
+https://github.com/Ozwasyd/FsusBlog/issues/2380	2	2363	conditional-prerequisite	#2380:14	原文明确引用的能力或过程为「模板未选择时绝不自动套用default/last/recent/recommended；显式模板只消费#2363 verified current plan，仍强制initial state=inbox」。
+https://github.com/Ozwasyd/FsusBlog/issues/2382	2	1813	prerequisite	#2382:11	原文明确引用的能力或过程为「不建立Quick Capture专用localStorage/IndexedDB第二正文store；只能调用#1813 journal APIs和cleanup/reconciliation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2382	2	2380	conditional-prerequisite	#2382:15	重试必须使用 #2380 的同一幂等身份及负载和模板计划摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2384	2	2380	prerequisite	#2384:14	原文明确引用的能力或过程为「Save调用#2380 exact request；Save-and-open先等待verified server receipt，再由后续projection/open adapter处理，UI不得先创建editor-local draft」。
+https://github.com/Ozwasyd/FsusBlog/issues/2384	2	2382	conditional-prerequisite	#2384:15	原文明确引用的能力或过程为「Cancel在未提交时清理/丢弃#2382 record并零server writes；in-flight cancel/unknown outcome使用#2382 reconciliation，不谎称已取消或已保存」。
+https://github.com/Ozwasyd/FsusBlog/issues/2386	2	1908	prerequisite	#2386:10	原文明确引用的能力或过程为「Inbox query/projection只读取#1908 current lifecycle authority和canonical article permissions/read model」。
+https://github.com/Ozwasyd/FsusBlog/issues/2397	2	1908	prerequisite	#2397:11	原文明确引用的能力或过程为「Inbox↔Draft只调用#1908正式transition」。
+https://github.com/Ozwasyd/FsusBlog/issues/2399	2	2394	prerequisite	#2399:13	原文明确引用的能力或过程为「点击预览先调用#2394生成immutable plan；UI显示exact article count/range source、strategy、eligible/blocked/conflicts、proposed change、expiry与plan digest摘要」。
+https://github.com/Ozwasyd/FsusBlog/issues/2399	2	2395	prerequisite	#2399:19	原文明确引用的能力或过程为「执行期间显示bounded progress和canonical counts/states；cancel调用#2395正式boundary，不kill request后猜结果」。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	2	1779	prerequisite	#2415:14	原文明确引用的能力或过程为「Asset phase验证/导入/去重bytes，调用#1779唯一AssetId/store/ledger authority，记录new/reused assets与ownership/rights；禁止路径写入、URL fetch或直接文件复制到public root」。
+https://github.com/Ozwasyd/FsusBlog/issues/2416	2	2412	prerequisite	#2416:6	原文明确引用的能力或过程为「在#2414 no-network sandbox内消费#2412 frozen input」。
+https://github.com/Ozwasyd/FsusBlog/issues/2418	2	2413	prerequisite	#2418:16	原文明确引用的能力或过程为「Create action调用对应canonical definition/asset UI/command，等待receipt，再调用#2413生成new plan；不能在old plan内继续」。
+https://github.com/Ozwasyd/FsusBlog/issues/2419	2	2412	prerequisite	#2419:6	原文明确引用的能力或过程为「在#2414 no-network sandbox内消费#2412 frozen input」。
+https://github.com/Ozwasyd/FsusBlog/issues/2421	2	2412	prerequisite	#2421:6	原文明确引用的能力或过程为「在#2414 no-network sandbox内消费#2412 frozen input」。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2412	prerequisite	#2424:14	原文明确引用的能力或过程为「Submit调用#2412 task authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/2427	2	2423	prerequisite	#2427:6	原文明确引用的能力或过程为「消费#2423 frozen input与统一Markdown/runtime」。
+https://github.com/Ozwasyd/FsusBlog/issues/2435	2	2433	prerequisite	#2435:12	原文明确引用的能力或过程为「Preview使用真实短文本样例，至少覆盖CJK、Latin、RTL、emoji和段落/heading/code代表，消费#2433同一mapping；不得另写CSS/iframe/static screenshot」。
+https://github.com/Ozwasyd/FsusBlog/issues/2442	2	2440	prerequisite	#2442:64	Identity、URL 与 Markdown 使用 #2440 的唯一 codec。
+https://github.com/Ozwasyd/FsusBlog/issues/2444	2	2442	prerequisite	#2444:15	原文明确引用的能力或过程为「Copy link使用#2442 codec和current canonical route，生成...#anchor-id，不含^；clipboard failure不修改source」。
+https://github.com/Ozwasyd/FsusBlog/issues/2445	2	2441	prerequisite	#2445:7	原文明确引用的能力或过程为「消费#2441分层target query」。
+https://github.com/Ozwasyd/FsusBlog/issues/2445	2	2447	prerequisite	#2445:67	原文明确引用的能力或过程为「并消费 #2447 实际 impact/refactor/confirm 能力」。
+https://github.com/Ozwasyd/FsusBlog/issues/2446	2	1808	prerequisite	#2446:10	原文明确引用的能力或过程为「Relation target kind registry加入block并复用#1808 schema/version/producer/query owner；不得建立第二block-link index或edge store」。
+https://github.com/Ozwasyd/FsusBlog/issues/2446	2	2443	prerequisite	#2446:64	原文明确引用的能力或过程为「本票复用 #2443 的唯一 block relation schema/producer/query/lifecycle implementation」。
+https://github.com/Ozwasyd/FsusBlog/issues/2447	2	2444	prerequisite	#2447:63	原文明确引用的能力或过程为「本票底层 source mutation 能力消费 #2444 唯一 public transaction adapter 与既有 canonical article writer」。
+https://github.com/Ozwasyd/FsusBlog/issues/2448	2	2447	prerequisite	#2448:65	原文明确引用的能力或过程为「本票消费 #2447 同一 impact/refactor planner/executor」。
+https://github.com/Ozwasyd/FsusBlog/issues/2449	2	2442	prerequisite	#2449:11	原文明确引用的能力或过程为「Query/result只消费#2442 server facts，显示title、kind、bounded context、anchor ID与必要status；无权target零title/count/snippet泄漏」。
+https://github.com/Ozwasyd/FsusBlog/issues/2449	2	2444	prerequisite	#2449:13	原文明确引用的能力或过程为「Current block“创建anchor/复制链接/链接到此处”调用#2444 commands；不是常驻每block按钮，可从context/command palette/明确action访问」。
+https://github.com/Ozwasyd/FsusBlog/issues/2449	2	2445	prerequisite	#2449:65	原文明确引用的能力或过程为「复用 #2445 同一 picker/actions/state」。
+https://github.com/Ozwasyd/FsusBlog/issues/2450	2	2447	prerequisite	#2450:62	原文明确引用的能力或过程为「并消费 #2447 独立 anchor/refactor plan」。
+https://github.com/Ozwasyd/FsusBlog/issues/2451	2	2452	acceptance-gate	#2451:65	原文明确引用的能力或过程为「legacy denial 同时要求 #2452 实际退役与全域扫描」。
+https://github.com/Ozwasyd/FsusBlog/issues/2453	2	2452	acceptance-gate	#2453:66	原文明确引用的能力或过程为「legacy denial 同时要求 #2452 实际退役与全域扫描」。
+https://github.com/Ozwasyd/FsusBlog/issues/2460	2	2458	prerequisite	#2460:6	原文明确引用的能力或过程为「消费#2458 typed targets」。
+https://github.com/Ozwasyd/FsusBlog/issues/2461	2	2456	prerequisite	#2461:16	原文明确引用的能力或过程为「Prepublish UI消费#2456 whole-plan结果，逐embed显示source range、target status与解决动作：先发布target、替换、移除；不能通过warning/ack绕过blocked」。
+https://github.com/Ozwasyd/FsusBlog/issues/2464	2	2462	conditional-prerequisite	#2464:11	原文明确引用的能力或过程为「Draft graph使用current authorized target coordinates，publication graph使用#2462 frozen public coordinates；两种graph schema/scope不可混用或latest替代」。
+https://github.com/Ozwasyd/FsusBlog/issues/2467	2	2460	prerequisite	#2467:11	原文明确引用的能力或过程为「Planner只消费#2460 current resolution和现有host draft dependency facts；不得读取latest无coordinate、缓存猜测、rendered text或自行解析directive」。
+https://github.com/Ozwasyd/FsusBlog/issues/2469	2	2460	prerequisite	#2469:10	原文明确引用的能力或过程为「UI只消费#2460 safe projection和typed attribution；不得渲染provider HTML/iframe/component、client fetch target、扫描source/DOM或复制target正文为local authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/2469	2	2462	conditional-prerequisite	#2469:13	原文明确引用的能力或过程为「Draft/private/unpublished target在有权authoring中可显示，但明确不可公开发布状态；prepublish blocker使用#2462 exact reason，不提供“复制内容后继续”“仍然发布”或waiver」。
+https://github.com/Ozwasyd/FsusBlog/issues/2471	2	2468	prerequisite	#2471:6	原文明确引用的能力或过程为「消费#2468 verified node/edge graph」。
+https://github.com/Ozwasyd/FsusBlog/issues/2476	2	2474	conditional-prerequisite	#2476:17	原文明确引用的能力或过程为「Filters只重排/隐藏当前authorized result的可见projection，不改变relation facts或发client-side第二query。需要server重新query时使用#2474新identity」。
+https://github.com/Ozwasyd/FsusBlog/issues/2486	2	2484	prerequisite	#2486:6	原文明确引用的能力或过程为「消费#2484 stable article/heading/block identities和optional pinned revision」。
+https://github.com/Ozwasyd/FsusBlog/issues/2489	2	2487	prerequisite	#2489:16	原文明确引用的能力或过程为「Edge→link操作调用#2487 plan/preview/confirm，必须用户选择source article和insert position；失败/cancel零article write」。
+https://github.com/Ozwasyd/FsusBlog/issues/2496	2	2495	prerequisite	#2496:52	原文明确引用的能力或过程为「Export/import UI只消费#2495 exact plans，职责与article package分离」。
+https://github.com/Ozwasyd/FsusBlog/issues/2508	2	2316	acceptance-gate	#2508:14	原文明确引用的能力或过程为「Search expectation exact复用#2316 tokenizer/query contracts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2510	2	2508	acceptance-gate	#2510:15	原文明确引用的能力或过程为「Search consumer exact使用#2508 must/not-match facts」。
+https://github.com/Ozwasyd/FsusBlog/issues/2513	2	2402	prerequisite	#2513:15	导入候选交由 #2402 的原有校验权威重新核验包合同。
+https://github.com/Ozwasyd/FsusBlog/issues/2516	2	1779	prerequisite	#2516:15	原文明确引用的能力或过程为「Asset materialization只调用#1779 canonical AssetId/store/metadata/ledger owner，storage key/path由authority生成；generator不得直接写public root或拼URL」。
+https://github.com/Ozwasyd/FsusBlog/issues/2579	2	1706	prerequisite	#2579:17	原文明确引用的能力或过程为「Preference写入使用#1706 current revision/CAS，conflict不静默覆盖；成功返回值成为持久authority」。
+https://github.com/Ozwasyd/FsusBlog/issues/2649	2	2654	acceptance-gate	#2649:44	原文明确引用的能力或过程为「Build consumer只消费#2654对planned/actual artifact IDs、contents/manifests/image/provenance与verification assertions的canonical verdict」。
+https://github.com/Ozwasyd/FsusBlog/issues/2649	2	2655	acceptance-gate	#2649:45	原文明确引用的能力或过程为「Projection consumer只消费#2655对required/produced/verified/failed/blocked IDs、input authority refs与semantic digests的canonical verdict」。
+https://github.com/Ozwasyd/FsusBlog/issues/2649	2	2656	acceptance-gate	#2649:46	原文明确引用的能力或过程为「Finalizer consumer只消费#2656对required inputs、consumed verified refs、outputs与failure closure的canonical verdict」。
+https://github.com/Ozwasyd/FsusBlog/issues/2660	2	2046	acceptance-gate	#2660:79	原文明确引用的能力或过程为「每个 consumer只使用 #2046 verified current-run reader与精确 capability/role」。
+https://github.com/Ozwasyd/FsusBlog/issues/2673	2	2670	acceptance-gate	#2673:10	原文明确引用的能力或过程为「使用 #2670 package inventory中固定的 Windows agent/watch/test command」。
+https://github.com/Ozwasyd/FsusBlog/issues/2674	2	2671	acceptance-gate	#2674:10	原文明确引用的能力或过程为「使用 #2671 package inventory固定的 macOS agent/watch/test command」。
+https://github.com/Ozwasyd/FsusBlog/issues/2681	2	2680	acceptance-gate	#2681:6	原文明确引用的能力或过程为「只消费 #2680 cleanup/ownership receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2688	2	2171	acceptance-gate	#2688:23	原文明确引用的能力或过程为「所有 correctness callers只消费 #2171 verified receipt及 typed account/preference/device projections，不直接写 storage或发现环境账户」。
+https://github.com/Ozwasyd/FsusBlog/issues/2689	2	2688	acceptance-gate	#2689:6	原文明确引用的能力或过程为「只消费 #2688 cleanup/ownership receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2691	2	2690	acceptance-gate	#2691:6	原文明确引用的能力或过程为「只消费 #2690 canonical rerun/cleanup receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2693	2	2692	acceptance-gate	#2693:6	原文明确引用的能力或过程为「只消费 #2692 canonical rerun/cleanup receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2695	2	2694	acceptance-gate	#2695:6	原文明确引用的能力或过程为「只消费 #2694 cleanup/consumer-inventory receipt」。
