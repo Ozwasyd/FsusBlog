@@ -89,7 +89,7 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery || ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery || ${FSUSBLOG_TEST_FLOW:-blog} == article-library || ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
@@ -194,6 +194,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
   node tests/EndToEnd/article-library-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == property-inspector-scale ]]; then
   node tests/EndToEnd/property-inspector-scale.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
+  node tests/EndToEnd/property-history-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
   node tests/EndToEnd/author-inventory-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then

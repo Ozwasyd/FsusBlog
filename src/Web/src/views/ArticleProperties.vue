@@ -10,6 +10,7 @@ import {
 import { WireLimits } from '../../../Contracts/wire.generated'
 import type { PropertySearchSeek } from '../authoring/canvasEditorHandoff'
 import { verifySourceMatch } from '../authoring/sourceCoordinates'
+import { showPropertyValue as showValue } from '../authoring/propertyDisplay'
 import { currentSession, invalidateSession } from '../session'
 
 const props = defineProps<{
@@ -480,22 +481,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
     }
   }, { immediate: true, flush: 'post' })
 
-function showValue(field: EditableProperty, stored = field.value): string {
-  function optionsLabel(optionIds: string[]) {
-    const labels = field.options.filter(option => optionIds.includes(option.id)).map(option => option.label)
-    return labels.length ? labels.join(', ') : 'None selected'
-  }
-  switch (stored.kind) {
-    case 'missing': return 'Unset'
-    case 'null': return 'Null'
-    case 'unavailable': return 'Unavailable reference'
-    case 'boolean': return stored.value ? 'True' : 'False'
-    case 'article-reference': return stored.value.map(id => `Article #${id}`).join(', ')
-    case 'single-select': return optionsLabel([stored.value])
-    case 'multi-select': return optionsLabel(stored.value)
-    default: return stored.value || 'Blank'
-  }
-}
+
 </script>
 
 <template>

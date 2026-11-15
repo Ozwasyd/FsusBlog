@@ -9,6 +9,7 @@ import { draftSummary } from '../../../Contracts/article-summary-client'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 import DocumentExportTasks from './DocumentExportTasks.vue'
+import RevisionPropertyPage from './RevisionPropertyPage.vue'
 import { credentialEpoch } from '../session'
 import type { HistoricalSearchSeek } from './canvasEditorHandoff'
 import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
@@ -40,6 +41,7 @@ const historicalLabel = {
   heading: 'Earlier revision Markdown',
 } as const
 const comparisonOpen = ref(false)
+const propertiesOpen = ref(false)
 let ownsModal = false
 const comparisonError = ref('')
 const reason = ref('')
@@ -73,6 +75,7 @@ function reset() {
 function closeComparison() {
   const source = historical.value
   comparisonOpen.value = false
+  propertiesOpen.value = false
   compareRequest?.abort()
   pair.value = undefined
   historical.value = undefined
@@ -123,6 +126,7 @@ async function load(more = false) {
 
 async function compare(source: bigint) {
   compareRequest?.abort()
+  propertiesOpen.value = false
   const controller = compareRequest = new AbortController()
   openComparisonModal()
   comparing.value = true
@@ -294,6 +298,15 @@ onScopeDispose(() => {
             <pre tabindex="0" :aria-label="`${source.label} Markdown`">{{ source.body }}</pre>
           </section>
         </div>
+        <details @toggle="propertiesOpen = ($event.currentTarget as HTMLDetailsElement).open">
+          <summary>Saved properties</summary>
+          <div v-if="propertiesOpen" class="revision-sources">
+            <RevisionPropertyPage :article-id="pair.id" :revision="pair.revision" :source-revision="pair.sourceRevision"
+              label="Earlier saved properties" />
+            <RevisionPropertyPage :article-id="pair.id" :revision="pair.revision" :source-revision="pair.revision"
+              label="Current saved properties" />
+          </div>
+        </details>
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="docx" />
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="html" />

@@ -10,6 +10,8 @@
 
 「Edit multiple properties」可暂存最多 16 个不同字段，再一次提交设置或清除。属性列表只挂载当前一页，翻页保留暂存值。服务器校验文章、定义集合、各字段和当前属性值版本。属性值、新版本、幂等回执和受影响的私有索引任务在同一事务提交。收到 409 时可查看暂存值，再由作者明确取消并读取新版本。原单字段保存继续可用。 [实库事务验证](../../artifacts/property-batch-de88453/native-final.log) · [真实浏览器验证](../../artifacts/property-inspector-de88453/chromium-2/browser-result.json)
 
+保存修订时，在同一个文章事务固化当时的八类属性值和定义坐标。即时与定时发布绑定相应修订的快照，回滚沿用选中的历史快照。已有数据库停服运行 `property-snapshots` 后开始记录。旧修订没有原始记录时，在比较器中显示快照不可用。后续字段改名仍保留历史显示名称。当前无法读取的引用目标继续隐藏。作者比较器按页显示只读快照，公开 HTML 和 AEDS 均省略私有属性。 [实库快照验证](../../artifacts/property-history-snapshots-a649068/native-final.log) · [Chrome 比较器](../../artifacts/property-history-browser-a649068/history-chromium-2/property-history-result.json)
+
 | 路径 | AEDS 请求和响应 |
 | --- | --- |
 | POST `/api/v2/authoring/properties/editor.aeds` | PropertyWorkspaceRequest (32780) → PropertyEditor (32786) |
