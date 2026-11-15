@@ -105,4 +105,13 @@
 - 锁定 Release、严格 Vue、Vite、三份本地 FsusUI Wasm 字节对照、140 项 Core、141 项 Node 协议、C#、C++、Wasm 向量、3,847 项差分和合并版 9 项定向 PostgreSQL 测试通过。共用 CLI、SQLite 暂存和 Inbox 夹具一共减少 300 行。新增功能纳入后合计 209,602 NCLOC，超过固定上限 1,056 行。 [合并检查](../artifacts/goal-closure-a7fd1df/) · [计量](../artifacts/goal-closure-a7fd1df/code-volume-7f9841b.json)
 - 正式容量沿用封存候选 `f303f5c` 的四轮短档结果，仅一轮通过，900 秒独占长测尚未运行。C11 两项固定公开搜索仍未通过。 [容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收) · [固定查询用例](issues/risk-scale-query-cases.md)
 
+## 开发提交 `1b7a38e`
+
+- v5 恢复并启用首次发布与第三次回滚发布的两条旧权利证明。实库与 Kestrel 核对五叶检查点、5 条原事件、41 条投递以及备份恢复后的原字节。合并版公开档案在第三修订仍公开时可读取第一和第三修订，OpenSSL 独立验签通过。篡改、封禁或撤回均拒绝读取。更长的链、其他历史修订和生产迁移仍待完成。 [迁移恢复](../artifacts/legacy-v1-historical-rights-8b4e350/legacy-runtime.vzp0Q7LL/run.txt) · [合并版公开验签](../artifacts/goal-next-8b4e350/historical-rights/http-replay.ez8UxzR8/run.txt)
+- 管理页可按文章与评论 ID 查询审核时间线。首次实跑发现 Caddy 遗漏两条历史读取路由，补上精确 GET 规则后，真实 Chrome 验证键盘查询、窄屏、精确长 ID、公网来源拒绝和撤权。 [合并浏览器](../artifacts/goal-next-8b4e350/moderation-chrome-combined/admin-identity-result.json) · [首次失败日志](../artifacts/goal-next-8b4e350/moderation-chrome.log)
+- 独立管理员可创建分类、改名和修改描述。使用原管理员授权和绑定分类操作的 PoW。实库核对旧 ID、已发布与私有修订关联、冲突及公开代次。Chrome 验证开启及默认关闭的配置，旧库停服安装可重复执行。 [原生与浏览器](../artifacts/goal-next-8b4e350/lanes/admin-category/) · [安装方式](product/admin-taxonomy.md)
+- 作者可从已保存附件选取最多四张图片导出。Chrome 实测桌面及 375px 的三选二与五选四，核对即时和排队 HTML 字节、回执内顺序，以及切回同一选择时避免重复排队。 [浏览器结果](../artifacts/goal-next-8b4e350/lanes/export-image-selection/article-media-browser.json)
+- 复用集成数据库期限和停止流程净减 137 行，66 项定向原生测试通过。停机迁移和早期结构检查复用净减 159 行，原生验证旧版本、WebP 约束和准入顺序。锁定 Release、严格 Vue、Vite、140 项 Core、141 项 Node 协议及 3,847 项差分均通过。纳入新增功能后共 210,422 NCLOC，超出原上限 1,876 行。 [集成复用](../artifacts/goal-next-8b4e350/lanes/native-test-reuse/) · [迁移复用](../artifacts/goal-next-8b4e350/lanes/stopped-migration-reuse/) · [计量](../artifacts/goal-next-8b4e350/code-volume-1b7a38e.json)
+- 同一旧封存包在完整 s、m 的隔离副本通过唯一标题词、正文词和空对照。原固定试词的两项搜索失败仍保留。正式容量沿用 `f303f5c` 的四轮短档，1 次通过，900 秒独占长测尚未运行。 [补充查询证据](../artifacts/c11-singleton-atoms-01f1904/README.md) · [容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
