@@ -56,6 +56,7 @@ const tabsControl = ref<InstanceType<typeof WorkspaceTabs>>()
 const articleInput = ref<InstanceType<typeof ElInput>>()
 const openInput = ref('')
 const navigationNotice = ref('')
+const groupNotice = ref('')
 const opening = ref(false)
 const composing = ref<number>()
 let navigation = 0
@@ -108,10 +109,14 @@ const publishedPath = computed(() => original.value?.published ? `/article/${ori
 const editorArea = ref<HTMLElement>()
 const wideEditorArea = ref(false)
 const comparisonReady = ref(false)
-const twoSources = computed(() => sourcePanes.value.length === 2)
+const selectedPanes = computed(() => sourcePanes.value.filter(pane => pane.selected))
+const twoSources = computed(() => selectedPanes.value.length === 2)
 const showComparison = computed(() => twoSources.value && wideEditorArea.value && comparisonReady.value)
-const comparisonTab = computed(() => sourcePanes.value.find(pane => !pane.tab.active)?.tab)
+const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.active)?.tab)
+const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
+const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
+  composing.value === undefined && !revisionComparisonActive.value)
 const canPublishImages = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
   !cannotWrite.value && !dirty.value && !retry.value && !!original.value?.body.trim())
 let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
@@ -136,7 +141,7 @@ watch(editorArea, (area, _, cleanup) => {
 })
 
 function paneFocused(pane: WorkspaceSource<Draft>) {
-  return editable.value && pane.tab.active && tab.value?.sessionId === pane.tab.sessionId
+  return editable.value && pane.selected && pane.tab.active && tab.value?.sessionId === pane.tab.sessionId
 }
 
 function changeComposition(pane: WorkspaceSource<Draft>, active: boolean) {
@@ -277,7 +282,7 @@ const unsubscribe = registry.subscribe(() => {
   recovery.setCurrent(tab.value, next, registry.activeEditSequence)
   persistence.changed()
 })
-watch([twoSources, wideEditorArea, editable, () => comparisonTab.value?.sessionId, credential, identityEpoch], async ([two, wide, ready, sessionId, handle], _, cleanup) => {
+watch([twoSources, wideEditorArea, editable, () => comparisonTab.value?.sessionId, credential, identityEpoch, selectedLocations], async ([two, wide, ready, sessionId, handle], _, cleanup) => {
   comparisonReady.value = false
   const candidate = comparisonTab.value
   if (!two || !wide || !ready || !candidate || candidate.sessionId !== sessionId || !handle) return
@@ -338,6 +343,7 @@ watch(identityEpoch, () => {
   comparisonReady.value = false
   deferredFocus = undefined
   navigationNotice.value = ''
+  groupNotice.value = ''
 })
 
 watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], async ([articleId, identity], _, cleanup) => {
@@ -402,6 +408,7 @@ onBeforeRouteUpdate(async (to, from) => {
   }
   const articleId = articleRoute(to)
   navigationNotice.value = ''
+  groupNotice.value = ''
   if (articleId === undefined) return true
   // A successful creation already has a verified persisted revision in the same session.
   if (articleId === tab.value?.articleId) return true
@@ -474,9 +481,13 @@ async function focusGroup(target: WorkspaceTab) {
   const epoch = identityEpoch.value
   deferredFocus = undefined
   if (!await navigateTo(target.articleId) || tab.value?.sessionId !== target.sessionId) return
+  await focusSource(target, epoch)
+}
+
+async function focusSource(target: WorkspaceTab, epoch: number) {
   await nextTick()
   if (epoch !== identityEpoch.value || tab.value?.sessionId !== target.sessionId || !editable.value) return
-  if (!recoveryBlocked.value) {
+  if (!recoveryBlocked.value && !pending.value && !taxonomyDirty.value) {
     document.getElementById('article-body')?.focus({ preventScroll: true })
     return
   }
@@ -487,20 +498,32 @@ async function focusGroup(target: WorkspaceTab) {
   }
 }
 
-watch([recoveryBlocked, () => tab.value?.sessionId, editable], async ([blocked, sessionId, ready]) => {
+watch([recoveryBlocked, pending, taxonomyDirty, () => tab.value?.sessionId, editable], async ([blocked, writing, classifying, sessionId, ready]) => {
   const request = deferredFocus
   if (!request) return
   if (sessionId !== request.sessionId || request.epoch !== identityEpoch.value) {
     deferredFocus = undefined
     return
   }
-  if (blocked || !ready) return
+  if (blocked || writing || classifying || !ready) return
   await nextTick()
   if (deferredFocus !== request) return
   deferredFocus = undefined
   if (document.activeElement === request.pane && tab.value?.sessionId === request.sessionId && editable.value)
     document.getElementById('article-body')?.focus({ preventScroll: true })
 })
+
+function arrangeGroups(destination?: WorkspaceGroup) {
+  const current = tab.value
+  if (!current || !canArrangeGroups.value) return
+  const receipt = destination ? registry.moveActiveTab(current, destination, registry.revision) : registry.mergeGroups(current, registry.revision)
+  if (receipt.kind !== 'changed') return
+  groupNotice.value = destination
+    ? `Moved the current article to the ${destination === 'main' ? 'primary' : 'secondary'} group.`
+    : 'Merged both groups into the primary group.'
+  deferredFocus = undefined
+  void focusSource(receipt.tab, identityEpoch.value)
+}
 
 function setInspectorOpen(open: boolean) {
   if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
@@ -766,11 +789,21 @@ async function reloadDraft() {
         <ElButton v-if="!persistentWorkspace && id !== undefined" text native-type="button" :disabled="!canSwitch" @click="openSavedWorkspace">Open saved workspace</ElButton>
       </form>
       <div v-if="twoSources && !showComparison" class="workspace-groups" role="group" aria-label="Article groups">
-        <ElButton v-for="pane in sourcePanes" :key="pane.tab.sessionId" text native-type="button"
+        <ElButton v-for="pane in selectedPanes" :key="pane.tab.sessionId" text native-type="button"
           :disabled="!canSwitch || pane.tab.active" @click="focusGroup(pane.tab)">
           {{ pane.tab.group === 'main' ? 'Focus primary group' : 'Focus secondary group' }}
         </ElButton>
       </div>
+      <details v-if="hasSecondaryGroup && tab" class="workspace-group-actions">
+        <summary>Group actions</summary>
+        <div>
+          <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'main'"
+            @click="arrangeGroups('main')">Move to primary group</ElButton>
+          <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'secondary'"
+            @click="arrangeGroups('secondary')">Move to secondary group</ElButton>
+          <ElButton text native-type="button" :disabled="!canArrangeGroups" @click="arrangeGroups()">Merge groups</ElButton>
+        </div>
+      </details>
       <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
         :disabled="!canSwitch" :activate="navigateTo" />
       <details v-if="recentlyClosed.length">
@@ -784,6 +817,7 @@ async function reloadDraft() {
         </ul>
       </details>
       <p v-if="opening" role="status">Opening article…</p>
+      <p v-if="groupNotice" role="status">{{ groupNotice }}</p>
       <p v-if="navigationNotice" role="alert">{{ navigationNotice }}</p>
       <p v-if="layoutNotice" role="status">{{ layoutNotice }}</p>
       <p v-if="hasSecondaryGroup && persistentWorkspace && !supportsSavedGroups" role="status">The second group stays open in this browser tab.</p>
@@ -803,7 +837,7 @@ async function reloadDraft() {
       id="workspace-editor" class="editor-document" role="tabpanel" :aria-label="selectedPanelTitle">
       <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
-          :concealed="!pane.tab.active && !showComparison"
+          :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
@@ -910,7 +944,8 @@ async function reloadDraft() {
 .workspace-actions summary {
   cursor: pointer;
 }
-.workspace-groups { display: flex; flex-wrap: wrap; gap: .5rem; }
+.workspace-groups, .workspace-group-actions > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.workspace-group-actions { margin-block: .5rem; }
 .editor-document {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "source" "launcher";
@@ -923,7 +958,8 @@ async function reloadDraft() {
 }
 .editor-source--split { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--fsus-space-4); }
 .editor-source--split :deep(.workspace-source__heading) { min-block-size: var(--fsus-control-height-action); }
-.editor-source--split > .workspace-source--secondary { border-inline-start: 1px solid var(--fsus-border); padding-inline-start: .75rem; }
+.editor-source--split > .workspace-source { grid-row: 1; grid-column: 1; }
+.editor-source--split > .workspace-source--secondary { grid-column: 2; border-inline-start: 1px solid var(--fsus-border); padding-inline-start: .75rem; }
 @media (min-width: 1024px) {
   .editor-document:has(> .inspector-launcher[aria-expanded="true"]) {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 36%);

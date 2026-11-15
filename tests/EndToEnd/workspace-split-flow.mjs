@@ -128,6 +128,11 @@ async function savedGroups(context, session) {
   return decodeSavedGroups(await context.request.get(groupsPath, { headers: { [WireHeaders.CurrentSession]: session } }))
 }
 
+function coordinates(snapshot) {
+  return { primary: snapshot.tabs, secondary: snapshot.secondaryTabs, primaryActive: snapshot.activeArticleId,
+    secondaryActive: snapshot.secondaryActiveArticleId, focusedGroup: snapshot.focusedGroup }
+}
+
 async function enterSavedWorkspace(page) {
   await page.goto(`${origin}/user/manage/article/list`)
   const response = page.waitForResponse(receipt => receipt.url() === groupsPath && receipt.request().method() === 'GET')
@@ -145,6 +150,138 @@ async function expectRestored(page, primary, primaryPreview, secondary, secondar
   assert.deepEqual(await tabs.evaluateAll(items => items.map(item => item.getAttribute('aria-label'))),
     [`${primary.title} · Pinned`, `${primaryPreview.title} · Preview`, `${secondary.title} · Pinned`, `${secondaryPreview.title} · Preview`])
   await expect(tab(page, secondary, 'Pinned')).toHaveAttribute('aria-selected', 'true')
+}
+
+async function changeGroupLayout(page, readLayout, before, command, expected) {
+  const action = button(page, command)
+  if (!await action.isVisible()) await page.getByText('Group actions', { exact: true }).click()
+  const sameGroup = before.focusedGroup === 0 ? 'Move to primary group' : 'Move to secondary group'
+  await expect(button(page, sameGroup)).toBeDisabled()
+  await expect(action).toBeEnabled()
+  const receiptPromise = page.waitForResponse(response => response.url() === groupsPath && response.request().method() === 'POST')
+  await press(page, action)
+  const receipt = await decodeSavedGroups(await receiptPromise)
+  assert.equal(receipt.revision, before.revision + 1n)
+  assert.deepEqual(coordinates(receipt), expected)
+  assert.deepEqual(await readLayout(), receipt)
+  return receipt
+}
+
+async function expectHiddenEditor(handle) {
+  assert.deepEqual(await handle.evaluate(element => ({ connected: element.isConnected, hidden: element.getClientRects().length === 0 })),
+    { connected: true, hidden: true })
+}
+
+async function exerciseGroupActions({ page, readLayout, first, alternate, second, secondaryPreview }) {
+  const primary = group(page, 'Primary')
+  const secondary = group(page, 'Secondary')
+  const mainSlots = [first.id, -alternate.id]
+  const movedSlots = [second.id, secondaryPreview.id]
+
+  async function activate(draft, state, currentGroup, slots) {
+    await tab(page, draft, state).click()
+    await expect(page).toHaveURL(editPath(draft.id))
+    await expectPane(currentGroup, draft, draft.body, true)
+    await expect.poll(async () => coordinates(await readLayout())).toEqual(slots)
+    return readLayout()
+  }
+
+  let saved = await activate(secondaryPreview, 'Preview', secondary, {
+    primary: mainSlots, secondary: [second.id, -secondaryPreview.id],
+    primaryActive: first.id, secondaryActive: secondaryPreview.id, focusedGroup: 1,
+  })
+  await expectPane(primary, first, first.body, false)
+  const firstEditor = await body(primary).elementHandle()
+  const movingEditor = await body(secondary).elementHandle()
+  assert(firstEditor && movingEditor)
+  saved = await changeGroupLayout(page, readLayout, saved, 'Move to primary group', {
+    primary: [...mainSlots, secondaryPreview.id], secondary: [second.id],
+    primaryActive: secondaryPreview.id, secondaryActive: 0, focusedGroup: 0,
+  })
+  await expect(page).toHaveURL(editPath(secondaryPreview.id))
+  await expectPane(primary, secondaryPreview, secondaryPreview.body, true)
+  await expect(body(primary)).toBeFocused()
+  await expect(tab(page, secondaryPreview, 'Pinned')).toHaveAttribute('aria-selected', 'true')
+  await expectSameEditor(body(primary), movingEditor)
+  await expectHiddenEditor(firstEditor)
+  await capture(page, 'workspace-split-moved')
+
+  const bothSelected = {
+    primary: mainSlots, secondary: movedSlots, primaryActive: first.id, secondaryActive: secondaryPreview.id, focusedGroup: 1,
+  }
+  saved = await changeGroupLayout(page, readLayout, saved, 'Move to secondary group', bothSelected)
+  await expect(page).toHaveURL(editPath(secondaryPreview.id))
+  await expectPane(secondary, secondaryPreview, secondaryPreview.body, true)
+  await expect(body(secondary)).toBeFocused()
+  await expectPane(primary, first, first.body, false)
+  await expectSameEditor(body(secondary), movingEditor)
+  await expectSameEditor(body(primary), firstEditor)
+  await firstEditor.dispose()
+
+  const firstPreviewSelected = { ...bothSelected, primaryActive: alternate.id, focusedGroup: 0 }
+  saved = await activate(alternate, 'Preview', primary, firstPreviewSelected)
+  const previewEditor = await body(primary).elementHandle()
+  assert(previewEditor)
+  saved = await changeGroupLayout(page, readLayout, saved, 'Move to secondary group', {
+    primary: [first.id], secondary: [...movedSlots, -alternate.id],
+    primaryActive: 0, secondaryActive: alternate.id, focusedGroup: 1,
+  })
+  await expect(page).toHaveURL(editPath(alternate.id))
+  await expectPane(secondary, alternate, alternate.body, true)
+  await expect(tab(page, alternate, 'Preview')).toHaveAttribute('aria-selected', 'true')
+  await expectSameEditor(body(secondary), previewEditor)
+  await expectHiddenEditor(movingEditor)
+  saved = await changeGroupLayout(page, readLayout, saved, 'Move to primary group', firstPreviewSelected)
+  await expect(page).toHaveURL(editPath(alternate.id))
+  await expectPane(primary, alternate, alternate.body, true)
+  await expectSameEditor(body(primary), previewEditor)
+
+  saved = await activate(secondaryPreview, 'Pinned', secondary, { ...firstPreviewSelected, focusedGroup: 1 })
+  await expectPane(primary, alternate, alternate.body, false)
+  await expectSameEditor(body(primary), previewEditor)
+  await expectSameEditor(body(secondary), movingEditor)
+  const beforeUnpin = saved.revision
+  await button(page, `Unpin ${second.title}`).click()
+  await expect(tab(page, second, 'Preview')).toBeVisible()
+  await expect.poll(async () => coordinates(await readLayout())).toEqual({
+    ...firstPreviewSelected, secondary: [-second.id, secondaryPreview.id], focusedGroup: 1,
+  })
+  saved = await readLayout()
+  assert.equal(saved.revision, beforeUnpin + 1n)
+  const suffix = ' Local draft across group merge.'
+  await body(secondary).press('End')
+  await page.keyboard.insertText(suffix)
+  const unsavedSource = secondaryPreview.body + suffix
+  await expect(body(secondary)).toHaveValue(unsavedSource)
+  await body(secondary).press('Shift+ArrowLeft')
+  const selectedBeforeMerge = await selection(body(secondary))
+  assert.deepEqual(selectedBeforeMerge, [unsavedSource.length - 1, unsavedSource.length])
+  const merged = await changeGroupLayout(page, readLayout, saved, 'Merge groups', {
+    primary: [...mainSlots, ...movedSlots], secondary: [],
+    primaryActive: secondaryPreview.id, secondaryActive: 0, focusedGroup: 0,
+  })
+  await expect(page).toHaveURL(editPath(secondaryPreview.id))
+  await expect(tab(page, secondaryPreview, 'Unsaved')).toHaveAttribute('aria-selected', 'true')
+  await expect(tab(page, alternate, 'Preview')).toBeVisible()
+  await expect(tab(page, second, 'Pinned')).toBeVisible()
+  await expectPane(primary, secondaryPreview, unsavedSource, true)
+  await expect(body(primary)).toBeFocused()
+  assert.deepEqual(await selection(body(primary)), selectedBeforeMerge)
+  await expect(secondary).toHaveCount(0)
+  await expect(page.locator('.el-markdown-editor')).toHaveCount(2)
+  await expectSameEditor(body(primary), movingEditor)
+  await expectHiddenEditor(previewEditor)
+  const storedDraft = await page.request.get(draftPath(secondaryPreview.id))
+  assert.equal(storedDraft.status(), 200)
+  assert.deepEqual(decodeDraft(decodeFrame(await storedDraft.body(), FrameType.Draft).payload), secondaryPreview)
+  await capture(page, 'workspace-split-merged')
+  await previewEditor.dispose()
+  await movingEditor.dispose()
+
+  observations.push({ movesPreserveExactRouteAndEditors: true, occupiedPreviewPromoted: true, emptyPreviewSlotKeepsPreview: true,
+    mergePromotesIncomingPreview: true, mergePreservesFocusAndUnsavedSource: true, mergeKeepsOtherEditorMounted: true,
+    groupChangesPersistAtomically: true,
+    mergedRevision: merged.revision.toString() })
 }
 
 async function exerciseSavedWorkspace({ author, session, outsider, outsiderSession, first, alternate, second }) {
@@ -175,8 +312,6 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     await tab(writer, second, 'Pinned').click()
     await expect(writer).toHaveURL(editPath(second.id))
 
-    const coordinates = snapshot => ({ primary: snapshot.tabs, secondary: snapshot.secondaryTabs,
-      primaryActive: snapshot.activeArticleId, secondaryActive: snapshot.secondaryActiveArticleId, focusedGroup: snapshot.focusedGroup })
     await expect.poll(async () => coordinates(await savedGroups(writerContext, session))).toEqual({
       primary: [first.id, -alternate.id], secondary: [second.id, -secondaryPreview.id],
       primaryActive: first.id, secondaryActive: second.id, focusedGroup: 1,
@@ -239,6 +374,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     await other.close()
     observations.push({ persistedWorkspaceFromEmptyBrowserStorage: true, exactStoredGroupOrderAndFocus: true, restoreWaitsForRealDraft: true,
       offlineChangesDoNotReplay: true, otherAuthorHasIndependentWorkspace: true, storedRevision: persisted.revision.toString() })
+    await exerciseGroupActions({ page: verified, readLayout: () => savedGroups(writerContext, session), first, alternate, second, secondaryPreview })
   } finally {
     await verificationContext.close()
     await reopenedContext.close()

@@ -54,7 +54,7 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 }>
 
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
-export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft }>
+export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft; selected: boolean }>
 
 export type SavedWorkspaceLayout = Readonly<{
   tabs: readonly number[]
@@ -78,6 +78,8 @@ type SaveReceipt =
 
 type ClosePlan = Readonly<{ revision: number; tabs: readonly WorkspaceTab[] }>
 type CloseReceipt = Readonly<{ kind: 'closed' | 'stale' | 'protected' }>
+type GroupReceipt = Readonly<{ kind: 'changed'; tab: WorkspaceTab; workspaceRevision: number }> |
+  Readonly<{ kind: 'stale' | 'unchanged' }>
 type Session<Draft> = {
   id: number
   sessionId: number
@@ -130,6 +132,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #expired = false
   #active: Session<Draft> | undefined
   readonly #selected: Partial<Record<WorkspaceGroup, Session<Draft>>> = {}
+  #retainedSource: Session<Draft> | undefined
   #inspectorOpen = false
   #opening: AbortController | undefined
   #activation = 0
@@ -175,11 +178,46 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   get sourcePanes(): readonly WorkspaceSource<Draft>[] {
     if (!this.#currentIdentity()) return []
     const panes: WorkspaceSource<Draft>[] = []
-    for (const session of [this.#selected.main, this.#selected.secondary]) {
+    const append = (session: Session<Draft> | undefined, selected: boolean) => {
       if (session?.phase === 'ready' && session.draft)
-        panes.push(Object.freeze({ tab: this.#view(session), draft: structuredClone(session.draft) }))
+        panes.push(Object.freeze({ tab: this.#view(session), draft: structuredClone(session.draft), selected }))
     }
+    append(this.#selected.main, true)
+    append(this.#selected.secondary, true)
+    if (panes.length < 2 && this.#retainedSource !== this.#selected.main && this.#retainedSource !== this.#selected.secondary)
+      append(this.#retainedSource, false)
+    // Vue can keep both source hosts in the same DOM order during ownership changes.
+    panes.sort((left, right) => left.tab.sessionId - right.tab.sessionId)
     return Object.freeze(panes)
+  }
+
+  moveActiveTab(tab: EditorSessionRef, destination: WorkspaceGroup, expectedRevision: number): GroupReceipt {
+    const session = this.#groupChange(tab, expectedRevision)
+    if (!session || (destination !== 'main' && destination !== 'secondary')) return { kind: 'stale' }
+    const source = session.group
+    if (destination === source || !this.hasSecondaryGroup) return { kind: 'unchanged' }
+
+    const previousSelection = this.#selected[destination]
+    const restored = this.#retainedSource?.group === source ? this.#retainedSource : undefined
+    this.#selected[source] = restored
+    this.#selected[destination] = session
+    this.#retainedSource = previousSelection ?? (restored ? undefined : this.#retainedSource)
+    this.#placement(session, destination)
+    return this.#finishGroupChange(session)
+  }
+
+  mergeGroups(tab: EditorSessionRef, expectedRevision: number): GroupReceipt {
+    const active = this.#groupChange(tab, expectedRevision)
+    if (!active) return { kind: 'stale' }
+    const incoming = Array.from(this.#sessions.values()).filter(session => session.group === 'secondary')
+    if (!incoming.length) return { kind: 'unchanged' }
+
+    const otherSelection = active.group === 'main' ? this.#selected.secondary : this.#selected.main
+    this.#retainedSource = otherSelection ?? this.#retainedSource
+    for (const session of incoming) this.#placement(session, 'main')
+    this.#selected.main = active
+    delete this.#selected.secondary
+    return this.#finishGroupChange(active)
   }
 
   async recheckComparison(tab: EditorSessionRef, signal: AbortSignal): Promise<boolean> {
@@ -400,7 +438,9 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!canActivate()) return { kind: 'superseded' }
     if (mode === 'pinned') session.mode = mode
     this.#active = session
+    if (this.#retainedSource === session) this.#retainedSource = this.#selected[session.group]
     this.#selected[session.group] = session
+    if (this.#selected.main && this.#selected.secondary) this.#retainedSource = undefined
     this.#forgetRecent(articleId)
     this.#changed()
     if (intent !== this.#activation || this.#active !== session || !this.#currentIdentity()) return { kind: 'superseded' }
@@ -652,6 +692,28 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       session.phase === 'ready' && session.group === group && session.mode === 'preview' && this.#risk(session) === 'clean')
   }
 
+  #groupChange(tab: EditorSessionRef, expectedRevision: number): Session<Draft> | undefined {
+    const session = this.#find(tab)
+    if (this.#revision !== expectedRevision || !session || session !== this.#active || session.phase !== 'ready' ||
+        this.#opening || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
+    return session
+  }
+
+  #placement(session: Session<Draft>, group: WorkspaceGroup): void {
+    if (session.mode === 'preview' && this.#cleanPreview(group)) session.mode = 'pinned'
+    session.group = group
+    // Reinsert at the end so the destination's existing tab order stays intact.
+    this.#sessions.delete(session.id)
+    this.#sessions.set(session.id, session)
+  }
+
+  #finishGroupChange(session: Session<Draft>): GroupReceipt {
+    ++this.#activation
+    this.#changed()
+    if (this.#active !== session || !this.#currentIdentity()) return { kind: 'stale' }
+    return { kind: 'changed', tab: this.#view(session), workspaceRevision: this.#revision }
+  }
+
   #risk(session: Session<Draft>): Risk {
     if (session.phase === 'blocked') return 'blocked'
     if (session.conflict) return 'conflict'
@@ -700,6 +762,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #unselect(session: Session<Draft>): void {
     if (this.#active === session) this.#active = undefined
     if (this.#selected[session.group] === session) delete this.#selected[session.group]
+    if (this.#retainedSource === session) this.#retainedSource = undefined
   }
 
   #clear(): void {
@@ -707,6 +770,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#sessions.clear()
     this.#recent.length = 0
     this.#active = undefined
+    this.#retainedSource = undefined
     delete this.#selected.main
     delete this.#selected.secondary
     this.#inspectorOpen = false

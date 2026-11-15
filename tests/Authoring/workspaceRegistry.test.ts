@@ -523,3 +523,57 @@ test('malformed multi-group layouts fail before reading content', async () => {
   assert.equal(reads, 0)
   assert.deepEqual(registry.tabs, [])
 })
+
+test('moving a focused preview appends its exact session, protects both editors and rejects a stale repeat', async () => {
+  const registry = setup()
+  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
+    secondaryTabs: [3, -4], secondaryActiveArticleId: 4, focusedGroup: 1 }
+  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  const focused = registry.activeTab!
+  const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  const revision = registry.revision
+  const moved = registry.moveActiveTab(focused, 'main', revision)
+  assert.equal(moved.kind, 'changed')
+  assert.deepEqual([moved.tab.articleId, moved.tab.sessionId, moved.tab.mode, moved.tab.group], [4, focused.sessionId, 'pinned', 'main'])
+  assert.equal(registry.activeDraft?.revision, 1n)
+  assert.deepEqual(registry.savedLayout, { ...layout, tabs: [1, -2, 4], activeArticleId: 4,
+    secondaryTabs: [3], secondaryActiveArticleId: 0, focusedGroup: 0 })
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  assert.equal(registry.sourcePanes[0].selected, false)
+  assert.deepEqual(registry.moveActiveTab(focused, 'secondary', revision), { kind: 'stale' })
+  assert.deepEqual(registry.moveActiveTab(moved.tab, 'main', registry.revision), { kind: 'unchanged' })
+
+  assert.equal(registry.moveActiveTab(moved.tab, 'secondary', registry.revision).kind, 'changed')
+  assert.deepEqual(registry.savedLayout, { ...layout, secondaryTabs: [3, 4] })
+  assert.deepEqual(registry.sourcePanes.map(pane => [pane.tab.sessionId, pane.selected]), liveEditors.map(sessionId => [sessionId, true]))
+})
+
+test('merging groups keeps order and pending server commands on the same focused editor', async () => {
+  const pending = deferred<DraftSave<Draft>>()
+  const registry = setup({ save: () => pending.promise })
+  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
+    secondaryTabs: [-3, 4], secondaryActiveArticleId: 4, focusedGroup: 1 }
+  await registry.restoreLayout(layout, new AbortController().signal)
+  const focused = registry.activeTab!
+  const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  assert.equal(registry.updateDraft(focused, draft(4, 1n, 'dirty secondary source')), true)
+  const save = registry.save(focused)
+  const merged = registry.mergeGroups(focused, registry.revision)
+  assert.equal(merged.kind, 'changed')
+  assert.equal(merged.tab.sessionId, focused.sessionId)
+  assert.equal(merged.tab.group, 'main')
+  assert.equal(merged.tab.risk, 'saving')
+  assert.equal(registry.activeDraft?.body, 'dirty secondary source')
+  assert.deepEqual(registry.savedLayout, { ...emptyLayout, tabs: [1, -2, 3, 4], activeArticleId: 4 })
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  assert.equal(registry.sourcePanes[0].selected, false)
+
+  pending.resolve({ kind: 'saved', draft: draft(4, 2n, 'dirty secondary source') })
+  assert.deepEqual(await save, { kind: 'saved', articleId: 4, revision: 2n })
+  const previousSelection = await activate(registry, 2)
+  assert.equal(previousSelection.sessionId, liveEditors[0])
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  registry.setIdentity({ ...author, generation: 2n })
+  assert.deepEqual(registry.sourcePanes, [])
+  assert.deepEqual(registry.mergeGroups(focused, registry.revision), { kind: 'stale' })
+})
