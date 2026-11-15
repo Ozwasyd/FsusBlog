@@ -20,6 +20,10 @@ python3 tools/issue-target-check.py
 
 本轮从 51 条候选中为 14 条补上已有条款 ID 和冻结正文、评论行号，保留原处置、说明与验收文本。`comment-progress.json` 生成 `adoptedComments` 及 `adoptedCommentsMissingExplicitRequirementId`。当前 414 条采用或合并采用的评论中，仍有 37 条缺显式 ID。这个数只反映结构化追溯缺口。 [评论进度](comment-progress.json) · [创作及附件](comments-authoring-leaves-integration.tsv) · [语言与 AEDS](comments-quality.tsv) · [文件与事务](comments-recent-platform.tsv)
 
+### 评论条款链接 v3
+
+续审 37 条候选，为 26 条补上已有同源条款和冻结行号，覆盖创作、附件、语言、文件观察、AEDS 与 Canvas。当前 414 条采用或合并采用的评论中，11 条仍缺显式 ID。#2231、#2246、#2263 和 #3735 各有一条主要记录前端协调、跨模块映射、上游绑定或工作区快照。#3524 的六条和 #3764 的一条没有足以对应同一 issue 已采用条款的证据。保留这些评论的现有说明与处置，后续核对具体产品条款的归属。 [当前进度](comment-progress.json) · [创作及附件](comments-authoring-leaves-integration.tsv) · [语言、文件观察和 AEDS](comments-quality.tsv) · [Canvas](comments-recent-platform.tsv)
+
 ## 优先核对的验收
 
 | 来源和条款 | 可定位的当前证据 | 仍需核对 |
