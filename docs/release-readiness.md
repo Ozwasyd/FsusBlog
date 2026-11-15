@@ -60,4 +60,10 @@
 - 锁定 Release 编译、140 项 Core、141 项协议、严格 Vue 及本地 FsusUI 三份 Wasm 字节对比通过。定向 PostgreSQL 19 项通过，PDF 和旧来源专用配置两项跳过。七组 schema 命令的 34 项原生对照、两平台私有媒体恢复和 Debian 签名 worker 通过。身份夹具的三组回归及首发、再发布、回滚 outbox 夹具通过。 [合并检查](../artifacts/targeted-delivery-6eccdaf/) · [身份升级](../artifacts/identity-fixture-6eccdaf/)
 - 同口径计量共 208,998 NCLOC，超出上限 452 行。完整代码量门槛尚未通过。正式容量沿用封存包结果，四轮短档 1 次通过，900 秒正式长测未开始。 [计量](../artifacts/targeted-delivery-6eccdaf/code-volume.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
+## 开发提交 `88d1f2b`
+
+- v5 公开回滚保全具名作者、审阅人、公开来源和无时区生效时间。真实 PostgreSQL 备份恢复后，Kestrel 核对清单顺序、微秒和原责任快照。私人来源保留在迁移记录中。修改私人来源后原审批拒绝复验，错误类型在启用前被拒绝，运行库仍与基线备份一致。缺省清单与上一版响应逐字节一致。自定义站点配置、更多责任快照版本、已签发的旧证明和正式切换待完成。 [合并演练](../artifacts/targeted-delivery-0ee6af9/combined-v5-authors.log) · [三项原生用例](../artifacts/targeted-delivery-0ee6af9/v5-authors/native-suite-status-2.txt)
+- 双栏编辑器可用 FsusUI 的「Equalize group widths」恢复 50/50。实测保留当前稿件、编辑器及选区，两个窗格相差至多 1px。合并后的 Chrome 在六种宽度及 100%、150%、200% 缩放通过。 [双栏回归](../artifacts/targeted-delivery-0ee6af9/combined-workspace/workspace-split-result.json)
+- 共用管理员动作、导出实现和原生测试夹具后，完整代码量为 208,449 NCLOC，低于上限 97 行。真实 Caddy TLS 的管理员发布、草稿回滚及归档再发布通过。导出复用有 25 项文件或摘要样本逐字节一致，其中 PDF 字节对比覆盖渲染器输入，实际 PDF 另经 macOS 隔离运行。锁定 Release、141 项协议、Vite 及三份本地 FsusUI Wasm 比对通过。合并版定向实库 24 项通过，专用 PDF 配置跳过 1 项。作者端夹具的六组 Chrome 有完整终态。 [全部合并证据](../artifacts/targeted-delivery-0ee6af9/) · [规范化计量](../artifacts/targeted-delivery-0ee6af9/code-volume.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
