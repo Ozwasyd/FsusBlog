@@ -27,3 +27,11 @@
 630,000 次计划请求中 627,933 次正确，2,067 次漏发，已发送的请求无错误。10,465.55 个正确响应/秒，p95 为 0.243 ms，p99 为 1.738 ms。漏发为 0.3281%，超过正式容量的 0.1% 门槛。927 个保留的慢请求均匹配。782 个从请求完整写入回环链路到响应首包至少等待 20 ms，完整响应头到达至 Go 读出超过该时长的有 22 个，客户端已经 ACK 完整头而 Go 仍等待至少 20 ms 的为 1 个。三个漏发窗口的四条热读均无 PostgreSQL 访问，也未出现达到 20 ms 的 Kestrel 中间件区间。第 49 秒有 137 个请求在服务端发出 ACK 后至响应首包仍等待至少 20 ms。现有观测把主要等待范围收窄到回环收发、Kestrel 中间件之前及主机调度。 [负载原始报告](../../artifacts/p2-01f1904-loopback-peak-micro/peak-10500.json) · [TCP 逐请求对照](../../artifacts/p2-01f1904-loopback-peak-micro/lo0-joined-recovered.json)
 
 首次运行在预热前因回环设备不支持纳秒捕获退出。微秒运行完成测量，捕获包装器停止返回 137 后，对已确认归属的采集进程直接发送 SIGINT，取得完整计数，再从同一文件离线核对，未重复负载。Kestrel、PostgreSQL 与采集进程已停止，端口及临时目录已核验。完整四档矩阵和 900 秒正式长测仍待最终冻结候选独占执行。 [首次设备拒绝](../../artifacts/p2-01f1904-loopback-peak/lo0-tcpdump.log) · [采集收尾](../../artifacts/p2-01f1904-loopback-peak-micro/lo0-post-exit-cleanup.log) · [运行退出状态](../../artifacts/p2-01f1904-loopback-peak-micro/outcome.txt)
+
+## `f303f5c` 的代理两跳隔离诊断
+
+正式四轮全部结束后，同包独占运行一次 Caddy TLS 单档诊断。Go 保持 30 秒预热及 60 秒 10,500 档计时，采集只保留两个本次拥有的 IPv4 回环 TCP 端口的 44 字节头。630,000 次计划中 628,194 次正确，1,806 次漏发，所有已发结果校验通过。漏发发生在第 23 秒和第 48 秒。进程退出码为 0，监听及临时库清理通过。 [正式矩阵](matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收) · [单档诊断](../../artifacts/p2-f303f5c-proxy-lo0/proxy-10500.json) · [诊断清理](../../artifacts/p2-f303f5c-proxy-lo0/outcome.txt)
+
+独立解码读取 6,555,683 条实际落盘记录。tcpdump 报告内核丢包为零，过滤计数与落盘计数相差 20,577 条，两端记录都止于计时结束前约 189 ms。最后一秒不用于定位。第 23 秒，TLS 前端与 Kestrel 上游的最长响应方向空档分别约 74.61 和 66.50 ms，时间重叠 65.76 ms；第 48 秒分别约 41.16 和 34.62 ms，重叠 34.62 ms。两个窗口都没有出现持续至少 10 ms、两跳都有新请求数据而仅一跳没有新响应数据的区间。只保留聚合传输时序，无法把加密前端与上游的请求逐一配对，也无法定位哪一个进程最先停顿。 [逐秒原始解码](../../artifacts/p2-f303f5c-proxy-lo0/summary.json) · [5 ms 分桶](../../artifacts/p2-f303f5c-proxy-lo0/fine-summary.json) · [捕获计数](../../artifacts/p2-f303f5c-proxy-lo0/lo0-tcpdump.log)
+
+无流量的 System Trace 探针未能写出可读追踪。系统的既有 tailspind 会话拥有内核追踪，SIP 下的 DTrace 调度探针不可用。该轮保留原代理配置与正式阈值，当前证据未定位到可以验证的产品修复点。 [系统跟踪探针](../../artifacts/p2-formal-f303f5c/xctrace-auth-probe/)
