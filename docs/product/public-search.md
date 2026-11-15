@@ -14,4 +14,4 @@ Chrome 157 用 220 篇实库文章验证两个分片。发布和撤回第 221 �
 
 发布包附带 `search-lexicon.fsdl`，由同一份仓库词表生成 v1 FSDL v2 格式。节点、边、条目及字符串区按冻结格式生成，保留 UTF-8 排序、标量位置、权重及停用词标志。离线工具支持导出至新路径，或复验已有文件的完整字节。实际 C# 索引和浏览器 Worker 继续从共享词表构建和查询。固定十六进制向量、独立的 trie 读取器及 CLI 用例随原协议测试运行。独立从固定 v1 三份文本重建的 74 个词条和 217 个节点与发布字典逐字节一致，共 6,839 字节。 [离线验证](../../artifacts/fsdl-interoperability/test.log) · [FSDL 工具](../../tools/fsdl-dictionary.py) · [冻结编译器](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs#L469)
 
-角色分片 FSPT 补丁、与固定浏览器 WASM 的排名等价，以及 FAS4 服务端检索短语契约仍待验收。
+角色分片 FSPT 补丁、固定浏览器 Wasm 的原始分页和排名，以及 FAS4 服务端加权召回与前 200 条排序仍待验收。固定 v1 的专用 FAS4 查询累加不同词元的 BM25 分数，短语位置加分见独立的 Wasm 查询路径。 [固定 v1 服务端](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.RuntimePersistence.cs#L467) · [固定 v1 Wasm](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp)
