@@ -59,7 +59,7 @@ case "$# ${1:-}" in
     *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed|--activate-rollback-site-author|--activate-rollback-history]\n' "$0" >&2; exit 2 ;;
 esac
 expected_history=0
-if [[ "$responsibility_history" == true ]]; then expected_history=2; fi
+if [[ "$responsibility_history" == true ]]; then expected_history=4; fi
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
 if [[ -n "${PG_TOOLS_DIR:-}" ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
@@ -286,9 +286,15 @@ if [[ "$responsibility_history" == true ]]; then
         > "$evidence/import-wrong-responsibility-skip.log" 2>&1; then exit 1; fi
     rg -Fq 'The legacy source contains unsupported rows.' "$evidence/import-wrong-responsibility-skip.log"
     [[ "$(psql_db "$quarantine_db" -Atc "SELECT to_regnamespace('fsus_legacy_candidate') IS NULL")" == t ]]
-    FSUSBLOG_DB="$(dsn "$quarantine_db")" python3 tools/site-backup.py verify-restored "$quarantine_backup" "$quarantine_backup_sha" "$scratch/media"
     psql_db "$source_db" -c "UPDATE public.article_mutation_outbox_edge SET last_error='superseded-by-revision:5000000003'
         WHERE outbox_event_id=991000004 AND edge_name='article-detail-aeds'"
+    psql_db "$source_db" -c 'UPDATE public.article_responsibility_snapshot SET previous_snapshot_id=799 WHERE id=806'
+    if migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" \
+        > "$evidence/import-wrong-responsibility-predecessor.log" 2>&1; then exit 1; fi
+    rg -Fq 'The source has article integrity defects.' "$evidence/import-wrong-responsibility-predecessor.log"
+    [[ "$(psql_db "$quarantine_db" -Atc "SELECT to_regnamespace('fsus_legacy_candidate') IS NULL")" == t ]]
+    FSUSBLOG_DB="$(dsn "$quarantine_db")" python3 tools/site-backup.py verify-restored "$quarantine_backup" "$quarantine_backup_sha" "$scratch/media"
+    psql_db "$source_db" -c 'UPDATE public.article_responsibility_snapshot SET previous_snapshot_id=805 WHERE id=806'
 fi
 migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" > "$scratch/applied.json"
 unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
@@ -379,16 +385,22 @@ assert [(e[1], e[13], e[14], e[-1]) for e in rows["event"][:3]] == [
 ]
 edge_counts = {991000001: 7, 991000002: 7, 991000003: 7}
 if history:
-    edge_counts.update({991000004: 9, 991000005: 9})
+    edge_counts.update(dict.fromkeys(range(991000004, 991000008), 9))
     assert [r[1:8] for r in extra_snapshots] == [
         [803, 42, 5000000002, 2, 1, None, "2026-10-04T12:30:00"],
         [804, 42, 5000000002, 2, 2, 803, "2026-10-05T13:45:00"],
+        [805, 42, 5000000002, 2, 3, 804, "2026-10-06T09:10:00"],
+        [806, 42, 5000000002, 2, 4, 805, "2026-10-07T08:15:00"],
     ]
     assert [(e[1], e[6:16], e[-1]) for e in rows["event"][3:]] == [
         (991000004, [5000000002, 2, 702, 803, 1, None, None, "responsibility-updated", "processed", 0],
          "5b45bdc186bc8e0baa3146b35a55a26548ad873d276d651fb7e0dd2d6a290f8e"),
         (991000005, [5000000002, 2, 702, 804, 2, None, None, "responsibility-updated", "processed", 0],
          "c7fd73927c68b0e50db54bc3aa692b43ed51a92d8575fb6ab6080f19dd2d131b"),
+        (991000006, [5000000002, 2, 702, 805, 3, None, None, "responsibility-updated", "processed", 0],
+         "2f8be688a291cf69621835f57dabc6460b679f36b9cc046f42ce7e961408035e"),
+        (991000007, [5000000002, 2, 702, 806, 4, None, None, "responsibility-updated", "processed", 0],
+         "5dbc09e5c3b6cf3b17e5e4990b836ef01aa5e3eaa850031a463f2895daca7644"),
     ]
 assert Counter(edge[2] for edge in rows["edge"]) == edge_counts
 assert len({edge[7] for edge in rows["edge"]}) == 21 + 9 * history
@@ -441,15 +453,15 @@ site_author = '甲乙🙂AB丙丁' if sys.argv[4] else 'Fsu'
 raw_site_author = {'key': 'Seo_Author', 'value': sys.argv[4]} if sys.argv[4] else None
 author = 'Lead Writer' if sys.argv[3] == 'true' else site_author
 expected_history = int(sys.argv[5])
-revision_two_snapshot = '804' if expected_history else None
-revision_two_author = 'Archive Reviewer' if expected_history else site_author
+revision_two_snapshot = '806' if expected_history else None
+revision_two_author = 'Archive Editor' if expected_history else site_author
 assert [row[:12] for row in rows] == [
     [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, author],
     [42, 2, 900000002, 5000000002, 8, None, None, revision_two_snapshot, 7,
      revision_two_snapshot, not expected_history, revision_two_author],
     [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, author],
 ]
-assert [row[16] for row in rows] == [responsibility_hash[799], responsibility_hash.get(804), responsibility_hash[802]]
+assert [row[16] for row in rows] == [responsibility_hash[799], responsibility_hash.get(806), responsibility_hash[802]]
 assert [row[17] for row in rows] == [raw_site_author] * 3
 for row in rows:
     # The frozen SQLite-compatible projection can encode the same true value as the integer 1.

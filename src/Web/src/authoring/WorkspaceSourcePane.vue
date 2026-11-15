@@ -44,7 +44,7 @@ type OutlineModel = ReturnType<typeof createMarkdownOutlineModel>
 const outlineVisible = ref(false)
 const outlineState = ref<'loading' | 'ready' | 'unavailable'>('loading')
 const outlineMode = ref<MarkdownEditorMode>('source')
-const outlineForeground = computed(() => props.focus && !props.concealed && !props.blocked)
+const foreground = computed(() => props.focus && !props.concealed && !props.blocked)
 const outlineDisabled = computed(() => editorSource.value.includes('\r') ||
   (outlineMode.value !== 'source' && outlineMode.value !== 'live'))
 const editorDocument = shallowRef({ source: editorSource.value, revision: 0 })
@@ -59,7 +59,7 @@ const outlineArticle = computed(() => props.pane.draft.id)
 
 watch(() => props.split, () => { outlineMode.value = 'source' })
 watch(outlineArticle, () => { previousOutline = undefined }, { flush: 'sync' })
-watch([outlineVisible, outlineDisabled, outlineArticle, outlineDocument, outlineForeground], ([visible, disabled, articleId, source, foreground], _, cleanup) => {
+watch([outlineVisible, outlineDisabled, outlineArticle, outlineDocument, foreground], ([visible, disabled, articleId, source, foreground], _, cleanup) => {
   if (visible && !disabled && outlineSnapshot.value?.document === source && outlineSnapshot.value?.articleId === articleId) return
   outlineSnapshot.value = undefined
   outlineState.value = 'loading'
@@ -118,7 +118,7 @@ function editorSelectionChanged(event: MarkdownEditorSelectionEvent) {
 
 function revealOutline(heading: MarkdownEditorOutlineItem): boolean {
   const snapshot = outlineSnapshot.value
-  if (!outlineForeground.value || outlineDisabled.value || !snapshot || snapshot.articleId !== outlineArticle.value || snapshot.document !== outlineDocument.value ||
+  if (!foreground.value || outlineDisabled.value || !snapshot || snapshot.articleId !== outlineArticle.value || snapshot.document !== outlineDocument.value ||
     !snapshot.model.items.includes(heading)) return false
   const { start, end } = heading.sourceRange
   const status = markdown.value?.revealSourceRange({ start, end }, {
@@ -220,9 +220,11 @@ function edit(field: 'title' | 'body', value: string) {
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
     <div class="workspace-source__body-heading">
       <label :for="bodyId">Body</label>
-      <ArticleOutlineRail v-if="nativeMarkdown" :foreground="outlineForeground"
+      <ArticleOutlineRail v-if="nativeMarkdown" :foreground="foreground"
         :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState"
         :disabled="outlineDisabled" :reveal="revealOutline" @visibility="outlineVisible = $event" />
+      <ElButton v-if="nativeMarkdown && focus && !concealed" text native-type="button" :disabled="blocked"
+        @click="foreground && markdown?.openSearch()">Find in body</ElButton>
     </div>
     <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
       :model-value="editorSource" @update:model-value="edit('body', $event)" placeholder="Start writing here."
@@ -243,5 +245,5 @@ function edit(field: 'title' | 'body', value: string) {
 .workspace-source[hidden] { display: none; }
 .workspace-source__heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
 .workspace-source__heading h2 { margin: 0; font-size: var(--fsus-typography-heading-sm-size); }
-.workspace-source__body-heading { display: flex; align-items: center; gap: var(--fsus-space-3); }
+.workspace-source__body-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fsus-space-3); }
 </style>

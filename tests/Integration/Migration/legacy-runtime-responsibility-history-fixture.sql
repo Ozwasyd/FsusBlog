@@ -1,4 +1,4 @@
--- The restored third publication stays current during both responsibility edits of historical revision 2.
+-- The restored third publication stays current during all four responsibility edits of historical revision 2.
 INSERT INTO public.article_responsibility_snapshot (
     id,article_id,article_revision_id,revision_no,responsibility_version,previous_snapshot_id,inherit_site_author,
     authors_json,reviewer_json,sources_json,update_summary,update_reason,effective_at,conclusion_impact,methodology,
@@ -7,12 +7,18 @@ INSERT INTO public.article_responsibility_snapshot (
     (803,42,5000000002,2,1,NULL,true,'[{"name":"Archive Reviewer","profileUrl":null}]',NULL,'[]',
      'Historical review',NULL,NULL,NULL,NULL,NULL,NULL,true,'2026-10-04 12:30:00'),
     (804,42,5000000002,2,2,803,true,'[{"name":"Archive Reviewer","profileUrl":"https://archive.example/reviewer"}]',NULL,'[]',
-     'Historical review expanded','Updated historical source review',NULL,'clarified',NULL,NULL,NULL,true,'2026-10-05 13:45:00');
+     'Historical review expanded','Updated historical source review',NULL,'clarified',NULL,NULL,NULL,true,'2026-10-05 13:45:00'),
+    (805,42,5000000002,2,3,804,true,'[{"name":"Archive Reviewer","profileUrl":"https://archive.example/reviewer"}]',NULL,'[]',
+     'Historical review verified','Verified document inventory',NULL,'none',NULL,NULL,NULL,true,'2026-10-06 09:10:00'),
+    (806,42,5000000002,2,4,805,true,'[{"name":"Archive Editor","profileUrl":"https://archive.example/editor"}]',NULL,'[]',
+     'Historical review finalized','Recorded final review owner',NULL,'clarified',NULL,NULL,NULL,true,'2026-10-07 08:15:00');
 
 -- The frozen producer sets release coordinates to null, takes rights from current p3 and repeats the old revision scope.
 WITH edits(id,event_id,snapshot_id,version,happened_at,occurred_at) AS (
     VALUES (991000004,'44000000000040008000000000000001',803,1,timestamp '2026-10-04 12:30:00','2026-10-04T12:30:00Z'),
-           (991000005,'44000000000040008000000000000002',804,2,timestamp '2026-10-05 13:45:00','2026-10-05T13:45:00Z')
+           (991000005,'44000000000040008000000000000002',804,2,timestamp '2026-10-05 13:45:00','2026-10-05T13:45:00Z'),
+           (991000006,'44000000000040008000000000000003',805,3,timestamp '2026-10-06 09:10:00','2026-10-06T09:10:00Z'),
+           (991000007,'44000000000040008000000000000004',806,4,timestamp '2026-10-07 08:15:00','2026-10-07T08:15:00Z')
 )
 INSERT INTO public.article_mutation_outbox (
     id,event_id,aggregate_type,aggregate_id,schema_version,article_revision_id,revision_no,rights_snapshot_id,
@@ -34,5 +40,5 @@ FROM public.article_mutation_outbox event
 CROSS JOIN (VALUES (1,'article-detail-aeds'),(2,'http-cache-invalidation'),(3,'integrity-proof'),(4,'notification'),
     (5,'public-aot-invalidation'),(6,'public-artifact-revocation'),(7,'public-hot-read'),(8,'search-projection'),(9,'taxonomy-projection'))
     edges(sequence,name)
-WHERE event.id IN (991000004,991000005)
+WHERE event.id IN (991000004,991000005,991000006,991000007)
 ORDER BY event.id,edges.sequence;

@@ -19,6 +19,7 @@ internal static partial class Migration
     private static async Task<string> ReadLegacyResponsibilityDisclosuresAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         string siteAuthor, CancellationToken ct)
     {
+        const int maxSnapshots = 2 + MaxLegacyHistoricalResponsibilityVersions;
         await using var query = new NpgsqlCommand($"""
             SELECT s.id, admissible,
                 admissible AND inherit_site_author=1,
@@ -29,15 +30,15 @@ internal static partial class Migration
                 CASE WHEN admissible THEN applicability END, CASE WHEN admissible THEN limitations END
             FROM {ImportSchema}.shadow_article_responsibility_snapshot s
             CROSS JOIN LATERAL (SELECT octet_length(row_to_json(s)::text)<=65536 AS admissible) budget
-            ORDER BY s.id LIMIT 5
+            ORDER BY s.id LIMIT {maxSnapshots + 1}
             """, db, tx);
         await using var rows = await query.ExecuteReaderAsync(ct);
-        var disclosures = new Dictionary<long, object>(4);
+        var disclosures = new Dictionary<long, object>(maxSnapshots);
         try
         {
             while (await rows.ReadAsync(ct))
             {
-                if (disclosures.Count >= 4 || !rows.GetBoolean(1)) throw new JsonException();
+                if (disclosures.Count >= maxSnapshots || !rows.GetBoolean(1)) throw new JsonException();
                 string? Text(int field) => rows.IsDBNull(field) ? null : rows.GetString(field);
                 var authors = ReadLegacyDisclosureArray<LegacyResponsiblePerson>(Text(3)).Select(PublicLegacyPerson)
                     .OfType<LegacyResponsiblePerson>().Take(8).ToArray();

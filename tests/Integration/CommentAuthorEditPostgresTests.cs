@@ -1,5 +1,7 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -113,6 +115,63 @@ public sealed partial class AdminModerationPostgresTests
                 and exists(select from public.comment where article_id=1 and id=3 and root_id=1 and parent_id=1
                     and reply_to_id=1 and parent_depth=0 and depth=1 and not deleted and edited_at is not null)
             """, ct, delivered));
+
+        var manager = await AddModerator(db, "comment-history-manager", ct, canModerate: false);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost"
+        });
+        const string historyRoute = "/api/binary/author/comments/1/revisions";
+        await History(HttpStatusCode.NotFound, moderator.Token, adminOrigin: false);
+        await History(HttpStatusCode.Unauthorized, null);
+        await History(HttpStatusCode.Forbidden, manager.Token);
+        await History(HttpStatusCode.BadRequest, moderator.Token, historyRoute + "?before=2&before=3");
+        using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token), (FrameType)222).ToArray()))
+        {
+            Assert.Collection(history.RootElement.EnumerateArray(),
+                row => AssertRevision(row, 2, "edited", edited),
+                row => AssertRevision(row, 1, "created", original.Body));
+        }
+        using (var page = JsonDocument.Parse(Aeds.Decode(
+            await History(HttpStatusCode.OK, moderator.Token, historyRoute + "?before=2"), (FrameType)222).ToArray()))
+            AssertRevision(Assert.Single(page.RootElement.EnumerateArray()), 1, "created", original.Body);
+        await Execute(db, "update public.comment_author_edited set body_digest=decode(repeat('00',32),'hex') where comment_id=1", ct);
+        await History(HttpStatusCode.ServiceUnavailable, moderator.Token);
+        await Execute(db, "update public.comment_author_edited set body_digest=pg_catalog.sha256(convert_to(body,'UTF8')) where comment_id=1", ct);
+        await Execute(db, """
+            with changed as (
+                update public.comment set deleted=true,moderation_version=moderation_version+1
+                where article_id=1 and id=1 returning *
+            )
+            insert into public.comment_author_deleted
+            select article_id,id,$1,moderation_version,moderation_status,pg_catalog.sha256(convert_to(body,'UTF8')),clock_timestamp()
+            from changed
+            """, ct, owner);
+        using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token), (FrameType)222).ToArray()))
+            AssertRevision(history.RootElement[0], 3, "deleted", edited);
+        await Execute(db, "update public.admin_principal set generation=generation+1 where id=$1", ct, moderator.Id);
+        await History(HttpStatusCode.Unauthorized, moderator.Token);
+
+        async Task<byte[]> History(HttpStatusCode expected, string? token, string path = historyRoute, bool adminOrigin = true)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            if (adminOrigin) request.Headers.Host = "localhost";
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-admin-session={token}");
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(expected, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            return await response.Content.ReadAsByteArrayAsync(ct);
+        }
+
+        static void AssertRevision(JsonElement row, int version, string operation, string text)
+        {
+            Assert.Equal(version, row.GetProperty("version").GetInt32());
+            Assert.Equal(operation, row.GetProperty("operation").GetString());
+            Assert.Equal("public", row.GetProperty("actorMode").GetString());
+            Assert.Equal(text, row.GetProperty("content").GetString());
+            Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text))), row.GetProperty("contentSha256").GetString());
+            Assert.Equal(DateTimeKind.Utc, row.GetProperty("createdAtUtc").GetDateTime().Kind);
+        }
 
         async Task<T> Own<T>(Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> action)
         {

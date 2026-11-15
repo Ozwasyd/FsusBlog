@@ -44,6 +44,8 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 原生 PostgreSQL 验证一次性证明的版本、会话、代次、期限和出版边界，以及 outbox 写入失败回滚和并发兑换。390px Chrome 经 Caddy TLS 验证普通账号加载原文、取消、编辑后隐藏、子回复继续公开，以及 Passkey 重新批准后保留原链接和一条历史通知。 [原生测试](../../artifacts/comment-author-edit-initial/native.log) · [浏览器与数据库记录](../../artifacts/comment-author-edit-caddy-retry/caddy/)
 
+管理员专用源可通过 v1 的 `GET /api/binary/author/comments/{commentId}/revisions` 读取当前站点已证明归属的登录评论修订。需要活动管理会话及 `comment.moderate`。返回 AEDS 222，按最新到最旧列出原文、编辑和作者删除快照及 SHA-256。内容版本独立于审核版本；首次编辑前的原文来自事务保留的上一版本。每页至多 64 条，较旧记录沿响应 `Link` 翻页。历史字节、摘要或当前状态不一致时拒绝读出受影响的结果。旧库缺少所需存储或无法证明归属时该请求不可用。 [真实 PostgreSQL 和 Kestrel](../../artifacts/admin-comment-revisions-9ebbbeb/final/combined-native.log)
+
 ### 登录作者申诉
 
 旧部署停机执行 `comment appeal-schema` 后，登录账号可以在「我的评论」中查看已证明归属的评论。当前可申诉范围为通过独立管理员线上审核、留有当期驳回记录的评论。申诉理由经去除首尾空白后须为 10–1,000 个 UTF-16 单元。提交消费绑定当前账号、会话、版本和原驳回记录的一次性申诉挑战。每次驳回只接受一条申诉。

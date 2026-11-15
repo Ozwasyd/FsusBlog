@@ -75,10 +75,10 @@ function manifest(revision, snapshotId) {
     expected.limitations = 'Limited coverage'
   }
   if (responsibilityHistory && revision === 2) {
-    expected.responsibilityVersion = 2
-    expected.authors = [{ name: 'Archive Reviewer', profileUrl: 'https://archive.example/reviewer' }]
+    expected.responsibilityVersion = 4
+    expected.authors = [{ name: 'Archive Editor', profileUrl: 'https://archive.example/editor' }]
     expected.update = {
-      summary: 'Historical review expanded', reason: 'Updated historical source review', conclusionImpact: 'clarified',
+      summary: 'Historical review finalized', reason: 'Recorded final review owner', conclusionImpact: 'clarified',
     }
   }
   return expected
@@ -91,7 +91,7 @@ if (hidden) {
   const restored = manifest(3, '802')
   await probe('current', `${article}/responsibility`, 200, restored)
   await probe('revision1', `${article}/revisions/1/responsibility`, 200, manifest(1, '799'))
-  await probe('revision2', `${article}/revisions/2/responsibility`, 200, manifest(2, responsibilityHistory ? '804' : undefined))
+  await probe('revision2', `${article}/revisions/2/responsibility`, 200, manifest(2, responsibilityHistory ? '806' : undefined))
   await probe('revision3', `${article}/revisions/3/responsibility`, 200, restored)
   assert.equal(evidence.current, evidence.revision3)
   await probe('missingCurrent', `${missingArticle}/responsibility`, 404, missing)

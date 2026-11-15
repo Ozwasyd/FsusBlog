@@ -193,9 +193,9 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 `legacy-runtime.sh --activate-rollback-site-author` 从真实旧库归档恢复该设置，复核三条来源记录保留原值，且 Kestrel 当前及历史责任清单使用按字节计算的站点作者。只改动恢复源中的设置即会使已审核计划失配，隔离候选保持与基线备份一致。见 `artifacts/legacy-seo-author-f9fc6d7/native-suite-status-1.txt`。
 
-第三次回滚发布处于公开状态时，v5 可保全原第二修订随后保存的一至两个连续责任版本。这些旧事件没有新发布坐标，仍引用当时公开的第三次发布权利和时间。原投递器跳过该历史修订的九条边，迁移保留原跳过原因和投递键。运行副本按 v1 规则显示第二修订的最新责任，第三修订的原责任保持固定。
+第三次回滚发布处于公开状态时，v5 可保全原第二修订随后保存的最多八个连续责任版本，整个来源记录仍须满足已有 128 KiB 上限。这些旧事件没有新发布坐标，仍引用当时公开的第三次发布权利和时间。原投递器跳过该历史修订的九条边，迁移保留原跳过原因和投递键。运行副本按 v1 规则显示第二修订的最新责任，第三修订的原责任保持固定。
 
-`legacy-runtime.sh --activate-rollback-history` 从 PostgreSQL 归档恢复后核对第二修订的责任版本 1 和 2、两个无发布坐标的旧事件及 18 条原跳过记录。修改一条跳过原因会在暂存前拒绝导入。候选备份恢复后，Kestrel 仍公开第三修订，并通过旧接口返回第二修订的责任版本 2。
+`legacy-runtime.sh --activate-rollback-history` 从 PostgreSQL 归档恢复后核对第二修订的责任版本 1 至 4、四个无发布坐标的旧事件及 36 条原跳过记录。修改跳过原因或前序快照会在暂存前拒绝导入。候选备份恢复后，Kestrel 仍公开第三修订，并通过旧接口返回第二修订的责任版本 4。见 `artifacts/legacy-history-chain-09fc9f8/native-status.txt`。
 
 版本 5 可附一条旧站已签名的发布证明供离线保全。按已审核的全局修订 ID 从同一次旧站冻结备份导出 `SELECT row_to_json(p) FROM public.article_publish_proof p WHERE p.article_revision_id = …` 的单行 JSON。另从独立审核的旧站签名配置导出对应公钥的 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`。两个文件的权限须为 `0400` 或 `0600`。
 

@@ -21,6 +21,7 @@ public enum FrameType : ushort
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
+    CommentRevisionList = 222,
     CommentReportRequest = 223,
     CommentReportResult = 224,
     CommentAppealDecisionRequest = 226,
@@ -772,6 +773,7 @@ public static class WireRoutes
     public const string AdminTagMetadata = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata.aeds";
     public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
+    public const string AdminCommentRevisions = "/api/binary/author/comments/{id:long}/revisions";
     public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
     public const string AdminInboxQueueWake = "/api/v2/admin/identity/inbox/wake";
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";

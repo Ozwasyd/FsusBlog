@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { button, chromium, expect, observePageErrors, readDraft } from './browser-authoring-fixture.mjs'
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const ticket = process.env.FSUSBLOG_TEST_TICKET
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -13,7 +10,7 @@ assert(ticket && evidence)
 await mkdir(evidence, { recursive: true })
 
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
-const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, hasTouch: true })
 const diagnostics = []
 const observations = []
 const writeUrl = `${origin}/user/manage/article/write`
@@ -21,17 +18,12 @@ const heading = page => page.getByRole('heading', { name: 'New article', exact: 
 const titleInput = page => page.getByLabel('Title', { exact: true })
 const bodyInput = page => page.getByLabel('Body', { exact: true })
 const checking = page => page.getByText('Checking local draft recovery…', { exact: true })
-const button = (page, name) => page.getByRole('button', { name, exact: true })
 let currentPage
 let releaseResponse
 let failure
 
 async function openPage() {
-  const page = await context.newPage()
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', message => {
-    if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) diagnostics.push(message.text())
-  })
+  const page = observePageErrors(await context.newPage(), diagnostics)
   currentPage = page
   return page
 }
@@ -62,8 +54,7 @@ async function saveAndVerify(page, title, body) {
     page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === WireRoutes.Save),
     button(page, 'Save draft').click(),
   ])
-  assert.equal(response.status(), 200)
-  const draft = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+  const draft = await readDraft(response)
   assert.deepEqual({ title: draft.title, body: draft.body }, { title, body })
   await expect(page).toHaveURL(`${origin}/user/manage/article/edit/${draft.id}`)
   return draft.id
@@ -129,17 +120,41 @@ try {
   await expect(heading(mobile)).toBeVisible()
   assert.equal(await late.received, 200)
   await expect(checking(mobile)).toBeVisible()
+  const find = button(mobile, 'Find in body')
+  await expect(find).toBeDisabled()
   await expect(mobile.getByText('Local draft recovery is unavailable. Save to keep your changes on the server.', { exact: true })).toBeVisible()
   const lateTitle = 'Save after recovery scope timeout'
-  const lateBody = 'The server can still save this draft.'
+  const lateBody = 'The server can still save this 🧭 draft.'
   await titleInput(mobile).fill(lateTitle)
   late.release()
   await late.completed
   await expect(bodyInput(mobile)).toBeEditable()
   await expect(titleInput(mobile)).toHaveValue(lateTitle)
-  await bodyInput(mobile).fill(lateBody)
+  const editor = bodyInput(mobile)
+  await editor.fill(lateBody)
+  await editor.press('Shift+ArrowLeft')
+  const selection = () => editor.evaluate(input => [input.selectionStart, input.selectionEnd])
+  const original = await selection()
+  assert(original[0] < original[1])
+  await find.press('Space')
+  const query = mobile.getByRole('textbox', { name: '在文档中查找', exact: true })
+  await expect(query).toBeFocused()
+  await query.press('Escape')
+  await expect(editor).toBeFocused()
+  assert.deepEqual(await selection(), original)
+
+  await find.tap()
+  await expect(query).toBeFocused()
+  await query.fill('🧭')
+  await button(mobile, '切换替换').tap()
+  await mobile.getByRole('textbox', { name: '替换为', exact: true }).fill('中文')
+  await button(mobile, '替换').tap()
+  await query.press('Escape')
+  await expect(editor).toBeFocused()
+  const replacedBody = lateBody.replace('🧭', '中文')
+  await expect(editor).toHaveValue(replacedBody)
   await mobile.screenshot({ path: join(evidence, 'editor-readiness-timeout.png') })
-  const secondId = await saveAndVerify(mobile, lateTitle, lateBody)
+  const secondId = await saveAndVerify(mobile, lateTitle, replacedBody)
   const restored = await openPage()
   await restored.goto(writeUrl)
   await expect(restored.getByRole('heading', { name: 'Recover an unsaved draft' })).toBeVisible()
@@ -148,7 +163,7 @@ try {
   await expect(titleInput(restored)).toHaveValue(copyTitle)
   await expect(bodyInput(restored)).toHaveValue(copyBody)
   observations.push({ path: 'scope timeout with late original response', secondId, serverSaveAvailable: true,
-    existingRecoveryPreserved: true,
+    existingRecoveryPreserved: true, bodyFindKeyboardAndTouch: true, nativeSelectionRetained: true, replacementSaved: true,
   })
   assert.deepEqual(diagnostics, [])
 } catch (error) {

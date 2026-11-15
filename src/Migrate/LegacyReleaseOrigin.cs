@@ -62,7 +62,7 @@ internal static partial class Migration
                 ) history ON true
                 WHERE (p.revision=2 AND p.source_responsibility_snapshot_id IS NULL AND
                     ((history.entries=0 AND s.id IS NULL) OR
-                     (history.entries BETWEEN 1 AND 2 AND s.responsibility_version=history.entries))) OR
+                     (history.entries BETWEEN 1 AND {{MaxLegacyHistoricalResponsibilityVersions}} AND s.responsibility_version=history.entries))) OR
                     (p.revision IN (1,3) AND s.id IS NOT NULL AND s.responsibility_version=1 AND s.previous_snapshot_id IS NULL)
             ) t ORDER BY article_id,revision
             """, db, tx);

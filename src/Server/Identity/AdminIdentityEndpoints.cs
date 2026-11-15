@@ -25,7 +25,8 @@ internal static class AdminIdentityEndpoints
     internal static bool IsAllowed(HttpContext ctx, PasskeyConfiguration? config)
     {
         var path = ctx.Request.Path;
-        var administration = path == PagePath || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path);
+        var administration = path == PagePath || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path) ||
+            path.StartsWithSegments("/api/binary/author/comments");
         if (config is null) return !administration;
         var isAdminOrigin = string.Equals(config.Origin.Scheme, ctx.Request.Scheme, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(config.Origin.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
@@ -137,6 +138,7 @@ internal static class AdminIdentityEndpoints
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);
+        AdminCommentRevisions.Map(app, store, session);
         if (app.Configuration.GetValue(AdminTagMetadataEndpoints.Setting, false))
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
         if (app.Configuration.GetValue(AdminArticleRollbackEndpoints.Setting, false))

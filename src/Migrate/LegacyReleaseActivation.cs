@@ -162,7 +162,7 @@ internal static partial class Migration
             ImportPlanWithProcessedOutboxVersion => verifiedRepublishEvents == 0,
             ImportPlanWithRepublishOutboxVersion => verifiedRepublishEvents > 0 && verifiedRepublishEvents <= articles,
             ImportPlanWithRollbackOutboxVersion => articles == 1 && verifiedRepublishEvents == 1 && verifiedRollbackEvents == 1 &&
-                historical is >= 0 and <= 2,
+                historical is >= 0 and <= MaxLegacyHistoricalResponsibilityVersions,
             _ => false
         };
         var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;

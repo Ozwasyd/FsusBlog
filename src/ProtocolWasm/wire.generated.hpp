@@ -418,6 +418,7 @@ enum class FrameType : uint16_t {
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
     CommentAuthorAppealRequest = 221,
+    CommentRevisionList = 222,
     CommentReportRequest = 223,
     CommentReportResult = 224,
     CommentAppealDecisionRequest = 226,
@@ -644,6 +645,7 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentAuthorMutationResult:
         case FrameType::CommentAuthorStatusRequest:
         case FrameType::CommentAuthorAppealRequest:
+        case FrameType::CommentRevisionList:
         case FrameType::CommentReportRequest:
         case FrameType::CommentReportResult:
         case FrameType::CommentAppealDecisionRequest:

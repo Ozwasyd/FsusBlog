@@ -118,6 +118,7 @@ internal static partial class Migration
         if (incomplete > 0) findings.Add(new ImportFinding("legacy-outbox-missing-required-edge", LegacyOutboxSource, incomplete));
         var historyEvents = events.Values.Where(item => item.History is not null).OrderBy(item => item.History!.Version).ToArray();
         if (historyEvents.Where((item, index) => item.History!.Version != index + 1 ||
+                item.History.PreviousSnapshotId != (index == 0 ? null : historyEvents[index - 1].History!.SnapshotId) ||
                 index > 0 && item.CreatedAt <= historyEvents[index - 1].CreatedAt).Any())
             findings.Add(new ImportFinding("legacy-outbox-responsibility-history", LegacyOutboxSource, historyEvents.Length));
         var byNumber = events.Values.Where(item => item.History is null).ToDictionary(item => (item.Article, item.PublicationNumber));
