@@ -200,6 +200,48 @@ public sealed class RevisionHistoryPostgresTests
         Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(gap, chainBasis.Revision),
             owner.Token, handle: ownerHandle)).Available);
 
+        var spliceBasis = await Write(0, 0, "Body edit chain", "Lead 🚢\r\nkeep match\r\nTAIL");
+        var withLegacy = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
+            Wire.EncodeArticleBodyInsertionCommand(new(spliceBasis.Id, spliceBasis.Revision, Guid.NewGuid(), spliceBasis.Title,
+                "!" + spliceBasis.Body, 0, 1)), handle: ownerHandle));
+        var removedLength = "!Lead 🚢\r\n".Length;
+        var afterDeletion = withLegacy.Body[removedLength..];
+        var replaceOffset = afterDeletion.LastIndexOf("TAIL", StringComparison.Ordinal);
+        var spliceSave = new ArticleBodyEditsCommand(withLegacy.Id, withLegacy.Revision, Guid.NewGuid(), withLegacy.Title,
+            afterDeletion[..replaceOffset] + "END", [new(0, removedLength, ""), new(replaceOffset, 4, "END")]);
+        var spliceFrame = Wire.EncodeArticleBodyEditsCommand(spliceSave);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, spliceFrame, HttpStatusCode.Conflict, ownerHandle);
+        var invalidSplice = Wire.EncodeArticleBodyEditsCommand(spliceSave with
+        {
+            Edits = [new(1, removedLength, ""), new(replaceOffset, 4, "END")]
+        });
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, invalidSplice, HttpStatusCode.BadRequest, ownerHandle);
+        await Execute("alter table public.article_body_insertion add constraint test_abort_edits check (edit_texts is null)");
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        Assert.Equal(withLegacy.Revision, await Scalar<long>("select revision from public.article where id=$1", withLegacy.Id));
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", spliceSave.IdempotencyKey));
+        await Execute("alter table public.article_body_insertion drop constraint test_abort_edits");
+        var spliceReceipt = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: ownerHandle);
+        Assert.Equal(spliceReceipt, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: ownerHandle));
+        var editHead = Wire.DecodeDraft(spliceReceipt);
+        var editsPath = ChainPath(editHead, spliceBasis.Revision).Replace("body-chain", "body-edit");
+        await Request(HttpMethod.Get, editsPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
+        await Request(HttpMethod.Get, editsPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
+        var editsChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: ownerHandle));
+        Assert.True(editsChain.Available);
+        Assert.Equal((spliceBasis.Body, editHead.Body), (editsChain.SourceBody, editsChain.Body));
+        Assert.Equal(2, editsChain.Edges.Count);
+        Assert.Equal(new BodyEdit(0, 0, "!"), Assert.Single(editsChain.Edges[0].Edits));
+        Assert.Equal(spliceSave.Edits, editsChain.Edges[1].Edits);
+        Assert.Equal(Hash(editHead.Body), editsChain.Edges[1].Digest);
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(editHead, spliceBasis.Revision),
+            owner.Token, handle: ownerHandle)).Available);
+        await Execute("update public.article_body_insertion set edit_texts=ARRAY['','BAD'] where article_id=$1 and revision=$2",
+            editHead.Id, editHead.Revision);
+        var invalidChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: ownerHandle));
+        Assert.False(invalidChain.Available);
+        Assert.Empty(invalidChain.Edges);
+
         await Execute("alter table public.article_body_insertion drop column operations");
         const string oldStoragePrefix = "## ";
         var nextSequence = new ArticleBodyInsertionsCommand(gap.Id, gap.Revision, Guid.NewGuid(), gap.Title,
@@ -265,6 +307,62 @@ public sealed class RevisionHistoryPostgresTests
             Assert.True(response.Headers.CacheControl?.NoStore);
             Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
             return bytes;
+        }
+    }
+
+    [PostgresFact]
+    public async Task BodyEditsSaveWithoutClaimingProofOnOlderSchema()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        // Reproduce the supported physical shape before body-edit evidence was installed.
+        await using (var downgrade = Store.Sql(db, null, """
+            alter table public.article_body_insertion
+                drop column edit_texts,
+                alter column offset_utf16 set not null,
+                alter column length_utf16 set not null
+            """))
+            await downgrade.ExecuteNonQueryAsync(ct);
+        var owner = Guid.NewGuid();
+        await using (var author = Store.Sql(db, null,
+            "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Old schema author',true,true,1)", owner))
+            await author.ExecuteNonQueryAsync(ct);
+        var ticket = RandomNumberGenerator.GetBytes(32);
+        await using (var mint = Store.Sql(db, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')",
+            SHA256.HashData(ticket), owner))
+            await mint.ExecuteNonQueryAsync(ct);
+        var (token, actor) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
+        var handle = SiteSessions.Id(actor.Id, Store.TokenDigest(token)!);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var draft = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save,
+            Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Saved body", "Omit:keep"))));
+        var bodyEdit = new ArticleBodyEditsCommand(draft.Id, draft.Revision, Guid.NewGuid(), draft.Title, "keep",
+            [new(0, "Omit:".Length, "")]);
+        var next = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, Wire.EncodeArticleBodyEditsCommand(bodyEdit)));
+        Assert.Equal((draft.Revision + 1, "keep"), (next.Revision, next.Body));
+        var path = WireRoutes.DraftRevisionComparison.Replace("{id:int}", next.Id.ToString())
+            .Replace("{sourceRevision:long}", draft.Revision.ToString()) + $"?revision={next.Revision}&map=body-edit";
+        var chain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, path));
+        Assert.False(chain.Available);
+        Assert.Empty(chain.Edges);
+        await using var proof = Store.Sql(db, null, "select count(*) from public.article_body_insertion where article_id=$1", next.Id);
+        Assert.Equal(0L, (long)(await proof.ExecuteScalarAsync(ct))!);
+
+        async Task<byte[]> Request(HttpMethod method, string route, byte[]? bytes = null)
+        {
+            using var request = new HttpRequestMessage(method, route);
+            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            request.Headers.Add(WireHeaders.CurrentSession, handle);
+            if (bytes is not null)
+            {
+                request.Content = new ByteArrayContent(bytes);
+                request.Content.Headers.ContentType = new(Aeds.ContentType);
+            }
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return await response.Content.ReadAsByteArrayAsync(ct);
         }
     }
 }

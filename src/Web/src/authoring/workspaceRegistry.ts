@@ -1,4 +1,4 @@
-import type { BodyInsertion } from '../../../Contracts/article-body-insertion.ts'
+import type { BodyEdit } from '../../../Contracts/article-body-insertion.ts'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
 export interface WorkspaceIdentity {
@@ -24,7 +24,7 @@ export type DraftSave<Draft> = Readonly<{ kind: 'saved'; draft: Draft }> | { kin
 
 export interface EditorTransport<Draft> {
   load(id: number, signal: AbortSignal): Promise<DraftLoad<Draft>>
-  save(draft: Draft, signal: AbortSignal, idempotencyKey: string, insertions?: readonly BodyInsertion[]): Promise<DraftSave<Draft>>
+  save(draft: Draft, signal: AbortSignal, idempotencyKey: string, edits?: readonly BodyEdit[]): Promise<DraftSave<Draft>>
   confirmed?(write: Readonly<{
     command: WriteCommand
     sessionId: number
@@ -37,7 +37,7 @@ export interface EditorTransport<Draft> {
 }
 
 type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string,
-  insertions?: readonly BodyInsertion[]) => Promise<DraftSave<Draft>>
+  edits?: readonly BodyEdit[]) => Promise<DraftSave<Draft>>
 type WriteCommand = 'save' | 'publish' | 'publish-images' | 'retract' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment' | 'save-summary'
 
 export interface EditorSessionRef {
@@ -107,10 +107,12 @@ type Session<Draft> = {
   pending: boolean
   block?: WorkspaceBlock
   edit: number
-  insertions?: readonly BodyInsertion[]
+  bodyEdits?: readonly BodyEdit[]
   request?: { command: WriteCommand; key: string; draft: Draft; edit: number; perform: ContentCommand<Draft>;
-    insertions?: readonly BodyInsertion[]; settleRecovery?: boolean }
+    bodyEdits?: readonly BodyEdit[]; settleRecovery?: boolean }
 }
+
+const utf8 = new TextEncoder()
 
 const equalIdentity = (a: WorkspaceIdentity | null, b: WorkspaceIdentity | null): boolean =>
   a === b || (a !== null && b !== null && a.site === b.site && a.principalId === b.principalId
@@ -513,18 +515,21 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     for (const session of this.#sessions.values()) if (session.phase === 'loading') this.#remove(session)
   }
 
-  updateDraft(tab: EditorSessionRef, draft: Draft, insertions?: readonly BodyInsertion[]): boolean {
+  updateDraft(tab: EditorSessionRef, draft: Draft, edits?: readonly BodyEdit[]): boolean {
     const session = this.#find(tab)
     if (!session?.draft || session !== this.#active || draft.id !== session.id
       || draft.revision !== session.draft.revision) return false
     if (session.writing && session.writing !== 'save') return false
     const risk = this.#risk(session)
-    const prior = risk === 'clean' ? [] : risk === 'dirty' ? session.insertions : undefined
-    const appended = insertions?.length ? insertions : typeof draft.body === 'string' && draft.body === session.draft.body ? [] : undefined
-    session.insertions = draft.revision > 0n && prior && appended &&
-      prior.length + appended.length <= WireLimits.ArticleBodyInsertionOperations
-      ? [...prior, ...appended.map(insertion => ({ ...insertion }))]
-      : undefined
+    const prior = risk === 'clean' ? [] : risk === 'dirty' ? session.bodyEdits : undefined
+    const bodyUnchanged = typeof draft.body === 'string' && draft.body === session.draft.body
+    const appended = edits?.length ? edits : bodyUnchanged ? [] : undefined
+    session.bodyEdits = undefined
+    if (draft.revision > 0n && prior && appended && prior.length + appended.length <= WireLimits.ArticleBodyInsertionOperations) {
+      const combined = [...prior, ...appended.map(edit => ({ ...edit }))]
+      if (combined.reduce((bytes, edit) => bytes + utf8.encode(edit.insert).length, 0) <= WireLimits.BodyBytes)
+        session.bodyEdits = combined
+    }
     session.draft = structuredClone(draft)
     session.mode = 'pinned'
     session.dirty = true
@@ -545,7 +550,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   save(tab: EditorSessionRef): Promise<SaveReceipt> {
-    return this.#write(tab, 'save', (draft, signal, key, insertions) => this.#transport.save(draft, signal, key, insertions))
+    return this.#write(tab, 'save', (draft, signal, key, edits) => this.#transport.save(draft, signal, key, edits))
   }
 
   saveReserved(tab: EditorSessionRef, reservation: CloseReservation<Draft>): Promise<SaveReceipt> {
@@ -553,7 +558,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     const session = this.#find(tab, reservation)
     if (!session || !held || held.reservation !== reservation || held.mode !== 'save' || !held.sessions.has(session))
       return Promise.resolve({ kind: 'superseded' })
-    return this.#write(tab, 'save', (draft, signal, key, insertions) => this.#transport.save(draft, signal, key, insertions), reservation)
+    return this.#write(tab, 'save', (draft, signal, key, edits) => this.#transport.save(draft, signal, key, edits), reservation)
   }
 
   commit(tab: EditorSessionRef, command: Exclude<WriteCommand, 'save'>, perform: ContentCommand<Draft>): Promise<SaveReceipt> {
@@ -577,7 +582,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
 
     const request: NonNullable<Session<Draft>['request']> = session.request ??= {
       command, key: this.#newRequestKey(), draft: structuredClone(session.draft), edit: session.edit, perform,
-      insertions: command === 'save' && session.insertions?.length ? session.insertions : undefined,
+      bodyEdits: command === 'save' && session.bodyEdits?.length ? session.bodyEdits : undefined,
     }
     if (reservation) request.settleRecovery = true
     const { draft, edit, key, perform: performCommand } = request
@@ -585,7 +590,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     session.writing = command
     this.#changed()
 
-    const result = await untilAborted(signal, () => performCommand(structuredClone(draft), signal, key, request.insertions))
+    const result = await untilAborted(signal, () => performCommand(structuredClone(draft), signal, key, request.bodyEdits))
       .catch(() => blocked('unavailable'))
     if (!result || this.#find(tab, reservation) !== session || session.phase !== 'ready' || !session.draft) {
       return { kind: 'superseded' }
@@ -594,7 +599,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (result.kind === 'conflict') session.conflict = true
     if (result.kind === 'conflict' || result.kind === 'rejected') delete session.request
     if (result.kind === 'saved') {
-      session.insertions = undefined
+      session.bodyEdits = undefined
       const articleId = result.draft.id
       const creating = session.id === 0
       const wrongRevision = request.settleRecovery ? result.draft.revision !== draft.revision + 1n : result.draft.revision <= draft.revision

@@ -144,6 +144,8 @@ inline constexpr uint32_t ArticleBodyInsertionOperations = 8;
 inline constexpr uint32_t ArticleBodyInsertionChainEdges = 8;
 inline constexpr uint32_t MaxArticleBodyInsertionsCommandFrameBytes = 1048952;
 inline constexpr uint32_t MaxDraftRevisionBodyInsertionChainFrameBytes = 2098833;
+inline constexpr uint32_t MaxArticleBodyEditsCommandFrameBytes = 2097560;
+inline constexpr uint32_t MaxDraftRevisionBodyEditChainFrameBytes = 3147665;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
 inline constexpr uint32_t RollbackReasonBytes = 2000;
@@ -587,6 +589,8 @@ enum class FrameType : uint16_t {
     DraftRevisionBodyInsertionChain = 33038,
     AuthorTextPropertyTextMixedQuery = 33040,
     AuthorTextPropertyTextMixedPage = 33041,
+    ArticleBodyEditsCommand = 33042,
+    DraftRevisionBodyEditChain = 33043,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -801,6 +805,8 @@ constexpr bool known(FrameType type) {
         case FrameType::DraftRevisionBodyInsertionChain:
         case FrameType::AuthorTextPropertyTextMixedQuery:
         case FrameType::AuthorTextPropertyTextMixedPage:
+        case FrameType::ArticleBodyEditsCommand:
+        case FrameType::DraftRevisionBodyEditChain:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

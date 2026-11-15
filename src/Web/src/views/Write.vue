@@ -3,13 +3,12 @@ import { computed, h, nextTick, onMounted, onUnmounted, ref, shallowRef, watch }
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElMessageBox, ElRadio, ElRadioGroup } from '@ozwasyd/element-plus'
 import { api, ApiError, type Draft } from '../../../Contracts/client'
-import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
 import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
 import { saveDraftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
-import { saveWithBodyInsertion, saveWithBodyInsertions, type BodyInsertion } from '../../../Contracts/article-body-insertion'
+import { saveWithBodyEdits, saveWithBodyInsertion, saveWithBodyInsertions, type BodyEdit } from '../../../Contracts/article-body-insertion'
 import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
 import { publishArticleImages, type PublishImagesSelection } from '../../../Contracts/published-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
@@ -24,6 +23,8 @@ import ArticleRights from '../authoring/ArticleRights.vue'
 import ArticleSummary from '../authoring/ArticleSummary.vue'
 import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
+import DraftMarkdownImport from '../authoring/DraftMarkdownImport.vue'
+import { normalizeDraftTitle, validDraftBody, validDraftTitle, type DraftMarkdown } from '../authoring/draftMarkdownImport'
 import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import { recentArticleOpens } from '../authoring/recentArticleOpens'
@@ -125,12 +126,6 @@ const pending = computed(() => articlePending.value || propertyPending.value)
 const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !metadataDirty.value && !recoveryWorking.value &&
   !closingTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
-const encoder = new TextEncoder()
-function validDraftTitle(title: string) {
-  const name = title.trim()
-  return name.length > 0 && encoder.encode(name).length <= WireLimits.TitleBytes && !/[\x00-\x1f\x7f-\x9f]/.test(name)
-}
-const validDraftBody = (body: string) => body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
 const validTitle = computed(() => validDraftTitle(original.value?.title ?? ''))
 const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
@@ -146,6 +141,9 @@ const showComparison = computed(() => twoSources.value && wideEditorArea.value &
 const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.active)?.tab)
 const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
+const canImportDraft = computed(() => !!credential.value && editable.value && canSwitch.value && !opening.value &&
+  !pending.value && !recoveryBlocked.value && !hasConflict.value && !retry.value && tab.value?.risk === 'clean' &&
+  original.value?.id === 0 && original.value.title === '' && original.value.body === '')
 const canChangeSummary = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
   !closingTabs.value && !pending.value && !recoveryBlocked.value && !hasConflict.value && !taxonomyDirty.value &&
   validBody.value && validTitle.value)
@@ -229,19 +227,23 @@ async function mutationResult(operation: () => Promise<Draft>, signal: AbortSign
 }
 
 const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string,
-  insertions?: readonly BodyInsertion[]): Promise<DraftSave<Draft>> => {
+  edits?: readonly BodyEdit[]): Promise<DraftSave<Draft>> => {
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
-  const title = action === 'save' ? draft.title.trim() : ''
+  const title = action === 'save' ? normalizeDraftTitle(draft.title) : ''
   const body = action === 'save' ? draft.body : ''
   return mutationResult(async () => {
     const input = { id: draft.id, expectedRevision: draft.revision, title, body, idempotencyKey }
     let stored: Draft
-    if (action === 'save' && insertions?.length) {
-      const [insertion] = insertions
-      stored = insertions.length === 1
-        ? await saveWithBodyInsertion({ ...input, ...insertion }, handle, signal)
-        : await saveWithBodyInsertions({ ...input, insertions }, handle, signal)
+    if (action === 'save' && edits?.length) {
+      if (edits.some(edit => edit.removedLength > 0)) {
+        stored = await saveWithBodyEdits({ ...input, edits }, handle, signal)
+      } else {
+        const insertions = edits.map(edit => ({ offset: edit.offset, length: edit.insert.length }))
+        stored = insertions.length === 1
+          ? await saveWithBodyInsertion({ ...input, ...insertions[0] }, handle, signal)
+          : await saveWithBodyInsertions({ ...input, insertions }, handle, signal)
+      }
     } else {
       stored = await api[action](input, signal, handle)
     }
@@ -1002,14 +1004,29 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
-function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, insertions?: readonly BodyInsertion[]) {
+function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, edits?: readonly BodyEdit[]) {
   const document = original.value
   const current = tab.value
   if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !metadataDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
-    if (registry.updateDraft(current, next, field === 'body' ? insertions : undefined)) recovery.persist(next, registry.activeEditSequence)
+    if (registry.updateDraft(current, next, field === 'body' ? edits : undefined)) recovery.persist(next, registry.activeEditSequence)
   }
+}
+
+async function loadImportedDraft(pane: WorkspaceSource<Draft>, imported: DraftMarkdown) {
+  const active = tab.value
+  const draft = original.value
+  const handle = credential.value
+  if (!active || !draft || !handle || !canImportDraft.value || !paneFocused(pane) || lifetime.signal.aborted ||
+      (currentSession.value?.expiresAt ?? 0) <= Date.now()) return
+  const next = { ...draft, ...imported }
+  if (!registry.updateDraft(active, next)) return
+  recovery.persist(next, registry.activeEditSequence)
+  notice.value = 'Markdown loaded. Save to keep this draft.'
+  await nextTick()
+  if (!lifetime.signal.aborted && credential.value === handle && tab.value?.sessionId === active.sessionId)
+    document.getElementById('article-title')?.focus()
 }
 
 async function restoreDraft(candidate: RecoveryCandidate) {
@@ -1233,7 +1250,7 @@ async function reloadDraft() {
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="!summarySeek && sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
-          @edit="(field, value, insertions) => edit(pane, field, value, insertions)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
+          @edit="(field, value, edits) => edit(pane, field, value, edits)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">
               <p v-if="notice" class="write-notice" role="status">
@@ -1242,6 +1259,8 @@ async function reloadDraft() {
               <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
               <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
               <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
+              <DraftMarkdownImport v-if="canImportDraft" :key="credentialEpoch"
+                @load="loadImportedDraft(pane, $event)" />
             </template>
           </template>
           <template #after>

@@ -52,53 +52,59 @@ test('an exact reference cannot replace a ready tab with an unwitnessed newer re
   assert.equal(registry.activeDraft?.id, 2)
 })
 
-test('an uncertain save freezes its body insertions and later edits cannot reuse the witnesses', async () => {
-  const calls: Array<{ key: string; body: string; insertion: unknown }> = []
-  const registry = setup({ save: async (item, _signal, key, insertion) => {
-    calls.push({ key, body: item.body, insertion })
+test('an uncertain save freezes its body edits and later changes cannot reuse the witnesses', async () => {
+  const calls: Array<{ key: string; body: string; edits: unknown }> = []
+  const registry = setup({ save: async (item, _signal, key, edits) => {
+    calls.push({ key, body: item.body, edits })
     if (calls.length === 1) return { kind: 'blocked', reason: 'unavailable' }
     return { kind: 'saved', draft: { ...item, revision: item.revision + 1n } }
   } })
   const tab = await activate(registry, 1)
-  const insertion = { offset: 0, length: 4 }
-  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source'), [insertion]))
-  insertion.offset = 5
+  const edit = { offset: 0, removedLength: 0, insert: 'new ' }
+  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source'), [edit]))
+  edit.offset = 5
   assert.equal((await registry.save(tab)).kind, 'blocked')
-  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source plus unsaved changes'), [{ offset: 15, length: 21 }]))
+  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source plus unsaved changes'),
+    [{ offset: 15, removedLength: 0, insert: ' plus unsaved changes' }]))
   assert.equal((await registry.retry(tab)).kind, 'saved')
-  assert.deepEqual(calls[0], { key: calls[1]!.key, body: 'new same source', insertion: [{ offset: 0, length: 4 }] })
+  assert.deepEqual(calls[0], { key: calls[1]!.key, body: 'new same source', edits: [{ offset: 0, removedLength: 0, insert: 'new ' }] })
   assert.deepEqual(calls[1], calls[0])
   assert.equal((await registry.save(tab)).kind, 'saved')
   assert.equal(calls[2]?.body, 'new same source plus unsaved changes')
-  assert.equal(calls[2]?.insertion, undefined)
+  assert.equal(calls[2]?.edits, undefined)
 })
 
-test('only an uninterrupted insertion sequence is carried into each saved body revision', async () => {
+test('only uninterrupted body edits are carried into each saved revision, even if earlier bytes return', async () => {
   const written: unknown[] = []
-  const registry = setup({ save: async (item, _signal, _key, insertions) => {
-    written.push(insertions)
+  const registry = setup({ save: async (item, _signal, _key, edits) => {
+    written.push(edits)
     return { kind: 'saved', draft: { ...item, revision: item.revision + 1n } }
   } })
   const tab = await activate(registry, 1)
   const prior = registry.activeDraft!
-  const first = { offset: 0, length: 2 }
-  const second = { offset: 3, length: 2 }
+  const first = { offset: 0, removedLength: 0, insert: '中 ' }
+  const second = { offset: 3, removedLength: 1, insert: '🧭' }
   assert(registry.updateDraft(tab, { ...prior, body: '中 ' + prior.body }, [first]))
   assert(registry.updateDraft(tab, { ...registry.activeDraft!, title: 'New title' }))
   const body = registry.activeDraft!.body
-  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: body.slice(0, 3) + '🧭' + body.slice(3) }, [second]))
+  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: body.slice(0, 3) + '🧭' + body.slice(4) }, [second]))
   assert.equal((await registry.save(tab)).kind, 'saved')
   assert.deepEqual(written[0], [first, second])
 
   assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: 'native edit' }))
-  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: '# native edit' }, [first]))
+  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: '# native edit' }, [{ offset: 0, removedLength: 0, insert: '# ' }]))
   assert.equal((await registry.save(tab)).kind, 'saved')
   assert.equal(written[1], undefined)
 
-  const next = { offset: 0, length: 1 }
+  const next = { offset: 0, removedLength: 0, insert: 'Z' }
   assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: 'Z# native edit' }, [next]))
   assert.equal((await registry.save(tab)).kind, 'saved')
   assert.deepEqual(written[2], [next])
+  const remove = { offset: 0, removedLength: 1, insert: '' }
+  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: '# native edit' }, [remove]))
+  assert(registry.updateDraft(tab, { ...registry.activeDraft!, body: 'Z# native edit' }, [next]))
+  assert.equal((await registry.save(tab)).kind, 'saved')
+  assert.deepEqual(written[3], [remove, next])
 })
 
 test('an exact reference rechecks a ready source and preserves dirty and stale state', async () => {

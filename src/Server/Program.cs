@@ -515,23 +515,26 @@ void Mutation(string path, ArticleAction action)
 {
     app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
     {
-        var frame = await ReadFrame(ctx, action == ArticleAction.Save ? WireLimits.MaxArticleBodyInsertionsCommandFrameBytes :
+        var frame = await ReadFrame(ctx, action == ArticleAction.Save ? WireLimits.MaxArticleBodyEditsCommandFrameBytes :
             WireLimits.MaxCommandFrameBytes, ct);
         var type = action == ArticleAction.Save && frame.Length >= WireHeader.HeaderSize
             ? (FrameType)BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(WireHeader.TypeOffset)) : FrameType.ArticleCommand;
         var insertion = type == FrameType.ArticleBodyInsertionCommand ? Wire.DecodeArticleBodyInsertionCommand(frame) : null;
         var insertions = type == FrameType.ArticleBodyInsertionsCommand ? Wire.DecodeArticleBodyInsertionsCommand(frame) : null;
-        var input = insertions is not null
-            ? new ArticleCommand(insertions.Id, insertions.ExpectedRevision, insertions.IdempotencyKey, insertions.Title, insertions.Body)
-            : insertion is not null
-                ? new ArticleCommand(insertion.Id, insertion.ExpectedRevision, insertion.IdempotencyKey, insertion.Title, insertion.Body)
-                : Wire.DecodeArticleCommand(frame);
+        var bodyEdits = type == FrameType.ArticleBodyEditsCommand ? Wire.DecodeArticleBodyEditsCommand(frame) : null;
+        var input = (bodyEdits, insertions, insertion) switch
+        {
+            ({ } edited, _, _) => new ArticleCommand(edited.Id, edited.ExpectedRevision, edited.IdempotencyKey, edited.Title, edited.Body),
+            (_, { } many, _) => new ArticleCommand(many.Id, many.ExpectedRevision, many.IdempotencyKey, many.Title, many.Body),
+            (_, _, { } one) => new ArticleCommand(one.Id, one.ExpectedRevision, one.IdempotencyKey, one.Title, one.Body),
+            _ => Wire.DecodeArticleCommand(frame),
+        };
         if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
             (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.IdempotencyKey))
             return Error(ctx, 400, "Command key does not match its request header.");
         var edit = Publishing.Validate(action, new(input.Id, input.ExpectedRevision, input.IdempotencyKey, input.Title, input.Body));
         var result = await publications.Command(store, ctx.Request.Cookies[Cookie], action, edit, ct,
-            FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx), insertion, insertions);
+            FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx), insertion, insertions, bodyEdits);
         return action == ArticleAction.Delete ? Results.Bytes(Wire.EncodeEmptySuccess(), Binary) : DraftResponse(result.Article);
     }).RequireRateLimiting("command");
 }

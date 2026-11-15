@@ -202,6 +202,8 @@ public enum FrameType : ushort
     DraftRevisionBodyInsertionChain = 33038,
     AuthorTextPropertyTextMixedQuery = 33040,
     AuthorTextPropertyTextMixedPage = 33041,
+    ArticleBodyEditsCommand = 33042,
+    DraftRevisionBodyEditChain = 33043,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -357,6 +359,8 @@ public static class WireLimits
     public const int ArticleBodyInsertionChainEdges = 8;
     public const int MaxArticleBodyInsertionsCommandFrameBytes = 1048952;
     public const int MaxDraftRevisionBodyInsertionChainFrameBytes = 2098833;
+    public const int MaxArticleBodyEditsCommandFrameBytes = 2097560;
+    public const int MaxDraftRevisionBodyEditChainFrameBytes = 3147665;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;

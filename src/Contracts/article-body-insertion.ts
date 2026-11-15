@@ -152,3 +152,9 @@ function lengthAfterInsertions(length: number, insertions: readonly BodyInsertio
 function invalidChain(): ProtocolError {
   return new ProtocolError('Invalid saved body insertion chain');
 }
+
+export {
+  decodeArticleBodyEditsCommand, decodeDraftRevisionBodyEditChain, encodeArticleBodyEditsCommand,
+  readBodyEditChain, saveWithBodyEdits, type ArticleBodyEditsCommand, type BodyEdit,
+  type DraftRevisionBodyEditChain, type DraftRevisionBodyEditEdge,
+} from './article-body-edits.ts';

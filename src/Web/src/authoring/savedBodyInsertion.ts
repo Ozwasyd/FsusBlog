@@ -2,7 +2,9 @@ import {
   createMarkdownAnchorMap, createMarkdownSourceCoordinateMap, MarkdownRuntimeError,
 } from '@ozwasyd/element-plus/markdown-runtime'
 import type { MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus'
-import { readBodyInsertion, readBodyInsertionChain, type BodyInsertion } from '../../../Contracts/article-body-insertion'
+import {
+  readBodyEditChain, readBodyInsertion, readBodyInsertionChain, type BodyEdit,
+} from '../../../Contracts/article-body-insertion'
 import { ApiError, ProtocolError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import type { SearchEditorTarget } from './canvasEditorHandoff'
@@ -10,16 +12,18 @@ import { restoreCrlf, validBoundary, verifySourceMatch } from './sourceCoordinat
 
 const utf8 = new TextEncoder()
 
-function uniqueInsertion(source: string, body: string, { offset, length }: BodyInsertion): boolean {
-  return Number.isSafeInteger(length) && length > 0 && length === body.length - source.length &&
-    validBoundary(source, offset) && validBoundary(body, offset) && validBoundary(body, offset + length) &&
-    body.slice(0, offset) === source.slice(0, offset) && body.slice(offset + length) === source.slice(offset) &&
-    (offset === 0 || source[offset - 1] !== body[offset + length - 1]) &&
-    (offset === source.length || source[offset] !== body[offset])
+function uniqueEdit(source: string, body: string, offset: number, removed: number, added: number): boolean {
+  const end = offset + removed
+  const newEnd = offset + added
+  return validBoundary(source, offset) && validBoundary(source, end) &&
+    validBoundary(body, offset) && validBoundary(body, newEnd) &&
+    source.slice(offset, end) !== body.slice(offset, newEnd) &&
+    (offset === 0 || source[end - 1] !== body[newEnd - 1]) &&
+    (end === source.length || source[offset] !== body[offset])
 }
 
-export function captureBodyInsertions(source: string, model: string, crlf: boolean,
-  event: MarkdownEditorTransactionEvent): readonly BodyInsertion[] | undefined {
+export function captureBodyEdits(source: string, model: string, crlf: boolean,
+  event: MarkdownEditorTransactionEvent): readonly BodyEdit[] | undefined {
   const { changes, origin } = event.transaction
   const positionMap = event.positionMap
   if (!event.accepted || origin !== 'command' || !positionMap || !changes.length ||
@@ -27,30 +31,41 @@ export function captureBodyInsertions(source: string, model: string, crlf: boole
 
   const coordinates = source === model ? undefined : createMarkdownSourceCoordinateMap(source)
   if (coordinates && (!crlf || coordinates.normalizedSource !== model)) return
-  const insertions: BodyInsertion[] = []
+  function rawBoundary(position: number): number | undefined {
+    if (!coordinates) return position
+    const candidates = coordinates.rawCaretsAtNormalized(position).filter(offset => validBoundary(source, offset))
+    if (candidates.length === 1) return candidates[0]
+  }
+  const edits: BodyEdit[] = []
   let body = source
   let editedModel = model
-  let previousOffset = -1
+  let previousEnd = -1
   let modelDelta = 0
   for (const change of changes) {
     const position = change.from + modelDelta
-    if (change.from !== change.to || !change.insert || change.from <= previousOffset ||
-      !validBoundary(model, change.from) || positionMap.map(change.from, -1) !== position ||
-      positionMap.map(change.from, 1) !== position + change.insert.length) return
+    // A shared start can already belong to the preceding replacement in the editor's point map.
+    const boundary = change.from === previousEnd ? change.to : change.from
+    if (change.from > change.to || change.from < previousEnd || (change.from === previousEnd && change.from === change.to) ||
+      change.insert.includes('\0') || /\p{Surrogate}/u.test(change.insert) ||
+      !validBoundary(model, change.from) || !validBoundary(model, change.to) ||
+      positionMap.map(boundary, -1) !== position ||
+      positionMap.map(boundary, 1) !== position + change.insert.length) return
 
-    const beforeInsertions = coordinates?.toRawOffset(change.from, { affinity: 'backward' }) ?? change.from
-    const offset = beforeInsertions + body.length - source.length
-    const text = crlf ? restoreCrlf(change.insert) : change.insert
-    const next = body.slice(0, offset) + text + body.slice(offset)
-    const insertion = { offset, length: text.length }
-    if (!uniqueInsertion(body, next, insertion)) return
-    insertions.push(insertion)
+    const from = rawBoundary(change.from)
+    const to = rawBoundary(change.to)
+    if (from === undefined || to === undefined || to < from) return
+    const offset = from + body.length - source.length
+    const removedLength = to - from
+    const insert = crlf ? restoreCrlf(change.insert) : change.insert
+    const next = body.slice(0, offset) + insert + body.slice(offset + removedLength)
+    if (next.length > WireLimits.BodyBytes || !uniqueEdit(body, next, offset, removedLength, insert.length)) return
+    edits.push({ offset, removedLength, insert })
     body = next
-    editedModel = editedModel.slice(0, position) + change.insert + editedModel.slice(position)
-    previousOffset = change.from
-    modelDelta += change.insert.length
+    editedModel = editedModel.slice(0, position) + change.insert + editedModel.slice(change.to + modelDelta)
+    previousEnd = change.to
+    modelDelta += change.insert.length - (change.to - change.from)
   }
-  if (editedModel === event.value && body === (crlf ? restoreCrlf(event.value) : event.value)) return insertions
+  if (editedModel === event.value && body === (crlf ? restoreCrlf(event.value) : event.value)) return edits
 }
 
 function digestHex(digest: Uint8Array): string {
@@ -62,7 +77,7 @@ export function canRebaseSavedBodyRevision(sourceRevision: bigint, revision: big
     revision - sourceRevision <= BigInt(WireLimits.ArticleBodyInsertionChainEdges)
 }
 
-async function readMap(previous: SearchEditorTarget, revision: bigint, credential: string, signal: AbortSignal) {
+async function readInsertionMap(previous: SearchEditorTarget, revision: bigint, credential: string, signal: AbortSignal) {
   if (revision === previous.revision + 1n) {
     const single = await readBodyInsertion(previous.articleId, revision, previous.revision, credential, signal)
       .catch(error => {
@@ -83,8 +98,12 @@ async function bodyDigest(body: string, signal: AbortSignal): Promise<Uint8Array
   return digest
 }
 
-async function verifyMap(map: Awaited<ReturnType<typeof readMap>>, signal: AbortSignal) {
-  const steps: { source: string; body: string; insertion: BodyInsertion }[] = []
+type MappedBodyStep = { source: string; body: string; offset: number; removed: number; added: number }
+type VerifiedBodyMap = Readonly<{ body: string; digest: Uint8Array; steps: readonly MappedBodyStep[] }>
+
+async function verifyInsertionMap(map: Awaited<ReturnType<typeof readInsertionMap>>,
+  signal: AbortSignal): Promise<VerifiedBodyMap | undefined> {
+  const steps: MappedBodyStep[] = []
   let body = map.body
   const finalDigest = await bodyDigest(body, signal)
   let digest = digestHex(finalDigest)
@@ -96,40 +115,74 @@ async function verifyMap(map: Awaited<ReturnType<typeof readMap>>, signal: Abort
       if (!Number.isSafeInteger(length) || length <= 0 || !validBoundary(body, offset) ||
         !validBoundary(body, offset + length)) return
       const source = body.slice(0, offset) + body.slice(offset + length)
-      if (!uniqueInsertion(source, body, insertion)) return
-      steps.push({ source, body, insertion })
+      if (!uniqueEdit(source, body, offset, 0, length)) return
+      steps.push({ source, body, offset, removed: 0, added: length })
       body = source
     }
     if (edge.insertions.length) digest = digestHex(await bodyDigest(body, signal))
     if (edge.sourceDigest !== digest) return
   }
-  if (body === map.sourceBody) return { steps: steps.reverse(), digest: finalDigest }
+  if (body === map.sourceBody) return { body: map.body, steps: steps.reverse(), digest: finalDigest }
+}
+
+async function verifyEditMap(map: Awaited<ReturnType<typeof readBodyEditChain>>, previous: SearchEditorTarget,
+  revision: bigint, signal: AbortSignal): Promise<VerifiedBodyMap | undefined> {
+  if (!map.available || BigInt(map.edges.length) !== revision - previous.revision ||
+    !await verifySourceMatch(map.sourceBody, previous)) return
+  const steps: MappedBodyStep[] = []
+  let source = map.sourceBody
+  let digest = previous.sourceDigest
+  for (const edge of map.edges) {
+    if (edge.sourceDigest !== digestHex(digest)) return
+    for (const { offset, removedLength: removed, insert } of edge.edits) {
+      if (!Number.isSafeInteger(removed) || removed < 0 ||
+        !validBoundary(source, offset) || !validBoundary(source, offset + removed)) return
+      const body = source.slice(0, offset) + insert + source.slice(offset + removed)
+      if (!uniqueEdit(source, body, offset, removed, insert.length)) return
+      steps.push({ source, body, offset, removed, added: insert.length })
+      source = body
+    }
+    if (edge.edits.length) digest = await bodyDigest(source, signal)
+    if (edge.digest !== digestHex(digest)) return
+  }
+  if (source === map.body) return { body: source, digest, steps }
+}
+
+async function readVerifiedMap(previous: SearchEditorTarget, revision: bigint, credential: string, signal: AbortSignal) {
+  const map = await readInsertionMap(previous, revision, credential, signal)
+  if (!map.available) {
+    const edits = await readBodyEditChain(previous.articleId, revision, previous.revision, credential, signal)
+    return verifyEditMap(edits, previous, revision, signal)
+  }
+  if (BigInt(map.edges.length) !== revision - previous.revision ||
+    digestHex(previous.sourceDigest) !== map.edges[0]?.sourceDigest || !await verifySourceMatch(map.sourceBody, previous)) return
+  return verifyInsertionMap(map, signal)
 }
 
 export async function rebaseSavedBodyHit(previous: SearchEditorTarget, revision: bigint, credential: string,
   signal: AbortSignal): Promise<SearchEditorTarget | undefined> {
   if (previous.field !== 'body' || !canRebaseSavedBodyRevision(previous.revision, revision)) return
   try {
-    const map = await readMap(previous, revision, credential, signal)
-    if (!map.available || BigInt(map.edges.length) !== revision - previous.revision ||
-      digestHex(previous.sourceDigest) !== map.edges[0]?.sourceDigest || !await verifySourceMatch(map.sourceBody, previous)) return
-    const verified = await verifyMap(map, signal)
+    const verified = await readVerifiedMap(previous, revision, credential, signal)
     if (!verified) return
 
     let range = { start: previous.sourceStart, end: previous.sourceEnd }
-    for (const { source, body, insertion } of verified.steps) {
+    for (const { source, body, offset, removed, added } of verified.steps) {
       signal.throwIfAborted()
       const anchor = createMarkdownAnchorMap({
         source, identity: { id: `blog-saved-body-${previous.articleId}`, epoch: 0 }, syntax: [],
       })
-      const mapped = anchor.remapRange(range, { insert: { at: insertion.offset, length: insertion.length } })
+      const mapped = anchor.remapRange(range, {
+        delete: removed ? [offset, offset + removed] : undefined,
+        insert: added ? { at: offset, length: added } : undefined,
+      })
       if (mapped.status !== 'mapped') return
       range = mapped.range
       if (!validBoundary(body, range.start) || !validBoundary(body, range.end) ||
         body.slice(range.start, range.end) !== previous.match) return
     }
     const { start, end } = range
-    const sourceByteStart = utf8.encode(map.body.slice(0, start)).length
+    const sourceByteStart = utf8.encode(verified.body.slice(0, start)).length
     return { ...previous, revision, precision: 'rebased', sourceStart: start, sourceEnd: end,
       sourceByteStart, sourceByteEnd: sourceByteStart + utf8.encode(previous.match).length, sourceDigest: verified.digest }
   } catch (error) {

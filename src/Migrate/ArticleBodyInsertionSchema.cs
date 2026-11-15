@@ -14,8 +14,10 @@ internal static partial class Migration
         if (!await CurrentSchema.HasArticleBodyInsertionAsync(connection, tx, ct))
             await ApplySchemaAddition(connection, tx, "article-body-insertion.sql", ct);
         if (!await CurrentSchema.HasArticleBodyInsertionOperationsAsync(connection, tx, ct))
-        {
             await ApplySchemaAddition(connection, tx, "article-body-insertions.sql", ct);
+        if (!await CurrentSchema.HasArticleBodyEditsAsync(connection, tx, ct))
+        {
+            await ApplySchemaAddition(connection, tx, "article-body-splices.sql", ct);
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct);
         }
         await tx.CommitAsync(ct);

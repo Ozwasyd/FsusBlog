@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeDraftRevisionBodyEditChain } from '../../src/Contracts/article-body-insertion.ts'
 import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
 import {
   decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery,
@@ -256,7 +257,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.deepEqual(decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload), fixture)
     }
 
-    async function expectEditorHistory(usedHandoff) {
+    async function expectEditorHistory(usedHandoff, privateFacts = []) {
       assert.equal(page.url(), editor)
       await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
       const editorPath = new URL(editor).pathname
@@ -274,7 +275,8 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       for (const { state } of states) {
         assert(Object.keys(state ?? {}).every(key => allowed.includes(key)), 'Only router state and the opaque selector may be written')
         const value = JSON.stringify(state)
-        for (const secret of [bodyWord, titleWord, atxWord, setextWord, fencedWord, savedTitle, createHash('sha256').update(raw).digest('hex')])
+        for (const secret of [bodyWord, titleWord, atxWord, setextWord, fencedWord, savedTitle,
+          createHash('sha256').update(raw).digest('hex'), ...privateFacts])
           assert(!value.includes(secret) && !value.includes(secret.toUpperCase()))
       }
     }
@@ -447,14 +449,136 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       [chainCaret, chainCaret])
     await expectEditorHistory(true)
     await backToSearch()
-    await search(bodyWord)
 
+    async function saveBodyEdit(removed, inserted) {
+      const start = revisedRaw.indexOf(removed)
+      assert(start >= 0 && start === revisedRaw.lastIndexOf(removed), 'Find and replace needs an exact unique source match')
+      const expected = revisedRaw.slice(0, start) + inserted + revisedRaw.slice(start + removed.length)
+      assert.notEqual(expected, revisedRaw)
+      const writer = await publisher.context().newPage()
+      try {
+        monitor(writer, 'author-saved-body-edit')
+        await writer.setViewportSize({ width: 375, height: 850 })
+        await writer.goto(editor)
+        const control = writer.getByLabel('Body', { exact: true })
+        await control.waitFor()
+        const waitForModel = rawBody => writer.waitForFunction(value => document.getElementById('article-body')?.value === value,
+          rawBody.replaceAll('\r\n', '\n'))
+        await waitForModel(revisedRaw)
+        await control.press(process.platform === 'darwin' ? 'Meta+h' : 'Control+h')
+        await writer.getByTestId('markdown-search-query').fill(removed)
+        await writer.getByTestId('markdown-search-replace').fill(inserted)
+        await writer.getByTestId('markdown-search-replace-current').click()
+        await waitForModel(expected)
+        await writer.getByTestId('markdown-search-close').click()
+        const saveReply = writer.waitForResponse(response => response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === WireRoutes.Save)
+        await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
+        const saved = await saveReply
+        assert.equal(saved.status(), 200)
+        decodeFrame(saved.request().postDataBuffer(), FrameType.ArticleBodyEditsCommand)
+        const updated = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+        assert.equal(updated.revision, fixture.revision + 1n)
+        assert.equal(updated.body, expected)
+        revisedRaw = expected
+        fixture = updated
+      } finally {
+        await writer.close()
+      }
+    }
+
+    function bodyEditReceipt(sourceRevision) {
+      const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(fixture.id))
+        .replace('{sourceRevision:long}', String(sourceRevision))
+      const revision = String(fixture.revision)
+      return page.waitForResponse(response => {
+        const url = new URL(response.url())
+        return response.request().method() === 'GET' && url.pathname === path &&
+          url.searchParams.get('revision') === revision && url.searchParams.get('map') === 'body-edit'
+      })
+    }
+
+    const beforeEdits = await search(bodyWord)
+    const editedSource = fixture
+    const oldEditHit = exactHit(beforeEdits.batch, fixture, revisedRaw, 'body', bodyWord)
+    const oldPrefix = '另一段 🚢', newPrefix = '新增前缀 🪐 与附注', deleted = '记录。'
+    await saveBodyEdit(oldPrefix, newPrefix)
+    const deleteOffset = revisedRaw.indexOf(deleted)
+    await saveBodyEdit(deleted, '')
+    assert.equal(fixture.revision, editedSource.revision + 2n)
+    await prepareCurrentIndex(page, beforeEdits.response, fixture.revision)
+    const editCheck = page.waitForResponse(isSearchReply)
+    await jump().press('Enter')
+    const editedHit = exactHit(await readSearchReply(await editCheck), fixture, revisedRaw, 'body', bodyWord)
+    assert.equal(editedHit.sourceStart - oldEditHit.sourceStart, newPrefix.length - oldPrefix.length - deleted.length)
+    assert.equal(editedHit.sourceByteStart - oldEditHit.sourceByteStart,
+      Buffer.byteLength(newPrefix) - Buffer.byteLength(oldPrefix) - Buffer.byteLength(deleted))
+    const editMap = bodyEditReceipt(editedSource.revision)
+    const draftAfterEdits = page.waitForResponse(isDraftReply)
+    await rebase.press('Enter')
+    const verifiedEdit = await editMap
+    assert.equal(verifiedEdit.status(), 200)
+    const editProof = decodeDraftRevisionBodyEditChain(decodeFrame(await verifiedEdit.body(), FrameType.DraftRevisionBodyEditChain).payload)
+    assert(editProof.available)
+    assert.equal(editProof.sourceBody, editedSource.body)
+    assert.equal(editProof.body, revisedRaw)
+    assert.deepEqual(editProof.edges.map(edge => edge.edits), [
+      [{ offset: editedSource.body.indexOf(oldPrefix), removedLength: oldPrefix.length, insert: newPrefix }],
+      [{ offset: deleteOffset, removedLength: deleted.length, insert: '' }],
+    ])
+    const currentHandle = await beforeEdits.response.request().headerValue(WireHeaders.CurrentSession)
+    assert(currentHandle)
+    assert.equal(await verifiedEdit.request().headerValue(WireHeaders.CurrentSession), currentHandle)
+    await expectSavedDraft(await draftAfterEdits)
+    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    const editedModel = revisedRaw.replaceAll('\r\n', '\n')
+    const editedCaret = editedModel.indexOf(bodyWord)
+    assert.deepEqual(await field('Body').and(page.locator(':focus')).evaluate(input =>
+      [input.selectionStart, input.selectionEnd, input.value]), [editedCaret, editedCaret, editedModel])
+    await expectEditorHistory(true, [newPrefix, createHash('sha256').update(revisedRaw).digest('hex')])
+    await backToSearch()
+
+    // The second occurrence keeps the current article eligible for a map attempt.
+    revisedRaw += `\r\n保留的另一个位置 🧭 ${bodyWord}\r\n`
+    fixture = await articleCommand(WireRoutes.Save, fixture.id, fixture.revision, fixture.title, revisedRaw)
+    assert.equal(fixture.body, revisedRaw)
+    const beforeOverlap = await search(bodyWord)
+    const overlapSource = fixture
+    const overlappingHit = exactHit(beforeOverlap.batch, fixture, revisedRaw, 'body', bodyWord)
+    const lineEnd = revisedRaw.indexOf('\r\n', overlappingHit.sourceEnd)
+    assert(lineEnd > overlappingHit.sourceEnd)
+    const overlapReplacement = '改写原命中 🪶'
+    await saveBodyEdit(revisedRaw.slice(overlappingHit.sourceStart, lineEnd), overlapReplacement)
+    await prepareCurrentIndex(page, beforeOverlap.response, fixture.revision)
+    const overlapCheck = page.waitForResponse(isSearchReply)
+    await jump().press('Enter')
+    const survivingHit = exactHit(await readSearchReply(await overlapCheck), fixture, revisedRaw, 'body', bodyWord)
+    assert(survivingHit.sourceStart > overlappingHit.sourceStart)
+    const overlapMap = bodyEditReceipt(overlapSource.revision)
+    const readsBeforeOverlap = draftReads.length
+    await rebase.press('Enter')
+    const rejectedEdit = await overlapMap
+    assert.equal(rejectedEdit.status(), 200)
+    const overlapProof = decodeDraftRevisionBodyEditChain(decodeFrame(await rejectedEdit.body(), FrameType.DraftRevisionBodyEditChain).payload)
+    assert(overlapProof.available)
+    assert.equal(overlapProof.sourceBody, overlapSource.body)
+    assert.equal(overlapProof.body, revisedRaw)
+    assert.deepEqual(overlapProof.edges.map(edge => edge.edits), [[{
+      offset: overlappingHit.sourceStart, removedLength: lineEnd - overlappingHit.sourceStart, insert: overlapReplacement,
+    }]])
+    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+    assert.equal(page.url(), list)
+    assert.equal(draftReads.length, readsBeforeOverlap)
+    assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
+
+    await search(bodyWord.toUpperCase())
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
     observations.push('Private full-text jump rechecks a real saved revision, places the native body caret through CRLF/Unicode, selects the exact title range, preserves the plain editor link, and leaves only a one-use opaque value in history.')
     observations.push('A concurrently saved revision keeps the stale browser action in the results with focus, and navigating to the trash during its real delayed current check cannot reopen the editor.')
     observations.push('At 375px an explicit historical search action rechecks the newer saved revision and selects the original CRLF/Unicode hit in a read-only dialog without replacing the current draft.')
     observations.push('At 375px a saved FsusUI keyboard insertion rebases a CRLF/Unicode search hit into the next revision through the exact stored map. An unwitnessed revision still offers its verified historical source.')
     observations.push('At 375px two keyboard insertions in one save, an unchanged-body title revision, and a later insertion compose into one authenticated three-revision chain. The old result lands on the verified CRLF/Unicode body caret.')
+    observations.push('At 375px a FsusUI Find and replace edit and a deletion compose across two saved CRLF revisions. The authenticated body-edit chain reaches the original hit and rejects jumping to a different surviving occurrence when the edit touches the hit.')
   } finally {
     try {
       for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {

@@ -4,9 +4,6 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private const string ArticleBodyInsertionBaseColumns =
-        "article_body_insertion article_id:int4 revision:int8 source_revision:int8 offset_utf16:int4 length_utf16:int4 source_digest:bytea body_digest:bytea";
-
     private static readonly string[] ArticleBodyInsertionBaseConstraints =
     [
         "article_body_insertion p article_id,revision",
@@ -19,15 +16,41 @@ internal static partial class CurrentSchema
         "article_body_insertion c body_digest octet_length(body_digest)=32"
     ];
 
-    private static string ArticleBodyInsertionColumns(bool operations) =>
-        ArticleBodyInsertionBaseColumns + (operations ? " operations:_int4?" : "");
+    private static string ArticleBodyInsertionColumns(bool operations, bool edits)
+    {
+        var nullable = edits ? "?" : "";
+        return $"article_body_insertion article_id:int4 revision:int8 source_revision:int8 offset_utf16:int4{nullable} length_utf16:int4{nullable} source_digest:bytea body_digest:bytea" +
+            (operations ? " operations:_int4?" : "") + (edits ? " edit_texts:_text?" : "");
+    }
 
-    private static IReadOnlyList<string> ArticleBodyInsertionConstraints(bool operations) =>
-        operations ? [..ArticleBodyInsertionBaseConstraints,
+    private static IReadOnlyList<string> ArticleBodyInsertionConstraints(bool operations, bool edits)
+    {
+        string[] constraints = operations ? [..ArticleBodyInsertionBaseConstraints,
             "article_body_insertion c operations cardinality(operations)>=2ANDcardinality(operations)<=16",
             "article_body_insertion c operations array_ndims(operations)=1",
             "article_body_insertion c operations array_lower(operations,1)=1",
             "article_body_insertion c operations array_position(operations,NULL::integer)ISNULL"] : ArticleBodyInsertionBaseConstraints;
+        return edits ? [..constraints,
+            "article_body_insertion c edit_texts cardinality(edit_texts)>=1ANDcardinality(edit_texts)<=8",
+            "article_body_insertion c edit_texts array_ndims(edit_texts)=1",
+            "article_body_insertion c edit_texts array_lower(edit_texts,1)=1",
+            "article_body_insertion c edit_texts array_position(edit_texts,NULL::text)ISNULL"] : constraints;
+    }
+
+    internal static async Task<bool> HasArticleBodyEditsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await using var read = new NpgsqlCommand("""
+            select atttypid='pg_catalog.text[]'::regtype
+            from pg_catalog.pg_attribute where attrelid=pg_catalog.to_regclass('public.article_body_insertion')
+                and attname='edit_texts' and attnum>0 and not attisdropped
+            """, db, tx);
+        return await read.ExecuteScalarAsync(ct) switch
+        {
+            null => false,
+            true => true,
+            _ => throw new InvalidOperationException("Invalid article body edit text column.")
+        };
+    }
 
     internal static async Task<bool> HasArticleBodyInsertionOperationsAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         CancellationToken ct)

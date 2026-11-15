@@ -23,6 +23,7 @@ import { exercisePropertyFilter } from './property-filter-flow.mjs'
 import { exerciseAuthorTextSearch, exerciseSummarySearchReveal } from './author-text-search-flow.mjs'
 import { exerciseAuthorTextPropertyFacet } from './author-text-property-facet-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -534,6 +535,21 @@ try {
   assert.equal(priorSearch.status, 409)
   await search(visitor, bodyTerm)
   await visible(visitor.getByText('No articles match your search.', { exact: true }))
+  if (process.env.FSUSBLOG_TEST_MARKDOWN_IMPORT === '1') {
+    const importer = await browser.newContext({ viewport: { width: 375, height: 850 }, storageState: await desktop.storageState() })
+    try {
+      const importPage = await importer.newPage()
+      monitor(importPage, 'markdown-import')
+      await importPage.goto(`${origin}/user/manage/article/write`)
+      const imported = await exerciseMarkdownImport({ page: importPage, origin, bytes: initialExport.bytes, title, body })
+      assert.notEqual(imported.id, writtenId)
+      await assert.rejects(api.publicArticle(imported.id), { status: 404 })
+      await articleCommand(WireRoutes.Delete, imported.id, imported.revision, '', '', FrameType.EmptySuccess)
+      observations.push('On a 375px viewport, a byte-exact Markdown export loaded locally, saved as a new private draft, and survived reload. Invalid UTF-8 and an invalid named header left the draft blank.')
+    } finally {
+      await importer.close()
+    }
+  }
   const signOut = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SignOut)
   await button(publisher, 'Log out').click()
   assert.equal((await signOut).status(), 200)

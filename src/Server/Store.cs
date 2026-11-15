@@ -144,6 +144,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         Identity actor, Edit edit, ArticleBodyInsertionsCommand insertions, CancellationToken ct) =>
         Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, insertions: insertions);
 
+    internal static Task<(ArticleState Article, bool Changed)> SaveBodyEdits(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, Edit edit, ArticleBodyEditsCommand bodyEdits, CancellationToken ct) =>
+        Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, bodyEdits: bodyEdits);
+
     internal static Task<(ArticleState Article, bool Changed)> PublishWithImages(NpgsqlConnection db, NpgsqlTransaction tx,
         Identity actor, Edit edit, Content.PublishedMediaStore media, Content.PublishedMediaSelection selection, CancellationToken ct) =>
         Execute(db, tx, actor, ArticleAction.Publish, edit, ct, null, publishedMedia: (media, selection));
@@ -179,7 +183,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
         (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null,
         ArticleSummaryCommand? summary = null, ArticleBodyInsertionCommand? insertion = null,
-        ArticleBodyInsertionsCommand? insertions = null)
+        ArticleBodyInsertionsCommand? insertions = null, ArticleBodyEditsCommand? bodyEdits = null)
     {
         var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
             attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
@@ -188,6 +192,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
             taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) :
             summary is not null ? SHA256.HashData(Wire.EncodeArticleSummaryCommand(summary)) :
+            bodyEdits is not null ? SHA256.HashData(Wire.EncodeArticleBodyEditsCommand(bodyEdits)) :
             insertions is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionsCommand(insertions)) :
             insertion is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionCommand(insertion)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
@@ -258,6 +263,11 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 var witness = Authoring.ArticleBodyInsertionStore.PrepareSequence(source.Body, state.Body, insertions.Insertions);
                 if (witness is not null && await CurrentSchema.HasArticleBodyInsertionOperationsAsync(db, tx, ct))
                     bodyInsertion = witness;
+            }
+            if (bodyEdits is not null)
+            {
+                var source = await Authoring.RevisionHistoryStore.ReadSource(db, tx, edit.Id, edit.ExpectedRevision, ct);
+                bodyInsertion = Authoring.ArticleBodyInsertionStore.PrepareEdits(source.Body, state.Body, bodyEdits.Edits);
             }
             if (publishedMedia is { } share)
                 images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);

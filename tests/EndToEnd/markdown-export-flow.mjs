@@ -19,7 +19,7 @@ export async function readMarkdownDownload(page, button, body) {
   const [, title, revision] = bytes.subarray(0, end).toString('utf8').split('\n').slice(1)
   assert(title.startsWith('title: '))
   assert(/^revision: [1-9]\d*$/.test(revision))
-  return { title: JSON.parse(title.slice('title: '.length)), revision: BigInt(revision.slice('revision: '.length)) }
+  return { title: JSON.parse(title.slice('title: '.length)), revision: BigInt(revision.slice('revision: '.length)), bytes }
 }
 
 async function readAttachmentDownload(page, button, format, type) {
