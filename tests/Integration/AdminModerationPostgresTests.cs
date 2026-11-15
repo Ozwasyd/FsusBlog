@@ -4,6 +4,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
+using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
@@ -13,6 +14,131 @@ namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminModerationPostgresTests
 {
+    [PostgresFact]
+    public async Task AppealRequiresAnOwnedAdverseReceiptAndAnIndependentBoundDecision()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await AddPendingComment(db, ct);
+        var owner = (Guid)(await Scalar("select owner_id from public.article where id=1"))!;
+        var actor = new Identity(owner, "Site fixture", 1, true, DateTimeOffset.UtcNow.AddMinutes(10));
+        var authorSession = RandomNumberGenerator.GetBytes(32);
+        var original = await AddModerator(db, "appeal-original", ct);
+        var reviewer = await AddModerator(db, "appeal-reviewer", ct);
+        var outsider = await AddModerator(db, "appeal-outsider", ct, canModerate: false);
+        await Execute(db, "insert into public.comment_account_owner values(1,1,$1)", ct, owner);
+        await Execute(db, "update public.comment set moderation_status=2,moderation_version=2 where article_id=1 and id=1", ct);
+        await using (var rejected = await db.BeginTransactionAsync(ct))
+            await Denied(Rejection.NotFound, () => CommentAppeals.Issue(db, rejected, actor, authorSession, 1, ct));
+        var adverse = (long)(await Scalar("""
+            insert into public.admin_comment_moderation(article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
+            values(1,1,$1,0,2,'Original reviewer rejects',clock_timestamp(),1) returning id
+            """, original.Id))!;
+        await using (var wrongOwner = await db.BeginTransactionAsync(ct))
+            await Denied(Rejection.NotFound, () => CommentAppeals.Issue(db, wrongOwner, actor with { Id = Guid.NewGuid() }, authorSession, 1, ct));
+        CommentAuthorChallenge challenge;
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            challenge = await CommentAppeals.Issue(db, tx, actor, authorSession, 1, ct);
+            await tx.CommitAsync(ct);
+        }
+        const string reason = "The record was misunderstood.";
+        await using (var wrongSession = await db.BeginTransactionAsync(ct))
+            await Denied(Rejection.NotFound, () => CommentAppeals.Submit(db, wrongSession, actor, RandomNumberGenerator.GetBytes(32),
+                1, new(reason, challenge.Challenge), ct));
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await CommentAppeals.Submit(db, tx, actor, authorSession, 1, new(reason, challenge.Challenge), ct);
+            await tx.CommitAsync(ct);
+        }
+        await using (var retry = await db.BeginTransactionAsync(ct))
+            await Denied(Rejection.Conflict, () => CommentAppeals.Submit(db, retry, actor, authorSession, 1, new(reason, challenge.Challenge), ct));
+        var appeal = (long)(await Scalar("select id from public.comment_appeal where adverse_id=$1", adverse))!;
+        var service = CreateStore(fixture);
+        var payload = Aeds.Encode(FrameType.CommentAppealDecisionRequest, """
+            {"decision":"granted","reason":"Independent review confirms the source."}
+            """u8);
+        await Denied(Rejection.Forbidden, () => service.BeginAppealStepUp(original.Token, appeal, payload, ct));
+        await Denied(Rejection.Forbidden, () => service.BeginAppealStepUp(outsider.Token, appeal, payload, ct));
+        Aeds.Decode(await service.BeginAppealStepUp(reviewer.Token, appeal, payload, ct), FrameType.PasskeyLoginBegin);
+        await Assert.ThrowsAsync<ModerationProofRequiredException>(() => service.DecideAppeal(reviewer.Token, appeal, payload, null, ct));
+        var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        await Execute(db, """
+            insert into public.comment_appeal_admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
+            values($1,$2,$3,1,5,$4,clock_timestamp()+interval '45 seconds',2)
+            """, ct, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), reviewer.Id, reviewer.Digest, AdminPasskeyStore.AppealDecisionDigest(appeal, payload));
+        var altered = Aeds.Encode(FrameType.CommentAppealDecisionRequest, """
+            {"decision":"denied","reason":"Independent review confirms the source."}
+            """u8);
+        await Assert.ThrowsAsync<ModerationProofRequiredException>(() => service.DecideAppeal(reviewer.Token, appeal, altered, proof, ct));
+        await Execute(db, "update public.comment set moderation_version=3 where article_id=1 and id=1", ct);
+        await Denied(Rejection.Conflict, () => service.DecideAppeal(reviewer.Token, appeal, payload, proof, ct));
+        Assert.Equal(0L, await Scalar("select count(*) from public.comment_appeal_decision"));
+        await Execute(db, "update public.comment set moderation_version=2 where article_id=1 and id=1", ct);
+        await Execute(db, "alter table public.comment_appeal_decision add constraint fixture_refuse_audit check (false)", ct);
+        await Assert.ThrowsAsync<PostgresException>(() => service.DecideAppeal(reviewer.Token, appeal, payload, proof, ct));
+        Assert.Equal((short)2, await Scalar("select moderation_status from public.comment where article_id=1 and id=1"));
+        Assert.Equal(1L, await Scalar("select count(*) from public.comment_appeal_event"));
+        await Execute(db, "alter table public.comment_appeal_decision drop constraint fixture_refuse_audit", ct);
+        Aeds.Decode(await service.DecideAppeal(reviewer.Token, appeal, payload, proof, ct), FrameType.CommentAppealDecisionResult);
+        Assert.Equal(reviewer.Id, await Scalar("select principal_id from public.comment_appeal_decision"));
+        Assert.Equal((short)1, await Scalar("select moderation_status from public.comment where article_id=1 and id=1"));
+        Assert.Equal((short)1, await Scalar("select next_status from public.comment_appeal_event where kind=2"));
+        await Denied(Rejection.Conflict, () => service.DecideAppeal(reviewer.Token, appeal, payload, proof, ct));
+        Assert.Equal(2L, await Scalar("select count(*) from public.comment_appeal_event"));
+        Assert.Equal(0L, await Scalar("select count(*) from public.comment_appeal_admin_step_up where kind=2"));
+
+        await Execute(db, """
+            insert into public.comment(article_id,id,root_id,depth,moderation_status,moderation_version,deleted,body,author_mode,display_name,display_language,created_at)
+            values(1,2,2,0,2,2,false,'Second rejection',3,'Fixture writer','en',clock_timestamp())
+            """, ct);
+        await Execute(db, "insert into public.comment_submit_command values($1,$2,$3,1,2)", ct, owner,
+            Guid.NewGuid(), RandomNumberGenerator.GetBytes(32));
+        await Execute(db, "insert into public.comment_account_owner values(1,2,$1)", ct, owner);
+        await Execute(db, """
+            insert into public.admin_comment_moderation(article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
+            values(1,2,$1,0,2,'Original reviewer rejects again',clock_timestamp(),1)
+            """, ct, original.Id);
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            var secondChallenge = await CommentAppeals.Issue(db, tx, actor, authorSession, 2, ct);
+            await CommentAppeals.Submit(db, tx, actor, authorSession, 2, new(reason, secondChallenge.Challenge), ct);
+            await tx.CommitAsync(ct);
+        }
+        var secondAppeal = (long)(await Scalar("select id from public.comment_appeal where comment_id=2"))!;
+        Aeds.Decode(await service.BeginAppealStepUp(reviewer.Token, secondAppeal, altered, ct), FrameType.PasskeyLoginBegin);
+        var secondProof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        await Execute(db, """
+            insert into public.comment_appeal_admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
+            values($1,$2,$3,1,5,$4,clock_timestamp()+interval '45 seconds',2)
+            """, ct, SHA256.HashData(Encoding.ASCII.GetBytes(secondProof)), reviewer.Id, reviewer.Digest,
+            AdminPasskeyStore.AppealDecisionDigest(secondAppeal, altered));
+
+        var attempts = await Task.WhenAll(ResolveSecond(), ResolveSecond());
+        Assert.Single(attempts, result => result);
+        Assert.Single(attempts, result => !result);
+        Assert.Equal((short)2, await Scalar("select moderation_status from public.comment where article_id=1 and id=2"));
+        Assert.Equal((short)2, await Scalar("select next_status from public.comment_appeal_event where appeal_id=$1 and kind=2", secondAppeal));
+
+        async Task<bool> ResolveSecond()
+        {
+            try
+            {
+                await service.DecideAppeal(reviewer.Token, secondAppeal, altered, secondProof, ct);
+                return true;
+            }
+            catch (BusinessException changed) when (changed.Rejection == Rejection.Conflict) { return false; }
+        }
+
+        async Task<object?> Scalar(string sql, params object[] args)
+        {
+            await using var query = Store.Sql(db, null, sql, args);
+            return await query.ExecuteScalarAsync(ct);
+        }
+    }
+
     [PostgresFact]
     public async Task ClaimSerializesOwnershipAndFencesEarlierVersions()
     {

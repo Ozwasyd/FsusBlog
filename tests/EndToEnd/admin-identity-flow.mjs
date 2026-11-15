@@ -495,6 +495,11 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
+  if (process.env.FSUSBLOG_TEST_COMMENT_APPEAL === '1') {
+    const { verifyCommentAppeal } = await import('./comment-appeal-flow.mjs')
+    await verifyCommentAppeal({ page, context, siteOrigin: siteOrigin.origin, adminOrigin: adminOrigin.origin,
+      publicRoute, rejectBody: moderatorBody + ' [reject fixture]', evidence, logIn })
+  }
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)

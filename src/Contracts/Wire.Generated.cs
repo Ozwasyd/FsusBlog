@@ -16,8 +16,13 @@ public enum FrameType : ushort
     CommentManagementChallengeResponse = 216,
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
+    CommentAuthorAppealRequest = 221,
+    CommentAppealDecisionRequest = 226,
+    CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
     CommentAuthorEligibility = 32941,
+    CommentAuthorAppeals = 32964,
+    AdminCommentAppeals = 32965,
     PrivateMediaItems = 32795,
     SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
@@ -469,6 +474,8 @@ public static class WireRoutes
     public const string CommentAuthorEligibility = "/api/v2/comments/{articleId:int}/author/eligibility.aeds";
     public const string CommentAuthorChallenge = "/api/binary/comment/{id:long}/author/challenge";
     public const string CommentAuthorDelete = "/api/binary/comment/{id:long}/author/delete";
+    public const string CommentAuthorAppeal = "/api/binary/comment/{id:long}/author/appeal";
+    public const string CommentAuthorAppeals = "/api/v2/comments/me/appeals.aeds";
     public const string CommentRoots = "/api/binary/comment/{articleId:int}";
     public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
@@ -532,6 +539,10 @@ public static class WireRoutes
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
+    public const string AdminCommentAppeals = "/api/v2/admin/identity/comments/appeals.aeds";
+    public const string AdminAppealStepUpBegin = "/api/v2/admin/identity/comments/appeals/{id:long}/step-up/begin.aeds";
+    public const string AdminAppealStepUpComplete = "/api/v2/admin/identity/comments/appeals/step-up/complete.aeds";
+    public const string AdminAppealDecision = "/api/v2/admin/identity/comments/appeals/{id:long}/decision.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
     public const string AdminClusterStatus = "/api/v2/admin/identity/operations/cluster.aeds";
     public const string AdminArticleRollbackAvailability = "/api/v2/admin/identity/articles/rollback/available.aeds";

@@ -9,6 +9,7 @@ internal static class AdminModerationEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var authority = origin.GetLeftPart(UriPartial.Authority);
+        AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame);
         app.MapPost(WireRoutes.AdminModerationClaim, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireOrigin(ctx, authority);

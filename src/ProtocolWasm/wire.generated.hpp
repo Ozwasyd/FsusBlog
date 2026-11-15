@@ -326,8 +326,13 @@ enum class FrameType : uint16_t {
     CommentManagementChallengeResponse = 216,
     CommentAuthorMutationResult = 218,
     CommentAuthorStatusRequest = 219,
+    CommentAuthorAppealRequest = 221,
+    CommentAppealDecisionRequest = 226,
+    CommentAppealDecisionResult = 227,
     CommentAuthorEligibilityRequest = 32940,
     CommentAuthorEligibility = 32941,
+    CommentAuthorAppeals = 32964,
+    AdminCommentAppeals = 32965,
     PrivateMediaItems = 32795,
     SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
@@ -472,8 +477,13 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentManagementChallengeResponse:
         case FrameType::CommentAuthorMutationResult:
         case FrameType::CommentAuthorStatusRequest:
+        case FrameType::CommentAuthorAppealRequest:
+        case FrameType::CommentAppealDecisionRequest:
+        case FrameType::CommentAppealDecisionResult:
         case FrameType::CommentAuthorEligibilityRequest:
         case FrameType::CommentAuthorEligibility:
+        case FrameType::CommentAuthorAppeals:
+        case FrameType::AdminCommentAppeals:
         case FrameType::PrivateMediaItems:
         case FrameType::SubscriptionPreferenceRequest:
         case FrameType::PrivateMediaUploadState:

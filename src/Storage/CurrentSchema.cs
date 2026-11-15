@@ -112,7 +112,7 @@ internal static partial class CurrentSchema
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
         bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationMedia = null)
+        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null)
     {
         if (requireArticleMedia is null)
         {
@@ -179,6 +179,9 @@ internal static partial class CurrentSchema
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
+        var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
+        if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
+            throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
         var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
         var hasAuthorRecentOpens = await HasAuthorRecentOpensAsync(connection, transaction, cancellationToken);
         if ((hasAuthorRecentOpens && !requireRecoveryScope) ||
@@ -195,6 +198,7 @@ internal static partial class CurrentSchema
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
+            .Concat(hasCommentAppeal ? CommentAppealColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
@@ -224,6 +228,7 @@ internal static partial class CurrentSchema
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
+            .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
@@ -293,7 +298,7 @@ internal static partial class CurrentSchema
                          CASE WHEN k.confmatchtype <> 's' THEN ' unexpected-action'
                               WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
-                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up', 'admin_appearance_step_up')
+                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up', 'admin_appearance_step_up', 'comment_appeal_admin_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
                                    THEN ' delete-cascade'

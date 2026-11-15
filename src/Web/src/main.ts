@@ -32,6 +32,7 @@ const router = createRouter({
     { path: '/subscribe', name: 'subscribe', component: () => import('./views/SubscriptionPreference.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
+    { path: '/user/comments', name: 'own-comments', component: () => import('./views/OwnComments.vue') },
     { path: '/user/manage/canvas', name: 'canvas', component: canvas },
     { path: '/user/manage/canvas/:id', name: 'canvas-document', component: canvas },
     { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },

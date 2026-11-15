@@ -13,6 +13,7 @@ import {
   type AdminModerationDecision,
 } from '../../../Contracts/admin-moderation'
 import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up'
+import AdminAppealReview from './AdminAppealReview.vue'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
@@ -157,6 +158,7 @@ function decide(decision: 1 | 2) {
   <section class="auth-form admin-moderation" aria-labelledby="admin-moderation-heading">
     <h2 id="admin-moderation-heading">Moderation queue</h2>
     <ElButton native-type="button" :disabled="Boolean(claim)" :loading="busy" @click="load()">Load moderation queue</ElButton>
+    <AdminAppealReview :session-signal="sessionSignal" @session-lost="emit('sessionLost', $event)" />
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
     <ElAlert v-if="notice" :title="notice" type="success" :closable="false" show-icon />
     <template v-if="queue">

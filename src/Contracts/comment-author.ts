@@ -54,18 +54,22 @@ function version(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
-export async function deleteOwnComment(id: string, handle: string, signal: AbortSignal) {
+export async function requestCommentAuthorChallenge(id: string, handle: string, purpose: 'delete' | 'appeal', signal: AbortSignal) {
   if (!positiveId.test(id) || BigInt(id) >= (1n << 63n)) throw new ProtocolError('Invalid comment identifier');
   const path = WireRoutes.CommentAuthorChallenge.replace('{id:long}', id);
-  const proof = await request(path, FrameType.CommentManagementChallengeResponse, payload => {
+  return request(path, FrameType.CommentManagementChallengeResponse, payload => {
     const value = parse(payload);
     if (value.issued !== true || value.failureCode !== null || !version(value.currentVersion) ||
         typeof value.challenge !== 'string' || !proofFormat.test(value.challenge) ||
         typeof value.expiresAtUtc !== 'string' || !Number.isFinite(Date.parse(value.expiresAtUtc)))
-      throw new ProtocolError('Invalid comment deletion challenge');
+      throw new ProtocolError('Invalid comment author challenge');
     return { challenge: value.challenge, currentVersion: value.currentVersion };
   }, signal, 'POST', encodeFrame(FrameType.CommentManagementChallengeRequest,
-    encoder.encode(JSON.stringify({ purpose: 'delete', capabilitySecret: null }))), headers(handle));
+    encoder.encode(JSON.stringify({ purpose, capabilitySecret: null }))), headers(handle));
+}
+
+export async function deleteOwnComment(id: string, handle: string, signal: AbortSignal) {
+  const proof = await requestCommentAuthorChallenge(id, handle, 'delete', signal);
   signal.throwIfAborted();
   return request(WireRoutes.CommentAuthorDelete.replace('{id:long}', id), FrameType.CommentAuthorMutationResult, payload => {
     const value = parse(payload);

@@ -337,6 +337,19 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   export FSUSBLOG_TEST_ADMIN_MODERATOR_BODY='Moderation fixture <strong data-moderation-fixture="1">literal</strong>'
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT" grant comment.moderate
   permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE" revoke comment.moderate
+  if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
+    "$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer admin.manage > /dev/null
+    "$dotnet" "$migrate" admin-identity grant tls-appeal-reviewer comment.moderate > "$evidence/appeal-reviewer-grant.log"
+    FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET=$("$dotnet" "$migrate" admin-identity rotate-passkey tls-appeal-reviewer)
+    export FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET
+    export FSUSBLOG_TEST_APPEAL_OWNER_TICKET="$scratch/issue-appeal-owner-ticket"
+    cat > "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" ticket tls-moderation-fixture
+EOF
+    chmod 700 "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET"
+  fi
   cat > "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -531,7 +544,9 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
       join public.comment c on c.article_id=m.article_id and c.id=m.comment_id
       join public.admin_comment_claim claim on claim.article_id=m.article_id and claim.comment_id=m.comment_id
       where p.handle='tls-admin-fixture' and m.reason='Moderation integration fixture'
-        and m.previous_status=0 and c.moderation_status=m.next_status
+        and m.previous_status=0 and (c.moderation_status=m.next_status or exists (
+            select 1 from public.comment_appeal a join public.comment_appeal_decision d on d.appeal_id=a.id
+            where a.adverse_id=m.id and d.granted and c.moderation_status=1))
         and claim.principal_id=p.id and claim.state=3
     union all select 'active_claims=' || count(*) from public.admin_comment_claim where state=1
   " > "$evidence/moderation-audit-counts.txt"
@@ -539,4 +554,16 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   grep -Fxq 'rejected=1' "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'attributed_decisions=2' "$evidence/moderation-audit-counts.txt"
   grep -Fxq 'active_claims=0' "$evidence/moderation-audit-counts.txt"
+  if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+      select 'independent_grant=' || count(*) from public.comment_appeal a
+      join public.comment_appeal_decision d on d.appeal_id=a.id
+      join public.admin_comment_moderation m on m.id=a.adverse_id
+      join public.admin_principal reviewer on reviewer.id=d.principal_id
+      join public.comment_appeal_event e on e.appeal_id=a.id and e.kind=2
+      where d.granted and d.principal_id<>m.principal_id and reviewer.handle='tls-appeal-reviewer'
+        and e.previous_status=2 and e.next_status=1
+    " > "$evidence/comment-appeal-audit.txt"
+    grep -Fxq 'independent_grant=1' "$evidence/comment-appeal-audit.txt"
+  fi
 fi

@@ -22,4 +22,12 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 从公开文章的评论区可删除当前账号发布、且提交事务留存了账号归属记录的评论。相同显示名称不会授予删除权限。停机执行 `comment author-delete-schema` 可启用旧部署的存储，升级前及导入的评论不自动建立归属。文章已撤回时，作者仍可通过原评论 ID 使用已认证的作者接口。
 
-确认删除后才申请有效期五分钟的一次性证明。服务端核对账号、当前会话和评论版本，并在同一事务内消费证明、标记评论删除、追加删除记录和 outbox 事件。公开评论树保留通往已批准回复所需的占位，正文和原显示名称从公共投影中移除。删除事件保留账号、版本、审核状态和正文摘要。独立通知投递、评论编辑、强匿名评论及申诉仍属其他流程。 [v1 作者端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L587) · [#2178](https://github.com/Ozwasyd/FsusBlog/issues/2178)
+确认删除后才申请有效期五分钟的一次性证明。服务端核对账号、当前会话和评论版本，并在同一事务内消费证明、标记评论删除、追加删除记录和 outbox 事件。公开评论树保留通往已批准回复所需的占位，正文和原显示名称从公共投影中移除。删除事件保留账号、版本、审核状态和正文摘要。独立通知投递、评论编辑及强匿名评论仍属其他流程。 [v1 作者端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L587) · [#2178](https://github.com/Ozwasyd/FsusBlog/issues/2178)
+
+### 登录作者申诉
+
+旧部署停机执行 `comment appeal-schema` 后，登录账号可以在「我的评论」中查看已证明归属的评论。当前可申诉范围为通过独立管理员线上审核、留有当期驳回记录的评论。申诉理由经去除首尾空白后须为 10–1,000 个 UTF-16 单元。提交消费绑定当前账号、会话、版本和原驳回记录的一次性申诉挑战。每次驳回只接受一条申诉。
+
+持有 `comment.moderate` 的另一名独立管理员可使用当前 Passkey 复核，原审核人不能裁决。确认时重新检查原驳回版本和待复核状态，授权、裁决、审计和事件同事务提交。通过后公开评论读取按现有文章、地区及线程可见性恢复正文；驳回后保留原审核状态。理由和审核身份留在授权范围内。当前没有采用线上独立凭据的隐藏操作，旧数据库角色审核及强匿名评论无法使用本流程。自动通知、对外通用审核时间线和管理员广播待接入。 [固定 v1 治理实现](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentGovernanceService.cs#L75)
+
+PostgreSQL 验证两名管理员授权、挑战与评论版本绑定、并发裁决、拒绝复核和审计失败回滚。Chrome 经 Caddy TLS 验证作者提交、原审核人看不到待复核项、独立管理员使用 Passkey 通过，以及作者与访客各自读取结果。停机迁移可重跑，并拒绝不完整的表集合。[本地验证记录](../../artifacts/comment-appeal/)

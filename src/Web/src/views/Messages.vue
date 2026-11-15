@@ -363,6 +363,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="inbox-page">
     <ElTaskPageHeader title="我的站内信" density="compact" />
+    <RouterLink v-if="currentSession" to="/user/comments">我的评论</RouterLink>
     <p v-if="notice" role="status">{{ notice }}</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon>
       <ElButton v-if="currentSession" text @click="reloadInbox(cursor)">重试</ElButton>

@@ -18,12 +18,16 @@ internal partial class CommentAuthorJson : JsonSerializerContext;
 public static partial class Wire
 {
     public static void ValidateCommentAuthorChallengeRequest(ReadOnlySpan<byte> frame)
+        => ReadCommentAuthorChallengePurpose(frame, allowAppeal: false);
+
+    public static string ReadCommentAuthorChallengePurpose(ReadOnlySpan<byte> frame, bool allowAppeal)
     {
         try
         {
             var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentManagementChallengeRequest),
                 CommentAuthorJson.Default.CommentAuthorChallengeRequest);
-            if (request is { Purpose: "delete", CapabilitySecret: null }) return;
+            if (request is { Purpose: "delete", CapabilitySecret: null }) return "delete";
+            if (allowAppeal && request is { Purpose: "appeal", CapabilitySecret: null }) return "appeal";
         }
         catch (JsonException) { }
         throw new ProtocolException("Invalid comment author challenge request.");

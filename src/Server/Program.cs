@@ -351,7 +351,7 @@ var archiveShell = webPages.Page(publicPath: "/archive");
 app.MapGet("/", (HttpContext ctx) => PublicResponse.Write(ctx, Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
-foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/trash" })
+foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/trash", "/user/comments" })
     app.MapGet(route, (HttpContext ctx) =>
     {
         NoStore(ctx);

@@ -23,10 +23,26 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapPost(WireRoutes.CommentAuthorChallenge, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            Wire.ValidateCommentAuthorChallengeRequest(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct));
+            var purpose = Wire.ReadCommentAuthorChallengePurpose(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct), allowAppeal: true);
             return await Run(ctx, store, async (db, tx, actor, digest) =>
-                Wire.EncodeCommentAuthorChallenge(await Issue(db, tx, actor, digest, id, ct)), ct);
+                Wire.EncodeCommentAuthorChallenge(purpose == "appeal"
+                    ? await CommentAppeals.Issue(db, tx, actor, digest, id, ct)
+                    : await Issue(db, tx, actor, digest, id, ct)), ct);
         }).RequireRateLimiting("comment-author-challenge");
+
+        app.MapGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
+            Run(ctx, store, (db, tx, actor, _) => CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct), ct))
+            .RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.CommentAuthorAppeal, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        {
+            var request = Wire.DecodeAuthorAppeal(await frame(ctx, Wire.CommentAppealFrameBytes, ct));
+            return await Run(ctx, store, async (db, tx, actor, digest) =>
+            {
+                await CommentAppeals.Submit(db, tx, actor, digest, id, request, ct);
+                return Wire.EncodeCommentAuthorMutation(new(true, "ok", 0, 0, null));
+            }, ct);
+        }).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.CommentAuthorDelete, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
