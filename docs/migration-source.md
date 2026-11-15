@@ -330,6 +330,24 @@ dotnet run --no-build --project src/Migrate -- legacy identity postgres > "$iden
 
 2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-identity.sh [postgres|sqlite|mysql]`。PostgreSQL 18.7、SQLite 3.54.0 和 MySQL 8.4.13 分别通过旧字段形状的隔离样本验证。核对同号的两类主体、跨身份错误绑定、撤销与在用的恢复密钥、当前和历史会话、不认识的权限、缺表和报告脱敏。精确输入摘要与原始输出见本地 `artifacts/native-migration/identity-20261114T164928.log`。
 
+### 接续一个普通站点 Passkey
+
+此路径适用于 PostgreSQL 冻结备份恢复出的普通匿名账号。旧账号须处于启用状态，只有首次登记的一枚 Passkey，且没有 MFA 或恢复权限残留。旧站配置的 `Fido2:ServerDomain` 与所选 `Fido2:Origins` 值须独立核对。它们必须与新站的 `FSUSBLOG_PASSKEY_RP_ID` 和 `FSUSBLOG_PASSKEY_ORIGIN` 完全相同。旧凭据表本身不记录这两个值。
+
+将 `FSUSBLOG_V1_DB` 指向独立集群中还原的只读旧库。`FSUSBLOG_LEGACY_PASSKEY_DB` 指向本机 Unix socket 上停服的 `fsusv2_import_runtime_*` 副本。副本使用当前结构，已有审核过的目标账号，Passkey 信任池和账户序列处于初始状态。先验证副本的回退备份。
+
+```bash
+umask 077
+dotnet run --no-build --project src/Migrate -- legacy passkey plan \
+  "$old_site" "$new_site" "$old_account_id" "$target_user" "$old_origin" "$old_rp" "$backup" "$backup_sha" > "$review"
+dotnet run --no-build --project src/Migrate -- legacy passkey apply \
+  "$review" "$review_sha" "$assertion" "$assertion_sha" "$backup" "$backup_sha"
+```
+
+审批连接原站、旧账号、目标 UUID、两端库及旧凭据摘要和回退备份。审核后，在同一 origin 取得原认证器的可发现凭据断言，要求用户验证，并将审批文件原字节的 SHA-256 作为 32 字节挑战。以该摘要的无填充 Base64URL 填写 `PasskeyLoginCompleteRequest` 的 token。断言文件包含该二进制 AEDS 帧，保留返回的 credential ID、用户 handle、签名和认证器数据，remember-me 使用 false。两个输入文件均须为操作者私有文件，并分别固定原字节 SHA-256。首次启用的审批有效期为十分钟。
+
+工具复用运行时 FIDO 验证器，核对同一账号的原公钥、签名、用户验证、坐标和计数。一次事务保留原整数账号、用户 handle、公钥、备份标志和历史时间，以已核验的最新计数写入并推进账号序列。收到回执前中断时，同一审批可以回读完整结果。旧会话需要重新登录，旧恢复能力需要独立登记。原设备及登记元数据由冻结归档保管。这个流程没有导入管理员凭据、旧 session 或 MFA 密钥。
+
 ### 演练选定的独立管理员
 
 该流程使用单独的新 v2 PostgreSQL 候选，`FSUSBLOG_IMPORT_DB` 指向本机 Unix socket 的 `fsusv2_import_*` 数据库。用当前迁移工具初始化空库，先生成并独立验证其备份，再保留清单 SHA-256。目标 UUID 读取候选的 `authoring_recovery_site.site_id`，旧站 UUID 由操作者用独立站点记录确认。PostgreSQL 旧源与候选必须属于不同的集群，连接需具备读取 `pg_catalog.pg_control_system()` 的权限。将旧数据库置为冻结的只读来源，SQLite 的来源绑定包含规范文件位置及已选元数据，凭据页不参与读取摘要。
