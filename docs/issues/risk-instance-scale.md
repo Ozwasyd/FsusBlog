@@ -44,4 +44,6 @@
 
 现有 `pilot` 的可选 V3 模式在 `56ee157` 的 PostgreSQL 18.7 实测中，以 8／8／4 三个封存分片供同一个真实写入器使用。逻辑原始 TSV 与原计划逐字节相同。终止已分配 ID 且未提交的事务后从第 8 篇续跑。生产数据提交而测试端丢失确认后从第 16 篇继续。第 19 篇重开同一归档意图，并从新会话取回第 6 版原生回执。最终只产生一次归档，66 个修订的原始 UTF‑8 和 20 个 canonical 记录均通过核对。 [断点及分片实测](../../artifacts/c11-checkpoint-v3-78fffce7/native-proof.json)
 
-单独的百万文章档需把 V3 分片、真实单库写入器和独立键／正文回读扩展到目标数量，并实测执行时间、资源和停止后续跑。对应档位的排序、发布与撤回、浏览器消费及跨 provider 能力各自需要实际证据。 [文章图和计数](https://github.com/Ozwasyd/FsusBlog/issues/2542) · [评论图终态](https://github.com/Ozwasyd/FsusBlog/issues/2549) · [公开搜索缺口](risk-public-search.md)
+独立 `articles-million` 档在 PostgreSQL 18.7 首次运行通过，使用 `01f1904` 发行包的 Migrate 和 `00db88d` 叠加 `f74ed95` 七个测试文件构建的 Integration 程序集。16 个封存分片共 1,384,504,727 字节，同一数据库写入 1,000,000 篇文章、50,000 次管理员归档、0 条评论。独立读回确认 850,000 个当前公开坐标、100,000 个待执行计划、3,250,000 条作者命令、3,300,000 个修订及 outbox 事件，坐标偏差为 0。全部 1,000,000 个 canonical 发布记录和 3,300,000 个修订的 UTF-8 字节通过校验。生成 25 秒，写入及归档 4,645 秒，迁移校验 43 秒，canonical 校验 36 秒，结构读回 76 秒，字节校验 15 秒。数据库约 9.62 GB，累计生成 WAL 31.68 GB，累计临时文件字节 32.89 GB。运行退出码为 0，临时数据库和运行工作树已清理。 [百万原生证明](../../artifacts/c11-article-million-preflight-00db88d/million-native-proof.json) · [精确程序集](../../artifacts/c11-article-million-preflight-00db88d/assemblies.sha256) · [校验日志](../../artifacts/c11-article-million-preflight-00db88d/million/run.txt)
+
+本次百万档的 writer 一次完成，强制丢失提交确认和归档续跑证据来自前述 20 篇 V3 `pilot`。百万档的中断恢复、在线排序和检索、浏览器消费、生产写入差分及跨 provider 对照仍需各自验收。 [文章图和计数](https://github.com/Ozwasyd/FsusBlog/issues/2542) · [公开搜索缺口](risk-public-search.md)
