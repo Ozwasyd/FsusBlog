@@ -66,8 +66,12 @@
 
 `32880a1` 解包后通过 PostgreSQL 物理备库演练。备库达到已落盘的发布坐标，旧主库退出后仍存活的旧应用拒绝读写，升主后的新实例读取原发布并安全重放命令。撤回只有一次持久变更，旧版本 HTML、AEDS 及索引代次均失效。 [原生交接演练](publication-lease.md#postgresql-物理备库演练)
 
-`476f7fc` 通过 116 项 Core 检查、99 项 Node 检查和跨语言 AEDS 测试，差分向量 2,821 项。首次并行 PostgreSQL 套件有一项标签快照测试因租约取消而失败，同一提交独立重跑 139 项全部通过。解包产物通过 21 个不同的 Chrome 流程。一次标为站内信的调用执行了重复的通用应用流程，专用入口单列证据。304 个文件和 225 个 Git 提交通过独立校验。已计入代码为 690 个文件、112,210 规范化 NCLOC。 [候选证据](../artifacts/candidate-476f7fc/)
+`476f7fc` 通过 116 项 Core 检查、99 项 Node 检查和跨语言 AEDS 测试，差分向量 2,821 项。首次并行 PostgreSQL 套件有一项标签快照测试因租约取消而失败，同一提交独立重跑 139 项全部通过。解包产物通过 21 个不同的 Chrome 流程。一次标为站内信的调用执行了重复的通用应用流程，之后用专用入口从同一包补跑真实 Caddy TLS 站内信。304 个文件和 225 个 Git 提交通过独立校验。已计入代码为 690 个文件、112,210 规范化 NCLOC。 [候选证据](../artifacts/candidate-476f7fc/) · [专用站内信 TLS](../artifacts/candidate-476f7fc/inbox-notifications-tls/run.txt)
 
 `3640cd7` 的 304 个发布文件和 234 个 Git 提交通过独立校验，已计入代码为 708 个文件、115,182 规范化 NCLOC。解包产物通过通用应用流程，以及核对旧实例 `503`、新实例原发布坐标和两边应用正常退出的物理备库演练。通知监听器在单独的原生 PostgreSQL 测试中接收实际通知、在连接被终止后重连，并正常关闭专用套接字。 [候选产物](../artifacts/candidate-3640cd7/release/) · [双实例退出与资源清理](../artifacts/candidate-3640cd7/standby-retry/run.log) · [监听器实库测试](../artifacts/inbox-notify-reconnect/native.log)
 
 后续定向证据覆盖 TOTP 恢复码重生成、两个 FsusUI 源码组的焦点及断点切换、作者列表摘要命中、实际独立管理员复核驳回评论申诉、原生发布摘要绑定准确 outbox、选定公开图片入账、旧版已处理首次发布 outbox 隔离保全及 Linux ARM64 seccomp 探针。图片入账尚无公开 UI，双组布局尚未跨重启保留，摘要尚未签名，旧 outbox 尚未激活，Linux Jint 仍关闭。 [发布边界](release-readiness.md)
+
+`e03541f` 的解包产物有 309 个已验摘要文件，其中 FSDL 字典与从冻结 v1 三份源词表独立重建的结果逐字节一致。240 个提交的历史通过独立 Git 完整性校验。116 项 Core、145 项实库集成、102 项 Node、3 项 FSDL 和跨语言 AEDS 测试均通过。已计入代码为 728 个文件、117,872 规范化 NCLOC。 [候选产物和验证](../artifacts/candidate-e03541f/)
+
+`3640cd7` 的堆硬上限长测完成 900 秒，7,193,239 个正确响应、6,761 个漏发、已发错误为零。RSS 峰值 842,800 KiB，末五分钟 RSS 中位增长约 0.01329%。四条热读零 PostgreSQL 调用或物理连接，正常退出与清理均已确认。生产默认配置和正式容量退出条件保留。 [原始记录与约束](../tests/Performance/conserve5-soak-2026-11-15.md#堆硬上限完整复跑)

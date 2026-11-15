@@ -12,3 +12,5 @@
 | 发布包 | macOS 上由锁定引用生成运行包和完整 Git bundle，独立导入后核对摘要、Git 和真实媒体运行。Debian 13 ARM64 通过同一框架依赖发布包摘要校验、PostgreSQL 迁移及重启前后公开快照复核。 | 从最终验收提交生成并验证目标平台发布包。外部执行 Docker 验收，单列结果。完整代码量重新计算。 |
 
 未通过的样本保留在 [性能诊断](../tests/Performance/)中。产品和议题边界以[执行状态](status.md)、[风险条款](issues/risk-trace.md)、[发布及身份条款](issues/risk-release-trace.md)和[剩余代码预算](product/code-budget-checkpoint.md)为准。
+
+在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
