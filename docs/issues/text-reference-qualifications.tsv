@@ -523,3 +523,33 @@ https://github.com/Ozwasyd/FsusBlog/issues/2080	1	1784	tracking	#2080:4–6; #20
 https://github.com/Ozwasyd/FsusBlog/issues/2080	2	2074	acceptance-gate	#2080:10–28; #2074:29–50	用同一静态合同验证移除 internal、私有挂载和策略漂移等负例。
 https://github.com/Ozwasyd/FsusBlog/issues/2080	2	2076	acceptance-gate	#2080:12–26; #2080:29–32; #2076:44–50	验证两栈拒绝语义相同、文件存在性无可观察差异，以及并发实例票据隔离。
 https://github.com/Ozwasyd/FsusBlog/issues/2080	2	2079	acceptance-gate	#2080:22–31; #2079:25–33; #2079:59–65	旧证据、缺子结果和执行未观察到均须拒绝，最终回执绑定实际当前运行。
+https://github.com/Ozwasyd/FsusBlog/issues/1811	1	1803	prerequisite	#1811:31–49; #1811@5174189782:12–14	修订比较和局部取回沿用单一 Inspector 的版本视图及现有修订读取权威。局部取回进入当前草稿事务，整体回滚追加不可变修订。
+https://github.com/Ozwasyd/FsusBlog/issues/1859	1	1806	context	#1859:9–21; #1859:81–95; #1806:16–22	Quick Switcher 查找已知文章并打开工作区。作者全文搜索使用独立查询和精确正文命中，两个入口分别验收。
+https://github.com/Ozwasyd/FsusBlog/issues/1859	1	1808	scope-exclusion	#1859:13; #1859:35–46; #1808:27–39	关系索引保存可重建的链接关系。作者全文索引从文章修订和 Markdown 解析事实派生，并分别核对范围、权限和索引版本。
+https://github.com/Ozwasyd/FsusBlog/issues/1866	1	1865	context	#1866:9–23; #1866:42–46; #1865:176–188	文章包负责 Markdown 与资产的往返，多格式任务分别冻结指定修订并按登记的格式交付结果。
+https://github.com/Ozwasyd/FsusBlog/issues/2275	2	2268	prerequisite	#2275:10–14; #2275:17–21; #2268:10–16	旧片段由有权读取的历史包提供。提交前重新核对比较计划、当前文档代次、选择和来源摘要，变更则拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2275	2	2270	prerequisite	#2275:10–14; #2270:10–20	片段选择使用真实源字节 diff 提供的区段和范围。通过当前编辑事务插入时保留原始字节和可撤销记录。
+https://github.com/Ozwasyd/FsusBlog/issues/2275	2	2273	prerequisite	#2275:10–19; #2273:10–12; #2273:19–22	统一修订 Inspector 提供已授权的修订和片段选择。执行回滚前呈现目标修订、当前未保存更改和预期影响。
+https://github.com/Ozwasyd/FsusBlog/issues/2277	2	2275	acceptance-gate	#2277:10–17; #2277:31–35; #2277:47–51; #2275:17–22	终验串接比较、源范围与实际写入动作，查局部取回修改当前草稿、整体回滚追加修订，以及拒绝过期权限和半完成写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	2	2316	prerequisite	#2317:10–20; #2316:10–18	当前修订写入消费封闭字段、词元和原始范围契约。增量写入与全量重建用同一解析来源复算字段、范围和摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2318	2	2316	prerequisite	#2318:10–19; #2316:12–18	服务端查询沿用同一语法、当前修订范围和稳定排名，并用源字节范围返回片段和高亮。计数和 facet 先过滤权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2319	2	2246	prerequisite	#2319:14–19; #2246:9–24	先激活有权文章，再交给语义定位适配器按当前修订处理精确、重定位或近似结果。过期或不存在的范围明确拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2319	2	2308	prerequisite	#2319:15–19; #2308:7–15	只在用户明确打开结果成功后记录一次访问。输入、悬停、预取和分页保留各自的非访问行为。
+https://github.com/Ozwasyd/FsusBlog/issues/2319	2	2318	prerequisite	#2319:10–19; #2318:15–21; #2319@6052914881:3	界面要消费有权的真实查询、范围、片段、过期重验及取消传输。冻结评论列出具体待交接的数据，端到端验收仍需实际调用。
+https://github.com/Ozwasyd/FsusBlog/issues/2320	2	2317	prerequisite	#2320:10–22; #2317:14–23	先验证当前全文索引和真实查询、界面，再迁移旧入口。按原职责保留集合筛选与实体导航，并验证旧标题 fallback 退役。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	2	2319	acceptance-gate	#2321:10–16; #2321:19–23; #2319:14–19	终验从源修订贯通查询、界面高亮、打开和位置映射，分别验证 Unicode、过期权限、更新后的修订与准确定位。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	2	2320	acceptance-gate	#2321:18–24; #2321:38–42; #2320:16–22	在终态规模下扫描并注入旧标题、DB LIKE、客户端扫描和双查询的反例，保留退役范围、隐私及原始执行证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2412	2	1779	prerequisite	#2412:10–16; #1779:23–47	生成任务前沿用现有文章与资产权威，固定原始 Markdown、元数据、资产清单、字节引用和摘要。执行消费同一冻结包。
+https://github.com/Ozwasyd/FsusBlog/issues/2414	2	2412	prerequisite	#2414:10–17; #2412:12–17	共用隔离宿主以登记的 provider、封存调用和输入摘要作为准入。独立核对工作目录、工具版本、进程树和资源边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2416	2	2414	prerequisite	#2416:4–16; #2416:18–22; #2414:11–17	HTML 经过无网络宿主，用冻结清单完成字体、样式和资产的离线闭包。离线解析复验外部请求、资源完整性和安全策略。
+https://github.com/Ozwasyd/FsusBlog/issues/2429	2	2423	prerequisite	#2429:10–19; #2429:21–22; #2423:10–19	PDF 按冻结输入、provider 和能力矩阵合同生成打印输出。逐项核验分页、字体、文本顺序、链接、警告与规范化摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2429	2	2425	prerequisite	#2429:10–17; #2429:41–49; #2425:11–22	分页只经固定工具和本地字体的隔离宿主执行。验收包含网络拒绝、进程树取消、临时盘和内存限额及清理。
+https://github.com/Ozwasyd/FsusBlog/issues/2429	2	2427	prerequisite	#2429:6–19; #2427:10–19	沿用统一 Markdown 渲染及安全离线资源规则生成受控打印文档。HTML 与 PDF 按各自 MIME、结构和格式校验交付。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2425	acceptance-gate	#2438:12–17; #2438:23–26; #2438:45–55; #2425:15–23	终验使用实际隔离收据核对工具摘要、无网络、资源上界、进程树终止和清理。远程字体、命令注入与浮动工具走拒绝路径。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2429	acceptance-gate	#2438:12–16; #2438:19–25; #2438:50–55; #2429:17–23	四格式终验须核对真实 PDF 分页、字体嵌入、文本语义与摘要。截图替代及格式 fallback 用拒绝用例验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2434	acceptance-gate	#2438:12–18; #2438:29–31; #2438:52–56; #2434:10–18	终验从经检验的格式输出追到短期授权下载，核对私有路径、权限、TTL、撤销、容量与清理。
+https://github.com/Ozwasyd/FsusBlog/issues/2488	2	2484	prerequisite	#2488:10–22; #2488:52–55; #2486:6–16	Canvas 操作只提交该文档拥有的几何和选择字段。移动、缩放及撤销使用稳定节点、修订和幂等标识，崩溃后按服务端操作收据恢复。
+https://github.com/Ozwasyd/FsusBlog/issues/2488	2	2486	prerequisite	#2488:10–15; #2488:20–25; #2486:12–22	引用的当前或固定修订、权限与预览由原投影提供。删除节点或切换引用时取消旧任务，并拒绝旧结果覆盖新几何。
+https://github.com/Ozwasyd/FsusBlog/issues/2492	2	2488	prerequisite	#2492:10–21; #2492:24–30; #2488:10–20	界面以封闭命令和 CAS 执行移动、缩放、分组、视口与撤销。可访问列表走相同操作，失败后恢复服务端投影。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2487	acceptance-gate	#2494:13–19; #2494:24–27; #2487:11–17	终验核对显式转换的源文章、修订和插入位置，注入由 Canvas 几何猜正文位置的反例。取消或失败时正文写入数为零。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2489	acceptance-gate	#2494:16–19; #2494:37–43; #2489:17–23	真实 10,000 节点用例记录可见视口、列表和预览的性能与资源，并核对布局隐私、键盘和读屏路径的等价操作。
