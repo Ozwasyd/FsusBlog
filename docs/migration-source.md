@@ -215,6 +215,8 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 读取已归档的 V1 权利证明请访问 `/integrity/article/{articleId}/revisions/{revisionNo}/rights/archive.json`。响应使用相同的公钥和检查点审核值，核验指定修订的原权利证明签名、对应发布证明签名，以及两条记录在同一检查点中的纳入顺序。`rights` 提供签名绑定的权利快照标识、发布证明标识、权利策略摘要和正文摘要。标识使用十进制字符串。文章仍公开且该修订有符合条件的归档时可读，响应使用 `no-store`。历史证据绑定的是旧站签发时的坐标和摘要。
 
+当前及指定修订的责任清单通过 HTTP `Link` 响应头列出同一公开坐标上通过校验的历史归档，关系为 `related`，并分别标明发布证明与权利证明。可继续按原格式读取责任 JSON。归档发现与直接读取使用同一公开坐标、密钥和检查点校验。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。

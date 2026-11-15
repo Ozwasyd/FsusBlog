@@ -1,5 +1,6 @@
 using FsusBlog.V2.Server.Operations;
 using FsusBlogV2.Storage;
+using Microsoft.Net.Http.Headers;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
@@ -41,10 +42,10 @@ internal static class LegacyReleaseResponsibility
             .RequireRateLimiting("query");
 
         app.MapGet("/integrity/article/{articleId:int}/responsibility", (HttpContext context, int articleId) =>
-            ReadAsync(context, database, publications, lease, articleId, null)).RequireRateLimiting("query");
+            ReadAsync(context, database, publications, lease, articleId, null, archive: archive)).RequireRateLimiting("query");
         app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility",
             (HttpContext context, int articleId, int revisionNo) =>
-                ReadAsync(context, database, publications, lease, articleId, revisionNo)).RequireRateLimiting("query");
+                ReadAsync(context, database, publications, lease, articleId, revisionNo, archive: archive)).RequireRateLimiting("query");
     }
 
     private static async Task ReadAsync(HttpContext context, NpgsqlDataSource database, Publications publications,
@@ -70,45 +71,58 @@ internal static class LegacyReleaseResponsibility
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, lease.Stopped);
         budget.CancelAfter(TimeSpan.FromSeconds(1));
         var ct = budget.Token;
-        byte[]? manifest;
+        byte[]? manifest = null;
+        byte[]? proofArchive = null;
+        var selectedRevision = 0;
         try
         {
             await using var connection = await database.OpenConnectionAsync(ct);
-            // Historical data remains public only while the article has a current public publication.
-            // Match the snapshot and database coordinates to fence a concurrent publication change.
+            // Fence the manifest and all advertised proof links against the same current public coordinate.
             await using var read = Store.Sql(connection, null, """
-                select (
-                    select pg_catalog.convert_to(observed.document::text, 'UTF8')
-                    from public.legacy_release_origin origin
-                    cross join lateral (
-                        select case when $5 then jsonb_build_object(
-                            'publicationId',origin.publication_id,'revisionId',origin.source_revision_id,
-                            'proof',case when $6 then origin.evidence->'rightsProof' else origin.evidence->'publishProof' end,
-                            'parent',case when $6 then origin.evidence->'publishProof' end,
-                            'entries',(select jsonb_agg(entry.value)
-                                from public.legacy_release_origin item
-                                cross join lateral (values (item.evidence #> '{publishProof,transparency,sourceRow}'),
-                                    (item.evidence #> '{rightsProof,transparency,sourceRow}')) entry(value)
-                                where item.article_id=origin.article_id and item.revision<=active.revision
-                                and entry.value is not null))
-                        else origin.manifest end as document
-                    ) observed
-                    where origin.article_id=active.article_id and octet_length(observed.document::text)<=131072 and (
-                        ($4=0 and (origin.revision,origin.publication_id)=(active.revision,active.publication_id))
-                        or ($4>0 and origin.revision=$4 and origin.revision<=active.revision))
-                )
+                select case when not $5 and octet_length(origin.manifest::text)<=131072
+                            then pg_catalog.convert_to(origin.manifest::text, 'UTF8') end,
+                       case when octet_length(observed.document::text)<=131072
+                            then pg_catalog.convert_to(observed.document::text, 'UTF8') end,
+                       origin.revision
                 from public.article_publication active
                 join public.article a on a.id=active.article_id and a.published_revision=active.revision and not a.deleted
+                join public.legacy_release_origin origin on origin.article_id=active.article_id and (
+                    ($4=0 and (origin.revision,origin.publication_id)=(active.revision,active.publication_id))
+                    or ($4>0 and origin.revision=$4 and origin.revision<=active.revision))
+                left join lateral (
+                    select jsonb_build_object(
+                        'publicationId',origin.publication_id,'revisionId',origin.source_revision_id,
+                        'publishProof',origin.evidence->'publishProof','rightsProof',origin.evidence->'rightsProof',
+                        'entries',(select jsonb_agg(entry.value)
+                            from public.legacy_release_origin item
+                            cross join lateral (values (item.evidence #> '{publishProof,transparency,sourceRow}'),
+                                (item.evidence #> '{rightsProof,transparency,sourceRow}')) entry(value)
+                            where item.article_id=origin.article_id and item.revision<=active.revision and entry.value is not null))
+                        as document
+                    where $6 and origin.evidence ?| array['publishProof','rightsProof']
+                ) observed on true
                 where (active.article_id,active.revision,active.publication_id)=($1,$2,$3)
-                """, articleId, article.Revision, article.Publication, (long)(revisionNo ?? 0), historical, rights);
-            manifest = await read.ExecuteScalarAsync(ct) as byte[];
+                """, articleId, article.Revision, article.Publication, (long)(revisionNo ?? 0), historical, archive is not null);
+            await using var row = await read.ExecuteReaderAsync(ct);
+            if (await row.ReadAsync(ct))
+            {
+                if (!row.IsDBNull(0)) manifest = row.GetFieldValue<byte[]>(0);
+                if (!row.IsDBNull(1) && row.GetInt64(2) is > 0 and <= int.MaxValue)
+                {
+                    proofArchive = row.GetFieldValue<byte[]>(1);
+                    selectedRevision = (int)row.GetInt64(2);
+                }
+            }
         }
         catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
         {
             throw new PublicUnavailableException();
         }
 
-        if (historical && manifest is not null) manifest = archive!.Verify(manifest, articleId, revisionNo!.Value, rights);
+        if (historical && proofArchive is not null) manifest = archive!.Verify(proofArchive, articleId, selectedRevision, rights);
+        var publicationLink = !historical && manifest is not null && proofArchive is not null &&
+            archive!.CanLink(proofArchive, articleId, selectedRevision, rights: false);
+        var rightsLink = publicationLink && archive!.CanLink(proofArchive!, articleId, selectedRevision, rights: true);
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
         if (manifest is null)
         {
@@ -116,6 +130,14 @@ internal static class LegacyReleaseResponsibility
             return;
         }
 
+        if (publicationLink || rightsLink)
+        {
+            var path = FormattableString.Invariant($"/integrity/article/{articleId}/revisions/{selectedRevision}");
+            if (publicationLink)
+                response.Headers.Append(HeaderNames.Link, $"<{path}/archive.json>; rel=\"related\"; type=\"application/json\"; title=\"Historical V1 publication proof\"");
+            if (rightsLink)
+                response.Headers.Append(HeaderNames.Link, $"<{path}/rights/archive.json>; rel=\"related\"; type=\"application/json\"; title=\"Historical V1 rights proof\"");
+        }
         await PublicResponse.Write(context, manifest, ContentType);
     }
 

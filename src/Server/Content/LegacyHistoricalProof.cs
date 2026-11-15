@@ -50,12 +50,18 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
         return new(settings, keys!, checkpoint!);
     }
 
-    internal byte[]? Verify(byte[] input, int articleId, int revisionNo, bool rights)
+    internal byte[]? Verify(byte[] input, int articleId, int revisionNo, bool rights) =>
+        ReadVerified(input, articleId, revisionNo, rights) is { } manifest ? JsonSerializer.SerializeToUtf8Bytes(manifest, Json) : null;
+
+    internal bool CanLink(byte[] input, int articleId, int revisionNo, bool rights) =>
+        ReadVerified(input, articleId, revisionNo, rights) is not null;
+
+    private ArchiveManifest? ReadVerified(byte[] input, int articleId, int revisionNo, bool rights)
     {
         try
         {
             var evidence = ReadJson(input);
-            var archive = evidence.GetProperty("proof");
+            var archive = evidence.GetProperty(rights ? "rightsProof" : "publishProof");
             var transparency = archive.GetProperty("transparency");
             var keys = archive.GetProperty("trustedKey").GetBytesFromBase64();
             var checkpoint = transparency.GetProperty("checkpoint").GetBytesFromBase64();
@@ -69,7 +75,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
 
             var original = Number(evidence, "revisionId");
             if (original <= 0 || Number(evidence, "publicationId") <= 0) return null;
-            var parentArchive = rights ? evidence.GetProperty("parent") : default;
+            var parentArchive = rights ? evidence.GetProperty("publishProof") : default;
             var parent = rights ? VerifyArchivedSignature(parentArchive, articleId, original, revisionNo, registry, null) : null;
             var proof = VerifyArchivedSignature(archive, articleId, original, revisionNo, registry, parent);
             var rows = evidence.GetProperty("entries");
@@ -115,9 +121,9 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
 
             var transparencyManifest = new { entrySeq = selected.Seq, chain, checkpoint = manifest,
                 signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey };
-            return JsonSerializer.SerializeToUtf8Bytes(new ArchiveManifest(1,
+            return new ArchiveManifest(1,
                 rights ? "legacy-v1-article-rights-proof-archive" : "legacy-v1-publication-proof-archive", articleId, revisionNo,
-                Decimal(original), Decimal(proof.Id), proof.SignedAt, proof.Payload, proof.Signature, proof.Key, transparencyManifest, proof.Rights), Json);
+                Decimal(original), Decimal(proof.Id), proof.SignedAt, proof.Payload, proof.Signature, proof.Key, transparencyManifest, proof.Rights);
         }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or FormatException or
             KeyNotFoundException or JsonException or CryptographicException)
