@@ -33,13 +33,17 @@ standby_app=
 primary_origin=
 standby_origin=
 cleanup() {
-  local status=$? bad=0
+  local status=$? bad=0 app pid app_exit
   trap - EXIT INT TERM
   set +e
-  for pid in "$standby_app" "$primary_app"; do
+  for app in standby primary; do
+    if [[ "$app" == standby ]]; then pid=$standby_app; else pid=$primary_app; fi
     if [[ -n "$pid" ]]; then
       if [[ "$(ps -o ppid= -p "$pid" | tr -d ' ')" == "$$" ]]; then kill "$pid"; fi
       wait "$pid" 2>/dev/null
+      app_exit=$?
+      printf '%s_app_exit=%s\n' "$app" "$app_exit"
+      if ((app_exit != 0 && status == 0)); then status=1; fi
       kill -0 "$pid" 2>/dev/null && bad=1
     fi
   done

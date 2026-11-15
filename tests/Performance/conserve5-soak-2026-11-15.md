@@ -25,3 +25,13 @@
 运行 ID `8d25968c24737376925a7b4752473104`，退出 1，所有本次数据库、服务和监听已清理。容量前置门槛未通过，本次为完整时长的诊断。客户端 JSON SHA-256 `e774e8b6cd39782527f7a814efb25147d637c1fc181c9c081a07e555804a2bb8`，运行时汇总 SHA-256 `1b75554e9ed45bbc0c4116526886a7ccc3014735b40e4f8d20e71034dd09203a`。 [原始记录](../../artifacts/p2-eabe6d7-conserve5/soak/)
 
 候选 `a665fb8` 增加了 GC 限额观测。诊断启动传入 `DOTNET_GCHeapHardLimit=0x44000000`，实际 CLR 样本为 1,140,850,688 字节。每秒 2,000 请求的 10 秒短测完成 20,000 个正确响应，热读数据库命令为零，计时 RSS 峰值 762,704 KiB，已清理。该样本确认限额生效和正常启动，长时 RSS、GC 暂停与容量仍需按原口径实测。 [限额短测](../../artifacts/p2-a665fb8-heap-cap/smoke/runtime-result.json) · [.NET 堆硬上限](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector#heap-hard-limit)
+
+## 堆硬上限运行遇到数据库故障
+
+同一干净候选 `a665fb83f5a5417c3c1d141436aa79da50091e70` 以 `GCHeapHardLimit=1140850688`、`GCConserveMem=5` 和 `GCDynamicAdaptationMode=1` 启动。预检独立验证 61 页、47,186,376 字节、公开代次 `6243701252468465754` 和 2,402 个 URL。预热的 60,000 个请求全部正确。计时从 `2026-11-15T00:22:48.288526Z` 开始。运行 ID `7a1caf15ad64bd9a0b2ba83d5a871ba7`。
+
+计时约 79.5 秒时，PostgreSQL 18.7 的 I/O worker 80549 收到 `SIGKILL`。系统日志查询未能确认信号来源。PostgreSQL 重启其进程并恢复接受连接，Kestrel 检测到旧会话租约失效，停止发出新的成功公开响应。客户端仍完成原定计时窗口，记录 636,660 个正确响应、440,533 个 `503`、488,791 个传输或超时失败和 5,634,016 个漏发。四条热路未归因到数据库命令，另有一个未分类后台命令。服务端和客户端的分路由完成请求总数出现差异，运行报告为 `incomplete`。
+
+计时内 Kestrel RSS 峰值 858,976 KiB，包含长时间的拒绝服务区间。该样本不能用于判断正常供给下的内存、GC 或容量。发出终止信号后，Npgsql 取消回调触发 `SocketException (22)`，进程以 `SIGABRT` 退出。监听、私有 PostgreSQL 与临时文件最终全部清理，运行退出码为 1。
+
+客户端 JSON SHA-256 为 `01bf91d44c76507657a7634ed8a186da6e4348f409b7a9318cdd13e7df1cc3ec`。运行时汇总 SHA-256 为 `fc1b8f50b2a8dd209adc94135e44390734d24ae4d1b1d1ae966cc29d40cc75e1`。 [原始故障和清理记录](../../artifacts/p2-a665fb8-heap-cap-soak/soak/)

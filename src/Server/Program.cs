@@ -69,7 +69,7 @@ builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.Distrib
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
-builder.Services.AddSingleton<InboxWake>();
+builder.Services.AddSingleton(services => new InboxWake(connectionString, services.GetRequiredService<ILogger<InboxWake>>()));
 builder.Services.AddHostedService(services => services.GetRequiredService<InboxWake>());
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
 builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Security.ScopedPow(TimeProvider.System));

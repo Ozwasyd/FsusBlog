@@ -73,7 +73,7 @@ own_child() {
 }
 
 cleanup() {
-  local status=$? clean=yes
+  local status=$? clean=yes server_exit=not-started
   trap - EXIT INT TERM
   set +e
   if own_child "$load_pid"; then
@@ -106,7 +106,11 @@ cleanup() {
       kill -KILL "$server_pid"
       clean=forced
     fi
+  fi
+  if [[ -n "$server_pid" ]]; then
     wait "$server_pid" 2>/dev/null
+    server_exit=$?
+    if [[ "$server_exit" != 0 && "$status" == 0 ]]; then status=1; fi
   fi
   if [[ -e "$run/pg/postmaster.pid" ]]; then
     pg_ctl -w -t 15 -D "$run/pg" stop -m fast > "$evidence/postgres-stop.log" 2>&1 || clean=no
@@ -139,6 +143,7 @@ cleanup() {
     echo "attempt_id=$attempt_id"
     echo "owner_pid=$$"
     echo "server_pid=$server_pid"
+    echo "server_exit_code=$server_exit"
     echo "origin=$origin"
     echo "proxy_pid=$proxy_pid"
     echo "target=$target"
