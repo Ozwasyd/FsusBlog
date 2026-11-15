@@ -124,6 +124,8 @@ public sealed partial class AdminModerationPostgresTests
         await History(HttpStatusCode.Unauthorized, null);
         await History(HttpStatusCode.Forbidden, manager.Token);
         await History(HttpStatusCode.BadRequest, moderator.Token, historyRoute + "?before=2&before=3");
+        await History(HttpStatusCode.BadRequest, moderator.Token, historyRoute + "?articleId=1&articleId=2");
+        await History(HttpStatusCode.NotFound, moderator.Token, historyRoute + "?articleId=2");
         using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token), (FrameType)222).ToArray()))
         {
             Assert.Collection(history.RootElement.EnumerateArray(),
@@ -184,11 +186,42 @@ public sealed partial class AdminModerationPostgresTests
             Assert.Equal("comment_moderation_log", last.GetProperty("transitionSource").GetString());
             Assert.Equal(JsonValueKind.Null, last.GetProperty("commentVersion").ValueKind);
         }
+        await Execute(db, """
+            with current_reply as (
+                select c.article_id,c.id,o.user_id,c.body,c.edited_at,c.moderation_version
+                from public.comment c join public.comment_account_owner o on (c.article_id,c.id)=(o.article_id,o.comment_id)
+                where (c.article_id,c.id)=(1,3)
+            ), added as (
+                insert into public.comment_author_edited
+                select c.article_id,c.id,c.user_id,c.moderation_version+2*n,c.moderation_version+2*n-1,1,0,
+                    prior.body,'Historical edit '||n,pg_catalog.sha256(convert_to(prior.body,'UTF8')),
+                    pg_catalog.sha256(convert_to('Historical edit '||n,'UTF8')),c.edited_at+n*interval '1 second'
+                from current_reply c cross join generate_series(1,63) n
+                cross join lateral (select case when n=1 then c.body else 'Historical edit '||(n-1) end as body) prior
+                returning body,happened_at,comment_version
+            ), newest as (select * from added order by comment_version desc limit 1)
+            update public.comment c set body=n.body,edited_at=n.happened_at,moderation_version=n.comment_version
+            from newest n where (c.article_id,c.id)=(1,3)
+            """, ct);
+        const string replyHistory = "/api/binary/author/comments/3/revisions";
+        var firstPage = await History(HttpStatusCode.OK, moderator.Token, replyHistory + "?articleId=1",
+            link: $"<{replyHistory}?before=2&articleId=1>; rel=\"next\"");
+        Assert.Equal(firstPage, await History(HttpStatusCode.OK, moderator.Token, replyHistory,
+            link: $"<{replyHistory}?before=2>; rel=\"next\""));
+        using (var history = JsonDocument.Parse(Aeds.Decode(firstPage, FrameType.CommentRevisionList).ToArray()))
+        {
+            Assert.Equal(64, history.RootElement.GetArrayLength());
+            AssertRevision(history.RootElement[0], 65, "edited", "Historical edit 63");
+            AssertRevision(history.RootElement[63], 2, "edited", editedReply);
+        }
+        var finalPage = await History(HttpStatusCode.OK, moderator.Token, replyHistory + "?before=2&articleId=1");
+        using (var history = JsonDocument.Parse(Aeds.Decode(finalPage, FrameType.CommentRevisionList).ToArray()))
+            Assert.Equal(1, Assert.Single(history.RootElement.EnumerateArray()).GetProperty("version").GetInt32());
         await Execute(db, "update public.admin_principal set generation=generation+1 where id=$1", ct, moderator.Id);
         await History(HttpStatusCode.Unauthorized, moderator.Token);
         await History(HttpStatusCode.Unauthorized, moderator.Token, timelineRoute);
 
-        async Task<byte[]> History(HttpStatusCode expected, string? token, string path = historyRoute, bool adminOrigin = true)
+        async Task<byte[]> History(HttpStatusCode expected, string? token, string path = historyRoute, bool adminOrigin = true, string? link = null)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, path);
             if (adminOrigin) request.Headers.Host = "localhost";
@@ -196,6 +229,7 @@ public sealed partial class AdminModerationPostgresTests
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
+            Assert.Equal(link, response.Headers.TryGetValues("Link", out var values) ? Assert.Single(values) : null);
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
 

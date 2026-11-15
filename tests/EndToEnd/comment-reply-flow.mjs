@@ -89,14 +89,16 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     await target.getByText(body, { exact: true }).waitFor()
     assert.equal(await target.evaluate(element => element === document.activeElement), true)
     assert.equal(await recipient.locator('vite-error-overlay').count(), 0)
-    if (process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1')
-      await verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId: receipt.commentId,
+    const edit = process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1'
+      ? await verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId: receipt.commentId,
         body, permalink, inboxUrl: inboxThread.url(), approve })
+      : undefined
     if (process.env.FSUSBLOG_TEST_COMMENT_REPORT === '1') {
       const { verifySignedInCommentReport } = await import('./comment-report-flow.mjs')
       await verifySignedInCommentReport({ browser, author, siteOrigin, articleId, parentId, evidence })
     }
     assert.deepEqual(errors, [])
+    return { commentId: receipt.commentId, originalBody: body, editedBody: edit }
   } finally {
     await authorContext.close()
     await recipientContext.close()
@@ -281,6 +283,7 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     await writeFile(join(evidence, 'comment-edit-result.json'), JSON.stringify({ articleId, replyId: String(replyId), childId: String(child.commentId),
       previousVersion: command.expectedVersion, pendingVersion: result.currentVersion, preservedPublicDescendant: true,
       reapprovedSameCoordinates: true, originalNoticeCount: originalNotice.messages.length, finalNoticeCount: finalNotice.messages.length }, null, 2) + '\n')
+    return newBody
   } finally { await anon.close() }
 
   async function readContext(id) {

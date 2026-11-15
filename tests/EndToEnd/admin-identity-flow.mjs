@@ -578,9 +578,10 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
     assert.equal(await section.getByRole('button', { name: 'Claim selected comments' }).count(), 0)
     assert.equal((await context.request.post(adminOrigin.origin + WireRoutes.AdminModerationBatchClaim)).status(), 404)
   }
+  let editedHistoryPath
   if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
     const { verifyApprovedReply } = await import('./comment-reply-flow.mjs')
-    await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
+    const edited = await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
       approve: async (body, commentId) => {
         await page.bringToFront()
         assert.equal((await checkQueue()).status(), 200)
@@ -589,6 +590,31 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
         assert.equal(claim.commentId, commentId)
         await applyModerationDecision(page, context, card, claim, 1, 'Approve with Passkey', 'Comment approved.')
       } })
+    if (edited.editedBody) {
+      editedHistoryPath = WireRoutes.AdminCommentRevisions.replace('{id:long}', String(edited.commentId)) + `?articleId=${articleId}`
+      await page.bringToFront()
+      await page.setViewportSize({ width: 375, height: 800 })
+      await historyArticle.fill(String(articleId))
+      await historyComment.fill(String(edited.commentId))
+      const [revisions] = await Promise.all([
+        page.waitForResponse(adminOrigin.origin + editedHistoryPath),
+        history.getByRole('button', { name: 'View comment revisions' }).press('Enter'),
+      ])
+      assert.equal(revisions.status(), 200)
+      assert.equal(await revisions.headerValue('cache-control'), 'no-store')
+      const heading = history.getByRole('heading', { name: 'Saved comment revisions', exact: true })
+      await heading.waitFor()
+      assert(await heading.evaluate(element => element === document.activeElement))
+      assert.deepEqual(await entries.locator('strong').allTextContents(), ['Revision 2', 'Revision 1'])
+      assert.equal(await entries.first().locator('p').textContent(), edited.editedBody)
+      assert.equal(await entries.last().locator('p').textContent(), edited.originalBody)
+      await entries.last().getByText('Content SHA-256', { exact: true }).click()
+      assert.equal(await entries.last().locator('code').textContent(), createHash('sha256').update(edited.originalBody).digest('hex'))
+      assert(await history.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
+      await history.screenshot({ path: join(evidence, 'administrator-comment-revisions-375.png') })
+      await page.setViewportSize({ width: 1280, height: 800 })
+      checks.commentRevisionHistory = true
+    }
   }
   if (process.env.FSUSBLOG_TEST_COMMENT_APPEAL === '1') {
     const { verifyCommentAppeal } = await import('./comment-appeal-flow.mjs')
@@ -598,6 +624,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
   await credentialProbe(adminOrigin.origin + historyPath, adminCookieName, grantedCookie.value, 401)
+  if (editedHistoryPath) await credentialProbe(adminOrigin.origin + editedHistoryPath, adminCookieName, grantedCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
   assert.equal((await checkQueue()).status(), 401)
   await revoked.waitFor()

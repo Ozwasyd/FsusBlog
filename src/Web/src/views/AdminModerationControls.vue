@@ -14,7 +14,8 @@ import {
 } from '../../../Contracts/admin-moderation'
 import { claimModerationBatch, proveAndDecideModerationBatch, readModerationBatchConflicts } from '../../../Contracts/admin-moderation-batch'
 import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up'
-import { readModerationTimeline, validModerationCoordinates, type ModerationTimeline } from '../../../Contracts/comment-moderation-timeline'
+import { readCommentRevisions, readModerationTimeline, validModerationCoordinates,
+  type CommentRevisionPage, type ModerationTimeline } from '../../../Contracts/comment-moderation-timeline'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import AdminAppealReview from './AdminAppealReview.vue'
 
@@ -42,6 +43,9 @@ const notice = ref('')
 const historyArticle = ref('')
 const historyComment = ref('')
 const history = shallowRef<ModerationTimeline | null>(null)
+const revisions = shallowRef<CommentRevisionPage | null>(null)
+const revisionHeading = ref<HTMLElement>()
+const canReadHistory = computed(() => !busy.value && validModerationCoordinates(historyArticle.value, historyComment.value))
 const statuses = ['Pending', 'Approved', 'Rejected', 'Hidden'] as const
 const eventLabels: Record<string, string> = {
   create: 'Submitted', approve: 'Approved', reject: 'Rejected', hide: 'Hidden', edit: 'Edited', delete: 'Deleted',
@@ -75,7 +79,12 @@ watch(() => props.sessionSignal, (signal, _, onCleanup) => {
   }
 }, { immediate: true, flush: 'sync' })
 
-watch([historyArticle, historyComment], () => { history.value = null }, { flush: 'sync' })
+function clearHistory() {
+  history.value = null
+  revisions.value = null
+}
+
+watch([historyArticle, historyComment], clearHistory, { flush: 'sync' })
 
 function clearReview() {
   setClaim(null)
@@ -87,7 +96,7 @@ function clearReview() {
   failure.value = ''
   historyArticle.value = ''
   historyComment.value = ''
-  history.value = null
+  clearHistory()
 }
 
 function isClaimed(row: AdminCommentCursor): boolean {
@@ -153,11 +162,26 @@ function loadHistory() {
   const comment = historyComment.value
   if (!validModerationCoordinates(article, comment)) return
   return run(async signal => {
-    history.value = null
+    clearHistory()
     const result = await readModerationTimeline(article, comment, signal)
     if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) history.value = result
   }, error => error instanceof ApiError && error.status === 404
     ? 'Comment history was not found for these IDs.' : 'Could not load comment history. Try again.')
+}
+
+function loadRevisions(before: number | null = null) {
+  if (!canReadHistory.value) return
+  const article = historyArticle.value
+  const comment = historyComment.value
+  return run(async signal => {
+    if (!before) clearHistory()
+    const page = await readCommentRevisions(article, comment, before, signal)
+    if (signal.aborted || article !== historyArticle.value || comment !== historyComment.value) return
+    revisions.value = page
+    await nextTick()
+    if (!signal.aborted) revisionHeading.value?.focus()
+  }, error => error instanceof ApiError && error.status === 404
+    ? 'No saved comment revisions are available for these IDs.' : 'Could not load comment revisions. Try again.')
 }
 
 function claimForReview(target: AdminCommentCursor) {
@@ -335,7 +359,10 @@ function decideBatch(decision: 1 | 2) {
         <ElInput id="admin-comment-history-article" v-model="historyArticle" v-bind="{ inputmode: 'numeric', maxlength: 10 }" :disabled="busy" />
         <label for="admin-comment-history-comment">Comment ID</label>
         <ElInput id="admin-comment-history-comment" v-model="historyComment" v-bind="{ inputmode: 'numeric', maxlength: 19 }" :disabled="busy" />
-        <div><ElButton native-type="submit" :disabled="busy || !validModerationCoordinates(historyArticle, historyComment)">Load comment history</ElButton></div>
+        <div class="moderation-actions">
+          <ElButton class="moderation-action" native-type="submit" :disabled="!canReadHistory">Load comment history</ElButton>
+          <ElButton class="moderation-action" native-type="button" :disabled="!canReadHistory" @click="loadRevisions()">View comment revisions</ElButton>
+        </div>
       </form>
       <template v-if="history">
         <p role="status">Current status: {{ history.deleted ? 'Deleted' : statuses[history.currentStatus] }}.</p>
@@ -350,6 +377,21 @@ function decideBatch(decision: 1 | 2) {
             <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
           </li>
         </ol>
+      </template>
+      <template v-if="revisions">
+        <h4 ref="revisionHeading" tabindex="-1">Saved comment revisions</h4>
+        <ol class="moderation-history-list">
+          <li v-for="revision in revisions.rows" :key="revision.version">
+            <strong>Revision {{ revision.version }}</strong> · {{ revision.operation }}
+            · <time :datetime="revision.createdAtUtc">{{ new Date(revision.createdAtUtc).toLocaleString() }}</time>
+            <p class="moderation-body">{{ revision.content }}</p>
+            <details><summary>Content SHA-256</summary><code>{{ revision.contentSha256 }}</code></details>
+          </li>
+        </ol>
+        <div class="moderation-actions">
+          <ElButton v-if="revisions.next" class="moderation-action" native-type="button" :disabled="!canReadHistory"
+            @click="loadRevisions(revisions.next)">Older revisions</ElButton>
+        </div>
       </template>
     </section>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
