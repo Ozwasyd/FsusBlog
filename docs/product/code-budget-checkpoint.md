@@ -90,5 +90,6 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 | 开发 `b709592` | 988 | 97,317 | 4,516 | 72,545 | 3,961 | 178,339 | 30,207 |
 | 开发 `cfbc29c` | 991 | 98,534 | 4,589 | 73,557 | 3,961 | 180,641 | 27,905 |
 | 开发 `6c4da5e` | 1,029 | 104,266 | 4,793 | 77,650 | 3,961 | 190,670 | 17,876 |
+| 开发 `2ec1b97` | 1,051 | 107,026 | 4,803 | 79,925 | 3,962 | 195,716 | 12,830 |
 
-生产代码的生成部分分别为 5,884、5,962、6,116 和 6,494 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [发布验收边界](../release-readiness.md)
+生产代码的生成部分分别为 5,884、5,962、6,116、6,494 和 6,525 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [版本化导出提交计量](../../artifacts/code-volume-2ec1b97/result.json) · [发布验收边界](../release-readiness.md)
