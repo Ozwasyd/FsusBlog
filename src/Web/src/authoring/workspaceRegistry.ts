@@ -57,7 +57,7 @@ export type RecentlyClosed = Readonly<{ articleId: number; title: string; group:
 export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number; inspectorOpen?: boolean }>
 
 export type Activation =
-  | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number }>
+  | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number; witnessedRevision?: bigint }>
   | Blocked
   | Readonly<{ kind: 'superseded' }>
   | Readonly<{ kind: 'capacity' }>
@@ -279,6 +279,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       this.#sessions.set(articleId, session)
     }
 
+    let witnessedRevision: bigint | undefined
     if (session.phase === 'ready' && session.id > 0 && session !== this.#active) {
       const { id } = session
       const opening = new AbortController()
@@ -300,6 +301,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       if (this.#risk(session) === 'clean') session.draft = structuredClone(result.draft)
       else if (session.draft?.revision !== result.draft.revision && !session.request && !session.writing)
         session.conflict = true
+      witnessedRevision = result.draft.revision
     }
 
     if (session.phase === 'loading') {
@@ -324,6 +326,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         return { kind: 'capacity' }
       }
       session.draft = structuredClone(result.draft)
+      witnessedRevision = result.draft.revision
       delete session.loading
       session.phase = 'ready'
     }
@@ -333,7 +336,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#forgetRecent(articleId)
     this.#changed()
     if (intent !== this.#activation || this.#active !== session || !this.#currentIdentity()) return { kind: 'superseded' }
-    return { kind: 'ready', tab: this.#view(session), workspaceRevision: this.#revision }
+    return { kind: 'ready', tab: this.#view(session), workspaceRevision: this.#revision, witnessedRevision }
   }
 
   startDraft(draft: Draft, group = this.#active?.group ?? 'main'): Promise<Activation> {

@@ -132,6 +132,9 @@ export const FrameType = {
   AuthoringWorkspaceCommand: 32911,
   AuthoringWorkspaceLayout: 32913,
   AuthoringWorkspaceLayoutCommand: 32914,
+  AuthorRecentOpenPage: 32958,
+  AuthorRecentOpenCommand: 32959,
+  AuthorRecentOpenReceipt: 32960,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,
@@ -180,6 +183,9 @@ export const WireLimits = {
   AuthoringWorkspaceTabs: 100,
   MaxAuthoringWorkspaceFrameBytes: 436,
   MaxAuthoringWorkspaceLayoutCommandFrameBytes: 437,
+  AuthorRecentOpenPageSize: 20,
+  AuthorRecentOpenCursorChars: 64,
+  MaxAuthorRecentOpenCommandFrameBytes: 56,
   TaxonomyAssignmentFrameBytes: 180,
   TicketBytes: 128,
   TitleBytes: 256,
@@ -614,6 +620,7 @@ export const WireRoutes = {
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
   AuthoringWorkspace: "/api/v2/authoring/workspace.aeds",
   AuthoringWorkspaceLayout: "/api/v2/authoring/workspace/layout.aeds",
+  AuthorRecentOpens: "/api/v2/authoring/recent-opens.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
   MfaProfile: "/api/binary/auth/mfa/profile",
@@ -1282,6 +1289,71 @@ export function decodeAuthoringWorkspaceLayoutCommand(payload: Uint8Array): Auth
     activeArticleId: reader.i32(),
     tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
     inspectorOpen: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthorRecentOpenCommand {
+  schemaVersion: number;
+  expectedRevision: bigint;
+  requestId: string;
+  articleId: number;
+  articleRevision: bigint;
+}
+
+export function encodeAuthorRecentOpenCommand(value: AuthorRecentOpenCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.expectedRevision);
+  writer.uuid(value.requestId);
+  writer.i32(value.articleId);
+  writer.i64(value.articleRevision);
+  return writer.finish();
+}
+
+export function decodeAuthorRecentOpenCommand(payload: Uint8Array): AuthorRecentOpenCommand {
+  const reader = new PodReader(payload);
+  const value: AuthorRecentOpenCommand = {
+    schemaVersion: reader.i32(),
+    expectedRevision: reader.i64(),
+    requestId: reader.uuid(),
+    articleId: reader.i32(),
+    articleRevision: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthorRecentOpenReceipt {
+  schemaVersion: number;
+  revision: bigint;
+  requestId: string;
+  articleId: number;
+  articleRevision: bigint;
+  openedAtUnixMs: bigint;
+}
+
+export function encodeAuthorRecentOpenReceipt(value: AuthorRecentOpenReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.revision);
+  writer.uuid(value.requestId);
+  writer.i32(value.articleId);
+  writer.i64(value.articleRevision);
+  writer.i64(value.openedAtUnixMs);
+  return writer.finish();
+}
+
+export function decodeAuthorRecentOpenReceipt(payload: Uint8Array): AuthorRecentOpenReceipt {
+  const reader = new PodReader(payload);
+  const value: AuthorRecentOpenReceipt = {
+    schemaVersion: reader.i32(),
+    revision: reader.i64(),
+    requestId: reader.uuid(),
+    articleId: reader.i32(),
+    articleRevision: reader.i64(),
+    openedAtUnixMs: reader.i64(),
   };
   reader.finish();
   return value;

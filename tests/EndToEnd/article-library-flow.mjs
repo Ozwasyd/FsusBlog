@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
+import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
 import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
@@ -13,6 +14,7 @@ const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const workspace = `${origin}/user/manage/article/workspace`
 const editor = id => `${origin}/user/manage/article/edit/${id}`
 const inventory = `${origin}${WireRoutes.AuthorArticles}`
+const recentPath = `${origin}${WireRoutes.AuthorRecentOpens}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
 const binary = { 'Content-Type': 'application/octet-stream' }
 const button = (scope, name) => scope.getByRole('button', { name, exact: true })
@@ -35,6 +37,12 @@ async function create(context, title, content = `Saved source: ${title}`) {
   const response = await context.request.post(`${origin}${WireRoutes.Save}`, { headers: binary, data })
   assert.equal(response.status(), 200)
   return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+}
+
+async function recentOpens(context, handle) {
+  const response = await context.request.get(recentPath, { headers: { [WireHeaders.CurrentSession]: handle } })
+  assert.equal(response.status(), 200)
+  return decodeRecentOpens(decodeFrame(await response.body(), FrameType.AuthorRecentOpenPage).payload)
 }
 
 function monitor(page) {
@@ -89,6 +97,9 @@ try {
   await launcher.click()
   const pane = page.getByRole('complementary', { name: 'Article library' })
   await expect(pane).toBeVisible()
+  await button(pane, 'Recent opens').click()
+  await expect(pane.getByText('No recent opens.', { exact: true })).toBeVisible()
+  await button(pane, 'All articles').click()
   await expect(selected(pane)).toHaveText(/Library exact active article/)
   await expect(list(pane).getByRole('button')).toHaveCount(WireLimits.AuthorArticlePageSize + 1)
   const openWidth = await body(page).evaluate(element => element.getBoundingClientRect().width)
@@ -117,12 +128,18 @@ try {
     assert.equal(await delayed.reached, 200)
     await expect(page).toHaveURL(editor(first.id))
     await expect(selected(pane)).toHaveText(/Library exact active article/)
+    assert.equal((await recentOpens(author, handle)).revision, 0n)
   } finally { delayed.release() }
   await delayed.done
   await expect(page).toHaveURL(editor(duplicate.id))
   await expect(body(page)).toHaveValue(duplicate.body)
   await expect(duplicates.first()).toHaveAttribute('aria-current', 'true')
   await expect(duplicates.last()).not.toHaveAttribute('aria-current', 'true')
+  await expect.poll(async () => (await recentOpens(author, handle)).items.map(row => row.articleId)).toEqual([duplicate.id])
+  await button(pane, 'Recent opens').click()
+  const recent = pane.getByRole('region', { name: 'Recent article opens' })
+  await expect(recent.getByRole('button', { name: /重复标题/ })).toHaveAttribute('aria-current', 'true')
+  await button(pane, 'All articles').click()
   await duplicates.last().focus()
   const independent = author.waitForEvent('page')
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
@@ -130,6 +147,7 @@ try {
   await expect(separate).toHaveURL(editor(previousDuplicate.id))
   await expect(page).toHaveURL(editor(duplicate.id))
   await separate.close()
+  assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), [duplicate.id])
   await page.screenshot({ path: join(evidence, 'article-library-desktop.png') })
   await page.keyboard.press('Escape')
   await expect(launcher).toBeFocused()
@@ -155,6 +173,7 @@ try {
 
   // A response from the old authenticated read cannot appear after the account changes.
   await page.goto(workspace)
+  assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), [duplicate.id])
   const delayedResults = await hold(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
   await button(page, 'Article library').click()
   try {
@@ -168,9 +187,11 @@ try {
   await button(page, 'Article library').click()
   await expect(drawer.getByText(foreign.title, { exact: true })).toBeVisible()
   await expect(drawer.getByText(title, { exact: true })).toHaveCount(0)
+  await button(drawer, 'Recent opens').click()
+  await expect(drawer.getByText('No recent opens.', { exact: true })).toBeVisible()
   observations.push({ ownerAndCredentialFence: true, exactActiveRevealOutsidePage: true, distinctDuplicateArticleIds: true,
     boundedPages: true, routeWaitsForOwnedDraft: true, separateBrowserTab: true, editorWidthBefore: width, editorWidthAfter: openWidth,
-    mobileDrawerAndFocusReturn: true, latePreviousAccountReadSuppressed: true })
+    mobileDrawerAndFocusReturn: true, latePreviousAccountReadSuppressed: true, exactDurableRecentOpens: true })
   assert.deepEqual(diagnostics, [])
 } catch (error) {
   failure = error

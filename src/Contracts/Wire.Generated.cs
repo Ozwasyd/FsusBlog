@@ -133,6 +133,9 @@ public enum FrameType : ushort
     AuthoringWorkspaceCommand = 32911,
     AuthoringWorkspaceLayout = 32913,
     AuthoringWorkspaceLayoutCommand = 32914,
+    AuthorRecentOpenPage = 32958,
+    AuthorRecentOpenCommand = 32959,
+    AuthorRecentOpenReceipt = 32960,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -183,6 +186,9 @@ public static class WireLimits
     public const int AuthoringWorkspaceTabs = 100;
     public const int MaxAuthoringWorkspaceFrameBytes = 436;
     public const int MaxAuthoringWorkspaceLayoutCommandFrameBytes = 437;
+    public const int AuthorRecentOpenPageSize = 20;
+    public const int AuthorRecentOpenCursorChars = 64;
+    public const int MaxAuthorRecentOpenCommandFrameBytes = 56;
     public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
@@ -619,6 +625,7 @@ public static class WireRoutes
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string AuthoringWorkspace = "/api/v2/authoring/workspace.aeds";
     public const string AuthoringWorkspaceLayout = "/api/v2/authoring/workspace/layout.aeds";
+    public const string AuthorRecentOpens = "/api/v2/authoring/recent-opens.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
     public const string MfaProfile = "/api/binary/auth/mfa/profile";
@@ -682,6 +689,8 @@ public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision
 public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record AuthoringWorkspaceLayout(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped, bool InspectorOpen);
 public sealed record AuthoringWorkspaceLayoutCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs, bool InspectorOpen);
+public sealed record AuthorRecentOpenCommand(int SchemaVersion, long ExpectedRevision, Guid RequestId, int ArticleId, long ArticleRevision);
+public sealed record AuthorRecentOpenReceipt(int SchemaVersion, long Revision, Guid RequestId, int ArticleId, long ArticleRevision, long OpenedAtUnixMs);
 public sealed record AdminAppearanceState(long Revision, string Theme, string Font, bool Serving, bool CanRollback, string PreviousTheme, string PreviousFont);
 public sealed record AdminAppearanceCommand(long ExpectedRevision, string CurrentTheme, string CurrentFont, string Theme, string Font, bool Rollback);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
@@ -1144,6 +1153,49 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceLayoutCommand));
         var value = new AuthoringWorkspaceLayoutCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthorRecentOpenCommand(AuthorRecentOpenCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.ExpectedRevision);
+        writer.Uuid(value.RequestId);
+        writer.I32(value.ArticleId);
+        writer.I64(value.ArticleRevision);
+        return Aeds.Encode(FrameType.AuthorRecentOpenCommand, writer.Written);
+    }
+
+    public static AuthorRecentOpenCommand DecodeAuthorRecentOpenCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorRecentOpenCommand));
+        var value = new AuthorRecentOpenCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthorRecentOpenReceipt(AuthorRecentOpenReceipt value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.Revision);
+        writer.Uuid(value.RequestId);
+        writer.I32(value.ArticleId);
+        writer.I64(value.ArticleRevision);
+        writer.I64(value.OpenedAtUnixMs);
+        return Aeds.Encode(FrameType.AuthorRecentOpenReceipt, writer.Written);
+    }
+
+    public static AuthorRecentOpenReceipt DecodeAuthorRecentOpenReceipt(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorRecentOpenReceipt));
+        var value = new AuthorRecentOpenReceipt(reader.I32(), reader.I64(), reader.Uuid(), reader.I32(), reader.I64(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

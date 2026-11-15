@@ -111,7 +111,8 @@ internal static partial class CurrentSchema
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null)
+        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
+        bool? requireAuthorRecentOpens = null)
     {
         if (requireArticleMedia is null)
         {
@@ -179,6 +180,10 @@ internal static partial class CurrentSchema
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
         var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
+        var hasAuthorRecentOpens = await HasAuthorRecentOpensAsync(connection, transaction, cancellationToken);
+        if ((hasAuthorRecentOpens && !requireRecoveryScope) ||
+            (requireAuthorRecentOpens.HasValue && requireAuthorRecentOpens.Value != hasAuthorRecentOpens))
+            throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
@@ -198,6 +203,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout) : [])
+            .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
@@ -225,6 +231,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
+            .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])

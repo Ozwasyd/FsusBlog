@@ -21,6 +21,7 @@ import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
+import { recentArticleOpens } from '../authoring/recentArticleOpens'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 import {
@@ -52,7 +53,12 @@ const openInput = ref('')
 const navigationNotice = ref('')
 const opening = ref(false)
 let navigation = 0
-let recoveryGroup: { group: string; mode: WorkspaceTab['mode']; path: string } | undefined
+type NavigationIntent = {
+  path: string
+  restore?: RecentlyClosed
+  witness?: Readonly<{ sessionId: number; articleRevision: bigint }>
+}
+let explicitNavigation: NavigationIntent | undefined
 const notice = ref('')
 const taxonomyDirty = ref(false)
 const taxonomyStale = ref(false)
@@ -192,6 +198,7 @@ const registry = new WorkspaceRegistry<Draft>({
   confirmed: recovery.confirmed,
 })
 const persistence = workspacePersistence(() => registry.savedLayout)
+const { record: recordRecentOpen, changed: recentOpensVersion, notice: recentOpensNotice } = recentArticleOpens()
 const layoutNotice = persistence.notice
 const inspectorOpen = ref(false)
 const workspaceState = { articleWorkspace: true }
@@ -329,14 +336,16 @@ onBeforeRouteUpdate(async (to, from) => {
   if (articleId === tab.value?.articleId) return true
   const epoch = identityEpoch.value
   opening.value = true
-  const restore = recoveryGroup?.path === to.path ? recoveryGroup : undefined
-  const result = await activateArticle(articleId, restore,
+  const explicit = explicitNavigation?.path === to.path ? explicitNavigation : undefined
+  const result = await activateArticle(articleId, explicit?.restore,
     () => intent === navigation && epoch === identityEpoch.value && canSwitch.value && !lifetime.signal.aborted)
   if (intent !== navigation || epoch !== identityEpoch.value || lifetime.signal.aborted) return false
   opening.value = false
   navigationNotice.value = result.kind === 'superseded' && !canSwitch.value
     ? 'Apply or cancel the pending changes before switching articles.' : activationFailure(result)
   if (result.kind === 'ready') {
+    if (explicit && result.witnessedRevision !== undefined)
+      explicit.witness = { sessionId: result.tab.sessionId, articleRevision: result.witnessedRevision }
     notice.value = ''
     failure.value = result.tab.risk === 'conflict' ? 'The server has a newer revision. Copy your changes before loading it.' : ''
   }
@@ -364,13 +373,20 @@ async function navigateTo(articleId: number, restore?: RecentlyClosed) {
   if (!canSwitch.value) return false
   if (registry.activeTab?.articleId === articleId && id.value === articleId) return true
   const destination = address(articleId)
-  const intent = restore && { group: restore.group, mode: restore.mode, path: router.resolve(destination).path }
-  recoveryGroup = intent
+  const intent: NavigationIntent = { restore, path: router.resolve(destination).path }
+  const epoch = identityEpoch.value
+  const handle = currentSession.value?.siteSessionId
+  explicitNavigation = intent
   try {
     const failure = await router.push({ ...destination, state: persistentWorkspace.value ? workspaceState : undefined })
-    return !failure && registry.activeTab?.articleId === articleId && id.value === articleId
+    const active = registry.activeTab
+    if (failure || active?.articleId !== articleId || id.value !== articleId) return false
+    if (explicitNavigation === intent && intent.witness && intent.witness.sessionId === active.sessionId &&
+        epoch === identityEpoch.value && handle === currentSession.value?.siteSessionId)
+      recordRecentOpen(articleId, intent.witness.articleRevision)
+    return true
   }
-  finally { if (recoveryGroup === intent) recoveryGroup = undefined }
+  finally { if (explicitNavigation === intent) explicitNavigation = undefined }
 }
 
 function openArticle() {
@@ -623,7 +639,8 @@ async function reloadDraft() {
         <RouterLink :to="{ name: 'write', state: persistentWorkspace ? workspaceState : undefined }">New draft</RouterLink>
         <ElButton v-if="!persistentWorkspace && id !== undefined" text native-type="button" :disabled="!canSwitch" @click="openSavedWorkspace">Open saved workspace</ElButton>
       </form>
-      <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :disabled="!canSwitch" :activate="navigateTo" />
+      <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
+        :disabled="!canSwitch" :activate="navigateTo" />
       <details v-if="recentlyClosed.length">
         <summary>Recently closed</summary>
         <ul>
@@ -637,6 +654,7 @@ async function reloadDraft() {
       <p v-if="opening" role="status">Opening article…</p>
       <p v-if="navigationNotice" role="alert">{{ navigationNotice }}</p>
       <p v-if="layoutNotice" role="status">{{ layoutNotice }}</p>
+      <p v-if="recentOpensNotice" role="status">{{ recentOpensNotice }}</p>
     </section>
     <p v-if="!authorizationReady || loading" role="status">Opening the editor…</p>
     <template v-else-if="!currentSession?.canAuthor">

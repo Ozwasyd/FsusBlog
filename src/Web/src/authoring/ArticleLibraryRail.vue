@@ -2,10 +2,14 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import ArticleLibraryResults from './ArticleLibraryResults.vue'
+import ArticleLibraryRecent from './ArticleLibraryRecent.vue'
 import { identityEpoch } from '../session'
 
-const props = defineProps<{ articleId?: number; articleRevision?: bigint; disabled: boolean; activate: (id: number) => Promise<boolean> }>()
+const props = defineProps<{ articleId?: number; articleRevision?: bigint; recentOpensVersion: number; disabled: boolean;
+  activate: (id: number) => Promise<boolean> }>()
 const visible = ref(false)
+const recentAvailable = ref(false)
+const recent = ref(false)
 const compact = ref(false)
 const launcher = ref<HTMLButtonElement>()
 const results = ref<InstanceType<typeof ArticleLibraryResults>>()
@@ -40,6 +44,15 @@ watch(identityEpoch, () => {
   ++generation
   visible.value = false
 }, { flush: 'sync' })
+watch(visible, () => {
+  recentAvailable.value = false
+  recent.value = false
+}, { flush: 'sync' })
+
+function recentSupport(supported: boolean) {
+  recentAvailable.value = supported
+  if (!supported) recent.value = false
+}
 
 async function toggle() {
   if (visible.value) return close()
@@ -91,8 +104,18 @@ async function activate(id: number, separate: boolean) {
     </ElDrawer>
     <div ref="parking" hidden />
     <Teleport v-if="target" :to="target">
-      <ArticleLibraryResults v-if="visible" ref="results" :article-id="articleId" :article-revision="articleRevision"
-        :disabled="disabled" @open="activate" />
+      <template v-if="visible">
+        <div v-if="recentAvailable" class="library-modes" role="group" aria-label="Article library views">
+          <button type="button" :aria-pressed="!recent" @click="recent = false">All articles</button>
+          <button type="button" :aria-pressed="recent" @click="recent = true">Recent opens</button>
+        </div>
+        <div v-show="!recent">
+          <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision"
+            :disabled="disabled" @open="activate" />
+        </div>
+        <ArticleLibraryRecent :active="recent" :version="recentOpensVersion" :article-id="articleId" :disabled="disabled"
+          @supported="recentSupport" @open="activate" />
+      </template>
     </Teleport>
   </div>
 </template>
@@ -125,4 +148,9 @@ async function activate(id: number, separate: boolean) {
 }
 .library-pane header { display: flex; align-items: center; justify-content: space-between; }
 .library-pane h2 { font-size: var(--fsus-typography-heading-sm-size); margin: 0; }
+.library-modes { display: flex; flex-wrap: wrap; gap: .35rem; margin-block: 0 var(--fsus-space-2); }
+.library-modes button { min-block-size: var(--fsus-control-height-action); padding-inline: var(--fsus-space-2);
+  border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); background: var(--fsus-paper);
+  color: var(--fsus-ink); font: inherit; cursor: pointer; }
+.library-modes button[aria-pressed='true'] { box-shadow: inset 0 -2px var(--fsus-ink); }
 </style>

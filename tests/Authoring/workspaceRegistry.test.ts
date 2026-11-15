@@ -368,9 +368,15 @@ test('returning to an inactive session rechecks authority without overwriting di
   registry.updateDraft(one, draft(1, 1n, 'local'))
   const other = await activate(registry, 2)
   revision = 2n
-  await activate(registry, 1)
+  const reopened = await registry.openOrActivate(1)
+  assert.equal(reopened.kind, 'ready')
+  assert.equal(reopened.witnessedRevision, 2n)
   assert.equal(registry.activeDraft?.body, 'local')
+  assert.equal(registry.activeDraft?.revision, 1n)
   assert.equal(registry.activeTab?.risk, 'conflict')
+  const alreadyActive = await registry.openOrActivate(1)
+  assert.equal(alreadyActive.kind, 'ready')
+  assert.equal(alreadyActive.witnessedRevision, undefined)
   await activate(registry, 2)
   permission = false
   assert.deepEqual(await registry.openOrActivate(1), { kind: 'blocked', reason: 'forbidden' })

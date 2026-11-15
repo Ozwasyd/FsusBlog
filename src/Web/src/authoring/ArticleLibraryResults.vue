@@ -4,6 +4,7 @@ import { ElButton, ElInput } from '@ozwasyd/element-plus'
 import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleRow, type AuthorArticleState } from '../../../Contracts/author-articles'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
+import { moveLibraryFocus } from './articleLibraryKeyboard'
 
 type Scope = Exclude<AuthorArticleState, 'deleted'> | ''
 const props = defineProps<{ articleId?: number; articleRevision?: bigint; disabled: boolean }>()
@@ -99,17 +100,6 @@ async function movePage(next: boolean) {
   search.value?.focus()
 }
 
-function move(event: KeyboardEvent) {
-  if (!(event.target instanceof HTMLButtonElement)) return
-  const buttons = [...(results.value?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? [])]
-  const index = buttons.indexOf(event.target)
-  const target = event.key === 'ArrowDown' ? buttons[index + 1] : event.key === 'ArrowUp' ? buttons[index - 1]
-    : event.key === 'Home' ? buttons[0] : event.key === 'End' ? buttons.at(-1) : undefined
-  if (!target) return
-  event.preventDefault()
-  target.focus()
-}
-
 function openWithModifier(event: KeyboardEvent, id: number) {
   if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || props.disabled) return
   event.preventDefault()
@@ -135,7 +125,7 @@ function stateLabel(item: AuthorArticleRow) {
   <p v-if="failed" role="alert">Could not load articles.</p>
   <ElButton v-if="failed" text @click="retry++">Retry articles</ElButton>
   <p v-if="!loading && !failed && page?.items.length === 0" role="status">No matching articles.</p>
-  <ul v-if="rows.length" ref="results" class="library-results" aria-label="Article results" @keydown="move">
+  <ul v-if="rows.length" ref="results" class="library-results" aria-label="Article results" @keydown="moveLibraryFocus($event, results)">
     <li v-for="row in rows" :key="row.id">
       <button type="button" :disabled="disabled" :aria-current="row.id === current ? 'true' : undefined"
         @click="emit('open', row.id, false)" @keydown="openWithModifier($event, row.id)">
