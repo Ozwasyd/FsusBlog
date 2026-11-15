@@ -583,3 +583,58 @@ https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2326	acceptance-gate	#2327:12�
 https://github.com/Ozwasyd/FsusBlog/issues/2341	2	2324	prerequisite	#2341:10–21; #2324:10–20	保存视图 AST 复用属性运算符、稳定定义与选项身份。重命名保留查询语义，删除、退役及类型漂移触发明确失效。
 https://github.com/Ozwasyd/FsusBlog/issues/2346	2	2324	prerequisite	#2346:10–21; #2324:13–24	执行器把 typed property 条件交给原查询权威，并重裁当前用户权限。依赖退役、schema 漂移和过期游标有结构化拒绝状态。
 https://github.com/Ozwasyd/FsusBlog/issues/2487	2	2246	prerequisite	#2487:10–19; #2246:11–22	Canvas 转换计划固定源文档代次、实际插入节点、范围和亲和方向。提交前重验修订和权限，应用源位置映射并保留选择和历史。
+https://github.com/Ozwasyd/FsusBlog/issues/1731	1	1724	prerequisite	#1731:37–47; #1731:76–97; #1724:44–55	离线文章图与生产 writer 共用状态转换、字段整理和发布及 outbox 合同。同一个计划喂给隔离的生产与批量路径，比较完整图和摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/1731	1	1730	prerequisite	#1731:50–74; #1731:78–89; #1730:32–52	文章创建、当前发布和未来排程各按封存业务时间角色生成。待更新文章的旧发布持续有效，时间和修订坐标进入同计划的差分。
+https://github.com/Ozwasyd/FsusBlog/issues/1732	1	1725	prerequisite	#1732:23–52; #1732:55–69; #1725:31–56	离线评论图沿用生产参与者、权限、线程、审核与 outbox 规则。正向与仅供测试的认证材料各用明确语义和验证边界。
+https://github.com/Ozwasyd/FsusBlog/issues/1732	1	1731	prerequisite	#1732:37–52; #1732:57–69; #2545:10–17	评论图以文章计划里的稳定目标角色接线。零评论文章、热点宽根和深链保持父、根与回复坐标，ID 在提供方写入后按语义映射核对。
+https://github.com/Ozwasyd/FsusBlog/issues/1733	1	1731	prerequisite	#1733:33–53; #1733:63–75; #1731:37–47	文章图工厂消费确定性分布计划，为热门、长尾、空分类和多标签场景写入合法文章状态与关系。查询只绑定场景 ID。
+https://github.com/Ozwasyd/FsusBlog/issues/1733	1	1732	prerequisite	#1733:33–53; #1733:76–83; #1732:57–69	评论图工厂消费确定的线程分配，保留宽根、深链、删除根的可见后代与回复边界。统计和查询使用原有场景身份与合法图。
+https://github.com/Ozwasyd/FsusBlog/issues/2175	1	1724	tracking	#2175:4–19; #1724:103–111	生产夹具的派生子项从实际 versioned outbox 验证公开检索、AOT、AEDS、热读、列表和缓存。证据绑定同次事件、可见发布坐标和各发布 owner 的回执。
+https://github.com/Ozwasyd/FsusBlog/issues/2175	2	2174	prerequisite	#2175:6–18; #2174:10–20	等待派生结果以实际生命周期转换及封存 outbox 坐标为输入。待更新旧发布、正式生效新发布及撤回逐次验证，迟到重放须保留最新发布。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	1	1859	tracking	#2317:14–23; #2317:33–54; #1859:35–46; #2317@6230489061:3	此子项负责索引写入、重建和故障接续。跨源代次全量刷新成功后才发布 Current，消费方须绑定 writer 实例和本地代次。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	2	1808	prerequisite	#2317:10–20; #2317@6053302621:9; #1808:39–55	作者索引读取同源的权威文章修订和解析原始范围，与派生关系索引各有写入职责。冻结交接仍需真实源适配器、持久检查点与进程崩溃验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	2	2322	prerequisite	#2317:10–18; #2322:10–21; #2317@6245204210:3	索引逐份核对定义 ID、schema 代次、类型资格与值快照摘要。定义变更使相关字段重新索引或失效，属性快照缺失时拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2318	1	1859	tracking	#2318:10–23; #2318:49–55; #1859:37–46; #2317@6230489061:3	查询子项消费同属本次 writer 实例的可信索引和当前权限，实现分面、源片段、排序与续页。过期、部分重建或漂移的代次均须返回有界的失败。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	2	2317	acceptance-gate	#2321:10–19; #2317:35–54; #2317@6230489061:3	终验用真实源比较增量与全量重建，注入中断、检查点接续、乱序事件和跨实例同号代次。完整代次和语义摘要须独立重算。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	2	2318	acceptance-gate	#2321:11–24; #2318:15–23; #2318:49–54	按实际索引结果核对有权数量、分面和原字节范围。验证过期游标、取消、不完整索引及降级回退的拒绝，并保留首因原始证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2335	2	2318	prerequisite	#2335:10–21; #2318:17–23	保存视图编译已核验的条件供唯一查询执行。结果和游标绑定视图、计划、查询、索引及权限代次，依赖变化时失效。
+https://github.com/Ozwasyd/FsusBlog/issues/2346	2	2318	prerequisite	#2346:10–21; #2318:10–21	全文条件通过作者查询权威，与结构化过滤合为同一计划。视图或依赖变化、索引缺失、过期游标和取消都按当前合同拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2392	2	2317	prerequisite	#2392:10–23; #2317:14–23	登记的全文重索引操作调用原生产者，按文章独立事务。操作回执区分索引刷新与正文或元数据变更。
+https://github.com/Ozwasyd/FsusBlog/issues/2396	2	2317	prerequisite	#2396:10–22; #2317:14–22	逐文章重索引调用唯一来源，绑定源修订和索引代次。取消后保留已完成项，未完成或副作用失败的项保留各自状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2405	2	2317	prerequisite	#2405:13–24; #2405@6051586551:1; #2317:14–22	导入经原文章与资产事务写入，随后按计划验证作者索引的原子刷新和独立读回。事务回执及索引回执分别绑定本次修订。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	2	2317	prerequisite	#2415:15–23; #2415@6051587903:1; #2317:14–22	封存导入计划需保留作者索引重建义务和实际写入及读回。发布回执由文章 writer 生成，索引完成另有同源代次证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2542	2	2541	prerequisite	#2542:6–18; #2542:21–23	提供方接收已验证的行批、计划摘要和运行身份，按约束原子落入完整文章图。检查点只恢复同一计划和本次拥有的图。
+https://github.com/Ozwasyd/FsusBlog/issues/2543	2	2539	prerequisite	#2543:6–17; #1731:76–89	小样本两侧使用相同 ArticleScalePlan、业务时间、内容、分类和 ID 角色映射，独立验证修订、发布、权利及 outbox 坐标。
+https://github.com/Ozwasyd/FsusBlog/issues/2543	2	2541	acceptance-gate	#2543:11–24; #2542:10–18	真实批量工厂与提供方的输出，用独立存储同规范生产 writer 作语义差分。验证缺行、额外关系、内容摘要与首轮失败。
+https://github.com/Ozwasyd/FsusBlog/issues/2544	2	2542	acceptance-gate	#2544:10–22; #2542:12–23	终验复算三个提供方的完整文章图、原子批次、崩溃续跑和所有权，保留大语料的事务与资源证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2545	2	1725	prerequisite	#2545:10–19; #1725:31–56	评论计划仅登记合法参与者、审核状态、地域和隐私要求。每个变体声明 revision、线程、事件与适用的身份承诺及通知。
+https://github.com/Ozwasyd/FsusBlog/issues/2545	2	1731	prerequisite	#2545:10–17; #1731:47–74	写前由文章图提供稳定目标角色和正确生命周期。评论计划把语义角色映射到 ID，避免根据标题或插入顺序选择文章。
+https://github.com/Ozwasyd/FsusBlog/issues/2546	2	1725	prerequisite	#2546:10–20; #1725:31–56	纯评论工厂复用生产线程、参与者、隐私、地域、审核和事件规则。敏感字段保持生产的空值，并绑定允许输出的事件坐标。
+https://github.com/Ozwasyd/FsusBlog/issues/2546	2	2545	prerequisite	#2546:6–16; #2546:19–24; #2545:10–22	工厂从闭合计划生成确定的宽根、深链、审核和隐私行，验证全部关系和输入摘要后才交给数据库写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2547	2	2545	prerequisite	#2547:10–21; #2545:14–22	提供方按计划和工厂行批记录事务检查点。续跑只处理本次拥有的完整评论组，提交后核对线程、隐私、审核及 outbox。
+https://github.com/Ozwasyd/FsusBlog/issues/2548	2	1725	acceptance-gate	#2548:10–19; #1725:31–56	评论差分的生产侧调用真实命令和身份、地域、审核策略。逐项比较图、证据及允许的隐私字段，并分别验证不同认证材料类别。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	2	2545	acceptance-gate	#2549:10–16; #2545:10–22	终验从原计划枚举四种审核状态及各线程和参与者变体，以计划身份贯通真实库回读与后续查询，验证正负例及隐私。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	2	2546	acceptance-gate	#2549:11–18; #2546:12–24	比较实际工厂输出和生产侧的修订、线程、隐私、事件及适用认证关系。完整语义差分约束工厂与生产模型同步。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	2	2547	acceptance-gate	#2549:13–22; #2547:13–23	终验比较各提供方数据库回读，验证原子事务、崩溃恢复的归属和不重复的 revision、审核、通知与 outbox，并留原始规模证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2552	1	1733	parent	#2552:6-11; #2552:18-23; #1733:5-8	实际统计是分布工作的独立只读验证环节，按角色读取实库并封存当前场景收据，查询测量继续由后续环节负责。
+https://github.com/Ozwasyd/FsusBlog/issues/2552	2	2550	prerequisite	#2552:6-15; #2552:20-23; #2550:21-24	从唯一分布目录读取指标区间、样本适用条件与算法版本，逐项比较实库观测。样本不足保留不可判定状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2553	1	1733	parent	#2553:6-15; #2553:18-22; #1733:25-61	分布父项下的查询接线只限定已有用例的场景适用性和证据准入，按每次查询与场景保存结果。
+https://github.com/Ozwasyd/FsusBlog/issues/2553	2	2550	prerequisite	#2553:6-14; #2550:10-12; #2550:21-25	沿用目录登记的八种基础场景身份、非均匀覆盖与指标合同。热点、长尾、线程、时间和多语言用例各按适用场景验收，均匀档保留为算法对照。
+https://github.com/Ozwasyd/FsusBlog/issues/2553	2	2551	prerequisite	#2553:13-19; #2553@6053013822:1; #2551:19-23	查询入场绑定同轮 seed、PRNG、分配计划和图摘要。需要跨 provider 时复用语义分配身份，并分别核验各库实际统计。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	2	2539	acceptance-gate	#2554:10-16; #2554:20-23; #1731:37-47	文章计划的身份须沿当前分配、provider 数据、实测统计和查询收据逐跳匹配。保留该目标在开放语料中的 ABSENT 状态，以已冻结文章图规范佐证职责。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	2	2545	acceptance-gate	#2554:10-16; #2554:20-23; #2545:10-19	终验沿评论图计划核对实际线程、审核、时间和标识分布的来历，把实际 provider 的角色与统计和查询收据绑定。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	2	2550	acceptance-gate	#2554:10-15; #2554:31-37; #2550:10-12; #2550:21-25	从唯一目录自动枚举八个场景及其区间，保留每项失败或不可判定。终态矩阵排除均匀档的发布资格。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	2	2551	acceptance-gate	#2554:10-16; #2554:20-23; #2554@6053505067:1; #2551:19-24	终验复核同 seed 和 PRNG 的分配摘要及三 provider 语义一致性。真正的 10 万与百万档需要有界资源记录，数值内核重放只保留为历史组件证据。
+https://github.com/Ozwasyd/FsusBlog/issues/2554	2	2552	acceptance-gate	#2554:10-16; #2554:20-22; #2552:14-23	每个场景须有从实际 provider 独立重算的当前统计收据。区间偏差或不可判定逐指标保留，初次失败持续可见。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1618	prerequisite	#2555:10-17; #2555:47-51; #1640:31-39; #2555@6053563477:7	将真实 seed 派生到缓存、搜索、AOT 与 HotRead 的语义证明用于对应 catalog kind。完整查询 registry 双向匹配仍需真实入口及权属证据，保留已有 #1619 冲突。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1731	prerequisite	#2555:10-17; #1731:37-47; #1731:51-61	文章用例输入沿用规范图的文章、发布、修订和派生角色，用稳定语义身份描述成员及坐标，避免从标题、slug 或当前首行发现样本。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1732	prerequisite	#2555:10-17; #1732:23-33; #1732:37-53	评论用例从规范图登记线程、地区、审核及适用权限，应记录真实生产入口、参与者资格和完整预期字段。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1733	prerequisite	#2555:14-22; #1733:25-61; #2555@6053563477:7	catalog 消费原分布场景和计划身份，并将图、统计及查询版本变动传递到过期检查。缺实际投影或 case kind 时拒绝合成完整覆盖。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	2	2539	prerequisite	#2556:6-18; #2556:19-23; #1731:37-47	文章预期从封存的 ArticleScalePlan 角色中计算排序成员、空分类、详情边界与发布修订坐标。保留冻结目标的 ABSENT 状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	2	2541	prerequisite	#2556:10-17; #2556:19-23; #1731:37-47; #2556@6053564702:7	复用规范工厂定义的状态及字段语义，产生包含权限、发布和派生身份的可重算预期。角色及坐标缺失时保持未验收，冻结目标仍为 ABSENT。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	2	2555	prerequisite	#2556:6-23; #2556@6053564702:1; #2555:10-18	文章生成器按唯一 catalog 的文章 case、输入及封闭输出合同生成内容寻址预期，交由独立 verifier 重算。历史 schema 源码交接只支持接口消费。
+https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2545	prerequisite	#2559:6-18; #2559@6053023815:1; #2545:10-19	评论预期消耗封存的线程、治理、可见性、地区和参与者角色，逐案计算删除占位、后代结构、同刻并列与边界结果。
+https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2551	prerequisite	#2559:10-18; #2559:19-22; #2551:10-20	评论预期绑定当前场景分配角色与摘要，分别固定偏斜线程、时间、多语言和审核组合的顺序、坐标及权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2552	prerequisite	#2559:10-12; #2559:17-23; #2552:18-23	将实测分布收据的当前摘要绑定预期工件身份。结果成员、可见性和分页仍从计划角色独立计算。
+https://github.com/Ozwasyd/FsusBlog/issues/2559	2	2555	prerequisite	#2559:6-16; #2559:19-23; #2555:10-18; #2559@6053023815:1	评论预期使用 catalog 的独立域和封闭字段，生成精确线程、治理、权限、游标和摘要的只读测试工件，保持与文章及实时查询生产者独立。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	2	1618	prerequisite	#2561:10-24; #2561:64-68; #1640:31-39; #2561@6053024742:1	消费已证的 seed 派生及正常产品读取作为实际侧，逐案与独立预期比较，并另验真实唯一入口和生产包隔离。保留 #1619 的分配器职责冲突及已有冻结状态。
