@@ -206,10 +206,13 @@ try {
       assert.equal(online.revision, published.revision)
       assert.equal(online.media, '1')
       const manifest = await readManifest(anonymous, articleId, online.publication)
-      assert.deepEqual(manifest.images, [
-        { digest: chosenPreview.digest, format: webp ? 3 : 1, length: chosenPreview.length, width: imageWidth, height: 80 },
-        { digest: galleryPreview.digest, format: 1, length: galleryPreview.length, width: galleryWidth, height: 60 },
+      const expectedById = new Map([
+        [fixture.chosen.id, { digest: chosenPreview.digest, format: webp ? 3 : 1, length: chosenPreview.length, width: imageWidth, height: 80 }],
+        [fixture.gallery.id, { digest: galleryPreview.digest, format: 1, length: galleryPreview.length, width: galleryWidth, height: 60 }],
       ])
+      // Publication ordinals use canonical UUID order so reordered commands keep the same identity.
+      const expectedImages = [...expectedById.keys()].sort().map(id => expectedById.get(id))
+      assert.deepEqual(manifest.images, expectedImages)
       const assets = [fixture.chosen, fixture.gallery, fixture.privateOnly]
       for (const asset of assets) {
         assert.equal(manifest.bytes.includes(asset.name), false)
