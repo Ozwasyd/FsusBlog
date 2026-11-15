@@ -13,7 +13,8 @@ internal static partial class Migration
 
     private static async Task<int> RunLegacyProjectionAsync(string mode, string planPath, string planDigest, string backupPath,
         string backupDigest, DateTimeOffset? scheduleEvaluation, LegacyImportMediaInput? mediaInput,
-        PreparedLegacyMediaInput? prepared, LegacyMediaActivationInput? activation, CancellationToken token)
+        PreparedLegacyMediaInput? prepared, LegacyMediaActivationInput? activation, CancellationToken token,
+        LegacyReleaseActivationInput? release = null)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -80,6 +81,12 @@ internal static partial class Migration
                 ? DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business, schedules, scheduleCatalogSha256 })
                 : DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business });
             await SaveOrVerifyProjectionReceiptAsync(target, tx, already, planDigest, projectionDigest, ct);
+            if (release is not null)
+            {
+                await RunLegacyReleaseActivationAsync(target, tx, plan, planDigest, projectionDigest, release, projection, business, ct);
+                await tx.CommitAsync(ct);
+                return 0;
+            }
             if (preparesMedia)
             {
                 var request = await BuildLegacyMediaPreparationRequestAsync(target, tx, plan, planDigest, projectionDigest, mediaPackage!, ct);

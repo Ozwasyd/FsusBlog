@@ -1,0 +1,172 @@
+using System.Data;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text.Json;
+using FsusBlogV2.Storage;
+using Npgsql;
+
+internal static partial class Migration
+{
+    private const string LegacyReleaseActivationVariable = "FSUSBLOG_RELEASE_ACTIVATION_DB";
+    private static readonly Lazy<HashSet<string>> FirstReleaseShadows = new(() => StagingDefinitions.Value.Select(table => table.Name)
+        .Where(name => name != "shadow_article_responsibility_snapshot")
+        .Concat([LegacyOutboxParent.Table.Name, LegacyOutboxEdge.Table.Name]).ToHashSet(StringComparer.Ordinal));
+
+    private sealed record LegacyReleaseActivationInput(Guid Site, string Backup, string BackupSha256, string[] Approval);
+    private sealed record LegacyReleaseActivationPlan(string Format, string SourcePlanSha256, string ProjectionSha256,
+        Guid QuarantineSiteId, Guid RuntimeSiteId, DatabaseTarget RuntimeDatabase, string RuntimeCluster,
+        string RollbackManifestSha256, Guid[] Owners, BackupRelation[] Relations);
+
+    private static async Task RunLegacyReleaseActivationAsync(NpgsqlConnection source, NpgsqlTransaction sourceTx,
+        ImportPlan plan, string planSha, string projectionSha, LegacyReleaseActivationInput input,
+        ProjectionRelation[] projection, List<BackupRelation> business, CancellationToken ct)
+    {
+        if (input.Site == plan.TargetSiteId)
+            throw new InvalidOperationException("The approved runtime site must differ from the source quarantine site.");
+        var owners = await VerifyLegacyFirstReleaseScopeAsync(source, sourceTx, plan, ct);
+        string? approved = null;
+        if (input.Approval is [var path, var digest])
+        {
+            if (!IsSha256(digest)) throw new ArgumentException("Supply the independently approved release activation SHA-256.");
+            await using var file = OpenLegacyMediaReviewFile(path);
+            if (file.Length is < 1 or > 32_768 || Convert.ToHexStringLower(await SHA256.HashDataAsync(file, ct)) != digest)
+                throw new InvalidOperationException("The legacy release approval file differs from its recorded SHA-256.");
+            approved = digest;
+        }
+        var backup = await ReadLegacyImportBackupAsync(input.Backup, input.BackupSha256, ct);
+        var settings = ParseLegacyRuntimeActivationDatabase(LegacyReleaseActivationVariable);
+        await using var target = new NpgsqlConnection(settings.ConnectionString);
+        await target.OpenAsync(ct);
+        await RequireBackupDatabaseLockAsync(target, ct);
+        await using var tx = await target.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
+        if (approved is null) await ExecuteAsync(target, tx, "SET TRANSACTION READ ONLY", ct);
+        await ExecuteAsync(target, tx, "SET LOCAL search_path=pg_catalog", ct);
+        await SetBackupRepresentationAsync(target, tx, ct);
+        await CurrentSchema.VerifyCatalogAsync(target, tx, ct, requireArticleMedia: true, requireArticleSummary: true);
+        await CurrentSchema.VerifyAdminIdentityMarkerAsync(target, tx, ct);
+        var identity = await ReadTargetAsync(target, tx, ct);
+        var cluster = await ReadLegacyPostgresClusterAsync(target, tx, ct);
+        await using (var gate = new NpgsqlCommand("""
+            SELECT inet_server_addr() IS NULL AND current_setting('listen_addresses')=''
+                 AND current_setting('session_replication_role')='origin' AND NOT pg_is_in_recovery()
+                 AND to_regnamespace('fsus_legacy_candidate') IS NULL
+                 AND (SELECT array_agg(version) FROM public.v2_schema)=ARRAY[$2::int]
+                 AND (SELECT count(*)=cardinality($1) AND bool_and(id=ANY($1) AND NOT enabled AND NOT can_author AND generation=1)
+                      FROM public.blog_user)
+            """, target, tx))
+        {
+            gate.Parameters.AddWithValue(owners);
+            gate.Parameters.AddWithValue(CurrentSchema.Version);
+            if (await gate.ExecuteScalarAsync(ct) is not true || identity == plan.Target ||
+                await CurrentSchema.ReadRecoverySiteIdAsync(target, tx, ct) != input.Site ||
+                source.PostgreSqlVersion.Major != target.PostgreSqlVersion.Major ||
+                backup.Site.PostgreSqlMajor != target.PostgreSqlVersion.Major.ToString(CultureInfo.InvariantCulture))
+                throw new InvalidOperationException("The independent runtime database, disabled owner mapping, site or PostgreSQL version differs.");
+        }
+
+        var transferredNames = projection.Select(relation => relation.Name).Concat(ProjectionSequences.Select(sequence => sequence.Name))
+            .ToHashSet(StringComparer.Ordinal);
+        var expected = business.Where(relation => transferredNames.Contains(relation.Name)).OrderBy(row => row.Name, StringComparer.Ordinal).ToArray();
+        if (expected.Length != transferredNames.Count) throw new InvalidOperationException("The verified source release rows are incomplete.");
+        var before = backup.Site.Relations.ToDictionary(row => row.Name, StringComparer.Ordinal);
+        foreach (var row in before.Values)
+            if (row.Kind == "r" && row.Rows > 0 && row.Name != "blog_user" &&
+                !await IsPristineLegacyCandidateSeedAsync(target, tx, row.Name, ct))
+                throw new InvalidOperationException("The approved runtime rollback contains operational rows.");
+        var (actual, media) = await ReadBackupSiteAsync(target, tx, ct);
+        var transferable = actual.Where(row => transferredNames.Contains(row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal).ToArray();
+        if (media.Count != 0 || actual.Count != before.Count ||
+            actual.Any(row => !before.TryGetValue(row.Name, out var prior) || row.Kind != prior.Kind ||
+                !transferredNames.Contains(row.Name) && row != prior))
+            throw new InvalidOperationException("The runtime database differs from the independently verified rollback baseline.");
+        var pristine = transferable.All(row => row == before[row.Name]);
+        var committed = transferable.SequenceEqual(expected);
+        if (!pristine && (approved is null || !committed))
+            throw new InvalidOperationException("The runtime releases match neither the empty rollback nor this complete approved batch.");
+
+        var review = new LegacyReleaseActivationPlan("fsusblog.legacy-release-activation.v1", planSha, projectionSha,
+            plan.TargetSiteId, input.Site, identity, cluster, input.BackupSha256, owners, expected);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(review, OwnerMapJson);
+        var approvalSha = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        if (approved is null)
+        {
+            await tx.RollbackAsync(ct);
+            await Console.OpenStandardOutput().WriteAsync(bytes, ct);
+            return;
+        }
+        if (approved != approvalSha)
+            throw new InvalidOperationException("The approved release activation plan differs from this source, destination or rollback.");
+        if (pristine)
+        {
+            foreach (var relation in projection)
+            {
+                var table = $"public.{relation.Name} ({relation.Columns})";
+                await using var output = await source.BeginRawBinaryCopyAsync($"COPY {table} TO STDOUT (FORMAT BINARY)", ct);
+                await using var copy = await target.BeginRawBinaryCopyAsync($"COPY {table} FROM STDIN (FORMAT BINARY)", ct);
+                try { await output.CopyToAsync(copy, ct); }
+                catch { await copy.CancelAsync(); throw; }
+            }
+            foreach (var sequence in ProjectionSequences)
+            {
+                var next = await ProjectionSequenceNextAsync(source, sourceTx, sequence, ct);
+                await ExecuteAsync(target, tx, $"ALTER SEQUENCE public.{sequence.Name} RESTART WITH {next.ToString(CultureInfo.InvariantCulture)}", ct);
+            }
+            await ExecuteAsync(target, tx, "SET CONSTRAINTS ALL IMMEDIATE", ct);
+            var (written, attached) = await ReadBackupSiteAsync(target, tx, ct);
+            if (attached.Count != 0 || !written.Where(row => transferredNames.Contains(row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal).SequenceEqual(expected) ||
+                !written.Where(row => !transferredNames.Contains(row.Name)).SequenceEqual(actual.Where(row => !transferredNames.Contains(row.Name))))
+                throw new InvalidOperationException("Activated runtime release rows failed independent database readback.");
+        }
+        await VerifyActivePublicationsAsync(target, tx, ct);
+        await VerifyPublicationHistoryAsync(target, tx, ct);
+        await VerifyArticleScheduleAsync(target, tx, ct);
+        await tx.CommitAsync(ct);
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            activationSha256 = approvalSha, siteId = input.Site, publications = expected.Single(row => row.Name == "article_publication").Rows,
+            result = pristine ? "activated" : "revalidated", legacyCandidateServing = false, readyToApply = false
+        }, Json));
+    }
+
+    private static async Task<Guid[]> VerifyLegacyFirstReleaseScopeAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+        ImportPlan plan, CancellationToken ct)
+    {
+        var counts = plan.ExpectedTables.ToDictionary(row => row.Table, row => row.Rows, StringComparer.Ordinal);
+        var articles = counts["shadow_article"];
+        if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
+            plan.Version != ImportPlanWithProcessedOutboxVersion || plan.Media is not null || articles is < 1 or > 32 ||
+            counts.Any(item => item.Value != 0 && !FirstReleaseShadows.Value.Contains(item.Key)) ||
+            new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_policy", "shadow_article_rights_snapshot", LegacyOutboxParent.Table.Name }
+                .Any(table => counts[table] != articles) || counts[LegacyOutboxEdge.Table.Name] != articles * LegacyRequiredOutboxEdges.Length)
+            throw new InvalidOperationException("Release activation requires a complete batch of first immediate publications and their retained work.");
+        await using var command = new NpgsqlCommand($"""
+            SELECT a.owner_id::uuid
+            FROM {ImportSchema}.shadow_article a
+            JOIN {ImportSchema}.shadow_revision r ON r.source_revision_id=a.current_source_revision_id
+            JOIN {ImportSchema}.shadow_publication p ON p.source_publication_id=a.current_publication_id
+            JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
+            JOIN {ImportSchema}.shadow_article_rights_policy q ON q.id=s.article_rights_policy_id AND q.article_id=a.id
+            WHERE a.source_status=2 AND a.deleted=0 AND a.current_revision=1 AND a.current_public_revision_candidate=1
+              AND a.last_publication_number=1 AND a.summary IS NOT DISTINCT FROM r.summary
+              AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=1
+              AND p.publication_number=1 AND p.revision=1 AND p.source_transition='immediate-publish'
+              AND p.source_responsibility_snapshot_id IS NULL AND s.enabled=1 AND s.proof_binding_enabled=0
+              AND (q.enabled,q.license_type,q.copyright_holder,q.copyright_year,q.rights_statement,q.attribution_template,
+                q.copy_policy,q.max_excerpt_chars,q.allow_code_copy,q.show_public_badge,q.proof_binding_enabled)
+                  IS NOT DISTINCT FROM (s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,s.attribution_template,
+                    s.copy_policy,s.max_excerpt_chars,s.allow_code_copy,s.show_public_badge,s.proof_binding_enabled)
+              AND EXISTS (SELECT FROM {ImportSchema}.{LegacyOutboxParent.Table.Name} e
+                  WHERE e.event_type='created' AND e.aggregate_id=a.id AND e.article_revision_id=r.source_revision_id
+                    AND e.article_publication_id=p.source_publication_id AND e.rights_snapshot_id=s.id)
+              AND NOT EXISTS (SELECT FROM {ImportSchema}.shadow_article_revision_content_block b
+                  WHERE NOT EXISTS (SELECT FROM {ImportSchema}.shadow_revision x WHERE x.source_content_block_id=b.id))
+            ORDER BY a.id
+            """, db, tx);
+        var owners = new List<Guid>();
+        await using var rows = await command.ExecuteReaderAsync(ct);
+        while (await rows.ReadAsync(ct)) owners.Add(rows.GetGuid(0));
+        if (owners.Count != articles)
+            throw new InvalidOperationException("A first-release article, approved owner, rights policy or retained delivery differs.");
+        return owners.Distinct().Order().ToArray();
+    }
+}

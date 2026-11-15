@@ -77,7 +77,7 @@ internal static partial class Migration
             var witness = await ReadLegacyMediaActivationArticleAsync(quarantine, quarantineTx, owners[reference.AssetId], reference, ct);
             references.Add(new(reference, witness));
         }
-        var settings = ParseLegacyMediaActivationDatabase();
+        var settings = ParseLegacyRuntimeActivationDatabase(LegacyMediaActivationVariable);
         await using var destination = new NpgsqlConnection(settings.ConnectionString);
         await destination.OpenAsync(ct);
         await RequireBackupDatabaseLockAsync(destination, ct);
@@ -190,10 +190,10 @@ internal static partial class Migration
         return activation.ApprovalSha256;
     }
 
-    private static NpgsqlConnectionStringBuilder ParseLegacyMediaActivationDatabase()
+    private static NpgsqlConnectionStringBuilder ParseLegacyRuntimeActivationDatabase(string variable)
     {
-        var dsn = Environment.GetEnvironmentVariable(LegacyMediaActivationVariable);
-        if (string.IsNullOrWhiteSpace(dsn)) throw new ArgumentException($"Set {LegacyMediaActivationVariable} to the independent runtime copy.");
+        var dsn = Environment.GetEnvironmentVariable(variable);
+        if (string.IsNullOrWhiteSpace(dsn)) throw new ArgumentException($"Set {variable} to the independent runtime copy.");
         var settings = new NpgsqlConnectionStringBuilder(dsn) { Pooling = false, Enlist = false, Multiplexing = false, CommandTimeout = 30 };
         if (settings.Database is not { } name || !name.StartsWith(LegacyMediaRuntimePrefix, StringComparison.Ordinal) ||
             name.Length <= LegacyMediaRuntimePrefix.Length || name.Length > 63 || name.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_') ||

@@ -165,6 +165,24 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 使用已独立校验的 `ecbff9d` 发布包，在 PostgreSQL 18.7 上通过回滚与首发两种演练。回滚模式在原库和隔离库之间逐项比对 44 条记录，复验三条原始事件 JSON 的摘要和 21 条投递键。副本恢复后公开修订 3、发布 `900000003` 和权利 `702`。前两次发布坐标被拒绝，第二次发布的内容不出现在公开页面或搜索中。两个模式都完成重启摘要复验、停止后的全表及序列比较，并清理各自拥有的数据库、副本和临时目录。见 `artifacts/native-migration/legacy-runtime.7jHj6mG1/run.txt` 和 `artifacts/native-migration/legacy-runtime-rollback-native-20261115T022901Z.log`。
 
+### 启用已审核的即时首发文章
+
+对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇仅有首次即时发布的文章。每篇必须有完整的首修订、发布坐标、匹配的当前及发布权利，以及已完成的原出站事件和七条投递边。附件、额外历史、责任快照、证明绑定及其他未转换的有效数据均阻塞本切片。原始旧投递仍由隔离库保管。
+
+为运行副本独立审核并预置原映射 UUID 对应的禁用所有者。目标须为 `fsusv2_import_runtime_*` 当前库，通过所有者专用 Unix socket 连接且 PostgreSQL 不监听 TCP。另行备份该基线并保存清单 SHA-256。使用 `FSUSBLOG_IMPORT_DB` 指向原隔离库，使用 `FSUSBLOG_RELEASE_ACTIVATION_DB` 指向运行副本。导出计划，审核绑定的来源、目标及回退摘要和待写关系，再独立保管审批文件 SHA-256。
+
+```bash
+migrate=(dotnet src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll)
+release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sha256"
+    "$runtime_site" "$runtime_rollback" "$runtime_rollback_sha256")
+"${migrate[@]}" legacy import release-plan "${release_args[@]}" > "$release_approval"
+"${migrate[@]}" legacy import release-activate "${release_args[@]}" "$release_approval" "$approved_sha256"
+```
+
+启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
+
+PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。

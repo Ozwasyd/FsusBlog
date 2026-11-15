@@ -43,6 +43,14 @@ internal static partial class Migration
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
+        if (arguments is [("release-plan" or "release-activate") and var release, var sourcePlan, var sourcePlanSha,
+                var sourceBackup, var sourceBackupSha, var runtimeSite, var rollback, var rollbackSha, .. var approvalArgs])
+        {
+            if (approvalArgs.Length != (release == "release-plan" ? 0 : 2))
+                throw new ArgumentException("Release activation requires the separately approved plan and SHA-256.");
+            return await RunLegacyProjectionAsync(release, sourcePlan, sourcePlanSha, sourceBackup, sourceBackupSha, null,
+                null, null, null, token, new(ParseLegacySiteId(runtimeSite), rollback, rollbackSha, approvalArgs));
+        }
         LegacyImportMediaInput? media = null;
         if (arguments is [.. var core, "--media", var mediaPath, var mediaDigest])
         {
