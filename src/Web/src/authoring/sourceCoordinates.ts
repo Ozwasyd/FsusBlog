@@ -33,10 +33,12 @@ function textareaOffset(source: string, offset: number): number {
   return result
 }
 
-export function textareaSourceRange(source: string, textarea: string, range: SourceRange): SourceRange | undefined {
+export function textareaSourceRange(source: string, textarea: string, range: SourceRange,
+  lineEndings: 'editor' | 'native' = 'editor'): SourceRange | undefined {
   if (range.end < range.start || !validBoundary(source, range.start) || !validBoundary(source, range.end)) return
-  if (source.includes('\r') && !hasUniformCrlf(source)) return
-  if (textarea !== normalizeCrlf(source)) return
+  if (lineEndings === 'editor' && source.includes('\r') && !hasUniformCrlf(source)) return
+  const expected = lineEndings === 'native' ? source.replace(/\r\n?/gu, '\n') : normalizeCrlf(source)
+  if (textarea !== expected) return
   const start = textareaOffset(source, range.start)
   return { start, end: range.start === range.end ? start : textareaOffset(source, range.end) }
 }

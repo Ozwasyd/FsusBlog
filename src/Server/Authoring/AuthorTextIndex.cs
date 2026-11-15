@@ -21,7 +21,6 @@ internal static class AuthorTextIndex
     private const int BatchSize = 8;
     private const int BatchSourceCharacters = 250_000;
     private const string RankOrder = "p.phrase_rank desc,p.field_rank desc,p.updated_unix_ms desc,p.article_id";
-    private const string RankHighlightOrder = "h.phrase desc,h.field,h.start_u16,h.clause";
     private const string RankTime = "floor(extract(epoch from a.updated_at)*1000)::bigint";
     private const string OwnerEligible = $"a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}";
     private static readonly Guid Scope = new("d02dce0a-3e06-42e4-a637-c6985a327eb1");
@@ -60,7 +59,8 @@ internal static class AuthorTextIndex
 
     internal static async Task<AuthorTextFacetedPage> ReadQualified(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, long? updatedFromUnixMs, long? updatedUntilUnixMs, long schemaRevision,
-        IReadOnlyList<PropertyCondition> conditions, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+        IReadOnlyList<PropertyCondition> conditions, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
+        bool includeSummary = false)
     {
         ValidateContinuation(after, expectedGeneration);
         var properties = new PropertyStore(db, tx, actor);
@@ -85,9 +85,9 @@ internal static class AuthorTextIndex
             throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
         }
 
-        if (after is null) await Reconcile(db, tx, actor.Id, ct);
+        if (after is null) await Reconcile(db, tx, actor.Id, ct, includeSummary);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(updatedFromUnixMs, updatedUntilUnixMs, resolved));
+            new(updatedFromUnixMs, updatedUntilUnixMs, resolved), includeSummary);
     }
 
     private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
@@ -107,27 +107,31 @@ internal static class AuthorTextIndex
 
     // A closed set of current revisions, rather than an outbox high-water mark, witnesses
     // completeness. A late-committing writer is seen as an exact mismatch on the next read.
-    private static string Changed => $"""
+    private static string Changed(bool includeSummary = false) => $"""
         eligible as materialized ({Eligible}),
-        {IndexChanges("eligible")}
+        {IndexChanges("eligible", includeSummary)}
         """;
 
-    private static string IndexChanges(string scope) => $"""
-        indexed as materialized (select article_id,revision from public.author_text_document where owner_id=$1 and profile={AuthorTextProfile.Version}),
+    private static string IndexChanges(string scope, bool includeSummary) => $"""
+        indexed as materialized (
+            select article_id,revision,profile from public.author_text_document where owner_id=$1
+        ),
         changed as (
             select coalesce(e.id,d.article_id) as id,e.revision
             from {scope} e full join indexed d on d.article_id=e.id
             where e.revision is distinct from d.revision
+                {(includeSummary ? $"or d.profile<>{AuthorTextProfile.SummaryIndexVersion}" : "")}
         )
         """;
 
-    private static async Task Reconcile(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct)
+    private static async Task Reconcile(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct,
+        bool includeSummary = false)
     {
         var batch = new List<Pending>(BatchSize);
         await using (var read = Store.Sql(db, tx, $"""
-            with {Changed},
+            with {Changed(includeSummary)},
             picked as (select * from changed order by id limit $2)
-            select p.id,p.revision,r.title,r.body
+            select p.id,p.revision,r.title,r.body,coalesce(r.author_summary,'')
             from picked p left join public.article_revision r on r.article_id=p.id and r.revision=p.revision
             order by p.id
             """, owner, BatchSize))
@@ -137,15 +141,17 @@ internal static class AuthorTextIndex
             while (await rows.ReadAsync(ct))
             {
                 var id = rows.GetInt32(0);
-                if (rows.IsDBNull(1)) batch.Add(new(id, null, null, null));
+                if (rows.IsDBNull(1)) batch.Add(new(id, null, null, null, ""));
                 else
                 {
                     if (rows.IsDBNull(2) || rows.IsDBNull(3)) throw InvalidIndex();
                     var title = rows.GetString(2);
                     var body = rows.GetString(3);
-                    if (title.Length > AuthorTextProfile.MaxSourceChars || body.Length > AuthorTextProfile.MaxSourceChars)
+                    var summary = rows.GetString(4);
+                    if (title.Length > AuthorTextProfile.MaxSourceChars || body.Length > AuthorTextProfile.MaxSourceChars ||
+                        summary.Length > WireLimits.ArticleSummaryReadChars || Utf8.GetByteCount(summary) > WireLimits.ArticleSummaryReadBytes)
                         throw InvalidIndex();
-                    batch.Add(new(id, rows.GetInt64(1), title, body));
+                    batch.Add(new(id, rows.GetInt64(1), title, body, summary));
                 }
             }
         }
@@ -153,7 +159,7 @@ internal static class AuthorTextIndex
         var sourceCharacters = 0;
         foreach (var entry in batch)
         {
-            sourceCharacters += (entry.Title?.Length ?? 0) + (entry.Body?.Length ?? 0);
+            sourceCharacters += (entry.Title?.Length ?? 0) + (entry.Body?.Length ?? 0) + entry.Summary.Length;
             if (sourceCharacters > BatchSourceCharacters) break;
             await using (var postings = Store.Sql(db, tx,
                 "delete from public.author_text_posting where owner_id=$1 and article_id=$2", owner, entry.Id))
@@ -164,16 +170,17 @@ internal static class AuthorTextIndex
             if (entry is { Revision: { } revision, Title: { } title, Body: { } body })
             {
                 await using var insert = Store.Sql(db, tx, """
-                    insert into public.author_text_document(owner_id,article_id,revision,profile,title_digest,body_digest)
-                    values($1,$2,$3,$4,$5,$6)
-                    """, owner, entry.Id, revision, AuthorTextProfile.Version, Digest(title), Digest(body));
+                    insert into public.author_text_document(owner_id,article_id,revision,profile,title_digest,body_digest,summary_digest)
+                    values($1,$2,$3,$4,$5,$6,$7)
+                    """, owner, entry.Id, revision, AuthorTextProfile.SummaryIndexVersion, Digest(title), Digest(body), Digest(entry.Summary));
                 await insert.ExecuteNonQueryAsync(ct);
                 await using var copy = await db.BeginBinaryImportAsync("""
                     copy public.author_text_posting(owner_id,article_id,field,ordinal,term,start_u16,end_u16,start_u8,end_u8)
                     from stdin (format binary)
                     """, ct);
-                await WriteTerms(copy, owner, entry.Id, 1, title, ct);
-                await WriteTerms(copy, owner, entry.Id, 2, body, ct);
+                await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.Title, title, ct);
+                await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.MarkdownBody, body, ct);
+                await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.Summary, entry.Summary, ct);
                 await copy.CompleteAsync(ct);
             }
         }
@@ -198,9 +205,15 @@ internal static class AuthorTextIndex
         }
     }
 
-    // Title and body weights follow the frozen author search registry. Every clause
+    // Field weights follow the frozen author search registry. Every clause
     // contributes at most one match. Repetition cannot increase its weight.
-    internal const string MatchCtes = """
+    private static string FieldPriority(string field, bool includeSummary) =>
+        includeSummary ? $"case {field} when 1 then 1 when 3 then 2 else 3 end" : field;
+
+    private static string RankHighlightOrder(bool includeSummary) =>
+        $"h.phrase desc,{FieldPriority("h.field", includeSummary)},h.start_u16,h.clause";
+
+    private static string MatchCtes(bool includeSummary = false) => $"""
         requirements as (
             select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
                 q(clause,field,phrase,step,term)
@@ -211,6 +224,7 @@ internal static class AuthorTextIndex
             from requirements q join public.author_text_posting p on p.owner_id=$1 and p.term=q.term
             join eligible e on e.id=p.article_id
             where (select admitted from witness) and q.step=0 and (q.field=0 or p.field=q.field)
+              {(includeSummary ? "" : "and p.field<=2")}
               and not exists (
                 select from requirements rest where rest.clause=q.clause and rest.step>0 and not exists (
                     select from public.author_text_posting n
@@ -218,12 +232,12 @@ internal static class AuthorTextIndex
                       and n.term=rest.term and (not q.phrase or n.ordinal=p.ordinal+rest.step)
                 )
               )
-            order by p.article_id,q.clause,p.field,p.ordinal
+            order by p.article_id,q.clause,{FieldPriority("p.field", includeSummary)},p.ordinal
         ),
         ranked_hits as (
             select h.article_id,
-                coalesce(sum(case h.field when 1 then 10 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
-                sum(case h.field when 1 then 10 else 1 end)::integer as field_rank
+                coalesce(sum(case h.field when 1 then 10 when 3 then 4 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
+                sum(case h.field when 1 then 10 when 3 then 4 else 1 end)::integer as field_rank
             from clause_hits h
             group by h.article_id having count(*)=$7
         )
@@ -268,11 +282,11 @@ internal static class AuthorTextIndex
         var more = false;
         byte[]? generation = null;
         var ordering = ranked ? RankOrder : "p.article_id desc";
-        var highlightOrder = ranked ? RankHighlightOrder : "h.clause,h.field,h.ordinal";
+        var highlightOrder = ranked ? RankHighlightOrder(includeSummary: false) : "h.clause,h.field,h.ordinal";
         // The statement witnesses eligibility, the complete generation, and the exact
         // readback together. A stale cursor cannot reach candidate source or snippets.
         await using (var query = Store.Sql(db, tx, $"""
-            with {Changed},
+            with {Changed()},
             readiness as (
                 select complete,case when $9 and complete then ({Generation}) end as generation
                 from (select not exists(select from changed) as complete) state
@@ -280,7 +294,7 @@ internal static class AuthorTextIndex
             witness as (
                 select complete,generation,complete and ($10::bytea is null or generation=$10) as admitted from readiness
             ),
-            {MatchCtes},
+            {MatchCtes()},
             selected as (
                 select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision
                 from ranked_hits m join eligible e on e.id=m.article_id
@@ -338,7 +352,7 @@ internal static class AuthorTextIndex
     private static string NameWitness(string column) =>
         $"pg_catalog.int4send(octet_length(pg_catalog.convert_to({column},'UTF8'))) || pg_catalog.convert_to({column},'UTF8')";
 
-    private static string FacetMetadata(int generationParameter) => $$"""
+    private static string FacetMetadata(int generationParameter, bool includeSummary) => $$"""
         owner_scope as materialized (
             select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventoryEndpoints.CurrentState}} as state,
                 coalesce(c.id,0) as category_id,coalesce(c.name,'') as category_name,
@@ -355,7 +369,7 @@ internal static class AuthorTextIndex
             ) t on true
             where {{OwnerEligible}}
         ),
-        {{IndexChanges("owner_scope")}}
+        {{IndexChanges("owner_scope", includeSummary)}}
         """;
 
     // Every article contributes its exact current lifecycle and ordered taxonomy facts.
@@ -390,7 +404,7 @@ internal static class AuthorTextIndex
 
     private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
-        QualifiedFilters? qualification = null)
+        QualifiedFilters? qualification = null, bool includeSummary = false)
     {
         var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
         var total = 0;
@@ -423,7 +437,7 @@ internal static class AuthorTextIndex
         var sourceGeneration = SourceGeneration(parameters, qualification?.Conditions);
 
         await using (var query = Store.Sql(db, tx, $$"""
-            with {{FacetMetadata(14)}},
+            with {{FacetMetadata(14, includeSummary)}},
             eligible as materialized (
                 select * from owner_scope a
                 where ($15=0 or a.state=$15) and ($16=0 or a.category_id=$16)
@@ -435,7 +449,7 @@ internal static class AuthorTextIndex
             witness as (
                 select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
             ),
-            {{MatchCtes}},
+            {{MatchCtes(includeSummary)}},
             selected as materialized (
                 select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision,
                     e.state,e.category_id,e.category_name,e.tag_ids
@@ -474,14 +488,14 @@ internal static class AuthorTextIndex
                 order by {{RankOrder}} limit $8
             )
             select witness.admitted,witness.generation,p.article_id,p.revision,h.field,h.start_u16,h.end_u16,h.start_u8,h.end_u8,r.title,
-                case h.field when 1 then r.title else r.body end,
-                case h.field when 1 then d.title_digest else d.body_digest end,
+                case h.field when 1 then r.title {{(includeSummary ? "when 3 then r.author_summary" : "")}} else r.body end,
+                case h.field when 1 then d.title_digest {{(includeSummary ? "when 3 then d.summary_digest" : "")}} else d.body_digest end,
                 h.clause,p.phrase_rank,p.field_rank,p.updated_unix_ms,
                 totals.total,totals.states,cb.ids,cb.names,cb.hits,tb.ids,tb.names,tb.hits
             from witness cross join totals cross join category_buckets cb cross join tag_buckets tb
             left join picked p on witness.admitted
             left join lateral (
-                select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder}} limit 1
+                select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder(includeSummary)}} limit 1
             ) h on true
             left join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
             left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
@@ -516,7 +530,7 @@ internal static class AuthorTextIndex
         }
 
         if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation,
-                qualification?.Conditions))
+                qualification?.Conditions, includeSummary))
             throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
         return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags);
     }
@@ -541,6 +555,7 @@ internal static class AuthorTextIndex
 
     private static AuthorTextRankedRow ReadMatch(NpgsqlDataReader rows, AuthorTextQuery input)
     {
+        if (rows.IsDBNull(10) || rows.IsDBNull(11)) throw InvalidIndex();
         var raw = rows.GetString(10);
         var digest = rows.GetFieldValue<byte[]>(11);
         var start = rows.GetInt32(5);
@@ -560,7 +575,7 @@ internal static class AuthorTextIndex
 
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null,
-        PropertyStore.Condition[]? conditions = null)
+        PropertyStore.Condition[]? conditions = null, bool includeSummary = false)
     {
         var ids = matches.Select(row => row.Match.Id).ToArray();
         if (ids.Length > 0)
@@ -574,7 +589,7 @@ internal static class AuthorTextIndex
         // The lock can wait behind an article change. Observe the fresh archive, source
         // and ranking state in a new statement even when a ranked result has zero rows.
         var scope = facetAuthorityGeneration.HasValue ? "owner_scope" : "eligible";
-        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5) : Changed;
+        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5, includeSummary) : Changed();
         var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
@@ -616,5 +631,5 @@ internal static class AuthorTextIndex
 
     private static byte[] Digest(string raw) => SHA256.HashData(Utf8.GetBytes(raw));
     private static BusinessException InvalidIndex() => new(Rejection.Conflict, "The private article index could not verify the current source.");
-    private sealed record Pending(int Id, long? Revision, string? Title, string? Body);
+    private sealed record Pending(int Id, long? Revision, string? Title, string? Body, string Summary);
 }

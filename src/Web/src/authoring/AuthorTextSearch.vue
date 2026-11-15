@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextFacetedSearch, authorTextQualifiedSearch } from '../../../Contracts/author-text-ranked-client'
+import { authorTextSummarySearch } from '../../../Contracts/author-text-ranked-client'
 import type { AuthorTextFacetedPage, AuthorTextQualifiedQuery, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import type { PropertyQuery } from '../../../Contracts/property-query'
@@ -11,10 +11,10 @@ import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
 
-type Qualification = Omit<AuthorTextQualifiedQuery, 'query' | 'cursor'>
-type SearchInput = { query: string; qualification?: Qualification }
+type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'>
 type SearchPage = AuthorTextFacetedPage & { input: SearchInput; cursor: string; previous: readonly string[] }
 const PreviousPageLimit = 500
+const fieldLabels = { title: '标题', body: '正文', summary: '摘要' } as const
 const states = [
   { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
   { value: 'published', label: '已发布' }, { value: 'retracted', label: '已撤回' },
@@ -88,22 +88,18 @@ function search() {
     error.value = '请输入有效的 UTC 日期。起始日期必须早于截止日期。'
     return
   }
-  const qualification = from !== null || until !== null || properties.value
-    ? { updatedFromUnixMs: from, updatedUntilUnixMs: until, schema: properties.value?.schema ?? 0n,
-        conditions: properties.value?.conditions ?? [] }
-    : undefined
-  return loadPage({ query: query.value.trim(), qualification }, '', [], false)
+  return loadPage({
+    query: query.value.trim(), updatedFromUnixMs: from, updatedUntilUnixMs: until,
+    schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [],
+  }, '', [], false)
 }
 
 function readPage(input: SearchInput, cursor: string, session: string, signal: AbortSignal) {
-  const request = { query: input.query, cursor }
-  return input.qualification
-    ? authorTextQualifiedSearch({ ...request, ...input.qualification }, session, signal)
-    : authorTextFacetedSearch(request, session, signal)
+  return authorTextSummarySearch({ ...input, cursor }, session, signal)
 }
 
 function propertyDependenciesChanged(input: SearchInput, failure: unknown) {
-  return !!input.qualification?.conditions.length && failure instanceof ApiError && (failure.status === 404 || failure.status === 409)
+  return input.conditions.length > 0 && failure instanceof ApiError && (failure.status === 404 || failure.status === 409)
 }
 
 function showNextPage() {
@@ -269,7 +265,8 @@ async function openMatch(row: AuthorTextSearchRow) {
     <summary>作者全文搜索</summary>
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
       <p id="author-text-search-help">
-        可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题，或用 <code>field.markdown-body:</code> 限定正文。
+        可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题、<code>field.markdown-body:</code> 限定正文，
+        或用 <code>field.summary:</code> 限定摘要。
         可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
       </p>
       <ElInput v-model="query" label="全文搜索词" clearable
@@ -284,7 +281,7 @@ async function openMatch(row: AuthorTextSearchRow) {
         {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
       </ElButton>
     </form>
-    <p v-if="opening" role="status">正在复查{{ opening.row.field === 'title' ? '标题' : '正文' }}命中位置…</p>
+    <p v-if="opening" role="status">正在复查{{ fieldLabels[opening.row.field] }}命中位置…</p>
     <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <p v-if="pending" role="status">正在搜索全文…</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
@@ -319,7 +316,7 @@ async function openMatch(row: AuthorTextSearchRow) {
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
-          <span class="author-text-search-field">{{ row.field === 'title' ? '标题' : '正文' }}</span>
+          <span class="author-text-search-field">{{ fieldLabels[row.field] }}</span>
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
           <ElButton text native-type="button" v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
             跳到命中位置

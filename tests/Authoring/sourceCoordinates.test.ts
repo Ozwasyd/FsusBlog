@@ -39,6 +39,19 @@ test('the entire textarea must match and neither boundary can split a CRLF pair 
   assert.equal(textareaSourceRange('A\rB', 'A\nB', { start: 2, end: 2 }), undefined)
 })
 
+test('the summary textarea can normalize mixed native newlines without weakening source checks', () => {
+  const mixed = '前言 🧭\r\nLine two\r\nCafe\u0301\nLine four\rHit'
+  const displayed = '前言 🧭\nLine two\nCafe\u0301\nLine four\nHit'
+  const start = mixed.indexOf('Cafe')
+  const end = mixed.length
+  assert.deepEqual(textareaSourceRange(mixed, displayed, { start, end }, 'native'), {
+    start: displayed.indexOf('Cafe'), end: displayed.length,
+  })
+  assert.equal(textareaSourceRange(mixed, displayed, { start, end }), undefined)
+  assert.equal(textareaSourceRange(mixed, displayed.normalize(), { start, end }, 'native'), undefined)
+  assert.equal(textareaSourceRange(mixed, displayed, { start: mixed.indexOf('\n'), end }, 'native'), undefined)
+})
+
 test('a search match must have the exact raw coordinates, text, and whole-source digest', async () => {
   const match = 'Cafe\u0301'
   const sourceStart = raw.indexOf(match)

@@ -20,7 +20,7 @@ import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { exercisePropertyFilter } from './property-filter-flow.mjs'
-import { exerciseAuthorTextSearch } from './author-text-search-flow.mjs'
+import { exerciseAuthorTextSearch, exerciseSummarySearchReveal } from './author-text-search-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -335,7 +335,8 @@ try {
   await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand,
     publicFixture: config.publicFixture })
 
-  const firstSummary = `Draft summary ${token}`
+  const summaryTerm = `summaryprobe${token}`
+  const firstSummary = `摘要 🧭 Cafe\u0301\nDraft ${summaryTerm}`
   const publishedSummary = `This release note has a manual summary ${token}.`
   const summaryPath = WireRoutes.ArticleSummary.replace('{id:int}', String(writtenId))
   const summaryInput = publisher.getByLabel('Summary text', { exact: true })
@@ -367,11 +368,14 @@ try {
     await visible(summaryInput)
     assert.equal(await summaryInput.inputValue(), text)
     await visible(publisher.getByText('Summary saved.', { exact: true }))
+    return draft
   }
   await inspectSummary()
   await summaryInput.fill(firstSummary)
   assert(await button(publisher, 'Publish article').isDisabled())
-  await saveSummary(firstSummary)
+  const savedSummaryDraft = await saveSummary(firstSummary)
+  await exerciseSummarySearchReveal({ publisher, origin, draft: savedSummaryDraft, source: firstSummary,
+    word: summaryTerm, monitor, observations })
   const privatePage = await nativeFetch(`${origin}/article/${writtenId}`)
   assert.equal(privatePage.status, 404)
   assert(!(await privatePage.text()).includes(firstSummary))

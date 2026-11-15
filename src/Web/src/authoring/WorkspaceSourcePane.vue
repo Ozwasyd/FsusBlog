@@ -149,6 +149,7 @@ function visibleInput(control: HTMLInputElement | HTMLTextAreaElement): boolean 
 async function revealSearch(seek: Extract<EditorSourceSeek, { kind: 'search' }>, ownsTarget: () => boolean): Promise<boolean> {
   const { target } = seek
   const { field, sourceStart: start, sourceEnd: end } = target
+  if (field === 'summary') return false
   const source = props.pane.draft[field]
   const editor = editorDocument.value
   const mode = outlineMode.value

@@ -5,6 +5,7 @@ import {
   decodeAuthorTextFacetedPage, decodeAuthorTextFacetedQuery, encodeAuthorTextFacetedQuery,
   decodeAuthorTextQualifiedQuery, encodeAuthorTextQualifiedQuery, type AuthorTextQualifiedQuery,
   decodeAuthorTextRankedPage, decodeAuthorTextRankedQuery, decodeAuthorTextSearchPage,
+  decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery, encodeAuthorTextSummaryQuery,
   encodeAuthorTextRankedPage, encodeAuthorTextRankedQuery, type AuthorTextSearchRow, type AuthorTextTaxonomyFacet,
 } from '../../src/Contracts/author-text-search.ts';
 import type { FilterField } from '../../src/Contracts/property-query.ts';
@@ -143,6 +144,21 @@ test('qualified conditions reuse all eight typed values and preserve alternative
   }
 });
 
+test('summary search accepts omitted qualifiers under its own request discriminator', () => {
+  const query = { query: 'harbor', cursor: '', updatedFromUnixMs: null, updatedUntilUnixMs: null, schema: 0n, conditions: [] };
+  const frame = encodeAuthorTextSummaryQuery(query);
+  const { payload } = decodeFrame(frame, FrameType.AuthorTextSummaryQuery);
+  equal(FrameType.AuthorTextSummaryQuery, 33018);
+  equal(Buffer.from(payload).toString('hex'), '06000000686172626f72' + '00000000' + '0000' + '0000000000000000' + '00000000');
+  deepEqual(decodeAuthorTextSummaryQuery(payload), query);
+  throws(() => decodeFrame(frame, FrameType.AuthorTextQualifiedQuery), ProtocolError);
+  throws(() => decodeAuthorTextQualifiedQuery(payload), ProtocolError);
+  throws(() => encodeAuthorTextSummaryQuery({ ...query, schema: 1n }), ProtocolError);
+  throws(() => encodeAuthorTextSummaryQuery({ ...query, updatedFromUnixMs: 5n, updatedUntilUnixMs: 4n }), ProtocolError);
+  const old = decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload;
+  deepEqual(decodeFrame(encodeAuthorTextSummaryQuery(qualified)).payload, old);
+});
+
 test('faceted pages decode independent wire bytes with exact state and taxonomy order', () => {
   // Independently packed with little-endian counters and UTF-8 lengths.
   const payload = Buffer.from(
@@ -221,4 +237,39 @@ test('faceted pages enforce totals, pending shape, taxonomy limits and continuat
     { tags: [{ ...facet, id: 2 }, facet] },
     { tags: [{ ...facet, count: 2 }, facet] },
   ]) throws(() => decodeAuthorTextFacetedPage(facetedPayload(value)), ProtocolError);
+});
+
+
+test('summary source coordinates are admitted only by the new page and use both dedicated caps', () => {
+  const summaryBoundary = {
+    ...row,
+    sourceStart: WireLimits.ArticleSummaryReadChars - 2, sourceEnd: WireLimits.ArticleSummaryReadChars,
+    sourceByteStart: WireLimits.ArticleSummaryReadBytes - 4, sourceByteEnd: WireLimits.ArticleSummaryReadBytes,
+  };
+  function withSummaryField(payload: Uint8Array, rowStart: number, match: AuthorTextSearchRow) {
+    const changed = Buffer.from(payload);
+    const fieldOffset = rowStart + 4 + 8 + 4 + Buffer.byteLength(match.title);
+    changed.writeInt32LE(3, fieldOffset);
+    return changed;
+  }
+  function summaryPayload(match: AuthorTextSearchRow) {
+    const payload = facetedPayload({ rows: [match] });
+    // Ready, cursor length, total, four states, two empty facet buckets, and row count.
+    return withSummaryField(payload, 1 + 4 + 4 + 16 + 5 + 5 + 4, match);
+  }
+  const payload = summaryPayload(summaryBoundary);
+  equal(FrameType.AuthorTextSummaryPage, 33019);
+  const match = decodeAuthorTextSummaryPage(payload).rows[0];
+  deepEqual({ ...match, sourceDigest: Uint8Array.from(match.sourceDigest) }, { ...summaryBoundary, field: 'summary' });
+  throws(() => decodeAuthorTextFacetedPage(payload), ProtocolError);
+  throws(() => encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: [match] }), ProtocolError);
+  const ranked = decodeFrame(encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: [summaryBoundary] })).payload;
+  const invalidRanked = withSummaryField(ranked, 9, summaryBoundary);
+  throws(() => decodeAuthorTextRankedPage(invalidRanked), ProtocolError);
+  throws(() => decodeAuthorTextSearchPage(Buffer.concat([Uint8Array.of(1, 0), invalidRanked.subarray(5)])), ProtocolError);
+  for (const invalid of [
+    { ...summaryBoundary, sourceStart: summaryBoundary.sourceStart + 1, sourceEnd: summaryBoundary.sourceEnd + 1 },
+    { ...summaryBoundary, sourceByteStart: summaryBoundary.sourceByteStart + 1, sourceByteEnd: summaryBoundary.sourceByteEnd + 1 },
+    { ...summaryBoundary, snippet: summaryBoundary.snippet.padEnd(WireLimits.ArticleSummaryReadChars + 1, 'a') },
+  ]) throws(() => decodeAuthorTextSummaryPage(summaryPayload(invalid)), ProtocolError);
 });

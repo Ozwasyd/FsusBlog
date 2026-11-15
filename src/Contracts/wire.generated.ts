@@ -180,6 +180,8 @@ export const FrameType = {
   AuthorTextQualifiedQuery: 33015,
   ArticleSummaryCommand: 33016,
   ArticleSummary: 33017,
+  AuthorTextSummaryQuery: 33018,
+  AuthorTextSummaryPage: 33019,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,

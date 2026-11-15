@@ -33,27 +33,35 @@ internal static class AuthorTextSearchEndpoints
                 }
                 else
                 {
-                    var qualified = type == FrameType.AuthorTextQualifiedQuery ? Wire.DecodeAuthorTextQualifiedQuery(frame) : null;
+                    var includeSummary = type == FrameType.AuthorTextSummaryQuery;
+                    var qualified = type switch
+                    {
+                        FrameType.AuthorTextSummaryQuery => Wire.DecodeAuthorTextSummaryQuery(frame),
+                        FrameType.AuthorTextQualifiedQuery => Wire.DecodeAuthorTextQualifiedQuery(frame),
+                        _ => null,
+                    };
                     var faceted = qualified is not null || type == FrameType.AuthorTextFacetedQuery;
                     var request = qualified is not null ? new AuthorTextRankedQuery(qualified.Query, qualified.Cursor)
                         : faceted ? Wire.DecodeAuthorTextFacetedQuery(frame) : Wire.DecodeAuthorTextRankedQuery(frame);
                     // Re-encode the exact requested criteria without its cursor to bind both filters and text.
-                    var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(
-                        SHA256.HashData(Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" })));
+                    var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(SHA256.HashData(includeSummary
+                        ? Wire.EncodeAuthorTextSummaryQuery(qualified with { Cursor = "" })
+                        : Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" })));
                     (AuthorTextRankKey Position, byte[] Generation)? after = request.Cursor.Length == 0
                         ? null : cursors.Decode(request.Cursor, actor, digest, cursorQuery, type);
                     if (faceted)
                     {
-                        var input = AuthorTextProfile.ParseFaceted(request.Query);
+                        var input = includeSummary ? AuthorTextProfile.ParseSummary(request.Query) : AuthorTextProfile.ParseFaceted(request.Query);
                         await RequireIndex();
                         var page = qualified is null
                             ? await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct)
                             : await AuthorTextIndex.ReadQualified(db, tx, actor, input, qualified.UpdatedFromUnixMs,
                                 qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
-                                after?.Generation, ct);
+                                after?.Generation, ct, includeSummary: includeSummary);
                         var next = Next(page.More, page.Rows, page.Generation);
-                        encoded = Wire.EncodeAuthorTextFacetedPage(new(page.Ready, next, page.Total, page.StateCounts,
-                            page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
+                        var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
+                            page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
+                        encoded = includeSummary ? Wire.EncodeAuthorTextSummaryPage(response) : Wire.EncodeAuthorTextFacetedPage(response);
                     }
                     else
                     {
@@ -73,8 +81,8 @@ internal static class AuthorTextSearchEndpoints
 
                 async Task RequireIndex()
                 {
-                    if (!await CurrentSchema.HasAuthorTextIndexAsync(db, tx, ct))
-                        throw new BusinessException(Rejection.NotFound, "The private article index is not installed.");
+                    if (!await CurrentSchema.HasAuthorTextSummaryIndexAsync(db, tx, ct))
+                        throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
                 }
             }, ct);
             return Results.Bytes(payload, Aeds.ContentType);

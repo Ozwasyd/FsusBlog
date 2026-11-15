@@ -13,10 +13,11 @@ internal static partial class Migration
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (!exists)
-        {
             await ApplySchemaAddition(connection, tx, "author-search.sql", ct);
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAuthorTextIndex: true);
-        }
+        if (!await CurrentSchema.HasAuthorTextSummaryIndexAsync(connection, tx, ct))
+            await ApplySchemaAddition(connection, tx, "author-search.v2.sql", ct);
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAuthorTextIndex: true,
+            requireAuthorTextSummaryIndex: true);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified the author full-text index schema.");
     }

@@ -65,6 +65,10 @@ let sourceArrival: { articleId: number | undefined; source?: EditorSourceTarget;
   sourceToken === undefined ? undefined : { articleId: id.value }
 let sourceSessionVerified = false
 const sourceSeek = shallowRef<EditorSourceSeek>()
+const summarySeek = computed(() => {
+  const seek = sourceSeek.value
+  if (seek?.kind === 'search' && seek.target.field === 'summary') return seek
+})
 const searchPositionUnavailable = 'The search position is no longer available. Return to article search and choose a current result.'
 const workspaceTabs = shallowRef<readonly WorkspaceTab[]>([])
 const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>([])
@@ -488,6 +492,7 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     sourceSeek.value = { kind: 'search', sessionId, target, current: () => held() && canSwitch.value &&
       editable.value && !pending.value && !revisionComparisonActive.value && registry.activeEditSequence === edit &&
       original.value?.revision === target.revision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
+    if (target.field === 'summary') setInspectorOpen(true)
   }
 }, { immediate: true })
 
@@ -649,6 +654,7 @@ function arrangeGroups(destination?: WorkspaceGroup) {
 
 function setInspectorOpen(open: boolean) {
   if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
+  if (!open && summarySeek.value) finishSourceSeek(summarySeek.value, false)
 }
 
 const openAddress = computed(() => {
@@ -1132,7 +1138,7 @@ async function reloadDraft() {
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
-          :source-target="sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
+          :source-target="!summarySeek && sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">
@@ -1167,7 +1173,7 @@ async function reloadDraft() {
           </template>
         </WorkspaceSourcePane>
       </div>
-      <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive"
+      <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive"
         :opened="persistentWorkspace ? inspectorOpen : undefined" @update:opened="setInspectorOpen">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
@@ -1223,6 +1229,7 @@ async function reloadDraft() {
         />
         <ArticleSummary :article-id="original.id" :revision="original.revision" :credential="credential"
           :can-change="canChangeSummary" :saving="articlePending && summaryDirty"
+          :source-target="summarySeek" :inspector-ready="inspectorReady" @source-revealed="finishSourceSeek"
           @change="summaryDirty = $event" @save="saveSummary" />
       </EditorInspector>
     </section>

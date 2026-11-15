@@ -15,6 +15,7 @@ const emit = defineEmits<{ 'update:opened': [value: boolean] }>()
 const compactQuery = '(max-width: 1023px)'
 const host = ref<InspectorHost>('pane')
 const expanded = ref(false)
+const drawerOpened = ref(false)
 const inspectorId = useId()
 const titleId = `${inspectorId}-title`
 const launcher = ref<HTMLButtonElement>()
@@ -32,6 +33,7 @@ function drawerPresentation(owner: InspectorPresentation, key: number) {
     events: {
       close: () => close(owner),
       closed: () => { void owner.closed() },
+      opened: () => { if (drawer.value?.key === key && expanded.value) drawerOpened.value = true },
     },
   }
 }
@@ -61,6 +63,7 @@ let drawerKey = 0
 let media: MediaQueryList | undefined
 
 function renderHost() {
+  drawerOpened.value = false
   drawer.value = host.value === 'drawer' && current
     ? drawerPresentation(current, ++drawerKey)
     : undefined
@@ -150,7 +153,7 @@ onBeforeUnmount(() => {
   <div ref="parking" hidden />
   <!-- A single slot tree moves into the live host when that host's body mounts. -->
   <Teleport v-if="contentTarget" :to="contentTarget">
-    <div class="inspector-content"><slot /></div>
+    <div class="inspector-content"><slot :ready="expanded && (host === 'pane' || drawerOpened)" /></div>
   </Teleport>
 </template>
 

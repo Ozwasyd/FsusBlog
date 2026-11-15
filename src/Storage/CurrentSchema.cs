@@ -121,7 +121,8 @@ internal static partial class CurrentSchema
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
         bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
-        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null)
+        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
+        bool requireAuthorTextSummaryIndex = false)
     {
         if (requireArticleMedia is null)
         {
@@ -225,6 +226,10 @@ internal static partial class CurrentSchema
         var hasAuthorTextIndex = await HasAuthorTextIndexAsync(connection, transaction, cancellationToken);
         if (requireAuthorTextIndex.HasValue && requireAuthorTextIndex.Value != hasAuthorTextIndex)
             throw new InvalidOperationException("The author full-text index schema presence does not match the requested operation.");
+        var hasAuthorTextSummaryIndex = hasAuthorTextIndex &&
+            await HasAuthorTextSummaryIndexAsync(connection, transaction, cancellationToken);
+        if (requireAuthorTextSummaryIndex && !hasAuthorTextSummaryIndex)
+            throw new InvalidOperationException("Run the author-search migration with the server stopped to install summary indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
@@ -282,7 +287,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
@@ -326,7 +331,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])

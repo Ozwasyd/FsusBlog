@@ -26,7 +26,7 @@ public sealed class ArticleSummaryPostgresTests
         const string title = "Draft title";
         const string body = "body-prefix-fallback 中文";
         const string marker = "summaryonlyword";
-        const string manual = marker + " 🧭 e\u0301\n二行";
+        const string manual = "🧭 e\u0301\r\n" + marker + " 二行";
         var first = await Change(ArticleAction.Save, 0, 0, title, body);
         Assert.Equal(new ArticleSummary(first.Id, first.Revision, ""), await Read(first.Id, first.Revision));
 
@@ -49,26 +49,90 @@ public sealed class ArticleSummaryPostgresTests
         Assert.Equal(0, await Count("title"));
         Assert.DoesNotContain(marker, await PublicIndex());
 
+        var qualified = new AuthorTextQualifiedQuery($"field.summary:{marker.ToUpperInvariant()}", "", null, null, 0, []);
+        var found = await Search(qualified);
+        Assert.Equal(1, found.Total);
+        Assert.Equal(new[] { 1, 0, 0, 0 }, found.StateCounts);
+        var hit = Assert.Single(found.Rows);
+        var start = manual.IndexOf(marker, StringComparison.Ordinal);
+        Assert.Equal((saved.Id, saved.Revision, 3), (hit.Id, hit.Revision, hit.Field));
+        Assert.Equal(marker, hit.Snippet[hit.HighlightStart..hit.HighlightEnd]);
+        Assert.Equal((start, start + marker.Length), (hit.SourceStart, hit.SourceEnd));
+        Assert.Equal((Encoding.UTF8.GetByteCount(manual[..start]), Encoding.UTF8.GetByteCount(manual[..(start + marker.Length)])),
+            (hit.SourceByteStart, hit.SourceByteEnd));
+        Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(manual)), hit.SourceDigest);
+        var unscoped = Assert.Single((await Search(qualified with { Query = marker })).Rows);
+        Assert.Equal(hit.SourceDigest, unscoped.SourceDigest);
+        Assert.Equal(hit, unscoped with { SourceDigest = hit.SourceDigest });
+        Assert.Empty((await Search(qualified, caller: stranger)).Rows);
+        Assert.Empty((await Search(qualified with { UpdatedFromUnixMs = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds() })).Rows);
+        var olderBodyOnly = Wire.DecodeAuthorTextFacetedPage(await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch,
+            Wire.EncodeAuthorTextFacetedQuery(new(marker, ""))));
+        Assert.True(olderBodyOnly.Ready);
+        Assert.Empty(olderBodyOnly.Rows);
+        await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch,
+            Wire.EncodeAuthorTextFacetedQuery(new(qualified.Query, "")), HttpStatusCode.BadRequest);
+        Assert.Empty((await Search(qualified with { Query = "field.summary:body-prefix-fallback" })).Rows);
+
         var edited = await Change(ArticleAction.Save, saved.Id, saved.Revision, title, body + " second source");
         Assert.Equal(manual, (await Read(edited.Id, edited.Revision)).Text);
         var published = await Change(ArticleAction.Publish, edited.Id, edited.Revision);
         await WaitForIndex(marker, "next-summary");
+        Assert.Equal(published.Revision, Assert.Single((await Search(qualified with { Query = qualified.Query + " status:published" })).Rows).Revision);
 
         var revised = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, Wire.EncodeArticleSummaryCommand(
             new(published.Id, published.Revision, Guid.NewGuid(), "next-summary"))));
         Assert.Equal("next-summary", (await Read(revised.Id, revised.Revision)).Text);
         await WaitForIndex(marker, "next-summary");
+        Assert.Empty((await Search(qualified)).Rows);
 
         var restored = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.DraftRollback,
             Wire.EncodeDraftRollback(new(revised.Id, revised.Revision, saved.Revision, Guid.NewGuid(), "Restore saved summary"))));
         Assert.Equal((body, manual), (restored.Body, (await Read(restored.Id, restored.Revision)).Text));
+        Assert.Equal(restored.Revision, Assert.Single((await Search(qualified)).Rows).Revision);
 
         var cleared = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, Wire.EncodeArticleSummaryCommand(
             new(restored.Id, restored.Revision, Guid.NewGuid(), " \t\r\n "))));
         Assert.Equal("", (await Read(cleared.Id, cleared.Revision)).Text);
         Assert.Equal(0, await Count("title-summary"));
+        Assert.Empty((await Search(qualified)).Rows);
         await Change(ArticleAction.Publish, cleared.Id, cleared.Revision);
         await WaitForIndex("body-prefix-fallback", marker);
+
+        var titleMatch = await Change(ArticleAction.Save, 0, 0, "sharedrank in the title", "Different body");
+        var summaryAndBody = await Change(ArticleAction.Save, 0, 0, "Match in two fields", "sharedrank in the body");
+        var summaryMatch = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave,
+            Wire.EncodeArticleSummaryCommand(new(summaryAndBody.Id, summaryAndBody.Revision, Guid.NewGuid(), "sharedrank in the summary"))));
+        var bodyMatch = await Change(ArticleAction.Save, 0, 0, "Only in body", "sharedrank at the end");
+        var rankedMatches = (await Search(qualified with { Query = "sharedrank" })).Rows;
+        Assert.Equal(new[] { (titleMatch.Id, 1), (summaryMatch.Id, 3), (bodyMatch.Id, 2) }, rankedMatches.Select(row => (row.Id, row.Field)));
+
+        var pageDrafts = new List<Draft>();
+        const string pagingSummary = "private–summary pagingphrase";
+        for (var i = 0; i <= WireLimits.AuthorTextSearchRows; i++)
+        {
+            var draft = await Change(ArticleAction.Save, 0, 0, $"Page {i + 1}", "Different body");
+            pageDrafts.Add(Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave,
+                Wire.EncodeArticleSummaryCommand(new(draft.Id, draft.Revision, Guid.NewGuid(), pagingSummary)))));
+        }
+        var clause = qualified with { Query = "field.summary:pagingphrase" };
+        var pending = Wire.DecodeAuthorTextSummaryPage(await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch,
+            Wire.EncodeAuthorTextSummaryQuery(clause)));
+        Assert.False(pending.Ready);
+        Assert.Empty(pending.Rows);
+        var firstPage = await Search(clause);
+        Assert.Equal(pageDrafts.Count, firstPage.Total);
+        Assert.Equal(WireLimits.AuthorTextSearchRows, firstPage.Rows.Count);
+        var continuation = clause with { Cursor = firstPage.NextCursor };
+        var tail = await Search(continuation);
+        Assert.Equal(firstPage.Total, tail.Total);
+        Assert.Equal(pageDrafts.Select(row => row.Id).Order(), firstPage.Rows.Concat(tail.Rows).Select(row => row.Id).Order());
+        Assert.All(firstPage.Rows.Concat(tail.Rows), row => Assert.Equal(3, row.Field));
+        var last = Assert.Single(tail.Rows);
+        await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, Wire.EncodeArticleSummaryCommand(
+            new(last.Id, last.Revision, Guid.NewGuid(), "Other summary")));
+        await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextSummaryQuery(continuation), HttpStatusCode.Conflict);
+        Assert.Equal(pageDrafts.Count - 1, (await Search(clause)).Total);
 
         async Task<int> Count(string match)
         {
@@ -78,6 +142,17 @@ public sealed class ArticleSummaryPostgresTests
 
         async Task<ArticleSummary> Read(int id, long revision) =>
             Wire.DecodeArticleSummary(await Send(HttpMethod.Get, SummaryUrl(id, revision)));
+
+        async Task<AuthorTextFacetedPage> Search(AuthorTextQualifiedQuery input, Actor? caller = null)
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                var frame = await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextSummaryQuery(input), caller: caller);
+                var result = Wire.DecodeAuthorTextSummaryPage(frame);
+                if (result.Ready) return result;
+            }
+            throw new InvalidOperationException("The summary fixture did not reconcile within five bounded batches.");
+        }
 
         async Task<ArticleState> Change(ArticleAction action, int id, long revision, string nextTitle = "", string nextBody = "") =>
             (await store.WithSession(owner.Token, true, (conn, tx, actor) => Store.Execute(conn, tx, actor, action,

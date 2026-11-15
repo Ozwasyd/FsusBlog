@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeAuthorTextFacetedPage } from '../../src/Contracts/author-text-search.ts'
+import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
+import { decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery } from '../../src/Contracts/author-text-search.ts'
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
@@ -11,17 +12,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
   const pagingFixtures = []
   try {
     monitor(page, 'author-full-text')
-    await page.addInitScript(() => {
-      window.__authorSearchHistory = []
-      for (const method of ['pushState', 'replaceState']) {
-        const write = History.prototype[method]
-        History.prototype[method] = function (...args) {
-          const result = Reflect.apply(write, this, args)
-          window.__authorSearchHistory.push({ method, url: location.href, state: structuredClone(history.state) })
-          return result
-        }
-      }
-    })
+    await recordEditorHistory(page)
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
     const inventory = page.getByRole('form', { name: '筛选文章', exact: true })
@@ -101,18 +92,23 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const qualified = await search(bodyTerm)
     assert.deepEqual(qualified.batch.rows.map(row => row.id), [article.id])
     assert.equal(qualified.batch.total, 1)
-    decodeFrame(qualified.response.request().postDataBuffer(), FrameType.AuthorTextQualifiedQuery)
+    const withProperty = readSearchQuery(qualified.response)
+    assert(withProperty.schema > 0n)
+    assert.equal(withProperty.conditions.length, 1)
+    assert.equal(withProperty.updatedUntilUnixMs, null)
 
     const until = form.getByLabel('更新截止日期（不含）', { exact: true })
     await until.fill('1970-01-01')
     const beforeEpoch = await search(bodyTerm)
-    decodeFrame(beforeEpoch.response.request().postDataBuffer(), FrameType.AuthorTextQualifiedQuery)
+    assert.deepEqual(readSearchQuery(beforeEpoch.response), { ...withProperty, updatedUntilUnixMs: 0n })
     assert.equal(beforeEpoch.batch.total, 0)
     await until.fill('')
     await form.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
     const cleared = await search(bodyTerm)
     assert.equal(cleared.batch.total, 1)
-    decodeFrame(cleared.response.request().postDataBuffer(), FrameType.AuthorTextFacetedQuery)
+    assert.deepEqual(readSearchQuery(cleared.response), {
+      query: bodyTerm, cursor: '', updatedFromUnixMs: null, updatedUntilUnixMs: null, schema: 0n, conditions: [],
+    })
     assert.equal(new URL(page.url()).search, '')
     observations.push('At 375px the existing, enabled Editorial date property qualifies a saved body hit; adding a UTC cutoff excludes it, and clearing both conditions restores the unqualified search.')
 
@@ -311,13 +307,106 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
   }
 }
 
+export async function exerciseSummarySearchReveal({ publisher, origin, draft, source, word, monitor, observations }) {
+  const page = await publisher.context().newPage()
+  try {
+    monitor(page, 'author-summary-search')
+    await recordEditorHistory(page)
+    await page.setViewportSize({ width: 375, height: 850 })
+    await page.goto(`${origin}/user/manage/article/list`)
+    await page.getByText('作者全文搜索', { exact: true }).click()
+    const form = page.getByRole('form', { name: '作者全文搜索', exact: true })
+    const query = form.getByLabel('全文搜索词', { exact: true })
+    const results = page.getByRole('region', { name: '全文搜索结果', exact: true })
+    async function search(text) {
+      await query.fill(text)
+      for (let attempt = 0; attempt < 16; attempt++) {
+        const reply = page.waitForResponse(isSearchReply)
+        await form.getByRole('button', { name: attempt === 0 ? '搜索全文' : '继续搜索', exact: true }).click()
+        const response = await reply
+        const batch = await readSearchReply(response)
+        if (batch.ready) { await results.waitFor(); return { response, batch } }
+      }
+      assert.fail('The private summary index was not ready after 16 batches')
+    }
+    assert.equal((await search(`field.markdown-body:${word}`)).batch.total, 0)
+    const first = await search(`field.summary:${word}`)
+    assert.equal(first.batch.total, 1)
+    const hit = exactHit(first.batch, draft, source, 'summary', word)
+    await results.getByText('摘要', { exact: true }).waitFor()
+    assert.equal(await results.locator('mark').textContent(), word)
+
+    const recheck = page.waitForResponse(isSearchReply)
+    const route = WireRoutes.ArticleSummary.replace('{id:int}', String(draft.id))
+    const receipt = page.waitForResponse(response =>
+      response.request().method() === 'GET' && new URL(response.url()).pathname === route)
+    await results.getByRole('button', { name: '跳到命中位置', exact: true }).press('Enter')
+    const checked = await recheck
+    assert.deepEqual(checked.request().postDataBuffer(), first.response.request().postDataBuffer())
+    assert.deepEqual(exactHit(await readSearchReply(checked), draft, source, 'summary', word), hit)
+    const loaded = await receipt
+    assert.equal(loaded.status(), 200)
+    assert.equal(new URL(loaded.url()).search, `?revision=${draft.revision}`)
+    const credential = WireHeaders.CurrentSession.toLowerCase()
+    assert(checked.request().headers()[credential])
+    assert.equal(loaded.request().headers()[credential], checked.request().headers()[credential])
+    assert.deepEqual(decodeArticleSummary(decodeFrame(await loaded.body(), FrameType.ArticleSummary).payload),
+      { id: draft.id, revision: draft.revision, text: source })
+
+    const editor = `${origin}/user/manage/article/edit/${draft.id}`
+    await page.waitForURL(editor)
+    const inspector = page.getByRole('dialog', { name: 'Article inspector', exact: true })
+    const textarea = inspector.getByLabel('Summary text', { exact: true })
+    await textarea.and(page.locator(':focus')).waitFor()
+    assert.deepEqual(await textarea.evaluate(control => ({ start: control.selectionStart, end: control.selectionEnd,
+      value: control.value, node: control.tagName })),
+    { start: hit.sourceStart, end: hit.sourceEnd, value: source, node: 'TEXTAREA' })
+    await page.getByText('Opened the search result at its saved position.', { exact: true }).waitFor()
+    await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
+    const entries = await page.evaluate(path => window.__authorSearchHistory.filter(item => new URL(item.url).pathname === path),
+      new URL(editor).pathname)
+    assert(entries.length > 0 && entries.every(item => item.url === editor))
+    const handoffs = entries.filter(item => Object.hasOwn(item.state ?? {}, editorSourceHandoffKey))
+    assert.equal(handoffs.length, 1)
+    assert.match(handoffs[0].state[editorSourceHandoffKey], /^[0-9a-f-]{36}$/)
+    const allowed = ['back', 'current', 'forward', 'replaced', 'position', 'scroll', 'articleWorkspace', editorSourceHandoffKey]
+    const digest = Buffer.from(hit.sourceDigest).toString('hex')
+    for (const { state } of entries) {
+      assert(Object.keys(state ?? {}).every(key => allowed.includes(key)))
+      const value = JSON.stringify(state)
+      assert([word, source, digest].every(secret => !value.includes(secret)))
+    }
+    observations.push('At 375px a saved Unicode summary is matched by its field, rechecked through the same AEDS request, and selected in the FsusUI Inspector after the exact signed-in revision reload.')
+  } finally {
+    await page.close()
+  }
+}
+
+async function recordEditorHistory(page) {
+  await page.addInitScript(() => {
+    window.__authorSearchHistory = []
+    for (const method of ['pushState', 'replaceState']) {
+      const write = History.prototype[method]
+      History.prototype[method] = function (...args) {
+        const result = Reflect.apply(write, this, args)
+        window.__authorSearchHistory.push({ method, url: location.href, state: structuredClone(history.state) })
+        return result
+      }
+    }
+  })
+}
+
+function readSearchQuery(response) {
+  return decodeAuthorTextSummaryQuery(decodeFrame(response.request().postDataBuffer(), FrameType.AuthorTextSummaryQuery).payload)
+}
+
 function isSearchReply(response) {
   return response.request().method() === 'POST' && new URL(response.url()).pathname === WireRoutes.AuthorTextSearch
 }
 
 async function readSearchReply(response) {
   assert.equal(response.status(), 200)
-  return decodeAuthorTextFacetedPage(decodeFrame(await response.body(), FrameType.AuthorTextFacetedPage).payload)
+  return decodeAuthorTextSummaryPage(decodeFrame(await response.body(), FrameType.AuthorTextSummaryPage).payload)
 }
 
 function exactHit(batch, draft, source, field, word) {

@@ -5,7 +5,7 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2 }
+internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3 }
 internal sealed record AuthorTextClause(AuthorTextField Field, bool Phrase, string[] Terms);
 internal sealed record AuthorTextQuery(AuthorTextClause[] Clauses);
 internal sealed record AuthorTextFacetedQuery(AuthorTextQuery Text, AuthorArticleState? Status, int? CategoryId, int? TagId);
@@ -16,6 +16,7 @@ internal readonly record struct AuthorTextTerm(string Value, int Ordinal, int St
 internal static class AuthorTextProfile
 {
     internal const int Version = 1;
+    internal const int SummaryIndexVersion = 2;
     internal const int MaxSourceChars = 200_000;
     internal const int MaxTerms = 200_000;
     internal const int MaxTermBytes = 512;
@@ -48,7 +49,9 @@ internal static class AuthorTextProfile
 
     internal static AuthorTextFacetedQuery ParseFaceted(string raw) => ParseQuery(raw, faceted: true);
 
-    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted)
+    internal static AuthorTextFacetedQuery ParseSummary(string raw) => ParseQuery(raw, faceted: true, includeSummary: true);
+
+    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
@@ -88,6 +91,7 @@ internal static class AuthorTextProfile
                 null => AuthorTextField.Any,
                 "field.title" => AuthorTextField.Title,
                 "field.markdown-body" => AuthorTextField.MarkdownBody,
+                "field.summary" when includeSummary => AuthorTextField.Summary,
                 _ => throw InvalidQuery(),
             };
             var phrase = offset < raw.Length && raw[offset] == '"';
