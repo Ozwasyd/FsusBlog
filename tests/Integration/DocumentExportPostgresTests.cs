@@ -156,6 +156,7 @@ public sealed partial class DocumentExportPostgresTests
             Assert.Contains("Historical document marker.", chapter.Root!.Value, StringComparison.Ordinal);
             Assert.DoesNotContain(newerText, chapter.Root!.Value, StringComparison.Ordinal);
             await Reject(client, DownloadRoute, outsider, Reference(htmlId), HttpStatusCode.NotFound, ct);
+            await ExportResponseFixture.Receipt(client, htmlId, outsider.Token, outsider.Handle, HttpStatusCode.NotFound, ct);
             await Reject(client, DownloadRoute, reader, Reference(htmlId), HttpStatusCode.Forbidden, ct);
             await Reject(client, DownloadRoute, null, Reference(htmlId), HttpStatusCode.Unauthorized, ct);
             await CancelOwnedQueuedTask(db, client, owner, newer, older.Revision, cancelId, ct);
@@ -189,6 +190,7 @@ public sealed partial class DocumentExportPostgresTests
                 where owner_id=$1 and id=$2
                 """, owner.Id, epubId));
             await Reject(restarted.Client, DownloadRoute, owner, Reference(epubId), HttpStatusCode.NotFound, ct);
+            await ExportResponseFixture.Receipt(restarted.Client, epubId, owner.Token, owner.Handle, HttpStatusCode.NotFound, ct);
             Assert.DoesNotContain(await List(restarted.Client, owner, older.Id, ct), task => task.Id == epubId);
         }
 
@@ -203,6 +205,7 @@ public sealed partial class DocumentExportPostgresTests
         }, "The expired task was not removed by the worker on restart.", ct);
         await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
+        await ExportResponseFixture.Receipt(final.Client, wordId, owner.Token, owner.Handle, HttpStatusCode.Unauthorized, ct);
     }
 
     [PostgresFact]

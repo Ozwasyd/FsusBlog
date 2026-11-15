@@ -158,16 +158,16 @@ async function cancel(task: DocumentExportTask) {
   })
 }
 
-async function download(task: DocumentExportTask) {
+async function download(task: DocumentExportTask, receipt = false) {
   if (!downloadable(task, Date.now())) return
   await run('action', async (handle, signal, current) => {
-    const blob = await downloadDocumentExportTask(task, handle, signal)
+    const blob = await downloadDocumentExportTask(task, handle, signal, receipt)
     if (!current() || !downloadable(task, Date.now())) return
     const url = URL.createObjectURL(blob)
     try {
       const link = document.createElement('a')
       link.href = url
-      link.download = `article.${task.format}`
+      link.download = receipt ? 'article.export-receipt.json' : `article.${task.format}`
       link.click()
     } finally {
       setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -213,7 +213,10 @@ onScopeDispose(stop)
           <span v-if="task.failure !== 'none'">{{ failures[task.failure] }}</span>
           <div v-if="cancelable(task) || downloadable(task)">
             <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">Cancel task</ElButton>
-            <ElButton v-if="downloadable(task)" native-type="button" text :disabled="busy" @click="download(task)">Download export</ElButton>
+            <template v-if="downloadable(task)">
+              <ElButton native-type="button" text :disabled="busy" @click="download(task)">Download export</ElButton>
+              <ElButton native-type="button" text :disabled="busy" @click="download(task, true)">Download receipt</ElButton>
+            </template>
           </div>
         </li>
       </ul>

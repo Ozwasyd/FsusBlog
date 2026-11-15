@@ -902,183 +902,138 @@
   },
   "records": {
     "RecoveryKeyOperation": {
-      "frame": "RecoveryKeyOperation",
       "fields": [["Operation", "i32"]]
     },
     "RecoveryKeyIssued": {
-      "frame": "RecoveryKeyIssued",
       "fields": [["Key", "text", "RecoveryKeyBytes"], ["Version", "i64"], ["CreatedAt", "i64"]]
     },
     "RecoveryKeyStatus": {
-      "frame": "RecoveryKeyStatus",
       "fields": [["Active", "bool"]]
     },
     "RecoveryKeyVerify": {
-      "frame": "RecoveryKeyVerify",
       "fields": [["Key", "text", "RecoveryKeyBytes"]]
     },
     "AdminModerationClaimRequest": {
-      "frame": "AdminModerationClaimRequest",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"]]
     },
     "AdminModerationClaim": {
-      "frame": "AdminModerationClaim",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"], ["ExpiresAt", "i64"]]
     },
     "AdminModerationDecision": {
-      "frame": "AdminModerationDecision",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ExpectedStatus", "i32"], ["Decision", "i32"], ["Reason", "text", "AdminModerationReasonBytes"], ["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"]]
     },
     "AdminModerationIntent": {
-      "frame": "AdminModerationIntent",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ExpectedStatus", "i32"], ["Decision", "i32"], ["Reason", "text", "AdminModerationReasonBytes"]]
     },
     "AdminSessionSnapshot": {
-      "frame": "AdminSessionSnapshot",
       "fields": [["Handle", "text", "NameBytes"], ["Generation", "i64"], ["ExpiresAt", "i64"]]
     },
     "AdminOperationsStatus": {
-      "frame": "AdminOperationsStatus",
       "fields": [["SnapshotReady", "bool"], ["PublicationWatermark", "i64"], ["PendingPublicationEvents", "i64"], ["OldestPendingAt", "i64"]]
     },
     "AdminRiskReadiness": {
-      "frame": "AdminRiskReadiness",
       "fields": [["PublicReadMode", "i32"], ["RootWriteMode", "i32"], ["ReplyWriteMode", "i32"], ["ForwardingMode", "i32"], ["DynamicRisk", "i32"], ["StrongAnonymous", "i32"]]
     },
     "AdminRootCommentPowPolicy": {
-      "frame": "AdminRootCommentPowPolicy",
       "fields": [["Generation", "i64"], ["Digest", "text", "RootCommentPowDigestBytes"], ["ProofSeconds", "i32"], ["PreviousSeconds", "i32"]]
     },
     "AdminRootCommentPowCommand": {
-      "frame": "AdminRootCommentPowCommand",
       "fields": [["ExpectedGeneration", "i64"], ["ExpectedDigest", "text", "RootCommentPowDigestBytes"], ["ProofSeconds", "i32"], ["Rollback", "bool"]]
     },
     "AdminClusterStatus": {
-      "frame": "AdminClusterStatus",
       "fields": [["Mode", "i32"], ["NodeId", "text", "AdminClusterNodeIdBytes"], ["InstanceId", "uuid"], ["BuildVersion", "text", "AdminClusterVersionBytes"], ["StartedAt", "i64"], ["ObservedAt", "i64"], ["LeaseAgeMs", "i32"], ["SnapshotReady", "bool"]]
     },
     "AdminArticleRollbackIntent": {
-      "frame": "AdminArticleRollbackIntent",
       "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedPublicationId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
     },
     "AdminArticleRollbackPreview": {
-      "frame": "AdminArticleRollbackPreview",
       "fields": [["ArticleId", "i32"], ["CurrentRevision", "i64"], ["CurrentPublicationId", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["SourceTitle", "text", "TitleBytes"], ["PackageComplete", "bool"], ["BlockingReason", "i32"]]
     },
     "AdminArticleRollbackReceipt": {
-      "frame": "AdminArticleRollbackReceipt",
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousPublicationId", "i64"], ["PublicationId", "i64"], ["PublicationNo", "i32"], ["PublishedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"]]
     },
     "AdminArticleDraftRollbackIntent": {
-      "frame": "AdminArticleDraftRollbackIntent",
       "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedPublicationId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"], ["TargetStatus", "i32"]]
     },
     "AdminArticleDraftRollbackReceipt": {
-      "frame": "AdminArticleDraftRollbackReceipt",
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousPublicationId", "i64"], ["PrivateReleaseId", "i64"], ["PublicationNo", "i32"], ["TransitionedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"], ["TargetStatus", "i32"]]
     },
     "AdminArticleArchiveIntent": {
-      "frame": "AdminArticleArchiveIntent",
       "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedReleaseId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"], ["TargetStatus", "i32"]]
     },
     "AdminArticleArchiveReceipt": {
-      "frame": "AdminArticleArchiveReceipt",
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousReleaseId", "i64"], ["ReleaseId", "i64"], ["PublicationNo", "i32"], ["TransitionedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"], ["TargetStatus", "i32"]]
     },
     "AdminArticleArchivePreview": {
-      "frame": "AdminArticleArchivePreview",
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["PrivateReleaseId", "i64"], ["Title", "text", "TitleBytes"], ["Markdown", "text", "BodyBytes"]]
     },
     "AdminSitePages": {
-      "frame": "AdminSitePages",
       "fields": [["ConfiguredMask", "i32"]]
     },
     "AdminSitePageRevision": {
-      "frame": "AdminSitePageRevision",
       "fields": [["Slug", "text", "AdminSitePageSlugBytes"], ["Revision", "i64"], ["Digest", "text", "AdminSitePageDigestBytes"], ["Markdown", "text", "PageContentBytes"]]
     },
     "AdminSitePagePublish": {
-      "frame": "AdminSitePagePublish",
       "fields": [["Slug", "text", "AdminSitePageSlugBytes"], ["ExpectedRevision", "i64"], ["ExpectedDigest", "text", "AdminSitePageDigestBytes"], ["Markdown", "text", "PageContentBytes"]]
     },
     "AuthoringWorkspaceSnapshot": {
-      "frame": "AuthoringWorkspaceSnapshot",
       "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"]]
     },
     "AuthoringWorkspaceCommand": {
-      "frame": "AuthoringWorkspaceCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"]]
     },
     "AuthoringWorkspaceLayout": {
-      "frame": "AuthoringWorkspaceLayout",
       "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"], ["InspectorOpen", "bool"]]
     },
     "AuthoringWorkspaceLayoutCommand": {
-      "frame": "AuthoringWorkspaceLayoutCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"]]
     },
     "AuthoringWorkspaceGroups": {
-      "frame": "AuthoringWorkspaceGroups",
       "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"], ["InspectorOpen", "bool"], ["SecondaryActiveArticleId", "i32"], ["SecondaryTabs", "i32s", "AuthoringWorkspaceTabs"], ["FocusedGroup", "i32"]]
     },
     "AuthoringWorkspaceGroupsCommand": {
-      "frame": "AuthoringWorkspaceGroupsCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"], ["SecondaryActiveArticleId", "i32"], ["SecondaryTabs", "i32s", "AuthoringWorkspaceTabs"], ["FocusedGroup", "i32"]]
     },
     "AuthorRecentOpenCommand": {
-      "frame": "AuthorRecentOpenCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["RequestId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"]]
     },
     "AuthorRecentOpenReceipt": {
-      "frame": "AuthorRecentOpenReceipt",
       "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["RequestId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"], ["OpenedAtUnixMs", "i64"]]
     },
     "AdminAppearanceState": {
-      "frame": "AdminAppearanceState",
       "fields": [["Revision", "i64"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Serving", "bool"], ["CanRollback", "bool"], ["PreviousTheme", "text", "AdminAppearanceDigestBytes"], ["PreviousFont", "text", "AdminAppearanceDigestBytes"]]
     },
     "AdminAppearanceCommand": {
-      "frame": "AdminAppearanceCommand",
       "fields": [["ExpectedRevision", "i64"], ["CurrentTheme", "text", "AdminAppearanceDigestBytes"], ["CurrentFont", "text", "AdminAppearanceDigestBytes"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Rollback", "bool"]]
     },
     "AdminAppearanceFontDetail": {
-      "frame": "AdminAppearanceFontDetail",
       "fields": [["Id", "text", "AdminAppearanceIdBytes"], ["Version", "text", "AdminAppearanceVersionBytes"], ["ArchiveDigest", "text", "AdminAppearanceDigestBytes"], ["Name", "text", "AdminAppearanceFontMetadataBytes"], ["Family", "text", "AdminAppearanceFontMetadataBytes"], ["LicenseName", "text", "AdminAppearanceFontLicenseNameBytes"], ["LicenseText", "text", "AdminAppearanceFontLicenseBytes"], ["FaceWeight", "i32"], ["FaceStyle", "text", "AdminAppearanceFontLicenseNameBytes"], ["FaceDigest", "text", "AdminAppearanceDigestBytes"], ["FaceBytes", "i32"], ["UnicodeRange", "text", "AdminAppearanceFontUnicodeRangeBytes"], ["SourceKind", "text", "AdminAppearanceFontLicenseNameBytes"], ["SourcePackage", "text", "AdminAppearanceFontMetadataBytes"], ["SourceVersion", "text", "AdminAppearanceVersionBytes"], ["SourceUpstream", "text", "AdminAppearanceFontMetadataBytes"]]
     },
     "DraftRecoveryScope": {
-      "frame": "DraftRecoveryScope",
       "fields": [["SiteId", "uuid"], ["UserId", "uuid"]]
     },
     "PublicCommentEligibility": {
-      "frame": "PublicCommentEligibility",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"]]
     },
     "CommentAuthorEditDetail": {
-      "frame": "CommentAuthorEditDetail",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["CurrentVersion", "i64"], ["Body", "text", "PublicCommentBodyBytes"]]
     },
     "PublicCommentSubmission": {
-      "frame": "PublicCommentSubmission",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"], ["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"]]
     },
     "PublicCommentReply": {
-      "frame": "PublicCommentReply",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["ParentId", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"], ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"]]
     },
     "PublicCommentSubmissionResult": {
-      "frame": "PublicCommentSubmissionResult",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ModerationStatus", "i32"], ["Replayed", "bool"]]
     },
     "SubscriptionPreferenceRequest": {
-      "frame": "SubscriptionPreferenceRequest",
       "fields": [["Email", "text", "SubscriptionEmailBytes"], ["Channel", "i32"]]
     },
     "DraftTaxonomy": {
-      "frame": "DraftTaxonomy",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
     },
     "TaxonomyAssignment": {
-      "frame": "TaxonomyAssignment",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
     },
     "SignIn": {
@@ -1090,99 +1045,75 @@
       "fields": [["Name", "text", "NameBytes"], ["Generation", "i64"], ["CanAuthor", "bool"]]
     },
     "Draft": {
-      "frame": "Draft",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["Published", "bool"]]
     },
     "DraftRollback": {
-      "frame": "DraftRollback",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
     },
     "ArticleRightsPolicy": {
-      "frame": "ArticleRightsPolicy",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["Present", "bool"], ["Enabled", "bool"], ["LicenseType", "text", "ArticleRightsTokenBytes"], ["CopyrightHolder", "text", "ArticleRightsHolderBytes"], ["CopyrightYear", "i32"], ["RightsStatement", "text", "ArticleRightsTextBytes"], ["AttributionTemplate", "text", "ArticleRightsTextBytes"], ["CopyPolicy", "text", "ArticleRightsTokenBytes"], ["MaxExcerptChars", "i32"], ["AllowCodeCopy", "bool"], ["ShowPublicBadge", "bool"], ["ProofBindingEnabled", "bool"]]
     },
     "ArticleRightsCommand": {
-      "frame": "ArticleRightsCommand",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["Enabled", "bool"], ["LicenseType", "text", "ArticleRightsTokenBytes"], ["CopyrightHolder", "text", "ArticleRightsHolderBytes"], ["CopyrightYear", "i32"], ["RightsStatement", "text", "ArticleRightsTextBytes"], ["AttributionTemplate", "text", "ArticleRightsTextBytes"], ["CopyPolicy", "text", "ArticleRightsTokenBytes"], ["MaxExcerptChars", "i32"], ["AllowCodeCopy", "bool"], ["ShowPublicBadge", "bool"], ["ProofBindingEnabled", "bool"]]
     },
     "ArticleSchedule": {
-      "frame": "ArticleSchedule",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["DueUnixMs", "i64"], ["PublishedRevision", "i64"]]
     },
     "ArticleScheduleCommand": {
-      "frame": "ArticleScheduleCommand",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["DueUnixMs", "i64"]]
     },
     "RevisionComparison": {
-      "frame": "RevisionComparison",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["SourceTitle", "text", "TitleBytes"], ["SourceBody", "text", "BodyBytes"]]
     },
     "ArticleCommand": {
-      "frame": "ArticleCommand",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"]]
     },
     "ArticleBodyInsertionCommand": {
-      "frame": "ArticleBodyInsertionCommand",
       "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["Offset", "i32"], ["Length", "i32"]]
     },
     "DraftRevisionBodyInsertion": {
-      "frame": "DraftRevisionBodyInsertion",
       "fields": [["Id", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["Available", "bool"], ["Offset", "i32"], ["Length", "i32"], ["SourceDigest", "text", "ArticleBodyInsertionDigestBytes"], ["Digest", "text", "ArticleBodyInsertionDigestBytes"], ["SourceBody", "text", "BodyBytes"], ["Body", "text", "BodyBytes"]]
     },
     "CanvasCreate": {
-      "frame": "CanvasCreate",
       "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["HostArticleId", "i32"], ["TargetArticleId", "i32"]]
     },
     "CanvasCreated": {
-      "frame": "CanvasCreated",
       "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"]]
     },
     "CanvasPreview": {
-      "frame": "CanvasPreview",
       "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"], ["HostRevision", "i64"], ["TargetRevision", "i64"], ["SourceOffset", "i32"]]
     },
     "CanvasLinkPlan": {
-      "frame": "CanvasLinkPlan",
       "fields": [["PlanId", "uuid"], ["CanvasRevision", "i64"], ["HostArticleId", "i32"], ["HostRevision", "i64"], ["TargetArticleId", "i32"], ["TargetRevision", "i64"], ["SourceOffset", "i32"], ["InsertedMarkdown", "text", "CanvasInsertionBytes"], ["ExpiresAtUnixSeconds", "i64"]]
     },
     "CanvasConfirm": {
-      "frame": "CanvasConfirm",
       "fields": [["PlanId", "uuid"]]
     },
     "CanvasLinked": {
-      "frame": "CanvasLinked",
       "fields": [["PlanId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"], ["CanvasRevision", "i64"]]
     },
     "PropertyDefinitionCommand": {
-      "frame": "PropertyDefinitionCommand",
       "fields": [["Operation", "i32"], ["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["MachineKey", "text", "PropertyKeyBytes"], ["Label", "text", "PropertyLabelBytes"]]
     },
     "PropertyWorkspaceRequest": {
-      "frame": "PropertyWorkspaceRequest",
       "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["AfterKey", "text", "PropertyKeyBytes"]]
     },
     "PropertyFilterabilityCommand": {
-      "frame": "PropertyFilterabilityCommand",
       "fields": [["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Enabled", "bool"]]
     },
     "PropertyDefinitionProjectionCommand": {
-      "frame": "PropertyDefinitionProjectionCommand",
       "fields": [["DefinitionId", "uuid"], ["RequestId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["SearchEligible", "bool"], ["Sortable", "bool"]]
     },
     "PropertyDefinitionProjection": {
-      "frame": "PropertyDefinitionProjection",
       "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Deprecated", "bool"], ["SearchEligible", "bool"], ["Filterable", "bool"], ["Sortable", "bool"], ["Digest", "text", "PropertyDefinitionDigestBytes"]]
     },
     "PropertyTextCommand": {
-      "frame": "PropertyTextCommand",
       "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["DefinitionId", "uuid"], ["DefinitionRevision", "i64"], ["RequestId", "uuid"], ["Remove", "bool"], ["Value", "text", "PropertyValueBytes"]]
     },
     "PropertyCommandReceipt": {
-      "frame": "PropertyCommandReceipt",
       "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["Revision", "i64"]]
     },
     "PropertyValueBatchReceipt": {
-      "frame": "PropertyValueBatchReceipt",
       "fields": [["ArticleId", "i32"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["RequestId", "uuid"]]
     }
   }

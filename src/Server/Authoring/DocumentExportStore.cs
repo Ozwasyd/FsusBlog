@@ -1,4 +1,7 @@
+using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
@@ -100,17 +103,19 @@ internal static class DocumentExportStore
     }
 
     internal static async Task<(DocumentExportFormat Format, byte[] Bytes, bool HasAttachment)> Download(NpgsqlConnection db, NpgsqlTransaction tx,
-        Identity actor, Guid id, MediaFiles? media, bool privateTransport, CancellationToken ct)
+        Identity actor, Guid id, MediaFiles? media, bool privateTransport, bool receipt, byte[]? pdfToolDigest, CancellationToken ct)
     {
         var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
         if (task.State != DocumentExportState.Succeeded) throw DocumentExportEndpoints.Missing();
         var hasAttachment = task.Provider is DocumentExportInput.AttachmentProvider or DocumentExportInput.ImageListProvider;
-        if (hasAttachment)
-        {
-            if (!privateTransport) throw DocumentExportEndpoints.Missing();
-            await DocumentExportInput.ReadVerified(db, tx, task.Request, media, actor.Id, task.Provider, task.SourceDigest, null, ct);
-        }
+        if (hasAttachment && !privateTransport) throw DocumentExportEndpoints.Missing();
+        var toolDigest = task.Request.Format == DocumentExportFormat.Pdf ? pdfToolDigest : null;
+        if (receipt && task.Request.Format == DocumentExportFormat.Pdf && toolDigest is null)
+            throw new PublicUnavailableException();
+        var verified = hasAttachment || receipt
+            ? await DocumentExportInput.ReadVerified(db, tx, task.Request, media, actor.Id, task.Provider, task.SourceDigest, toolDigest, ct)
+            : null;
         await using var read = Store.Sql(db, tx, $"""
             select output,output_digest from public.author_document_export where {OwnedTask} and state=3
             """, actor.Id, id, actor.Generation);
@@ -121,7 +126,37 @@ internal static class DocumentExportStore
             !CryptographicOperations.FixedTimeEquals(SHA256.HashData(output), row.GetFieldValue<byte[]>(1)) ||
             !CryptographicOperations.FixedTimeEquals(task.OutputDigest!, row.GetFieldValue<byte[]>(1)))
             throw new PublicUnavailableException();
-        return (task.Request.Format, output, hasAttachment);
+        return (task.Request.Format, receipt ? SerializeReceipt(task, verified!, toolDigest) : output, hasAttachment);
+    }
+
+    private static byte[] SerializeReceipt(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest)
+    {
+        var (mime, format) = DocumentExportEndpoints.Presentation(task.Request.Format);
+        return JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            version = 1, taskId = task.Request.Id, article = task.Request.Article,
+            expectedRevision = task.Request.Revision.ToString(CultureInfo.InvariantCulture),
+            sourceRevision = task.Request.SourceRevision.ToString(CultureInfo.InvariantCulture),
+            format, provider = task.Provider, layout = "basic-layout-1", state = "succeeded",
+            toolchainSha256 = toolDigest is null ? null : Convert.ToHexStringLower(toolDigest),
+            createdUnixMs = task.Created, startedUnixMs = task.Started, finishedUnixMs = task.Finished, expiresUnixMs = task.Expires,
+            sourceSha256 = Convert.ToHexStringLower(task.SourceDigest),
+            bodySha256 = TextDigest(input.Body),
+            metadata = new
+            {
+                title = input.Title, savedUtcTicks = input.HappenedAt.UtcTicks.ToString(CultureInfo.InvariantCulture),
+                titleSha256 = TextDigest(input.Title)
+            },
+            assets = input.Attachments.Select((image, index) => new
+            {
+                id = input.Assets[index], name = image.Name, mime = image.ContentType,
+                width = image.Width, height = image.Height, bytes = image.Bytes.Length,
+                sha256 = Convert.ToHexStringLower(image.VerifiedDigest!)
+            }).ToArray(),
+            output = new { mime = mime.Split(';', 2)[0], bytes = task.OutputBytes, sha256 = Convert.ToHexStringLower(task.OutputDigest!) }
+        });
+
+        static string TextDigest(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     }
 
     internal static async Task<Guid[]> ReadAttachmentIds(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, short provider, CancellationToken ct)

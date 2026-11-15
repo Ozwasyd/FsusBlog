@@ -35,7 +35,7 @@ const cs = [notice, 'namespace FsusBlog.V2.Contracts;', '',
   ]),
   ...methods.map(([name, { fields }]) => `public sealed record ${name}(${fields.map(([field, type]) => `${primitive[type][0]} ${field}`).join(', ')});`),
   '', 'public static partial class Wire', '{',
-  ...methods.flatMap(([name, { fields, frame }]) => [
+  ...methods.flatMap(([name, { fields, frame = name }]) => [
     `    public static byte[] Encode${name}(${name} value) =>`,
     `        EncodeRecord(FrameType.${frame}, value, Validate, static (writer, record) =>`,
     '        {',

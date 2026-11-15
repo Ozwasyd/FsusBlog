@@ -52,4 +52,6 @@ PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结
 
 再次停服运行 `document-exports` 后，HTML、EPUB 和 Word 任务能导出包含当前修订全部已保存图片的文档。第 4 版任务按请求顺序记录 2 至 4 张图片，共用 512 KiB 上限。在执行和下载时重新核验每张图片。Word 支持 PNG 和 JPEG，HTML 和 EPUB 也支持 WebP。旧任务保持原版本和摘要。
 
+下载就绪任务时可另存导出回执。回执记录所选修订的标题、保存时间与正文摘要、按顺序核验的图片清单、提供方版本和布局、产物的 MIME、长度和 SHA-256，以及执行时间和到期时间。PDF 回执还绑定创建任务时固定的工具摘要。服务复核当前授权、原输入承诺和实际产物字节后才交付回执。回执不含正文或图片原始字节。
+
 真实 macOS PDF 工作进程已验证运行中取消后退出和临时目录清理。数据库租约丢失时会清理运行中的渲染进程，重启后被中断的 PDF 保留失败回执，排队 HTML 继续。初次 SIGTERM 演练暂停了子进程，macOS 将该状态报告给 .NET 的退出等待，导致信号处理延迟，原失败保留。用自然运行的真实 PDF 重试，观察到 828 毫秒内回收渲染进程和临时目录并关闭服务。重启后运行中的任务保留中断回执，排队任务继续。暂停子进程的 HTTP 取消和租约丢失也有独立通过结果。 [真实 SIGTERM 演练](../../artifacts/document-export-sigterm-2ec1b97/graceful-and-cancellation.log) · [首次失败](../../artifacts/document-export-pdf-749b9ba/restart-2.log) · [macOS 等待结果](../../artifacts/document-export-sigterm-2ec1b97/darwin-child-wait.log)

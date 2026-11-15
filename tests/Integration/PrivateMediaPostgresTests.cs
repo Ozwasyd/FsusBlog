@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
@@ -549,6 +550,13 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
                 Assert.Equal(bodies[task.Request.Format], await deliveredBundle.Content.ReadAsByteArrayAsync(ct));
             }
+            var batch = Assert.Single(finishedBundles, task => task.Request.Format == DocumentExportFormat.Html);
+            var batchReceipt = await ResultReceipt(HttpStatusCode.OK);
+            var receiptManifest = JsonNode.Parse(batchReceipt)!;
+            Assert.Equal(Convert.ToHexStringLower(batch.SourceDigest), (string?)receiptManifest["sourceSha256"]);
+            Assert.Equal(Digest(bodies[DocumentExportFormat.Html]), (string?)receiptManifest["output"]?["sha256"]);
+            Assert.Equal(new[] { (second, Digest(secondBytes)), (asset, Digest(normalized)) },
+                receiptManifest["assets"]!.AsArray().Select(entry => (entry!["id"]!.GetValue<Guid>(), (string)entry["sha256"]!)));
             var download = Wire.EncodeDocumentExportTaskRef(jobInput.Id);
             using var rendered = await Command(WireRoutes.DocumentExportDownload, owner, download);
             Assert.Equal(HttpStatusCode.OK, rendered.StatusCode);
@@ -570,6 +578,7 @@ public sealed partial class PrivateMediaPostgresTests
             {
                 using var corruptDownload = await Command(WireRoutes.DocumentExportDownload, owner, download);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptDownload.StatusCode);
+                await ResultReceipt(HttpStatusCode.ServiceUnavailable);
                 foreach (var task in bundleTasks)
                 {
                     using var corruptBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Id));
@@ -585,6 +594,12 @@ public sealed partial class PrivateMediaPostgresTests
             using var reloaded = await Command(WireRoutes.DocumentExportDownload, owner, download);
             Assert.Equal(HttpStatusCode.OK, reloaded.StatusCode);
             Assert.Equal(renderedBytes, await reloaded.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal(batchReceipt, await ResultReceipt(HttpStatusCode.OK));
+
+            Task<byte[]> ResultReceipt(HttpStatusCode status) =>
+                ExportResponseFixture.Receipt(client, batch.Request.Id, owner.Token, owner.SiteSessionId, status, ct);
+
+            static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
             async Task<Draft> ChangeSecondImage(long current, bool attachImage)
             {

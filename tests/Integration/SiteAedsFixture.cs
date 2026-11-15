@@ -27,9 +27,10 @@ internal static class SiteAedsFixture
     }
 
     internal static async Task<HttpResponseMessage> ExpectPrivateResponse(HttpClient client, HttpMethod method, string route,
-        byte[]? frame, string? token, string? handle, HttpStatusCode status, CancellationToken ct)
+        byte[]? frame, string? token, string? handle, HttpStatusCode status, CancellationToken ct, string? accept = null)
     {
         using var request = Request(method, route, frame, token, handle);
+        if (accept is not null) request.Headers.Accept.ParseAdd(accept);
         var response = await client.SendAsync(request, ct);
         try
         {

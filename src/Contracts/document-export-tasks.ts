@@ -190,13 +190,14 @@ export function cancelDocumentExportTask(id: string, session: string, signal: Ab
   }, signal, 'POST', encodeDocumentExportTaskRef(id), exportHeaders(session));
 }
 
-export async function downloadDocumentExportTask(task: DocumentExportTask, session: string, signal: AbortSignal): Promise<Blob> {
+const receiptType = 'application/vnd.fsus.document-export-receipt+json';
+
+export async function downloadDocumentExportTask(task: DocumentExportTask, session: string, signal: AbortSignal, receipt = false): Promise<Blob> {
   requireOutput(task);
   const output = documentOutputs[task.format];
   if (task.status !== 'succeeded' || !output || task.outputBytes > output.limit)
     throw new ProtocolError('Document export is not ready');
-  const { type } = output;
-  const bytes = new Uint8Array(task.outputBytes);
+  const type = receipt ? receiptType : output.type;
   const expectedHash = task.outputHash.slice();
   const headers = new Headers(exportHeaders(session));
   headers.set('Accept', type);
@@ -215,6 +216,23 @@ export async function downloadDocumentExportTask(task: DocumentExportTask, sessi
     throw new ProtocolError('Expected a document attachment');
   }
 
+  if (receipt) {
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
+    await consumeBounded(response.body, 16 * 1024, 'Document export receipt is too large', chunk => { chunks.push(chunk); });
+    const file = new Blob(chunks, { type });
+    const document = JSON.parse(await file.text());
+    const hex = (hash: Uint8Array) => Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
+    signal.throwIfAborted();
+    if (document?.version !== 1 || document.taskId !== task.id || document.article !== task.article ||
+        document.expectedRevision !== String(task.revision) || document.sourceRevision !== String(task.sourceRevision) ||
+        document.format !== task.format || document.provider !== task.provider || document.sourceSha256 !== hex(task.sourceHash) ||
+        document.output?.mime !== output.type || document.output.bytes !== task.outputBytes ||
+        document.output.sha256 !== hex(expectedHash))
+      throw new ProtocolError('Document export receipt differs from the task');
+    return file;
+  }
+
+  const bytes = new Uint8Array(task.outputBytes);
   const size = await consumeBounded(response.body, bytes.length, 'Document export exceeds its recorded size',
     (chunk, offset) => bytes.set(chunk, offset));
   signal.throwIfAborted();
