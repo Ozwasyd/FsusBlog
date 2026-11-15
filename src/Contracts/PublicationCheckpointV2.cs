@@ -116,6 +116,34 @@ public static class PublicationCheckpointTreeV2
         return (level[0], leaf is null ? null : new(entries[selection], selection, leaf, siblings));
     }
 
+    public static bool VerifyDailyInclusion(PublicationCheckpointV2 checkpoint, PublicationCheckpointEntry entry,
+        int position, IReadOnlyList<byte[]> siblings)
+    {
+        var width = checkpoint.EntryCount;
+        var sequence = entry.Sequence;
+        var from = checkpoint.FromSequence;
+        var to = checkpoint.ToSequence;
+        if (checkpoint.Kind != PublicationCheckpointKind.Daily || width is < 1 or > PublicationCheckpointV2.MaxLeaves ||
+            from < 1 || to > checkpoint.HeadSequence || sequence < from || sequence > to || position < 0 || position >= width ||
+            (position == 0) != (sequence == from) || (position == width - 1) != (sequence == to) ||
+            sequence - from < position || to - sequence < width - 1 - position || entry.EntrySha256.Length != 32 ||
+            sequence == checkpoint.HeadSequence && !entry.EntrySha256.AsSpan().SequenceEqual(checkpoint.HeadEntrySha256))
+            return false;
+
+        var current = Leaf(sequence, entry.EntrySha256);
+        var level = 0;
+        while (width > 1)
+        {
+            if (level >= siblings.Count) return false;
+            var sibling = siblings[level++];
+            if (sibling.Length != 32 || ((position ^ 1) >= width && !sibling.AsSpan().SequenceEqual(current))) return false;
+            current = position % 2 == 0 ? Node(current, sibling) : Node(sibling, current);
+            position /= 2;
+            width = (width + 1) / 2;
+        }
+        return level == siblings.Count && current.AsSpan().SequenceEqual(checkpoint.RootSha256);
+    }
+
     public static byte[] EmptyDailyRoot() => SHA256.HashData("fsusblog.integrity.native-publication-daily-empty.v2\0"u8);
 
     private static byte[] Leaf(long sequence, ReadOnlySpan<byte> value)

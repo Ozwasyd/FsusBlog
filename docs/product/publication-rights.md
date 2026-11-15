@@ -68,7 +68,7 @@
 
 时钟回拨可能使同日条目在日志中不连续。日树按原始序号排列并保留间隔。可选成员证明只包含原始序号、在日树中的位置、不透明账本摘要和相邻摘要路径。若已认证前缀内该日没有条目，工具签发零计数和固定空树摘要。缺失结论仅覆盖该签名头所承诺的前缀，之后追加的条目仍可能带有该日时间戳。
 
-使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON --daily YYYY-MM-DD [SEQ ENTRY_SHA256]` 独立核验日志头、日检查点签名及所给成员路径。日检查点使用独立签名域。验证器核对签名者对前缀覆盖范围的声明，私有账本重算由停机命令执行。成员关系只证明原收据已纳入账本，原收据签名的可信状态另由 `publication-transparency verify` 核验。目前只有离线人工签发。自动每日签发、公开发布检查点或成员证明、历史责任清单及独立时间见证仍待交付。 [规范代码](../../src/Contracts/PublicationCheckpointV2.cs)
+使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON --daily YYYY-MM-DD [SEQ ENTRY_SHA256]` 独立核验日志头、日检查点签名及所给成员路径。日检查点使用独立签名域。验证器核对签名者对前缀覆盖范围的声明，私有账本重算由停机命令执行。成员关系证明原收据已纳入账本，原收据签名的可信状态另由 `publication-transparency verify` 核验。目前采用离线人工签发。自动每日签发、公开发布检查点、完整历史责任清单及独立时间见证仍待交付。 [规范代码](../../src/Contracts/PublicationCheckpointV2.cs)
 
 ## 公开历史日检查点归档
 
@@ -81,10 +81,23 @@ jq -n --slurpfile head head.json --slurpfile day day.json \
   '{archiveVersion:2, head:$head[0], bridgeReceiptSha256:[], checkpoints:[$day[0].checkpoint]}' > archive.json
 ```
 
-配置 `IntegrityProof__CheckpointArchive__Path` 为 Web 发布目录之外的绝对归档路径，并通过独立部署配置设置 `IntegrityProof__CheckpointArchive__Sha256` 为已批准文件的完整 SHA-256。归档文件需为普通只读文件，例如权限 `0440`。路径各级及文件本身需使用实际目录和文件。另用 `IntegrityProof__CheckpointArchive__CurrentAnchor=SEQ:SHA256` 指明独立保存的当前可信日志锚点，其序号和摘要可从最新另存的签名日志头用 `node tools/verify-publication-head.mjs` 验签取得。若归档使用该锚点对应的已签名头，上例中的桥为空。若源头较早，在私有数据库的只读会话按 `seq` 升序取源头之后到当前锚点的 `encode(receipt_sha256,'hex')`，逐条将摘要字符串放进 `bridgeReceiptSha256`。服务重算至配置的独立锚点，只在全部条目匹配后开放归档。归档文件上限 1 MiB，最多 366 个日期，桥最多 4,096 条。桥的摘要、成员证明和文章坐标不进入响应。
+配置 `IntegrityProof__CheckpointArchive__Path` 为 Web 发布目录之外的绝对归档路径，并通过独立部署配置设置 `IntegrityProof__CheckpointArchive__Sha256` 为已批准文件的完整 SHA-256。归档文件需为普通只读文件，例如权限 `0440`。路径各级及文件本身需使用实际目录和文件。另用 `IntegrityProof__CheckpointArchive__CurrentAnchor=SEQ:SHA256` 指明独立保存的当前可信日志锚点，其序号和摘要可从最新另存的签名日志头用 `node tools/verify-publication-head.mjs` 验签取得。若归档使用该锚点对应的已签名头，上例中的桥为空。若源头较早，在私有数据库的只读会话按 `seq` 升序取源头之后到当前锚点的 `encode(receipt_sha256,'hex')`，逐条将摘要字符串放进 `bridgeReceiptSha256`。服务重算至配置的独立锚点，只在全部条目匹配后开放归档。归档文件上限 1 MiB，最多 366 个日期，桥最多 4,096 条。公开聚合响应只返回原签名头或日检查点。
 
 读取器从 `IntegrityProof__Signing__Keys` 加载部署时的公开验证密钥及撤销／泄露状态，验签后将归档固定在内存中。收到密钥泄露或需要更换信任配置时，停止提供该归档，用最新配置重启以重新验证。当前 UTC 时钟必须至少到达所有归档签名的时间。这个下限用于拒绝时钟落后的运行环境，归档仍为历史摘要。匿名请求检查公开 HTTPS 源和现有应用租约，读取过程只访问已验签的内存数据。公钥目录的获取沿用已建立的独立渠道。此读取器可以在原生在线签名关闭、无私钥的部署中工作。
 
 未启用或未收录的日期返回 404，格式错误返回 400。配置启用而归档缺失、损坏、不可信或时钟不足时，公开归档返回 503，普通站点仍可提供服务。响应使用 `no-store`。固定 v1 的 `latest`、指定日原始路径和 v1 清单格式仍不在此接口范围。 [归档读取器](../../src/Server/Content/PublicationCheckpointArchive.cs)
 
 随包 Caddy 配置通过原生 TLS 和 HTTP/2 验证。匿名读取返回原签名日检查点和日志头，经过独立 Node 验签。错误日期、未收录日期和无关锚点分别返回 400、404 和 503，均使用 `no-store`。 [原生 TLS 集成结果](../../artifacts/checkpoint-archive-tls-6a02786/native/integration.txt)
+
+## 当前公开文章的日成员证明
+
+同时启用原生签名及透明日志的部署，可以为归档内单独选定的条目开放 `GET /integrity/v2/article/{articleId}/{publicationId}/daily-proof.json`。使用同一份可信日志头及带 `INCLUDE_SEQ` 的停机日检查点命令生成 `member.json`，再按照版本 3 的归档形状组装。
+
+```sh
+jq -n --slurpfile head head.json --slurpfile member member.json \
+  '{archiveVersion:3, head:$head[0], bridgeReceiptSha256:[], checkpoints:[$member[0].checkpoint], inclusions:[{scopeKey:$member[0].checkpoint.scopeKey, inclusion:$member[0].inclusion}]}' > archive.json
+```
+
+多条见证分别放进 `inclusions`，同一天只在 `checkpoints` 中保留一份已签名检查点。服务启动时核验每条路径及它所引用的日根。版本 2 归档继续提供聚合读取。请求时使用与 `rights.json` 相同的当前文章、权利、投影和签名校验。服务从真实签名收据重算该条账本摘要，再核对签发日及归档中的成员路径。只有当前公开且校验通过的出版版本能获得原签名日检查点和它本身的成员路径。撤回、替换、无权利证明及未收录的版本返回 404。成员读取沿用同一 HTTPS 源、限流和 `no-store`。
+
+公众可以用前述 Node 日验证命令核验所返回的检查点签名和成员路径，并与独立持有的预期序号和账本摘要比对。服务按文章及当前发布版本读取成员证明。聚合日读取始终只返回空成员路径。

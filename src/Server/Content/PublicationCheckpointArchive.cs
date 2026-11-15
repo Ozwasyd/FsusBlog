@@ -17,7 +17,10 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
     private const int MaxDays = 366;
     private const int MaxBridge = 4096;
 
-    internal sealed record Snapshot(byte[] Head, IReadOnlyDictionary<string, byte[]> Days, DateTimeOffset EarliestClock);
+    internal sealed record Inclusion(string Day, byte[] EntrySha256, string Proof);
+    internal sealed record Day(string Checkpoint, byte[] Response);
+    internal sealed record Snapshot(byte[] Head, IReadOnlyDictionary<string, Day> Days,
+        IReadOnlyDictionary<long, Inclusion> Inclusions, DateTimeOffset EarliestClock);
 
     internal static PublicationCheckpointArchive? Read(IConfiguration configuration, IntegrityKeys publicKeys, string? origin,
         string dist, TimeProvider clock)
@@ -51,13 +54,22 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
         app.MapGet(Prefix + "/daily/{day}.json", (HttpContext ctx, string day) => ReadResponse(ctx, day)).RequireRateLimiting(Limit);
     }
 
+    internal byte[]? FindInclusion(DateTimeOffset issuedAt, long sequence, byte[] entrySha256)
+    {
+        if (snapshot is null || clock.GetUtcNow() < snapshot.EarliestClock) throw new PublicUnavailableException();
+        return snapshot.Inclusions.TryGetValue(sequence, out var inclusion) &&
+            issuedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) == inclusion.Day &&
+            entrySha256.AsSpan().SequenceEqual(inclusion.EntrySha256)
+            ? Bundle(snapshot.Days[inclusion.Day].Checkpoint, inclusion.Proof) : null;
+    }
+
     private Task ReadResponse(HttpContext ctx, string? day)
     {
         if (origin is null || !ctx.Request.IsHttps || !string.Equals(ctx.Request.Host.Value, origin.Authority, StringComparison.OrdinalIgnoreCase))
             return Status(StatusCodes.Status404NotFound);
         if (day is not null && !PublicationCheckpointV2.TryDay(day, out _)) return Status(StatusCodes.Status400BadRequest);
         if (snapshot is null || clock.GetUtcNow() < snapshot.EarliestClock) return Status(StatusCodes.Status503ServiceUnavailable);
-        var response = day is null ? snapshot.Head : snapshot.Days.GetValueOrDefault(day);
+        var response = day is null ? snapshot.Head : snapshot.Days.GetValueOrDefault(day)?.Response;
         return response is null ? Status(StatusCodes.Status404NotFound) : PublicResponse.Write(ctx, response, Json);
 
         Task Status(int status)
@@ -90,8 +102,10 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
     {
         using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 6 });
         var archive = document.RootElement;
-        RequireFields(archive, "archiveVersion", "head", "bridgeReceiptSha256", "checkpoints");
-        if (archive.GetProperty("archiveVersion").GetInt32() != 2) throw new FormatException();
+        var version = archive.GetProperty("archiveVersion").GetInt32();
+        if (version == 2) RequireFields(archive, "archiveVersion", "head", "bridgeReceiptSha256", "checkpoints");
+        else if (version == 3) RequireFields(archive, "archiveVersion", "head", "bridgeReceiptSha256", "checkpoints", "inclusions");
+        else throw new FormatException();
         var signedHead = archive.GetProperty("head");
         RequireFields(signedHead, "headVersion", "kind", "algorithm", "origin", "sequence", "entrySha256", "keyId", "keyVersion",
             "keySha256", "attestedAtUtc", "signature");
@@ -105,17 +119,44 @@ internal sealed class PublicationCheckpointArchive(Uri? origin, TimeProvider clo
         var checkpoints = archive.GetProperty("checkpoints");
         if (checkpoints.GetArrayLength() is < 1 or > MaxDays) throw new FormatException();
         var latest = head.AttestedAt;
-        var days = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        var days = new Dictionary<string, Day>(StringComparer.Ordinal);
+        var signedDays = new Dictionary<string, PublicationCheckpointV2>(StringComparer.Ordinal);
         foreach (var node in checkpoints.EnumerateArray())
         {
             var checkpoint = ValidateDay(node, head, keys);
             if (checkpoint.AttestedAt > latest) latest = checkpoint.AttestedAt;
-            if (!days.TryAdd(checkpoint.ScopeKey, Encoding.UTF8.GetBytes("{\"checkpoint\":" + node.GetRawText() + ",\"inclusion\":null}")))
-                throw new FormatException();
+            var raw = node.GetRawText();
+            if (!signedDays.TryAdd(checkpoint.ScopeKey, checkpoint)) throw new FormatException();
+            days.Add(checkpoint.ScopeKey, new(raw, Bundle(raw, "null")));
         }
         if (now < latest) throw new FormatException();
-        return new(Encoding.UTF8.GetBytes(signedHead.GetRawText()), days, latest);
+        var inclusions = version == 3 ? ValidateInclusions(archive.GetProperty("inclusions"), signedDays) : [];
+        return new(Encoding.UTF8.GetBytes(signedHead.GetRawText()), days, inclusions, latest);
     }
+
+    private static Dictionary<long, Inclusion> ValidateInclusions(JsonElement array, IReadOnlyDictionary<string, PublicationCheckpointV2> days)
+    {
+        if (array.GetArrayLength() > PublicationCheckpointV2.MaxPrefixEntries) throw new FormatException();
+        var inclusions = new Dictionary<long, Inclusion>();
+        foreach (var node in array.EnumerateArray())
+        {
+            RequireFields(node, "scopeKey", "inclusion");
+            var day = Text(node, "scopeKey");
+            if (!days.TryGetValue(day, out var checkpoint)) throw new FormatException();
+            var proof = node.GetProperty("inclusion");
+            RequireFields(proof, "sequence", "position", "entrySha256", "siblings");
+            var entry = new PublicationCheckpointEntry(Coordinate(proof, "sequence"), Digest(Text(proof, "entrySha256")));
+            var siblings = proof.GetProperty("siblings");
+            if (siblings.GetArrayLength() > 12 || !PublicationCheckpointTreeV2.VerifyDailyInclusion(checkpoint, entry,
+                proof.GetProperty("position").GetInt32(), siblings.EnumerateArray().Select(sibling => Digest(sibling.GetString())).ToArray()) ||
+                !inclusions.TryAdd(entry.Sequence, new(day, entry.EntrySha256, proof.GetRawText())))
+                throw new FormatException();
+        }
+        return inclusions;
+    }
+
+    private static byte[] Bundle(string checkpoint, string inclusion) =>
+        Encoding.UTF8.GetBytes("{\"checkpoint\":" + checkpoint + ",\"inclusion\":" + inclusion + "}");
 
     private static void VerifyBridge(JsonElement receipts, PublicationTransparencyHeadV2 source, PublicationHeadAnchor anchor)
     {

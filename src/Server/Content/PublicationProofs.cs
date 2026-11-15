@@ -25,7 +25,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
 
     internal static bool IsRoute(PathString path) => path.StartsWithSegments(Prefix);
 
-    internal void Map(WebApplication app)
+    internal void Map(WebApplication app, PublicationCheckpointArchive? archive)
     {
         app.MapGet(Prefix + "/keys.json", (HttpContext ctx) =>
         {
@@ -35,6 +35,9 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         }).RequireRateLimiting(Limit);
         app.MapGet(Prefix + "/article/{articleId:int}/{publicationId:long}/rights.json",
             (HttpContext ctx, int articleId, long publicationId) => Read(ctx, articleId, publicationId)).RequireRateLimiting(Limit);
+        if (_transparency && archive is not null)
+            app.MapGet(Prefix + "/article/{articleId:int}/{publicationId:long}/daily-proof.json",
+                (HttpContext ctx, int articleId, long publicationId) => Read(ctx, articleId, publicationId, archive)).RequireRateLimiting(Limit);
         if (_publicHead is { } head)
             app.MapGet(Prefix + "/log/head.json", (HttpContext ctx) => ReadHead(ctx, head)).RequireRateLimiting(Limit);
     }
@@ -194,19 +197,19 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         return Task.CompletedTask;
     }
 
-    private async Task Read(HttpContext ctx, int articleId, long publicationId)
+    private async Task Read(HttpContext ctx, int articleId, long publicationId, PublicationCheckpointArchive? archive = null)
     {
         if (!PublicOrigin(ctx)) return;
         var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
         var article = snapshot.Article(articleId);
         var bytes = article is { Rights.Policy: { Enabled: true, ProofBindingEnabled: true } } && article.Publication == publicationId
-            ? await ReadVerified(article, ctx.RequestAborted) : null;
+            ? await ReadVerified(article, archive, ctx.RequestAborted) : null;
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
         if (bytes is null) { ctx.Response.StatusCode = StatusCodes.Status404NotFound; return; }
         await PublicResponse.Write(ctx, bytes, Json);
     }
 
-    private async Task<byte[]?> ReadVerified(Article article, CancellationToken request)
+    private async Task<byte[]?> ReadVerified(Article article, PublicationCheckpointArchive? archive, CancellationToken request)
     {
         using var bounded = CancellationTokenSource.CreateLinkedTokenSource(request, lease.Stopped);
         bounded.CancelAfter(TimeSpan.FromSeconds(1));
@@ -214,10 +217,15 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         try
         {
             await using var connection = await db.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(connection, null, """
+            var ledgerFields = archive is null ? "" : ",l.seq,l.prev_sha256,l.receipt_sha256,l.entry_sha256";
+            var ledgerJoin = archive is null ? "" : """
+                join public.article_publication_transparency l on (l.seq,l.publication_id)=(e.transparency_seq,e.publication_id)
+                """;
+            await using var command = Store.Sql(connection, null, $"""
                 select c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,c.outbox_id,
-                       c.content_sha256,c.policy_sha256,e.key_id,e.key_version,e.key_sha256,e.issued_at,e.signature
+                       c.content_sha256,c.policy_sha256,e.key_id,e.key_version,e.key_sha256,e.issued_at,e.signature{ledgerFields}
                 from public.article_publication_canonical c join public.article_publication_proof e using(publication_id)
+                {ledgerJoin}
                 join public.publication_proof_key k on k.key_id=e.key_id
                 join public.article_publication p on (p.article_id,p.revision,p.publication_id,p.publication_no,p.published_at)=
                     (c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at)
@@ -237,7 +245,14 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                 KeyVersion = rows.GetInt32(10), KeySha256 = rows.GetFieldValue<byte[]>(11)
             };
             var signature = rows.GetFieldValue<byte[]>(13);
-            return key.Verify(claim, signature) ? Encode(claim, signature) : null;
+            if (!key.Verify(claim, signature)) return null;
+            if (archive is null) return Encode(claim, signature);
+
+            var sequence = rows.GetInt64(14);
+            var receipt = PublicationTransparencyV2.ReceiptDigest(ArticlePublicationProofPayloadV2.Build(claim), signature);
+            if (!receipt.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(16))) return null;
+            var entry = PublicationTransparencyV2.EntryDigest(sequence, rows.GetFieldValue<byte[]>(15), receipt);
+            return entry.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(17)) ? archive.FindInclusion(claim.IssuedAt, sequence, entry) : null;
         }
         catch (OperationCanceledException) when (!request.IsCancellationRequested) { throw new PublicUnavailableException(); }
         catch (Exception error) when (error is ArgumentException or ProtocolException or CryptographicException) { return null; }

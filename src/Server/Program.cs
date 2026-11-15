@@ -296,7 +296,7 @@ if (publishedMedia is not null)
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 integrityKeys.Map(app);
-publicationProofs?.Map(app);
+publicationProofs?.Map(app, checkpointArchive);
 checkpointArchive?.Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);

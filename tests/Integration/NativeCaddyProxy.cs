@@ -155,10 +155,12 @@ internal sealed class CaddyPostgresFactAttribute : FactAttribute
 {
     internal const string CaddyPath = "FSUSBLOG_TEST_CADDY_BIN";
 
-    public CaddyPostgresFactAttribute()
+    public CaddyPostgresFactAttribute(bool requiresMigrate = false)
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)) ||
             string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(CaddyPath)))
             Skip = $"Set {ScratchDatabase.Variable} and {CaddyPath} to exercise the production TLS proxy.";
+        else if (requiresMigrate && !File.Exists(Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)))
+            Skip = $"Set {PublicationTransparencyFact.MigrationPath} to generate the archived checkpoint.";
     }
 }
