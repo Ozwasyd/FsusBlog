@@ -224,4 +224,98 @@ internal static partial class Migration
         await VerifyShadowReleaseReadbackAsync(transaction, token);
         return result.ToArray();
     }
+
+    private static string LegacyShadowColumns(CandidateTable table, string separator = ",") =>
+        string.Join(separator, table.Columns.Select(column => $"{column.Name} {column.Kind}" +
+            (table.NonNull!.Contains(column.Name, StringComparer.Ordinal) ? " NOT NULL" : "")));
+
+    private static IncrementalHash LegacyShadowDigest(string name, IEnumerable<string> columns)
+    {
+        var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendLegacyValue(digest, name);
+        foreach (var column in columns) AppendLegacyValue(digest, column);
+        return digest;
+    }
+
+    private static async Task<int> WriteLegacyShadowRowsAsync(DbTransaction tx, CandidateTable table, string createSql,
+        IEnumerable<object?[]> rows, CancellationToken ct, IncrementalHash? digest = null)
+    {
+        await using (var create = CreateLegacyCommand(tx, createSql)) await create.ExecuteNonQueryAsync(ct);
+        var parameters = table.Columns.Select(column => "@" + column.Name).ToArray();
+        await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table.Name} VALUES ({string.Join(',', parameters)})");
+        foreach (var name in parameters)
+        {
+            var parameter = insert.CreateParameter();
+            parameter.ParameterName = name;
+            insert.Parameters.Add(parameter);
+        }
+        var count = 0;
+        foreach (var values in rows)
+        {
+            for (var index = 0; index < values.Length; index++)
+            {
+                if (digest is not null) AppendLegacyValue(digest, values[index]);
+                insert.Parameters[index].Value = values[index] ?? DBNull.Value;
+            }
+            await insert.ExecuteNonQueryAsync(ct);
+            count++;
+        }
+        return count;
+    }
+
+    private static async Task<ShadowCount> VerifyLegacyShadowRowsAsync(DbTransaction tx, CandidateTable table,
+        IEnumerable<object?[]> expected, string changed, string extra, CancellationToken ct, string? missing = null,
+        string? columnMismatch = null, bool widenIntegers = false)
+    {
+        await using var command = ReadLegacyShadow(tx, table);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (columnMismatch is not null)
+        {
+            for (var index = 0; index < table.Columns.Length; index++)
+                if (reader.GetName(index) != table.Columns[index].Name)
+                    throw new InvalidOperationException(columnMismatch);
+        }
+        using var digest = LegacyShadowDigest(table.Name, table.Columns.Select(column => column.Name));
+        var count = 0;
+        foreach (var values in expected)
+        {
+            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException(missing ?? changed);
+            for (var index = 0; index < values.Length; index++)
+            {
+                var observed = LegacyShadowValue(reader, index);
+                var wanted = values[index];
+                if (widenIntegers && wanted is int narrow) wanted = (long)narrow;
+                if (!Equals(observed, wanted)) throw new InvalidOperationException(changed);
+                AppendLegacyValue(digest, observed);
+            }
+            count++;
+        }
+        if (await reader.ReadAsync(ct)) throw new InvalidOperationException(extra);
+        return new(table.Name, count, FinishSourceSeal(digest));
+    }
+
+    private static async Task<int> ReadLegacyShadowDigestAsync(DbTransaction tx, CandidateTable table,
+        IncrementalHash digest, CancellationToken ct, IncrementalHash? sourceDigest = null)
+    {
+        await using var command = ReadLegacyShadow(tx, table);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        var count = 0;
+        while (await reader.ReadAsync(ct))
+        {
+            for (var index = 0; index < table.Columns.Length; index++)
+            {
+                var value = LegacyShadowValue(reader, index);
+                AppendLegacyValue(digest, value);
+                if (sourceDigest is not null) AppendLegacyValue(sourceDigest, value);
+            }
+            count++;
+        }
+        return count;
+    }
+
+    private static DbCommand ReadLegacyShadow(DbTransaction tx, CandidateTable table) =>
+        CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY {table.Key}");
+
+    private static object? LegacyShadowValue(DbDataReader reader, int index) =>
+        reader.IsDBNull(index) ? null : reader.GetValue(index);
 }

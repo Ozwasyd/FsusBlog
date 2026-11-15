@@ -21,6 +21,58 @@ internal static partial class Migration
         WriteIndented = true
     };
 
+    private static readonly IReadOnlyDictionary<(string Command, string? Subcommand),
+        Func<NpgsqlConnection, CancellationToken, Task>> FixedDatabaseCommands =
+        new Dictionary<(string, string?), Func<NpgsqlConnection, CancellationToken, Task>>
+        {
+            [("plan", null)] = PlanAsync,
+            [("canvas-graph", "check")] = CheckCanvasGraphAsync,
+            [("canvas-graph", "apply-empty")] = UpgradeEmptyCanvasGraphAsync,
+            [("recovery-scope", null)] = InitializeRecoveryScopeAsync,
+            [("recovery-key", "schema")] = InitializeSiteRecoveryKeyAsync,
+            [("appearance", "schema")] = InitializeAppearanceActivationAsync,
+            [("root-comment-pow", "schema")] = InitializeRootCommentPowPolicyAsync,
+            [("site-refresh", "schema")] = InitializeSiteRefreshAsync,
+            [("site-page-editor", "schema")] = InitializeSitePageEditorAsync,
+            [("revision-history", null)] = InitializeRevisionHistoryAsync,
+            [("publication-history", null)] = InitializePublicationHistoryAsync,
+            [("publication-rights", null)] = InitializePublicationRightsAsync,
+            [("publication-canonical", "schema")] = InitializePublicationCanonicalAsync,
+            [("publication-proof", "schema")] = InitializePublicationProofAsync,
+            [("publication-transparency", "enable")] = EnablePublicationTransparencyAsync,
+            [("publication-transparency", "head-schema")] = InitializePublicationHeadAsync,
+            [("admin-article-rollback", "schema")] = InitializeAdminArticleRollbackAsync,
+            [("article-schedule", null)] = InitializeArticleScheduleAsync,
+            [("article", "read-proof-schema")] = InitializeArticleReadSchemaAsync,
+            [("private-media-upload", "schema")] = InitializeMediaUploadAsync,
+            [("media-webp", "schema")] = UpgradeMediaFormatsAsync,
+            [("private-media-import-origin", "schema")] = InitializePrivateMediaImportOriginAsync,
+            [("legacy", "release-origin-schema")] = InitializeLegacyReleaseOriginSchemaAsync,
+            [("article-private-media", null)] = InitializeArticleMediaAsync,
+            [("article-public-media", null)] = InitializePublicationMediaAsync,
+            [("authoring-workspace", null)] = InitializeAuthoringWorkspaceAsync,
+            [("author-recent-opens", null)] = InitializeAuthorRecentOpensAsync,
+            [("author-search", null)] = InitializeAuthorSearchAsync,
+            [("author-summary", null)] = InitializeAuthorSummaryAsync,
+            [("article-body-insertion", null)] = InitializeArticleBodyInsertionAsync,
+            [("property-snapshots", null)] = InitializePropertySnapshotsAsync,
+            [("site-passkey-names", null)] = InitializeSitePasskeyNamesAsync,
+            [("document-exports", null)] = InitializeDocumentExportsAsync,
+            [("saved-views", null)] = InitializeSavedViewsAsync,
+            [("tag-metadata", null)] = InitializeAdminTagMetadataAsync,
+            [("admin-inbox-replies", null)] = InitializeAdminInboxRepliesAsync,
+            [("admin-inbox-status", null)] = InitializeAdminInboxStatusAsync,
+            [("admin-inbox-notice", null)] = InitializeAdminInboxNoticeAsync,
+            [("admin-inbox-read", null)] = InitializeAdminInboxReadAsync,
+            [("site-subscription", "schema")] = InitializeSiteSubscriptionAsync,
+            [("comment", "author-delete-schema")] = InitializeCommentAuthorDeleteAsync,
+            [("comment", "author-edit-schema")] = InitializeCommentAuthorEditAsync,
+            [("comment", "report-schema")] = InitializeCommentReportAsync,
+            [("comment", "appeal-schema")] = InitializeCommentAppealAsync,
+            [("comment", "replies-schema")] = InitializeCommentReplyAsync,
+            [("comment", "bulk-schema")] = InitializeAdminCommentBatchAsync,
+        };
+
     internal static async Task<int> RunAsync(string[] arguments)
     {
         if (arguments is ["help"] or ["--help"] or [])
@@ -235,6 +287,18 @@ internal static partial class Migration
             var token = cancelled.Token;
             await using var connection = new NpgsqlConnection(connectionString);
             await connection.OpenAsync(token);
+            var fixedHandler = arguments switch
+            {
+                [var command] => FixedDatabaseCommands.GetValueOrDefault((command, null)),
+                [var command, var subcommand] => FixedDatabaseCommands.GetValueOrDefault((command, subcommand)),
+                _ => null
+            };
+            if (fixedHandler is not null)
+            {
+                await fixedHandler(connection, token);
+                return 0;
+            }
+
             switch (arguments)
             {
                 case ["inventory"]:
@@ -242,9 +306,6 @@ internal static partial class Migration
                     break;
                 case ["inventory", "--counts"]:
                     await WriteInventoryAsync(connection, countRows: true, token);
-                    break;
-                case ["plan"]:
-                    await PlanAsync(connection, token);
                     break;
                 case ["apply", var path]:
                     await ApplyAsync(connection, path, token);
@@ -254,56 +315,11 @@ internal static partial class Migration
                     await VerifyPublicationsAsync(connection, token);
                     Console.WriteLine($"Verified FsusBlog V2 schema version {CurrentSchema.Version}.");
                     break;
-                case ["canvas-graph", "check"]:
-                    await CheckCanvasGraphAsync(connection, token);
-                    break;
-                case ["canvas-graph", "apply-empty"]:
-                    await UpgradeEmptyCanvasGraphAsync(connection, token);
-                    break;
-                case ["recovery-scope"]:
-                    await InitializeRecoveryScopeAsync(connection, token);
-                    break;
-                case ["recovery-key", "schema"]:
-                    await InitializeSiteRecoveryKeyAsync(connection, token);
-                    break;
-                case ["appearance", "schema"]:
-                    await InitializeAppearanceActivationAsync(connection, token);
-                    break;
-                case ["root-comment-pow", "schema"]:
-                    await InitializeRootCommentPowPolicyAsync(connection, token);
-                    break;
-                case ["site-refresh", "schema"]:
-                    await InitializeSiteRefreshAsync(connection, token);
-                    break;
-                case ["site-page-editor", "schema"]:
-                    await InitializeSitePageEditorAsync(connection, token);
-                    break;
-                case ["revision-history"]:
-                    await InitializeRevisionHistoryAsync(connection, token);
-                    break;
-                case ["publication-history"]:
-                    await InitializePublicationHistoryAsync(connection, token);
-                    break;
-                case ["publication-rights"]:
-                    await InitializePublicationRightsAsync(connection, token);
-                    break;
-                case ["publication-canonical", "schema"]:
-                    await InitializePublicationCanonicalAsync(connection, token);
-                    break;
                 case ["publication-canonical", "verify"]:
                     await VerifyPublicationCanonicalAsync(connection, null, token);
                     break;
                 case ["publication-canonical", "verify", var canonicalPublication]:
                     await VerifyPublicationCanonicalAsync(connection, canonicalPublication, token);
-                    break;
-                case ["publication-proof", "schema"]:
-                    await InitializePublicationProofAsync(connection, token);
-                    break;
-                case ["publication-transparency", "enable"]:
-                    await EnablePublicationTransparencyAsync(connection, token);
-                    break;
-                case ["publication-transparency", "head-schema"]:
-                    await InitializePublicationHeadAsync(connection, token);
                     break;
                 case ["publication-transparency", "checkpoint-release", .. var checkpointArgs]:
                     await CreatePublicationCheckpointAsync(connection, checkpointArgs, PublicationCheckpointKind.Release, token);
@@ -317,85 +333,13 @@ internal static partial class Migration
                 case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
                     await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);
                     break;
-                case ["admin-article-rollback", "schema"]:
-                    await InitializeAdminArticleRollbackAsync(connection, token);
-                    break;
                 case ["article-responsibility", "record", var responsibilityArticle, var responsibilityRevision]:
                     await RecordArticleResponsibilityAsync(connection, responsibilityArticle, responsibilityRevision, token);
-                    break;
-                case ["article-schedule"]:
-                    await InitializeArticleScheduleAsync(connection, token);
-                    break;
-                case ["article", "read-proof-schema"]:
-                    await InitializeArticleReadSchemaAsync(connection, token);
-                    break;
-                case ["private-media-upload", "schema"]:
-                    await InitializeMediaUploadAsync(connection, token);
-                    break;
-                case ["media-webp", "schema"]:
-                    await UpgradeMediaFormatsAsync(connection, token);
-                    break;
-                case ["private-media-import-origin", "schema"]:
-                    await InitializePrivateMediaImportOriginAsync(connection, token);
-                    break;
-                case ["legacy", "release-origin-schema"]:
-                    await InitializeLegacyReleaseOriginSchemaAsync(connection, token);
-                    break;
-                case ["article-private-media"]:
-                    await InitializeArticleMediaAsync(connection, token);
-                    break;
-                case ["article-public-media"]:
-                    await InitializePublicationMediaAsync(connection, token);
                     break;
                 case ["article-public-media", var mediaOperation, var mediaSite, var privateMediaRoot, var publicMediaRoot, var mediaWebRoot]
                     when mediaOperation is "verify" or "rebuild":
                     await VerifyOrRebuildPublicationMediaAsync(connection, mediaOperation == "rebuild", mediaSite,
                         privateMediaRoot, publicMediaRoot, mediaWebRoot, token);
-                    break;
-                case ["authoring-workspace"]:
-                    await InitializeAuthoringWorkspaceAsync(connection, token);
-                    break;
-                case ["author-recent-opens"]:
-                    await InitializeAuthorRecentOpensAsync(connection, token);
-                    break;
-                case ["author-search"]:
-                    await InitializeAuthorSearchAsync(connection, token);
-                    break;
-                case ["author-summary"]:
-                    await InitializeAuthorSummaryAsync(connection, token);
-                    break;
-                case ["article-body-insertion"]:
-                    await InitializeArticleBodyInsertionAsync(connection, token);
-                    break;
-                case ["property-snapshots"]:
-                    await InitializePropertySnapshotsAsync(connection, token);
-                    break;
-                case ["site-passkey-names"]:
-                    await InitializeSitePasskeyNamesAsync(connection, token);
-                    break;
-                case ["document-exports"]:
-                    await InitializeDocumentExportsAsync(connection, token);
-                    break;
-                case ["saved-views"]:
-                    await InitializeSavedViewsAsync(connection, token);
-                    break;
-                case ["tag-metadata"]:
-                    await InitializeAdminTagMetadataAsync(connection, token);
-                    break;
-                case ["admin-inbox-replies"]:
-                    await InitializeAdminInboxRepliesAsync(connection, token);
-                    break;
-                case ["admin-inbox-status"]:
-                    await InitializeAdminInboxStatusAsync(connection, token);
-                    break;
-                case ["admin-inbox-notice"]:
-                    await InitializeAdminInboxNoticeAsync(connection, token);
-                    break;
-                case ["admin-inbox-read"]:
-                    await InitializeAdminInboxReadAsync(connection, token);
-                    break;
-                case ["site-subscription", "schema"]:
-                    await InitializeSiteSubscriptionAsync(connection, token);
                     break;
                 case ["site-subscription", "issue-cancel", var channel]:
                     await IssueSubscriptionCancelAsync(connection, channel, token);
@@ -420,24 +364,6 @@ internal static partial class Migration
                     break;
                 case ["comment", "handle", var account, var displayName]:
                     await CommentMaintenance.AssignHandle(connection, account, displayName, token);
-                    break;
-                case ["comment", "author-delete-schema"]:
-                    await InitializeCommentAuthorDeleteAsync(connection, token);
-                    break;
-                case ["comment", "author-edit-schema"]:
-                    await InitializeCommentAuthorEditAsync(connection, token);
-                    break;
-                case ["comment", "report-schema"]:
-                    await InitializeCommentReportAsync(connection, token);
-                    break;
-                case ["comment", "appeal-schema"]:
-                    await InitializeCommentAppealAsync(connection, token);
-                    break;
-                case ["comment", "replies-schema"]:
-                    await InitializeCommentReplyAsync(connection, token);
-                    break;
-                case ["comment", "bulk-schema"]:
-                    await InitializeAdminCommentBatchAsync(connection, token);
                     break;
                 case ["comment", "policy", var article, var state]:
                     await CommentMaintenance.SetArticlePolicy(connection, article, state, token);

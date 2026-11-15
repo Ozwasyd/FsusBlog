@@ -52,8 +52,8 @@ internal static partial class Migration
             ORDER BY {articleId} LIMIT {RehearsalLimit + 1}
             """);
         await using var reader = await query.ExecuteReaderAsync(ct);
-        using var viewDigest = ReadingHistoryDigest(LegacyArticleViews, "id", "views");
-        using var seedDigest = ReadingHistoryDigest(LegacyViewSeed, "article_id", "legacy_views", "seeded_at_utc");
+        using var viewDigest = LegacyShadowDigest(LegacyArticleViews, ["id", "views"]);
+        using var seedDigest = LegacyShadowDigest(LegacyViewSeed, ["article_id", "legacy_views", "seeded_at_utc"]);
         var rows = new List<LegacyReadingHistoryRow>();
         var previousId = 0;
         var observed = 0;
@@ -93,14 +93,6 @@ internal static partial class Migration
         var projections = new List<LegacyProjection> { ReadingHistoryProjection(LegacyArticleViews, rows.Count, viewDigest) };
         if (seed is not null) projections.Add(ReadingHistoryProjection(LegacyViewSeed, seedsRead, seedDigest));
         return new(true, seed is not null, projections.ToArray(), rows.ToArray());
-    }
-
-    private static IncrementalHash ReadingHistoryDigest(string name, params string[] fields)
-    {
-        var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(digest, name);
-        foreach (var field in fields) AppendLegacyValue(digest, field);
-        return digest;
     }
 
     private static LegacyProjection ReadingHistoryProjection(string name, int count, IncrementalHash digest)
@@ -143,49 +135,17 @@ internal static partial class Migration
         return [LegacyReadingHistoryShadow];
     }
 
-    private static async Task WriteLegacyReadingHistoryShadowAsync(DbTransaction tx, LegacyReadingHistoryRow[] rows,
-        CancellationToken ct)
-    {
-        var table = LegacyReadingHistoryShadow.Name;
-        await using (var create = CreateLegacyCommand(tx, $"""
-            CREATE TABLE {table} (article_id INTEGER PRIMARY KEY, views INTEGER NOT NULL,
-                legacy_views INTEGER, seeded_at_utc TEXT) STRICT
-            """)) await create.ExecuteNonQueryAsync(ct);
-        await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table} VALUES (@id,@views,@seed,@at)");
-        foreach (var name in new[] { "id", "views", "seed", "at" })
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = name;
-            insert.Parameters.Add(parameter);
-        }
-        foreach (var row in rows)
-        {
-            insert.Parameters[0].Value = row.ArticleId;
-            insert.Parameters[1].Value = row.Views;
-            insert.Parameters[2].Value = (object?)row.SeedViews ?? DBNull.Value;
-            insert.Parameters[3].Value = (object?)row.SeededAt ?? DBNull.Value;
-            await insert.ExecuteNonQueryAsync(ct);
-        }
-    }
+    private static object?[] LegacyReadingHistoryValues(LegacyReadingHistoryRow row) =>
+        [(long)row.ArticleId, (long)row.Views, (long?)row.SeedViews, row.SeededAt];
 
-    private static async Task<ShadowCount> VerifyLegacyReadingHistoryShadowAsync(DbTransaction tx,
-        LegacyReadingHistoryRow[] rows, CancellationToken ct)
-    {
-        var table = LegacyReadingHistoryShadow;
-        using var digest = ReadingHistoryDigest(table.Name, table.Columns.Select(column => column.Name).ToArray());
-        await using var select = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY article_id");
-        await using var read = await select.ExecuteReaderAsync(ct);
-        foreach (var expected in rows)
-        {
-            if (!await read.ReadAsync(ct) || read.GetInt64(0) != expected.ArticleId || read.GetInt64(1) != expected.Views ||
-                (read.IsDBNull(2) ? (long?)null : read.GetInt64(2)) != expected.SeedViews ||
-                (read.IsDBNull(3) ? null : read.GetString(3)) != expected.SeededAt)
-                throw new InvalidOperationException("The legacy reading-history shadow differs from its source.");
-            for (var index = 0; index < read.FieldCount; index++)
-                AppendLegacyValue(digest, read.IsDBNull(index) ? null : read.GetValue(index));
-        }
-        if (await read.ReadAsync(ct))
-            throw new InvalidOperationException("The legacy reading-history shadow contains unreviewed rows.");
-        return new(table.Name, rows.Length, Convert.ToHexStringLower(digest.GetHashAndReset()));
-    }
+    private static Task WriteLegacyReadingHistoryShadowAsync(DbTransaction tx, LegacyReadingHistoryRow[] rows,
+        CancellationToken ct) => WriteLegacyShadowRowsAsync(tx, LegacyReadingHistoryShadow, $"""
+            CREATE TABLE {LegacyReadingHistoryShadow.Name} (article_id INTEGER PRIMARY KEY, views INTEGER NOT NULL,
+                legacy_views INTEGER, seeded_at_utc TEXT) STRICT
+            """, rows.Select(LegacyReadingHistoryValues), ct);
+
+    private static Task<ShadowCount> VerifyLegacyReadingHistoryShadowAsync(DbTransaction tx,
+        LegacyReadingHistoryRow[] rows, CancellationToken ct) => VerifyLegacyShadowRowsAsync(tx, LegacyReadingHistoryShadow,
+            rows.Select(LegacyReadingHistoryValues), "The legacy reading-history shadow differs from its source.",
+            "The legacy reading-history shadow contains unreviewed rows.", ct);
 }

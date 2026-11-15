@@ -161,51 +161,16 @@ internal static partial class Migration
         row.ReleaseId, row.Release, row.Status, row.RightsId, row.RightsRevision, row.Created
     ];
 
-    private static async Task WriteLegacyCreateCommandShadowAsync(DbTransaction tx, LegacyCreateCommand[] rows, CancellationToken ct)
+    private static Task WriteLegacyCreateCommandShadowAsync(DbTransaction tx, LegacyCreateCommand[] rows, CancellationToken ct)
     {
         var table = LegacyCreateCommandShadow;
-        var fields = string.Join(',', table.Columns.Select(column => $"{column.Name} {column.Kind} NOT NULL"));
-        await using (var create = CreateLegacyCommand(tx, $"""
-            CREATE TABLE {table.Name} ({fields}, PRIMARY KEY (id), UNIQUE (admin_principal_id,client_mutation_id)) STRICT
-            """)) await create.ExecuteNonQueryAsync(ct);
-        var parameters = table.Columns.Select(column => "@" + column.Name).ToArray();
-        await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table.Name} VALUES ({string.Join(',', parameters)})");
-        foreach (var name in parameters)
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = name;
-            insert.Parameters.Add(parameter);
-        }
-        foreach (var row in rows)
-        {
-            var values = LegacyCreateCommandValues(row);
-            for (int field = 0; field < values.Length; field++) insert.Parameters[field].Value = values[field];
-            await insert.ExecuteNonQueryAsync(ct);
-        }
+        return WriteLegacyShadowRowsAsync(tx, table, $"""
+            CREATE TABLE {table.Name} ({LegacyShadowColumns(table)}, PRIMARY KEY (id), UNIQUE (admin_principal_id,client_mutation_id)) STRICT
+            """, rows.Select(LegacyCreateCommandValues), ct);
     }
 
-    private static async Task<ShadowCount> VerifyLegacyCreateCommandShadowAsync(DbTransaction tx, LegacyCreateCommand[] rows,
-        CancellationToken ct)
-    {
-        var table = LegacyCreateCommandShadow;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(hash, table.Name);
-        foreach (var field in table.Columns) AppendLegacyValue(hash, field.Name);
-        await using var read = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY id");
-        await using var reader = await read.ExecuteReaderAsync(ct);
-        foreach (var row in rows)
-        {
-            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy create command shadow rows are missing.");
-            var values = LegacyCreateCommandValues(row);
-            for (int field = 0; field < values.Length; field++)
-            {
-                object observed = reader.GetValue(field);
-                object wanted = values[field] is int narrow ? (long)narrow : values[field];
-                if (!observed.Equals(wanted)) throw new InvalidOperationException("A legacy create command shadow value changed.");
-                AppendLegacyValue(hash, observed);
-            }
-        }
-        if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy create command shadow has additional rows.");
-        return new ShadowCount(table.Name, rows.Length, Convert.ToHexStringLower(hash.GetHashAndReset()));
-    }
+    private static Task<ShadowCount> VerifyLegacyCreateCommandShadowAsync(DbTransaction tx, LegacyCreateCommand[] rows,
+        CancellationToken ct) => VerifyLegacyShadowRowsAsync(tx, LegacyCreateCommandShadow, rows.Select(LegacyCreateCommandValues),
+            "A legacy create command shadow value changed.", "Legacy create command shadow has additional rows.", ct,
+            missing: "Legacy create command shadow rows are missing.", widenIntegers: true);
 }

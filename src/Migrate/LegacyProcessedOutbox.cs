@@ -379,55 +379,17 @@ internal static partial class Migration
         return rows.ToArray();
     }
 
-    private static async Task WriteLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry, CancellationToken ct)
+    private static Task WriteLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry, CancellationToken ct)
     {
         var table = entry.Table;
-        var fields = table.Columns.Select(column => $"{column.Name} {column.Kind}" +
-            (table.NonNull!.Contains(column.Name, StringComparer.Ordinal) ? " NOT NULL" : ""));
-        await using (var create = CreateLegacyCommand(tx, $"""
-            CREATE TABLE {table.Name} ({string.Join(',', fields)}, PRIMARY KEY (id),
+        return WriteLegacyShadowRowsAsync(tx, table, $"""
+            CREATE TABLE {table.Name} ({LegacyShadowColumns(table)}, PRIMARY KEY (id),
                 UNIQUE ({string.Join(',', table.Unique!)})) STRICT
-            """)) await create.ExecuteNonQueryAsync(ct);
-
-        var parameters = table.Columns.Select(column => "@" + column.Name).ToArray();
-        await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table.Name} VALUES ({string.Join(',', parameters)})");
-        foreach (var name in parameters)
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = name;
-            insert.Parameters.Add(parameter);
-        }
-        foreach (var row in entry.Rows)
-        {
-            for (int field = 0; field < row.Length; field++) insert.Parameters[field].Value = row[field] ?? DBNull.Value;
-            await insert.ExecuteNonQueryAsync(ct);
-        }
+            """, entry.Rows, ct);
     }
 
-    private static async Task<ShadowCount> VerifyLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry, CancellationToken ct)
-    {
-        var table = entry.Table;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(hash, table.Name);
-        await using var read = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY id");
-        await using var reader = await read.ExecuteReaderAsync(ct);
-        for (int field = 0; field < table.Columns.Length; field++)
-        {
-            var name = reader.GetName(field);
-            if (name != table.Columns[field].Name) throw new InvalidOperationException("A legacy outbox shadow column changed.");
-            AppendLegacyValue(hash, name);
-        }
-        foreach (var row in entry.Rows)
-        {
-            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy outbox shadow rows are missing.");
-            for (int field = 0; field < row.Length; field++)
-            {
-                object? observed = reader.IsDBNull(field) ? null : reader.GetValue(field);
-                if (!Equals(observed, row[field])) throw new InvalidOperationException("A legacy outbox shadow value changed.");
-                AppendLegacyValue(hash, observed);
-            }
-        }
-        if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Legacy outbox shadow has additional rows.");
-        return new ShadowCount(table.Name, entry.Rows.Length, Convert.ToHexStringLower(hash.GetHashAndReset()));
-    }
+    private static Task<ShadowCount> VerifyLegacyOutboxShadowAsync(DbTransaction tx, LegacyOutboxEntry entry,
+        CancellationToken ct) => VerifyLegacyShadowRowsAsync(tx, entry.Table, entry.Rows,
+            "A legacy outbox shadow value changed.", "Legacy outbox shadow has additional rows.", ct,
+            missing: "Legacy outbox shadow rows are missing.", columnMismatch: "A legacy outbox shadow column changed.");
 }

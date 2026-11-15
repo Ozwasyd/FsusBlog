@@ -150,40 +150,12 @@ internal static partial class Migration
     private static async Task<ShadowCount> WriteLegacyImportMediaShadowAsync(DbTransaction tx, CandidateTable table,
         IEnumerable<object?[]> sourceRows, CancellationToken ct)
     {
-        var fields = string.Join(", ", table.Columns.Select(column => $"{column.Name} {column.Kind}" +
-            (table.NonNull!.Contains(column.Name, StringComparer.Ordinal) ? " NOT NULL" : "")));
-        await using (var create = CreateLegacyCommand(tx, $"CREATE TABLE {table.Name} ({fields}, PRIMARY KEY ({table.Key})) STRICT"))
-            await create.ExecuteNonQueryAsync(ct);
-        await using var insert = CreateLegacyCommand(tx,
-            $"INSERT INTO {table.Name} VALUES ({string.Join(", ", table.Columns.Select(column => "@" + column.Name))})");
-        foreach (var column in table.Columns)
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = column.Name;
-            insert.Parameters.Add(parameter);
-        }
-        using var expected = SavedViewDigest(table.Name, table.Columns.Select(column => column.Name));
-        var count = 0;
-        foreach (var values in sourceRows)
-        {
-            for (var index = 0; index < values.Length; index++)
-            {
-                AppendLegacyValue(expected, values[index]);
-                insert.Parameters[index].Value = values[index] ?? DBNull.Value;
-            }
-            await insert.ExecuteNonQueryAsync(ct);
-            count++;
-        }
-        using var observed = SavedViewDigest(table.Name, table.Columns.Select(column => column.Name));
-        await using var check = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY {table.Key}");
-        await using var rows = await check.ExecuteReaderAsync(ct);
-        var observedCount = 0;
-        while (await rows.ReadAsync(ct))
-        {
-            observedCount++;
-            for (var index = 0; index < table.Columns.Length; index++)
-                AppendLegacyValue(observed, rows.IsDBNull(index) ? null : rows.GetValue(index));
-        }
+        var names = table.Columns.Select(column => column.Name);
+        using var expected = LegacyShadowDigest(table.Name, names);
+        var count = await WriteLegacyShadowRowsAsync(tx, table,
+            $"CREATE TABLE {table.Name} ({LegacyShadowColumns(table, ", ")}, PRIMARY KEY ({table.Key})) STRICT", sourceRows, ct, expected);
+        using var observed = LegacyShadowDigest(table.Name, names);
+        var observedCount = await ReadLegacyShadowDigestAsync(tx, table, observed, ct);
         var sha256 = FinishSourceSeal(observed);
         if (observedCount != count || sha256 != FinishSourceSeal(expected))
             throw new InvalidOperationException("The joined media shadow differs from the measured source and ownership.");

@@ -1,6 +1,5 @@
 using System.Data.Common;
 using System.Globalization;
-using System.Security.Cryptography;
 using Npgsql;
 
 internal static partial class Migration
@@ -106,7 +105,7 @@ internal static partial class Migration
             await using var command = CreateLegacyCommand(tx,
                 $"SELECT {fields} FROM {source.Quote(source.Schema)}.{relation.Name} ORDER BY {KeyForPostgres(relation.Target)} LIMIT {RehearsalLimit + 1}");
             await using var read = await command.ExecuteReaderAsync(ct);
-            using var digest = SavedViewDigest(relation.Name, relation.Columns.Select(column => column.Name));
+            using var digest = LegacyShadowDigest(relation.Name, relation.Columns.Select(column => column.Name));
             var values = new List<object?[]>();
             while (await read.ReadAsync(ct))
             {
@@ -224,36 +223,13 @@ internal static partial class Migration
         return LegacySavedViewRelations.Select(relation => relation.Target).ToArray();
     }
 
-    private static IncrementalHash SavedViewDigest(string name, IEnumerable<string> columns)
-    {
-        var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(digest, name);
-        foreach (var column in columns) AppendLegacyValue(digest, column);
-        return digest;
-    }
-
     private static async Task WriteLegacySavedViewsAsync(DbTransaction tx, SavedViewRows[] relations, CancellationToken ct)
     {
         foreach (var source in relations)
         {
             var table = source.Relation.Target;
-            var fields = string.Join(',', table.Columns.Select(column => $"{column.Name} {column.Kind}" +
-                (table.NonNull!.Contains(column.Name) ? " NOT NULL" : "")));
-            await using (var create = CreateLegacyCommand(tx, $"CREATE TABLE {table.Name} ({fields}, PRIMARY KEY ({table.Key})) STRICT"))
-                await create.ExecuteNonQueryAsync(ct);
-            await using var insert = CreateLegacyCommand(tx,
-                $"INSERT INTO {table.Name} VALUES ({string.Join(',', table.Columns.Select(column => "@" + column.Name))})");
-            foreach (var column in table.Columns)
-            {
-                var parameter = insert.CreateParameter();
-                parameter.ParameterName = "@" + column.Name;
-                insert.Parameters.Add(parameter);
-            }
-            foreach (var values in source.Values)
-            {
-                for (var index = 0; index < values.Length; index++) insert.Parameters[index].Value = values[index] ?? DBNull.Value;
-                await insert.ExecuteNonQueryAsync(ct);
-            }
+            await WriteLegacyShadowRowsAsync(tx, table,
+                $"CREATE TABLE {table.Name} ({LegacyShadowColumns(table)}, PRIMARY KEY ({table.Key})) STRICT", source.Values, ct);
         }
     }
 
@@ -263,21 +239,10 @@ internal static partial class Migration
         foreach (var source in relations)
         {
             var table = source.Relation.Target;
-            using var digest = SavedViewDigest(table.Name, table.Columns.Select(column => column.Name));
-            using var original = SavedViewDigest(source.Relation.Name, table.Columns.Select(column => column.Name));
-            await using var command = CreateLegacyCommand(tx, $"SELECT * FROM {table.Name} ORDER BY {table.Key}");
-            await using var rows = await command.ExecuteReaderAsync(ct);
-            var count = 0;
-            while (await rows.ReadAsync(ct))
-            {
-                count++;
-                for (int index = 0; index < table.Columns.Length; index++)
-                {
-                    var value = rows.IsDBNull(index) ? null : rows.GetValue(index);
-                    AppendLegacyValue(digest, value);
-                    AppendLegacyValue(original, value);
-                }
-            }
+            var names = table.Columns.Select(column => column.Name);
+            using var digest = LegacyShadowDigest(table.Name, names);
+            using var original = LegacyShadowDigest(source.Relation.Name, names);
+            var count = await ReadLegacyShadowDigestAsync(tx, table, digest, ct, original);
             if (count != source.Projection.Rows || FinishSourceSeal(original) != source.Projection.Sha256)
                 throw new InvalidOperationException("The saved-view shadow rows differ from the measured source.");
             observed.Add(new(table.Name, count, FinishSourceSeal(digest)));
