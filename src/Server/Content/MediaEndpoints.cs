@@ -96,6 +96,7 @@ internal static class MediaEndpoints
         response.ContentType = null;
         response.Headers.CacheControl = "private,no-store";
         response.Headers.Pragma = "no-cache";
+        response.Headers["Referrer-Policy"] = "no-referrer";
         response.Headers.XContentTypeOptions = "nosniff";
     }
 

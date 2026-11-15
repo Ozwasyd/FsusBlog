@@ -50,7 +50,6 @@ internal static class ArticleMediaEndpoints
             HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>
         {
             MediaEndpoints.SetHidden(ctx.Response);
-            ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
             var authorization = ctx.Request.Headers.Authorization;
             const string scheme = "Bearer ";
             if (Store.TokenDigest(ctx.Request.Cookies[cookie]) is not { } digest ||

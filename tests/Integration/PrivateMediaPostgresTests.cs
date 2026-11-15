@@ -251,10 +251,20 @@ public sealed class PrivateMediaPostgresTests
             await AssertHidden(client, HttpMethod.Head, WireRoutes.ArticleMediaPreview, owner, ct,
                 ticket[..^2] + (ticket[^2] == 'b' ? 'A' : 'b') + ticket[^1]);
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview + "?extra=unexpected", owner, ct, ticket);
+            await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket, range: true);
             using var allowed = await Send(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
             Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
             Assert.True(allowed.Headers.CacheControl?.NoStore);
             Assert.Equal("image/png", allowed.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("no-referrer", Assert.Single(allowed.Headers.GetValues("Referrer-Policy")));
+            var leaf = Path.Combine(root, $"{asset:N}.media");
+            Assert.Equal(await File.ReadAllBytesAsync(leaf, ct), await allowed.Content.ReadAsByteArrayAsync(ct));
+
+            var held = leaf + ".held";
+            File.Move(leaf, held);
+            try { await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket); }
+            finally { File.Move(held, leaf); }
+            await AssertSaturatedPreviewIsHidden(ticket);
 
             using var cannotRemove = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
             Assert.Equal(HttpStatusCode.Conflict, cannotRemove.StatusCode);
@@ -302,6 +312,42 @@ public sealed class PrivateMediaPostgresTests
                 Assert.Equal(asset, new Guid(payload[16..32], bigEndian: true));
                 Assert.Equal(91, BinaryPrimitives.ReadInt32LittleEndian(payload[32..]));
                 return System.Text.Encoding.UTF8.GetString(payload[36..]);
+            }
+
+            async Task AssertSaturatedPreviewIsHidden(string validTicket)
+            {
+                await using var blocker = await db.DataSource.OpenConnectionAsync(ct);
+                await using var heldRow = await blocker.BeginTransactionAsync(ct);
+                await using var acquire = new NpgsqlCommand("select id from public.private_media where id=$1 for update", blocker, heldRow);
+                acquire.Parameters.AddWithValue(asset);
+                Assert.Equal(asset, Assert.IsType<Guid>(await acquire.ExecuteScalarAsync(ct)));
+
+                // These real GETs wait for the asset lock after authorization and hold all four read permits.
+                var reads = Enumerable.Range(0, 4).Select(async _ =>
+                {
+                    using var delivered = await Send(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, validTicket);
+                    return delivered.StatusCode;
+                }).ToArray();
+                HttpStatusCode[] completed;
+                try
+                {
+                    using var probe = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    probe.CancelAfter(TimeSpan.FromSeconds(10));
+                    await using var observe = db.DataSource.CreateCommand("""
+                        select count(*) from pg_catalog.pg_stat_activity
+                        where datname=current_database() and wait_event_type='Lock'
+                          and query like '%FROM public.private_media WHERE owner_id=%FOR SHARE'
+                        """);
+                    while ((long)(await observe.ExecuteScalarAsync(probe.Token))! != reads.Length)
+                        await Task.Delay(25, probe.Token);
+                    await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, probe.Token, validTicket);
+                }
+                finally
+                {
+                    await heldRow.RollbackAsync(CancellationToken.None);
+                    completed = await Task.WhenAll(reads);
+                }
+                Assert.All(completed, status => Assert.Equal(HttpStatusCode.OK, status));
             }
         }
         finally { directory.Delete(recursive: true); }
@@ -582,14 +628,17 @@ public sealed class PrivateMediaPostgresTests
     }
 
     private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, SessionFixture? session,
-        CancellationToken ct, string? previewTicket = null)
+        CancellationToken ct, string? previewTicket = null, bool range = false)
     {
-        using var response = await Send(client, method, path, session, ct, previewTicket);
+        using var response = await Send(client, method, path, session, ct, previewTicket, range);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(0, response.Content.Headers.ContentLength);
         Assert.Null(response.Content.Headers.ContentType);
         Assert.True(response.Headers.CacheControl?.Private);
         Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Equal("no-cache", Assert.Single(response.Headers.Pragma).Name);
+        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
@@ -611,10 +660,11 @@ public sealed class PrivateMediaPostgresTests
     }
 
     private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, SessionFixture? session,
-        CancellationToken ct, string? previewTicket = null)
+        CancellationToken ct, string? previewTicket = null, bool range = false)
     {
         using var request = Request(method, path, session);
         if (previewTicket is not null) request.Headers.Authorization = new("Bearer", previewTicket);
+        if (range) request.Headers.Range = new RangeHeaderValue(0, 0);
         return await client.SendAsync(request, ct);
     }
 
