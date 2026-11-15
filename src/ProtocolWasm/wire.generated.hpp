@@ -64,6 +64,8 @@ inline constexpr uint32_t AdminAppearanceIdBytes = 128;
 inline constexpr uint32_t AdminAppearanceVersionBytes = 64;
 inline constexpr uint32_t AdminAppearanceMaximumItems = 16;
 inline constexpr uint32_t AdminAppearanceCommandFrameBytes = 297;
+inline constexpr uint32_t AdminAppearanceHistoryPageSize = 20;
+inline constexpr uint32_t AdminAppearanceHistoryMaximumItems = 50;
 inline constexpr uint32_t SiteConfigBlobBytes = 4096;
 inline constexpr uint32_t BodyBytes = 1048576;
 inline constexpr uint32_t MaxPayloadBytes = 4194304;
@@ -414,6 +416,7 @@ enum class FrameType : uint16_t {
     AdminAppearanceState = 32936,
     AdminAppearanceCatalog = 32937,
     AdminAppearanceCommand = 32938,
+    AdminAppearanceHistory = 33002,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -585,6 +588,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminAppearanceState:
         case FrameType::AdminAppearanceCatalog:
         case FrameType::AdminAppearanceCommand:
+        case FrameType::AdminAppearanceHistory:
         case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
         case FrameType::AdminInboxPage:

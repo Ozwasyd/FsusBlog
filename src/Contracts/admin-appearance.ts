@@ -10,6 +10,22 @@ import { decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, Wi
 const digest = (value: string) => /^[a-f0-9]{64}$/.test(value);
 const selection = (value: string) => value.length === 0 || digest(value);
 
+export type AdminAppearanceChange = Readonly<{
+  revision: bigint;
+  happenedUnixMs: bigint;
+  actor: string;
+  rollback: boolean;
+  previousTheme: string;
+  previousFont: string;
+  theme: string;
+  font: string;
+}>;
+
+export type AdminAppearanceHistoryPage = Readonly<{
+  nextBefore: bigint | null;
+  items: readonly AdminAppearanceChange[];
+}>;
+
 export function readAdminAppearance(signal: AbortSignal) {
   return request(WireRoutes.AdminAppearanceState, FrameType.AdminAppearanceState, payload => {
     const state = decodeAdminAppearanceState(payload);
@@ -37,6 +53,43 @@ export function readAppearanceCatalog(signal: AbortSignal) {
     input.finish();
     return entries;
   }, signal);
+}
+
+export function readAppearanceHistory(before: bigint | undefined, signal: AbortSignal) {
+  if (before !== undefined && (before <= 0n || before > 9223372036854775807n))
+    throw new ProtocolError('Invalid appearance history revision');
+  const path = WireRoutes.AdminAppearanceHistory + (before === undefined ? '' : `?before=${before}`);
+  return request(path, FrameType.AdminAppearanceHistory, payload => decodeAppearanceHistory(payload, before), signal);
+}
+
+export function decodeAppearanceHistory(payload: Uint8Array, before?: bigint,
+  limit: number = WireLimits.AdminAppearanceHistoryPageSize): AdminAppearanceHistoryPage {
+  const input = new PodReader(payload);
+  const nextBefore = input.i64(), count = input.i32();
+  if (!Number.isInteger(limit) || limit < 1 || limit > WireLimits.AdminAppearanceHistoryMaximumItems || count < 0 || count > limit ||
+      nextBefore < 0n || nextBefore > 0n && count !== limit)
+    throw new ProtocolError('Invalid appearance history page');
+
+  const items: AdminAppearanceChange[] = [];
+  let previous = before;
+  for (let index = 0; index < count; index++) {
+    const change = {
+      revision: input.i64(), happenedUnixMs: input.i64(), actor: input.text(WireLimits.NameBytes), rollback: input.bool(),
+      previousTheme: input.text(WireLimits.AdminAppearanceDigestBytes), previousFont: input.text(WireLimits.AdminAppearanceDigestBytes),
+      theme: input.text(WireLimits.AdminAppearanceDigestBytes), font: input.text(WireLimits.AdminAppearanceDigestBytes),
+    };
+    if (change.revision <= 0n || previous !== undefined && change.revision >= previous ||
+        change.happenedUnixMs <= 0n || change.happenedUnixMs > 253402300799999n ||
+        change.actor !== change.actor.trim() || !/^[a-z][a-z0-9_.-]{0,63}$/.test(change.actor) ||
+        ![change.previousTheme, change.previousFont, change.theme, change.font].every(selection) ||
+        change.previousTheme === change.theme && change.previousFont === change.font)
+      throw new ProtocolError('Invalid appearance history item');
+    items.push(change);
+    previous = change.revision;
+  }
+  input.finish();
+  if (nextBefore > 0n && nextBefore !== previous) throw new ProtocolError('Invalid next appearance history revision');
+  return { nextBefore: nextBefore || null, items };
 }
 
 export async function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {

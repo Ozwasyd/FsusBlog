@@ -28,6 +28,10 @@ internal sealed partial class AdminPasskeyStore
         WithLiveAdmin(session, AppearancePermission, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
             registry.Available().Select(entry => new AdminAppearancePackage(entry.Id, entry.Version, entry.ArchiveDigest, entry.Font)).ToArray())), ct);
 
+    internal Task<byte[]> AppearanceHistory(string? session, long? before, int limit, CancellationToken ct) =>
+        WithLiveAdmin(session, AppearancePermission, async (db, tx, _) =>
+            Wire.EncodeAdminAppearanceHistory(await AppearanceActivationStore.History(db, tx, before, limit, ct), limit), ct);
+
     internal Task<byte[]> BeginAppearanceStepUp(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, CancellationToken ct) =>
         BeginStepUp(session, AppearanceIntentDigest(command),
             (db, tx, _) => CheckAppearance(db, tx, registry, command, ct), ct, StepUpAction.ActivateAppearance);

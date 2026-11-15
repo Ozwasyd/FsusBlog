@@ -1,3 +1,4 @@
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
 using Npgsql;
@@ -35,6 +36,25 @@ internal static class AppearanceActivationStore
     {
         await using var cmd = Store.Sql(db, tx, "select revision from public.appearance_activation where singleton for share");
         return await cmd.ExecuteScalarAsync(ct) is long current && current == revision;
+    }
+
+    internal static async Task<AdminAppearanceHistoryPage> History(NpgsqlConnection db, NpgsqlTransaction tx,
+        long? before, int limit, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, """
+            select a.revision,a.happened_at,p.handle,a.rollback,a.previous_theme_digest,a.previous_font_digest,a.theme_digest,a.font_digest
+            from public.appearance_activation_audit a join public.admin_principal p on p.id=a.principal_id
+            where a.revision<=$1 order by a.revision desc limit $2
+            """, before is { } coordinate ? coordinate - 1 : long.MaxValue, limit + 1);
+        await using var rows = await cmd.ExecuteReaderAsync(ct);
+        var items = new List<AdminAppearanceChange>(limit);
+        while (await rows.ReadAsync(ct))
+        {
+            if (items.Count == limit) return new(items[^1].Revision, items);
+            items.Add(new(rows.GetInt64(0), new DateTimeOffset(rows.GetDateTime(1)).ToUnixTimeMilliseconds(), rows.GetString(2),
+                rows.GetBoolean(3), rows.GetString(4), rows.GetString(5), rows.GetString(6), rows.GetString(7)));
+        }
+        return new(0, items);
     }
 
     internal static async Task Change(NpgsqlConnection db, NpgsqlTransaction tx, AppearanceActivation current,

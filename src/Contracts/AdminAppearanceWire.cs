@@ -1,6 +1,9 @@
 namespace FsusBlog.V2.Contracts;
 
 public sealed record AdminAppearancePackage(string Id, string Version, string Digest, bool Font);
+public sealed record AdminAppearanceChange(long Revision, long HappenedUnixMs, string Actor, bool Rollback,
+    string PreviousTheme, string PreviousFont, string Theme, string Font);
+public sealed record AdminAppearanceHistoryPage(long NextBefore, IReadOnlyList<AdminAppearanceChange> Items);
 
 public static partial class Wire
 {
@@ -35,6 +38,39 @@ public static partial class Wire
             writer.Bool(package.Font);
         }
         return Aeds.Encode(FrameType.AdminAppearanceCatalog, writer.Written);
+    }
+
+    public static byte[] EncodeAdminAppearanceHistory(AdminAppearanceHistoryPage page, int limit)
+    {
+        if (limit is < 1 or > WireLimits.AdminAppearanceHistoryMaximumItems || page.Items.Count > limit || page.NextBefore < 0 ||
+            page.NextBefore > 0 && (page.Items.Count != limit || page.NextBefore != page.Items[^1].Revision))
+            throw new ProtocolException("Invalid appearance history page");
+
+        var writer = new Writer();
+        writer.I64(page.NextBefore);
+        writer.I32(page.Items.Count);
+        long? previous = null;
+        foreach (var change in page.Items)
+        {
+            if (change.Revision <= 0 || previous is { } priorRevision && change.Revision >= priorRevision ||
+                change.HappenedUnixMs is <= 0 or > 253402300799999 ||
+                change.Actor.Length is < 1 or > 64 || change.Actor[0] is < 'a' or > 'z' ||
+                !change.Actor.All(character => character is >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or '.' or '-') ||
+                !AppearanceDigest(change.PreviousTheme) || !AppearanceDigest(change.PreviousFont) ||
+                !AppearanceDigest(change.Theme) || !AppearanceDigest(change.Font) ||
+                change.PreviousTheme == change.Theme && change.PreviousFont == change.Font)
+                throw new ProtocolException("Invalid appearance history item");
+            previous = change.Revision;
+            writer.I64(change.Revision);
+            writer.I64(change.HappenedUnixMs);
+            writer.Text(change.Actor, WireLimits.NameBytes);
+            writer.Bool(change.Rollback);
+            writer.Text(change.PreviousTheme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(change.PreviousFont, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(change.Theme, WireLimits.AdminAppearanceDigestBytes);
+            writer.Text(change.Font, WireLimits.AdminAppearanceDigestBytes);
+        }
+        return Aeds.Encode(FrameType.AdminAppearanceHistory, writer.Written);
     }
 
     private static bool AppearanceDigest(string value) => value.Length == 0 || value.Length == WireLimits.AdminAppearanceDigestBytes &&

@@ -85,6 +85,7 @@ public enum FrameType : ushort
     AdminAppearanceState = 32936,
     AdminAppearanceCatalog = 32937,
     AdminAppearanceCommand = 32938,
+    AdminAppearanceHistory = 33002,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -234,6 +235,8 @@ public static class WireLimits
     public const int AdminAppearanceVersionBytes = 64;
     public const int AdminAppearanceMaximumItems = 16;
     public const int AdminAppearanceCommandFrameBytes = 297;
+    public const int AdminAppearanceHistoryPageSize = 20;
+    public const int AdminAppearanceHistoryMaximumItems = 50;
     public const int SiteConfigBlobBytes = 4096;
     public const int BodyBytes = 1048576;
     public const int MaxPayloadBytes = 4194304;
@@ -616,6 +619,7 @@ public static class WireRoutes
     public const string AdminSitePagePublish = "/api/v2/admin/identity/site-pages/publish.aeds";
     public const string AdminAppearanceState = "/api/v2/admin/identity/appearance.aeds";
     public const string AdminAppearanceCatalog = "/api/v2/admin/identity/appearance/catalog.aeds";
+    public const string AdminAppearanceHistory = "/api/v2/admin/identity/appearance/history.aeds";
     public const string AdminAppearanceStepUpBegin = "/api/v2/admin/identity/appearance/step-up/begin.aeds";
     public const string AdminAppearanceStepUpComplete = "/api/v2/admin/identity/appearance/step-up/complete.aeds";
     public const string AdminAppearancePow = "/api/v2/admin/identity/appearance/pow.aeds";

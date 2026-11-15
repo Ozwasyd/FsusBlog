@@ -5,6 +5,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeAppearanceHistory } from '../../src/Contracts/admin-appearance.ts'
 import { decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
@@ -13,6 +14,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const pub = path => siteOrigin.origin + path
   const stateUrl = admin(WireRoutes.AdminAppearanceState)
   const catalogUrl = admin(WireRoutes.AdminAppearanceCatalog)
+  const historyUrl = admin(WireRoutes.AdminAppearanceHistory)
   const applyUrl = admin(WireRoutes.AdminAppearanceApply)
   const alias = '/site-appearance/current.css'
   const legacyFont = process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT === '1'
@@ -24,10 +26,13 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const check = () => section.getByRole('button', { name: 'Check active appearance', exact: true }).click()
   assert.equal(await page.locator('link[href^="/site-appearance/"]').count(), 0)
   await probe(stateUrl, adminCookieName, siteCookie.value, 401)
+  await probe(historyUrl, adminCookieName, siteCookie.value, 401)
   await probe(pub(WireRoutes.AdminAppearanceState), adminCookieName, priorCookie.value, 404)
+  await probe(pub(WireRoutes.AdminAppearanceHistory), adminCookieName, priorCookie.value, 404)
   await probe(admin(alias), adminCookieName, priorCookie.value, 404)
   assert.equal((await context.request.get(stateUrl)).status(), 403)
   assert.equal((await context.request.get(catalogUrl)).status(), 403)
+  assert.equal((await context.request.get(historyUrl)).status(), 403)
   await section.waitFor({ state: 'detached' })
 
   await promisify(execFile)(grant, [], { timeout: 8_000 })
@@ -37,6 +42,10 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await logIn(page)
   await check()
   await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
+  const history = section.getByRole('region', { name: 'Appearance history', exact: true })
+  const checkHistory = () => section.getByRole('button', { name: 'Check appearance history', exact: true }).click()
+  await checkHistory()
+  await history.getByText('No appearance changes recorded.', { exact: true }).waitFor()
 
   const sites = await context.newPage()
   const siteErrors = []
@@ -149,17 +158,59 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const restored = await current(2, '#225533')
   for (const path of [...Object.values(initial), ...Object.values(alternate)])
     assert.equal((await context.request.get(pub(path))).status(), 404)
+
+  const readHistory = async (path, beforeRevision) => {
+    const response = await context.request.get(historyUrl + path)
+    assert.equal(response.status(), 200)
+    assert.equal(response.headers()['cache-control'], 'no-store')
+    const { payload } = decodeFrame(await response.body(), FrameType.AdminAppearanceHistory)
+    const decoded = decodeAppearanceHistory(payload, beforeRevision, 1)
+    if (decoded.nextBefore !== null) {
+      const invalidCursor = Buffer.from(payload)
+      invalidCursor.writeBigInt64LE(decoded.nextBefore + 1n)
+      assert.throws(() => decodeAppearanceHistory(invalidCursor, beforeRevision, 1), /Invalid next appearance history revision/)
+    }
+    return decoded
+  }
+  const latest = await readHistory('?limit=1')
+  assert.equal(latest.nextBefore, 2n)
+  const earlier = await readHistory('?before=2&limit=1', latest.nextBefore)
+  assert.equal(earlier.nextBefore, null)
+  assert.deepEqual(await readHistory('?before=1&limit=1', 1n), { nextBefore: null, items: [] })
+  const [rollback] = latest.items
+  const [applied] = earlier.items
+  assert.equal(rollback.revision, 2n)
+  assert.equal(rollback.actor, 'tls-admin-fixture')
+  assert.equal(rollback.rollback, true)
+  assert.equal(rollback.previousTheme, applied.theme)
+  assert.equal(rollback.theme, applied.previousTheme)
+  assert.equal(applied.revision, 1n)
+  assert.equal(applied.actor, 'tls-admin-fixture')
+  assert.equal(applied.rollback, false)
+  assert.equal(applied.previousTheme, state.theme)
+  if (legacyThemeDigest) assert.equal(applied.theme, legacyThemeDigest)
+  assert.deepEqual([applied.previousFont, applied.font, rollback.previousFont, rollback.font], Array(4).fill(state.font))
+  for (const query of ['?before=02', '?before=1&before=2', '?before=9223372036854775808', '?before=0', '?limit=0', '?limit=51', '?scope=public'])
+    assert.equal((await context.request.get(historyUrl + query)).status(), 400)
+  await checkHistory()
+  await history.getByText('Rolled back · revision 2', { exact: true }).waitFor()
+  await history.getByText('Applied · revision 1', { exact: true }).waitFor()
+  assert.equal(await history.getByRole('heading', { name: 'Appearance history', exact: true })
+    .evaluate(element => element === document.activeElement), true)
+
   await writeFile(join(evidence, 'appearance-rollback-url.txt'), restored.css)
   assert.deepEqual(siteErrors, [])
   await page.screenshot({ path: join(evidence, 'administrator-appearance.png') })
   await sites.close()
   await promisify(execFile)(revoke, [], { timeout: 8_000 })
   await probe(stateUrl, adminCookieName, cookie.value, 401)
+  await probe(historyUrl, adminCookieName, cookie.value, 401)
   await check()
   await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
   await logIn(page)
   assert.equal((await context.request.get(stateUrl)).status(), 403)
   assert.equal((await context.request.get(catalogUrl)).status(), 403)
+  assert.equal((await context.request.get(historyUrl)).status(), 403)
   await section.waitFor({ state: 'detached' })
   return await readCookie(context, stateUrl, adminCookieName)
 }
