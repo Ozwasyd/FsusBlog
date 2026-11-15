@@ -25,4 +25,16 @@ python3 tests/Integration/Migration/linux-plugin-isolation.py /tmp/fsus-plugin-p
 
 实测环境为 Debian 13 ARM64，内核 6.12.115、Bubblewrap 0.12.0、GCC 14.2 和 glibc 2.41。默认及 Python 优化模式均通过。探针核对根挂载、程序和 procfs 均为只读，确认有效及环境 capabilities 为零，并验证直接进入探针分支时会拒绝运行。 [原生日志](../../artifacts/linux-plugin-isolation/native.log)
 
-该白名单适用于无依赖的探针。Linux Jint 调用仍禁用。托管 worker 接入还须核验专用只读运行时及程序集目录、实际施加的 cgroup v2 内存和任务上限，以及取消或父进程退出后的整组回收。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+该白名单适用于无依赖的探针。Linux Jint 调用仍禁用。托管 worker 接入还须针对其专用只读运行时及程序集目录验证系统调用规则、实际资源上限和整组回收。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+
+## Linux cgroup v2 资源与回收检查
+
+在使用 cgroup v2 的隔离 Linux ARM64 环境中，以可连接 systemd 用户管理器和 D-Bus 会话的非特权账号运行以下测试。它在临时用户服务中运行上面的 Bubblewrap 探针，并分别运行固定的资源测试。测试只接收已编译的静态探针路径。 [systemd v257 资源控制](https://www.freedesktop.org/software/systemd/man/257/systemd.resource-control.html) · [systemd v257 临时服务](https://www.freedesktop.org/software/systemd/man/257/systemd-run.html)
+
+```sh
+python3 tests/Integration/Migration/linux-plugin-cgroups.py /tmp/fsus-plugin-probe
+```
+
+工作进程在收到测试控制器的许可前等待。控制器先核对本次 systemd 服务的主 PID、实际内核 cgroup 归属、48 MiB 内存上限、禁用交换空间、8 个任务及 25% 的单 CPU 配额。测试用不匹配的内存上限验证启动拒绝，并读取 `pids.events`、`memory.events` 与 `cpu.stat` 记录的内核事件。主动取消和启动客户端被强制退出两种场景分别验证。子进程被暂停后，通过管理器状态、原进程的 pidfd 和 cgroup 清空确认整组回收。 [systemd v257 服务期限](https://www.freedesktop.org/software/systemd/man/257/systemd.service.html) · [cgroup v2 文件](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+
+Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载触发一次任务数量拒绝、一次组内 OOM 终止和 13 次 CPU 节流。主动取消耗时 0.389 秒，启动客户端被强制退出后的整组回收耗时 4.516 秒。结束后确认临时服务和 cgroup 已移除。Linux Jint 执行仍需独立验证托管运行时。 [原生验证及清理日志](../../artifacts/linux-plugin-cgroups)
