@@ -85,3 +85,7 @@
 同一解包产物通过 11 组 Chrome 验收，新增两页搜索语料的条件请求、TLS 阅读统计，以及通用流程中的统一 CRLF 准确定位和保存。11 组均核验临时资源清理。按原口径计入 822 个文件、134,890 NCLOC，距全功能代码量上限仍有 73,656 行。 [候选产物、构建和用例](../artifacts/candidate-ecbff9d/) · [附加实库用例](../artifacts/candidate-ecbff9d/optional-native.log) · [代码统计](../artifacts/candidate-ecbff9d/code-volume.json)
 
 同一归档在 Debian 13 ARM64 上独立核验全部文件和两份归档摘要。PostgreSQL 17.12 与 .NET 10.0.15 验证首次启动及重启，以及当前语料条件请求 304、相同 ETag 搭配旧代次 409 和重启字节一致。临时服务、数据库、上传目录和测试虚拟机均已清理。 [Debian 同包实测](../artifacts/candidate-ecbff9d/linux-default/native.log) · [测试退出](../artifacts/candidate-ecbff9d/linux-default/outcome.txt)
+
+冻结候选 `e31779c46d13b3efd2ece3557d38deccd54d747e` 验证了 312 个发布文件和 299 个 Git 提交。`.NET 10.0.15` 使用默认 CLR 处理器设置，127 项 Core 和 181 项集成测试通过。专用 C11 语料入口使用同一解包迁移工具单独验证 20 篇文章和 132 条评论。两处此前出现超时的真实断连和丢失提交回执用例均通过。130 项 Node 合并测试、80 项协议 Node、3 项 FSDL、9 项 FSPT、11 项 FSIM、5 项固定排名向量及 3,847 项 JS/Wasm 差分通过。固定排名仍有已记录的原实现语义差异。 [独立归档校验](../artifacts/candidate-e31779c/release-verification.json) · [联合验收结果](../artifacts/candidate-e31779c/checks.txt) · [C11 小规模验证](../artifacts/candidate-e31779c/nightly-pilot/run.txt)
+
+16 组真实 Chrome 验收使用同一解包产物，覆盖归档及重新发布、签名配色与键盘焦点、公开签名日志头和阅读证明。隔离旧库回滚演练和物理备库交接通过。Debian 13 ARM64 使用同一包完成原生 PostgreSQL 迁移与重启，当前语料条件请求 304、旧代次 409，重启后语料字节一致。各次临时实例和测试虚拟机均已停止。包的 SHA-256 为 `b03c6da99d627252ed5ede83cb1d30ff36302f79a382eb382b3ef9c4bc8cb9b1`。 [发布包和校验值](../artifacts/candidate-e31779c/release/) · [Debian 验收](../artifacts/candidate-e31779c/linux-default/native.log) · [阶段退出条件](release-readiness.md)
