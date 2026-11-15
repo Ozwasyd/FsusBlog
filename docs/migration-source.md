@@ -213,6 +213,8 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应以十进制字符串保留原始修订标识和证明标识。`signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名，再按 `transparency.chain` 核对条目序列和检查点根。混合链只公开重算条目哈希所需的权利证明日志字段。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
 
+读取已归档的 V1 权利证明请访问 `/integrity/article/{articleId}/revisions/{revisionNo}/rights/archive.json`。响应使用相同的公钥和检查点审核值，核验指定修订的原权利证明签名、对应发布证明签名，以及两条记录在同一检查点中的纳入顺序。`rights` 提供签名绑定的权利快照标识、发布证明标识、权利策略摘要和正文摘要。标识使用十进制字符串。文章仍公开且该修订有符合条件的归档时可读，响应使用 `no-store`。历史证据绑定的是旧站签发时的坐标和摘要。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。

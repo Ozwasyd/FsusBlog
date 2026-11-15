@@ -32,6 +32,13 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
     private sealed record Checkpoint(int ManifestVersion, string CheckpointKind, string ScopeKey, string RootHash,
         long FromSeq, long ToSeq, int EntryCount, long LogHeadSeq, string LogHeadHash, DateTimeOffset CreatedAtUtc);
 
+    private sealed record RightsClaims(string ArticleRightsSnapshotId, string PublishProofId, string RightsPolicyHash, string ContentCanonicalHash);
+    private sealed record ArchivedSignature(JsonElement Source, long Id, ArchivedPublicKey Key, DateTimeOffset SignedAt,
+        byte[] Payload, string Signature, RightsClaims? Rights);
+    private sealed record ArchiveManifest(int ManifestVersion, string Kind, int ArticleId, int RevisionNo, string ArticleRevisionId,
+        string ProofId, DateTimeOffset SignedAtUtc, byte[] SignedPayload, string Signature, ArchivedPublicKey Key, object Transparency,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RightsClaims? Rights);
+
     internal static LegacyHistoricalProof? ReadConfiguration(IConfiguration configuration)
     {
         var settings = configuration.GetSection("IntegrityProof:HistoricalV1");
@@ -43,7 +50,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
         return new(settings, keys!, checkpoint!);
     }
 
-    internal byte[]? Verify(byte[] input, int articleId, int revisionNo)
+    internal byte[]? Verify(byte[] input, int articleId, int revisionNo, bool rights)
     {
         try
         {
@@ -60,42 +67,26 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 return null;
             var registry = publicKeys.ToDictionary(key => key.KeyId, StringComparer.Ordinal);
 
-            var source = ReadJson(archive.GetProperty("sourceRow").GetBytesFromBase64());
             var original = Number(evidence, "revisionId");
-            var publication = Number(evidence, "publicationId");
-            var proofId = Number(source, "id");
-            var signedAt = Time(source, "published_at");
-            var signature = Required(source, "signature");
-            var key = registry[Required(source, "signing_key_id")];
-            var status = Required(source, "proof_status");
-            var payload = archive.GetProperty("signedPayload").GetBytesFromBase64();
-            var lines = Encoding.UTF8.GetString(payload).Split('\n');
-            const string digestField = "digestSha256:h:";
-            if (proofId <= 0 || original <= 0 || publication <= 0 || Number(source, "article_id") != articleId ||
-                Number(source, "article_revision_id") != original || Number(source, "revision_no") != revisionNo ||
-                status is not ("ready" or "superseded") || Number(source, "proof_version") != 1 ||
-                Number(source, "signature_payload_version") != 1 || Number(source, "signing_key_version") != key.Version ||
-                Required(source, "signing_algorithm") != key.Algorithm ||
-                lines.Length < 6 || !lines[4].StartsWith(digestField, StringComparison.Ordinal) || !IsHash(lines[4][digestField.Length..]))
-                return null;
-            var signed = SiteProofPayload.Canonicalize(ProofKind, FormattableString.Invariant($"article:{articleId}:revision:{original}"),
-                lines[4][digestField.Length..], signedAt, new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["articleId"] = articleId.ToString(CultureInfo.InvariantCulture), ["articleRevisionId"] = original.ToString(CultureInfo.InvariantCulture),
-                    ["proofVersion"] = "1", ["revisionNo"] = revisionNo.ToString(CultureInfo.InvariantCulture), ["signaturePayloadVersion"] = "1"
-                });
-            if (!signed.AsSpan().SequenceEqual(payload) || !VerifySignature(key, signedAt, signed, signature)) return null;
-
+            if (original <= 0 || Number(evidence, "publicationId") <= 0) return null;
+            var parentArchive = rights ? evidence.GetProperty("parent") : default;
+            var parent = rights ? VerifyArchivedSignature(parentArchive, articleId, original, revisionNo, registry, null) : null;
+            var proof = VerifyArchivedSignature(archive, articleId, original, revisionNo, registry, parent);
             var rows = evidence.GetProperty("entries");
-            if (rows.GetArrayLength() is < 1 or > 4) return null;
+            if (rows.GetArrayLength() is < 1 or > 5) return null;
             var chain = rows.EnumerateArray().Select(row => ReadEntry(ReadJson(row.GetBytesFromBase64())))
                 .OrderBy(entry => entry.Seq).ToArray();
             var selected = ReadEntry(ReadJson(transparency.GetProperty("sourceRow").GetBytesFromBase64()));
-            if (selected.EntryType != ProofKind || !chain.Contains(selected) || selected.Id != Number(source, "transparency_log_entry_id") ||
-                selected.EntryHash != Required(source, "transparency_log_entry_hash") || selected.ProofId != proofId ||
-                selected.ArticleId != articleId || selected.ArticleRevisionId != original || selected.RevisionNo != revisionNo ||
-                selected.SigningKeyId != key.KeyId || selected.Signature != signature)
+            if (!MatchesEntry(chain, selected, proof, rights ? RightsProofKind : ProofKind, articleId, original, revisionNo))
                 return null;
+            if (parent is not null)
+            {
+                var parentTransparency = parentArchive.GetProperty("transparency");
+                var parentEntry = ReadEntry(ReadJson(parentTransparency.GetProperty("sourceRow").GetBytesFromBase64()));
+                if (parentEntry.Seq >= selected.Seq ||
+                    !MatchesEntry(chain, parentEntry, parent, ProofKind, articleId, original, revisionNo))
+                    return null;
+            }
 
             var (root, head) = VerifyChain(chain, articleId);
             var anchor = ReadJson(checkpoint);
@@ -122,15 +113,11 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 !VerifySignature(checkpointKey, signedCheckpointAt, checkpointPayload, checkpointSignature))
                 return null;
 
-            return JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                manifestVersion = 1, kind = "legacy-v1-publication-proof-archive",
-                articleId, revisionNo, articleRevisionId = original.ToString(CultureInfo.InvariantCulture),
-                proofId = proofId.ToString(CultureInfo.InvariantCulture),
-                signedAtUtc = signedAt, signedPayload = payload, signature, key,
-                transparency = new { entrySeq = selected.Seq, chain, checkpoint = manifest,
-                    signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey }
-            }, Json);
+            var transparencyManifest = new { entrySeq = selected.Seq, chain, checkpoint = manifest,
+                signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey };
+            return JsonSerializer.SerializeToUtf8Bytes(new ArchiveManifest(1,
+                rights ? "legacy-v1-article-rights-proof-archive" : "legacy-v1-publication-proof-archive", articleId, revisionNo,
+                Decimal(original), Decimal(proof.Id), proof.SignedAt, proof.Payload, proof.Signature, proof.Key, transparencyManifest, proof.Rights), Json);
         }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or FormatException or
             KeyNotFoundException or JsonException or CryptographicException)
@@ -138,6 +125,73 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             return null;
         }
     }
+
+    private ArchivedSignature VerifyArchivedSignature(JsonElement archive, int article, long revision, int number,
+        IReadOnlyDictionary<string, ArchivedPublicKey> registry, ArchivedSignature? parent)
+    {
+        var source = ReadJson(archive.GetProperty("sourceRow").GetBytesFromBase64());
+        var proofId = Number(source, "id");
+        var signature = Required(source, "signature");
+        var key = registry[Required(source, "signing_key_id")];
+        var payload = archive.GetProperty("signedPayload").GetBytesFromBase64();
+        var lines = Encoding.UTF8.GetString(payload).Split('\n');
+        const string digestField = "digestSha256:h:";
+        if (proofId <= 0 || Number(source, "article_id") != article || Number(source, "article_revision_id") != revision ||
+            Number(source, "revision_no") != number || Required(source, "proof_status") is not ("ready" or "superseded") ||
+            Number(source, "proof_version") != 1 || Number(source, "signature_payload_version") != 1 ||
+            Number(source, "signing_key_version") != key.Version || Required(source, "signing_algorithm") != key.Algorithm ||
+            lines.Length < 6 || !lines[4].StartsWith(digestField, StringComparison.Ordinal) || !IsHash(lines[4][digestField.Length..]))
+            throw new FormatException();
+
+        var digest = lines[4][digestField.Length..];
+        var issued = parent?.SignedAt ?? Time(source, "published_at");
+        var subject = FormattableString.Invariant($"article:{article}:revision:{revision}");
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["articleId"] = Decimal(article), ["articleRevisionId"] = Decimal(revision), ["proofVersion"] = "1",
+            ["revisionNo"] = Decimal(number), ["signaturePayloadVersion"] = "1"
+        };
+        RightsClaims? claims = null;
+        if (parent is not null)
+        {
+            var snapshot = Number(source, "article_rights_snapshot_id");
+            var policy = Required(source, "rights_policy_hash");
+            var content = Required(source, "content_canonical_hash");
+            if (snapshot <= 0 || Number(source, "publish_proof_id") != parent.Id || !IsHash(policy) || !IsHash(content) ||
+                !string.Equals(Required(parent.Source, "canonical_hash").Replace("sha256:", "", StringComparison.OrdinalIgnoreCase),
+                    content, StringComparison.OrdinalIgnoreCase))
+                throw new FormatException();
+            var record = FormattableString.Invariant($"""
+                fsusblog.integrity.article-rights-proof-record.v1
+                proofVersion:i:1
+                signaturePayloadVersion:i:1
+                articleId:i:{article}
+                articleRevisionId:i:{revision}
+                revisionNo:i:{number}
+                articleRightsSnapshotId:i:{snapshot}
+                publishProofId:i:{parent.Id}
+                rightsPolicyHash:h:{policy}
+                contentCanonicalHash:h:{content}
+                issuedAt:t:{issued:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
+                proofStatus:s:ready
+
+                """);
+            if (Digest(Encoding.UTF8.GetBytes(record)) != digest) throw new FormatException();
+            subject += ":rights:" + Decimal(snapshot);
+            fields["articleRightsSnapshotId"] = Decimal(snapshot);
+            fields["publishProofId"] = Decimal(parent.Id);
+            claims = new(Decimal(snapshot), Decimal(parent.Id), "sha256:" + policy, "sha256:" + content);
+        }
+        var signed = SiteProofPayload.Canonicalize(parent is null ? ProofKind : RightsProofKind, subject, digest, issued, fields);
+        if (!signed.AsSpan().SequenceEqual(payload) || !VerifySignature(key, issued, signed, signature)) throw new FormatException();
+        return new(source, proofId, key, issued, payload, signature, claims);
+    }
+
+    private static bool MatchesEntry(LogEntry[] chain, LogEntry entry, ArchivedSignature proof, string kind, int article, long revision, int number) =>
+        entry.EntryType == kind && chain.Contains(entry) && entry.Id == Number(proof.Source, "transparency_log_entry_id") &&
+        entry.EntryHash == Required(proof.Source, "transparency_log_entry_hash") && entry.ProofId == proof.Id &&
+        entry.ArticleId == article && entry.ArticleRevisionId == revision && entry.RevisionNo == number &&
+        entry.SigningKeyId == proof.Key.KeyId && entry.Signature == proof.Signature;
 
     private bool VerifySignature(ArchivedPublicKey key, DateTimeOffset issued, byte[] payload, string signature)
     {
@@ -161,7 +215,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
         string previous = new('0', 64);
         var leaves = new List<string>(chain.Length);
         var published = new HashSet<(long RevisionId, int RevisionNo)>();
-        bool rights = false;
+        var rights = new HashSet<(long RevisionId, int RevisionNo)>();
         foreach (var entry in chain)
         {
             var coordinates = entry.Coordinates();
@@ -177,8 +231,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             }
             else
             {
-                if (rights || !published.Contains(revision)) throw new FormatException();
-                rights = true;
+                if (rights.Count == 2 || !published.Contains(revision) || !rights.Add(revision)) throw new FormatException();
             }
 
             var transcript = FormattableString.Invariant($"""
@@ -220,6 +273,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
         return document.RootElement.Clone();
     }
 
+    private static string Decimal(long value) => value.ToString(CultureInfo.InvariantCulture);
     private static long Number(JsonElement row, string field) => row.GetProperty(field).GetInt64();
     private static string Required(JsonElement row, string field) => row.GetProperty(field).GetString() ?? throw new FormatException();
     private static DateTimeOffset Time(JsonElement row, string field) => DateTimeOffset.ParseExact(Required(row, field),

@@ -15,6 +15,10 @@ internal static class LegacyReleaseResponsibility
         {"manifestVersion":1,"code":"legacy_publication_proof_archive_not_found","message":"Historical publication proof archive not found."}
         """u8.ToArray();
 
+    private static readonly byte[] MissingRightsArchive = """
+        {"manifestVersion":1,"code":"legacy_rights_proof_archive_not_found","message":"Historical article rights proof archive not found."}
+        """u8.ToArray();
+
     internal static bool IsHistoricalRoute(PathString path) => path.StartsWithSegments("/integrity/article") &&
         path.Value!.TrimEnd('/').EndsWith("/archive.json", StringComparison.OrdinalIgnoreCase);
 
@@ -31,6 +35,11 @@ internal static class LegacyReleaseResponsibility
                 ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive))
             .RequireRateLimiting("query");
 
+        app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights/archive.json",
+            (HttpContext context, int articleId, int revisionNo) =>
+                ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive, rights: true))
+            .RequireRateLimiting("query");
+
         app.MapGet("/integrity/article/{articleId:int}/responsibility", (HttpContext context, int articleId) =>
             ReadAsync(context, database, publications, lease, articleId, null)).RequireRateLimiting("query");
         app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility",
@@ -40,21 +49,21 @@ internal static class LegacyReleaseResponsibility
 
     private static async Task ReadAsync(HttpContext context, NpgsqlDataSource database, Publications publications,
         InstanceLease lease, int articleId, int? revisionNo,
-        bool historical = false, LegacyHistoricalProof? archive = null)
+        bool historical = false, LegacyHistoricalProof? archive = null, bool rights = false)
     {
         var response = context.Response;
         response.Headers.CacheControl = "no-store";
         response.Headers.Vary = "Accept-Encoding";
         if (articleId <= 0 || revisionNo is <= 0 || historical && archive is null)
         {
-            await NotFoundAsync(context, historical);
+            await NotFoundAsync(context, historical, rights);
             return;
         }
 
         var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
         if (snapshot.Article(articleId) is not { } article)
         {
-            await NotFoundAsync(context, historical);
+            await NotFoundAsync(context, historical, rights);
             return;
         }
 
@@ -74,7 +83,8 @@ internal static class LegacyReleaseResponsibility
                     cross join lateral (
                         select case when $5 then jsonb_build_object(
                             'publicationId',origin.publication_id,'revisionId',origin.source_revision_id,
-                            'proof',origin.evidence->'publishProof',
+                            'proof',case when $6 then origin.evidence->'rightsProof' else origin.evidence->'publishProof' end,
+                            'parent',case when $6 then origin.evidence->'publishProof' end,
                             'entries',(select jsonb_agg(entry.value)
                                 from public.legacy_release_origin item
                                 cross join lateral (values (item.evidence #> '{publishProof,transparency,sourceRow}'),
@@ -90,7 +100,7 @@ internal static class LegacyReleaseResponsibility
                 from public.article_publication active
                 join public.article a on a.id=active.article_id and a.published_revision=active.revision and not a.deleted
                 where (active.article_id,active.revision,active.publication_id)=($1,$2,$3)
-                """, articleId, article.Revision, article.Publication, (long)(revisionNo ?? 0), historical);
+                """, articleId, article.Revision, article.Publication, (long)(revisionNo ?? 0), historical, rights);
             manifest = await read.ExecuteScalarAsync(ct) as byte[];
         }
         catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
@@ -98,20 +108,20 @@ internal static class LegacyReleaseResponsibility
             throw new PublicUnavailableException();
         }
 
-        if (historical && manifest is not null) manifest = archive!.Verify(manifest, articleId, revisionNo!.Value);
+        if (historical && manifest is not null) manifest = archive!.Verify(manifest, articleId, revisionNo!.Value, rights);
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
         if (manifest is null)
         {
-            await NotFoundAsync(context, historical);
+            await NotFoundAsync(context, historical, rights);
             return;
         }
 
         await PublicResponse.Write(context, manifest, ContentType);
     }
 
-    private static Task NotFoundAsync(HttpContext context, bool historical)
+    private static Task NotFoundAsync(HttpContext context, bool historical, bool rights)
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
-        return PublicResponse.Write(context, historical ? MissingArchive : Missing, ContentType);
+        return PublicResponse.Write(context, rights ? MissingRightsArchive : historical ? MissingArchive : Missing, ContentType);
     }
 }
