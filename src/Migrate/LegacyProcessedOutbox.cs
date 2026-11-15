@@ -223,9 +223,12 @@ internal static partial class Migration
                         AND {P("responsibility_snapshot_id")}={H("id")}
                         AND {A("current_publication_id")}={P("id")} AND {A("current_revision_id")}={R("id")}
                         AND {A("public_updated_at")}={P("published_at")})
-                        OR ({P("publication_no")}=1 AND {P("transition_kind")}='immediate-publish'
-                            AND {H("created_at")}<={E("created_at")} AND {N("published_at")}>{E("processed_at")} AND {A("published_at")}={P("published_at")}
-                            AND {H("id")}=COALESCE({P("responsibility_snapshot_id")}, (
+                        OR ({P("publication_no")} IN (1,2) AND {P("transition_kind")}='immediate-publish'
+                            AND {N("published_at")}>{E("processed_at")}
+                            AND ({P("publication_no")}=2 OR {A("published_at")}={P("published_at")})
+                            AND ({H("created_at")}<={E("created_at")}
+                                OR ({P("publication_no")}=2 AND {E("responsibility_snapshot_id")} IS NULL))
+                            AND {E("responsibility_snapshot_id")} IS NOT DISTINCT FROM COALESCE({P("responsibility_snapshot_id")}, (
                                 SELECT {F("id")} FROM {source.Table(tables[Responsibility])} f
                                 WHERE {F("article_id")}={A("id")} AND {F("article_revision_id")}={R("id")}
                                     AND {F("created_at")}<={E("created_at")}
@@ -247,7 +250,8 @@ internal static partial class Migration
                 AND {H("article_id")}={E("aggregate_id")} AND {H("article_revision_id")}={E("article_revision_id")}
                 AND {H("revision_no")}={E("revision_no")} AND {H("responsibility_version")}={E("responsibility_version")}
             LEFT JOIN {source.Table(tables[Publication])} n ON {N("article_id")}={P("article_id")}
-                AND {N("publication_no")}=2 AND {N("revision_no")}=2 AND {P("publication_no")}=1
+                AND {N("publication_no")}=CASE {P("publication_no")} WHEN 1 THEN 2 WHEN 2 THEN 3 END
+                AND {N("revision_no")}={N("publication_no")}
                 AND {E("event_type")}='{LegacyRightsProofEvent}'
             ORDER BY {E("id")} LIMIT {RehearsalLimit + 1}
             """);

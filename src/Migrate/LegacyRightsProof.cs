@@ -32,9 +32,9 @@ internal static partial class Migration
         var issued = LegacyLogTime(parent, "published_at");
         var parentState = RequiredProofText(parent, "proof_status");
         var updated = LegacyLogTime(proof, "updated_at");
-        bool parentWasReady = parentState == "ready" || revision == 1 && parentState == "superseded" &&
+        bool parentWasReady = parentState == "ready" || revision is (1 or 2) && parentState == "superseded" &&
             updated < LegacyLogTime(parent, "superseded_at");
-        if (article is <= 0 or > int.MaxValue || revisionId <= 0 || revision is not (1 or 3) || snapshot <= 0 ||
+        if (article is <= 0 or > int.MaxValue || revisionId <= 0 || revision is < 1 or > 3 || snapshot <= 0 ||
             LegacyJsonInt(proof, "id") <= 0 || LegacyJsonInt(proof, "proof_version") != 1 ||
             LegacyJsonInt(proof, "signature_payload_version") != 1 ||
             RequiredProofText(proof, "idempotency_key") != FormattableString.Invariant($"article:{article}:revision:{revisionId}:rights:1") ||
@@ -126,7 +126,7 @@ internal static partial class Migration
                         AND s.content_canonical_hash='sha256:' || proof.content_canonical_hash
                         AND proof.created_at>=p.published_at AND proof.updated_at<=e.created_at)
                 THEN row_to_json(proof)::text END, proof.revision_no
-            FROM {table} proof ORDER BY proof.id LIMIT 3
+            FROM {table} proof ORDER BY proof.id LIMIT 4
             """, tx.Connection, tx) { CommandTimeout = LegacyCommandTimeout };
         query.Parameters.AddWithValue(table);
         await using var reader = await query.ExecuteReaderAsync(ct);
@@ -154,12 +154,12 @@ internal static partial class Migration
         await using var query = new NpgsqlCommand($"""
             SELECT p.source_publication_id FROM {ImportSchema}.shadow_article a
             JOIN {ImportSchema}.shadow_publication p ON p.article_id=a.id AND p.source_revision_id=$2
-            LEFT JOIN {ImportSchema}.shadow_publication next ON next.article_id=a.id AND next.publication_number=2
+            LEFT JOIN {ImportSchema}.shadow_publication next ON next.article_id=a.id AND next.publication_number=p.publication_number+1
             JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
             JOIN {ImportSchema}.{LegacyOutboxParent.Table.Name} e
                 ON e.article_publication_id=p.source_publication_id AND e.event_type='{LegacyRightsProofEvent}'
             WHERE a.id=$1 AND s.id=$3 AND s.proof_binding_enabled=1
-                AND ((p.publication_number=1 AND e.processed_at::timestamp<next.published_at::timestamp)
+                AND ((p.publication_number IN (1,2) AND e.processed_at::timestamp<next.published_at::timestamp)
                     OR (p.publication_number=3 AND p.source_publication_id=a.current_publication_id)) AND
                 s.policy_hash=$4 AND s.content_canonical_hash=$5 AND a.published_at::timestamp=$6 AND
                 $7>=p.published_at::timestamp AND $8<=e.created_at::timestamp

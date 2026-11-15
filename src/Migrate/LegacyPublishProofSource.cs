@@ -20,12 +20,14 @@ internal static partial class Migration
     private sealed record LegacyPublishProofSet(string[] Rows, string KeysSha256,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyTransparencySet? Transparency = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightsProof = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FirstRightsProof = null)
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FirstRightsProof = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SecondRightsProof = null)
     {
         internal LegacyProjection Project() => new(LegacyPublishProofTable, Rows.Length, DigestMediaDocument(Rows));
         internal IEnumerable<string> RightsRows()
         {
             if (FirstRightsProof is { } first) yield return first;
+            if (SecondRightsProof is { } second) yield return second;
             if (RightsProof is { } active) yield return active;
         }
 
@@ -80,7 +82,7 @@ internal static partial class Migration
                 await ReadLegacyRightsProofSourceAsync(source, tx, catalog, tables, relation, deliveries, ct);
             var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, deliveries.Length, ct);
             var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency,
-                rights.GetValueOrDefault(3), rights.GetValueOrDefault(1));
+                rights.GetValueOrDefault(3), rights.GetValueOrDefault(1), rights.GetValueOrDefault(2));
             var entries = VerifyLegacyTransparency(set, trusted);
             foreach (var delivery in deliveries)
             {
