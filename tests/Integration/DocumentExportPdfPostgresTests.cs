@@ -74,7 +74,12 @@ public sealed partial class DocumentExportPostgresTests
     }
 
     [MacPdfTaskPostgresFact]
-    public async Task RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob()
+    public Task RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob() => InterruptPdf(leaseLoss: true);
+
+    [MacPdfTaskPostgresFact]
+    public Task RestartsAfterSigtermInterruptsRealPdfAndFinishesTheQueuedJob() => InterruptPdf(leaseLoss: false);
+
+    private async Task InterruptPdf(bool leaseLoss)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
@@ -90,24 +95,39 @@ public sealed partial class DocumentExportPostgresTests
             Draft draft;
             await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings))
             {
-                draft = await Save(server.Client, owner, 0, 0, "PDF interruption 中文", LongPdfSource(), ct);
+                draft = await Save(server.Client, owner, 0, 0, "PDF interruption 中文", LongPdfSource(leaseLoss ? 80 : 240), ct);
                 using var beforeRendererDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 beforeRendererDeadline.CancelAfter(TimeSpan.FromSeconds(10));
                 await ReadTask(server.Client, CreateRoute, owner, Create(runningId, draft.Id, draft.Revision, draft.Revision, 2), beforeRendererDeadline.Token);
-                var renderer = await PauseRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token);
+                var waiting = await ReadTask(server.Client, CreateRoute, owner, Create(queuedId, draft.Id, draft.Revision, draft.Revision, 1),
+                    beforeRendererDeadline.Token);
+                Assert.Equal(Queued, waiting.State);
+                // A stopped child can delay .NET's SIGCHLD handler on macOS. Graceful shutdown uses a running child.
+                var renderer = leaseLoss
+                    ? await PauseRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token)
+                    : await WaitForRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token);
                 try
                 {
-                    var waiting = await ReadTask(server.Client, CreateRoute, owner, Create(queuedId, draft.Id, draft.Revision, draft.Revision, 1),
-                        beforeRendererDeadline.Token);
-                    Assert.Equal(Queued, waiting.State);
                     var pending = await List(server.Client, owner, draft.Id, beforeRendererDeadline.Token);
                     Assert.Equal(Queued, Assert.Single(pending, task => task.Id == queuedId).State);
                     Assert.Equal(Running, Assert.Single(pending, task => task.Id == runningId).State);
                     var interruption = Stopwatch.StartNew();
-                    await BreakFixtureLease(db, beforeRendererDeadline.Token);
-                    await RequireReleased(renderer, beforeRendererDeadline.Token);
-                    await RejectList(server.Client, draft.Id, owner, HttpStatusCode.ServiceUnavailable, beforeRendererDeadline.Token);
-                    _evidence.WriteLine($"Lease loss closed task requests and released owned renderer {renderer.Pid} and its scratch after {interruption.ElapsedMilliseconds} ms.");
+                    if (leaseLoss)
+                    {
+                        await BreakFixtureLease(db, beforeRendererDeadline.Token);
+                        await RequireReleased(renderer, beforeRendererDeadline.Token);
+                        await RejectList(server.Client, draft.Id, owner, HttpStatusCode.ServiceUnavailable, beforeRendererDeadline.Token);
+                        _evidence.WriteLine($"Lease loss closed task requests and released owned renderer {renderer.Pid} and its scratch after {interruption.ElapsedMilliseconds} ms.");
+                    }
+                    else
+                    {
+                        Assert.NotEqual('T', renderer.State);
+                        await Signal(server.ProcessId, "-TERM", beforeRendererDeadline.Token);
+                        await RequireReleased(renderer, beforeRendererDeadline.Token);
+                        await server.WaitForExitAsync(beforeRendererDeadline.Token);
+                        Assert.Contains("Application is shutting down", server.Logs, StringComparison.Ordinal);
+                        _evidence.WriteLine($"SIGTERM released running renderer {renderer.Pid} (state {renderer.State}) and its scratch, and stopped Kestrel after {interruption.ElapsedMilliseconds} ms.");
+                    }
                 }
                 catch
                 {
@@ -116,7 +136,7 @@ public sealed partial class DocumentExportPostgresTests
                 }
                 finally
                 {
-                    await ResumeIfStillOwned(server, scratch.FullName, python, renderer);
+                    if (leaseLoss) await ResumeIfStillOwned(server, scratch.FullName, python, renderer);
                 }
             }
 
@@ -170,19 +190,13 @@ public sealed partial class DocumentExportPostgresTests
         }, python);
     }
 
-    private static string LongPdfSource() => string.Concat(Enumerable.Range(1, 80).Select(index =>
+    private static string LongPdfSource(int sections = 80) => string.Concat(Enumerable.Range(1, sections).Select(index =>
         FormattableString.Invariant($"## Renderer section {index}\n\n中文段落验证离线字体与排版。A printable sentence uses the approved font.\n\n")));
 
     private static async Task<Renderer> PauseRenderer(ServerProcess server, string scratch, string python, CancellationToken ct)
     {
+        var found = await WaitForRenderer(server, scratch, python, ct);
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(20));
-        Renderer? found = null;
-        do
-        {
-            found = await FindRenderer(server, scratch, python, ct);
-            if (found is not null) break;
-        } while (await timer.WaitForNextTickAsync(ct));
-        Assert.NotNull(found);
         await Signal(found.Pid, "-STOP", ct);
         try
         {
@@ -198,6 +212,16 @@ public sealed partial class DocumentExportPostgresTests
             await ResumeIfStillOwned(server, scratch, python, found);
             throw;
         }
+    }
+
+    private static async Task<Renderer> WaitForRenderer(ServerProcess server, string scratch, string python, CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(20));
+        do
+        {
+            if (await FindRenderer(server, scratch, python, ct) is { } renderer) return renderer;
+        } while (await timer.WaitForNextTickAsync(ct));
+        throw new InvalidOperationException("The owned renderer did not start.");
     }
 
     private static async Task<Renderer?> FindRenderer(ServerProcess server, string scratch, string python, CancellationToken ct)

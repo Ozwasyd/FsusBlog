@@ -12,6 +12,7 @@ internal sealed class ServerProcess : IAsyncDisposable
     internal HttpClient Client { get; }
     internal int ProcessId => _process.Id;
     internal string Logs => _log.ToString();
+    internal Task WaitForExitAsync(CancellationToken ct) => _process.WaitForExitAsync(ct);
 
     private ServerProcess(Process process, string temporaryDist, Uri address, BoundedLog log)
     {
