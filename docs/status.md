@@ -115,3 +115,7 @@ C11 冻结包 `75fd08f` 已在 PostgreSQL 18.7 核对 100,000 篇文章、85,000
 百万篇档在同一 PostgreSQL 18.7 实例写入 100 万篇、执行 5 万条原生归档并核对 330 万修订原始字节。16 个封存分片的计划及实时数据库记录分别保留，首次运行用时 80 分 43 秒。 [独立证明](../artifacts/c11-article-million-preflight-00db88d/million-native-proof.json)
 
 作者全文在真实 375px FsusUI 页面上命中超出摘要范围的正文、折叠大小写并区分同一短语的先后顺序。原生 PostgreSQL 验证按当前作者、会话、修订及索引完整性拒绝。真实 Caddy 验证归档原文的精确坐标和权限，以及根评论策略 Passkey 更新、回退后旧证明 401 和新证明 200。macOS 与 Debian ARM64 实测历史修订 PDF，隔离进程的中文样本逐字节一致。 [作者与原生结果](../artifacts/original-delivery-next/) · [Caddy 策略结果](../artifacts/original-delivery-next/second-tls-policy/chromium/root-comment-pow-policy.json) · [Debian PDF](../artifacts/original-delivery-next/linux-pdf/)
+
+冻结候选 `f303f5cf3f955f833e74dbeb76a678ba79fee4da` 核验 313 个发布文件和 376 个 Git 提交。Debian 13 ARM64 从这个封存包迁移、启动和重启，复核公开 HTML、AEDS 和搜索语料；重启前后的语料逐字节一致。原生 PDF 和签名插件分别通过 Debian 实测。候选包含 971 个计量文件、172,530 规范化 NCLOC，距 208,546 行预算尚有 36,016 行。全功能完成后仍须复算。 [发行包](../artifacts/c11-candidate-f303f5c/release/) · [Debian 同包](../artifacts/original-delivery-next/linux-pdf/guest-final-package.log) · [代码统计](../artifacts/c11-candidate-f303f5c/code-volume.json)
+
+同一封存包完成两轮直连和两轮 TLS 独占短档。各轮吞吐和延迟达标，直连 A 漏发率为 0.08127%，其余三轮分别为 0.16000%、0.88238%、0.15556%。所有已发送请求校验通过。首次灌数误拒新策略的默认行，夹具单文件修正后复用原包和完全一致的语料清单。正式容量尚未通过，900 秒长时验收未满足开跑条件。 [正式矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收) · [逐路由原始验收汇总](../artifacts/p2-formal-f303f5c/four-matrices.json)
