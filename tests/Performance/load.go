@@ -217,7 +217,13 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 	maxPages := number(w.wire.Limits, "SearchCorpusMaxPages")
 	sum := sha256.New()
 	_, _ = io.WriteString(sum, "public-generation-corpus-v1\x00")
-	_, _ = io.WriteString(sum, "public-search-bm25-v1\x00")
+	searchProfile := 1
+	if encodedProfile, present := w.wire.Limits["SearchFas4Profile"]; present {
+		if err := json.Unmarshal(encodedProfile, &searchProfile); err != nil || searchProfile != 2 {
+			return errors.New("unknown FAS4 search profile")
+		}
+	}
+	_, _ = fmt.Fprintf(sum, "public-search-bm25-v%d\x00", searchProfile)
 	appendNumber := func(value int) {
 		var number [4]byte
 		binary.LittleEndian.PutUint32(number[:], uint32(value))

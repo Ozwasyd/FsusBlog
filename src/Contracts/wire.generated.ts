@@ -348,6 +348,7 @@ export const WireLimits = {
   SearchWideCorpusMaxPages: 512,
   SearchWideCorpusTotalBytes: 268435456,
   SearchQueryChars: 128,
+  SearchFas4Profile: 2,
   PublicArticleHotMaxSize: 100,
   RelatedReadingMaxItems: 6,
   RelatedReadingMaxTextBytes: 2048,

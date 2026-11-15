@@ -43,10 +43,13 @@ public sealed class ArticleSearchPostgresTests
                     values
                         (1,'Needle','silence',0),(2,'Metadata','silence',0),(3,'Body',repeat('#',220)||' Needle',3),
                         (4,'Summary','Needle',2),(5,'Taxonomy','silence',1),(6,'Alternatives','Zeta',0),
-                        (7,'公开页','silence',0),(8,'公开','silence',0),(9,'private needle zeta','private',0)
+                        (7,'公开页','silence',0),(8,'公开','silence',0),(9,'private needle zeta','Batch-Item_8',0),
+                        (10,'Batch-ITEM_7','silence',0),(11,'Batch Item 7','xBatch-Item_7 Batch-Item_7-extra',0),
+                        (12,'Job','Section '||repeat('#',220)||' `BATCH-ITEM_7`',0),
+                        (13,repeat('a',126)||'-1','silence',0)
                 ) fixture(id,title,body,offset_days)
                 union all
-                select id,$1,1,'Common','silence',1,1,false,timestamptz '2024-01-01 UTC',timestamptz '2024-01-01 UTC'
+                select id,$1,1,'Common Batch Item 7','silence',1,1,false,timestamptz '2024-01-01 UTC',timestamptz '2024-01-01 UTC'
                 from generate_series(1001,1205) id
                 """, author);
             await FixtureSql.ExecuteAsync(db, transaction, ct, """
@@ -91,8 +94,16 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal(8, Assert.Single((await Search("公开")).Hits).Id);
             var (capped, _) = await Search("common");
             Assert.Equal(Enumerable.Range(1006, 200).Reverse(), capped.Select(item => item.Id));
+            var (compound, compoundGeneration) = await Search("  ＢＡＴＣＨ-Item_7  ");
+            Assert.Equal([10, 12], compound.Select(item => item.Id));
+            Assert.Equal(generation, compoundGeneration);
+            Assert.Empty((await Search("Batch-Item_8")).Hits);
+            Assert.Equal(200, (await Search("batch-item")).Hits.Length);
+            var maxIdentifier = new string('A', 126) + "-1";
+            Assert.Equal(13, Assert.Single((await Search(maxIdentifier)).Hits).Id);
+            Assert.Empty((await Search(maxIdentifier + "2")).Hits);
             var after = await Mark("measure-after");
-            Assert.Equal(6, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
+            Assert.Equal(11, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
             Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
             using (var corpus = await client.GetAsync(WireRoutes.PublicSearchCorpus, ct))

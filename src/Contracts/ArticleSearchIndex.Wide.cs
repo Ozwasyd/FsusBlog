@@ -89,15 +89,11 @@ public sealed partial class ArticleSearchIndex
     {
         var hashes = new HashSet<uint>();
         var terms = new List<(uint Hash, double Idf)>();
-        foreach (var hash in ArticleSearchTokens.Hashes(ArticleSearchTokens.NormalizeQuery(query), ct))
+        foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
         {
             if (!hashes.Add(hash)) continue;
             var frequency = 0;
-            foreach (var block in blocks)
-            {
-                var index = Array.BinarySearch(block.Terms, new Term(hash, 0, 0), Term.ByHash);
-                if (index >= 0) frequency += block.Terms[index].Count;
-            }
+            foreach (var block in blocks) frequency += FindTerm(block.Terms, hash).Count;
             if (frequency != 0) terms.Add((hash, InverseFrequency(frequency)));
         }
         if (terms.Count == 0) return [];
@@ -113,14 +109,13 @@ public sealed partial class ArticleSearchIndex
                 var scored = false;
                 foreach (var (hash, idf) in terms)
                 {
-                    var index = Array.BinarySearch(block.Terms, new Term(hash, 0, 0), Term.ByHash);
-                    if (index < 0) continue;
+                    var term = FindTerm(block.Terms, hash);
+                    if (term.Count == 0) continue;
                     if (!scored)
                     {
                         scores.Clear();
                         scored = true;
                     }
-                    var term = block.Terms[index];
                     var offset = term.Start;
                     var ordinal = block.Count;
                     for (var i = 0; i < term.Count; i++)

@@ -16,6 +16,8 @@ namespace FsusBlog.V2.Server;
 
 internal sealed class PublicSnapshot
 {
+    private static readonly byte[] SearchProfileDomain =
+        Encoding.ASCII.GetBytes(FormattableString.Invariant($"public-search-bm25-v{WireLimits.SearchFas4Profile}\0"));
     private readonly byte[][] _index;
     private readonly IReadOnlyList<byte[]>? _corpus;
     private readonly EntityTagHeaderValue[] _corpusTags;
@@ -143,7 +145,7 @@ internal sealed class PublicSnapshot
         // One coordinate covers every HTTP representation. A restart with unchanged
         // article rows still cannot serve changed corpus bytes at the old coordinate.
         hash.AppendData("public-generation-corpus-v1\0"u8);
-        hash.AppendData("public-search-bm25-v1\0"u8);
+        hash.AppendData(SearchProfileDomain);
         if (wideSearch) hash.AppendData("public-search-bm25-wide-v1\0"u8);
         AppendNumber(corpus?.Count ?? -1);
         if (corpus is not null)

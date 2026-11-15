@@ -10,9 +10,11 @@ internal static class ArticleSearchTokens
     private static readonly Regex Link = new(@"!?\[(?<text>.*?)\]\(.*?\)", RegexOptions.NonBacktracking);
     private static readonly Regex Tag = new(@"<.*?>", RegexOptions.NonBacktracking);
 
-    internal static string NormalizeQuery(string text)
+    internal static (string Text, bool ExactIdentifier) NormalizeQuery(string text)
     {
         var normalized = text.Normalize(NormalizationForm.FormKC).AsSpan().Trim();
+        var exactIdentifier = IsCompoundIdentifier(normalized);
+        if (exactIdentifier && normalized.Length > WireLimits.SearchQueryChars) return ("", true);
         Span<char> query = stackalloc char[WireLimits.SearchQueryChars + 1];
         var length = 0;
         foreach (var value in normalized)
@@ -26,7 +28,7 @@ internal static class ArticleSearchTokens
             if (length >= WireLimits.SearchQueryChars) break;
         }
         var trimmed = query[..length].TrimEnd();
-        return trimmed.Length <= WireLimits.SearchQueryChars ? new string(trimmed) : "";
+        return (trimmed.Length <= WireLimits.SearchQueryChars ? new string(trimmed) : "", exactIdentifier);
     }
 
     internal static IEnumerable<uint> Hashes(string text, CancellationToken ct)
@@ -71,6 +73,49 @@ internal static class ArticleSearchTokens
                     yield return LocalSearchCorpus.HashRune(scalar);
             }
         }
+    }
+
+    private static bool IsCompoundIdentifier(ReadOnlySpan<char> query)
+    {
+        var hasDigit = false;
+        var separator = false;
+        var inSegment = false;
+        foreach (var unit in query)
+        {
+            if (char.IsAsciiLetterOrDigit(unit))
+            {
+                hasDigit |= char.IsAsciiDigit(unit);
+                inSegment = true;
+            }
+            else if (inSegment && (unit is '-' or '_'))
+            {
+                separator = true;
+                inSegment = false;
+            }
+            else return false;
+        }
+        return hasDigit && separator && inSegment;
+    }
+
+    internal static int CountIdentifier(string text, string query, CancellationToken ct)
+    {
+        var value = text.AsSpan();
+        var count = 0;
+        for (var start = 0; start <= value.Length - query.Length;)
+        {
+            ct.ThrowIfCancellationRequested();
+            var match = value[start..].IndexOf(query, StringComparison.OrdinalIgnoreCase);
+            if (match < 0) break;
+            var first = start + match;
+            var end = first + query.Length;
+            if ((first == 0 || !IdentifierUnit(value[first - 1])) &&
+                (end == value.Length || !IdentifierUnit(value[end])) && Ascii.IsValid(value[first..end]))
+                count++;
+            start = end;
+        }
+        return count;
+
+        static bool IdentifierUnit(char unit) => char.IsAsciiLetterOrDigit(unit) || unit is '-' or '_';
     }
 
     internal static int DocumentLength(string body)

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -106,15 +107,18 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 		generation  string
 		unavailable bool
 		mutate      string
+		legacy      bool
 	}{
-		{name: "available", generation: "7548595041853034171"},
-		{name: "unavailable", generation: "2409930995617451931", unavailable: true},
+		{name: "available", generation: "6218626370617519827"},
+		{name: "unavailable", generation: "7188452516169598208", unavailable: true},
+		{name: "frozen legacy profile", generation: "7548595041853034171", legacy: true},
+		{name: "legacy generation with current profile", generation: "7548595041853034171", mutate: "previous ranking"},
 		{name: "before BM25", generation: "6612586008012810405", mutate: "previous ranking"},
-		{name: "changed bytes", generation: "7548595041853034171", mutate: "bytes"},
-		{name: "different page generation", generation: "7548595041853034171", mutate: "generation"},
-		{name: "changed page count", generation: "7548595041853034171", mutate: "pages"},
-		{name: "stale at final HEAD", generation: "7548595041853034171", mutate: "head"},
-		{name: "unrelated 503", generation: "2409930995617451931", unavailable: true, mutate: "error"},
+		{name: "changed bytes", generation: "6218626370617519827", mutate: "bytes"},
+		{name: "different page generation", generation: "6218626370617519827", mutate: "generation"},
+		{name: "changed page count", generation: "6218626370617519827", mutate: "pages"},
+		{name: "stale at final HEAD", generation: "6218626370617519827", mutate: "head"},
+		{name: "unrelated 503", generation: "7188452516169598208", unavailable: true, mutate: "error"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			packets := [][]byte{make([]byte, 104), make([]byte, 104)}
@@ -173,6 +177,10 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 				t.Fatal(err)
 			}
 			work := workload{wire: wire}
+			if scenario.legacy {
+				work.wire.Limits = maps.Clone(wire.Limits)
+				delete(work.wire.Limits, "SearchFas4Profile")
+			}
 			err = verifyGeneration(context.Background(), origin, &work, articles)
 			if scenario.mutate != "" {
 				if err == nil || work.generation != "" {

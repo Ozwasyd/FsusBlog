@@ -114,6 +114,7 @@ inline constexpr uint32_t SearchCorpusPatchBytes = 65536;
 inline constexpr uint32_t SearchWideCorpusMaxPages = 512;
 inline constexpr uint32_t SearchWideCorpusTotalBytes = 268435456;
 inline constexpr uint32_t SearchQueryChars = 128;
+inline constexpr uint32_t SearchFas4Profile = 2;
 inline constexpr uint32_t PublicArticleHotMaxSize = 100;
 inline constexpr uint32_t RelatedReadingMaxItems = 6;
 inline constexpr uint32_t RelatedReadingMaxTextBytes = 2048;

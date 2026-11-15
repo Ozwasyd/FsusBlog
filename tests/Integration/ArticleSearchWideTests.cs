@@ -69,6 +69,7 @@ public sealed class ArticleSearchWideTests
                 <= 300 => "Amber",
                 <= 1_800 or middleCobalt or tailCobalt => "Cobalt",
                 both => "Amber Cobalt",
+                count => "Queue_JOB-23",
                 firstLength or middleLength or tailLength => "Lengthmarker",
                 largerWeight => heavy,
                 smallerWeight => light,
@@ -82,6 +83,8 @@ public sealed class ArticleSearchWideTests
                 tailLength => LongBody,
                 9_000 => "shared frontonly",
                 29_000 => "shared middleonly",
+                29_001 => "shared `queue_job-23`",
+                45_001 => "shared queue job 23 queue_job-23x",
                 45_000 => "shared thirdonly",
                 64_000 => "shared fourthonly",
                 count => "shared finalonly",
@@ -107,6 +110,8 @@ public sealed class ArticleSearchWideTests
         Assert.Equal([count, 64_000, 45_000, 29_000, 9_000], Ids("frontonly middleonly thirdonly fourthonly finalonly"));
         Assert.Equal([count], Ids("finalonly"));
         Assert.Equal([largerWeight, smallerWeight], Ids("weightprobe"));
+        Assert.Equal([count, 29_001], Ids("queue_job-23"));
+        Assert.Empty(Ids("queue_job-24"));
 
         var expectedTies = new[] { newestTie, nextTie }.Concat(tied.Where(id => id != newestTie && id != nextTie)
             .OrderDescending().Take(198));
@@ -116,6 +121,7 @@ public sealed class ArticleSearchWideTests
         var compact = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles[..40_000], CancellationToken.None));
         Assert.False(compact.UsesWideProfile);
         Assert.Equal(29_000, Assert.Single(compact.Search("middleonly", CancellationToken.None)).Id);
+        Assert.Equal(29_001, Assert.Single(compact.Search("queue_job-23", CancellationToken.None)).Id);
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         Assert.Throws<OperationCanceledException>(() => index.Search("roundtable", cancelled.Token));
@@ -180,7 +186,7 @@ public sealed class ArticleSearchWideTests
     private static long ExpectedGeneration(PublicSnapshot snapshot, Article[] articles, bool wide)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData("public-generation-corpus-v1\0public-search-bm25-v1\0"u8);
+        hash.AppendData("public-generation-corpus-v1\0public-search-bm25-v2\0"u8);
         if (wide) hash.AppendData("public-search-bm25-wide-v1\0"u8);
         Span<byte> coordinate = stackalloc byte[sizeof(int) + 2 * sizeof(long)];
         BinaryPrimitives.WriteInt32LittleEndian(coordinate, snapshot.CorpusPageCount == 0 ? -1 : snapshot.CorpusPageCount);

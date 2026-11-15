@@ -11,6 +11,10 @@ public sealed partial class ArticleSearchIndex
     private const int MaxTerms = 262_144;
     private const int MaxPostings = 3_000_000;
     private const long MaxScannedChars = 128 * 1024 * 1024;
+    private const int TitleWeight = 16;
+    private const int SummaryWeight = 8;
+    private const int TaxonomyWeight = 5;
+    private const int BodyWeight = 2;
     private const double K1 = 1.2;
     private const double B = 0.75;
 
@@ -51,6 +55,10 @@ public sealed partial class ArticleSearchIndex
     {
         ct.ThrowIfCancellationRequested();
         if (_documents.Length == 0) return [];
+        var (normalized, exactIdentifier) = ArticleSearchTokens.NormalizeQuery(query);
+        if (normalized.Length == 0) return [];
+        if (exactIdentifier) return SearchIdentifier(normalized, ct);
+        query = normalized;
         if (_wide is { } blocks) return SearchWide(blocks, query, ct);
         var hashes = new HashSet<uint>();
         var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
@@ -59,12 +67,11 @@ public sealed partial class ArticleSearchIndex
         {
             var scores = buffer.AsSpan(0, _documents.Length);
             scores.Clear();
-            foreach (var hash in ArticleSearchTokens.Hashes(ArticleSearchTokens.NormalizeQuery(query), ct))
+            foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
             {
                 if (!hashes.Add(hash)) continue;
-                var position = Array.BinarySearch(_terms, new Term(hash, 0, 0), Term.ByHash);
-                if (position < 0) continue;
-                var term = _terms[position];
+                var term = FindTerm(_terms, hash);
+                if (term.Count == 0) continue;
                 var idf = InverseFrequency(term.Count);
                 for (var i = 0; i < term.Count; i++)
                 {
@@ -84,6 +91,65 @@ public sealed partial class ArticleSearchIndex
         return Ordered(candidates);
     }
 
+    private Article[] SearchIdentifier(string query, CancellationToken ct)
+    {
+        // A complete identifier must have all of its segments in the existing postings. Verify only
+        // the rarest segment's candidates, including those outside the regular 200-result limit.
+        var fewest = int.MaxValue;
+        uint anchor = 0;
+        foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
+        {
+            var count = _wide is null ? FindTerm(_terms, hash).Count : _wide.Sum(block => FindTerm(block.Terms, hash).Count);
+            if (count == 0) return [];
+            if (count >= fewest) continue;
+            fewest = count;
+            anchor = hash;
+        }
+
+        var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
+        if (_wide is { } blocks)
+        {
+            foreach (var block in blocks)
+            {
+                var term = FindTerm(block.Terms, anchor);
+                var offset = term.Start;
+                var ordinal = block.Count;
+                for (var index = 0; index < term.Count; index++)
+                {
+                    ordinal -= ReadVarint(block.Postings, ref offset);
+                    _ = ReadVarint(block.Postings, ref offset);
+                    Match(block.First + ordinal);
+                }
+            }
+        }
+        else
+        {
+            var term = FindTerm(_terms, anchor);
+            for (var index = 0; index < term.Count; index++) Match(_postings[term.Start + index].Ordinal);
+        }
+        return Ordered(candidates);
+
+        void Match(int ordinal)
+        {
+            ct.ThrowIfCancellationRequested();
+            var document = _documents[ordinal];
+            var article = document.Article;
+            var weight = TitleWeight * Count(article.Title) + SummaryWeight * Count(article.Summary ?? "") +
+                TaxonomyWeight * Count(article.Category?.Name ?? "") + BodyWeight * Count(article.Body);
+            foreach (var tag in article.Tags ?? []) weight += TaxonomyWeight * Count(tag.Name);
+            // An identifier has one IDF shared by every hit, so it cannot change the ordering.
+            if (weight > 0) Offer(candidates, article, Score(weight, document.Normalization, 1));
+        }
+
+        int Count(string value) => ArticleSearchTokens.CountIdentifier(value, query, ct);
+    }
+
+    private static Term FindTerm(Term[] terms, uint hash)
+    {
+        var position = Array.BinarySearch(terms, new Term(hash, 0, 0), Term.ByHash);
+        return position >= 0 ? terms[position] : default;
+    }
+
     private double InverseFrequency(int documentFrequency) =>
         Math.Log(1 + (_documents.Length - documentFrequency + 0.5) / (documentFrequency + 0.5));
 
@@ -98,11 +164,16 @@ public sealed partial class ArticleSearchIndex
             if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
             var score = scores[ordinal];
             if (score <= 0) continue;
-            var article = _documents[start + ordinal].Article;
-            var rank = (score, article.CreatedAt.UtcTicks, article.Id);
-            if (candidates.Count < MaxResults) candidates.Enqueue(article, rank);
-            else candidates.EnqueueDequeue(article, rank);
+            Offer(candidates, _documents[start + ordinal].Article, score);
         }
+    }
+
+    private static void Offer(PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates,
+        Article article, double score)
+    {
+        var rank = (score, article.CreatedAt.UtcTicks, article.Id);
+        if (candidates.Count < MaxResults) candidates.Enqueue(article, rank);
+        else candidates.EnqueueDequeue(article, rank);
     }
 
     private static Article[] Ordered(PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates)
@@ -143,12 +214,12 @@ public sealed partial class ArticleSearchIndex
                 ct.ThrowIfCancellationRequested();
                 var article = articles[first + ordinal];
                 _frequencies.Clear();
-                if (!Index(article.Title, 16) || !Index(article.Summary ?? "", 8) ||
-                    !Index(article.Category?.Name ?? "", 5))
+                if (!Index(article.Title, TitleWeight) || !Index(article.Summary ?? "", SummaryWeight) ||
+                    !Index(article.Category?.Name ?? "", TaxonomyWeight))
                     return false;
                 foreach (var tag in article.Tags ?? [])
-                    if (!Index(tag.Name, 5)) return false;
-                if (!Index(article.Body, 2)) return false;
+                    if (!Index(tag.Name, TaxonomyWeight)) return false;
+                if (!Index(article.Body, BodyWeight)) return false;
                 lengths[ordinal] = ArticleSearchTokens.DocumentLength(article.Body);
                 TotalLength += lengths[ordinal];
 
