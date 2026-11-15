@@ -155,4 +155,9 @@
 - 锁定 Release、严格 Vue、Vite、140 项 Core、141 项 Node、3,847 项协议差分、6 项合并实库及三份本地 FsusUI Wasm 字节比对通过。迁移文件校验及认证路由复用局部净减 85 NCLOC。完整计量为 215,206 NCLOC，仍超原上限 6,660 行。 [合并构建](../artifacts/goal-next-66cc813/release-final.log) · [计量](../artifacts/goal-next-66cc813/code-volume-0d0b963.json)
 - 冻结候选 `f303f5c` 的归档 SHA-256 已复核。四轮短档原结果保持一致，数字门槛准入拒绝进入正式长测。目前没有已确认可独占的独立供给实机。回环 Go／Caddy TLS 传输验证通过。首次错误证书试验触发临时 CA 写入系统钥匙串，已按精确指纹移除并复核不受信任。入口现在先查验证书 SAN，再启动 Caddy。正式容量和 900 秒长测本轮均未执行。 [短档复算](../artifacts/goal-next-66cc813/archive-matrix-quorum.log) · [TLS 和清理记录](../artifacts/goal-next-66cc813/frozen-caddy-transport/README.md)
 
+## 开发提交 `97d58f6`
+
+- 作者明确批准公开的托管封面随当前发布显示，SSR 和浏览器各只渲染一个封面，其他获批图片留在图库。PostgreSQL 和 Chrome 验证了普通发布及未批准封面保持私有、桌面和 375px、无 JavaScript 显示、旧地址与撤回访问拒绝，以及停服升级重试。首次合并浏览器按点击顺序断言媒体清单，改为独立按发布命令的 UUID 规范顺序计算后通过。V1 原封面 URL 和资产仍待迁移。 [浏览器复验](../artifacts/goal-next-66cc813/public-cover-chrome-retry/public-article-media-browser.json) · [旧库升级](../artifacts/goal-next-66cc813/public-cover-chrome-retry/upgrade-public-cover.log) · [首次日志](../artifacts/goal-next-66cc813/public-cover-chrome-merged.log)
+- 带封面的 canonical v3 绑定媒体摘要和封面角色，无封面的 v2 正文与签名字节保持原样。合并版实际 PostgreSQL 和 Caddy TLS 的 5 项定向测试通过，涵盖两版签名、归档检查点及已批准图片的恢复选择。锁定 Release、Vue、Vite、142 项 Node 协议、3,847 项差分和三份 FsusUI Wasm 字节对照通过。全仓计 215,802 NCLOC，超过原上限 7,256 行。 [原生签名与媒体](../artifacts/goal-next-66cc813/public-cover-native-merged/tests.log) · [协议](../artifacts/goal-next-66cc813/protocol-public-cover.log) · [计量](../artifacts/goal-next-66cc813/code-volume-97d58f6.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。

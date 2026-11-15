@@ -113,6 +113,7 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 | 开发 `96dde60` | 1,134 | 116,694 | 4,924 | 87,749 | 3,969 | 213,336 | −4,790 |
 | 开发 `a4d1ee9` | 1,134 | 117,140 | 4,925 | 87,717 | 3,969 | 213,751 | −5,205 |
 | 开发 `0d0b963` | 1,140 | 117,891 | 4,932 | 88,414 | 3,969 | 215,206 | −6,660 |
+| 开发 `97d58f6` | 1,144 | 118,110 | 4,933 | 88,790 | 3,969 | 215,802 | −7,256 |
 
 `e3d58b9` 的生成代码为 6,651 行，已计入生产。历史证据单列 5,259 行。共用集成夹具净减 236 行，受影响的 114 个用例全部通过。 [规范化计量](../../artifacts/targeted-delivery-99abb41/code-volume.json) · [用例覆盖](../../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json)
 
@@ -143,5 +144,7 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 `a4d1ee9` 纳入原样 C11 复合编号、当前表单比较、多个普通账号与凭据迁移，以及两篇文章的旧签名链。共享 PostgreSQL 测试超时、延迟浏览器响应及 AEDS 断言，在同一旧基线上净减 188 行。生成展开为 5,107 行，计入生产。累计减量约 89.75%，原上限仍超出 5,205 行。 [本轮计量](../../artifacts/goal-next-a19a819/code-volume-a4d1ee9.json) · [夹具复用对照](../../artifacts/goal-next-a19a819/lanes/fixture-reuse/code-volume-combined.json)
 
 `0d0b963` 纳入草稿封面、待审评论编辑与删除证据绑定、旧 TOTP 连续迁移、三篇文章的全局链和容量准入。独立测得迁移文件校验及执行预算复用净减 45 行，认证路由注册复用净减 40 行。生成展开为 5,116 行，计入生产。累计减量约 89.68%，仍超原上限 6,660 行。 [完整计量](../../artifacts/goal-next-66cc813/code-volume-0d0b963.json) · [复用对照](../../artifacts/goal-next-66cc813/lanes/code-reuse/census-delta.json)
+
+`97d58f6` 纳入已批准的公开封面、canonical v3 签名覆盖、旧 v2 兼容和独立回归。生成展开为 5,118 行，计入生产。累计减量约 89.65%，仍超原上限 7,256 行。 [完整计量](../../artifacts/goal-next-66cc813/code-volume-97d58f6.json)
 
 生产代码的生成部分分别为 5,884、5,962、6,116、6,494、6,525、6,619、6,631、6,643、6,651、6,651 和 6,651 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [版本化导出提交计量](../../artifacts/code-volume-2ec1b97/result.json) · [属性批写、Passkey 重命名和旧图像准备提交计量](../../artifacts/code-volume-a649068/result.json) · [属性快照、第二设备及私有媒体启用提交计量](../../artifacts/code-volume-d937398/result.json) · [Passkey 移除、属性焦点和批次迁移计量](../../artifacts/delivery-integration-09e4b27/code-volume-6a53e4d.json) · [同字段任一匹配、恢复移除及 EPUB 附图计量](../../artifacts/targeted-delivery-82d0180/code-volume-4556f8e.json) · [旧首发迁移、插件授权、后台标签及 DOCX 附图计量](../../artifacts/targeted-delivery-967805c/code-volume-268e8c6.json) · [再发布迁移、作者搜索及 Passkey 计量](../../artifacts/delivery-review-72d684d/code-volume-7a1558d.json) · [发布验收边界](../release-readiness.md)
