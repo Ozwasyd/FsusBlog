@@ -10,6 +10,18 @@ FsusBlog Server 使用独立的非连接池 PostgreSQL 会话持有数据库独�
 
 数据库锁身份来自 PostgreSQL 的 `pg_locks`。独立会话使用 Npgsql 的有限命令与取消等待来发现连接故障。[PostgreSQL 锁视图](https://www.postgresql.org/docs/18/view-pg-locks.html) · [Npgsql 连接参数](https://www.npgsql.org/doc/connection-string-parameters.html#timeouts-and-keepalive)
 
+## PostgreSQL 物理备库演练
+
+部署前可使用独立发布包和两套本地 PostgreSQL 18 数据目录验证手动升主。测试只建立私有 Unix socket，由两个实际的 Kestrel 进程分别连接主库和升主后的数据库。数据库备份使用 `pg_basebackup`，再由 `pg_verifybackup` 独立检查。 [PostgreSQL 物理备库](https://www.postgresql.org/docs/18/warm-standby.html) · [备份命令](https://www.postgresql.org/docs/18/app-pgbasebackup.html)
+
+```bash
+tests/Integration/Migration/physical-standby.sh RELEASE_DIRECTORY NEW_EVIDENCE_DIRECTORY
+```
+
+`32880a1` 的真实发布包完成此演练。尚在恢复模式的备库拒绝应用启动。实际发布成功后，备库追到该事务已落盘的 WAL 坐标 `0/301D380`。停止并确认原主库退出、原应用就绪探针返回 `503` 后，备库升为时间线 2。新 Kestrel 从同一公开代次恢复文章，并用原命令字节重放。撤回只产生一条新修订及事件，HTML、AEDS 和旧索引代次随后拒绝。原应用保持运行以证明读写均已拒绝，测试结束后两套数据库和应用均已清理。 [过程证据](../artifacts/native-physical-standby-32880a1/run.log) · [HTTP 结果](../artifacts/native-physical-standby-32880a1/http-result.json)
+
+演练只覆盖停写且已达到回放坐标的计划切换。灾难场景的恢复点取决于实际回放进度。生产操作仍需由外部仲裁隔离原主库，并单独验证私有媒体和其他节点事实。
+
 ## 管理域部署状态
 
 独立管理域的 `system.config` 管理员可手动读取 `GET /api/v2/admin/identity/operations/cluster.aeds`，返回 v2 AEDS 32962。结果记录此进程实例 ID、程序集版本、启动时间、读取时间、当前 PostgreSQL 主库租约证明的年龄及公开快照就绪状态。年龄使用相同单调时钟，从绑定当前确认的探针发起时计量。响应禁用缓存并绑定发起读取的管理会话。租约丢失时旧实例的请求走 `503`，接替实例重新生成身份。可用 `FSUSBLOG_NODE_ID` 配置节点标签，最长 64 个 ASCII 字母、数字、点、连字符或下划线。省略时无需公开机器名或进程号。
