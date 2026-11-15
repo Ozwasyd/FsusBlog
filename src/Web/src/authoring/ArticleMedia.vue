@@ -7,6 +7,7 @@ import { articleMedia, privateArticlePreview, type ArticleAttachment, type Attac
 import type { PublishImagesSelection } from '../../../Contracts/published-media'
 import { credentialEpoch } from '../session'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
+import MarkdownExportControl from './MarkdownExportControl.vue'
 
 const props = defineProps<{ articleId: number; revision: bigint; credential?: string; canChange: boolean; canPublish: boolean }>()
 const emit = defineEmits<{ save: [edit: AttachmentEdit]; publishImages: [selection: PublishImagesSelection] }>()
@@ -190,6 +191,8 @@ onBeforeUnmount(() => {
         <div v-if="preview" class="attachment-preview">
           <ElButton native-type="button" text @click="closePreview">Close image preview</ElButton>
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
+          <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
+            :attachment="preview.id" :disabled="pending || !credential" />
         </div>
       </template>
     </template>

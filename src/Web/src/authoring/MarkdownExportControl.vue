@@ -5,7 +5,7 @@ import { ApiError } from '../../../Contracts/aeds'
 import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
 
-const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat }>(), {
+const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat; attachment?: string }>(), {
   format: 'md',
 })
 const failure = ref('')
@@ -24,16 +24,18 @@ function reset() {
 async function download() {
   const session = currentSession.value
   if (!session?.canAuthor || props.disabled || request) return
+  const { article, revision, selected, format, attachment } = props
+  const image = attachment && session.siteSessionId ? { id: attachment, credential: session.siteSessionId } : undefined
+  if (attachment && !image) return
   const controller = request = new AbortController()
   const epoch = identityEpoch.value
-  const { article, revision, selected, format } = props
   loading.value = true
   failure.value = ''
   try {
-    const data = await exportArticleRevision(format, article, revision, selected, controller.signal)
+    const data = await exportArticleRevision(format, article, revision, selected, controller.signal, image)
     if (controller.signal.aborted || epoch !== identityEpoch.value || session.expiresAt <= Date.now() ||
         !currentSession.value?.canAuthor || props.disabled || article !== props.article ||
-        revision !== props.revision || selected !== props.selected || format !== props.format) return
+        revision !== props.revision || selected !== props.selected || format !== props.format || attachment !== props.attachment) return
     const url = URL.createObjectURL(data)
     try {
       const link = document.createElement('a')
@@ -50,6 +52,8 @@ async function download() {
       await recheckCredential(session.siteSessionId, controller.signal)
     else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
+    else if (format === 'html' && attachment && error instanceof ApiError && error.status === 400)
+      failure.value = 'Use basic text Markdown and an image up to 512 KiB. The combined HTML must fit within 2 MiB.'
     else if (format === 'html' && error instanceof ApiError && error.status === 400)
       failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
     else if (format === 'epub' && error instanceof ApiError && error.status === 400)
@@ -65,14 +69,14 @@ async function download() {
   }
 }
 
-watch(() => [props.article, props.revision, props.selected, props.disabled, props.format, credentialEpoch.value], reset, { flush: 'sync' })
+watch(() => [props.article, props.revision, props.selected, props.disabled, props.format, props.attachment, credentialEpoch.value], reset, { flush: 'sync' })
 onScopeDispose(reset)
 </script>
 
 <template>
   <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}
+      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}{{ attachment ? ' with this image' : '' }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>

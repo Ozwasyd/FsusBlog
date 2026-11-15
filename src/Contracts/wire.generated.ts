@@ -889,6 +889,7 @@ export const WireHeaders = {
   PublicArticleMediaPresent: "X-Fsus-Public-Article-Media",
   MfaProof: "X-Fsus-Mfa-Proof",
   CurrentSession: "X-Fsus-Current-Session",
+  HtmlExportAttachment: "X-Fsus-Export-Attachment",
   SiteRefresh: "X-Fsus-Site-Refresh",
   SiteSessionContinuity: "X-Fsus-Site-Session-Continuity",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",

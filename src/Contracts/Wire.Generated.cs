@@ -895,6 +895,7 @@ public static class WireHeaders
     public const string PublicArticleMediaPresent = "X-Fsus-Public-Article-Media";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
+    public const string HtmlExportAttachment = "X-Fsus-Export-Attachment";
     public const string SiteRefresh = "X-Fsus-Site-Refresh";
     public const string SiteSessionContinuity = "X-Fsus-Site-Session-Continuity";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";

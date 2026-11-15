@@ -258,7 +258,8 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal("image/png", allowed.Content.Headers.ContentType?.MediaType);
             Assert.Equal("no-referrer", Assert.Single(allowed.Headers.GetValues("Referrer-Policy")));
             var leaf = Path.Combine(root, $"{asset:N}.media");
-            Assert.Equal(await File.ReadAllBytesAsync(leaf, ct), await allowed.Content.ReadAsByteArrayAsync(ct));
+            var normalized = await File.ReadAllBytesAsync(leaf, ct);
+            Assert.Equal(normalized, await allowed.Content.ReadAsByteArrayAsync(ct));
 
             var held = leaf + ".held";
             File.Move(leaf, held);
@@ -273,6 +274,57 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, detach.StatusCode);
             var detached = Wire.DecodeDraft(await detach.Content.ReadAsByteArrayAsync(ct));
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
+
+            using (var exported = await ExportHtml(detached.Revision, saved.Revision, owner, asset))
+            {
+                Assert.Equal(HttpStatusCode.OK, exported.StatusCode);
+                Assert.True(exported.Headers.CacheControl?.NoStore);
+                Assert.True(exported.Headers.CacheControl?.Private);
+                Assert.Contains("img-src data:", Assert.Single(exported.Headers.GetValues("Content-Security-Policy")));
+                Assert.Equal("article.html", exported.Content.Headers.ContentDisposition?.FileName);
+                var document = await exported.Content.ReadAsStringAsync(ct);
+                Assert.Contains("Original body.", document);
+                Assert.Contains("img-src data:", document);
+                var data = System.Text.RegularExpressions.Regex.Match(document,
+                    """<img src="data:image/png;base64,([A-Za-z0-9+/=]+)" alt="draft.png" width="3" height="2">""");
+                Assert.True(data.Success);
+                Assert.Equal(normalized, Convert.FromBase64String(data.Groups[1].Value));
+            }
+            using (var plain = await ExportHtml(detached.Revision, saved.Revision, owner, null))
+            {
+                Assert.Equal(HttpStatusCode.OK, plain.StatusCode);
+                Assert.DoesNotContain("<img", await plain.Content.ReadAsStringAsync(ct));
+                Assert.DoesNotContain("img-src data:", Assert.Single(plain.Headers.GetValues("Content-Security-Policy")));
+            }
+            using (var unlinked = await ExportHtml(detached.Revision, detached.Revision, owner, asset))
+                Assert.Equal(HttpStatusCode.NotFound, unlinked.StatusCode);
+            using (var otherAsset = await ExportHtml(detached.Revision, saved.Revision, owner, foreign))
+                Assert.Equal(HttpStatusCode.NotFound, otherAsset.StatusCode);
+            using (var otherOwner = await ExportHtml(detached.Revision, saved.Revision, outsider, asset))
+                Assert.Equal(HttpStatusCode.NotFound, otherOwner.StatusCode);
+            using (var anonymous = await ExportHtml(detached.Revision, saved.Revision, null, asset))
+                Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+            using (var stale = await ExportHtml(saved.Revision, saved.Revision, owner, asset))
+                Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+            using (var wrongHandle = await ExportHtml(detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId))
+                Assert.Equal(HttpStatusCode.Conflict, wrongHandle.StatusCode);
+
+            var changed = normalized.ToArray();
+            changed[^1] ^= 1;
+            File.Move(leaf, held);
+            try
+            {
+                await File.WriteAllBytesAsync(leaf, changed, ct);
+                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
+                using var corrupt = await ExportHtml(detached.Revision, saved.Revision, owner, asset);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, corrupt.StatusCode);
+            }
+            finally
+            {
+                File.Delete(leaf);
+                File.Move(held, leaf);
+            }
+
             using var historyStillPins = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
             Assert.Equal(HttpStatusCode.Conflict, historyStillPins.StatusCode);
             using var restore = await Command(WireRoutes.DraftRollback,
@@ -299,6 +351,20 @@ public sealed partial class PrivateMediaPostgresTests
                 using var request = Request(HttpMethod.Post, path, actor);
                 request.Content = new ByteArrayContent(bytes);
                 request.Content.Headers.ContentType = new(Aeds.ContentType);
+                return await client.SendAsync(request, ct);
+            }
+
+            async Task<HttpResponseMessage> ExportHtml(long expected, long selected, SessionFixture? actor, Guid? image,
+                string? handle = null)
+            {
+                using var request = Request(HttpMethod.Get,
+                    $"/api/v2/authoring/draft/{draft.Id}/export.html?revision={expected}&sourceRevision={selected}", actor);
+                if (image is Guid id) request.Headers.Add(WireHeaders.HtmlExportAttachment, id.ToString("D"));
+                if (handle is not null)
+                {
+                    request.Headers.Remove(WireHeaders.CurrentSession);
+                    request.Headers.Add(WireHeaders.CurrentSession, handle);
+                }
                 return await client.SendAsync(request, ct);
             }
 

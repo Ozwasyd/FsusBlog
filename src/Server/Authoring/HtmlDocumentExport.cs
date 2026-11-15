@@ -13,23 +13,27 @@ internal static class HtmlDocumentExport
     internal const string ContentType = "text/html; charset=utf-8";
     internal const int MaximumOutput = 2 * 1024 * 1024;
     private const string DocumentPolicy = "default-src 'none'; base-uri 'none'; form-action 'none'";
+    private const string DocumentImagePolicy = DocumentPolicy + "; img-src data:";
     internal const string ResponsePolicy = DocumentPolicy + "; frame-ancestors 'none'";
+    internal const string ImageResponsePolicy = DocumentImagePolicy + "; frame-ancestors 'none'";
     private const int MaximumExpandedTableCells = 32_768;
     private static readonly MarkdownPipeline BasicMarkdown = new MarkdownPipelineBuilder().DisableHtml().Build();
     private static readonly MarkdownPipeline TableMarkdown = new MarkdownPipelineBuilder().DisableHtml().UsePipeTables().Build();
     private static readonly HashSet<string> RenderedFences = new(StringComparer.OrdinalIgnoreCase)
         { "mermaid", "katex", "latex", "math" };
 
-    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true)
+    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true, HtmlExportAttachment? attachment = null)
     {
         var content = RenderBody(title, body, "HTML", ct, includeTables);
+        var documentPolicy = attachment is null ? DocumentPolicy : DocumentImagePolicy;
+        if (attachment is not null) content += attachment.Figure();
         var heading = HtmlEncoder.Default.Encode(title);
         var html = $"""
             <!doctype html>
             <html>
             <head>
             <meta charset="utf-8">
-            <meta http-equiv="Content-Security-Policy" content="{DocumentPolicy}">
+            <meta http-equiv="Content-Security-Policy" content="{documentPolicy}">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{heading}</title>
             </head>
