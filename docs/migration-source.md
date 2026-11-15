@@ -214,7 +214,7 @@ dotnet run --no-build --project src/Migrate -- legacy assets rehearsal verify \
 
 ### 准备并核验隔离私有图像
 
-在已有联合媒体包且文章候选通过隔离投影后，使用 `media-request` 从同一个原始计划和候选导出准备请求。请求包含源文件 SHA-256、可处理的图像格式和尺寸、已审核的所有者、全局旧修订与 v2 修订键，以及旧引用计数和替代文本。使用权限为 0600 的文件保存，并独立记录请求 SHA-256。准备工具使用 v2 服务的现行图像规范化实现，输入和输出摘要分别保留。先用可信发布包核对服务器与规范化器文件。使用 `legacy-media normalizer` 输出的文件和指纹核对即将运行的规范化器，再独立批准该指纹和准备结果清单摘要。
+在已有联合媒体包且文章候选通过隔离投影后，使用 `media-request` 从同一个原始计划和候选导出准备请求。请求包含源文件 SHA-256、可处理的图像格式和尺寸、已审核的所有者、全局旧修订与 v2 修订键，以及旧引用计数和替代文本。使用权限为 0600 的文件保存，并独立记录请求 SHA-256。准备工具使用 v2 服务的现行图像规范化实现，输入和输出摘要分别保留。Linux ARM64 上 SkiaSharp 还依赖 `libfontconfig.so.1`，Ubuntu 实测使用 `libfontconfig1`。 缺少依赖时准备失败。macOS 和 Linux 的规范化器指纹各自批准。先用可信发布包核对服务器与规范化器文件。使用 `legacy-media normalizer` 输出的文件和指纹核对即将运行的规范化器，再独立批准该指纹和准备结果清单摘要。 [Linux 实测](../artifacts/legacy-media-prepared-de88453/linux-media-provisioned-main.txt)
 
 ```bash
 umask 077
