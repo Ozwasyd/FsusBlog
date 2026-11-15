@@ -16,7 +16,7 @@ h1 { margin: 0 0 .75rem; font-size: clamp(1.6rem, 5vw, 2rem); font-weight: 700; 
 p { line-height: 1.65; }
 .editorial-page { padding-block: 2.5rem 4.5rem; }
 .reading-column { width: min(var(--fsusblog-reading-width), calc(100% - 2 * var(--fsusblog-page-gutter))); margin-inline: auto; }
-.skip-link { position: fixed; inset-block-start: .5rem; inset-inline-start: .5rem; z-index: 100; padding: .5rem 1rem; background: var(--fsus-paper); transform: translateY(-200%); }
+.skip-link { position: fixed; inset-block-start: .5rem; inset-inline-start: .5rem; z-index: 100; padding: .5rem 1rem; color: var(--fsus-ink); background: var(--fsus-paper); transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
 .site-footer { width: min(64rem, calc(100% - 2 * var(--fsusblog-page-gutter))); padding: 2rem var(--fsusblog-page-gutter); margin-inline: auto; }

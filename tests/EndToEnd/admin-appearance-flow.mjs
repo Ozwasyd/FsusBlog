@@ -124,16 +124,22 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     }, [accent, hover])
     await readTokens('#663322', '#774433')
     const skipLink = sites.getByRole('link', { name: 'Skip to content', exact: true })
+    await skipLink.waitFor({ state: 'attached' })
     await sites.keyboard.press('Tab')
-    const focusRing = () => skipLink.evaluate(element => ({
-      focused: element.matches(':focus-visible'), shadow: getComputedStyle(element).boxShadow,
-    }))
-    assert.deepEqual(await focusRing(), { focused: true, shadow: 'rgb(102, 51, 34) 0px 0px 0px 2px inset' })
+    const focusedSkipLink = () => skipLink.evaluate(element => {
+      const style = getComputedStyle(element)
+      return { focused: element.matches(':focus-visible'), ring: style.boxShadow, text: style.color, surface: style.backgroundColor }
+    })
+    assert.deepEqual(await focusedSkipLink(), {
+      focused: true, ring: 'rgb(102, 51, 34) 0px 0px 0px 2px inset', text: 'rgb(15, 15, 17)', surface: 'rgb(255, 255, 255)',
+    })
     assert.equal(new URL(sites.url()).origin, siteOrigin.origin)
     await sites.screenshot({ path: join(evidence, 'appearance-public-light.png') })
     await sites.emulateMedia({ colorScheme: 'dark' })
     await readTokens('#eecc99', '#ffddcc')
-    assert.deepEqual(await focusRing(), { focused: true, shadow: 'rgb(238, 204, 153) 0px 0px 0px 2px inset' })
+    assert.deepEqual(await focusedSkipLink(), {
+      focused: true, ring: 'rgb(238, 204, 153) 0px 0px 0px 2px inset', text: 'rgb(240, 240, 244)', surface: 'rgb(18, 18, 20)',
+    })
     await sites.screenshot({ path: join(evidence, 'appearance-public-dark.png') })
     await sites.emulateMedia({ colorScheme: 'light' })
   }
