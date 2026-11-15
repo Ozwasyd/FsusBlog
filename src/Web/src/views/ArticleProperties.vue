@@ -34,6 +34,7 @@ const definitionKind = ref<PropertyKind>('text')
 const options = ref<PropertyOption[]>([])
 const editing = shallowRef<EditableProperty>()
 const value = ref('')
+const valueForm = ref<HTMLFormElement>()
 const valueInput = ref<InstanceType<typeof ElInput>>()
 const boolean = ref<boolean | ''>('')
 const selected = ref<string[]>([])
@@ -435,6 +436,22 @@ function beginValue(field: EditableProperty) {
   message.value = ''
 }
 
+function openValueForm(field: EditableProperty) {
+  beginValue(field)
+  const lifetime = scope
+  void nextTick(() => {
+    if (lifetime.signal.aborted || editing.value !== field) return
+    if (valueInput.value?.input && !valueInput.value.input.disabled) valueInput.value.focus()
+    else valueForm.value?.querySelector<HTMLElement>('input:enabled, button:enabled')?.focus()
+  })
+}
+
+function cancelValueForm() {
+  const field = editing.value
+  clearEdits()
+  if (field) focusField(field)
+}
+
 watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disabled, busy, workspace],
   async ([seek, inspectorReady, disabled, loading, snapshot], _, cleanup) => {
     if (!seek || !inspectorReady || disabled || loading) return
@@ -527,7 +544,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
               v-bind="{ id: fieldActionId(field) }"
               text
               :disabled="disabledInput || creating || !!editing || (batchMode && batchFull && !staged.has(field.definitionId))"
-              @click="beginValue(field)"
+              @click="openValueForm(field)"
             >
               {{ field.deprecated ? 'Manage' : 'Edit' }} {{ field.label }}
             </ElButton>
@@ -570,7 +587,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
           <ElButton :disabled="busy || canRetry" @click="clearEdits">Cancel</ElButton>
         </div>
       </form>
-      <form v-if="editing" class="property-form" @submit.prevent="writeValue()">
+      <form v-if="editing" ref="valueForm" class="property-form" @submit.prevent="writeValue()">
         <p v-if="editing.deprecated" class="metadata">This property is deprecated. You can remove its existing value.</p>
         <ElRadioGroup
           v-if="editing.kind === 'boolean'" :model-value="boolean" :label="`${editing.label} value`"
@@ -603,7 +620,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
           <ElButton v-if="editing.value.kind !== 'missing'" :disabled="disabledInput" native-type="button" @click="writeValue('remove')">
             {{ batchMode ? 'Stage removal' : 'Remove value' }}
           </ElButton>
-          <ElButton :disabled="busy || canRetry" @click="clearEdits">Cancel</ElButton>
+          <ElButton :disabled="busy || canRetry" @click="cancelValueForm">Cancel</ElButton>
         </div>
       </form>
     </template>

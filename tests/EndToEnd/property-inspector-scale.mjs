@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodePropertyEditor, encodePropertySchemaCommand, propertyKinds } from '../../src/Contracts/property-values.ts'
+import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand, propertyKinds } from '../../src/Contracts/property-values.ts'
 import {
   decodeDraft, decodePropertyCommandReceipt, decodePropertyWorkspaceRequest, encodeArticleCommand, encodeSignIn,
   FrameType, WireHeaders, WireLimits, WireRoutes,
@@ -35,6 +36,118 @@ const fields = Array.from({ length: definitionCount }, (_, index) => {
 const browser = await chromium.launch({ executablePath })
 const result = { browser: browser.version(), expectedDefinitions: definitionCount, responses: [], domSamples: [], collectedSamples: [], diagnostics: [] }
 let context
+
+async function accessibility(draft, schema, post) {
+  const field = fields[0]
+  const edit = valueRevision => ({
+    articleId: draft.id, articleRevision: draft.revision, schemaRevision: schema, valueRevision,
+    definitionId: field.definitionId, definitionRevision: 1n, requestId: randomUUID(),
+  })
+  async function setText(value, valueRevision) {
+    await post(WireRoutes.PropertyValueCommand, FrameType.PropertyValueCommand,
+      encodePropertyValueCommand({ ...edit(valueRevision), value: { kind: 'text', value } }), FrameType.PropertyCommandReceipt)
+  }
+  async function saveSource(expectedRevision, body) {
+    const payload = encodeArticleCommand({ id: draft.id, expectedRevision, title: draft.title, body, idempotencyKey: randomUUID() })
+    return decodeDraft((await post(WireRoutes.Save, FrameType.ArticleCommand, payload, FrameType.Draft)).payload)
+  }
+  const initialValue = 'Saved accessibility witness'
+  await setText(initialValue, 0n)
+  const earlier = await saveSource(draft.revision, 'Saved properties accessibility source.')
+  // Property writes after this point must witness the new current article revision.
+  draft = await saveSource(earlier.revision, 'Current properties accessibility source.')
+  const cookies = (await context.storageState()).cookies
+  const matrix = result.accessibility = []
+  for (const factor of [1, 1.5, 2]) {
+    const directory = await mkdtemp(join(tmpdir(), 'fsus-property-native-zoom-'))
+    let profile
+    try {
+      await mkdir(join(directory, 'Default'))
+      await writeFile(join(directory, 'Default', 'Preferences'), JSON.stringify({
+        partition: { default_zoom_level: { x: Math.log(factor) / Math.log(1.2) } },
+      }))
+      profile = await chromium.launchPersistentContext(directory, {
+        executablePath, viewport: null, args: ['--window-size=1440,900'],
+      })
+      await profile.addCookies(cookies)
+      const page = profile.pages()[0]
+      page.on('pageerror', error => result.diagnostics.push(error.message))
+      const ax = await profile.newCDPSession(page)
+      await ax.send('Accessibility.enable')
+      const live = node => node.properties?.find(property => property.name === 'live')?.value.value
+      async function axNode(role, name) {
+        const { nodes } = await ax.send('Accessibility.getFullAXTree')
+        const node = nodes.find(node => !node.ignored && node.role?.value === role && (name === undefined || node.name?.value === name))
+        assert(node, `Missing Chromium AX node: ${role} ${name ?? ''}`)
+        return node
+      }
+      for (const theme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
+        await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
+        await expect(page.locator('html')).toHaveAttribute('data-theme-resolved', theme)
+        const bounds = await page.evaluate(() => ({
+          outer: outerWidth, viewport: innerWidth, dpr: devicePixelRatio, scroll: document.documentElement.scrollWidth,
+          scale: visualViewport.scale, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        }))
+        const first = matrix[0] ?? bounds
+        assert.equal(bounds.outer, first.outer)
+        assert.equal(bounds.scale, 1)
+        assert(bounds.reducedMotion && Math.abs(bounds.dpr / first.dpr - factor) < .01 &&
+          Math.abs(bounds.viewport * factor - first.viewport) <= 2 && bounds.scroll === bounds.viewport)
+        const inspector = page.getByRole(bounds.viewport <= 1023 ? 'dialog' : 'complementary', { name: 'Article inspector' })
+        await page.getByRole('button', { name: 'Inspector', exact: true }).press('Enter')
+        const properties = inspector.getByRole('region', { name: 'Properties', exact: true })
+        const editButton = properties.getByRole('button', { name: `Edit ${field.label}`, exact: true })
+        await expect(properties.getByText(initialValue, { exact: true })).toBeVisible()
+        await axNode('region', 'Properties')
+        await axNode('button', `Edit ${field.label}`)
+        await inspector.getByText('Revision history', { exact: true }).press('Enter')
+        const compare = inspector.getByRole('button', { name: `Compare revision ${earlier.revision}`, exact: true })
+        await compare.press('Enter')
+        const dialog = page.getByRole('dialog', { name: 'Revision comparison' })
+        await dialog.getByText('Saved properties', { exact: true }).press('Enter')
+        await expect(dialog.getByText(initialValue, { exact: true })).toHaveCount(2)
+        await axNode('dialog', 'Revision comparison')
+        await axNode('region', 'Earlier saved properties')
+        await axNode('region', 'Current saved properties')
+        await page.keyboard.press('Escape')
+        await expect(compare).toBeFocused()
+        for (const item of fields.slice(0, propertyKinds.length)) {
+          const opener = properties.getByRole('button', { name: `Edit ${item.label}`, exact: true })
+          await opener.press('Enter')
+          const [role, name] = item.kind === 'boolean' ? ['radio', 'True'] : item.kind === 'single-select' ? ['radio', 'Red']
+            : item.kind === 'multi-select' ? ['checkbox', 'Red'] : ['textbox', `${item.label} value`]
+          await expect(properties.getByRole(role, { name, exact: true })).toBeFocused({ timeout: 1_500 })
+          assert.equal((await axNode(role, name)).properties?.find(p => p.name === 'focused')?.value.value, true)
+          await properties.getByRole('button', { name: 'Cancel', exact: true }).press('Enter')
+          await expect(opener).toBeFocused()
+        }
+        if (factor === 2 && theme === 'dark') {
+          await properties.getByRole('button', { name: 'Edit multiple properties', exact: true }).press('Enter')
+          await editButton.press('Enter')
+          await properties.getByRole('textbox', { name: `${field.label} value`, exact: true }).fill('Staged accessibility witness')
+          await properties.getByRole('button', { name: 'Stage property', exact: true }).press('Enter')
+          await setText('Concurrent accessibility witness', 1n)
+          const conflict = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyValueCommand)
+          await properties.getByRole('button', { name: 'Save property changes', exact: true }).press('Enter')
+          assert.equal((await conflict).status(), 409)
+          const message = 'The article properties changed. Reload before editing.'
+          await expect(properties.getByRole('alert')).toHaveText(message)
+          await axNode('StaticText', message)
+          assert.equal(live(await axNode('alert')), 'assertive')
+          await expect(properties.getByRole('list', { name: 'Staged property changes' })).toContainText('Staged accessibility witness')
+          result.assertiveConflict = true
+        }
+        matrix.push({ factor, theme, ...bounds, keyboardAndAX: true, typedControls: propertyKinds.length })
+        console.log(`Chrome accessibility verified at ${factor * 100}% in ${theme} theme.`)
+      }
+      await ax.detach()
+    } finally {
+      try { await profile?.close() }
+      finally { await rm(directory, { recursive: true, force: true }) }
+    }
+  }
+}
 
 try {
   context = await browser.newContext({ viewport: desktop })
@@ -161,11 +274,12 @@ try {
   await collectedSample('returned to desktop')
   assert.equal(readRequests.length, 41)
   assert.equal(readResponses.length, 41)
-  assert.deepEqual(diagnostics, [])
   result.initialDomSample = result.domSamples[0]
   result.peakSampledNodes = Math.max(...result.domSamples.map(sample => sample.nodes))
   result.peakSampledListeners = Math.max(...result.domSamples.map(sample => sample.jsEventListeners))
   await memory.detach()
+  if (process.env.FSUSBLOG_TEST_PROPERTY_ACCESSIBILITY === '1') await accessibility(draft, schema, post)
+  assert.deepEqual(diagnostics, [])
 } catch (error) {
   result.failure = String(error)
   throw error
