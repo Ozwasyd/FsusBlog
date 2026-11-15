@@ -14,9 +14,7 @@ public sealed class AuthorTextSearchPostgresTests
     [PostgresFact]
     public async Task CurrentPrivateIndexIsBoundedReconciledAndNeverReturnsAnotherAuthorsText()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         // This fixture checks exact foreground batch counts on the compatible pre-worker schema.
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
         await FixtureSql.ExecuteAsync(connection, null, ct, "drop table public.author_text_rebuild_job");

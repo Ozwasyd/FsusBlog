@@ -19,9 +19,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
     [PostgresFact]
     public async Task PublishedRollbackIsAdministratorAttributedAtomicAndIdempotent()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SeedHistory(db, ct);
         var admin = await CreateAdmin(db, ct, "history-administrator", true);
@@ -121,9 +119,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
     [PostgresFact]
     public async Task DraftRollbackWithdrawsTheArticleAndRetainsAnIndependentPrivateRelease()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SeedHistory(db, ct);
         var admin = await CreateAdmin(db, ct, "draft-rollback-admin", true);

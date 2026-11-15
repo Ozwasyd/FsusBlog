@@ -21,9 +21,7 @@ public sealed class PublicationHeadPostgresTests
     public async Task ServesOnlyOriginalOpaqueHeadForTheAnchoredExactCommittedTail()
     {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await Scalar("drop table public.publication_transparency_head");
         await Scalar("alter table public.article_publication_transparency drop constraint publication_transparency_exact_head");

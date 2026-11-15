@@ -37,9 +37,7 @@ public sealed class SiteRecoveryKeyPostgresTests
     [PostgresFact]
     public async Task CurrentRemovalRequiresFreshAccountRecoveryAndZeroDevicesDoesNotReopenBootstrap()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var secrets = new RecoveryKeySecret(RandomNumberGenerator.GetBytes(32));
@@ -84,9 +82,7 @@ public sealed class SiteRecoveryKeyPostgresTests
     [PostgresFact]
     public async Task IssuanceProofCannotCrossSessionPurposeOrReplay()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var secrets = new RecoveryKeySecret(RandomNumberGenerator.GetBytes(32));
@@ -112,9 +108,7 @@ public sealed class SiteRecoveryKeyPostgresTests
     [PostgresFact]
     public async Task WrongSecretsStayScopedAndOnlyTheLatestReservationCanBeginRebind()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var secrets = new RecoveryKeySecret(RandomNumberGenerator.GetBytes(32));

@@ -7,6 +7,7 @@ import {
   decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery,
 } from '../../src/Contracts/author-text-search.ts'
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { deferResponse } from './browser-authoring-fixture.mjs'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
 export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand, publicFixture }) {
@@ -758,9 +759,7 @@ async function prepareCurrentIndex(page, previous, revision) {
 }
 
 async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary }) {
-  const remote = Promise.withResolvers()
-  const release = Promise.withResolvers()
-  const finished = Promise.withResolvers()
+  const held = deferResponse({ timeout: 5_000 })
   const target = url => url.pathname === WireRoutes.AuthorTextSearch
   let captured
   const aborts = []
@@ -768,16 +767,7 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
   const handler = async route => {
     if (captured || route.request().method() !== 'POST') return route.fallback()
     captured = route.request()
-    try {
-      const receipt = await route.fetch({ timeout: 5_000 })
-      remote.resolve({ receipt })
-      await release.promise
-      await route.fulfill({ response: receipt })
-      finished.resolve(undefined)
-    } catch (error) {
-      remote.resolve({ error })
-      finished.resolve(error)
-    }
+    await held.forward(route)
   }
   page.on('requestfailed', observeAbort)
   await page.route(target, handler)
@@ -787,9 +777,7 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
     await jump().click()
     await entered
     await page.getByText('正在复查正文命中位置…', { exact: true }).waitFor()
-    const { receipt, error } = await remote.promise
-    if (error) throw error
-    exactHit(await readSearchReply(receipt), fixture, revisedRaw, 'body', bodyWord)
+    exactHit(await readSearchReply(await held.response), fixture, revisedRaw, 'body', bodyWord)
     assert.equal(page.url(), list)
 
     const trashUrl = new URL('/user/manage/article/trash', list).href
@@ -797,8 +785,8 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
     await page.waitForURL(trashUrl)
     await page.getByRole('heading', { name: '回收站', exact: true }).waitFor()
     await summary.waitFor({ state: 'detached' })
-    release.resolve()
-    const fulfillmentError = await finished.promise
+    held.release()
+    const fulfillmentError = await held.done
     await page.waitForLoadState('networkidle')
     if (fulfillmentError) assert(aborts.length > 0, String(fulfillmentError))
     assert.equal(page.url(), trashUrl)
@@ -810,7 +798,7 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
     }), editorSourceHandoffKey)
     assert.deepEqual(destination, { pending: false, current: false, editors: 0 })
   } finally {
-    release.resolve()
+    held.release()
     await page.unroute(target, handler)
     page.off('requestfailed', observeAbort)
   }

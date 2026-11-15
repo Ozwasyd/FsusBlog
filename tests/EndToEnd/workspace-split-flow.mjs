@@ -7,7 +7,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, expect, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
+import { authorFixture, button, chromium, expect, holdResponse, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -223,32 +223,16 @@ async function exerciseNativePageZoom(author, first, second) {
 }
 
 async function holdDraft(page, id) {
-  const reached = Promise.withResolvers()
-  const resume = Promise.withResolvers()
-  const finished = Promise.withResolvers()
-  let started = false
-  await page.route(draftPath(id), async route => {
-    started = true
-    try {
-      const real = await route.fetch({ maxRetries: 0, maxRedirects: 0 })
-      reached.resolve(real.status())
-      await resume.promise
-      await route.fulfill({ response: real })
-    } catch (error) {
-      reached.resolve(error)
-    } finally {
-      finished.resolve()
-    }
-  }, { times: 1 })
+  const held = await holdResponse(page, draftPath(id), { maxRetries: 0, maxRedirects: 0 })
   return {
     async status() {
       const expiry = new AbortController()
-      try { return await Promise.race([reached.promise, delay(8_000, 'draft request did not arrive', { signal: expiry.signal })]) }
+      try { return await Promise.race([held.status().catch(error => error), delay(8_000, 'draft request did not arrive', { signal: expiry.signal })]) }
       finally { expiry.abort() }
     },
     async release() {
-      resume.resolve()
-      if (started) await finished.promise
+      held.release()
+      if (held.started) await held.done
     },
   }
 }

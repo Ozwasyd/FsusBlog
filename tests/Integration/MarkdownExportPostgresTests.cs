@@ -101,9 +101,7 @@ public sealed class MarkdownExportPostgresTests
     [PostgresFact]
     public async Task ExportsOnlyTheRequestedSavedOwnerRevisionAsAnUncachedAttachment()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = (await fixture.SignIn("Markdown owner", ct, canAuthor: true)).Token;
         var outsider = (await fixture.SignIn("Markdown outsider", ct, canAuthor: true)).Token;

@@ -12,9 +12,7 @@ public sealed class PublicationRightsPostgresTests
     [PostgresFact]
     public async Task PreviousCatalogStillPublishesWithItsOwnOutbox()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var actor = Guid.NewGuid();
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
@@ -49,9 +47,7 @@ public sealed class PublicationRightsPostgresTests
     [PostgresFact]
     public async Task OnlyTheExactPublicationSnapshotIsPublicAndItSurvivesSubsequentEdits()
     {
-        using var stop = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = stop.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SignIn("Rights owner");
         var other = await SignIn("Other rights owner");

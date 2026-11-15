@@ -33,9 +33,7 @@ public sealed partial class DocumentExportPostgresTests
     [PostgresFact]
     public async Task AQueuedLegacyProviderRendersItsOriginalProfileBesideCurrentTasks()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await Login(fixture, "Versioned document owner", canAuthor: true, ct);
         const string title = "Versions of one document";
@@ -74,9 +72,7 @@ public sealed partial class DocumentExportPostgresTests
     [PostgresFact]
     public async Task DocumentTasksFreezeSavedSourceAndProtectDurableDownloads()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await Login(fixture, "Document task owner", canAuthor: true, ct);
         var outsider = await Login(fixture, "Document task outsider", canAuthor: true, ct);
@@ -234,9 +230,7 @@ public sealed partial class DocumentExportPostgresTests
     [PostgresFact]
     public async Task WordReceiptReportsTheSavedSourcesLiteralFormattingWithoutChangingOutput()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await Login(fixture, "Word warning owner", canAuthor: true, ct);
         const string body = """
             #### Heading *markup*
@@ -307,9 +301,7 @@ public sealed partial class DocumentExportPostgresTests
     [PostgresFact]
     public async Task WorkerRefusesSavedMetadataDriftAndRestartKeepsTheFailedAttempt()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await Login(fixture, "Export retry witness", canAuthor: true, ct);
         const string title = "Selected title";

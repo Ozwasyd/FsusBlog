@@ -18,6 +18,41 @@ export function observePageErrors(page, diagnostics) {
   return page
 }
 
+export function deferResponse(fetchOptions) {
+  const upstream = Promise.withResolvers()
+  // A browser action may fail before the test can await the response.
+  upstream.promise.catch(() => {})
+  const release = Promise.withResolvers()
+  const done = Promise.withResolvers()
+  let started = false
+  return {
+    response: upstream.promise,
+    release: release.resolve,
+    done: done.promise,
+    get started() { return started },
+    async status() { return (await upstream.promise).status() },
+    async forward(route) {
+      started = true
+      try {
+        const response = await route.fetch(fetchOptions)
+        upstream.resolve(response)
+        await release.promise
+        await route.fulfill({ response })
+        done.resolve()
+      } catch (error) {
+        upstream.reject(error)
+        done.resolve(error)
+      }
+    },
+  }
+}
+
+export async function holdResponse(page, pattern, fetchOptions) {
+  const held = deferResponse(fetchOptions)
+  await page.route(pattern, held.forward, { times: 1 })
+  return held
+}
+
 export function postFrame(request, url, type, payload, headers = binary) {
   return request.post(url, { data: Buffer.from(encodeFrame(type, payload)), headers })
 }

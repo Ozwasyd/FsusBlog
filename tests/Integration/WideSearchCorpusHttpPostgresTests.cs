@@ -20,9 +20,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
     public async Task WideCorpusServesExactPagesAndRejectsStalePinsEvenWhenPageBytesAreUnchanged()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, Settings(false)))
         {
             await ExpectGet(disabled.Client, WireRoutes.PublicSearchWideManifest, HttpStatusCode.NotFound, ct);

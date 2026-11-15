@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { button, chromium, expect, observePageErrors, readDraft } from './browser-authoring-fixture.mjs'
+import { button, chromium, expect, holdResponse, observePageErrors, readDraft } from './browser-authoring-fixture.mjs'
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const ticket = process.env.FSUSBLOG_TEST_TICKET
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -29,24 +29,9 @@ async function openPage() {
 }
 
 async function holdScopeResponse(page) {
-  const received = Promise.withResolvers()
-  const release = Promise.withResolvers()
-  const completed = Promise.withResolvers()
-  releaseResponse = release.resolve
-  await page.route(`${origin}${WireRoutes.DraftRecoveryScope}`, async route => {
-    try {
-      const response = await route.fetch()
-      received.resolve(response.status())
-      await release.promise
-      await route.fulfill({ response })
-    } catch (error) {
-      received.reject(error)
-      completed.resolve(String(error))
-    } finally {
-      completed.resolve('delivered')
-    }
-  }, { times: 1 })
-  return { received: received.promise, release: release.resolve, completed: completed.promise }
+  const held = await holdResponse(page, `${origin}${WireRoutes.DraftRecoveryScope}`)
+  releaseResponse = held.release
+  return held
 }
 
 async function saveAndVerify(page, title, body) {
@@ -67,13 +52,13 @@ try {
   await desktop.getByLabel('Owner access key').fill(ticket)
   await button(desktop, 'Log in').click()
   await expect(heading(desktop)).toBeVisible()
-  assert.equal(await scope.received, 200)
+  assert.equal(await scope.status(), 200)
   assert.equal(await titleInput(desktop).isEnabled(), false, 'The title became editable before the verified local recovery scan')
   assert.equal(await bodyInput(desktop).isEnabled(), false, 'The body became editable before the verified local recovery scan')
   await expect(checking(desktop)).toBeVisible()
 
   scope.release()
-  assert.equal(await scope.completed, 'delivered')
+  assert.equal(await scope.done, undefined)
   await expect(checking(desktop)).toBeHidden()
   const title = 'Draft kept after cancelled navigation'
   const body = '## Recovery is settled\n\nThe title and body stay together.\n'
@@ -118,7 +103,7 @@ try {
   const late = await holdScopeResponse(mobile)
   await mobile.goto(writeUrl)
   await expect(heading(mobile)).toBeVisible()
-  assert.equal(await late.received, 200)
+  assert.equal(await late.status(), 200)
   await expect(checking(mobile)).toBeVisible()
   const find = button(mobile, 'Find in body')
   await expect(find).toBeDisabled()
@@ -127,7 +112,7 @@ try {
   const lateBody = 'The server can still save this 🧭 draft.'
   await titleInput(mobile).fill(lateTitle)
   late.release()
-  await late.completed
+  await late.done
   await expect(bodyInput(mobile)).toBeEditable()
   await expect(titleInput(mobile)).toHaveValue(lateTitle)
   const editor = bodyInput(mobile)

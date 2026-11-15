@@ -20,9 +20,7 @@ public sealed partial class PrivateMediaPostgresTests
     public async Task ImportedOriginKeepsTheLegacyAssetAndRevisionPrivateAcrossNativeTlsAndBackup()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await MediaFixture.CreateSession(db.DataSource, "imported-asset-owner", ct, canAuthor: true);
         var outsider = await MediaFixture.CreateSession(db.DataSource, "imported-asset-outsider", ct, canAuthor: true);
         var directory = Directory.CreateTempSubdirectory("fsusblog-imported-media-");

@@ -172,41 +172,24 @@ if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
   fi
   rg -q 'Stop the serving process before changing the database schema.' "$evidence/media-webp-live-rejection.log"
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
-  node tests/EndToEnd/run-canvas-scale.mjs
-  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
-    -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
-  node tests/EndToEnd/article-media-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
-  node tests/EndToEnd/public-article-media-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == search-corpus-reuse ]]; then
-  node tests/EndToEnd/search-corpus-reuse-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-hot-articles ]]; then
-  node tests/EndToEnd/run-public-hot-articles.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
-  node tests/EndToEnd/editor-readiness-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
-  node tests/EndToEnd/workspace-recovery-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-split ]]; then
-  node tests/EndToEnd/workspace-split-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
-  node tests/EndToEnd/article-library-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == property-inspector-scale ]]; then
-  node tests/EndToEnd/property-inspector-scale.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
-  node tests/EndToEnd/property-history-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
-  node tests/EndToEnd/author-inventory-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
-  node tests/EndToEnd/comment-author-delete-flow.mjs
-elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
-  node tests/EndToEnd/private-media-flow.mjs
-  if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
-    "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres -qAt -c \
-      'SELECT (SELECT count(*) FROM public.private_media_upload WHERE complete), (SELECT count(*) FROM public.private_media_upload_part), (SELECT count(*) FROM public.private_media WHERE phase=3)' > "$evidence/media-state.txt"
-    [[ $(cat "$evidence/media-state.txt") == '3|0|3' ]]
-  fi
-else
-  node tests/EndToEnd/blog-flow.mjs
-fi
+case ${FSUSBLOG_TEST_FLOW:-blog} in
+  canvas-scale)
+    node tests/EndToEnd/run-canvas-scale.mjs
+    "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
+      -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
+    ;;
+  public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
+  property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;
+  article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|author-inventory|comment-author-delete)
+    node "tests/EndToEnd/${FSUSBLOG_TEST_FLOW}-flow.mjs"
+    ;;
+  private-media)
+    node tests/EndToEnd/private-media-flow.mjs
+    if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
+      "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres -qAt -c \
+        'SELECT (SELECT count(*) FROM public.private_media_upload WHERE complete), (SELECT count(*) FROM public.private_media_upload_part), (SELECT count(*) FROM public.private_media WHERE phase=3)' > "$evidence/media-state.txt"
+      [[ $(cat "$evidence/media-state.txt") == '3|0|3' ]]
+    fi
+    ;;
+  *) node tests/EndToEnd/blog-flow.mjs ;;
+esac

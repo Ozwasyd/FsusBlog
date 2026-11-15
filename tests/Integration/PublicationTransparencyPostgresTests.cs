@@ -16,9 +16,7 @@ public sealed class PublicationTransparencyPostgresTests
     public async Task IssuesAndVerifiesAnAtomicDenseLedgerWithIndependentPrefixAndKeyState()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await RemoveLedgerSchema();
         Succeeded(await Migrate("enable"));

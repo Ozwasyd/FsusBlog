@@ -1,3 +1,4 @@
+import { holdResponse } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -258,37 +259,20 @@ async function exercisePropertyBatch(publisher, observations) {
       FrameType.PropertyValueCommand, update, FrameType.PropertyCommandReceipt))
     assert.equal(concurrent.revision, current.valueRevision + 1n)
 
-    const reached = Promise.withResolvers()
-    const release = Promise.withResolvers()
-    const done = Promise.withResolvers()
-    const path = `${origin}${WireRoutes.PropertyValueCommand}`
-    await page.route(path, async route => {
-      try {
-        const upstream = await route.fetch({ timeout: 5_000 })
-        reached.resolve({ status: upstream.status() })
-        await release.promise
-        await route.fulfill({ response: upstream })
-        done.resolve()
-      } catch (error) {
-        reached.resolve({ error })
-        done.resolve(error)
-      }
-    }, { times: 1 })
+    const held = await holdResponse(page, `${origin}${WireRoutes.PropertyValueCommand}`, { timeout: 5_000 })
     try {
       const conflict = page.waitForResponse(response => isValueBatch(response.request()))
       await control('Save property changes').click()
-      const held = await reached.promise
-      if (held.error) throw held.error
-      assert.equal(held.status, 409)
+      assert.equal(await held.status(), 409)
       assert.equal(requests.length, 2)
       assert.equal(await control('Save property changes').isDisabled(), true)
       await staged.waitFor()
-      release.resolve()
+      held.release()
       assert.equal((await conflict).status(), 409)
-      const routeError = await done.promise
+      const routeError = await held.done
       if (routeError) throw routeError
     } finally {
-      release.resolve()
+      held.release()
     }
     await panel.getByRole('alert').waitFor()
     await staged.waitFor()

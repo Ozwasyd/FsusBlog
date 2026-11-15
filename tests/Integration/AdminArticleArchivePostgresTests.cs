@@ -17,9 +17,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
     [PostgresFact]
     public async Task AdministratorArchiveWithdrawsAndRequiresExplicitRepublishing()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SeedHistory(db, ct);
         await SeedResponsibility(db, ct);

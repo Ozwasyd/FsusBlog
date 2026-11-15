@@ -90,9 +90,7 @@ public sealed class IntegrityKeysTests
     [PostgresFact]
     public async Task PublicRegistryServesRealSpkiWithoutCookiesOrPrivateKey()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var spki = WebEncoders.Base64UrlEncode(signer.ExportSubjectPublicKeyInfo());
         var pkcs = WebEncoders.Base64UrlEncode(signer.ExportPkcs8PrivateKey());

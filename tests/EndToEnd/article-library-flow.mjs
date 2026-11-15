@@ -6,7 +6,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
 import { encodeTaxonomyAssignment, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, expect, postReceipt } from './browser-authoring-fixture.mjs'
+import { authorFixture, button, chromium, expect, holdResponse, postReceipt } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -28,22 +28,6 @@ async function recentOpens(context, handle) {
   const response = await context.request.get(recentPath, { headers: { [WireHeaders.CurrentSession]: handle } })
   assert.equal(response.status(), 200)
   return decodeRecentOpens(decodeFrame(await response.body(), FrameType.AuthorRecentOpenPage).payload)
-}
-
-async function hold(page, pattern) {
-  const reached = Promise.withResolvers()
-  const done = Promise.withResolvers()
-  const release = Promise.withResolvers()
-  await page.route(pattern, async route => {
-    try {
-      const actual = await route.fetch()
-      reached.resolve(actual.status())
-      await release.promise
-      await route.fulfill({ response: actual })
-    } catch (error) { reached.reject(error) }
-    finally { done.resolve() }
-  }, { times: 1 })
-  return { reached: reached.promise, release: release.resolve, done: done.promise }
 }
 
 async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) {
@@ -213,10 +197,10 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await expect(options).toHaveCount(1)
     await input.press('Home')
     await expectActive(options.first())
-    const canceled = await hold(page, draftPath(changed.id))
+    const canceled = await holdResponse(page, draftPath(changed.id))
     try {
       await input.press('Enter')
-      assert.equal(await canceled.reached, 200)
+      assert.equal(await canceled.status(), 200)
       await input.press('Escape')
       await expect(dialog).toBeHidden()
     } finally {
@@ -228,10 +212,10 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await expect(body(primary)).toHaveValue(dirty)
     await openSearch(changed.title)
     await expect(options).toHaveCount(1)
-    const delayed = await hold(page, draftPath(changed.id))
+    const delayed = await holdResponse(page, draftPath(changed.id))
     try {
       await input.press('Enter')
-      assert.equal(await delayed.reached, 200)
+      assert.equal(await delayed.status(), 200)
       await expect(page).toHaveURL(editor(active.id))
       assert.deepEqual(await selection(primary), selectedRange)
       assert.equal(await body(primary).inputValue(), dirty)
@@ -339,10 +323,10 @@ try {
   await page.keyboard.press('ArrowUp')
   await expect(duplicates.first()).toBeFocused()
 
-  const delayed = await hold(page, draftPath(duplicate.id))
+  const delayed = await holdResponse(page, draftPath(duplicate.id))
   await page.keyboard.press('Enter')
   try {
-    assert.equal(await delayed.reached, 200)
+    assert.equal(await delayed.status(), 200)
     await expect(page).toHaveURL(editor(first.id))
     await expect(selected(pane)).toHaveText(/Library exact active article/)
     assert.equal((await recentOpens(author, handle)).revision, 0n)
@@ -400,10 +384,10 @@ try {
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
   }
   assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), expectedRecents)
-  const delayedResults = await hold(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
+  const delayedResults = await holdResponse(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
   await button(page, 'Article library').click()
   try {
-    assert.equal(await delayedResults.reached, 200)
+    assert.equal(await delayedResults.status(), 200)
     await switchAccount(peerCookies)
     await expect(page.getByRole('dialog', { name: 'Article library' })).toBeHidden()
   } finally { delayedResults.release() }
@@ -435,11 +419,11 @@ try {
       return response
     }
   }, { path: WireRoutes.AuthorArticles, keyword })
-  const old = await hold(page, url => url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('keyword') === keyword)
+  const old = await holdResponse(page, url => url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('keyword') === keyword)
   try {
     await button(page, 'Quick switch articles').click()
     await searchInput.fill(keyword)
-    assert.equal(await old.reached, 200)
+    assert.equal(await old.status(), 200)
     await switchAccount(peerCookies)
     await expect(quick).toBeHidden()
     await button(page, 'Quick switch articles').click()

@@ -15,9 +15,7 @@ public sealed class AdminSignInHistoryPostgresTests
     [PostgresFact]
     public async Task RecentSignInsUseOnlyTheCurrentAdminPrincipalAndDoNotSynthesizeUnlinkedSessions()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-owner", ct);
@@ -71,9 +69,7 @@ public sealed class AdminSignInHistoryPostgresTests
     [PostgresFact]
     public async Task TracksReplacementLogoutAndNaturalExpiryWithoutRevokingAReplacementFromAnOldCookie()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-transitions", ct);
@@ -139,9 +135,7 @@ public sealed class AdminSignInHistoryPostgresTests
     [PostgresFact]
     public async Task KeepsOnlyTheFiftyMostRecentSuccessfulSignInsPerPrincipal()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-retention", ct);

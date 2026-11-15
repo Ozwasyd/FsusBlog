@@ -14,9 +14,7 @@ public sealed class PublicationProofPostgresTests
     [PostgresFact]
     public async Task OnlyLivePublicationsAreSignedAndOldSignaturesSurviveRotationButNotCompromise()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (_, session, _) = await fixture.SignIn("Proof author", ct, minutes: 5);
         using var previous = ECDsa.Create(ECCurve.NamedCurves.nistP256);

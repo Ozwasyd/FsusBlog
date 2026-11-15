@@ -18,9 +18,7 @@ public sealed class ArticleSearchWideHttpPostgresTests
     [PostgresFact]
     public async Task WideFas4ServesTheLastPublicArticleWhileOversizedFspkFailsClosed()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var token = await Seed(fixture, ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var client = server.Client;

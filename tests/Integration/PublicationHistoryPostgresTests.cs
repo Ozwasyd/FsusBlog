@@ -10,9 +10,7 @@ public sealed class PublicationHistoryPostgresTests
     [PostgresFact]
     public async Task PublicTransitionsAppendLineageAndCommitWithTheirOutbox()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var actor = Guid.NewGuid();
         var ticket = RandomNumberGenerator.GetBytes(32);
