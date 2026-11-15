@@ -344,7 +344,8 @@ function decideBatch(decision: 1 | 2) {
         <ol v-else class="moderation-history-list">
           <li v-for="(event, index) in history.events" :key="index">
             <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? eventLabels[event.eventType] : event.eventType }}</strong>
-            · {{ statuses[event.nextStatus] }} · {{ event.actorType }}
+            <template v-if="eventLabels[event.eventType] !== statuses[event.nextStatus]"> · {{ statuses[event.nextStatus] }}</template>
+            · {{ event.actorType }}
             · <time :datetime="event.occurredAtUtc">{{ new Date(event.occurredAtUtc).toLocaleString() }}</time>
             <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
           </li>

@@ -535,6 +535,9 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
   const historyPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', row.commentId.toString()) + `?articleId=${articleId}`
+  const revisionsPath = WireRoutes.AdminCommentRevisions.replace('{id:long}', row.commentId.toString())
+  assert.equal((await context.request.get(siteOrigin.origin + revisionsPath)).status(), 404)
+  await credentialProbe(adminOrigin.origin + revisionsPath, adminCookieName, siteCookie.value, 401)
   const history = section.getByRole('region', { name: 'Comment moderation history' })
   const historyArticle = history.getByLabel('Article ID', { exact: true })
   const historyComment = history.getByLabel('Comment ID', { exact: true })
