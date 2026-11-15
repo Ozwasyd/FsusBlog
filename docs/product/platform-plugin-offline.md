@@ -72,4 +72,4 @@ printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin rend
 
 成功响应是 `text/plain; charset=utf-8`，禁止缓存。Inspector 使用本地 FsusUI Markdown Wasm，按允许的语义元素展示结果。链接和图片以惰性文字展示，预览不会请求嵌入资源。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
 
-原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、批准失效、越权和旧修订。375px Chrome 的早期受控响应检查覆盖 Inspector 的取消、显示和资源加载边界。发布 Hook、其他用户授权类型和通用 IO broker 仍待验收。 [历史原生服务](../../artifacts/online-plugin-preview-749b9ba/debian/test.log) · [早期浏览器检查](../../artifacts/online-plugin-preview-749b9ba/preview-browser-retry.log)
+原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、批准失效、越权和旧修订。375px Chrome 经本机 HTTPS 转发连接到实际 worker，验证键盘审核、取消和明确确认后的呈递。发布 Hook、其他用户授权类型和通用 IO broker 仍待验收。 [Debian 实测](../../artifacts/plugin-user-consent-967805c/debian-native.log) · [Chrome 实测](../../artifacts/plugin-user-consent-967805c/chromium-3/plugin-consent-chrome.json)

@@ -16,7 +16,9 @@
 
 「Group actions」可以把当前稿件移到另一组或合并两组。移动把稿件追加到目标组。合并把次组标签按原顺序追加到主组。预览位置冲突时固定移入的预览，两个标签都保留。操作保留焦点稿件的路由、修订、未保存内容和已经挂载的编辑器。另一组已挂载的编辑器可暂时隐藏，工作区仍最多挂载两个。 [#2300](https://github.com/Ozwasyd/FsusBlog/issues/2300)
 
-离线期间的布局变化保留在当前浏览器标签，恢复联网后仍需重新加载已保存的工作区才继续同步。未确认的草稿内容继续由草稿恢复处理。双组提供源码编辑和普通粘贴。标签拖放、未选中标签的直接移动、双组富预览、Rail 布局偏好、Inspector 内部视图和完整编辑器挂起仍待交付。
+已有两组选中编辑器时，桌面溢出或窄屏切换菜单可将后台标签移至另一组。移动复用工作区布局版本校验，保留活动路由、两组选中会话、编辑器实例和选区。实测包括桌面移动及 375px 移回。 [浏览器验收](../../artifacts/targeted-delivery-967805c/background-tabs/chromium-3/workspace-split-result.json)
+
+离线期间的布局变化保留在当前浏览器标签，恢复联网后仍需重新加载已保存的工作区才继续同步。未确认的草稿内容继续由草稿恢复处理。双组提供源码编辑和普通粘贴。标签拖放、双组富预览、Rail 布局偏好、Inspector 内部视图和完整编辑器挂起仍待交付。
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
 

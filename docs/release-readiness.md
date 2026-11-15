@@ -28,4 +28,12 @@
 - 12 个可选结构安装器共用两段既有事务流程。PostgreSQL 的 43 项新旧 CLI 对照通过，退出码、输出、结构及数据一致。合并提交通过锁定编译、严格 Vue 类型检查、三份 FsusUI Wasm 字节核对、141 项 Node 协议检查及 C#、C++、Wasm 向量。 [CLI 对照](../artifacts/targeted-delivery-82d0180/optional-schema/compare.log) · [合并构建](../artifacts/targeted-delivery-82d0180/)
 - 公开 Canvas 标题、段落及代码块定位仍缺 FsusUI 的精确目标映射，匿名 Chrome 复现已提交至既有 issue。正式容量沿用封存包结果，四轮短档 1 次通过，900 秒正式长测未开始。 [FsusUI 复现](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348) · [容量结果](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
+## 开发提交 `268e8c6`
+
+- 旧 PostgreSQL 即时首发可在独立审批和可回退备份下启用。合并产物从恢复的旧库处理一篇文章，核对错误来源和目标拒绝、篡改权利拒绝、重复执行、启用前回退和启用后恢复。实际 Kestrel 重启前后公开文章、权利及搜索结果一致。全量生产切换仍待执行。 [原生演练](../artifacts/targeted-delivery-967805c/combined-activation.log) · [迁移准入](migration-source.md)
+- 现有签名 Markdown 预览在作者审核插件版本、包摘要和保存修订后才运行。一次性授权绑定当前账号、会话、修订和运维批准。Debian ARM64 通过证书固定 HTTPS、真实 PostgreSQL 与签名隔离 worker 验证了重复使用、越权、替换批准和无授权拒绝。同一签名 worker 的 375px Chrome 流程验证了键盘审核、取消零执行请求及确认后呈递保存修订。发布 Hook 和通用 IO broker 待交付。 [Debian 实测](../artifacts/plugin-user-consent-967805c/debian-native.log) · [Chrome 实测](../artifacts/plugin-user-consent-967805c/chromium-3/plugin-consent-chrome.json)
+- 背景标签可跨组移动，两组选中会话、路由、编辑器及选区继续保留。36 项注册表测试和桌面、375px 原生 Chrome 通过。 [浏览器](../artifacts/targeted-delivery-967805c/background-tabs/chromium-3/workspace-split-result.json)
+- 已保存修订的单张授权 PNG 或 JPEG 可写入 DOCX。原生 Chrome 下载后用禁网 LibreOffice 打开并渲染实际图片。旧版和当前无附图的两种 DOCX 样本与基线字节一致。 [下载](../artifacts/targeted-delivery-967805c/word/browser/article-media-browser.json) · [独立读取](../artifacts/targeted-delivery-967805c/word/independent/independent-image.log)
+- 锁定依赖的 Release 编译、严格 Vue 类型检查及三份 FsusUI Wasm 字节对照通过。作者实库共用夹具后仍通过 12 项，包括千字段、万篇和 88,000 个属性值，规范化净减 193 行。整批开发代码共 208,029 行，距 208,546 上限 517 行。 [编译及计量](../artifacts/targeted-delivery-967805c/) · [实库规模回归](../artifacts/targeted-delivery-967805c/author-fixtures/verification.log)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
