@@ -18,6 +18,9 @@ MAX_MANIFEST_BYTES = 64 * 1024
 MAX_SHARD_BYTES = 512 * 1024 * 1024
 MAX_SHARD_ROWS = 65_536
 SHARDED_FORMAT = "fsusblog-v2-nightly-postgres-fixture-v3"
+MILLION_PROFILE = "articles-million"
+PROFILE_ARTICLES = {"pilot": 20, "nightly": 100_000, MILLION_PROFILE: 1_000_000}
+PROFILE_SHARD_ROWS = {"pilot": 8, MILLION_PROFILE: MAX_SHARD_ROWS}
 ROLLBACK_MARKER = b"article-byte-proof-rolled-back\n"
 COHORTS = ("published", "scheduled", "scheduled-update", "archived", "deleted")
 REVISIONS = {
@@ -57,17 +60,20 @@ def unique_members(pairs):
 
 def article_shards(plan):
     shards = plan.get("articleShards")
-    pilot_counts = (8, 8, 4)
-    if type(shards) is not list or len(shards) != len(pilot_counts):
-        raise ValueError("Unexpected article shard count for the pilot profile.")
+    width = PROFILE_SHARD_ROWS[plan["profile"]]
+    article_count = plan["articles"]
+    expected_parts = (article_count + width - 1) // width
+    if type(shards) is not list or len(shards) != expected_parts:
+        raise ValueError("Unexpected article shard count for the selected profile.")
     first = 1
     numeric = ("ordinal", "firstArticle", "lastArticle", "rows", "bytes")
     fields = {*numeric, "sha256"}
-    for ordinal, (shard, expected_rows) in enumerate(zip(shards, pilot_counts), 1):
+    for ordinal, shard in enumerate(shards, 1):
         if (type(shard) is not dict or shard.keys() != fields or any(type(shard[key]) is not int for key in numeric)
                 or type(shard["sha256"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", shard["sha256"])):
             raise ValueError(f"Malformed article shard description at ordinal {ordinal}.")
         rows = shard["rows"]
+        expected_rows = min(width, article_count - first + 1)
         if (shard["ordinal"] != ordinal or not 0 < rows <= MAX_SHARD_ROWS or rows != expected_rows
                 or shard["firstArticle"] != first or shard["lastArticle"] != first + rows - 1
                 or not len(HEADER) < shard["bytes"] <= MAX_SHARD_BYTES):
@@ -166,9 +172,10 @@ def inspect_revisions(source, actual, plan, probe):
 
 
 def postgres_readback(args, plan, probe, shards):
+    timeout = "900s" if args.profile == MILLION_PROFILE else "120s"
     script = r"""
 SET LOCAL search_path TO pg_catalog;
-SET LOCAL statement_timeout TO '120s';
+SET LOCAL statement_timeout TO :'statement_timeout';
 SELECT current_database()=:'database_name' AND current_setting('data_directory')=:'data_directory'
     AND inet_server_addr() IS NULL AND current_setting('listen_addresses')=''
     AND current_user='fsusv2_nightly_qa' AND current_setting('server_encoding')='UTF8'
@@ -202,7 +209,7 @@ ROLLBACK;
     mode = "read write" if probe else "read only"
     command = ["psql", "-X", "-qAt", "--no-password", "-v", "ON_ERROR_STOP=1",
                "-v", f"database_name={args.database_name}", "-v", f"data_directory={args.data_directory}",
-               "-v", f"site_id={args.site_id}"]
+               "-v", f"site_id={args.site_id}", "-v", f"statement_timeout={timeout}"]
     with closing(plan_lines(args.plan, shards)) as source, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                                                            env={**os.environ, "PGCONNECT_TIMEOUT": "2"}) as pg:
         try:
@@ -219,7 +226,7 @@ ROLLBACK;
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("profile", choices=("pilot", "nightly"))
+    parser.add_argument("profile", choices=PROFILE_ARTICLES)
     parser.add_argument("plan", type=Path)
     parser.add_argument("manifest", type=Path)
     parser.add_argument("database_name")
@@ -239,10 +246,12 @@ def main():
             raise ValueError("Expected a sealed article plan object.")
         sharded = plan.get("format") == SHARDED_FORMAT
         if sharded:
-            if args.profile != "pilot" or read_manifest(args.plan) != manifest:
-                raise ValueError("Sharded verification requires the identical pilot manifest beside the shards.")
+            if args.profile not in PROFILE_SHARD_ROWS or read_manifest(args.plan) != manifest:
+                raise ValueError("Sharded verification requires the identical selected manifest beside the shards.")
             plan = json.loads(manifest, object_pairs_hook=unique_members)
-        count = 20 if args.profile == "pilot" else 100_000
+        if args.profile == MILLION_PROFILE and not sharded:
+            raise ValueError("articles-million requires the sealed sharded article plan.")
+        count = PROFILE_ARTICLES[args.profile]
         band = count // 20
         cohorts = dict.fromkeys(COHORTS, band)
         cohorts["published"] = 16 * band
@@ -254,6 +263,10 @@ def main():
                         or plan.get("revisions") != 3 * count + 6 * band
                         or any(type(rows) is not int for rows in plan["cohorts"].values())):
             raise ValueError("Unexpected sharded article plan digest or revision counts.")
+        if args.profile == MILLION_PROFILE:
+            zero_comments = {"rows": 0, "roots": 0, "replies": 0, "visibleContent": 0, "structuralNodes": 0}
+            if plan.get("comments") != zero_comments or any(type(total) is not int for total in plan["comments"].values()):
+                raise ValueError("articles-million requires zero comment counts and no comment coordinates.")
         shards = article_shards(plan) if sharded else None
         control = None
         if args.profile == "pilot":

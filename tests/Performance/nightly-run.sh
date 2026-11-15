@@ -4,13 +4,19 @@ set -euo pipefail
 umask 077
 cd "$(dirname "$0")/../.."
 repo=$PWD
-if [[ ( $# != 2 && ( $# != 6 || ${3:-} != --http ) ) || ( ${1:-} != pilot && ${1:-} != nightly ) ]]; then
-    printf 'Usage: %s {pilot|nightly} NEW_EVIDENCE_DIRECTORY [--http SERVER_DLL WEB_DIST PAYLOAD_MANIFEST]\n' "$0" >&2
+if [[ ( $# != 2 && ( $# != 6 || ${3:-} != --http ) ) ||
+      ( ${1:-} != pilot && ${1:-} != nightly && ${1:-} != articles-million ) ]]; then
+    printf 'Usage: %s {pilot|nightly|articles-million} NEW_EVIDENCE_DIRECTORY [--http SERVER_DLL WEB_DIST PAYLOAD_MANIFEST]\n' "$0" >&2
     exit 2
 fi
 profile=$1
 http_probe=false
 if [[ $# == 6 ]]; then http_probe=true; fi
+million_articles=false
+if [[ $profile == articles-million ]]; then
+    [[ $http_probe == false ]] || { printf 'The million-article profile is an offline article fixture.\n' >&2; exit 2; }
+    million_articles=true
+fi
 checkpoint_pilot=false
 case "${FSUSBLOG_TEST_C11_CHECKPOINT_PILOT:-0}" in
     0) ;;
@@ -55,7 +61,11 @@ case "${FSUSBLOG_TEST_C11_COMMENTS:-0}" in
         ;;
     *) printf 'Set FSUSBLOG_TEST_C11_COMMENTS to 0 or 1.\n' >&2; exit 2 ;;
 esac
-if [[ $profile == nightly ]]; then articles=100000 nightly=true; else articles=20 nightly=false; fi
+case "$profile" in
+    nightly) articles=100000 nightly=true ;;
+    articles-million) articles=1000000 nightly=false ;;
+    pilot) articles=20 nightly=false ;;
+esac
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
 dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
 if [[ $http_probe == true ]]; then
@@ -278,7 +288,7 @@ phase() {
     stage=$step
     shift
     printf 'begin %s\n' "$step" | tee -a "$evidence/phases.txt"
-    /usr/bin/time -p "$@" > "$evidence/$step.log" 2>&1
+    /usr/bin/time -p "$@" > "$evidence/$step.log" 2>&1 || return "$?"
     printf 'end %s %ss\n' "$step" "$((SECONDS - started))" | tee -a "$evidence/phases.txt"
 }
 
@@ -348,7 +358,7 @@ COMMIT;
 SQL
 article_input="$scratch/articles.tsv"
 generate_options=("$profile" "$due" "$scratch")
-if [[ $checkpoint_pilot == true ]]; then
+if [[ $checkpoint_pilot == true || $million_articles == true ]]; then
     article_input="$scratch/plan.json"
     generate_options+=(--sharded)
 fi
@@ -363,34 +373,60 @@ export FSUSBLOG_NIGHTLY_FIXTURE_COUNT="$articles" FSUSBLOG_NIGHTLY_FIXTURE_DUE_U
 export FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR="$data_dir"
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
-if [[ $checkpoint_pilot == true ]]; then
+unset FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
+if [[ $checkpoint_pilot == true || $million_articles == true ]]; then
     checkpoint_plan_sha=$(python3 -B -c 'import json,sys; print(json.load(sys.stdin)["articlePlanSha256"])' < "$article_input")
     checkpoint_manifest_sha=$(shasum -a 256 -- "$article_input")
     checkpoint_manifest_sha=${checkpoint_manifest_sha%% *}
     [[ $checkpoint_plan_sha =~ ^[0-9a-f]{64}$ && $checkpoint_manifest_sha =~ ^[0-9a-f]{64}$ ]]
-    export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT=1 FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256="$checkpoint_plan_sha"
+    export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256="$checkpoint_plan_sha"
     export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256="$checkpoint_manifest_sha"
-    printf 'checkpoint_pilot=true\ncheckpoint_plan_sha256=%s\n' "$checkpoint_plan_sha" >> "$evidence/run.txt"
+    printf 'checkpoint_plan_sha256=%s\n' "$checkpoint_plan_sha" >> "$evidence/run.txt"
     printf 'checkpoint_manifest_sha256=%s\n' "$checkpoint_manifest_sha" >> "$evidence/run.txt"
 fi
-phase write-articles "$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles' \
-    '--logger:console;verbosity=detailed'
+if [[ $checkpoint_pilot == true ]]; then
+    export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT=1
+    printf 'checkpoint_pilot=true\n' >> "$evidence/run.txt"
+fi
+writer=("$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles'
+    '--logger:console;verbosity=detailed')
+if [[ $million_articles == true ]]; then
+    writer_deadline=$(python3 -B -c 'import time; print(int((time.time()+90*60)*1000))')
+    export FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE=1 FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS="$writer_deadline"
+    printf 'writer_deadline_unix_ms=%s\n' "$writer_deadline" >> "$evidence/run.txt"
+    if phase write-articles "${writer[@]}"; then
+        :
+    else
+        first_exit=$?
+        printf 'first_writer_exit=%s\n' "$first_exit" >> "$evidence/run.txt"
+        if ! awk '/^ *checkpoint_worker_retry_allowed=transient_connection_failure$/ { found=1 } END { exit !found }' "$evidence/write-articles.log"; then
+            exit "$first_exit"
+        fi
+        phase resume-articles "${writer[@]}"
+    fi
+else
+    phase write-articles "${writer[@]}"
+fi
 unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES
 unset FSUSBLOG_NIGHTLY_FIXTURE_COUNT FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
 unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
+unset FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
 after_articles=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 record_filesystem after-articles
-"${sql[@]}" -c "SELECT pg_sleep(greatest(0,extract(epoch FROM max(published_at)+interval '1 second'-clock_timestamp()))) FROM public.article_publication" >/dev/null
-phase write-comments "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
-    -v profile="$profile" -f tests/Performance/nightly-comments.sql
-after_comments=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
-record_filesystem after-comments
+after_comments=$after_articles
+if [[ $million_articles == false ]]; then
+    "${sql[@]}" -c "SELECT pg_sleep(greatest(0,extract(epoch FROM max(published_at)+interval '1 second'-clock_timestamp()))) FROM public.article_publication" >/dev/null
+    phase write-comments "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
+        -v profile="$profile" -f tests/Performance/nightly-comments.sql
+    after_comments=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
+    record_filesystem after-comments
+fi
 
 phase verify-operators "${migrate[@]}" verify
 phase verify-publications "${migrate[@]}" publication-canonical verify
 phase verify-rows "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
-    -v nightly="$nightly" -v due_unix_ms="$due" -f tests/Performance/nightly-verify.sql
+    -v nightly="$nightly" -v million_articles="$million_articles" -v due_unix_ms="$due" -f tests/Performance/nightly-verify.sql
 phase verify-article-bytes python3 -B tests/Performance/nightly-verify-article-bytes.py \
     "$profile" "$article_input" "$evidence/plan.json" "$db" "$data_dir" "$site" "$evidence/article-bytes.json"
 shasum -a 256 "$evidence/article-bytes.json" >> "$evidence/run.txt"
@@ -405,7 +441,7 @@ plan = json.loads((path / "plan.json").read_text())
 rows = [json.loads(line) for line in (path / "verify-rows.log").read_text().splitlines() if line.startswith("{")]
 articles, = [row["actual"] for row in rows if row["kind"] == "article-graph"]
 comments, = [row["actual"] for row in rows if row["kind"] == "comment-graph"]
-thread, = [row for row in rows if row["kind"] == "thread-case"]
+threads = [row for row in rows if row["kind"] == "thread-case"]
 for actual, expected in {
     "articles": "articles", "active": "activePublications", "revisions": "revisions", "commands": "authorCommands",
     "archive_receipts": "archivedReleases", "publication_history": "publicationHistory",
@@ -416,8 +452,12 @@ for actual, expected in {
 assert [comments[key] for key in ("rows", "roots", "replies", "visible_content", "structural_nodes")] == [
     plan["comments"][key] for key in ("rows", "roots", "replies", "visibleContent", "structuralNodes")
 ]
-assert thread["ancestors"] == thread["depth"] == 32
-assert thread["root"] == plan["comments"]["deepRoot"] and thread["target"] == plan["comments"]["deepTarget"]
+if plan["profile"] == "articles-million":
+    assert not threads
+else:
+    thread, = threads
+    assert thread["ancestors"] == thread["depth"] == 32
+    assert thread["root"] == plan["comments"]["deepRoot"] and thread["target"] == plan["comments"]["deepTarget"]
 cases = [row for row in rows if row["kind"] == "article-case"]
 assert len(cases) == len(plan["articleCases"])
 for row, expected in zip(cases, plan["articleCases"]):

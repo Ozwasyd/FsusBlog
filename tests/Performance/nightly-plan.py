@@ -12,10 +12,11 @@ from seed import words
 
 
 SOURCE_REFERENCE = "2605b438eed8f16d12ddddf033d08a6fa18fcd12"
-PROFILE_ARTICLES = {"pilot": 20, "nightly": 100_000}
+MILLION_PROFILE = "articles-million"
+PROFILE_ARTICLES = {"pilot": 20, "nightly": 100_000, MILLION_PROFILE: 1_000_000}
 COMMENT_BASE = 9_007_199_254_740_993
 HEADER = "id\tkind\tcategory\ttag\ttitle\tbody\treplacement_title\treplacement_body\n"
-PILOT_SHARD_ROWS = 8
+PROFILE_SHARD_ROWS = {"pilot": 8, MILLION_PROFILE: 65_536}
 
 
 def token_matches(text, pattern):
@@ -44,12 +45,14 @@ def prepare(profile, due, output, sharded=False):
     search_facts = {}
     public_matches = {}
     samples = {1, 2, ordinary, ordinary + 1, scheduled + 1, active_end, active_end + 1, archived_end, archived_end + 1}
+    if profile == MILLION_PROFILE:
+        samples.add(total)
     samples = sorted(samples)
     sample_rows = []
     sizes = {512: 0, 2048: 0, 8192: 0}
     digest = hashlib.sha256()
 
-    rows_per_shard = PILOT_SHARD_ROWS if sharded else total
+    rows_per_shard = PROFILE_SHARD_ROWS[profile] if sharded else total
     article_paths = ([output / f"articles-{ordinal:05d}.tsv"
                       for ordinal, _ in enumerate(range(1, total + 1, rows_per_shard), 1)]
                      if sharded else [output / "articles.tsv"])
@@ -160,8 +163,18 @@ def prepare(profile, due, output, sharded=False):
     if search_facts.keys() != search_cases.keys() or public_matches != expected_matches:
         raise ValueError("Search canaries do not match the expected anonymous source roles.")
 
-    pilot = profile == "pilot"
-    roots, replies, wide, chain_start = (48, 84, 12, 13) if pilot else (500_000, 500_000, 480, 481)
+    if profile == MILLION_PROFILE:
+        comments = {"rows": 0, "roots": 0, "replies": 0, "visibleContent": 0, "structuralNodes": 0}
+    else:
+        roots, replies, wide, chain_start = (48, 84, 12, 13) if profile == "pilot" else (500_000, 500_000, 480, 481)
+        comments = {
+            "rows": roots + replies, "roots": roots, "replies": replies,
+            "visibleContent": roots + replies - 12, "structuralNodes": roots + replies - 9,
+            "hotArticle": 1, "emptyActiveArticle": 2,
+            "historicalPrivateArticles": [active_end + 1, archived_end + 1],
+            "wideRoot": str(COMMENT_BASE + 1), "wideReplyCount": wide,
+            "deepRoot": str(COMMENT_BASE + 2), "deepTarget": str(COMMENT_BASE + roots + chain_start + 31),
+        }
     manifest = {
         "format": "fsusblog-v2-nightly-postgres-fixture-v2",
         "profile": profile,
@@ -187,14 +200,7 @@ def prepare(profile, due, output, sharded=False):
             "version": 1, "search": search_facts,
             "unpublishedDetailIds": [ordinary + 1, active_end + 1, archived_end + 1],
         },
-        "comments": {
-            "rows": roots + replies, "roots": roots, "replies": replies,
-            "visibleContent": roots + replies - 12, "structuralNodes": roots + replies - 9,
-            "hotArticle": 1, "emptyActiveArticle": 2,
-            "historicalPrivateArticles": [active_end + 1, archived_end + 1],
-            "wideRoot": str(COMMENT_BASE + 1), "wideReplyCount": wide,
-            "deepRoot": str(COMMENT_BASE + 2), "deepTarget": str(COMMENT_BASE + roots + chain_start + 31),
-        },
+        "comments": comments,
     }
     if sharded:
         shards = []
@@ -226,8 +232,10 @@ def main():
     args = parser.parse_args()
     if args.due_unix_ms <= 0:
         parser.error("the scheduled Unix time must be positive")
-    if args.sharded and args.profile != "pilot":
-        parser.error("sharded article plans require the pilot profile")
+    if args.sharded and args.profile not in PROFILE_SHARD_ROWS:
+        parser.error("sharded article plans require the pilot or articles-million profile")
+    if args.profile == MILLION_PROFILE and not args.sharded:
+        parser.error("articles-million requires a sharded article plan")
     prepare(args.profile, args.due_unix_ms, args.output, args.sharded)
 
 

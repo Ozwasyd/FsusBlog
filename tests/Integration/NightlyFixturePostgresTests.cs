@@ -29,9 +29,29 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     [NightlyFixtureFact]
     public async Task WritePlannedArticles()
     {
+        bool scale = Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE") == "1";
+        try
+        {
+            await WriteArticles(scale);
+        }
+        catch (NpgsqlException error) when (scale && error.IsTransient)
+        {
+            output.WriteLine("checkpoint_worker_retry_allowed=transient_connection_failure");
+            throw;
+        }
+    }
+
+    private async Task WriteArticles(bool scale)
+    {
         var count = int.Parse(Required("COUNT"), NumberStyles.None, CultureInfo.InvariantCulture);
-        if (count is not (20 or 100_000))
-            throw new InvalidOperationException("Expected the 20-article pilot or the 100,000-article plan.");
+        if (scale ? count != MillionArticleCount : count is not (20 or 100_000))
+            throw new InvalidOperationException("Unexpected article count for the selected owned fixture profile.");
+        long deadline = scale
+            ? long.Parse(Required("DEADLINE_UNIX_MS"), NumberStyles.None, CultureInfo.InvariantCulture)
+            : 0;
+        var budget = scale ? DateTimeOffset.FromUnixTimeMilliseconds(deadline) - DateTimeOffset.UtcNow : WriterBudget;
+        if (budget <= TimeSpan.Zero || budget > WriterBudget)
+            throw new InvalidOperationException("The article writer is outside its original 90-minute deadline.");
         var due = long.Parse(Required("DUE_UNIX_MS"), NumberStyles.None, CultureInfo.InvariantCulture);
         var dueAt = DateTimeOffset.FromUnixTimeMilliseconds(due);
         var site = Guid.ParseExact(Required("SITE"), "D");
@@ -39,16 +59,16 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         var dataDirectory = PrivateDirectory(Required("DATA_DIR"));
         var planPath = Required("ARTICLES");
         if (!Path.IsPathFullyQualified(planPath)) throw new InvalidOperationException("Expected an absolute fixture plan path.");
-        using var timeout = new CancellationTokenSource(WriterBudget);
+        using var timeout = new CancellationTokenSource(budget);
         var ct = timeout.Token;
-        var checkpoint = Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1"
-            ? new CheckpointBinding(site, due, Required("CHECKPOINT_PLAN_SHA256"), Required("CHECKPOINT_MANIFEST_SHA256"))
+        var checkpoint = scale || Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1"
+            ? new CheckpointBinding(site, due, Required("CHECKPOINT_PLAN_SHA256"), Required("CHECKPOINT_MANIFEST_SHA256"), count, deadline)
             : null;
         await using Stream stream = checkpoint is null
             ? new FileStream(planPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
                 FileOptions.Asynchronous | FileOptions.SequentialScan)
             : await OpenShardedArticleInputAsync(planPath, count, due, checkpoint.ManifestHash, checkpoint.PlanHash, ct);
-        if (stream.Length is <= 0 or > 512L * 1024 * 1024)
+        if (stream.Length <= 0 || !scale && stream.Length > 512L * 1024 * 1024)
             throw new InvalidOperationException("Fixture plan exceeds the file budget.");
 
         var settings = ReadConnectionSettings();
@@ -67,7 +87,13 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
                 throw new InvalidOperationException("Fixture target does not match the private PostgreSQL cluster.");
             var untilDue = dueAt - row.GetFieldValue<DateTimeOffset>(1) - TimeSpan.FromSeconds(15);
             if (untilDue <= TimeSpan.Zero) throw new InvalidOperationException("Fixture schedule must stay in the future.");
-            if (untilDue < WriterBudget) timeout.CancelAfter(untilDue);
+            if (scale)
+            {
+                var remaining = DateTimeOffset.FromUnixTimeMilliseconds(deadline) - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("The article writer deadline elapsed.");
+                timeout.CancelAfter(untilDue < remaining ? untilDue : remaining);
+            }
+            else if (untilDue < WriterBudget) timeout.CancelAfter(untilDue);
         }
 
         await using var lease = new InstanceLease(settings.ConnectionString);
@@ -79,6 +105,11 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         int batches = 0;
         var band = count / 20;
         var archiveStart = 18 * band + 1;
+        if (scale)
+        {
+            await WriteMillionArticleFixture(db, settings, lease, stream, plan.Position, actor, checkpoint!, archiveStart, band, ct);
+            return;
+        }
         long archiveOffset = 0;
         if (checkpoint is not null)
         {
@@ -114,7 +145,6 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         {
             var archived = Parse(await archivePlan.Read(ct), archiveStart + offset, count);
             var intent = ArchiveIntent(archived, count, band, offset);
-            var replacementRelease = intent.ExpectedReleaseId;
             int invalidations = 0;
             AdminArticleArchiveReceipt receipt;
             if (checkpoint is null)
@@ -127,14 +157,11 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
                 receipt = await ArchiveWithCheckpoint(db, lease, archiveStore, stream, actor, archived, archived.Id - band,
                     intent, sessionDigest, checkpoint, () => invalidations++, ct);
             }
-            Assert.Equal((archived.Id, 6L, 3L, replacementRelease, replacementRelease + 1, 3, Wire.AdminArticleArchiveStatus),
-                (receipt.ArticleId, receipt.Revision, receipt.SourceRevision, receipt.PreviousReleaseId, receipt.ReleaseId,
-                    receipt.PublicationNo, receipt.TargetStatus));
-            Assert.True(receipt.TransitionedUnixMs > 0 && receipt.RightsSnapshotId > 0 && receipt.ResponsibilitySnapshotId > 0);
+            RequireArchiveReceipt(archived, intent, receipt);
             Assert.Equal(1, invalidations);
         }
 
-        await RetireArchiveSession(db, lease, ct);
+        await RetireArchiveSession(db, lease, ct, checkpoint);
         output.WriteLine("Committed {0} replacements and {0} administrator archives with private release IDs in {1}.", band, elapsed.Elapsed);
     }
 
@@ -295,7 +322,17 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         return proof;
     }
 
-    private static async Task RetireArchiveSession(NpgsqlConnection db, InstanceLease lease, CancellationToken ct)
+    private static void RequireArchiveReceipt(PlannedArticle archived, AdminArticleArchiveIntent intent, AdminArticleArchiveReceipt receipt)
+    {
+        long replacementRelease = intent.ExpectedReleaseId;
+        Assert.Equal((archived.Id, 6L, 3L, replacementRelease, replacementRelease + 1, 3, Wire.AdminArticleArchiveStatus),
+            (receipt.ArticleId, receipt.Revision, receipt.SourceRevision, receipt.PreviousReleaseId, receipt.ReleaseId,
+                receipt.PublicationNo, receipt.TargetStatus));
+        Assert.True(receipt.TransitionedUnixMs > 0 && receipt.RightsSnapshotId > 0 && receipt.ResponsibilitySnapshotId > 0);
+    }
+
+    private static async Task RetireArchiveSession(NpgsqlConnection db, InstanceLease lease, CancellationToken ct,
+        CheckpointBinding? checkpoint = null)
     {
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         await using (var proof = Store.Sql(db, tx,
@@ -313,6 +350,17 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
                    (select count(*) from grants)=2 and (select count(*) from principal)=1
             """, ArchiveAdministrator);
         Assert.True(await retire.ExecuteScalarAsync(ct) is true);
+        if (checkpoint is not null)
+        {
+            var position = await ReadCheckpoint(db, tx, checkpoint, ct);
+            Assert.Equal(checkpoint.Count / 20, position.Archived);
+            await using var finish = Store.Sql(db, tx, """
+                update fsus_nightly_fixture.article_checkpoint set finished=true
+                where singleton and not finished and archive_stage=0 and committed_articles=article_count
+                    and archived_articles=article_count/20
+                """);
+            Assert.Equal(1, await finish.ExecuteNonQueryAsync(ct));
+        }
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
@@ -403,6 +451,14 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         private int _end;
 
         internal long Position => stream.Position - (_end - _start);
+        internal long Length => stream.Length;
+
+        internal void Seek(long position)
+        {
+            stream.Seek(position, SeekOrigin.Begin);
+            _start = 0;
+            _end = 0;
+        }
 
         internal async ValueTask<string?> Read(CancellationToken ct)
         {

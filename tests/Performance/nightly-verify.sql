@@ -1,5 +1,12 @@
 \set ON_ERROR_STOP on
-\if :nightly
+\if :{?million_articles}
+\else
+\set million_articles false
+\endif
+\if :million_articles
+\set articles 1000000
+\set lifecycle 50000
+\elif :nightly
 \set articles 100000
 \set lifecycle 5000
 \set roots 500000
@@ -25,7 +32,11 @@ BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path TO pg_catalog;
 SET LOCAL TIME ZONE 'UTC';
 SET LOCAL DateStyle TO 'ISO, YMD';
+\if :million_articles
+SET LOCAL statement_timeout TO '900s';
+\else
 SET LOCAL statement_timeout TO '120s';
+\endif
 
 SELECT current_database()=:'database_name' AND current_setting('data_directory')=:'data_directory'
     AND inet_server_addr() IS NULL AND current_setting('listen_addresses')=''
@@ -188,6 +199,23 @@ SELECT jsonb_build_object('kind','article-graph','actual',:'article_metrics'::js
 DO $$ BEGIN RAISE EXCEPTION 'Nightly native article states, history or schedule coordinates differ'; END $$;
 \endif
 
+\if :million_articles
+WITH totals AS (
+    SELECT count(*) AS rows, count(*) FILTER (WHERE parent_id IS NULL) AS roots,
+        count(*) FILTER (WHERE parent_id IS NOT NULL) AS replies, count(*) AS visible_content,
+        count(*) AS structural_nodes FROM public.comment
+)
+SELECT rows=0 AND NOT EXISTS (SELECT FROM public.comment_blocked_region)
+    AND NOT EXISTS (SELECT FROM public.comment_submit_command)
+    AND NOT EXISTS (SELECT FROM public.comment_account_owner)
+    AND NOT EXISTS (SELECT FROM public.comment_moderation_log)
+    AS comment_graph_ok, to_jsonb(totals) AS comment_metrics FROM totals \gset
+SELECT jsonb_build_object('kind','comment-graph','actual',:'comment_metrics'::jsonb);
+\if :comment_graph_ok
+\else
+DO $$ BEGIN RAISE EXCEPTION 'Million-article fixture has unrelated comment data'; END $$;
+\endif
+\else
 WITH comments AS MATERIALIZED (
     SELECT c.article_id,c.id,c.parent_id,c.depth,c.moderation_status,c.deleted,c.author_mode,
         p.article_id IS NOT NULL AS article_visible,b.comment_id IS NOT NULL AS blocked
@@ -247,10 +275,12 @@ SELECT jsonb_build_object('kind','comment-graph','actual',:'comment_metrics'::js
 \else
 DO $$ BEGIN RAISE EXCEPTION 'Nightly comment storage, visibility or thread sentinels differ'; END $$;
 \endif
+\endif
 
 WITH samples(id) AS (
     VALUES (1),(2),(:articles-4*:lifecycle),(:articles-4*:lifecycle+1),(:articles-3*:lifecycle+1),
         (:articles-2*:lifecycle),(:articles-2*:lifecycle+1),(:articles-:lifecycle),(:articles-:lifecycle+1)
+    UNION ALL SELECT :articles WHERE :million_articles
 )
 SELECT jsonb_build_object('kind','article-case','id',a.id,'revision',a.revision,'publicRevision',p.revision,
     'publicationId',p.publication_id,'historicalFirstPublicationId',h.publication_id,
@@ -271,6 +301,8 @@ LEFT JOIN public.admin_article_rollback archive ON (archive.article_id,archive.r
 LEFT JOIN public.article_revision interim ON (interim.article_id,interim.revision)=(a.id,archive.previous_revision)
 ORDER BY a.id;
 
+\if :million_articles
+\else
 WITH RECURSIVE deep(id,parent_id,depth) AS (
     SELECT id,parent_id,depth FROM public.comment WHERE article_id=1 AND id=:comment_base+:roots+:chain_start+31
     UNION ALL
@@ -279,4 +311,5 @@ WITH RECURSIVE deep(id,parent_id,depth) AS (
 )
 SELECT jsonb_build_object('kind','thread-case','root',min(id)::text,'target',max(id)::text,
     'ancestors',count(*)-1,'depth',max(depth)) FROM deep;
+\endif
 ROLLBACK;
