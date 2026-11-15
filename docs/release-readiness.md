@@ -13,4 +13,11 @@
 
 未通过的样本保留在 [性能诊断](../tests/Performance/)中。产品和议题边界以[执行状态](status.md)、[风险条款](issues/risk-trace.md)、[发布及身份条款](issues/risk-release-trace.md)和[剩余代码预算](product/code-budget-checkpoint.md)为准。
 
+## 开发提交 `6a53e4d`
+
+- 当前 Passkey 可重新验证并撤销另一台设备的凭据、会话、持久刷新链和待完成 MFA 登录。实际 Chrome 覆盖两台虚拟认证器、重复提交拒绝及 PostgreSQL 故障时的完整回滚。合并后原生测试 14 项通过。恢复授权下移除当前或最后一枚 Passkey 仍待完成。 [浏览器](../artifacts/passkey-removal-09e4b27/) · [实库](../artifacts/delivery-integration-09e4b27/passkey-native.log)
+- 属性 Inspector 修复了键盘打开编辑和取消时的焦点。真实 Chrome 通过 100%、150%、200% 缩放与浅深主题的六组组合，覆盖八种属性控件、历史比较和真实 409 的可访问性警报。VoiceOver 实际播报待验证。 [浏览器](../artifacts/property-accessibility-09e4b27/chromium-4/property-inspector-scale-result.json)
+- 固定 v1 DDL 的定义演练只读核对文本、数值、布尔、日期四种定义，以及源摘要和目标修订。两个所有者、三个旧 PNG、四条私有修订引用的批次通过隔离启用、重跑、备份恢复和权限校验，仍兼容旧的单件审批。完整旧属性值与审计迁移、其余旧媒体及生产切换待完成。 [定义实库](../artifacts/delivery-integration-09e4b27/property-migration-process.log) · [媒体批次](../artifacts/delivery-integration-09e4b27/media-activation.log) · [旧审批兼容](../artifacts/legacy-media-batch-09e4b27/native-single-compat-final-2.log)
+- 锁定依赖的 .NET Release 编译、协议生成检查、140 项 Node 协议测试及 C#、C++、Wasm 验证通过。严格 Vue 类型检查、前端构建及三个 FsusUI Wasm 源产物字节对比通过。封存 `f303f5c` 及其正式验收结果继续保留，`6a53e4d` 的证据用于本批开发变更。 [编译和 Wasm 校验](../artifacts/delivery-integration-09e4b27/) · [协议](../artifacts/passkey-removal-09e4b27/main-protocol-all.txt) · [冻结容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
