@@ -5,10 +5,21 @@ ulimit -c 0
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$repo"
 fixture="$repo/tests/Integration/Migration"
-if [[ $# != 0 ]]; then
-    printf '%s\n' 'This rehearsal creates its own PostgreSQL cluster and accepts only prebuilt v2 application artifacts through the environment.' >&2
-    exit 2
-fi
+case "$# ${1:-}" in
+    '0 ')
+        profile=first plan_version=3 expected_publications=1 rollback_profile=false
+        source_overlays=("$fixture/legacy-runtime-first-publication-fixture.sql")
+        public_expectation=(42 1 900000001 700 11 'News' 'Blog News' 'Legacy first publication' 'Verified starlight rehearsal.')
+        ;;
+    '1 --rollback')
+        profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
+        source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
+        public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' --rollback)
+        ;;
+    *) printf 'Usage: %s [--rollback]\n' "$0" >&2; exit 2 ;;
+esac
+source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
+    "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
 if [[ -n "${PG_TOOLS_DIR:-}" ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
 dotnet_bin=$(command -v "${DOTNET_BIN:-dotnet}")
 migrate_dir=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Migrate/bin/Release/net10.0}
@@ -71,12 +82,13 @@ trap 'printf "Runtime rehearsal failed at line %s.\n" "$LINENO" >&2' ERR
 mkdir "$scratch/socket" "$scratch/backups" "$scratch/transfer" "$scratch/readback" "$scratch/media" "$scratch/restored-media" \
     "$scratch/server-work"
 {
-    printf 'started=%s\n' "$(date -u +%FT%TZ)"
+    printf 'started=%s\nprofile=%s\n' "$(date -u +%FT%TZ)" "$profile"
     git rev-parse HEAD 2>/dev/null || true
     "$dotnet_bin" --version
     psql --version
     node --version
-    shasum -a 256 "$FSUSBLOG_MIGRATE_DLL" "$server_dll" "$web_dir/index.html" "$fixture"/legacy-runtime*.{sh,sql,mjs}
+    shasum -a 256 "$FSUSBLOG_MIGRATE_DLL" "$server_dll" "$web_dir/index.html" "$fixture"/legacy-runtime*.{sh,sql,mjs} \
+        "${source_fixtures[@]}"
 } > "$evidence/run.txt"
 
 unset PGDATABASE PGSERVICE PGSERVICEFILE PGOPTIONS PGPASSWORD PGPASSFILE PGSSLMODE PGHOSTADDR
@@ -108,8 +120,7 @@ db_oid() { psql_db "$1" -Atc 'SELECT oid FROM pg_catalog.pg_database WHERE datna
 for db in "$source_db" "$quarantine_db" "$runtime_db" "$restore_db"; do
     psql_db postgres -c "CREATE DATABASE $db TEMPLATE template0"
 done
-psql_db "$source_db" -f "$fixture/legacy-source-fixture.sql" -f "$fixture/legacy-shared-rights-fixture.sql" \
-    -f "$fixture/legacy-article-outbox-fixture.sql" -f "$fixture/legacy-runtime-first-publication-fixture.sql"
+for source_fixture in "${source_fixtures[@]}"; do psql_db "$source_db" -f "$source_fixture"; done
 bootstrap "$quarantine_db"
 bootstrap "$runtime_db"
 quarantine_site=$(site_id "$quarantine_db")
@@ -148,17 +159,21 @@ Path(output).write_text(json.dumps({
 PY
 legacy_input=(postgres "$scratch/owners.json" "$quarantine_backup" "$quarantine_backup_sha")
 migrate_db "$quarantine_db" legacy import plan "${legacy_input[@]}" > "$scratch/reviewed.json"
-python3 - "$scratch/reviewed.json" <<'PY'
+python3 - "$scratch/reviewed.json" "$plan_version" "$expected_publications" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-plan = json.loads(Path(sys.argv[1]).read_text())
-assert plan["version"] == 3 and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
+path, version, publications = sys.argv[1:]
+plan = json.loads(Path(path).read_text())
+publications = int(publications)
+assert plan["version"] == int(version) and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
 counts = {row["table"]: row["rows"] for row in plan["expectedTables"]}
-assert counts["shadow_article"] == counts["shadow_revision"] == counts["shadow_publication"] == 1
-assert counts["shadow_article_mutation_outbox"] == 1 and counts["shadow_article_mutation_outbox_edge"] == 7
-assert counts["shadow_article_responsibility_snapshot"] == 0
+assert counts["shadow_article"] == 1
+assert counts["shadow_revision"] == counts["shadow_publication"] == publications
+assert counts["shadow_article_mutation_outbox"] == publications and counts["shadow_article_mutation_outbox_edge"] == 7 * publications
+assert counts["shadow_article_responsibility_snapshot"] == (2 if publications == 3 else 0)
+assert "shadow_article_mutation_command" not in counts
 PY
 migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" > "$scratch/applied.json"
 unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
@@ -185,12 +200,76 @@ verify_quarantine() {
     [[ "$(json_hash "$scratch/quarantine-checked.json" projectionSha256)" == "$projection_sha" ]]
 }
 verify_quarantine
+python3 - "$scratch/projected.json" "$scratch/quarantine-checked.json" "$expected_publications" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+projected, verified, publications = sys.argv[1:]
+publications = int(publications)
+reports = [json.loads(Path(path).read_text()) for path in (projected, verified)]
+assert [row["result"] for row in reports] == ["projected", "verified"]
+for row in reports:
+    assert not row["readyToApply"] and row["retainedLegacyPublicationRows"] == publications
+    assert row["retainedLegacyCreateCommands"] == row["retainedInitialSchedules"] == 0
+    assert row["retainedLegacyOutboxEvents"] == publications and row["retainedLegacyOutboxEdges"] == 7 * publications
+    assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRepublishOutboxEvents"] == \
+        row["retainedLegacyRollbackOutboxEvents"] == (1 if publications == 3 else 0)
+PY
+if [[ "$rollback_profile" == true ]]; then
+    custody_query="$fixture/legacy-runtime-rollback-custody.sql"
+    psql_db "$source_db" -At -v quarantined=false -f "$custody_query" > "$scratch/source-history.jsonl"
+    psql_db "$quarantine_db" -At -v quarantined=true -f "$custody_query" > "$scratch/quarantined-history.jsonl"
+    cmp "$scratch/source-history.jsonl" "$scratch/quarantined-history.jsonl"
+    python3 - "$scratch/quarantined-history.jsonl" <<'PY'
+import json
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+
+rows = defaultdict(list)
+for line in Path(sys.argv[1]).read_text().splitlines():
+    row = json.loads(line)
+    rows[row[0]].append(row)
+
+assert {name: len(items) for name, items in rows.items()} == {
+    "article": 1, "revision": 3, "publication": 3, "category": 2, "tag": 3, "tag-alias": 2, "article-tag": 1,
+    "rights": 3, "responsibility": 2, "event": 3, "edge": 21,
+}
+assert [(r[1], r[3], r[4], r[7], r[8], r[9], r[14], r[15], r[16]) for r in rows["revision"]] == [
+    (5000000001, 1, "First", "first", 11, "21", 7, None, None),
+    (5000000002, 2, "Public", "published ☃", 12, "22", 8, None, None),
+    (5000000003, 3, "First", "first", 11, "21", 7, 5000000001, "Restore the original reviewed article"),
+]
+assert [p[1:9] for p in rows["publication"]] == [
+    [900000001, 42, 1, 5000000001, 1, 700, None, "immediate-publish"],
+    [900000002, 42, 2, 5000000002, 2, 701, None, "immediate-publish"],
+    [900000003, 42, 3, 5000000003, 3, 702, 802, "rollback"],
+]
+assert [p[9:11] for p in rows["publication"]] == [[f"2026-10-0{n}T00:00:00"] * 2 for n in (1, 2, 3)]
+assert [r[1] for r in rows["rights"]] == [700, 701, 702] and all(r[16] is True for r in rows["rights"])
+original, cloned = rows["responsibility"]
+assert original[1:8] == [799, 42, 5000000001, 1, 1, None, "2026-10-01T00:00:00"]
+assert cloned[1:8] == [802, 42, 5000000003, 3, 1, None, "2026-10-03T00:00:00.000005"]
+assert original[8] == cloned[8]
+assert [(e[1], e[13], e[14], e[-1]) for e in rows["event"]] == [
+    (991000001, "created", "processed", "59f604a6c5ba6f8c009a056cb44bd92ec20dab97a1f261fdf44c05677280054f"),
+    (991000002, "updated", "processed", "0657ced05fb326cd273f4a104732c7ed8951f84ce981b6f585054936a5f7bc66"),
+    (991000003, "updated", "processed", "9d1a4412ee2732ab58a5c9be5f91d7f9b8bee90fc8d5dfd04d384bd3d40bc978"),
+]
+assert Counter(edge[2] for edge in rows["edge"]) == {991000001: 7, 991000002: 7, 991000003: 7}
+assert len({edge[7] for edge in rows["edge"]}) == 21
+assert all(edge[4] == "completed" and edge[8] is True for edge in rows["edge"])
+PY
+    cp "$scratch/quarantined-history.jsonl" "$evidence/verified-rollback-custody.jsonl"
+    shasum -a 256 "$evidence/verified-rollback-custody.jsonl" >> "$evidence/run.txt"
+fi
 
 transfer() {
     local db=$1 oid=$2 site=$3 dir=$4 mode=$5 seal=$6 interrupt=$7
     (cd -- "$dir" && psql_db "$db" -v database_name="$db" -v database_oid="$oid" -v site_id="$site" \
         -v plan_sha="$plan_sha" -v projection_sha="$projection_sha" -v owner_id="$owner" \
-        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" \
+        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" \
         -f "$fixture/legacy-runtime-transfer.sql")
 }
 transfer "$quarantine_db" "$quarantine_oid" "$quarantine_site" "$scratch/transfer" true true false
@@ -274,8 +353,7 @@ probe_server() {
         sleep 0.1
     done
     [[ "$found" == yes ]]
-    env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" 42 1 900000001 700 11 'News' 'Blog News' \
-        'Legacy first publication' 'Verified starlight rehearsal.' > "$evidence/$label-probe.sha256"
+    env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" "${public_expectation[@]}" > "$evidence/$label-probe.sha256"
     stop_server
 }
 probe_server first
@@ -284,4 +362,4 @@ cmp "$evidence/first-probe.sha256" "$evidence/restarted-probe.sha256"
 FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$runtime_backup" "$runtime_backup_sha" "$scratch/media"
 verify_quarantine
 printf 'plan_sha256=%s\nprojection_sha256=%s\nruntime_manifest_sha256=%s\n' "$plan_sha" "$projection_sha" "$runtime_backup_sha" >> "$evidence/run.txt"
-printf '%s\n' 'Verified retained first publication in a separate recovered, default v2 rehearsal. Original quarantine preserved.'
+printf 'Verified retained %s publication in a separate recovered, default v2 rehearsal. Original quarantine preserved.\n' "$profile"

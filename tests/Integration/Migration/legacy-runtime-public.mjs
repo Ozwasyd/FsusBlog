@@ -6,8 +6,9 @@ import { decodeTaxonomyMetadata } from '../../../src/Contracts/taxonomy.ts'
 import { encodeSignIn, FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../../src/Contracts/wire.generated.ts'
 
 const inputs = process.argv.slice(2)
-assert.equal(inputs.length, 10,
-  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY"')
+const rollback = inputs.length === 11 && inputs[10] === '--rollback'
+assert(inputs.length === 10 || rollback,
+  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY" [--rollback]')
 const [url, articleInput, revisionInput, publicationInput, rightsInput, categoryInput, tagName, alias, title, body] = inputs
 const base = new URL(url)
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
@@ -75,7 +76,7 @@ async function frame(label, path, type) {
 function checkArticle(article) {
   assert(article, 'Expected the retained article in the public projection.')
   assert.deepEqual([article.id, article.revision, article.publication, article.revisionNo, article.publicationNo],
-    [id, expectedRevision, expectedPublication, Number(expectedRevision), 1])
+    [id, expectedRevision, expectedPublication, Number(expectedRevision), rollback ? 3 : 1])
   assert.equal(article.title, title)
   assert.equal(article.category.id, categoryId)
   assert(article.tags.some(tag => tag.name === tagName), 'Expected the retained public taxonomy assignment.')
@@ -112,7 +113,7 @@ assert.equal(article.coverImageUrl, '', 'The fixture must have no cover image.')
 assert.equal(detail.reply.headers.get(WireHeaders.PublicArticleMediaPresent), null)
 assert.equal(article.rights?.snapshotId, expectedRights)
 assert.equal(article.rights.enabled, true, 'The retained rights must be visible and enabled.')
-assert.equal(article.rights.proofBindingEnabled, false, 'The fixture must not request a native proof.')
+assert.equal(article.rights.proofBindingEnabled, rollback, 'Preserve the old rights policy proof flag.')
 
 const { bytes: htmlBytes } = await read('html', `/article/${id}`, 'text/html')
 const html = htmlBytes.toString('utf8').match(/<article>([\s\S]*?)<\/article>/)?.[1] ?? ''
@@ -154,7 +155,23 @@ await reject('missingHtml', `/article/${missingId}`, 404)
 await reject('missingDetail', pathFor(WireRoutes.PublicArticle, missingId), 404)
 await reject('anonymousDraft', pathFor(WireRoutes.Draft), 401)
 await reject('media', pathFor(WireRoutes.PublicArticleMedia), 404)
-await reject('proof', `/integrity/v2/article/${id}/${expectedPublication}/rights.json`, 404)
+const proofPath = publication => `/integrity/v2/article/${id}/${publication}/rights.json`
+await reject('proof', proofPath(expectedPublication), 404)
+if (rollback) {
+  assert(!html.includes('<h1>Public</h1>') && !plainHtmlText(html).includes('published ☃'),
+    'The superseded second revision must not appear in the current view.')
+  assert.deepEqual(index.articles.map(item => item.id), [id], 'Only the active rollback must be indexed.')
+  const supersededQuery = `${WireRoutes.PublicSearch}?${new URLSearchParams({ q: 'Public' })}`
+  const superseded = decodeSearch(await frame('supersededSearch', supersededQuery, FrameType.ArticleSearch))
+  assert.deepEqual([superseded.total, superseded.articles], [0, []])
+
+  const relatedPath = publication => `${WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(id))}?publication=${publication}`
+  await frame('activeRelated', relatedPath(expectedPublication), FrameType.ArticleRelatedReading)
+  for (const publication of [900000001n, 900000002n]) {
+    await reject(`supersededRelated${publication}`, relatedPath(publication), 409)
+    await reject(`supersededProof${publication}`, proofPath(publication), 404)
+  }
+}
 const legacyShapedTicket = Buffer.alloc(32, 0x26).toString('base64url')
 await reject('legacySignIn', WireRoutes.SignIn, 401, {
   method: 'POST',

@@ -133,6 +133,10 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 在 PostgreSQL 18.7 使用 SDK 10.0.404、Node 24.16.0 和独立校验的 `f14cb4d` 前端包通过。公开 HTML、AEDS、分类、标签别名、搜索和索引代次重启前后摘要相同。匿名草稿和旧格式登录请求被拒绝，也未暴露媒体或证明。停服后的全表和序列测量与演练备份一致，原隔离库再次通过只读核验，临时资源已清理。此脚本只供合成数据演练。真实旧站的全部领域数据、凭据、附件、权利证明和写入冻结仍按本文启用条件独立核验。见 `artifacts/native-migration/legacy-runtime.KVmUu9ae/run.txt` 和 `artifacts/native-migration/legacy-runtime-native-20261115T020944Z.log`。
 
+`bash tests/Integration/Migration/legacy-runtime.sh --rollback` 使用已核验的计划版本 5 夹具，按首发、再发布和公开回滚的顺序比对旧源与原隔离库。回滚从旧修订 1 复制正文和分类标签，创建修订 3 和第三次发布。原全局修订标识、发布时间、责任快照、旧操作者、回滚理由及三条事件和 21 条投递边在原隔离库核验并留存。新库保留三条 v2 修订及对应的权利关联，并用一个 `retained-active` 发布边界表示仍公开的修订 3。旧摘要继续保留在原隔离库，新页面从公开正文导出摘要。原权利快照的证明绑定开启，夹具没有已签发的证明。默认服务可以读取第三次发布的权利和正文，旧发布坐标不可用于公开读取，过往签名和新投递事件均不会由演练生成。[旧源与隔离库比对](../tests/Integration/Migration/legacy-runtime-rollback-custody.sql)
+
+2026-11-15 使用已独立校验的 `ecbff9d` 发布包，在 PostgreSQL 18.7 上通过回滚与首发两种演练。回滚模式在原库和隔离库之间逐项比对 44 条记录，复验三条原始事件 JSON 的摘要和 21 条投递键。副本恢复后公开修订 3、发布 `900000003` 和权利 `702`。前两次发布坐标被拒绝，第二次发布的内容不出现在公开页面或搜索中。两个模式都完成重启摘要复验、停止后的全表及序列比较，并清理各自拥有的数据库、副本和临时目录。见 `artifacts/native-migration/legacy-runtime.7jHj6mG1/run.txt` 和 `artifacts/native-migration/legacy-runtime-rollback-native-20261115T022901Z.log`。
+
 ### 离线验看附件来源
 
 停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。

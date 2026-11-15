@@ -1,4 +1,26 @@
 \set ON_ERROR_STOP on
+\if :rollback_profile
+\set revision_count 3
+\set responsibility_count 2
+\set proof_binding true
+\set publication_id 900000003
+\set rights_id 702
+\set category_next 13
+\set tag_next 24
+\set publication_next 900000004
+\set rights_next 703
+\else
+\set revision_count 1
+\set responsibility_count 0
+\set proof_binding false
+\set publication_id 900000001
+\set rights_id 700
+\set category_next 12
+\set tag_next 22
+\set publication_next 900000002
+\set rights_next 701
+\endif
+
 \if :copy_out
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 \else
@@ -28,12 +50,14 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
          FROM fsus_legacy_candidate.candidate WHERE singleton)
     AND (SELECT plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha'
          FROM fsus_legacy_candidate.current_projection WHERE singleton)
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=0
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=1
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7 AS expected_seal \gset
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:revision_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:revision_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*:revision_count AS expected_seal \gset
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
     AND to_regnamespace('fsus_legacy_candidate') IS NULL
+    AND (SELECT count(*) FROM public.blog_user)=1
     AND (SELECT NOT enabled AND NOT can_author FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
 \endif
 \if :expected_seal
@@ -42,21 +66,37 @@ DO $$ BEGIN RAISE EXCEPTION 'Rehearsal source seal or runtime readback identity 
 \endif
 
 SELECT (SELECT count(*) FROM public.article)=1
-    AND (SELECT count(*) FROM public.article_revision)=1
     AND (SELECT count(*) FROM public.article_publication)=1
-    AND (SELECT NOT deleted AND revision=1 AND published_revision=1 AND owner_id=:'owner_id'::uuid
+    AND (SELECT NOT deleted AND revision=:revision_count AND published_revision=:revision_count
+             AND publication_count=:revision_count AND owner_id=:'owner_id'::uuid
          FROM public.article WHERE id=42)
-    AND (SELECT enabled AND NOT proof_binding_enabled FROM public.article_revision_rights WHERE article_id=42 AND revision=1)
-    AND (SELECT publication_id=900000001 AND publication_no=1 AND revision=1 FROM public.article_publication WHERE article_id=42)
-    AND (SELECT id=700 AND publication_id=900000001 AND revision=1 FROM public.article_publication_rights WHERE article_id=42)
+    AND (SELECT array_agg(revision ORDER BY revision) FROM public.article_revision WHERE article_id=42)
+        = ARRAY(SELECT n::bigint FROM generate_series(1,:revision_count) n)
+    AND (SELECT count(*)=:revision_count AND bool_and(enabled AND proof_binding_enabled=:'proof_binding'::boolean)
+         FROM public.article_revision_rights WHERE article_id=42)
+    AND (SELECT publication_id=:publication_id AND publication_no=:revision_count AND revision=:revision_count
+         FROM public.article_publication WHERE article_id=42)
+    AND (SELECT count(*)=1 AND bool_and(event_no=1 AND revision=:revision_count
+             AND publication_id=:publication_id AND publication_no=:revision_count AND kind='retained-active'
+             AND reason='pre-history' AND supersedes_id IS NULL AND actor_id IS NULL AND command_id IS NULL
+             AND admin_actor_id IS NULL AND admin_command_id IS NULL)
+         FROM public.article_publication_history WHERE article_id=42)
+    AND (SELECT count(*)=:revision_count AND bool_and(id=699+revision AND publication_id=900000000+revision)
+             AND max(id)=:rights_id FROM public.article_publication_rights WHERE article_id=42)
+    AND NOT EXISTS (SELECT FROM public.article_rollback)
+    AND NOT EXISTS (SELECT FROM public.admin_article_rollback)
+    AND NOT EXISTS (SELECT FROM public.article_command)
+    AND NOT EXISTS (SELECT FROM public.blog_outbox)
+    AND NOT EXISTS (SELECT FROM public.article_publication_canonical)
+    AND NOT EXISTS (SELECT FROM public.article_publication_proof)
     AND (SELECT last_value=43 AND NOT is_called FROM public.article_id_seq)
-    AND (SELECT last_value=12 AND NOT is_called FROM public.category_id_seq)
-    AND (SELECT last_value=22 AND NOT is_called FROM public.tag_id_seq)
-    AND (SELECT last_value=900000002 AND NOT is_called FROM public.article_publication_publication_id_seq)
-    AND (SELECT last_value=701 AND NOT is_called FROM public.article_publication_rights_id_seq) AS eligible \gset
+    AND (SELECT last_value=:category_next AND NOT is_called FROM public.category_id_seq)
+    AND (SELECT last_value=:tag_next AND NOT is_called FROM public.tag_id_seq)
+    AND (SELECT last_value=:publication_next AND NOT is_called FROM public.article_publication_publication_id_seq)
+    AND (SELECT last_value=:rights_next AND NOT is_called FROM public.article_publication_rights_id_seq) AS eligible \gset
 \if :eligible
 \else
-DO $$ BEGIN RAISE EXCEPTION 'Sealed source differs from the supported first-publication rehearsal'; END $$;
+DO $$ BEGIN RAISE EXCEPTION 'Sealed source differs from the supported publication rehearsal'; END $$;
 \endif
 
 \copy (SELECT id,name,description FROM public.category ORDER BY id) TO 'category.csv' CSV
@@ -96,10 +136,10 @@ INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
 \copy public.article_revision_rights (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled) FROM 'article_revision_rights.csv' CSV
 \copy public.article_publication_rights (id,article_id,publication_id,revision) FROM 'article_publication_rights.csv' CSV
 ALTER SEQUENCE public.article_id_seq RESTART WITH 43;
-ALTER SEQUENCE public.category_id_seq RESTART WITH 12;
-ALTER SEQUENCE public.tag_id_seq RESTART WITH 22;
-ALTER SEQUENCE public.article_publication_publication_id_seq RESTART WITH 900000002;
-ALTER SEQUENCE public.article_publication_rights_id_seq RESTART WITH 701;
+ALTER SEQUENCE public.category_id_seq RESTART WITH :category_next;
+ALTER SEQUENCE public.tag_id_seq RESTART WITH :tag_next;
+ALTER SEQUENCE public.article_publication_publication_id_seq RESTART WITH :publication_next;
+ALTER SEQUENCE public.article_publication_rights_id_seq RESTART WITH :rights_next;
 SET CONSTRAINTS ALL IMMEDIATE;
 \if :interrupt_transfer
 DO $$ BEGIN RAISE EXCEPTION 'Injected failure after rehearsal transfer'; END $$;
