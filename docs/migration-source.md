@@ -197,7 +197,7 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 `legacy-runtime.sh --activate-rollback-history` 从 PostgreSQL 归档恢复后核对第二修订的责任版本 1 至 4、四个无发布坐标的旧事件及 36 条原跳过记录。修改跳过原因或前序快照会在暂存前拒绝导入。候选备份恢复后，Kestrel 仍公开第三修订，并通过旧接口返回第二修订的责任版本 4。见 `artifacts/legacy-history-chain-09fc9f8/native-status.txt`。
 
-版本 5 可从冻结 PostgreSQL 库的 v1 `article_publish_proof` 表读取最多三条发布签名记录。源读取与启用均核对原发布、修订、正文摘要及签名。从独立审核的旧站配置导出公钥 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`，轮换可使用同形状的 JSON 数组。为 `legacy import plan/apply` 和 `release-plan/release-activate` 提供同一绝对路径 `FSUSBLOG_LEGACY_V1_PROOF_KEY` 与独立审核的 `_SHA256`。原始行和公钥文件摘要纳入暂存审批。
+版本 5 可从冻结 PostgreSQL 库的 v1 `article_publish_proof` 表读取最多三条发布签名记录。源读取与启用均核对原发布、修订、正文摘要及签名。从独立审核的旧站配置导出公钥 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`，轮换可使用同形状的 JSON 数组。为 `legacy plan`、`legacy import plan/apply` 和 `release-plan/release-activate` 提供同一绝对路径 `FSUSBLOG_LEGACY_V1_PROOF_KEY` 与独立审核的 `_SHA256`。原始行和公钥文件摘要纳入暂存审批。
 
 源计划未从表保全任何证明时，仍可按已审核的全局修订 ID 从同一份冻结备份导出一条 `row_to_json` 原记录。为 `release-plan` 和 `release-activate` 提供它的绝对路径 `FSUSBLOG_LEGACY_V1_PROOF` 和独立审核的 `_SHA256`。公钥及原记录文件权限均须为 `0400` 或 `0600`。
 

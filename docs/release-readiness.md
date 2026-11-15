@@ -80,4 +80,11 @@
 
 开发提交 `d3e3d91` 复用站点身份和发布的实库夹具，合并版 21 项通过。全仓计量为 208,687 NCLOC，仍超过原上限 141 行。 [合并版实库](../artifacts/native-identity-fixture-09fc9f8/merged/combined-native.log) · [规范化计量](../artifacts/native-identity-fixture-09fc9f8/code-volume.json)
 
+## 开发提交 `bbbde62`
+
+- v5 离线恢复支持同一历史修订的最多八个连续责任版本，已用四版、四条原事件和 36 条原投递记录演练。另一条演练从 PostgreSQL 源表直接读取三条发布证明，按两个已审核旧公钥验签并保全恢复前后的原字节。坏前序、坏投递原因、签名和公钥篡改均被拒绝。透明日志、权利证明和公开历史验签待完成。 [历史恢复](../artifacts/goal-original-9ebbbeb/migration-history/) · [源表证明恢复](../artifacts/goal-original-9ebbbeb/migration-proof/)
+- 管理员评论修订接口沿用 v1 AEDS 222。实库和 Kestrel 验证编辑、原文、删除收据、分页位置及摘要，以及公开域、缺少权限和撤权拒绝。首次实库发现 SQL 列名不明确，修正后受影响的检查通过。 [首次日志](../artifacts/admin-comment-revisions-9ebbbeb/first/postgres.log) · [合并验证](../artifacts/goal-original-9ebbbeb/native/combined-native.log)
+- 375px Chrome 通过本地 FsusUI 正文查找、替换并保存。DOCX 和 EPUB 的即时及异步多图导出核对了图序、包内引用和下载字节。四种既有结构停服升级、旧产物与摘要 26 项保持一致。Debian ARM64 的真实签名 Worker 和 Chrome 验证取消时撤回未消费授权，新确认仍可运行。 [正文查找](../artifacts/goal-original-9ebbbeb/chrome-editor/editor-readiness-result.json) · [多图](../artifacts/goal-original-9ebbbeb/lanes/portable-images-chrome.json) · [插件](../artifacts/goal-original-9ebbbeb/lanes/plugin-consent-chrome.json)
+- 锁定 Release、140 项 Core、141 项协议、C#、C++、Wasm 向量、3,847 项差分和 22 项定向 PostgreSQL 通过，含真实 PDF。Vue 与 Vite 使用原 FsusUI 源码 alias，三个 Wasm 字节一致。同口径代码量 209,192 NCLOC，超过原上限 646 行。封存包仍使用已有正式结果，四轮短档仅一轮通过，900 秒正式长测待执行。 [合并证据](../artifacts/goal-original-9ebbbeb/) · [计量](../artifacts/goal-original-9ebbbeb/code-volume.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
