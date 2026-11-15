@@ -70,6 +70,15 @@ const ts = [notice,
   }),
 ];
 
+const frameRanges = [];
+for (const id of Object.values(frameTypes).sort((left, right) => left - right)) {
+  const previous = frameRanges.at(-1);
+  if (!Number.isInteger(id) || id < 0 || id > 0xffff || previous?.[1] === id)
+    throw new Error(`Invalid or duplicate uint16 frame ID: ${id}`);
+  if (previous && id === previous[1] + 1) previous[1] = id;
+  else frameRanges.push([id, id]);
+}
+
 const cpp = [notice, '#pragma once', '#include <stddef.h>', '#include <stdint.h>', '',
   'namespace fsus::wire {',
   ...[['header', header], ['limits', limits], ['layouts', layouts]].flatMap(([kind, values]) => [
@@ -79,10 +88,24 @@ const cpp = [notice, '#pragma once', '#include <stddef.h>', '#include <stdint.h>
   ]),
   'enum class FrameType : uint16_t {',
   ...entries(frameTypes).map(([n, v]) => `    ${n} = ${v},`), '};', '',
+  'namespace detail {',
+  'struct FrameRange { uint16_t first, last; };',
+  'inline constexpr FrameRange frameRanges[] = {',
+  ...frameRanges.map(([first, last]) => `    {${first}, ${last}},`),
+  '};',
+  '}', '',
   'constexpr bool known(FrameType type) {',
-  '    switch (type) {',
-  ...entries(frameTypes).map(([n]) => `        case FrameType::${n}:`),
-  '            return true;', '    }', '    return false;', '}', '',
+  '    const auto id = static_cast<uint16_t>(type);',
+  '    size_t low = 0, high = sizeof(detail::frameRanges) / sizeof(detail::FrameRange);',
+  '    while (low < high) {',
+  '        const size_t middle = low + (high - low) / 2;',
+  '        const auto &range = detail::frameRanges[middle];',
+  '        if (id < range.first) high = middle;',
+  '        else if (id > range.last) low = middle + 1;',
+  '        else return true;',
+  '    }',
+  '    return false;',
+  '}', '',
   '#pragma pack(push, 1)',
   'struct FrameHeader {',
   '    uint32_t magic;',
