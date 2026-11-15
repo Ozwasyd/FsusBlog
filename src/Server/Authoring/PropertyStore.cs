@@ -332,14 +332,14 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         await Revision("select coalesce(sum(octet_length(shape::text)),0) from public.property_definition where owner_id=$1",
             ct, ownerId) <= SchemaStorageBudget;
 
-    private async Task<HashSet<int>> ReadReferences(int[] ids, CancellationToken ct)
+    private async Task<HashSet<int>> ReadReferences(int[] ids, CancellationToken ct, bool lockTargets = true)
     {
         var visible = new HashSet<int>();
         if (ids.Length == 0) return visible;
         await using var command = Store.Sql(db, tx, $"""
             select r.id from public.article r
             {ReferenceAuthorityJoins("join")}
-            where r.id=any($1) and r.owner_id=$2 and not r.deleted order by r.id for share of r
+            where r.id=any($1) and r.owner_id=$2 and not r.deleted order by r.id {(lockTargets ? "for share of r" : "")}
             """, ids, ownerId);
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct)) visible.Add(reader.GetInt32(0));

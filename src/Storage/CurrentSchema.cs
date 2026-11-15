@@ -284,10 +284,12 @@ internal static partial class CurrentSchema
         var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
         if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
             throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
+        var hasPropertySnapshots = await HasPropertySnapshotsAsync(connection, transaction, cancellationToken);
         var hasSitePasskeyNames = await HasSitePasskeyNamesAsync(connection, transaction, cancellationToken);
         var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
                 ? ArticleRevisionColumns + " author_summary:text?" : column)
             .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
+            .Concat(hasPropertySnapshots ? PropertySnapshotColumns : [])
             .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion))
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
@@ -335,7 +337,8 @@ internal static partial class CurrentSchema
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
             .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
-            .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
+            .Concat(PropertyConstraints).Concat(hasPropertySnapshots ? PropertySnapshotConstraints : [])
+            .Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])

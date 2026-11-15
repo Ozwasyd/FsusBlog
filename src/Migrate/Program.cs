@@ -82,6 +82,7 @@ internal static partial class Migration
                   author-search        Add or upgrade the private author full-text index schema with the server stopped
                   author-summary       Add article revision author summaries with the server stopped
                   article-body-insertion Add saved editor insertion witnesses with the server stopped
+                  property-snapshots   Add saved property snapshots with the server stopped
                   document-exports     Add the private author document export queue with the server stopped
                   site-passkey-names   Add owner Passkey names with the server stopped
                   saved-views          Add private author saved views with the server stopped
@@ -342,6 +343,9 @@ internal static partial class Migration
                     break;
                 case ["article-body-insertion"]:
                     await InitializeArticleBodyInsertionAsync(connection, token);
+                    break;
+                case ["property-snapshots"]:
+                    await InitializePropertySnapshotsAsync(connection, token);
                     break;
                 case ["site-passkey-names"]:
                     await InitializeSitePasskeyNamesAsync(connection, token);

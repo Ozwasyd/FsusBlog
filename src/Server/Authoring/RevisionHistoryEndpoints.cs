@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Core.Authoring;
 using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Server.Authoring;
@@ -36,31 +37,42 @@ internal static class RevisionHistoryEndpoints
         app.MapGet(WireRoutes.DraftRevisionComparison, (HttpContext ctx, Store store, int id, long sourceRevision, CancellationToken ct) =>
         {
             var expected = Expected(ctx, id);
-            if (sourceRevision <= 0 || sourceRevision >= expected)
+            var map = query(ctx, "map", 16);
+            if (map is not (null or "body-insertion" or "body-chain" or "body-edit" or "properties"))
+                throw new BusinessException(Rejection.Invalid, "Unknown saved revision map.");
+            if (sourceRevision <= 0 || sourceRevision > expected || (sourceRevision == expected && map != "properties"))
                 throw new BusinessException(Rejection.Invalid, "A historical source revision is required.");
             var token = ctx.Request.Cookies[cookie];
             var handle = SiteSessions.Requested(ctx);
-            var bodyInsertion = query(ctx, "map", 16);
-            if (bodyInsertion is not (null or "body-insertion" or "body-chain" or "body-edit"))
-                throw new BusinessException(Rejection.Invalid, "Unknown saved revision map.");
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
-                if (handle is not null || bodyInsertion is not null)
+                if (handle is not null || map is not null)
                     SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-                if (bodyInsertion == "body-edit")
+                if (map == "properties")
+                {
+                    var cursor = query(ctx, "offset", 4);
+                    int offset = 0;
+                    if (cursor is not null && (!int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out offset) ||
+                        offset > PropertySchema.MaxDefinitions))
+                        throw new BusinessException(Rejection.Invalid, "Invalid saved property cursor.");
+                    var page = await new PropertyStore(db, tx, actor).ReadSnapshot(id, sourceRevision, offset, ct);
+                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
+                    return Results.Bytes(Wire.EncodePropertyEditor(page), Aeds.ContentType);
+                }
+                if (map == "body-edit")
                 {
                     var chain = await ArticleBodyInsertionStore.ReadEditChain(db, tx, id, expected, sourceRevision, ct);
                     SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                     return Results.Bytes(Wire.EncodeDraftRevisionBodyEditChain(chain), Aeds.ContentType);
                 }
-                if (bodyInsertion == "body-chain")
+                if (map == "body-chain")
                 {
                     var chain = await ArticleBodyInsertionStore.ReadChain(db, tx, id, expected, sourceRevision, ct);
                     SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                     return Results.Bytes(Wire.EncodeDraftRevisionBodyInsertionChain(chain), Aeds.ContentType);
                 }
-                if (bodyInsertion is not null)
+                if (map is not null)
                 {
                     var proof = await ArticleBodyInsertionStore.Read(db, tx, id, expected, sourceRevision, ct);
                     SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);

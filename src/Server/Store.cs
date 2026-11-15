@@ -284,6 +284,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, state.Id, state.Revision, state.Title, state.Body, rollback?.SourceRevision ?? edit.ExpectedRevision,
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)summary?.Text ?? DBNull.Value }))
             await revision.ExecuteNonQueryAsync(ct);
+        if (rollback is null)
+            await Authoring.PropertyStore.CaptureSnapshot(db, tx, actor.Id, state.Id, state.Revision, ct);
+        else
+            await Authoring.PropertyStore.CopySnapshot(db, tx, state.Id, rollback.SourceRevision, state.Revision, ct);
         if (bodyInsertion is not null)
             await Authoring.ArticleBodyInsertionStore.Record(db, tx, state.Id, state.Revision, edit.ExpectedRevision, bodyInsertion, ct);
         if (taxonomy is not null)

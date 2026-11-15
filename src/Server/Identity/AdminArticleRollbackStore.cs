@@ -142,6 +142,7 @@ internal sealed partial class AdminPasskeyStore
             """, article, revision, title, body, sourceRevision))
             if (await addRevision.ExecuteNonQueryAsync(ct) != 1)
                 throw new BusinessException(Rejection.Conflict, "The rollback source is unavailable.");
+        await PropertyStore.CopySnapshot(db, tx, article, sourceRevision, revision, ct);
         await TaxonomyStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
         await PublicationRightsStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
     }

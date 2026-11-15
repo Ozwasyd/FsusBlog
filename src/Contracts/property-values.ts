@@ -372,6 +372,21 @@ function readReceipt(payload: Uint8Array) {
 }
 
 export const propertyApi = {
+  history(input: { articleId: number; articleRevision: bigint; sourceRevision: bigint; offset?: number },
+    credential: string, signal?: AbortSignal): Promise<PropertyWorkspace> {
+    const offset = input.offset ?? 0
+    requireProperty(input.articleId > 0 && input.sourceRevision > 0n && input.sourceRevision <= input.articleRevision &&
+      Number.isInteger(offset) && offset >= 0,
+      'saved revision coordinates')
+    const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(input.articleId))
+      .replace('{sourceRevision:long}', String(input.sourceRevision))
+    const cursor = offset === 0 ? '' : `&offset=${offset}`
+    return request(`${path}?revision=${input.articleRevision}&map=properties${cursor}`, FrameType.PropertyEditor, payload => {
+      const page = decodePropertyEditor(payload)
+      requireProperty(page.articleId === input.articleId && page.articleRevision === input.sourceRevision, 'saved property response')
+      return page
+    }, signal, 'GET', undefined, siteSessionHeader(credential))
+  },
   textHit(input: PropertyTextHitRequest, credential: string, signal?: AbortSignal): Promise<PropertyWorkspace> {
     return request(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
       const response = decodePropertyEditor(payload)
