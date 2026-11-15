@@ -1,4 +1,6 @@
+using System.Globalization;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Security;
 
@@ -39,15 +41,52 @@ internal static class AdminSitePageEditorEndpoints
             }, PowScope.AdminSitePagePublish)).RequireRateLimiting("command");
 
         app.MapPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
-            ScopedPow.Protect(ctx, async () =>
+            Publish(ctx, pages, pow, legacy: false, ct)).RequireRateLimiting("command");
+        app.MapPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+            Publish(ctx, pages, pow, legacy: true, ct)).RequireRateLimiting("command");
+
+        async Task<IResult> Publish(HttpContext ctx, SitePages pages, ScopedPow pow, bool legacy, CancellationToken ct)
+        {
+            try
             {
-                AdminModerationEndpoints.RequireOrigin(ctx, authority);
-                var frame = await readFrame(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
-                var intent = Wire.DecodeAdminSitePagePublish(frame);
-                var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
-                await store.PublishSitePage(ctx.Request.Cookies[session], pages, intent, frame, proof, pow, ctx, ct);
-                return Wire.EncodeEmptySuccess();
-            }, PowScope.AdminSitePagePublish)).RequireRateLimiting("command");
+                return await ScopedPow.Protect(ctx, async () =>
+                {
+                    AdminModerationEndpoints.RequireOrigin(ctx, authority);
+                    var frame = await readFrame(ctx, legacy ? SitePageWire.MaxUpdateFrameBytes : WireLimits.AdminSitePagePublishFrameBytes, ct);
+                    var intent = legacy ? LegacyIntent(ctx, frame) : Wire.DecodeAdminSitePagePublish(frame);
+                    if (legacy) frame = Wire.EncodeAdminSitePagePublish(intent);
+                    var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+                    await store.PublishSitePage(ctx.Request.Cookies[session], pages, intent, frame, proof, pow, ctx, ct);
+                    return Wire.EncodeEmptySuccess();
+                }, PowScope.AdminSitePagePublish);
+            }
+            catch (BusinessException problem) when (legacy && problem.Rejection == Rejection.Conflict)
+            {
+                const int status = StatusCodes.Status412PreconditionFailed;
+                return new AedsError(status, Wire.EncodeError(status, problem.Message, traceId: ctx.TraceIdentifier));
+            }
+        }
+    }
+
+    private static AdminSitePagePublish LegacyIntent(HttpContext ctx, byte[] frame)
+    {
+        var update = SitePageWire.DecodeUpdate(frame);
+        var tags = ctx.Request.Headers.IfMatch;
+        if (tags.Count == 0)
+            throw new BadHttpRequestException("A current site page ETag is required.", StatusCodes.Status428PreconditionRequired);
+        var tag = tags.Count == 1 ? tags[0].AsSpan() : default;
+        var prefix = $"\"{update.Slug}.";
+        if (tag.Length <= prefix.Length + WireLimits.AdminSitePageDigestBytes + 2 ||
+            !tag.StartsWith(prefix, StringComparison.Ordinal) || tag[^1] != '"')
+            throw new ProtocolException("Invalid site page ETag");
+
+        var suffix = tag[prefix.Length..^1];
+        var separator = suffix.Length - WireLimits.AdminSitePageDigestBytes - 1;
+        var revisionText = suffix[..separator];
+        if (suffix[separator] != '.' || (revisionText.Length > 1 && revisionText[0] == '0') ||
+            !long.TryParse(revisionText, NumberStyles.None, CultureInfo.InvariantCulture, out var revision))
+            throw new ProtocolException("Invalid site page ETag");
+        return new(update.Slug, revision, suffix[(separator + 1)..].ToString(), update.Markdown);
     }
 
     private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);

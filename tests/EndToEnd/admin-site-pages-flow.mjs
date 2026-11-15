@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
+import { writeFile } from 'node:fs/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { adminClusterFlow } from './admin-cluster-flow.mjs'
 import { adminRiskReadinessFlow, verifyRootCommentPowPolicy } from './admin-risk-readiness-flow.mjs'
@@ -122,6 +123,32 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   const submit = (path, input, headers = {}) => context.request.post(admin(path), {
     headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...headers }, data: frame(input)
   })
+  const legacyTag = (await context.request.get(admin(legacy))).headers().etag
+  assert.equal(legacyTag, `"about.${old.revision}.${old.digest}"`)
+  const legacyFrameFor = (input) => {
+    const markdown = Buffer.from(input.markdown)
+    const pod = Buffer.alloc(140 + markdown.length)
+    pod.write(input.slug)
+    pod.writeUInt32LE(markdown.length, 132)
+    pod.writeUInt32LE(markdown.length, 136)
+    markdown.copy(pod, 140)
+    return Buffer.from(encodeFrame(36, pod))
+  }
+  const legacyWrite = (input, { headers = {}, tag = legacyTag, target = adminOrigin.origin, data = legacyFrameFor(input) } = {}) =>
+    context.request.put(target + WireRoutes.AdminLegacySitePageUpdate, {
+      headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...(tag ? { 'If-Match': tag } : {}), ...headers },
+      data,
+    })
+  const legacyRefusals = await Promise.all([
+    legacyWrite(edit, { target: siteOrigin.origin }),
+    legacyWrite(edit, { headers: { Origin: siteOrigin.origin } }),
+    legacyWrite(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' } }),
+    legacyWrite(edit, { tag: '' }),
+    legacyWrite(edit, { tag: `W/${legacyTag}` }),
+    legacyWrite(edit, { data: frame(edit) }),
+    legacyWrite(edit),
+  ])
+  assert.deepEqual(legacyRefusals.map(r => r.status()), [404, 403, 403, 428, 400, 400, 403])
   assert.equal((await submit(WireRoutes.AdminSitePagePublish, edit)).status(), 403)
   assert.equal((await submit(WireRoutes.AdminSitePageStepUpBegin, edit, { Origin: siteOrigin.origin })).status(), 403)
   assert.equal((await submit(WireRoutes.AdminSitePageStepUpBegin, { ...edit, slug: 'elsewhere' })).status(), 400)
@@ -135,11 +162,15 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
       [WireHeaders.MfaProof]: headers[WireHeaders.MfaProof.toLowerCase()],
       [WireHeaders.PowProof]: headers[WireHeaders.PowProof.toLowerCase()],
     }
-    const tampered = await submit(WireRoutes.AdminSitePagePublish, { ...edit, markdown: '# Changed intent' }, collected)
-    const badPow = await submit(WireRoutes.AdminSitePagePublish, edit, { ...collected, [WireHeaders.PowProof]: 'invalid' })
-    const attempts = await Promise.all([route.fetch(), submit(WireRoutes.AdminSitePagePublish, edit, collected)])
-    observed = [tampered.status(), badPow.status(), ...attempts.map(response => response.status()).sort((a, b) => a - b)]
-    await route.fulfill({ response: attempts.find(response => response.status() === 200) ?? attempts[0] })
+    const tampered = await legacyWrite({ ...edit, markdown: '# Changed intent' }, { headers: collected })
+    const badPow = await legacyWrite(edit, { headers: { ...collected, [WireHeaders.PowProof]: 'invalid' } })
+    const published = await legacyWrite(edit, { headers: collected })
+    if (published.status() === 200)
+      assert.deepEqual(Array.from(decodeFrame(await published.body(), FrameType.EmptySuccess).payload), [1, 0, 0, 0])
+    const legacyReplay = await legacyWrite(edit, { headers: collected })
+    const v2Replay = await submit(WireRoutes.AdminSitePagePublish, edit, collected)
+    observed = [tampered.status(), badPow.status(), published.status(), legacyReplay.status(), v2Replay.status()]
+    await route.fulfill({ response: published })
   }
   await page.route(commandPath, intercept)
   await section.getByRole('button', { name: 'Edit about content', exact: true }).click()
@@ -152,7 +183,7 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   await publish.click()
   await section.getByText('Published /about', { exact: true }).waitFor({ timeout: 18_000 })
   await page.unroute(commandPath, intercept)
-  assert.deepEqual(observed, [403, 400, 200, 409])
+  assert.deepEqual(observed, [403, 400, 200, 412, 409])
   for (const { path, tag } of fixtures) {
     const current = await context.request.get(path, { headers: { 'If-None-Match': tag } })
     assert.equal(current.status(), 200)
@@ -170,6 +201,7 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   assert.equal(revised.markdown, markdown)
   const publicFrame = await context.request.get(binary)
   const legacyFrame = await context.request.get(admin(legacy))
+  assert.equal(legacyFrame.headers().etag, `"about.${revised.revision}.${revised.digest}"`)
   assert.deepEqual(await legacyFrame.body(), await publicFrame.body())
   assert.equal(decodeSitePage(decodeFrame(await publicFrame.body(), FrameType.PageContent).payload).markdown, markdown)
   const publicPage = await context.newPage()
@@ -180,5 +212,10 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   assert.equal(await article.getByRole('link', { name: 'unsafe' }).getAttribute('href'), '#')
   await publicPage.close()
   assert.equal((await submit(WireRoutes.AdminSitePageStepUpBegin, edit)).status(), 409)
+  await writeFile(join(evidence, 'legacy-site-page-result.json'), JSON.stringify({
+    legacyFrameType: 36, initialRevision: old.revision.toString(), publishedRevision: revised.revision.toString(),
+    wrongSite: 404, wrongOrigin: 403, crossSite: 403, missingTag: 428, weakTag: 400, wrongFrame: 400, missingPasskey: 403,
+    tamperedIntent: observed[0], invalidProofOfWork: observed[1], legacyWrite: observed[2], legacyReplay: observed[3], v2Replay: observed[4],
+  }, null, 2) + '\n')
   await page.screenshot({ path: join(evidence, 'administrator-site-page-published.png') })
 }

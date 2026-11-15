@@ -10,12 +10,19 @@ import Caddyfile
 		method GET
 		path_regexp admin_page_read (?i)^/api/binary/system/admin/page/[^/]+/?$
 	}
+	@admin_page_write {
+		method PUT
+		path_regexp admin_page_write (?i)^/api/binary/system/page/?$
+	}
 	route {
 		respond @wrong_tls_host 421
 		handle @admin_routes {
 			import fsusblog_upstream
 		}
 		handle @admin_page_read {
+			import fsusblog_upstream
+		}
+		handle @admin_page_write {
 			import fsusblog_upstream
 		}
 		respond 404

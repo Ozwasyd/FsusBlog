@@ -48,6 +48,7 @@ public enum FrameType : ushort
     TagList = 10,
     SeoConfig = 13,
     PageContent = 14,
+    PageContentUpdateRequest = 36,
     SiteComplianceConfig = 26,
     AuthLoginFlow = 18,
     ConversationList = 56,
@@ -638,6 +639,7 @@ public static class WireRoutes
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
     public const string PublicRelatedReading = "/api/binary/article/{articleId:int}/related.aeds";
     public const string PublicSitePage = "/api/binary/system/page/{slug}";
+    public const string AdminLegacySitePageUpdate = "/api/binary/system/page";
     public const string PublicSeo = "/api/binary/system/seo";
     public const string PublicCompliance = "/api/binary/system/compliance";
     public const string SubscriptionEnroll = "/api/v2/subscription/enroll.aeds";

@@ -6,6 +6,38 @@ namespace FsusBlog.V2.Contracts;
 public static class SitePageWire
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
+    public const int MaxUpdateFrameBytes = Aeds.HeaderSize + WireLayouts.PageContentBlobOffset + WireLimits.PageContentBytes;
+
+    public static (string Slug, string Markdown) DecodeUpdate(ReadOnlySpan<byte> frame)
+    {
+        var payload = Aeds.Decode(frame, FrameType.PageContentUpdateRequest);
+        if (payload.Length < WireLayouts.PageContentBlobOffset || frame.Length > MaxUpdateFrameBytes)
+            throw new ProtocolException("Invalid site page payload size");
+
+        var markdown = payload[WireLayouts.PageContentBlobOffset..];
+        var lengths = payload[WireLayouts.PageContentSlugBytes..];
+        if (BinaryPrimitives.ReadInt32LittleEndian(lengths) != 0 ||
+            BinaryPrimitives.ReadInt32LittleEndian(lengths[4..]) != markdown.Length ||
+            BinaryPrimitives.ReadInt32LittleEndian(lengths[8..]) != markdown.Length)
+            throw new ProtocolException("Invalid site page Markdown slice");
+
+        var slug = payload[..WireLayouts.PageContentSlugBytes];
+        var terminator = slug.IndexOf((byte)0);
+        if (terminator <= 0 || slug[terminator..].ContainsAnyExcept((byte)0) || markdown.Contains((byte)0))
+            throw new ProtocolException("Invalid site page payload");
+
+        try
+        {
+            var source = Utf8.GetString(markdown);
+            if (source.Length > WireLimits.PageContentChars)
+                throw new ProtocolException("Site page exceeds its character limit");
+            return (Utf8.GetString(slug[..terminator]), source);
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new ProtocolException("Invalid site page UTF-8");
+        }
+    }
 
     public static byte[] Encode(string slug, string markdown)
     {

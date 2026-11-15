@@ -253,7 +253,7 @@ app.Use(async (ctx, next) =>
         {
             ctx.Response.Headers[WireHeaders.TraceId] = ctx.TraceIdentifier;
             ctx.Response.Headers.CacheControl = "no-store";
-            if (HttpMethods.IsPost(ctx.Request.Method)) VerifyMutation(ctx);
+            if (HttpMethods.IsPost(ctx.Request.Method) || HttpMethods.IsPut(ctx.Request.Method)) VerifyMutation(ctx);
         }
         await next();
     }

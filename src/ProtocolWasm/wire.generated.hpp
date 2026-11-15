@@ -437,6 +437,7 @@ enum class FrameType : uint16_t {
     TagList = 10,
     SeoConfig = 13,
     PageContent = 14,
+    PageContentUpdateRequest = 36,
     SiteComplianceConfig = 26,
     AuthLoginFlow = 18,
     ConversationList = 56,
@@ -657,6 +658,7 @@ constexpr bool known(FrameType type) {
         case FrameType::TagList:
         case FrameType::SeoConfig:
         case FrameType::PageContent:
+        case FrameType::PageContentUpdateRequest:
         case FrameType::SiteComplianceConfig:
         case FrameType::AuthLoginFlow:
         case FrameType::ConversationList:
