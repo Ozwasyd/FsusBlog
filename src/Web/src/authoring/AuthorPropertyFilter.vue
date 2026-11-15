@@ -20,7 +20,7 @@ const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
   'greater-than': '大于', 'at-least': '大于或等于',
-} as const satisfies Record<Exclude<PropertyComparison, 'is-present'>, string>
+} as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of'>, string>
 const dateComparisons = {
   ...comparisons,
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
@@ -150,6 +150,7 @@ function conditionText(condition: PropertyCondition) {
   const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || '空选项集合'
     : value.kind === 'single-select' ? names.get(value.value)
     : value.kind === 'article-reference' ? value.value.join('、') : String(value.value)
+  if (comparison === 'multi-select-any-of') return `${field.label} · 任一匹配 ${description}`
   const labels = field.kind === 'date' ? dateComparisons : comparisons
   return `${field.label} · ${labels[comparison]} ${description}`
 }
@@ -260,6 +261,7 @@ async function search(more = false) {
           <ElSelect id="property-filter-operator" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
             <ElOption value="equal" label="精确匹配" />
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
+            <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" label="任一匹配" />
             <ElOption value="is-present" label="值存在" />
             <ElOption value="missing" label="尚未设置" />
             <ElOption value="null" label="显式空值" />

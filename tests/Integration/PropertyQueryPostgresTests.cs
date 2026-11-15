@@ -27,7 +27,8 @@ public sealed class PropertyQueryPostgresTests
         var target = await Article("Reference target", owner);
         target = (await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Publish,
             new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;
-        var options = new[] { new PropertyFieldOption(Guid.NewGuid(), "Red"), new PropertyFieldOption(Guid.NewGuid(), "Blue") };
+        var options = new[] { new PropertyFieldOption(Guid.NewGuid(), "Red"), new PropertyFieldOption(Guid.NewGuid(), "Blue"),
+            new PropertyFieldOption(Guid.NewGuid(), "Green") };
         long schema = 0;
         var definitions = new[]
         {
@@ -243,14 +244,54 @@ public sealed class PropertyQueryPostgresTests
         var savedPresence = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openPresence));
         Assert.Equal(directPresence.Rows.ToArray(), savedPresence.Rows.ToArray());
         await Saved(WireRoutes.SavedViewExecute, openPresence, HttpStatusCode.NotFound, outsider, outsiderHandle);
-        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[5], Guid.NewGuid(), schema, 2, false)), owner);
+
+        var (red, blue, green) = (options[0].Id, options[1].Id, options[2].Id);
+        var left = await Article("Red and Blue", owner);
+        await Put(left, fields[5], new PropertyFieldValue.MultiSelect([blue, red]), 0, 2);
+        var right = await Article("Blue and Green", owner);
+        await Put(right, fields[5], new PropertyFieldValue.MultiSelect([blue, green]), 0, 2);
+        var nullChoices = await Article("Null choices", owner);
+        await Put(nullChoices, fields[5], new PropertyFieldValue.Null(), 0, 2);
+        await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(new(
+            new(1, fields[5], Guid.NewGuid(), 0, 0, "same-field", "Same field"), PropertyFieldKind.MultiSelect, options)), outsider);
+        await Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(new(foreign.Id, foreign.Revision, 1, 0,
+            fields[5], 1, Guid.NewGuid(), new PropertyFieldValue.MultiSelect([red]))), outsider);
+        Assert.Equal(left.Id, Assert.Single((await Filter(5, new PropertyFieldValue.MultiSelect([red, blue]))).Rows).Id);
+        Assert.Equal(new[] { left.Id, empty.Id }, (await Group([AnyOf(red)])).Rows.Select(row => row.Id));
+        Assert.Equal(right.Id, Assert.Single((await Group([AnyOf(green)])).Rows).Id);
+        Assert.Empty((await Group([AnyOf()])).Rows);
+        await Group([AnyOf(Guid.NewGuid())], status: HttpStatusCode.BadRequest);
+        await Group([AnyOf(red) with { DefinitionId = fields[4] }], status: HttpStatusCode.BadRequest);
+        await Group([AnyOf(red) with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
+        var overlap = new[] { AnyOf(green, red), Present(5) };
+        var directOverlap = await Group(overlap);
+        Assert.Equal(new[] { right.Id, left.Id, empty.Id }, directOverlap.Rows.Select(row => row.Id));
+        Assert.Equal(directOverlap.Rows.ToArray(), (await Group([Present(5), AnyOf(red, green)])).Rows.ToArray());
+
+        var overlapId = Guid.NewGuid();
+        var saveOverlap = new SavedViewCommand(SavedViewAction.Save, overlapId, 0, 12, Guid.NewGuid(), "Selected alternatives",
+            new(schema, overlap, ""));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(saveOverlap));
+        var stable = Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement + $"?view={overlapId:D}&viewSchema=1"));
+        Assert.Equal(overlapId, stable.Requested?.Id);
+        var openOverlap = Wire.EncodeSavedViewExecute(new(overlapId, 1, ""));
+        Assert.Equal(directOverlap.Rows.ToArray(),
+            Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openOverlap)).Rows.ToArray());
+        await Saved(WireRoutes.SavedViewExecute, openOverlap, HttpStatusCode.NotFound, outsider, outsiderHandle);
+
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[5], Guid.NewGuid(), schema++, 2, false)), owner);
+        await Group([AnyOf(red) with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
         await Saved(WireRoutes.SavedViewExecute, openPresence, HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewExecute, openOverlap, HttpStatusCode.Conflict);
 
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
 
         PropertyCondition Present(int index, long revision = 2) =>
             new(fields[index], revision, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
+
+        PropertyCondition AnyOf(params Guid[] alternatives) =>
+            new(fields[5], 2, PropertyComparison.MultiSelectAnyOf, new PropertyFieldValue.MultiSelect(alternatives));
 
         async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
         {

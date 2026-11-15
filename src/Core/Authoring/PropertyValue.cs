@@ -175,6 +175,14 @@ public static class PropertyValues
         return NormalizePresent(definition.Settings, value);
     }
 
+    public static PropertyValue.MultiSelect NormalizeMultiSelectAlternatives(PropertyDefinition definition, PropertyValue.MultiSelect value)
+    {
+        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable || definition.Settings.Kind != PropertyKind.MultiSelect)
+            throw Invalid("filter-unavailable");
+        // Alternatives describe a query, so stored-value cardinality and empty policies do not apply.
+        return new(ValidateSet(value.OptionIds, null, id => IsActive(definition.Settings, id)));
+    }
+
     private static PropertyValue NormalizePresent(PropertySettings settings, PropertyValue value)
     {
         bool empty = (settings.Kind, value) switch

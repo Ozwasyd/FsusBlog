@@ -116,6 +116,17 @@ test('property presence uses the operand-free comparison bytes', () => {
     ProtocolError)
 })
 
+test('multi-select alternatives preserve independent query bytes', () => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'multi-select', machineKey: 'tag', label: 'Tag',
+    enabled: true, deprecated: false, options: [red, blue] }
+  const condition = { field, comparison: 'multi-select-any-of', value: { kind: 'multi-select', value: [blue.id, red.id] } } as const
+  const query = { schema: 10n, cursor: '', conditions: [condition] }
+  assert.deepEqual(encodePropertyQuery(query), fixture('property-query-multi-select-any-of'))
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, field: { ...field, kind: 'single-select' } }] }),
+    ProtocolError)
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, value: { kind: 'null' } }] }), ProtocolError)
+})
+
 test('typed writers reject unsupported identity, dates, and exact decimal overflow', () => {
   assert.equal(normalizePropertyDecimal('-000.000'), '0')
   assert.equal(normalizePropertyDecimal('09007199254740993.0020000'), '9007199254740993.002')

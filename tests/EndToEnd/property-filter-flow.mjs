@@ -4,6 +4,7 @@ import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exercisePinnedViewRail, verifyUnpinnedViewRail } from './pinned-view-rail-flow.mjs'
 
 export async function exercisePropertyFilter(publisher, origin, article, exactScore, observations) {
+  await prepareMultiSelect(publisher)
   const page = await publisher.context().newPage()
   try {
     await page.goto(`${origin}/user/manage/article/list`)
@@ -76,9 +77,75 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     assert.equal(await result.count(), 0)
     observations.push('The private author collection opts a saved typed field into exact filtering, distinguishes the full decimal value from zero, and clears disabled results.')
     observations.push('The author collection combines a UTC date bound and an exact decimal bound, distinguishes inclusive from strict comparison, and clears results when a condition changes at 375px.')
+    await verifyMultiSelect(page, article, field, comparison, result, observations)
   } finally {
     await page.close()
   }
+}
+
+async function prepareMultiSelect(publisher) {
+  const button = name => publisher.getByRole('button', { name, exact: true })
+  await button('Inspector').click()
+  await button('Add property').click()
+  await publisher.getByLabel('Property label', { exact: true }).fill('Editorial topics')
+  await publisher.getByLabel('Property key', { exact: true }).fill('editorial-topics')
+  await publisher.getByRole('combobox', { name: 'Property type', exact: true }).click()
+  await publisher.getByRole('option', { name: 'Multiple select', exact: true }).click()
+  await publisher.getByLabel('Option 1', { exact: true }).fill('Planning')
+  await button('Add option').click()
+  await publisher.getByLabel('Option 2', { exact: true }).fill('Review')
+  await button('Create property').click()
+  await button('Edit Editorial topics').click()
+  for (const label of ['Planning', 'Review']) {
+    await publisher.getByText(label, { exact: true }).click()
+    assert.equal(await publisher.getByRole('checkbox', { name: label, exact: true }).isChecked(), true)
+  }
+  await button('Save property').click()
+  await publisher.getByText('Planning, Review', { exact: true }).waitFor()
+  await publisher.getByRole('complementary', { name: 'Article inspector' })
+    .getByRole('button', { name: 'Close', exact: true }).click()
+}
+
+async function verifyMultiSelect(page, article, field, comparison, result, observations) {
+  const button = name => page.getByRole('button', { name, exact: true })
+  await page.reload()
+  await page.getByText('按文章属性筛选', { exact: true }).click()
+  await field('Editorial topics · editorial-topics')
+  await button('启用此字段的筛选').click()
+  await button('停用此字段的筛选').waitFor()
+  await comparison('任一匹配')
+  await button('筛选属性').click()
+  await result.getByText('没有匹配的文章。').waitFor()
+  const choices = page.getByRole('combobox', { name: '属性值', exact: true })
+  await choices.click()
+  await page.getByRole('option', { name: 'Review', exact: true }).click()
+  await choices.press('Escape')
+  await result.waitFor({ state: 'detached' })
+  await button('筛选属性').click()
+  await result.getByRole('link', { name: article.title, exact: true }).waitFor()
+  assert.equal(await result.getByRole('link').count(), 1)
+
+  await comparison('精确匹配')
+  await result.waitFor({ state: 'detached' })
+  await button('筛选属性').click()
+  await result.getByText('没有匹配的文章。').waitFor()
+  await comparison('任一匹配')
+  await result.waitFor({ state: 'detached' })
+  await button('筛选属性').click()
+  await result.getByRole('link', { name: article.title, exact: true }).waitFor()
+
+  await page.getByText('保存视图', { exact: true }).click()
+  await page.getByLabel('保存视图名称', { exact: true }).fill('Topics including review')
+  await button('保存当前筛选').click()
+  const link = page.getByRole('link', { name: '保存视图链接', exact: true })
+  await link.waitFor()
+  const href = await link.getAttribute('href')
+  assert.match(href, /\?view=[0-9a-f-]{36}&viewSchema=1$/)
+  await page.goto(new URL(href, page.url()).href)
+  const saved = page.getByRole('region', { name: '保存视图结果' })
+  await saved.getByRole('heading', { name: 'Topics including review', exact: true }).waitFor()
+  assert.equal(await saved.getByRole('link', { name: article.title, exact: true }).getAttribute('href'), `/user/manage/article/edit/${article.id}`)
+  observations.push('At 375px, FsusUI matches a selected UUID against a saved two-choice set, distinguishes whole-set equality and empty alternatives, and reopens the private view through its stable link.')
 }
 
 async function verifySavedView(page, article, observations) {

@@ -129,15 +129,24 @@ public static partial class Wire
     {
         Validate(new PropertyArticleQueryGroup(1, conditions.Select(item => new PropertyCondition(item.DefinitionId, 1,
             item.Comparison, item.Value)).ToArray(), ""));
+        var version = conditions.Any(item => item.Comparison == PropertyComparison.MultiSelectAnyOf) ? 3
+            : conditions.Any(item => item.Comparison == PropertyComparison.IsPresent) ? 2 : 1;
         var writer = new Writer();
-        writer.I32(conditions.Any(item => item.Comparison == PropertyComparison.IsPresent) ? 2 : 1);
+        writer.I32(version);
         writer.I32(conditions.Count);
         foreach (var item in conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison))
         {
             writer.Uuid(item.DefinitionId);
             writer.I32((int)item.Kind);
             writer.I32((int)item.Comparison);
-            WriteValue(writer, item.Value);
+            if (item.Comparison == PropertyComparison.MultiSelectAnyOf)
+            {
+                if (item.Kind != PropertyFieldKind.MultiSelect || item.Value is not PropertyFieldValue.MultiSelect options ||
+                    options.Value.Count > WireLimits.PropertyOptionCount)
+                    throw InvalidSavedView();
+                WriteValue(writer, new PropertyFieldValue.MultiSelect(options.Value.Order().ToArray()));
+            }
+            else WriteValue(writer, item.Value);
         }
         return writer.Written.ToArray();
     }
@@ -146,7 +155,7 @@ public static partial class Wire
     {
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
-        if (reader.I32() is not (1 or 2)) throw InvalidSavedView();
+        if (reader.I32() is not (1 or 2 or 3)) throw InvalidSavedView();
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];

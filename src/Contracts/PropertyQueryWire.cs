@@ -5,7 +5,7 @@ public sealed record PropertyFilterField(Guid Id, long Revision, string MachineK
 public sealed record PropertyFilterCatalog(long SchemaRevision, string NextKey, IReadOnlyList<PropertyFilterField> Fields);
 public sealed record PropertyArticleQuery(long SchemaRevision, Guid DefinitionId, long DefinitionRevision,
     PropertyFieldValue Value, string Cursor);
-public enum PropertyComparison { Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4, IsPresent = 5 }
+public enum PropertyComparison { Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4, IsPresent = 5, MultiSelectAnyOf = 6 }
 public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value);
 public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor);
 public sealed record PropertyArticleRow(int Id, long Revision, string Title);
@@ -170,6 +170,7 @@ public static partial class Wire
         PropertyComparison.Equal => true,
         // The existing zero-payload field tag encodes an operand-free comparison.
         PropertyComparison.IsPresent => value is PropertyFieldValue.Missing,
+        PropertyComparison.MultiSelectAnyOf => value is PropertyFieldValue.MultiSelect,
         PropertyComparison.LessThan or PropertyComparison.AtMost or PropertyComparison.GreaterThan or PropertyComparison.AtLeast
             => value is PropertyFieldValue.Number or PropertyFieldValue.Date,
         _ => false,

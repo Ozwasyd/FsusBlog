@@ -141,6 +141,27 @@ public sealed class PropertySchemaTests
     }
 
     [Fact]
+    public void MultiSelectAlternativesUseActiveIdentitiesOutsideStoredValueCardinality()
+    {
+        var settings = new PropertySettings(PropertyKind.MultiSelect, new(Empty: PropertyEmptyPolicy.Reject),
+            CountRange: new(2, 2), Options: Options(), Filterable: true);
+        var schema = Create(settings);
+        var definition = schema.Find(Field)!;
+        var one = new PropertyValue.MultiSelect([First]);
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeFilter(definition, one));
+        Assert.Equal(new[] { First }, PropertyValues.NormalizeMultiSelectAlternatives(definition, one).OptionIds.ToArray());
+        Assert.Empty(PropertyValues.NormalizeMultiSelectAlternatives(definition, new([])).OptionIds);
+        Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeMultiSelectAlternatives(definition, new([Second, First])).OptionIds.ToArray());
+        var changed = Command(schema, new PropertyChange.ChangeSettings(Field, settings with
+        {
+            Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1] with { Label = "Renamed" }]
+        }));
+        var current = schema.Apply(changed, countAffected: (_, _) => 0).Schema.Find(Field)!;
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeMultiSelectAlternatives(current, one));
+        Assert.Equal(new[] { Second }, PropertyValues.NormalizeMultiSelectAlternatives(current, new([Second])).OptionIds.ToArray());
+    }
+
+    [Fact]
     public void ReferenceFailuresShareOneOutcomeAndUrlPolicyIsClosed()
     {
         var reference = Create(new(PropertyKind.ArticleReference, new(), Reference: new())).Find(Field)!;

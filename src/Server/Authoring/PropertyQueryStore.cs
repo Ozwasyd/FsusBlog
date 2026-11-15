@@ -145,6 +145,9 @@ internal sealed partial class PropertyStore
             (PropertyComparison.Equal or PropertyComparison.IsPresent, _, null) => null,
             (PropertyComparison.IsPresent, _, _) => throw Invalid(),
             (PropertyComparison.Equal, _, { } present) => PropertyValues.NormalizeFilter(definition, present),
+            (PropertyComparison.MultiSelectAnyOf, _, PropertyValue.MultiSelect choices) =>
+                PropertyValues.NormalizeMultiSelectAlternatives(definition, choices),
+            (PropertyComparison.MultiSelectAnyOf, _, _) => throw Invalid(),
             (_, PropertyKind.Number, PropertyValue.Number number) => number,
             (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
             _ => throw Invalid(),
@@ -163,6 +166,13 @@ internal sealed partial class PropertyStore
         {
             parameters.Add(PropertyTypeTag(condition.Kind));
             sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
+        }
+        else if (condition.Comparison == PropertyComparison.MultiSelectAnyOf && condition.Value is PropertyValue.MultiSelect alternatives)
+        {
+            parameters.Add(PropertyTypeTag(condition.Kind));
+            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
+            parameters.Add(alternatives.OptionIds.Select(id => id.ToString("D")).ToArray());
+            sql.Append(" and jsonb_typeof(v.data->'OptionIds')='array' and (v.data->'OptionIds') ?| $").Append(parameters.Count);
         }
         else if (condition.Value is not null)
         {
