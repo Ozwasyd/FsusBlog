@@ -553,3 +553,33 @@ https://github.com/Ozwasyd/FsusBlog/issues/2488	2	2486	prerequisite	#2488:10–1
 https://github.com/Ozwasyd/FsusBlog/issues/2492	2	2488	prerequisite	#2492:10–21; #2492:24–30; #2488:10–20	界面以封闭命令和 CAS 执行移动、缩放、分组、视口与撤销。可访问列表走相同操作，失败后恢复服务端投影。
 https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2487	acceptance-gate	#2494:13–19; #2494:24–27; #2487:11–17	终验核对显式转换的源文章、修订和插入位置，注入由 Canvas 几何猜正文位置的反例。取消或失败时正文写入数为零。
 https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2489	acceptance-gate	#2494:16–19; #2494:37–43; #2489:17–23	真实 10,000 节点用例记录可见视口、列表和预览的性能与资源，并核对布局隐私、键盘和读屏路径的等价操作。
+https://github.com/Ozwasyd/FsusBlog/issues/2246	1	1809	tracking	#2246:5–16; #1809:7–11	编辑连续性总项委托语义定位适配器消费公开位置映射。适配器统一各表面的定位及滚动意图，渲染缓存和模式切换按各自子项验收。
+https://github.com/Ozwasyd/FsusBlog/issues/2246	2	2243	prerequisite	#2246:9–16; #2246:18–24	锚点使用有文档代次的编辑上下文，保存源修订、节点范围、亲和方向和视口。即使原文相同，其他文章或旧代次的结果也须拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2307	2	2246	prerequisite	#2307:11–23; #2246:11–20	访问记录可保存公开的节点、范围、锚点和亲和方向，绑定当时的文档代次和源修订。源位置随实际语义结果处理。
+https://github.com/Ozwasyd/FsusBlog/issues/2322	1	1860	tracking	#2322:6–22; #1860@5174427242:5–12	父项统筹属性全链。此票提供定义、八种封闭类型、选项和 schema CAS，之后由实际值写入、查询投影和最终矩阵消费。
+https://github.com/Ozwasyd/FsusBlog/issues/2322	2	1808	context	#2322:10–17; #1808:41–55	文章引用定义复用稳定文章身份所需的目标权限和可见性约束。定义自身记录基数和失败策略，Markdown 链接关系保留原权威。
+https://github.com/Ozwasyd/FsusBlog/issues/2323	1	1860	tracking	#2323:6–19; #1860@5174427242:5–12	父项的值子项负责八种真实类型、命令和修订快照。定义、查询投影和 Inspector 分别由链上既有子项消费。
+https://github.com/Ozwasyd/FsusBlog/issues/2323	2	1724	prerequisite	#2323:14–21; #1724:44–55; #1724:103–111	保存或发布的类型快照随当前文章的合法修订、权限和发布坐标生成。验收沿用真实 writer 和一致的快照身份及版本。
+https://github.com/Ozwasyd/FsusBlog/issues/2323	2	1808	conditional-prerequisite	#2323:11–17; #2323:21–27; #2323@6052065293:3; #1808:49–55	非空文章引用在写入前检查目标稳定 ID、同站权限和生命周期，变更触发重整与索引失效。冻结的验证器交接也将非空引用交给实际目标权威。
+https://github.com/Ozwasyd/FsusBlog/issues/2323	2	2322	prerequisite	#2323:10–22; #2322:10–21	值写入消费定义的准确类型、稳定选项及引用策略。期待定义和文章值的双版本，保留缺失与显式空值的不同语义及原子批量行为。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	1	1860	tracking	#2324:6–11; #2324:26–31; #1860@5174427242:5–12	此属性子项把有资格的 typed values 映射到现有作者检索的过滤、分面和排序合同。定义和值写入继续由各自子项负责。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	1808	context	#2324:12–18; #2324:22–24; #1808:41–54	属性查询按稳定引用和当前有权目标投影，核对源值、目标和计数的可见性。由 Markdown 派生的链接关系继续使用独立的现有索引。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	2316	prerequisite	#2324:10–16; #2324:19–24; #2316:10–17	属性运算符纳入唯一查询语法。文本沿用规范词元，数字、日期、布尔与选择值使用明确类型和稳定选项身份。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	2317	prerequisite	#2324:10–19; #2317:10–18	定义、值、选项、资格或引用生命周期变更触发同一索引生产者的精确重建或失效处理。旧 schema 和旧索引代次须拒绝查询成功。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	2318	prerequisite	#2324:13–24; #2318:10–21	服务端查询先约束源文章和值及引用目标权限，再输出分面、数量和片段。无权事实通过结果、计数、值、错误和时序的负例复验。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	2322	prerequisite	#2324:10–14; #2324:16–20; #2322:10–23	按稳定定义 ID、类型、schema 版本和显式资格，分别生成全文字段、过滤运算符及排序键。选项显示名可变化并保留值身份。
+https://github.com/Ozwasyd/FsusBlog/issues/2324	2	2323	prerequisite	#2324:12–19; #2323:11–22	过滤、分面和排序沿用已验证的 typed value 及空态区分。缺失、显式 null、默认值、空集合、false 和零须分别对照。
+https://github.com/Ozwasyd/FsusBlog/issues/2325	2	2322	prerequisite	#2325:10–18; #2322:10–20	唯一 Inspector 消费已验证定义和原有命令。选项使用稳定 ID，类型迁移、变更影响和权限由当前 schema 政策提供。
+https://github.com/Ozwasyd/FsusBlog/issues/2325	2	2323	prerequisite	#2325:13–17; #2325:22–27; #2323:14–23	值表单提交文章与定义版本及原子命令，显示验证、重整和冲突状态。过期表单须刷新，引用只提交当前有权的稳定目标。
+https://github.com/Ozwasyd/FsusBlog/issues/2325	2	2324	prerequisite	#2325:17–26; #2324:10–20	界面使用登记的查询资格和运算符呈现搜索、过滤、排序设置，并按合同为文章引用及 URL 限制选项。
+https://github.com/Ozwasyd/FsusBlog/issues/2326	2	2322	prerequisite	#2326:10–17; #2326:20–23; #2322:13–20	迁移计划按稳定定义、类型、选项及引用策略核对原字段。无损确定的值才可自动转换，歧义和未知目标进入显式处置。
+https://github.com/Ozwasyd/FsusBlog/issues/2326	2	2323	prerequisite	#2326:17–24; #2323:14–28	迁移通过值写入的版本 CAS 和读回校验，确认成功后再移除旧字段。冲突或中断保留未迁移值及恢复收据。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	1	1860	tracking	#2327:6–12; #2327:43–57; #1860@5174427242:5–12	最终矩阵汇合父项中定义、值、查询、界面和迁移的真实职责。终态核对维持 1,000 定义与 10,000 文章门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2322	acceptance-gate	#2327:10–15; #2327:19–28; #2322:10–24	测试从封闭定义枚举八种类型、约束、稳定选项 ID 与 schema 变更。核对重命名身份和定义更新的并发拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2323	acceptance-gate	#2327:11–18; #2327:25–31; #2323:14–27	终验覆盖类型值、批量全有或全无、两设备 CAS、有效修订快照和历史保全。验证目标撤权、删除、跨站和空态区别。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2324	acceptance-gate	#2327:11–16; #2327:23–29; #2327:52–57; #2324:13–24	用实际属性检索证明资格、权限、分面、计数和排序在规模下成立。分别注入无权目标、客户端过滤和第二查询权威的反例。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2325	acceptance-gate	#2327:10–18; #2327:43–54; #2325:19–27	终验把 Inspector 控件和命令对照真实定义及值，通过大定义量、窄屏、焦点和读屏验证有界交互。
+https://github.com/Ozwasyd/FsusBlog/issues/2327	2	2326	acceptance-gate	#2327:12–18; #2327:25–33; #2327:53–57; #2326:13–24	终验独立读回迁移后的值与正文。验证无损或显式阻断、旧读取和双写退役、系统字段身份及未迁移的正文原字节。
+https://github.com/Ozwasyd/FsusBlog/issues/2341	2	2324	prerequisite	#2341:10–21; #2324:10–20	保存视图 AST 复用属性运算符、稳定定义与选项身份。重命名保留查询语义，删除、退役及类型漂移触发明确失效。
+https://github.com/Ozwasyd/FsusBlog/issues/2346	2	2324	prerequisite	#2346:10–21; #2324:13–24	执行器把 typed property 条件交给原查询权威，并重裁当前用户权限。依赖退役、schema 漂移和过期游标有结构化拒绝状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2487	2	2246	prerequisite	#2487:10–19; #2246:11–22	Canvas 转换计划固定源文档代次、实际插入节点、范围和亲和方向。提交前重验修订和权限，应用源位置映射并保留选择和历史。
