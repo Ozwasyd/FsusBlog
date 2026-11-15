@@ -50,13 +50,15 @@ internal static class PropertyValueVectors
         if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || !decoded.Conditions.SequenceEqual(group.Conditions))
             throw new InvalidOperationException("Property group differs from the independent byte vector.");
         var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
-        invalidGroup[36] = 8;
+        invalidGroup[36] = 9;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
         invalidGroup[36] = 5;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
         invalidGroup[36] = 6;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
         invalidGroup[36] = 7;
+        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
+        invalidGroup[36] = 8;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
 
         var presence = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
@@ -88,6 +90,22 @@ internal static class PropertyValueVectors
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, emptySingle)));
         VerifyStoredOverlap(4, new(single.DefinitionId, PropertyFieldKind.SingleSelect, single.Comparison, single.Value), anotherField,
             "04000000010000000000000000004000800000000000000604000000070000000500000002000000af970001222240008000112233445566af970002222240008000112233445566");
+
+        var referenceAnyOf = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.ReferenceAnyOf,
+            new PropertyFieldValue.ArticleReference([42, 17]));
+        var referenceBytes = Fixture("property-query-reference-any-of");
+        BytesEqual(referenceBytes, Wire.EncodePropertyArticleQueryGroup(new(10, [referenceAnyOf], "")));
+        BytesEqual(referenceBytes, Wire.EncodePropertyArticleQueryGroup(Wire.DecodePropertyArticleQueryGroup(referenceBytes)));
+        var referenceView = new SavedViewCondition(value.DefinitionId, PropertyFieldKind.ArticleReference,
+            referenceAnyOf.Comparison, referenceAnyOf.Value);
+        var referenceDefinition = Wire.EncodeSavedViewDefinition([referenceView]);
+        BytesEqual(Convert.FromHexString("05000000010000000000000000004000800000000000000606000000080000000600000002000000110000002a000000"),
+            referenceDefinition);
+        BytesEqual(referenceDefinition, Wire.EncodeSavedViewDefinition(Wire.DecodeSavedViewDefinition(referenceDefinition,
+            SHA256.HashData(referenceDefinition))));
+        Reject(() => Wire.EncodeSavedViewDefinition([referenceView with { Kind = PropertyFieldKind.MultiSelect }]));
+        referenceDefinition[0] = 4;
+        Reject(() => Wire.DecodeSavedViewDefinition(referenceDefinition, SHA256.HashData(referenceDefinition)));
 
         var schemaBytes = Fixture("property-definition-options");
         var schema = new PropertySchemaInput(new(1, Guid.Parse("00000000-0000-4000-8000-000000000004"), requestId,

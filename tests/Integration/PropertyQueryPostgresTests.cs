@@ -170,8 +170,7 @@ public sealed class PropertyQueryPostgresTests
         await Send(WireRoutes.PropertySchemaCommand, renamedProperty, owner);
         Assert.NotEmpty(Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, currentRun)).Rows);
 
-        await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Retract,
-            new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct);
+        target = await Publication(target, ArticleAction.Retract, owner);
         await Filter(6, definitions[6].Item2, HttpStatusCode.NotFound);
         Assert.Empty((await Group([Present(6)])).Rows);
         await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
@@ -307,6 +306,37 @@ public sealed class PropertyQueryPostgresTests
         await Group([SingleAnyOf(red) with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
         await Saved(WireRoutes.SavedViewExecute, openSingle, HttpStatusCode.Conflict);
 
+        target = await Publication(target, ArticleAction.Publish, owner);
+        var secondTarget = await Publication(right, ArticleAction.Publish, owner);
+        var foreignTarget = await Publication(foreign, ArticleAction.Publish, outsider);
+        await Put(left, fields[6], new PropertyFieldValue.ArticleReference([secondTarget.Id]), 1, 2);
+        await Put(nullChoices, fields[6], new PropertyFieldValue.Null(), 2, 2);
+        Assert.Empty((await Group([ReferenceAnyOf()])).Rows);
+        Assert.Equal(primary.Id, Assert.Single((await Group([ReferenceAnyOf(target.Id)])).Rows).Id);
+        var references = await Group([ReferenceAnyOf(secondTarget.Id, target.Id)]);
+        Assert.Equal(new[] { left.Id, primary.Id }, references.Rows.Select(row => row.Id));
+        await Group([ReferenceAnyOf(target.Id, missing.Id)], status: HttpStatusCode.NotFound);
+        await Group([ReferenceAnyOf(foreignTarget.Id, target.Id)], status: HttpStatusCode.NotFound);
+        await Group([ReferenceAnyOf(target.Id) with { DefinitionId = fields[2] }], status: HttpStatusCode.BadRequest);
+        await Group([ReferenceAnyOf(target.Id) with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
+
+        var referenceViewId = Guid.NewGuid();
+        var referenceView = new SavedViewCommand(SavedViewAction.Save, referenceViewId, 0, 14, Guid.NewGuid(),
+            "Published reference alternatives", new(schema, [ReferenceAnyOf(target.Id, secondTarget.Id)], ""));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(referenceView with
+        {
+            RequestId = Guid.NewGuid(), Query = new(schema, [ReferenceAnyOf(target.Id, missing.Id)], ""),
+        }), HttpStatusCode.NotFound);
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(referenceView));
+        var openReferences = Wire.EncodeSavedViewExecute(new(referenceViewId, 1, ""));
+        Assert.Equal(references.Rows.ToArray(),
+            Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openReferences)).Rows.ToArray());
+        await Saved(WireRoutes.SavedViewExecute, openReferences, HttpStatusCode.NotFound, outsider, outsiderHandle);
+        await Publication(secondTarget, ArticleAction.Retract, owner);
+        await Group([ReferenceAnyOf(target.Id, secondTarget.Id)], status: HttpStatusCode.NotFound);
+        await Saved(WireRoutes.SavedViewExecute, openReferences, HttpStatusCode.Conflict);
+        Assert.Equal(primary.Id, Assert.Single((await Group([ReferenceAnyOf(target.Id)])).Rows).Id);
+
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
 
@@ -318,6 +348,9 @@ public sealed class PropertyQueryPostgresTests
 
         PropertyCondition SingleAnyOf(params Guid[] alternatives) =>
             new(fields[4], 2, PropertyComparison.SingleSelectAnyOf, new PropertyFieldValue.MultiSelect(alternatives));
+
+        PropertyCondition ReferenceAnyOf(params int[] alternatives) =>
+            new(fields[6], 2, PropertyComparison.ReferenceAnyOf, new PropertyFieldValue.ArticleReference(alternatives));
 
         async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
         {
@@ -336,6 +369,9 @@ public sealed class PropertyQueryPostgresTests
                 field, definition, Guid.NewGuid(), value)), owner);
         async Task<ArticleState> Article(string title, string token) => (await store.WithSession(token, true, (c, t, a) =>
             Store.Execute(c, t, a, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, "Private"), ct), ct)).Article;
+        async Task<ArticleState> Publication(ArticleState article, ArticleAction action, string token) =>
+            (await store.WithSession(token, true, (c, t, a) => Store.Execute(c, t, a, action,
+                new(article.Id, article.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;
         async Task<string> SignIn(string name)
         {
             var id = Guid.NewGuid();

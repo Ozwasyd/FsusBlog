@@ -8,6 +8,7 @@ public sealed record PropertyArticleQuery(long SchemaRevision, Guid DefinitionId
 public enum PropertyComparison
 {
     Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4, IsPresent = 5, MultiSelectAnyOf = 6, SingleSelectAnyOf = 7,
+    ReferenceAnyOf = 8,
 }
 public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value);
 public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor);
@@ -175,6 +176,7 @@ public static partial class Wire
         PropertyComparison.IsPresent => value is PropertyFieldValue.Missing,
         PropertyComparison.MultiSelectAnyOf => value is PropertyFieldValue.MultiSelect,
         PropertyComparison.SingleSelectAnyOf => value is PropertyFieldValue.MultiSelect { Value.Count: > 0 },
+        PropertyComparison.ReferenceAnyOf => value is PropertyFieldValue.ArticleReference,
         PropertyComparison.LessThan or PropertyComparison.AtMost or PropertyComparison.GreaterThan or PropertyComparison.AtLeast
             => value is PropertyFieldValue.Number or PropertyFieldValue.Date,
         _ => false,

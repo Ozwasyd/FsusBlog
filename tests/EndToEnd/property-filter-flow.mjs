@@ -3,10 +3,12 @@ import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exercisePinnedViewRail, verifyUnpinnedViewRail } from './pinned-view-rail-flow.mjs'
 
-export async function exercisePropertyFilter(publisher, origin, article, exactScore, observations) {
-  await prepareSelectionFields(publisher)
+export async function exercisePropertyFilter(publisher, origin, article, exactScore, observations, articleCommand) {
+  const draft = await articleCommand(WireRoutes.Save, 0, 0n, 'Property reference fixture', 'A published reference target.')
+  const target = await articleCommand(WireRoutes.Publish, draft.id, draft.revision)
   const page = await publisher.context().newPage()
   try {
+    await prepareFilterFields(publisher, target.id)
     await page.goto(`${origin}/user/manage/article/list`)
     await page.getByText('按文章属性筛选', { exact: true }).click()
     const field = async name => {
@@ -79,12 +81,14 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     observations.push('The author collection combines a UTC date bound and an exact decimal bound, distinguishes inclusive from strict comparison, and clears results when a condition changes at 375px.')
     await verifyMultiSelect(page, article, field, comparison, result, observations)
     await verifySingleSelect(page, article, field, comparison, result, observations)
+    await verifyReferenceAlternatives(page, article, target.id, field, comparison, result, observations)
   } finally {
     await page.close()
+    await articleCommand(WireRoutes.Retract, target.id, target.revision)
   }
 }
 
-async function prepareSelectionFields(publisher) {
+async function prepareFilterFields(publisher, referenceId) {
   const button = name => publisher.getByRole('button', { name, exact: true })
   await button('Inspector').click()
   await create('Editorial topics', 'editorial-topics', 'Multiple select', ['Planning', 'Review'])
@@ -100,18 +104,24 @@ async function prepareSelectionFields(publisher) {
   assert.equal(await stage.getByRole('radio', { name: 'Ready', exact: true }).isChecked(), true)
   await button('Save property').click()
   await publisher.getByText('Ready', { exact: true }).waitFor()
+  await create('Editorial reference', 'editorial-reference', 'Article reference')
+  await publisher.getByLabel('Editorial reference value', { exact: true }).fill(String(referenceId))
+  await button('Save property').click()
+  await publisher.getByText(`Article #${referenceId}`, { exact: true }).waitFor()
   await publisher.getByRole('complementary', { name: 'Article inspector' })
     .getByRole('button', { name: 'Close', exact: true }).click()
 
-  async function create(label, key, type, [first, second]) {
+  async function create(label, key, type, options) {
     await button('Add property').click()
     await publisher.getByLabel('Property label', { exact: true }).fill(label)
     await publisher.getByLabel('Property key', { exact: true }).fill(key)
     await publisher.getByRole('combobox', { name: 'Property type', exact: true }).click()
     await publisher.getByRole('option', { name: type, exact: true }).click()
-    await publisher.getByLabel('Option 1', { exact: true }).fill(first)
-    await button('Add option').click()
-    await publisher.getByLabel('Option 2', { exact: true }).fill(second)
+    if (options) {
+      await publisher.getByLabel('Option 1', { exact: true }).fill(options[0])
+      await button('Add option').click()
+      await publisher.getByLabel('Option 2', { exact: true }).fill(options[1])
+    }
     await button('Create property').click()
     await button(`Edit ${label}`).click()
   }
@@ -175,6 +185,29 @@ async function verifySingleSelect(page, article, field, comparison, result, obse
   assert.equal(await result.getByRole('link').count(), 1)
   await saveAndReopen(page, article, 'Ready or on hold')
   observations.push('At 375px, FsusUI rejects empty single-select alternatives, matches either of two UUID choices against one stored value, and reopens the private saved result.')
+}
+
+async function verifyReferenceAlternatives(page, article, referenceId, field, comparison, result, observations) {
+  const button = name => page.getByRole('button', { name, exact: true })
+  await page.goto(new URL('/user/manage/article/list', page.url()).href)
+  await page.getByText('按文章属性筛选', { exact: true }).click()
+  await field('Editorial reference · editorial-reference')
+  await button('启用此字段的筛选').click()
+  await button('停用此字段的筛选').waitFor()
+  await comparison('任一匹配')
+  await button('筛选属性').click()
+  await result.getByText('没有匹配的文章。').waitFor()
+  const input = page.getByLabel('属性值', { exact: true })
+  await input.fill(`${referenceId}, ${article.id}`)
+  await button('筛选属性').click()
+  await page.getByText('筛选字段、引用或修订已不可用。请重新加载属性定义。', { exact: true }).waitFor()
+  assert.equal(await result.count(), 0)
+  await input.fill(String(referenceId))
+  await button('筛选属性').click()
+  await result.getByRole('link', { name: article.title, exact: true }).waitFor()
+  assert.equal(await result.getByRole('link').count(), 1)
+  await saveAndReopen(page, article, 'Current published reference')
+  observations.push('At 375px, the reference filter accepts empty alternatives, rejects a mixed published and private target list, and reopens the saved match for a current published target.')
 }
 
 async function saveAndReopen(page, article, title) {

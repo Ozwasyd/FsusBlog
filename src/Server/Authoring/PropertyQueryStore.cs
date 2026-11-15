@@ -149,7 +149,9 @@ internal sealed partial class PropertyStore
                 PropertyValues.NormalizeSelectionAlternatives(definition, choices),
             (PropertyComparison.SingleSelectAnyOf, PropertyKind.SingleSelect, PropertyValue.MultiSelect choices) =>
                 PropertyValues.NormalizeSelectionAlternatives(definition, choices),
-            (PropertyComparison.MultiSelectAnyOf or PropertyComparison.SingleSelectAnyOf, _, _) => throw Invalid(),
+            (PropertyComparison.ReferenceAnyOf, PropertyKind.ArticleReference, PropertyValue.ArticleReference references) =>
+                PropertyValues.NormalizeReferenceAlternatives(definition, references),
+            (PropertyComparison.MultiSelectAnyOf or PropertyComparison.SingleSelectAnyOf or PropertyComparison.ReferenceAnyOf, _, _) => throw Invalid(),
             (_, PropertyKind.Number, PropertyValue.Number number) => number,
             (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
             _ => throw Invalid(),
@@ -168,6 +170,13 @@ internal sealed partial class PropertyStore
         {
             parameters.Add(PropertyTypeTag(condition.Kind));
             sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
+        }
+        else if (condition.Comparison == PropertyComparison.ReferenceAnyOf && condition.Value is PropertyValue.ArticleReference references)
+        {
+            parameters.Add(PropertyTypeTag(condition.Kind));
+            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
+            parameters.Add(ReferenceIds(references));
+            sql.Append(" and v.data->'ArticleIds'=to_jsonb(v.references_ids) and v.references_ids && $").Append(parameters.Count);
         }
         else if (condition.Comparison is PropertyComparison.MultiSelectAnyOf or PropertyComparison.SingleSelectAnyOf &&
                  condition.Value is PropertyValue.MultiSelect alternatives)

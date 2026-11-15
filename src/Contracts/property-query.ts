@@ -13,7 +13,7 @@ export type FilterField = Readonly<{
 }>
 export type FilterCatalog = Readonly<{ revision: bigint; nextKey: string; fields: readonly FilterField[] }>
 export const propertyComparisons = [
-  'equal', 'less-than', 'at-most', 'greater-than', 'at-least', 'is-present', 'multi-select-any-of', 'single-select-any-of',
+  'equal', 'less-than', 'at-most', 'greater-than', 'at-least', 'is-present', 'multi-select-any-of', 'single-select-any-of', 'reference-any-of',
 ] as const
 export type PropertyComparison = typeof propertyComparisons[number]
 export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
@@ -72,6 +72,9 @@ export function encodePropertyQuery(query: PropertyQuery) {
     if (condition.comparison === 'single-select-any-of' &&
         (condition.field.kind !== 'single-select' || condition.value.kind !== 'multi-select' || condition.value.value.length === 0))
       throw new ProtocolError('Single-select matching requires at least one alternative')
+    if (condition.comparison === 'reference-any-of' &&
+        (condition.field.kind !== 'article-reference' || condition.value.kind !== 'article-reference'))
+      throw new ProtocolError('Reference matching requires article ID alternatives')
     output.uuid(condition.field.id)
     output.i64(condition.field.revision)
     output.i32(propertyComparisons.indexOf(condition.comparison))

@@ -20,7 +20,7 @@ const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
   'greater-than': '大于', 'at-least': '大于或等于',
-} as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of' | 'single-select-any-of'>, string>
+} as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of' | 'single-select-any-of' | 'reference-any-of'>, string>
 const dateComparisons = {
   ...comparisons,
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
@@ -117,8 +117,14 @@ function operand(): PropertyValue | undefined {
     case 'single-select': return { kind: 'single-select', value: choice.value }
     case 'multi-select': return { kind: 'multi-select', value: [...multiple.value] }
     case 'article-reference': {
-      if (!/^[1-9]\d{0,9}$/.test(text.value)) return
-      return { kind: 'article-reference', value: [Number(text.value)] }
+      const alternatives = mode.value === 'reference-any-of'
+      const input = alternatives ? text.value.trim() : text.value
+      if (alternatives && !input) return { kind: 'article-reference', value: [] }
+      const values = alternatives ? input.split(',', WireLimits.PropertyOptionCount + 1).map(item => item.trim()) : [input]
+      if (values.length > WireLimits.PropertyOptionCount || !values.every(id => /^[1-9]\d{0,9}$/.test(id))) return
+      const ids = values.map(Number)
+      if (new Set(ids).size !== ids.length || ids.some(id => id > 2147483647)) return
+      return { kind: 'article-reference', value: ids }
     }
   }
 }
@@ -151,8 +157,9 @@ function conditionText(condition: PropertyCondition) {
   const names = new Map(field.options.map(option => [option.id, option.label]))
   const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || '空选项集合'
     : value.kind === 'single-select' ? names.get(value.value)
-    : value.kind === 'article-reference' ? value.value.join('、') : String(value.value)
-  if (comparison === 'multi-select-any-of' || comparison === 'single-select-any-of') return `${field.label} · 任一匹配 ${description}`
+    : value.kind === 'article-reference' ? value.value.join('、') || '空引用集合' : String(value.value)
+  if (comparison === 'multi-select-any-of' || comparison === 'single-select-any-of' || comparison === 'reference-any-of')
+    return `${field.label} · 任一匹配 ${description}`
   const labels = field.kind === 'date' ? dateComparisons : comparisons
   return `${field.label} · ${labels[comparison]} ${description}`
 }
@@ -265,6 +272,7 @@ async function search(more = false) {
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
             <ElOption v-if="field.kind === 'single-select'" value="single-select-any-of" label="任一匹配" />
             <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" label="任一匹配" />
+            <ElOption v-if="field.kind === 'article-reference'" value="reference-any-of" label="任一匹配" />
             <ElOption value="is-present" label="值存在" />
             <ElOption value="missing" label="尚未设置" />
             <ElOption value="null" label="显式空值" />
@@ -283,7 +291,7 @@ async function search(more = false) {
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
             <ElInput v-else id="property-filter-value" v-model="text" :disabled="busy"
-              :placeholder="field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? '文章 ID' : undefined" />
+              :placeholder="mode === 'reference-any-of' ? '文章 ID，用逗号分隔' : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? '文章 ID' : undefined" />
           </template>
           <ElButton v-if="conditions.length + 1 < WireLimits.PropertyQueryConditionCount" text
             :disabled="busy || !!pendingChange" @click="add">添加条件</ElButton>

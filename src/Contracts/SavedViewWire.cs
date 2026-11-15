@@ -131,6 +131,7 @@ public static partial class Wire
             item.Comparison, item.Value)).ToArray(), ""));
         var version = conditions.Max(item => item.Comparison switch
         {
+            PropertyComparison.ReferenceAnyOf => 5,
             PropertyComparison.SingleSelectAnyOf => 4,
             PropertyComparison.MultiSelectAnyOf => 3,
             PropertyComparison.IsPresent => 2,
@@ -152,6 +153,13 @@ public static partial class Wire
                     throw InvalidSavedView();
                 WriteValue(writer, new PropertyFieldValue.MultiSelect(options.Value.Order().ToArray()));
             }
+            else if (item.Comparison == PropertyComparison.ReferenceAnyOf)
+            {
+                if (item.Kind != PropertyFieldKind.ArticleReference || item.Value is not PropertyFieldValue.ArticleReference references ||
+                    references.Value.Count > WireLimits.PropertyOptionCount)
+                    throw InvalidSavedView();
+                WriteValue(writer, new PropertyFieldValue.ArticleReference(references.Value.Order().ToArray()));
+            }
             else WriteValue(writer, item.Value);
         }
         return writer.Written.ToArray();
@@ -161,7 +169,7 @@ public static partial class Wire
     {
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
-        if (reader.I32() is not (1 or 2 or 3 or 4)) throw InvalidSavedView();
+        if (reader.I32() is not (1 or 2 or 3 or 4 or 5)) throw InvalidSavedView();
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];

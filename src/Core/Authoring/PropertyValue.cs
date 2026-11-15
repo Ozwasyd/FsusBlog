@@ -186,6 +186,15 @@ public static class PropertyValues
         return new(ValidateSet(value.OptionIds, bounds, id => IsActive(settings, id)));
     }
 
+    public static PropertyValue.ArticleReference NormalizeReferenceAlternatives(PropertyDefinition definition, PropertyValue.ArticleReference value)
+    {
+        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable ||
+            definition.Settings.Kind != PropertyKind.ArticleReference)
+            throw Invalid("filter-unavailable");
+        // The candidate set is independent of the stored field's reference cardinality.
+        return new(ValidateSet(value.ArticleIds, null, id => id > 0));
+    }
+
     private static PropertyValue NormalizePresent(PropertySettings settings, PropertyValue value)
     {
         bool empty = (settings.Kind, value) switch

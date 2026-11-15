@@ -139,6 +139,17 @@ test('single-select filters encode nonempty UUID alternatives without changing s
     ProtocolError)
 })
 
+test('reference alternatives encode the bounded existing article reference carrier', () => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'article-reference', machineKey: 'reference',
+    label: 'Reference', enabled: true, deprecated: false, options: [] }
+  const condition = { field, comparison: 'reference-any-of', value: { kind: 'article-reference', value: [42, 17] } } as const
+  const query = { schema: 10n, cursor: '', conditions: [condition] }
+  assert.deepEqual(encodePropertyQuery(query), fixture('property-query-reference-any-of'))
+  assert.doesNotThrow(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, value: { kind: 'article-reference', value: [] } }] }))
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, value: { kind: 'article-reference', value: [17, 17] } }] }),
+    ProtocolError)
+})
+
 test('typed writers reject unsupported identity, dates, and exact decimal overflow', () => {
   assert.equal(normalizePropertyDecimal('-000.000'), '0')
   assert.equal(normalizePropertyDecimal('09007199254740993.0020000'), '9007199254740993.002')
