@@ -307,7 +307,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                 select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at,
                     p.publication_no, c.id, c.name, tags.ids, tags.names, s.id,
                     w.enabled,w.license_type,w.copyright_holder,w.copyright_year,w.rights_statement,w.attribution_template,
-                    w.copy_policy,w.max_excerpt_chars,w.allow_code_copy,w.show_public_badge,w.proof_binding_enabled
+                    w.copy_policy,w.max_excerpt_chars,w.allow_code_copy,w.show_public_badge,w.proof_binding_enabled,r.author_summary
                 from public.article_publication p join public.article a on a.id=p.article_id
                 join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
                 join public.article_publication_rights s on s.article_id=p.article_id and s.publication_id=p.publication_id and s.revision=p.revision
@@ -342,12 +342,13 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                 var body = row.GetString(4);
                 var limit = Math.Min(body.Length, 200);
                 if (limit > 0 && char.IsHighSurrogate(body[limit - 1])) limit--;
+                var summary = row.IsDBNull(25) ? body[..limit] : row.GetString(25);
                 var category = row.IsDBNull(9) ? null : new TaxonomyName(row.GetInt32(9), row.GetString(10));
                 var tags = row.IsDBNull(11) ? [] : row.GetFieldValue<int[]>(11).Zip(row.GetFieldValue<string[]>(12),
                     (tagId, name) => new TaxonomyName(tagId, name)).ToArray();
                 articles.Add(new Article(id, revision, publication, checked((int)revision), row.GetInt32(8),
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
-                    row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags, rights));
+                    row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights));
             }
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
                 ct, taxonomyEpoch, mediaProjection);

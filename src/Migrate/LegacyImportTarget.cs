@@ -80,7 +80,7 @@ internal static partial class Migration
         await using (var role = new NpgsqlCommand("SHOW session_replication_role", target, transaction))
             if (await role.ExecuteScalarAsync(token) is not "origin")
                 throw new InvalidOperationException("Candidate PostgreSQL integrity triggers are not active.");
-        await CurrentSchema.VerifyCatalogAsync(target, transaction, token);
+        await CurrentSchema.VerifyCatalogAsync(target, transaction, token, requireArticleSummary: true);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(target, transaction, token);
         var site = await CurrentSchema.ReadRecoverySiteIdAsync(target, transaction, token);
         var identity = await ReadTargetAsync(target, transaction, token);

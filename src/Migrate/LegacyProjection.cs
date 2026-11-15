@@ -113,7 +113,7 @@ internal static partial class Migration
         if (await ReadTargetAsync(target, tx, token) != plan.Target ||
             await CurrentSchema.ReadRecoverySiteIdAsync(target, tx, token) != plan.TargetSiteId)
             throw new InvalidOperationException("The quarantined candidate is not the original staged database and site.");
-        await CurrentSchema.VerifyCatalogAsync(target, tx, token);
+        await CurrentSchema.VerifyCatalogAsync(target, tx, token, requireArticleSummary: true);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(target, tx, token);
         await using (var marker = new NpgsqlCommand($"""
             SELECT current_setting('session_replication_role')='origin'

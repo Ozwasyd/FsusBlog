@@ -9,12 +9,12 @@ case "$# ${1:-}" in
     '0 ')
         profile=first plan_version=3 expected_publications=1 rollback_profile=false
         source_overlays=("$fixture/legacy-runtime-first-publication-fixture.sql")
-        public_expectation=(42 1 900000001 700 11 'News' 'Blog News' 'Legacy first publication' 'Verified starlight rehearsal.')
+        public_expectation=(42 1 900000001 700 11 'News' 'Blog News' 'Legacy first publication' 'Verified starlight rehearsal.' 'Verified starlight rehearsal.')
         ;;
     '1 --rollback')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
         source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
-        public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' --rollback)
+        public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
     *) printf 'Usage: %s [--rollback]\n' "$0" >&2; exit 2 ;;
 esac
@@ -69,7 +69,8 @@ cleanup() {
         pg_ctl -D "$scratch/data" -m fast -w -t 20 stop >> "$evidence/postgres.log" 2>&1 || clean=no
     fi
     if pg_ctl -D "$scratch/data" status >/dev/null 2>&1; then clean=no; fi
-    if [[ "$clean" == yes ]]; then find "$scratch" -depth -delete || clean=no; fi
+    if [[ "$clean" == yes && "$status" == 0 ]]; then find "$scratch" -depth -delete || clean=no; fi
+    if [[ "$status" != 0 || "$clean" != yes ]]; then printf 'retained_scene=%s\n' "$scratch" >> "$evidence/run.txt"; fi
     if [[ "$clean" != yes ]]; then status=1; fi
     printf 'exit=%s\ncleanup=%s\nended=%s\n' "$status" "$clean" "$(date -u +%FT%TZ)" >> "$evidence/run.txt"
     printf 'Evidence %s\n' "$evidence"

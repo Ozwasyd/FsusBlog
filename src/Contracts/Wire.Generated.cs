@@ -179,6 +179,8 @@ public enum FrameType : ushort
     AuthorTextFacetedQuery = 33013,
     AuthorTextFacetedPage = 33014,
     AuthorTextQualifiedQuery = 33015,
+    ArticleSummaryCommand = 33016,
+    ArticleSummary = 33017,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -255,6 +257,11 @@ public static class WireLimits
     public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
+    public const int ArticleSummaryEditChars = 250;
+    public const int ArticleSummaryEditBytes = 1000;
+    public const int ArticleSummaryReadChars = 1024;
+    public const int ArticleSummaryReadBytes = 2048;
+    public const int MaxArticleSummaryCommandFrameBytes = 1048;
     public const int AuthorArticlePageSize = 20;
     public const int AuthorArticleKeywordChars = 128;
     public const int NameBytes = 256;
@@ -729,6 +736,8 @@ public static class WireRoutes
     public const string DraftRollback = "/api/v2/authoring/rollback.aeds";
     public const string DraftRights = "/api/v2/authoring/draft/{id:int}/rights.aeds";
     public const string DraftRightsCommand = "/api/v2/authoring/rights.aeds";
+    public const string ArticleSummary = "/api/v2/authoring/summary/{id:int}.aeds";
+    public const string ArticleSummarySave = "/api/v2/authoring/summary.aeds";
     public const string AuthorArticles = "/api/v2/authoring/articles.aeds";
     public const string DraftSchedule = "/api/v2/authoring/draft/{id:int}/schedule.aeds";
     public const string DraftScheduleCommand = "/api/v2/authoring/schedule.aeds";

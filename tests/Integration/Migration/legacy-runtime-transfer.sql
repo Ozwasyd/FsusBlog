@@ -103,7 +103,7 @@ DO $$ BEGIN RAISE EXCEPTION 'Sealed source differs from the supported publicatio
 \copy (SELECT id,name,description FROM public.tag ORDER BY id) TO 'tag.csv' CSV
 \copy (SELECT name_key,tag_id FROM public.tag_url_name ORDER BY name_key) TO 'tag_url_name.csv' CSV
 \copy (SELECT id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at FROM public.article ORDER BY id) TO 'article.csv' CSV
-\copy (SELECT article_id,revision,title,body,happened_at FROM public.article_revision ORDER BY article_id,revision) TO 'article_revision.csv' CSV
+\copy (SELECT article_id,revision,title,body,happened_at,author_summary FROM public.article_revision ORDER BY article_id,revision) TO 'article_revision.csv' CSV
 \copy (SELECT article_id,revision,category_id FROM public.article_revision_category ORDER BY article_id,revision) TO 'article_revision_category.csv' CSV
 \copy (SELECT article_id,revision,tag_id FROM public.article_revision_tag ORDER BY article_id,revision,tag_id) TO 'article_revision_tag.csv' CSV
 \copy (SELECT article_id,publication_id,revision,publication_no,published_at FROM public.article_publication ORDER BY article_id) TO 'article_publication.csv' CSV
@@ -128,7 +128,7 @@ INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
 \copy public.tag (id,name,description) FROM 'tag.csv' CSV
 \copy public.tag_url_name (name_key,tag_id) FROM 'tag_url_name.csv' CSV
 \copy public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at) FROM 'article.csv' CSV
-\copy public.article_revision (article_id,revision,title,body,happened_at) FROM 'article_revision.csv' CSV
+\copy public.article_revision (article_id,revision,title,body,happened_at,author_summary) FROM 'article_revision.csv' CSV
 \copy public.article_revision_category (article_id,revision,category_id) FROM 'article_revision_category.csv' CSV
 \copy public.article_revision_tag (article_id,revision,tag_id) FROM 'article_revision_tag.csv' CSV
 \copy public.article_publication (article_id,publication_id,revision,publication_no,published_at) FROM 'article_publication.csv' CSV

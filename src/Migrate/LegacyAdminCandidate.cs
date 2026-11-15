@@ -73,6 +73,10 @@ internal static partial class Migration
             "article_read_epoch" => """
                 SELECT count(*)=1 AND bool_and(singleton AND last_epoch IS NULL) FROM public.article_read_epoch
                 """,
+            "root_comment_pow_policy" => """
+                SELECT count(*)=1 AND bool_and(singleton AND generation=1 AND proof_seconds=120)
+                FROM public.root_comment_pow_policy
+                """,
             _ => null
         };
         if (sql is null) return false;

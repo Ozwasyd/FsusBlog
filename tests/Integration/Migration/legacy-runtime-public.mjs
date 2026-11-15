@@ -6,10 +6,10 @@ import { decodeTaxonomyMetadata } from '../../../src/Contracts/taxonomy.ts'
 import { encodeSignIn, FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../../src/Contracts/wire.generated.ts'
 
 const inputs = process.argv.slice(2)
-const rollback = inputs.length === 11 && inputs[10] === '--rollback'
-assert(inputs.length === 10 || rollback,
-  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY" [--rollback]')
-const [url, articleInput, revisionInput, publicationInput, rightsInput, categoryInput, tagName, alias, title, body] = inputs
+const rollback = inputs.length === 12 && inputs[11] === '--rollback'
+assert(inputs.length === 11 || rollback,
+  'Usage: node legacy-runtime-public.mjs BASE_URL ARTICLE_ID REVISION PUBLICATION_ID RIGHTS_ID CATEGORY_ID "TAG_NAME" "ALIAS" "TITLE" "BODY" "SUMMARY" [--rollback]')
+const [url, articleInput, revisionInput, publicationInput, rightsInput, categoryInput, tagName, alias, title, body, summary] = inputs
 const base = new URL(url)
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
   base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash,
@@ -109,6 +109,7 @@ const detail = await read('detail', detailPath, binary)
 const article = decodeArticle(decodeFrame(detail.bytes, FrameType.ArticleDetail).payload)
 checkArticle(article)
 assert.equal(article.body, body)
+assert.equal(article.summary, summary)
 assert.equal(article.coverImageUrl, '', 'The fixture must have no cover image.')
 assert.equal(detail.reply.headers.get(WireHeaders.PublicArticleMediaPresent), null)
 assert.equal(article.rights?.snapshotId, expectedRights)
@@ -161,9 +162,12 @@ if (rollback) {
   assert(!html.includes('<h1>Public</h1>') && !plainHtmlText(html).includes('published ☃'),
     'The superseded second revision must not appear in the current view.')
   assert.deepEqual(index.articles.map(item => item.id), [id], 'Only the active rollback must be indexed.')
-  const supersededQuery = `${WireRoutes.PublicSearch}?${new URLSearchParams({ q: 'Public' })}`
+  const supersededQuery = `${WireRoutes.PublicSearch}?${new URLSearchParams({ q: 'Second' })}`
   const superseded = decodeSearch(await frame('supersededSearch', supersededQuery, FrameType.ArticleSearch))
   assert.deepEqual([superseded.total, superseded.articles], [0, []])
+  const retainedQuery = `${WireRoutes.PublicSearch}?${new URLSearchParams({ q: summary })}`
+  const retained = decodeSearch(await frame('retainedSummarySearch', retainedQuery, FrameType.ArticleSearch))
+  assert.deepEqual(retained.articles.map(item => [item.id, item.summary]), [[id, summary]])
 
   const relatedPath = publication => `${WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(id))}?publication=${publication}`
   await frame('activeRelated', relatedPath(expectedPublication), FrameType.ArticleRelatedReading)

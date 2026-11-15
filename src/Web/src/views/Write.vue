@@ -8,6 +8,7 @@ import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxon
 import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
+import { saveDraftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
 import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
 import { publishArticleImages, type PublishImagesSelection } from '../../../Contracts/published-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
@@ -19,6 +20,7 @@ import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
 import ArticleSchedule from '../authoring/ArticleSchedule.vue'
 import ArticleRights from '../authoring/ArticleRights.vue'
+import ArticleSummary from '../authoring/ArticleSummary.vue'
 import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
@@ -42,7 +44,7 @@ import {
 } from '../authoring/workspaceRegistry'
 
 type ArticleAction = 'save' | 'publish' | 'retract'
-type Action = ArticleAction | 'publish-images' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment'
+type Action = ArticleAction | 'publish-images' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment' | 'save-summary'
 type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
@@ -86,6 +88,8 @@ type NavigationIntent = {
 let explicitNavigation: NavigationIntent | undefined
 const notice = ref('')
 const taxonomyDirty = ref(false)
+const summaryDirty = ref(false)
+const metadataDirty = computed(() => taxonomyDirty.value || summaryDirty.value)
 const taxonomyStale = ref(false)
 const propertyPending = ref(false)
 const revisionComparisonActive = ref(false)
@@ -105,11 +109,11 @@ const original = shallowRef<Draft>()
 const tab = shallowRef<WorkspaceTab>()
 const selectedPanelTitle = computed(() => tab.value?.title ? `Article content – ${tab.value.title}` : 'Article content')
 const articleDirty = computed(() => tab.value?.risk === 'dirty' || tab.value?.risk === 'conflict')
-const dirty = computed(() => articleDirty.value || taxonomyDirty.value)
+const dirty = computed(() => articleDirty.value || metadataDirty.value)
 const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'conflict')
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
-const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
+const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !metadataDirty.value && !recoveryWorking.value &&
   !closingTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const encoder = new TextEncoder()
@@ -122,7 +126,7 @@ const validTitle = computed(() => validDraftTitle(original.value?.title ?? ''))
 const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
 const cannotWrite = computed(() => closingTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
-  taxonomyDirty.value || !validBody.value || !validTitle.value)
+  metadataDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
 const editorArea = ref<HTMLElement>()
 const wideEditorArea = ref(false)
@@ -133,6 +137,9 @@ const showComparison = computed(() => twoSources.value && wideEditorArea.value &
 const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.active)?.tab)
 const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
+const canChangeSummary = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
+  !closingTabs.value && !pending.value && !recoveryBlocked.value && !hasConflict.value && !taxonomyDirty.value &&
+  validBody.value && validTitle.value)
 const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
   !closingTabs.value && composing.value === undefined && !revisionComparisonActive.value)
 const activeGroupTabs = computed(() => workspaceTabs.value.filter(candidate => candidate.group === tab.value?.group))
@@ -260,6 +267,16 @@ const updateAttachment = (edit: AttachmentEdit) => (draft: Draft, signal: AbortS
   return mutationResult(() => editArticleMedia(draft.id, draft.revision, key, edit, handle, signal), signal)
 }
 
+const updateSummary = (text: string) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> => {
+  const handle = currentSession.value?.siteSessionId
+  if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
+  return mutationResult(async () => {
+    const stored = await saveDraftSummary({ id: draft.id, expectedRevision: draft.revision, idempotencyKey, text }, handle, signal)
+    if (stored.title !== draft.title || stored.body !== draft.body) throw new Error('The summary reply changed the draft source.')
+    return stored
+  }, signal)
+}
+
 const publishImages = (assets: readonly string[]) => (draft: Draft, signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
@@ -295,6 +312,7 @@ const unsubscribe = registry.subscribe(() => {
   const next = registry.activeDraft
   if (next?.id !== original.value?.id || next?.revision !== original.value?.revision) {
     taxonomyDirty.value = false
+    summaryDirty.value = false
     taxonomyStale.value = false
   }
   original.value = next
@@ -380,9 +398,9 @@ watch(id, () => {
   sourceArrival = undefined
   sourceSeek.value = undefined
 }, { flush: 'sync' })
-watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, taxonomyDirty, composing, closingTabs,
-  revisionComparisonActive], ([items, recovering, risk, property, taxonomy, composition, closing, comparing]) => {
-  if (sourceSeek.value?.kind === 'search' && (items.length > 0 || recovering || risk !== 'clean' || property || taxonomy ||
+watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, metadataDirty, composing, closingTabs,
+  revisionComparisonActive], ([items, recovering, risk, property, metadata, composition, closing, comparing]) => {
+  if (sourceSeek.value?.kind === 'search' && (items.length > 0 || recovering || risk !== 'clean' || property || metadata ||
     composition !== undefined || closing || comparing)) {
     sourceSeek.value = undefined
     notice.value = searchPositionUnavailable
@@ -591,7 +609,7 @@ async function focusGroup(target: WorkspaceTab) {
 async function focusSource(target: WorkspaceTab, epoch: number) {
   await nextTick()
   if (epoch !== identityEpoch.value || tab.value?.sessionId !== target.sessionId || !editable.value) return
-  if (!recoveryBlocked.value && !pending.value && !taxonomyDirty.value) {
+  if (!recoveryBlocked.value && !pending.value && !metadataDirty.value) {
     document.getElementById('article-body')?.focus({ preventScroll: true })
     return
   }
@@ -602,14 +620,14 @@ async function focusSource(target: WorkspaceTab, epoch: number) {
   }
 }
 
-watch([recoveryBlocked, pending, taxonomyDirty, () => tab.value?.sessionId, editable], async ([blocked, writing, classifying, sessionId, ready]) => {
+watch([recoveryBlocked, pending, metadataDirty, () => tab.value?.sessionId, editable], async ([blocked, writing, editingMetadata, sessionId, ready]) => {
   const request = deferredFocus
   if (!request) return
   if (sessionId !== request.sessionId || request.epoch !== identityEpoch.value) {
     deferredFocus = undefined
     return
   }
-  if (blocked || writing || classifying || !ready) return
+  if (blocked || writing || editingMetadata || !ready) return
   await nextTick()
   if (deferredFocus !== request) return
   deferredFocus = undefined
@@ -851,7 +869,7 @@ function flushHiddenWorkspace() {
 async function allowLeave(allTabs = false) {
   if (propertyPending.value || closingTabs.value) return false
   const candidates = (allTabs ? workspaceTabs.value : tab.value ? [tab.value] : [])
-    .filter(item => item.risk !== 'clean' || item.active && taxonomyDirty.value)
+    .filter(item => item.risk !== 'clean' || item.active && metadataDirty.value)
   if (!candidates.length) return true
   if (candidates.some(item => item.risk === 'saving' || item.risk === 'pending' || item.retry)) return false
   const plan = registry.planClose(candidates)
@@ -887,7 +905,7 @@ onBeforeRouteLeave(async () => {
 function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
+  if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !metadataDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
     if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
@@ -920,10 +938,10 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
   if (!current || !document || !editable.value || closingTabs.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
-  } else if (action === 'publish-images') {
+  } else if (action === 'publish-images' || action === 'save-summary') {
     return
   } else if (action === 'assign-taxonomy') {
-    if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value) return
+    if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value || summaryDirty.value) return
   } else if (action === 'rollback-history') {
     if (!restore || current.risk !== 'clean' || cannotWrite.value) return
   } else if (action === 'schedule-publication') {
@@ -971,6 +989,18 @@ async function publishSelectedImages(selection: PublishImagesSelection) {
   await finishSubmission('publish-images', current, document, identity, requested)
 }
 
+async function saveSummary(edit: DraftSummaryEdit) {
+  const current = tab.value
+  const document = original.value
+  if (!current || !document || !canChangeSummary.value || !summaryDirty.value ||
+      edit.articleId !== document.id || edit.revision !== document.revision || edit.credential !== credential.value) return
+  failure.value = ''
+  notice.value = ''
+  const identity = identityEpoch.value
+  const requested = registry.commit(current, 'save-summary', updateSummary(edit.text))
+  await finishSubmission('save-summary', current, document, identity, requested)
+}
+
 async function finishSubmission(action: Action, current: WorkspaceTab, document: Draft, identity: number,
   requested: ReturnType<typeof registry.retry>) {
   const result = await requested
@@ -987,6 +1017,7 @@ async function finishSubmission(action: Action, current: WorkspaceTab, document:
       'schedule-publication': 'Publication schedule updated.',
       'save-rights': 'Publication rights saved.',
       'save-attachment': 'Private attachments saved.',
+      'save-summary': 'Summary saved.',
     }[action]
     if (!document.id) await router.replace({ ...address(result.articleId), state: persistentWorkspace.value ? workspaceState : undefined })
   } else if (result.kind === 'conflict') {
@@ -1100,7 +1131,7 @@ async function reloadDraft() {
       <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
-          :blocked="closingTabs || pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
+          :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
@@ -1156,7 +1187,7 @@ async function reloadDraft() {
           :article-id="original.id"
           :revision="original.revision"
           :identity="identityEpoch"
-          :disabled="articleDirty || pending || recoveryBlocked || !!retry || hasConflict"
+          :disabled="articleDirty || summaryDirty || pending || recoveryBlocked || !!retry || hasConflict"
           @change="taxonomyDirty = $event"
           @save="submit('assign-taxonomy', $event)"
           @stale="taxonomyStale = true"
@@ -1165,7 +1196,7 @@ async function reloadDraft() {
           :article-id="original.id"
           :revision="original.revision"
           :identity="identityEpoch"
-          :disabled="articleDirty || taxonomyDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
+          :disabled="articleDirty || metadataDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
           @pending="propertyPending = $event"
         />
         <RevisionHistory
@@ -1190,6 +1221,9 @@ async function reloadDraft() {
           :can-change="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-rights', undefined, undefined, undefined, $event)"
         />
+        <ArticleSummary :article-id="original.id" :revision="original.revision" :credential="credential"
+          :can-change="canChangeSummary" :saving="articlePending && summaryDirty"
+          @change="summaryDirty = $event" @save="saveSummary" />
       </EditorInspector>
     </section>
   </main>

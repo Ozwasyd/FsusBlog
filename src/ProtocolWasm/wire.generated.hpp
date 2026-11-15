@@ -67,6 +67,11 @@ inline constexpr uint32_t AuthorTextSearchSourceDigestBytes = 32;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
+inline constexpr uint32_t ArticleSummaryEditChars = 250;
+inline constexpr uint32_t ArticleSummaryEditBytes = 1000;
+inline constexpr uint32_t ArticleSummaryReadChars = 1024;
+inline constexpr uint32_t ArticleSummaryReadBytes = 2048;
+inline constexpr uint32_t MaxArticleSummaryCommandFrameBytes = 1048;
 inline constexpr uint32_t AuthorArticlePageSize = 20;
 inline constexpr uint32_t AuthorArticleKeywordChars = 128;
 inline constexpr uint32_t NameBytes = 256;
@@ -540,6 +545,8 @@ enum class FrameType : uint16_t {
     AuthorTextFacetedQuery = 33013,
     AuthorTextFacetedPage = 33014,
     AuthorTextQualifiedQuery = 33015,
+    ArticleSummaryCommand = 33016,
+    ArticleSummary = 33017,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -729,6 +736,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextFacetedQuery:
         case FrameType::AuthorTextFacetedPage:
         case FrameType::AuthorTextQualifiedQuery:
+        case FrameType::ArticleSummaryCommand:
+        case FrameType::ArticleSummary:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

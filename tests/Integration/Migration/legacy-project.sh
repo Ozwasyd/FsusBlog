@@ -324,6 +324,8 @@ PY
     FROM public.article a JOIN public.article_publication p ON p.article_id=a.id")" == '4|First|first|900000003|3|2026-10-04 00:00:00' ]]
 [[ "$("${sql[@]}" -Atc "SELECT source_revision_id,source_rollback_revision_id,source_admin_id,source_rollback_reason
     FROM fsus_legacy_candidate.shadow_revision WHERE revision=4")" == '5000000004|5000000001|7|Return to the original article text' ]]
+[[ "$("${sql[@]}" -Atc "SELECT revision,coalesce(author_summary,'[none]') FROM public.article_revision ORDER BY revision")" \
+    == $'1|Retained source summary\n2|Second release summary\n3|[none]\n4|Retained source summary' ]]
 [[ "$("${sql[@]}" -Atc "SELECT id,publication_id,revision FROM public.article_publication_rights ORDER BY publication_id")" \
     == $'700|900000001|1\n701|900000002|2\n702|900000003|4' ]]
 [[ "$("${sql[@]}" -Atc "SELECT kind,actor_id IS NULL,command_id IS NULL FROM public.article_publication_history")" == 'retained-active|t|t' ]]

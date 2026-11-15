@@ -125,7 +125,8 @@ internal static class ArticleInventoryEndpoints
         var keyword = "$" + keywordParameter.ToString(CultureInfo.InvariantCulture);
         var includeSummary = includeSummaryParameter is { } index ? "$" + index.ToString(CultureInfo.InvariantCulture) + " and " : "";
         return $"({keyword}='' or strpos(lower(a.title),lower({keyword}))>0 or " +
-            $"({includeSummary}strpos(lower(left(a.body,200)),lower({keyword}))>0))";
+            $"({includeSummary}strpos(lower(coalesce((select r.author_summary from public.article_revision r " +
+            $"where r.article_id=a.id and r.revision=a.revision),left(a.body,200))),lower({keyword}))>0))";
     }
 
     private static BusinessException Invalid() => new(Rejection.Invalid, "Invalid article inventory filters.");

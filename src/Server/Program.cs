@@ -301,6 +301,7 @@ FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame, Query);
 FsusBlog.V2.Server.Authoring.AuthorTextSearchEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.ArticleSummaryEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.SavedViewEndpoints.Map(app, Cookie, ReadFrame, Query);
 FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Authoring.AuthoringWorkspaceEndpoints.Map(app, Cookie, ReadFrame);

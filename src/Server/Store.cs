@@ -155,19 +155,31 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         return saved.Article;
     }
 
+    internal static async Task<ArticleState> SetSummary(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        ArticleSummaryCommand input, CancellationToken ct)
+    {
+        if (input.Text.Any(character => char.IsControl(character) && character is not ('\r' or '\n' or '\t')))
+            throw new BusinessException(Rejection.Invalid, "The article summary contains unsupported control characters.");
+        var summary = input with { Text = input.Text.Trim() };
+        var edit = new Edit(input.Id, input.ExpectedRevision, input.IdempotencyKey, "", "");
+        return (await Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, summary: summary)).Article;
+    }
+
     private static async Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
         ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
-        (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null)
+        (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null,
+        ArticleSummaryCommand? summary = null)
     {
         var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
             attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
             rights is not null ? SHA256.HashData(Wire.EncodeArticleRightsCommand(rights)) :
             schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
-            taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) : Publishing.Fingerprint(action, edit);
+            taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) :
+            summary is not null ? SHA256.HashData(Wire.EncodeArticleSummaryCommand(summary)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
-        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null
+        var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null || summary is not null
             ? await Find(db, tx, actor, edit.Id, true, ct) : null;
         ArticleState? replay = null;
         await using (var existing = Sql(db, tx, """
@@ -207,7 +219,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         else
         {
             current ??= await Find(db, tx, actor, edit.Id, true, ct, includeDeleted: action == ArticleAction.Restore);
-            if (taxonomy is not null || rights is not null || attachment is not null) edit = edit with { Title = current.Title, Body = current.Body };
+            if (taxonomy is not null || rights is not null || attachment is not null || summary is not null)
+                edit = edit with { Title = current.Title, Body = current.Body };
             if (schedule is not null)
             {
                 Authoring.RevisionHistoryStore.RequireRevision(current.Revision, schedule.ExpectedRevision);
@@ -230,8 +243,12 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             await update.ExecuteNonQueryAsync(ct);
         }
         await using (var revision = Sql(db, tx, """
-            insert into public.article_revision(article_id,revision,title,body,happened_at) values($1,$2,$3,$4,now())
-            """, state.Id, state.Revision, state.Title, state.Body)) await revision.ExecuteNonQueryAsync(ct);
+            insert into public.article_revision(article_id,revision,title,body,happened_at,author_summary)
+            values($1,$2,$3,$4,now(),case when $6::text is not null then nullif($6,'') else
+                (select author_summary from public.article_revision where article_id=$1 and revision=$5) end)
+            """, state.Id, state.Revision, state.Title, state.Body, rollback?.SourceRevision ?? edit.ExpectedRevision,
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)summary?.Text ?? DBNull.Value }))
+            await revision.ExecuteNonQueryAsync(ct);
         if (taxonomy is not null)
             await Content.TaxonomyStore.Replace(db, tx, state.Id, state.Revision, taxonomy.CategoryId, taxonomy.TagIds, ct);
         else if (edit.Id != 0)

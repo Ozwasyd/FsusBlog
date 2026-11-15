@@ -9,6 +9,7 @@ import { api } from '../../src/Contracts/client.ts'
 import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
 import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseArticleOutline } from './outline-flow.mjs'
@@ -334,6 +335,55 @@ try {
   await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand,
     publicFixture: config.publicFixture })
 
+  const firstSummary = `Draft summary ${token}`
+  const publishedSummary = `This release note has a manual summary ${token}.`
+  const summaryPath = WireRoutes.ArticleSummary.replace('{id:int}', String(writtenId))
+  const summaryInput = publisher.getByLabel('Summary text', { exact: true })
+  const readSummary = response => new URL(response.url()).pathname === summaryPath && response.request().method() === 'GET'
+  async function inspectSummary() {
+    const disclosure = publisher.getByText('Article summary', { exact: true })
+    await visible(button(publisher, 'Inspector'))
+    if (!await disclosure.isVisible()) await button(publisher, 'Inspector').click()
+    await visible(disclosure)
+    if (!await summaryInput.isVisible()) await disclosure.click()
+    await visible(summaryInput)
+  }
+  async function saveSummary(text) {
+    const saved = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.ArticleSummarySave &&
+      response.request().method() === 'POST')
+    const reread = publisher.waitForResponse(readSummary)
+    await button(publisher, 'Save summary').click()
+    const response = await saved
+    assert.equal(response.status(), 200)
+    decodeFrame(response.request().postDataBuffer(), FrameType.ArticleSummaryCommand)
+    const draft = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+    assert.equal(draft.id, writtenId)
+    assert.equal(draft.body, body)
+    const receipt = await reread
+    assert.equal(receipt.status(), 200)
+    assert.equal(new URL(receipt.url()).searchParams.get('revision'), String(draft.revision))
+    assert.deepEqual(decodeArticleSummary(decodeFrame(await receipt.body(), FrameType.ArticleSummary).payload),
+      { id: writtenId, revision: draft.revision, text })
+    await visible(summaryInput)
+    assert.equal(await summaryInput.inputValue(), text)
+    await visible(publisher.getByText('Summary saved.', { exact: true }))
+  }
+  await inspectSummary()
+  await summaryInput.fill(firstSummary)
+  assert(await button(publisher, 'Publish article').isDisabled())
+  await saveSummary(firstSummary)
+  const privatePage = await nativeFetch(`${origin}/article/${writtenId}`)
+  assert.equal(privatePage.status, 404)
+  assert(!(await privatePage.text()).includes(firstSummary))
+  await publisher.reload()
+  await inspectSummary()
+  assert.equal(await summaryInput.inputValue(), firstSummary)
+  await button(publisher, 'Clear summary').click()
+  await saveSummary('')
+  await summaryInput.fill(publishedSummary)
+  await saveSummary(publishedSummary)
+  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))
   const published = await api.publicIndex()
@@ -342,6 +392,14 @@ try {
   const publicArticle = await api.publicArticle(writtenId)
   assert.equal(publicArticle.title, title)
   assert.equal(publicArticle.body, body)
+  assert.equal(publicArticle.summary, publishedSummary)
+  assert.equal(indexEntry.summary, publishedSummary)
+  const articleHtml = await nativeFetch(`${origin}/article/${writtenId}`)
+  assert.equal(articleHtml.status, 200)
+  const publicMarkup = await articleHtml.text()
+  assert(publicMarkup.includes(`content="${publishedSummary}"`))
+  assert(!publicMarkup.includes(firstSummary))
+  observations.push('The Inspector saved and cleared a private revision summary, reopened it across navigation, and published only the final manual text in AEDS and HTML metadata.')
   assert.equal(publicArticle.rights?.copyrightHolder, 'Browser fixture owner & Co')
   assert.equal(indexEntry.publication, publicArticle.publication)
   if (config.publicFixture) {

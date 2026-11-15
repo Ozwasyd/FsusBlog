@@ -19,7 +19,7 @@ internal static partial class CurrentSchema
         "login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
         "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz passkey_credential_id:bytea? totp_verified_at:timestamptz?",
         "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
-        "article_revision article_id:int4 revision:int8 title:text body:text happened_at:timestamptz",
+        ArticleRevisionColumns,
         "article_command actor_id:uuid command_id:uuid fingerprint:bytea article_id:int4 revision:int8 title:text body:text published:bool",
         "article_publication article_id:int4 publication_id:int8:d revision:int8 publication_no:int4=1 published_at:timestamptz",
         "blog_outbox id:int8:a article_id:int4 revision:int8 kind:text created_at:timestamptz=now processed_at:timestamptz?"
@@ -65,7 +65,8 @@ internal static partial class CurrentSchema
 
     internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null)
+        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null,
+        bool? requireArticleSummary = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -92,7 +93,7 @@ internal static partial class CurrentSchema
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch,
-            requireAuthorTextIndex: requireAuthorTextIndex);
+            requireAuthorTextIndex: requireAuthorTextIndex, requireArticleSummary: requireArticleSummary);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -120,7 +121,7 @@ internal static partial class CurrentSchema
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
         bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
-        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null)
+        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null)
     {
         if (requireArticleMedia is null)
         {
@@ -224,6 +225,7 @@ internal static partial class CurrentSchema
         var hasAuthorTextIndex = await HasAuthorTextIndexAsync(connection, transaction, cancellationToken);
         if (requireAuthorTextIndex.HasValue && requireAuthorTextIndex.Value != hasAuthorTextIndex)
             throw new InvalidOperationException("The author full-text index schema presence does not match the requested operation.");
+        var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
             (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
@@ -251,7 +253,9 @@ internal static partial class CurrentSchema
         var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
         if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
             throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
-        var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
+        var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
+                ? ArticleRevisionColumns + " author_summary:text?" : column)
+            .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
@@ -292,7 +296,8 @@ internal static partial class CurrentSchema
             .Concat(hasArticleReadTotal ? ArticleReadTotalColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
-        var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
+        var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
+            .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
@@ -416,6 +421,8 @@ internal static partial class CurrentSchema
         var webpMedia = constraints.Contains("private_media c format format>=1ANDformat<=3", StringComparer.Ordinal);
         if (webpMedia) expectedConstraints = expectedConstraints.Select(WithWebpFormat).ToArray();
         AssertShape("relation/column", expectedColumns, columns);
+        if (requireArticleSummary.HasValue && requireArticleSummary.Value != hasArticleSummary)
+            throw new InvalidOperationException("The article author summary schema presence does not match the requested operation.");
         AssertShape("constraint", expectedConstraints, constraints);
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);

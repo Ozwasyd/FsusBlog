@@ -52,8 +52,9 @@ internal static partial class Migration
                     last_publication_number::int,deleted=1,created_at::timestamptz,updated_at::timestamptz
                 FROM {shadow}.shadow_article
                 """, Identity: true),
-            new("article_revision", "article_id,revision,title,body,happened_at", $"""
-                SELECT article_id::int,revision,title,body,happened_at::timestamptz FROM {shadow}.shadow_revision
+            new("article_revision", "article_id,revision,title,body,happened_at,author_summary", $"""
+                SELECT article_id::int,revision,title,body,happened_at::timestamptz,nullif(summary,'')
+                FROM {shadow}.shadow_revision
                 """),
             new("article_revision_category", "article_id,revision,category_id", $"""
                 SELECT article_id::int,revision,source_category_id::int FROM {shadow}.shadow_revision WHERE source_category_id>0

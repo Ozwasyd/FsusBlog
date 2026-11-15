@@ -78,6 +78,7 @@ internal static partial class Migration
                   authoring-workspace Add private workspace layout storage with the server stopped
                   author-recent-opens Add private recent article opens with the server stopped
                   author-search        Add the private author full-text index schema with the server stopped
+                  author-summary       Add article revision author summaries with the server stopped
                   saved-views          Add private author saved views with the server stopped
                   tag-metadata        Add the administrator tag metadata schema with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
@@ -322,6 +323,9 @@ internal static partial class Migration
                 case ["author-search"]:
                     await InitializeAuthorSearchAsync(connection, token);
                     break;
+                case ["author-summary"]:
+                    await InitializeAuthorSummaryAsync(connection, token);
+                    break;
                 case ["saved-views"]:
                     await InitializeSavedViewsAsync(connection, token);
                     break;
@@ -464,7 +468,7 @@ internal static partial class Migration
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
             requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
             requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,
-            requireAuthorTextIndex: true, requireRootCommentPowPolicy: true);
+            requireAuthorTextIndex: true, requireRootCommentPowPolicy: true, requireArticleSummary: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

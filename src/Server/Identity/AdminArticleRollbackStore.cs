@@ -136,10 +136,12 @@ internal sealed partial class AdminPasskeyStore
             if (await update.ExecuteNonQueryAsync(ct) != 1)
                 throw new BusinessException(Rejection.Conflict, "The article has changed.");
         await using (var addRevision = Store.Sql(db, tx, """
-            insert into public.article_revision(article_id,revision,title,body,happened_at)
-            values($1,$2,$3,$4,clock_timestamp())
-            """, article, revision, title, body))
-            await addRevision.ExecuteNonQueryAsync(ct);
+            insert into public.article_revision(article_id,revision,title,body,happened_at,author_summary)
+            select $1,$2,$3,$4,clock_timestamp(),author_summary from public.article_revision
+            where article_id=$1 and revision=$5
+            """, article, revision, title, body, sourceRevision))
+            if (await addRevision.ExecuteNonQueryAsync(ct) != 1)
+                throw new BusinessException(Rejection.Conflict, "The rollback source is unavailable.");
         await TaxonomyStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
         await PublicationRightsStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
     }

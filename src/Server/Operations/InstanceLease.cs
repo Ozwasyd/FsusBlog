@@ -93,7 +93,7 @@ internal sealed class InstanceLease : IAsyncDisposable
         WebpMedia = await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription, requireRecoveryKey, requireAdminInboxReply,
             requireSitePageEditor: requireSitePageEditor, requireSiteRefresh: requireSiteRefresh,
             requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
-            requirePublicationMedia: requirePublicationMedia);
+            requirePublicationMedia: requirePublicationMedia, requireArticleSummary: true);
         // The catalog verifier has already rejected partial or malformed installations.
         await using (var policy = Store.Sql(_owner, null, "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null"))
             RootCommentPowPolicyInstalled = await policy.ExecuteScalarAsync(ct) is true;
