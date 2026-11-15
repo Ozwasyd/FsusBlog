@@ -1,3 +1,8 @@
+\if :{?fixture_count}
+\else
+\set fixture_count 12
+\endif
+
 BEGIN;
 
 INSERT INTO public.category (id, name, description)
@@ -8,7 +13,7 @@ INSERT INTO public.tag_url_name (name_key, tag_id) VALUES ('ANCIENNE', 4);
 INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at)
 SELECT owner.id, 1, 'Browser fixture ' || seed.ordinal, 'A fixed public article.', 1, 1, false,
        TIMESTAMPTZ '2026-01-01 00:00:00+00' + seed.ordinal * INTERVAL '1 minute'
-FROM public.blog_user owner CROSS JOIN generate_series(1, 12) seed(ordinal)
+FROM public.blog_user owner CROSS JOIN generate_series(1, :fixture_count) seed(ordinal)
 WHERE owner.name = 'browser-author'
 ORDER BY seed.ordinal;
 

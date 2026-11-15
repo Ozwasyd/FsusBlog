@@ -12,7 +12,7 @@
 | GET `/api/binary/article/{articleId}/related.aeds` | ArticleRelatedReading (27)，最多六条推荐，并可带前后篇 |
 | GET `/api/binary/article/search/query.aeds?q=…` | ArticleSearch (4)，FAS4 HTTP 本体 |
 | GET `/api/v2/public/index.aeds?page=…&generation=…` | ArticleSearch (4)，同代次 FAS4 静态索引页 |
-| GET `/api/v2/public/search-corpus?page=…&generation=…` | 静态 FSPK v4 包，内含完整 FHS2 v4 分片 |
+| GET `/api/v2/public/search-corpus?page=…&generation=…` | 静态 FSPK v4 包，内含完整 FHS2 v4 分片。当前页 SHA-256 与 `If-None-Match` 匹配时返回 304 |
 | HEAD `/api/v2/public/search-corpus?generation=…` | 204 复核当前代次，409 拒绝旧代次 |
 | POST `/api/v2/identity/sign-in.aeds` | OperatorSignIn (32768) → OperatorSession (32769) |
 | GET `/api/v2/identity/session.aeds` | OperatorSession (32769) |
@@ -29,7 +29,7 @@
 
 建索引和解析查询时先做 NFKC。ASCII 字母和数字组成小写词，CJK 与其他 Unicode 字母和十进制数字按单个码位索引。查询原文和 NFKC 后均最多 128 个 UTF-16 代码单元。标题、正文保存 v4 的位置差值、跨度和字段 ID。BM25 保留普通词命中，为同一字段中按查询顺序连续出现的词另加分，重复词仍要求对应位置。因此词组能提升排序，其他词命中仍可返回。字典和停用词分段、多码位跨度、词频裁剪策略、增量 patch 与搜索专用 Wasm 引擎尚未复刻。
 
-两种静态索引逐页绑定首页的公开代次和总页数。浏览器 Worker 检查发布坐标、分页和重复文章，并在页数或字节超出预算时停止。正文搜索分片按单页 8 MiB、总量 64 MiB、最多 128 页准入。同一搜索页面保留一份完整且已校验的公开代次，仅驻留 Worker 内存。复用前 Worker 先用 HEAD 核对代次。通过后只解码命中的倒排表，无须重复下载。HEAD 返回 409 时释放旧分片，再逐页校验当前代次。取消查询、离开搜索或校验失败时终止 Worker。每次评分完成后，主线程独立用 HEAD 复核结果代次，再显示结果。
+两种静态索引逐页绑定首页的公开代次和总页数。浏览器 Worker 检查发布坐标、分页和重复文章，并在页数或字节超出预算时停止。正文搜索分片按单页 8 MiB、总量 64 MiB、最多 128 页准入。同一搜索页面保留一份完整且已校验的公开代次，仅驻留 Worker 内存。复用前 Worker 先用 HEAD 核对代次。通过后只解码命中的倒排表，无须重复下载。HEAD 返回 409 时按当前代次逐页校验。Worker 为已有同页数据计算 SHA-256，收到带相同强 ETag 的空 304 后复用该页，字节变化的页随 200 传输。服务端先检查快照租约、请求代次和页码，再检查 ETag。取消查询、离开搜索或校验失败时终止 Worker。每次评分完成后，主线程独立用 HEAD 复核结果代次，再显示结果。
 
 v1 的服务端用 core、domain 和 stopwords 文本编译搜索字典，通过格点动态规划为 CJK 词组选择切分并记录跨度。v1 的 FSIM manifest 为分片和可选 FSPT v3 补丁提供 SHA-256，补丁含排序去重后的文章淘汰 ID 和追加分片。固定提交的浏览器读取这些字段，当前页面资产加载器使用完整分片 URL。v1 搜索 Wasm 还使用字段词频、排序模式和热度，网页另有 NFKC 元数据重排。 [固定字典编译器](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs#L469) · [固定补丁 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexDeltaCodec.cs#L14) · [固定浏览器资产加载器](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/services/localSearch.ts#L374) · [固定 Wasm 排序](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp#L1480)
 

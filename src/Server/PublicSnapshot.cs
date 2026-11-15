@@ -9,6 +9,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
 using FsusBlogV2.Storage;
+using Microsoft.Net.Http.Headers;
 using Npgsql;
 
 namespace FsusBlog.V2.Server;
@@ -18,6 +19,7 @@ internal sealed class PublicSnapshot
     private readonly IReadOnlyList<Article> _ordered;
     private readonly byte[][] _index;
     private readonly IReadOnlyList<byte[]>? _corpus;
+    private readonly EntityTagHeaderValue[] _corpusTags;
     private readonly FrozenDictionary<int, Article> _byId;
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
@@ -40,6 +42,7 @@ internal sealed class PublicSnapshot
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
         _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
+        _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, cancellationToken);
         Generation = PublicGeneration(articles, taxonomyEpoch, _corpus, cancellationToken);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
@@ -75,6 +78,8 @@ internal sealed class PublicSnapshot
 
     internal byte[]? Corpus(int page) => _corpus is not null && page > 0 && page <= _corpus.Count ? _corpus[page - 1] : null;
 
+    internal EntityTagHeaderValue CorpusTag(int page) => _corpusTags[page - 1];
+
     internal byte[] List(string scope, int page, int size, string? keyword, string? sort, string? cursor,
         CancellationToken ct, Func<Article, bool>? filter = null) =>
         _listing.Read(PublicListQuery.Parse(scope, page, size, keyword, sort, cursor), ct, filter);
@@ -83,6 +88,17 @@ internal sealed class PublicSnapshot
     {
         var matching = Match(keyword);
         return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
+    }
+
+    private static EntityTagHeaderValue[] CorpusTags(IReadOnlyList<byte[]> pages, CancellationToken ct)
+    {
+        var tags = new EntityTagHeaderValue[pages.Count];
+        for (var index = 0; index < tags.Length; index++)
+        {
+            ct.ThrowIfCancellationRequested();
+            tags[index] = new($"\"{Convert.ToHexStringLower(SHA256.HashData(pages[index]))}\"");
+        }
+        return tags;
     }
 
     private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch,

@@ -335,7 +335,8 @@ app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head
     RequireCurrentSnapshot(ctx, snapshot);
     ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
     if (head) return Results.NoContent();
-    return snapshot.Corpus(page) is { } bytes ? Results.Bytes(bytes, Binary) : Error(ctx, 404, "Search corpus page not found.");
+    return snapshot.Corpus(page) is { } bytes ? Results.Bytes(bytes, Binary, entityTag: snapshot.CorpusTag(page))
+        : Error(ctx, 404, "Search corpus page not found.");
 });
 
 app.MapPost(WireRoutes.SignIn, async (HttpContext ctx, Store store, CancellationToken ct) =>

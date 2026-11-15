@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
@@ -145,7 +146,11 @@ test('route worker cache reuses only fully admitted pages of the confirmed gener
   let generation = '800';
   let corpus = [packageBytes, pageWithId(43)];
   let available = true;
+  let corruptValidator = false;
+  let invalid304Bytes = false;
   const calls: string[] = [];
+  const bodies: number[] = [];
+  const tag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
   t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
     const url = new URL(path, 'http://localhost');
     const expected = url.searchParams.get('generation');
@@ -159,7 +164,20 @@ test('route worker cache reuses only fully admitted pages of the confirmed gener
     if (!available) return new Response(null, { status: 503 });
     if (expected !== null && expected !== generation) return new Response(null, { status: 409 });
     if (!page) return new Response(null, { status: 204, headers });
-    return new Response(corpus[page - 1].slice(), { headers });
+    const bytes = corpus[page - 1];
+    const etag = tag(bytes);
+    if (new Headers(init.headers).get('If-None-Match') === etag) {
+      const response = new Response(null, { status: 304, headers: { ...headers, ETag: corruptValidator ? tag(pageWithId(99)) : etag } });
+      Object.defineProperty(response, 'body', { value: new ReadableStream({
+        start(stream) {
+          if (invalid304Bytes) stream.enqueue(Uint8Array.of(1));
+          stream.close();
+        },
+      }) });
+      return response;
+    }
+    bodies.push(page);
+    return new Response(bytes.slice(), { headers: { ...headers, ETag: etag } });
   });
 
   const search = createCorpusSearch();
@@ -170,26 +188,44 @@ test('route worker cache reuses only fully admitted pages of the confirmed gener
   };
   assert.deepEqual(await ids('needle'), [43, 42]);
   assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:800:2', 'HEAD:800:-']);
+  assert.deepEqual(bodies.splice(0), [1, 2]);
   assert.deepEqual(await ids('needle 雪'), [43, 42]);
   assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'HEAD:800:-']);
+  assert.deepEqual(bodies.splice(0), []);
 
   generation = '801';
-  corpus = [pageWithId(43), pageWithId(44)];
-  assert.deepEqual(await ids('needle'), [44, 43]);
+  corpus = [packageBytes, pageWithId(44)];
+  assert.deepEqual(await ids('needle'), [44, 42]);
   assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'GET:current:1', 'GET:801:2', 'HEAD:801:-']);
+  assert.deepEqual(bodies.splice(0), [2]);
 
   available = false;
   await assert.rejects(ids('needle'), { status: 503 });
   assert.deepEqual(calls.splice(0), ['HEAD:801:-']);
   available = true;
-  assert.deepEqual(await ids('needle'), [44, 43]);
+  assert.deepEqual(await ids('needle'), [44, 42]);
   assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:801:2', 'HEAD:801:-']);
+  assert.deepEqual(bodies.splice(0), [1, 2]);
 
   generation = '802';
+  corruptValidator = true;
+  await assert.rejects(ids('needle'), /corpus page validator/);
+  assert.deepEqual(calls.splice(0), ['HEAD:801:-', 'GET:current:1']);
+  assert.deepEqual(bodies.splice(0), []);
+  corruptValidator = false;
+  await ids('needle');
+  calls.length = 0;
+  bodies.length = 0;
+  generation = '803';
+  invalid304Bytes = true;
+  await assert.rejects(ids('needle'), /exceeds its byte limit/);
+  assert.deepEqual(calls.splice(0), ['HEAD:802:-', 'GET:current:1']);
+  assert.deepEqual(bodies.splice(0), []);
+  invalid304Bytes = false;
   corpus = [pageWithId(44), pageWithId(44)];
   await assert.rejects(ids('needle'), /duplicate corpus article/);
-  assert.deepEqual(calls.splice(0), ['HEAD:801:-', 'GET:current:1', 'GET:802:2']);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:803:2']);
   corpus = [pageWithId(44), pageWithId(45)];
   assert.deepEqual(await ids('needle'), [45, 44]);
-  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:802:2', 'HEAD:802:-']);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:803:2', 'HEAD:803:-']);
 });

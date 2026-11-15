@@ -126,7 +126,9 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
   export FSUSBLOG_PUBLIC_MEDIA_ROOT
 fi
 if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
-  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
+  fixture_count=12
+  if [[ ${FSUSBLOG_TEST_FLOW:-blog} == search-corpus-reuse ]]; then fixture_count=220; fi
+  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -v "fixture_count=$fixture_count" -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
     -f tests/EndToEnd/public-fixture.sql > "$evidence/public-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql >> "$evidence/run.txt"
   "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
@@ -154,6 +156,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   node tests/EndToEnd/article-media-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
   node tests/EndToEnd/public-article-media-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == search-corpus-reuse ]]; then
+  node tests/EndToEnd/search-corpus-reuse-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then

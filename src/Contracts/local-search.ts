@@ -507,15 +507,26 @@ async function corpusRequest(
   signal: AbortSignal | undefined,
   generation: string | undefined,
   page: number | undefined,
+  previous?: Uint8Array,
 ) {
   const query = new URLSearchParams();
   if (page !== undefined) query.set('page', String(page));
   if (generation !== undefined) query.set('generation', generation);
+  const headers = new Headers({ Accept: 'application/octet-stream' });
+  let validator: string | undefined;
+  if (page !== undefined && previous?.buffer instanceof ArrayBuffer && globalThis.crypto?.subtle) {
+    const bytes = new Uint8Array(previous.buffer, previous.byteOffset, previous.byteLength);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    validator = `"${Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')}"`;
+    headers.set('If-None-Match', validator);
+  }
+  signal?.throwIfAborted();
   const response = await fetch(`${WireRoutes.PublicSearchCorpus}?${query}`, {
     method: page === undefined ? 'HEAD' : 'GET',
-    cache: 'no-store', credentials: 'omit', headers: { Accept: 'application/octet-stream' }, signal,
+    cache: 'no-store', credentials: 'omit', headers, signal,
   });
-  if (!response.ok) {
+  const unchanged = response.status === 304;
+  if (!response.ok && !unchanged) {
     if (page !== undefined && response.headers.get('Content-Type')?.split(';')[0] === 'application/octet-stream') {
       const frame = decodeFrame(await readBytes(response, 4096), FrameType.ApiError);
       throw decodeApiError(frame.payload, response.status);
@@ -531,9 +542,17 @@ async function corpusRequest(
   }
   const pagesText = response.headers.get(WireHeaders.SearchIndexPages);
   const pages = Number(pagesText);
-  requireWire(response.status === 200 && response.headers.get('Content-Type')?.split(';')[0] === 'application/octet-stream' &&
-    pagesText !== null && /^[1-9][0-9]{0,2}$/.test(pagesText) && pages >= page &&
+  requireWire(pagesText !== null && /^[1-9][0-9]{0,2}$/.test(pagesText) && pages >= page &&
     pages <= Limit.SearchCorpusMaxPages, 'corpus response headers');
+  if (unchanged) {
+    requireWire(previous !== undefined && validator !== undefined && response.headers.get('ETag') === validator,
+      'corpus page validator');
+    // Chromium exposes an empty stream for an HTTP 304.
+    if (response.body !== null) await readBytes(response, 0);
+    return { generation: current, pages, bytes: previous };
+  }
+  requireWire(response.status === 200 && response.headers.get('Content-Type')?.split(';')[0] === 'application/octet-stream',
+    'corpus response type');
   return { generation: current, pages, bytes: await readBytes(response, Limit.SearchCorpusPageBytes) };
 }
 
@@ -561,14 +580,15 @@ export function createCorpusSearch() {
 }
 
 async function currentCachedCorpus(cache: CorpusCache, signal: AbortSignal | undefined) {
-  if (!cache.corpus) return undefined;
+  const prior = cache.corpus;
+  if (!prior) return {};
   try {
-    await verifySearchGeneration(cache.corpus.generation, signal);
-    return cache.corpus;
+    await verifySearchGeneration(prior.generation, signal);
+    return { admitted: prior };
   } catch (error) {
     cache.corpus = undefined;
     if (!(error instanceof ApiError) || error.status !== 409) throw error;
-    return undefined;
+    return { previous: prior.pages };
   }
 }
 
@@ -580,10 +600,22 @@ async function runCorpusSearch(query: string, signal: AbortSignal | undefined, p
   signal?.throwIfAborted();
   if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
-  const admitted = cache ? await currentCachedCorpus(cache, signal) : undefined;
+  const { admitted, previous } = cache ? await currentCachedCorpus(cache, signal) : {};
+  // Only verified, byte-identical pages can enter the new generation. Retire unmatched
+  // buffers as we go, bounded by the same aggregate budget between requests.
+  const reusable: (Uint8Array | undefined)[] | undefined = previous;
+  let unusedBytes = reusable?.reduce((sum, bytes) => sum + (bytes?.length ?? 0), 0) ?? 0;
+  function takePrevious(pageNumber: number): Uint8Array | undefined {
+    const old = reusable?.[pageNumber - 1];
+    if (old && reusable) {
+      reusable[pageNumber - 1] = undefined;
+      unusedBytes -= old.length;
+    }
+    return old;
+  }
   const first = admitted
     ? { generation: admitted.generation, pages: admitted.pages.length, bytes: admitted.pages[0] }
-    : await corpusRequest(signal, undefined, 1);
+    : await corpusRequest(signal, undefined, 1, takePrevious(1));
   const pendingPages: Uint8Array[] | undefined = cache && !admitted ? [] : undefined;
   const ids = new Set<number>();
   const matches: { article: SearchArticle; score: number }[] = [];
@@ -595,9 +627,13 @@ async function runCorpusSearch(query: string, signal: AbortSignal | undefined, p
       // Buffers are private to this worker and all postings were validated on cold load.
       shard = parseCorpusPage(admitted.pages[i - 1], terms, true);
     } else {
-      const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i);
+      const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i, takePrevious(i));
       totalBytes += loaded.bytes.length;
       requireWire(loaded.pages === first.pages && totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
+      if (reusable && totalBytes + unusedBytes > Limit.SearchCorpusTotalBytes) {
+        reusable.fill(undefined);
+        unusedBytes = 0;
+      }
       shard = queryCorpusPage(loaded.bytes, terms);
       pendingPages?.push(loaded.bytes);
     }

@@ -6,6 +6,7 @@ using FsusBlog.V2.Server.Operations;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using System.Net;
+using System.Security.Cryptography;
 
 public sealed class PublishingPostgresTests
 {
@@ -19,6 +20,7 @@ public sealed class PublishingPostgresTests
         var actor = await store.SignIn((await IssueTicket(fixture.DataSource, "search owner", true, ct)).Token, ct);
         (int Id, long Revision, long Publication) coordinate;
         string generation;
+        string validator;
         byte[] bytes;
         await using (var first = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
@@ -32,6 +34,8 @@ public sealed class PublishingPostgresTests
             generation = Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration));
             Assert.Equal(generation, Assert.Single(detail.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             bytes = await corpus.Content.ReadAsByteArrayAsync(ct);
+            validator = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))}\"";
+            Assert.Equal(validator, corpus.Headers.ETag?.ToString());
             await using var database = await fixture.DataSource.OpenConnectionAsync(ct);
             await using var publication = Store.Sql(database, null,
                 "select publication_id from public.article_publication where article_id=$1 and revision=$2", article.Id, article.Revision);
@@ -53,12 +57,27 @@ public sealed class PublishingPostgresTests
         using var current = await restarted.Client.GetAsync(WireRoutes.PublicSearchCorpus, ct);
         Assert.Equal(generation, Assert.Single(current.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
         Assert.Equal(bytes, await current.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal(validator, current.Headers.ETag?.ToString());
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, WireRoutes.PublicSearchCorpus);
+        Assert.True(conditional.Headers.TryAddWithoutValidation("If-None-Match", validator));
+        using var unchanged = await restarted.Client.SendAsync(conditional, ct);
+        Assert.Equal(HttpStatusCode.NotModified, unchanged.StatusCode);
+        Assert.Equal(validator, unchanged.Headers.ETag?.ToString());
+        Assert.Equal(generation, Assert.Single(unchanged.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+        Assert.Equal("1", Assert.Single(unchanged.Headers.GetValues(WireHeaders.SearchIndexPages)));
+        Assert.True(unchanged.Headers.CacheControl?.NoStore);
+        Assert.Empty(await unchanged.Content.ReadAsByteArrayAsync(ct));
         var old = PreviousGeneration();
         using var head = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={old}");
         using var rejectedHead = await restarted.Client.SendAsync(head, ct);
         using var rejectedPage = await restarted.Client.GetAsync($"{WireRoutes.PublicSearchCorpus}?page=2&generation={old}", ct);
+        using var staleConditional = new HttpRequestMessage(HttpMethod.Get,
+            $"{WireRoutes.PublicSearchCorpus}?page=1&generation={old}");
+        Assert.True(staleConditional.Headers.TryAddWithoutValidation("If-None-Match", validator));
+        using var rejectedConditional = await restarted.Client.SendAsync(staleConditional, ct);
         Assert.Equal(HttpStatusCode.Conflict, rejectedHead.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, rejectedPage.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, rejectedConditional.StatusCode);
 
         string PreviousGeneration()
         {
