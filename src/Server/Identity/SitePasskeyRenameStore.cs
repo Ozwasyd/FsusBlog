@@ -33,7 +33,7 @@ internal sealed partial class PasskeyStore
         var target = recovery is not null ? rows[0] : rows.SingleOrDefault(row => row.Value.Reference == reference)
             ?? throw new BusinessException(Rejection.NotFound, "Passkey not found.");
         if (recovery is not null) revision = target.Value.Revision;
-        if (target.Value.Revision != revision || (remove && recovery is null && (target.Value.Metadata.Current || rows.Count < 2)))
+        if (target.Value.Revision != revision || (remove && recovery is null && rows.Count < 2))
             throw ChangeConflict(remove);
         var proofCredential = rows[0].CredentialId;
         byte[][] allowed = [proofCredential];
@@ -49,13 +49,13 @@ internal sealed partial class PasskeyStore
     internal Task CompleteSitePasskeyRename(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct) =>
         CompleteSitePasskeyChange(session, expected, request, remove: false, ct);
 
-    internal Task CompleteSitePasskeyRemove(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct) =>
+    internal Task<bool> CompleteSitePasskeyRemove(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct) =>
         CompleteSitePasskeyChange(session, expected, request, remove: true, ct);
 
     internal Task CompleteSitePasskeyRemoveCurrent(string? session, string? expected, string? ticket, PasskeyLoginRequest request, CancellationToken ct) =>
         CompleteSitePasskeyChange(session, expected, request, remove: true, ct, RecoveryTokenDigest(ticket) ?? throw Denied());
 
-    private async Task CompleteSitePasskeyChange(string? session, string? expected, PasskeyLoginRequest request, bool remove,
+    private async Task<bool> CompleteSitePasskeyChange(string? session, string? expected, PasskeyLoginRequest request, bool remove,
         CancellationToken ct, byte[]? recovery = null)
     {
         if (request.RememberMe) throw Denied();
@@ -84,11 +84,13 @@ internal sealed partial class PasskeyStore
         await MfaStore.RequireSession(db, tx, session, ct);
         if (recovery is not null && intent.RecoveryVersion != await CurrentRecoveryVersion(db, tx, current, recovery, ct))
             throw Denied();
-        var changed = remove ? await RemoveCredential(db, tx, current, intent, recovery, ct) :
+        var removingCurrent = remove && intent.Target.AsSpan().SequenceEqual(intent.ProofCredential);
+        var changed = remove ? await RemoveCredential(db, tx, current, intent, removingCurrent, recovery, ct) :
             await ApplyRename(db, tx, current.Id, intent, ct);
         // Preserve a valid assertion's counter even if a concurrent change makes its target stale.
         await InstanceLease.CommitProtected(tx, _lease, ct);
         if (!changed) throw ChangeConflict(remove);
+        return removingCurrent;
     }
 
     private static async Task<bool> ApplyRename(NpgsqlConnection db, NpgsqlTransaction tx, Guid user, CredentialIntent intent, CancellationToken ct)
@@ -105,15 +107,14 @@ internal sealed partial class PasskeyStore
     }
 
     private static async Task<bool> RemoveCredential(NpgsqlConnection db, NpgsqlTransaction tx, MfaStore.Subject actor,
-        CredentialIntent intent, byte[]? recovery, CancellationToken ct)
+        CredentialIntent intent, bool removingCurrent, byte[]? recovery, CancellationToken ct)
     {
         var credential = intent.Target;
         var rows = await SitePasskeys.Manage(db, tx, actor.Id, actor.Scope, ct);
         var target = rows.SingleOrDefault(row => row.CredentialId.AsSpan().SequenceEqual(credential));
-        var removingCurrent = recovery is not null;
-        var final = removingCurrent && rows.Count == 1;
+        var final = recovery is not null && removingCurrent && rows.Count == 1;
         if (target is null || target.Value.Metadata.Current != removingCurrent ||
-            (removingCurrent ? rows.Count != intent.DeviceCount : rows.Count < 2) ||
+            (recovery is not null ? rows.Count != intent.DeviceCount : rows.Count < 2) ||
             target.Value.Revision != intent.ExpectedRevision || target.CreatedAtTicks != intent.CreatedAtTicks) return false;
         await using (var sessions = Store.Sql(db, tx,
             "delete from public.user_session where user_id=$1 and ($3 or passkey_credential_id=$2)", actor.Id, credential, final))
@@ -146,7 +147,7 @@ internal sealed partial class PasskeyStore
         ? SHA256.HashData([.. "FsusBlog v2 remove current passkey with recovery v1"u8, .. digest, .. recovery])
         : SHA256.HashData([.. (remove ? "FsusBlog v2 site passkey remove v1"u8 : "FsusBlog v2 site passkey rename v1"u8), .. digest]);
     private static BusinessException ChangeConflict(bool remove) => new(Rejection.Conflict, remove
-        ? "This Passkey cannot be removed. Reload the list and choose a different Passkey."
+        ? "This Passkey cannot be removed. Reload the list to check the remaining Passkeys."
         : "The Passkey name changed. Reload the Passkey list.");
     private sealed record CredentialIntent(byte[] Target, long ExpectedRevision, string? Name, byte[] ProofCredential, string Options, long? CreatedAtTicks, long? RecoveryVersion, int? DeviceCount);
 }

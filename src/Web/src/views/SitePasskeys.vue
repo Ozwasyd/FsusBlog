@@ -6,13 +6,14 @@ import { enrollSitePasskey } from '../../../Contracts/passkey'
 import { removeSitePasskey, renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
 import { sitePasskeys, type SitePasskey } from '../../../Contracts/site-passkeys'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { currentSession, identityEpoch } from '../session'
-import { readSiteAuthority } from '../site-refresh-coordination'
+import { currentSession, identityEpoch, refreshSession } from '../session'
+import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
 
 type PasskeyEntry = SitePasskey & { reference?: string; revision?: bigint; name?: string }
 type Target = { reference: string; revision: bigint }
-type Edit = Target & ({ action: 'rename' } | { action: 'remove'; label: string })
-type Change = Target & ({ action: 'rename'; name: string } | { action: 'remove' })
+type Remove = Target & { action: 'remove'; current: boolean }
+type Edit = (Target & { action: 'rename' }) | (Remove & { label: string })
+type Change = (Target & { action: 'rename'; name: string }) | Remove
 
 const passkeys = shallowRef<readonly PasskeyEntry[]>()
 const edit = shallowRef<Edit>()
@@ -79,8 +80,8 @@ function openEdit(item: PasskeyEntry, action: Edit['action']) {
   if (busy.value || !item.reference || item.revision === undefined) return
   const target = { reference: item.reference, revision: item.revision }
   if (action === 'remove') {
-    if (item.current || (passkeys.value?.length ?? 0) < 2) return
-    edit.value = { ...target, action, label: item.name || `passkey created ${item.createdAt.toLocaleString()}` }
+    if ((passkeys.value?.length ?? 0) < 2) return
+    edit.value = { ...target, action, current: item.current, label: item.name || `passkey created ${item.createdAt.toLocaleString()}` }
   } else {
     edit.value = { ...target, action }
     name.value = item.name ?? ''
@@ -139,9 +140,22 @@ async function run(change?: Change | 'enroll') {
       if (!await confirmAuthority()) return
       try {
         if (enrolling) await enrollSitePasskey(id, operation.signal)
-        else if (change.action === 'remove')
-          await removeSitePasskey(change.reference, change.revision, id, operation.signal)
-        else await renameSitePasskey(change.reference, change.revision, change.name, id, operation.signal)
+        else if (change.action === 'remove') {
+          const remove = () => removeSitePasskey(change.reference, change.revision, id, operation.signal)
+          if (change.current) {
+            const removed = await withSiteAuthMutation(operation.signal, async () => {
+              if (!await confirmAuthority()) return false
+              await remove()
+              return true
+            })
+            if (removed && live()) {
+              announceSiteAuthChange()
+              await refreshSession(operation.signal, false)
+            }
+            return
+          }
+          await remove()
+        } else await renameSitePasskey(change.reference, change.revision, change.name, id, operation.signal)
       } catch (error) {
         if ((!enrolling && !removing) || !(error instanceof DOMException) ||
             (error.name !== 'NotAllowedError' && error.name !== 'AbortError')) throw error
@@ -214,6 +228,7 @@ async function run(change?: Change | 'enroll') {
         <form v-else-if="edit?.action === 'remove' && edit.reference === item.reference" class="rename-passkey"
           aria-labelledby="site-passkey-remove-label" @submit.prevent="removePasskey">
           <p id="site-passkey-remove-label" class="passkey-name">Remove {{ edit.label }}?</p>
+          <p v-if="edit.current">Removing this Passkey will sign you out. Use another Passkey to sign in again.</p>
           <div class="rename-actions">
             <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">Remove with Passkey</ElButton>
             <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">Cancel</ElButton>
@@ -221,8 +236,10 @@ async function run(change?: Change | 'enroll') {
         </form>
         <div v-else-if="item.reference" class="rename-actions">
           <ElButton native-type="button" :disabled="busy || !!edit" @click="openEdit(item, 'rename')">Rename Passkey</ElButton>
-          <ElButton v-if="!item.current && passkeys && passkeys.length > 1" native-type="button"
-            :disabled="busy || !!edit" @click="openEdit(item, 'remove')">Remove Passkey</ElButton>
+          <ElButton v-if="passkeys && passkeys.length > 1" native-type="button"
+            :disabled="busy || !!edit" @click="openEdit(item, 'remove')">
+            {{ item.current ? 'Remove current Passkey' : 'Remove Passkey' }}
+          </ElButton>
         </div>
       </li>
     </ul>

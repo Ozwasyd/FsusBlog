@@ -77,7 +77,11 @@ internal static class PasskeyEndpoints
         {
             RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            await passkeys.CompleteSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
+            if (await passkeys.CompleteSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct))
+            {
+                ctx.Response.Cookies.Delete(sessionCookie, Cookie("/"));
+                SiteRefreshEndpoints.ClearRefreshCookie(ctx);
+            }
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.SitePasskeyEnrollBegin, async (HttpContext ctx, CancellationToken ct) =>

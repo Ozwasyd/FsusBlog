@@ -164,7 +164,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     }
 
     [PostgresFact]
-    public async Task DeviceRemovalAdmissionRequiresAnOwnedNonCurrentCredentialAtTheViewedRevision()
+    public async Task DeviceRemovalRequiresAnOwnedCredentialAndASecondDevice()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
         var ct = timeout.Token;
@@ -184,7 +184,8 @@ public sealed class SitePasskeyMetadataPostgresTests
         var current = Assert.Single(rows, row => row.Metadata.Current);
         var target = Assert.Single(rows, row => !row.Metadata.Current);
         var removal = new SitePasskeyRemove(target.Reference, target.Revision);
-        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRemove(session.Token, session.Id, new(current.Reference, current.Revision), ct));
+        var currentProof = await passkeys.BeginSitePasskeyRemove(session.Token, session.Id, new(current.Reference, current.Revision), ct);
+        Assert.True(Aeds.Decode(currentProof, FrameType.PasskeyLoginBegin).Length > WireLayouts.PasskeyLoginBeginSize);
         await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRemove(session.Token, session.Id, removal with { ExpectedRevision = 1 }, ct));
         await Denied(Rejection.NotFound, () => passkeys.BeginSitePasskeyRemove(other.Token, other.Id, removal, ct));
         var proof = await passkeys.BeginSitePasskeyRemove(session.Token, session.Id, removal, ct);

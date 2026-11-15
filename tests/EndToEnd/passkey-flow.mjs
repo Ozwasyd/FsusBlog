@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeEnrollmentBegin } from '../../src/Contracts/passkey.ts'
-import { decodeSitePasskeyManagement } from '../../src/Contracts/site-passkey-names.ts'
+import { decodeSitePasskeyManagement, encodeSitePasskeyRemove } from '../../src/Contracts/site-passkey-names.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -22,9 +22,10 @@ const checks = {}
 const inventoryPath = WireRoutes.SitePasskeys
 const managementPath = WireRoutes.SitePasskeyManagement
 const renameRequired = process.env.FSUSBLOG_TEST_PASSKEY_RENAME === '1'
-const removalRequired = process.env.FSUSBLOG_TEST_PASSKEY_REMOVE === '1'
+const removeCurrent = process.env.FSUSBLOG_TEST_PASSKEY_REMOVE_CURRENT === '1'
+const removalRequired = removeCurrent || process.env.FSUSBLOG_TEST_PASSKEY_REMOVE === '1'
 const removalRollbackRequired = process.env.FSUSBLOG_TEST_PASSKEY_REMOVE_ROLLBACK === '1'
-assert(!removalRollbackRequired || removalRequired, 'Enable the removal flow to verify its database rollback.')
+assert(!removalRollbackRequired || (removalRequired && !removeCurrent), 'Use remove-other mode to verify database rollback.')
 const enrollmentRequired = removalRequired || process.env.FSUSBLOG_TEST_PASSKEY_ENROLL === '1'
 const friendlyName = 'Writing laptop 🔐'
 const securityPath = '/user/identity/mfa'
@@ -198,34 +199,40 @@ try {
     }
   }
 
-  const security = await context.newPage()
-  monitor(security)
-  await security.goto(origin + securityPath)
-  const credentials = security.getByRole('region', { name: 'Passkeys', exact: true })
-  await credentials.getByText(renameRequired ? friendlyName : 'Current session passkey', { exact: true }).waitFor()
+  const surviving = removeCurrent ? await browser.newContext() : null
+  if (surviving) {
+    await surviving.addCookies([cookie])
+    await context.clearCookies({ name: 'fsus-v2-session' })
+  } else {
+    const security = await context.newPage()
+    monitor(security)
+    await security.goto(origin + securityPath)
+    const credentials = security.getByRole('region', { name: 'Passkeys', exact: true })
+    await credentials.getByText(renameRequired ? friendlyName : 'Current session passkey', { exact: true }).waitFor()
 
-  phase = 'logout'
-  const logout = page.waitForResponse(response => response.request().method() === 'POST' &&
-    response.url() === `${origin}/api/v2/identity/sign-out.aeds`)
-  await page.getByRole('button', { name: 'Log out', exact: true }).click()
-  await page.waitForURL(`${origin}/`)
-  assert.equal((await logout).status(), 200)
-  assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
-  await security.getByText('to manage account security.', { exact: false }).waitFor()
-  assert.equal(await credentials.count(), 0, 'The open tab must clear its passkey inventory after sign-out.')
-  assert.equal(await security.getByText(friendlyName, { exact: true }).count(), 0)
-  const signedOut = await context.request.get(origin + inventoryPath, { headers: { [WireHeaders.CurrentSession]: current } })
-  assert.equal(signedOut.status(), 401)
-  assert.match(signedOut.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
-  if (renameRequired) {
-    const signedOutManagement = await context.request.get(origin + managementPath, { headers: sessionHeaders })
-    assert.equal(signedOutManagement.status(), 401)
-    assert.match(signedOutManagement.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
-    checks.signedOutManagementDenied = true
+    phase = 'logout'
+    const logout = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url() === `${origin}/api/v2/identity/sign-out.aeds`)
+    await page.getByRole('button', { name: 'Log out', exact: true }).click()
+    await page.waitForURL(`${origin}/`)
+    assert.equal((await logout).status(), 200)
+    assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
+    await security.getByText('to manage account security.', { exact: false }).waitFor()
+    assert.equal(await credentials.count(), 0, 'The open tab must clear its passkey inventory after sign-out.')
+    assert.equal(await security.getByText(friendlyName, { exact: true }).count(), 0)
+    const signedOut = await context.request.get(origin + inventoryPath, { headers: { [WireHeaders.CurrentSession]: current } })
+    assert.equal(signedOut.status(), 401)
+    assert.match(signedOut.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+    if (renameRequired) {
+      const signedOutManagement = await context.request.get(origin + managementPath, { headers: sessionHeaders })
+      assert.equal(signedOutManagement.status(), 401)
+      assert.match(signedOutManagement.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+      checks.signedOutManagementDenied = true
+    }
+    checks.signedOutInventoryDenied = true
+    assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
+    assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-passkey-ceremony'))
   }
-  checks.signedOutInventoryDenied = true
-  assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
-  assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-passkey-ceremony'))
   if (enrollmentRequired) {
     phase = 'second-device-assertion'
     await page.goto(origin + '/login')
@@ -248,13 +255,15 @@ try {
       phase = 'credential-removal'
       await page.goto(origin + securityPath)
       const rows = inventoryRegion.getByRole('listitem')
-      const survivor = rows.first()
-      const former = rows.nth(1)
-      await survivor.getByText('Current session passkey', { exact: true }).waitFor()
-      const remove = former.getByRole('button', { name: 'Remove Passkey', exact: true })
-      const confirm = former.getByRole('button', { name: 'Remove with Passkey', exact: true })
-      const confirmation = renameRequired ? `Remove ${friendlyName}?` : /^Remove .+\?$/
-      assert.equal(await survivor.getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+      const selectedIndex = removeCurrent ? 0 : 1
+      const selected = rows.nth(selectedIndex)
+      await rows.first().getByText('Current session passkey', { exact: true }).waitFor()
+      const removeLabel = removeCurrent ? 'Remove current Passkey' : 'Remove Passkey'
+      const remove = selected.getByRole('button', { name: removeLabel, exact: true })
+      const confirm = selected.getByRole('button', { name: 'Remove with Passkey', exact: true })
+      const confirmation = !removeCurrent && renameRequired ? `Remove ${friendlyName}?` : /^Remove .+\?$/
+      assert.equal(await rows.first().getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+      const removedCookie = removeCurrent && (await context.cookies(origin)).find(item => item.name === 'fsus-v2-session')
 
       let starts = 0
       const beginsRemoval = request => request.method() === 'POST' && request.url() === origin + WireRoutes.SitePasskeyRemoveBegin
@@ -262,8 +271,8 @@ try {
       page.on('request', observeStart)
       try {
         await remove.click()
-        await former.getByText(confirmation).waitFor()
-        await former.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await selected.getByText(confirmation).waitFor()
+        await selected.getByRole('button', { name: 'Cancel', exact: true }).click()
         await confirm.waitFor({ state: 'hidden' })
         assert.equal(starts, 0, 'Opening and canceling confirmation must not start approval.')
         assert.equal(await rows.count(), 2)
@@ -290,13 +299,32 @@ try {
       assert.equal(intent.type, FrameType.SitePasskeyRemove)
       const target = Buffer.from(intent.payload)
       assert.equal(target.length, 40)
-      assert(target.subarray(0, 32).toString('hex') === entries[1].reference && target.readBigInt64LE(32) === entries[1].revision,
-        'Approval must address the selected former device and its displayed revision.')
+      assert(target.subarray(0, 32).toString('hex') === entries[selectedIndex].reference && target.readBigInt64LE(32) === entries[selectedIndex].revision,
+        'Approval must address the selected device and its displayed revision.')
       if (removalRollbackRequired) {
         await inventoryRegion.getByText('Could not confirm Passkey removal. Reload Passkeys to check.', { exact: true }).waitFor()
         await inventoryRegion.getByRole('button', { name: 'Reload Passkeys', exact: true }).click()
-        await former.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
+        await selected.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
         assert.equal(await rows.count(), 2)
+      } else if (removeCurrent) {
+        await inventoryRegion.waitFor({ state: 'hidden' })
+        assert(!(await context.cookies(origin)).some(item => item.name === 'fsus-v2-session'))
+        assert(removedCookie && surviving, 'Both independent device sessions must have existed before removal.')
+        const stale = await browser.newContext({ storageState: { cookies: [removedCookie], origins: [] } })
+        try { assert.equal((await stale.request.get(origin + WireRoutes.Session)).status(), 401) }
+        finally { await stale.close() }
+        const remainingRows = await readManagement(surviving, current)
+        assert.equal(remainingRows.length, 1)
+        const [remaining] = remainingRows
+        assert(remaining.current && remaining.createdAt.getTime() === createdAt)
+        const denied = await surviving.request.post(origin + WireRoutes.SitePasskeyRemoveBegin, {
+          headers: { ...sessionHeaders, Origin: origin, 'Content-Type': 'application/octet-stream' },
+          data: Buffer.from(encodeSitePasskeyRemove(remaining.reference, remaining.revision)),
+        })
+        assert.equal(denied.status(), 409)
+        checks.removalRevokedCurrentSession = true
+        checks.otherSessionSurvived = true
+        checks.ordinaryLastRemovalDenied = true
       } else {
         const repeated = await context.request.post(complete.url(), {
           headers: { Origin: origin, 'Content-Type': 'application/octet-stream', [WireHeaders.CurrentSession]: next },
@@ -308,21 +336,23 @@ try {
         assert.equal(await inventoryRegion.getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
         checks.removalReplayDenied = true
       }
-      const currentAfter = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
-      assert.equal(currentAfter.status(), 200)
-      assert(currentAfter.headers()[WireHeaders.CurrentSession.toLowerCase()] === next, 'The current session must survive removal.')
-      const remaining = await readManagement(context, next)
-      if (removalRollbackRequired) {
-        assert(remaining.length === 2 && remaining.every((item, i) => item.reference === entries[i].reference &&
-          item.current === entries[i].current && item.revision === entries[i].revision && item.name === entries[i].name &&
-          item.lastUsedAt?.getTime() === entries[i].lastUsedAt?.getTime()), 'The failed removal must leave both devices unchanged.')
-        checks.removalRolledBack = true
-      } else {
-        assert.equal(remaining.length, 1)
-        assert(remaining[0].current && remaining[0].reference === entries[0].reference,
-          'Only the second device must remain after removing the first.')
-        checks.removeOtherPasskey = true
-        await page.screenshot({ path: join(evidence, 'passkey-removed.png') })
+      if (!removeCurrent) {
+        const currentAfter = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
+        assert.equal(currentAfter.status(), 200)
+        assert(currentAfter.headers()[WireHeaders.CurrentSession.toLowerCase()] === next, 'The current session must survive removal.')
+        const remaining = await readManagement(context, next)
+        if (removalRollbackRequired) {
+          assert(remaining.length === 2 && remaining.every((item, i) => item.reference === entries[i].reference &&
+            item.current === entries[i].current && item.revision === entries[i].revision && item.name === entries[i].name &&
+            item.lastUsedAt?.getTime() === entries[i].lastUsedAt?.getTime()), 'The failed removal must leave both devices unchanged.')
+          checks.removalRolledBack = true
+        } else {
+          assert.equal(remaining.length, 1)
+          assert(remaining[0].current && remaining[0].reference === entries[0].reference,
+            'Only the second device must remain after removing the first.')
+          checks.removeOtherPasskey = true
+          await page.screenshot({ path: join(evidence, 'passkey-removed.png') })
+        }
       }
     }
   }
