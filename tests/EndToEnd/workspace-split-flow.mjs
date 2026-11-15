@@ -152,6 +152,70 @@ async function expectRestored(page, primary, primaryPreview, secondary, secondar
   await expect(tab(page, secondary, 'Pinned')).toHaveAttribute('aria-selected', 'true')
 }
 
+async function exerciseTabClose({ page, first, localSource, alternate, tail, second, secondNode }) {
+  const primary = group(page, 'Primary')
+  const secondary = group(page, 'Secondary')
+  await press(page, tab(page, alternate, 'Preview'))
+  await expect(page).toHaveURL(editPath(alternate.id))
+  await button(page, `Pin ${alternate.title}`).click()
+  await expect(tab(page, alternate, 'Pinned')).toBeVisible()
+  await openById(page, tail.id, 'Open article')
+  await expect(page).toHaveURL(editPath(tail.id))
+  await press(page, tab(page, alternate, 'Pinned'))
+  await expect(page).toHaveURL(editPath(alternate.id))
+  await expectPane(primary, alternate, alternate.body, true)
+  const alternateNode = await body(primary).elementHandle()
+  assert(alternateNode)
+  try {
+    const others = button(page, 'Close other tabs')
+    const right = button(page, 'Close tabs to the right')
+    await page.getByText('Group actions', { exact: true }).click()
+    await press(page, others)
+    await expect(page.getByText(`Could not close tabs. ${first.title} (unsaved changes).`, { exact: true })).toBeVisible()
+    await expect(others).toBeFocused()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(4)
+    await expect(tab(page, first, 'Unsaved')).toBeVisible()
+    await expect(tab(page, tail, 'Preview')).toBeVisible()
+    await expect(tab(page, second, 'Pinned')).toBeVisible()
+    await expect(page.getByText('Recently closed', { exact: true })).toHaveCount(0)
+
+    await press(page, right)
+    await expect(tab(page, tail, 'Preview')).toHaveCount(0)
+    await expect(page.getByText('Closed 1 tab.', { exact: true })).toBeVisible()
+    await expect(tab(page, alternate, 'Pinned')).toBeFocused()
+    await expect(tab(page, first, 'Unsaved')).toBeVisible()
+    await expect(right).toBeDisabled()
+    await expect(page).toHaveURL(editPath(alternate.id))
+    await expectSameEditor(body(primary), alternateNode)
+    await expectSameEditor(body(secondary), secondNode)
+    await page.getByText('Recently closed', { exact: true }).click()
+    await expect(button(page, `Reopen Article ${tail.id}`)).toBeVisible()
+
+    await press(page, tab(page, first, 'Unsaved'))
+    await expect(page).toHaveURL(editPath(first.id))
+    await expectPane(primary, first, localSource, true)
+    const activeNode = await body(primary).elementHandle()
+    assert(activeNode)
+    try {
+      await page.setViewportSize({ width: 375, height: 850 })
+      const switcher = button(page, 'Switch article tab')
+      await expect(switcher).toBeVisible()
+      await press(page, others)
+      await expect(switcher).toBeFocused()
+      await expect(page).toHaveURL(editPath(first.id))
+      await expect(body(primary)).toHaveValue(localSource)
+      await expectSameEditor(body(primary), activeNode)
+      await expect(button(page, `Reopen Article ${alternate.id}`)).toBeVisible()
+      await page.setViewportSize({ width: 1366, height: 900 })
+      await expect(tabList(page).getByRole('tab')).toHaveCount(2)
+      await expect(tab(page, second, 'Pinned')).toBeVisible()
+      await expectSameEditor(body(secondary), secondNode)
+    } finally { await activeNode.dispose() }
+  } finally { await alternateNode.dispose() }
+  observations.push({ protectedCloseBatchLeavesCleanTabsOpen: true, desktopCloseRightPreservesEarlierTabs: true,
+    compactCloseOthersKeepsActiveDraft: true, closeBatchPreservesOtherGroup: true })
+}
+
 async function changeGroupLayout(page, readLayout, before, command, expected) {
   const action = button(page, command)
   if (!await action.isVisible()) await page.getByText('Group actions', { exact: true }).click()
@@ -515,6 +579,8 @@ try {
   await expectPane(secondary, savedSecond, savedSecond.body, false)
   await expectSameEditor(body(secondary), secondNode)
   await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(2)
+  const tail = await createDraft(author, 'Last primary workspace draft', 'Last primary server source.')
+  await exerciseTabClose({ page, first, localSource, alternate, tail, second: savedSecond, secondNode })
   const reopenedFirstNode = await body(primary).elementHandle()
   assert(reopenedFirstNode)
 

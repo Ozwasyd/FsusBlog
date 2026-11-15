@@ -129,6 +129,9 @@ const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane
 const credential = computed(() => currentSession.value?.siteSessionId)
 const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
   composing.value === undefined && !revisionComparisonActive.value)
+const activeGroupTabs = computed(() => workspaceTabs.value.filter(candidate => candidate.group === tab.value?.group))
+const activeGroupIndex = computed(() => activeGroupTabs.value.findIndex(candidate => candidate.active))
+const canCloseGroupTabs = computed(() => editable.value && canSwitch.value && !opening.value && !revisionComparisonActive.value)
 const canPublishImages = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
   !cannotWrite.value && !dirty.value && !retry.value && !!original.value?.body.trim())
 let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
@@ -600,6 +603,37 @@ function togglePin(target: WorkspaceTab) {
   else if (!registry.unpin(target)) navigationNotice.value = 'Save changes and close the current preview before unpinning this tab.'
 }
 
+const closeRiskLabel = {
+  dirty: 'unsaved changes', saving: 'save in progress', conflict: 'save conflict',
+  recovery: 'draft recovery', pending: 'pending change', blocked: 'unavailable',
+} satisfies Record<Exclude<WorkspaceTab['risk'], 'clean'>, string>
+
+async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
+  const current = registry.activeTab
+  const index = activeGroupIndex.value
+  const groupTabs = activeGroupTabs.value
+  if (!current || !canCloseGroupTabs.value || groupTabs[index]?.sessionId !== current.sessionId) return
+  const targets = onlyRight ? groupTabs.slice(index + 1) : groupTabs.filter(candidate => !candidate.active)
+  if (targets.length === 0) return
+  const focused = event.currentTarget
+  const epoch = identityEpoch.value
+  const plan = registry.planClose(targets)
+  const result = plan && registry.applyClose(plan)
+  if (result?.kind !== 'closed') {
+    groupNotice.value = ''
+    const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${closeRiskLabel[risk]})`]) ?? []
+    navigationNotice.value = result?.kind === 'protected'
+      ? `Could not close tabs. ${blocked.join(', ')}.`
+      : 'Tabs changed before closing. Try again.'
+    if (focused instanceof HTMLElement && focused.isConnected) focused.focus({ preventScroll: true })
+    return
+  }
+  navigationNotice.value = ''
+  groupNotice.value = targets.length === 1 ? 'Closed 1 tab.' : `Closed ${targets.length} tabs.`
+  await nextTick()
+  if (epoch === identityEpoch.value && registry.activeTab?.sessionId === current.sessionId) tabsControl.value?.focusActive()
+}
+
 async function closeTab(target: WorkspaceTab) {
   if (target.active && !canSwitch.value) {
     navigationNotice.value = 'Apply or cancel the pending changes before closing this tab.'
@@ -849,14 +883,22 @@ async function reloadDraft() {
           {{ pane.tab.group === 'main' ? 'Focus primary group' : 'Focus secondary group' }}
         </ElButton>
       </div>
-      <details v-if="hasSecondaryGroup && tab" class="workspace-group-actions">
-        <summary>Group actions</summary>
+      <details v-if="tab && (hasSecondaryGroup || activeGroupTabs.length > 1)" class="workspace-group-actions">
+        <summary>{{ hasSecondaryGroup ? 'Group actions' : 'Tab actions' }}</summary>
         <div>
-          <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'main'"
-            @click="arrangeGroups('main')">Move to primary group</ElButton>
-          <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'secondary'"
-            @click="arrangeGroups('secondary')">Move to secondary group</ElButton>
-          <ElButton text native-type="button" :disabled="!canArrangeGroups" @click="arrangeGroups()">Merge groups</ElButton>
+          <template v-if="hasSecondaryGroup">
+            <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'main'"
+              @click="arrangeGroups('main')">Move to primary group</ElButton>
+            <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'secondary'"
+              @click="arrangeGroups('secondary')">Move to secondary group</ElButton>
+            <ElButton text native-type="button" :disabled="!canArrangeGroups" @click="arrangeGroups()">Merge groups</ElButton>
+          </template>
+          <template v-if="activeGroupTabs.length > 1">
+            <ElButton text native-type="button" :disabled="!canCloseGroupTabs"
+              @click="closeGroupTabs($event, false)">Close other tabs</ElButton>
+            <ElButton text native-type="button" :disabled="!canCloseGroupTabs || activeGroupIndex === activeGroupTabs.length - 1"
+              @click="closeGroupTabs($event, true)">Close tabs to the right</ElButton>
+          </template>
         </div>
       </details>
       <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
