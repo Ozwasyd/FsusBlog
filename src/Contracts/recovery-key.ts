@@ -1,5 +1,5 @@
 import { ApiError, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { request } from './client.ts';
+import { request, validSiteSessionId } from './client.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
@@ -64,6 +64,15 @@ export async function verifySiteRecoveryKey(key: string, signal: AbortSignal): P
   } finally {
     body.fill(0);
   }
+}
+
+export async function removeCurrentSitePasskey(key: string, expectedSession: string, signal: AbortSignal): Promise<void> {
+  if (!validSiteSessionId(expectedSession)) throw new ProtocolError('Invalid site session.');
+  const headers = { [WireHeaders.CurrentSession]: expectedSession };
+  await verifySiteRecoveryKey(key, signal);
+  signal.throwIfAborted();
+  const assertion = await requestPasskeyAssertion(WireRoutes.SitePasskeyRemoveCurrentBegin, signal, undefined, true, false, headers);
+  await request(WireRoutes.SitePasskeyRemoveCurrentComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion, headers);
 }
 
 export function beginSitePasskeyReplacement(signal: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {

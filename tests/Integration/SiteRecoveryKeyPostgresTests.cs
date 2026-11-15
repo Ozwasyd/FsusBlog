@@ -4,6 +4,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Passkeys;
+using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
@@ -31,6 +32,53 @@ public sealed class SiteRecoveryKeyPostgresTests
         Assert.Equal(issued.Lookup, secrets.Lookup(issued.Key));
         Assert.True(secrets.Verify(issued.Key, issued.Salt, issued.Verifier));
         Assert.NotEqual(issued.Key, secrets.Generate().Key);
+    }
+
+    [PostgresFact]
+    public async Task CurrentRemovalRequiresFreshAccountRecoveryAndZeroDevicesDoesNotReopenBootstrap()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var secrets = new RecoveryKeySecret(RandomNumberGenerator.GetBytes(32));
+        var owner = await AddAccount(db, secrets, "Recovery-only member", ct);
+        var other = await AddAccount(db, secrets, "Other member", ct);
+        var session = await AddSession(db, owner.Id, ct);
+        var handle = SiteSessions.Id(owner.Id, Store.TokenDigest(session)!);
+        var peerTicket = await service.VerifySiteRecoveryKey(secrets, other.Key, NoPow, ct);
+        await Denied(() => service.BeginSitePasskeyRemoveCurrent(session, handle, peerTicket, ct));
+        var previous = await service.VerifySiteRecoveryKey(secrets, owner.Key, NoPow, ct);
+        var proof = await service.VerifySiteRecoveryKey(secrets, owner.Key, NoPow, ct);
+        await Denied(() => service.BeginSitePasskeyRemoveCurrent(session, handle, previous, ct));
+        var bootstrapSession = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var bootstrapDigest = Store.TokenDigest(bootstrapSession)!;
+        await Execute(db, """
+            insert into public.user_session(digest,user_id,generation,expires_at)
+            select $1,id,generation,clock_timestamp()+interval '1 minute' from public.blog_user where id=$2
+            """, ct, bootstrapDigest, owner.Id);
+        await Denied(() => service.BeginSitePasskeyRemoveCurrent(bootstrapSession, SiteSessions.Id(owner.Id, bootstrapDigest), proof, ct));
+        var begin = Aeds.Decode(await service.BeginSitePasskeyRemoveCurrent(session, handle, proof, ct), FrameType.PasskeyLoginBegin);
+        var token = Encoding.ASCII.GetString(begin.Slice(WireLayouts.PasskeyLoginBeginTokenOffset, 43));
+        var credential = Assert.IsType<byte[]>(await Scalar(db, "select credential_id from public.passkey_credential where user_id=$1", ct, owner.Id));
+        await Execute(db, "update public.site_recovery_key set used_at=clock_timestamp() where user_id=$1", ct, owner.Id);
+        await Denied(() => service.CompleteSitePasskeyRemoveCurrent(session, handle, proof,
+            new(token, WebEncoders.Base64UrlEncode(credential), credential, [1], [1], [1], [], false), ct));
+        Assert.Equal(1L, await Scalar(db, "select count(*) from public.passkey_credential where user_id=$1", ct, owner.Id));
+
+        await Execute(db, "delete from public.user_session where user_id=$1", ct, owner.Id);
+        await Execute(db, "delete from public.passkey_credential where user_id=$1", ct, owner.Id);
+        var ticket = RandomNumberGenerator.GetBytes(32);
+        await Execute(db, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,clock_timestamp()+interval '1 minute')",
+            ct, SHA256.HashData(ticket), owner.Id);
+        var text = Convert.ToHexStringLower(ticket);
+        await Denied(() => new Store(fixture.DataSource).SignIn(text, ct));
+        await Denied(() => service.BeginProvision(text, ct));
+
+        var peer = await AddSession(db, other.Id, ct);
+        await Execute(db, "drop table public.site_recovery_rebind, public.site_recovery_flow, public.site_recovery_key", ct);
+        await Denied(() => service.BeginSitePasskeyRemoveCurrent(peer, SiteSessions.Id(other.Id, Store.TokenDigest(peer)!), peerTicket, ct));
     }
 
     [PostgresFact]

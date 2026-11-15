@@ -5,6 +5,7 @@ using Fido2NetLib.Objects;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Operations;
+using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 using NpgsqlTypes;
@@ -53,7 +54,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             (userId, generation) = (row.GetGuid(0), row.GetInt64(1));
         }
 
-        if (await HasCredential(db, tx, userId, ct)) throw Denied();
+        if (await HasCredential(db, tx, userId, ct) || await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, userId, ct)) throw Denied();
         await using (var consume = Store.Sql(db, tx, """
             delete from public.login_ticket where user_id=$1 and digest=$2 and expires_at>clock_timestamp()
             """, userId, digest))
@@ -90,7 +91,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             where u.id=$1 and u.enabled and u.generation=$2 and s.user_handle=$3 for update of u
             """, accountId, challenge.Generation!.Value, options.User.Id))
             if (await verifyOwner.ExecuteScalarAsync(ct) is null) throw Denied();
-        if (await HasCredential(db, tx, accountId, ct)) throw Denied();
+        if (await HasCredential(db, tx, accountId, ct) || await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, accountId, ct)) throw Denied();
 
         await RegisterCredential(db, tx, accountId, request, options, ct);
 

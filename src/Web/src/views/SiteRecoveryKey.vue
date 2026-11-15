@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { issueSiteRecoveryKey, siteRecoveryAvailable, siteRecoveryStatus } from '../../../Contracts/recovery-key'
-import { currentSession, identityEpoch } from '../session'
+import { issueSiteRecoveryKey, removeCurrentSitePasskey, siteRecoveryAvailable, siteRecoveryStatus, validSiteRecoveryKey } from '../../../Contracts/recovery-key'
+import { credentialEpoch, currentSession, identityEpoch, refreshSession } from '../session'
+import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
 
 const available = ref(false)
 const active = ref<boolean | null>(null)
 const issued = ref('')
+const removing = ref(false)
+const removalKey = ref('')
 const busy = ref(false)
 const failure = ref('')
 const lifetime = new AbortController()
@@ -20,16 +23,47 @@ function reset() {
   available.value = false
   active.value = null
   issued.value = ''
+  closeRemoval()
   busy.value = false
   failure.value = ''
 }
 
-watch(identityEpoch, () => {
+watch(credentialEpoch, () => {
   reset()
   if (mounted && currentSession.value) void refresh()
 }, { flush: 'sync' })
 
 function hideKey() { issued.value = '' }
+
+function closeRemoval() {
+  removing.value = false
+  removalKey.value = ''
+}
+
+function removeCurrent() {
+  const expected = currentSession.value?.siteSessionId
+  const epoch = identityEpoch.value
+  const key = removalKey.value.trim()
+  if (!removing.value || !active.value || !expected || !validSiteRecoveryKey(key)) return
+  return run(async signal => {
+    removalKey.value = ''
+    const isLive = () => !signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === expected
+    await withSiteAuthMutation(signal, async () => {
+      const current = await readSiteAuthority(signal)
+      if (!isLive() || current?.siteSessionId !== expected)
+        throw new ApiError('The current browser session changed.', 409)
+      await removeCurrentSitePasskey(key, expected, signal).catch(async error => {
+        if (isLive()) await refreshSession(signal, false).catch(() => {})
+        throw error
+      })
+      if (!isLive()) return
+      announceSiteAuthChange()
+      await refreshSession(signal, false)
+    })
+  }, () => {
+    failure.value = 'Could not confirm Passkey removal. Check your Recovery Key and try again.'
+  })
+}
 
 function restoreStatus(event: PageTransitionEvent) {
   if (event.persisted && currentSession.value) void refresh()
@@ -104,11 +138,22 @@ function issue() {
       <code data-testid="site-recovery-key">{{ issued }}</code>
       <ElButton native-type="button" @click="hideKey">Hide Recovery Key</ElButton>
     </div>
+    <form v-else-if="removing" class="auth-form" @submit.prevent="removeCurrent">
+      <p>Removing the current Passkey will sign you out. Keep your Recovery Key so you can recover access.</p>
+      <label for="site-passkey-removal-key">Recovery Key to confirm removal</label>
+      <ElInput id="site-passkey-removal-key" v-model="removalKey" type="password" autocomplete="off" :disabled="busy" />
+      <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy || !validSiteRecoveryKey(removalKey.trim())">
+        Remove with Passkey
+      </ElButton>
+      <ElButton native-type="button" :disabled="busy" @click="closeRemoval">Cancel</ElButton>
+    </form>
     <template v-else-if="active !== null">
       <p v-if="active">Replacing the Recovery Key invalidates the previous key.</p>
       <ElButton type="primary" native-type="button" :loading="busy" @click="issue">
         {{ active ? 'Replace Recovery Key' : 'Create Recovery Key' }}
       </ElButton>
+      <ElButton v-if="active && currentSession.siteSessionId" native-type="button" :disabled="busy"
+        @click="removing = true">Remove current Passkey</ElButton>
     </template>
     <ElButton v-else-if="failure" native-type="button" :loading="busy" @click="refresh">Check Recovery Key status</ElButton>
   </section>

@@ -16,6 +16,7 @@ const ownerTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const peerTicket = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET
 const probeReservation = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PROBE
 const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
+const removeCurrent = process.env.FSUSBLOG_TEST_SITE_RECOVERY_REMOVE_CURRENT === '1'
 assert(url.hostname === 'localhost' && url.protocol === 'https:' &&
   ownerTicket && peerTicket && ownerTicket !== peerTicket && probeReservation &&
   /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins),
@@ -119,6 +120,62 @@ try {
   await replacement.page.getByText(recoveryFailed, { exact: true }).waitFor()
   await session(owner.context, 200)
 
+  if (removeCurrent) {
+    phase = 'remove-final-passkey'
+    const { page, context } = owner
+    const authority = await context.request.get(origin + WireRoutes.Session)
+    assert.equal(authority.status(), 200)
+    const handle = authority.headers()[WireHeaders.CurrentSession.toLowerCase()]
+    assert(/^[0-9a-f]{64}$/.test(handle), 'The current session handle is required.')
+    const headers = { [WireHeaders.CurrentSession]: handle }
+    const inventory = await context.request.get(origin + WireRoutes.SitePasskeys, { headers })
+    assert.equal(inventory.status(), 200)
+    const list = decodeFrame(await inventory.body(), FrameType.SitePasskeys).payload
+    assert.equal(new DataView(list.buffer, list.byteOffset, list.byteLength).getInt32(0, true), 1)
+
+    const deniedBegin = await context.request.post(origin + WireRoutes.SitePasskeyRemoveCurrentBegin, {
+      headers: { ...headers, Origin: origin },
+    })
+    assert.equal(deniedBegin.status(), 401)
+    await session(context, 200)
+    checks.removalWithoutRecoveryDenied = true
+
+    await button(page, 'Remove current Passkey').click()
+    const keyField = page.getByLabel('Recovery Key to confirm removal', { exact: true })
+    await keyField.fill(first)
+    const [invalid, invalidProof] = await Promise.all([
+      clickApi(page, WireRoutes.RecoveryKeyVerify, 'Remove with Passkey'), waitApi(page, WireRoutes.RecoveryKeyPow),
+    ])
+    await assertRecoveryProof(invalid, invalidProof)
+    assert.equal(invalid.status(), 401)
+    await session(context, 200)
+    checks.removalWithRotatedKeyDenied = true
+
+    if (!await keyField.isVisible()) await button(page, 'Remove current Passkey').click()
+    await keyField.fill(second)
+    const [keyReply, powReply, began, complete] = await Promise.all([
+      waitApi(page, WireRoutes.RecoveryKeyVerify), waitApi(page, WireRoutes.RecoveryKeyPow),
+      waitApi(page, WireRoutes.SitePasskeyRemoveCurrentBegin), waitApi(page, WireRoutes.SitePasskeyRemoveCurrentComplete),
+      button(page, 'Remove with Passkey').click(),
+    ])
+    await emptySuccess(keyReply)
+    await assertRecoveryProof(keyReply, powReply)
+    assertRecoveryCookie(await keyReply.headerValue('set-cookie'))
+    assert.equal(began.status(), 200)
+    assert((await began.headerValue('cache-control'))?.includes('no-store'))
+    decodeFrame(await began.body(), FrameType.PasskeyLoginBegin)
+    await emptySuccess(complete)
+    for (const response of [began, complete])
+      assert.equal((await response.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()], handle)
+    assertWebAuthnUv(complete.request().postDataBuffer())
+    const cookies = await context.cookies(origin + WireRoutes.SitePasskeyRemoveCurrentBegin)
+    assert(!cookies.some(cookie => cookie.name === siteCookieName || cookie.name === rebindCookieName),
+      'Removal left a site or rebind cookie in the original browser.')
+    await session(context, 401)
+    await keyField.waitFor({ state: 'hidden' })
+    checks.finalPasskeyRemoved = true
+  }
+
   phase = 'verify-response-loss'
   await replacement.page.getByLabel('Recovery Key', { exact: true }).fill(second)
   const lostVerification = await loseResponse(replacement.page, WireRoutes.RecoveryKeyVerify, async (upstream, sent) => {
@@ -195,6 +252,7 @@ try {
   assert(newState.name === originalState.name && newState.generation > preRecoveryState.generation,
     'The restored session did not preserve the account and advance its generation.')
   checks.replacementRequiredMfaBeforeSession = true
+  if (removeCurrent) checks.removedAccountRecoveredWithSameKey = true
 
   const peerAfter = await session(peer.context, 200)
   assert(peerAfter.name === peerState.name && peerAfter.generation === peerState.generation &&

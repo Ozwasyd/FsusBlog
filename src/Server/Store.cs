@@ -38,6 +38,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             if (!await row.ReadAsync(ct)) throw Unauthenticated();
             (id, name, generation, canAuthor) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2), row.GetBoolean(3));
         }
+        if (await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, id, ct)) throw Unauthenticated();
         await using (var consume = Sql(db, tx, """
             delete from public.login_ticket where digest=$1 and user_id=$2 and expires_at>clock_timestamp()
                 and not exists(select 1 from public.passkey_credential where user_id=$2)

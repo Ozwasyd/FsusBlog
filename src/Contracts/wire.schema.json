@@ -415,6 +415,8 @@
     "RecoveryKeyVerify": "/api/v2/identity/recovery-key/verify.aeds",
     "RecoveryKeyRebindBegin": "/api/v2/identity/recovery-key/rebind/begin.aeds",
     "RecoveryKeyRebindComplete": "/api/v2/identity/recovery-key/rebind/complete.aeds",
+    "SitePasskeyRemoveCurrentBegin": "/api/v2/identity/recovery-key/rebind/current-passkey/remove/begin.aeds",
+    "SitePasskeyRemoveCurrentComplete": "/api/v2/identity/recovery-key/rebind/current-passkey/remove/complete.aeds",
     "PasskeyProvisionComplete": "/api/v2/identity/passkey/register/complete.aeds",
     "PasskeyAvailability": "/api/v2/identity/passkey/availability.aeds",
     "Draft": "/api/v2/authoring/draft/{id:int}.aeds",

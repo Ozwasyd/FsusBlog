@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Security;
+using FsusBlog.V2.Server.Sessions;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -85,6 +87,23 @@ internal static class RecoveryKeyEndpoints
                 }
                 finally { CryptographicOperations.ZeroMemory(frame); }
             }, PowScope.SiteRecoveryKey)).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyRemoveCurrentBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequirePost(ctx);
+            if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false)
+                throw new BusinessException(Rejection.Invalid, "Passkey removal begins without a body.");
+            return Frame(await store.BeginSitePasskeyRemoveCurrent(Session(ctx), SiteSessions.Requested(ctx), ctx.Request.Cookies[RebindCookie], ct));
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyRemoveCurrentComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequirePost(ctx);
+            var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            await store.CompleteSitePasskeyRemoveCurrent(Session(ctx), SiteSessions.Requested(ctx), ctx.Request.Cookies[RebindCookie], request, ct);
+            ctx.Response.Cookies.Delete(sessionCookie, cookie("/"));
+            ctx.Response.Cookies.Delete(RebindCookie, cookie(RebindPath));
+            SiteRefreshEndpoints.ClearRefreshCookie(ctx);
+            return Frame(Wire.EncodeEmptySuccess());
+        }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.RecoveryKeyRebindBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequirePost(ctx);

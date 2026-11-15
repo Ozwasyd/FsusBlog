@@ -8,6 +8,8 @@
 
 登录页的 Recovery Key 流程先完成同源工作量证明，再验证密钥。每个已知密钥有十分钟内最多八次失败的限制，HTTP 路由另设来源配额。验证后浏览器获得仅能请求 Passkey 重绑的 HttpOnly Cookie。恢复窗口从验证成功开始计十分钟。验证响应丢失时，可以重新输入 Recovery Key。重新验证会替换恢复凭据，未到期窗口仍使用原到期时间。待完成的恢复在该窗口内优先于密钥轮换，现有 Passkey 和普通会话在成功重绑前保持有效。
 
+已有 `site-passkey-names` 管理存储的站点，账号可在安全面板用有效 Recovery Key 和当前 Passkey 的新鲜 WebAuthn 验证移除当前凭据。移除确认绑定已验证的恢复票据、当前会话、凭据创建坐标、名称修订和凭据数量。完成后结束该凭据的会话并撤销本次恢复票据，Recovery Key 仍可用于恢复。若移除的是最后一个凭据，同一事务推进账号代次并关闭此前的登录、注册和 MFA 流程。账号之后须通过 Recovery Key 重绑，运维首次绑定和票据登录均拒绝该账号。
+
 成功重绑会在同个事务中消费 Recovery Key、为同一个账号安装新 Passkey、撤销旧 Passkey 和普通会话，并推进账号代次。相同的完成提交可在恢复窗口内重试。用户随后重新登录，现有 TOTP 和 TOTP 恢复码继续适用。
 
 HTTP 契约位于 `/api/v2/identity/recovery-key/`。操作、签发结果、状态和验证帧为 32900 至 32903，WebAuthn 继续使用已有的 Passkey AEDS 帧。恢复始终替换旧 Passkey 并撤销旧会话。v1 另有可选撤销策略与独立风险服务。 [固定版本的 v1 AEDS 契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/contracts.md#recovery-key-aeds-frames)

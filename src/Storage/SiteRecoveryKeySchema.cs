@@ -60,4 +60,16 @@ internal static partial class CurrentSchema
             _ => throw new InvalidOperationException("The site Recovery Key schema is partially installed.")
         };
     }
+
+    // An issued Recovery Key is durable evidence that this account passed Passkey enrollment.
+    internal static async Task<bool> RequiresSiteRecoveryAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct)
+    {
+        if (!await HasSiteRecoveryKeySchemaAsync(db, tx, ct)) return false;
+        await using var query = new NpgsqlCommand("""
+            select exists(select from public.site_recovery_key where user_id=$1)
+                and not exists(select from public.passkey_credential where user_id=$1)
+            """, db, tx);
+        query.Parameters.AddWithValue(owner);
+        return await query.ExecuteScalarAsync(ct) is true;
+    }
 }

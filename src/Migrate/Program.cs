@@ -581,6 +581,8 @@ internal static partial class Migration
         else
         {
             userId = await FindUserAsync(connection, transaction, name, requireEnabled: true, token);
+            if (await CurrentSchema.RequiresSiteRecoveryAsync(connection, transaction, userId, token))
+                throw new InvalidOperationException("This account must use its Recovery Key.");
         }
 
         await using var ticket = new NpgsqlCommand("""

@@ -804,6 +804,8 @@ public static class WireRoutes
     public const string RecoveryKeyVerify = "/api/v2/identity/recovery-key/verify.aeds";
     public const string RecoveryKeyRebindBegin = "/api/v2/identity/recovery-key/rebind/begin.aeds";
     public const string RecoveryKeyRebindComplete = "/api/v2/identity/recovery-key/rebind/complete.aeds";
+    public const string SitePasskeyRemoveCurrentBegin = "/api/v2/identity/recovery-key/rebind/current-passkey/remove/begin.aeds";
+    public const string SitePasskeyRemoveCurrentComplete = "/api/v2/identity/recovery-key/rebind/current-passkey/remove/complete.aeds";
     public const string PasskeyProvisionComplete = "/api/v2/identity/passkey/register/complete.aeds";
     public const string PasskeyAvailability = "/api/v2/identity/passkey/availability.aeds";
     public const string Draft = "/api/v2/authoring/draft/{id:int}.aeds";
