@@ -71,7 +71,7 @@ const openInput = ref('')
 const navigationNotice = ref('')
 const groupNotice = ref('')
 const opening = ref(false)
-const closingGroupTabs = ref(false)
+const closingTabs = ref(false)
 const composing = ref<number>()
 let navigation = 0
 type NavigationIntent = {
@@ -107,7 +107,7 @@ const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'c
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
 const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
-  !closingGroupTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
+  !closingTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const encoder = new TextEncoder()
 function validDraftTitle(title: string) {
@@ -118,7 +118,7 @@ const validDraftBody = (body: string) => body.length <= 200_000 && !body.include
 const validTitle = computed(() => validDraftTitle(original.value?.title ?? ''))
 const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
-const cannotWrite = computed(() => closingGroupTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
+const cannotWrite = computed(() => closingTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
   taxonomyDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
 const editorArea = ref<HTMLElement>()
@@ -131,7 +131,7 @@ const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.
 const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
 const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
-  !closingGroupTabs.value && composing.value === undefined && !revisionComparisonActive.value)
+  !closingTabs.value && composing.value === undefined && !revisionComparisonActive.value)
 const activeGroupTabs = computed(() => workspaceTabs.value.filter(candidate => candidate.group === tab.value?.group))
 const activeGroupIndex = computed(() => activeGroupTabs.value.findIndex(candidate => candidate.active))
 const canCloseGroupTabs = computed(() => editable.value && canSwitch.value && !opening.value &&
@@ -212,13 +212,15 @@ async function mutationResult(operation: () => Promise<Draft>, signal: AbortSign
 const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> => {
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
-  return mutationResult(() => api[action]({
-    id: draft.id,
-    expectedRevision: draft.revision,
-    title: action === 'save' ? draft.title.trim() : '',
-    body: action === 'save' ? draft.body : '',
-    idempotencyKey,
-  }, signal, handle), signal)
+  const title = action === 'save' ? draft.title.trim() : ''
+  const body = action === 'save' ? draft.body : ''
+  return mutationResult(async () => {
+    const stored = await api[action]({ id: draft.id, expectedRevision: draft.revision, title, body, idempotencyKey }, signal, handle)
+    if (action === 'save' && (stored.title !== title || stored.body !== body)) {
+      throw new Error('The save reply did not match the submitted draft source.')
+    }
+    return stored
+  }, signal)
 }
 
 const saveTaxonomy = (selection: TaxonomySelection) => (draft: Draft, signal: AbortSignal, idempotencyKey: string) =>
@@ -612,7 +614,7 @@ const closeRiskLabel = {
   recovery: 'draft recovery', pending: 'pending change', blocked: 'unavailable',
 } satisfies Record<Exclude<WorkspaceTab['risk'], 'clean'>, string>
 
-async function saveGroupAndClose(plan: ClosePlan, current: () => boolean) {
+async function saveAndCloseTabs(plan: ClosePlan, current: () => boolean) {
   const reservation = registry.reserveClose(plan, 'save')
   if (!reservation) return 'stale'
   const saved: string[] = []
@@ -639,12 +641,12 @@ async function saveGroupAndClose(plan: ClosePlan, current: () => boolean) {
   }
 }
 
-async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
+async function confirmProtectedClose(plan: ClosePlan, current: () => boolean) {
   const drafts = registry.recoveryDraftsForClose(plan)
   const saveDrafts = drafts ?? registry.recoveryDraftsForClose(plan, true)
   const allSaved = plan.tabs.every(tab => tab.articleId > 0)
-  const canSave = allSaved && !!saveDrafts?.length && saveDrafts.every(({ draft }) =>
-    validDraftTitle(draft.title) && validDraftBody(draft.body))
+  const canSave = allSaved && !!saveDrafts?.length && plan.tabs.every(tab => tab.risk !== 'conflict') &&
+    saveDrafts.every(({ draft }) => validDraftTitle(draft.title) && validDraftBody(draft.body))
   if (!drafts?.length && !canSave) return 'protected'
   const choice = ref<'keep' | 'discard' | 'save'>(drafts?.length ? 'keep' : 'save')
   const message = h(() => current() ? h('div', [
@@ -665,7 +667,7 @@ async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
       allSaved && drafts?.length ? h(ElRadio, { value: 'discard' }, () => 'Discard unsaved edits from this browser') : null,
     ] }),
   ]) : h('p', 'The workspace changed while this confirmation was open.'))
-  closingGroupTabs.value = true
+  closingTabs.value = true
   try {
     const consent = await ElMessageBox.confirm(
       message, 'Close tabs with unsaved edits?', {
@@ -673,7 +675,7 @@ async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
       })
     if (!consent.ok) return 'cancelled'
     if (!current() || registry.revision !== plan.revision) return 'stale'
-    if (choice.value === 'save') return canSave ? await saveGroupAndClose(plan, current) : 'protected'
+    if (choice.value === 'save') return canSave ? await saveAndCloseTabs(plan, current) : 'protected'
     if (choice.value === 'discard') {
       const reservation = registry.reserveClose(plan, 'discard')
       if (!reservation) return 'stale'
@@ -686,8 +688,17 @@ async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
   } catch {
     return 'cancelled'
   } finally {
-    closingGroupTabs.value = false
+    closingTabs.value = false
   }
+}
+
+function failedCloseNotice(outcome: Awaited<ReturnType<typeof confirmProtectedClose>>, plan?: ClosePlan) {
+  const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${closeRiskLabel[risk]})`]) ?? []
+  return typeof outcome === 'object' ? outcome.message
+    : outcome === 'protected' ? `Could not close tabs. ${blocked.join(', ')}.`
+    : outcome === 'copies-unavailable' ? 'Could not verify recovery copies. Save the drafts before closing these tabs.'
+    : outcome === 'discard-unavailable' ? 'Could not discard the recovery copies. The tabs are still open.'
+    : outcome === 'stale' ? 'Tabs changed before closing. Try again.' : ''
 }
 
 async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
@@ -704,16 +715,11 @@ async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
     route.path === path && registry.activeTab?.sessionId === current.sessionId
   const plan = registry.planClose(targets)
   const result = plan ? registry.applyClose(plan).kind : 'stale'
-  const outcome = plan && result === 'protected' ? await confirmGroupClose(plan, isCurrent) : result
+  const outcome = plan && result === 'protected' ? await confirmProtectedClose(plan, isCurrent) : result
   if (!isCurrent()) return
   if (outcome !== 'closed') {
     groupNotice.value = ''
-    const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${closeRiskLabel[risk]})`]) ?? []
-    navigationNotice.value = typeof outcome === 'object' ? outcome.message
-      : outcome === 'protected' ? `Could not close tabs. ${blocked.join(', ')}.`
-      : outcome === 'copies-unavailable' ? 'Could not verify recovery copies. Save the drafts before closing these tabs.'
-      : outcome === 'discard-unavailable' ? 'Could not discard the recovery copies. The tabs are still open.'
-      : outcome === 'stale' ? 'Tabs changed before closing. Try again.' : ''
+    navigationNotice.value = failedCloseNotice(outcome, plan)
     await nextTick()
     if (isCurrent() && focused instanceof HTMLElement && focused.isConnected) focused.focus({ preventScroll: true })
     return
@@ -725,35 +731,60 @@ async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
 }
 
 async function closeTab(target: WorkspaceTab) {
-  if (closingGroupTabs.value || target.active && !canSwitch.value) {
+  if (closingTabs.value || target.active && !canSwitch.value) {
     navigationNotice.value = 'Apply or cancel the pending changes before closing this tab.'
     return
   }
   const focused = document.activeElement
-  const before = registry.revision
-  const edit = registry.editSequence(target)
+  const epoch = identityEpoch.value
+  const path = route.path
+  const active = registry.activeTab?.sessionId
+  const samePage = () => epoch === identityEpoch.value && !lifetime.signal.aborted && route.path === path
+  const isCurrent = () => samePage() && registry.activeTab?.sessionId === active
+  async function restoreFocus() {
+    await nextTick()
+    if (!samePage()) return
+    if (focused instanceof HTMLElement && focused.isConnected) focused.focus({ preventScroll: true })
+    else tabsControl.value?.focusActive()
+  }
+
   navigationNotice.value = ''
-  const ready = registry.requestClose(target)
+  const plan = registry.planClose([target])
+  if (!plan) return
+  const ready = registry.applyClose(plan)
   if (ready.kind === 'stale') return
   if (ready.kind === 'protected') {
-    if (target.retry || target.risk === 'saving' || target.risk === 'pending' || target.risk === 'recovery') {
+    if (target.risk === 'saving' || target.risk === 'pending' || (target.risk === 'recovery' &&
+        (target.articleId === 0 || target.retry !== 'save'))) {
       navigationNotice.value = 'Resolve the pending changes before closing this tab.'
       return
     }
-    try {
-      const result = await ElMessageBox.confirm(`Discard changes to ${target.title} and close its tab?`, 'Close article tab?', {
-        type: 'warning', confirmButtonText: 'Discard changes', cancelButtonText: 'Keep writing', closeOnClickModal: false,
-      })
-      if (!result.ok || registry.discard(target, before).kind !== 'closed') {
-        if (focused instanceof HTMLElement && focused.isConnected) focused.focus()
+    if (target.articleId > 0 && target.risk !== 'blocked') {
+      const outcome = await confirmProtectedClose(plan, isCurrent)
+      if (!samePage()) return
+      if (outcome !== 'closed') {
+        navigationNotice.value = failedCloseNotice(outcome, plan)
+        await restoreFocus()
         return
       }
-      if (edit !== undefined) await recovery.discardArticle(target.articleId, target.sessionId, edit)
-    } catch {
-      if (focused instanceof HTMLElement && focused.isConnected) focused.focus()
-      return
+    } else {
+      const edit = registry.editSequence(target)
+      try {
+        const outcome = await ElMessageBox.confirm(`Discard changes to ${target.title} and close its tab?`, 'Close article tab?', {
+          type: 'warning', confirmButtonText: 'Discard changes', cancelButtonText: 'Keep writing', closeOnClickModal: false,
+        })
+        if (!outcome.ok || !isCurrent() || registry.discard(target, plan.revision).kind !== 'closed') {
+          await restoreFocus()
+          return
+        }
+        if (edit !== undefined) await recovery.discardArticle(target.articleId, target.sessionId, edit)
+      } catch {
+        await restoreFocus()
+        return
+      }
     }
   }
+  if (!samePage()) return
   if (target.active) {
     const next = workspaceTabs.value.find(candidate => candidate.risk !== 'blocked' && candidate.risk !== 'saving')
     const state = persistentWorkspace.value ? workspaceState : undefined
@@ -778,7 +809,7 @@ function flushHiddenWorkspace() {
 }
 
 async function allowLeave(allTabs = false) {
-  if (propertyPending.value || closingGroupTabs.value) return false
+  if (propertyPending.value || closingTabs.value) return false
   const candidates = (allTabs ? workspaceTabs.value : tab.value ? [tab.value] : [])
     .filter(item => item.risk !== 'clean' || item.active && taxonomyDirty.value)
   if (!candidates.length) return true
@@ -816,7 +847,7 @@ onBeforeRouteLeave(async () => {
 function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (paneFocused(pane) && !closingGroupTabs.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
+  if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
     if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
@@ -846,7 +877,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
   const current = tab.value
   const document = original.value
   const siteSession = currentSession.value?.siteSessionId
-  if (!current || !document || !editable.value || closingGroupTabs.value || pending.value || recoveryBlocked.value) return
+  if (!current || !document || !editable.value || closingTabs.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
   } else if (action === 'publish-images') {
@@ -945,7 +976,7 @@ async function reloadDraft() {
         <span v-if="editable" class="metadata">{{ original?.published ? 'Published' : 'Draft' }}</span>
       </div>
       <div v-if="editable" class="editor-actions">
-        <ElButton v-if="retry" type="primary" :disabled="closingGroupTabs || pending" @click="submit(retry)">Try again</ElButton>
+        <ElButton v-if="retry" type="primary" :disabled="closingTabs || pending" @click="submit(retry)">Try again</ElButton>
         <ElButton v-else native-type="button" :disabled="cannotWrite || !articleDirty" @click="submit('save')">Save draft</ElButton>
         <ElButton
           v-if="!retry" native-type="button" :type="original?.published ? 'default' : 'primary'"
@@ -1029,7 +1060,7 @@ async function reloadDraft() {
       <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
-          :blocked="closingGroupTabs || pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
+          :blocked="closingTabs || pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="canvasSeek?.sessionId === pane.tab.sessionId ? canvasSeek : undefined" @source-revealed="finishCanvasSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>

@@ -685,7 +685,9 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       if (risk === 'clean') continue
       const retry = saving && risk === 'recovery' && !session.recovery && !session.pending &&
         session.request?.command === 'save' && session.request.edit === session.edit
-      if ((risk !== 'dirty' && !retry) || session.id <= 0 || session.edit <= 0) return undefined
+      const discardConflict = !saving && plan.tabs.length === 1 && risk === 'conflict' && session.dirty &&
+        !session.writing && !session.request && !session.pending && !session.recovery
+      if ((risk !== 'dirty' && !retry && !discardConflict) || session.id <= 0 || session.edit <= 0) return undefined
       sources.push({ draft: structuredClone(session.draft), edit: session.edit })
     }
     return sources
@@ -700,7 +702,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     const sessions = new Set<Session<Draft>>()
     for (const tab of plan.tabs) {
       const session = this.#find(tab)
-      if (!session || session === active || session.group !== active.group || session.id <= 0) return undefined
+      if (!session || session.id <= 0) return undefined
+      if (plan.tabs.length > 1 && (session === active || session.group !== active.group)) return undefined
       sessions.add(session)
     }
     const controller = new AbortController()

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
-  decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes,
+  decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeArticleCommand, encodeDraft, encodeSignIn, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
@@ -296,6 +296,39 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     confirmedMixedCloseRestoresRealRecoveryCopy: true, explicitMixedDiscardReopensDurableDraft: true })
 }
 
+function hasRecoveryCopy(page, id, body) {
+  return page.evaluate(({ id, body }) => new Promise((resolve, reject) => {
+    const open = indexedDB.open('fsusblog-v2-draft-recovery')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const db = open.result
+      const get = db.transaction('recovery').objectStore('recovery').getAll()
+      get.onerror = () => { db.close(); reject(get.error) }
+      get.onsuccess = () => {
+        const found = get.result.some(record => record.document === `article:${id}` && record.body === body)
+        db.close()
+        resolve(found)
+      }
+    }
+  }), { id, body })
+}
+
+function abortDraftCopyDelete(page, id) {
+  return page.evaluate(id => {
+    const original = IDBObjectStore.prototype.delete
+    IDBObjectStore.prototype.delete = function (key) {
+      const result = original.call(this, key)
+      if (this.name === 'recovery' && Array.isArray(key) && key[2] === `article:${id}`) {
+        IDBObjectStore.prototype.delete = original
+        const transaction = this.transaction
+        transaction.addEventListener('abort', () => { document.documentElement.dataset.saveCleanupAborted = '1' }, { once: true })
+        queueMicrotask(() => transaction.abort())
+      }
+      return result
+    }
+  }, id)
+}
+
 async function exerciseSaveAndClose(author) {
   const anchor = await createDraft(author, 'Save and close anchor', 'Current source remains open.')
   let first = await createDraft(author, 'First recovery cleanup draft', 'First original source.')
@@ -338,22 +371,7 @@ async function exerciseSaveAndClose(author) {
     return stored
   }
 
-  function hasFirstRecoveryCopy() {
-    return page.evaluate(({ id, body }) => new Promise((resolve, reject) => {
-      const open = indexedDB.open('fsusblog-v2-draft-recovery')
-      open.onerror = () => reject(open.error)
-      open.onsuccess = () => {
-        const db = open.result
-        const get = db.transaction('recovery').objectStore('recovery').getAll()
-        get.onerror = () => { db.close(); reject(get.error) }
-        get.onsuccess = () => {
-          const found = get.result.some(record => record.document === `article:${id}` && record.body === body)
-          db.close()
-          resolve(found)
-        }
-      }
-    }), { id: first.id, body: localText(first) })
-  }
+  const hasFirstRecoveryCopy = () => hasRecoveryCopy(page, first.id, localText(first))
 
   try {
     await page.goto(editPath(anchor.id))
@@ -376,19 +394,7 @@ async function exerciseSaveAndClose(author) {
     await press(page, anchorTab)
     await expect(page).toHaveURL(editPath(anchor.id))
     await expect.poll(hasFirstRecoveryCopy).toBe(true)
-    await page.evaluate(id => {
-      const original = IDBObjectStore.prototype.delete
-      IDBObjectStore.prototype.delete = function (key) {
-        const result = original.call(this, key)
-        if (this.name === 'recovery' && Array.isArray(key) && key[2] === `article:${id}`) {
-          IDBObjectStore.prototype.delete = original
-          const transaction = this.transaction
-          transaction.addEventListener('abort', () => { document.documentElement.dataset.saveCleanupAborted = '1' }, { once: true })
-          queueMicrotask(() => transaction.abort())
-        }
-        return result
-      }
-    }, first.id)
+    await abortDraftCopyDelete(page, first.id)
 
     await chooseSave()
     await expect(page.locator('html')).toHaveAttribute('data-save-cleanup-aborted', '1')
@@ -467,6 +473,138 @@ async function exerciseSaveAndClose(author) {
       lostSaveReplyReplaysExactCommand: true, laterSaveConflictLeavesAllTabsOpen: true })
   } finally {
     releaseLostReply.resolve()
+    await page.close()
+  }
+}
+
+async function exerciseSingleDirtyClose(author) {
+  const anchor = await createDraft(author, 'Single close anchor', 'The fallback editor remains open.')
+  const victim = await createDraft(author, 'Single dirty close draft', 'Original persisted source.')
+  const local = 'Only the recovery journal contains these changes.'
+  const savedSource = 'This exact source must be confirmed before closing.'
+  const page = await author.newPage()
+  monitor(page)
+  const close = button(page, `Close ${victim.title}`)
+  const anchorTab = tab(page, anchor, 'Pinned')
+  const dialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
+  const draftCopy = value => hasRecoveryCopy(page, victim.id, value)
+  const recent = button(page, `Reopen Article ${victim.id}`)
+
+  async function openCloseDialog() {
+    await expect(dialog).toHaveCount(0)
+    await press(page, close)
+    await expect(dialog).toBeVisible()
+  }
+
+  async function confirmClose(option) {
+    await openCloseDialog()
+    await dialog.getByText(option, { exact: true }).click()
+    await expect(dialog.getByRole('radio', { name: option, exact: true })).toBeChecked()
+    await button(dialog, 'Close tabs').click()
+  }
+
+  async function assertStillOpen(state, value) {
+    await expect(page).toHaveURL(editPath(victim.id))
+    await expect(tab(page, victim, state)).toHaveAttribute('aria-selected', 'true')
+    await expect(body(page)).toHaveValue(value)
+    await expect(close).toBeFocused()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(2)
+    assert.equal(await draftCopy(value), true)
+  }
+
+  try {
+    await page.goto(editPath(anchor.id))
+    await expect(body(page)).toBeEditable()
+    await button(page, `Pin ${anchor.title}`).click()
+    await openById(page, victim.id, 'Open article')
+    await expect(page).toHaveURL(editPath(victim.id))
+    await expect(body(page)).toBeEditable()
+    await body(page).fill(local)
+    await expect.poll(() => draftCopy(local)).toBe(true)
+
+    await openCloseDialog()
+    await button(dialog, 'Keep writing').click()
+    await expect(dialog).toHaveCount(0)
+    await assertStillOpen('Unsaved', local)
+
+    await abortDraftCopyDelete(page, victim.id)
+    const discard = 'Discard unsaved edits from this browser'
+    await confirmClose(discard)
+    await expect(page.locator('html')).toHaveAttribute('data-save-cleanup-aborted', '1')
+    await expect(page.getByText('Could not discard the recovery copies. The tabs are still open.', { exact: true })).toBeVisible()
+    await assertStillOpen('Unsaved', local)
+
+    await confirmClose(discard)
+    await expect(page).toHaveURL(editPath(anchor.id))
+    await expect(anchorTab).toBeFocused()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(1)
+    assert.equal(await draftCopy(local), false)
+    await page.getByText('Recently closed', { exact: true }).click()
+    await recent.click()
+    await expect(page).toHaveURL(editPath(victim.id))
+    await expect(body(page)).toBeEditable()
+    await expect(body(page)).toHaveValue(victim.body)
+
+    await title(page).fill(`  ${victim.title}  `)
+    await body(page).fill(savedSource)
+    await expect.poll(() => draftCopy(savedSource)).toBe(true)
+    const saves = []
+    const savePath = `${origin}${WireRoutes.Save}`
+    await page.route(savePath, async route => {
+      saves.push(route.request().postDataBuffer())
+      if (saves.length > 2) return route.continue()
+      const real = await route.fetch({ maxRetries: 0, maxRedirects: 0 })
+      assert.equal(real.status(), 200)
+      const stored = decodeDraft(decodeFrame(await real.body(), FrameType.Draft).payload)
+      assert.equal(stored.title, victim.title)
+      assert.equal(stored.body, savedSource)
+      assert.equal(stored.revision, victim.revision + 1n)
+      const wrong = saves.length === 1 ? { ...stored, title: `${stored.title} incorrect` } : { ...stored, body: 'Incorrect source.' }
+      const headers = real.headers()
+      delete headers['content-length']
+      delete headers['content-encoding']
+      await route.fulfill({ response: real, headers, body: Buffer.from(encodeFrame(FrameType.Draft, encodeDraft(wrong))) })
+      await real.dispose()
+    })
+    const option = 'Save drafts before closing'
+    const failure = `Could not confirm the save for ${victim.title}. Retry the same save from its tab. The tabs are still open.`
+    for (const expected of [1, 2]) {
+      const [reply] = await Promise.all([
+        page.waitForResponse(response => response.url() === savePath && response.request().method() === 'POST'),
+        confirmClose(option),
+      ])
+      assert.equal(reply.status(), 200)
+      const returned = decodeDraft(decodeFrame(await reply.body(), FrameType.Draft).payload)
+      assert.deepEqual(returned, { ...victim, revision: victim.revision + 1n,
+        title: expected === 1 ? `${victim.title} incorrect` : victim.title,
+        body: expected === 1 ? savedSource : 'Incorrect source.' })
+      assert.equal(saves.length, expected)
+      await expect(page.getByText(failure, { exact: true })).toBeVisible()
+      await assertStillOpen('Recovery needed', savedSource)
+    }
+    await confirmClose(option)
+    await expect(page).toHaveURL(editPath(anchor.id))
+    await expect(anchorTab).toBeFocused()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(1)
+    assert.equal(saves.length, 3)
+    assert.deepEqual(saves[1], saves[0])
+    assert.deepEqual(saves[2], saves[0])
+    assert.equal(await draftCopy(savedSource), false)
+    const response = await author.request.get(draftPath(victim.id))
+    assert.equal(response.status(), 200)
+    assert.deepEqual(decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload), {
+      ...victim, body: savedSource, revision: victim.revision + 1n,
+    })
+    if (!await recent.isVisible()) await page.getByText('Recently closed', { exact: true }).click()
+    await recent.click()
+    await expect(page).toHaveURL(editPath(victim.id))
+    await expect(title(page)).toHaveValue(victim.title)
+    await expect(body(page)).toHaveValue(savedSource)
+    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
+    observations.push({ singleDirtyCloseCancelPreservesRouteAndFocus: true, singleDiscardAbortPreservesRecoveryCopy: true,
+      confirmedSingleDiscardReopensDurableDraft: true, singleCloseRejectsChangedSaveReplySource: true,
+      verifiedSingleSaveClosesBeforeRouting: true })
+  } finally {
     await page.close()
   }
 }
@@ -841,6 +979,7 @@ try {
 
   await exerciseSavedWorkspace({ author, session, outsider, outsiderSession, first, alternate, second: savedSecond })
   await exerciseSaveAndClose(author)
+  await exerciseSingleDirtyClose(author)
 
   // Replacing the current credential must invalidate both hosts, including the unfocused one.
   await author.addCookies(await outsider.cookies())
