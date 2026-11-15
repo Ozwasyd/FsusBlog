@@ -21,9 +21,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     public async Task TrustedCaddyPacesPublishedImagesAndReleasesCancelledReads()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(3));
         var author = await MediaFixture.CreateSession(db.DataSource, "TLS image pacing author", ct);
         var workspace = Directory.CreateTempSubdirectory("fsus-published-media-caddy-");
         try

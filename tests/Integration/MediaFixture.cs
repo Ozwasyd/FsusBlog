@@ -1,5 +1,8 @@
+using System.Buffers.Binary;
+using System.Net.Http.Headers;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Sessions;
 using Npgsql;
@@ -70,6 +73,24 @@ internal static class MediaFixture
         image.Erase(color);
         using var encoded = image.Encode(format, 90);
         return encoded.ToArray();
+    }
+
+    internal static Guid FirstListedAsset(byte[] frame, int total)
+    {
+        var page = Aeds.Decode(frame, FrameType.PrivateMediaItems);
+        Assert.Equal(total, BinaryPrimitives.ReadInt32LittleEndian(page[5..]));
+        return total == 0 ? Guid.Empty : new Guid(page[9..25], bigEndian: true);
+    }
+
+    internal static async Task<HttpResponseMessage> Upload(HttpClient client, MediaFixture.Session session, Guid key, string name, string type,
+        byte[] bytes, CancellationToken ct)
+    {
+        using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name),
+            null, session.Token, session.SiteSessionId);
+        request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(type);
+        return await client.SendAsync(request, ct);
     }
 
     internal static Dictionary<string, string> PublicSettings(string privateRoot, string publicRoot) => new()

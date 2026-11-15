@@ -19,9 +19,7 @@ public sealed class PublishedMediaStorePostgresTests
     public async Task ExplicitSelectionBindsToOnePublicationAndSharesContentAddressedBytes()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         await using var lease = new InstanceLease(db.ConnectionString);
         await lease.Start(NullLogger.Instance, ct);
         using var media = new Files(db.DataSource, lease);
@@ -113,9 +111,7 @@ public sealed class PublishedMediaStorePostgresTests
     public async Task SourceCorruptionAndOutboxFailurePreserveThePriorReleaseAndAllowExactRetry()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         await using var lease = new InstanceLease(db.ConnectionString);
         await lease.Start(NullLogger.Instance, ct);
         using var media = new Files(db.DataSource, lease);

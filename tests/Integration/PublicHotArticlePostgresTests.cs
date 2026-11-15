@@ -12,9 +12,7 @@ public sealed class PublicHotArticlePostgresTests
     [PostgresFact]
     public async Task RankedBytesUseOnlyCurrentPublicArticlesAndReadWithoutDatabaseWork()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (author, token, _) = await fixture.SignIn("Ranking author", ct, minutes: 1);
         var route = WireRoutes.PublicArticleHot.Replace("{size}", "10");

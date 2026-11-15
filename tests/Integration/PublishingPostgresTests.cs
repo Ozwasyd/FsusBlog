@@ -13,9 +13,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task APreviousEncodingGenerationCannotReadCurrentSearchPagesAtIdenticalPublicationCoordinates()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var store = new Store(fixture.DataSource);
         var actor = await store.SignIn((await fixture.IssueTicket("search owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         (int Id, long Revision, long Publication) coordinate;
@@ -95,9 +93,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task LostBackendDisablesPublicationAndWritesUntilAReplacementAcquiresOwnership()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         var store = new Store(fixture.DataSource);
         var actor = await store.SignIn((await fixture.IssueTicket("lease owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         await using var first = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -192,9 +188,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task ProjectionFailureKeepsAllRepresentationsClosedUntilDurableRecovery()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var session = await store.SignIn((await fixture.IssueTicket("projection owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -267,9 +261,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task WithdrawingInvalidatesOldHttpRepresentationsAcrossRestart()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var session = await store.SignIn((await fixture.IssueTicket("http publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         const string marker = "public replacement unique marker";
@@ -344,9 +336,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task AFailedOutboxInsertRollsBackTheDraftAndAllowsAnExactRetry()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
@@ -379,9 +369,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task ReadOnlyExpiredAndRevokedSessionsCannotCreateArticles()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         var edit = new Edit(0, 0, Guid.NewGuid(), "No unauthorized writes", "private");
@@ -407,9 +395,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task AStaleAuthoringHandleCannotCreateAnArticleInAnotherAccount()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
         var first = await store.SignIn((await fixture.IssueTicket("first author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
@@ -433,9 +419,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task PublicationOrdinalsArePerArticleAndSurviveWithdrawal()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         var session = await store.SignIn((await fixture.IssueTicket("publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
@@ -468,9 +452,7 @@ public sealed class PublishingPostgresTests
     [PostgresFact]
     public async Task PublishAndRetractUseOneAuthorizedDurableRevision()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);

@@ -13,9 +13,7 @@ public sealed class ArticleSummaryPostgresTests
     [PostgresFact]
     public async Task SummaryUsesTheOwnedSavedRevisionAndPublishesOnlyItsImmutableValue()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         var store = new Store(db.DataSource);
         var owner = await SignIn("Summary owner");
         var stranger = await SignIn("Summary stranger");

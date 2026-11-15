@@ -20,9 +20,7 @@ public sealed partial class PrivateMediaPostgresTests
     public async Task NativeImagesRequireAnAuthorAndTheirFilesStayPrivateThroughDeletion()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var primary = await MediaFixture.CreateSession(db.DataSource, "media-owner", ct, canAuthor: true);
         var another = await MediaFixture.CreateSession(db.DataSource, "media-outsider", ct, canAuthor: true);
         var reader = await MediaFixture.CreateSession(db.DataSource, "media-reader", ct, canAuthor: false);
@@ -113,9 +111,7 @@ public sealed partial class PrivateMediaPostgresTests
     public async Task CoherentWebpSchemaAdmitsStaticNativeBytesAndResumableReadsOnlyForTheOwner()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
         {
             Assert.False(await CurrentSchema.VerifyAsync(connection, ct));
@@ -213,9 +209,7 @@ public sealed partial class PrivateMediaPostgresTests
     private async Task CheckDraftAttachments(bool pdf)
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await MediaFixture.CreateSession(db.DataSource, "attachment-owner", ct, canAuthor: true);
         var outsider = await MediaFixture.CreateSession(db.DataSource, "attachment-other", ct, canAuthor: true);
         var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-attach-");
@@ -763,9 +757,7 @@ public sealed partial class PrivateMediaPostgresTests
     public async Task ResumablePartsPersistAcrossRestartAndFinalizeOnlyVerifiedPrivateBytes()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await MediaFixture.CreateSession(db.DataSource, "resume-owner", ct, canAuthor: true);
         var foreign = await MediaFixture.CreateSession(db.DataSource, "resume-other", ct, canAuthor: true);
         var reader = await MediaFixture.CreateSession(db.DataSource, "resume-reader", ct, canAuthor: false);
@@ -889,9 +881,7 @@ public sealed partial class PrivateMediaPostgresTests
     public async Task PendingUploadCanResumeAndDeletionRefusesUnownedFileBytes()
     {
         if (OperatingSystem.IsWindows()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await MediaFixture.CreateSession(db.DataSource, "media-owner", ct, canAuthor: true);
         var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-recovery-");
         var storage = directory.FullName;
@@ -1044,22 +1034,10 @@ public sealed partial class PrivateMediaPostgresTests
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
-    private static Guid First(byte[] frame, int total)
-    {
-        var page = Aeds.Decode(frame, FrameType.PrivateMediaItems);
-        Assert.Equal(total, BinaryPrimitives.ReadInt32LittleEndian(page[5..]));
-        return total == 0 ? Guid.Empty : new Guid(page[9..25], bigEndian: true);
-    }
+    private static Guid First(byte[] frame, int total) => MediaFixture.FirstListedAsset(frame, total);
 
-    private static async Task<HttpResponseMessage> Upload(HttpClient client, MediaFixture.Session session, Guid key, string name, string type,
-        byte[] bytes, CancellationToken ct)
-    {
-        using var request = Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name), session);
-        request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
-        request.Content = new ByteArrayContent(bytes);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue(type);
-        return await client.SendAsync(request, ct);
-    }
+    private static Task<HttpResponseMessage> Upload(HttpClient client, MediaFixture.Session session, Guid key, string name, string type,
+        byte[] bytes, CancellationToken ct) => MediaFixture.Upload(client, session, key, name, type, bytes, ct);
 
     private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, MediaFixture.Session? session,
         CancellationToken ct, string? previewTicket = null, bool range = false)

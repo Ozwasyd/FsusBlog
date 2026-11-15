@@ -11,9 +11,7 @@ public sealed class SiteSessionsPostgresTests
     [PostgresFact]
     public async Task ListsAndRevokesOnlyActiveAccountSessionsAndPreservesCurrentAuthority()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var account = await AddAccount(db, "Reader", ct);
@@ -67,9 +65,7 @@ public sealed class SiteSessionsPostgresTests
     [PostgresFact]
     public async Task RevocationWaitingForAccountLockRechecksAuthorityAfterGenerationChanges()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         await using var authority = await fixture.DataSource.OpenConnectionAsync(ct);
         await using var inspection = await fixture.DataSource.OpenConnectionAsync(ct);

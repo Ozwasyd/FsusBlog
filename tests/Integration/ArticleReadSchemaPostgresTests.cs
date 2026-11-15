@@ -8,9 +8,7 @@ public sealed class ArticleReadSchemaPostgresTests
     [PostgresFact]
     public async Task SchemaAcceptsLegacyAbsenceAndRejectsPartialWrongOrMissingWatermark()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         Assert.True(await CurrentSchema.HasArticleReadSchemaAsync(db, null, ct));
 
@@ -43,9 +41,7 @@ public sealed class ArticleReadSchemaPostgresTests
     [PostgresFact]
     public async Task ReadTotalSchemaRequiresBothDescendingIndexKeys()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         Assert.True(await CurrentSchema.HasArticleReadTotalSchemaAsync(db, null, ct));
 

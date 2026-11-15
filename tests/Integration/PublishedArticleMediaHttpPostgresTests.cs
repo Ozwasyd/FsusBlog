@@ -17,9 +17,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     public async Task ExplicitImagesAreScopedToCurrentPublicationAndRemainHiddenWhenDisabled()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await MediaFixture.CreateSession(db.DataSource, "image release author", ct);
         var other = await MediaFixture.CreateSession(db.DataSource, "independent image author", ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-");
@@ -191,9 +189,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     public async Task UnlistedImageRequestsConsumeTheSameNoStoreAddressLimit()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-limit-");
         try
         {
@@ -276,12 +272,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
     private static async Task<Asset> Upload(HttpClient client, MediaFixture.Session owner, string name, string type, byte[] source, CancellationToken ct)
     {
-        using var uploaded = await Send(client, HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name),
-            ct, owner, source, Guid.NewGuid(), contentType: type);
+        using var uploaded = await MediaFixture.Upload(client, owner, Guid.NewGuid(), name, type, source, ct);
         Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
-        var rows = Aeds.Decode(await uploaded.Content.ReadAsByteArrayAsync(ct), FrameType.PrivateMediaItems);
-        Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(rows[5..]));
-        var id = new Guid(rows[9..25], bigEndian: true);
+        var id = MediaFixture.FirstListedAsset(await uploaded.Content.ReadAsByteArrayAsync(ct), 1);
         using var raw = await Send(client, HttpMethod.Get, PrivatePath(id), ct, owner);
         Assert.Equal(HttpStatusCode.OK, raw.StatusCode);
         Assert.Equal(type, raw.Content.Headers.ContentType?.MediaType);
@@ -291,11 +284,10 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
     private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, CancellationToken ct,
         MediaFixture.Session? actor = null, byte[]? bytes = null, Guid? mutation = null, string? currentSession = null,
-        string contentType = Aeds.ContentType, KeyValuePair<string, string>? header = null)
+        KeyValuePair<string, string>? header = null)
     {
         var handle = actor is not null && currentSession != "" ? currentSession ?? actor.SiteSessionId : null;
         using var request = SiteAedsFixture.Request(method, path, bytes, actor?.Token, handle);
-        if (bytes is not null) request.Content!.Headers.ContentType = new(contentType);
         if (mutation is { } key) request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
         if (header is { } additional) request.Headers.Add(additional.Key, additional.Value);
         return await client.SendAsync(request, ct);

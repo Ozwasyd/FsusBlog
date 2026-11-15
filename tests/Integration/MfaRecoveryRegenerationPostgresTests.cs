@@ -17,9 +17,7 @@ public sealed class MfaRecoveryRegenerationPostgresTests
     [PostgresFact]
     public async Task ActionBoundProofAtomicallyReplacesCodesWithoutChangingAuthenticatorOrSession()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var secrets = new TotpSecret(RandomNumberGenerator.GetBytes(32));
         var mfa = new MfaStore(fixture.DataSource, secrets);
         var sessions = new Store(fixture.DataSource);

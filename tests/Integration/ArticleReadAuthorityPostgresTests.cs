@@ -37,9 +37,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     [PostgresFact]
     public async Task FailedTransactionRollsBackAndLostConnectorClosesTheOccupiedEpoch()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         await using var lease = new InstanceLease(database.ConnectionString);
         await lease.Start(NullLogger.Instance, ct);
@@ -94,9 +92,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     [UnixPostgresFact]
     public async Task LostCommitAcknowledgmentLeavesOnlyAggregatesAndCannotBeReplayed()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         await using var lease = new InstanceLease(database.ConnectionString);
         await lease.Start(NullLogger.Instance, ct);
@@ -132,9 +128,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     [PostgresFact]
     public async Task RankedTotalSaturatesWhileHourlyAndDwellAggregatesContinue()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         await using var lease = new InstanceLease(database.ConnectionString);
         await lease.Start(NullLogger.Instance, ct);
@@ -166,9 +160,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     [PostgresFact]
     public async Task OlderAggregateSchemaCountsReadsWithoutTheOptionalTotal()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = timeout.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         await Execute(db, "drop table public.article_read_total", ct);
         await using var lease = new InstanceLease(database.ConnectionString);
