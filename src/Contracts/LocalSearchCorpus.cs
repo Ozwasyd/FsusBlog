@@ -371,6 +371,21 @@ public static class LocalSearchCorpus
             {
                 var start = index++;
                 while (index < text.Length && SearchLexicon.IsCjk(text[index])) index++;
+                if (index - start > SearchLexicon.MaxSegment)
+                {
+                    // Keep a literal dictionary hit without allocating a segmentation table for a long run.
+                    for (var at = start; at < index; at++)
+                    {
+                        for (var width = Math.Min(SearchLexicon.MaxWord, index - at); width >= 2; width--)
+                        {
+                            if (SearchLexicon.IsWord(text.AsSpan(at, width)))
+                                yield return DictionaryToken(text.AsSpan(at, width), 0);
+                        }
+                        yield return DictionaryToken(text.AsSpan(at, 1), 1);
+                    }
+                    continue;
+                }
+
                 foreach (var (at, width) in SearchLexicon.Segment(text, start, index))
                 {
                     if (width > 1)

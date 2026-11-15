@@ -35,6 +35,8 @@ internal static class LocalSearchVectors
         if (!dictionary.AsSpan().SequenceEqual(Convert.FromHexString(dictionaryFixture)))
             throw new InvalidOperationException("FSPK dictionary frequencies or positions differ from the independent fixture");
 
+        VerifyLongCjkPostings(dictionaryArticle);
+
         var articlePage = Enumerable.Range(1, WireLimits.SearchIndexPageSize + 1)
             .Select(id => article with { Id = id }).ToArray();
         var split = LocalSearchCorpus.Build(articlePage);
@@ -55,5 +57,55 @@ internal static class LocalSearchVectors
             return;
         }
         throw new InvalidOperationException("Local search did not observe cancellation");
+    }
+
+    private static void VerifyLongCjkPostings(Article article)
+    {
+        Article[] articles =
+        [
+            article with { Id = 42, Body = "博客" + new string('雪', 4094) },
+            article with { Id = 43, Body = "博客" + new string('雪', 4095) },
+            article with { Id = 44, Body = new string('雪', 4095) + "博客" },
+            article with { Id = 45, Body = "博雪客" + new string('雪', 4094) },
+        ];
+        var pages = LocalSearchCorpus.Build(articles);
+        if (pages is not { Count: 1 })
+            throw new InvalidOperationException("The CJK boundary articles did not fit one FSPK page");
+
+        var shard = pages[0].AsSpan(WireLayouts.SearchPackagePayloadOffset);
+        if (BinaryPrimitives.ReadInt32LittleEndian(shard[20..]) != articles.Length)
+            throw new InvalidOperationException("FSPK lost a CJK boundary article");
+        var documentOffset = BinaryPrimitives.ReadInt32LittleEndian(shard[40..]);
+        int[] lengths = [4097, 4098, 4098, 4098]; // One ASCII title token plus the body scalars.
+        for (var i = 0; i < articles.Length; i++)
+        {
+            var row = shard[(documentOffset + i * WireLayouts.SearchDocumentRecordSize)..];
+            if (BinaryPrimitives.ReadInt32LittleEndian(row) != articles[i].Id ||
+                BinaryPrimitives.ReadInt32LittleEndian(row[20..]) != lengths[i])
+                throw new InvalidOperationException("FSPK changed the document length at the CJK boundary");
+        }
+
+        // Three docs, ID deltas 42/1/1, one body occurrence at offsets 0/0/4095.
+        ReadOnlySpan<byte> expected =
+        [
+            3,
+            42, 0, 0, 1, 1, 0, 2, 4,
+            1, 0, 0, 1, 1, 0, 2, 4,
+            1, 0, 0, 1, 1, 0xff, 0x1f, 2, 4,
+        ];
+        var termCount = BinaryPrimitives.ReadInt32LittleEndian(shard[16..]);
+        var termOffset = BinaryPrimitives.ReadInt32LittleEndian(shard[36..]);
+        var postingOffset = BinaryPrimitives.ReadInt32LittleEndian(shard[60..]);
+        for (var i = 0; i < termCount; i++)
+        {
+            var term = shard[(termOffset + i * WireLayouts.SearchTermRecordSize)..];
+            if (BinaryPrimitives.ReadUInt32LittleEndian(term) != 0xfa0b7541u) continue; // 博客
+            var start = postingOffset + BinaryPrimitives.ReadInt32LittleEndian(term[8..]);
+            var size = BinaryPrimitives.ReadInt32LittleEndian(term[12..]);
+            if (BinaryPrimitives.ReadInt32LittleEndian(term[16..]) != 1 || !shard.Slice(start, size).SequenceEqual(expected))
+                throw new InvalidOperationException("FSPK dictionary postings differ at the long CJK boundary");
+            return;
+        }
+        throw new InvalidOperationException("FSPK lost the dictionary term at the long CJK boundary");
     }
 }

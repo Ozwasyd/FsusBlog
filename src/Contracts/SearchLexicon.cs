@@ -9,10 +9,10 @@ internal static class SearchLexicon
     internal static bool IsCjk(char value) => value is >= '\u3400' and <= '\u4dbf' or
         >= '\u4e00' and <= '\u9fff' or >= '\u3040' and <= '\u30ff' or >= '\uac00' and <= '\ud7af';
 
-    private const int MaxSegment = 4096;
+    internal const int MaxSegment = 4096;
     private static readonly Dictionary<string, int> Weights;
     private static readonly HashSet<string> Stopwords;
-    private static readonly int MaxWord;
+    internal static readonly int MaxWord;
 
     static SearchLexicon()
     {

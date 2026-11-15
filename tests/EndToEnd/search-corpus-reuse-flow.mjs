@@ -68,6 +68,29 @@ try {
   assert.equal(stages.withdrawn[2].validator, last.validator)
   assert(visitor.workers().includes(worker))
 
+  const longRunTitle = 'Cjkboundarycanary'
+  // The ASCII prefix keeps the CJK run out of the indexed summary.
+  const longRun = '博客' + '雪'.repeat(4095) + '搜雪索'
+  const longDraft = await command(WireRoutes.Save, 0, 0n, longRunTitle, 'x'.repeat(200) + ' ' + longRun)
+  const longPublication = await command(WireRoutes.Publish, longDraft.id, longDraft.revision)
+  assert.equal(longPublication.published, true)
+  await submit('博客')
+  await result(longRunTitle).waitFor()
+  stages.longCjkExact = checkedRefresh(stages.withdrawn[1], stages.withdrawn[2])
+  const longGeneration = stages.longCjkExact[3].generation
+  assert.notEqual(longGeneration, stages.withdrawn[3].generation)
+  assert.notEqual(stages.longCjkExact[2].validator, stages.withdrawn[2].validator)
+
+  await submit('搜索')
+  await visitor.getByText('No articles match your search.', { exact: true }).waitFor()
+  assert.equal(await result(longRunTitle).count(), 0)
+  stages.longCjkNonAdjacent = checkedWarm(longGeneration)
+
+  await submit('搜')
+  await result(longRunTitle).waitFor()
+  stages.longCjkScalar = checkedWarm(longGeneration)
+  assert(visitor.workers().includes(worker))
+
   function result(name) {
     return visitor.locator('ol.article-list').getByRole('link', { name, exact: true })
   }
@@ -95,6 +118,13 @@ try {
     assert.equal(changed.requested, unchanged.generation)
     assert.equal(current.requested, unchanged.generation)
     assert.equal(current.generation, unchanged.generation)
+    return batch
+  }
+
+  function checkedWarm(generation) {
+    const batch = received.splice(0)
+    assert.deepEqual(batch.map(call => [call.method, call.page, call.status, call.requested, call.generation]),
+      Array.from({ length: 2 }, () => ['HEAD', 0, 204, generation, generation]))
     return batch
   }
 
