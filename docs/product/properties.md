@@ -44,4 +44,6 @@
 
 冻结 v1 定义权威含八种类型和操作符描述，批处理属性查询权威为不可用。两端独立比较的行为已定义，`*.between` 的边界决策仍由 C10 跟踪。同字段 OR、专用类型化值索引、完整 1,000 字段 / 10,000 文章矩阵及旧库导入仍待交付。[个人保存视图](author-saved-views.md) 已复用现有属性查询。 [#2324](https://github.com/Ozwasyd/FsusBlog/issues/2324#issuecomment-6111553848) · [#2327](https://github.com/Ozwasyd/FsusBlog/issues/2327) · [#1861 依赖链](https://github.com/Ozwasyd/FsusBlog/issues/1861#issuecomment-5174474530)
 
-`PropertyScalePostgresTests` 使用同一隔离 PostgreSQL 18.7 库运行联合规模检查。通过正常 HTTP 创建八种类型的 1,000 个定义，验证超限拒绝、弃用后删除、补建和稳定重命名。夹具装载 10,000 篇文章和 88,000 个属性值，再通过服务读取全部 40 页、核对授权拒绝和类型值，并自主重建作者索引。筛选得到 5,000 条匹配，取两页核对独立的排序、分面、缺失及显式空值计数。本轮最大编辑器 AEDS 响应 2,280 字节。完整历史快照、迁移、千字段浏览器资源与无障碍仍待验收。 [联合规模实库日志](../../artifacts/property-scale-de88453/native-5/verification.log)
+`PropertyScalePostgresTests` 使用同一隔离 PostgreSQL 18.7 库运行联合规模检查。通过正常 HTTP 创建八种类型的 1,000 个定义，验证超限拒绝、弃用后删除、补建和稳定重命名。夹具装载 10,000 篇文章和 88,000 个属性值，再通过服务读取全部 40 页、核对授权拒绝和类型值，并自主重建作者索引。筛选得到 5,000 条匹配，取两页核对独立的排序、分面、缺失及显式空值计数。本轮最大编辑器 AEDS 响应 2,280 字节。完整旧库转换仍待验收。 [联合规模实库日志](../../artifacts/property-scale-de88453/native-5/verification.log)
+
+原生 Chrome 沿实际编辑器读完 1,000 个定义的 40 页并回翻一页。每页挂载 25 个字段，翻页使用一次 AEDS 请求，最大响应 2,166 字节。桌面首次与末次采样为 1,140 和 1,174 个节点，监听器为 302 和 306 个。375px 抽屉保持焦点，重新回到桌面仍能键盘继续。指标来自独立浏览器中的主动垃圾回收后采样。读屏、主题及缩放矩阵仍待验收。 [Chrome 规模证据](../../artifacts/property-inspector-scale-a649068/scale-chromium-2/property-inspector-scale-result.json)
