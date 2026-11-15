@@ -61,18 +61,18 @@ internal static partial class Migration
                             AND release.revision_no=p.revision_no AND claim.content_canonical_hash=
                                 'sha256:' || regexp_replace(lower(trim(p.canonical_hash)),'^sha256:',''))
                     THEN row_to_json(p)::text END
-                FROM {table} p ORDER BY p.id LIMIT 4
+                FROM {table} p ORDER BY p.id LIMIT 5
                 """, tx.Connection, tx) { CommandTimeout = LegacyCommandTimeout };
             query.Parameters.AddWithValue(table);
             await using var reader = await query.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct)) return null;
             var keys = await ReadLegacyProofFileAsync(LegacyProofKeyInput, ct) ?? throw new FormatException();
             var trusted = ReadLegacyPublishProofKeys(keys);
-            var rows = new List<string>(3);
+            var rows = new List<string>(4);
             var revisions = new HashSet<long>();
             do
             {
-                if (rows.Count == 3 || reader.IsDBNull(0)) throw new FormatException();
+                if (rows.Count == 4 || reader.IsDBNull(0)) throw new FormatException();
                 var row = reader.GetString(0);
                 if (!revisions.Add(VerifyLegacyPublishProof(Encoding.UTF8.GetBytes(row), trusted).RevisionId)) throw new FormatException();
                 rows.Add(row);
@@ -80,7 +80,7 @@ internal static partial class Migration
             await reader.DisposeAsync();
             Dictionary<int, string> rights = deliveries.Length == 0 ? [] :
                 await ReadLegacyRightsProofSourceAsync(source, tx, catalog, tables, relation, deliveries, ct);
-            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, deliveries.Length, ct);
+            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, Math.Max(3, rows.Count) + deliveries.Length, ct);
             var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency,
                 rights.GetValueOrDefault(3), rights.GetValueOrDefault(1), rights.GetValueOrDefault(2));
             var entries = VerifyLegacyTransparency(set, trusted);
@@ -105,10 +105,10 @@ internal static partial class Migration
         var logs = plan.SourceProjections?.Where(row => row.Table is LegacyTransparencyTable or LegacyCheckpointTable).ToArray() ?? [];
         var rights = plan.SourceProjections?.Where(row => row.Table == LegacyRightsProofTable).ToArray() ?? [];
         if (plan.PublishProofs is null && projection.Length == 0 && logs.Length == 0 && rights.Length == 0) return;
-        if (plan.PublishProofs is not { Rows.Length: >= 1 and <= 3 } proof || !IsSha256(proof.KeysSha256) ||
+        if (plan.PublishProofs is not { Rows.Length: >= 1 and <= 4 } proof || !IsSha256(proof.KeysSha256) ||
             plan.Provider != "postgres" || plan.Version != ImportPlanWithRollbackOutboxVersion || plan.Media is not null ||
             proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || proof.RightsRows().Any(row => !ValidLegacyTransparencyRow(row)) ||
-            !ValidLegacyTransparencySet(proof.Transparency, logs, proof.RightsRows().Count()) ||
+            !ValidLegacyTransparencySet(proof.Transparency, logs, Math.Max(3, proof.Rows.Length), proof.RightsRows().Count()) ||
             (proof.ProjectRights() is { } measure ? rights is not [var right] || right != measure : rights.Length != 0) ||
             projection is not [var measurement] || measurement != proof.Project())
             throw new InvalidOperationException("The legacy import plan contains an invalid publish proof record set.");

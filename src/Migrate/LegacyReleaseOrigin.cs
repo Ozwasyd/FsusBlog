@@ -7,7 +7,7 @@ internal static partial class Migration
 
     private static async Task<LegacyReleaseOrigin> ReadLegacyReleaseOriginAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         string planSha, string projectionSha, string actorsSha, string? configuredAuthor, CancellationToken ct,
-        string publishProof, string rightsProof)
+        string publishProof, string rightsProof, long expectedPublications)
     {
         var siteAuthor = ResolveLegacySiteAuthor(configuredAuthor);
         var disclosure = await ReadLegacyResponsibilityDisclosuresAsync(db, tx, siteAuthor, ct);
@@ -47,6 +47,7 @@ internal static partial class Migration
                             ELSE $4::jsonb -> s.id::text END) AS manifest,
                     $1::text AS plan_sha256,$2::text AS projection_sha256,$3::text AS source_admin_identity_sha256
                 FROM {{ImportSchema}}.shadow_publication p
+                JOIN {{ImportSchema}}.shadow_article a ON a.id=p.article_id
                 JOIN {{ImportSchema}}.shadow_revision r ON r.source_revision_id=p.source_revision_id AND r.article_id=p.article_id
                 JOIN {{ImportSchema}}.shadow_article_rights_snapshot rights ON rights.id=p.source_rights_snapshot_id
                 JOIN {{ImportSchema}}.{{LegacyOutboxParent.Table.Name}} event ON event.article_publication_id=p.source_publication_id
@@ -73,7 +74,8 @@ internal static partial class Migration
                 WHERE (p.revision=2 AND p.source_responsibility_snapshot_id IS NULL AND
                     ((history.entries=0 AND s.id IS NULL) OR
                      (history.entries BETWEEN 1 AND {{MaxLegacyHistoricalResponsibilityVersions}} AND s.responsibility_version=history.entries))) OR
-                    (p.revision IN (1,3) AND s.id IS NOT NULL AND s.responsibility_version=1 AND s.previous_snapshot_id IS NULL)
+                    (p.revision IN (1,3) AND s.id IS NOT NULL AND s.responsibility_version=1 AND s.previous_snapshot_id IS NULL) OR
+                    (a.current_revision=1 AND p.revision=1 AND s.id IS NULL AND p.source_responsibility_snapshot_id IS NULL)
             ) t ORDER BY article_id,revision
             """, db, tx);
         query.Parameters.AddWithValue(planSha);
@@ -90,7 +92,7 @@ internal static partial class Migration
         await using var reader = await query.ExecuteReaderAsync(ct);
         var rows = new List<string>(3);
         var measurement = await MeasureBackupRowsAsync("legacy_release_origin", "r", reader, ct, rows);
-        if (measurement.Rows != 3)
+        if (measurement.Rows != expectedPublications)
             throw new InvalidOperationException("Legacy rollback responsibility cannot be mapped to the supported public manifest.");
         return new(measurement, "[" + string.Join(',', rows) + "]");
     }

@@ -97,7 +97,8 @@ internal static class LegacyReleaseResponsibility
                             from public.legacy_release_origin item
                             cross join lateral (values (item.evidence #> '{publishProof,transparency,sourceRow}'),
                                 (item.evidence #> '{rightsProof,transparency,sourceRow}')) entry(value)
-                            where item.article_id=origin.article_id and item.revision<=active.revision and entry.value is not null))
+                            where item.plan_sha256=origin.plan_sha256 and item.projection_sha256=origin.projection_sha256
+                              and (item.article_id<>origin.article_id or item.revision<=active.revision) and entry.value is not null))
                         as document
                     where $6 and origin.evidence ?| array['publishProof','rightsProof']
                 ) observed on true

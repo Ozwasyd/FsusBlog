@@ -27,7 +27,8 @@ internal static partial class Migration
         var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, verifiedRollbackEvents, ct);
         var proofs = await ReadLegacyReleasePublishProofAsync(source, sourceTx, plan, rollback, ct);
         var origin = rollback ? await ReadLegacyReleaseOriginAsync(source, sourceTx, planSha, projectionSha,
-            plan.SourceAdminIdentitySha256, plan.SiteAuthor, ct, proofs.Publish, proofs.Rights) : null;
+            plan.SourceAdminIdentitySha256, plan.SiteAuthor, ct, proofs.Publish, proofs.Rights,
+            plan.ExpectedTables.Single(table => table.Table == "shadow_publication").Rows) : null;
         string? approved = null;
         if (input.Approval is [var path, var digest])
         {
@@ -161,7 +162,9 @@ internal static partial class Migration
         {
             ImportPlanWithProcessedOutboxVersion => verifiedRepublishEvents == 0,
             ImportPlanWithRepublishOutboxVersion => verifiedRepublishEvents > 0 && verifiedRepublishEvents <= articles,
-            ImportPlanWithRollbackOutboxVersion => articles == 1 && verifiedRepublishEvents == 1 && verifiedRollbackEvents == 1 &&
+            ImportPlanWithRollbackOutboxVersion => (articles == 1 ||
+                articles == 2 && plan.PublishProofs is { Rows.Length: 4, Transparency: not null }) &&
+                verifiedRepublishEvents == 1 && verifiedRollbackEvents == 1 &&
                 historical is >= 0 and <= MaxLegacyHistoricalResponsibilityVersions,
             _ => false
         };
@@ -185,12 +188,12 @@ internal static partial class Migration
             JOIN {ImportSchema}.shadow_publication p ON p.source_publication_id=a.current_publication_id
             JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
             JOIN {ImportSchema}.shadow_article_rights_policy q ON q.id=s.article_rights_policy_id AND q.article_id=a.id
-            WHERE a.source_status=2 AND a.deleted=0 AND ((NOT $1 AND a.current_revision IN (1,2)) OR ($1 AND a.current_revision=3))
+            WHERE a.source_status=2 AND a.deleted=0 AND ((NOT $1 AND a.current_revision IN (1,2)) OR ($1 AND a.current_revision IN (1,3)))
               AND a.current_public_revision_candidate=a.current_revision AND a.last_publication_number=a.current_revision
               AND a.summary IS NOT DISTINCT FROM r.summary
               AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=a.current_revision
               AND p.publication_number=a.current_revision AND p.revision=a.current_revision AND s.enabled=1
-              AND ($1 OR s.proof_binding_enabled=0)
+              AND (($1 AND a.current_revision=3) OR s.proof_binding_enabled=0)
               AND (q.enabled,q.license_type,q.copyright_holder,q.copyright_year,q.rights_statement,q.attribution_template,
                 q.copy_policy,q.max_excerpt_chars,q.allow_code_copy,q.show_public_badge,q.proof_binding_enabled)
                   IS NOT DISTINCT FROM (s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,s.attribution_template,
@@ -207,7 +210,8 @@ internal static partial class Migration
                   WHERE old.article_id=a.id AND old.publication_number BETWEEN 1 AND a.current_revision
                     AND old.revision=old.publication_number AND rights.enabled=1
                     AND old.source_transition=CASE WHEN old.publication_number=3 THEN 'rollback' ELSE 'immediate-publish' END
-                    AND ($1 OR (old.source_responsibility_snapshot_id IS NULL AND rights.proof_binding_enabled=0)))=a.current_revision
+                    AND (($1 AND a.current_revision=3) OR
+                        (old.source_responsibility_snapshot_id IS NULL AND rights.proof_binding_enabled=0)))=a.current_revision
               AND NOT EXISTS (SELECT FROM {ImportSchema}.shadow_article_revision_content_block b
                   WHERE NOT EXISTS (SELECT FROM {ImportSchema}.shadow_revision x WHERE x.source_content_block_id=b.id))
             ORDER BY a.id

@@ -11,6 +11,8 @@ public readonly record struct LegacyTransparencyProofEntry(long Seq, string Entr
 public sealed record LegacyTransparencyCheckpoint(int ManifestVersion, string CheckpointKind, string ScopeKey, string RootHash,
     long FromSeq, long ToSeq, int EntryCount, long LogHeadSeq, string LogHeadHash, DateTimeOffset CreatedAtUtc);
 
+public sealed record LegacyTransparencySibling(string Hash, bool IsLeftSibling);
+
 // Cryptographic encoding of frozen V1 data. Scope, membership, and key policy belong to the caller.
 public static class LegacyTransparencyPayload
 {
@@ -34,14 +36,31 @@ public static class LegacyTransparencyPayload
     public static string MerkleRoot(IReadOnlyList<string> leaves)
     {
         if (leaves.Count == 0) return Digest("fsusblog.integrity.merkle-empty.v1\n");
+        while (leaves.Count > 1) leaves = Parents(leaves);
+        return leaves[0];
+    }
+
+    public static LegacyTransparencySibling[] MerkleInclusion(IReadOnlyList<string> leaves, int index)
+    {
+        if ((uint)index >= (uint)leaves.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        var siblings = new List<LegacyTransparencySibling>();
         while (leaves.Count > 1)
         {
-            var parents = new string[(leaves.Count + 1) / 2];
-            for (int i = 0; i < leaves.Count; i += 2)
-                parents[i / 2] = Digest($"fsusblog.integrity.merkle-node.v1\nleft:h:{leaves[i]}\nright:h:{leaves[Math.Min(i + 1, leaves.Count - 1)]}\n");
-            leaves = parents;
+            var other = index ^ 1;
+            if (other >= leaves.Count) other = index;
+            siblings.Add(new(leaves[other], other < index));
+            leaves = Parents(leaves);
+            index /= 2;
         }
-        return leaves[0];
+        return siblings.ToArray();
+    }
+
+    private static string[] Parents(IReadOnlyList<string> leaves)
+    {
+        var parents = new string[(leaves.Count + 1) / 2];
+        for (int i = 0; i < leaves.Count; i += 2)
+            parents[i / 2] = Digest($"fsusblog.integrity.merkle-node.v1\nleft:h:{leaves[i]}\nright:h:{leaves[Math.Min(i + 1, leaves.Count - 1)]}\n");
+        return parents;
     }
 
     public static (string Digest, byte[] Payload) CheckpointSigningPayload(LegacyTransparencyCheckpoint manifest)

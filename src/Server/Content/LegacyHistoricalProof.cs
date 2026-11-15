@@ -73,22 +73,24 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             var parent = rights ? VerifyArchivedSignature(parentArchive, articleId, original, revisionNo, registry, null) : null;
             var proof = VerifyArchivedSignature(archive, articleId, original, revisionNo, registry, parent);
             var rows = evidence.GetProperty("entries");
-            if (rows.GetArrayLength() is < 1 or > 6) return null;
+            if (rows.GetArrayLength() is < 1 or > 7) return null;
             var chain = rows.EnumerateArray().Select(row => ReadEntry(ReadJson(row.GetBytesFromBase64())))
                 .OrderBy(entry => entry.Seq).ToArray();
             var selected = ReadEntry(ReadJson(transparency.GetProperty("sourceRow").GetBytesFromBase64()));
             if (!MatchesEntry(chain, selected, proof, rights ? RightsProofKind : ProofKind, articleId, original, revisionNo))
                 return null;
+            LogEntry? parentEntry = null;
             if (parent is not null)
             {
                 var parentTransparency = parentArchive.GetProperty("transparency");
-                var parentEntry = ReadEntry(ReadJson(parentTransparency.GetProperty("sourceRow").GetBytesFromBase64()));
+                parentEntry = ReadEntry(ReadJson(parentTransparency.GetProperty("sourceRow").GetBytesFromBase64()));
                 if (parentEntry.Seq >= selected.Seq ||
                     !MatchesEntry(chain, parentEntry, parent, ProofKind, articleId, original, revisionNo))
                     return null;
             }
 
-            var (root, head) = VerifyChain(chain, articleId);
+            var (leaves, head, global) = VerifyChain(chain);
+            var root = LegacyTransparencyPayload.MerkleRoot(leaves);
             var anchor = ReadJson(checkpoint);
             var scope = Required(anchor, "scope_key");
             var signedCheckpointAt = Time(anchor, "created_at");
@@ -106,11 +108,19 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 !VerifySignature(checkpointKey, signedCheckpointAt, checkpointPayload, checkpointSignature))
                 return null;
 
-            var transparencyManifest = new { entrySeq = selected.Seq, chain, checkpoint = manifest,
-                signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey };
-            return new ArchiveManifest(1,
+            object transparencyManifest = global
+                ? new { entrySeq = selected.Seq, inclusion = Witness(selected), parentInclusion = parentEntry is null ? null : Witness(parentEntry),
+                    checkpoint = manifest, signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey }
+                : new { entrySeq = selected.Seq, chain, checkpoint = manifest,
+                    signedPayload = checkpointPayload, signature = checkpointSignature, key = checkpointKey };
+            return new ArchiveManifest(global ? 2 : 1,
                 rights ? "legacy-v1-article-rights-proof-archive" : "legacy-v1-publication-proof-archive", articleId, revisionNo,
                 Decimal(original), Decimal(proof.Id), proof.SignedAt, proof.Payload, proof.Signature, proof.Key, transparencyManifest, proof.Rights);
+
+            object Witness(LogEntry entry) => new
+            {
+                entry, siblings = LegacyTransparencyPayload.MerkleInclusion(leaves, checked((int)entry.Seq - 1))
+            };
         }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or FormatException or
             KeyNotFoundException or JsonException or CryptographicException)
@@ -203,23 +213,23 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             verifier.VerifyData(payload, bytes, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
     }
 
-    private static (string Root, string Head) VerifyChain(LogEntry[] chain, int article)
+    private static (List<string> Leaves, string Head, bool Global) VerifyChain(LogEntry[] chain)
     {
         string previous = new('0', 64);
         var leaves = new List<string>(chain.Length);
-        var published = new HashSet<(long RevisionId, int RevisionNo)>();
-        var rights = new HashSet<(long RevisionId, int RevisionNo)>();
+        var published = new HashSet<(int ArticleId, long RevisionId, int RevisionNo)>();
+        var rights = new HashSet<(int ArticleId, long RevisionId, int RevisionNo)>();
         foreach (var entry in chain)
         {
-            if (entry.ArticleId != article || entry.Id <= 0 || entry.ProofId <= 0 || entry.ArticleRevisionId <= 0 || entry.RevisionNo <= 0 ||
+            if (entry.ArticleId <= 0 || entry.Id <= 0 || entry.ProofId <= 0 || entry.ArticleRevisionId <= 0 || entry.RevisionNo <= 0 ||
                 entry.Seq != leaves.Count + 1 || entry.PrevEntryHash != previous || !IsHash(entry.EntryPayloadHash) ||
                 !ArticlePublicationProofPayloadV2.ValidKeyId(entry.SigningKeyId) ||
                 entry.Signature.Length != 86 || entry.Signature.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not ('-' or '_')))
                 throw new FormatException();
-            var revision = (entry.ArticleRevisionId, entry.RevisionNo);
+            var revision = (entry.ArticleId, entry.ArticleRevisionId, entry.RevisionNo);
             if (entry.EntryType == ProofKind)
             {
-                if (published.Count == 3 || !published.Add(revision)) throw new FormatException();
+                if (published.Count == 4 || !published.Add(revision)) throw new FormatException();
             }
             else
             {
@@ -232,7 +242,12 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             leaves.Add(leaf);
             previous = hash;
         }
-        return (LegacyTransparencyPayload.MerkleRoot(leaves), previous);
+        var articles = published.GroupBy(row => row.ArticleId).Select(group => group.Select(row => row.RevisionNo).Order().ToArray())
+            .OrderBy(numbers => numbers.Length).ToArray();
+        if (articles.Length == 1 && published.Count <= 3) return (leaves, previous, false);
+        if (articles is not [[1], [1, 2, 3]] || rights.Any(row => published.Count(p => p.ArticleId == row.ArticleId) != 3))
+            throw new FormatException();
+        return (leaves, previous, true);
     }
 
     private static LogEntry ReadEntry(JsonElement row)
