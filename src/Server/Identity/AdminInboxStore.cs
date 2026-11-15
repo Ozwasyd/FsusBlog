@@ -7,32 +7,37 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    internal Task<string> InboxCreationPosition(string? token, CancellationToken ct) =>
+    private const string InboxStatusHead = """
+        coalesce((SELECT s.id FROM public.inbox_admin_status s WHERE s.conversation_id=c.id ORDER BY s.id DESC LIMIT 1), 0)
+        """;
+
+    internal Task<string> InboxQueuePosition(string? token, int filter, bool statusEnabled, CancellationToken ct) =>
         WithLiveAdmin(token, Permission, async (db, tx, _) =>
         {
-            // An earlier allocated ID may commit after the current maximum.
-            await using var query = Store.Sql(db, tx, """
-                SELECT coalesce(string_agg(id::text, ',' ORDER BY id DESC), '')
+            // Compare the actual page plus its pagination boundary. The highest ID alone
+            // misses status changes and tickets allocated earlier but committed later.
+            var statusHead = statusEnabled ? InboxStatusHead : "0";
+            await using var query = Store.Sql(db, tx, $"""
+                SELECT coalesce(string_agg(visible.position, ',' ORDER BY visible.id DESC), '')
                 FROM (
-                    SELECT id FROM public.inbox_conversation WHERE last_message_id IS NOT NULL
-                    ORDER BY id DESC LIMIT $1
+                    SELECT c.id,concat_ws(':',c.id,c.status,c.last_message_id,{statusHead}) AS position
+                    FROM public.inbox_conversation c
+                    WHERE c.last_message_id IS NOT NULL AND ($1=-1 OR c.status=$1)
+                    ORDER BY c.id DESC LIMIT $2
                 ) visible
-                """, Wire.AdminInboxPageSize + 1);
+                """, filter, Wire.AdminInboxPageSize + 1);
             return (string)(await query.ExecuteScalarAsync(ct))!;
         }, ct);
 
-    internal Task<long> InboxAccountReplyPosition(string? token, long id, CancellationToken ct) =>
+    internal Task<string> InboxThreadPosition(string? token, long id, bool statusEnabled, CancellationToken ct) =>
         WithLiveAdmin(token, Permission, async (db, tx, _) =>
         {
-            await using var query = Store.Sql(db, tx, """
-                SELECT COALESCE((
-                    SELECT m.id FROM public.inbox_message m
-                    WHERE m.conversation_id=c.id AND NOT m.is_internal AND m.sender=0
-                    ORDER BY m.id DESC LIMIT 1
-                ), 0::bigint)
+            var statusHead = statusEnabled ? InboxStatusHead : "0";
+            await using var query = Store.Sql(db, tx, $"""
+                SELECT concat_ws(':',c.status,c.last_message_id,{statusHead})
                 FROM public.inbox_conversation c WHERE c.id=$1 AND NOT c.is_system AND c.last_message_id IS NOT NULL
                 """, id);
-            return await query.ExecuteScalarAsync(ct) is long position ? position :
+            return await query.ExecuteScalarAsync(ct) is string position ? position :
                 throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
         }, ct);
 

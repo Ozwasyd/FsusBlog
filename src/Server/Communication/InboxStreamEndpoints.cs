@@ -26,9 +26,9 @@ internal static class InboxStreamEndpoints
     }
 
     internal static async Task Open<T>(HttpContext ctx, InboxWake wake, InstanceLease lease,
-        Func<CancellationToken, Task<T>> readPosition) where T : IEquatable<T>
+        Func<CancellationToken, Task<T>> readPosition, bool allowQuery = false) where T : IEquatable<T>
     {
-        VerifyHandshake(ctx);
+        VerifyHandshake(ctx, allowQuery);
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, lease.Stopped);
         var cancellation = lifetime.Token;
         var pulse = wake.Changed;
@@ -87,7 +87,7 @@ internal static class InboxStreamEndpoints
         }
     }
 
-    private static void VerifyHandshake(HttpContext ctx)
+    private static void VerifyHandshake(HttpContext ctx, bool allowQuery)
     {
         var request = ctx.Request;
         var origin = request.Headers.Origin;
@@ -96,7 +96,7 @@ internal static class InboxStreamEndpoints
             !string.Equals(origin[0], $"{request.Scheme}://{request.Host}", StringComparison.OrdinalIgnoreCase) ||
             (request.Headers.TryGetValue("Sec-Fetch-Site", out var site) && site.ToString() != "same-origin"))
             throw new BusinessException(Rejection.Forbidden, "This inbox stream requires a same-origin connection.");
-        if (request.QueryString.HasValue || !ctx.WebSockets.IsWebSocketRequest ||
+        if ((!allowQuery && request.QueryString.HasValue) || !ctx.WebSockets.IsWebSocketRequest ||
             ctx.WebSockets.WebSocketRequestedProtocols is not [Protocol])
             throw new BusinessException(Rejection.Invalid, "Invalid inbox stream handshake.");
     }

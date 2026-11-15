@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.WebSockets;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -44,8 +45,8 @@ public sealed class AdminInboxPostgresTests
 
         var accountStore = new Store(fixture.DataSource);
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
-        Assert.Empty(await adminStore.InboxCreationPosition(adminToken, ct));
-        var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxCreationPosition(firstToken, ct));
+        Assert.Empty(await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
+        var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxQueuePosition(firstToken, -1, false, ct));
         Assert.Equal(Rejection.Unauthorized, denied.Rejection);
 
         var allocated = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -66,7 +67,7 @@ public sealed class AdminInboxPostgresTests
             higher = await accountStore.WithSession(secondToken, false, (connection, tx, actor) =>
                 AddTicket(new InboxStore(connection, tx, actor.Id), "committed-first"), ct);
             Assert.True(lower < higher);
-            Assert.Equal(Position([higher]), await adminStore.InboxCreationPosition(adminToken, ct));
+            Assert.Equal(Position([higher]), await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
             Assert.Equal(higher, await VisibleMaximum());
         }
         finally
@@ -75,7 +76,7 @@ public sealed class AdminInboxPostgresTests
             await pending;
         }
 
-        Assert.Equal(Position([higher, lower]), await adminStore.InboxCreationPosition(adminToken, ct));
+        Assert.Equal(Position([higher, lower]), await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
         Assert.Equal(higher, await VisibleMaximum());
 
         // The extra row determines whether a cursor exists. Rows below that boundary cannot change the watch position.
@@ -89,7 +90,7 @@ public sealed class AdminInboxPostgresTests
         }, ct);
         newer.Reverse();
         var bounded = Position(newer.Append(higher));
-        Assert.Equal(bounded, await adminStore.InboxCreationPosition(adminToken, ct));
+        Assert.Equal(bounded, await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
         var page = await adminStore.ReadInbox(adminToken, -1, null, ct);
         Assert.Equal(newer, page.Rows.Select(row => row.Id));
         Assert.NotNull(page.Next);
@@ -97,12 +98,12 @@ public sealed class AdminInboxPostgresTests
             insert into public.inbox_conversation(account_id,subject,status,is_system,last_message_at)
             values($1,'Conversation without messages',0,false,now())
             """, firstAccount);
-        Assert.Equal(bounded, await adminStore.InboxCreationPosition(adminToken, ct));
+        Assert.Equal(bounded, await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
 
         async Task<long> AddTicket(InboxStore inbox, string key) =>
             (await inbox.CreateAsync(key, "Support case", "Account's initial support message", ct)).Message.ConversationId;
 
-        static string Position(IEnumerable<long> ids) => string.Join(",", ids.Select(id => id.ToString(CultureInfo.InvariantCulture)));
+        static string Position(IEnumerable<long> ids) => string.Join(",", ids.Select(id => FormattableString.Invariant($"{id}:0:{id}:0")));
 
         async Task<long> VisibleMaximum()
         {
@@ -152,7 +153,8 @@ public sealed class AdminInboxPostgresTests
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            [AdminInboxEndpoints.ReplySetting] = "true", [AdminInboxEndpoints.StatusSetting] = "true"
+            [AdminInboxEndpoints.ReplySetting] = "true", [AdminInboxEndpoints.StatusSetting] = "true",
+            [AdminInboxEndpoints.LiveSetting] = "true"
         });
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.NotFound, adminToken, host: false);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.Unauthorized, siteToken, site: true);
@@ -247,7 +249,22 @@ public sealed class AdminInboxPostgresTests
         await Status(statusPath.Replace("/26/", "/25/", StringComparison.Ordinal), HttpStatusCode.Unauthorized, adminToken, original, pending, statusProof);
         await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original == "1" ? "2" : "1", pending, statusProof);
         await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original, InboxWire.EncodeAdminStatus(1, "Changed reason"), statusProof);
-        await CheckStatus(original, pending, statusProof, 0, 1, false);
+        var queueWake = WireRoutes.AdminInboxQueueWake;
+        using (var threadSocket = await Observe(WireRoutes.AdminInboxWake.Replace("{id:long}", "26", StringComparison.Ordinal)))
+        using (var allSocket = await Observe(queueWake))
+        using (var openSocket = await Observe(queueWake + "?status=open"))
+        using (var pendingSocket = await Observe(queueWake + "?status=pending"))
+        {
+            await CheckStatus(original, pending, statusProof, 0, 1, false);
+            await Task.WhenAll(Woke(threadSocket), Woke(allSocket), Woke(openSocket), Woke(pendingSocket));
+            Assert.DoesNotContain(26L, Page(await Get(WireRoutes.AdminInboxQueue + "?status=open", HttpStatusCode.OK, otherToken)).Ids);
+            Assert.Equal(new long[] { 26 }, Page(await Get(WireRoutes.AdminInboxQueue + "?status=pending", HttpStatusCode.OK, otherToken)).Ids);
+            using var peerThread = Reader(await Get(thread, HttpStatusCode.OK, otherToken), FrameType.AdminInboxThread);
+            Assert.Equal(26L, peerThread.ReadInt64());
+            peerThread.ReadBytes(16);
+            Text(peerThread);
+            Assert.Equal(1, peerThread.ReadInt32());
+        }
         await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original, pending, statusProof);
         await CheckStatus(original, pending, await StatusWork(original, pending), 1, 1, true);
         var afterPending = await Get(accountPath, HttpStatusCode.OK, siteToken, host: false, site: true);
@@ -298,6 +315,37 @@ public sealed class AdminInboxPostgresTests
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Get(thread, HttpStatusCode.Unauthorized, adminToken);
         await Status(statusPow, HttpStatusCode.Unauthorized, adminToken, await Version(otherToken), close, nonce);
+
+        async Task<ClientWebSocket> Observe(string path)
+        {
+            var socket = new ClientWebSocket();
+            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
+            socket.Options.SetRequestHeader("Host", "localhost");
+            socket.Options.SetRequestHeader("Origin", "http://localhost");
+            socket.Options.SetRequestHeader("Cookie", $"fsus-v2-admin-session={otherToken}");
+            var uri = new UriBuilder(new Uri(server.Client.BaseAddress!, path)) { Scheme = "ws" }.Uri;
+            try
+            {
+                await socket.ConnectAsync(uri, ct);
+                return socket;
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        }
+
+        async Task Woke(ClientWebSocket socket)
+        {
+            using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            bound.CancelAfter(TimeSpan.FromSeconds(15));
+            var bytes = new byte[Aeds.HeaderSize + 8];
+            var received = await socket.ReceiveAsync(bytes.AsMemory(), bound.Token);
+            Assert.Equal(WebSocketMessageType.Binary, received.MessageType);
+            Assert.True(received.EndOfMessage);
+            Assert.Equal(Wire.EncodeEmptySuccess(), bytes.AsSpan(0, received.Count).ToArray());
+        }
 
         async Task<string> Version(string? token = null)
         {

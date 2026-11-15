@@ -95,7 +95,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     page.getByRole('option', { name: 'Open', exact: true }).click(),
   ])
   assert.equal(filtered.status(), 200)
-  assert.equal(await filtered.headerValue(WireHeaders.AdminInboxLive), null)
+  assert.equal(await filtered.headerValue(WireHeaders.AdminInboxLive), live && !activity ? '1' : null)
   await closed.waitFor({ state: 'hidden' })
   const response = page.waitForResponse(reply => reply.url().startsWith(adminOrigin + '/api/v2/admin/identity/inbox/') &&
     reply.request().method() === 'GET')
@@ -192,11 +192,21 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     assert.match(await detail.headerValue(WireHeaders.AdminInboxVersion), /^[1-9][0-9]{0,9}$/)
     const reason = 'Customer has yet to provide the private receipt.'
     const reader = await context.newPage()
+    const peerPages = []
     try {
+      let peerThread, peerQueue, peerDraft
+      if (live && !activity) {
+        peerThread = await peer(true)
+        peerQueue = await peer(false)
+        peerDraft = peerThread.getByLabel('Reply to the account', { exact: true })
+        await peerDraft.fill('Unsaved reply in another administrator tab')
+        await peerDraft.focus()
+      }
       await reader.goto(`${siteOrigin}/user/messagebox`)
       await reader.getByRole('button', { name: /Inbox QA support case/ }).click()
       const accountThread = reader.getByRole('region', { name: 'Inbox QA support case' })
       await accountThread.getByText('进行中', { exact: true }).waitFor()
+      await page.bringToFront()
       await panel.getByRole('combobox', { name: 'New conversation status' }).click()
       await page.getByRole('option', { name: 'Pending', exact: true }).click()
       await panel.getByLabel('Reason for changing status', { exact: true }).fill(reason)
@@ -208,8 +218,41 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await panel.getByText('Conversation status saved.', { exact: true }).waitFor()
       await accountThread.getByText('待处理', { exact: true }).waitFor()
       assert.equal(await accountThread.getByText(reason, { exact: true }).count(), 0)
+      if (peerThread && peerQueue && peerDraft) {
+        await peerThread.getByText('Pending · Account ticket', { exact: true }).waitFor()
+        await peerQueue.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor({ state: 'hidden' })
+        assert.equal(await peerDraft.inputValue(), 'Unsaved reply in another administrator tab')
+        assert(await peerDraft.evaluate(node => document.activeElement === node))
+        const queuePeerPage = peerPages[1]
+        await peerQueue.getByRole('combobox', { name: 'Filter support inbox' }).click()
+        await queuePeerPage.getByRole('option', { name: 'Pending', exact: true }).click()
+        await peerQueue.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor()
+        await peerPages[0].screenshot({ path: join(evidence, 'admin-inbox-peer-status.png'), animations: 'disabled' })
+      }
       await reader.screenshot({ path: join(evidence, 'admin-inbox-account-status.png'), animations: 'disabled' })
-    } finally { await reader.close() }
+    } finally {
+      await Promise.all(peerPages.map(peerPage => peerPage.close()))
+      await reader.close()
+    }
+
+    async function peer(openThread) {
+      const peerPage = await context.newPage()
+      peerPages.push(peerPage)
+      await peerPage.goto(adminOrigin + '/admin/identity')
+      const endpoint = new URL(openThread ? wakeEndpoint : WireRoutes.AdminInboxQueueWake + '?status=open', adminOrigin)
+      endpoint.protocol = 'wss:'
+      await captureInboxSocket(peerPage, `^${endpoint.pathname}$`)
+      const peerPanel = peerPage.getByRole('region', { name: 'Support inbox' })
+      await peerPanel.getByRole('button', { name: 'Open support inbox' }).click()
+      if (openThread) await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).click()
+      else {
+        await peerPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
+        await peerPage.getByRole('option', { name: 'Open', exact: true }).click()
+        await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor()
+      }
+      await waitForInboxSocket(peerPage, endpoint.href)
+      return peerPanel
+    }
   } else {
     assert.equal(await detail.headerValue(WireHeaders.AdminInboxVersion), null)
     assert.equal(await panel.getByRole('button', { name: 'Save status', exact: true }).count(), 0)

@@ -6,7 +6,12 @@ import { watchInboxWake } from './inbox-wake.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
-export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed' | 'unread' | 'system';
+export type AdminInboxFilter = AdminInboxLiveStatus | 'unread' | 'system';
+export type AdminInboxLiveStatus = '' | 'open' | 'pending' | 'closed';
+
+export function supportsAdminInboxLiveStatus(filter: AdminInboxFilter): filter is AdminInboxLiveStatus {
+  return filter !== 'unread' && filter !== 'system';
+}
 export type AdminInboxOrder = 'created' | 'activity';
 export type AdminInboxStatus = 0 | 1 | 2;
 export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number;
@@ -38,7 +43,7 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
     const live = headers.get(WireHeaders.AdminInboxLive);
     if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1' ||
         activity !== null && activity !== '1' || order === 'activity' && activity !== '1' ||
-        live !== null && (live !== '1' || filter !== '' || next !== null || order !== 'created')) throw invalid();
+        live !== null && (live !== '1' || !supportsAdminInboxLiveStatus(filter) || next !== null || order !== 'created')) throw invalid();
     return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1',
       activityAvailable: activity === '1', liveEnabled: live === '1' };
   }, signal);
@@ -72,8 +77,9 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
   }, signal);
 }
 
-export function watchAdminInboxWake(id: bigint | null, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
-  const path = id === null ? WireRoutes.AdminInboxQueueWake : WireRoutes.AdminInboxWake.replace('{id:long}', String(id));
+export function watchAdminInboxWake(scope: bigint | AdminInboxLiveStatus, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
+  const path = typeof scope === 'bigint' ? WireRoutes.AdminInboxWake.replace('{id:long}', String(scope)) :
+    WireRoutes.AdminInboxQueueWake + (scope ? '?' + new URLSearchParams({ status: scope }) : '');
   watchInboxWake(signal, refresh, connected => { if (connected) refresh(); }, onRevoked, path);
 }
 

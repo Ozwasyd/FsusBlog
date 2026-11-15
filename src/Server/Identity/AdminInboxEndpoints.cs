@@ -51,7 +51,7 @@ internal static class AdminInboxEndpoints
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
             if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
-            if (live && filter == -1 && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
+            if (live && filter <= 2 && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
@@ -73,13 +73,24 @@ internal static class AdminInboxEndpoints
                 (HttpContext ctx, InboxWake wake, InstanceLease lease) =>
                 {
                     var token = ctx.Request.Cookies[session];
-                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxCreationPosition(token, ct));
+                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct =>
+                    {
+                        var filter = Query(ctx.Request.Query, "status", 7) switch
+                        {
+                            null when !ctx.Request.QueryString.HasValue => -1,
+                            "open" => 0, "pending" => 1, "closed" => 2,
+                            _ => throw new BusinessException(Rejection.Invalid, "Invalid live administrator inbox filter.")
+                        };
+                        if (ctx.Request.Query.Count > 1)
+                            throw new BusinessException(Rejection.Invalid, "Unexpected live administrator inbox query.");
+                        return store.InboxQueuePosition(token, filter, status, ct);
+                    }, allowQuery: true);
                 }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
             app.MapMethods(WireRoutes.AdminInboxWake, [HttpMethods.Get, HttpMethods.Connect],
                 (long id, HttpContext ctx, InboxWake wake, InstanceLease lease) =>
                 {
                     var token = ctx.Request.Cookies[session];
-                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxAccountReplyPosition(token, id, ct));
+                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxThreadPosition(token, id, status, ct));
                 }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
         }
 

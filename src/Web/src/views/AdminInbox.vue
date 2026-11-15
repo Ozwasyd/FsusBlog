@@ -3,7 +3,8 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
-import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, watchAdminInboxWake, type AdminInboxFilter,
+import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply,
+  supportsAdminInboxLiveStatus, watchAdminInboxWake, type AdminInboxFilter, type AdminInboxLiveStatus,
   type AdminInboxOrder, type AdminInboxPage, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
@@ -18,6 +19,7 @@ const expanded = ref(false)
 const pending = ref(false)
 const failed = ref('')
 const title = ref<HTMLElement>()
+const threadPanel = ref<HTMLElement>()
 const queue = ref<HTMLElement>()
 const reply = ref('')
 const notice = ref('')
@@ -183,6 +185,8 @@ function sendNotice() {
 function applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false) {
   const current = thread.value
   if (current?.conversation.id !== latest.conversation.id) return false
+  const focus = document.activeElement
+  const focusedInThread = focus && threadPanel.value?.contains(focus)
   const first = latest.messages[0].id
   // Keep the earlier pages only when the newest authoritative page still joins them.
   const overlap = current.messages.findIndex(message => message.id === first)
@@ -191,6 +195,14 @@ function applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false) {
     previous: overlap > 0 ? current.previous : latest.previous,
     messages: overlap > 0 ? [...current.messages.slice(0, overlap), ...latest.messages] : latest.messages,
     readSnapshot: keepReadSnapshot ? current.readSnapshot : latest.readSnapshot,
+  }
+  if (destination.value !== undefined && !transitions[latest.conversation.status].includes(destination.value))
+    destination.value = undefined
+  if (focusedInThread) {
+    void nextTick(() => {
+      if (!props.sessionSignal.aborted && thread.value?.conversation.id === latest.conversation.id &&
+          !focus.isConnected && document.activeElement === document.body) title.value?.focus()
+    })
   }
   needsRefresh.value = false
   return true
@@ -264,10 +276,12 @@ function toggle() {
   if (expanded.value) loadQueue()
 }
 
-function liveScope(): bigint | null | undefined {
+function liveScope(): bigint | AdminInboxLiveStatus | undefined {
   const current = thread.value
   if (current) return current.liveEnabled ? current.conversation.id : undefined
-  return expanded.value && queueLive.value && filter.value === '' && order.value === 'created' ? null : undefined
+  const status = filter.value
+  return expanded.value && queueLive.value && order.value === 'created' && supportsAdminInboxLiveStatus(status)
+    ? status : undefined
 }
 
 watch([filter, order], () => {
@@ -295,9 +309,9 @@ watch(liveScope, (value, _, onCleanup) => {
     dirty = false
     refreshing = true
     try {
-      if (target === null) {
+      if (typeof target === 'string') {
         const previous = rows.value
-        const page = await adminInbox('', null, signal, sharedRead.value)
+        const page = await adminInbox(target, null, signal, sharedRead.value)
         if (signal.aborted || liveScope() !== target) return
         if (pending.value || previous !== rows.value) dirty = true
         else {
@@ -389,7 +403,7 @@ onBeforeUnmount(() => operation.abort())
         </ul>
         <ElButton v-if="next" native-type="button" text :disabled="pending" @click="loadQueue(next)">Load more conversations</ElButton>
       </div>
-      <section v-if="thread" aria-labelledby="admin-inbox-thread" :aria-busy="pending">
+      <section v-if="thread" ref="threadPanel" aria-labelledby="admin-inbox-thread" :aria-busy="pending">
         <ElButton native-type="button" text :disabled="pending" @click="closeThread">Back to conversations</ElButton>
         <ElButton v-if="thread.version || thread.liveEnabled || needsRefresh" native-type="button" text :disabled="pending"
           @click="reloadThread">Reload conversation</ElButton>
