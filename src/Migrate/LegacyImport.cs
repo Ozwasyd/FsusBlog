@@ -13,6 +13,7 @@ internal static partial class Migration
     private const int ImportPlanWithCreateCommandsVersion = 2;
     private const int ImportPlanWithProcessedOutboxVersion = 3;
     private const int ImportPlanWithRepublishOutboxVersion = 4;
+    private const int ImportPlanWithRollbackOutboxVersion = 5;
     private const int ImportQuarantineVersion = -1;
     private const long ImportBackupBytes = 1024L * 1024 * 1024;
 
@@ -98,7 +99,8 @@ internal static partial class Migration
         var sourceProjections = audit.Projections.ToArray();
         if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
         sourceProjections = [.. sourceProjections, ..outbox.Entries.Select(entry => entry.Projection)];
-        var version = outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
+        var version = outbox.RollbackCount > 0 ? ImportPlanWithRollbackOutboxVersion :
+            outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
             outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
             commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion;
         var plan = new ImportPlan(version,

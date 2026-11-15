@@ -3,10 +3,10 @@ using FsusBlog.V2.Contracts;
 
 internal static partial class Migration
 {
-    private sealed record LegacyRepublishEvidence(long PreviousReleaseId, DateTime PreviousReleaseAt,
+    private sealed record LegacyPublishedOutboxUpdate(int PublicationNumber, long PreviousReleaseId, DateTime PreviousReleaseAt,
         int BeforeCategory, int[] BeforeTags);
 
-    private static async Task<Dictionary<long, LegacyRepublishEvidence>> ReadLegacyOrdinaryRepublishAsync(LegacySource source,
+    private static async Task<Dictionary<long, LegacyPublishedOutboxUpdate>> ReadLegacyOrdinaryRepublishAsync(LegacySource source,
         DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable principals, LegacyTable events, CancellationToken ct)
     {
         string E(string name) => "event." + source.Field(events, name);
@@ -19,11 +19,7 @@ internal static partial class Migration
         string B(string name) => "body." + source.Field(tables[Block], name);
         await using var query = CreateLegacyCommand(tx, $"""
             SELECT {E("id")}, {A("id")}, {R("id")}, {F("id")}, {SelectRepresentableLegacyOutboxClock(F("published_at"))},
-                {H("categoryid")}, {H("tag_ids")}, {R("title")}, {R("summary")}, {R("cover_image_url")},
-                {R("categoryid")}, {R("tag_ids")}, {B("markdown_content")},
-                {S("canonical_url")}, {S("content_canonical_hash")}, {S("policy_hash")}, {S("license_type")},
-                {S("copyright_holder")}, {S("copyright_year")}, {S("rights_statement")}, {S("attribution_template")},
-                {S("copy_policy")}, {S("max_excerpt_chars")}, {S("allow_code_copy")}, {S("show_public_badge")}
+                {H("categoryid")}, {H("tag_ids")}, {LegacyPublishedRightsFields(R, B, S)}
             FROM {source.Table(events)} event
             JOIN {source.Table(tables[Article])} article ON {A("id")}={E("aggregate_id")}
             JOIN {source.Table(tables[Revision])} revision ON {R("id")}={E("article_revision_id")}
@@ -53,42 +49,52 @@ internal static partial class Migration
             ORDER BY {E("id")} LIMIT {RehearsalLimit + 1}
             """);
         await using var rows = await query.ExecuteReaderAsync(ct);
-        var result = new Dictionary<long, LegacyRepublishEvidence>();
+        var result = new Dictionary<long, LegacyPublishedOutboxUpdate>();
         var count = 0;
         while (await rows.ReadAsync(ct))
         {
             if (++count > RehearsalLimit)
                 throw new InvalidOperationException($"Legacy republish outbox count exceeds the {RehearsalLimit}-row observation limit.");
-            if (rows.IsDBNull(4) || rows.GetInt32(5) <= 0 || rows.GetInt32(10) <= 0) continue;
+            if (rows.IsDBNull(4) || rows.IsDBNull(5) || rows.GetInt32(5) <= 0) continue;
             var firstAt = rows.GetDateTime(4);
-            if (!HasOrdinaryRepublishRights(rows, firstAt)) continue;
-            result.Add(rows.GetInt64(0), new LegacyRepublishEvidence(rows.GetInt64(3), firstAt, rows.GetInt32(5),
+            if (!HasCanonicalLegacyOutboxRights(rows, 7, rows.GetInt32(1), rows.GetInt64(2), 2, firstAt)) continue;
+            result.Add(rows.GetInt64(0), new LegacyPublishedOutboxUpdate(2, rows.GetInt64(3), firstAt, rows.GetInt32(5),
                 ParseLegacyOutboxTags(rows.GetString(6))));
         }
         return result;
     }
 
-    private static bool HasOrdinaryRepublishRights(DbDataReader rows, DateTime firstAt)
+    private static string LegacyPublishedRightsFields(Func<string, string> revision, Func<string, string> body,
+        Func<string, string> rights) => string.Join(',',
+        new[] { "title", "summary", "cover_image_url", "categoryid", "tag_ids" }.Select(revision)
+            .Append(body("markdown_content"))
+            .Concat(new[] { "canonical_url", "content_canonical_hash", "policy_hash", "license_type", "copyright_holder",
+                "copyright_year", "rights_statement", "attribution_template", "copy_policy", "max_excerpt_chars",
+                "allow_code_copy", "show_public_badge" }.Select(rights)));
+
+    private static bool HasCanonicalLegacyOutboxRights(DbDataReader rows, int offset, int article, long sourceRevision,
+        int revision, DateTime firstAt)
     {
-        int article = rows.GetInt32(1);
-        long sourceRevision = rows.GetInt64(2);
-        int? year = rows.IsDBNull(18) ? null : rows.GetInt32(18);
-        string? Text(int field) => rows.IsDBNull(field) ? null : rows.GetString(field);
-        var license = Text(16);
-        var copyPolicy = Text(21);
+        int Number(int field) => rows.GetInt32(offset + field);
+        bool Missing(int field) => rows.IsDBNull(offset + field);
+        string? Text(int field) => Missing(field) ? null : rows.GetString(offset + field);
+        int? year = Missing(11) ? null : Number(11);
+        var license = Text(9);
+        var copyPolicy = Text(14);
         if (article <= 0 || sourceRevision <= 0 || year == 0 || string.IsNullOrWhiteSpace(license) ||
-            string.IsNullOrWhiteSpace(copyPolicy) || rows.IsDBNull(22) || rows.GetInt32(22) < 0 || rows.IsDBNull(23) || rows.IsDBNull(24))
+            string.IsNullOrWhiteSpace(copyPolicy) || Missing(15) || Number(15) < 0 || Missing(16) || Missing(17) ||
+            Missing(3) || Number(3) <= 0 || Text(0) is not { } title || Text(4) is not { } tags || Text(5) is not { } markdown)
             return false;
 
         // The ordinary writer reloads persisted first publication time before writing the new policy and event.
         var published = new DateTimeOffset(DateTime.SpecifyKind(firstAt, DateTimeKind.Utc));
-        var content = ArticleCanonicalHashesV1.ContentDigest(new(article, sourceRevision, 2,
-            FormattableString.Invariant($"article:{article}"), rows.GetString(7), Text(8), Text(9), rows.GetInt32(10),
-            ParseLegacyOutboxTags(rows.GetString(11)), 2, published, null, rows.GetString(12)));
-        if (content != Text(14)) return false;
-        var policy = ArticleCanonicalHashesV1.PolicyDigest(new(article, sourceRevision, 2, license, Text(17), year,
-            Text(19), Text(20), copyPolicy, rows.GetInt32(22), rows.GetBoolean(23), rows.GetBoolean(24), Text(13), content));
-        return policy == Text(15);
+        var content = ArticleCanonicalHashesV1.ContentDigest(new(article, sourceRevision, revision,
+            FormattableString.Invariant($"article:{article}"), title, Text(1), Text(2), Number(3),
+            ParseLegacyOutboxTags(tags), 2, published, null, markdown));
+        if (content != Text(7)) return false;
+        var policy = ArticleCanonicalHashesV1.PolicyDigest(new(article, sourceRevision, revision, license, Text(10), year,
+            Text(12), Text(13), copyPolicy, Number(15), rows.GetBoolean(offset + 16), rows.GetBoolean(offset + 17), Text(6), content));
+        return policy == Text(8);
     }
 
     private static int[] ParseLegacyOutboxTags(string tags) => tags.Length == 0 ? [] : tags.Split(',').Select(ParseRevisionTag).ToArray();

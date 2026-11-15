@@ -117,9 +117,13 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 用 PostgreSQL 18.7 和 SDK 10.0.404，通过冻结边表 DDL 及与固定实体一致的合成主表测试。回读保留了一个事件、八条边和原 JSON 字节。测试覆盖第三阶段中断恢复、逐边摘要、原源只读、断开源库后的验证、篡改拒绝和永久隔离。实际旧部署数据及其下游投递仍待核对。见 `artifacts/native-migration/legacy-processed-outbox-20261115T003938Z.log`。
 
-同一范围内，计划版本 4 增加常规文章更新生成的第二次即时发布 `updated`。要求同篇文章具备完整的首次 `created` 事件，待归档的事件对应第二修订和第二发布。前后公开分类与标签各自对照相应的不可变修订，且两次事件的七个必需边均满足完成条件。首次事件的 JSON 时间必须与存储时间完全吻合。第二次发布的事件时间与实际第二次发布时间一致；内容和策略按普通旧更新使用的首发存储时间验证。写入第二修订的旧管理员必须存在，数字身份留在隔离修订。旧 `article_mutation_command` 仍只表示建文。此切片不生成作者或管理员权限、更新命令、可运行队列或下游投递。公开回滚的出站事件、第二次发布带新的责任快照、未记录前态及其他发布顺序仍会阻止归档。[普通更新入队](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.Mutations.cs#L413-L483)
+同一范围内，计划版本 4 增加常规文章更新生成的第二次即时发布 `updated`。要求同篇文章具备完整的首次 `created` 事件，待归档的事件对应第二修订和第二发布。前后公开分类与标签各自对照相应的不可变修订，且两次事件的七个必需边均满足完成条件。首次事件的 JSON 时间必须与存储时间完全吻合。第二次发布的事件时间与实际第二次发布时间一致。内容和策略按普通旧更新使用的首发存储时间验证。写入第二修订的旧管理员必须存在，数字身份留在隔离修订。旧 `article_mutation_command` 仍只表示建文。此切片保全旧记录及其原始身份，运行时权限、更新命令、队列和下游投递均维持现有隔离。第二次发布带新的责任快照、未记录前态及范围外发布顺序会阻止归档。[普通更新入队](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.Mutations.cs#L413-L483)
 
 2026-11-15 在 PostgreSQL 18.7 用 `tests/Integration/Migration/legacy-outbox.sh --republish` 验证两个事件及 14 条边，核对分类与标签变化、旧发布人从管理员 7 变为 8、原 JSON 和逐边投递键。复验可在源库断开和目标事务只读时完成。测试拒绝缺失或时间不符的首发事件、错误分类、权利摘要篡改、额外责任、重复发布事件和未完成处理。见 `artifacts/native-migration/legacy-republish-outbox-20261115T010630Z.log`。
+
+计划版本 5 保全一个有完整先序的公开回滚。首发 `created` 和第二次即时发布 `updated` 均须通过原验证。第三次发布是当前可见的第三修订，旧站以 `updated` 记录事件，修订回滚来源为同篇文章首发的第一修订。核对第二次发布的公开分类和标签、回滚后的分类和标签、第三次实际发布时间和回滚原因。用首发存储时间独立重算原始和回滚权利摘要，验证内容和权利字段系从原始修订复制。责任快照须从第一修订复制，有独立的原始标识与创建时钟。旧站将责任快照、第三个发布和回滚修订分别持久化，迁移保留各自坐标及原事件 JSON 和逐边投递键。暂存要求旧回滚操作者存在，之后的演练投影还要求与审核过的归属映射吻合。发生在非当前发布、缺少旧前序、没有精确责任来源或涉及定时发布的回滚仍会阻止本流程归档。隔离候选继续拒绝启动，运行时回滚、命令和队列保持空白。[回滚入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs#L182-L223) · [旧回滚及责任复制](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.Mutations.cs#L841-L875)
+
+2026-11-15 在 PostgreSQL 18.7 用 `tests/Integration/Migration/legacy-outbox.sh --rollback` 验证三个事件、21 条边、原始 JSON 和逐边投递键。测试覆盖第二次发布事件缺失、回滚前分类标签不符、原权利摘要错误、责任副本内容或时间不符和错误回滚来源。候选篡改被拒绝，恢复原值后在源库断开及目标只读条件下得到相同投影摘要。版本 3、版本 4 和 SQLite 到 PostgreSQL 的旧投影回归也通过。见 `artifacts/native-migration/legacy-rollback-outbox-exact-20261115T013535Z.log` 和 `artifacts/native-migration/legacy-rollback-outbox-20261115T013151Z.log`。
 
 ### 离线验看附件来源
 

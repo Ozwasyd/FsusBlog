@@ -45,10 +45,14 @@ internal static partial class Migration
                 ? await ReadInitialLegacySchedulesAsync(target, tx, evaluatedAt, ct)
                 : [];
             int verifiedRollbacks = await VerifyLegacyPublishedRollbacksAsync(target, tx, ct);
-            var hasRepublishOutbox = plan.Version == ImportPlanWithRepublishOutboxVersion;
+            var hasRollbackOutbox = plan.Version == ImportPlanWithRollbackOutboxVersion;
+            var hasRepublishOutbox = plan.Version == ImportPlanWithRepublishOutboxVersion || hasRollbackOutbox;
             int verifiedRepublishEvents = await VerifyProjectedLegacyRightsAsync(target, tx, hasRepublishOutbox, ct);
             if (hasRepublishOutbox && verifiedRepublishEvents == 0)
                 throw new InvalidOperationException("The versioned legacy plan has no verified second-publication outbox events.");
+            int verifiedRollbackEvents = hasRollbackOutbox
+                ? await CountVerifiedLegacyRollbackOutboxAsync(target, tx, verifiedRollbacks, ct)
+                : 0;
             var projection = await BuildProjectionRelationsAsync(target, tx, ct);
             await VerifyProjectionCoverageAsync(target, tx, backup, projection, already, ct);
             if (!already)
@@ -81,6 +85,7 @@ internal static partial class Migration
                 retainedLegacyOutboxEvents = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyOutboxParent.Table.Name)?.Rows ?? 0,
                 retainedLegacyOutboxEdges = plan.ExpectedTables.SingleOrDefault(row => row.Table == LegacyOutboxEdge.Table.Name)?.Rows ?? 0,
                 retainedLegacyRepublishOutboxEvents = verifiedRepublishEvents,
+                retainedLegacyRollbackOutboxEvents = verifiedRollbackEvents,
                 retainedInitialSchedules = schedules.Length,
                 scheduleEvaluatedAtUtc = scheduleEvaluation,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",

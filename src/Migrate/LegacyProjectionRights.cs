@@ -15,7 +15,7 @@ internal static partial class Migration
     {
         var ordinary = hasRepublishOutbox ? $"""
             EXISTS (SELECT FROM {ImportSchema}.{LegacyOutboxParent.Table.Name} event
-                WHERE event.event_type='updated' AND event.article_publication_id=p.source_publication_id)
+                WHERE event.event_type='updated' AND event.publication_no=2 AND event.article_publication_id=p.source_publication_id)
             """ : "false";
         await using var command = new NpgsqlCommand($"""
             SELECT p.article_id,p.source_revision_id,p.revision,p.source_transition,p.published_at,

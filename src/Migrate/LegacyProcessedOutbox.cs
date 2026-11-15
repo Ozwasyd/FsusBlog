@@ -34,9 +34,12 @@ internal static partial class Migration
     private sealed record LegacyOutboxDefinition(string Source, CandidateTable Table, LegacyField[] Fields);
     private sealed record LegacyOutboxEntry(CandidateTable Table, LegacyProjection Projection, object?[][] Rows);
     private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings,
-        int RepublishCount = 0);
+        int RepublishCount = 0, int RollbackCount = 0);
     private sealed record LegacyTerminalEvent(string EventId, int Article, long PublicationId, DateTime CreatedAt,
-        DateTime ProcessedAt, bool ExactDatabaseClock, LegacyRepublishEvidence? Republish, object?[] Values, HashSet<string> Edges);
+        DateTime ProcessedAt, bool ExactDatabaseClock, LegacyPublishedOutboxUpdate? Update, object?[] Values, HashSet<string> Edges)
+    {
+        internal int PublicationNumber => Update?.PublicationNumber ?? 1;
+    }
 
     private static readonly string[] LegacyOutboxUnsettledStates = ["pending", "processing", "poison"];
     private static readonly string[] LegacyOutboxSensitiveFields =
@@ -100,26 +103,30 @@ internal static partial class Migration
         if (!parentsKnown || !edgesKnown)
             return new LegacyOutboxRead(relations, [], findings.ToArray());
 
-        var republishEvidence = await ReadLegacyOrdinaryRepublishAsync(source, tx, tables, principals, parents[0], ct);
-        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], republishEvidence, findings, ct);
+        var updateEvidence = await ReadLegacyOrdinaryRepublishAsync(source, tx, tables, principals, parents[0], ct);
+        foreach (var pair in await ReadLegacyPublishedRollbackOutboxAsync(source, tx, tables, principals, parents[0], ct))
+            updateEvidence.Add(pair.Key, pair.Value);
+        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], updateEvidence, findings, ct);
         var edgeRows = await ReadLegacyTerminalEdgesAsync(source, tx, edges[0], events, findings, ct);
         int incomplete = events.Values.Count(item => LegacyRequiredOutboxEdges.Any(edge => !item.Edges.Contains(edge)));
         if (incomplete > 0) findings.Add(new ImportFinding("legacy-outbox-missing-required-edge", LegacyOutboxSource, incomplete));
-        var creates = events.Values.Where(item => item.Republish is null).ToDictionary(item => item.Article);
-        var updates = events.Values.Where(item => item.Republish is not null).ToArray();
+        var byNumber = events.Values.ToDictionary(item => (item.Article, item.PublicationNumber));
+        var updates = events.Values.Where(item => item.Update is not null).ToArray();
         int missingPredecessors = updates.Count(update =>
         {
-            var evidence = update.Republish!;
-            return !creates.TryGetValue(update.Article, out var first) || !first.ExactDatabaseClock ||
-                first.PublicationId != evidence.PreviousReleaseId || first.CreatedAt != evidence.PreviousReleaseAt ||
-                !first.Edges.IsSupersetOf(LegacyRequiredOutboxEdges);
+            var evidence = update.Update!;
+            var prior = evidence.PublicationNumber - 1;
+            return !byNumber.TryGetValue((update.Article, prior), out var previous) || prior == 1 && !previous.ExactDatabaseClock ||
+                previous.PublicationId != evidence.PreviousReleaseId || previous.CreatedAt != evidence.PreviousReleaseAt ||
+                !previous.Edges.IsSupersetOf(LegacyRequiredOutboxEdges);
         });
         if (missingPredecessors > 0) findings.Add(new ImportFinding("legacy-outbox-predecessor", LegacyOutboxSource, missingPredecessors));
         if (findings.Count != 0 || events.Count == 0) return new LegacyOutboxRead(relations, [], findings.ToArray());
 
         return new LegacyOutboxRead(relations,
             [MakeOutboxEntry(LegacyOutboxParent, events.Values.Select(item => item.Values).ToArray()),
-             MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], [], updates.Length);
+             MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], [], updates.Count(item => item.PublicationNumber == 2),
+            updates.Count(item => item.PublicationNumber == 3));
 
         async Task<bool> KnownOutboxShapeAsync(LegacyTable[] selection, LegacyOutboxDefinition definition)
         {
@@ -160,7 +167,7 @@ internal static partial class Migration
 
     private static async Task<SortedDictionary<long, LegacyTerminalEvent>> ReadLegacyTerminalEventsAsync(LegacySource source,
         DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable relation,
-        Dictionary<long, LegacyRepublishEvidence> republishEvidence, List<ImportFinding> findings, CancellationToken ct)
+        Dictionary<long, LegacyPublishedOutboxUpdate> updateEvidence, List<ImportFinding> findings, CancellationToken ct)
     {
         string E(string name) => "e." + source.Field(relation, name);
         string A(string name) => "a." + source.Field(tables[Article], name);
@@ -180,7 +187,8 @@ internal static partial class Migration
             SELECT {string.Join(',', projection)}, {R("categoryid")}, {R("tag_ids")},
                 ({E("event_type")}<>'created' OR {A("createtime")}={E("created_at")}) AND {R("created_at")}={E("created_at")}
                 AND {P("created_at")}={E("created_at")} AND {P("published_at")}={E("created_at")}
-                AND {P("transition_kind")}='immediate-publish' AND {S("created_at")}={E("created_at")}
+                AND ({P("transition_kind")}='immediate-publish' OR
+                    ({E("event_type")}='updated' AND {P("transition_kind")}='rollback')) AND {S("created_at")}={E("created_at")}
                 AND {P("responsibility_snapshot_id")} IS NOT DISTINCT FROM {E("responsibility_snapshot_id")}
                 AND ({E("responsibility_snapshot_id")} IS NULL OR {H("id")} IS NOT NULL) AS exact_graph
             FROM {source.Table(relation)} e
@@ -244,13 +252,13 @@ internal static partial class Migration
             var shape = fields.Length;
             var article = reader.GetInt32(3);
             var eventType = reader.GetString(12);
-            bool ordinaryUpdate = eventType == "updated";
-            var expectedRelease = ordinaryUpdate ? 2 : 1;
-            var republish = republishEvidence.GetValueOrDefault(id);
+            bool updated = eventType == "updated";
+            var evidence = updateEvidence.GetValueOrDefault(id);
+            var expectedRelease = evidence?.PublicationNumber ?? 1;
             var responsibility = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8);
             var responsibilityVersion = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
             if (article <= 0 || reader.GetInt32(4) != 2 || eventType is not ("created" or "updated") ||
-                ordinaryUpdate && (republish is null || responsibility is not null) ||
+                updated && (evidence is null || (responsibility is not null) != (expectedRelease == 3)) ||
                 reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) || reader.GetInt32(6) != expectedRelease ||
                 reader.IsDBNull(7) || reader.GetInt64(7) <= 0 || reader.IsDBNull(10) || reader.GetInt64(10) <= 0 ||
                 reader.IsDBNull(11) || reader.GetInt32(11) != expectedRelease ||
@@ -268,7 +276,7 @@ internal static partial class Migration
             var expectedTags = ParseLegacyOutboxTags(reader.GetString(shape + 1));
             if (!VerifyLegacyOutboxEnvelope(payload, article, reader.GetInt64(5), reader.GetInt64(7), responsibility,
                 responsibilityVersion, reader.GetInt64(10), created, reader.GetInt32(shape), expectedTags, out var exactClock,
-                republish?.BeforeCategory, republish?.BeforeTags))
+                evidence?.BeforeCategory, evidence?.BeforeTags, expectedRelease, expectedRelease))
             {
                 invalidEnvelope++;
                 continue;
@@ -279,7 +287,7 @@ internal static partial class Migration
                 continue;
             }
             accepted.Add(id, new LegacyTerminalEvent(eventId, article, reader.GetInt64(10), created, reader.GetDateTime(clocks[1]),
-                exactClock, republish, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal)));
+                exactClock, evidence, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal)));
         }
 
         if (invalidState > 0) findings.Add(new ImportFinding("legacy-outbox-state", relation.Name, invalidState));
