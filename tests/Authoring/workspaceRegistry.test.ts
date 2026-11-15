@@ -126,6 +126,28 @@ test('an exact reference rechecks a ready source and preserves dirty and stale s
   assert.equal(loads, 3)
 })
 
+test('an article selection rechecks its saved revision while retaining its existing group and local edits', async () => {
+  let revision = 2n
+  const registry = setup({ load: async id => ({ kind: 'ready', draft: draft(id, revision) }) })
+  const target = await activate(registry, 2, 'secondary')
+  assert(registry.updateDraft(target, draft(2, 2n, 'unsaved secondary text')))
+  const original = await activate(registry, 1, 'main')
+  const canceled = await registry.openOrActivate(2, 'main', 'preview', () => false, 2n, true)
+  assert.deepEqual(canceled, { kind: 'superseded' })
+  assert.equal(registry.activeTab?.sessionId, original.sessionId)
+  revision = 3n
+  const stale = await registry.openOrActivate(2, 'main', 'preview', undefined, 2n, true)
+  assert.deepEqual(stale, { kind: 'blocked', reason: 'stale-reference' })
+  assert.equal(registry.activeTab?.sessionId, original.sessionId)
+  revision = 2n
+  const ready = await registry.openOrActivate(2, 'main', 'preview', undefined, 2n, true)
+  assert.equal(ready.kind, 'ready')
+  assert.equal(registry.activeTab?.sessionId, target.sessionId)
+  assert.equal(registry.activeTab?.group, 'secondary')
+  assert.equal(registry.activeTab?.risk, 'dirty')
+  assert.equal(registry.activeDraft?.body, 'unsaved secondary text')
+})
+
 test('saved layout restores only ready drafts, retaining order, preview and selected article', async () => {
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? held.promise : id === 3

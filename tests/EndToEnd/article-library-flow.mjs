@@ -32,8 +32,12 @@ async function signIn(context, ticket) {
 }
 
 async function create(context, title, content = `Saved source: ${title}`) {
-  const data = Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: 0, expectedRevision: 0n,
-    idempotencyKey: randomUUID(), title, body: content })))
+  return save(context, { id: 0, revision: 0n, title }, content)
+}
+
+async function save(context, draft, content) {
+  const data = Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: draft.id, expectedRevision: draft.revision,
+    idempotencyKey: randomUUID(), title: draft.title, body: content })))
   const response = await context.request.post(`${origin}${WireRoutes.Save}`, { headers: binary, data })
   assert.equal(response.status(), 200)
   return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
@@ -66,6 +70,206 @@ async function hold(page, pattern) {
     finally { done.resolve() }
   }, { times: 1 })
   return { reached: reached.promise, release: release.resolve, done: done.promise }
+}
+
+async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) {
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+  const launcher = button(page, 'Quick switch articles')
+  const dialog = page.getByRole('dialog', { name: 'Quick switch articles', exact: true })
+  const input = dialog.getByRole('combobox', { name: 'Search draft titles', exact: true })
+  const listbox = dialog.getByRole('listbox', { name: 'Articles', exact: true })
+  const options = listbox.getByRole('option')
+  const groups = name => page.getByRole('main').getByRole('region', { name: `${name} article group`, exact: true })
+  const primary = groups('Primary')
+  const secondary = groups('Secondary')
+  const selection = scope => body(scope).evaluate(control => [control.selectionStart, control.selectionEnd])
+  const original = await body(page).elementHandle()
+  assert(original)
+
+  async function ready() {
+    await expect(dialog).toBeVisible()
+    await expect(input).toBeFocused()
+  }
+
+  async function search(keyword) {
+    const received = page.waitForResponse(response => {
+      const url = new URL(response.url())
+      return response.request().method() === 'GET' && url.pathname === new URL(inventory).pathname &&
+        url.searchParams.get('keyword') === keyword
+    })
+    await input.fill(keyword)
+    const response = await received
+    assert.equal(response.status(), 200)
+    assert.equal(response.request().headers()[WireHeaders.CurrentSession.toLowerCase()], handle)
+    return decodeAuthorArticlePage(decodeFrame(await response.body(), FrameType.AuthorArticlePage).payload)
+  }
+
+  async function expectActive(option) {
+    const id = await option.getAttribute('id')
+    assert(id)
+    await expect(input).toHaveAttribute('aria-activedescendant', id)
+    await expect(option).toHaveAttribute('aria-selected', 'true')
+    await expect(input).toBeFocused()
+  }
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await body(page).press('End')
+  const suffix = ' Local dirty switcher source.'
+  const dirty = active.body + suffix
+  await page.keyboard.insertText(suffix)
+  await expect(body(page)).toHaveValue(dirty)
+  await body(page).press('Shift+ArrowLeft')
+  const selectedRange = await selection(page)
+  assert.deepEqual(selectedRange, [dirty.length - 1, dirty.length])
+  await page.keyboard.press(`${mod}+o`)
+  await ready()
+  await expect(options).toHaveCount(1)
+  await expect(options.first()).toContainText(active.title)
+  const duplicates = await search('重复标题')
+  assert.equal(duplicates.items.length, 2)
+  assert.equal(duplicates.items[0].id, active.id)
+  await expect(options).toHaveCount(2)
+  await input.press('Home')
+  await expectActive(options.first())
+  await input.press('End')
+  await expectActive(options.last())
+  await input.press('ArrowUp')
+  await expectActive(options.first())
+  await input.press('ArrowDown')
+  await expectActive(options.last())
+  await input.press('PageUp')
+  await expectActive(options.first())
+  await input.press('PageDown')
+  await expectActive(options.last())
+  await input.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(body(page)).toBeFocused()
+  assert.deepEqual(await selection(page), selectedRange)
+  assert.equal(await body(page).evaluate((node, saved) => node === saved, original), true)
+
+  await page.setViewportSize({ width: 375, height: 850 })
+  await launcher.click()
+  await ready()
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+  const denied = await search(foreign.title)
+  assert.deepEqual(denied, { total: 0, nextId: null, items: [] })
+  await expect(options).toHaveCount(0)
+  await input.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(launcher).toBeFocused()
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const candidate = await create(author, 'Exact switcher target')
+  await launcher.click()
+  await ready()
+  const before = await search(candidate.title)
+  assert.deepEqual(before.items.map(item => [item.id, item.revision]), [[candidate.id, candidate.revision]])
+  await expect(options).toHaveCount(1)
+  await input.press('Home')
+  await expectActive(options.first())
+  const changed = await save(author, candidate, 'Revised source at the same title.')
+  assert.equal(changed.revision, candidate.revision + 1n)
+  await input.press('Enter')
+  await expect(dialog.getByRole('alert')).toHaveText('This article changed. Search again to continue.')
+  await expect(page).toHaveURL(editor(active.id))
+  assert.equal(await body(page).inputValue(), dirty)
+
+  await input.press('Escape')
+  await expect(dialog).toBeHidden()
+  await launcher.click()
+  await ready()
+  const current = await search(changed.title)
+  assert.deepEqual(current.items.map(item => [item.id, item.revision]), [[changed.id, changed.revision]])
+  await expect(options).toHaveCount(1)
+  await input.press('Home')
+  await expectActive(options.first())
+  const opened = author.waitForEvent('page')
+  await input.press(`${mod}+Enter`)
+  const independent = await opened
+  monitor(independent)
+  try {
+    await expect(independent).toHaveURL(editor(changed.id))
+    await expect(body(independent)).toHaveValue(changed.body)
+    assert.equal(await independent.evaluate(() => window.opener === null), true)
+    await expect(page).toHaveURL(editor(active.id))
+    await expect(body(page)).toHaveValue(dirty)
+    assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), [active.id])
+  } finally {
+    await independent.close()
+  }
+  if (await dialog.isVisible()) await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  await page.getByLabel('Article ID', { exact: true }).fill(String(changed.id))
+  await button(page, 'Open in other group').click()
+  await expect(page).toHaveURL(editor(changed.id))
+  await expect(body(primary)).toHaveValue(dirty)
+  await expect(body(secondary)).toHaveValue(changed.body)
+  const other = await body(secondary).elementHandle()
+  assert(other)
+  try {
+    await button(primary, 'Edit in this group').click()
+    await expect(page).toHaveURL(editor(active.id))
+    await expect(body(primary)).toBeEditable()
+    await expect(body(secondary)).not.toBeEditable()
+    await launcher.click()
+    await ready()
+    await search(changed.title)
+    await expect(options).toHaveCount(1)
+    await input.press('Home')
+    await expectActive(options.first())
+    const canceled = await hold(page, draftPath(changed.id))
+    try {
+      await input.press('Enter')
+      assert.equal(await canceled.reached, 200)
+      await input.press('Escape')
+      await expect(dialog).toBeHidden()
+    } finally {
+      canceled.release()
+    }
+    await canceled.done
+    await expect(page.getByText('Opening article…', { exact: true })).toHaveCount(0)
+    await expect(page).toHaveURL(editor(active.id))
+    await expect(body(primary)).toHaveValue(dirty)
+    await launcher.click()
+    await ready()
+    await search(changed.title)
+    await expect(options).toHaveCount(1)
+    const delayed = await hold(page, draftPath(changed.id))
+    try {
+      await input.press('Enter')
+      assert.equal(await delayed.reached, 200)
+      await expect(page).toHaveURL(editor(active.id))
+      assert.deepEqual(await selection(primary), selectedRange)
+      assert.equal(await body(primary).inputValue(), dirty)
+    } finally {
+      delayed.release()
+    }
+    await delayed.done
+    await expect(page).toHaveURL(editor(changed.id))
+    await expect(dialog).toBeHidden()
+    await expect(body(secondary)).toBeEditable()
+    await expect(body(primary)).not.toBeEditable()
+    assert.equal(await body(primary).evaluate((node, saved) => node === saved, original), true)
+    assert.equal(await body(secondary).evaluate((node, saved) => node === saved, other), true)
+    await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(2)
+    await expect(body(primary)).toHaveValue(dirty)
+    await expect(body(secondary)).toHaveValue(changed.body)
+    await expect.poll(async () => (await recentOpens(author, handle)).items.map(row => row.articleId))
+      .toEqual([changed.id, active.id])
+  } finally {
+    await original.dispose()
+    await other.dispose()
+  }
+
+  await page.getByRole('link', { name: 'Back', exact: true }).click()
+  await page.getByText('Discard unsaved changes?', { exact: true }).waitFor()
+  await button(page, 'Discard changes').click()
+  await expect(page).toHaveURL(`${origin}/`)
+  observations.push({ quickSwitcher: { nativeShortcut: true, keyboardActiveDescendant: true, mobileLauncher: true,
+    exactEscapeFocusAndSelection: true, foreignSearchDenied: true, staleRevisionRejected: true, separateBrowserTab: true,
+    waitsForOwnedDraft: true, canceledPendingActivation: true, activatesExistingGroup: true, preservesDirtyEditorHost: true, recentAuthority: true } })
+  return [changed.id, active.id]
 }
 
 let failure
@@ -171,9 +375,12 @@ try {
   await expect(launcher).toBeFocused()
   await expect(body(page)).toHaveValue(duplicate.body)
 
+  const expectedRecents = await exerciseQuickSwitcher({ page, author, active: duplicate, foreign, handle })
+
   // A response from the old authenticated read cannot appear after the account changes.
+  await page.setViewportSize({ width: 375, height: 850 })
   await page.goto(workspace)
-  assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), [duplicate.id])
+  assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), expectedRecents)
   const delayedResults = await hold(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
   await button(page, 'Article library').click()
   try {

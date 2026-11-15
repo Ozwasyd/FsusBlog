@@ -373,6 +373,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     mode: TabMode = 'preview',
     canActivate: () => boolean = () => true,
     requiredRevision?: bigint,
+    allowRetainedEdits = false,
   ): Promise<Activation> {
     if (!Number.isSafeInteger(articleId) || articleId < 0) return blocked('missing')
     if (!this.#currentIdentity()) return blocked(this.#identity ? 'expired' : 'forbidden')
@@ -421,7 +422,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         }
         return blocked('unavailable')
       }
-      if (requiredRevision !== undefined && (result.draft.revision !== requiredRevision || this.#risk(session) !== 'clean'))
+      if (requiredRevision !== undefined && (result.draft.revision !== requiredRevision ||
+          (!allowRetainedEdits && this.#risk(session) !== 'clean')))
         return blocked('stale-reference')
       if (this.#risk(session) === 'clean') session.draft = structuredClone(result.draft)
       else if (session.draft?.revision !== result.draft.revision && !session.request && !session.writing)

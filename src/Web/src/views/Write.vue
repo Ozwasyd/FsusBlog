@@ -16,6 +16,7 @@ import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
 import WorkspaceSourcePane from '../authoring/WorkspaceSourcePane.vue'
 import ArticleLibraryRail from '../authoring/ArticleLibraryRail.vue'
+import ArticleQuickSwitcher from '../authoring/ArticleQuickSwitcher.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
 import AuthorPluginPreview from '../authoring/AuthorPluginPreview.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
@@ -91,10 +92,12 @@ const opening = ref(false)
 const closingTabs = ref(false)
 const composing = ref<number>()
 let navigation = 0
+type ArticleSelection = { revision: bigint; current: () => boolean }
 type NavigationIntent = {
   path: string
   restore?: RecentlyClosed
   targetGroup?: WorkspaceGroup
+  selection?: ArticleSelection
   witness?: Readonly<{ sessionId: number; articleRevision: bigint }>
 }
 let explicitNavigation: NavigationIntent | undefined
@@ -633,10 +636,10 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
 }, { immediate: true })
 
 function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'], ready?: () => boolean,
-  requiredRevision?: bigint) {
+  requiredRevision?: bigint, allowRetainedEdits = false) {
   return articleId === 0
     ? registry.startDraft({ id: 0, revision: 0n, title: '', body: '', published: false })
-    : registry.openOrActivate(articleId, targetGroup, mode, ready, requiredRevision)
+    : registry.openOrActivate(articleId, targetGroup, mode, ready, requiredRevision, allowRetainedEdits)
 }
 
 function finishSourceSeek(seek: EditorSourceSeek, success: boolean) {
@@ -706,11 +709,14 @@ onBeforeRouteUpdate(async (to, from) => {
   const epoch = identityEpoch.value
   opening.value = true
   const explicit = explicitNavigation?.path === to.path ? explicitNavigation : undefined
+  const selection = explicit?.selection
   const result = await activateArticle(articleId, explicit?.targetGroup ?? explicit?.restore?.group, explicit?.restore?.mode,
-    () => intent === navigation && epoch === identityEpoch.value && canSwitch.value && !lifetime.signal.aborted)
+    () => intent === navigation && epoch === identityEpoch.value && canSwitch.value && !lifetime.signal.aborted &&
+      (!selection || selection.current()),
+    selection?.revision, !!selection)
   if (intent !== navigation || epoch !== identityEpoch.value || lifetime.signal.aborted) return false
   opening.value = false
-  navigationNotice.value = result.kind === 'superseded' && !canSwitch.value
+  if (!selection) navigationNotice.value = result.kind === 'superseded' && !canSwitch.value
     ? 'Apply or cancel the pending changes before switching articles.' : activationFailure(result)
   if (result.kind === 'ready') {
     if (explicit && result.witnessedRevision !== undefined)
@@ -738,11 +744,19 @@ async function openSavedWorkspace() {
   persistentWorkspace.value = true
 }
 
-async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGroup?: WorkspaceGroup) {
-  if (!canSwitch.value) return false
-  if (registry.activeTab?.articleId === articleId && id.value === articleId) return true
+async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGroup?: WorkspaceGroup, selection?: ArticleSelection) {
+  if (!canSwitch.value || (selection && (opening.value || !selection.current()))) return false
+  if (registry.activeTab?.articleId === articleId && id.value === articleId) {
+    if (!selection) return true
+    const result = await activateArticle(articleId, undefined, undefined,
+      () => selection.current() && canSwitch.value && !lifetime.signal.aborted, selection.revision, true)
+    if (result.kind !== 'ready' || !selection.current() || registry.activeTab?.sessionId !== result.tab.sessionId ||
+        id.value !== articleId) return false
+    recordRecentOpen(articleId, selection.revision)
+    return true
+  }
   const destination = address(articleId)
-  const intent: NavigationIntent = { restore, targetGroup, path: router.resolve(destination).path }
+  const intent: NavigationIntent = { restore, targetGroup, selection, path: router.resolve(destination).path }
   const epoch = identityEpoch.value
   const handle = currentSession.value?.siteSessionId
   explicitNavigation = intent
@@ -756,6 +770,19 @@ async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGro
     return true
   }
   finally { if (explicitNavigation === intent) explicitNavigation = undefined }
+}
+
+function activateQuickResult(articleId: number, revision: bigint, current: () => boolean) {
+  return navigateTo(articleId, undefined, undefined, { revision, current })
+}
+
+function focusQuickResult(articleId: number) {
+  const active = registry.activeTab
+  if (active?.articleId === articleId) void focusSource(active, identityEpoch.value)
+}
+
+function quickResultHref(articleId: number) {
+  return router.resolve(address(articleId)).href
 }
 
 function openArticle(otherGroup = false) {
@@ -1284,6 +1311,8 @@ async function reloadDraft() {
           </template>
         </div>
       </details>
+      <ArticleQuickSwitcher :disabled="!canSwitch || revisionComparisonActive" :activate="activateQuickResult"
+        :article-href="quickResultHref" @activated="focusQuickResult" />
       <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
         :disabled="!canSwitch" :activate="navigateTo" />
       <details v-if="recentlyClosed.length">
