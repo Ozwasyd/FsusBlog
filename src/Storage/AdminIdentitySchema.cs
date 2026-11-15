@@ -8,7 +8,8 @@ namespace FsusBlogV2.Storage;
 internal static partial class CurrentSchema
 {
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
-    internal const int AdminIdentityVersion = 7;
+    internal const int AdminIdentityVersion = 8;
+    internal const int AdminSystemConfigVersion = 7;
     private const int AdminStepUpVersion = 5;
     private const int AdminModerationVersion = 6;
     internal const string AdminManagePermission = "admin.manage";
@@ -25,7 +26,6 @@ internal static partial class CurrentSchema
         "admin_passkey_credential credential_id:bytea principal_id:uuid public_key:bytea sign_count:int8 backup_eligible:bool backed_up:bool",
         "admin_invitation digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz",
         "admin_challenge digest:bytea principal_id:uuid? generation:int8? binding_digest:bytea kind:int4 options:text expires_at:timestamptz started_at:timestamptz=clock_timestamp",
-        "admin_session digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz",
         "admin_identity_audit id:int8:a principal_id:uuid action:text happened_at:timestamptz actor:text"
     ];
 
@@ -71,17 +71,24 @@ internal static partial class CurrentSchema
     ];
 
     private const string AdminStepUpColumns = "admin_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2";
+    private const string AdminSessionColumns = "admin_session digest:bytea principal_id:uuid generation:int8 expires_at:timestamptz";
+    private static readonly string[] AdminSignInColumns =
+    [
+        AdminSessionColumns + " sign_in_id:int8?",
+        "admin_sign_in principal_id:uuid id:int8:a started_at:timestamptz expires_at:timestamptz ended_at:timestamptz?"
+    ];
 
     private static string[] GetAdminIdentityColumns(int version) => version switch
     {
-        AdminStepUpVersion => [.. AdminIdentityColumns, AdminStepUpColumns],
-        AdminModerationVersion or AdminIdentityVersion =>
+        AdminStepUpVersion => [.. AdminIdentityColumns, AdminSessionColumns, AdminStepUpColumns],
+        AdminModerationVersion or AdminSystemConfigVersion or AdminIdentityVersion =>
         [
             .. AdminIdentityColumns, AdminStepUpColumns,
             "admin_comment_claim article_id:int4 comment_id:int8 principal_id:uuid session_digest:bytea admin_generation:int8 claim_digest:bytea claim_generation:int8 claim_version:int8 claimed_comment_version:int8 expires_at:timestamptz state:int2",
-            "admin_comment_moderation id:int8:a article_id:int4 comment_id:int8 principal_id:uuid previous_status:int2 next_status:int2 reason:text happened_at:timestamptz comment_version:int8"
+            "admin_comment_moderation id:int8:a article_id:int4 comment_id:int8 principal_id:uuid previous_status:int2 next_status:int2 reason:text happened_at:timestamptz comment_version:int8",
+            .. (version == AdminIdentityVersion ? AdminSignInColumns : [AdminSessionColumns])
         ],
-        _ => AdminIdentityColumns
+        _ => [.. AdminIdentityColumns, AdminSessionColumns]
     };
 
     private const string PriorPermissionConstraint = "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text";
@@ -99,6 +106,15 @@ internal static partial class CurrentSchema
         "admin_step_up c body_digest octet_length(body_digest)=32",
         "admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
         "admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
+    ];
+
+    private static readonly string[] AdminSignInConstraints =
+    [
+        "admin_session f principal_id,sign_in_id public.admin_sign_in:principal_id,id",
+        "admin_sign_in p principal_id,id",
+        "admin_sign_in f principal_id public.admin_principal:id",
+        "admin_sign_in c expires_at,started_at expires_at>started_at",
+        "admin_sign_in c ended_at,started_at,expires_at ended_at>=started_atANDended_at<=expires_at"
     ];
 
     private static string[] GetAdminIdentityConstraints(int version) => version switch
@@ -134,11 +150,11 @@ internal static partial class CurrentSchema
             PriorPermissionConstraint,
             .. AdminStepUpConstraints
         ],
-        AdminModerationVersion or AdminIdentityVersion =>
+        AdminModerationVersion or AdminSystemConfigVersion or AdminIdentityVersion =>
         [
             .. AdminIdentityConstraints,
             $"admin_identity_schema c version version={version}",
-            version == AdminIdentityVersion ? PriorPermissionConstraint + "ORpermission='system.config'::text" : PriorPermissionConstraint,
+            version >= AdminSystemConfigVersion ? PriorPermissionConstraint + "ORpermission='system.config'::text" : PriorPermissionConstraint,
             .. AdminStepUpConstraints,
             "admin_comment_claim p article_id,comment_id",
             "admin_comment_claim f article_id,comment_id public.comment_submit_command:article_id,comment_id",
@@ -156,7 +172,8 @@ internal static partial class CurrentSchema
             "admin_comment_moderation c previous_status previous_status=0",
             "admin_comment_moderation c next_status next_status>=1ANDnext_status<=2",
             "admin_comment_moderation c reason octet_length(reason)>=1ANDoctet_length(reason)<=1024",
-            "admin_comment_moderation c comment_version comment_version>0"
+            "admin_comment_moderation c comment_version comment_version>0",
+            .. (version == AdminIdentityVersion ? AdminSignInConstraints : [])
         ],
         _ => throw new InvalidOperationException("Unsupported admin identity schema version.")
     };

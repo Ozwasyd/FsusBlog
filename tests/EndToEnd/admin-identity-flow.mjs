@@ -15,6 +15,7 @@ import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
 import { verifyAdminInbox } from './admin-inbox-flow.mjs'
 import { expectPanelHidden, expectPermissions, verifyMismatchedPermissionSession } from './admin-permissions-flow.mjs'
+import { expectSignInHistory, rejectMismatchedSignInHistory } from './admin-sign-in-history-flow.mjs'
 import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
@@ -65,7 +66,7 @@ const {
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
   AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
   AdminStepUpBegin: stepUpBegin, AdminStepUpComplete: stepUpComplete,
-  AdminEffectivePermissions: permissions,
+  AdminEffectivePermissions: permissions, AdminSignInHistory: signInHistory,
   AdminModerationClaim: moderationClaim, AdminModerationRenew: moderationRenew, AdminModerationRelease: moderationRelease,
   AdminModerationDecision: moderationDecision, AdminModerationStepUpBegin: moderationStepUpBegin,
   CommentRoots: commentRoots,
@@ -134,8 +135,11 @@ try {
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
   assert.equal((await context.request.get(siteOrigin.origin + permissions)).status(), 404)
+  assert.equal((await context.request.get(adminOrigin.origin + signInHistory)).status(), 401)
+  assert.equal((await context.request.get(siteOrigin.origin + signInHistory)).status(), 404)
   await credentialProbe(adminOrigin.origin + permissions, siteCookieName, siteCookie.value, 401)
   await credentialProbe(adminOrigin.origin + permissions, adminCookieName, siteCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, siteCookie.value, 401)
   await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
   await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
   const registrationBegin = waitPost(admin, adminOrigin, bootstrapBegin)
@@ -169,6 +173,12 @@ try {
   assert.equal(oldCookie.secure, secureAdmin)
   assert.equal(oldCookie.domain, adminOrigin.hostname)
   assertNoCredential(initial.body, oldCookie.value)
+  if (auditGrant && auditRevoke) {
+    await rejectMismatchedSignInHistory(admin, adminOrigin.origin)
+    checks.signInHistoryRejectsWrongSessionBinding = true
+  }
+  const [initialSignIn] = await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
+    generation: initial.principal.generation, currentCookie: oldCookie.value, expected: ['Current'] })
   await rejectReplay(context, firstLogin)
   assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === oldCookie.value,
     'A replay must leave the current admin browser credential unchanged.')
@@ -200,9 +210,14 @@ try {
   assert.equal(renewed.principal.handle, initial.principal.handle)
   assert(renewed.principal.generation >= initial.principal.generation)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, oldCookie.value, 401)
   assertNoCredential(renewed.body, newCookie.value)
+  const [, retiredSignIn] = await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
+    generation: renewed.principal.generation, currentCookie: newCookie.value, expected: ['Current', 'Ended'] })
+  assert.equal(retiredSignIn.startedAt, initialSignIn.startedAt)
   await admin.screenshot({ path: join(evidence, 'administrator-session.png') })
   checks.freshPasskeyRotatesPriorAdminSession = true
+  checks.recentSignInsAreBoundToOwnCurrentSession = true
 
   let finalCookie = newCookie
   if (revokeExecutable) {
@@ -213,6 +228,7 @@ try {
     await revokeDuringLogin(admin, revokeExecutable)
     assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
     await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 401)
+    await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, newCookie.value, 401)
 
     await logIn(admin)
     const fresh = await snapshot(context)
@@ -220,7 +236,10 @@ try {
     assert.equal(fresh.principal.handle, renewed.principal.handle)
     assert(fresh.principal.generation > renewed.principal.generation, 'A new challenge must see the advanced generation.')
     assert(finalCookie.value !== newCookie.value, 'A new challenge must establish a different session credential.')
+    await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
+      generation: fresh.principal.generation, currentCookie: finalCookie.value, expected: ['Current', 'Ended', 'Ended'] })
     checks.offlineRevocationInvalidatesPendingChallenge = true
+    checks.offlineRevocationRetiresOwnSignIn = true
   }
 
   if (auditGrant && auditRevoke) {
@@ -295,6 +314,7 @@ try {
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
   assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
   await credentialProbe(adminOrigin.origin + permissions, adminCookieName, finalCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, finalCookie.value, 401)
   const stillSignedIn = await context.request.get(siteOrigin.origin + siteSession)
   assert.equal(stillSignedIn.status(), 200)
   assert((await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,

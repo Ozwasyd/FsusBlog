@@ -3,6 +3,7 @@ using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Operations;
+using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 using NpgsqlTypes;
@@ -66,7 +67,7 @@ internal sealed partial class AdminPasskeyStore
         if (Store.TokenDigest(token) is not { } digest) return;
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        await Execute(db, tx, ct, "delete from public.admin_session where digest=$1", digest);
+        await AdminSignInHistory.RetireAsync(db, tx, null, digest, ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 

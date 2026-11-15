@@ -4,6 +4,7 @@ import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
 import AdminSitePages from './AdminSitePages.vue'
+import AdminSessionHistory from './AdminSessionHistory.vue'
 import AdminCluster from './AdminCluster.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import AdminInbox from './AdminInbox.vue'
@@ -261,6 +262,8 @@ function logOut() {
       </template>
       <p v-else-if="permissionsPending" role="status">Checking effective permissions…</p>
     </section>
+    <AdminSessionHistory v-if="permits('admin.manage') && authority?.status === 'active'" :key="permissionEpoch" :session="authority.session"
+      :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminModerationControls v-if="permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminInbox v-if="permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <section v-if="permits('audit.read')" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">

@@ -104,6 +104,12 @@ internal static class AdminIdentityEndpoints
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
             return Frame(Wire.EncodeAdminEffectivePermissions(scope.Permissions));
         }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminSignInHistory, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var scope = await store.RecentSignIns(ctx.Request.Cookies[session], ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
+            return Frame(Wire.EncodeAdminSignInHistory(scope.History));
+        }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             var intent = Wire.DecodeAdminModerationIntent(await readFrame(ctx, WireLimits.AdminModerationFrameBytes, ct));

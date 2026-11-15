@@ -75,7 +75,7 @@ internal static partial class Migration
                 """, principal, action != "disable"))
                 generation = (long)(await advance.ExecuteScalarAsync(ct))!;
 
-            await RunAsync("delete from public.admin_session where principal_id=$1", principal);
+            await AdminSignInHistory.RetireAsync(connection, tx, principal, null, ct);
             await RunAsync("delete from public.admin_invitation where principal_id=$1", principal);
             await RunAsync("delete from public.admin_challenge where principal_id=$1", principal);
             if (action is "rotate-passkey" or "disable")
@@ -154,6 +154,7 @@ internal static partial class Migration
             await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
             await ApplySchemaAddition(connection, tx, "moderation-admin.sql", ct);
             await ApplySchemaAddition(connection, tx, "system-config-admin.sql", ct);
+            await ApplySchemaAddition(connection, tx, "system-sign-in-history-admin.sql", ct);
         }
         else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (>= 1 and < CurrentSchema.AdminIdentityVersion) and var previousVersion)
         {
@@ -178,7 +179,9 @@ internal static partial class Migration
                     alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=6);
                     """, ct);
             }
-            await ApplySchemaAddition(connection, tx, "system-config-admin.sql", ct);
+            if (previousVersion < CurrentSchema.AdminSystemConfigVersion)
+                await ApplySchemaAddition(connection, tx, "system-config-admin.sql", ct);
+            await ApplySchemaAddition(connection, tx, "system-sign-in-history-admin.sql", ct);
         }
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,

@@ -118,11 +118,7 @@ internal sealed partial class AdminPasskeyStore(NpgsqlDataSource source, Instanc
         var raw = RandomNumberGenerator.GetBytes(32);
         try
         {
-            await Execute(db, tx, ct, "delete from public.admin_session where principal_id=$1", principal.Id);
-            await Execute(db, tx, ct, """
-                insert into public.admin_session(digest,principal_id,generation,expires_at)
-                values($1,$2,$3,clock_timestamp()+interval '2 hours')
-                """, SHA256.HashData(raw), principal.Id, principal.Generation);
+            await AdminSignInHistory.RecordAsync(db, tx, principal.Id, SHA256.HashData(raw), principal.Generation, ct);
             await InstanceLease.CommitProtected(tx, _lease, ct);
             return Convert.ToHexStringLower(raw);
         }
