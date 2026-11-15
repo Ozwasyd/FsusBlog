@@ -51,6 +51,7 @@ public sealed class PropertyQueryPostgresTests
         }
         var disabled = new PropertyArticleQuery(schema, fields[0], 1, new PropertyFieldValue.Missing(), "");
         await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQuery(disabled), owner, HttpStatusCode.NotFound);
+        await Group([Present(0, 1)], status: HttpStatusCode.NotFound);
         var outsiderFrame = Wire.EncodePropertyArticleQuery(disabled);
         await Send(WireRoutes.PropertyArticleQuery, outsiderFrame, null, HttpStatusCode.Unauthorized);
         await Send(WireRoutes.PropertyArticleQuery, outsiderFrame, outsider, HttpStatusCode.Conflict);
@@ -74,7 +75,10 @@ public sealed class PropertyQueryPostgresTests
             Assert.Equal(primary.Id, Assert.Single((await Filter(i, definitions[i].Item2)).Rows).Id);
             Assert.Contains((await Filter(i, new PropertyFieldValue.Missing())).Rows, row => row.Id == missing.Id);
             Assert.DoesNotContain((await Filter(i, new PropertyFieldValue.Missing())).Rows, row => row.Id == foreign.Id);
+            int[] presentIds = definitions[i].Item3 is PropertyFieldValue.Null ? [primary.Id] : [empty.Id, primary.Id];
+            Assert.Equal(presentIds, (await Group([Present(i)])).Rows.Select(row => row.Id));
         }
+        await Group([Present(0, 1)], status: HttpStatusCode.Conflict);
         Assert.Equal(empty.Id, Assert.Single((await Filter(0, new PropertyFieldValue.Null())).Rows).Id);
         Assert.Empty((await Filter(1, new PropertyFieldValue.Number(9007199254740993.1234568m))).Rows);
         await Filter(1, new PropertyFieldValue.Text("0"), HttpStatusCode.BadRequest);
@@ -110,6 +114,10 @@ public sealed class PropertyQueryPostgresTests
         Assert.NotEmpty(groupPage.NextCursor);
         Assert.Equal(primary.Id, Assert.Single((await Group([upper, lower], groupPage.NextCursor)).Rows).Id);
         await Group([lower], groupPage.NextCursor, HttpStatusCode.BadRequest);
+        var presentPage = await Group([Present(1)]);
+        Assert.Equal(groupPage.Rows.ToArray(), presentPage.Rows.ToArray());
+        Assert.Equal(new[] { empty.Id, primary.Id }, (await Group([Present(1)], presentPage.NextCursor)).Rows.Select(row => row.Id));
+        await Group([Present(1)], groupPage.NextCursor, HttpStatusCode.BadRequest);
         await Group([lower, upper with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
         await Group([lower with { DefinitionId = fields[2] }], status: HttpStatusCode.BadRequest);
         var ownerId = await store.WithSession(owner, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
@@ -164,6 +172,7 @@ public sealed class PropertyQueryPostgresTests
         await store.WithSession(owner, true, (c, t, a) => Store.Execute(c, t, a, ArticleAction.Retract,
             new(target.Id, target.Revision, Guid.NewGuid(), "", ""), ct), ct);
         await Filter(6, definitions[6].Item2, HttpStatusCode.NotFound);
+        Assert.Empty((await Group([Present(6)])).Rows);
         await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
         await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[1], Guid.NewGuid(), schema, 3, false)), owner);
         await Filter(1, definitions[1].Item2, HttpStatusCode.Conflict, firstPage.NextCursor);
@@ -223,8 +232,25 @@ public sealed class PropertyQueryPostgresTests
         await Saved(WireRoutes.SavedViewExecute, currentRun, HttpStatusCode.NotFound);
         Assert.Equal(secondId, Assert.Single(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews)).Views).Id);
 
+        var presentViewId = Guid.NewGuid();
+        var presentConditions = new[] { Present(5), Present(0) };
+        var directPresence = await Group(presentConditions);
+        Assert.Equal(primary.Id, Assert.Single(directPresence.Rows).Id);
+        var savePresence = new SavedViewCommand(SavedViewAction.Save, presentViewId, 0, 11, Guid.NewGuid(), "Stored values",
+            new(schema, presentConditions, ""));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(savePresence));
+        var openPresence = Wire.EncodeSavedViewExecute(new(presentViewId, 1, ""));
+        var savedPresence = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openPresence));
+        Assert.Equal(directPresence.Rows.ToArray(), savedPresence.Rows.ToArray());
+        await Saved(WireRoutes.SavedViewExecute, openPresence, HttpStatusCode.NotFound, outsider, outsiderHandle);
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[5], Guid.NewGuid(), schema, 2, false)), owner);
+        await Saved(WireRoutes.SavedViewExecute, openPresence, HttpStatusCode.Conflict);
+
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
+
+        PropertyCondition Present(int index, long revision = 2) =>
+            new(fields[index], revision, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
 
         async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
         {

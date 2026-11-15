@@ -12,7 +12,7 @@ export type FilterField = Readonly<{
   enabled: boolean; deprecated: boolean; options: readonly PropertyOption[]
 }>
 export type FilterCatalog = Readonly<{ revision: bigint; nextKey: string; fields: readonly FilterField[] }>
-export const propertyComparisons = ['equal', 'less-than', 'at-most', 'greater-than', 'at-least'] as const
+export const propertyComparisons = ['equal', 'less-than', 'at-most', 'greater-than', 'at-least', 'is-present'] as const
 export type PropertyComparison = typeof propertyComparisons[number]
 export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
 export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string }>
@@ -62,6 +62,8 @@ export function encodePropertyQuery(query: PropertyQuery) {
   output.i64(query.schema)
   output.i32(query.conditions.length)
   for (const condition of query.conditions) {
+    if (condition.comparison === 'is-present' && condition.value.kind !== 'missing')
+      throw new ProtocolError('Property presence does not accept a value')
     output.uuid(condition.field.id)
     output.i64(condition.field.revision)
     output.i32(propertyComparisons.indexOf(condition.comparison))

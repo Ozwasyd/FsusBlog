@@ -20,7 +20,7 @@ const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
   'greater-than': '大于', 'at-least': '大于或等于',
-} as const satisfies Record<PropertyComparison, string>
+} as const satisfies Record<Exclude<PropertyComparison, 'is-present'>, string>
 const dateComparisons = {
   ...comparisons,
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
@@ -104,6 +104,7 @@ function report(failure: unknown, fallback: string) {
 }
 
 function operand(): PropertyValue | undefined {
+  if (mode.value === 'is-present') return { kind: 'missing' }
   if (mode.value === 'null' || mode.value === 'missing') return { kind: mode.value }
   switch (field.value?.kind) {
     case 'text': return { kind: 'text', value: text.value }
@@ -142,6 +143,7 @@ function add() {
 
 function conditionText(condition: PropertyCondition) {
   const { field, comparison, value } = condition
+  if (comparison === 'is-present') return `${field.label} · 值存在`
   if (value.kind === 'missing') return `${field.label} · 尚未设置`
   if (value.kind === 'null') return `${field.label} · 显式空值`
   const names = new Map(field.options.map(option => [option.id, option.label]))
@@ -258,10 +260,11 @@ async function search(more = false) {
           <ElSelect id="property-filter-operator" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
             <ElOption value="equal" label="精确匹配" />
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
+            <ElOption value="is-present" label="值存在" />
             <ElOption value="missing" label="尚未设置" />
             <ElOption value="null" label="显式空值" />
           </ElSelect>
-          <template v-if="mode !== 'missing' && mode !== 'null'">
+          <template v-if="mode !== 'is-present' && mode !== 'missing' && mode !== 'null'">
             <label for="property-filter-value">属性值</label>
             <ElSelect v-if="field.kind === 'boolean'" id="property-filter-value" v-model="flag" ariaLabel="属性值" :disabled="busy">
               <ElOption :value="false" label="False" /><ElOption :value="true" label="True" />

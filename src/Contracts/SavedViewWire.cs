@@ -130,7 +130,7 @@ public static partial class Wire
         Validate(new PropertyArticleQueryGroup(1, conditions.Select(item => new PropertyCondition(item.DefinitionId, 1,
             item.Comparison, item.Value)).ToArray(), ""));
         var writer = new Writer();
-        writer.I32(1);
+        writer.I32(conditions.Any(item => item.Comparison == PropertyComparison.IsPresent) ? 2 : 1);
         writer.I32(conditions.Count);
         foreach (var item in conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison))
         {
@@ -146,7 +146,7 @@ public static partial class Wire
     {
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
-        if (reader.I32() != 1) throw InvalidSavedView();
+        if (reader.I32() is not (1 or 2)) throw InvalidSavedView();
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];

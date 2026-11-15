@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 
 internal static class PropertyValueVectors
@@ -49,8 +50,20 @@ internal static class PropertyValueVectors
         if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || !decoded.Conditions.SequenceEqual(group.Conditions))
             throw new InvalidOperationException("Property group differs from the independent byte vector.");
         var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
+        invalidGroup[36] = 6;
+        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
         invalidGroup[36] = 5;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
+
+        var presence = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
+        var presenceBytes = Fixture("property-query-presence");
+        BytesEqual(presenceBytes, Wire.EncodePropertyArticleQueryGroup(new(10, [presence], "")));
+        if (Wire.DecodePropertyArticleQueryGroup(presenceBytes).Conditions.Single() != presence)
+            throw new InvalidOperationException("Property presence lost its operand-free wire identity.");
+        var saved = new SavedViewCondition(presence.DefinitionId, PropertyFieldKind.Number, presence.Comparison, presence.Value);
+        var legacy = saved with { Comparison = PropertyComparison.Equal };
+        VerifyStoredDefinition(1, legacy);
+        VerifyStoredDefinition(2, saved);
 
         var schemaBytes = Fixture("property-definition-options");
         var schema = new PropertySchemaInput(new(1, Guid.Parse("00000000-0000-4000-8000-000000000004"), requestId,
@@ -61,6 +74,19 @@ internal static class PropertyValueVectors
             !schemaDecoded.Options.SequenceEqual(schema.Options))
             throw new InvalidOperationException("Stable option identities differ from independent typed definition.");
         Reject(() => Wire.DecodePropertyEditor(editorBytes.AsSpan(0, editorBytes.Length - 1)));
+    }
+
+    private static void VerifyStoredDefinition(byte version, SavedViewCondition condition)
+    {
+        var definition = Wire.EncodeSavedViewDefinition([condition]);
+        var expected = Convert.FromHexString("0100000001000000000000000000400080000000000000060100000000000000feffffff");
+        expected[0] = version;
+        expected[28] = (byte)condition.Comparison;
+        BytesEqual(expected, definition);
+        if (Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)).Single() != condition)
+            throw new InvalidOperationException("Stored saved view lost its original comparison.");
+        definition[0] = version == 1 ? (byte)2 : (byte)1;
+        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
     }
 
     private static void BytesEqual(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)

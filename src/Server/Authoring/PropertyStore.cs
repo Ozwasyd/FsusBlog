@@ -342,6 +342,19 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     private static BusinessException Conflict() => new(Rejection.Conflict, "The article properties changed. Reload before editing.");
     private static BusinessException Invalid() => new(Rejection.Invalid, "Invalid article property.");
 
+    private static string PropertyTypeTag(PropertyFieldKind kind) => kind switch
+    {
+        PropertyFieldKind.Text => "text",
+        PropertyFieldKind.Number => "number",
+        PropertyFieldKind.Boolean => "boolean",
+        PropertyFieldKind.Date => "date",
+        PropertyFieldKind.SingleSelect => "single-select",
+        PropertyFieldKind.MultiSelect => "multi-select",
+        PropertyFieldKind.ArticleReference => "article-reference",
+        PropertyFieldKind.Url => "url",
+        _ => throw Invalid(),
+    };
+
     private static JsonSerializerOptions CreateSerializer()
     {
         var resolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver();
@@ -352,11 +365,15 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             {
                 DerivedTypes =
                 {
-                    new(typeof(PropertyValue.Null), "null"), new(typeof(PropertyValue.Text), "text"),
-                    new(typeof(PropertyValue.Number), "number"), new(typeof(PropertyValue.Boolean), "boolean"),
-                    new(typeof(PropertyValue.Date), "date"), new(typeof(PropertyValue.SingleSelect), "single-select"),
-                    new(typeof(PropertyValue.MultiSelect), "multi-select"),
-                    new(typeof(PropertyValue.ArticleReference), "article-reference"), new(typeof(PropertyValue.Url), "url"),
+                    new(typeof(PropertyValue.Null), "null"),
+                    new(typeof(PropertyValue.Text), PropertyTypeTag(PropertyFieldKind.Text)),
+                    new(typeof(PropertyValue.Number), PropertyTypeTag(PropertyFieldKind.Number)),
+                    new(typeof(PropertyValue.Boolean), PropertyTypeTag(PropertyFieldKind.Boolean)),
+                    new(typeof(PropertyValue.Date), PropertyTypeTag(PropertyFieldKind.Date)),
+                    new(typeof(PropertyValue.SingleSelect), PropertyTypeTag(PropertyFieldKind.SingleSelect)),
+                    new(typeof(PropertyValue.MultiSelect), PropertyTypeTag(PropertyFieldKind.MultiSelect)),
+                    new(typeof(PropertyValue.ArticleReference), PropertyTypeTag(PropertyFieldKind.ArticleReference)),
+                    new(typeof(PropertyValue.Url), PropertyTypeTag(PropertyFieldKind.Url)),
                 },
             };
         });

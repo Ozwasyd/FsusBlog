@@ -7,7 +7,7 @@ import {
   type PropertySchemaCommand, type PropertyValueCommand,
 } from '../../src/Contracts/property-values.ts'
 import { encodePropertyCommandReceipt, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
+import { encodePropertyQuery, queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
 function fixture(name: string): Uint8Array {
@@ -104,6 +104,16 @@ test('the AND request preserves independent decimal and UTC comparison bytes', a
       comparison: 'at-most', value: { kind: 'date', value: '2024-02-29T14:12:06.015Z' } },
   ] }), { nextCursor: '', rows: [] })
   assert.equal(fetch.mock.callCount(), 1)
+})
+
+test('property presence uses the operand-free comparison bytes', () => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
+    enabled: true, deprecated: false, options: [] }
+  const query = { schema: 10n, cursor: '' }
+  assert.deepEqual(encodePropertyQuery({ ...query, conditions: [{ field, comparison: 'is-present', value: { kind: 'missing' } }] }),
+    fixture('property-query-presence'))
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ field, comparison: 'is-present', value: { kind: 'null' } }] }),
+    ProtocolError)
 })
 
 test('typed writers reject unsupported identity, dates, and exact decimal overflow', () => {

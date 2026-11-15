@@ -5,7 +5,7 @@ public sealed record PropertyFilterField(Guid Id, long Revision, string MachineK
 public sealed record PropertyFilterCatalog(long SchemaRevision, string NextKey, IReadOnlyList<PropertyFilterField> Fields);
 public sealed record PropertyArticleQuery(long SchemaRevision, Guid DefinitionId, long DefinitionRevision,
     PropertyFieldValue Value, string Cursor);
-public enum PropertyComparison { Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4 }
+public enum PropertyComparison { Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4, IsPresent = 5 }
 public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value);
 public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor);
 public sealed record PropertyArticleRow(int Id, long Revision, string Title);
@@ -161,10 +161,19 @@ public static partial class Wire
         var unique = new HashSet<(Guid, PropertyComparison)>();
         foreach (var condition in input.Conditions)
             if (!ValidCondition(input.SchemaRevision, condition.DefinitionId, condition.DefinitionRevision, condition.Value) ||
-                !Enum.IsDefined(condition.Comparison) || !unique.Add((condition.DefinitionId, condition.Comparison)) ||
-                condition.Comparison != PropertyComparison.Equal && condition.Value is not (PropertyFieldValue.Number or PropertyFieldValue.Date))
+                !ValidComparison(condition.Comparison, condition.Value) || !unique.Add((condition.DefinitionId, condition.Comparison)))
                 throw InvalidProperty();
     }
+
+    private static bool ValidComparison(PropertyComparison comparison, PropertyFieldValue value) => comparison switch
+    {
+        PropertyComparison.Equal => true,
+        // The existing zero-payload field tag encodes an operand-free comparison.
+        PropertyComparison.IsPresent => value is PropertyFieldValue.Missing,
+        PropertyComparison.LessThan or PropertyComparison.AtMost or PropertyComparison.GreaterThan or PropertyComparison.AtLeast
+            => value is PropertyFieldValue.Number or PropertyFieldValue.Date,
+        _ => false,
+    };
 
     private static bool ValidCondition(long schema, Guid definition, long revision, PropertyFieldValue value) =>
         definition != Guid.Empty && revision > 0 && revision <= schema && value is not PropertyFieldValue.Unavailable;

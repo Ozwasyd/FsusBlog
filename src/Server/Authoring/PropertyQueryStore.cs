@@ -142,7 +142,8 @@ internal sealed partial class PropertyStore
         var value = DomainValue(condition.Value);
         var normalized = (condition.Comparison, definition.Settings.Kind, value) switch
         {
-            (PropertyComparison.Equal, _, null) => null,
+            (PropertyComparison.Equal or PropertyComparison.IsPresent, _, null) => null,
+            (PropertyComparison.IsPresent, _, _) => throw Invalid(),
             (PropertyComparison.Equal, _, { } present) => PropertyValues.NormalizeFilter(definition, present),
             (_, PropertyKind.Number, PropertyValue.Number number) => number,
             (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
@@ -153,11 +154,17 @@ internal sealed partial class PropertyStore
 
     private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
     {
+        var isPresent = condition.Comparison == PropertyComparison.IsPresent;
         parameters.Add(condition.DefinitionId);
-        sql.Append(condition.Value is null ? " and not exists (" : " and exists (");
+        sql.Append(condition.Value is null && !isPresent ? " and not exists (" : " and exists (");
         sql.Append("select from public.property_value v where v.article_id=a.id and v.owner_id=$1 and v.definition_id=$")
             .Append(parameters.Count);
-        if (condition.Value is not null)
+        if (isPresent)
+        {
+            parameters.Add(PropertyTypeTag(condition.Kind));
+            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
+        }
+        else if (condition.Value is not null)
         {
             if (condition.Comparison == PropertyComparison.Equal)
             {
@@ -183,7 +190,9 @@ internal sealed partial class PropertyStore
                 };
                 sql.Append(" and (").Append(expression).Append(')').Append(comparison).Append('$').Append(parameters.Count);
             }
-            if (condition.Value is PropertyValue.ArticleReference) sql.Append("""
+        }
+        if (condition.Value is PropertyValue.ArticleReference || isPresent && condition.Kind == PropertyFieldKind.ArticleReference)
+            sql.Append("""
                  and not exists (select from unnest(v.references_ids) target(id)
                     where not exists (select from public.article r join public.article_publication p
                         on p.article_id=r.id and p.revision=r.published_revision
@@ -191,7 +200,6 @@ internal sealed partial class PropertyStore
                         on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
                         where r.id=target.id and r.owner_id=$1 and not r.deleted))
                 """);
-        }
         sql.Append(')');
     }
 
