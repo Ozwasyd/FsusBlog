@@ -163,7 +163,9 @@ def private_origin(value, scheme):
         return False
     host = f"[{origin.hostname}]" if address.version == 6 else origin.hostname
     ranges = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")
-    return (bool(port) and "%" not in host and value == f"{scheme}://{host}:{port}"
+    # urlsplit lowercases the parsed hostname; the Go report retains the chosen IPv6 spelling.
+    return (bool(port) and "%" not in host and origin.netloc.lower() == f"{host}:{port}"
+            and value == f"{scheme}://{origin.netloc}"
             and any(address in ip_network(network) for network in ranges))
 
 
@@ -321,6 +323,8 @@ def main():
     parser.add_argument("--proxy", type=Path, action="append", default=[])
     parser.add_argument("--private-supplier-inputs", type=Path,
                         help="require private supplier admission against this trusted sealed-input directory")
+    parser.add_argument("--require-peak-quorum", action="store_true",
+                        help="exit 1 unless two matrices of each topology pass the frozen short peak numbers")
     arguments = parser.parse_args()
     try:
         inputs = sealed_inputs(arguments.private_supplier_inputs) if arguments.private_supplier_inputs else None
@@ -349,6 +353,13 @@ def main():
         if len({(item["serverHostId"], item["supplierHostId"]) for item in bindings}) != 1:
             parser.error("private matrices must use the same server and supplier hosts")
     print(json.dumps(matrices, indent=2))
+    if arguments.require_peak_quorum and not peak_quorum(matrices):
+        parser.exit(1, "The short numeric gate requires two passing direct and two passing TLS matrices.\n")
+
+
+def peak_quorum(matrices):
+    return all(sum(item["topology"] == kind and item["stages"][-1]["numericPeakPassed"] is True
+                   for item in matrices) >= 2 for kind in ("direct", "proxy"))
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from capacity import RATES, ROUTE_WEIGHTS, digest, matrix, private_origin, sealed_inputs, stage
+from capacity import RATES, ROUTE_WEIGHTS, digest, matrix, peak_quorum, private_origin, sealed_inputs, stage
 
 
 def routes(rate, seconds):
@@ -58,6 +58,17 @@ class WarmupEvidence(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "reused warmup evidence"):
                     self.evaluate(report)
 
+    def test_peak_quorum_keeps_failed_attempts_and_requires_both_topologies(self):
+        def matrix_peak(topology, passed):
+            return {"topology": topology, "stages": [{"numericPeakPassed": passed}]}
+
+        direct = [matrix_peak("direct", passed) for passed in (True, True, False)]
+        proxy = [matrix_peak("proxy", passed) for passed in (False, True, True)]
+        self.assertFalse(peak_quorum(direct))
+        self.assertFalse(peak_quorum(direct + proxy[:2]))
+        self.assertFalse(peak_quorum(direct[:1] + proxy))
+        self.assertTrue(peak_quorum(direct + proxy))
+
 
 class PrivateSupplierEvidence(unittest.TestCase):
     def setUp(self):
@@ -73,7 +84,7 @@ class PrivateSupplierEvidence(unittest.TestCase):
         self.fixture()
 
     def fixture(self):
-        self.target = "http://10.4.3.2:8080" if self.topology == "direct" else "https://[fd12::1]:8443"
+        self.target = "http://10.4.3.2:8080" if self.topology == "direct" else "https://[FD12::1]:8443"
         commit, source = "f" * 40, "d" * 64
         self.run = {
             "run_id": "a" * 32, "invocation_id": "b" * 32, "attempt_id": "c" * 32, "owner_pid": "3",
@@ -248,6 +259,8 @@ class PrivateSupplierEvidence(unittest.TestCase):
                     self.assertEqual(self.evaluate(private)["stages"][-1]["numericPeakPassed"], dropped == 630)
 
     def test_private_origins_reject_address_aliases(self):
+        self.assertTrue(private_origin("https://[FD12::1]:8443", "https"))
+        self.assertTrue(private_origin("https://[fd12::1]:8443", "https"))
         for origin in ("http://127.0.0.1:80", "http://192.0.2.1:80", "http://localhost:80",
                        "http://[fd12::1%en0]:80", "http://[::ffff:10.4.3.2]:80",
                        "http://10.4.3.2:080", "http://10.4.3.2:80?"):
