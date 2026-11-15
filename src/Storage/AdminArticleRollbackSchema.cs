@@ -4,15 +4,15 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly string[] AdminArticleRollbackColumns =
+    private static string[] GetAdminArticleRollbackColumns(bool draft) =>
     [
         "article_revision_responsibility id:int8:a article_id:int4 revision:int8 responsible_party:text basis:text reference:text recorded_by:text recorded_at:timestamptz=clock_timestamp source_snapshot_id:int8?",
         "article_publication_responsibility publication_id:int8 article_id:int4 revision:int8 snapshot_id:int8",
-        "admin_article_rollback principal_id:uuid command_id:uuid fingerprint:bytea article_id:int4 previous_revision:int8 source_revision:int8 revision:int8 source_publication_id:int8 previous_publication_id:int8 publication_id:int8 publication_no:int4 published_at:timestamptz rights_snapshot_id:int8 responsibility_snapshot_id:int8 reason:text",
+        "admin_article_rollback principal_id:uuid command_id:uuid fingerprint:bytea article_id:int4 previous_revision:int8 source_revision:int8 revision:int8 source_publication_id:int8 previous_publication_id:int8 publication_id:int8 publication_no:int4 published_at:timestamptz rights_snapshot_id:int8 responsibility_snapshot_id:int8 reason:text" + (draft ? " destination:int4=2" : ""),
         "admin_article_rollback_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"
     ];
 
-    private static readonly string[] AdminArticleRollbackConstraints =
+    private static string[] GetAdminArticleRollbackConstraints(bool draft) =>
     [
         "article_revision_responsibility p id",
         "article_revision_responsibility u article_id,revision",
@@ -46,6 +46,7 @@ internal static partial class CurrentSchema
         "admin_article_rollback c publication_no publication_no>0",
         "admin_article_rollback c reason char_length(reason)>=8ANDchar_length(reason)<=500",
         "admin_article_rollback c previous_revision,revision,source_revision previous_revision=(revision-1)ANDsource_revision<previous_revision",
+        ..(draft ? new[] {"admin_article_rollback c destination destination=ANY(ARRAY[0,2])"} : []),
         "admin_article_rollback_step_up p digest",
         "admin_article_rollback_step_up f principal_id public.admin_principal:id",
         "admin_article_rollback_step_up f session_digest public.admin_session:digest delete-cascade",
@@ -53,7 +54,7 @@ internal static partial class CurrentSchema
         "admin_article_rollback_step_up c digest octet_length(digest)=32",
         "admin_article_rollback_step_up c session_digest octet_length(session_digest)=32",
         "admin_article_rollback_step_up c generation generation>0",
-        "admin_article_rollback_step_up c action action=3",
+        "admin_article_rollback_step_up c action " + (draft ? "action=ANY(ARRAY[3,7])" : "action=3"),
         "admin_article_rollback_step_up c body_digest octet_length(body_digest)=32",
         "admin_article_rollback_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
         "admin_article_rollback_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
@@ -77,5 +78,17 @@ internal static partial class CurrentSchema
             6 => true,
             _ => throw new InvalidOperationException("The administrator article rollback schema is partially installed.")
         };
+    }
+
+    internal static async Task<bool> HasAdminArticleDraftRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand("""
+            select exists (
+                select from pg_catalog.pg_attribute
+                where attrelid=pg_catalog.to_regclass('public.admin_article_rollback')
+                  and attname='destination' and attnum>0 and not attisdropped
+            )
+            """, db, tx);
+        return await command.ExecuteScalarAsync(ct) is true;
     }
 }

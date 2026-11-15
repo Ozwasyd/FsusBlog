@@ -11,7 +11,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
-        ReviewCommentAppeal = 5, ModerateCommentBatch = 6 }
+        ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -45,11 +45,14 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction action, CancellationToken ct)
     {
         var permission = StepUpPermission(action);
+        var articleRollback = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback;
+        var rollbackLabel = action == StepUpAction.DraftArticleRollback ? "draft rollback" : "published rollback";
         var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
         {
             if (action == StepUpAction.ReviewCommentAppeal)
                 await FsusBlog.V2.Server.Comments.CommentAppeals.RequireSchema(db, tx, ct);
             if (action == StepUpAction.ModerateCommentBatch) await RequireModerationBatchSchema(db, tx, ct);
+            if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
             await using var consume = Store.Sql(db, tx, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
@@ -59,8 +62,8 @@ internal sealed partial class AdminPasskeyStore
             await using var row = await consume.ExecuteReaderAsync(ct);
             if (!await row.ReadAsync(ct))
             {
-                if (action == StepUpAction.PublishArticleRollback)
-                    throw new BusinessException(Rejection.Forbidden, "The published rollback challenge expired or does not match this session.");
+                if (articleRollback)
+                    throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} challenge expired or does not match this session.");
                 throw Denied();
             }
             return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
@@ -70,9 +73,9 @@ internal sealed partial class AdminPasskeyStore
             RequireCredentialId(request.CredentialId, request.RawId);
             if (request.RememberMe) throw Denied();
         }
-        catch (BusinessException ex) when (action == StepUpAction.PublishArticleRollback && ex.Rejection == Rejection.Unauthorized)
+        catch (BusinessException ex) when (articleRollback && ex.Rejection == Rejection.Unauthorized)
         {
-            throw new BusinessException(Rejection.Forbidden, "The published rollback requires a verified administrator Passkey.");
+            throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} requires a verified administrator Passkey.");
         }
 
         return await WithLiveAdmin(session, permission, async (db, tx, admin) =>
@@ -84,9 +87,9 @@ internal sealed partial class AdminPasskeyStore
                 await VerifyCredential(db, tx, admin.Id, handle, request, AssertionOptions.FromJson(challenge.Options), ct,
                     requireHandle: false);
             }
-            catch (BusinessException ex) when (action == StepUpAction.PublishArticleRollback && ex.Rejection == Rejection.Unauthorized)
+            catch (BusinessException ex) when (articleRollback && ex.Rejection == Rejection.Unauthorized)
             {
-                throw new BusinessException(Rejection.Forbidden, "The published rollback requires a verified administrator Passkey.");
+                throw new BusinessException(Rejection.Forbidden, $"The {rollbackLabel} requires a verified administrator Passkey.");
             }
             var proof = Token();
             await SaveStepUp(db, tx, admin, proof, action, StepUpProof, challenge.Digest, null, 45, ct);
@@ -135,7 +138,8 @@ internal sealed partial class AdminPasskeyStore
             insert into {StepUpTable(action)}(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+$8 * interval '1 second',$9)
             on conflict (session_digest,kind) do update
-                set digest=excluded.digest,body_digest=excluded.body_digest,options=excluded.options,expires_at=excluded.expires_at
+                set digest=excluded.digest,action=excluded.action,body_digest=excluded.body_digest,
+                    options=excluded.options,expires_at=excluded.expires_at
             """, ChallengeDigest(token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, (int)action, bodyDigest,
             Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds, kind);
 
@@ -143,7 +147,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => "public.admin_step_up",
         StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
-        StepUpAction.PublishArticleRollback => "public.admin_article_rollback_step_up",
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback => "public.admin_article_rollback_step_up",
         StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
         StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
@@ -154,7 +158,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
-        StepUpAction.PublishArticleRollback => CurrentSchema.ArticleWritePermission,
+        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback => CurrentSchema.ArticleWritePermission,
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
         StepUpAction.ModerateCommentBatch => CurrentSchema.CommentModeratePermission,

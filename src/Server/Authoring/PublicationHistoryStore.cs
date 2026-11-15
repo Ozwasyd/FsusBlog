@@ -88,9 +88,9 @@ internal static class PublicationHistoryStore
         }
     }
 
-    internal static async Task<AdminArticleRelease> ReplaceByAdministrator(NpgsqlConnection db, NpgsqlTransaction tx,
+    internal static async Task<AdminArticleRelease> RollbackByAdministrator(NpgsqlConnection db, NpgsqlTransaction tx,
         int article, long priorPublication, long sourceRevision, long revision, long previousRevision,
-        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason,
+        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason, bool draft,
         CancellationToken ct)
     {
         await using var tail = Store.Sql(db, tx, """
@@ -105,7 +105,8 @@ internal static class PublicationHistoryStore
             throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
 
         await PublicationRightsStore.Require(db, tx, article, revision, ct);
-        var release = await Publish(db, tx, article, revision, ct);
+        var release = draft ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
+            : await Publish(db, tx, article, revision, ct);
         await PublicationRightsStore.Attach(db, tx, article, revision, release.Id, ct);
         await using var rights = Store.Sql(db, tx,
             "select id from public.article_publication_rights where publication_id=$1", release.Id);
@@ -126,25 +127,56 @@ internal static class PublicationHistoryStore
             """, release.Id, article, revision, responsibilitySnapshot);
         await responsibilityLink.ExecuteNonQueryAsync(ct);
 
-        await using var retainCommand = Store.Sql(db, tx, """
+        await using var retainCommand = Store.Sql(db, tx, $"""
             insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
                 source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
-                published_at,rights_snapshot_id,responsibility_snapshot_id,reason)
-            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                published_at,rights_snapshot_id,responsibility_snapshot_id,reason{(draft ? ",destination" : "")})
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15{(draft ? ",0" : "")})
             """, administrator, command, fingerprint, article, previousRevision, sourceRevision, revision, sourcePublication,
             priorPublication, release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
         await retainCommand.ExecuteNonQueryAsync(ct);
         await using var append = Store.Sql(db, tx, """
             insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
-            values($1,$2,$3,$4,$5,$6,'replace','administrator-rollback-replaced',$7,$8,$9)
-            """, article, checked(eventNo + 1), revision, release.Number, release.Id, priorPublication, release.PublishedAt,
-            administrator, command);
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            """, article, checked(eventNo + 1), revision, release.Number, Optional(NpgsqlDbType.Bigint, draft ? null : release.Id),
+            priorPublication, draft ? "retract" : "replace", draft ? "administrator-rollback-draft" : "administrator-rollback-replaced",
+            release.PublishedAt, administrator, command);
         await append.ExecuteNonQueryAsync(ct);
+
+        if (draft)
+        {
+            await using var retract = Store.Sql(db, tx, """
+                insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'retract')
+                """, article, revision);
+            await retract.ExecuteNonQueryAsync(ct);
+        }
+        else
+        {
+            await RecordPublishedOutbox(db, tx, article, revision, ct);
+        }
         return new AdminArticleRelease(release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot);
     }
 
     internal sealed record AdminArticleRelease(long Id, int Number, DateTime PublishedAt, long RightsSnapshot, long ResponsibilitySnapshot);
+
+    private static async Task<ActivePublication> WithdrawForRollback(NpgsqlConnection db, NpgsqlTransaction tx, int article,
+        long priorPublication, long revision, CancellationToken ct)
+    {
+        // Reserve one release coordinate without creating a row in the public pointer table.
+        await using var withdraw = Store.Sql(db, tx, """
+            with withdrawn as (
+                delete from public.article_publication where article_id=$1 and publication_id=$2 returning article_id
+            )
+            update public.article a set publication_count=a.publication_count+1 from withdrawn w
+            where a.id=w.article_id and a.revision=$3 and a.published_revision is null
+            returning nextval('public.article_publication_publication_id_seq'),a.publication_count,clock_timestamp()
+            """, article, priorPublication, revision);
+        await using var row = await withdraw.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct))
+            throw new BusinessException(Rejection.Conflict, "The publication changed before its withdrawal.");
+        return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
+    }
 
     private static async Task<ActivePublication> Publish(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision, CancellationToken ct)
     {

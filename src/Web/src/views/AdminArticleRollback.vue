@@ -3,33 +3,52 @@ import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
+  executeAdminArticleDraftRollback, readAdminArticleDraftRollbackAvailability, requestAdminArticleDraftRollbackProof,
   executeAdminArticleRollback, isValidAdminArticleRollbackReason, readAdminArticleRollbackAvailability,
   readAdminArticleRollbackPreview, requestAdminArticleRollbackProof,
+  type AdminArticleDraftRollbackIntent, type AdminArticleDraftRollbackReceipt,
   type AdminArticleRollbackIntent, type AdminArticleRollbackPreview, type AdminArticleRollbackReceipt,
 } from '../../../Contracts/admin-article-rollback'
+
+type RollbackIntent = AdminArticleRollbackIntent | AdminArticleDraftRollbackIntent
+type RollbackReceipt = AdminArticleRollbackReceipt | AdminArticleDraftRollbackReceipt
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [cause: unknown] }>()
 const lifetime = new AbortController()
 const signal = AbortSignal.any([lifetime.signal, props.sessionSignal])
 const available = ref(false)
+const draftAvailable = ref(false)
 const articleId = ref('')
 const sourceRevision = ref('')
 const reason = ref('')
 const confirmed = ref(false)
+const draftReason = ref('')
+const draftConfirmed = ref(false)
 const busy = ref(false)
 const error = ref('')
 const preview = shallowRef<AdminArticleRollbackPreview>()
-const retry = shallowRef<AdminArticleRollbackIntent>()
-const receipt = shallowRef<AdminArticleRollbackReceipt>()
+const retry = shallowRef<RollbackIntent>()
+const receipt = shallowRef<RollbackReceipt>()
 const sourceCoordinates = computed(() => {
   if (!/^[1-9][0-9]{0,9}$/.test(articleId.value) || !/^[1-9][0-9]{0,18}$/.test(sourceRevision.value)) return
   const article = Number(articleId.value)
   const source = BigInt(sourceRevision.value)
   if (article <= 2_147_483_647 && source <= 9_223_372_036_854_775_807n) return { article, source }
 })
-const canPublish = computed(() => !!preview.value?.packageComplete && !busy.value && !retry.value &&
+const canRollback = computed(() => !!preview.value?.packageComplete && !busy.value && !retry.value)
+const canPublish = computed(() => canRollback.value &&
   confirmed.value && isValidAdminArticleRollbackReason(reason.value.trim()))
+const canRestoreDraft = computed(() => canRollback.value && draftAvailable.value &&
+  draftConfirmed.value && isValidAdminArticleRollbackReason(draftReason.value.trim()))
+const receiptTitle = computed(() => {
+  const result = receipt.value
+  if (!result) return ''
+  return 'privateReleaseId' in result
+    ? `Restored revision ${result.revision} as a private draft`
+    : `Published revision ${result.revision} as publication ${result.publicationId}`
+})
+const draftRetry = computed(() => retry.value !== undefined && 'targetStatus' in retry.value)
 const blockers = [
   '', 'This revision has no retained rights snapshot.', 'This revision has no retained responsibility snapshot.',
   'Private attachments need review before this revision can be published.', 'Clear the pending publication schedule before continuing.',
@@ -41,6 +60,7 @@ function resetPreview() {
   receipt.value = undefined
   error.value = ''
   confirmed.value = false
+  draftConfirmed.value = false
 }
 
 async function readPreview() {
@@ -60,33 +80,44 @@ async function readPreview() {
   } finally { busy.value = false }
 }
 
-function accept(next: AdminArticleRollbackReceipt) {
+function accept(next: RollbackReceipt) {
   receipt.value = next
   retry.value = undefined
   preview.value = undefined
   reason.value = ''
   confirmed.value = false
+  draftReason.value = ''
+  draftConfirmed.value = false
 }
 
-async function publish() {
+function execute(intent: RollbackIntent, proof?: string): Promise<RollbackReceipt> {
+  return 'targetStatus' in intent
+    ? executeAdminArticleDraftRollback(intent, proof, signal)
+    : executeAdminArticleRollback(intent, proof, signal)
+}
+
+async function rollback(toDraft: boolean) {
   const base = preview.value
-  if (!base || !canPublish.value || signal.aborted) return
-  const intent: AdminArticleRollbackIntent = {
+  if (!base || !(toDraft ? canRestoreDraft.value : canPublish.value) || signal.aborted) return
+  const coordinates: AdminArticleRollbackIntent = {
     articleId: base.articleId,
     expectedRevision: base.currentRevision,
     expectedPublicationId: base.currentPublicationId,
     sourceRevision: base.sourceRevision,
     idempotencyKey: crypto.randomUUID(),
-    reason: reason.value.trim(),
+    reason: (toDraft ? draftReason.value : reason.value).trim(),
   }
+  const intent = toDraft ? { ...coordinates, targetStatus: 0 } : coordinates
   busy.value = true
   error.value = ''
   let attempted = false
   try {
-    const proof = await requestAdminArticleRollbackProof(intent, signal)
+    const proof = await ('targetStatus' in intent
+      ? requestAdminArticleDraftRollbackProof(intent, signal)
+      : requestAdminArticleRollbackProof(intent, signal))
     if (signal.aborted) return
     attempted = true
-    const saved = await executeAdminArticleRollback(intent, proof, signal)
+    const saved = await execute(intent, proof)
     if (!signal.aborted) accept(saved)
   } catch (cause) {
     if (signal.aborted) return
@@ -99,11 +130,14 @@ async function publish() {
       emit('session-lost', cause)
     } else if (attempted && (!(cause instanceof ApiError) || cause.status >= 500)) {
       retry.value = intent
-      error.value = 'The publication result is unknown. Check the same command before publishing again.'
+      error.value = toDraft ? 'The draft rollback result is unknown. Check the same command before trying again.'
+        : 'The publication result is unknown. Check the same command before publishing again.'
     } else {
-      error.value = 'Could not publish this revision. Review the article and verify your administrator permissions.'
+      error.value = toDraft ? 'Could not restore the draft. Review the article and verify your administrator permissions.'
+        : 'Could not publish this revision. Review the article and verify your administrator permissions.'
     }
     confirmed.value = false
+    draftConfirmed.value = false
   } finally { busy.value = false }
 }
 
@@ -113,7 +147,7 @@ async function checkReceipt() {
   busy.value = true
   error.value = ''
   try {
-    const stored = await executeAdminArticleRollback(intent, undefined, signal)
+    const stored = await execute(intent)
     if (!signal.aborted) accept(stored)
   } catch (cause) {
     if (signal.aborted) return
@@ -122,7 +156,8 @@ async function checkReceipt() {
       preview.value = undefined
       error.value = 'The command result could not be recovered. Review the current publication before repeating the operation.'
     } else {
-      error.value = 'The publication result is still unknown. Try checking this command again.'
+      error.value = 'targetStatus' in intent ? 'The draft rollback result is still unknown. Try checking this command again.'
+        : 'The publication result is still unknown. Try checking this command again.'
     }
   } finally { busy.value = false }
 }
@@ -130,9 +165,12 @@ async function checkReceipt() {
 onMounted(async () => {
   try {
     const enabled = await readAdminArticleRollbackAvailability(signal)
-    if (!signal.aborted) available.value = enabled
+    if (signal.aborted || !enabled) return
+    available.value = true
+    const canDraft = await readAdminArticleDraftRollbackAvailability(signal)
+    if (!signal.aborted) draftAvailable.value = canDraft
   } catch {
-    // Keep the independently authorized section hidden if capability cannot be verified.
+    // Only show actions whose independent availability checks succeeded.
   }
 })
 onScopeDispose(() => lifetime.abort())
@@ -149,9 +187,10 @@ onScopeDispose(() => lifetime.abort())
       <ElButton native-type="submit" :disabled="!sourceCoordinates || busy || !!retry">Preview publication rollback</ElButton>
     </form>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <ElAlert v-if="receipt" :title="`Published revision ${receipt.revision} as publication ${receipt.publicationId}`"
-      type="success" :closable="false" />
-    <ElButton v-if="retry" native-type="button" :loading="busy" @click="checkReceipt">Check publication result</ElButton>
+    <ElAlert v-if="receiptTitle" :title="receiptTitle" type="success" :closable="false" />
+    <ElButton v-if="retry" native-type="button" :loading="busy" @click="checkReceipt">
+      {{ draftRetry ? 'Check draft rollback result' : 'Check publication result' }}
+    </ElButton>
     <div v-else-if="preview" class="article-rollback">
       <h3>{{ preview.sourceTitle }}</h3>
       <dl>
@@ -167,9 +206,19 @@ onScopeDispose(() => lifetime.abort())
         <ElCheckbox :model-value="confirmed" :disabled="busy" @update:model-value="confirmed = $event === true">
           Publish a new revision with this historical content, rights, and responsibility
         </ElCheckbox>
-        <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="publish">
+        <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="rollback(false)">
           Publish revision with Passkey
         </ElButton>
+        <div v-if="draftAvailable" class="article-rollback draft-rollback">
+          <label for="admin-rollback-draft-reason">Reason for restoring this revision as a draft</label>
+          <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="busy" @input="draftConfirmed = false" />
+          <ElCheckbox :model-value="draftConfirmed" :disabled="busy" @update:model-value="draftConfirmed = $event === true">
+            Create a private draft from this revision and withdraw the current publication
+          </ElCheckbox>
+          <ElButton native-type="button" type="danger" plain :disabled="!canRestoreDraft" :loading="busy" @click="rollback(true)">
+            Restore as draft and withdraw
+          </ElButton>
+        </div>
       </template>
     </div>
   </section>
@@ -179,4 +228,5 @@ onScopeDispose(() => lifetime.abort())
 .article-rollback { display: grid; align-items: start; gap: .5rem; }
 .article-rollback h3 { margin-block: .5rem 0; overflow-wrap: anywhere; }
 .article-rollback dl { margin-block: 0; }
+.draft-rollback { margin-block-start: .5rem; padding-block-start: .75rem; border-block-start: 1px solid var(--el-border-color); }
 </style>

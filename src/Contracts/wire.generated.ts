@@ -74,6 +74,8 @@ export const FrameType = {
   AdminArticleRollbackIntent: 32924,
   AdminArticleRollbackPreview: 32925,
   AdminArticleRollbackReceipt: 32926,
+  AdminArticleDraftRollbackIntent: 32997,
+  AdminArticleDraftRollbackReceipt: 32998,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
   AdminAppearanceState: 32936,
@@ -265,6 +267,7 @@ export const WireLimits = {
   RollbackReasonBytes: 2000,
   MaxDraftRollbackFrameBytes: 2056,
   MaxAdminArticleRollbackFrameBytes: 2064,
+  MaxAdminArticleDraftRollbackFrameBytes: 2068,
   ArticleRightsTokenBytes: 48,
   ArticleRightsHolderBytes: 1024,
   ArticleRightsTextBytes: 16000,
@@ -585,6 +588,10 @@ export const WireRoutes = {
   AdminArticleRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds",
   AdminArticleRollbackStepUpComplete: "/api/v2/admin/identity/articles/rollback/step-up/complete.aeds",
   AdminArticleRollbackExecute: "/api/v2/admin/identity/articles/rollback/execute.aeds",
+  AdminArticleDraftRollbackAvailability: "/api/v2/admin/identity/articles/rollback-to-draft/available.aeds",
+  AdminArticleDraftRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/begin.aeds",
+  AdminArticleDraftRollbackStepUpComplete: "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds",
+  AdminArticleDraftRollbackExecute: "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds",
   AdminSitePages: "/api/v2/admin/identity/site-pages.aeds",
   AdminSitePage: "/api/v2/admin/identity/site-pages/{slug}.aeds",
   AdminSitePageRevision: "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
@@ -1146,6 +1153,89 @@ export function decodeAdminArticleRollbackReceipt(payload: Uint8Array): AdminArt
     publishedUnixMs: reader.i64(),
     rightsSnapshotId: reader.i64(),
     responsibilitySnapshotId: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleDraftRollbackIntent {
+  articleId: number;
+  expectedRevision: bigint;
+  expectedPublicationId: bigint;
+  sourceRevision: bigint;
+  idempotencyKey: string;
+  reason: string;
+  targetStatus: number;
+}
+
+export function encodeAdminArticleDraftRollbackIntent(value: AdminArticleDraftRollbackIntent): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.expectedRevision);
+  writer.i64(value.expectedPublicationId);
+  writer.i64(value.sourceRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.text(value.reason, WireLimits.RollbackReasonBytes);
+  writer.i32(value.targetStatus);
+  return writer.finish();
+}
+
+export function decodeAdminArticleDraftRollbackIntent(payload: Uint8Array): AdminArticleDraftRollbackIntent {
+  const reader = new PodReader(payload);
+  const value: AdminArticleDraftRollbackIntent = {
+    articleId: reader.i32(),
+    expectedRevision: reader.i64(),
+    expectedPublicationId: reader.i64(),
+    sourceRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    reason: reader.text(WireLimits.RollbackReasonBytes),
+    targetStatus: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleDraftRollbackReceipt {
+  articleId: number;
+  revision: bigint;
+  sourceRevision: bigint;
+  previousPublicationId: bigint;
+  privateReleaseId: bigint;
+  publicationNo: number;
+  transitionedUnixMs: bigint;
+  rightsSnapshotId: bigint;
+  responsibilitySnapshotId: bigint;
+  targetStatus: number;
+}
+
+export function encodeAdminArticleDraftRollbackReceipt(value: AdminArticleDraftRollbackReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.revision);
+  writer.i64(value.sourceRevision);
+  writer.i64(value.previousPublicationId);
+  writer.i64(value.privateReleaseId);
+  writer.i32(value.publicationNo);
+  writer.i64(value.transitionedUnixMs);
+  writer.i64(value.rightsSnapshotId);
+  writer.i64(value.responsibilitySnapshotId);
+  writer.i32(value.targetStatus);
+  return writer.finish();
+}
+
+export function decodeAdminArticleDraftRollbackReceipt(payload: Uint8Array): AdminArticleDraftRollbackReceipt {
+  const reader = new PodReader(payload);
+  const value: AdminArticleDraftRollbackReceipt = {
+    articleId: reader.i32(),
+    revision: reader.i64(),
+    sourceRevision: reader.i64(),
+    previousPublicationId: reader.i64(),
+    privateReleaseId: reader.i64(),
+    publicationNo: reader.i32(),
+    transitionedUnixMs: reader.i64(),
+    rightsSnapshotId: reader.i64(),
+    responsibilitySnapshotId: reader.i64(),
+    targetStatus: reader.i32(),
   };
   reader.finish();
   return value;

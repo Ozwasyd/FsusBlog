@@ -550,21 +550,57 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
     select 'exact_admin_rollback=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
-      join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision=r.revision
+      join public.article a on a.id=r.article_id
       join public.blog_user u on u.id=a.owner_id
       join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
+        and h.publication_id=r.publication_id and h.kind='replace'
       join public.article_revision_responsibility n on n.id=r.responsibility_snapshot_id
       join public.article_revision_responsibility s on s.id=n.source_snapshot_id
+      join public.article_revision restored on restored.article_id=r.article_id and restored.revision=r.revision
       join public.article_revision source on source.article_id=r.article_id and source.revision=r.source_revision
       where p.handle='tls-admin-fixture' and u.name='tls-site-fixture'
         and h.admin_actor_id=p.id and h.admin_command_id=r.command_id and h.actor_id is null
         and n.responsible_party=s.responsible_party and n.basis=s.basis and n.reference=s.reference
-        and r.source_revision=1 and r.previous_revision=2 and r.revision=3 and a.body=source.body
+        and r.destination=2 and r.source_revision=1 and r.previous_revision=2 and r.revision=3 and restored.body=source.body
+        and exists (
+          select from public.article_publication_canonical c join public.blog_outbox e on e.id=c.outbox_id
+          where c.article_id=r.article_id and c.revision=r.revision and c.publication_id=r.publication_id
+            and c.transition='replace' and c.rights_snapshot_id=r.rights_snapshot_id and e.kind='publish'
+        )
     union all
     select 'one_publish_event=' || count(*) from public.blog_outbox where article_id=1 and revision=3 and kind='publish'
+    union all
+    select 'exact_admin_draft_rollback=' || count(*) from public.admin_article_rollback r
+      join public.admin_principal p on p.id=r.principal_id
+      join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision is null
+      join public.blog_user u on u.id=a.owner_id
+      join public.admin_article_rollback prior on prior.article_id=r.article_id and prior.publication_id=r.previous_publication_id
+      join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
+        and h.publication_id is null and h.supersedes_id=r.previous_publication_id
+        and h.kind='retract' and h.reason='administrator-rollback-draft'
+      join public.article_revision_responsibility n on n.id=r.responsibility_snapshot_id
+      join public.article_revision_responsibility s on s.id=n.source_snapshot_id
+      join public.article_revision source on source.article_id=r.article_id and source.revision=r.source_revision
+      join public.article_publication_rights w on w.id=r.rights_snapshot_id and w.article_id=r.article_id
+        and w.revision=r.revision and w.publication_id=r.publication_id
+      join public.article_revision_rights policy on policy.article_id=w.article_id and policy.revision=w.revision
+      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture'
+        and h.admin_actor_id=p.id and h.admin_command_id=r.command_id and h.actor_id is null
+        and n.responsible_party=s.responsible_party and n.basis=s.basis and n.reference=s.reference
+        and policy.copyright_holder='Historical fixture rights' and a.title=source.title and a.body=source.body
+        and r.destination=0 and prior.destination=2 and r.source_revision=1 and r.previous_revision=3 and r.revision=4
+        and r.publication_no=4 and h.publication_no=r.publication_no and a.publication_count=r.publication_no
+        and not exists (select from public.article_publication active where active.article_id=r.article_id)
+        and not exists (select from public.article_publication_canonical c where c.article_id=r.article_id and c.revision=r.revision)
+    union all
+    select 'one_retract_event=' || count(*) from public.blog_outbox
+      where article_id=1 and revision=4 and kind='retract' and processed_at is not null
   " > "$evidence/admin-article-rollback-counts.txt"
   grep -Fxq 'exact_admin_rollback=1' "$evidence/admin-article-rollback-counts.txt"
   grep -Fxq 'one_publish_event=1' "$evidence/admin-article-rollback-counts.txt"
+  grep -Fxq 'exact_admin_draft_rollback=1' "$evidence/admin-article-rollback-counts.txt"
+  grep -Fxq 'one_retract_event=1' "$evidence/admin-article-rollback-counts.txt"
+  "$dotnet" "$migrate" verify > "$evidence/admin-article-rollback-schema-verify.log" 2>&1
 fi
 "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
   select 'admin_sessions=' || count(*) from public.admin_session

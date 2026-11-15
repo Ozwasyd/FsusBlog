@@ -15,10 +15,10 @@ internal static partial class Migration
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (!exists)
-        {
             await ApplySchemaAddition(connection, tx, "publication-rollback-admin.sql", ct);
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAdminArticleRollback: true);
-        }
+        if (!await CurrentSchema.HasAdminArticleDraftRollbackSchemaAsync(connection, tx, ct))
+            await ApplySchemaAddition(connection, tx, "publication-rollback-draft.sql", ct);
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAdminArticleRollback: true);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified the optional administrator article rollback schema.");
     }

@@ -59,6 +59,9 @@ internal static class ArticleInventoryEndpoints
             with matched as materialized (
                 select a.id,a.revision,a.title,a.updated_at,c.id as category_id,c.name as category,s.due_at,
                     case when a.deleted then 5 when s.due_at is not null then 2 when a.published_revision is not null then 3
+                         when (select h.kind='retract' and h.reason='administrator-rollback-draft'
+                               from public.article_publication_history h
+                               where h.article_id=a.id order by h.event_no desc limit 1) then 1
                          when a.publication_count>0 then 4 else 1 end as state
                 from public.article a
                 left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision

@@ -2,11 +2,12 @@ import { deepEqual, equal, rejects, throws } from 'node:assert/strict';
 import { test } from 'node:test';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import {
-  AdminArticleRollbackBlock, executeAdminArticleRollback, isValidAdminArticleRollbackReason,
+  AdminArticleRollbackBlock, executeAdminArticleDraftRollback, executeAdminArticleRollback, isValidAdminArticleRollbackReason,
   readAdminArticleRollbackAvailability, readAdminArticleRollbackPreview,
 } from '../../src/Contracts/admin-article-rollback.ts';
 import {
-  decodeAdminArticleRollbackIntent, encodeAdminArticleRollbackPreview, encodeAdminArticleRollbackReceipt,
+  decodeAdminArticleDraftRollbackIntent, decodeAdminArticleRollbackIntent, encodeAdminArticleDraftRollbackReceipt,
+  encodeAdminArticleRollbackPreview, encodeAdminArticleRollbackReceipt,
   FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
 
@@ -53,6 +54,28 @@ test('rollback submit binds the exact bigint intent and permits receipt replay w
   await rejects(() => executeAdminArticleRollback(intent, undefined, signal), ProtocolError);
   throws(() => executeAdminArticleRollback({ ...intent, sourceRevision: intent.expectedRevision }, proof, signal), ProtocolError);
   throws(() => executeAdminArticleRollback(intent, 'not-a-proof', signal), ProtocolError);
+});
+
+test('administrator draft rollback sends its own explicit target and accepts only its private receipt', async t => {
+  const draftIntent = { ...intent, targetStatus: 0 };
+  const { publicationId: privateReleaseId, publishedUnixMs: transitionedUnixMs, ...coordinates } = receipt;
+  const draftReceipt = { ...coordinates, privateReleaseId, transitionedUnixMs, targetStatus: 0 };
+  const fake = t.mock.method(globalThis, 'fetch', async (path, init) => {
+    equal(path, WireRoutes.AdminArticleDraftRollbackExecute);
+    equal(init.headers.get(WireHeaders.MfaProof), 'b'.repeat(43));
+    const frame = decodeFrame(init.body, FrameType.AdminArticleDraftRollbackIntent);
+    deepEqual(decodeAdminArticleDraftRollbackIntent(frame.payload), draftIntent);
+    return new Response(encodeFrame(FrameType.AdminArticleDraftRollbackReceipt, encodeAdminArticleDraftRollbackReceipt(draftReceipt)), { headers });
+  });
+  const proof = 'b'.repeat(43);
+  deepEqual(await executeAdminArticleDraftRollback(draftIntent, proof, signal), draftReceipt);
+  throws(() => executeAdminArticleDraftRollback({ ...draftIntent, targetStatus: 3 }, proof, signal), ProtocolError);
+  fake.mock.mockImplementation(async () => new Response(encodeFrame(FrameType.AdminArticleRollbackReceipt,
+    encodeAdminArticleRollbackReceipt(receipt)), { headers }));
+  await rejects(() => executeAdminArticleDraftRollback(draftIntent, undefined, signal), ProtocolError);
+  fake.mock.mockImplementation(async () => new Response(encodeFrame(FrameType.AdminArticleDraftRollbackReceipt,
+    encodeAdminArticleDraftRollbackReceipt({ ...draftReceipt, targetStatus: 2 })), { headers }));
+  await rejects(() => executeAdminArticleDraftRollback(draftIntent, undefined, signal), ProtocolError);
 });
 
 test('rollback preview treats partial history as a typed blocker and checks request coordinates', async t => {

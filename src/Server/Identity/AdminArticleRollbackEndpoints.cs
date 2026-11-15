@@ -48,14 +48,53 @@ internal static class AdminArticleRollbackEndpoints
             return Frame(Wire.EncodeAdminArticleRollbackReceipt(receipt));
         }).RequireRateLimiting("command");
 
+        app.MapGet(WireRoutes.AdminArticleDraftRollbackAvailability, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            await store.CheckArticleDraftRollbackAvailability(ctx.Request.Cookies[session], ct);
+            return Results.NoContent();
+        }).RequireRateLimiting("command");
+        app.MapPost(WireRoutes.AdminArticleDraftRollbackStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var input = await ReadDraftIntent(ctx, ct);
+            return Frame(await store.BeginArticleDraftRollbackStepUp(ctx.Request.Cookies[session], input, ct));
+        }).RequireRateLimiting(limit);
+        app.MapPost(WireRoutes.AdminArticleDraftRollbackStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            return Frame(await store.CompleteArticleDraftRollbackStepUp(ctx.Request.Cookies[session], assertion, ct));
+        }).RequireRateLimiting(limit);
+        app.MapPost(WireRoutes.AdminArticleDraftRollbackExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+        {
+            AdminModerationEndpoints.RequireOrigin(ctx, authority);
+            var input = await ReadDraftIntent(ctx, ct);
+            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+            var receipt = await publications.AdministrativePublication(
+                invalidate => store.ExecuteArticleDraftRollback(ctx.Request.Cookies[session], proof, input, invalidate, ct), ct);
+            return Frame(Wire.EncodeAdminArticleDraftRollbackReceipt(receipt));
+        }).RequireRateLimiting("command");
+
         async Task<AdminArticleRollbackIntent> ReadIntent(HttpContext ctx, CancellationToken ct)
         {
             var intent = Wire.DecodeAdminArticleRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleRollbackFrameBytes, ct));
-            if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
-                (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != intent.IdempotencyKey))
-                throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+            RequireCommandHeader(ctx, intent.IdempotencyKey);
             return intent;
         }
+
+        async Task<AdminArticleDraftRollbackIntent> ReadDraftIntent(HttpContext ctx, CancellationToken ct)
+        {
+            var intent = Wire.DecodeAdminArticleDraftRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleDraftRollbackFrameBytes, ct));
+            RequireCommandHeader(ctx, intent.IdempotencyKey);
+            return intent;
+        }
+    }
+
+    private static void RequireCommandHeader(HttpContext ctx, Guid expected)
+    {
+        if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
+            (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != expected))
+            throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
     }
 
     private static long PositiveCoordinate(HttpContext ctx, string key)

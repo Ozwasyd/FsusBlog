@@ -4,12 +4,16 @@ import { request } from './client.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import {
+  decodeAdminArticleDraftRollbackReceipt, encodeAdminArticleDraftRollbackIntent,
   decodeAdminArticleRollbackPreview, decodeAdminArticleRollbackReceipt, encodeAdminArticleRollbackIntent,
   FrameType, WireHeaders, WireLimits, WireRoutes,
+  type AdminArticleDraftRollbackIntent, type AdminArticleDraftRollbackReceipt,
   type AdminArticleRollbackIntent, type AdminArticleRollbackPreview as WireRollbackPreview, type AdminArticleRollbackReceipt,
 } from './wire.generated.ts';
 
-export type { AdminArticleRollbackIntent, AdminArticleRollbackReceipt } from './wire.generated.ts';
+export type {
+  AdminArticleDraftRollbackIntent, AdminArticleDraftRollbackReceipt, AdminArticleRollbackIntent, AdminArticleRollbackReceipt,
+} from './wire.generated.ts';
 
 export const AdminArticleRollbackBlock = {
   Ready: 0,
@@ -28,8 +32,16 @@ const textEncoder = new TextEncoder();
 const emptyUuid = '00000000-0000-0000-0000-000000000000';
 const maximumRevision = 0x7fffffffffffffffn;
 
-export async function readAdminArticleRollbackAvailability(signal: AbortSignal): Promise<boolean> {
-  const response = await fetch(WireRoutes.AdminArticleRollbackAvailability, {
+export function readAdminArticleRollbackAvailability(signal: AbortSignal): Promise<boolean> {
+  return readRollbackAvailability(WireRoutes.AdminArticleRollbackAvailability, signal);
+}
+
+export function readAdminArticleDraftRollbackAvailability(signal: AbortSignal): Promise<boolean> {
+  return readRollbackAvailability(WireRoutes.AdminArticleDraftRollbackAvailability, signal);
+}
+
+async function readRollbackAvailability(path: string, signal: AbortSignal): Promise<boolean> {
+  const response = await fetch(path, {
     credentials: 'same-origin', redirect: 'error', cache: 'no-store', signal,
   });
   if (response.status === 204) return true;
@@ -62,25 +74,42 @@ export function isValidAdminArticleRollbackReason(reason: string): boolean {
 }
 
 export async function requestAdminArticleRollbackProof(intent: AdminArticleRollbackIntent, signal: AbortSignal): Promise<string> {
-  const assertion = await requestPasskeyAssertion(WireRoutes.AdminArticleRollbackStepUpBegin, signal, intentFrame(intent), true);
-  return request(WireRoutes.AdminArticleRollbackStepUpComplete, FrameType.MfaChallengeResult,
+  return requestRollbackProof(WireRoutes.AdminArticleRollbackStepUpBegin, WireRoutes.AdminArticleRollbackStepUpComplete,
+    intentFrame(intent), signal);
+}
+
+export async function requestAdminArticleDraftRollbackProof(intent: AdminArticleDraftRollbackIntent, signal: AbortSignal): Promise<string> {
+  return requestRollbackProof(WireRoutes.AdminArticleDraftRollbackStepUpBegin, WireRoutes.AdminArticleDraftRollbackStepUpComplete,
+    draftIntentFrame(intent), signal);
+}
+
+async function requestRollbackProof(begin: string, complete: string, frame: Uint8Array<ArrayBuffer>,
+  signal: AbortSignal): Promise<string> {
+  const assertion = await requestPasskeyAssertion(begin, signal, frame, true);
+  return request(complete, FrameType.MfaChallengeResult,
     payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
 }
 
 export function executeAdminArticleRollback(intent: AdminArticleRollbackIntent, proof: string | undefined,
   signal: AbortSignal): Promise<AdminArticleRollbackReceipt> {
-  if (proof !== undefined && !/^[A-Za-z0-9_-]{43}$/.test(proof))
-    throw new ProtocolError('Invalid administrator article rollback proof');
+  const headers = proofHeaders(proof);
   return request(WireRoutes.AdminArticleRollbackExecute, FrameType.AdminArticleRollbackReceipt, payload => {
     const receipt = decodeAdminArticleRollbackReceipt(payload);
-    if (receipt.articleId !== intent.articleId || receipt.sourceRevision !== intent.sourceRevision ||
-        receipt.revision !== intent.expectedRevision + 1n || receipt.previousPublicationId !== intent.expectedPublicationId ||
-        receipt.publicationId <= 0n || receipt.publicationId === receipt.previousPublicationId || receipt.publicationNo < 2 ||
-        receipt.publishedUnixMs <= 0n || receipt.publishedUnixMs > 253402300799999n ||
-        receipt.rightsSnapshotId <= 0n || receipt.responsibilitySnapshotId <= 0n)
+    if (!matchesReceipt(receipt, intent, receipt.publicationId, receipt.publishedUnixMs))
       throw new ProtocolError('Invalid administrator article rollback receipt');
     return receipt;
-  }, signal, 'POST', intentFrame(intent), proof === undefined ? undefined : { [WireHeaders.MfaProof]: proof });
+  }, signal, 'POST', intentFrame(intent), headers);
+}
+
+export function executeAdminArticleDraftRollback(intent: AdminArticleDraftRollbackIntent, proof: string | undefined,
+  signal: AbortSignal): Promise<AdminArticleDraftRollbackReceipt> {
+  const headers = proofHeaders(proof);
+  return request(WireRoutes.AdminArticleDraftRollbackExecute, FrameType.AdminArticleDraftRollbackReceipt, payload => {
+    const receipt = decodeAdminArticleDraftRollbackReceipt(payload);
+    if (receipt.targetStatus !== 0 || !matchesReceipt(receipt, intent, receipt.privateReleaseId, receipt.transitionedUnixMs))
+      throw new ProtocolError('Invalid administrator article draft rollback receipt');
+    return receipt;
+  }, signal, 'POST', draftIntentFrame(intent), headers);
 }
 
 export async function rollbackAdminArticle(intent: AdminArticleRollbackIntent, signal: AbortSignal): Promise<AdminArticleRollbackReceipt> {
@@ -89,11 +118,36 @@ export async function rollbackAdminArticle(intent: AdminArticleRollbackIntent, s
 }
 
 function intentFrame(intent: AdminArticleRollbackIntent): Uint8Array<ArrayBuffer> {
+  validateIntent(intent);
+  return encodeFrame(FrameType.AdminArticleRollbackIntent, encodeAdminArticleRollbackIntent(intent));
+}
+
+function draftIntentFrame(intent: AdminArticleDraftRollbackIntent): Uint8Array<ArrayBuffer> {
+  validateIntent(intent);
+  if (intent.targetStatus !== 0) throw new ProtocolError('Invalid administrator article draft rollback target');
+  return encodeFrame(FrameType.AdminArticleDraftRollbackIntent, encodeAdminArticleDraftRollbackIntent(intent));
+}
+
+function validateIntent(intent: AdminArticleRollbackIntent): void {
   if (!validArticleId(intent.articleId) || !validRevision(intent.expectedRevision) || !validRevision(intent.expectedPublicationId) ||
       !validRevision(intent.sourceRevision) || intent.sourceRevision >= intent.expectedRevision || intent.idempotencyKey === emptyUuid ||
       !isValidAdminArticleRollbackReason(intent.reason))
     throw new ProtocolError('Invalid administrator article rollback intent');
-  return encodeFrame(FrameType.AdminArticleRollbackIntent, encodeAdminArticleRollbackIntent(intent));
+}
+
+function proofHeaders(proof: string | undefined): Record<string, string> | undefined {
+  if (proof === undefined) return undefined;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(proof))
+    throw new ProtocolError('Invalid administrator article rollback proof');
+  return { [WireHeaders.MfaProof]: proof };
+}
+
+function matchesReceipt(receipt: AdminArticleRollbackReceipt | AdminArticleDraftRollbackReceipt, intent: AdminArticleRollbackIntent,
+  release: bigint, when: bigint): boolean {
+  return receipt.articleId === intent.articleId && receipt.sourceRevision === intent.sourceRevision &&
+    receipt.revision === intent.expectedRevision + 1n && receipt.previousPublicationId === intent.expectedPublicationId &&
+    release > 0n && release !== receipt.previousPublicationId && receipt.publicationNo >= 2 &&
+    when > 0n && when <= 253402300799999n && receipt.rightsSnapshotId > 0n && receipt.responsibilitySnapshotId > 0n;
 }
 
 function validArticleId(id: number): boolean {

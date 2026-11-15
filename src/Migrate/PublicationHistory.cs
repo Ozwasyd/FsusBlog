@@ -47,13 +47,16 @@ internal static partial class Migration
         var scheduleJoin = hasArticleSchedule ? "public.article_schedule_receipt" :
             "(select null::uuid actor_id,null::uuid command_id,null::timestamptz due_at where false)";
         bool hasAdminRollback = await CurrentSchema.HasAdminArticleRollbackSchemaAsync(connection, tx, ct);
+        bool hasAdminDraftRollback = hasAdminRollback &&
+            await CurrentSchema.HasAdminArticleDraftRollbackSchemaAsync(connection, tx, ct);
+        var adminDestination = hasAdminDraftRollback ? "b.destination" : "2";
         var adminFields = hasAdminRollback ? "" : ", null::uuid admin_actor_id, null::uuid admin_command_id";
         var adminJoin = hasAdminRollback ? """
             left join public.admin_article_rollback b on b.principal_id=h.admin_actor_id and b.command_id=h.admin_command_id
             left join public.article_publication_rights source_rights on source_rights.article_id=h.article_id
                 and source_rights.revision=b.source_revision and source_rights.publication_id=b.source_publication_id
             left join public.article_publication_rights next_rights on next_rights.article_id=h.article_id
-                and next_rights.revision=h.revision and next_rights.publication_id=h.publication_id
+                and next_rights.revision=h.revision and next_rights.publication_id=b.publication_id
             left join public.article_revision_rights source_policy on source_policy.article_id=source_rights.article_id
                 and source_policy.revision=source_rights.revision
             left join public.article_revision_rights next_policy on next_policy.article_id=next_rights.article_id
@@ -65,18 +68,17 @@ internal static partial class Migration
             left join public.article_publication_responsibility source_evidence on source_evidence.article_id=h.article_id
                 and source_evidence.revision=b.source_revision and source_evidence.publication_id=b.source_publication_id
             left join public.article_publication_responsibility next_evidence on next_evidence.article_id=h.article_id
-                and next_evidence.revision=h.revision and next_evidence.publication_id=h.publication_id
+                and next_evidence.revision=h.revision and next_evidence.publication_id=b.publication_id
             left join public.article_revision_responsibility derived on derived.id=next_evidence.snapshot_id
             left join public.article_revision_responsibility original on original.id=source_evidence.snapshot_id
             """ : "";
-        var adminVerification = hasAdminRollback ? """
+        var adminVerification = hasAdminRollback ? $"""
                  when h.admin_actor_id is not null then
-                    h.actor_id is not null or h.command_id is not null or h.kind<>'replace'
-                    or h.reason<>'administrator-rollback-replaced' or h.happened_at is null or h.previous_active is null
-                    or h.publication_no<>h.previous_count+1 or h.publication_id is null
+                    h.actor_id is not null or h.command_id is not null or h.happened_at is null or h.previous_active is null
+                    or h.publication_no<>h.previous_count+1
                     or b.article_id is distinct from h.article_id or b.revision is distinct from h.revision
                     or b.previous_publication_id is distinct from h.previous_active
-                    or b.publication_id is distinct from h.publication_id or b.publication_no is distinct from h.publication_no
+                    or b.publication_no is distinct from h.publication_no
                     or b.published_at is distinct from h.happened_at or b.source_publication_id is null
                     or source_release.event_no is null or source_release.event_no>=h.event_no
                     or source_rights.id is null or next_rights.id is distinct from b.rights_snapshot_id
@@ -90,8 +92,21 @@ internal static partial class Migration
                     or source_evidence.snapshot_id is null or derived.source_snapshot_id is distinct from source_evidence.snapshot_id
                     or (derived.responsible_party,derived.basis,derived.reference,derived.recorded_by) is distinct from
                         (original.responsible_party,original.basis,original.reference,original.recorded_by)
-                    or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision
-                        and e.kind='publish')
+                    or case {adminDestination}
+                        when 0 then h.kind<>'retract' or h.reason<>'administrator-rollback-draft' or h.publication_id is not null
+                            or b.publication_id is null
+                            or exists (select from public.article_publication_history visible where visible.publication_id=b.publication_id)
+                            or exists (select from public.article_publication visible where visible.publication_id=b.publication_id)
+                            or (select count(*) from public.blog_outbox e
+                                where e.article_id=h.article_id and e.revision=h.revision and e.kind='retract')<>1
+                            or exists (select from public.blog_outbox e
+                                where e.article_id=h.article_id and e.revision=h.revision and e.kind in ('publish','delete'))
+                        when 2 then h.kind<>'replace' or h.reason<>'administrator-rollback-replaced' or h.publication_id is null
+                            or b.publication_id is distinct from h.publication_id
+                            or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision
+                                and e.kind='publish')
+                        else true
+                    end
             """ : "";
         var adminOrphans = hasAdminRollback ? """
             union all
