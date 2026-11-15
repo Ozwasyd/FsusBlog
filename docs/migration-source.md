@@ -64,6 +64,10 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
+固定 v1 在完成 `taxonomy-projection` 出站边时，为已分类的公开文章维护三张 PostgreSQL 派生表。`category_public_article_count` 与 `tag_public_article_count` 分别以 `category_id`、`tag_id` 为整数主键，保存 `bigint` 计数和 `updated_at_utc`。`article_public_taxonomy_projection` 以整数 `article_id` 为主键，保存可空的整数 `category_id`、排好序的文本 `tag_ids` 及 `updated_at_utc`。现有 `legacy import` 将任何非空的这三张表报告为未支持的来源关系并拒绝暂存。已保留的实库验收使用合成旧站输入，尚未取得经过审核的真实旧站来源及其派生行。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs#L1275-L1310) · [出站边](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleMutationSideEffects.cs#L502-L513) · [派生写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Taxonomy/TaxonomyCountProjectionService.cs#L60-L106) · [当前导入拒绝条件](../src/Migrate/LegacyImport.cs)
+
+后续先在同一个只读旧库快照内核验这三张表的结构、文章分类和排序后标签。由已核验的公开文章关系重算分类与标签计数并做双向比对。保留原始时间和行摘要供独立复验，结构或内容有漂移时停止。派生行留在来源中，完整激活继续等待真实来源的审核和备份恢复验收。
+
 `tests/Integration/Migration/legacy-import.sh [sqlite|postgres|mysql]` 对三种只读源执行相同的候选实写、禁用启动、检查点续跑、改动拒绝和导入前备份恢复。2026-11-15 用 SDK 10.0.404、SQLite 3.54.0、PostgreSQL 18.7 和 MySQL 8.4.13 原生实例通过。PostgreSQL 来源连接明确强制只读事务，MySQL 来源位于无网络监听的临时实例，使用只有 `SELECT` 权限的账号。独立确认测试结束后自建库、临时目录和 MySQL socket 已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/provider-import-20261114T162656.log`。
 
 ### 演练写入当前文章表
