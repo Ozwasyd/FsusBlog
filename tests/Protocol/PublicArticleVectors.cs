@@ -4,6 +4,7 @@ internal static class PublicArticleVectors
 {
     public static void Run(string fixtures)
     {
+        ArticleHotVectors.Run(fixtures);
         var article = new Article(
             42, 9_007_199_254_740_993, 9_007_199_254_741_001, 4, 2,
             "雪原 🐈", "第一行\nsecond line\n",

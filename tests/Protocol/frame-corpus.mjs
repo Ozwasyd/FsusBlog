@@ -6,7 +6,7 @@ const instance = (await WebAssembly.instantiate(readFileSync(process.argv[2]))).
 const { memory, fsus_aeds_buffer, fsus_aeds_validate } = instance.exports;
 const address = fsus_aeds_buffer();
 const fixtures = ['api-error-v1.hex', 'article-command.hex', 'article-detail-ard5.hex',
-  'article-list-cursor-v2.hex', 'article-search-fas4.hex'].map(name => Buffer.from(
+  'article-list-cursor-v2.hex', 'article-search-fas4.hex', 'article-hot-v1.hex', 'article-hot-empty-v1.hex'].map(name => Buffer.from(
   readFileSync(new URL('./fixtures/' + name, import.meta.url), 'utf8').replaceAll(/\s/g, ''), 'hex'));
 
 const cases = [];
@@ -46,6 +46,6 @@ for (const bytes of cases) {
   equal(wasm, ts, 'seed ' + seed + ' case ' + results.length);
   results.push(wasm);
 }
-deepEqual(fixtures.map((_, i) => results[513 * i]), [251, 32771, 2, 1, 4]);
+deepEqual(fixtures.map((_, i) => results[513 * i]), [251, 32771, 2, 1, 4, 3, 3]);
 throws(() => decodeFrame(new Uint8Array(0)), ProtocolError);
 console.log('AEDS deterministic JS/Wasm differential corpus passed (' + cases.length + ' cases, seed ' + seed + ')');

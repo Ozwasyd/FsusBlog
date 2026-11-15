@@ -5,6 +5,7 @@ public enum FrameType : ushort
 {
     ArticleList = 1,
     ArticleDetail = 2,
+    ArticleHot = 3,
     ArticleSearch = 4,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
@@ -237,6 +238,7 @@ public static class WireLimits
     public const int SearchCorpusTotalBytes = 67108864;
     public const int SearchCorpusMaxPages = 128;
     public const int SearchQueryChars = 128;
+    public const int PublicArticleHotMaxSize = 100;
     public const int RelatedReadingMaxItems = 6;
     public const int RelatedReadingMaxTextBytes = 2048;
     public const int MaxSignInFrameBytes = 148;
@@ -383,6 +385,10 @@ public static class WireLayouts
     public const int TaxonomyHeaderBytes = 8;
     public const int TaxonomyListRecordSize = 16;
     public const int TaxonomyMetadataRecordSize = 16;
+    public const int ArticleHotHeaderSize = 8;
+    public const int ArticleHotRecordSize = 16;
+    public const int ArticleHotViewsOffset = 4;
+    public const int ArticleHotTitleOffset = 8;
     public const int ArticleDetailHeaderSize = 44;
     public const int ArticleDetailV5Magic = 0x41524435;
     public const int ArticleDetailV5Version = 5;
@@ -493,6 +499,7 @@ public static class WireRoutes
     public const string PublicList = "/api/binary/article/list/home/{page:int}/{size:int}.aeds";
     public const string PublicArchive = "/api/binary/article/list/archive/{page:int}/{size:int}.aeds";
     public const string PublicArticle = "/api/binary/article/{id}.aeds";
+    public const string PublicArticleHot = "/api/binary/article/hot/{size}.aeds";
     public const string SubmitPublicComment = "/api/v2/comments/submit.aeds";
     public const string PublicCommentReplyPow = "/api/v2/comments/replies/pow-challenge.aeds";
     public const string SubmitPublicCommentReply = "/api/v2/comments/replies.aeds";

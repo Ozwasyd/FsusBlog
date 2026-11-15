@@ -73,6 +73,7 @@ inline constexpr uint32_t SearchCorpusPageBytes = 8388608;
 inline constexpr uint32_t SearchCorpusTotalBytes = 67108864;
 inline constexpr uint32_t SearchCorpusMaxPages = 128;
 inline constexpr uint32_t SearchQueryChars = 128;
+inline constexpr uint32_t PublicArticleHotMaxSize = 100;
 inline constexpr uint32_t RelatedReadingMaxItems = 6;
 inline constexpr uint32_t RelatedReadingMaxTextBytes = 2048;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
@@ -218,6 +219,10 @@ inline constexpr uint32_t SiteComplianceBlobOffset = 1713;
 inline constexpr uint32_t TaxonomyHeaderBytes = 8;
 inline constexpr uint32_t TaxonomyListRecordSize = 16;
 inline constexpr uint32_t TaxonomyMetadataRecordSize = 16;
+inline constexpr uint32_t ArticleHotHeaderSize = 8;
+inline constexpr uint32_t ArticleHotRecordSize = 16;
+inline constexpr uint32_t ArticleHotViewsOffset = 4;
+inline constexpr uint32_t ArticleHotTitleOffset = 8;
 inline constexpr uint32_t ArticleDetailHeaderSize = 44;
 inline constexpr uint32_t ArticleDetailV5Magic = 0x41524435;
 inline constexpr uint32_t ArticleDetailV5Version = 5;
@@ -326,6 +331,7 @@ inline constexpr uint32_t MfaChallengeProofOffset = 168;
 enum class FrameType : uint16_t {
     ArticleList = 1,
     ArticleDetail = 2,
+    ArticleHot = 3,
     ArticleSearch = 4,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
@@ -491,6 +497,7 @@ constexpr bool known(FrameType type) {
     switch (type) {
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
+        case FrameType::ArticleHot:
         case FrameType::ArticleSearch:
         case FrameType::ArticleRelatedReading:
         case FrameType::CommentThreadReplyCursor:
