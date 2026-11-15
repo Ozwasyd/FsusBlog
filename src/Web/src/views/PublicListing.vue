@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElLink } from '@ozwasyd/element-plus'
 import { api, ApiError, type ArticleCard } from '../../../Contracts/client'
+import type { PopularArticle } from '../../../Contracts/article-hot'
 import {
   taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
 } from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing } from '../publicEntry'
 import { createLocalSearch } from '../localSearch'
+import { loadPublicHotArticles } from '../publicHotArticles'
 import { siteTitle } from '../siteBrand'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
@@ -49,6 +51,11 @@ const maxSearchLength = WireLimits.SearchQueryChars
 const searchTooLong = computed(() => input.value.trim().length > maxSearchLength)
 const localSearch = createLocalSearch()
 onScopeDispose(localSearch.dispose)
+
+const hotEnabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-hot-articles"]')?.content === '1'
+const hotRoute = computed(() => hotEnabled && isHome.value && page.value === 1 && !cursor.value ? route.fullPath : undefined)
+const hotArticles = shallowRef<PopularArticle[]>([])
+const readCount = new Intl.NumberFormat('en')
 
 watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text], _, cleanup) => {
   const request = new AbortController()
@@ -110,6 +117,20 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
   }
 }, { immediate: true })
 
+watch([hotRoute, reload], async ([entry], _, cleanup) => {
+  hotArticles.value = []
+  if (!entry) return
+  const request = new AbortController()
+  cleanup(() => request.abort())
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(3_000)])
+  try {
+    const items = await loadPublicHotArticles(signal)
+    if (!signal.aborted && hotRoute.value === entry) hotArticles.value = items.slice(0, 5)
+  } catch {
+    // The primary article list has its own request and error state.
+  }
+}, { immediate: true, flush: 'sync' })
+
 const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 </script>
 
@@ -121,6 +142,17 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       <ElInput v-model="input" label="Search articles" placeholder="Search published articles" />
       <ElButton type="primary" native-type="submit" :disabled="searchTooLong">Search</ElButton>
     </form>
+    <section v-if="hotRoute && !loading && !failed && hotArticles.length" class="popular-articles" aria-labelledby="popular-articles-heading">
+      <h2 id="popular-articles-heading">Popular articles</h2>
+      <ol>
+        <li v-for="item in hotArticles" :key="item.id">
+          <RouterLink :to="{ name: 'article', params: { id: item.id } }" custom v-slot="{ href, navigate }">
+            <ElLink :href="href" @click="navigate">{{ item.title }}</ElLink>
+          </RouterLink>
+          <span class="metadata">{{ readCount.format(item.views) }} verified {{ item.views === 1 ? 'read' : 'reads' }}</span>
+        </li>
+      </ol>
+    </section>
     <p v-if="isSearch && searchTooLong" role="status">Use at most {{ maxSearchLength }} characters.</p>
     <p v-else-if="loading" role="status">Loading articles…</p>
     <template v-else-if="cursorExpired">
@@ -160,3 +192,12 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
     </nav>
   </section>
 </template>
+
+<style scoped>
+.popular-articles { margin-block: 1.5rem 1rem; padding-block-end: 1rem; border-block-end: 1px solid var(--fsus-border); }
+.popular-articles h2 { margin-block: 0 .65rem; font-size: 1.25rem; }
+.popular-articles ol { margin: 0; padding-inline-start: 1.4rem; }
+.popular-articles li { margin-block: .35rem; overflow-wrap: anywhere; }
+.popular-articles .el-link { max-inline-size: 100%; text-align: start; vertical-align: baseline; }
+.popular-articles .metadata { margin-inline-start: .6rem; white-space: nowrap; }
+</style>

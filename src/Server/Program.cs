@@ -53,6 +53,12 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+if (builder.Configuration.GetValue(PublicHotArticles.Setting, false))
+{
+    template = template.Replace("</head>", PublicHotArticles.PageMarker + "</head>", StringComparison.Ordinal);
+    builder.Services.AddSingleton<PublicHotArticles>();
+    builder.Services.AddHostedService(services => services.GetRequiredService<PublicHotArticles>());
+}
 var articleReadEnabled = builder.Configuration.GetValue(ArticleReadEndpoints.Setting, false);
 if (articleReadEnabled)
 {
@@ -303,6 +309,25 @@ app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
     RequireCurrentSnapshot(ctx, snapshot);
     return bytes is null ? Error(ctx, 503, "The article search projection is unavailable.") : Results.Bytes(bytes, Binary);
 }).RequireRateLimiting("query");
+if (app.Services.GetService<PublicHotArticles>() is { } hotArticles)
+{
+    app.MapMethods(WireRoutes.PublicArticleHot, [HttpMethods.Get, HttpMethods.Head], (HttpContext ctx, string size) =>
+    {
+        if (size.Length > 9 || !int.TryParse(size, NumberStyles.None, CultureInfo.InvariantCulture, out var count) ||
+            count is < 1 or > WireLimits.PublicArticleHotMaxSize)
+            return Error(ctx, 404, "Public article ranking size is unavailable.");
+        var snapshot = Snapshot(ctx);
+        var head = HttpMethods.IsHead(ctx.Request.Method);
+        var generation = Query(ctx, "generation", 20);
+        if (head && generation is null) return Error(ctx, 400, "A publication generation is required.");
+        if (generation is not null && generation != snapshot.GenerationHeader)
+            return Error(ctx, 409, "The public articles changed. Reload the ranking.");
+        var ranking = hotArticles.Read(snapshot, count) ?? throw new PublicUnavailableException();
+        RequireCurrentSnapshot(ctx, snapshot);
+        ctx.Response.Headers.ETag = ranking.Tag;
+        return head ? Results.NoContent() : Results.Bytes(ranking.Bytes, Binary);
+    });
+}
 app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
 {
     var snapshot = Snapshot(ctx);

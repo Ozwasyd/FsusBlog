@@ -136,6 +136,19 @@ if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   shasum -a 256 tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
   export FSUSBLOG_TEST_PUBLIC_FIXTURE=1
 fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-hot-articles ]]; then
+  [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-0} == 1 ]]
+  FSUSBLOG_TEST_HOT_ENABLED=${FSUSBLOG_TEST_HOT_ENABLED:-1}
+  case "$FSUSBLOG_TEST_HOT_ENABLED" in
+    0) export FSUSBLOG_PUBLIC_HOT_ARTICLES=false ;;
+    1) export FSUSBLOG_PUBLIC_HOT_ARTICLES=true ;;
+    *) exit 2 ;;
+  esac
+  export FSUSBLOG_TEST_HOT_ENABLED
+  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
+    -f tests/EndToEnd/public-hot-fixture.sql >> "$evidence/public-fixture.log"
+  shasum -a 256 tests/EndToEnd/public-hot-fixture.sql >> "$evidence/run.txt"
+fi
 
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
 server_pid=$!
@@ -158,6 +171,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
   node tests/EndToEnd/public-article-media-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == search-corpus-reuse ]]; then
   node tests/EndToEnd/search-corpus-reuse-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-hot-articles ]]; then
+  node tests/EndToEnd/run-public-hot-articles.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
