@@ -11,6 +11,17 @@ fi
 profile=$1
 http_probe=false
 if [[ $# == 6 ]]; then http_probe=true; fi
+checkpoint_pilot=false
+case "${FSUSBLOG_TEST_C11_CHECKPOINT_PILOT:-0}" in
+    0) ;;
+    1)
+        [[ $profile == pilot && $http_probe == false ]] || {
+            printf 'The checkpoint witness requires pilot without --http.\n' >&2; exit 2;
+        }
+        checkpoint_pilot=true
+        ;;
+    *) printf 'Set FSUSBLOG_TEST_C11_CHECKPOINT_PILOT to 0 or 1.\n' >&2; exit 2 ;;
+esac
 wide_browser=false
 case "${FSUSBLOG_TEST_C11_WIDE_BROWSER:-0}" in
     0) ;;
@@ -344,10 +355,19 @@ export FSUSBLOG_NIGHTLY_FIXTURE=1 FSUSBLOG_NIGHTLY_FIXTURE_DB="$FSUSBLOG_DB"
 export FSUSBLOG_NIGHTLY_FIXTURE_SITE="$site" FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES="$scratch/articles.tsv"
 export FSUSBLOG_NIGHTLY_FIXTURE_COUNT="$articles" FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS="$due"
 export FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR="$data_dir"
+unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
+if [[ $checkpoint_pilot == true ]]; then
+    checkpoint_plan_sha=$(shasum -a 256 -- "$scratch/articles.tsv")
+    checkpoint_plan_sha=${checkpoint_plan_sha%% *}
+    [[ $checkpoint_plan_sha =~ ^[0-9a-f]{64}$ ]]
+    export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT=1 FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256="$checkpoint_plan_sha"
+    printf 'checkpoint_pilot=true\ncheckpoint_plan_sha256=%s\n' "$checkpoint_plan_sha" >> "$evidence/run.txt"
+fi
 phase write-articles "$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles' \
     '--logger:console;verbosity=detailed'
 unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES
 unset FSUSBLOG_NIGHTLY_FIXTURE_COUNT FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR
+unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
 after_articles=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 record_filesystem after-articles
 "${sql[@]}" -c "SELECT pg_sleep(greatest(0,extract(epoch FROM max(published_at)+interval '1 second'-clock_timestamp()))) FROM public.article_publication" >/dev/null

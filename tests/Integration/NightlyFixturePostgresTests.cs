@@ -17,7 +17,7 @@ using Xunit.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class NightlyFixturePostgresTests(ITestOutputHelper output)
+public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output)
 {
     private const int BatchSize = 64;
     private const string Header = "id\tkind\tcategory\ttag\ttitle\tbody\treplacement_title\treplacement_body";
@@ -75,23 +75,24 @@ public sealed class NightlyFixturePostgresTests(ITestOutputHelper output)
         var band = count / 20;
         var archiveStart = 18 * band + 1;
         long archiveOffset = 0;
-        for (int first = 1; first <= count; first += BatchSize)
+        if (Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1")
         {
-            int last = Math.Min(first + BatchSize - 1, count);
-            var rows = new List<PlannedArticle>(last - first + 1);
-            for (int id = first; id <= last; id++)
+            (archiveOffset, batches) = await WriteCheckpointPilot(db, settings, lease, stream, count, archiveStart, site, actor, due, ct);
+        }
+        else
+        {
+            for (int first = 1; first <= count; first += BatchSize)
             {
-                if (id == archiveStart) archiveOffset = plan.Position;
-                rows.Add(Parse(await plan.Read(ct), id, count));
-            }
-            if (last == count && await plan.Read(ct) is not null)
-                throw new InvalidOperationException("Unexpected rows after the declared article plan.");
+                int last = Math.Min(first + BatchSize - 1, count);
+                var batch = await ReadInitialBatch(plan, first, last, count, archiveStart, archiveOffset, ct);
+                archiveOffset = batch.ArchiveOffset;
 
-            await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-            if (first == 1) await Prepare(db, tx, site, actor, ct);
-            foreach (var article in rows) await Write(db, tx, actor, article, due, ct);
-            await InstanceLease.CommitProtected(tx, lease, ct);
-            batches++;
+                await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+                if (first == 1) await Prepare(db, tx, site, actor, ct);
+                await WriteInitialBatch(db, tx, actor, batch.Rows, due, ct);
+                await InstanceLease.CommitProtected(tx, lease, ct);
+                batches++;
+            }
         }
         output.WriteLine("Committed {0} article plans in {1} PostgreSQL transactions in {2}.", count, batches, elapsed.Elapsed);
 
@@ -122,6 +123,26 @@ public sealed class NightlyFixturePostgresTests(ITestOutputHelper output)
 
         await RetireArchiveSession(db, lease, ct);
         output.WriteLine("Committed {0} replacements and {0} administrator archives with private release IDs in {1}.", band, elapsed.Elapsed);
+    }
+
+    private static async Task<(List<PlannedArticle> Rows, long ArchiveOffset)> ReadInitialBatch(PlanReader plan, int first,
+        int last, int count, int archiveStart, long archiveOffset, CancellationToken ct)
+    {
+        var rows = new List<PlannedArticle>(last - first + 1);
+        for (int id = first; id <= last; id++)
+        {
+            if (id == archiveStart) archiveOffset = plan.Position;
+            rows.Add(Parse(await plan.Read(ct), id, count));
+        }
+        if (last == count && await plan.Read(ct) is not null)
+            throw new InvalidOperationException("Unexpected rows after the declared article plan.");
+        return (rows, archiveOffset);
+    }
+
+    private static async Task WriteInitialBatch(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        IReadOnlyList<PlannedArticle> rows, long due, CancellationToken ct)
+    {
+        foreach (var article in rows) await Write(db, tx, actor, article, due, ct);
     }
 
     private static NpgsqlConnectionStringBuilder ReadConnectionSettings()
