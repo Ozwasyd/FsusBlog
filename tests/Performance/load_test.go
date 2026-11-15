@@ -44,13 +44,14 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 		unavailable bool
 		mutate      string
 	}{
-		{name: "available", generation: "6612586008012810405"},
-		{name: "unavailable", generation: "6885968122039582122", unavailable: true},
-		{name: "changed bytes", generation: "6612586008012810405", mutate: "bytes"},
-		{name: "different page generation", generation: "6612586008012810405", mutate: "generation"},
-		{name: "changed page count", generation: "6612586008012810405", mutate: "pages"},
-		{name: "stale at final HEAD", generation: "6612586008012810405", mutate: "head"},
-		{name: "unrelated 503", generation: "6885968122039582122", unavailable: true, mutate: "error"},
+		{name: "available", generation: "7548595041853034171"},
+		{name: "unavailable", generation: "2409930995617451931", unavailable: true},
+		{name: "before BM25", generation: "6612586008012810405", mutate: "previous ranking"},
+		{name: "changed bytes", generation: "7548595041853034171", mutate: "bytes"},
+		{name: "different page generation", generation: "7548595041853034171", mutate: "generation"},
+		{name: "changed page count", generation: "7548595041853034171", mutate: "pages"},
+		{name: "stale at final HEAD", generation: "7548595041853034171", mutate: "head"},
+		{name: "unrelated 503", generation: "2409930995617451931", unavailable: true, mutate: "error"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			packets := [][]byte{make([]byte, 104), make([]byte, 104)}
