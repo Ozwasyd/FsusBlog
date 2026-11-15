@@ -2,23 +2,29 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
 using Microsoft.AspNetCore.WebUtilities;
+using Xunit.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class PublicationCheckpointArchivePostgresTests
+public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper evidence)
 {
     private const string Host = "checkpoints.example.test";
-    private const string Origin = "https://" + Host;
     private const string Prefix = "/integrity/v2/checkpoints";
     private const string Settings = "IntegrityProof__CheckpointArchive__";
     private const string Keys = "IntegrityProof__Signing__Keys__";
 
     [PostgresFact]
-    public async Task ServesOnlyPinnedClosedDayWithSeparateKeyRegistryAndCurrentArchiveAncestor()
+    public Task ServesOnlyPinnedClosedDayWithSeparateKeyRegistryAndCurrentArchiveAncestor() => VerifyArchive(viaCaddy: false);
+
+    [CaddyPostgresFact]
+    public Task ServesOriginalSignedDayAndHeadAnonymouslyThroughTrustedCaddyTls() => VerifyArchive(viaCaddy: true);
+
+    private async Task VerifyArchive(bool viaCaddy)
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -34,10 +40,12 @@ public sealed class PublicationCheckpointArchivePostgresTests
             var cutover = headTime.AddHours(1);
             var signedAt = cutover.AddHours(1);
             var day = midnight.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var address = viaCaddy ? NativeCaddyProxy.NewAddress() : new Uri("https://" + Host);
+            var origin = address.GetLeftPart(UriPartial.Authority);
             var path = Path.Combine(scratch.FullName, "archive.json");
             var config = new Dictionary<string, string>
             {
-                ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin,
+                ["FSUSBLOG_PUBLIC_ORIGIN"] = origin,
                 ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
                 ["IntegrityProof__Signing__NativeV2Enabled"] = "false",
                 ["IntegrityProof__Signing__NativeV2PrivateKeyFile"] = Path.Combine(scratch.FullName, "nonexistent.pkcs8"),
@@ -49,20 +57,20 @@ public sealed class PublicationCheckpointArchivePostgresTests
             var nextKey = ProvideKey("next", 2, current, before, after);
             var headDigest = SHA256.HashData("fixture source head"u8);
             var receipt = SHA256.HashData("fixture witnessed next receipt"u8);
-            var head = new PublicationTransparencyHeadV2(Origin, 3, headDigest, "old", 1,
+            var head = new PublicationTransparencyHeadV2(origin, 3, headDigest, "old", 1,
                 SHA256.HashData(retired.ExportSubjectPublicKeyInfo()), headTime);
-            var dayReceipt = new PublicationCheckpointV2(Origin, day, 0, 0, 0, PublicationCheckpointTreeV2.EmptyDailyRoot(), 3, headDigest,
+            var dayReceipt = new PublicationCheckpointV2(origin, day, 0, 0, 0, PublicationCheckpointTreeV2.EmptyDailyRoot(), 3, headDigest,
                 "next", 2, SHA256.HashData(current.ExportSubjectPublicKeyInfo()), signedAt, PublicationCheckpointKind.Daily);
             var signedHead = JsonSerializer.SerializeToNode(new
             {
-                headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin = Origin,
+                headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin,
                 sequence = "3", entrySha256 = Hex(headDigest), keyId = "old", keyVersion = 1, keySha256 = Hex(head.KeySha256),
                 attestedAtUtc = Time(headTime), signature = Sign(retired, head.Payload()),
             })!;
             var signedDay = JsonSerializer.SerializeToNode(new
             {
                 checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = "daily", algorithm = ArticlePublicationProofPayloadV2.Algorithm,
-                origin = Origin, scopeKey = day, fromSequence = "0", toSequence = "0", entryCount = 0, rootSha256 = Hex(dayReceipt.RootSha256),
+                origin, scopeKey = day, fromSequence = "0", toSequence = "0", entryCount = 0, rootSha256 = Hex(dayReceipt.RootSha256),
                 headSequence = "3", headEntrySha256 = Hex(headDigest), keyId = "next", keyVersion = 2, keySha256 = Hex(dayReceipt.KeySha256),
                 attestedAtUtc = Time(signedAt), signature = Sign(current, dayReceipt.Payload()),
             })!;
@@ -76,32 +84,47 @@ public sealed class PublicationCheckpointArchivePostgresTests
             var validPin = "4:" + Hex(PublicationTransparencyV2.EntryDigest(4, headDigest, receipt));
             config[Settings + "CurrentAnchor"] = validPin;
             var route = $"{Prefix}/daily/{day}.json";
-            await using (var server = await Start()) await Read(server, route, HttpStatusCode.NotFound);
+            await WithServer(client => Read(client, route, HttpStatusCode.NotFound));
             config[Settings + "Enabled"] = "true";
-            await using (var server = await Start())
+            await WithServer(async client =>
             {
-                var servedDay = await Read(server, route, HttpStatusCode.OK);
-                var servedHead = await Read(server, Prefix + "/head.json", HttpStatusCode.OK);
+                var servedDay = await Read(client, route, HttpStatusCode.OK);
+                var servedHead = await Read(client, Prefix + "/head.json", HttpStatusCode.OK);
                 Assert.True(JsonNode.DeepEquals(signedHead, JsonNode.Parse(servedHead)));
+                Assert.Equal(signedHead.ToJsonString(), servedHead);
+                Assert.Equal("{\"checkpoint\":" + signedDay.ToJsonString() + ",\"inclusion\":null}", servedDay);
                 var publicBundle = JsonNode.Parse(servedDay)!.AsObject();
                 Assert.Equal(2, publicBundle.Count);
                 Assert.Null(publicBundle["inclusion"]);
                 Assert.True(JsonNode.DeepEquals(signedDay, publicBundle["checkpoint"]));
                 Assert.DoesNotContain(Hex(receipt), servedDay);
                 Assert.DoesNotContain(Hex(receipt), servedHead);
-                await Read(server, Prefix + "/daily/2020-01-01.json", HttpStatusCode.NotFound);
-                await Read(server, Prefix + "/daily/2026-02-30.json", HttpStatusCode.BadRequest);
-                await Read(server, route, HttpStatusCode.NotFound, "another.example.test");
-                await Read(server, route, HttpStatusCode.Forbidden, transport: "http");
-                await Read(server, "/integrity/v2/keys.json", HttpStatusCode.NotFound);
+                await Read(client, Prefix + "/daily/2020-01-01.json", HttpStatusCode.NotFound);
+                await Read(client, Prefix + "/daily/2026-02-30.json", HttpStatusCode.BadRequest);
+                if (!viaCaddy)
+                {
+                    await Read(client, route, HttpStatusCode.NotFound, "another.example.test");
+                    await Read(client, route, HttpStatusCode.Forbidden, transport: "http");
+                }
+                await Read(client, "/integrity/v2/keys.json", HttpStatusCode.NotFound);
                 await IndependentlyVerify(servedDay, servedHead, day, oldKey, nextKey);
+                if (viaCaddy)
+                    evidence.WriteLine($"Node verified {day}, signed head SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedHead)))}, "
+                        + $"daily response SHA-256 {Hex(SHA256.HashData(Encoding.UTF8.GetBytes(servedDay)))}.");
+            });
+
+            if (viaCaddy)
+            {
+                config[Settings + "CurrentAnchor"] = "4:" + Hex(SHA256.HashData("unrelated retained head"u8));
+                await Withheld();
+                return;
             }
 
             var matchingHead = archived.DeepClone();
             matchingHead["bridgeReceiptSha256"] = new JsonArray();
             await Install(matchingHead);
             config[Settings + "CurrentAnchor"] = "3:" + Hex(headDigest);
-            await using (var server = await Start()) await Read(server, route, HttpStatusCode.OK);
+            await WithServer(client => Read(client, route, HttpStatusCode.OK));
             await Install(archived);
             config[Settings + "CurrentAnchor"] = "4:" + Hex(SHA256.HashData("unrelated retained head"u8));
             await Withheld();
@@ -137,14 +160,30 @@ public sealed class PublicationCheckpointArchivePostgresTests
             config[Keys + "old__CompromisedAtUtc"] = Time(cutover);
             await Withheld();
 
-            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => Forward(request));
-
-            async Task Withheld()
+            async Task WithServer(Func<HttpClient, Task> check)
             {
-                await using var server = await Start();
-                await Read(server, route, HttpStatusCode.ServiceUnavailable);
-                await Read(server, Prefix + "/head.json", HttpStatusCode.ServiceUnavailable);
+                await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, config,
+                    request => Forward(request, address.Authority));
+                if (!viaCaddy)
+                {
+                    await check(server.Client);
+                    return;
+                }
+                await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, scratch.FullName, ct, address);
+                evidence.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {proxy.Client.BaseAddress}");
+                await check(proxy.Client);
             }
+
+            Task Withheld() => WithServer(async client =>
+            {
+                await Read(client, route, HttpStatusCode.ServiceUnavailable);
+                await Read(client, Prefix + "/head.json", HttpStatusCode.ServiceUnavailable);
+                if (viaCaddy)
+                {
+                    using var ready = await client.GetAsync("/health/ready", ct);
+                    Assert.Equal(HttpStatusCode.NoContent, ready.StatusCode);
+                }
+            });
 
             async Task Install(JsonNode archive)
             {
@@ -185,7 +224,7 @@ public sealed class PublicationCheckpointArchivePostgresTests
                 var start = new ProcessStartInfo("node")
                 {
                     UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
-                    ArgumentList = { tool, Origin, keyPath, headPath, bundlePath, "--daily", date },
+                    ArgumentList = { tool, origin, keyPath, headPath, bundlePath, "--daily", date },
                 };
                 using var process = Process.Start(start)!;
                 var stderr = process.StandardError.ReadToEndAsync(ct);
@@ -195,21 +234,34 @@ public sealed class PublicationCheckpointArchivePostgresTests
                 Assert.Equal(date, JsonNode.Parse(await stdout)!["scopeKey"]!.GetValue<string>());
             }
 
-            async Task<string> Read(ServerProcess server, string target, HttpStatusCode expected,
-                string host = Host, string transport = "https")
+            async Task<string> Read(HttpClient client, string target, HttpStatusCode expected,
+                string? host = null, string transport = "https")
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, target);
-                Forward(request, host, transport);
-                using var response = await server.Client.SendAsync(request, ct);
+                if (!viaCaddy) Forward(request, host ?? address.Authority, transport);
+                else
+                {
+                    request.Version = HttpVersion.Version20;
+                    request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
+                }
+                using var response = await client.SendAsync(request, ct);
                 Assert.Equal(expected, response.StatusCode);
+                if (viaCaddy)
+                {
+                    Assert.Equal(HttpVersion.Version20, response.Version);
+                    Assert.False(response.Headers.Contains("Set-Cookie"));
+                    if (expected == HttpStatusCode.OK)
+                        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+                    evidence.WriteLine($"GET {target} -> {(int)response.StatusCode}, Cache-Control: {response.Headers.CacheControl}");
+                }
                 if (target.StartsWith(Prefix, StringComparison.Ordinal)) Assert.True(response.Headers.CacheControl?.NoStore);
-                return await response.Content.ReadAsStringAsync(ct);
+                return new UTF8Encoding(false, true).GetString(await response.Content.ReadAsByteArrayAsync(ct));
             }
         }
         finally { scratch.Delete(recursive: true); }
     }
 
-    private static void Forward(HttpRequestMessage request, string host = Host, string transport = "https")
+    private static void Forward(HttpRequestMessage request, string host, string transport = "https")
     {
         request.Headers.Host = host;
         request.Headers.Add("X-Forwarded-For", "127.0.0.1");

@@ -86,3 +86,5 @@ jq -n --slurpfile head head.json --slurpfile day day.json \
 读取器从 `IntegrityProof__Signing__Keys` 加载部署时的公开验证密钥及撤销／泄露状态，验签后将归档固定在内存中。收到密钥泄露或需要更换信任配置时，停止提供该归档，用最新配置重启以重新验证。当前 UTC 时钟必须至少到达所有归档签名的时间。这个下限用于拒绝时钟落后的运行环境，归档仍为历史摘要。匿名请求检查公开 HTTPS 源和现有应用租约，读取过程只访问已验签的内存数据。公钥目录的获取沿用已建立的独立渠道。此读取器可以在原生在线签名关闭、无私钥的部署中工作。
 
 未启用或未收录的日期返回 404，格式错误返回 400。配置启用而归档缺失、损坏、不可信或时钟不足时，公开归档返回 503，普通站点仍可提供服务。响应使用 `no-store`。固定 v1 的 `latest`、指定日原始路径和 v1 清单格式仍不在此接口范围。 [归档读取器](../../src/Server/Content/PublicationCheckpointArchive.cs)
+
+随包 Caddy 配置通过原生 TLS 和 HTTP/2 验证。匿名读取返回原签名日检查点和日志头，经过独立 Node 验签。错误日期、未收录日期和无关锚点分别返回 400、404 和 503，均使用 `no-store`。 [原生 TLS 集成结果](../../artifacts/checkpoint-archive-tls-6a02786/native/integration.txt)
