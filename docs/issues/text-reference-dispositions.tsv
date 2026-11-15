@@ -2277,6 +2277,10 @@ https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L2	Depends on	2407	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L2	Depends on	2446	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L2	Depends on	2450	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L70		2407	OPEN	acceptance-gate		0	#2409:68-72; #2407:10-21	扫描及反例须证明旧兼容权威已经退役。明确标示的纯源码下载可以保留。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L70		2420	OPEN	tracking		0	#2409:68-72; #2420:65-69	两个终验共享一次运行及原测试并集，各自新增负例仍须通过。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L70		2443	OPEN	acceptance-gate		0	#2409:68-72; #2443:10-18	终验消费实际关系重建，复核源修订、稳定锚点、生命周期及权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	https://github.com/Ozwasyd/FsusBlog/issues/2409	issue=2409.body:L70		2450	OPEN	acceptance-gate		0	#2409:68-72; #2450:10-17	终验共同核对源码原始字节、实际跨站映射与重建。静态字节向量覆盖源码保全。
 https://github.com/Ozwasyd/FsusBlog/issues/2410	https://github.com/Ozwasyd/FsusBlog/issues/2410	issue=2410.body:L1	Parent	1865	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2410	https://github.com/Ozwasyd/FsusBlog/issues/2410	issue=2410.body:L2	Depends on	1724	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2410	https://github.com/Ozwasyd/FsusBlog/issues/2410	issue=2410.body:L2	Depends on	1779	OPEN	prerequisite		1	—	—
@@ -2315,7 +2319,14 @@ https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L2	Depends on	2411	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L2	Depends on	2413	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L2	Depends on	2443	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L14		1779	OPEN	prerequisite		0	#2415:10-19; #1779:23-49	资产阶段由原 UUID 账本校验字节、所有权和权利，并沿用账本去重。
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L15		1724	OPEN	prerequisite		0	#2415:10-15; #1724:28-35	应用层包导入经文章、修订与资产引用事务写入生产 outbox 和审计。离线旧库暂存另走 #2221/#2222。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L17		1808	OPEN	prerequisite		0	#2415:13-23; #1808:25-51	执行后由原解析事实重建关联，同步核对源修订及权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L64		2405	OPEN	context		0	#2415:62-68; #2405:10-20	两条链共用一套执行实现并保留两个验收集，原子能力不足时在业务写入前拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L64		2443	OPEN	prerequisite		0	#2415:62-68; #2443:10-18	共享的关系权威承担 block 目标、权限与可复算重建，完成后独立查回当前与历史边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L64		2450	OPEN	source-handoff		0	#2415:62-68; #2450:10-21	基础 writer 供 block adapter 使用，完整同站及跨站往返由原终验验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L68		2317	OPEN	acceptance-gate		0	#2415:64-68; #2317:14-20	需对真实当前全文索引记录原子更新、重建及复查，发布和入队各有独立收据。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415	issue=2415.body:L68		2324	OPEN	acceptance-gate		0	#2415:64-68; #2324:10-20	验证导入属性的类型、可见性及 schema 代次共同进入已有投影，过期或无权查询须拒绝。
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	issue=2415.comment=6051587903.body:L1		1724	OPEN	context		0	#2415@6051587903:1-3; #2415:10-15	历史开发接口不证明 DB/outbox/AOT 终态，也不能通过 publication receipt 证明独立作者搜索索引。
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	issue=2415.comment=6051587903.body:L1		2317	OPEN	acceptance-gate		0	#2415@6051587903:1-3; #2317:13-17	包导入仍需独立全文索引的生命周期、原子更新、重建与回读证据；ID、库存和字节的基础控制另计。
 https://github.com/Ozwasyd/FsusBlog/issues/2415	https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	issue=2415.comment=6051587903.body:L1		2411	OPEN	prerequisite		0	#2415@6051587903:1-3; #2411:6-10	包预检形成完整不可变计划；底层库存、ID 与字节校验不足以构成整包执行计划。
@@ -2349,6 +2360,9 @@ https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L2	Depends on	2418	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L2	Depends on	2446	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L2	Depends on	2450	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L18		1808	OPEN	acceptance-gate		0	#2420:13-19; #1808:25-52	资产路径和语义关系各走原 owner。执行完成后在目标实库核对可重建关联。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L67		2409	OPEN	tracking		0	#2420:65-69; #2409:68-72	共享 runner 保留两份题目的完整正负案，分别记录各自要求的验收结论。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	https://github.com/Ozwasyd/FsusBlog/issues/2420	issue=2420.body:L67		2443	OPEN	acceptance-gate		0	#2420:65-69; #2443:10-18	实际关系重建必须核对稳定目标及失权状态。源码字节和 schema 对照分别留证。
 https://github.com/Ozwasyd/FsusBlog/issues/2421	https://github.com/Ozwasyd/FsusBlog/issues/2421	issue=2421.body:L1	Parent	1866	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2421	https://github.com/Ozwasyd/FsusBlog/issues/2421	issue=2421.body:L2	Depends on	2412	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2421	https://github.com/Ozwasyd/FsusBlog/issues/2421	issue=2421.body:L2	Depends on	2414	OPEN	prerequisite		1	—	—
@@ -2393,14 +2407,15 @@ https://github.com/Ozwasyd/FsusBlog/issues/2427	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2427	https://github.com/Ozwasyd/FsusBlog/issues/2427	issue=2427.body:L2	Depends on	2425	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L1	Parent	1866	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2412	OPEN	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2414	OPEN	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2416	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2414	OPEN	acceptance-gate		1	#2428:10-18; #2414:10-20	运行四个实际 provider 时共同证明固定工具、受管环境、资源上限、网络限制和进程退出。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2416	OPEN	acceptance-gate		1	#2428:12-17; #2416:10-22	HTML 需独立验证离线资源闭合、结构及净化，保留不支持内容的显式失败。
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2417	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2419	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2421	OPEN	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2422	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2422	OPEN	acceptance-gate		1	#2428:12-18; #2422:10-22	对真实下载核验权限、TTL、篡改及并发清理，私有结果须存入导出专用存储。
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2424	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428	issue=2428.body:L2	Depends on	2426	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2428	https://github.com/Ozwasyd/FsusBlog/issues/2428#issuecomment-6052019841	issue=2428.comment=6052019841.body:L16		2438	OPEN	tracking		0	#2428@6052019841:7-17; #2438:52-56	共享终验并集，旧编译通过与随后 21 例实际隔离门槛失败一并保留。
 https://github.com/Ozwasyd/FsusBlog/issues/2429	https://github.com/Ozwasyd/FsusBlog/issues/2429	issue=2429.body:L1	Parent	1866	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2429	https://github.com/Ozwasyd/FsusBlog/issues/2429	issue=2429.body:L2	Depends on	2423	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2429	https://github.com/Ozwasyd/FsusBlog/issues/2429	issue=2429.body:L2	Depends on	2425	OPEN	prerequisite		1	—	—
@@ -2645,7 +2660,13 @@ https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L2	Depends on	2412	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L2	Depends on	2462	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L2	Depends on	2464	OPEN	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L2	Depends on	2466	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L2	Depends on	2466	OPEN	prerequisite		1	#2470:14-20; #2466:10-17	已发布导出消费同一宿主的不可变完整图和发布收据。失效依赖按策略明确失败或撤回。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L10		2398	OPEN	prerequisite		0	#2470:10-13; #2398:15-19	manifest 复用正式依赖 schema，仅记录指令源范围、portable 目标、冻结图和出处。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L11		2400	OPEN	prerequisite		0	#2470:10-13; #2400:10-16	原导出器保留指令原字节，导出坐标单独保存在 manifest。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L12		2402	OPEN	prerequisite		0	#2470:10-13; #2402:10-20	原验证器先核验 codec、portable mapping、冻结范围和图摘要，坏包在任何业务写入前拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L12		2404	OPEN	prerequisite		0	#2470:12-21; #2404:10-19	未知、歧义或无权目标进入显式解析，目标站重新验证并封存新计划。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L13		1808	OPEN	prerequisite		0	#2470:12-20; #2464:10-17; #1808:25-52	原关系索引依据权威解析事实重建 embed 边，并和普通链接分别跟踪。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	https://github.com/Ozwasyd/FsusBlog/issues/2470	issue=2470.body:L13		2405	OPEN	prerequisite		0	#2470:12-19; #2405:10-20	经原全计划执行器写入目标草稿事实，目标站权限和不可变历史分别复核。
 https://github.com/Ozwasyd/FsusBlog/issues/2471	https://github.com/Ozwasyd/FsusBlog/issues/2471	issue=2471.body:L1	Parent	1870	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2471	https://github.com/Ozwasyd/FsusBlog/issues/2471	issue=2471.body:L2	Depends on	2468	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2472	https://github.com/Ozwasyd/FsusBlog/issues/2472	issue=2472.body:L1	Parent	1869	OPEN	parent		1	—	—

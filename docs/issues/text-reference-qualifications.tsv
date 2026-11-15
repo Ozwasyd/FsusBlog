@@ -116,10 +116,28 @@ https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	2324	r
 https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	3735	context	#2325:1-3; #2325@6053112924:3-7	评论中的显式 URL 是旧源码交接请求位置，与本句报告的属性阻塞不同。
 https://github.com/Ozwasyd/FsusBlog/issues/2408	1	1865	tracking	#2408:64; #1865:186-188	文章包跟踪父项；与 #2398 同一个实现、两套验收，无需先关闭锚点跟踪 #1868。
 https://github.com/Ozwasyd/FsusBlog/issues/2409	2	1907	acceptance-gate	#2409:81; #1907:88-106	终验消费真实 caption 与包集成收据；#1907 只等待上游基础包能力，两个终验没有反向阻塞生产实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	70	2450	acceptance-gate	#2409:68-72; #2450:10-17	终验共同核对源码原始字节、实际跨站映射与重建。静态字节向量覆盖源码保全。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	70	2443	acceptance-gate	#2409:68-72; #2443:10-18	终验消费实际关系重建，复核源修订、稳定锚点、生命周期及权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	70	2420	tracking	#2409:68-72; #2420:65-69	两个终验共享一次运行及原测试并集，各自新增负例仍须通过。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	70	2407	acceptance-gate	#2409:68-72; #2407:10-21	扫描及反例须证明旧兼容权威已经退役。明确标示的纯源码下载可以保留。
 https://github.com/Ozwasyd/FsusBlog/issues/2412	2	1865	context	#2412:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
 https://github.com/Ozwasyd/FsusBlog/issues/2420	2	1907	acceptance-gate	#2420:78; #1907:88-106	终验消费真实 caption 与包集成收据；#1907 只等待上游基础包能力，两个终验没有反向阻塞生产实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	18	1808	acceptance-gate	#2420:13-19; #1808:25-52	资产路径和语义关系各走原 owner。执行完成后在目标实库核对可重建关联。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	67	2409	tracking	#2420:65-69; #2409:68-72	共享 runner 保留两份题目的完整正负案，分别记录各自要求的验收结论。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	67	2443	acceptance-gate	#2420:65-69; #2443:10-18	实际关系重建必须核对稳定目标及失权状态。源码字节和 schema 对照分别留证。
 https://github.com/Ozwasyd/FsusBlog/issues/2424	2	1865	context	#2424:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2414	acceptance-gate	#2428:10-18; #2414:10-20	运行四个实际 provider 时共同证明固定工具、受管环境、资源上限、网络限制和进程退出。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2416	acceptance-gate	#2428:12-17; #2416:10-22	HTML 需独立验证离线资源闭合、结构及净化，保留不支持内容的显式失败。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2422	acceptance-gate	#2428:12-18; #2422:10-22	对真实下载核验权限、TTL、篡改及并发清理，私有结果须存入导出专用存储。
+https://github.com/Ozwasyd/FsusBlog/issues/2428#issuecomment-6052019841	16	2438	tracking	#2428@6052019841:7-17; #2438:52-56	共享终验并集，旧编译通过与随后 21 例实际隔离门槛失败一并保留。
 https://github.com/Ozwasyd/FsusBlog/issues/2436	2	1865	context	#2436:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	2	2466	prerequisite	#2470:14-20; #2466:10-17	已发布导出消费同一宿主的不可变完整图和发布收据。失效依赖按策略明确失败或撤回。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	10	2398	prerequisite	#2470:10-13; #2398:15-19	manifest 复用正式依赖 schema，仅记录指令源范围、portable 目标、冻结图和出处。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	11	2400	prerequisite	#2470:10-13; #2400:10-16	原导出器保留指令原字节，导出坐标单独保存在 manifest。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	12	2402	prerequisite	#2470:10-13; #2402:10-20	原验证器先核验 codec、portable mapping、冻结范围和图摘要，坏包在任何业务写入前拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	12	2404	prerequisite	#2470:12-21; #2404:10-19	未知、歧义或无权目标进入显式解析，目标站重新验证并封存新计划。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	13	2405	prerequisite	#2470:12-19; #2405:10-20	经原全计划执行器写入目标草稿事实，目标站权限和不可变历史分别复核。
+https://github.com/Ozwasyd/FsusBlog/issues/2470	13	1808	prerequisite	#2470:12-20; #2464:10-17; #1808:25-52	原关系索引依据权威解析事实重建 embed 边，并和普通链接分别跟踪。
 https://github.com/Ozwasyd/FsusBlog/issues/2477	2	2471	prerequisite	#2477:12-19	只接受这项定义的现行布局和清理切换；旧 depth 不能成为持久值，不能保留双布局 fallback。
 https://github.com/Ozwasyd/FsusBlog/issues/2491	2	1865	context	#2491:10-18; #1865:186-188	共享安全原则及可复用的壳，Canvas 使用独立 kind、schema 和读者，不走文章导入 fallback。
 https://github.com/Ozwasyd/FsusBlog/issues/2492	2	2490	conditional-prerequisite	#2492:15	只在显式转换命令中消费；拖放只产生 Canvas 边，文章不随该动作写入。
@@ -374,7 +392,14 @@ https://github.com/Ozwasyd/FsusBlog/issues/2346	14	2341	acceptance-gate	#2346:10
 https://github.com/Ozwasyd/FsusBlog/issues/2351	12	2341	acceptance-gate	#2351:11-18; #2341:10-18	自动迁移限可证明稳定身份且通过封闭 AST 验证的旧视图；仅有名称或未知表达式时保留 blocked/skip。
 https://github.com/Ozwasyd/FsusBlog/issues/2351	17	2346	acceptance-gate	#2351:11-18; #2346:10-18	移除原数据前必须确认服务端保存及实际查询执行，部分失败保留恢复回执。
 https://github.com/Ozwasyd/FsusBlog/issues/2351	17	2349	acceptance-gate	#2351:11-18; #2349:9-17	已保存且可执行的视图还需经实际 UI 重新读取，成功后才可删除对应旧源。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	14	1779	prerequisite	#2415:10-19; #1779:23-49	资产阶段由原 UUID 账本校验字节、所有权和权利，并沿用账本去重。
 https://github.com/Ozwasyd/FsusBlog/issues/2415	15	1724	prerequisite	#2415:10-15; #1724:28-35	应用层包导入经文章、修订与资产引用事务写入生产 outbox 和审计。离线旧库暂存另走 #2221/#2222。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	17	1808	prerequisite	#2415:13-23; #1808:25-51	执行后由原解析事实重建关联，同步核对源修订及权限。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	64	2443	prerequisite	#2415:62-68; #2443:10-18	共享的关系权威承担 block 目标、权限与可复算重建，完成后独立查回当前与历史边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	64	2405	context	#2415:62-68; #2405:10-20	两条链共用一套执行实现并保留两个验收集，原子能力不足时在业务写入前拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	64	2450	source-handoff	#2415:62-68; #2450:10-21	基础 writer 供 block adapter 使用，完整同站及跨站往返由原终验验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	68	2317	acceptance-gate	#2415:64-68; #2317:14-20	需对真实当前全文索引记录原子更新、重建及复查，发布和入队各有独立收据。
+https://github.com/Ozwasyd/FsusBlog/issues/2415	68	2324	acceptance-gate	#2415:64-68; #2324:10-20	验证导入属性的类型、可见性及 schema 代次共同进入已有投影，过期或无权查询须拒绝。
 https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	1	1724	context	#2415@6051587903:1-3; #2415:10-15	历史开发接口不证明 DB/outbox/AOT 终态，也不能通过 publication receipt 证明独立作者搜索索引。
 https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	1	2317	acceptance-gate	#2415@6051587903:1-3; #2317:13-17	包导入仍需独立全文索引的生命周期、原子更新、重建与回读证据；ID、库存和字节的基础控制另计。
 https://github.com/Ozwasyd/FsusBlog/issues/2415#issuecomment-6051587903	1	2411	prerequisite	#2415@6051587903:1-3; #2411:6-10	包预检形成完整不可变计划；底层库存、ID 与字节校验不足以构成整包执行计划。
