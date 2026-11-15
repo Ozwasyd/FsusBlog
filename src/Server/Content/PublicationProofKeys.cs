@@ -67,25 +67,7 @@ internal sealed class PublicationProofKeys(string origin, ProofPublicKey current
     {
         if (path is null || !Path.IsPathFullyQualified(path) || path != Path.GetFullPath(path) ||
             Path.GetRelativePath(dist, path).Split(Path.DirectorySeparatorChar)[0] != "..") throw Invalid();
-        using var folder = NativeUnixFile.OpenDirectory(Path.GetDirectoryName(path)!);
-        if (!NativeUnixFile.HasMode(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, owned: true))
-            throw Invalid();
-        using var handle = NativeUnixFile.OpenFile(folder, Path.GetFileName(path), NativeUnixFile.FileReadFlags, out _);
-        if (handle is null || !NativeUnixFile.IsRegular(handle, UnixFileMode.UserRead, owned: true)) throw Invalid();
-        using var stream = new FileStream(handle, FileAccess.Read);
-        if (stream.Length is < 1 or > 512) throw Invalid();
-        var der = new byte[(int)stream.Length];
-        var key = ECDsa.Create();
-        try
-        {
-            stream.ReadExactly(der);
-            if (stream.ReadByte() != -1) throw Invalid();
-            key.ImportPkcs8PrivateKey(der, out var length);
-            if (length != der.Length || !key.ExportSubjectPublicKeyInfo().AsSpan().SequenceEqual(expected)) throw Invalid();
-            return key;
-        }
-        catch { key.Dispose(); throw; }
-        finally { CryptographicOperations.ZeroMemory(der); }
+        return NativePublicationSigningKey.Open(path, expected);
     }
 
     private static DateTimeOffset? ReadTime(string? value)

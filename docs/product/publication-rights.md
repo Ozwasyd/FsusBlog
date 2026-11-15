@@ -50,6 +50,14 @@
 
 公开日志头只含站点来源、当前累计序号、摘要、证明时间、公钥坐标及该头本身的签名。公开后可观察到累计签发量和签发节奏。文章撤回或删除后，已有的聚合承诺仍保留，响应字段局限于该日志头。默认关闭，启用后日志为空时返回 404，无法验证已提交日志头或已经失去租约时返回 503。关闭公开投影时继续签发会使后续日志没有对应的公开签名，重新启用也不会替这些历史头补签。
 
-`node tools/verify-publication-head.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON` 使用当前可信的公钥目录独立比对 JSON 签名，并输出可另外保留的序号和摘要。单个签名只验证该次聚合承诺。可通过私有的 `publication-transparency verify` 核验两个锚点间的日志关系。Merkle 检查点、公开成员证明、历史责任清单和独立时间见证仍待交付。 [独立验证器](../../tools/verify-publication-head.mjs)
+`node tools/verify-publication-head.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON` 使用当前可信的公钥目录独立比对 JSON 签名，并输出可另外保留的序号和摘要。单个签名只验证该次聚合承诺。可通过私有的 `publication-transparency verify` 核验两个锚点间的日志关系。 [独立验证器](../../tools/verify-publication-head.mjs)
 
 `FSUSBLOG_TEST_PUBLICATION_HEAD=1 tests/EndToEnd/run-admin-tls.sh` 在独立 PostgreSQL 库启用空日志，通过真实 Caddy HTTPS 和匿名 Node 请求验签。它检查撤回前公开日志头与单篇证明都可核验，撤回后单篇地址返回 404 且聚合日志头字节保持一致。 [HTTPS 验收脚本](../../tests/EndToEnd/publication-proof-flow.mjs)
+
+## 离线发布检查点
+
+停止提供服务的进程后，用 `publication-transparency checkpoint-release HTTPS_ORIGIN KEYS_JSON HEAD_JSON RELEASE_ID FROM_SEQ TO_SEQ [INCLUDE_SEQ]` 签发一个本地 JSON 检查点。提供独立保留的原始签名日志头和最新可信公钥目录。工具在只读 PostgreSQL 快照内重算从所选区间起点到已见证日志头的连续摘要。区间最多 4,096 条，起点到日志头最多核验 16,384 条。发布标签由操作者指定。签名绑定标签和账本区间，发布包构建来源由其独立验收材料提供。
+
+检查点使用停机服务中 `IntegrityProof__Signing__CurrentKeyId` 指定的有效密钥签名。该 ID 必须与可信目录的当前密钥相符。工具核对持久密钥指纹、发行窗口、退役和泄露状态，并从 `IntegrityProof__Signing__NativeV2PrivateKeyFile` 所指文件读取匹配的 DER PKCS#8 私钥。私钥文件需要放在公开服务目录之外，由执行用户持有且权限为 `0400`，直接上级目录为 `0700`。检查点使用 PostgreSQL 当前 UTC 时间。正常退役之前签发的旧日志头仍可作为锚点，任何已知泄露使受影响的签名失效。
+
+树叶绑定序号和该次签发的不透明账本摘要，节点按序组合，奇数末项与自身配对。可选成员证明只返回所选序号、叶摘要和相邻摘要路径。使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON RELEASE_ID [SEQ ENTRY_SHA256]` 核验两个签名、预期发布标签、区间和路径。证明选中已见证的日志头序号时，工具自动核对叶摘要与该头的一致性。其他序号可提供独立保存的账本摘要。离线签发命令会重算私有账本的连续链。独立验证器核验签名者对树根与日志头关系的承诺，以及所提供的成员路径。文章当前可见性由公开文章证明独立确认。每日检查点写入、公开检查点／成员证明、历史责任清单和独立时间见证仍待交付。 [独立检查点验证器](../../tools/verify-publication-checkpoint.mjs)

@@ -48,7 +48,7 @@ internal static partial class Migration
             expected = Convert.FromHexString(pin[1]);
         }
 
-        var keys = await ReadTransparencyKeysAsync(keyPath, ct);
+        var (_, keys) = await ReadTransparencyKeysAsync(keyPath, ct);
         try
         {
             await CurrentSchema.VerifyAsync(connection, ct);
@@ -134,17 +134,13 @@ internal static partial class Migration
     private static InvalidOperationException InvalidTransparencyEntry(long sequence) =>
         new($"Native publication transparency chain failed at sequence {sequence}.");
 
-    private static async Task<Dictionary<string, TransparencyAuditKey>> ReadTransparencyKeysAsync(string path, CancellationToken ct)
+    private static async Task<(string Current, Dictionary<string, TransparencyAuditKey> Keys)> ReadTransparencyKeysAsync(string path,
+        CancellationToken ct)
     {
         var keys = new Dictionary<string, TransparencyAuditKey>(StringComparer.Ordinal);
         try
         {
-            await using var file = File.OpenRead(path);
-            if (file.Length is < 1 or > 65_536) throw new FormatException();
-            var bytes = new byte[(int)file.Length];
-            await file.ReadExactlyAsync(bytes, ct);
-            if (file.ReadByte() != -1) throw new FormatException();
-            using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { AllowDuplicateProperties = false });
+            using var document = await ReadIntegrityJsonAsync(path, 65_536, ct);
             var root = document.RootElement;
             var entries = root.GetProperty("keys");
             if (root.GetProperty("manifestVersion").GetInt32() != 2 ||
@@ -159,9 +155,7 @@ internal static partial class Migration
                 if (id is null || !ArticlePublicationProofPayloadV2.ValidKeyId(id) || version <= 0 || keys.ContainsKey(id))
                     throw new FormatException();
                 var spki = entry.GetProperty("publicKey").GetString() ?? throw new FormatException();
-                if (spki.Length is < 32 or > 256) throw new FormatException();
-                var der = Convert.FromBase64String(spki.Replace('-', '+').Replace('_', '/').PadRight((spki.Length + 3) / 4 * 4, '='));
-                if (Convert.ToBase64String(der).TrimEnd('=').Replace('+', '-').Replace('/', '_') != spki) throw new FormatException();
+                var der = ReadCanonicalBase64Url(spki, 32, 256);
                 var fingerprint = SHA256.HashData(der);
                 var before = TransparencyKeyTime(entry, "notBeforeUtc") ?? throw new FormatException();
                 var after = TransparencyKeyTime(entry, "notAfterUtc") ?? throw new FormatException();
@@ -185,7 +179,7 @@ internal static partial class Migration
             }
             if (root.GetProperty("currentKeyId").GetString() is not { } current || !keys.ContainsKey(current))
                 throw new FormatException();
-            return keys;
+            return (current, keys);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or FormatException or
             CryptographicException or KeyNotFoundException or InvalidOperationException or ArgumentException)
@@ -194,6 +188,27 @@ internal static partial class Migration
             throw new InvalidOperationException("The supplied native publication public key manifest is invalid.");
         }
     }
+
+    private static async Task<JsonDocument> ReadIntegrityJsonAsync(string path, int maximumBytes, CancellationToken ct)
+    {
+        await using var file = File.OpenRead(path);
+        if (file.Length < 1 || file.Length > maximumBytes) throw new FormatException();
+        var bytes = new byte[(int)file.Length];
+        await file.ReadExactlyAsync(bytes, ct);
+        if (file.ReadByte() != -1) throw new FormatException();
+        return JsonDocument.Parse(bytes, new JsonDocumentOptions { AllowDuplicateProperties = false });
+    }
+
+    private static byte[] ReadCanonicalBase64Url(string value, int minimumCharacters, int maximumCharacters)
+    {
+        if (value.Length < minimumCharacters || value.Length > maximumCharacters) throw new FormatException();
+        var bytes = Convert.FromBase64String(value.Replace('-', '+').Replace('_', '/').PadRight((value.Length + 3) / 4 * 4, '='));
+        if (CanonicalBase64Url(bytes) != value) throw new FormatException();
+        return bytes;
+    }
+
+    private static string CanonicalBase64Url(byte[] bytes) =>
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static DateTimeOffset? TransparencyKeyTime(JsonElement entry, string field)
     {

@@ -104,7 +104,21 @@ public sealed class PublicationHeadPostgresTests
                 await Scalar("drop sequence public.head_fixture_attempt");
                 retained = await VerifyIndependently(server, await WaitForHead(server, "2"));
                 attestedAt = (DateTime)(await Scalar("select attested_at from public.publication_transparency_head"))!;
+                var liveCheckpoint = await Checkpoint(currentPath);
+                Assert.NotEqual(0, liveCheckpoint.Code);
+                Assert.Contains("Stop the serving process", liveCheckpoint.Error);
             }
+
+            var signedCheckpoint = await Checkpoint(currentPath);
+            Assert.True(signedCheckpoint.Code == 0, signedCheckpoint.Error);
+            await VerifyCheckpoint(signedCheckpoint.Output, "first");
+            var wrongCurrentKey = await Checkpoint(currentPath, "next");
+            Assert.NotEqual(0, wrongCurrentKey.Code);
+            Assert.Contains("differs from the trusted registry's current key", wrongCurrentKey.Error);
+            var wrongPrivateKey = await Checkpoint(nextPath);
+            Assert.NotEqual(0, wrongPrivateKey.Code);
+            Assert.Contains("Invalid native publication signing configuration or private key", wrongPrivateKey.Error);
+            Assert.DoesNotContain(nextPath, wrongPrivateKey.Error);
 
             await Scalar("create temporary table latest_head as table public.publication_transparency_head");
             await using (var server = await Start()) await Status(server, HttpStatusCode.ServiceUnavailable);
@@ -116,6 +130,9 @@ public sealed class PublicationHeadPostgresTests
             await Scalar("delete from public.publication_transparency_head");
             await Scalar("insert into public.publication_transparency_head select * from pg_temp.latest_head");
             await Scalar("update public.article_publication_transparency set prev_sha256=decode(repeat('00',32),'hex') where seq=2");
+            var corruptCheckpoint = await Checkpoint(currentPath);
+            Assert.NotEqual(0, corruptCheckpoint.Code);
+            Assert.Contains("does not connect to the independently retained native head", corruptCheckpoint.Error);
             await using (var server = await Start()) await Status(server, HttpStatusCode.ServiceUnavailable);
             await Scalar("""
                 update public.article_publication_transparency b set prev_sha256=a.entry_sha256
@@ -142,6 +159,9 @@ public sealed class PublicationHeadPostgresTests
                     await Task.Delay(50, ct);
                 }
             }
+            var rotatedCheckpoint = await Checkpoint(nextPath, "next");
+            Assert.True(rotatedCheckpoint.Code == 0, rotatedCheckpoint.Error);
+            await VerifyCheckpoint(rotatedCheckpoint.Output, "next");
             config[Settings + "Keys__first__CompromisedAtUtc"] = ArticlePublicationProofPayloadV2.Time(attestedAt);
             await using (var server = await Start())
             {
@@ -159,6 +179,10 @@ public sealed class PublicationHeadPostgresTests
                 Assert.Equal(2L, await Scalar("select seq from public.publication_transparency_head"));
                 await Status(server, HttpStatusCode.ServiceUnavailable);
             }
+            // The saved manifest predates the compromise. The persisted revocation state still denies the anchor.
+            var compromisedCheckpoint = await Checkpoint(nextPath, "next");
+            Assert.NotEqual(0, compromisedCheckpoint.Code);
+            Assert.Contains("ineligible at its attested time", compromisedCheckpoint.Error);
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, Forward);
 
@@ -219,14 +243,8 @@ public sealed class PublicationHeadPostgresTests
                 var headFile = Path.Combine(scratch.FullName, "head.json");
                 await File.WriteAllTextAsync(keyFile, await registry.Content.ReadAsStringAsync(ct), ct);
                 await File.WriteAllTextAsync(headFile, head, ct);
-                for (DirectoryInfo? dir = new(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-                {
-                    var tool = Path.Combine(dir.FullName, "tools", "verify-publication-head.mjs");
-                    if (!File.Exists(tool)) continue;
-                    await Run(new("node") { ArgumentList = { tool, Origin, keyFile, headFile } });
-                    return head;
-                }
-                throw new FileNotFoundException("Native publication head verifier was not found.");
+                await Run(new("node") { ArgumentList = { Tool("verify-publication-head.mjs"), Origin, keyFile, headFile } });
+                return head;
             }
 
             async Task<Draft> Publish(ServerProcess server, string body)
@@ -273,7 +291,43 @@ public sealed class PublicationHeadPostgresTests
             return Run(options);
         }
 
+        Task<(int Code, string Output, string Error)> Checkpoint(string privateKey, string currentKeyId = "first")
+        {
+            var options = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
+            {
+                ArgumentList =
+                {
+                    Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!,
+                    "publication-transparency", "checkpoint-release", Origin,
+                    Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"),
+                    "release-fixture.1", "1", "2", "2",
+                },
+            };
+            options.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
+            options.Environment[Settings + "CurrentKeyId"] = currentKeyId;
+            options.Environment[Settings + "NativeV2PrivateKeyFile"] = privateKey;
+            return Invoke(options);
+        }
+
+        async Task VerifyCheckpoint(string output, string keyId)
+        {
+            var checkpoint = JsonNode.Parse(output)!["checkpoint"]!;
+            Assert.Equal(keyId, checkpoint["keyId"]!.GetValue<string>());
+            Assert.Equal(2, checkpoint["entryCount"]!.GetValue<int>());
+            var bundle = Path.Combine(scratch.FullName, "checkpoint.json");
+            await File.WriteAllTextAsync(bundle, output, ct);
+            var expected = (string)(await Scalar("select encode(entry_sha256,'hex') from public.article_publication_transparency where seq=2"))!;
+            await Run(new("node") { ArgumentList = { Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
+                Path.Combine(scratch.FullName, "head.json"), bundle, "release-fixture.1", "2", expected } });
+        }
+
         async Task Run(ProcessStartInfo options)
+        {
+            var result = await Invoke(options);
+            Assert.True(result.Code == 0, result.Error + result.Output);
+        }
+
+        async Task<(int Code, string Output, string Error)> Invoke(ProcessStartInfo options)
         {
             options.UseShellExecute = false;
             options.RedirectStandardOutput = true;
@@ -282,7 +336,17 @@ public sealed class PublicationHeadPostgresTests
             var output = process.StandardOutput.ReadToEndAsync(ct);
             var error = process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);
-            Assert.True(process.ExitCode == 0, (await error) + (await output));
+            return (process.ExitCode, await output, await error);
+        }
+
+        static string Tool(string name)
+        {
+            for (DirectoryInfo? dir = new(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            {
+                var path = Path.Combine(dir.FullName, "tools", name);
+                if (File.Exists(path)) return path;
+            }
+            throw new FileNotFoundException("Native publication verifier was not found.");
         }
     }
 

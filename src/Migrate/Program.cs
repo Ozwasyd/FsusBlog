@@ -52,6 +52,8 @@ internal static partial class Migration
                                         Start a native proof issuance ledger from an empty genesis
                   publication-transparency head-schema
                                         Install optional native public head storage with the server stopped
+                  publication-transparency checkpoint-release HTTPS_ORIGIN KEYS_JSON HEAD_JSON RELEASE_ID FROM_SEQ TO_SEQ [INCLUDE_SEQ]
+                                        Sign a release checkpoint from a pinned native log with the server stopped
                   publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]
                                         Verify a local issuance ledger with a trusted public key manifest
                   admin-article-rollback schema
@@ -260,6 +262,9 @@ internal static partial class Migration
                     break;
                 case ["publication-transparency", "head-schema"]:
                     await InitializePublicationHeadAsync(connection, token);
+                    break;
+                case ["publication-transparency", "checkpoint-release", .. var checkpointArgs]:
+                    await CreatePublicationReleaseCheckpointAsync(connection, checkpointArgs, token);
                     break;
                 case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
                     await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);

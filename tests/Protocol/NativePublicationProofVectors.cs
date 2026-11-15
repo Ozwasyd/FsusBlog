@@ -24,6 +24,7 @@ internal static class NativePublicationProofVectors
         if (!File.ReadAllBytes(Path.Combine(fixtures, "article-transparency-head-v2.txt")).AsSpan().SequenceEqual(headPayload) ||
             Convert.ToHexStringLower(SHA256.HashData(headPayload)) != "5119fe2b46a5a796b86ec648b49fd22457ddab7b4363c04a4516835e6de6c040")
             throw new InvalidOperationException("Native public head signing bytes differ from the independent vector.");
+        VerifyCheckpoint(fixtures, issue.AddTicks(10));
         foreach (var invalid in new[] { proof with { IssuedAt = issue.AddTicks(1) }, proof with { IssuedAt = publication.AddTicks(-10) },
             proof with { Origin = "https://proof.example.test/private" }, proof with { KeyVersion = 0 } })
         {
@@ -46,5 +47,25 @@ internal static class NativePublicationProofVectors
             Convert.ToHexStringLower(first) != "25cf7e05fb5664cef60be983608af44f766e61071985f9555c665af0874f6378" ||
             Convert.ToHexStringLower(second) != "7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3")
             throw new InvalidOperationException("Native transparency digests differ from the independent vectors.");
+    }
+
+    private static void VerifyCheckpoint(string fixtures, DateTimeOffset issued)
+    {
+        const long start = 9007199254741001;
+        var entries = new byte[] { 0x11, 0x22, 0x33 }.Select(value => Enumerable.Repeat(value, 32).ToArray()).ToArray();
+        var tree = PublicationCheckpointTreeV2.Build(start, entries, start + 2);
+        if (Convert.ToHexStringLower(tree.RootSha256) != "963380bd8bc6cfe8fd61281c1a4938fc94e04666fd3372b74b319d0c6f9f4840" ||
+            tree.Inclusion is not { Siblings.Count: 2 } witness ||
+            Convert.ToHexStringLower(witness.LeafSha256) != "27826deb7e05792ea526bfe761fe4272205c247afd425789bb9c9edec3c8d6f3" ||
+            !witness.LeafSha256.AsSpan().SequenceEqual(witness.Siblings[0]) ||
+            Convert.ToHexStringLower(witness.Siblings[1]) != "5effb111c1c250c40435fc625350efe37a9d688b92ced3884380852b8d1a06a8")
+            throw new InvalidOperationException("Native checkpoint odd-node inclusion differs from the independent vector.");
+        var claim = new PublicationCheckpointV2("https://proof.example.test", "release-2026.11", start, start + 2, 3,
+            tree.RootSha256, start + 2, entries[2], "rotate-1", 7,
+            Enumerable.Repeat((byte)0x3a, 32).ToArray(), issued);
+        var payload = claim.Payload();
+        if (!File.ReadAllBytes(Path.Combine(fixtures, "publication-release-checkpoint-v2.txt")).AsSpan().SequenceEqual(payload) ||
+            Convert.ToHexStringLower(SHA256.HashData(payload)) != "76c256ab3594588f01df569b09a7bd3dd472554850fb23230e52fae6246e2b0c")
+            throw new InvalidOperationException("Native checkpoint transcript differs from the independent vector.");
     }
 }
