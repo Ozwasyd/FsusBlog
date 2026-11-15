@@ -268,6 +268,9 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         }
         catch (Fido2VerificationException) { throw Denied(); }
 
+        // Fido2 4.0.1 accepts a signed zero even when the stored counter was positive.
+        if (!AcceptsSignatureCounter(counter, verification.SignCount)) throw Denied();
+
         // The flag is covered by the verified authenticator data. Backup eligibility is immutable.
         if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw Denied();
         await using (var update = Store.Sql(db, tx, """
@@ -277,6 +280,9 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             await update.ExecuteNonQueryAsync(ct);
         return number;
     }
+
+    internal static bool AcceptsSignatureCounter(uint stored, uint verified) =>
+        (stored == 0 && verified == 0) || verified > stored;
 
     private static async Task<bool> HasCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid id, CancellationToken ct)
     {

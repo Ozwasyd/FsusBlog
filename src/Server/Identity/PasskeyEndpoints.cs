@@ -2,6 +2,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
 using FsusBlog.V2.Server.Operations;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -39,6 +40,12 @@ internal static class PasskeyEndpoints
             RequireHost(ctx);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         });
+        app.MapGet(WireRoutes.SitePasskeys, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        {
+            RequireHost(ctx);
+            var rows = await SitePasskeys.List(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
+            return Results.Bytes(Wire.EncodeSitePasskeys(rows), Aeds.ContentType);
+        }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.PasskeyLoginBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireHost(ctx);

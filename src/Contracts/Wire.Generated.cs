@@ -64,6 +64,7 @@ public enum FrameType : ushort
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     SiteSessionList = 32796,
+    SitePasskeys = 32980,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminClusterStatus = 32962,
@@ -241,6 +242,7 @@ public static class WireLimits
     public const int MaxSignInFrameBytes = 148;
     public const int SiteSessionIdBytes = 64;
     public const int SiteSessionListSize = 101;
+    public const int SitePasskeyListSize = 16;
     public const int AdminCommentQueueSize = 24;
     public const int AdminCommentQueueBodyBytes = 12288;
     public const int AdminModerationReasonBytes = 1024;
@@ -557,6 +559,7 @@ public static class WireRoutes
     public const string SiteRefreshRotate = "/api/v2/identity/refresh/rotate.aeds";
     public const string SiteRefreshSignOut = "/api/v2/identity/refresh/sign-out.aeds";
     public const string SiteSessions = "/api/v2/identity/sessions.aeds";
+    public const string SitePasskeys = "/api/v2/identity/passkeys.aeds";
     public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
     public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
     public const string AdminBootstrapBegin = "/api/v2/admin/identity/bootstrap/begin.aeds";

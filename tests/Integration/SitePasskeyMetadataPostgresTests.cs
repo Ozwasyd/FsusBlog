@@ -1,0 +1,153 @@
+using System.Security.Cryptography;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Passkeys;
+using FsusBlog.V2.Server.Sessions;
+using Npgsql;
+using NpgsqlTypes;
+
+namespace FsusBlog.V2.Integration.Tests;
+
+public sealed class SitePasskeyMetadataPostgresTests
+{
+    [PostgresFact]
+    public async Task ReturnsOnlyTheOwnersMetadataAndMarksTheCredentialForTheExactSession()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await AddAccount(db, "Passkey owner", ct);
+        var other = await AddAccount(db, "Another account", ct);
+        var now = DateTimeOffset.FromUnixTimeMilliseconds(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var start = now.AddDays(-4);
+        var firstUsage = now.AddMilliseconds(-127);
+        var secondCreated = now.AddDays(-3);
+        var thirdCreated = now.AddDays(-2);
+        var thirdUsage = now.AddMilliseconds(-63);
+        var otherCreated = now.AddDays(-1);
+        var local = await AddCredential(db, owner, start, firstUsage, backupEligible: false, backedUp: false, ct);
+        _ = await AddCredential(db, owner, secondCreated, null, backupEligible: true, backedUp: false, ct);
+        var synced = await AddCredential(db, owner, thirdCreated, thirdUsage, backupEligible: true, backedUp: true, ct);
+        var unrelated = await AddCredential(db, other, otherCreated, now, backupEligible: false, backedUp: false, ct);
+        var expiry = now.AddMinutes(10);
+        var current = await AddSession(db, owner, expiry, local, ct);
+        var alternate = await AddSession(db, owner, expiry, synced, ct);
+        var foreign = await AddSession(db, other, expiry, unrelated, ct);
+
+        var rows = await SitePasskeys.List(store, current.Token, current.Id, ct);
+        Assert.Equal(3, rows.Count);
+        AssertMetadata(rows[0], start, firstUsage, backupEligible: false, backedUp: false, current: true);
+        AssertMetadata(Assert.Single(rows, row => row.CreatedAt == secondCreated.ToUnixTimeMilliseconds()),
+            secondCreated, null, backupEligible: true, backedUp: false, current: false);
+        AssertMetadata(Assert.Single(rows, row => row.CreatedAt == thirdCreated.ToUnixTimeMilliseconds()),
+            thirdCreated, thirdUsage, backupEligible: true, backedUp: true, current: false);
+
+        var alternateRows = await SitePasskeys.List(store, alternate.Token, alternate.Id, ct);
+        Assert.Equal(Assert.Single(alternateRows, row => row.Current), alternateRows[0]);
+        AssertMetadata(alternateRows[0], thirdCreated, thirdUsage, backupEligible: true, backedUp: true, current: true);
+        AssertMetadata(Assert.Single(await SitePasskeys.List(store, foreign.Token, foreign.Id, ct)),
+            otherCreated, now, backupEligible: false, backedUp: false, current: true);
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, current.Token, alternate.Id, ct));
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, current.Token, foreign.Id, ct));
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, foreign.Token, current.Id, ct));
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, current.Token, null, ct));
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, current.Token, "not-a-session-id", ct));
+    }
+
+    [PostgresFact]
+    public async Task RequiresLivePasskeyAuthorityAndRejectsStaleSessionIdentifiersAfterRevocation()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await AddAccount(db, "Session owner", ct);
+        var disabled = await AddAccount(db, "Disabled account", ct, enabled: false);
+        var now = DateTimeOffset.UtcNow;
+        var expiry = now.AddMinutes(10);
+        var credential = await AddCredential(db, owner, now.AddDays(-1), now, backupEligible: true, backedUp: false, ct);
+        var disabledCredential = await AddCredential(db, disabled, now.AddDays(-1), now, backupEligible: false, backedUp: false, ct);
+        var current = await AddSession(db, owner, expiry, credential, ct);
+        var revoked = await AddSession(db, owner, expiry, credential, ct);
+        var expired = await AddSession(db, owner, now.AddMinutes(-1), credential, ct);
+        var ticket = await AddSession(db, owner, expiry, null, ct);
+        var disabledSession = await AddSession(db, disabled, expiry, disabledCredential, ct);
+
+        Assert.True(Assert.Single(await SitePasskeys.List(store, revoked.Token, revoked.Id, ct)).Current);
+        await SiteSessions.Revoke(store, current.Token, current.Id, revoked.Id, ct);
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, revoked.Token, revoked.Id, ct));
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, current.Token, revoked.Id, ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, ticket.Token, ticket.Id, ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, expired.Token, expired.Id, ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, disabledSession.Token, disabledSession.Id, ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, null, current.Id, ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, "not-a-session-token", current.Id, ct));
+
+        await using (var advance = Store.Sql(db, null,
+            "update public.blog_user set generation=generation+1 where id=$1", owner))
+            Assert.Equal(1, await advance.ExecuteNonQueryAsync(ct));
+        await Denied(Rejection.Unauthorized, () => SitePasskeys.List(store, current.Token, current.Id, ct));
+        var replacement = await AddSession(db, owner, expiry, credential, ct, generation: 2);
+        await Denied(Rejection.Conflict, () => SitePasskeys.List(store, replacement.Token, current.Id, ct));
+        Assert.True(Assert.Single(await SitePasskeys.List(store, replacement.Token, replacement.Id, ct)).Current);
+    }
+
+    private static void AssertMetadata(SitePasskeyRow row, DateTimeOffset created,
+        DateTimeOffset? used, bool backupEligible, bool backedUp, bool current)
+    {
+        Assert.Equal(created.ToUnixTimeMilliseconds(), row.CreatedAt);
+        Assert.Equal(used?.ToUnixTimeMilliseconds(), row.LastUsedAt);
+        Assert.Equal(backupEligible, row.BackupEligible);
+        Assert.Equal(backedUp, row.BackedUp);
+        Assert.Equal(current, row.Current);
+    }
+
+    private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct, bool enabled = true)
+    {
+        var owner = Guid.NewGuid();
+        await using (var insert = Store.Sql(db, null, """
+            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,$3,1)
+            """, owner, name, enabled))
+            await insert.ExecuteNonQueryAsync(ct);
+        await using var subject = Store.Sql(db, null, """
+            insert into public.passkey_subject(user_id,user_handle) values($1,$2)
+            """, owner, RandomNumberGenerator.GetBytes(32));
+        await subject.ExecuteNonQueryAsync(ct);
+        return owner;
+    }
+
+    private static async Task<byte[]> AddCredential(NpgsqlConnection db, Guid owner, DateTimeOffset created,
+        DateTimeOffset? used, bool backupEligible, bool backedUp, CancellationToken ct)
+    {
+        var id = RandomNumberGenerator.GetBytes(32);
+        var lastUsed = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.TimestampTz, Value = (object?)used ?? DBNull.Value };
+        await using var insert = Store.Sql(db, null, """
+            insert into public.passkey_credential
+                (credential_id,user_id,public_key,sign_count,backup_eligible,backed_up,created_at,last_used_at)
+            values($1,$2,$3,0,$4,$5,$6,$7)
+            """, id, owner, RandomNumberGenerator.GetBytes(32), backupEligible, backedUp, created, lastUsed);
+        await insert.ExecuteNonQueryAsync(ct);
+        return id;
+    }
+
+    private static async Task<(string Token, string Id)> AddSession(NpgsqlConnection db, Guid owner, DateTimeOffset expiry,
+        byte[]? credential, CancellationToken ct, long generation = 1)
+    {
+        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var digest = Store.TokenDigest(token)!;
+        var passkey = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)credential ?? DBNull.Value };
+        await using var insert = Store.Sql(db, null, """
+            insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id)
+            values($1,$2,$3,$4,$5)
+            """, digest, owner, generation, expiry, passkey);
+        await insert.ExecuteNonQueryAsync(ct);
+        return (token, SiteSessions.Id(owner, digest));
+    }
+
+    private static async Task Denied(Rejection expected, Func<Task> action) =>
+        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
+}

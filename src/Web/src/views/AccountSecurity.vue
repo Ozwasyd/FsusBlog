@@ -7,6 +7,7 @@ import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
 import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
+import SitePasskeys from './SitePasskeys.vue'
 import SiteRecoveryKey from './SiteRecoveryKey.vue'
 import SiteSessions from './SiteSessions.vue'
 
@@ -206,6 +207,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
     <ElButton v-else-if="profile" native-type="button" :loading="busy" @click="start">Set up authenticator</ElButton>
     <p v-else-if="!error">Authenticator verification is unavailable for this session.</p>
     </section>
+    <SitePasskeys v-if="currentSession" />
     <SiteRecoveryKey v-if="currentSession" />
     <SiteSessions />
   </main>

@@ -78,6 +78,7 @@ inline constexpr uint32_t RelatedReadingMaxTextBytes = 2048;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
 inline constexpr uint32_t SiteSessionIdBytes = 64;
 inline constexpr uint32_t SiteSessionListSize = 101;
+inline constexpr uint32_t SitePasskeyListSize = 16;
 inline constexpr uint32_t AdminCommentQueueSize = 24;
 inline constexpr uint32_t AdminCommentQueueBodyBytes = 12288;
 inline constexpr uint32_t AdminModerationReasonBytes = 1024;
@@ -384,6 +385,7 @@ enum class FrameType : uint16_t {
     OperatorSignIn = 32768,
     OperatorSession = 32769,
     SiteSessionList = 32796,
+    SitePasskeys = 32980,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminClusterStatus = 32962,
@@ -548,6 +550,7 @@ constexpr bool known(FrameType type) {
         case FrameType::OperatorSignIn:
         case FrameType::OperatorSession:
         case FrameType::SiteSessionList:
+        case FrameType::SitePasskeys:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
         case FrameType::AdminClusterStatus:
