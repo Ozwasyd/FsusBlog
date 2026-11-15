@@ -45,7 +45,7 @@ internal static class MarkdownExportEndpoints
             var html = format == DocumentExportFormat.Html;
             Attach(DocumentRoute(extension), type, $"article.{extension}",
                 (title, body, _, time, images, ct) => DocumentExportInput.Render(format, title, body, time, images, pdf, ct),
-                html ? HtmlDocumentExport.MaximumImages : 1, html ? HtmlDocumentExport.ResponsePolicy : null);
+                DocumentExportAttachment.MaximumImages, html ? HtmlDocumentExport.ResponsePolicy : null);
         }
 
         static string DocumentRoute(string extension) => "/api/v2/authoring/draft/{id:int}/export." + extension;

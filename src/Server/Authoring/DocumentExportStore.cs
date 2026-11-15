@@ -33,7 +33,9 @@ internal static class DocumentExportStore
         if (request.Format == DocumentExportFormat.Pdf && pdfToolDigest is null)
             throw new BusinessException(Rejection.Invalid, "The PDF provider is unavailable.");
         await RevisionHistoryStore.LockCurrent(db, tx, actor, request.Article, request.Revision, ct);
-        if (assets.Length > 0 && !await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: assets.Length > 1))
+        if (assets.Length > 0 && !(assets.Length > 1 && request.Format != DocumentExportFormat.Html
+            ? await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: true) is not null
+            : await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: assets.Length > 1)))
             throw new BusinessException(Rejection.Invalid, "The document export attachment schema is unavailable.");
         var input = await DocumentExportInput.Read(db, tx, request, media, actor.Id, assets, ct);
 

@@ -3,7 +3,7 @@ import { computed, h, onScopeDispose, ref, shallowRef, useId, watch, type VNodeC
 import { ElButton } from '@ozwasyd/element-plus'
 import { renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime'
 import { ApiError } from '../../../Contracts/aeds'
-import { previewArticlePlugin, reviewArticlePlugin } from '../../../Contracts/author-plugin-preview'
+import { previewArticlePlugin, reviewArticlePlugin, withdrawArticlePlugin } from '../../../Contracts/author-plugin-preview'
 import { credentialEpoch, currentSession, recheckCredential } from '../session'
 
 const props = defineProps<{ article: number; revision: bigint; active: boolean; disabled: boolean }>()
@@ -11,7 +11,7 @@ const enabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-au
 const canPreview = computed(() => enabled && props.active && !props.disabled &&
   !!currentSession.value?.canAuthor && !!currentSession.value.siteSessionId)
 const regionId = useId()
-const waiting = ref(false)
+const pending = ref<'review' | 'run' | 'withdraw'>()
 const failure = ref('')
 const consent = shallowRef<Awaited<ReturnType<typeof reviewArticlePlugin>>>()
 const preview = shallowRef<{ source: string; formatted?: () => VNodeChild }>()
@@ -48,30 +48,35 @@ function staticMarkdown(html: string) {
 function reset() {
   request?.abort()
   request = undefined
-  waiting.value = false
+  pending.value = undefined
   failure.value = ''
   consent.value = undefined
   preview.value = undefined
 }
 
-async function run() {
+async function run(withdraw = false) {
   const handle = currentSession.value?.siteSessionId
   if (!canPreview.value || !handle || request) return
   const epoch = credentialEpoch.value
   const { article, revision } = props
   const approval = consent.value
+  if (withdraw && !approval) return
   const controller = new AbortController()
   request = controller
   const current = () => !controller.signal.aborted && request === controller && epoch === credentialEpoch.value &&
     canPreview.value && article === props.article && revision === props.revision &&
     handle === currentSession.value?.siteSessionId && currentSession.value.expiresAt > Date.now()
-  waiting.value = true
+  pending.value = withdraw ? 'withdraw' : approval ? 'run' : 'review'
   failure.value = ''
   preview.value = undefined
   try {
     if (!approval) {
       const reviewed = await reviewArticlePlugin(article, revision, handle, controller.signal)
       if (current()) consent.value = reviewed
+      return
+    }
+    if (withdraw) {
+      await withdrawArticlePlugin(article, revision, handle, approval.token, controller.signal)
       return
     }
     const source = await previewArticlePlugin(article, revision, handle, approval.token, controller.signal)
@@ -83,6 +88,10 @@ async function run() {
     preview.value = { source, formatted: formatted && 'value' in formatted ? staticMarkdown(formatted.value.html) : undefined }
   } catch (error) {
     if (!current()) return
+    if (withdraw) {
+      failure.value = 'Could not cancel plugin access. Review again before running.'
+      return
+    }
     if (error instanceof ApiError) {
       if (error.status === 401) {
         await recheckCredential(handle, controller.signal)
@@ -98,7 +107,7 @@ async function run() {
   } finally {
     if (request === controller) {
       request = undefined
-      waiting.value = false
+      pending.value = undefined
       if (approval) consent.value = undefined
     }
   }
@@ -112,14 +121,16 @@ onScopeDispose(reset)
   <section v-if="enabled && active" class="plugin-preview" aria-label="Signed plugin preview">
     <p v-if="consent" role="status">Allow {{ consent.plugin }} v{{ consent.version }} to read the saved Markdown of revision {{ revision }} for this preview?</p>
     <p v-if="consent">Package SHA-256 <code>{{ consent.digest }}</code></p>
-    <ElButton native-type="button" :disabled="!canPreview" v-bind="{ 'aria-controls': regionId }" @click="waiting ? reset() : run()">
-      {{ waiting ? 'Cancel preview' : consent ? 'Run plugin preview' : 'Review plugin access' }}
+    <ElButton native-type="button" :disabled="!canPreview || pending === 'withdraw'"
+      v-bind="{ 'aria-controls': regionId }" @click="pending ? reset() : run()">
+      {{ pending === 'withdraw' ? 'Cancelling access' : pending ? 'Cancel preview' : consent ? 'Run plugin preview' : 'Review plugin access' }}
     </ElButton>
-    <ElButton v-if="consent && !waiting" native-type="button" text @click="reset">Cancel</ElButton>
+    <ElButton v-if="consent && !pending" native-type="button" text @click="run(true)">Cancel</ElButton>
     <p v-if="disabled">Save the current draft before running the preview.</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
-    <p role="status">{{ waiting ? consent ? 'Running the signed plugin…' : 'Checking the signed plugin…' : preview ? `Preview ready for revision ${revision}.` : '' }}</p>
-    <div :id="regionId" role="region" aria-label="Plugin preview result" :aria-busy="waiting">
+    <p role="status">{{ pending === 'withdraw' ? 'Cancelling plugin access…' : pending === 'run' ? 'Running the signed plugin…' :
+      pending === 'review' ? 'Checking the signed plugin…' : preview ? `Preview ready for revision ${revision}.` : '' }}</p>
+    <div :id="regionId" role="region" aria-label="Plugin preview result" :aria-busy="!!pending">
       <template v-if="preview">
         <component :is="preview.formatted" v-if="preview.formatted" />
         <p v-else-if="preview.source === ''">The plugin returned an empty preview.</p>

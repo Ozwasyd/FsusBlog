@@ -139,7 +139,7 @@ public static partial class Wire
             DocumentExportState.Cancelled or DocumentExportState.Blocked;
         var failure = task.State is DocumentExportState.Failed or DocumentExportState.Blocked;
         if (!Enum.IsDefined(task.State) || !Enum.IsDefined(task.Failure) || task.Provider is < 1 or > 4 ||
-            (task.Provider == 4 && task.Request.Format != DocumentExportFormat.Html) ||
+            (task.Provider == 4 && task.Request.Format == DocumentExportFormat.Pdf) ||
             task.Created <= 0 || task.Expires <= task.Created ||
             (task.Started != 0 && task.Started < task.Created) ||
             (task.Finished != 0 && task.Finished < Math.Max(task.Created, task.Started)) ||

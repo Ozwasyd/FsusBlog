@@ -61,9 +61,10 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false ||
                 id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
                 throw new BusinessException(Rejection.Invalid, "An empty request and a valid current revision are required.");
-            var review = ctx.Request.Query.ContainsKey("consent");
-            if (review && (query(ctx, "consent", 1) != "1" || ctx.Request.Headers.ContainsKey(ConsentHeader)))
-                throw new BusinessException(Rejection.Invalid, "Invalid plugin review request.");
+            var action = query(ctx, "consent", 1);
+            if (action is not (null or "0" or "1") ||
+                action == "1" && ctx.Request.Headers.ContainsKey(ConsentHeader))
+                throw new BusinessException(Rejection.Invalid, "Invalid plugin consent request.");
             var selected = ctx.Request.Headers[ConsentHeader] is { Count: 1 } values ? values[0] : null;
 
             var token = ctx.Request.Cookies[cookie];
@@ -73,7 +74,14 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
             PureRenderPlugin.Approval? expectedApproval = null;
             try
             {
-                if (review)
+                if (action == "0")
+                {
+                    await Read(lifetime.Token, includeBody: false, consume: true);
+                    ctx.Response.StatusCode = StatusCodes.Status204NoContent;
+                    return;
+                }
+
+                if (action == "1")
                 {
                     var (scope, _) = await Read(lifetime.Token, includeBody: false);
                     using var approval = PureRenderPlugin.Open(registry, pluginId, TimeProvider.System, lifetime.Token);

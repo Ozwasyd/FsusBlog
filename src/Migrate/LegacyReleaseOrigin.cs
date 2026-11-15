@@ -7,7 +7,7 @@ internal static partial class Migration
 
     private static async Task<LegacyReleaseOrigin> ReadLegacyReleaseOriginAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         string planSha, string projectionSha, string actorsSha, string? configuredAuthor, CancellationToken ct,
-        LegacyReleasePublishProof? publishProof)
+        string publishProof)
     {
         var siteAuthor = ResolveLegacySiteAuthor(configuredAuthor);
         var disclosure = await ReadLegacyResponsibilityDisclosuresAsync(db, tx, siteAuthor, ct);
@@ -23,7 +23,8 @@ internal static partial class Migration
                         || CASE WHEN $6::text IS NULL THEN '{}'::jsonb ELSE
                             jsonb_build_object('siteAuthor',jsonb_build_object('key','{{LegacySiteAuthorKey}}','value',$6::text))
                             END
-                        || CASE WHEN p.source_publication_id=$7 THEN jsonb_build_object('publishProof',$8::jsonb)
+                        || CASE WHEN $7::jsonb ? p.source_publication_id::text
+                            THEN jsonb_build_object('publishProof',$7::jsonb -> p.source_publication_id::text)
                             ELSE '{}'::jsonb END
                         || CASE WHEN history.records IS NULL THEN '{}'::jsonb
                             ELSE jsonb_build_object('responsibilityHistory',history.records) END AS evidence,
@@ -75,8 +76,7 @@ internal static partial class Migration
         {
             NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text, Value = (object?)configuredAuthor ?? DBNull.Value
         });
-        query.Parameters.AddWithValue(publishProof?.PublicationId ?? 0L);
-        query.Parameters.AddWithValue(publishProof?.Evidence ?? "{}");
+        query.Parameters.AddWithValue(publishProof);
         await using var reader = await query.ExecuteReaderAsync(ct);
         var rows = new List<string>(3);
         var measurement = await MeasureBackupRowsAsync("legacy_release_origin", "r", reader, ct, rows);

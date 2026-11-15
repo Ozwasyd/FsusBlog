@@ -8,7 +8,7 @@ import type { PublishImagesSelection } from '../../../Contracts/published-media'
 import { credentialEpoch } from '../session'
 import { createDocumentExportTask } from '../../../Contracts/document-export-tasks'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
-import { maxHtmlExportImages } from '../../../Contracts/markdown-export'
+import { maxDocumentExportImages } from '../../../Contracts/markdown-export'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 
 const props = defineProps<{ articleId: number; revision: bigint; credential?: string; canChange: boolean; canPublish: boolean }>()
@@ -27,9 +27,12 @@ const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
 const preview = shallowRef<{ id: string; path: string; type: string; taskId?: string; queued?: boolean }>()
-const batchExport = shallowRef<{ taskId?: string; queued?: boolean }>({})
+const batchFormats = { html: 'HTML', epub: 'EPUB', docx: 'Word' } as const
+type BatchFormat = keyof typeof batchFormats
+type QueuedExport = { taskId?: string; queued?: boolean }
+const batchExport = shallowRef<Partial<Record<BatchFormat, QueuedExport>>>({})
 const documentTasks = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
-const htmlImages = computed(() => attached.value.map(asset => asset.id).join(','))
+const savedImages = computed(() => attached.value.map(asset => asset.id).join(','))
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
 let task = new AbortController()
 
@@ -95,10 +98,10 @@ async function openPreview(id: string) {
   finally { if (current(signal)) pending.value = false }
 }
 
-async function queueHtml(all = false) {
+async function queueDocument(format: BatchFormat, all = false) {
   const shown = preview.value
-  const selection = all ? batchExport.value : shown
-  const images = all ? htmlImages.value : shown?.id
+  const selection = all ? (batchExport.value[format] ??= {}) : shown
+  const images = all ? savedImages.value : shown?.id
   const { articleId: article, revision, credential } = props
   if (!images || !selection || !credential || pending.value || selection.queued) return
   const signal = task.signal
@@ -106,12 +109,12 @@ async function queueHtml(all = false) {
   pending.value = true
   error.value = ''
   try {
-    await createDocumentExportTask({ id: selection.taskId, article, revision, sourceRevision: revision, format: 'html' },
+    await createDocumentExportTask({ id: selection.taskId, article, revision, sourceRevision: revision, format },
       credential, signal, images)
     if (!current(signal)) return
-    if (all) batchExport.value = { ...selection, queued: true }
+    if (all) batchExport.value = { ...batchExport.value, [format]: { ...selection, queued: true } }
     else if (shown && preview.value === shown) preview.value = { ...shown, queued: true }
-  } catch { if (current(signal)) error.value = all ? 'Could not queue HTML with these images.' : 'Could not queue HTML with this image.' }
+  } catch { if (current(signal)) error.value = `Could not queue ${batchFormats[format]} with the selected images.` }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -193,13 +196,16 @@ onBeforeUnmount(() => {
           </li>
         </ul>
         <p v-else-if="!pending">No images are attached to this revision.</p>
-        <MarkdownExportControl v-if="attached.length > 1 && attached.length <= maxHtmlExportImages"
-          :article="articleId" :revision="revision" :selected="revision" format="html"
-          :attachment="htmlImages" :disabled="pending || !credential" />
-        <ElButton v-if="documentTasks && attached.length > 1 && attached.length <= maxHtmlExportImages" native-type="button"
-          :disabled="pending || !credential || batchExport.queued" @click="queueHtml(true)">
-          {{ batchExport.queued ? 'HTML task with saved images added' : 'Queue HTML with saved images' }}
-        </ElButton>
+        <div v-if="attached.length > 1 && attached.length <= maxDocumentExportImages" class="attachment-actions">
+          <template v-for="(label, format) in batchFormats" :key="format">
+            <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" :format="format"
+              :attachment="savedImages" :disabled="pending || !credential" />
+            <ElButton v-if="documentTasks" native-type="button"
+              :disabled="pending || !credential || batchExport[format]?.queued" @click="queueDocument(format, true)">
+              {{ batchExport[format]?.queued ? `${label} task with saved images added` : `Queue ${label} with saved images` }}
+            </ElButton>
+          </template>
+        </div>
         <div v-if="publishEnabled && attached.length" class="publication-actions">
           <ElButton v-if="!confirmation" ref="reviewButton" native-type="button"
             :disabled="pending || !canPublish || !publicationSelection.length" @click="reviewPublication">Review image publication</ElButton>
@@ -226,7 +232,7 @@ onBeforeUnmount(() => {
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
-          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || preview.queued" @click="queueHtml()">
+          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || preview.queued" @click="queueDocument('html')">
             {{ preview.queued ? 'HTML task added' : 'Queue HTML with this image' }}
           </ElButton>
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"

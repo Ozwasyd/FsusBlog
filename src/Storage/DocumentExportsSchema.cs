@@ -59,6 +59,20 @@ internal static partial class CurrentSchema
         return await query.ExecuteScalarAsync(ct) is true;
     }
 
+    internal static string ExportImageListCondition(bool portable) =>
+        $"attachment_idsISNULLORformat{(portable ? "<>2" : "=1")}ANDcardinality(attachment_ids)>=2ANDcardinality(attachment_ids)<=4ANDarray_ndims(attachment_ids)=1ANDarray_position(attachment_ids,NULL::uuid)ISNULL";
+
+    internal static async Task<string?> FindExportImageListConstraintAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, bool portable)
+    {
+        await using var query = new NpgsqlCommand("""
+            select conname::text from pg_catalog.pg_constraint
+            where conrelid=pg_catalog.to_regclass('public.author_document_export') and contype='c' and convalidated
+            and regexp_replace(pg_catalog.pg_get_expr(conbin,conrelid,true),'[[:space:]]','','g')=$1
+            """, db, tx);
+        query.Parameters.AddWithValue(ExportImageListCondition(portable));
+        return await query.ExecuteScalarAsync(ct) as string;
+    }
+
     private static readonly string[] DocumentExportIndexes =
     [
         "CREATE INDEX author_document_export_pending ON public.author_document_export USING btree (state, created_at, owner_id, id)",

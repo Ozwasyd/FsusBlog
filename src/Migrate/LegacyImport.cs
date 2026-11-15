@@ -22,7 +22,7 @@ internal static partial class Migration
     private sealed record ImportFinding(string Category, string Source, long Rows);
     private sealed record LegacyImportEvidence(LegacyCreateCommandRead Commands, LegacyOutboxRead Outbox,
         LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, LegacySavedViewRead SavedViews,
-        ImportFinding[] Findings, LegacySiteAuthor? SiteAuthor)
+        ImportFinding[] Findings, LegacySiteAuthor? SiteAuthor, LegacyPublishProofSet? PublishProofs)
     {
         internal LegacyProjection[] SourceProjections(LegacyAudit audit, bool includeTaxonomy = true)
         {
@@ -33,6 +33,7 @@ internal static partial class Migration
             projections.AddRange(ReadingHistory.Projections);
             projections.AddRange(SavedViews.Relations.Select(relation => relation.Projection));
             if (SiteAuthor is { } author) projections.Add(author.Projection);
+            if (PublishProofs is { } proofs) projections.Add(proofs.Project());
             return projections.ToArray();
         }
     }
@@ -43,7 +44,8 @@ internal static partial class Migration
         ShadowCount[] ExpectedTables, ImportFinding[] Findings, bool ReadyToApply, bool ReadyToStage,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportMediaSeal? Media = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SiteAuthor = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SiteAuthor = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPublishProofSet? PublishProofs = null);
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
@@ -156,7 +158,7 @@ internal static partial class Migration
             sourceTransaction, sourceSeal, catalog, tables, principal, token);
         var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy,
             token, mediaSource is not null);
-        var (commands, outbox, _, readingHistory, savedViews, findings, siteAuthor) = evidence;
+        var (commands, outbox, _, readingHistory, savedViews, findings, siteAuthor, publishProofs) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries, readingHistory.Rows, savedViews.Relations);
@@ -193,7 +195,7 @@ internal static partial class Migration
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
             sourceProjections, counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0,
-            SourceSeal: sourceSeal, Media: mediaBinding, SiteAuthor: siteAuthor?.Value);
+            SourceSeal: sourceSeal, Media: mediaBinding, SiteAuthor: siteAuthor?.Value, PublishProofs: publishProofs);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -252,15 +254,17 @@ internal static partial class Migration
         var savedViews = await ReadLegacySavedViewsAsync(source, transaction, catalog, principal, token);
         var siteAuthor = outbox.RollbackCount > 0 && !verifiedMedia
             ? await ReadLegacySiteAuthorAsync(source, transaction, catalog, token) : null;
+        var proofs = outbox.RollbackCount > 0 && !verifiedMedia
+            ? await ReadLegacyPublishProofSourceAsync(source, transaction, catalog, tables, token) : null;
         var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox,
-            taxonomy, history, savedViews, verifiedMedia, siteAuthor, token);
-        return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor);
+            taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs is not null, token);
+        return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor, proofs);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
         LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
-        bool verifiedMedia, LegacySiteAuthor? siteAuthor, CancellationToken token)
+        bool verifiedMedia, LegacySiteAuthor? siteAuthor, bool verifiedPublishProofs, CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
@@ -272,7 +276,8 @@ internal static partial class Migration
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
                 taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name) ||
-                relation == siteAuthor?.Relation || (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
+                relation == siteAuthor?.Relation || (verifiedPublishProofs && relation.Name == LegacyPublishProofTable) ||
+                (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)
@@ -364,6 +369,7 @@ internal static partial class Migration
              plan.SourceProjections.Where(row => row.Table == LegacySiteConfigTable).ToArray() is not [var observed] ||
              observed != LegacySiteAuthorProjection(author) || author.EnumerateRunes().Count() > 512))
             throw new InvalidOperationException("The legacy import plan contains an invalid site-author observation.");
+        ValidateLegacyPublishProofPlan(plan);
         return plan;
     }
 

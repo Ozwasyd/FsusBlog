@@ -11,7 +11,7 @@ namespace FsusBlog.V2.Server.Authoring;
 internal static class HtmlDocumentExport
 {
     internal const string ContentType = "text/html; charset=utf-8";
-    internal const int MaximumOutput = 2 * 1024 * 1024, MaximumImages = 4;
+    internal const int MaximumOutput = 2 * 1024 * 1024;
     private const string DocumentPolicy = "default-src 'none'; base-uri 'none'; form-action 'none'";
     private const string DocumentImagePolicy = DocumentPolicy + "; img-src data:";
     internal const string ResponsePolicy = DocumentPolicy + "; frame-ancestors 'none'";

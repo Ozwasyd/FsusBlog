@@ -33,12 +33,8 @@ internal static class DocumentExportEndpoints
             var request = Wire.DecodeDocumentExportCreate(await readFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
             return await Session(ctx, store, async (db, tx, actor) =>
             {
-                var assets = DocumentExportAttachment.ReadSelections(ctx, request.Format switch
-                {
-                    DocumentExportFormat.Html => HtmlDocumentExport.MaximumImages,
-                    DocumentExportFormat.Pdf => 0,
-                    _ => 1,
-                });
+                var assets = DocumentExportAttachment.ReadSelections(ctx,
+                    request.Format == DocumentExportFormat.Pdf ? 0 : DocumentExportAttachment.MaximumImages);
                 if (assets.Length > 0 && !DocumentExportAttachment.PrivateTransport(ctx)) throw Missing();
                 var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, assets, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
@@ -104,8 +100,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
     internal byte[] Digest(DocumentExportCreate request, byte provider, byte[]? pdfToolDigest)
     {
         if (Assets.Length != Attachments.Length || (provider != ProviderFor(Assets) && !(provider == 1 && Assets.Length == 0)) ||
-            (Assets.Length > 0 && request.Format == DocumentExportFormat.Pdf) ||
-            (provider == ImageListProvider && request.Format != DocumentExportFormat.Html))
+            (Assets.Length > 0 && request.Format == DocumentExportFormat.Pdf))
             throw new PublicUnavailableException();
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(provider switch
@@ -154,7 +149,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
     {
         0 => CurrentProvider,
         1 => AttachmentProvider,
-        <= HtmlDocumentExport.MaximumImages => ImageListProvider,
+        <= DocumentExportAttachment.MaximumImages => ImageListProvider,
         _ => throw new PublicUnavailableException(),
     };
 
@@ -185,8 +180,8 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         {
             DocumentExportFormat.Html => HtmlDocumentExport.Write(title, body, images, ct, includeTables),
             DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(title, body, happenedAt, ct, includeTables),
-            DocumentExportFormat.Docx => WordDocumentExport.Write(title, body, ct, includeTables, images.SingleOrDefault()),
-            DocumentExportFormat.Epub => EpubDocumentExport.Write(title, body, happenedAt, ct, includeTables, images.SingleOrDefault()),
+            DocumentExportFormat.Docx => WordDocumentExport.WriteWithImages(title, body, images, ct, includeTables),
+            DocumentExportFormat.Epub => EpubDocumentExport.WriteWithImages(title, body, happenedAt, images, ct, includeTables),
             _ => throw new PublicUnavailableException(),
         };
 }

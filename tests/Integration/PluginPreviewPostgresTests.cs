@@ -87,8 +87,15 @@ public sealed class PluginPreviewPostgresTests
         File.Move(withdrawn, approval);
         await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable, grant: beforeRestore);
         await Preview(https, current, owner, HttpStatusCode.OK, grant: await Grant(current));
+        var canceled = await Grant(current);
+        await Preview(https, current, peer, HttpStatusCode.NotFound, grant: canceled, withdraw: true);
+        await Preview(https, large, owner, HttpStatusCode.Forbidden, grant: canceled, withdraw: true);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden, sendOrigin: false, grant: canceled, withdraw: true);
+        await Preview(https, current, owner, HttpStatusCode.NoContent, grant: canceled, withdraw: true);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: canceled);
         var firstOffer = await Grant(current);
         var latestOffer = await Grant(current);
+        await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: firstOffer, withdraw: true);
         await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: firstOffer);
         await Preview(https, current, owner, HttpStatusCode.OK, grant: latestOffer);
         var beforeChange = await Grant(current);
@@ -142,9 +149,10 @@ public sealed class PluginPreviewPostgresTests
         }
 
         async Task Preview(HttpClient client, ArticleState article, Actor? caller, HttpStatusCode expected, byte[]? body = null,
-            bool sendOrigin = true, string? grant = null)
+            bool sendOrigin = true, string? grant = null, bool withdraw = false)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, PathFor(article.Id, article.Revision));
+            using var request = new HttpRequestMessage(HttpMethod.Post,
+                PathFor(article.Id, article.Revision) + (withdraw ? "&consent=0" : ""));
             if (caller is not null) request.Headers.Add("Cookie", $"fsus-v2-session={caller.Token}");
             if (caller?.Handle is { } handle) request.Headers.Add(WireHeaders.CurrentSession, handle);
             if (sendOrigin) request.Headers.Add("Origin", origin);
@@ -163,6 +171,7 @@ public sealed class PluginPreviewPostgresTests
                 Assert.Equal("same-origin", Assert.Single(response.Headers.GetValues("Cross-Origin-Resource-Policy")));
                 Assert.Equal(Encoding.UTF8.GetBytes("# Signed preview\n" + currentBody), bytes);
             }
+            else if (expected == HttpStatusCode.NoContent) Assert.Empty(bytes);
             else Assert.DoesNotContain("Saved current Markdown.", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
         }
     }

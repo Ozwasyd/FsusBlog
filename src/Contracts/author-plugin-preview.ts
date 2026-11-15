@@ -8,16 +8,17 @@ const consentHeader = 'X-Fsus-Plugin-Consent';
 const digestPattern = /^[a-f0-9]{64}$/;
 
 async function pluginPreviewRequest(article: number, revision: bigint, session: string, signal: AbortSignal,
-  consent?: string): Promise<Response> {
+  consent?: string, withdraw = false): Promise<Response> {
   if (!Number.isInteger(article) || article < 1 || article > 2_147_483_647 ||
       revision < 1n || revision > 9_223_372_036_854_775_807n || !validSiteSessionId(session))
     throw new ProtocolError('Invalid signed plugin preview coordinates.');
   signal.throwIfAborted();
-  const result = await fetch(`/api/v2/authoring/draft/${article}/plugin-preview.md?revision=${revision}${consent ? '' : '&consent=1'}`, {
+  const action = withdraw ? '&consent=0' : consent ? '' : '&consent=1';
+  const result = await fetch(`/api/v2/authoring/draft/${article}/plugin-preview.md?revision=${revision}${action}`, {
     method: 'POST', cache: 'no-store', credentials: 'same-origin', redirect: 'error', signal,
     headers: { Accept: 'text/plain', [WireHeaders.CurrentSession]: session, ...(consent ? { [consentHeader]: consent } : {}) },
   });
-  if (result.status !== (consent ? 200 : 204)) {
+  if (result.status !== (action ? 204 : 200)) {
     await result.body?.cancel().catch(() => {});
     throw new ApiError('Signed plugin preview failed.', result.status);
   }
@@ -40,6 +41,12 @@ export async function reviewArticlePlugin(article: number, revision: bigint, ses
       !plugin || !/^[a-z0-9.-]{1,128}$/.test(plugin) || !version || !/^\d{1,10}\.\d{1,10}\.\d{1,10}$/.test(version))
     throw new ProtocolError('Invalid signed plugin consent.');
   return { token, plugin, version, digest };
+}
+
+export async function withdrawArticlePlugin(article: number, revision: bigint, session: string,
+  consent: string, signal: AbortSignal): Promise<void> {
+  if (!digestPattern.test(consent)) throw new ProtocolError('Invalid signed plugin consent.');
+  await pluginPreviewRequest(article, revision, session, signal, consent, true);
 }
 
 export async function previewArticlePlugin(article: number, revision: bigint, session: string,

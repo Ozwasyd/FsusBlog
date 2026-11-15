@@ -12,6 +12,10 @@ internal static partial class Migration
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireDocumentExports: exists);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
+        const string imageListCheck = """
+            check (attachment_ids is null or (format<>2 and cardinality(attachment_ids) between 2 and 4
+                and array_ndims(attachment_ids)=1 and array_position(attachment_ids,null) is null))
+            """;
         if (!exists)
             await ApplySchemaAddition(db, tx, "document-exports.sql", ct);
         else if (!await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: true))
@@ -38,12 +42,20 @@ internal static partial class Migration
                     add constraint author_document_export_provider_check check (provider between 1 and 4){addSingle},
                     add column attachment_ids uuid[],
                     add check ((provider=4)=(attachment_ids is not null)),
-                    add check (attachment_ids is null or (format=1 and cardinality(attachment_ids) between 2 and 4
-                        and array_ndims(attachment_ids)=1 and array_position(attachment_ids,null) is null))
+                    add {imageListCheck}
                 """, db, tx);
             await upgrade.ExecuteNonQueryAsync(ct);
         }
-        if (!await CurrentSchema.HasDocumentExportAttachmentsAsync(db, tx, ct, list: true))
+        else if (await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: false) is { } htmlOnly)
+        {
+            using var quoting = new NpgsqlCommandBuilder();
+            await using var extend = new NpgsqlCommand($"""
+                alter table public.author_document_export drop constraint {quoting.QuoteIdentifier(htmlOnly)},
+                    add {imageListCheck}
+                """, db, tx);
+            await extend.ExecuteNonQueryAsync(ct);
+        }
+        if (await CurrentSchema.FindExportImageListConstraintAsync(db, tx, ct, portable: true) is null)
             throw new InvalidOperationException("The document export attachment schema is unavailable.");
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireDocumentExports: true);
         await tx.CommitAsync(ct);

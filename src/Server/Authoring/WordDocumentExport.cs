@@ -23,27 +23,27 @@ internal static class WordDocumentExport
     private static readonly XmlWriterSettings Xml = new() { Encoding = Utf8, NewLineHandling = NewLineHandling.None, CloseOutput = true };
 
     internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true,
-        DocumentExportAttachment? attachment = null)
+        DocumentExportAttachment? attachment = null) =>
+        WriteWithImages(title, body, attachment is null ? [] : [attachment], ct, includeTables);
+
+    internal static byte[] WriteWithImages(string title, string body, DocumentExportAttachment[] images,
+        CancellationToken ct, bool includeTables)
     {
         ct.ThrowIfCancellationRequested();
         if (Utf8.GetByteCount(title) > WireLimits.TitleBytes || Utf8.GetByteCount(body) > WireLimits.BodyBytes ||
             body.Count(c => c is '\n' or '\r' or '\t') > 16_384) throw Unsupported();
         title = XmlText(title);
         body = XmlText(body);
-        var imagePath = attachment?.Format switch
-        {
-            null => null,
-            MediaFormat.Png => "media/attachment.png",
-            MediaFormat.Jpeg => "media/attachment.jpeg",
-            _ => throw new BusinessException(Rejection.Invalid, "Word can embed PNG and JPEG images."),
-        };
+        if (images.Any(image => image.Format is not (MediaFormat.Png or MediaFormat.Jpeg)))
+            throw new BusinessException(Rejection.Invalid, "Word can embed PNG and JPEG images.");
+        var paths = images.Select((image, index) => "media/" + image.PackageName(index + 1, images.Length > 1)).ToArray();
         var types = Types;
         var documentRelations = DocumentRelations;
-        if (attachment is not null)
+        for (var index = 0; index < images.Length; index++)
         {
-            types = Types.Replace("</Types>", $"  <Override PartName=\"/word/{imagePath}\" ContentType=\"{attachment.ContentType}\"/>\n</Types>");
-            documentRelations = DocumentRelations.Replace("</Relationships>",
-                $"  <Relationship Id=\"Image\" Type=\"{DocumentRelationship}/image\" Target=\"{imagePath}\"/>\n</Relationships>");
+            types = types.Replace("</Types>", $"  <Override PartName=\"/word/{paths[index]}\" ContentType=\"{images[index].ContentType}\"/>\n</Types>");
+            documentRelations = documentRelations.Replace("</Relationships>",
+                $"  <Relationship Id=\"{ImageId(index)}\" Type=\"{DocumentRelationship}/image\" Target=\"{paths[index]}\"/>\n</Relationships>");
         }
         using var data = new MemoryStream();
         using (var archive = new ZipArchive(data, ZipArchiveMode.Create, leaveOpen: true))
@@ -51,10 +51,8 @@ internal static class WordDocumentExport
             DocumentArchive.Write(archive, "[Content_Types].xml", Utf8.GetBytes(types));
             DocumentArchive.Write(archive, "_rels/.rels", Utf8.GetBytes(RootRelations));
             DocumentArchive.Write(archive, "word/_rels/document.xml.rels", Utf8.GetBytes(documentRelations));
-            if (attachment is not null)
-            {
-                DocumentArchive.Write(archive, $"word/{imagePath}", attachment.Bytes);
-            }
+            for (var index = 0; index < images.Length; index++)
+                DocumentArchive.Write(archive, $"word/{paths[index]}", images[index].Bytes);
             using (var styles = XmlWriter.Create(DocumentArchive.Open(archive, "word/styles.xml"), Xml))
             {
                 styles.WriteStartElement("w", "styles", Word);
@@ -100,7 +98,8 @@ internal static class WordDocumentExport
                 }
                 next = Math.Max(next, block.Span.End + 1);
             }
-            if (attachment is not null) WriteImage(output, attachment);
+            for (var index = 0; index < images.Length; index++)
+                WriteImage(output, images[index], index, ImageId(index));
             output.WriteStartElement("w", "sectPr", Word);
             Empty(output, "pgSz", ("w", "11906"), ("h", "16838"));
             Empty(output, "pgMar", ("top", "1440"), ("right", "1440"), ("bottom", "1440"), ("left", "1440"), ("header", "720"), ("footer", "720"), ("gutter", "0"));
@@ -111,9 +110,11 @@ internal static class WordDocumentExport
         ct.ThrowIfCancellationRequested();
         if (data.Length > MaximumOutput) throw Unsupported();
         return data.ToArray();
+
+        string ImageId(int index) => images.Length == 1 ? "Image" : string.Create(CultureInfo.InvariantCulture, $"Image{index + 1}");
     }
 
-    private static void WriteImage(XmlWriter xml, DocumentExportAttachment image)
+    private static void WriteImage(XmlWriter xml, DocumentExportAttachment image, int index, string relationship)
     {
         // Open XML dimensions are EMUs. Use CSS pixel size unless it exceeds the printable area.
         const int emusPerTwip = 635;
@@ -132,11 +133,11 @@ internal static class WordDocumentExport
                          xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
                          xmlns:r="{DocumentRelationship}">
                 <wp:extent cx="{width}" cy="{height}"/>
-                <wp:docPr id="1" name="Attachment" descr="{description}"/>
+                <wp:docPr id="{index + 1}" name="Attachment" descr="{description}"/>
                 <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
                   <pic:pic>
-                    <pic:nvPicPr><pic:cNvPr id="0" name="Attachment"/><pic:cNvPicPr/></pic:nvPicPr>
-                    <pic:blipFill><a:blip r:embed="Image"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                    <pic:nvPicPr><pic:cNvPr id="{index}" name="Attachment"/><pic:cNvPicPr/></pic:nvPicPr>
+                    <pic:blipFill><a:blip r:embed="{relationship}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
                     <pic:spPr>
                       <a:xfrm><a:off x="0" y="0"/><a:ext cx="{width}" cy="{height}"/></a:xfrm>
                       <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>

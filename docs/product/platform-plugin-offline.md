@@ -66,7 +66,7 @@ printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin rend
 
 在相同的 Linux ARM64 部署中，可额外设置 `FSUSBLOG_AUTHOR_PLUGIN_PREVIEW_ID` 为批准包 ID，并配置站点的 `FSUSBLOG_PUBLIC_ORIGIN`。站点使用上面的 `FSUSBLOG_PLATFORM_PLUGIN_ROOT`、Linux 开关及安装摘要。运行站点的非 root 账号必须拥有私有批准目录和可用的 systemd 用户会话，安装目录仍由 root 持有。批准目录须独立于站点 Web 及私有媒体目录。该配置缺省时站点没有预览端点，也不会宣告预览功能。
 
-同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。`consent=1` 只读取签名和修订坐标，返回 204 与已签名插件的标识、版本、包摘要和一次性授权。作者在 Inspector 看到这些信息并确认后，客户端用 `X-Fsus-Plugin-Consent` 发起实际预览。授权 90 秒有效，绑定站点进程、作者、账号代次、会话、文章、修订和精确运维批准。重复取得授权会替换同会话中的旧授权。
+同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。`consent=1` 只读取签名和修订坐标，返回 204 与已签名插件的标识、版本、包摘要和一次性授权。作者在 Inspector 看到这些信息并确认后，客户端用 `X-Fsus-Plugin-Consent` 发起实际预览。授权 90 秒有效，绑定站点进程、作者、账号代次、会话、文章、修订和精确运维批准。重复取得授权会替换同会话中的旧授权。 在 Inspector 取消审核会发送 `consent=0` 和同一授权头。服务在同一会话与修订下撤回待用授权，并返回 204。
 
 服务只向工作进程发送本次已确认修订的原始 Markdown，输入与输出各限 16 KiB UTF-8。全站最多运行一个预览，繁忙时返回 429。工作进程继续受原有 cgroup、命名空间、执行期限和回收约束。账号、会话和修订在工作进程退出后复核，批准锁保持到结果送出。批准文件撤回、变化、包失效、工作进程不可用或站点停止时预览失败。
 

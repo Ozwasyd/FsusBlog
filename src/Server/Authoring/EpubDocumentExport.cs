@@ -22,40 +22,40 @@ internal static class EpubDocumentExport
     };
 
     internal static byte[] Write(string title, string body, DateTimeOffset happenedAt, CancellationToken ct,
-        bool includeTables = true, DocumentExportAttachment? attachment = null)
+        bool includeTables = true, DocumentExportAttachment? attachment = null) =>
+        WriteWithImages(title, body, happenedAt, attachment is null ? [] : [attachment], ct, includeTables);
+
+    internal static byte[] WriteWithImages(string title, string body, DateTimeOffset happenedAt, DocumentExportAttachment[] images,
+        CancellationToken ct, bool includeTables)
     {
         if (string.IsNullOrWhiteSpace(title)) throw Invalid("EPUB requires a saved article title.");
         var content = HtmlDocumentExport.RenderBody(title, body, "EPUB", ct, includeTables);
         var heading = HtmlEncoder.Default.Encode(title);
-        var imagePath = attachment?.Format switch
-        {
-            null => null,
-            MediaFormat.Png => "images/attachment.png",
-            MediaFormat.Jpeg => "images/attachment.jpeg",
-            MediaFormat.Webp => "images/attachment.webp",
-            _ => throw Invalid("Unsupported EPUB image."),
-        };
-        var figure = attachment?.Figure(imagePath!, xhtml: true);
+        if (images.Any(image => image.Format is not (MediaFormat.Png or MediaFormat.Jpeg or MediaFormat.Webp)))
+            throw Invalid("Unsupported EPUB image.");
+        var names = images.Select((image, index) => image.PackageName(index + 1, images.Length > 1)).ToArray();
+        var paths = names.Select(name => "images/" + name).ToArray();
+        var figures = string.Concat(images.Select((image, index) => image.Figure(paths[index], xhtml: true)));
         var chapter = $"""
             <?xml version="1.0" encoding="UTF-8"?>
             <html xmlns="{Xhtml}" lang="und" xml:lang="und" dir="auto">
             <head><title>{heading}</title></head>
             <body><main><article><h1>{heading}</h1><div dir="auto">
-            {content}{figure}
+            {content}{figures}
             </div></article></main></body></html>
             """;
         if (Encoding.UTF8.GetByteCount(chapter) > MaximumOutput) throw HtmlDocumentExport.TooLarge("EPUB");
-        ValidateChapter(chapter, imagePath, ct);
+        ValidateChapter(chapter, paths, ct);
         var chapterBytes = Encoding.UTF8.GetBytes(chapter);
-        var digest = ChapterDigest(chapterBytes, attachment);
+        var digest = ChapterDigest(chapterBytes, images);
         digest[6] = (byte)((digest[6] & 0x0f) | 0x80);
         digest[8] = (byte)((digest[8] & 0x3f) | 0x80);
         var publicationId = new Guid(digest.AsSpan(0, 16), bigEndian: true);
         var modified = happenedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
-        var imageManifest = attachment is null ? "" :
-            $"<item id=\"attachment\" href=\"{imagePath}\" media-type=\"{attachment.ContentType}\"/>";
-        var visualMode = attachment is null ? "" : "<meta property=\"schema:accessMode\">visual</meta>";
-        var sufficientModes = attachment is null ? "textual" : "textual,visual";
+        var imageManifest = string.Concat(images.Select((image, index) =>
+            $"<item id=\"{Path.GetFileNameWithoutExtension(names[index])}\" href=\"{paths[index]}\" media-type=\"{image.ContentType}\"/>"));
+        var visualMode = images.Length == 0 ? "" : "<meta property=\"schema:accessMode\">visual</meta>";
+        var sufficientModes = images.Length == 0 ? "textual" : "textual,visual";
         var package = $"""
             <?xml version="1.0" encoding="UTF-8"?>
             <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="publication">
@@ -94,43 +94,44 @@ internal static class EpubDocumentExport
             DocumentArchive.Write(zip, "EPUB/package.opf", Encoding.UTF8.GetBytes(package));
             DocumentArchive.Write(zip, "EPUB/nav.xhtml", Encoding.UTF8.GetBytes(navigation));
             DocumentArchive.Write(zip, "EPUB/article.xhtml", chapterBytes);
-            if (attachment is not null) DocumentArchive.Write(zip, $"EPUB/{imagePath}", attachment.Bytes, CompressionLevel.NoCompression);
+            for (var index = 0; index < images.Length; index++)
+                DocumentArchive.Write(zip, $"EPUB/{paths[index]}", images[index].Bytes, CompressionLevel.NoCompression);
         }
         ct.ThrowIfCancellationRequested();
         if (output.Length > MaximumOutput) throw HtmlDocumentExport.TooLarge("EPUB");
         return output.ToArray();
     }
 
-    private static byte[] ChapterDigest(byte[] chapter, DocumentExportAttachment? attachment)
+    private static byte[] ChapterDigest(byte[] chapter, DocumentExportAttachment[] images)
     {
-        if (attachment is null) return SHA256.HashData(chapter);
+        if (images.Length == 0) return SHA256.HashData(chapter);
         using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        digest.AppendData("fsusblog:epub-image:v1"u8);
-        digest.AppendData(SHA256.HashData(attachment.Bytes));
+        digest.AppendData(images.Length == 1 ? "fsusblog:epub-image:v1"u8 : "fsusblog:epub-image:v2"u8);
+        foreach (var image in images) digest.AppendData(SHA256.HashData(image.Bytes));
         digest.AppendData(chapter);
         return digest.GetHashAndReset();
     }
 
-    private static void ValidateChapter(string chapter, string? imagePath, CancellationToken ct)
+    private static void ValidateChapter(string chapter, string[] imagePaths, CancellationToken ct)
     {
         try
         {
             using var input = new StringReader(chapter);
             using var xml = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-            bool imageFound = false;
+            var imageIndex = 0;
             while (xml.Read())
             {
                 ct.ThrowIfCancellationRequested();
                 if (xml.NodeType != XmlNodeType.Element) continue;
                 var element = xml.LocalName;
-                if (xml.NamespaceURI != Xhtml || !TextElements.Contains(element) && !(imagePath is not null && element is "figure" or "img"))
+                if (xml.NamespaceURI != Xhtml || !TextElements.Contains(element) && !(imagePaths.Length != 0 && element is "figure" or "img"))
                     throw Invalid("This revision contains markup outside the EPUB profile.");
                 if (element == "img")
                 {
-                    if (imageFound || !xml.IsEmptyElement || xml.GetAttribute("src") != imagePath || xml.AttributeCount != 4 ||
+                    if (imageIndex == imagePaths.Length || !xml.IsEmptyElement || xml.GetAttribute("src") != imagePaths[imageIndex++] ||
+                        xml.AttributeCount != 4 ||
                         string.IsNullOrWhiteSpace(xml.GetAttribute("alt")) || !Dimension("width") || !Dimension("height"))
                         throw Invalid("Invalid embedded EPUB image.");
-                    imageFound = true;
                 }
                 bool Dimension(string name) => int.TryParse(xml.GetAttribute(name), NumberStyles.None, CultureInfo.InvariantCulture,
                     out var value) && value > 0;
@@ -144,7 +145,7 @@ internal static class EpubDocumentExport
                         throw Invalid("This revision contains markup outside the EPUB profile.");
                 xml.MoveToElement();
             }
-            if (imagePath is not null && !imageFound) throw Invalid("The embedded EPUB image is missing.");
+            if (imageIndex != imagePaths.Length) throw Invalid("An embedded EPUB image is missing.");
         }
         catch (XmlException)
         {

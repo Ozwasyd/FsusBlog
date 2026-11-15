@@ -331,10 +331,7 @@ public sealed partial class PrivateMediaPostgresTests
                     ((string?)image.Attribute("src"), (string?)image.Attribute("alt"),
                      (string?)image.Attribute("width"), (string?)image.Attribute("height")));
                 Assert.Equal("figure", image.Parent?.Name.LocalName);
-                using var picture = archive.GetEntry("EPUB/" + imagePath)!.Open();
-                using var pictureBytes = new MemoryStream();
-                await picture.CopyToAsync(pictureBytes, ct);
-                Assert.Equal(normalized, pictureBytes.ToArray());
+                Assert.Equal(normalized, await ReadEntry(archive.GetEntry("EPUB/" + imagePath)!));
             }
             using (var repeatEpub = await Export("epub", detached.Revision, saved.Revision, owner, asset))
             {
@@ -383,10 +380,7 @@ public sealed partial class PrivateMediaPostgresTests
                 var blip = Assert.Single(picture.Descendants(drawing + "blip"));
                 Assert.Equal("Image", (string?)blip.Attribute(documentRelationships + "embed"));
                 Assert.Null(blip.Attribute(documentRelationships + "link"));
-                using var image = archive.GetEntry("word/media/attachment.png")!.Open();
-                using var imageBytes = new MemoryStream();
-                await image.CopyToAsync(imageBytes, ct);
-                Assert.Equal(normalized, imageBytes.ToArray());
+                Assert.Equal(normalized, await ReadEntry(archive.GetEntry("word/media/attachment.png")!));
                 if (Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DOCX_IMAGE_FIXTURE") is { Length: > 0 } fixture)
                     await File.WriteAllBytesAsync(fixture, wordBytes, ct);
             }
@@ -437,6 +431,22 @@ public sealed partial class PrivateMediaPostgresTests
             using var bundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
             Assert.Equal(HttpStatusCode.OK, bundle.StatusCode);
             var markup = await bundle.Content.ReadAsStringAsync(ct);
+            var bodies = new Dictionary<DocumentExportFormat, byte[]> { [DocumentExportFormat.Html] = System.Text.Encoding.UTF8.GetBytes(markup) };
+            foreach (var (format, extension, resourceDirectory) in new[]
+            {
+                (DocumentExportFormat.Docx, "docx", "word/media/"),
+                (DocumentExportFormat.Epub, "epub", "EPUB/images/")
+            })
+            {
+                using var portable = await Export(extension, single.Revision, both.Revision, owner, null, selection: selectedPair);
+                Assert.Equal(HttpStatusCode.OK, portable.StatusCode);
+                var bytes = bodies[format] = await portable.Content.ReadAsByteArrayAsync(ct);
+                using var archive = new ZipArchive(new MemoryStream(bytes));
+                var images = archive.Entries.Where(entry => entry.FullName.StartsWith(resourceDirectory, StringComparison.Ordinal)).ToArray();
+                Assert.Equal(new[] { "attachment-1.jpeg", "attachment-2.png" }, images.Select(image => image.Name));
+                Assert.Equal(secondBytes, await ReadEntry(images[0]));
+                Assert.Equal(normalized, await ReadEntry(images[1]));
+            }
             var figures = System.Text.RegularExpressions.Regex.Matches(markup, """<img src="data:image/(jpeg|png);base64,([^"]+)" alt="([^"]+)"[^>]*>""");
             Assert.Equal(new[] { ("jpeg", Convert.ToBase64String(secondBytes), "second.jpg"),
                 ("png", Convert.ToBase64String(normalized), "draft &amp; proof.png") },
@@ -446,7 +456,7 @@ public sealed partial class PrivateMediaPostgresTests
                 ("html", both.Revision, $"{asset:D},{asset:D}", HttpStatusCode.BadRequest),
                 ("html", both.Revision, $"{asset:D},{foreign:D}", HttpStatusCode.NotFound),
                 ("html", single.Revision, selectedPair, HttpStatusCode.NotFound),
-                ("docx", both.Revision, selectedPair, HttpStatusCode.BadRequest)
+                ("docx", both.Revision, $"{asset:D},{foreign:D}", HttpStatusCode.NotFound)
             })
             {
                 using var denied = await Export(format, single.Revision, revision, owner, null, selection: ids);
@@ -493,14 +503,22 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, textTask.StatusCode);
             Assert.Equal(2, Wire.DecodeDocumentExportTask(await textTask.Content.ReadAsByteArrayAsync(ct)).Provider);
 
-            var bundleTask = jobInput with { Id = Guid.NewGuid(), SourceRevision = both.Revision };
-            var bundleFrame = Wire.EncodeDocumentExportCreate(bundleTask);
-            using var queueBundle = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame, selection: selectedPair);
-            Assert.Equal(HttpStatusCode.OK, queueBundle.StatusCode);
-            Assert.Equal(4, Wire.DecodeDocumentExportTask(await queueBundle.Content.ReadAsByteArrayAsync(ct)).Provider);
-            using var reordered = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame,
-                selection: $"{asset:D},{second:D}");
-            Assert.Equal(HttpStatusCode.Conflict, reordered.StatusCode);
+            // The plain v2 receipt above already proved that no attachment was selected. Free its owner quota.
+            await using var remove = db.DataSource.CreateCommand("delete from public.author_document_export where id=$1");
+            remove.Parameters.AddWithValue(plainRequest.Id);
+            Assert.Equal(1, await remove.ExecuteNonQueryAsync(ct));
+            var bundleTasks = bodies.Keys.Select(format => jobInput with
+                { Id = Guid.NewGuid(), SourceRevision = both.Revision, Format = format }).ToArray();
+            foreach (var task in bundleTasks)
+            {
+                var bundleFrame = Wire.EncodeDocumentExportCreate(task);
+                using var queueBundle = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame, selection: selectedPair);
+                Assert.Equal(HttpStatusCode.OK, queueBundle.StatusCode);
+                Assert.Equal(4, Wire.DecodeDocumentExportTask(await queueBundle.Content.ReadAsByteArrayAsync(ct)).Provider);
+                using var reordered = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame,
+                    selection: $"{asset:D},{second:D}");
+                Assert.Equal(HttpStatusCode.Conflict, reordered.StatusCode);
+            }
 
             var queuedServer = server;
             server = null;
@@ -510,7 +528,8 @@ public sealed partial class PrivateMediaPostgresTests
             client = server.Client;
 
             var listPath = WireRoutes.DocumentExportTaskList.Replace("{id:int}", draft.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            DocumentExportTask finished, finishedBundle;
+            DocumentExportTask finished;
+            DocumentExportTask[] finishedBundles;
             using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
             wait.CancelAfter(TimeSpan.FromSeconds(15));
             do
@@ -518,16 +537,18 @@ public sealed partial class PrivateMediaPostgresTests
                 using var tasks = await Send(client, HttpMethod.Get, listPath, owner, wait.Token);
                 var rows = Wire.DecodeDocumentExportTaskList(await tasks.Content.ReadAsByteArrayAsync(wait.Token));
                 finished = Assert.Single(rows, value => value.Request.Id == jobInput.Id);
-                finishedBundle = Assert.Single(rows, value => value.Request.Id == bundleTask.Id);
-                if (new[] { finished, finishedBundle }.All(task => task.State is not (DocumentExportState.Queued or DocumentExportState.Running))) break;
+                finishedBundles = bundleTasks.Select(task => Assert.Single(rows, value => value.Request.Id == task.Id)).ToArray();
+                if (finishedBundles.Append(finished).All(task => task.State is not (DocumentExportState.Queued or DocumentExportState.Running))) break;
                 await Task.Delay(50, wait.Token);
             } while (true);
             Assert.Equal(DocumentExportState.Succeeded, finished.State);
-            Assert.Equal(DocumentExportState.Succeeded, finishedBundle.State);
-            var bundleReference = Wire.EncodeDocumentExportTaskRef(bundleTask.Id);
-            using var deliveredBundle = await Command(WireRoutes.DocumentExportDownload, owner, bundleReference);
-            Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
-            Assert.Equal(markup, await deliveredBundle.Content.ReadAsStringAsync(ct));
+            foreach (var task in finishedBundles)
+            {
+                Assert.Equal(DocumentExportState.Succeeded, task.State);
+                using var deliveredBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Request.Id));
+                Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
+                Assert.Equal(bodies[task.Request.Format], await deliveredBundle.Content.ReadAsByteArrayAsync(ct));
+            }
             var download = Wire.EncodeDocumentExportTaskRef(jobInput.Id);
             using var rendered = await Command(WireRoutes.DocumentExportDownload, owner, download);
             Assert.Equal(HttpStatusCode.OK, rendered.StatusCode);
@@ -549,9 +570,12 @@ public sealed partial class PrivateMediaPostgresTests
             {
                 using var corruptDownload = await Command(WireRoutes.DocumentExportDownload, owner, download);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptDownload.StatusCode);
-                using var corruptBundle = await Command(WireRoutes.DocumentExportDownload, owner, bundleReference);
-                Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptBundle.StatusCode);
-                Assert.DoesNotContain("data:image/", await corruptBundle.Content.ReadAsStringAsync(ct));
+                foreach (var task in bundleTasks)
+                {
+                    using var corruptBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Id));
+                    Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptBundle.StatusCode);
+                    Assert.DoesNotContain("data:image/", await corruptBundle.Content.ReadAsStringAsync(ct));
+                }
             }, ct);
             var priorServer = server;
             server = null;
@@ -603,6 +627,14 @@ public sealed partial class PrivateMediaPostgresTests
                 using var unavailable = await Export(format, expected, selected, actor, image, handle);
                 Assert.Equal(status, unavailable.StatusCode);
                 Assert.NotEqual(mediaType, unavailable.Content.Headers.ContentType?.MediaType);
+            }
+
+            async Task<byte[]> ReadEntry(ZipArchiveEntry entry)
+            {
+                using var part = entry.Open();
+                using var bytes = new MemoryStream();
+                await part.CopyToAsync(bytes, ct);
+                return bytes.ToArray();
             }
 
             static XDocument ReadPart(ZipArchive archive, string path)

@@ -233,6 +233,8 @@ internal static partial class CurrentSchema
             await HasDocumentExportAttachmentsAsync(connection, transaction, cancellationToken);
         var hasExportImageList = hasDocumentExportAttachments &&
             await HasDocumentExportAttachmentsAsync(connection, transaction, cancellationToken, list: true);
+        var hasPortableImageList = hasExportImageList &&
+            await FindExportImageListConstraintAsync(connection, transaction, cancellationToken, portable: true) is not null;
         if (requireDocumentExports.HasValue && requireDocumentExports.Value != hasDocumentExports)
             throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
@@ -360,7 +362,7 @@ internal static partial class CurrentSchema
                     : [currentDocumentExportProvider ? "author_document_export c provider provider>=1ANDprovider<=2"
                         : "author_document_export c provider provider=1"]).Concat(hasExportImageList
                     ? ["author_document_export c provider,attachment_ids (provider=4)=(attachment_idsISNOTNULL)",
-                       "author_document_export c attachment_ids,format attachment_idsISNULLORformat=1ANDcardinality(attachment_ids)>=2ANDcardinality(attachment_ids)<=4ANDarray_ndims(attachment_ids)=1ANDarray_position(attachment_ids,NULL::uuid)ISNULL"] : []) : [])
+                       $"author_document_export c attachment_ids,format {ExportImageListCondition(hasPortableImageList)}"] : []) : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
             .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])
