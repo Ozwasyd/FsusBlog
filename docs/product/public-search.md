@@ -18,9 +18,9 @@ Chrome 157 用 220 篇实库文章验证两个分片。发布和撤回第 221 �
 
 离线工具验证固定 v1 FSIM、FSPT 和三个完整角色分片，可复现通过固定摘要认证的补丁。在线补丁传输、固定浏览器 Wasm 的原始分页和排名仍待验收。 [离线补丁审计](search-patch-audit.md)
 
-## 大语料前置
+## 大语料
 
-生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页按得分、发布时间和 ID 合并。当前 Worker 只在内存保留一代完整 FSPK 页，复用前和显示前各检查一次代次。旧代页只有在当前页返回匹配的强 ETag 且响应为空的 304 后才重新校验。网络或代次检查失败后清除活动缓存。IndexedDB 当前用于作者草稿恢复。固定 v1 则通过 Emscripten runtime 加载角色分片，使用 Service Worker 的 CacheStorage 保存资产。固定原始排序与当前 Worker 排序的差分仍由各自的向量验收。 [当前 Worker](../../src/Web/src/search.worker.ts) · [固定 v1 排名](v1-search-ranking-oracle.md) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
+生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页按得分、发布时间和 ID 降序合并。短语计算每页最多保留 200 KiB 的位置范围表，并合并所查询词的有序位置。紧凑档在 Worker 内存保留一代完整 FSPK 页，复用和显示前各检查一次代次。旧代页在同页返回匹配的强 ETag 和空体 304 后重新校验。固定 v1 通过 Emscripten runtime 加载角色分片，使用 Service Worker 的 CacheStorage 保存资产。固定原始排序与当前 Worker 排序的差分由各自的向量验收。 [当前 Worker](../../src/Web/src/search.worker.ts) · [短语差分](../../tests/Protocol/local-search-positions.test.ts) · [固定 v1 排名](v1-search-ranking-oracle.md) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
 
 FSPK 编码器使用同一逐页生产者服务现有内存收集器与诊断暂存目标。每次输出包含页号、文章数、首末文章 ID 和完整原始页。单页仍最多 200 篇和 8 MiB，现有 HTTP 路径仍最多 128 页和 64 MiB。暂存调用显式给出界限，最多接受 512 页和 256 MiB，这组上限供独立测量使用。预算未满足、取消或暂存方拒绝时丢弃全部暂存页。
 
@@ -36,4 +36,8 @@ FSPK 编码器使用同一逐页生产者服务现有内存收集器与诊断暂
 
 macOS PostgreSQL 18.7 和 Debian ARM64 PostgreSQL 17.12 各通过 26 项宽语料及回归验证。两端运行的托管程序集 SHA-256 一致。40,002 篇实库用例核对了清单、首中末页、HEAD 和撤回后的旧代次。撤回前后字节及 ETag 相同的页面仍拒绝旧代次。受控竞态也验证了最终响应检查和双文件槽位。两端的临时库、暂存文件均已清理，Debian 虚拟机已停止。GNU tar 解包时忽略了 macOS 文件来源扩展属性，程序集校验通过。 [macOS 原始结果](../../artifacts/fspk-wide-http/macos-first/native.log) · [Debian 原始结果](../../artifacts/fspk-wide-http/debian-first/native.log)
 
-产品浏览器仍使用原 FSPK 路径。后续可按当前清单顺序下载并校验全代，浏览器用紧凑数组记录得分、发布时间、ID 和来源页，再从同代本地数据解码当前页所需卡片。显示前通过宽档 HEAD 检查代次。持久缓存配额和完整 85,000 篇端到端验证分别验收。
+紧凑档返回 503 时，浏览器可读取已启用的宽档。Worker 按清单顺序下载一代原始页，核对每页字节、强 ETag、SHA-256 和文章范围。独立的 IndexedDB 使用同源 Web Lock 串行协调，最多持有 512 页和 256 MiB 原始 FSPK。全部页和封存前的 HEAD 通过后才允许查询。换词和翻页复用同一下载，页号和顺序由清单决定。排序后只缓存一组结果位置，从同代本地数据解码当前页所需卡片。窗口在显示前用代次和摘要执行最终 HEAD。损坏页或已确认失效的代次会清除关联缓存。 [浏览器协调](../../src/Web/src/wideSearch.ts) · [浏览器存储](../../src/Web/src/wideSearchStorage.ts)
+
+Chromium 157 经 Caddy 2.11.9 HTTPS 使用 26,002 篇实库文章验证第 2,601 页。快速换词和第二标签页共用一次 131 页下载，共 5,286,112 字节。新 Worker 复用封存缓存时没有宽档原始页 GET。人为改动第 66 页一个字节后，查询拒绝显示并清空缓存，显式重试才再次下载。真实撤回触发窗口最终 HEAD 409，旧结果和缓存均清除。新代次的 131 页共 5,285,917 字节。严格 TypeScript、Vite 和 14 项 Node 用例通过，临时数据库和监听器已清理。前两次浏览器执行的夹具分别因单页上下文和分页读数选择器失败，修正夹具后复跑通过。 [浏览器原始请求与存储](../../artifacts/fspk-wide-browser/verification.Is63PN/caddy/wide-search-worker.json) · [通过记录](../../artifacts/fspk-wide-browser/verification.Is63PN/run.txt) · [首次失败](../../artifacts/fspk-wide-browser/verification.R28W7F/caddy-run.log) · [第二次失败](../../artifacts/fspk-wide-browser/verification.ekNx9P/caddy-run.log)
+
+85,000 篇的原始编码和 C11 夜间 HTTP 探针各有独立记录。宽档浏览器和 IndexedDB 的实库验收规模为 26,002 篇，85,000 篇的浏览器存储占用和查询耗时仍待测量。 [C11 探针](../issues/risk-scale-query-cases.md)

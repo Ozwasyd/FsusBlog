@@ -168,7 +168,15 @@ created=1
 "$dotnet" "$migrate" plan > "$evidence/schema-plan.json"
 "$dotnet" "$migrate" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
 "$dotnet" "$migrate" verify >> "$evidence/schema.log"
-FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
+if [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
+  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator browser-author)
+  export FSUSBLOG_WIDE_SEARCH_CORPUS=true
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -v fixture_count=26002 -d "$database" \
+    -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/wide-search-fixture.log"
+  shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
+else
+  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
+fi
 if [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
   export FSUSBLOG_ARTICLE_READ_PROOF=true FSUSBLOG_TEST_READ_PROOF_DATABASE="$database"
   export FSUSBLOG_RUNTIME_EVIDENCE_CONTROL="$scratch" FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT="$evidence/article-read-proof-runtime.ndjson"
@@ -510,6 +518,8 @@ elif [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/publication-proof-flow.mjs
 elif [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/article-read-proof-flow.mjs
+elif [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
+  node tests/EndToEnd/wide-search-worker-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
 fi
