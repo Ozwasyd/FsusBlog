@@ -247,6 +247,16 @@ public sealed class CanvasPostgresTests
         const string initialBody = "Utility 🐈\r\n\r\n# Pinned heading ^overview\r\n\r\nPinned paragraph ^detail";
         var initial = await test.Save(owner.Token, "Old private title", initialBody);
         var crlfSource = await test.Save(owner.Token, "Current source with CRLF", initialBody);
+        var unsupported = new List<(Guid Node, int Article, string Body)>();
+        foreach (var body in new[] {
+            initialBody + "\r\nSecond paragraph\n",
+            "Utility 🐈\n\nPinned paragraph ^detail\n\nSecond paragraph\r\n",
+            initialBody + "\r\nSecond paragraph\r"
+        })
+        {
+            var source = await test.Save(owner.Token, "Current source with unsupported line endings", body);
+            unsupported.Add((Guid.NewGuid(), source.Id, body));
+        }
         var current = await test.Save(owner.Token, "New private title", "# Latest heading ^overview\n\n" +
             "First instance ^ambiguous\n\nSecond instance ^ambiguous\n\n" +
             "```markdown\n# Looks like a heading ^hidden\n```", initial.Id, initial.Revision);
@@ -270,6 +280,7 @@ public sealed class CanvasPostgresTests
             Node(article, 0, current.Id, null, null),
             Node(crlfBlock, 2, crlfSource.Id, "detail", null),
             Node(crlfArticle, 0, crlfSource.Id, null, null),
+            .. unsupported.Select(source => Node(source.Node, 2, source.Article, "detail", null)),
             Node(ambiguous, 2, current.Id, "ambiguous", null),
             Node(hidden, 1, current.Id, "hidden", null),
             Node(mismatchedKind, 1, current.Id, "detail", initial.Revision),
@@ -295,9 +306,18 @@ public sealed class CanvasPostgresTests
         Assert.Null(metadata.Excerpt);
         Assert.Null(metadata.SourceOffset);
         Assert.Equal(metadata, await Resolve(article, requireCurrent: true));
-        Assert.Equal(initialBody.IndexOf("^detail", StringComparison.Ordinal), (await Resolve(crlfBlock)).SourceOffset);
-        Assert.Equal(Stale(crlfBlock), await Resolve(crlfBlock, requireCurrent: true));
+        var crlfPreview = await Resolve(crlfBlock);
+        Assert.Equal((CanvasReferenceState.Resolved, crlfSource.Revision, initialBody.IndexOf("^detail", StringComparison.Ordinal)),
+            (crlfPreview.State, crlfPreview.ArticleRevision, crlfPreview.SourceOffset));
+        Assert.Equal(crlfPreview, await Resolve(crlfBlock, requireCurrent: true));
         Assert.Equal(crlfSource.Revision, (await Resolve(crlfArticle, requireCurrent: true)).ArticleRevision);
+        foreach (var source in unsupported)
+        {
+            var preview = await Resolve(source.Node);
+            Assert.Equal(CanvasReferenceState.Resolved, preview.State);
+            Assert.Equal(source.Body.IndexOf("^detail", StringComparison.Ordinal), preview.SourceOffset);
+            Assert.Equal(Stale(source.Node), await Resolve(source.Node, requireCurrent: true));
+        }
         foreach (var (node, expected) in new[] {
             (ambiguous, CanvasReferenceState.DuplicateAnchor), (hidden, CanvasReferenceState.MissingAnchor),
             (mismatchedKind, CanvasReferenceState.MissingAnchor)

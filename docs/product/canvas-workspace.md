@@ -4,9 +4,11 @@
 
 可以创建和编辑五种节点，连接两种边，筛选已加载的节点、调整分组成员，并切换图形及大纲。应用使用检出的 FsusUI 组件呈现确认和编辑对话框。选中文章、标题或块引用后，可以在检查区请求预览。同作者的当前草稿或固定修订显示标题，唯一锚点同时显示纯文本上下文。含歧义或缺失的锚点显示状态。视图、所选节点或文档修订改变后会清除预览。 [引用浏览器结果](../../artifacts/canvas-reference-browser/browser-result.json)
 
-在 Canvas 预览中选择 `Open in editor` 会以当前登录凭证重查 Canvas、节点、文章修订和坐标。只有文章工作区 registry 确认同一已保存修订后才挂载编辑器。对于唯一标题或块锚点，使用本地 FsusUI 公开定位接口把光标移到原始 Markdown 中 `^` 的 UTF-16 坐标。历史固定修订仍使用 Canvas 中的不可变预览。若锚点前存在会影响浏览器文本坐标的回车，预览可用，编辑器定位会被拒绝。跳转凭据在当前标签页短期有效，浏览器历史仅暂存不透明标记。固定 v1 源使用同一类 FsusUI `revealSourceRange` 接口定位大纲诊断，未找到固定 v1 前端的 Canvas 跳转实现。
+在 Canvas 预览中选择 `Open in editor` 会以当前登录凭证重查 Canvas、节点、文章修订和坐标。只有文章工作区 registry 确认同一已保存修订后才挂载编辑器。对于唯一标题或块锚点，服务保留原始 Markdown 中 `^` 的 UTF-16 坐标。LF 和统一 CRLF 稿件可通过本地 FsusUI 公开定位接口打开。统一 CRLF 稿件在编辑器中映射为 LF，确认全文和坐标边界后再定位，保存时保留 CRLF 及其他原始字符。混用 LF 与 CRLF 或含独立回车的锚点继续使用 Canvas 预览。历史固定修订使用 Canvas 的不可变预览。跳转凭据在当前标签页短期有效，浏览器历史仅暂存不透明标记。固定 v1 源使用同一类 FsusUI `revealSourceRange` 接口定位大纲诊断，未找到固定 v1 前端的 Canvas 跳转实现。
 
 原生 PostgreSQL 与 Chrome 覆盖普通文章、桌面标题和 375px 固定块的准确跳转。带汉字和代理对的语料区分 UTF-16、字符和字节索引。浏览器在预检完成后并发保存新修订时，旧跳转没有挂载编辑器。固定历史修订保留原预览，重复锚点没有打开入口。 [浏览器结果](../../artifacts/canvas-reference-handoff/run-2/browser-result.json) · [运行记录](../../artifacts/canvas-reference-handoff/run-2/run.txt)
+
+统一 CRLF 的浏览器回归核对了原始与编辑器坐标、分解态 Unicode、只改标题、撤销，以及跨行编辑后的保存。PostgreSQL 与 Kestrel 回归同时验证混合换行和单独回车仍能按原始坐标预览。 [浏览器结果](../../artifacts/canvas-crlf-browser/run-1/browser-result.json) · [运行记录](../../artifacts/canvas-crlf-browser/run-1/run.txt)
 
 显式引用边的两端都是未固定修订的普通文章时，可以预览服务端生成的 Markdown。取消保留文章原文，明确确认通过同一数据库事务写入一个新的私有文章修订。图形编辑和链接确认使用同一文档修订号。旧标签收到冲突后可重新加载，网络结果不明时同一请求可重试。视觉边、固定引用和标题／块节点没有链接确认入口。
 

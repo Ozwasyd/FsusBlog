@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { defaultMarkdownEditorCommands, ElAlert, ElButton, ElInput, ElMarkdownEditor } from '@ozwasyd/element-plus'
 import type { Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange } from './sourceCoordinates'
 import type { WorkspaceSource } from './workspaceRegistry'
 
 const props = defineProps<{
@@ -22,6 +23,12 @@ const groupName = computed(() => props.pane.tab.group === 'main' ? 'Primary arti
 const identity = computed(() => ({ id: `blog-editor-${props.pane.tab.sessionId}`, epoch: props.pane.tab.sessionId }))
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(props.pane.draft.title.trim()).length)
+const crlf = ref(false)
+watch(() => props.pane.draft.body, body => {
+  // Leaving all line breaks out of a source edit keeps the established style for undo and new input.
+  if (/[\r\n]/u.test(body)) crlf.value = hasUniformCrlf(body)
+}, { immediate: true, flush: 'sync' })
+const editorSource = computed(() => crlf.value ? normalizeCrlf(props.pane.draft.body) : props.pane.draft.body)
 
 watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async ([target, focused, blocked], _, cleanup) => {
   if (!target || !focused || blocked) return
@@ -32,14 +39,15 @@ watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async 
   const body = props.pane.draft.body
   const textarea = document.getElementById(bodyId.value)
   const { offset } = target
-  const exactSource = target.current() && props.pane.draft.revision === target.revision && body[offset] === '^' &&
-    textarea instanceof HTMLTextAreaElement && textarea.value.slice(0, offset + 1) === body.slice(0, offset + 1)
-  const success = exactSource && markdown.value?.revealSourceRange({ start: offset, end: offset }, { mode: 'source', reducedMotion: true }) === 'success'
+  const range = target.current() && props.pane.draft.revision === target.revision && body[offset] === '^' &&
+    textarea instanceof HTMLTextAreaElement && textarea.value === editorSource.value
+    ? textareaSourceRange(body, textarea.value, { start: offset, end: offset }) : undefined
+  const success = !!range && markdown.value?.revealSourceRange(range, { mode: 'source', reducedMotion: true }) === 'success'
   emit('sourceRevealed', success)
 }, { immediate: true, flush: 'post' })
 
 function edit(field: 'title' | 'body', value: string) {
-  if (props.focus && !props.blocked) emit('edit', field, value)
+  if (props.focus && !props.blocked) emit('edit', field, field === 'body' && crlf.value ? restoreCrlf(value) : value)
 }
 </script>
 
@@ -59,12 +67,12 @@ function edit(field: 'title' | 'body', value: string) {
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
     <label :for="bodyId">Body</label>
     <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
-      :model-value="pane.draft.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
+      :model-value="editorSource" @update:model-value="edit('body', $event)" placeholder="Start writing here."
       :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
       :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />
     <template v-else>
       <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
-      <ElInput :id="bodyId" :model-value="pane.draft.body" @update:model-value="edit('body', $event)" type="textarea"
+      <ElInput :id="bodyId" :model-value="editorSource" @update:model-value="edit('body', $event)" type="textarea"
         :autosize="{ minRows: 14 }" placeholder="Start writing here." :readonly="!focus" :disabled="focus && blocked" />
     </template>
     <slot name="after" />

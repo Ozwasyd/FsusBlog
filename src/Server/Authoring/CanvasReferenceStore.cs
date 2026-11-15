@@ -65,11 +65,10 @@ internal static class CanvasReferenceStore
         if (immutable.IsDBNull(1) || anchor is null) return Empty(CanvasReferenceState.StaleRevision);
         string body = immutable.GetString(1);
         if (body.Length > CanvasAnchor.MaxSourceCharacters) return Empty(CanvasReferenceState.StaleRevision);
+        // The editor can map original UTF-16 offsets only for consistently LF- or CRLF-delimited source.
+        if (requireCurrent && !HasConsistentLineEndings(body)) return Empty(CanvasReferenceState.StaleRevision);
         var coordinate = CanvasAnchor.Find(body, anchor, kind == CanvasNodeKind.HeadingReference, ct);
         ct.ThrowIfCancellationRequested();
-        // The source editor restores selection in a textarea, whose value normalizes carriage returns.
-        if (requireCurrent && coordinate.SourceOffset is int offset && body.AsSpan(0, offset).Contains('\r'))
-            return Empty(CanvasReferenceState.StaleRevision);
         var state = coordinate.State switch
         {
             CanvasAnchorState.Resolved => CanvasReferenceState.Resolved,
@@ -79,5 +78,26 @@ internal static class CanvasReferenceStore
         };
         return new(canvasId, nodeId, revision, state, articleId, target, pin.HasValue,
             title, string.IsNullOrEmpty(coordinate.Excerpt) ? null : coordinate.Excerpt, coordinate.SourceOffset);
+    }
+
+    private static bool HasConsistentLineEndings(ReadOnlySpan<char> body)
+    {
+        bool sawLf = false;
+        bool sawCrLf = false;
+        for (int i = 0; i < body.Length; i++)
+        {
+            if (body[i] == '\r')
+            {
+                if (sawLf || i + 1 == body.Length || body[i + 1] != '\n') return false;
+                sawCrLf = true;
+                i++;
+            }
+            else if (body[i] == '\n')
+            {
+                if (sawCrLf) return false;
+                sawLf = true;
+            }
+        }
+        return true;
     }
 }
