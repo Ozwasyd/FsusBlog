@@ -62,6 +62,15 @@ phase() {
     printf 'end %s %ss\n' "$step" "$((SECONDS - started))" | tee -a "$evidence/phases.txt"
 }
 
+record_filesystem() {
+    {
+        printf 'filesystem_phase=%s\n' "$1"
+        df -Pk "$scratch"
+        du -sk "$scratch"
+        du -sk "$data_dir/pg_wal"
+    } >> "$evidence/run.txt"
+}
+
 unset PGHOSTADDR PGSERVICE PGSERVICEFILE PGOPTIONS PGPASSWORD PGPASSFILE PGSSLMODE PGDATABASE
 export LC_ALL=C PGHOST="$scratch/socket" PGPORT=54936 PGUSER=fsusv2_nightly_qa
 initdb -D "$data_dir" -U "$PGUSER" --auth-local=trust --auth-host=reject --locale=C -E UTF8 > "$evidence/init.log"
@@ -94,20 +103,24 @@ COMMIT;
 SQL
 phase generate python3 -B tests/Performance/nightly-plan.py "$profile" "$due" "$scratch"
 cp "$scratch/plan.json" "$evidence/plan.json"
+record_filesystem before-articles
 
 before=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 export FSUSBLOG_NIGHTLY_FIXTURE=1 FSUSBLOG_NIGHTLY_FIXTURE_DB="$FSUSBLOG_DB"
 export FSUSBLOG_NIGHTLY_FIXTURE_SITE="$site" FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES="$scratch/articles.tsv"
 export FSUSBLOG_NIGHTLY_FIXTURE_COUNT="$articles" FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS="$due"
 export FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR="$data_dir"
-phase write-articles "$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles'
+phase write-articles "$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles' \
+    '--logger:console;verbosity=detailed'
 unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES
 unset FSUSBLOG_NIGHTLY_FIXTURE_COUNT FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR
 after_articles=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
+record_filesystem after-articles
 "${sql[@]}" -c "SELECT pg_sleep(greatest(0,extract(epoch FROM max(published_at)+interval '1 second'-clock_timestamp()))) FROM public.article_publication" >/dev/null
 phase write-comments "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
     -v profile="$profile" -f tests/Performance/nightly-comments.sql
 after_comments=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
+record_filesystem after-comments
 
 phase verify-operators "${migrate[@]}" verify
 phase verify-publications "${migrate[@]}" publication-canonical verify
@@ -130,9 +143,13 @@ rows = [json.loads(line) for line in (path / "verify-rows.log").read_text().spli
 articles, = [row["actual"] for row in rows if row["kind"] == "article-graph"]
 comments, = [row["actual"] for row in rows if row["kind"] == "comment-graph"]
 thread, = [row for row in rows if row["kind"] == "thread-case"]
-assert [articles[key] for key in ("articles", "active", "revisions", "publication_history", "publication_rights", "schedules")] == [
-    plan[key] for key in ("articles", "activePublications", "revisions", "publicationHistory", "historicalPublications", "scheduled")
-]
+for actual, expected in {
+    "articles": "articles", "active": "activePublications", "revisions": "revisions", "commands": "authorCommands",
+    "archive_receipts": "archivedReleases", "publication_history": "publicationHistory",
+    "publication_canonical": "canonicalPublications", "publication_rights": "retainedReleaseRights",
+    "responsibility_snapshots": "responsibilitySnapshots", "schedules": "scheduled",
+}.items():
+    assert articles[actual] == plan[expected], (actual, articles[actual], plan[expected])
 assert [comments[key] for key in ("rows", "roots", "replies", "visible_content", "structural_nodes")] == [
     plan["comments"][key] for key in ("rows", "roots", "replies", "visibleContent", "structuralNodes")
 ]
@@ -143,7 +160,8 @@ assert len(cases) == len(plan["articleCases"])
 for row, expected in zip(cases, plan["articleCases"]):
     assert row["revision"] == expected["currentRevision"]
     for key in ("id", "publicRevision", "publicationId", "historicalFirstPublicationId", "category", "tag",
-                "originalTitle", "originalBodySha256", "currentBodySha256"):
+                "originalTitle", "originalBodySha256", "currentBodySha256", "archiveSupersededReleaseId",
+                "archivedReleaseId", "archiveInterimBodySha256"):
         assert row[key] == expected[key], (key, row, expected)
     assert row["publicBodySha256"] == (expected["originalBodySha256"] if expected["publicationId"] else None)
 canonical = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8") + b"\n"
@@ -153,6 +171,8 @@ PY
 "${sql[@]}" -v before="$before" -v after_articles="$after_articles" -v after_comments="$after_comments" <<'SQL' > "$evidence/database-resources.json"
 SELECT jsonb_build_object('articleWalBytes',pg_wal_lsn_diff(:'after_articles',:'before'),
     'commentWalBytes',pg_wal_lsn_diff(:'after_comments',:'after_articles'),
-    'databaseBytes',pg_database_size(current_database()));
+    'databaseBytes',pg_database_size(current_database()),'tempFileBytes',temp_bytes,'tempFiles',temp_files)
+FROM pg_stat_database WHERE datname=current_database();
 SQL
+record_filesystem after-readback
 printf 'Verified %s PostgreSQL fixture data and selected coordinates. HTTP/nightly acceptance is separate.\n' "$profile"

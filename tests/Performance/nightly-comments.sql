@@ -37,7 +37,7 @@ CREATE TEMP TABLE c11_comment_plan ON COMMIT DROP AS
 SELECT * FROM (VALUES
     ('pilot', 20, 16, 18, 18, 19, 20, 16, 52, 12, 2, 0, 48, 84),
     ('nightly', 100000, 80000, 85001, 90000, 90001, 95001, 10000, 10000, 480, 5, 65008, 500000, 500000)
-) p(profile, article_count, published_last, update_first, update_last, retracted_id, deleted_id,
+) p(profile, article_count, published_last, update_first, update_last, archived_id, deleted_id,
     hot_roots, hot_replies, wide_replies, regular_pairs, extra_pair_articles, root_count, reply_count)
 WHERE p.profile = :'profile';
 
@@ -57,32 +57,69 @@ GROUP BY p.article_count \gset
 DO $$ BEGIN RAISE EXCEPTION 'Comment fixture article IDs or active release coordinates differ'; END $$;
 \endif
 
--- Open posts use their current publication time. The two closed posts use the release
--- actually superseded by the durable retract/delete event.
+-- Open posts use their current publication time. Archived and deleted posts use the
+-- last public release confirmed by their distinct terminal events and receipts.
 CREATE TEMP TABLE c11_comment_window ON COMMIT DROP AS
+WITH closed AS (
+    SELECT a.owner_id, a.deleted, h.*
+    FROM c11_comment_plan p JOIN public.article a ON a.id IN (p.archived_id, p.deleted_id)
+    CROSS JOIN LATERAL (
+        SELECT h.* FROM public.article_publication_history h WHERE h.article_id = a.id ORDER BY h.event_no DESC LIMIT 1
+    ) h
+    WHERE a.published_revision IS NULL AND a.revision = h.revision AND a.publication_count = h.publication_no
+        AND h.publication_id IS NULL AND h.happened_at <= statement_timestamp()
+        AND NOT EXISTS (SELECT FROM public.article_publication release WHERE release.article_id = a.id)
+)
 SELECT release.article_id, release.published_at AS opened_at, NULL::timestamptz AS closed_at
 FROM public.article_publication release CROSS JOIN c11_comment_plan p
 WHERE release.article_id BETWEEN 1 AND p.published_last
    OR release.article_id BETWEEN p.update_first AND p.update_last
 UNION ALL
-SELECT a.id, prior.happened_at, terminal.happened_at
+SELECT h.article_id, prior.happened_at, h.happened_at
 FROM c11_comment_plan p
-CROSS JOIN LATERAL (VALUES (p.retracted_id, 'retract', false), (p.deleted_id, 'delete', true)) closed(id, kind, deleted)
-JOIN public.article a ON a.id = closed.id AND a.deleted = closed.deleted
-JOIN LATERAL (
-    SELECT h.kind, h.happened_at, h.publication_id, h.supersedes_id
-    FROM public.article_publication_history h WHERE h.article_id = a.id ORDER BY h.event_no DESC LIMIT 1
-) terminal ON terminal.kind = closed.kind AND terminal.publication_id IS NULL
+JOIN closed h ON h.article_id = p.archived_id
+JOIN public.admin_article_rollback archive
+    ON (archive.principal_id, archive.command_id) = (h.admin_actor_id, h.admin_command_id)
+    AND (archive.article_id, archive.revision, archive.publication_no, archive.published_at)
+        = (h.article_id, h.revision, h.publication_no, h.happened_at)
+    AND archive.previous_publication_id = h.supersedes_id
 JOIN public.article_publication_history prior
-    ON prior.article_id = a.id AND prior.publication_id = terminal.supersedes_id
-    AND prior.happened_at + interval '2 microseconds' < terminal.happened_at
-WHERE a.published_revision IS NULL AND NOT EXISTS (
-    SELECT FROM public.article_publication release WHERE release.article_id = a.id);
+    ON (prior.article_id, prior.publication_id, prior.revision)
+        = (h.article_id, archive.previous_publication_id, archive.previous_revision)
+JOIN public.article_publication_history source
+    ON (source.article_id, source.publication_id, source.revision)
+        = (h.article_id, archive.source_publication_id, archive.source_revision)
+    AND source.publication_id = prior.supersedes_id
+WHERE NOT h.deleted AND h.kind = 'retract' AND h.reason = 'administrator-rollback-archived'
+    AND (h.event_no, h.revision, h.publication_no) = (3, 6, 3)
+    AND h.actor_id IS NULL AND h.command_id IS NULL
+    AND archive.principal_id = 'cb7c1f2b-fd4e-4cce-9b22-31e36b475c28'::uuid AND archive.principal_id <> h.owner_id
+    AND archive.destination = 3 AND NOT archive.from_archive
+    AND (prior.event_no, prior.revision, prior.publication_no) = (2, 5, 2)
+    AND prior.kind = 'replace' AND prior.reason = 'author-replaced' AND prior.actor_id = h.owner_id
+    AND (source.event_no, source.revision, source.publication_no) = (1, 3, 1)
+    AND source.kind = 'publish' AND source.reason = 'author-published' AND source.actor_id = h.owner_id
+    AND source.happened_at < prior.happened_at AND prior.happened_at + interval '2 microseconds' < h.happened_at
+    AND NOT EXISTS (SELECT FROM public.article_publication release WHERE release.publication_id = archive.publication_id)
+    AND NOT EXISTS (SELECT FROM public.article_publication_history visible WHERE visible.publication_id = archive.publication_id)
+UNION ALL
+SELECT h.article_id, prior.happened_at, h.happened_at
+FROM c11_comment_plan p
+JOIN closed h ON h.article_id = p.deleted_id
+JOIN public.article_command receipt ON (receipt.actor_id, receipt.command_id) = (h.owner_id, h.command_id)
+    AND (receipt.article_id, receipt.revision) = (h.article_id, h.revision) AND NOT receipt.published
+JOIN public.article_publication_history prior ON (prior.article_id, prior.publication_id) = (h.article_id, h.supersedes_id)
+WHERE h.deleted AND h.kind = 'delete' AND h.reason = 'author-deleted'
+    AND (h.event_no, h.revision, h.publication_no) = (2, 4, 1)
+    AND h.actor_id = h.owner_id AND h.admin_actor_id IS NULL AND h.admin_command_id IS NULL
+    AND (prior.event_no, prior.revision, prior.publication_no) = (1, 3, 1)
+    AND prior.kind = 'publish' AND prior.reason = 'author-published' AND prior.actor_id = h.owner_id
+    AND prior.happened_at + interval '2 microseconds' < h.happened_at;
 
 SELECT count(*) = 2 AS has_closed_windows FROM c11_comment_window WHERE closed_at IS NOT NULL \gset
 \if :has_closed_windows
 \else
-DO $$ BEGIN RAISE EXCEPTION 'Comment fixture requires both genuine prior publication windows'; END $$;
+DO $$ BEGIN RAISE EXCEPTION 'Comment fixture requires genuine archive and owner-delete publication windows'; END $$;
 \endif
 
 CREATE TEMP TABLE c11_comment_regular ON COMMIT DROP AS
@@ -104,7 +141,7 @@ WITH roots AS (
     SELECT a.article_id, r.root_no FROM c11_comment_regular a
     CROSS JOIN LATERAL generate_series(a.first_root, a.first_root + a.pairs - 1) r(root_no)
     UNION ALL
-    SELECT retracted_id, root_count - 1 FROM c11_comment_plan
+    SELECT archived_id, root_count - 1 FROM c11_comment_plan
     UNION ALL
     SELECT deleted_id, root_count FROM c11_comment_plan
 )
@@ -129,7 +166,7 @@ WITH hot AS (
     SELECT a.article_id, r.root_no FROM c11_comment_regular a
     CROSS JOIN LATERAL generate_series(a.first_root, a.first_root + a.pairs - 1) r(root_no)
     UNION ALL
-    SELECT retracted_id, root_count - 1 FROM c11_comment_plan
+    SELECT archived_id, root_count - 1 FROM c11_comment_plan
     UNION ALL
     SELECT deleted_id, root_count FROM c11_comment_plan
 ), replies AS (
