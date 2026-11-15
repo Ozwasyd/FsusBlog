@@ -42,4 +42,6 @@
 
 `75fd08f` 通过原生 PostgreSQL 18.7 的 100,000 篇文章与 1,000,000 条评论满档。独立回读确认 85,000 个当前公开坐标、10,000 个待执行计划、5,000 条原生归档回执和零坐标偏差。500,000 个根、500,000 条回复共得出 999,988 条公开正文和 999,991 个结构节点，最大深度 32，最大直接回复数 480。文章写入约 398 秒，评论写入约 19 秒，发布历史等 `migrate verify` 校验约 2 秒，另有 100,000 个 canonical 摘要通过校验，耗时 404.94 秒。数据库约 1.37 GB，文章和评论写入 WAL 分别约 1.96 GB 和 0.81 GB。14 个文章 HTTP 观测与同库 SQL 一致，服务和数据库均已清理。 [满档运行](../../artifacts/c11-http-75fd08f/nightly/run.txt) · [读回与资源](../../artifacts/c11-http-75fd08f/nightly/readback.json) · [资源指标](../../artifacts/c11-http-75fd08f/nightly/database-resources.json) · [HTTP 范围与两次超时](risk-scale-query-cases.md)
 
-单独的百万文章档仍需要可实跑的计划、在封存 revision/publication/outbox 前分配主键、生产语义共用的有界写入器，以及独立回读和失败恢复。实际验收还需覆盖符合该档的排序、发布与撤回及浏览器消费。 [文章图和计数](https://github.com/Ozwasyd/FsusBlog/issues/2542) · [评论图终态](https://github.com/Ozwasyd/FsusBlog/issues/2549) · [公开搜索缺口](risk-public-search.md)
+现有 `pilot` 的可选 V3 模式在 `56ee157` 的 PostgreSQL 18.7 实测中，以 8／8／4 三个封存分片供同一个真实写入器使用。逻辑原始 TSV 与原计划逐字节相同。终止已分配 ID 且未提交的事务后从第 8 篇续跑。生产数据提交而测试端丢失确认后从第 16 篇继续。第 19 篇重开同一归档意图，并从新会话取回第 6 版原生回执。最终只产生一次归档，66 个修订的原始 UTF‑8 和 20 个 canonical 记录均通过核对。 [断点及分片实测](../../artifacts/c11-checkpoint-v3-78fffce7/native-proof.json)
+
+单独的百万文章档需把 V3 分片、真实单库写入器和独立键／正文回读扩展到目标数量，并实测执行时间、资源和停止后续跑。对应档位的排序、发布与撤回、浏览器消费及跨 provider 能力各自需要实际证据。 [文章图和计数](https://github.com/Ozwasyd/FsusBlog/issues/2542) · [评论图终态](https://github.com/Ozwasyd/FsusBlog/issues/2549) · [公开搜索缺口](risk-public-search.md)
