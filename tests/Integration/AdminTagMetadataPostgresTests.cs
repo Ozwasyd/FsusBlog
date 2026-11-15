@@ -23,13 +23,7 @@ public sealed class AdminTagMetadataPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var id = Guid.NewGuid();
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'tag-editor',$2,true,1)", id,
-            RandomNumberGenerator.GetBytes(32));
-        await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", new byte[] { 1 }, id, new byte[] { 2 });
-        await Sql("insert into public.admin_permission values($1,$2)", id, CurrentSchema.AdminManagePermission);
-        await Sql("insert into public.admin_session values($1,$2,1,now()+interval '10 minutes')", Store.TokenDigest(token)!, id);
+        var (id, token, _) = await FixtureSql.AdminAsync(db, ct, "tag-editor", 10, [1], [2]);
         await Sql("insert into public.tag(id,name,description) values(1,'Ancienne','Original description'),(2,'Other',null),(3,'Peer',null)");
         await Sql("insert into public.tag_url_name values('ARCHIVED',2)");
 
@@ -123,11 +117,8 @@ public sealed class AdminTagMetadataPostgresTests
             return Convert.ToBase64String(output.ToArray());
         }
 
-        async Task Sql(string text, params object[] values)
-        {
-            await using var query = Store.Sql(db, null, text, values);
-            await query.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string text, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, text, values);
 
         async Task<long> Number(string text)
         {

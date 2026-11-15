@@ -1317,6 +1317,7 @@ async function reloadDraft() {
             <ElButton text native-type="button" :disabled="!canArrangeGroups || tab.group === 'secondary'"
               @click="arrangeGroups('secondary')">Move to secondary group</ElButton>
             <ElButton text native-type="button" :disabled="!canArrangeGroups" @click="arrangeGroups()">Merge groups</ElButton>
+            <ElButton v-if="showComparison" text native-type="button" @click="resizePrimary(50)">Equalize group widths</ElButton>
           </template>
           <template v-if="activeGroupTabs.length > 1">
             <ElButton text native-type="button" :disabled="!canCloseGroupTabs"

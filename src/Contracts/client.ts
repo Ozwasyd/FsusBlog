@@ -74,23 +74,9 @@ export async function request<T>(
 async function readResponse(response: Response): Promise<Uint8Array> {
   if (!response.body) throw new ProtocolError('Missing AEDS response body');
 
-  const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > WireHeader.HeaderSize + WireLimits.MaxPayloadBytes) {
-        await reader.cancel();
-        throw new ProtocolError('AEDS response exceeds its byte limit');
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
+  const length = await consumeBounded(response.body, WireHeader.HeaderSize + WireLimits.MaxPayloadBytes,
+    'AEDS response exceeds its byte limit', value => { chunks.push(value); });
   if (chunks.length === 1) return chunks[0];
   const bytes = new Uint8Array(length);
   let offset = 0;
@@ -99,6 +85,26 @@ async function readResponse(response: Response): Promise<Uint8Array> {
     offset += chunk.length;
   }
   return bytes;
+}
+
+export async function consumeBounded(body: ReadableStream<Uint8Array<ArrayBuffer>>, limit: number, overflow: string,
+  accept: (chunk: Uint8Array<ArrayBuffer>, offset: number) => void): Promise<number> {
+  const reader = body.getReader();
+  let offset = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return offset;
+      if (value.length > limit - offset) {
+        await reader.cancel();
+        throw new ProtocolError(overflow);
+      }
+      accept(value, offset);
+      offset += value.length;
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function commandFrame(command: ArticleCommand): Uint8Array<ArrayBuffer> {

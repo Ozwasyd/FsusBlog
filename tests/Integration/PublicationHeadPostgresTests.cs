@@ -46,8 +46,8 @@ public sealed class PublicationHeadPostgresTests
         using var nextKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         try
         {
-            var currentPath = PrivateFile("current.pkcs8", currentKey);
-            var nextPath = PrivateFile("next.pkcs8", nextKey);
+            var currentPath = PublicationFixture.PrivateKey(scratch, "current.pkcs8", currentKey);
+            var nextPath = PublicationFixture.PrivateKey(scratch, "next.pkcs8", nextKey);
             var config = new Dictionary<string, string>
             {
                 ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin,
@@ -125,7 +125,7 @@ public sealed class PublicationHeadPostgresTests
             Assert.Null(dayBundle["inclusion"]);
             var dayFile = Path.Combine(scratch.FullName, "daily-checkpoint.json");
             await File.WriteAllTextAsync(dayFile, dailyCheckpoint.Output, ct);
-            await Run(new("node") { ArgumentList = { Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
+            await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
                 Path.Combine(scratch.FullName, "head.json"), dayFile, "--daily", priorDay } });
             var openDay = await Checkpoint(currentPath, day: attestedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             Assert.NotEqual(0, openDay.Code);
@@ -214,7 +214,7 @@ public sealed class PublicationHeadPostgresTests
             Assert.NotEqual(0, compromisedCheckpoint.Code);
             Assert.Contains("ineligible at its attested time", compromisedCheckpoint.Error);
 
-            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, Forward);
+            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
             void SetKey(string id, int version, ECDsa value)
             {
@@ -230,9 +230,7 @@ public sealed class PublicationHeadPostgresTests
                 string host = Host, string scheme = "https")
             {
                 using var request = new HttpRequestMessage(method, url);
-                request.Headers.Host = host;
-                request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-                request.Headers.Add("X-Forwarded-Proto", scheme);
+                PublicationFixture.Forward(request, host, scheme);
                 if (body is not null)
                 {
                     request.Headers.Add("Cookie", "fsus-v2-session=" + session);
@@ -273,7 +271,7 @@ public sealed class PublicationHeadPostgresTests
                 var headFile = Path.Combine(scratch.FullName, "head.json");
                 await File.WriteAllTextAsync(keyFile, await registry.Content.ReadAsStringAsync(ct), ct);
                 await File.WriteAllTextAsync(headFile, head, ct);
-                await Run(new("node") { ArgumentList = { Tool("verify-publication-head.mjs"), Origin, keyFile, headFile } });
+                await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-head.mjs"), Origin, keyFile, headFile } });
                 return head;
             }
 
@@ -293,43 +291,19 @@ public sealed class PublicationHeadPostgresTests
         }
         finally { scratch.Delete(recursive: true); }
 
-        string PrivateFile(string name, ECDsa key)
-        {
-            var path = Path.Combine(scratch.FullName, name);
-            var bytes = key.ExportPkcs8PrivateKey();
-            try { File.WriteAllBytes(path, bytes); }
-            finally { CryptographicOperations.ZeroMemory(bytes); }
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead);
-            return path;
-        }
-
         async Task<string> ProofPath(int article) => $"/integrity/v2/article/{article}/{await Scalar(
             "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
         Task<object?> Scalar(string sql, params object[] args) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, args);
 
-        Task Migrate(string operation)
-        {
-            var options = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
-            {
-                ArgumentList = { Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!, "publication-transparency", operation },
-            };
-            options.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
-            return Run(options);
-        }
+        Task Migrate(string operation) => Run(FixtureProcess.Migration(fixture.ConnectionString, "publication-transparency", operation));
 
-        Task<(int Code, string Output, string Error)> Checkpoint(string privateKey, string currentKeyId = "first",
+        Task<FixtureProcess.Result> Checkpoint(string privateKey, string currentKeyId = "first",
             string? day = null, string? include = null)
         {
-            var options = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
-            {
-                ArgumentList =
-                {
-                    Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!,
-                    "publication-transparency", day is null ? "checkpoint-release" : "checkpoint-daily", Origin,
-                    Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"),
-                },
-            };
+            var options = FixtureProcess.Migration(fixture.ConnectionString,
+                "publication-transparency", day is null ? "checkpoint-release" : "checkpoint-daily", Origin,
+                Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"));
             if (day is null)
                 foreach (var argument in new[] { "release-fixture.1", "1", "2", "2" }) options.ArgumentList.Add(argument);
             else
@@ -337,10 +311,9 @@ public sealed class PublicationHeadPostgresTests
                 options.ArgumentList.Add(day);
                 if (include is not null) options.ArgumentList.Add(include);
             }
-            options.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
             options.Environment[Settings + "CurrentKeyId"] = currentKeyId;
             options.Environment[Settings + "NativeV2PrivateKeyFile"] = privateKey;
-            return Invoke(options);
+            return FixtureProcess.Run(options, ct);
         }
 
         async Task VerifyCheckpoint(string output, string keyId)
@@ -351,43 +324,14 @@ public sealed class PublicationHeadPostgresTests
             var bundle = Path.Combine(scratch.FullName, "checkpoint.json");
             await File.WriteAllTextAsync(bundle, output, ct);
             var expected = (string)(await Scalar("select encode(entry_sha256,'hex') from public.article_publication_transparency where seq=2"))!;
-            await Run(new("node") { ArgumentList = { Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
+            await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
                 Path.Combine(scratch.FullName, "head.json"), bundle, "release-fixture.1", "2", expected } });
         }
 
         async Task Run(ProcessStartInfo options)
         {
-            var result = await Invoke(options);
+            var result = await FixtureProcess.Run(options, ct);
             Assert.True(result.Code == 0, result.Error + result.Output);
         }
-
-        async Task<(int Code, string Output, string Error)> Invoke(ProcessStartInfo options)
-        {
-            options.UseShellExecute = false;
-            options.RedirectStandardOutput = true;
-            options.RedirectStandardError = true;
-            using var process = Process.Start(options)!;
-            var output = process.StandardOutput.ReadToEndAsync(ct);
-            var error = process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-            return (process.ExitCode, await output, await error);
-        }
-
-        static string Tool(string name)
-        {
-            for (DirectoryInfo? dir = new(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-            {
-                var path = Path.Combine(dir.FullName, "tools", name);
-                if (File.Exists(path)) return path;
-            }
-            throw new FileNotFoundException("Native publication verifier was not found.");
-        }
-    }
-
-    private static void Forward(HttpRequestMessage request)
-    {
-        request.Headers.Host = Host;
-        request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-        request.Headers.Add("X-Forwarded-Proto", "https");
     }
 }

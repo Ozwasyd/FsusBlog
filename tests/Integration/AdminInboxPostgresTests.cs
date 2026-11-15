@@ -22,18 +22,11 @@ public sealed class AdminInboxPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var principal = Guid.NewGuid();
+        var (_, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "create-observer", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var firstAccount = Guid.NewGuid();
         var secondAccount = Guid.NewGuid();
-        var adminToken = Secret();
         var firstToken = Secret();
         var secondToken = Secret();
-        await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'create-observer',$2,true,1)",
-            principal, RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)",
-            RandomNumberGenerator.GetBytes(8), principal, new byte[] { 2 });
-        await Execute("insert into public.admin_permission values($1,$2)", principal, CurrentSchema.AdminManagePermission);
-        await Execute("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(adminToken)!, principal);
         await Execute("""
             insert into public.blog_user(id,name,can_author,enabled,generation)
             values($1,'first ticket account',false,true,1),($2,'second ticket account',false,true,1)
@@ -121,14 +114,10 @@ public sealed class AdminInboxPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var admin = Guid.NewGuid();
-        var other = Guid.NewGuid();
+        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "support-primary", 5, RandomNumberGenerator.GetBytes(8), [2]);
+        var (other, otherToken, _) = await FixtureSql.AdminAsync(db, ct, "support-another", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var user = Guid.NewGuid();
-        var adminToken = Secret();
-        var otherToken = Secret();
         var siteToken = Secret();
-        await Administrator(admin, "support-primary", adminToken);
-        await Administrator(other, "support-another", otherToken);
         await Sql("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'support-site',true,true,1)", user);
         await Sql("insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')",
             Store.TokenDigest(siteToken)!, user);
@@ -400,15 +389,6 @@ public sealed class AdminInboxPostgresTests
             using var http = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, http.StatusCode);
             return await http.Content.ReadAsByteArrayAsync(ct);
-        }
-
-        async Task Administrator(Guid id, string handle, string token)
-        {
-            await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)", id,
-                handle, RandomNumberGenerator.GetBytes(32));
-            await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", RandomNumberGenerator.GetBytes(8), id, new byte[] { 2 });
-            await Sql("insert into public.admin_permission values($1,$2)", id, CurrentSchema.AdminManagePermission);
-            await Sql("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(token)!, id);
         }
 
         Task Sql(string sql, params object[] args) =>

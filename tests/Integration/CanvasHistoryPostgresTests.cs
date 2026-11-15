@@ -233,13 +233,7 @@ public sealed class CanvasHistoryPostgresTests
             catch { deadline.Dispose(); throw; }
         }
 
-        internal async Task<string> Session()
-        {
-            byte[] secret = RandomNumberGenerator.GetBytes(32);
-            await Scalar("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-                SHA256.HashData(secret), actorId);
-            return (await store.SignIn(Convert.ToHexStringLower(secret), Token)).Token;
-        }
+        internal async Task<string> Session() => (await database.SignIn(actorId, Token)).Token;
 
         internal Task<CanvasGraphReceipt> Write(CanvasGraphCommand command, string? session = null)
         {

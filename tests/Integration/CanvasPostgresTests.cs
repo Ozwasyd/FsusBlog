@@ -695,13 +695,8 @@ public sealed class CanvasPostgresTests
             return await SignIn(id);
         }
 
-        internal async Task<(string Token, Identity User)> SignIn(Guid id)
-        {
-            var secret = RandomNumberGenerator.GetBytes(32);
-            await Mutate("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-                SHA256.HashData(secret), id);
-            return await _store.SignIn(Convert.ToHexStringLower(secret), Token);
-        }
+        internal async Task<(string Token, Identity User)> SignIn(Guid id) =>
+            await _store.SignIn(await database.IssueTicket(id, Token), Token);
 
         internal Task<T> WithGraph<T>(string token, Func<CanvasGraphStore, Task<T>> operation) =>
             _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor)), Token);

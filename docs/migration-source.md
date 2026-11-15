@@ -179,7 +179,7 @@ release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sh
 "${migrate[@]}" legacy import release-activate "${release_args[@]}" "$release_approval" "$approved_sha256"
 ```
 
-启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 另支持一篇有完整即时首发、普通再发布和公开回滚的文章。须先在运行副本停服执行 `legacy release-origin-schema`，再创建基线备份。范围限于已核验的两条原责任快照、无额外站点配置或旧证明、无独立署名或评审及证据条目、无生效时间的历史。原责任、发布与投递坐标、旧操作者 ID 及主体验证摘要随同审批写入离线来源关系。公开当前及历史责任清单沿用旧路径，仅在文章公开时读取；缺省作者使用冻结 v1 的 `Fsu`。运行副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
+启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 另支持一篇有完整即时首发、普通再发布和公开回滚的文章。须先在运行副本停服执行 `legacy release-origin-schema`，再创建基线备份。范围限于已核验的两条原责任快照，额外站点配置及旧证明仍会阻塞启用。责任清单按冻结 v1 的规则保留署名、评审人、可公开来源及原始无时区生效时间。私人来源和原始值仅保存在来源关系，格式错误或超出大小上限的责任记录会阻止启用。原责任、发布与投递坐标、旧操作者 ID 及主体验证摘要随同审批写入离线来源关系。公开当前及历史责任清单沿用旧路径，仅在文章公开时读取；缺省作者使用冻结 v1 的 `Fsu`。运行副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
 
@@ -188,6 +188,8 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 `legacy-runtime.sh --activate-mixed` 在同一受审核的版本 4 批次处理两篇文章。隔离库保全三次发布、三个原事件和 21 条终态投递边。运行副本从备份还原后，Kestrel 返回再发布文章的 `(42, 2, 900000002, 701)` 和同期首发文章的 `(43, 1, 900000003, 702)`，依次对应文章、修订、发布和权利快照。见 `artifacts/legacy-mixed-release-99abb41/native-activate-mixed-2.log`。
 
 `legacy-runtime.sh --activate-rollback` 在 PostgreSQL 18.7 从旧库归档恢复后成功完成启用、备份和回读。来源关系保留三个发布、原操作者 `7/8/7`、责任快照 `799/无/802`、三个事件和 21 条投递边。Kestrel 恢复后返回当前及三条已发布修订的旧责任 JSON，查找未知坐标或在文章撤出公开坐标后读取返回 404。改动旧操作者后拒绝复验，恢复记录后同一审批可复验。见 `artifacts/legacy-v5-accountability-6eccdaf/native-activate-rollback-2.log`。
+
+`legacy-runtime.sh --activate-rollback-authored` 核验恢复后的署名、评审人、公开来源顺序及无时区微秒生效时间，并逐条核对原快照摘要。修改未公开来源也会使同一审批的复验失败。错误类型的责任字段由 `--activate-rollback-malformed` 验证，发起启用前即被拒绝，运行副本仍与基线备份一致。见 `artifacts/legacy-v5-authors-0ee6af9/native-suite-status-2.txt`。
 
 ### 离线验看附件来源
 

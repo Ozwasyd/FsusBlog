@@ -1,13 +1,13 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request, siteSessionHeader } from './client.ts';
+import { consumeBounded, request, siteSessionHeader } from './client.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 const formats = ['html', 'pdf', 'docx', 'epub'] as const;
 const statuses = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'blocked', 'cancelling'] as const;
 const failures = ['none', 'unsupported-input', 'provider-unavailable', 'permission', 'interruption'] as const;
 const maximumOutput = 4 * 1024 * 1024;
-const outputs = {
+export const documentOutputs = {
   html: { type: 'text/html', limit: 2 * 1024 * 1024 },
   pdf: { type: 'application/pdf', limit: maximumOutput },
   docx: { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', limit: 2 * 1024 * 1024 },
@@ -190,7 +190,7 @@ export function cancelDocumentExportTask(id: string, session: string, signal: Ab
 
 export async function downloadDocumentExportTask(task: DocumentExportTask, session: string, signal: AbortSignal): Promise<Blob> {
   requireOutput(task);
-  const output = outputs[task.format];
+  const output = documentOutputs[task.format];
   if (task.status !== 'succeeded' || !output || task.outputBytes > output.limit)
     throw new ProtocolError('Document export is not ready');
   const { type } = output;
@@ -213,22 +213,8 @@ export async function downloadDocumentExportTask(task: DocumentExportTask, sessi
     throw new ProtocolError('Expected a document attachment');
   }
 
-  const reader = response.body.getReader();
-  let size = 0;
-  try {
-    for (;;) {
-      const next = await reader.read();
-      if (next.done) break;
-      if (next.value.byteLength > bytes.byteLength - size) {
-        await reader.cancel();
-        throw new ProtocolError('Document export exceeds its recorded size');
-      }
-      bytes.set(next.value, size);
-      size += next.value.byteLength;
-    }
-  } finally {
-    reader.releaseLock();
-  }
+  const size = await consumeBounded(response.body, bytes.length, 'Document export exceeds its recorded size',
+    (chunk, offset) => bytes.set(chunk, offset));
   signal.throwIfAborted();
   if (size !== bytes.length) throw new ProtocolError('Document export differs from its recorded size');
   const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));

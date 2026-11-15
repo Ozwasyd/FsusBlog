@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using System.Text.Encodings.Web;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
 
@@ -41,21 +40,8 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
         ct.ThrowIfCancellationRequested();
         if (Encoding.UTF8.GetByteCount(markdown) > MaximumMarkdown) throw HtmlDocumentExport.TooLarge("PDF");
         var body = HtmlDocumentExport.RenderBody(title, markdown, "PDF", ct, includeTables);
-        var heading = HtmlEncoder.Default.Encode(title);
         var created = happenedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
-        var document = $"""
-            <!doctype html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <meta name="dcterms.created" content="{created}">
-            <title>{heading}</title>
-            </head>
-            <body><main><article dir="auto"><h1>{heading}</h1>
-            {body}
-            </article></main></body>
-            </html>
-            """;
+        var document = HtmlDocumentExport.Wrap(title, body, $"<meta name=\"dcterms.created\" content=\"{created}\">");
         if (Encoding.UTF8.GetByteCount(document) > MaximumInput) throw HtmlDocumentExport.TooLarge("PDF");
 
         await rendererSlot.WaitAsync(ct);

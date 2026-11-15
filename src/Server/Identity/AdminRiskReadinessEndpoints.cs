@@ -20,7 +20,7 @@ internal static class AdminRiskReadinessEndpoints
         }).RequireRateLimiting(rateLimit);
 
         if (!commentRoutes.RootPowPolicy) return;
-        var authority = adminOrigin.GetLeftPart(UriPartial.Authority);
+        var actions = new AdminActionRoutes(app, adminOrigin.GetLeftPart(UriPartial.Authority), session, readFrame);
         app.MapGet(WireRoutes.AdminRootCommentPowPolicy, async (HttpContext ctx, CancellationToken ct) =>
             State(ctx, await store.ReadRootCommentPowPolicy(ctx.Request.Cookies[session], ct))).RequireRateLimiting(rateLimit);
         app.MapPost(WireRoutes.AdminRootCommentPowBegin, async (HttpContext ctx, CancellationToken ct) =>
@@ -28,23 +28,17 @@ internal static class AdminRiskReadinessEndpoints
             var intent = await ReadIntent(ctx, ct);
             return Frame(await store.BeginRootCommentPowStepUp(ctx.Request.Cookies[session], intent, ct));
         }).RequireRateLimiting(rateLimit);
-        app.MapPost(WireRoutes.AdminRootCommentPowComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await store.CompleteRootCommentPowStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(rateLimit);
+        actions.Complete(WireRoutes.AdminRootCommentPowComplete, rateLimit, store.CompleteRootCommentPowStepUp);
         app.MapPost(WireRoutes.AdminRootCommentPowApply, async (HttpContext ctx, CancellationToken ct) =>
         {
             var intent = await ReadIntent(ctx, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+            var proof = AdminActionRoutes.Proof(ctx);
             return State(ctx, await store.ApplyRootCommentPowPolicy(ctx.Request.Cookies[session], intent, proof, ct));
         }).RequireRateLimiting("command");
 
         async Task<AdminRootCommentPowCommand> ReadIntent(HttpContext ctx, CancellationToken ct)
         {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            return Wire.DecodeAdminRootCommentPowCommand(await readFrame(ctx, WireLimits.AdminRootCommentPowCommandFrameBytes, ct));
+            return Wire.DecodeAdminRootCommentPowCommand(await actions.Read(ctx, WireLimits.AdminRootCommentPowCommandFrameBytes, ct));
         }
     }
 

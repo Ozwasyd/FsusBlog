@@ -11,31 +11,23 @@ internal static class AdminSitePageEditorEndpoints
     internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        var authority = origin.GetLeftPart(UriPartial.Authority);
+        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
         app.MapGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
             Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(ctx.Request.Cookies[session], pages, slug, ct))))
             .RequireRateLimiting("query");
 
         app.MapPost(WireRoutes.AdminSitePageStepUpBegin, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
         {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
+            var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
             var intent = Wire.DecodeAdminSitePagePublish(frame);
             return Frame(await store.BeginSitePageStepUp(ctx.Request.Cookies[session], pages, intent, ct));
         }).RequireRateLimiting(passkeyLimit);
-        app.MapPost(WireRoutes.AdminSitePageStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
-            var assertion = PasskeyWire.ReadLogin(frame, discoverable: false);
-            return Frame(await store.CompleteSitePageStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(passkeyLimit);
+        actions.Complete(WireRoutes.AdminSitePageStepUpComplete, passkeyLimit, store.CompleteSitePageStepUp);
 
         app.MapPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
-                AdminModerationEndpoints.RequireOrigin(ctx, authority);
-                var frame = await readFrame(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
+                var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
                 var intent = Wire.DecodeAdminSitePagePublish(frame);
                 return await store.IssueSitePagePow(ctx.Request.Cookies[session], pages, intent, frame, pow, ctx, ct);
             }, PowScope.AdminSitePagePublish)).RequireRateLimiting("command");
@@ -51,11 +43,10 @@ internal static class AdminSitePageEditorEndpoints
             {
                 return await ScopedPow.Protect(ctx, async () =>
                 {
-                    AdminModerationEndpoints.RequireOrigin(ctx, authority);
-                    var frame = await readFrame(ctx, legacy ? SitePageWire.MaxUpdateFrameBytes : WireLimits.AdminSitePagePublishFrameBytes, ct);
+                    var frame = await actions.Read(ctx, legacy ? SitePageWire.MaxUpdateFrameBytes : WireLimits.AdminSitePagePublishFrameBytes, ct);
                     var intent = legacy ? LegacyIntent(ctx, frame) : Wire.DecodeAdminSitePagePublish(frame);
                     if (legacy) frame = Wire.EncodeAdminSitePagePublish(intent);
-                    var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+                    var proof = AdminActionRoutes.Proof(ctx);
                     await store.PublishSitePage(ctx.Request.Cookies[session], pages, intent, frame, proof, pow, ctx, ct);
                     return Wire.EncodeEmptySuccess();
                 }, PowScope.AdminSitePagePublish);

@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
@@ -47,11 +46,7 @@ public sealed class RelatedReadingPostgresTests
         var ct = deadline.Token;
         await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        var user = Guid.NewGuid();
-        var secret = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'related-author',true,true,1)", user);
-        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user);
-        var actor = await new Store(database.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
+        var (user, token, _) = await database.SignIn("related-author", ct, minutes: 1);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct);
 
         var article = await Command(WireRoutes.Save, 0, 0, "Published source", "Visible body");
@@ -102,7 +97,7 @@ public sealed class RelatedReadingPostgresTests
         {
             var command = new ArticleCommand(id, revision, Guid.NewGuid(), title, body);
             using var request = SiteAedsFixture.Request(HttpMethod.Post, path, Wire.EncodeArticleCommand(command),
-                actor.Token, handle: null);
+                token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));

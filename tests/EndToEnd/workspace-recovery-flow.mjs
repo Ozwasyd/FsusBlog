@@ -1,45 +1,29 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceLayout, decodeDraft, encodeAuthoringWorkspaceCommand,
-  encodeAuthoringWorkspaceLayoutCommand, encodeArticleCommand,
-  encodeSignIn, FrameType, WireHeaders, WireRoutes,
+  encodeAuthoringWorkspaceLayoutCommand,
+  FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { authorFixture, binary, button, chromium, expect, submitArticle } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const workspaceUrl = `${origin}/user/manage/article/workspace`
 const editUrl = article => `${origin}/user/manage/article/edit/${article.id}`
 const route = WireRoutes.AuthoringWorkspace
-const binary = { 'Content-Type': 'application/octet-stream' }
 const launch = () => chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
 const tab = (page, article, status) => tabList(page).getByRole('tab', { name: `${article.title} · ${status}`, exact: true })
-const button = (page, name) => page.getByRole('button', { name, exact: true })
 const bodyInput = page => page.getByLabel('Body', { exact: true })
 const observations = []
 const diagnostics = []
 await mkdir(evidence, { recursive: true })
 
-const signIn = async (context, ticket) => {
-  const data = Buffer.from(encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket })))
-  const response = await context.request.post(`${origin}${WireRoutes.SignIn}`, { data, headers: binary })
-  assert.equal(response.status(), 200)
-  return response.headers()[WireHeaders.CurrentSession.toLowerCase()]
-}
-
-function monitor(page) {
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', message => {
-    if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) diagnostics.push(message.text())
-  })
-  return page
-}
+const { signIn, createDraft, monitor } = authorFixture(origin, diagnostics)
+const create = (context, title) => createDraft(context, title, `Saved private draft for ${title}`)
 
 function layoutResponse(response) {
   return response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` && response.request().method() === 'POST'
@@ -71,15 +55,6 @@ async function layout(context, session, command, status = 200) {
     : await request.get(`${origin}${route}`, { headers })
   assert.equal(response.status(), status)
   return status === 200 ? decodeAuthoringWorkspaceSnapshot(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceSnapshot).payload) : undefined
-}
-
-async function create(context, title) {
-  const body = `Saved private draft for ${title}`
-  const response = await context.request.post(`${origin}${WireRoutes.Save}`, { headers: binary,
-    data: Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: 0, expectedRevision: 0n,
-      idempotencyKey: randomUUID(), title, body }))) })
-  assert.equal(response.status(), 200)
-  return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
 }
 
 async function open(page, article) {
@@ -178,9 +153,8 @@ try {
     return [saved.activeArticleId, ...saved.tabs]
   }).toEqual([second.id, first.id, second.id, removed.id, -preview.id])
 
-  const deletion = await originContext.request.post(`${origin}${WireRoutes.Delete}`, { headers: binary,
-    data: Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: removed.id, expectedRevision: removed.revision,
-      idempotencyKey: randomUUID(), title: '', body: '' }))) })
+  const deletion = await submitArticle(originContext.request, origin + WireRoutes.Delete,
+    { id: removed.id, expectedRevision: removed.revision, title: '', body: '' })
   assert.equal(deletion.status(), 200)
   const rendererCrashed = original.waitForEvent('crash', { timeout: 10_000 })
   const renderer = await originContext.newCDPSession(original)

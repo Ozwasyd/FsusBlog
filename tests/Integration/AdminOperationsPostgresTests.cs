@@ -18,15 +18,8 @@ public sealed class AdminOperationsPostgresTests
         var ct = timeout.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var admin = Guid.NewGuid();
+        var (admin, key, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2]);
         var actor = Guid.NewGuid();
-        var key = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var digest = Store.TokenDigest(key)!;
-        await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'observer',$2,true,1)",
-            admin, RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", new byte[] { 1 }, admin, new byte[] { 2 });
-        await Execute("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.AdminManagePermission);
-        await Execute("insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", digest, admin);
 
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
@@ -71,11 +64,8 @@ public sealed class AdminOperationsPostgresTests
         await Execute("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(key, publications, ct));
 
-        async Task Execute(string sql, params object[] arguments)
-        {
-            await using var cmd = Store.Sql(db, null, sql, arguments);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] arguments) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
     }
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>

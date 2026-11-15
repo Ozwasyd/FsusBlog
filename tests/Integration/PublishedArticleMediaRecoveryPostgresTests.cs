@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Runtime.Versioning;
@@ -134,7 +133,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 await AssertImage(client, RawPath(article, currentPublication, current.Digest), current, ct);
                 await AssertArchivedRoutesHidden(client, article, historicalPublication, historical.Digest, ct);
 
-                Task<CommandResult> Recover(string operation, Guid? expectedSite = null) =>
+                Task<FixtureProcess.Result> Recover(string operation, Guid? expectedSite = null) =>
                     InvokeMigration(restore.ConnectionString, operation, expectedSite ?? site, restoredPrivate, restoredPublic, web, ct);
 
             }
@@ -197,7 +196,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         File.SetUnixFileMode(path, UnixFileMode.UserRead);
     }
 
-    private static Task<CommandResult> InvokeMigration(string dsn, string operation, Guid site, string privateRoot,
+    private static Task<FixtureProcess.Result> InvokeMigration(string dsn, string operation, Guid site, string privateRoot,
         string publicRoot, string web, CancellationToken ct)
     {
         var dotnet = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ??
@@ -205,18 +204,18 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         var migrate = Environment.GetEnvironmentVariable(PublicationMediaRecoveryFactAttribute.MigrationPath)!;
         if (!Path.IsPathFullyQualified(migrate) || !File.Exists(migrate))
             throw new InvalidOperationException("Supply the absolute path to the built migration CLI.");
-        var command = Command(dotnet, [migrate, "article-public-media", operation, site.ToString("D"), privateRoot, publicRoot, web]);
+        var command = FixtureProcess.Command(dotnet, [migrate, "article-public-media", operation, site.ToString("D"), privateRoot, publicRoot, web]);
         command.Environment["FSUSBLOG_DB"] = dsn;
-        return Run(command, ct);
+        return FixtureProcess.Run(command, ct);
     }
 
-    private static Task<CommandResult> RunPostgres(string executable, NpgsqlConnectionStringBuilder settings,
+    private static Task<FixtureProcess.Result> RunPostgres(string executable, NpgsqlConnectionStringBuilder settings,
         string[] args, CancellationToken ct)
     {
         var tools = Environment.GetEnvironmentVariable(PublicationMediaRecoveryFactAttribute.PostgresPath)!;
         if (!Path.IsPathFullyQualified(tools))
             throw new InvalidOperationException("Supply the absolute directory of native PostgreSQL tools.");
-        var command = Command(Path.Combine(tools, executable), args);
+        var command = FixtureProcess.Command(Path.Combine(tools, executable), args);
         foreach (var name in new[] { "PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGOPTIONS" })
             command.Environment.Remove(name);
         command.Environment["PGHOST"] = settings.Host;
@@ -226,34 +225,12 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         command.Environment["PGPASSWORD"] = settings.Password;
         command.Environment["PGCONNECT_TIMEOUT"] = "5";
         command.Environment["PGSSLMODE"] = "disable";
-        return Run(command, ct);
+        return FixtureProcess.Run(command, ct);
     }
 
-    private static ProcessStartInfo Command(string executable, string[] args)
-    {
-        var command = new ProcessStartInfo(executable) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in args) command.ArgumentList.Add(arg);
-        return command;
-    }
+    private static void AssertSuccess(FixtureProcess.Result result) => Assert.True(result.Code == 0, result.Output + result.Error);
 
-    private static async Task<CommandResult> Run(ProcessStartInfo command, CancellationToken ct)
-    {
-        using var process = Process.Start(command) ?? throw new InvalidOperationException("The native test command did not start.");
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
-        try { await process.WaitForExitAsync(ct); }
-        catch (OperationCanceledException)
-        {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
-            throw;
-        }
-        return new(process.ExitCode, await output, await error);
-    }
-
-    private static void AssertSuccess(CommandResult result) => Assert.True(result.Exit == 0, result.Output + result.Error);
-
-    private static void AssertRecovery(CommandResult result, int rebuilt)
+    private static void AssertRecovery(FixtureProcess.Result result, int rebuilt)
     {
         AssertSuccess(result);
         using var report = JsonDocument.Parse(result.Output);
@@ -263,13 +240,11 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         Assert.Equal(rebuilt, json.GetProperty("rebuiltObjects").GetInt32());
     }
 
-    private static void AssertFailed(CommandResult result, string reason)
+    private static void AssertFailed(FixtureProcess.Result result, string reason)
     {
-        Assert.NotEqual(0, result.Exit);
+        Assert.NotEqual(0, result.Code);
         Assert.Contains(reason, result.Output + result.Error, StringComparison.OrdinalIgnoreCase);
     }
-
-    private sealed record CommandResult(int Exit, string Output, string Error);
 }
 
 internal sealed class PublicationMediaRecoveryFactAttribute : FactAttribute

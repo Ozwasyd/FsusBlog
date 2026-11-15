@@ -19,13 +19,9 @@ public sealed class AdminInboxReadPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var account = Guid.NewGuid();
-        var firstAdmin = Guid.NewGuid();
-        var secondAdmin = Guid.NewGuid();
-        var firstToken = Secret();
-        var secondToken = Secret();
+        var (firstAdmin, firstToken, _) = await FixtureSql.AdminAsync(db, ct, "read-support-one", 5, RandomNumberGenerator.GetBytes(8), [2]);
+        var (secondAdmin, secondToken, _) = await FixtureSql.AdminAsync(db, ct, "read-support-two", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var accountToken = Secret();
-        await Administrator(firstAdmin, "read-support-one", firstToken);
-        await Administrator(secondAdmin, "read-support-two", secondToken);
         await Sql("insert into public.blog_user (id,name,can_author,enabled,generation) values ($1,'read-our-own',false,true,1)", account);
         await Sql("insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')",
             Store.TokenDigest(accountToken)!, account);
@@ -134,20 +130,8 @@ public sealed class AdminInboxReadPostgresTests
                 response.Headers.TryGetValues(WireHeaders.AdminInboxUnread, out var counts) ? Assert.Single(counts) : null);
         }
 
-        async Task Administrator(Guid id, string handle, string token)
-        {
-            await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)", id,
-                handle, RandomNumberGenerator.GetBytes(32));
-            await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", RandomNumberGenerator.GetBytes(8), id, new byte[] { 2 });
-            await Sql("insert into public.admin_permission values($1,$2)", id, CurrentSchema.AdminManagePermission);
-            await Sql("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(token)!, id);
-        }
-
-        async Task Sql(string sql, params object[] args)
-        {
-            await using var query = Store.Sql(db, null, sql, args);
-            await query.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
 
         Task<object?> Scalar(string sql, params object[] args) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, args);

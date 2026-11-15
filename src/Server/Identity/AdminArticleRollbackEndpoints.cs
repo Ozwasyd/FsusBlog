@@ -12,12 +12,13 @@ internal static class AdminArticleRollbackEndpoints
     internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string limit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        var authority = origin.GetLeftPart(UriPartial.Authority);
-        app.MapGet(WireRoutes.AdminArticleRollbackAvailability, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            await store.CheckArticleRollbackAvailability(ctx.Request.Cookies[session], ct);
-            return Results.NoContent();
-        }).RequireRateLimiting("command");
+        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
+        MapAction<AdminArticleRollbackIntent, AdminArticleRollbackReceipt>(
+            WireRoutes.AdminArticleRollbackAvailability, WireRoutes.AdminArticleRollbackStepUpBegin,
+            WireRoutes.AdminArticleRollbackStepUpComplete, WireRoutes.AdminArticleRollbackExecute,
+            WireLimits.MaxAdminArticleRollbackFrameBytes, Wire.DecodeAdminArticleRollbackIntent, intent => intent.IdempotencyKey,
+            store.CheckArticleRollbackAvailability, store.BeginArticleRollbackStepUp, store.CompleteArticleRollbackStepUp,
+            store.ExecuteArticleRollback, Wire.EncodeAdminArticleRollbackReceipt);
         app.MapGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
             var article = PositiveCoordinate(ctx, "articleId");
@@ -26,60 +27,20 @@ internal static class AdminArticleRollbackEndpoints
             var result = await store.PreviewArticleRollback(ctx.Request.Cookies[session], (int)article, source, ct);
             return Frame(Wire.EncodeAdminArticleRollbackPreview(result));
         }).RequireRateLimiting("query");
-        app.MapPost(WireRoutes.AdminArticleRollbackStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadIntent(ctx, ct);
-            return Frame(await store.BeginArticleRollbackStepUp(ctx.Request.Cookies[session], input, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleRollbackStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await store.CompleteArticleRollbackStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleRollbackExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadIntent(ctx, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
-            var receipt = await publications.AdministrativePublication(
-                invalidate => store.ExecuteArticleRollback(ctx.Request.Cookies[session], proof, input, invalidate, ct), ct);
-            return Frame(Wire.EncodeAdminArticleRollbackReceipt(receipt));
-        }).RequireRateLimiting("command");
 
-        app.MapGet(WireRoutes.AdminArticleDraftRollbackAvailability, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            await store.CheckArticleDraftRollbackAvailability(ctx.Request.Cookies[session], ct);
-            return Results.NoContent();
-        }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminArticleDraftRollbackStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadDraftIntent(ctx, ct);
-            return Frame(await store.BeginArticleDraftRollbackStepUp(ctx.Request.Cookies[session], input, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleDraftRollbackStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await store.CompleteArticleDraftRollbackStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleDraftRollbackExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadDraftIntent(ctx, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
-            var receipt = await publications.AdministrativePublication(
-                invalidate => store.ExecuteArticleDraftRollback(ctx.Request.Cookies[session], proof, input, invalidate, ct), ct);
-            return Frame(Wire.EncodeAdminArticleDraftRollbackReceipt(receipt));
-        }).RequireRateLimiting("command");
+        MapAction<AdminArticleDraftRollbackIntent, AdminArticleDraftRollbackReceipt>(
+            WireRoutes.AdminArticleDraftRollbackAvailability, WireRoutes.AdminArticleDraftRollbackStepUpBegin,
+            WireRoutes.AdminArticleDraftRollbackStepUpComplete, WireRoutes.AdminArticleDraftRollbackExecute,
+            WireLimits.MaxAdminArticleDraftRollbackFrameBytes, Wire.DecodeAdminArticleDraftRollbackIntent, intent => intent.IdempotencyKey,
+            store.CheckArticleDraftRollbackAvailability, store.BeginArticleDraftRollbackStepUp, store.CompleteArticleDraftRollbackStepUp,
+            store.ExecuteArticleDraftRollback, Wire.EncodeAdminArticleDraftRollbackReceipt);
 
-        app.MapGet(WireRoutes.AdminArticleArchiveAvailability, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            await store.CheckArticleArchiveAvailability(ctx.Request.Cookies[session], ct);
-            return Results.NoContent();
-        }).RequireRateLimiting("command");
+        MapAction<AdminArticleArchiveIntent, AdminArticleArchiveReceipt>(
+            WireRoutes.AdminArticleArchiveAvailability, WireRoutes.AdminArticleArchiveStepUpBegin,
+            WireRoutes.AdminArticleArchiveStepUpComplete, WireRoutes.AdminArticleArchiveExecute,
+            WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleArchiveIntent, intent => intent.IdempotencyKey,
+            store.CheckArticleArchiveAvailability, store.BeginArticleArchiveStepUp, store.CompleteArticleArchiveStepUp,
+            store.ExecuteArticleArchive, Wire.EncodeAdminArticleArchiveReceipt);
         app.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
         {
             var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
@@ -95,49 +56,41 @@ internal static class AdminArticleRollbackEndpoints
             if (article > int.MaxValue) throw InvalidCoordinate();
             return Frame(await store.PreviewArchivedArticle(ctx.Request.Cookies[session], (int)article, revision, privateRelease, ct));
         }).RequireRateLimiting("query");
-        app.MapPost(WireRoutes.AdminArticleArchiveStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadArchiveIntent(ctx, ct);
-            return Frame(await store.BeginArticleArchiveStepUp(ctx.Request.Cookies[session], input, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleArchiveStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var assertion = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await store.CompleteArticleArchiveStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(limit);
-        app.MapPost(WireRoutes.AdminArticleArchiveExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var input = await ReadArchiveIntent(ctx, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
-            var receipt = await publications.AdministrativePublication(
-                invalidate => store.ExecuteArticleArchive(ctx.Request.Cookies[session], proof, input, invalidate, ct), ct);
-            return Frame(Wire.EncodeAdminArticleArchiveReceipt(receipt));
-        }).RequireRateLimiting("command");
 
-        async Task<AdminArticleRollbackIntent> ReadIntent(HttpContext ctx, CancellationToken ct)
+        void MapAction<TIntent, TReceipt>(string available, string begin, string complete, string execute,
+            int maximum, IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
+            Func<string?, CancellationToken, Task> checkAvailability,
+            Func<string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
+            Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
+            Func<string?, string?, TIntent, Action, CancellationToken, Task<TReceipt>> apply,
+            Func<TReceipt, byte[]> encode)
         {
-            var intent = Wire.DecodeAdminArticleRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleRollbackFrameBytes, ct));
-            RequireCommandHeader(ctx, intent.IdempotencyKey);
-            return intent;
-        }
+            actions.Availability(available, checkAvailability);
+            app.MapPost(begin, async (HttpContext ctx, CancellationToken ct) =>
+            {
+                var intent = await ReadIntent(ctx, ct);
+                return Frame(await beginStepUp(ctx.Request.Cookies[session], intent, ct));
+            }).RequireRateLimiting(limit);
+            actions.Complete(complete, limit, completeStepUp);
+            app.MapPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            {
+                var intent = await ReadIntent(ctx, ct);
+                var proof = AdminActionRoutes.Proof(ctx);
+                var receipt = await publications.AdministrativePublication(
+                    invalidate => apply(ctx.Request.Cookies[session], proof, intent, invalidate, ct), ct);
+                return Frame(encode(receipt));
+            }).RequireRateLimiting("command");
 
-        async Task<AdminArticleDraftRollbackIntent> ReadDraftIntent(HttpContext ctx, CancellationToken ct)
-        {
-            var intent = Wire.DecodeAdminArticleDraftRollbackIntent(await readFrame(ctx, WireLimits.MaxAdminArticleDraftRollbackFrameBytes, ct));
-            RequireCommandHeader(ctx, intent.IdempotencyKey);
-            return intent;
-        }
-
-        async Task<AdminArticleArchiveIntent> ReadArchiveIntent(HttpContext ctx, CancellationToken ct)
-        {
-            var intent = Wire.DecodeAdminArticleArchiveIntent(await readFrame(ctx, WireLimits.MaxAdminArticleArchiveFrameBytes, ct));
-            RequireCommandHeader(ctx, intent.IdempotencyKey);
-            return intent;
+            async Task<TIntent> ReadIntent(HttpContext ctx, CancellationToken ct)
+            {
+                var intent = decode(await actions.Read(ctx, maximum, ct));
+                RequireCommandHeader(ctx, idempotencyKey(intent));
+                return intent;
+            }
         }
     }
+
+    private delegate T IntentDecoder<T>(ReadOnlySpan<byte> frame);
 
     private static void RequireCommandHeader(HttpContext ctx, Guid expected)
     {

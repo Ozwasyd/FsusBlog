@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -20,16 +19,15 @@ public sealed class TaxonomyPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<main><!--fsus-public-content--></main>"), NullLogger<Publications>.Instance);
         var user = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'fixture writer',true,true,1)", user);
-        await Execute("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), user);
+        var ticket = await FixtureSql.IssueLoginTicketAsync(db, null, ct, user);
         await Execute("""
             insert into public.category(id,name,description) values(1,'Tech & Robots','<taxonomy description>'),(2,'Empty',null);
             insert into public.tag(id,name,description) values(4,'Café',null);
             insert into public.tag_url_name values('ANCIENNE',4);
             """);
-        var actor = await store.SignIn(Convert.ToHexStringLower(ticket), ct);
+        var actor = await store.SignIn(ticket, ct);
 
         var first = await Save("Taxonomy article one");
         var second = await Save("Taxonomy article two");
@@ -57,12 +55,7 @@ public sealed class TaxonomyPostgresTests
         await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid(), CategoryId = 99 }, actor.Token,
             HttpStatusCode.BadRequest);
         await Assign(assignment, null, HttpStatusCode.Unauthorized);
-        var outsiderId = Guid.NewGuid();
-        var outsiderTicket = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'other writer',true,true,1)", outsiderId);
-        await Execute("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-            SHA256.HashData(outsiderTicket), outsiderId);
-        var outsider = await store.SignIn(Convert.ToHexStringLower(outsiderTicket), ct);
+        var outsider = await fixture.SignIn("other writer", ct);
         await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid() }, outsider.Token, HttpStatusCode.NotFound);
         using (var stale = Request(HttpMethod.Get, $"/api/v2/authoring/draft/{first.Id}/taxonomy.aeds?revision={draft.Revision}", actor.Token))
         using (var staleResponse = await client.SendAsync(stale, ct))

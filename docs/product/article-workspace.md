@@ -14,7 +14,7 @@
 
 原生 Chrome 在六种宽度和实际 100%、150%、200% 页面缩放下验证了分隔条、窄屏焦点交接、选区与撤销保留，以及页面没有横向溢出。 [分隔条浏览器证据](../../artifacts/workspace-splitter-2ec1b97/run-4-zoom/workspace-split-result.json)
 
-「Group actions」可以把当前稿件移到另一组或合并两组。移动把稿件追加到目标组。合并把次组标签按原顺序追加到主组。预览位置冲突时固定移入的预览，两个标签都保留。操作保留焦点稿件的路由、修订、未保存内容和已经挂载的编辑器。另一组已挂载的编辑器可暂时隐藏，工作区仍最多挂载两个。 [#2300](https://github.com/Ozwasyd/FsusBlog/issues/2300)
+「Group actions」可以把当前稿件移到另一组或合并两组。两组并排时，「Equalize group widths」将分隔条恢复到 50%。移动把稿件追加到目标组。合并把次组标签按原顺序追加到主组。预览位置冲突时固定移入的预览，两个标签都保留。操作保留焦点稿件的路由、修订、未保存内容和已经挂载的编辑器。另一组已挂载的编辑器可暂时隐藏，工作区仍最多挂载两个。 [#2300](https://github.com/Ozwasyd/FsusBlog/issues/2300)
 
 已有两组选中编辑器时，桌面溢出或窄屏切换菜单可将后台标签移至另一组。移动复用工作区布局版本校验，保留活动路由、两组选中会话、编辑器实例和选区。实测包括桌面移动及 375px 移回。 [浏览器验收](../../artifacts/targeted-delivery-967805c/background-tabs/chromium-3/workspace-split-result.json)
 

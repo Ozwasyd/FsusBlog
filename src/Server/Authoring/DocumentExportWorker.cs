@@ -107,14 +107,11 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             var input = await InTransaction(async (db, tx) =>
             {
                 await RequireAuthority(db, tx, job, budget.Token);
-                Guid? asset = job.Provider == DocumentExportInput.AttachmentProvider
-                    ? await DocumentExportStore.ReadAttachmentId(db, tx, job.Owner, job.Request.Id, budget.Token) : null;
-                return await DocumentExportInput.Read(db, tx, job.Request, media, job.Owner, asset, budget.Token);
+                return await DocumentExportInput.ReadVerified(db, tx, job.Request, media, job.Owner, job.Provider,
+                    job.SourceDigest, pdf?.ToolDigest, budget.Token);
             }, budget.Token);
-            if (job.Provider is not (1 or DocumentExportInput.CurrentProvider or DocumentExportInput.AttachmentProvider) ||
-                !CryptographicOperations.FixedTimeEquals(job.SourceDigest, input.Digest(job.Request, (byte)job.Provider, pdf?.ToolDigest)))
-                throw new PublicUnavailableException();
-            output = await Render(job.Request.Format, input, job.Provider != 1, budget.Token);
+            output = await DocumentExportInput.Render(job.Request.Format, input.Title, input.Body, input.HappenedAt,
+                input.Attachment is { } image ? [image] : [], pdf, budget.Token, includeTables: job.Provider != 1);
             budget.Token.ThrowIfCancellationRequested();
             if (output.Length is <= 0 or > PdfDocumentExport.MaximumOutput) throw new PublicUnavailableException();
         }
@@ -208,16 +205,6 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             throw new BusinessException(Rejection.Forbidden, "Document export author authority changed.");
         await RevisionHistoryStore.LockOwned(db, tx, job.Owner, job.Request.Article, ct);
     }
-
-    private async Task<byte[]> Render(DocumentExportFormat format, DocumentExportInput input, bool includeTables, CancellationToken ct) =>
-        format switch
-        {
-            DocumentExportFormat.Html => HtmlDocumentExport.Write(input.Title, input.Body, ct, includeTables, input.Attachment),
-            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(input.Title, input.Body, input.HappenedAt, ct, includeTables),
-            DocumentExportFormat.Docx => WordDocumentExport.Write(input.Title, input.Body, ct, includeTables, input.Attachment),
-            DocumentExportFormat.Epub => EpubDocumentExport.Write(input.Title, input.Body, input.HappenedAt, ct, includeTables, input.Attachment),
-            _ => throw new PublicUnavailableException()
-        };
 
     private async Task<T> InTransaction<T>(Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> operation, CancellationToken ct)
     {

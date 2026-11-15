@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
@@ -32,12 +31,7 @@ public sealed class ArticleSearchPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var author = Guid.NewGuid();
-        var secret = RandomNumberGenerator.GetBytes(32);
-        await Sql("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'FAS4 author',true,true,1)", author);
-        await Sql("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')",
-            SHA256.HashData(secret), author);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
+        var (author, token, _) = await fixture.SignIn("FAS4 author", ct, minutes: 1);
         await using (var transaction = await db.BeginTransactionAsync(ct))
         {
             await FixtureSql.ExecuteAsync(db, transaction, ct, """
@@ -134,7 +128,7 @@ public sealed class ArticleSearchPostgresTests
 
             async Task Retract(HttpStatusCode status)
             {
-                using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract, retract, session.Token, handle: null);
+                using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract, retract, token, handle: null);
                 using var response = await client.SendAsync(request, ct);
                 Assert.Equal(status, response.StatusCode);
             }

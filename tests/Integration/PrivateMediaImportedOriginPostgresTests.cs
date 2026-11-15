@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -95,19 +94,10 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(PostgresErrorCodes.CheckViolation,
                     (await Assert.ThrowsAsync<PostgresException>(() => fakeUpload.ExecuteNonQueryAsync(ct))).SqlState);
 
-            var measure = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
+            var measure = await FixtureProcess.Run(FixtureProcess.Migration(db.ConnectionString, "backup", "measure"), ct);
+            Assert.True(measure.Code == 0, measure.Error);
+            using (var receipt = JsonDocument.Parse(measure.Output))
             {
-                RedirectStandardOutput = true, RedirectStandardError = true,
-                ArgumentList = { Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!, "backup", "measure" },
-            };
-            measure.Environment["FSUSBLOG_DB"] = db.ConnectionString;
-            using (var process = Process.Start(measure)!)
-            {
-                var stdout = process.StandardOutput.ReadToEndAsync(ct);
-                var stderr = process.StandardError.ReadToEndAsync(ct);
-                await process.WaitForExitAsync(ct);
-                Assert.True(process.ExitCode == 0, await stderr);
-                using var receipt = JsonDocument.Parse(await stdout);
                 var measured = Assert.Single(receipt.RootElement.GetProperty("media").EnumerateArray());
                 Assert.Equal(asset.ToString("N"), measured.GetProperty("id").GetString());
                 Assert.Equal(Convert.ToHexStringLower(normalized.Hash), measured.GetProperty("sha256").GetString());
@@ -125,12 +115,7 @@ public sealed partial class PrivateMediaPostgresTests
                     ["FSUSBLOG_PUBLIC_ORIGIN"] = address.GetLeftPart(UriPartial.Authority),
                     ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
                     [MediaEndpoints.StorageSetting] = media.FullName,
-                }, request =>
-                {
-                    request.Headers.Host = address.Authority;
-                    request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-                    request.Headers.Add("X-Forwarded-Proto", "https");
-                });
+                }, request => PublicationFixture.Forward(request, address.Authority));
             await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, root, ct, address);
             var client = proxy.Client;
             var path = PathFor(WireRoutes.PrivateMediaRead, asset);

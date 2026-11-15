@@ -7,6 +7,7 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using Microsoft.AspNetCore.WebUtilities;
+using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -20,10 +21,10 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await Login("Facet owner");
-        var outsider = await Login("Facet outsider");
+        var owner = await SignIn(fixture, "Facet owner", ct);
+        var outsider = await SignIn(fixture, "Facet outsider", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var author = new AuthorPropertyFixture(fixture, server.Client, ct);
 
         var red = Guid.Parse("00000000-0000-4000-8000-000000000001");
         var blue = Guid.Parse("00000000-0000-4000-8000-000000000002");
@@ -34,7 +35,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         var single = await Define(owner, "choice", PropertyFieldKind.SingleSelect, options);
         var disabled = await Define(owner, "disabled", PropertyFieldKind.Boolean, enabled: false);
         var deprecated = await Define(owner, "deprecated", PropertyFieldKind.Boolean);
-        await ChangeDefinition(owner, 3, deprecated.Id, deprecated.Revision);
+        await author.ChangeDefinition(owner, 3, deprecated.Id, deprecated.Revision);
         var unsupported = await Define(owner, "text", PropertyFieldKind.Text);
         // Reuse the UUID across two schemas. Both the definition and value must stay owner-scoped.
         var outsiderFlag = await Define(outsider, "flag", PropertyFieldKind.Boolean, id: flag.Id);
@@ -42,10 +43,9 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         const int matches = 24;
         var articles = new ArticleState[matches];
         var values = new PropertyFieldValue[matches];
-        var revisions = new Dictionary<int, long>();
         for (var i = 0; i < matches; i++)
         {
-            var article = await Save(owner, i % 2 == 0 ? $"{Keyword} title {i}" : $"Body match {i}",
+            var article = await author.Save(owner, i % 2 == 0 ? $"{Keyword} title {i}" : $"Body match {i}",
                 i % 2 == 0 ? "Different body" : $"The {Keyword} body is indexed");
             articles[i] = article;
             values[i] = i switch
@@ -56,7 +56,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 _ => new PropertyFieldValue.Null(),
             };
             if (values[i] is not PropertyFieldValue.Missing)
-                await Put(owner, article, flag, values[i]);
+                await author.Put(owner, article, flag, values[i]);
 
             PropertyFieldValue? choices = (i % 6) switch
             {
@@ -67,7 +67,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 4 => null,
                 _ => new PropertyFieldValue.Null(),
             };
-            if (choices is not null) await Put(owner, article, multi, choices);
+            if (choices is not null) await author.Put(owner, article, multi, choices);
 
             PropertyFieldValue? choice = i switch
             {
@@ -76,20 +76,20 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 3 => new PropertyFieldValue.Null(),
                 _ => null,
             };
-            if (choice is not null) await Put(owner, article, single, choice);
+            if (choice is not null) await author.Put(owner, article, single, choice);
         }
 
-        var nonmatch = await Save(owner, "Other subject", "Other body");
-        await Put(owner, nonmatch, flag, new PropertyFieldValue.Boolean(true));
-        var deleted = await Save(owner, $"{Keyword} deleted", "Historical body");
-        await Put(owner, deleted, flag, new PropertyFieldValue.Boolean(true));
-        await Change(owner, ArticleAction.Delete, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
-        var archived = await Save(owner, $"{Keyword} archived", "Historical body");
-        await Put(owner, archived, flag, new PropertyFieldValue.Boolean(true));
-        await Put(owner, archived, multi, new PropertyFieldValue.MultiSelect([red]));
+        var nonmatch = await author.Save(owner, "Other subject", "Other body");
+        await author.Put(owner, nonmatch, flag, new PropertyFieldValue.Boolean(true));
+        var deleted = await author.Save(owner, $"{Keyword} deleted", "Historical body");
+        await author.Put(owner, deleted, flag, new PropertyFieldValue.Boolean(true));
+        await author.ChangeArticle(owner, ArticleAction.Delete, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
+        var archived = await author.Save(owner, $"{Keyword} archived", "Historical body");
+        await author.Put(owner, archived, flag, new PropertyFieldValue.Boolean(true));
+        await author.Put(owner, archived, multi, new PropertyFieldValue.MultiSelect([red]));
         await Archive(archived);
-        var foreign = await Save(outsider, $"{Keyword} foreign", "Different body");
-        await Put(outsider, foreign, outsiderFlag, new PropertyFieldValue.Boolean(false));
+        var foreign = await author.Save(outsider, $"{Keyword} foreign", "Different body");
+        await author.Put(outsider, foreign, outsiderFlag, new PropertyFieldValue.Boolean(false));
 
         var request = Query(owner, flag);
         var first = await Ready(request, owner);
@@ -146,10 +146,10 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         // A property edit on a later page changes only the value revision.
         var offPage = Array.FindIndex(articles, article => article.Id == tail.Search.Rows[^1].Id);
         Assert.InRange(offPage, 0, matches - 1);
-        var before = await ArticleStamp(articles[offPage].Id);
+        var before = await author.ArticleStamp(articles[offPage].Id);
         var replacement = new PropertyFieldValue.Boolean(values[offPage] is PropertyFieldValue.Boolean { Value: false });
-        await Put(owner, articles[offPage], flag, replacement);
-        Assert.Equal(before, await ArticleStamp(articles[offPage].Id));
+        await author.Put(owner, articles[offPage], flag, replacement);
+        Assert.Equal(before, await author.ArticleStamp(articles[offPage].Id));
         values[offPage] = replacement;
         await Reject(continuation, owner, HttpStatusCode.Conflict);
         var updated = await Ready(request, owner);
@@ -157,7 +157,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         RequireFlags(updated, flag, values);
 
         // A new article revision removes a member from the lexical cohort.
-        var revised = await Change(owner, ArticleAction.Save, new(articles[0].Id, articles[0].Revision, Guid.NewGuid(),
+        var revised = await author.ChangeArticle(owner, ArticleAction.Save, new(articles[0].Id, articles[0].Revision, Guid.NewGuid(),
             "Independent title", "Independent body"));
         Assert.Equal(articles[0].Revision + 1, revised.Revision);
         Assert.NotEmpty(updated.Search.NextCursor);
@@ -166,12 +166,19 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         Assert.Equal(matches - 1, current.Search.Total);
         RequireFlags(current, flag, values.Skip(1));
 
-        var renamed = await ChangeDefinition(owner, 2, flag.Id, flag.Revision, label: "Renamed flag");
+        var renamed = await author.ChangeDefinition(owner, 2, flag.Id, flag.Revision, label: "Renamed flag");
         await Reject(request, owner, HttpStatusCode.Conflict);
         await Reject(Query(owner, flag), owner, HttpStatusCode.Conflict);
         var atNewSchema = await Ready(Query(owner, renamed), owner);
         Assert.Equal(matches - 1, atNewSchema.Search.Total);
         RequireFlags(atNewSchema, renamed, values.Skip(1));
+
+        async Task<Field> Define(Actor actor, string name, PropertyFieldKind kind, PropertyFieldOption[]? choices = null,
+            bool enabled = true, Guid? id = null)
+        {
+            var field = await author.Create(actor, name, kind, id, choices);
+            return enabled ? await author.SetFilterable(actor, field) : field;
+        }
 
         AuthorTextPropertyFacetQuery Query(Actor actor, Field field, params PropertyCondition[] conditions) =>
             new(new(Keyword, "", null, null, actor.SchemaRevision, conditions), false, field.Id, field.Revision);
@@ -192,66 +199,17 @@ public sealed class AuthorTextPropertyFacetPostgresTests
 
         async Task<AuthorTextPropertyFacetPage> Read(AuthorTextPropertyFacetQuery query, Actor actor) =>
             Wire.DecodeAuthorTextPropertyFacetPage(
-                await Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor), query.IncludeHeading);
+                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor), query.IncludeHeading);
 
         Task<byte[]> Reject(AuthorTextPropertyFacetQuery query, Actor actor, HttpStatusCode expected) =>
-            Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor, expected);
-
-        Task<byte[]> Send(string route, byte[] packet, Actor actor, HttpStatusCode expected = HttpStatusCode.OK) =>
-            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, route, packet, actor.Token, actor.Handle, expected, ct);
-
-        async Task<Actor> Login(string name)
-        {
-            var (id, token, handle) = await fixture.SignIn(name, ct);
-            return new(id, token, handle);
-        }
-
-        async Task<Field> Define(Actor actor, string name, PropertyFieldKind kind, PropertyFieldOption[]? choices = null,
-            bool enabled = true, Guid? id = null)
-        {
-            var created = await ChangeDefinition(actor, 1, id ?? Guid.NewGuid(), 0, name, name, kind, choices);
-            if (!enabled) return created;
-            var payload = Wire.EncodePropertyFilterabilityCommand(new(created.Id, Guid.NewGuid(), actor.SchemaRevision, created.Revision, true));
-            return RecordDefinition(actor, created.Id, created.Revision, await Send(WireRoutes.PropertyFilterability, payload, actor));
-        }
-
-        async Task<Field> ChangeDefinition(Actor actor, int operation, Guid id, long revision, string key = "", string label = "",
-            PropertyFieldKind kind = PropertyFieldKind.Text, PropertyFieldOption[]? choices = null)
-        {
-            var input = new PropertySchemaInput(new(operation, id, Guid.NewGuid(), actor.SchemaRevision, revision, key, label), kind, choices ?? []);
-            return RecordDefinition(actor, id, revision, await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(input), actor));
-        }
-
-        async Task Put(Actor actor, ArticleState article, Field field, PropertyFieldValue value)
-        {
-            long stamp = revisions.GetValueOrDefault(article.Id);
-            var input = new PropertyValueInput(article.Id, article.Revision, actor.SchemaRevision, stamp, field.Id, field.Revision, Guid.NewGuid(), value);
-            var receipt = Wire.DecodePropertyCommandReceipt(await Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(input), actor));
-            Assert.Equal(new PropertyCommandReceipt(field.Id, actor.SchemaRevision, stamp + 1), receipt);
-            revisions[article.Id] = receipt.Revision;
-        }
-
-        Task<ArticleState> Save(Actor actor, string title, string body) =>
-            Change(actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
-
-        async Task<ArticleState> Change(Actor actor, ArticleAction action, Edit edit) =>
-            (await store.WithSession(actor.Token, true, (conn, tx, identity) => Store.Execute(conn, tx, identity, action, edit, ct), ct)).Article;
-
-        async Task<(long Revision, DateTime Updated)> ArticleStamp(int id)
-        {
-            await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(conn, null, "select revision,updated_at from public.article where id=$1", id);
-            await using var row = await command.ExecuteReaderAsync(ct);
-            Assert.True(await row.ReadAsync(ct));
-            return (row.GetInt64(0), row.GetDateTime(1));
-        }
+            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor, expected);
 
         async Task Archive(ArticleState draft)
         {
-            var original = await Change(owner, ArticleAction.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
-            var edit = await Change(owner, ArticleAction.Save, new(draft.Id, original.Revision, Guid.NewGuid(), draft.Title, "Replacement body"));
-            var published = await Change(owner, ArticleAction.Publish, new(draft.Id, edit.Revision, Guid.NewGuid(), "", ""));
-            await Execute("""
+            var original = await author.ChangeArticle(owner, ArticleAction.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
+            var edit = await author.ChangeArticle(owner, ArticleAction.Save, new(draft.Id, original.Revision, Guid.NewGuid(), draft.Title, "Replacement body"));
+            var published = await author.ChangeArticle(owner, ArticleAction.Publish, new(draft.Id, edit.Revision, Guid.NewGuid(), "", ""));
+            await author.Execute("""
                 with custody as (
                     insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by)
                     values($1,$2,'Fixture editor','Fixture responsibility for the source release','facet-fixture',current_user)
@@ -270,7 +228,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             var admin = Guid.NewGuid();
             var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
             var digest = Store.TokenDigest(token)!;
-            await Execute("""
+            await author.Execute("""
                 with principal as (
                     insert into public.admin_principal(id,handle,user_handle,enabled,generation)
                     values($1,'facet-fixture-admin',$2,true,1) returning id
@@ -285,7 +243,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 select $4,id,1,clock_timestamp()+interval '2 minutes' from principal
                 """, admin, RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), digest);
             var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-            await Execute("""
+            await author.Execute("""
                 insert into public.admin_article_rollback_step_up
                     (digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
                 values($1,$2,$3,1,8,$4,clock_timestamp()+interval '45 seconds',2)
@@ -295,19 +253,6 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             Assert.Equal((draft.Id, published.Revision + 1, Wire.AdminArticleArchiveStatus), (receipt.ArticleId, receipt.Revision, receipt.TargetStatus));
         }
 
-        async Task Execute(string sql, params object[] args)
-        {
-            await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
-            await FixtureSql.ExecuteAsync(conn, null, ct, sql, args);
-        }
-    }
-
-    private static Field RecordDefinition(Actor actor, Guid id, long prior, byte[] packet)
-    {
-        var receipt = Wire.DecodePropertyCommandReceipt(packet);
-        Assert.Equal(new PropertyCommandReceipt(id, actor.SchemaRevision + 1, prior + 1), receipt);
-        actor.SchemaRevision = receipt.SchemaRevision;
-        return new(id, receipt.Revision);
     }
 
     private static void RequireFlags(AuthorTextPropertyFacetPage page, Field flag, IEnumerable<PropertyFieldValue> entries)
@@ -331,9 +276,4 @@ public sealed class AuthorTextPropertyFacetPostgresTests
     private static AuthorTextPropertyFacetBucket Bool(bool value, int count) => new(new PropertyFieldValue.Boolean(value), count);
     private static AuthorTextPropertyFacetBucket Choice(Guid id, int count) => new(new PropertyFieldValue.SingleSelect(id), count);
 
-    private sealed record Field(Guid Id, long Revision);
-    private sealed record Actor(Guid Id, string Token, string? Handle)
-    {
-        internal long SchemaRevision { get; set; }
-    }
 }

@@ -275,10 +275,7 @@ public sealed class RevisionHistoryPostgresTests
             if (user is null)
                 await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)",
                     id, name, author);
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await Execute("insert into public.login_ticket values($1,$2,now()+interval '2 minutes')",
-                SHA256.HashData(ticket), id);
-            return await store.SignIn(Convert.ToHexStringLower(ticket), ct);
+            return await store.SignIn(await fixture.IssueTicket(id, ct), ct);
         }
 
         async Task Execute(string sql, params object[] values)
@@ -328,12 +325,7 @@ public sealed class RevisionHistoryPostgresTests
                 alter column offset_utf16 set not null,
                 alter column length_utf16 set not null
             """);
-        var owner = Guid.NewGuid();
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Old schema author',true,true,1)", owner);
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), owner);
-        var (token, actor) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
-        var handle = SiteSessions.Id(actor.Id, Store.TokenDigest(token)!);
+        var (_, token, handle) = await fixture.SignIn("Old schema author", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var draft = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save,
             Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Saved body", "Omit:keep"))));

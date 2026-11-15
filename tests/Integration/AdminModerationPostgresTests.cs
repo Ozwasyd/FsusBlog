@@ -724,17 +724,8 @@ public sealed partial class AdminModerationPostgresTests
 
     private static async Task<Moderator> AddModerator(NpgsqlConnection db, string handle, CancellationToken ct, bool canModerate = true)
     {
-        var principal = Guid.NewGuid();
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var digest = Store.TokenDigest(token)!;
-        await Execute(db, "insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)",
-            ct, principal, handle, RandomNumberGenerator.GetBytes(32));
-        await Execute(db, "insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", ct,
-            RandomNumberGenerator.GetBytes(32), principal, new byte[] { 2 });
-        await Execute(db, "insert into public.admin_permission values($1,$2)", ct, principal, CurrentSchema.AdminManagePermission);
-        if (canModerate)
-            await Execute(db, "insert into public.admin_permission values($1,$2)", ct, principal, CurrentSchema.CommentModeratePermission);
-        await Execute(db, "insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", ct, digest, principal);
+        var (principal, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2],
+            canModerate ? [CurrentSchema.CommentModeratePermission] : []);
         return new(principal, token, digest);
     }
 

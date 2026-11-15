@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
-import { createRequire } from 'node:module'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { chromium, submitArticle } from './browser-authoring-fixture.mjs'
 
-const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = tools('@playwright/test')
 const origin = process.env.FSUSBLOG_TEST_URL
 const firstTicket = process.env.FSUSBLOG_TEST_TICKET
 const secondTicket = process.env.FSUSBLOG_TEST_MOBILE_TICKET
@@ -21,12 +18,8 @@ const started = new Date().toISOString()
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 await mkdir(evidence, { recursive: true })
 
-async function submitCommand(context, path, article) {
-  const frame = encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ idempotencyKey: randomUUID(), ...article }))
-  return context.request.post(new URL(path, origin).href, {
-    data: Buffer.from(frame), headers: { 'content-type': 'application/octet-stream' },
-  })
-}
+const submitCommand = (context, path, article) => submitArticle(context.request, new URL(path, origin).href, article,
+  { 'content-type': 'application/octet-stream' })
 
 async function command(context, path, article, expected = FrameType.Draft) {
   const response = await submitCommand(context, path, article)

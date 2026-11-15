@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
@@ -15,26 +14,35 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
 
-    internal async Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct, bool canAuthor = true)
+    internal async Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct,
+        bool canAuthor = true, int minutes = 2)
     {
-        var id = Guid.NewGuid();
-        await using (var connection = await DataSource.OpenConnectionAsync(ct))
-        await using (var account = Store.Sql(connection, null, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)
-            """, id, name, canAuthor))
-            await account.ExecuteNonQueryAsync(ct);
-        return await SignIn(id, ct);
+        var (id, ticket) = await IssueTicket(name, ct, canAuthor, minutes);
+        return await Redeem(id, ticket, ct);
     }
 
-    internal async Task<(Guid Id, string Token, string Handle)> SignIn(Guid id, CancellationToken ct)
+    internal async Task<(Guid Id, string Token, string Handle)> SignIn(Guid id, CancellationToken ct, int minutes = 2) =>
+        await Redeem(id, await IssueTicket(id, ct, minutes), ct);
+
+    internal async Task<(Guid Id, string Ticket)> IssueTicket(string name, CancellationToken ct, bool canAuthor = true, int minutes = 2)
     {
-        var key = RandomNumberGenerator.GetBytes(32);
-        await using (var connection = await DataSource.OpenConnectionAsync(ct))
-        await using (var ticket = Store.Sql(connection, null, """
-            insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')
-            """, SHA256.HashData(key), id))
-            await ticket.ExecuteNonQueryAsync(ct);
-        var token = (await new Store(DataSource).SignIn(Convert.ToHexStringLower(key), ct)).Token;
+        var id = Guid.NewGuid();
+        await using var connection = await DataSource.OpenConnectionAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, """
+            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)
+            """, id, name, canAuthor);
+        return (id, await FixtureSql.IssueLoginTicketAsync(connection, null, ct, id, minutes));
+    }
+
+    internal async Task<string> IssueTicket(Guid id, CancellationToken ct, int minutes = 2)
+    {
+        await using var connection = await DataSource.OpenConnectionAsync(ct);
+        return await FixtureSql.IssueLoginTicketAsync(connection, null, ct, id, minutes);
+    }
+
+    private async Task<(Guid Id, string Token, string Handle)> Redeem(Guid id, string ticket, CancellationToken ct)
+    {
+        var token = (await new Store(DataSource).SignIn(ticket, ct)).Token;
         return (id, token, SiteSessions.Id(id, Store.TokenDigest(token)!));
     }
 

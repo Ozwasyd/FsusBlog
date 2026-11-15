@@ -2,6 +2,7 @@ using System.Net;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -16,33 +17,32 @@ public sealed class AuthorTextPropertySortPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var store = new Store(fixture.DataSource);
-        var owner = await Login("Sort owner");
-        var outsider = await Login("Sort outsider");
+        var owner = await SignIn(fixture, "Sort owner", ct);
+        var outsider = await SignIn(fixture, "Sort outsider", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var author = new AuthorPropertyFixture(fixture, server.Client, ct);
 
-        var number = await Create(owner, "ranking", PropertyFieldKind.Number);
-        number = await SetProjection(owner, number, searchable: false, sortable: true);
-        var flag = await Create(owner, "flag", PropertyFieldKind.Boolean);
-        flag = await SetFilterable(owner, flag);
-        flag = await SetProjection(owner, flag, searchable: false, sortable: true);
-        var disabled = await Create(owner, "disabled", PropertyFieldKind.Number);
-        disabled = await SetFilterable(owner, disabled);
-        disabled = await SetProjection(owner, disabled, searchable: true, sortable: false);
-        var retired = await Create(owner, "retired", PropertyFieldKind.Number);
-        retired = await SetProjection(owner, retired, searchable: false, sortable: true);
-        retired = await ChangeDefinition(owner, 3, retired.Id, retired.Revision);
-        var outsiderNumber = await Create(outsider, "ranking", PropertyFieldKind.Number, number.Id);
-        outsiderNumber = await SetProjection(outsider, outsiderNumber, searchable: false, sortable: true);
-        await Create(outsider, "other", PropertyFieldKind.Boolean);
+        var number = await author.Create(owner, "ranking", PropertyFieldKind.Number);
+        number = await author.SetProjection(owner, number, searchable: false, sortable: true);
+        var flag = await author.Create(owner, "flag", PropertyFieldKind.Boolean);
+        flag = await author.SetFilterable(owner, flag);
+        flag = await author.SetProjection(owner, flag, searchable: false, sortable: true);
+        var disabled = await author.Create(owner, "disabled", PropertyFieldKind.Number);
+        disabled = await author.SetFilterable(owner, disabled);
+        disabled = await author.SetProjection(owner, disabled, searchable: true, sortable: false);
+        var retired = await author.Create(owner, "retired", PropertyFieldKind.Number);
+        retired = await author.SetProjection(owner, retired, searchable: false, sortable: true);
+        retired = await author.ChangeDefinition(owner, 3, retired.Id, retired.Revision);
+        var outsiderNumber = await author.Create(outsider, "ranking", PropertyFieldKind.Number, number.Id);
+        outsiderNumber = await author.SetProjection(outsider, outsiderNumber, searchable: false, sortable: true);
+        await author.Create(outsider, "other", PropertyFieldKind.Boolean);
 
         var members = new Member[CohortSize];
-        var valueRevisions = new Dictionary<int, long>();
         var oldAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         for (var index = 0; index < members.Length; index++)
         {
             bool bodyOnly = index == 10;
-            var article = await Save(owner, bodyOnly ? $"Body match {index}" : $"{Keyword} title {index}",
+            var article = await author.Save(owner, bodyOnly ? $"Body match {index}" : $"{Keyword} title {index}",
                 bodyOnly ? $"The {Keyword} body is indexed" : "Other body");
             var at = index is 8 or 10 ? oldAt.AddDays(1) : oldAt;
             var member = new Member(article, bodyOnly, at, NumberAt(index), FlagAt(index));
@@ -51,16 +51,16 @@ public sealed class AuthorTextPropertySortPostgresTests
             await PutIfPresent(owner, article, flag, member.Flag);
         }
         foreach (var group in members.GroupBy(member => member.UpdatedAt))
-            Assert.Equal(group.Count(), await Execute("update public.article set updated_at=$1 where id=any($2)",
+            Assert.Equal(group.Count(), await author.Execute("update public.article set updated_at=$1 where id=any($2)",
                 group.Key, group.Select(member => member.Article.Id).ToArray()));
 
-        var unrelated = await Save(owner, "Independent subject", "Independent body");
-        await Put(owner, unrelated, number, new PropertyFieldValue.Number(-200));
-        var deleted = await Save(owner, $"{Keyword} deleted", "Other body");
-        await Put(owner, deleted, number, new PropertyFieldValue.Number(-300));
-        await ChangeArticle(owner, ArticleAction.Delete, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
-        var foreign = await Save(outsider, $"{Keyword} foreign", "Other body");
-        await Put(outsider, foreign, outsiderNumber, new PropertyFieldValue.Number(-400));
+        var unrelated = await author.Save(owner, "Independent subject", "Independent body");
+        await author.Put(owner, unrelated, number, new PropertyFieldValue.Number(-200));
+        var deleted = await author.Save(owner, $"{Keyword} deleted", "Other body");
+        await author.Put(owner, deleted, number, new PropertyFieldValue.Number(-300));
+        await author.ChangeArticle(owner, ArticleAction.Delete, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
+        var foreign = await author.Save(outsider, $"{Keyword} foreign", "Other body");
+        await author.Put(outsider, foreign, outsiderNumber, new PropertyFieldValue.Number(-400));
 
         var ascending = Query(owner, number, AuthorTextPropertySortDirection.Ascending);
         var descending = ascending with { Direction = AuthorTextPropertySortDirection.Descending };
@@ -101,16 +101,16 @@ public sealed class AuthorTextPropertySortPostgresTests
         // Moving a previously missing off-page value leaves the article source revision and rank clock intact.
         var moved = ascendingRows[^1];
         Assert.IsType<PropertyFieldValue.Missing>(moved.Number);
-        var before = await ArticleStamp(moved.Article.Id);
+        var before = await author.ArticleStamp(moved.Article.Id);
         var replacement = new PropertyFieldValue.Number(-100);
-        await Put(owner, moved.Article, number, replacement);
-        Assert.Equal(before, await ArticleStamp(moved.Article.Id));
+        await author.Put(owner, moved.Article, number, replacement);
+        Assert.Equal(before, await author.ArticleStamp(moved.Article.Id));
         await Reject(continuation, owner, HttpStatusCode.Conflict);
         members[Array.IndexOf(members, moved)] = moved with { Number = replacement };
         var after = await VerifyPages(ascending, owner, Expect(members, member => member.Number, ascending.Direction));
         Assert.Equal(moved.Article.Id, after.Search.Rows[0].Id);
 
-        number = await SetProjection(owner, number, searchable: true, sortable: false);
+        number = await author.SetProjection(owner, number, searchable: true, sortable: false);
         await Reject(Continue(ascending, after.Search.NextCursor), owner, HttpStatusCode.Conflict);
         await Reject(Query(owner, number, ascending.Direction), owner, HttpStatusCode.NotFound);
 
@@ -157,86 +157,19 @@ public sealed class AuthorTextPropertySortPostgresTests
 
         async Task<AuthorTextPropertySortPage> Read(AuthorTextPropertySortQuery query, Actor actor) =>
             Wire.DecodeAuthorTextPropertySortPage(
-                await Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor),
+                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor),
                 includeHeading: query.IncludeHeading, expectFacet: query.Facet is not null);
 
         Task<byte[]> Reject(AuthorTextPropertySortQuery query, Actor actor, HttpStatusCode status) =>
-            Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor, status);
-
-        Task<byte[]> Send(string route, byte[] wire, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
-            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, route, wire, actor.Token, actor.Handle, status, ct);
-
-        async Task<Actor> Login(string name)
-        {
-            var (_, token, handle) = await fixture.SignIn(name, ct);
-            return new(token, handle);
-        }
-
-        Task<Field> Create(Actor actor, string key, PropertyFieldKind kind, Guid? id = null) =>
-            ChangeDefinition(actor, 1, id ?? Guid.NewGuid(), 0, key, kind);
-
-        async Task<Field> ChangeDefinition(Actor actor, int operation, Guid id, long revision, string key = "", PropertyFieldKind kind = PropertyFieldKind.Text)
-        {
-            var data = Wire.EncodePropertySchemaInput(new(new(operation, id, Guid.NewGuid(), actor.SchemaRevision, revision, key, key), kind, []));
-            return AdvanceDefinition(actor, new(id, revision), await Send(WireRoutes.PropertySchemaCommand, data, actor));
-        }
-
-        async Task<Field> SetProjection(Actor actor, Field field, bool searchable, bool sortable)
-        {
-            var data = Wire.EncodePropertyDefinitionProjectionCommand(new(field.Id, Guid.NewGuid(), actor.SchemaRevision, field.Revision, searchable, sortable));
-            return AdvanceDefinition(actor, field, await Send(WireRoutes.PropertySchemaCommand, data, actor));
-        }
-
-        async Task<Field> SetFilterable(Actor actor, Field field)
-        {
-            var data = Wire.EncodePropertyFilterabilityCommand(new(field.Id, Guid.NewGuid(), actor.SchemaRevision, field.Revision, true));
-            return AdvanceDefinition(actor, field, await Send(WireRoutes.PropertyFilterability, data, actor));
-        }
+            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor, status);
 
         Task PutIfPresent(Actor actor, ArticleState article, Field field, PropertyFieldValue value) =>
-            value is PropertyFieldValue.Missing ? Task.CompletedTask : Put(actor, article, field, value);
+            value is PropertyFieldValue.Missing ? Task.CompletedTask : author.Put(actor, article, field, value);
 
-        async Task Put(Actor actor, ArticleState article, Field field, PropertyFieldValue value)
-        {
-            var old = valueRevisions.GetValueOrDefault(article.Id);
-            var wire = Wire.EncodePropertyValueInput(new(article.Id, article.Revision, actor.SchemaRevision, old, field.Id, field.Revision, Guid.NewGuid(), value));
-            var receipt = Wire.DecodePropertyCommandReceipt(await Send(WireRoutes.PropertyValueCommand, wire, actor));
-            Assert.Equal(new PropertyCommandReceipt(field.Id, actor.SchemaRevision, old + 1), receipt);
-            valueRevisions[article.Id] = receipt.Revision;
-        }
-
-        Task<ArticleState> Save(Actor actor, string title, string body) =>
-            ChangeArticle(actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
-
-        async Task<ArticleState> ChangeArticle(Actor actor, ArticleAction action, Edit edit) =>
-            (await store.WithSession(actor.Token, true, (db, tx, identity) => Store.Execute(db, tx, identity, action, edit, ct), ct)).Article;
-
-        async Task<(long Revision, DateTime Updated)> ArticleStamp(int id)
-        {
-            await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(db, null, "select revision,updated_at from public.article where id=$1", id);
-            await using var row = await command.ExecuteReaderAsync(ct);
-            Assert.True(await row.ReadAsync(ct));
-            return (row.GetInt64(0), row.GetDateTime(1));
-        }
-
-        async Task<int> Execute(string sql, params object[] args)
-        {
-            await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-            return await FixtureSql.ExecuteAsync(db, null, ct, sql, args);
-        }
     }
 
     private static AuthorTextPropertySortQuery Continue(AuthorTextPropertySortQuery query, string cursor) =>
         query with { Search = query.Search with { Cursor = cursor } };
-
-    private static Field AdvanceDefinition(Actor actor, Field field, byte[] wire)
-    {
-        var receipt = Wire.DecodePropertyCommandReceipt(wire);
-        Assert.Equal(new PropertyCommandReceipt(field.Id, actor.SchemaRevision + 1, field.Revision + 1), receipt);
-        actor.SchemaRevision = receipt.SchemaRevision;
-        return field with { Revision = receipt.Revision };
-    }
 
     private static PropertyFieldValue NumberAt(int index) => index switch
     {
@@ -286,9 +219,4 @@ public sealed class AuthorTextPropertySortPostgresTests
     }
 
     private sealed record Member(ArticleState Article, bool BodyOnly, DateTime UpdatedAt, PropertyFieldValue Number, PropertyFieldValue Flag);
-    private sealed record Field(Guid Id, long Revision);
-    private sealed record Actor(string Token, string Handle)
-    {
-        internal long SchemaRevision { get; set; }
-    }
 }

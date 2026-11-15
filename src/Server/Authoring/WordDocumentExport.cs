@@ -19,7 +19,6 @@ internal static class WordDocumentExport
     private const int PageContentWidthTwips = 9026;
     private const int PageContentHeightTwips = 13958;
     private const string DocumentRelationship = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-    private static readonly DateTimeOffset ArchiveEpoch = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly XmlWriterSettings Xml = new() { Encoding = Utf8, NewLineHandling = NewLineHandling.None, CloseOutput = true };
 
@@ -49,15 +48,14 @@ internal static class WordDocumentExport
         using var data = new MemoryStream();
         using (var archive = new ZipArchive(data, ZipArchiveMode.Create, leaveOpen: true))
         {
-            WritePart(archive, "[Content_Types].xml", types);
-            WritePart(archive, "_rels/.rels", RootRelations);
-            WritePart(archive, "word/_rels/document.xml.rels", documentRelations);
+            DocumentArchive.Write(archive, "[Content_Types].xml", Utf8.GetBytes(types));
+            DocumentArchive.Write(archive, "_rels/.rels", Utf8.GetBytes(RootRelations));
+            DocumentArchive.Write(archive, "word/_rels/document.xml.rels", Utf8.GetBytes(documentRelations));
             if (attachment is not null)
             {
-                using var image = CreatePart(archive, $"word/{imagePath}");
-                image.Write(attachment.Bytes);
+                DocumentArchive.Write(archive, $"word/{imagePath}", attachment.Bytes);
             }
-            using (var styles = XmlWriter.Create(CreatePart(archive, "word/styles.xml"), Xml))
+            using (var styles = XmlWriter.Create(DocumentArchive.Open(archive, "word/styles.xml"), Xml))
             {
                 styles.WriteStartElement("w", "styles", Word);
                 Style(styles, "Normal", "Normal", 22, 120);
@@ -69,7 +67,7 @@ internal static class WordDocumentExport
                 styles.WriteEndElement();
             }
 
-            using var output = XmlWriter.Create(CreatePart(archive, "word/document.xml"), Xml);
+            using var output = XmlWriter.Create(DocumentArchive.Open(archive, "word/document.xml"), Xml);
             output.WriteStartElement("w", "document", Word);
             output.WriteStartElement("w", "body", Word);
             Paragraph(output, "Title", title, ct);
@@ -247,19 +245,6 @@ internal static class WordDocumentExport
         xml.WriteStartElement("w", name, Word);
         foreach (var (key, value) in attributes) xml.WriteAttributeString("w", key, Word, value);
         xml.WriteEndElement();
-    }
-
-    private static Stream CreatePart(ZipArchive zip, string name)
-    {
-        var entry = zip.CreateEntry(name, CompressionLevel.Fastest);
-        entry.LastWriteTime = ArchiveEpoch;
-        return entry.Open();
-    }
-
-    private static void WritePart(ZipArchive zip, string name, string content)
-    {
-        using var stream = CreatePart(zip, name);
-        stream.Write(Utf8.GetBytes(content));
     }
 
     private static string? HeadingLabel(HeadingBlock heading)

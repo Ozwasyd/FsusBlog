@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
@@ -104,15 +103,14 @@ public sealed class DistributionPostgresTests
         await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var user = Guid.NewGuid();
-        var secret = RandomNumberGenerator.GetBytes(32);
         await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'distribution-author',true,true,1)", user);
-        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user);
+        var ticket = await FixtureSql.IssueLoginTicketAsync(connection, null, ct, user, minutes: 1);
         await using (var catalog = Store.Sql(connection, null, """
             insert into public.category(id,name) values(11,'Published category'),(12,'Draft category');
             insert into public.tag(id,name) values(41,'Public tag'),(42,'Draft tag');
             insert into public.tag_url_name(name_key,tag_id) values('public tag',41),('public alias',41),('draft tag',42);
             """)) await catalog.ExecuteNonQueryAsync(ct);
-        var actor = await new Store(database.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
+        var actor = await new Store(database.DataSource).SignIn(ticket, ct);
         var site = Directory.CreateTempSubdirectory("fsusv2-distribution-pages-");
         try
         {

@@ -23,8 +23,8 @@ public sealed class ExtensionDocumentReadPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(db.DataSource);
         await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-        var author = await Login("Extension author");
-        var peer = await Login("Extension peer");
+        var author = await db.SignIn("Extension author", ct, minutes: 1);
+        var peer = await db.SignIn("Extension peer", ct, minutes: 1);
         const string source = "开😀文🧪尾";
         var saved = await Save(0, 0, source);
         var custodian = new ExtensionSavedDocumentCustodian(store, author.Token, author.Handle);
@@ -137,15 +137,6 @@ public sealed class ExtensionDocumentReadPostgresTests
             (await store.WithSession(author.Token, true, (conn, tx, actor) => Store.Execute(conn, tx, actor, ArticleAction.Save,
                 new(id, revision, Guid.NewGuid(), "Private draft", body), ct), ct)).Article;
 
-        async Task<(string Token, string Handle)> Login(string name)
-        {
-            var account = Guid.NewGuid();
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", account, name);
-            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(ticket), account);
-            var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-            return (token, SiteSessions.Id(account, Store.TokenDigest(token)!));
-        }
     }
 
     private static byte[] CreatePackage()

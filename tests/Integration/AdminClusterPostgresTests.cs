@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlogV2.Storage;
@@ -15,13 +14,7 @@ public sealed class AdminClusterPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var admin = Guid.NewGuid();
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'observer',$2,true,1)",
-            admin, RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", new byte[] { 1 }, admin, new byte[] { 2 });
-        await Execute("insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", Store.TokenDigest(token)!, admin);
-        await Execute("insert into public.admin_permission values($1,'admin.manage'), ($1,'audit.read')", admin);
+        var (admin, token, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2], "audit.read");
         var settings = new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost",

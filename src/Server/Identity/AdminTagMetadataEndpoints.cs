@@ -11,12 +11,8 @@ internal static class AdminTagMetadataEndpoints
     internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        var authority = origin.GetLeftPart(UriPartial.Authority);
-        app.MapGet(WireRoutes.AdminTagMetadataAvailability, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            await store.TagMetadataAvailable(ctx.Request.Cookies[session], ct);
-            return Results.NoContent();
-        }).RequireRateLimiting("command");
+        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
+        actions.Availability(WireRoutes.AdminTagMetadataAvailability, store.TagMetadataAvailable);
 
         app.MapGet(WireRoutes.AdminTagMetadata, async (HttpContext ctx, int id, CancellationToken ct) =>
             Results.Bytes(Wire.EncodeAdminTagMetadata(await store.ReadTagMetadata(ctx.Request.Cookies[session], id, ct)), Aeds.ContentType))
@@ -39,8 +35,7 @@ internal static class AdminTagMetadataEndpoints
 
         async Task<(AdminTagMetadataCommand Input, byte[] Frame)> Read(HttpContext ctx, int id, CancellationToken ct)
         {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminTagMetadataFrameBytes, ct);
+            var frame = await actions.Read(ctx, WireLimits.AdminTagMetadataFrameBytes, ct);
             var input = Wire.DecodeAdminTagMetadataCommand(frame);
             if (input.Id != id) throw new BusinessException(Rejection.Invalid, "Tag ID does not match the request route.");
             return (input, frame);

@@ -1,24 +1,20 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
-  decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeArticleCommand, encodeDraft, encodeSignIn, FrameType, WireHeaders, WireRoutes,
+  decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { authorFixture, button, chromium, expect, readDraft } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const workspacePath = `${origin}/user/manage/article/workspace`
 const groupsPath = `${origin}${WireRoutes.AuthoringWorkspaceGroups}`
 const editPath = id => `${origin}/user/manage/article/edit/${id}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
-const binary = { 'Content-Type': 'application/octet-stream' }
-const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 const body = scope => scope.getByRole('textbox', { name: 'Body', exact: true })
 const title = scope => scope.getByRole('textbox', { name: 'Title', exact: true })
 const group = (page, name) => page.getByRole('main').getByRole('region', { name: `${name} article group`, exact: true })
@@ -28,38 +24,18 @@ const selection = locator => locator.evaluate(element => [element.selectionStart
 const observations = []
 const diagnostics = []
 
+const { signIn: issueSession, createDraft, saveDraft, monitor } = authorFixture(origin, diagnostics)
+
 async function signIn(context, ticket) {
   assert(ticket, 'A scratch author ticket is required')
-  const response = await context.request.post(`${origin}${WireRoutes.SignIn}`, { headers: binary,
-    data: Buffer.from(encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket }))) })
-  assert.equal(response.status(), 200)
-  const session = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+  const session = await issueSession(context, ticket)
   assert(session, 'Sign-in must bind workspace reads to the issued authoring session')
   return session
-}
-
-async function createDraft(context, title, body) {
-  return saveDraft(context, { id: 0, revision: 0n, title }, body)
-}
-
-async function saveDraft(context, draft, body) {
-  const response = await context.request.post(`${origin}${WireRoutes.Save}`, { headers: binary,
-    data: Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: draft.id, expectedRevision: draft.revision,
-      idempotencyKey: randomUUID(), title: draft.title, body }))) })
-  assert.equal(response.status(), 200)
-  return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
 }
 
 async function openById(page, id, command = 'Open in other group') {
   await page.getByLabel('Article ID', { exact: true }).fill(String(id))
   await button(page, command).click()
-}
-
-function monitor(page) {
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', entry => {
-    if (entry.type() === 'error' && !entry.text().startsWith('Failed to load resource:')) diagnostics.push(entry.text())
-  })
 }
 
 async function expectPane(pane, draft, source, writable) {
@@ -145,6 +121,16 @@ async function exerciseSplitter(page, primary, secondary) {
   assert(home.left.width < returned.left.width && returned.left.width < end.left.width)
   assert(home.right.width > returned.right.width && returned.right.width > end.right.width)
 
+  const actions = page.getByText('Group actions', { exact: true })
+  const equalize = button(page, 'Equalize group widths')
+  await press(page, actions)
+  await press(page, equalize, 'Space')
+  await expect(equalize).toBeFocused()
+  const equal = await splitGeometry(page, primary, secondary)
+  assert.equal(equal.values.now, 50)
+  assert(Math.abs(equal.left.width - equal.right.width) <= 1)
+  await press(page, actions)
+  await press(page, handle, 'End')
   await handle.scrollIntoViewIfNeeded()
   const box = await handle.boundingBox()
   assert(box)
@@ -172,7 +158,7 @@ async function exerciseSplitter(page, primary, secondary) {
   assert(Math.abs(pointer.left.width - end.available * preferred / 100) <= end.available / 100)
   await page.mouse.move(startX, y)
   await expect(handle).toHaveAttribute('aria-valuenow', String(preferred))
-  return { initialPercent: initial.values.now, keyboardIncreasedPercent: increased.values.now,
+  return { initialPercent: initial.values.now, equalizedPercent: equal.values.now, keyboardIncreasedPercent: increased.values.now,
     minPercent: home.values.now, maxPercent: end.values.now, pointerPercent: preferred, minimumPaneWidth: initial.minimumPane,
     lowerBoundPaneWidths: [home.left.width, home.right.width], upperBoundPaneWidths: [end.left.width, end.right.width],
     pointerPaneWidths: [pointer.left.width, pointer.right.width], dividerTrackWidth: pointer.track }
@@ -521,9 +507,7 @@ async function exerciseSaveAndClose(author) {
   }
 
   async function expectStored(draft, body, revision) {
-    const response = await author.request.get(draftPath(draft.id))
-    assert.equal(response.status(), 200)
-    const stored = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+    const stored = await readDraft(await author.request.get(draftPath(draft.id)))
     assert.deepEqual(stored, { ...draft, body, revision })
     return stored
   }
@@ -747,9 +731,7 @@ async function exerciseSingleDirtyClose(author) {
     assert.deepEqual(saves[1], saves[0])
     assert.deepEqual(saves[2], saves[0])
     assert.equal(await draftCopy(savedSource), false)
-    const response = await author.request.get(draftPath(victim.id))
-    assert.equal(response.status(), 200)
-    assert.deepEqual(decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload), {
+    assert.deepEqual(await readDraft(await author.request.get(draftPath(victim.id))), {
       ...victim, body: savedSource, revision: victim.revision + 1n,
     })
     if (!await recent.isVisible()) await page.getByText('Recently closed', { exact: true }).click()
@@ -1149,42 +1131,35 @@ try {
   assert.deepEqual(await selection(body(primary)), firstSelection)
   await expectSameEditor(body(secondary), secondNode)
 
-  await page.setViewportSize({ width: 1040, height: 900 })
-  await expect.poll(async () => Number(await separator(page).getAttribute('aria-valuemin'))).toBeGreaterThan(splitter.pointerPercent)
-  const clamped = await splitGeometry(page, primary, secondary)
-  assert.equal(clamped.values.now, clamped.values.min)
-  checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: clamped.values.now })
-
-  await page.setViewportSize({ width: 1024, height: 900 })
-  await expectPane(primary, first, localSource, true)
-  await expectPane(secondary, second, second.body, false)
-  await expectSameEditor(body(primary), firstNode)
-  await expectSameEditor(body(secondary), secondNode)
-  const at1024 = await splitGeometry(page, primary, secondary)
-  assert.equal(at1024.values.now, at1024.values.min)
-  assert(at1024.values.min >= clamped.values.min)
-  checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: at1024.values.now })
+  let minimum = splitter.pointerPercent + 1
+  for (const width of [1040, 1024]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect.poll(async () => Number(await separator(page).getAttribute('aria-valuemin'))).toBeGreaterThanOrEqual(minimum)
+    await expectPane(primary, first, localSource, true)
+    await expectPane(secondary, second, second.body, false)
+    await expectSameEditor(body(primary), firstNode)
+    await expectSameEditor(body(secondary), secondNode)
+    const clamped = await splitGeometry(page, primary, secondary)
+    assert(clamped.values.min >= minimum)
+    assert.equal(clamped.values.now, clamped.values.min)
+    minimum = clamped.values.min
+    checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: clamped.values.now })
+  }
   await separator(page).focus()
   await expect(separator(page)).toBeFocused()
 
-  await page.setViewportSize({ width: 768, height: 900 })
-  await expectPane(primary, first, localSource, true)
-  await expect(secondary).toBeHidden()
-  await expect(separator(page)).toHaveCount(0)
-  await expect(body(primary)).toBeFocused()
-  await expectSameEditor(body(primary), firstNode)
-  assert.equal(await secondNode.evaluate(element => element.isConnected), true)
-  assert.deepEqual(await selection(body(primary)), firstSelection)
-  checkedViewports.push({ ...await pageWidths(page), groups: 1 })
-
-  await page.setViewportSize({ width: 375, height: 850 })
-  await expect(primary).toBeVisible()
-  await expect(secondary).toBeHidden()
-  await expect(separator(page)).toHaveCount(0)
-  await expect(body(primary)).toBeFocused()
-  assert.deepEqual(await selection(body(primary)), firstSelection)
-  assert.equal(await secondNode.evaluate(element => element.isConnected), true, 'Responsive collapse must retain the second editor')
-  checkedViewports.push({ ...await pageWidths(page), groups: 1 })
+  for (const [width, height] of [[768, 900], [375, 850]]) {
+    await page.setViewportSize({ width, height })
+    await expectPane(primary, first, localSource, true)
+    await expect(secondary).toBeHidden()
+    await expect(separator(page)).toHaveCount(0)
+    await expect(page.getByText('Equalize group widths', { exact: true })).toHaveCount(0)
+    await expect(body(primary)).toBeFocused()
+    await expectSameEditor(body(primary), firstNode)
+    assert.equal(await secondNode.evaluate(element => element.isConnected), true, `Collapse at ${width}px must retain the second editor`)
+    assert.deepEqual(await selection(body(primary)), firstSelection)
+    checkedViewports.push({ ...await pageWidths(page), groups: 1 })
+  }
   await press(page, button(page, 'Focus secondary group'), 'Space')
   await expect(page).toHaveURL(editPath(second.id))
   await expect(primary).toBeHidden()
@@ -1290,8 +1265,8 @@ try {
     exactEditorNodesAcrossFocusAndCollapse: true, focusedOnlyWrites: true, selectionAndIndependentUndo: true,
     exactFocusedSaveReceipt: true, duplicateKeepsOwningGroup: true, keyboardCompactSwitch: true, identityInvalidatesBothEditors: true,
     wideViewport: 1366, compactViewport: 375, paneWidths: [left.width, right.width],
-    splitter: { ...splitter, clampedPercentAt1040: clamped.values.now, restoredPaneWidths: [restored.left.width, restored.right.width],
-      checkedViewports, nativePageZoom } })
+    splitter: { ...splitter, clampedPercentAt1040: checkedViewports.find(check => check.viewport === 1040).primaryPercent,
+      restoredPaneWidths: [restored.left.width, restored.right.width], checkedViewports, nativePageZoom } })
   assert.deepEqual(diagnostics, [])
 } catch (error) {
   failure = error

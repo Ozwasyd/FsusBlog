@@ -107,10 +107,7 @@ internal static class DocumentExportStore
         if (hasAttachment)
         {
             if (!privateTransport) throw DocumentExportEndpoints.Missing();
-            var asset = await ReadAttachmentId(db, tx, actor.Id, id, ct);
-            var input = await DocumentExportInput.Read(db, tx, task.Request, media, actor.Id, asset, ct);
-            if (!CryptographicOperations.FixedTimeEquals(task.SourceDigest, input.Digest(task.Request, task.Provider, null)))
-                throw new PublicUnavailableException();
+            await DocumentExportInput.ReadVerified(db, tx, task.Request, media, actor.Id, task.Provider, task.SourceDigest, null, ct);
         }
         await using var read = Store.Sql(db, tx, $"""
             select output,output_digest from public.author_document_export where {OwnedTask} and state=3

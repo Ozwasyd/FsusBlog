@@ -31,7 +31,7 @@ internal static class AdminModerationBatchEndpoints
         app.MapPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
         {
             var frame = await readFrame(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+            var proof = AdminActionRoutes.Proof(ctx);
             var receipt = await store.DecideModerationBatch(ctx.Request.Cookies[session], proof, frame, fenceVisibleMessages, ct);
             return Wire.EncodeAdminModerationBatchReceipt(receipt);
         })).RequireRateLimiting("command");
@@ -50,8 +50,7 @@ internal static class AdminModerationBatchEndpoints
         }
         catch (ModerationProofRequiredException)
         {
-            const int status = StatusCodes.Status428PreconditionRequired;
-            return new AedsError(status, Wire.EncodeError(status, "MFA_PROOF_REQUIRED", traceId: ctx.TraceIdentifier));
+            return AdminActionRoutes.ProofRequired(ctx);
         }
     }
 }

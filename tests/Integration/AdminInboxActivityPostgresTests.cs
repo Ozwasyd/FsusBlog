@@ -116,17 +116,8 @@ public sealed class AdminInboxActivityPostgresTests
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
 
-        async Task<string> Administrator(string name)
-        {
-            var principal = Guid.NewGuid();
-            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)", principal,
-                name, RandomNumberGenerator.GetBytes(32));
-            await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", RandomNumberGenerator.GetBytes(8), principal, new byte[] { 2 });
-            await Sql("insert into public.admin_permission values($1,$2)", principal, CurrentSchema.AdminManagePermission);
-            await Sql("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(token)!, principal);
-            return token;
-        }
+        async Task<string> Administrator(string name) =>
+            (await FixtureSql.AdminAsync(db, ct, name, 5, RandomNumberGenerator.GetBytes(8), [2])).Token;
 
         Task Sql(string command, params object[] values) =>
             FixtureSql.ExecuteAsync(db, null, ct, command, values);

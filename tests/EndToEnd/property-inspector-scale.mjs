@@ -2,16 +2,15 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand, propertyKinds } from '../../src/Contracts/property-values.ts'
 import {
   decodeDraft, decodePropertyCommandReceipt, decodePropertyWorkspaceRequest, encodeArticleCommand, encodeSignIn,
   FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_EVIDENCE: evidence,
   FSUSBLOG_TEST_CHROME: executablePath } = process.env
 assert(url && ticket && evidence)
@@ -152,18 +151,7 @@ async function accessibility(draft, schema, post) {
 try {
   context = await browser.newContext({ viewport: desktop })
   let session
-  async function post(path, type, input, expected) {
-    const response = await context.request.post(origin + path, {
-      data: Buffer.from(encodeFrame(type, input)),
-      headers: { 'Content-Type': 'application/octet-stream', ...(session ? { [WireHeaders.CurrentSession]: session } : {}) },
-    })
-    try {
-      assert.equal(response.status(), 200, path)
-      return { payload: decodeFrame(await response.body(), expected).payload, headers: response.headers() }
-    } finally {
-      await response.dispose()
-    }
-  }
+  const post = (path, type, input, expected) => postReceipt(context, origin, path, type, input, expected, session)
 
   const signIn = await post(WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
   session = signIn.headers[WireHeaders.CurrentSession.toLowerCase()]
@@ -185,10 +173,7 @@ try {
 
   const page = await context.newPage()
   const diagnostics = result.diagnostics
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', event => {
-    if (event.type() === 'error' && !event.text().startsWith('Failed to load resource:')) diagnostics.push(event.text())
-  })
+  observePageErrors(page, diagnostics)
   const editorRead = request => request.method() === 'POST' && request.url() === editorPath
   const readRequests = []
   const readResponses = []

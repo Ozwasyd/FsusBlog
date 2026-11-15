@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
@@ -24,11 +23,7 @@ public sealed class ArticleSchedulePostgresTests
         var ct = stop.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var author = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.blog_user values($1,'Scheduled author',true,true,1)", author);
-        await Execute("insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), author);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
+        var (author, token, _) = await fixture.SignIn("Scheduled author", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
             new Dictionary<string, string> { [PublicSiteConfiguration.OriginKey] = PublicOrigin });
         var first = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Original", "original body"));
@@ -126,9 +121,7 @@ public sealed class ArticleSchedulePostgresTests
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_schedule where article_id=$1", neverPublic.Id));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_publication where article_id=$1", neverPublic.Id));
 
-        var newTicket = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(newTicket), author);
-        session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(newTicket), ct);
+        token = (await fixture.SignIn(author, ct)).Token;
         var workerDraft = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Real worker", "real worker body"));
         var realDue = new DateTimeOffset(await Scalar<DateTime>("select clock_timestamp()")).AddSeconds(4).ToUnixTimeMilliseconds();
         var workerReceipt = Wire.DecodeArticleSchedule(await Submit(new(workerDraft.Id, workerDraft.Revision, Guid.NewGuid(), realDue)));
@@ -236,7 +229,7 @@ public sealed class ArticleSchedulePostgresTests
             Request(HttpMethod.Post, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(input), status);
         async Task<byte[]> Request(HttpMethod method, string route, byte[]? body, HttpStatusCode status)
         {
-            using var request = SiteAedsFixture.Request(method, route, body, session.Token, handle: null);
+            using var request = SiteAedsFixture.Request(method, route, body, token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);

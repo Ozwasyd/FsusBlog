@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 
 const hidden = process.argv.length === 4 && process.argv[3] === '--hidden'
-assert(process.argv.length === 3 || hidden, 'Usage: node legacy-runtime-accountability.mjs BASE_URL [--hidden]')
+const authored = process.argv.length === 4 && process.argv[3] === '--authored'
+assert(process.argv.length === 3 || authored || hidden, 'Usage: node legacy-runtime-accountability.mjs BASE_URL [--authored|--hidden]')
 const base = new URL(process.argv[2])
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', '[::1]'].includes(base.hostname) &&
   base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash,
@@ -37,7 +38,7 @@ async function probe(label, path, status, expected) {
 
 function manifest(revision, snapshotId) {
   const fallback = snapshotId === undefined
-  return {
+  const expected = {
     schemaVersion: 1,
     articleId: 42,
     revisionNo: revision,
@@ -53,6 +54,24 @@ function manifest(revision, snapshotId) {
     }),
     verification: { url: `${article}/revisions/${revision}`, revisionNo: revision, proofStatus: 'unavailable' },
   }
+  if (authored && !fallback) {
+    expected.authors = [{ name: 'Lead Writer', profileUrl: 'https://authors.example/lead' }, { name: 'Contributor' }]
+    expected.reviewer = { name: 'Review Lead' }
+    expected.sources = [{
+      title: 'Public source A', url: 'https://sources.example/study-a', sourceType: 'report',
+      accessedOn: '2026-09-29', version: '2.1', citationNote: 'Author notes', isPublic: true,
+    }, {
+      title: 'Public source B', url: 'https://sources.example/study-b', sourceType: 'other', isPublic: true,
+    }]
+    expected.update = {
+      summary: 'First revision reviewed', reason: 'Verified sources',
+      effectiveAt: '2026-10-02T12:34:56.123456', conclusionImpact: 'clarified',
+    }
+    expected.methodology = 'Comparison protocol'
+    expected.applicability = 'Public samples'
+    expected.limitations = 'Limited coverage'
+  }
+  return expected
 }
 
 if (hidden) {

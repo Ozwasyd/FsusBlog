@@ -18,32 +18,40 @@ internal static class MarkdownExportEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
         PdfDocumentExport? pdf)
     {
-        Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Encode(title, body, revision));
-        Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
-            (title, body, _, _, attachment, ct) => WordDocumentExport.Write(title, body, ct, attachment: attachment.SingleOrDefault()),
-            attachmentLimit: 1);
-        Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
-            (title, body, _, _, attachment, ct) => HtmlDocumentExport.Write(title, body, attachment, ct),
-            attachmentLimit: HtmlDocumentExport.MaximumImages, contentSecurityPolicy: HtmlDocumentExport.ResponsePolicy);
-        Attach("/api/v2/authoring/draft/{id:int}/export.epub", EpubDocumentExport.ContentType, "article.epub",
-            (title, body, _, happenedAt, attachment, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct, attachment: attachment.SingleOrDefault()),
-            attachmentLimit: 1);
+        Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Task.FromResult(Encode(title, body, revision)));
+        AttachDocument(DocumentExportFormat.Docx);
+        AttachDocument(DocumentExportFormat.Html);
+        AttachDocument(DocumentExportFormat.Epub);
 
         if (pdf is not null)
-            Download("/api/v2/authoring/draft/{id:int}/export.pdf", PdfDocumentExport.ContentType, "article.pdf",
-                async (_, store, token, source, ct) =>
-                {
-                    var revision = await ReadSource(store, token, source, ct);
-                    using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
-                    var result = await pdf.WriteAsync(revision.Title, revision.Body, revision.HappenedAt, lifetime.Token);
-                    // The subprocess did not hold database locks. Recheck the same owner and revision before delivery.
-                    await store.WithSession(token, true, (db, tx, actor) =>
-                        RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, lifetime.Token), lifetime.Token);
-                    return result;
-                }, policy: PdfDocumentExport.RatePolicy);
+        {
+            var (type, extension) = DocumentExportEndpoints.Presentation(DocumentExportFormat.Pdf);
+            Download(DocumentRoute(extension), type, $"article.{extension}", async (_, store, token, source, ct) =>
+            {
+                var revision = await ReadSource(store, token, source, ct);
+                using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
+                var result = await DocumentExportInput.Render(DocumentExportFormat.Pdf, revision.Title, revision.Body,
+                    revision.HappenedAt, [], pdf, lifetime.Token);
+                // The subprocess did not hold database locks. Recheck the same owner and revision before delivery.
+                await store.WithSession(token, true, (db, tx, actor) =>
+                    RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, lifetime.Token), lifetime.Token);
+                return result;
+            }, policy: PdfDocumentExport.RatePolicy);
+        }
+
+        void AttachDocument(DocumentExportFormat format)
+        {
+            var (type, extension) = DocumentExportEndpoints.Presentation(format);
+            var html = format == DocumentExportFormat.Html;
+            Attach(DocumentRoute(extension), type, $"article.{extension}",
+                (title, body, _, time, images, ct) => DocumentExportInput.Render(format, title, body, time, images, pdf, ct),
+                html ? HtmlDocumentExport.MaximumImages : 1, html ? HtmlDocumentExport.ResponsePolicy : null);
+        }
+
+        static string DocumentRoute(string extension) => "/api/v2/authoring/draft/{id:int}/export." + extension;
 
         void Attach(string route, string mediaType, string filename,
-            Func<string, string, long, DateTimeOffset, DocumentExportAttachment[], CancellationToken, byte[]> render,
+            Func<string, string, long, DateTimeOffset, DocumentExportAttachment[], CancellationToken, Task<byte[]>> render,
             int attachmentLimit = 0, string? contentSecurityPolicy = null)
             => Download(route, mediaType, filename, (ctx, store, token, source, ct) =>
                 store.WithSession(token, true, async (db, tx, actor) =>
@@ -58,7 +66,7 @@ internal static class MarkdownExportEndpoints
                     var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
                     var attachment = source.Attachments.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx,
                         app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, source.Attachments, ct);
-                    return render(title, body, source.Selected, happenedAt, attachment, ct);
+                    return await render(title, body, source.Selected, happenedAt, attachment, ct);
                 }, ct), contentSecurityPolicy, attachmentLimit: attachmentLimit);
 
         void Download(string route, string mediaType, string filename,

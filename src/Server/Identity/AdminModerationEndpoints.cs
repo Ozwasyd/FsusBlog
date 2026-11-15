@@ -10,42 +10,28 @@ internal static class AdminModerationEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var authority = origin.GetLeftPart(UriPartial.Authority);
+        var actions = new AdminActionRoutes(app, authority, session, readFrame);
         var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame);
         if (app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false))
             AdminModerationBatchEndpoints.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
-        app.MapPost(WireRoutes.AdminModerationClaim, async (HttpContext ctx, CancellationToken ct) =>
+        actions.Post(WireRoutes.AdminModerationClaim, WireLimits.AdminModerationClaimRequestFrameBytes, async (cookie, frame, ct) =>
+            Wire.EncodeAdminModerationClaim(await store.AcquireCommentClaim(cookie, Wire.DecodeAdminModerationClaimRequest(frame), ct)))
+            .RequireRateLimiting("command");
+        actions.Post(WireRoutes.AdminModerationRenew, WireLimits.AdminModerationClaimFrameBytes, async (cookie, frame, ct) =>
+            Wire.EncodeAdminModerationClaim(await store.RenewCommentClaim(cookie, Wire.DecodeAdminModerationClaim(frame), ct)))
+            .RequireRateLimiting("command");
+        actions.Post(WireRoutes.AdminModerationRelease, WireLimits.AdminModerationClaimFrameBytes, async (cookie, frame, ct) =>
         {
-            RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminModerationClaimRequestFrameBytes, ct);
-            var claim = await store.AcquireCommentClaim(ctx.Request.Cookies[session], Wire.DecodeAdminModerationClaimRequest(frame), ct);
-            return Frame(Wire.EncodeAdminModerationClaim(claim));
+            await store.ReleaseCommentClaim(cookie, Wire.DecodeAdminModerationClaim(frame), ct);
+            return Wire.EncodeEmptySuccess();
         }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminModerationRenew, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminModerationClaimFrameBytes, ct);
-            var claim = await store.RenewCommentClaim(ctx.Request.Cookies[session], Wire.DecodeAdminModerationClaim(frame), ct);
-            return Frame(Wire.EncodeAdminModerationClaim(claim));
-        }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminModerationRelease, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminModerationClaimFrameBytes, ct);
-            await store.ReleaseCommentClaim(ctx.Request.Cookies[session], Wire.DecodeAdminModerationClaim(frame), ct);
-            return Frame(Wire.EncodeEmptySuccess());
-        }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminModerationStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct);
-            return Frame(await store.BeginModerationDecisionStepUp(ctx.Request.Cookies[session], Wire.DecodeAdminModerationDecision(frame), ct));
-        }).RequireRateLimiting(passkeyLimit);
+        actions.Post(WireRoutes.AdminModerationStepUpBegin, WireLimits.AdminModerationDecisionFrameBytes, (cookie, frame, ct) =>
+            store.BeginModerationDecisionStepUp(cookie, Wire.DecodeAdminModerationDecision(frame), ct)).RequireRateLimiting(passkeyLimit);
         app.MapPost(WireRoutes.AdminModerationDecision, async (HttpContext ctx, CancellationToken ct) =>
         {
-            RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct);
-            var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+            var frame = await actions.Read(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct);
+            var proof = AdminActionRoutes.Proof(ctx);
             try
             {
                 await store.DecideComment(ctx.Request.Cookies[session], proof, Wire.DecodeAdminModerationDecision(frame), ct,
@@ -54,8 +40,7 @@ internal static class AdminModerationEndpoints
             }
             catch (ModerationProofRequiredException)
             {
-                const int status = StatusCodes.Status428PreconditionRequired;
-                return new AedsError(status, Wire.EncodeError(status, "MFA_PROOF_REQUIRED", traceId: ctx.TraceIdentifier));
+                return AdminActionRoutes.ProofRequired(ctx);
             }
         }).RequireRateLimiting("command");
     }

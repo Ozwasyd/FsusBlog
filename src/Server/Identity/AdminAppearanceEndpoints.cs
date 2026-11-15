@@ -11,7 +11,7 @@ internal static class AdminAppearanceEndpoints
     internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, AppearanceRegistry registry)
     {
-        var authority = origin.GetLeftPart(UriPartial.Authority);
+        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
         app.MapGet(WireRoutes.AdminAppearanceState, async (HttpContext ctx, CancellationToken ct) =>
             Frame(await store.ReadAppearance(ctx.Request.Cookies[session], registry, ct))).RequireRateLimiting("query");
         app.MapGet(WireRoutes.AdminAppearanceCatalog, async (HttpContext ctx, CancellationToken ct) =>
@@ -33,13 +33,7 @@ internal static class AdminAppearanceEndpoints
             if (limit > WireLimits.AdminAppearanceHistoryMaximumItems) throw HistoryQueryError();
             return Frame(await store.AppearanceHistory(ctx.Request.Cookies[session], before, (int)limit, ct));
         }).RequireRateLimiting("query");
-        app.MapPost(WireRoutes.AdminAppearanceStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
-            var assertion = PasskeyWire.ReadLogin(frame, discoverable: false);
-            return Frame(await store.CompleteAppearanceStepUp(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(passkeyLimit);
+        actions.Complete(WireRoutes.AdminAppearanceStepUpComplete, passkeyLimit, store.CompleteAppearanceStepUp);
 
         app.MapPost(WireRoutes.AdminAppearanceStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -58,15 +52,14 @@ internal static class AdminAppearanceEndpoints
             ScopedPow.Protect(ctx, async () =>
             {
                 var (frame, command) = await Decode(ctx, ct);
-                var proof = ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
+                var proof = AdminActionRoutes.Proof(ctx);
                 await store.ApplyAppearance(ctx.Request.Cookies[session], registry, command, frame, proof, pow, ctx, ct);
                 return Wire.EncodeEmptySuccess();
             }, PowScope.AdminAppearance)).RequireRateLimiting("command");
 
         async Task<(byte[], AdminAppearanceCommand)> Decode(HttpContext ctx, CancellationToken ct)
         {
-            AdminModerationEndpoints.RequireOrigin(ctx, authority);
-            var body = await readFrame(ctx, WireLimits.AdminAppearanceCommandFrameBytes, ct);
+            var body = await actions.Read(ctx, WireLimits.AdminAppearanceCommandFrameBytes, ct);
             return (body, Wire.DecodeAdminAppearanceCommand(body));
         }
     }

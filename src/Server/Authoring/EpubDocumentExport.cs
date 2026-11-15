@@ -14,7 +14,6 @@ internal static class EpubDocumentExport
     internal const string ContentType = "application/epub+zip";
     private const int MaximumOutput = HtmlDocumentExport.MaximumOutput;
     private const string Xhtml = "http://www.w3.org/1999/xhtml";
-    private static readonly DateTimeOffset ArchiveEpoch = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly HashSet<string> TextElements = new(StringComparer.Ordinal)
     {
         "html", "head", "title", "body", "main", "article", "div", "h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
@@ -90,12 +89,12 @@ internal static class EpubDocumentExport
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
-            WritePart(zip, "mimetype", "application/epub+zip"u8, CompressionLevel.NoCompression);
-            WritePart(zip, "META-INF/container.xml", Encoding.UTF8.GetBytes(Container));
-            WritePart(zip, "EPUB/package.opf", Encoding.UTF8.GetBytes(package));
-            WritePart(zip, "EPUB/nav.xhtml", Encoding.UTF8.GetBytes(navigation));
-            WritePart(zip, "EPUB/article.xhtml", chapterBytes);
-            if (attachment is not null) WritePart(zip, $"EPUB/{imagePath}", attachment.Bytes, CompressionLevel.NoCompression);
+            DocumentArchive.Write(zip, "mimetype", "application/epub+zip"u8, CompressionLevel.NoCompression);
+            DocumentArchive.Write(zip, "META-INF/container.xml", Encoding.UTF8.GetBytes(Container));
+            DocumentArchive.Write(zip, "EPUB/package.opf", Encoding.UTF8.GetBytes(package));
+            DocumentArchive.Write(zip, "EPUB/nav.xhtml", Encoding.UTF8.GetBytes(navigation));
+            DocumentArchive.Write(zip, "EPUB/article.xhtml", chapterBytes);
+            if (attachment is not null) DocumentArchive.Write(zip, $"EPUB/{imagePath}", attachment.Bytes, CompressionLevel.NoCompression);
         }
         ct.ThrowIfCancellationRequested();
         if (output.Length > MaximumOutput) throw HtmlDocumentExport.TooLarge("EPUB");
@@ -151,15 +150,6 @@ internal static class EpubDocumentExport
         {
             throw Invalid("This revision contains characters that cannot be represented in EPUB.");
         }
-    }
-
-    private static void WritePart(ZipArchive zip, string name, ReadOnlySpan<byte> contents,
-        CompressionLevel compression = CompressionLevel.Fastest)
-    {
-        var entry = zip.CreateEntry(name, compression);
-        entry.LastWriteTime = ArchiveEpoch;
-        using var stream = entry.Open();
-        stream.Write(contents);
     }
 
     private static BusinessException Invalid(string message) => new(Rejection.Invalid, message);

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -40,8 +39,8 @@ public sealed class PublicationTransparencyPostgresTests
         var path = Path.Combine(scratch.FullName, "registry.json");
         try
         {
-            var oldPath = KeyFile("old.pkcs8", old);
-            var nextPath = KeyFile("next.pkcs8", next);
+            var oldPath = PublicationFixture.PrivateKey(scratch, "old.pkcs8", old);
+            var nextPath = PublicationFixture.PrivateKey(scratch, "next.pkcs8", next);
             var config = new Dictionary<string, string>
             {
                 ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin, ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
@@ -148,7 +147,7 @@ public sealed class PublicationTransparencyPostgresTests
             Assert.Equal(2L, await Scalar("select count(*) from public.article_publication_proof"));
             Assert.False((bool)(await Scalar("select to_regclass('public.article_publication_transparency') is not null"))!);
 
-            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, Forward);
+            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
             void AddKey(string key, string version, ECDsa value)
             {
@@ -184,7 +183,7 @@ public sealed class PublicationTransparencyPostgresTests
             async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url, byte[]? payload = null)
             {
                 using var request = new HttpRequestMessage(method, url);
-                Forward(request);
+                PublicationFixture.Forward(request, Host);
                 if (payload is not null)
                 {
                     request.Headers.Add("Cookie", "fsus-v2-session=" + session);
@@ -195,16 +194,6 @@ public sealed class PublicationTransparencyPostgresTests
             }
         }
         finally { scratch.Delete(recursive: true); }
-
-        string KeyFile(string name, ECDsa key)
-        {
-            var file = Path.Combine(scratch.FullName, name);
-            var privateBytes = key.ExportPkcs8PrivateKey();
-            try { File.WriteAllBytes(file, privateBytes); }
-            finally { CryptographicOperations.ZeroMemory(privateBytes); }
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(file, UnixFileMode.UserRead);
-            return file;
-        }
 
         async Task<string> ProofPath(int article) => $"/integrity/v2/article/{article}/{await Scalar(
             "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
@@ -228,44 +217,23 @@ public sealed class PublicationTransparencyPostgresTests
             await Scalar("drop table if exists public.publication_transparency_head,public.article_publication_transparency");
         }
 
-        Task<(int Code, string Output, string Error)> Audit(params string[] prefix) =>
+        Task<FixtureProcess.Result> Audit(params string[] prefix) =>
             Migrate(["verify", Origin, path, .. prefix]);
 
-        async Task<(int Code, string Output, string Error)> Migrate(params string[] arguments)
-        {
-            var options = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
-            {
-                UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
-            };
-            options.ArgumentList.Add(Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!);
-            options.ArgumentList.Add("publication-transparency");
-            foreach (var argument in arguments) options.ArgumentList.Add(argument);
-            options.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
-            using var process = Process.Start(options)!;
-            var stdout = process.StandardOutput.ReadToEndAsync(ct);
-            var stderr = process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-            return (process.ExitCode, await stdout, await stderr);
-        }
+        Task<FixtureProcess.Result> Migrate(params string[] arguments) =>
+            FixtureProcess.Run(FixtureProcess.Migration(fixture.ConnectionString, ["publication-transparency", .. arguments]), ct);
     }
 
-    private static JsonNode Succeeded((int Code, string Output, string Error) result)
+    private static JsonNode Succeeded(FixtureProcess.Result result)
     {
         Assert.True(result.Code == 0, result.Error);
         return result.Output.StartsWith('{') ? JsonNode.Parse(result.Output)! : new JsonObject();
     }
 
-    private static void Denied((int Code, string Output, string Error) result, string diagnosis)
+    private static void Denied(FixtureProcess.Result result, string diagnosis)
     {
         Assert.NotEqual(0, result.Code);
         Assert.Contains(diagnosis, result.Error);
-    }
-
-    private static void Forward(HttpRequestMessage request)
-    {
-        request.Headers.Host = Host;
-        request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-        request.Headers.Add("X-Forwarded-Proto", "https");
     }
 }
 

@@ -7,6 +7,8 @@ cd "$repo"
 fixture="$repo/tests/Integration/Migration"
 activate=false
 activate_rollback=false
+authored_disclosure=false
+malformed_disclosure=false
 republish_profile=false
 mixed_profile=false
 expected_articles=1
@@ -27,15 +29,23 @@ case "$# ${1:-}" in
         fi
         public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
         ;;
-    '1 --rollback'|'1 --activate-rollback')
+    '1 --rollback'|'1 --activate-rollback'|'1 --activate-rollback-authored'|'1 --activate-rollback-malformed')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
-        if [[ "$1" == --activate-rollback ]]; then
+        if [[ "$1" != --rollback ]]; then
             activate=true activate_rollback=true profile=rollback-activated
         fi
-        source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
+        source_overlays=("$fixture/legacy-republish-outbox-fixture.sql")
+        case "$1" in
+            --activate-rollback-authored) authored_disclosure=true profile=rollback-authored ;;
+            --activate-rollback-malformed) malformed_disclosure=true profile=rollback-malformed ;;
+        esac
+        if [[ "$authored_disclosure" == true || "$malformed_disclosure" == true ]]; then
+            source_overlays+=("$fixture/legacy-runtime-authored-fixture.sql")
+        fi
+        source_overlays+=("$fixture/legacy-rollback-outbox-fixture.sql")
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback|--activate-rollback-authored|--activate-rollback-malformed]\n' "$0" >&2; exit 2 ;;
 esac
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
@@ -147,7 +157,9 @@ db_oid() { psql_db "$1" -Atc 'SELECT oid FROM pg_catalog.pg_database WHERE datna
 for db in "$source_db" "$quarantine_db" "$runtime_db" "$restore_db"; do
     psql_db postgres -c "CREATE DATABASE $db TEMPLATE template0"
 done
-for source_fixture in "${source_fixtures[@]}"; do psql_db "$source_db" -f "$source_fixture"; done
+for source_fixture in "${source_fixtures[@]}"; do
+    psql_db "$source_db" -v malformed_disclosure="$malformed_disclosure" -f "$source_fixture"
+done
 if [[ "$rollback_profile" == true ]]; then
     psql_db "$source_db" -c 'CREATE TABLE public.sys_systemconfig (key varchar(64) PRIMARY KEY, value varchar(512) NOT NULL)'
 fi
@@ -339,21 +351,31 @@ SELECT jsonb_build_array(article_id,revision,publication_id,source_revision_id,s
     manifest->'legacyFallback',manifest #>> '{authors,0,name}',evidence #> '{rights,proof_binding_enabled}',
     evidence ?& ARRAY['publication','rights','event','edges'],
     plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha' AND source_admin_identity_sha256=:'source_admin_sha',
-    encode(sha256(convert_to(jsonb_build_array(responsibility,evidence,manifest)::text,'UTF8')),'hex'))
+    encode(sha256(convert_to(jsonb_build_array(responsibility,evidence,manifest)::text,'UTF8')),'hex'),
+    CASE WHEN responsibility IS NOT NULL THEN encode(sha256(convert_to(json_build_array(
+        (responsibility->>'inherit_site_author')::integer=1,responsibility->>'authors_json',responsibility->>'reviewer_json',
+        responsibility->>'sources_json',responsibility->>'update_summary',responsibility->>'update_reason',
+        (responsibility->>'effective_at')::timestamp,responsibility->>'conclusion_impact',responsibility->>'methodology',
+        responsibility->>'applicability',responsibility->>'limitations',
+        (responsibility->>'responsible_person_confirmed')::integer=1)::text,'UTF8')),'hex') END)
 FROM public.legacy_release_origin ORDER BY article_id,revision;
 ORIGIN_ROWS
-    python3 - "$output" <<'CHECK_ORIGIN_ROWS'
+    python3 - "$output" "$scratch/source-history.jsonl" "$authored_disclosure" <<'CHECK_ORIGIN_ROWS'
 import json
 import re
 import sys
 from pathlib import Path
 
 rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+original = [json.loads(line) for line in Path(sys.argv[2]).read_text().splitlines()]
+responsibility_hash = {row[1]: row[8] for row in original if row[0] == 'responsibility'}
+author = 'Lead Writer' if sys.argv[3] == 'true' else 'Fsu'
 assert [row[:12] for row in rows] == [
-    [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, 'Fsu'],
+    [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, author],
     [42, 2, 900000002, 5000000002, 8, None, None, None, 7, None, True, 'Fsu'],
-    [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, 'Fsu'],
+    [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, author],
 ]
+assert [row[16] for row in rows] == [responsibility_hash[799], None, responsibility_hash[802]]
 for row in rows:
     # The frozen SQLite-compatible projection can encode the same true value as the integer 1.
     assert row[12] in (True, 1) and row[13:15] == [True, True] and re.fullmatch(r'[0-9a-f]{64}', row[15]), row
@@ -368,6 +390,16 @@ if [[ "$activate" == true ]]; then
     FSUSBLOG_DB="$(dsn "$restored_seed")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
     release_plan="$scratch/approval/release.json"
     launch=("$runtime_site" "$seed" "$runtime_empty_sha")
+    if [[ "$malformed_disclosure" == true ]]; then
+        if migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "${launch[@]}" \
+            > "$evidence/release-malformed-disclosure.log" 2>&1; then exit 1; fi
+        rg -Fq 'Legacy rollback responsibility disclosure is malformed or exceeds its byte budget.' \
+            "$evidence/release-malformed-disclosure.log"
+        FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
+        verify_quarantine
+        printf 'Malformed responsibility disclosure refused. Runtime backup and quarantine verified.\n'
+        exit 0
+    fi
     migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "${launch[@]}" > "$release_plan"
     if [[ "$activate_rollback" == true ]]; then
         python3 - "$release_plan" <<'CHECK_APPROVED_ORIGIN'
@@ -398,10 +430,21 @@ RESTORE_POLICY
     run_release > "$evidence/release-activated.json"
     if [[ "$activate_rollback" == true ]]; then
         check_release_origin "$runtime_db" "$evidence/activated-release-origin.jsonl"
-        psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=8 WHERE article_id=42 AND revision=3'
+        if [[ "$authored_disclosure" == true ]]; then
+            psql_db "$runtime_db" -c "UPDATE public.legacy_release_origin SET responsibility=jsonb_set(responsibility,
+                '{sources_json}',to_jsonb('[]'::text)) WHERE article_id=42 AND revision=3"
+        else
+            psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=8 WHERE article_id=42 AND revision=3'
+        fi
         if run_release > "$evidence/release-wrong-origin.log" 2>&1; then exit 1; fi
         rg -Fq 'match neither the empty rollback nor this complete approved batch' "$evidence/release-wrong-origin.log"
-        psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=7 WHERE article_id=42 AND revision=3'
+        if [[ "$authored_disclosure" == true ]]; then
+            psql_db "$runtime_db" -c "UPDATE public.legacy_release_origin AS restored SET responsibility=jsonb_set(restored.responsibility,
+                '{sources_json}',original.responsibility->'sources_json') FROM public.legacy_release_origin AS original
+                WHERE restored.article_id=42 AND restored.revision=3 AND original.article_id=42 AND original.revision=1"
+        else
+            psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=7 WHERE article_id=42 AND revision=3'
+        fi
     fi
     if [[ "$republish_profile" == true ]]; then
         psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='Unapproved first revision' WHERE article_id=42 AND revision=1"
@@ -515,7 +558,9 @@ probe_server() {
     [[ "$found" == yes ]]
     env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" "${public_expectation[@]}" > "$evidence/$label-probe.sha256"
     if [[ "$activate_rollback" == true ]]; then
-        env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "$url" > "$evidence/$label-accountability.sha256"
+        local accountability_args=("$url")
+        if [[ "$authored_disclosure" == true ]]; then accountability_args+=(--authored); fi
+        env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "${accountability_args[@]}" > "$evidence/$label-accountability.sha256"
         if [[ "$label" == restarted ]]; then
             # Remove the restored scratch article's active coordinate while the original Kestrel snapshot is still resident.
             psql_db "$served_db" -c 'BEGIN; UPDATE public.article SET published_revision=NULL WHERE id=42;

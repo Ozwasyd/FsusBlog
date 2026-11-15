@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -348,8 +347,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             async Task<string> Run(string executable, string[] arguments, bool migrationEnvironment = false,
                 IReadOnlyDictionary<string, string>? overrides = null, string? failure = null)
             {
-                var start = new ProcessStartInfo(executable) { RedirectStandardOutput = true, RedirectStandardError = true };
-                foreach (var argument in arguments) start.ArgumentList.Add(argument);
+                var start = FixtureProcess.Command(executable, arguments);
                 if (migrationEnvironment)
                 {
                     start.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
@@ -358,19 +356,16 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 }
                 if (overrides is not null)
                     foreach (var (name, value) in overrides) start.Environment[name] = value;
-                using var process = Process.Start(start)!;
-                var stdout = process.StandardOutput.ReadToEndAsync(ct);
-                var stderr = process.StandardError.ReadToEndAsync(ct);
-                await process.WaitForExitAsync(ct);
-                if (failure is null) Assert.True(process.ExitCode == 0, await stderr);
+                var result = await FixtureProcess.Run(start, ct);
+                if (failure is null) Assert.True(result.Code == 0, result.Error);
                 else
                 {
-                    Assert.NotEqual(0, process.ExitCode);
-                    Assert.Contains(failure, await stderr);
-                    Assert.Equal("", await stdout);
+                    Assert.NotEqual(0, result.Code);
+                    Assert.Contains(failure, result.Error);
+                    Assert.Equal("", result.Output);
                     evidence.WriteLine($"Signer refused {failure}.");
                 }
-                return await stdout;
+                return result.Output;
             }
 
             async Task Install(JsonNode contents)
@@ -385,12 +380,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
 
             async Task WithTls(Func<HttpClient, Task> verify)
             {
-                await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings, request =>
-                {
-                    request.Headers.Host = address.Authority;
-                    request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-                    request.Headers.Add("X-Forwarded-Proto", "https");
-                });
+                await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings,
+                    request => PublicationFixture.Forward(request, address.Authority));
                 await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, directory.FullName, ct, address);
                 evidence.WriteLine($"Caddy endpoint {address.Authority}, leaf SHA-256 {proxy.Fingerprint}.");
                 await verify(proxy.Client);

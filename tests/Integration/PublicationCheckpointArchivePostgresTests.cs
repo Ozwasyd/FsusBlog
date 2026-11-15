@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -183,7 +182,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
             async Task WithServer(Func<HttpClient, Task> check)
             {
                 await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, config,
-                    request => Forward(request, address.Authority));
+                    request => PublicationFixture.Forward(request, address.Authority));
                 if (!viaCaddy)
                 {
                     await check(server.Client);
@@ -241,25 +240,18 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                     algorithm = ArticlePublicationProofPayloadV2.Algorithm, keys }), ct);
                 await File.WriteAllTextAsync(headPath, witness, ct);
                 await File.WriteAllTextAsync(bundlePath, bundle, ct);
-                var tool = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../tools/verify-publication-checkpoint.mjs"));
-                var start = new ProcessStartInfo("node")
-                {
-                    UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
-                    ArgumentList = { tool, origin, keyPath, headPath, bundlePath, "--daily", date },
-                };
-                using var process = Process.Start(start)!;
-                var stderr = process.StandardError.ReadToEndAsync(ct);
-                var stdout = process.StandardOutput.ReadToEndAsync(ct);
-                await process.WaitForExitAsync(ct);
-                Assert.True(process.ExitCode == 0, await stderr);
-                Assert.Equal(date, JsonNode.Parse(await stdout)!["scopeKey"]!.GetValue<string>());
+                var tool = PublicationFixture.Tool("verify-publication-checkpoint.mjs");
+                var result = await FixtureProcess.Run(
+                    FixtureProcess.Command("node", tool, origin, keyPath, headPath, bundlePath, "--daily", date), ct);
+                Assert.True(result.Code == 0, result.Error);
+                Assert.Equal(date, JsonNode.Parse(result.Output)!["scopeKey"]!.GetValue<string>());
             }
 
             async Task<string> Read(HttpClient client, string target, HttpStatusCode expected,
                 string? host = null, string transport = "https")
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, target);
-                if (!viaCaddy) Forward(request, host ?? address.Authority, transport);
+                if (!viaCaddy) PublicationFixture.Forward(request, host ?? address.Authority, transport);
                 else
                 {
                     request.Version = HttpVersion.Version20;
@@ -280,13 +272,6 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
             }
         }
         finally { scratch.Delete(recursive: true); }
-    }
-
-    private static void Forward(HttpRequestMessage request, string host, string transport = "https")
-    {
-        request.Headers.Host = host;
-        request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-        request.Headers.Add("X-Forwarded-Proto", transport);
     }
 
     private static string Hex(byte[] bytes) => Convert.ToHexStringLower(bytes);

@@ -17,7 +17,7 @@ public sealed class PublishingPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(fixture.DataSource);
-        var actor = await store.SignIn((await IssueTicket(fixture.DataSource, "search owner", true, ct)).Token, ct);
+        var actor = await store.SignIn((await fixture.IssueTicket("search owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         (int Id, long Revision, long Publication) coordinate;
         string generation;
         string validator;
@@ -99,7 +99,7 @@ public sealed class PublishingPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(fixture.DataSource);
-        var actor = await store.SignIn((await IssueTicket(fixture.DataSource, "lease owner", true, ct)).Token, ct);
+        var actor = await store.SignIn((await fixture.IssueTicket("lease owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         await using var first = await ServerProcess.Start(fixture.ConnectionString, ct);
         var deniedStart = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -196,7 +196,7 @@ public sealed class PublishingPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
         var store = new Store(fixture.DataSource);
-        var session = await store.SignIn((await IssueTicket(fixture.DataSource, "projection owner", true, ct)).Token, ct);
+        var session = await store.SignIn((await fixture.IssueTicket("projection owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         await using var database = await fixture.DataSource.OpenConnectionAsync(ct);
         const string marker = "projection fixture unique text";
@@ -271,7 +271,7 @@ public sealed class PublishingPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
         var store = new Store(fixture.DataSource);
-        var session = await store.SignIn((await IssueTicket(fixture.DataSource, "http publisher", true, ct)).Token, ct);
+        var session = await store.SignIn((await fixture.IssueTicket("http publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         const string marker = "public replacement unique marker";
         int articleId;
         string publishedGeneration;
@@ -350,7 +350,7 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
-        var session = await store.SignIn((await IssueTicket(fixture.DataSource, "transaction author", true, ct)).Token, ct);
+        var session = await store.SignIn((await fixture.IssueTicket("transaction author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var command = new Edit(0, 0, Guid.NewGuid(), "Rollback fixture", "The draft must roll back with the event.");
 
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -385,8 +385,8 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         var edit = new Edit(0, 0, Guid.NewGuid(), "No unauthorized writes", "private");
-        var reader = await store.SignIn((await IssueTicket(fixture.DataSource, "reader", false, ct)).Token, ct);
-        var author = await store.SignIn((await IssueTicket(fixture.DataSource, "author", true, ct)).Token, ct);
+        var reader = await store.SignIn((await fixture.IssueTicket("reader", ct, canAuthor: false, minutes: 1)).Ticket, ct);
+        var author = await store.SignIn((await fixture.IssueTicket("author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
 
         await AssertDenied(reader.Token, Rejection.Forbidden);
         await AssertDenied(null, Rejection.Unauthorized);
@@ -412,8 +412,8 @@ public sealed class PublishingPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
-        var first = await store.SignIn((await IssueTicket(fixture.DataSource, "first author", true, ct)).Token, ct);
-        var second = await store.SignIn((await IssueTicket(fixture.DataSource, "another author", true, ct)).Token, ct);
+        var first = await store.SignIn((await fixture.IssueTicket("first author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var second = await store.SignIn((await fixture.IssueTicket("another author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var handle = FsusBlog.V2.Server.Sessions.SiteSessions.Id(first.User.Id, Store.TokenDigest(first.Token)!);
         var edit = new Edit(0, 0, Guid.NewGuid(), "Private draft", "Owner-only content.");
 
@@ -438,7 +438,7 @@ public sealed class PublishingPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DB")!, ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
-        var session = await store.SignIn((await IssueTicket(fixture.DataSource, "publisher", true, ct)).Token, ct);
+        var session = await store.SignIn((await fixture.IssueTicket("publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var first = await CreateAndPublish("one");
         var second = await CreateAndPublish("two");
         Assert.NotEqual(first.Publication, second.Publication);
@@ -474,9 +474,9 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
-        var issue = await IssueTicket(fixture.DataSource, "original owner", true, ct);
-        var session = await store.SignIn(issue.Token, ct);
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => store.SignIn(issue.Token, ct))).Rejection);
+        var issue = await fixture.IssueTicket("original owner", ct, canAuthor: true, minutes: 1);
+        var session = await store.SignIn(issue.Ticket, ct);
+        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => store.SignIn(issue.Ticket, ct))).Rejection);
         var command = new Edit(0, 0, Guid.NewGuid(), "Saved title", "Saved Markdown body");
         var first = publications.Command(store, session.Token, ArticleAction.Save, command, ct);
         var retry = publications.Command(store, session.Token, ArticleAction.Save, command, ct);
@@ -493,7 +493,7 @@ public sealed class PublishingPostgresTests
         var published = (await publications.Command(store, session.Token, ArticleAction.Publish, publish, ct)).Article;
         Assert.Equal(published.Revision, publications.Snapshot!.Article(saved.Id)!.Revision);
 
-        var outsider = await store.SignIn((await IssueTicket(fixture.DataSource, "other author", true, ct)).Token, ct);
+        var outsider = await store.SignIn((await fixture.IssueTicket("other author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var retract = new Edit(saved.Id, published.Revision, Guid.NewGuid(), "", "");
         Assert.Equal(Rejection.NotFound, (await Assert.ThrowsAsync<BusinessException>(() =>
             publications.Command(store, outsider.Token, ArticleAction.Retract, retract, ct))).Rejection);
@@ -505,16 +505,5 @@ public sealed class PublishingPostgresTests
         Assert.True(await result.ReadAsync(ct));
         Assert.Equal(4, result.GetInt64(0));
         Assert.Equal(4, result.GetInt64(1));
-    }
-
-    private static async Task<(Guid Id, string Token)> IssueTicket(NpgsqlDataSource source, string name, bool author, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        var secret = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        await using var connection = await source.OpenConnectionAsync(ct);
-        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, author);
-        await using (var ticket = Store.Sql(connection, null, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')",
-            System.Security.Cryptography.SHA256.HashData(secret), id)) await ticket.ExecuteNonQueryAsync(ct);
-        return (id, Convert.ToHexStringLower(secret));
     }
 }

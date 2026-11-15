@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
@@ -12,11 +11,10 @@ public sealed class ArticleTrashPostgresTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        var store = new Store(fixture.DataSource);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await Login("trash owner", true);
-        var other = await Login("other author", true);
-        var reader = await Login("site reader", false);
+        var owner = (await fixture.SignIn("trash owner", ct, canAuthor: true, minutes: 1)).Token;
+        var other = (await fixture.SignIn("other author", ct, canAuthor: true, minutes: 1)).Token;
+        var reader = (await fixture.SignIn("site reader", ct, canAuthor: false, minutes: 1)).Token;
         await Sql("insert into public.category(id,name) values(41,'Taxonomy category'); insert into public.tag(id,name) values(81,'Taxonomy tag');");
         var settings = new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_ORIGIN"] = "https://blog.example.test" };
         const string marker = "Article trash public marker";
@@ -138,13 +136,5 @@ public sealed class ArticleTrashPostgresTests
         Task<object?> Sql(string sql, params object[] parameters) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, parameters);
 
-        async Task<string> Login(string name, bool canAuthor)
-        {
-            var user = Guid.NewGuid();
-            var secret = RandomNumberGenerator.GetBytes(32);
-            await Sql("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", user, name, canAuthor);
-            await Sql("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user);
-            return (await store.SignIn(Convert.ToHexStringLower(secret), ct)).Token;
-        }
     }
 }

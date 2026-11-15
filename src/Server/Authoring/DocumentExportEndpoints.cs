@@ -15,6 +15,15 @@ internal static class DocumentExportEndpoints
     internal const string Marker = "<meta name=\"fsus-document-export-tasks\" content=\"1\">";
     internal static BusinessException Missing() => new(Rejection.NotFound, "Document export is unavailable.");
 
+    internal static (string ContentType, string Extension) Presentation(DocumentExportFormat format) => format switch
+    {
+        DocumentExportFormat.Html => (HtmlDocumentExport.ContentType, "html"),
+        DocumentExportFormat.Pdf => (PdfDocumentExport.ContentType, "pdf"),
+        DocumentExportFormat.Docx => (WordDocumentExport.ContentType, "docx"),
+        DocumentExportFormat.Epub => (EpubDocumentExport.ContentType, "epub"),
+        _ => throw new InvalidOperationException("Unregistered document format."),
+    };
+
     internal static void Map(WebApplication app, string cookie, PdfDocumentExport? pdf,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
@@ -60,15 +69,8 @@ internal static class DocumentExportEndpoints
             ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
             if (result.Format == DocumentExportFormat.Html)
                 ctx.Response.Headers.ContentSecurityPolicy = result.HasAttachment ? HtmlDocumentExport.ImageResponsePolicy : HtmlDocumentExport.ResponsePolicy;
-            var (type, name) = result.Format switch
-            {
-                DocumentExportFormat.Html => (HtmlDocumentExport.ContentType, "article.html"),
-                DocumentExportFormat.Pdf => (PdfDocumentExport.ContentType, "article.pdf"),
-                DocumentExportFormat.Docx => (WordDocumentExport.ContentType, "article.docx"),
-                DocumentExportFormat.Epub => (EpubDocumentExport.ContentType, "article.epub"),
-                _ => throw new InvalidOperationException("Unregistered document format.")
-            };
-            return Results.Bytes(result.Bytes, type, name);
+            var (type, extension) = Presentation(result.Format);
+            return Results.Bytes(result.Bytes, type, $"article.{extension}");
         }).RequireRateLimiting("document-export-download");
 
         async Task<Guid> ReadTaskRef(HttpContext ctx, CancellationToken ct) =>
@@ -122,7 +124,7 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
             BinaryPrimitives.WriteInt32LittleEndian(coordinates[4..], image.Height);
             coordinates[8] = (byte)image.Format;
             hash.AppendData(coordinates[..9]);
-            hash.AppendData(SHA256.HashData(image.Bytes));
+            hash.AppendData(image.VerifiedDigest ?? throw new PublicUnavailableException());
             Text(image.Name);
         }
         Text(Title);
@@ -143,8 +145,32 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
         DocumentExportCreate request, MediaFiles? media, Guid owner, Guid? asset, CancellationToken ct)
     {
         var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, request.Article, request.SourceRevision, ct);
-        var attachment = asset is Guid id ? await DocumentExportAttachment.Read(db, tx, media, owner, request.Article,
-            request.SourceRevision, id, ct) : null;
+        var attachment = asset is Guid id ? (await DocumentExportAttachment.ReadAll(db, tx, media, owner, request.Article,
+            request.SourceRevision, [id], ct))[0] : null;
         return new(title, body, happenedAt, asset, attachment);
     }
+
+    internal static async Task<DocumentExportInput> ReadVerified(NpgsqlConnection db, NpgsqlTransaction tx,
+        DocumentExportCreate request, MediaFiles? media, Guid owner, short provider, byte[] sourceDigest,
+        byte[]? pdfToolDigest, CancellationToken ct)
+    {
+        Guid? asset = provider == AttachmentProvider
+            ? await DocumentExportStore.ReadAttachmentId(db, tx, owner, request.Id, ct) : null;
+        var input = await Read(db, tx, request, media, owner, asset, ct);
+        if (provider is not (1 or CurrentProvider or AttachmentProvider) ||
+            !CryptographicOperations.FixedTimeEquals(sourceDigest, input.Digest(request, (byte)provider, pdfToolDigest)))
+            throw new PublicUnavailableException();
+        return input;
+    }
+
+    internal static async Task<byte[]> Render(DocumentExportFormat format, string title, string body, DateTimeOffset happenedAt,
+        DocumentExportAttachment[] images, PdfDocumentExport? pdf, CancellationToken ct, bool includeTables = true) =>
+        format switch
+        {
+            DocumentExportFormat.Html => HtmlDocumentExport.Write(title, body, images, ct, includeTables),
+            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(title, body, happenedAt, ct, includeTables),
+            DocumentExportFormat.Docx => WordDocumentExport.Write(title, body, ct, includeTables, images.SingleOrDefault()),
+            DocumentExportFormat.Epub => EpubDocumentExport.Write(title, body, happenedAt, ct, includeTables, images.SingleOrDefault()),
+            _ => throw new PublicUnavailableException(),
+        };
 }

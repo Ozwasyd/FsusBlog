@@ -19,17 +19,13 @@ public sealed class AdminInboxNoticePostgresTests
         var ct = deadline.Token;
         await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
-        var primary = Guid.NewGuid();
-        var other = Guid.NewGuid();
+        var (primary, firstToken, _) = await FixtureSql.AdminAsync(db, ct, "notice-admin", 5, RandomNumberGenerator.GetBytes(8), [2]);
+        var (_, otherAdmin, _) = await FixtureSql.AdminAsync(db, ct, "different-admin", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var recipient = Guid.NewGuid();
         var stranger = Guid.NewGuid();
-        var firstToken = Secret();
         var replacement = Secret();
-        var otherAdmin = Secret();
         var recipientToken = Secret();
         var strangerToken = Secret();
-        await SeedAdmin(primary, "notice-admin", firstToken);
-        await SeedAdmin(other, "different-admin", otherAdmin);
         await SeedAccount(recipient, "notice-account", recipientToken);
         await SeedAccount(stranger, "unrelated-account", strangerToken);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
@@ -175,15 +171,6 @@ public sealed class AdminInboxNoticePostgresTests
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);
-        }
-
-        async Task SeedAdmin(Guid id, string handle, string token)
-        {
-            await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)", id, handle,
-                RandomNumberGenerator.GetBytes(32));
-            await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", RandomNumberGenerator.GetBytes(8), id, new byte[] { 2 });
-            await Sql("insert into public.admin_permission values($1,$2)", id, CurrentSchema.AdminManagePermission);
-            await Sql("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(token)!, id);
         }
 
         async Task SeedAccount(Guid id, string name, string token)

@@ -31,14 +31,25 @@ internal static class HtmlDocumentExport
         var documentPolicy = attachments.Length == 0 ? DocumentPolicy : DocumentImagePolicy;
         foreach (var attachment in attachments)
             content.Append(attachment.Figure($"data:{attachment.ContentType};base64,{Convert.ToBase64String(attachment.Bytes)}", xhtml: false));
+        var metadata = $"""
+            <meta http-equiv="Content-Security-Policy" content="{documentPolicy}">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            """;
+        var html = Wrap(title, content.ToString(), metadata);
+        ct.ThrowIfCancellationRequested();
+        if (Encoding.UTF8.GetByteCount(html) > MaximumOutput) throw TooLarge("HTML");
+        return Encoding.UTF8.GetBytes(html);
+    }
+
+    internal static string Wrap(string title, string content, string metadata)
+    {
         var heading = HtmlEncoder.Default.Encode(title);
-        var html = $"""
+        return $"""
             <!doctype html>
             <html>
             <head>
             <meta charset="utf-8">
-            <meta http-equiv="Content-Security-Policy" content="{documentPolicy}">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
+            {metadata}
             <title>{heading}</title>
             </head>
             <body><main><article dir="auto"><h1>{heading}</h1>
@@ -46,9 +57,6 @@ internal static class HtmlDocumentExport
             </article></main></body>
             </html>
             """;
-        ct.ThrowIfCancellationRequested();
-        if (Encoding.UTF8.GetByteCount(html) > MaximumOutput) throw TooLarge("HTML");
-        return Encoding.UTF8.GetBytes(html);
     }
 
     internal static string RenderBody(string title, string body, string format, CancellationToken ct, bool includeTables = true)

@@ -22,15 +22,9 @@ public sealed class AdminTaxonomyPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var admin = Guid.NewGuid();
+        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "taxonomy-reviewer", 10, [1], [2], CurrentSchema.CommentModeratePermission);
         var author = Guid.NewGuid();
-        var adminToken = Secret();
         var ticket = Secret();
-        await Sql("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'taxonomy-reviewer',$2,true,1)", admin,
-            RandomNumberGenerator.GetBytes(32));
-        await Sql("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", new byte[] { 1 }, admin, new byte[] { 2 });
-        await Sql("insert into public.admin_permission values($1,$2),($1,$3)", admin, CurrentSchema.AdminManagePermission, CurrentSchema.CommentModeratePermission);
-        await Sql("insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", Store.TokenDigest(adminToken)!, admin);
         await Sql("insert into public.blog_user (id,name,can_author,enabled,generation) values($1,'taxonomy-fixture-writer',true,true,1)", author);
         await Sql("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(ticket)!, author);
         await Sql("insert into public.category(id,name) select id,'Category '||id from generate_series(1,26) id");

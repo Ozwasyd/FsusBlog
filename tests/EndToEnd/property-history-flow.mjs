@@ -1,21 +1,19 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import {
   decodeArticleRightsPolicy, decodeDraft, decodePropertyCommandReceipt, encodeArticleCommand, encodeArticleRightsCommand,
   encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_OUTSIDER_TICKET: outsiderTicket,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_CHROME: executablePath } = process.env
 assert(url && ticket && outsiderTicket && evidence)
 const origin = new URL(url).origin
-const binaryHeaders = { 'Content-Type': 'application/octet-stream' }
 const browser = await chromium.launch({ executablePath })
 const result = { browser: browser.version(), observations: [], diagnostics: [] }
 const savedBefore = 'Frozen private value 漢字 🧭'
@@ -23,18 +21,8 @@ const savedAfter = 'New privately saved value à 🔒'
 const beforeLabel = 'First property name'
 const afterLabel = 'Renamed property name'
 
-async function post(context, path, type, input, expected, credential) {
-  const response = await context.request.post(origin + path, {
-    data: Buffer.from(encodeFrame(type, input)),
-    headers: { ...binaryHeaders, ...(credential ? { [WireHeaders.CurrentSession]: credential } : {}) },
-  })
-  try {
-    assert.equal(response.status(), 200, path)
-    return { payload: decodeFrame(await response.body(), expected).payload, headers: response.headers() }
-  } finally {
-    await response.dispose()
-  }
-}
+const post = (context, path, type, input, expected, credential) =>
+  postReceipt(context, origin, path, type, input, expected, credential)
 
 async function login(context, ticket) {
   const { headers } = await post(context, WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
@@ -116,10 +104,7 @@ try {
   }
 
   const page = await owner.newPage()
-  page.on('pageerror', error => result.diagnostics.push(error.message))
-  page.on('console', event => {
-    if (event.type() === 'error' && !event.text().startsWith('Failed to load resource:')) result.diagnostics.push(event.text())
-  })
+  observePageErrors(page, result.diagnostics)
   const historyRead = request => request.method() === 'GET' && new URL(request.url()).searchParams.get('map') === 'properties'
   let requests = 0
   page.on('request', request => { if (historyRead(request)) requests++ })

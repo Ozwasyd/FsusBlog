@@ -16,12 +16,7 @@ public sealed class PublicHotArticlePostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var author = Guid.NewGuid();
-        var secret = RandomNumberGenerator.GetBytes(32);
-        await Sql("insert into public.blog_user values($1,'Ranking author',true,true,1)", author);
-        await Sql("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')",
-            SHA256.HashData(secret), author);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
+        var (author, token, _) = await fixture.SignIn("Ranking author", ct, minutes: 1);
         var route = WireRoutes.PublicArticleHot.Replace("{size}", "10");
         await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
@@ -109,7 +104,7 @@ public sealed class PublicHotArticlePostgresTests
             async Task<Draft> Command(string path, int id, long revision, string title = "")
             {
                 var data = Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, title.Length == 0 ? "" : "body"));
-                using var request = SiteAedsFixture.Request(HttpMethod.Post, path, data, session.Token, handle: null);
+                using var request = SiteAedsFixture.Request(HttpMethod.Post, path, data, token, handle: null);
                 using var response = await server.Client.SendAsync(request, ct);
                 response.EnsureSuccessStatusCode();
                 return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));

@@ -100,24 +100,12 @@ public sealed class AdminStepUpPostgresTests
             return token;
         }
 
-        async Task<(Guid Id, string Token, byte[] Digest)> Admin(string handle, bool canModerate)
-        {
-            var id = Guid.NewGuid();
-            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            var digest = Store.TokenDigest(token)!;
-            await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)", id, handle, RandomNumberGenerator.GetBytes(32));
-            await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)", RandomNumberGenerator.GetBytes(32), id, new byte[] { 2 });
-            await Execute("insert into public.admin_permission values($1,$2)", id, CurrentSchema.AdminManagePermission);
-            if (canModerate) await Execute("insert into public.admin_permission values($1,$2)", id, CurrentSchema.CommentModeratePermission);
-            await Execute("insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", digest, id);
-            return (id, token, digest);
-        }
+        Task<(Guid Id, string Token, byte[] Digest)> Admin(string handle, bool canModerate) =>
+            FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2],
+                canModerate ? [CurrentSchema.CommentModeratePermission] : []);
 
-        async Task Execute(string sql, params object[] parameters)
-        {
-            await using var cmd = Store.Sql(db, null, sql, parameters);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] parameters) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
     }
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>

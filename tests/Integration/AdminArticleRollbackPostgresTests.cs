@@ -367,16 +367,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
 
     private static async Task<Admin> CreateAdmin(NpgsqlConnection db, CancellationToken ct, string handle, bool granted)
     {
-        var id = Guid.NewGuid();
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var digest = Store.TokenDigest(token)!;
-        await ExecuteSql(db, ct, "insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)",
-            id, handle, RandomNumberGenerator.GetBytes(32));
-        await ExecuteSql(db, ct, "insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)",
-            RandomNumberGenerator.GetBytes(32), id, new byte[] { 1 });
-        await ExecuteSql(db, ct, "insert into public.admin_permission values($1,'admin.manage')", id);
-        await ExecuteSql(db, ct, "insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')", digest, id);
-        if (granted) await ExecuteSql(db, ct, "insert into public.admin_permission values($1,$2)", id, CurrentSchema.ArticleWritePermission);
+        var (id, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [1],
+            granted ? [CurrentSchema.ArticleWritePermission] : []);
         return new Admin(id, token, digest);
     }
 
@@ -391,11 +383,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
         return token;
     }
 
-    private static async Task ExecuteSql(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters)
-    {
-        await using var command = Store.Sql(db, null, sql, parameters);
-        await command.ExecuteNonQueryAsync(ct);
-    }
+    private static Task ExecuteSql(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters) =>
+        FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
 
     private static async Task<T> ScalarSql<T>(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters)
     {

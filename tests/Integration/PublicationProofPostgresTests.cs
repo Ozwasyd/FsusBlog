@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -34,8 +33,8 @@ public sealed class PublicationProofPostgresTests
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         try
         {
-            var aPath = KeyFile("a.pkcs8", previous);
-            var bPath = KeyFile("b.pkcs8", next);
+            var aPath = PublicationFixture.PrivateKey(scratch, "a.pkcs8", previous);
+            var bPath = PublicationFixture.PrivateKey(scratch, "b.pkcs8", next);
             var settings = new Dictionary<string, string>
             {
                 ["FSUSBLOG_PUBLIC_ORIGIN"] = Origin, ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
@@ -148,7 +147,7 @@ public sealed class PublicationProofPostgresTests
                 settings[prefix + "NotAfterUtc"] = "2099-01-01T00:00:00.000000Z";
             }
 
-            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, settings, Forward);
+            Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, settings, request => PublicationFixture.Forward(request, "proof.example.test"));
             async Task<string> PathOf(Draft draft) => $"/integrity/v2/article/{draft.Id}/{await Scalar("select publication_id from public.article_publication where article_id=$1", draft.Id)}/rights.json";
 
             async Task<Draft> Edit(ServerProcess server, string route, ArticleCommand input)
@@ -162,8 +161,7 @@ public sealed class PublicationProofPostgresTests
                 string host = "proof.example.test", byte[]? body = null)
             {
                 using var request = new HttpRequestMessage(method, url);
-                Forward(request);
-                request.Headers.Host = host;
+                PublicationFixture.Forward(request, host);
                 if (body is not null)
                 {
                     request.Headers.Add("Cookie", "fsus-v2-session=" + session);
@@ -206,46 +204,14 @@ public sealed class PublicationProofPostgresTests
 
             async Task VerifyTool(string proof, string keys, bool success)
             {
-                var tool = FindVerifier();
-                using var process = Process.Start(new ProcessStartInfo("node")
-                {
-                    ArgumentList = { tool, Origin, keys, proof }, RedirectStandardOutput = true, RedirectStandardError = true,
-                    UseShellExecute = false,
-                })!;
-                await process.WaitForExitAsync(ct);
-                var reason = await process.StandardError.ReadToEndAsync(ct);
-                Assert.True((process.ExitCode == 0) == success, reason);
+                var tool = PublicationFixture.Tool("verify-publication-proof.mjs");
+                var result = await FixtureProcess.Run(FixtureProcess.Command("node", tool, Origin, keys, proof), ct);
+                Assert.True((result.Code == 0) == success, result.Error);
             }
         }
         finally { scratch.Delete(recursive: true); }
 
-        string KeyFile(string basename, ECDsa key)
-        {
-            var path = Path.Combine(scratch.FullName, basename);
-            var der = key.ExportPkcs8PrivateKey();
-            try { File.WriteAllBytes(path, der); }
-            finally { CryptographicOperations.ZeroMemory(der); }
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead);
-            return path;
-        }
         Task<object?> Scalar(string sql, params object[] args) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, args);
-    }
-
-    private static void Forward(HttpRequestMessage request)
-    {
-        request.Headers.Host = "proof.example.test";
-        request.Headers.Add("X-Forwarded-For", "127.0.0.1");
-        request.Headers.Add("X-Forwarded-Proto", "https");
-    }
-
-    private static string FindVerifier()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var path = Path.Combine(dir.FullName, "tools", "verify-publication-proof.mjs");
-            if (File.Exists(path)) return path;
-        }
-        throw new FileNotFoundException("Native publication proof verifier was not found.");
     }
 }

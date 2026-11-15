@@ -74,26 +74,14 @@ public sealed class AdminEffectivePermissionsPostgresTests
 
         async Task<(Guid Id, string Token)> Add(string handle, params string[] grants)
         {
-            var principal = Guid.NewGuid();
-            var token = NewToken();
-            await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,$2,$3,true,1)",
-                principal, handle, RandomNumberGenerator.GetBytes(32));
-            await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)",
-                RandomNumberGenerator.GetBytes(32), principal, new byte[] { 1 });
-            foreach (var grant in grants.Prepend(CurrentSchema.AdminManagePermission))
-                await Execute("insert into public.admin_permission values($1,$2)", principal, grant);
-            await Execute("insert into public.admin_session values($1,$2,1,clock_timestamp()+interval '10 minutes')",
-                Store.TokenDigest(token)!, principal);
-            return (principal, token);
+            var (id, token, _) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [1], grants);
+            return (id, token);
         }
 
         Task Execute(string sql, params object[] args) => ExecuteIn(null, sql, args);
 
-        async Task ExecuteIn(Npgsql.NpgsqlTransaction? transaction, string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, transaction, sql, args);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task ExecuteIn(Npgsql.NpgsqlTransaction? transaction, string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, transaction, ct, sql, args);
     }
 
     private static string NewToken() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));

@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
-import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { authorFixture, button, chromium, expect } from './browser-authoring-fixture.mjs'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const workspace = `${origin}/user/manage/article/workspace`
@@ -16,44 +14,19 @@ const editor = id => `${origin}/user/manage/article/edit/${id}`
 const inventory = `${origin}${WireRoutes.AuthorArticles}`
 const recentPath = `${origin}${WireRoutes.AuthorRecentOpens}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
-const binary = { 'Content-Type': 'application/octet-stream' }
-const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 const list = scope => scope.getByRole('list', { name: 'Article results' })
 const selected = scope => list(scope).locator('button[aria-current="true"]')
 const body = page => page.getByLabel('Body', { exact: true })
 const diagnostics = []
 const observations = []
 
-async function signIn(context, ticket) {
-  const response = await context.request.post(`${origin}${WireRoutes.SignIn}`, { headers: binary,
-    data: Buffer.from(encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket }))) })
-  assert.equal(response.status(), 200)
-  return response.headers()[WireHeaders.CurrentSession.toLowerCase()]
-}
-
-async function create(context, title, content = `Saved source: ${title}`) {
-  return save(context, { id: 0, revision: 0n, title }, content)
-}
-
-async function save(context, draft, content) {
-  const data = Buffer.from(encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({ id: draft.id, expectedRevision: draft.revision,
-    idempotencyKey: randomUUID(), title: draft.title, body: content })))
-  const response = await context.request.post(`${origin}${WireRoutes.Save}`, { headers: binary, data })
-  assert.equal(response.status(), 200)
-  return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
-}
+const { signIn, saveDraft: save, createDraft, monitor } = authorFixture(origin, diagnostics)
+const create = (context, title, content = `Saved source: ${title}`) => createDraft(context, title, content)
 
 async function recentOpens(context, handle) {
   const response = await context.request.get(recentPath, { headers: { [WireHeaders.CurrentSession]: handle } })
   assert.equal(response.status(), 200)
   return decodeRecentOpens(decodeFrame(await response.body(), FrameType.AuthorRecentOpenPage).payload)
-}
-
-function monitor(page) {
-  page.on('pageerror', error => diagnostics.push(error.message))
-  page.on('console', entry => {
-    if (entry.type() === 'error' && !entry.text().startsWith('Failed to load resource:')) diagnostics.push(entry.text())
-  })
 }
 
 async function hold(page, pattern) {

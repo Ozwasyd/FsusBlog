@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
-using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -22,8 +21,8 @@ public sealed class InboxPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
-        var aliceSession = await SignIn(db.DataSource, alice, ct);
-        var bobSession = await SignIn(db.DataSource, bob, ct);
+        var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
+        var bobSession = (await db.SignIn(bob, ct, minutes: 1)).Token;
         await using var server = await ServerProcess.Start(db.ConnectionString, ct,
             new Dictionary<string, string> { ["FSUSBLOG_PRIVATE_INBOX_WRITES"] = "true" });
 
@@ -101,8 +100,8 @@ public sealed class InboxPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
-        var aliceSession = await SignIn(db.DataSource, alice, ct);
-        var bobSession = await SignIn(db.DataSource, bob, ct);
+        var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
+        var bobSession = (await db.SignIn(bob, ct, minutes: 1)).Token;
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         var origin = server.Client.BaseAddress!.GetLeftPart(UriPartial.Authority);
         var address = new UriBuilder(origin) { Scheme = "ws", Path = WireRoutes.InboxStream }.Uri;
@@ -170,8 +169,8 @@ public sealed class InboxPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
-        var aliceSession = await SignIn(db.DataSource, alice, ct);
-        var bobSession = await SignIn(db.DataSource, bob, ct);
+        var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
+        var bobSession = (await db.SignIn(bob, ct, minutes: 1)).Token;
         await using var server = await ServerProcess.Start(db.ConnectionString, ct,
             new Dictionary<string, string> { ["FSUSBLOG_PRIVATE_INBOX_WRITES"] = "false" });
         var client = server.Client;
@@ -346,16 +345,6 @@ public sealed class InboxPostgresTests
         insert.Parameters.AddWithValue(name);
         await insert.ExecuteNonQueryAsync(ct);
         return user;
-    }
-
-    private static async Task<string> SignIn(NpgsqlDataSource data, Guid user, CancellationToken ct)
-    {
-        var token = RandomNumberGenerator.GetBytes(32);
-        await using var ticket = data.CreateCommand("insert into public.login_ticket values($1,$2,now()+interval '1 minute')");
-        ticket.Parameters.AddWithValue(SHA256.HashData(token));
-        ticket.Parameters.AddWithValue(user);
-        await ticket.ExecuteNonQueryAsync(ct);
-        return (await new Store(data).SignIn(Convert.ToHexStringLower(token), ct)).Token;
     }
 
     private static async Task<HttpResponseMessage> InboxGet(HttpClient client, string path, string session, CancellationToken ct)
