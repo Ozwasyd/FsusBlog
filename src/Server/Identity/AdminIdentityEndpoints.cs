@@ -120,6 +120,7 @@ internal static class AdminIdentityEndpoints
         app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
             Frame(Wire.EncodeAdminCommentQueue(await store.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct))))
             .RequireRateLimiting("command");
+        AdminClusterEndpoints.Map(app, store, session, Limit);
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);

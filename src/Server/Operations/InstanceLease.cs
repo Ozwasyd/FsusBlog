@@ -57,6 +57,18 @@ internal sealed class InstanceLease : IAsyncDisposable
         }
     }
 
+    internal int ObserveAgeMilliseconds()
+    {
+        while (true)
+        {
+            var deadline = Volatile.Read(ref _validUntil);
+            var now = Stopwatch.GetTimestamp();
+            if (deadline <= 0) throw new PublicUnavailableException();
+            if (now < deadline) return (int)Stopwatch.GetElapsedTime(deadline - ValidityTicks, now).TotalMilliseconds;
+            if (deadline == Volatile.Read(ref _validUntil)) throw new PublicUnavailableException();
+        }
+    }
+
     internal CancellationToken Stopped => _stopped.Token;
 
     internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null,

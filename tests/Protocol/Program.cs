@@ -89,4 +89,12 @@ LocalSearchVectors.Run(fixtures);
 PropertyValueVectors.Run(fixtures);
 RelatedReadingVectors.Run(fixtures);
 ArticleCanonicalHashVectors.Run(fixtures);
+var cluster = new AdminClusterStatus(1, "lab-a", Guid.Parse("bd978cbd-7565-44ed-876d-d734cbe45c79"), "2.0.0+ca32",
+    1794680000000, 1794680040012, 349, true);
+Equal(Fixture("admin-cluster-status-v2.hex"), Wire.EncodeAdminClusterStatus(cluster));
+if (Wire.DecodeAdminClusterStatus(Fixture("admin-cluster-status-v2.hex")) != cluster)
+    throw new InvalidOperationException("Standalone deployment differs from the independent vector");
+Reject(() => Wire.EncodeAdminClusterStatus(cluster with { LeaseAgeMs = 1000 }));
+Reject(() => Wire.EncodeAdminClusterStatus(cluster with { NodeId = "lab-a\n" }));
+Reject(() => Wire.EncodeAdminClusterStatus(cluster with { Mode = 2 }));
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

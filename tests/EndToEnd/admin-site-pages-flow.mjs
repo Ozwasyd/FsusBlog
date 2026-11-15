@@ -3,11 +3,14 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { adminClusterFlow } from './admin-cluster-flow.mjs'
 import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
 import { decodeAdminSitePageRevision, encodeAdminSitePagePublish, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function verifyAdminSitePages({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
+  const cluster = adminClusterFlow({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie, probe, evidence })
+  await cluster.denied()
   const legacy = '/api/binary/system/admin/page/about'
   const overview = adminOrigin.origin + WireRoutes.AdminSitePages
   const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
@@ -30,6 +33,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await probe(overview, adminCookieName, priorCookie.value, 401)
   await page.reload()
   await logIn(page)
+  await cluster.granted()
   const allowed = await check()
   assert.equal(allowed.status(), 200)
   assert.match(allowed.headers()['cache-control'], /no-store/)
@@ -69,9 +73,11 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await probe(revision, adminCookieName, grantCookie.value, editor ? 401 : 404)
   assert.equal((await check()).status(), 401)
   await displayed.waitFor({ state: 'hidden' })
+  await cluster.cleared(grantCookie)
   await logIn(page)
   assert.equal((await context.request.get(overview)).status(), 403)
   await section.waitFor({ state: 'detached' })
+  await cluster.denied()
   return await readCookie(context, adminOrigin.origin + WireRoutes.AdminSession, adminCookieName)
 }
 

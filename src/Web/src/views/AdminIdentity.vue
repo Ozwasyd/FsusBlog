@@ -4,6 +4,7 @@ import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
 import AdminSitePages from './AdminSitePages.vue'
+import AdminCluster from './AdminCluster.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import AdminInbox from './AdminInbox.vue'
 import AdminArticleRollback from './AdminArticleRollback.vue'
@@ -287,6 +288,8 @@ function logOut() {
     <AdminArticleRollback v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
       :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminCluster v-if="authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
+      :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminSitePages v-if="permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <p v-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
     <template v-else-if="authority?.status === 'signed-out'">

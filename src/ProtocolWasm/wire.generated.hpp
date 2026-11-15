@@ -47,6 +47,8 @@ inline constexpr uint32_t TitleBytes = 256;
 inline constexpr uint32_t AuthorArticlePageSize = 20;
 inline constexpr uint32_t AuthorArticleKeywordChars = 128;
 inline constexpr uint32_t NameBytes = 256;
+inline constexpr uint32_t AdminClusterNodeIdBytes = 64;
+inline constexpr uint32_t AdminClusterVersionBytes = 96;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
 inline constexpr uint32_t AdminSitePageDigestBytes = 64;
@@ -358,6 +360,7 @@ enum class FrameType : uint16_t {
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
@@ -499,6 +502,7 @@ constexpr bool known(FrameType type) {
         case FrameType::SiteSessionList:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
+        case FrameType::AdminClusterStatus:
         case FrameType::AdminEffectivePermissions:
         case FrameType::AdminSitePages:
         case FrameType::AdminArticleRollbackIntent:

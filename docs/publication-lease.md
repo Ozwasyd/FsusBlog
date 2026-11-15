@@ -9,3 +9,9 @@ FsusBlog Server 使用独立的非连接池 PostgreSQL 会话持有数据库独�
 正常交接先从代理摘除旧进程并提交优雅停止，确认旧进程退出，再启动新进程和检查 `/health/ready`。同一 PostgreSQL 主库上的独占准入和交接锁用于单机部署，跨数据库或主库切换仍需独立仲裁。
 
 数据库锁身份来自 PostgreSQL 的 `pg_locks`。独立会话使用 Npgsql 的有限命令与取消等待来发现连接故障。[PostgreSQL 锁视图](https://www.postgresql.org/docs/18/view-pg-locks.html) · [Npgsql 连接参数](https://www.npgsql.org/doc/connection-string-parameters.html#timeouts-and-keepalive)
+
+## 管理域部署状态
+
+独立管理域的 `system.config` 管理员可手动读取 `GET /api/v2/admin/identity/operations/cluster.aeds`，返回 v2 AEDS 32962。结果记录此进程实例 ID、程序集版本、启动时间、读取时间、当前 PostgreSQL 主库租约证明的年龄及公开快照就绪状态。年龄使用相同单调时钟，从绑定当前确认的探针发起时计量。响应禁用缓存并绑定发起读取的管理会话。租约丢失时旧实例的请求走 `503`，接替实例重新生成身份。可用 `FSUSBLOG_NODE_ID` 配置节点标签，最长 64 个 ASCII 字母、数字、点、连字符或下划线。省略时无需公开机器名或进程号。
+
+此入口的模式固定为单机，界面明确显示分布式调度不可用。v1 实际集群入口使用 `/api/binary/author/ops/cluster/nodes` 的 AEDS 235 负载，其成员目录、调度、远端资源、分布式任务和控制仍待交付。 [v1 固定入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/ClusterMembershipEndpoints.cs#L21)

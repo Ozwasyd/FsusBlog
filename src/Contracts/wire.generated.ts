@@ -53,6 +53,7 @@ export const FrameType = {
   SiteSessionList: 32796,
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
+  AdminClusterStatus: 32962,
   AdminEffectivePermissions: 32948,
   AdminSitePages: 32905,
   AdminArticleRollbackIntent: 32924,
@@ -184,6 +185,8 @@ export const WireLimits = {
   AuthorArticlePageSize: 20,
   AuthorArticleKeywordChars: 128,
   NameBytes: 256,
+  AdminClusterNodeIdBytes: 64,
+  AdminClusterVersionBytes: 96,
   PageContentChars: 200000,
   PageContentBytes: 600000,
   AdminSitePageDigestBytes: 64,
@@ -516,6 +519,7 @@ export const WireRoutes = {
   AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
   AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
+  AdminClusterStatus: "/api/v2/admin/identity/operations/cluster.aeds",
   AdminArticleRollbackAvailability: "/api/v2/admin/identity/articles/rollback/available.aeds",
   AdminArticleRollbackPreview: "/api/v2/admin/identity/articles/rollback/preview.aeds",
   AdminArticleRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds",
@@ -914,6 +918,46 @@ export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperation
     publicationWatermark: reader.i64(),
     pendingPublicationEvents: reader.i64(),
     oldestPendingAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminClusterStatus {
+  mode: number;
+  nodeId: string;
+  instanceId: string;
+  buildVersion: string;
+  startedAt: bigint;
+  observedAt: bigint;
+  leaseAgeMs: number;
+  snapshotReady: boolean;
+}
+
+export function encodeAdminClusterStatus(value: AdminClusterStatus): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.mode);
+  writer.text(value.nodeId, WireLimits.AdminClusterNodeIdBytes);
+  writer.uuid(value.instanceId);
+  writer.text(value.buildVersion, WireLimits.AdminClusterVersionBytes);
+  writer.i64(value.startedAt);
+  writer.i64(value.observedAt);
+  writer.i32(value.leaseAgeMs);
+  writer.bool(value.snapshotReady);
+  return writer.finish();
+}
+
+export function decodeAdminClusterStatus(payload: Uint8Array): AdminClusterStatus {
+  const reader = new PodReader(payload);
+  const value: AdminClusterStatus = {
+    mode: reader.i32(),
+    nodeId: reader.text(WireLimits.AdminClusterNodeIdBytes),
+    instanceId: reader.uuid(),
+    buildVersion: reader.text(WireLimits.AdminClusterVersionBytes),
+    startedAt: reader.i64(),
+    observedAt: reader.i64(),
+    leaseAgeMs: reader.i32(),
+    snapshotReady: reader.bool(),
   };
   reader.finish();
   return value;

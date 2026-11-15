@@ -54,6 +54,7 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
@@ -187,6 +188,8 @@ public static class WireLimits
     public const int AuthorArticlePageSize = 20;
     public const int AuthorArticleKeywordChars = 128;
     public const int NameBytes = 256;
+    public const int AdminClusterNodeIdBytes = 64;
+    public const int AdminClusterVersionBytes = 96;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
     public const int AdminSitePageDigestBytes = 64;
@@ -521,6 +524,7 @@ public static class WireRoutes
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminClusterStatus = "/api/v2/admin/identity/operations/cluster.aeds";
     public const string AdminArticleRollbackAvailability = "/api/v2/admin/identity/articles/rollback/available.aeds";
     public const string AdminArticleRollbackPreview = "/api/v2/admin/identity/articles/rollback/preview.aeds";
     public const string AdminArticleRollbackStepUpBegin = "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds";
@@ -665,6 +669,7 @@ public sealed record AdminModerationDecision(int ArticleId, long CommentId, int 
 public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
+public sealed record AdminClusterStatus(int Mode, string NodeId, Guid InstanceId, string BuildVersion, long StartedAt, long ObservedAt, int LeaseAgeMs, bool SnapshotReady);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
 public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
@@ -899,6 +904,30 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
         var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminClusterStatus(AdminClusterStatus value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Mode);
+        writer.Text(value.NodeId, WireLimits.AdminClusterNodeIdBytes);
+        writer.Uuid(value.InstanceId);
+        writer.Text(value.BuildVersion, WireLimits.AdminClusterVersionBytes);
+        writer.I64(value.StartedAt);
+        writer.I64(value.ObservedAt);
+        writer.I32(value.LeaseAgeMs);
+        writer.Bool(value.SnapshotReady);
+        return Aeds.Encode(FrameType.AdminClusterStatus, writer.Written);
+    }
+
+    public static AdminClusterStatus DecodeAdminClusterStatus(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminClusterStatus));
+        var value = new AdminClusterStatus(reader.I32(), reader.Text(WireLimits.AdminClusterNodeIdBytes), reader.Uuid(), reader.Text(WireLimits.AdminClusterVersionBytes), reader.I64(), reader.I64(), reader.I32(), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;
