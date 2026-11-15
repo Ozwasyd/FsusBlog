@@ -49,14 +49,24 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       const b = { articleId: 22 }
       const fresh = { createDraftId: '89bf111b-e994-4788-9218-583ec33dce95' }
       const source = { baseRevision: 1n, title: '原始 🐝', body: '未确认的内容', editSequence: 1 }
+      const otherWriter = { ...source, body: 'Another tab' }
+      const secondArticle = { ...source, body: 'Another article' }
       const dispositions = await Promise.all([
         first.write(a, source),
-        second.write(a, { ...source, body: 'Another tab' }),
-        first.write(b, { ...source, body: 'Another article' }),
+        second.write(a, otherWriter),
+        first.write(b, secondArticle),
       ])
+      const copies = [{ target: a, source }, { target: b, source: secondArticle }]
+      const copyChecks = [
+        await first.verifyCopies(copies),
+        await first.verifyCopies([{ target: a, source: { ...source, baseRevision: 2n } }]),
+        await first.verifyCopies([{ target: a, source: { ...source, editSequence: 2 } }]),
+        await second.verifyCopies([{ target: a, source: otherWriter }, copies[1]]),
+      ]
       const started = first.write(b, { ...source, body: 'Save before write', editSequence: 2 })
       await first.acknowledge(b, 2)
       dispositions.push(await started)
+      copyChecks.push(await first.verifyCopies(copies))
       const old = first.write(a, { ...source, body: 'Older', editSequence: 2 })
       const updated = first.write(a, { ...source, body: '新内容 🐈', editSequence: 3 })
       await Promise.all([old, updated])
@@ -64,8 +74,8 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       await first.write(fresh, { ...source, body: 'New unpersisted draft', baseRevision: 0n })
       first.close()
       second.close()
-      return dispositions
-    }, { modulePath, time }), ['stored', 'stored', 'stored', 'stale'])
+      return { dispositions, copyChecks }
+    }, { modulePath, time }), { dispositions: ['stored', 'stored', 'stored', 'stale'], copyChecks: [true, false, false, false, false] })
     await context.close()
     context = await launch()
     page = context.pages()[0]
@@ -91,11 +101,13 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       const source = { title: durable.title, body: 'New edit after expiry', baseRevision: 2n, editSequence: 4 }
       await journal.write(target, source)
       const next = await journal.inspect(target, durable)
+      const copyBeforePurge = await journal.verifyCopies([{ target, source }])
       const secondWriter = await DraftJournal.open(scope)
       const purgeRace = journal.write(target, { ...source, editSequence: 5, body: 'Logout race' })
       await journal.purge()
       const purgeDisposition = await purgeRace
       const afterPurge = (await journal.inspect(target, durable)).length
+      const copyAfterPurge = await journal.verifyCopies([{ target, source }])
       const oldTabAfterLogout = await secondWriter.write(target, { ...source, editSequence: 9, body: 'Old tab' })
       const reauth = await DraftJournal.open(scope)
       const afterReauth = await reauth.write(target, { ...source, editSequence: 1, body: 'New login' })
@@ -108,6 +120,7 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
         records: beforeExpiry.map(({ body, relationship }) => [body, relationship]).sort(),
         newDrafts: newDrafts.map(({ body, target }) => [body, target]),
         clean, isolated, afterDiscard, afterExpiry, purgeDisposition, afterPurge, oldTabAfterLogout, afterReauth,
+        copyBeforePurge, copyAfterPurge,
         next: next[0]?.relationship, localStorageKeys: Object.keys(localStorage), sessionStorageKeys: Object.keys(sessionStorage),
       }
     }, { modulePath, time })
@@ -116,6 +129,7 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       newDrafts: [['New unpersisted draft', { createDraftId: '89bf111b-e994-4788-9218-583ec33dce95' }]],
       clean: 0, isolated: 0, afterDiscard: 1, afterExpiry: 0, purgeDisposition: 'closed', afterPurge: 0,
       oldTabAfterLogout: 'closed', afterReauth: 'stored',
+      copyBeforePurge: true, copyAfterPurge: false,
       next: 'restore', localStorageKeys: [], sessionStorageKeys: [],
     })
     equal(context.browser()?.isConnected() ?? true, true)

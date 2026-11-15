@@ -121,9 +121,10 @@ function transaction<Result>(
   database: IDBDatabase,
   scope: DraftJournalScope,
   fn: (store: IDBObjectStore, records: RecoveryRecord[], generation: string, revoke: () => void) => Result,
+  mode: 'readonly' | 'readwrite' = 'readwrite',
 ): Promise<Result> {
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([recordsStore, scopesStore], 'readwrite', { durability: 'strict' })
+    const tx = database.transaction([recordsStore, scopesStore], mode, mode === 'readwrite' ? { durability: 'strict' } : undefined)
     const store = tx.objectStore(recordsStore)
     const scopes = tx.objectStore(scopesStore)
     const key = [scope.site, scope.userId]
@@ -141,7 +142,7 @@ function transaction<Result>(
           const now = Date.now()
           const live = (read.result as RecoveryRecord[]).filter(record => {
             const valid = admitted(record, now)
-            if (!valid) store.delete(record.key)
+            if (!valid && mode === 'readwrite') store.delete(record.key)
             return valid
           })
           result = fn(store, live, generation, () => { scopes.put(crypto.randomUUID(), key) })
@@ -219,6 +220,25 @@ export class DraftJournal {
     } finally {
       this.#pending.delete(pending)
     }
+  }
+
+  async verifyCopies(copies: readonly Readonly<{ target: DraftTarget; source: PendingSource }>[]): Promise<boolean> {
+    if (this.#closed || copies.length === 0 || copies.length > maxRecords) return false
+    const expected = await Promise.all(copies.map(async ({ target, source }) => ({
+      document: documentKey(target), source, digest: await sourceDigest(source),
+    })))
+    if (this.#closed) return false
+    const verified = await transaction(this.#database, this.#scope, (_store, live, generation) => {
+      if (this.#closed || this.#generation !== generation) return false
+      const owned = new Map(live.filter(record => record.writer === this.#writer && this.#matches(undefined, record))
+        .map(record => [record.document, record]))
+      return expected.every(({ document, source, digest }) => {
+        const record = owned.get(document)
+        return record?.digest === digest && record.baseRevision === source.baseRevision &&
+          record.editSequence === source.editSequence && record.title === source.title && record.body === source.body
+      })
+    }, 'readonly')
+    return verified && !this.#closed
   }
 
   async inspect(target: DraftTarget, durable: JournalSource & { revision: bigint }): Promise<readonly RecoveryCandidate[]> {

@@ -4,7 +4,7 @@ import {
   DraftJournal, type DraftTarget, type PendingSource, type RecoveryCandidate,
 } from './draftJournal'
 import { verifyDraftScope } from './draftScope'
-import type { EditorTransport, WorkspaceTab } from './workspaceRegistry'
+import type { EditorTransport, RecoverableCloseDraft, WorkspaceTab } from './workspaceRegistry'
 
 type Confirmation = Parameters<NonNullable<EditorTransport<Draft>['confirmed']>>[0]
 type ActiveDraft = { tab: WorkspaceTab; draft: Draft; edit: number }
@@ -165,6 +165,19 @@ export function editorRecovery() {
     return owner?.acknowledge(document, edit).catch(() => { failure.value = true })
   }
 
+  async function verifyCloseCopies(drafts: readonly RecoverableCloseDraft<Draft>[]): Promise<boolean> {
+    const owner = journal
+    if (!owner) return false
+    try {
+      const verified = await owner.verifyCopies(drafts.map(({ draft, edit }) => ({
+        target: { articleId: draft.id }, source: source(draft, edit),
+      })))
+      return verified && journal === owner
+    } catch {
+      return false
+    }
+  }
+
   function close() {
     scopeRequest.abort()
     scopeRequest = new AbortController()
@@ -183,7 +196,7 @@ export function editorRecovery() {
   }
 
   return {
-    setCurrent, attach, close, persist, confirmed, remove, discardArticle, dismissCandidates,
+    setCurrent, attach, close, persist, confirmed, remove, discardArticle, verifyCloseCopies, dismissCandidates,
     candidates: readonly(candidates), failure: readonly(failure), guarded,
   }
 }

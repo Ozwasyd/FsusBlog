@@ -169,14 +169,40 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
   try {
     const others = button(page, 'Close other tabs')
     const right = button(page, 'Close tabs to the right')
+    const dialog = page.getByRole('dialog', { name: 'Close tabs and keep recovery copies?', exact: true })
+    const listedTabs = dialog.getByRole('list', { name: 'Tabs to close', exact: true }).getByRole('listitem')
+    const confirmedTargets = [`${first.title} (unsaved changes) · Article ${first.id}`, `${tail.title} (up to date) · Article ${tail.id}`]
     await page.getByText('Group actions', { exact: true }).click()
     await press(page, others)
-    await expect(page.getByText(`Could not close tabs. ${first.title} (unsaved changes).`, { exact: true })).toBeVisible()
+    await expect(listedTabs).toHaveText(confirmedTargets)
+    await button(dialog, 'Keep writing').click()
+    await expect(dialog).toBeHidden()
     await expect(others).toBeFocused()
     await expect(tabList(page).getByRole('tab')).toHaveCount(4)
     await expect(tab(page, first, 'Unsaved')).toBeVisible()
     await expect(tab(page, tail, 'Preview')).toBeVisible()
     await expect(tab(page, second, 'Pinned')).toBeVisible()
+    await expect(page.getByText('Recently closed', { exact: true })).toHaveCount(0)
+
+    await press(page, others)
+    await expect(listedTabs).toHaveText(confirmedTargets)
+    await page.evaluate(() => {
+      const original = IDBDatabase.prototype.transaction
+      IDBDatabase.prototype.transaction = function (...args) {
+        const tx = original.apply(this, args)
+        if (this.name === 'fsusblog-v2-draft-recovery' && args[1] === 'readonly') {
+          IDBDatabase.prototype.transaction = original
+          tx.addEventListener('abort', () => { document.documentElement.dataset.recoveryReadAborted = '1' }, { once: true })
+          queueMicrotask(() => tx.abort())
+        }
+        return tx
+      }
+    })
+    await button(dialog, 'Close and keep copies').click()
+    await expect(page.locator('html')).toHaveAttribute('data-recovery-read-aborted', '1')
+    await expect(page.getByText('Could not verify recovery copies. Save the drafts before closing these tabs.', { exact: true })).toBeVisible()
+    await expect(others).toBeFocused()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(4)
     await expect(page.getByText('Recently closed', { exact: true })).toHaveCount(0)
 
     await press(page, right)
@@ -211,9 +237,36 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
       await expect(tab(page, second, 'Pinned')).toBeVisible()
       await expectSameEditor(body(secondary), secondNode)
     } finally { await activeNode.dispose() }
+
+    await button(page, `Reopen Article ${alternate.id}`).click()
+    await expect(page).toHaveURL(editPath(alternate.id))
+    await button(page, `Reopen Article ${tail.id}`).click()
+    await expect(page).toHaveURL(editPath(tail.id))
+    await press(page, tab(page, alternate, 'Pinned'))
+    await expect(page).toHaveURL(editPath(alternate.id))
+    await expectPane(primary, alternate, alternate.body, true)
+    await press(page, others)
+    await expect(listedTabs).toHaveText(confirmedTargets)
+    await button(dialog, 'Close and keep copies').click()
+    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(2)
+    await expect(tab(page, first, 'Unsaved')).toHaveCount(0)
+    await expect(tab(page, tail, 'Preview')).toHaveCount(0)
+    await expect(tab(page, alternate, 'Pinned')).toBeFocused()
+    await expectSameEditor(body(secondary), secondNode)
+    await page.getByText('Recently closed', { exact: true }).click()
+    const reopenFirst = button(page, `Reopen Article ${first.id}`)
+    await expect(reopenFirst).toBeVisible()
+    await reopenFirst.click()
+    await expect(page).toHaveURL(editPath(first.id))
+    await expect(body(primary)).toHaveValue(first.body)
+    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toBeVisible()
+    await button(page, 'Restore draft').click()
+    await expect(body(primary)).toHaveValue(localSource)
   } finally { await alternateNode.dispose() }
-  observations.push({ protectedCloseBatchLeavesCleanTabsOpen: true, desktopCloseRightPreservesEarlierTabs: true,
-    compactCloseOthersKeepsActiveDraft: true, closeBatchPreservesOtherGroup: true })
+  observations.push({ cancelPreservesMixedBatch: true, abortedRecoveryReadPreservesMixedBatch: true,
+    desktopCloseRightPreservesEarlierTabs: true, compactCloseOthersKeepsActiveDraft: true, closeBatchPreservesOtherGroup: true,
+    confirmedMixedCloseRestoresRealRecoveryCopy: true })
 }
 
 async function changeGroupLayout(page, readLayout, before, command, expected) {

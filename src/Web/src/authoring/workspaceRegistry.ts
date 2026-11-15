@@ -55,6 +55,7 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
 export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft; selected: boolean }>
+export type RecoverableCloseDraft<Draft> = Readonly<{ draft: Draft; edit: number }>
 
 export type SavedWorkspaceLayout = Readonly<{
   tabs: readonly number[]
@@ -76,7 +77,7 @@ type SaveReceipt =
   | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' | 'rejected' }>
   | Blocked
 
-type ClosePlan = Readonly<{ revision: number; tabs: readonly WorkspaceTab[] }>
+export type ClosePlan = Readonly<{ revision: number; tabs: readonly WorkspaceTab[] }>
 type CloseReceipt = Readonly<{ kind: 'closed' | 'stale' | 'protected' }>
 type GroupReceipt = Readonly<{ kind: 'changed'; tab: WorkspaceTab; workspaceRevision: number }> |
   Readonly<{ kind: 'stale' | 'unchanged' }>
@@ -640,6 +641,20 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       this.#changed()
     }
     return { kind: 'closed' }
+  }
+
+  recoveryDraftsForClose(plan: ClosePlan): readonly RecoverableCloseDraft<Draft>[] | undefined {
+    if (plan.revision !== this.#revision) return undefined
+    const sources: RecoverableCloseDraft<Draft>[] = []
+    for (const tab of plan.tabs) {
+      const session = this.#find(tab)
+      if (!session || session.phase !== 'ready' || !session.draft) return undefined
+      const risk = this.#risk(session)
+      if (risk === 'clean') continue
+      if (risk !== 'dirty' || session.id <= 0 || session.edit <= 0) return undefined
+      sources.push({ draft: structuredClone(session.draft), edit: session.edit })
+    }
+    return sources
   }
 
   requestClose(tab: EditorSessionRef): CloseReceipt {
