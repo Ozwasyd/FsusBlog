@@ -76,25 +76,40 @@ public sealed class LocalSearchCorpusStagingTests
     }
 
     [Fact]
-    public void BudgetRejectsOversizeBeforePassingTheOutOfBudgetPageToTheSink()
+    public void BudgetRejectsOversizeBeforeAllocatingOrStagingTheFinalPage()
     {
         var articles = DescendingArticles(DocumentsPerPage + 1);
         var pages = Stage(articles);
         var exact = pages.Sum(page => page.Bytes.Length);
-        var accepted = new List<int>();
-        Assert.False(LocalSearchCorpus.TryStagePages([], 1, 1, Accept));
-        Assert.False(LocalSearchCorpus.TryStagePages(articles, 1, MaximumBytes, Accept));
+        var accepted = new List<int>(2);
+        Func<LocalSearchCorpusPage, bool> sink = Accept;
+        Assert.False(LocalSearchCorpus.TryStagePages([], 1, 1, sink));
+        Assert.False(LocalSearchCorpus.TryStagePages(articles, 1, MaximumBytes, sink));
         Assert.Empty(accepted);
-        Assert.True(LocalSearchCorpus.TryStagePages(articles, 2, exact, Accept));
+        Assert.True(LocalSearchCorpus.TryStagePages(articles, 2, exact, sink));
         Assert.Equal([1, 2], accepted);
         accepted.Clear();
-        Assert.False(LocalSearchCorpus.TryStagePages(articles, 2, exact - 1, Accept));
+        Assert.False(LocalSearchCorpus.TryStagePages(articles, 2, exact - 1, sink));
         Assert.Equal(1, Assert.Single(accepted));
+
+        // Both synchronous paths are warm and share the same input and preallocated sink.
+        var admittedBytes = Measure(exact);
+        var rejectedBytes = Measure(exact - 1);
+        Assert.True(admittedBytes - rejectedBytes >= pages[^1].Bytes.Length,
+            "Rejecting the final page must avoid allocating at least its encoded byte length.");
 
         bool Accept(LocalSearchCorpusPage page)
         {
             accepted.Add(page.Number);
             return true;
+        }
+
+        long Measure(int byteBudget)
+        {
+            accepted.Clear();
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            LocalSearchCorpus.TryStagePages(articles, 2, byteBudget, sink);
+            return GC.GetAllocatedBytesForCurrentThread() - before;
         }
     }
 

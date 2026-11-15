@@ -80,8 +80,8 @@ public static class LocalSearchCorpus
             if (pageCount >= maxPages) return false;
             postingBytes.SetLength(0);
             strings.SetLength(0);
-            var page = Package(docs, postingBytes, strings, ct);
-            if (page is null || page.Length > maxAggregateBytes - byteCount) return false;
+            var page = Package(docs, postingBytes, strings, maxAggregateBytes - byteCount, ct);
+            if (page is null) return false;
             byteCount += page.Length;
             var firstId = docs.Count == 0 ? 0 : docs[0].Article.Id;
             var lastId = docs.Count == 0 ? 0 : docs[^1].Article.Id;
@@ -159,7 +159,7 @@ public static class LocalSearchCorpus
     }
 
     private static byte[]? Package(IReadOnlyList<Document> docs, MemoryStream postingBytes, MemoryStream strings,
-        CancellationToken ct)
+        int remainingBytes, CancellationToken ct)
     {
         var index = new SortedDictionary<uint, List<Posting>>();
         foreach (var doc in docs)
@@ -240,7 +240,7 @@ public static class LocalSearchCorpus
         var stringStart = Align(tagRefStart + tagRefs.Count * 2);
         var postingStart = Align(checked(stringStart + (int)strings.Length));
         var shardSize = checked(postingStart + (int)postingBytes.Length);
-        if (shardSize > PageBytes - SearchPackagePayloadOffset) return null;
+        if (shardSize > Math.Min(PageBytes, remainingBytes) - SearchPackagePayloadOffset) return null;
 
         var package = new byte[SearchPackagePayloadOffset + shardSize];
         I32(package, 0, SearchPackageMagic);
