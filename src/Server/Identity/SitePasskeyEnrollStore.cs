@@ -18,7 +18,7 @@ internal sealed partial class PasskeyStore
     {
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        var actor = await RequireEnrollmentSession(db, tx, session, expected, ct);
+        var actor = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
         var state = await ReadEnrollmentState(db, tx, actor, ct);
         await RequireNoEnrollment(db, tx, actor, ct);
         byte[][] allowed = [state.Current];
@@ -39,7 +39,7 @@ internal sealed partial class PasskeyStore
         string approvedOptions;
         await using (var consume = await InstanceLease.BeginProtected(db, _lease, ct))
         {
-            admitted = await RequireEnrollmentSession(db, consume, session, expected, ct);
+            admitted = await RequireCurrentPasskeySession(db, consume, session, expected, ct);
             var challenge = await ConsumeChallenge(db, consume, request.Token, EnrollmentApprovalBinding(admitted.Scope), ct);
             if (challenge.UserId != admitted.Id || challenge.Generation != admitted.Generation) throw Denied();
             approvedOptions = challenge.Options;
@@ -47,14 +47,14 @@ internal sealed partial class PasskeyStore
         }
 
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        var actor = await RequireEnrollmentSession(db, tx, session, expected, ct);
+        var actor = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
         if (actor.Id != admitted.Id || actor.Generation != admitted.Generation ||
             !CryptographicOperations.FixedTimeEquals(actor.Scope, admitted.Scope)) throw Denied();
         var state = await ReadEnrollmentState(db, tx, actor, ct);
         if (!CryptographicOperations.FixedTimeEquals(state.Current, request.RawId)) throw Denied();
         await RequireNoEnrollment(db, tx, actor, ct);
         await VerifyAssertion(db, tx, request, actor.Id, AssertionOptions.FromJson(approvedOptions), requireHandle: false, ct);
-        await RequireEnrollmentSession(db, tx, session, expected, ct);
+        await RequireCurrentPasskeySession(db, tx, session, expected, ct);
 
         var options = RegistrationOptions(state.Handle);
         var intent = new EnrollmentIntent(expected!, EnrollmentSet(state.Credentials), options.ToJson());
@@ -73,7 +73,7 @@ internal sealed partial class PasskeyStore
         CheckId(request.CredentialId, request.RawId);
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        var actor = await RequireEnrollmentSession(db, tx, session, expected, ct);
+        var actor = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
         var challenge = await ConsumeChallenge(db, tx, request.Token, EnrollmentCreationBinding(actor.Id), ct);
         if (challenge.UserId != actor.Id || challenge.Generation != actor.Generation) throw Denied();
         var intent = JsonSerializer.Deserialize<EnrollmentIntent>(challenge.Options) ?? throw Denied();
@@ -88,7 +88,7 @@ internal sealed partial class PasskeyStore
                 throw Denied();
             // Hold the account lock through consumption and insertion, including races with enrollment or recovery.
             await RegisterCredential(db, tx, actor.Id, request, options, ct);
-            await RequireEnrollmentSession(db, tx, session, expected, ct);
+            await RequireCurrentPasskeySession(db, tx, session, expected, ct);
         }
         catch (BusinessException)
         {
@@ -99,7 +99,7 @@ internal sealed partial class PasskeyStore
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 
-    private static async Task<MfaStore.Subject> RequireEnrollmentSession(NpgsqlConnection db, NpgsqlTransaction tx, string? session,
+    private static async Task<MfaStore.Subject> RequireCurrentPasskeySession(NpgsqlConnection db, NpgsqlTransaction tx, string? session,
         string? expected, CancellationToken ct)
     {
         var actor = await MfaStore.RequireSession(db, tx, session, ct);

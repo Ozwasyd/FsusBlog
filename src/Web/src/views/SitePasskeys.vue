@@ -3,18 +3,19 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { enrollSitePasskey } from '../../../Contracts/passkey'
-import { renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
+import { removeSitePasskey, renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
 import { sitePasskeys, type SitePasskey } from '../../../Contracts/site-passkeys'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 import { readSiteAuthority } from '../site-refresh-coordination'
 
 type PasskeyEntry = SitePasskey & { reference?: string; revision?: bigint; name?: string }
-type RenameTarget = { reference: string; revision: bigint }
-type Rename = RenameTarget & { name: string }
+type Target = { reference: string; revision: bigint }
+type Edit = Target & ({ action: 'rename' } | { action: 'remove'; label: string })
+type Change = Target & ({ action: 'rename'; name: string } | { action: 'remove' })
 
 const passkeys = shallowRef<readonly PasskeyEntry[]>()
-const edit = shallowRef<RenameTarget>()
+const edit = shallowRef<Edit>()
 const name = ref('')
 const failed = ref('')
 const notice = ref('')
@@ -32,7 +33,7 @@ function clear() {
   request?.abort()
   request = undefined
   passkeys.value = undefined
-  closeRename()
+  closeEdit()
   failed.value = ''
   notice.value = ''
   busy.value = false
@@ -74,21 +75,31 @@ function addPasskey() {
   if (canAddPasskey.value && !edit.value) return run('enroll')
 }
 
-function openRename(item: PasskeyEntry) {
+function openEdit(item: PasskeyEntry, action: Edit['action']) {
   if (busy.value || !item.reference || item.revision === undefined) return
-  edit.value = { reference: item.reference, revision: item.revision }
-  name.value = item.name ?? ''
+  const target = { reference: item.reference, revision: item.revision }
+  if (action === 'remove') {
+    if (item.current || (passkeys.value?.length ?? 0) < 2) return
+    edit.value = { ...target, action, label: item.name || `passkey created ${item.createdAt.toLocaleString()}` }
+  } else {
+    edit.value = { ...target, action }
+    name.value = item.name ?? ''
+  }
   notice.value = ''
 }
 
-function closeRename() {
+function closeEdit() {
   edit.value = undefined
   name.value = ''
 }
 
 function saveName() {
-  if (!edit.value || !name.value.trim() || name.value.length > WireLimits.SitePasskeyNameChars) return
+  if (edit.value?.action !== 'rename' || !name.value.trim() || name.value.length > WireLimits.SitePasskeyNameChars) return
   return run({ ...edit.value, name: name.value })
+}
+
+function removePasskey() {
+  if (edit.value?.action === 'remove') return run(edit.value)
 }
 
 async function readEntries(id: string, signal: AbortSignal) {
@@ -99,7 +110,7 @@ async function readEntries(id: string, signal: AbortSignal) {
   }
 }
 
-async function run(change?: Rename | 'enroll') {
+async function run(change?: Change | 'enroll') {
   const expected = currentSession.value
   if (!active || !expected?.siteSessionId || request) return
   const id = expected.siteSessionId
@@ -108,6 +119,7 @@ async function run(change?: Rename | 'enroll') {
   const operation = new AbortController()
   request = operation
   const enrolling = change === 'enroll'
+  const removing = typeof change === 'object' && change.action === 'remove'
   busy.value = true
   adding.value = enrolling
   failed.value = ''
@@ -125,30 +137,35 @@ async function run(change?: Rename | 'enroll') {
   try {
     if (change) {
       if (!await confirmAuthority()) return
-      if (enrolling) {
-        try { await enrollSitePasskey(id, operation.signal) }
-        catch (error) {
-          if (!(error instanceof DOMException) || (error.name !== 'NotAllowedError' && error.name !== 'AbortError')) throw error
-          if (await confirmAuthority()) notice.value = 'Passkey addition canceled.'
-          return
+      try {
+        if (enrolling) await enrollSitePasskey(id, operation.signal)
+        else if (change.action === 'remove')
+          await removeSitePasskey(change.reference, change.revision, id, operation.signal)
+        else await renameSitePasskey(change.reference, change.revision, change.name, id, operation.signal)
+      } catch (error) {
+        if ((!enrolling && !removing) || !(error instanceof DOMException) ||
+            (error.name !== 'NotAllowedError' && error.name !== 'AbortError')) throw error
+        if (await confirmAuthority()) {
+          closeEdit()
+          notice.value = enrolling ? 'Passkey addition canceled.' : 'Passkey removal canceled.'
         }
-      } else {
-        await renameSitePasskey(change.reference, change.revision, change.name, id, operation.signal)
+        return
       }
       if (!live()) return
     }
     const entries = await (change ? sitePasskeyManagement(id, operation.signal) : readEntries(id, operation.signal))
     if (!await confirmAuthority()) return
     passkeys.value = entries
-    closeRename()
-    if (change) notice.value = enrolling ? 'Passkey added.' : 'Passkey name saved.'
+    closeEdit()
+    if (change) notice.value = enrolling ? 'Passkey added.' : removing ? 'Passkey removed.' : 'Passkey name saved.'
   } catch (error) {
     if (!live()) return
     passkeys.value = undefined
-    closeRename()
+    closeEdit()
     const status = error instanceof ApiError ? error.status : undefined
     if (status !== 401 && (change || (status !== 404 && status !== 409))) {
       if (enrolling) failed.value = 'Could not confirm the new Passkey. Reload Passkeys to check.'
+      else if (removing) failed.value = 'Could not confirm Passkey removal. Reload Passkeys to check.'
       else if (change) failed.value = 'Could not confirm the new Passkey name. Reload Passkeys to check.'
       else failed.value = 'Could not load Passkeys.'
     }
@@ -185,16 +202,28 @@ async function run(change?: Rename | 'enroll') {
           <dt>Backup eligible</dt><dd>{{ item.backupEligible ? 'Yes' : 'No' }}</dd>
           <dt>Backed up</dt><dd>{{ item.backedUp ? 'Yes' : 'No' }}</dd>
         </dl>
-        <form v-if="item.reference && edit?.reference === item.reference" class="rename-passkey" @submit.prevent="saveName">
+        <form v-if="edit?.action === 'rename' && edit.reference === item.reference" class="rename-passkey" @submit.prevent="saveName">
           <label for="site-passkey-name">Passkey name</label>
           <ElInput id="site-passkey-name" v-model="name" v-bind="{ maxlength: WireLimits.SitePasskeyNameChars }"
             autocomplete="off" autofocus :disabled="busy" />
           <div class="rename-actions">
             <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">Save with Passkey</ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="closeRename">Cancel</ElButton>
+            <ElButton native-type="button" :disabled="busy" @click="closeEdit">Cancel</ElButton>
           </div>
         </form>
-        <ElButton v-else-if="item.reference" native-type="button" :disabled="busy" @click="openRename(item)">Rename Passkey</ElButton>
+        <form v-else-if="edit?.action === 'remove' && edit.reference === item.reference" class="rename-passkey"
+          aria-labelledby="site-passkey-remove-label" @submit.prevent="removePasskey">
+          <p id="site-passkey-remove-label" class="passkey-name">Remove {{ edit.label }}?</p>
+          <div class="rename-actions">
+            <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">Remove with Passkey</ElButton>
+            <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">Cancel</ElButton>
+          </div>
+        </form>
+        <div v-else-if="item.reference" class="rename-actions">
+          <ElButton native-type="button" :disabled="busy || !!edit" @click="openEdit(item, 'rename')">Rename Passkey</ElButton>
+          <ElButton v-if="!item.current && passkeys && passkeys.length > 1" native-type="button"
+            :disabled="busy || !!edit" @click="openEdit(item, 'remove')">Remove Passkey</ElButton>
+        </div>
       </li>
     </ul>
   </section>

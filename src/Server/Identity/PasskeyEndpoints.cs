@@ -67,6 +67,19 @@ internal static class PasskeyEndpoints
             await passkeys.CompleteSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyRemoveBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireManagementOrigin(ctx);
+            var input = Wire.DecodeSitePasskeyRemove(await readFrame(ctx, WireLimits.MaxSitePasskeyRemoveFrameBytes, ct));
+            return Results.Bytes(await passkeys.BeginSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyRemoveComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireManagementOrigin(ctx);
+            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            await passkeys.CompleteSitePasskeyRemove(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
+            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.SitePasskeyEnrollBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequireManagementOrigin(ctx);

@@ -163,6 +163,35 @@ public sealed class SitePasskeyMetadataPostgresTests
         await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyEnrollment(session.Token, session.Id, ct));
     }
 
+    [PostgresFact]
+    public async Task DeviceRemovalAdmissionRequiresAnOwnedNonCurrentCredentialAtTheViewedRevision()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await AddAccount(db, "Removal fixture", ct);
+        var now = DateTimeOffset.UtcNow;
+        var first = await AddCredential(db, owner, now, null, false, false, ct);
+        var session = await AddSession(db, owner, now.AddMinutes(10), first, ct);
+        var last = Assert.Single(await SitePasskeys.Manage(store, session.Token, session.Id, ct));
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRemove(session.Token, session.Id, new(last.Reference, last.Revision), ct));
+        var second = await AddCredential(db, owner, now, null, false, false, ct);
+        var other = await AddSession(db, owner, now.AddMinutes(10), second, ct);
+        var rows = await SitePasskeys.Manage(store, session.Token, session.Id, ct);
+        var current = Assert.Single(rows, row => row.Metadata.Current);
+        var target = Assert.Single(rows, row => !row.Metadata.Current);
+        var removal = new SitePasskeyRemove(target.Reference, target.Revision);
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRemove(session.Token, session.Id, new(current.Reference, current.Revision), ct));
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyRemove(session.Token, session.Id, removal with { ExpectedRevision = 1 }, ct));
+        await Denied(Rejection.NotFound, () => passkeys.BeginSitePasskeyRemove(other.Token, other.Id, removal, ct));
+        var proof = await passkeys.BeginSitePasskeyRemove(session.Token, session.Id, removal, ct);
+        Assert.True(Aeds.Decode(proof, FrameType.PasskeyLoginBegin).Length > WireLayouts.PasskeyLoginBeginSize);
+        Assert.Equal(rows, await SitePasskeys.Manage(store, session.Token, session.Id, ct));
+    }
+
     private static void AssertMetadata(SitePasskeyRow row, DateTimeOffset created,
         DateTimeOffset? used, bool backupEligible, bool backedUp, bool current)
     {

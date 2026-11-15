@@ -29,6 +29,20 @@ internal static class SitePasskeyNameVectors
         BinaryPrimitives.WriteInt64LittleEndian(body.AsSpan(WireLimits.SitePasskeyReferenceBytes), -1);
         Reject(() => Wire.DecodeSitePasskeyRename(Aeds.Encode(FrameType.SitePasskeyRename, body)));
 
+        var remove = new SitePasskeyRemove(other, revision);
+        var removal = Fixture("site-passkey-remove");
+        Equal("site-passkey-remove", Wire.EncodeSitePasskeyRemove(remove));
+        if (removal.Length != WireLimits.MaxSitePasskeyRemoveFrameBytes || Wire.DecodeSitePasskeyRemove(removal) != remove)
+            throw new InvalidOperationException("Site Passkey removal differs from the independent vector");
+        Reject(() => Wire.EncodeSitePasskeyRemove(remove with { Reference = other.ToUpperInvariant() }));
+        Reject(() => Wire.EncodeSitePasskeyRemove(remove with { ExpectedRevision = -1 }));
+        Reject(() => Wire.DecodeSitePasskeyRemove(intent));
+        var target = Aeds.Decode(removal, FrameType.SitePasskeyRemove).ToArray();
+        Reject(() => Wire.DecodeSitePasskeyRemove(Aeds.Encode(FrameType.SitePasskeyRemove, target.AsSpan(0, target.Length - 1))));
+        Reject(() => Wire.DecodeSitePasskeyRemove(Aeds.Encode(FrameType.SitePasskeyRemove, [.. target, 0])));
+        BinaryPrimitives.WriteInt64LittleEndian(target.AsSpan(WireLimits.SitePasskeyReferenceBytes), -1);
+        Reject(() => Wire.DecodeSitePasskeyRemove(Aeds.Encode(FrameType.SitePasskeyRemove, target)));
+
         var original = Wire.EncodeSitePasskeys([first, second]);
         if (!Aeds.Decode(original, FrameType.SitePasskeys).SequenceEqual(Convert.FromHexString(
             "020000007b505c18a3010000db535c18a301000001010162545c18a30100000000000000000000000000")))

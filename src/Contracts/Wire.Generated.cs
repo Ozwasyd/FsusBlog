@@ -74,6 +74,7 @@ public enum FrameType : ushort
     SitePasskeys = 32980,
     SitePasskeyManagement = 33055,
     SitePasskeyRename = 33056,
+    SitePasskeyRemove = 33057,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
@@ -348,6 +349,7 @@ public static class WireLimits
     public const int SitePasskeyNameChars = 64;
     public const int SitePasskeyNameBytes = 256;
     public const int MaxSitePasskeyRenameFrameBytes = 316;
+    public const int MaxSitePasskeyRemoveFrameBytes = 56;
     public const int AdminCommentQueueSize = 24;
     public const int AdminCommentQueueBodyBytes = 12288;
     public const int AdminModerationReasonBytes = 1024;
@@ -706,6 +708,8 @@ public static class WireRoutes
     public const string SitePasskeyManagement = "/api/v2/identity/passkeys/manage.aeds";
     public const string SitePasskeyRenameBegin = "/api/v2/identity/passkeys/rename/begin.aeds";
     public const string SitePasskeyRenameComplete = "/api/v2/identity/passkeys/rename/complete.aeds";
+    public const string SitePasskeyRemoveBegin = "/api/v2/identity/passkeys/remove/begin.aeds";
+    public const string SitePasskeyRemoveComplete = "/api/v2/identity/passkeys/remove/complete.aeds";
     public const string SitePasskeyEnrollBegin = "/api/v2/identity/passkeys/enroll/begin.aeds";
     public const string SitePasskeyEnrollApprove = "/api/v2/identity/passkeys/enroll/approve.aeds";
     public const string SitePasskeyEnrollComplete = "/api/v2/identity/passkeys/enroll/complete.aeds";

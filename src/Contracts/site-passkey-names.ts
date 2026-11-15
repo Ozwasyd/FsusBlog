@@ -19,20 +19,42 @@ export function sitePasskeyManagement(expectedSession: string, signal?: AbortSig
 export async function renameSitePasskey(reference: string, expectedRevision: bigint, name: string, expectedSession: string,
   signal?: AbortSignal): Promise<void> {
   const headers = sessionHeader(expectedSession);
-  const intent = encodeSitePasskeyRename(reference, expectedRevision, name);
-  const assertion = await requestPasskeyAssertion(WireRoutes.SitePasskeyRenameBegin, signal, intent, true, false, headers);
-  await request(WireRoutes.SitePasskeyRenameComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion, headers);
+  return confirmSitePasskeyChange(WireRoutes.SitePasskeyRenameBegin, WireRoutes.SitePasskeyRenameComplete,
+    encodeSitePasskeyRename(reference, expectedRevision, name), headers, signal);
+}
+
+export async function removeSitePasskey(reference: string, expectedRevision: bigint, expectedSession: string,
+  signal?: AbortSignal): Promise<void> {
+  const headers = sessionHeader(expectedSession);
+  return confirmSitePasskeyChange(WireRoutes.SitePasskeyRemoveBegin, WireRoutes.SitePasskeyRemoveComplete,
+    encodeSitePasskeyRemove(reference, expectedRevision), headers, signal);
+}
+
+async function confirmSitePasskeyChange(begin: string, complete: string, intent: Uint8Array<ArrayBuffer>,
+  headers: HeadersInit, signal?: AbortSignal): Promise<void> {
+  const assertion = await requestPasskeyAssertion(begin, signal, intent, true, false, headers);
+  await request(complete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion, headers);
 }
 
 export function encodeSitePasskeyRename(reference: string, expectedRevision: bigint, name: string): Uint8Array<ArrayBuffer> {
-  if (reference.length !== WireLimits.SitePasskeyReferenceBytes * 2 || !/^[0-9a-f]+$/.test(reference) ||
-      expectedRevision < 0n || !validName(name)) throw invalid();
+  if (!validName(name)) throw invalid();
+  const writer = writeSitePasskeyTarget(reference, expectedRevision);
+  writer.text(name, WireLimits.SitePasskeyNameBytes);
+  return encodeFrame(FrameType.SitePasskeyRename, writer.finish());
+}
+
+export function encodeSitePasskeyRemove(reference: string, expectedRevision: bigint): Uint8Array<ArrayBuffer> {
+  return encodeFrame(FrameType.SitePasskeyRemove, writeSitePasskeyTarget(reference, expectedRevision).finish());
+}
+
+function writeSitePasskeyTarget(reference: string, expectedRevision: bigint): PodWriter {
+  if (reference.length !== WireLimits.SitePasskeyReferenceBytes * 2 || /[^0-9a-f]/.test(reference) || expectedRevision < 0n)
+    throw invalid();
   const writer = new PodWriter();
   writer.fixedBytes(Uint8Array.from({ length: WireLimits.SitePasskeyReferenceBytes }, (_, index) =>
     parseInt(reference.slice(index * 2, index * 2 + 2), 16)));
   writer.i64(expectedRevision);
-  writer.text(name, WireLimits.SitePasskeyNameBytes);
-  return encodeFrame(FrameType.SitePasskeyRename, writer.finish());
+  return writer;
 }
 
 export function decodeSitePasskeyManagement(payload: Uint8Array): SitePasskeyManagedRow[] {

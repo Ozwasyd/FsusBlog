@@ -2,8 +2,8 @@ import { deepEqual, equal, throws } from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
-import { decodeSitePasskeyManagement, encodeSitePasskeyRename } from '../../src/Contracts/site-passkey-names.ts';
-import { FrameType } from '../../src/Contracts/wire.generated.ts';
+import { decodeSitePasskeyManagement, encodeSitePasskeyRemove, encodeSitePasskeyRename } from '../../src/Contracts/site-passkey-names.ts';
+import { FrameType, WireLimits } from '../../src/Contracts/wire.generated.ts';
 
 const currentReference = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
 const otherReference = 'a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf';
@@ -41,4 +41,18 @@ test('rename intent carries one opaque reference, exact expected revision and ra
   }
   throws(() => encodeSitePasskeyRename(otherReference.toUpperCase(), revision, 'Name'), ProtocolError);
   throws(() => encodeSitePasskeyRename(otherReference, -1n, 'Name'), ProtocolError);
+});
+
+test('removal intent uses a separate exact frame for the opaque target and expected revision', () => {
+  equal(FrameType.SitePasskeyRemove, 33057);
+  const frame = encodeSitePasskeyRemove(otherReference, revision);
+  equal(frame.byteLength, WireLimits.MaxSitePasskeyRemoveFrameBytes);
+  deepEqual(Buffer.from(frame), fixture('site-passkey-remove'));
+  throws(() => decodeFrame(frame, FrameType.SitePasskeyRename), ProtocolError);
+  for (const reference of [otherReference.toUpperCase(), otherReference.slice(1), otherReference.slice(0, -1) + '\n']) {
+    throws(() => encodeSitePasskeyRemove(reference, revision), ProtocolError);
+  }
+  for (const revision of [-1n, 1n << 63n]) {
+    throws(() => encodeSitePasskeyRemove(otherReference, revision), ProtocolError);
+  }
 });

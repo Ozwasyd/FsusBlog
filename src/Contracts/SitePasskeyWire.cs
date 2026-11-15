@@ -3,6 +3,7 @@ namespace FsusBlog.V2.Contracts;
 public sealed record SitePasskeyRow(long CreatedAt, long? LastUsedAt, bool BackupEligible, bool BackedUp, bool Current);
 public sealed record SitePasskeyManagedRow(string Reference, long Revision, string Name, SitePasskeyRow Metadata);
 public sealed record SitePasskeyRename(string Reference, long ExpectedRevision, string Name);
+public sealed record SitePasskeyRemove(string Reference, long ExpectedRevision);
 
 public static partial class Wire
 {
@@ -60,6 +61,25 @@ public static partial class Wire
             reader.I64(), reader.Text(WireLimits.SitePasskeyNameBytes));
         reader.Finish();
         ValidateSitePasskeyRename(value);
+        return value;
+    }
+
+    public static byte[] EncodeSitePasskeyRemove(SitePasskeyRemove value)
+    {
+        if (!ValidSitePasskeyReference(value.Reference) || value.ExpectedRevision < 0)
+            throw new ProtocolException("Invalid site Passkey removal.");
+        var writer = new Writer();
+        writer.FixedBytes(Convert.FromHexString(value.Reference));
+        writer.I64(value.ExpectedRevision);
+        return Aeds.Encode(FrameType.SitePasskeyRemove, writer.Written);
+    }
+
+    public static SitePasskeyRemove DecodeSitePasskeyRemove(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.SitePasskeyRemove));
+        var value = new SitePasskeyRemove(Convert.ToHexStringLower(reader.FixedBytes(WireLimits.SitePasskeyReferenceBytes)), reader.I64());
+        reader.Finish();
+        if (value.ExpectedRevision < 0) throw new ProtocolException("Invalid site Passkey removal.");
         return value;
     }
 

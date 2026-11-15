@@ -124,6 +124,7 @@ inline constexpr uint32_t SitePasskeyReferenceBytes = 32;
 inline constexpr uint32_t SitePasskeyNameChars = 64;
 inline constexpr uint32_t SitePasskeyNameBytes = 256;
 inline constexpr uint32_t MaxSitePasskeyRenameFrameBytes = 316;
+inline constexpr uint32_t MaxSitePasskeyRemoveFrameBytes = 56;
 inline constexpr uint32_t AdminCommentQueueSize = 24;
 inline constexpr uint32_t AdminCommentQueueBodyBytes = 12288;
 inline constexpr uint32_t AdminModerationReasonBytes = 1024;
@@ -470,6 +471,7 @@ enum class FrameType : uint16_t {
     SitePasskeys = 32980,
     SitePasskeyManagement = 33055,
     SitePasskeyRename = 33056,
+    SitePasskeyRemove = 33057,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
@@ -695,6 +697,7 @@ constexpr bool known(FrameType type) {
         case FrameType::SitePasskeys:
         case FrameType::SitePasskeyManagement:
         case FrameType::SitePasskeyRename:
+        case FrameType::SitePasskeyRemove:
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
         case FrameType::AdminRiskReadiness:

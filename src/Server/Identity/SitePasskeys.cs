@@ -68,15 +68,16 @@ internal static class SitePasskeys
             if (rows.Count == WireLimits.SitePasskeyListSize) throw new PublicUnavailableException();
             var id = reader.GetFieldValue<byte[]>(0);
             var reference = Convert.ToHexStringLower(HMACSHA256.HashData(sessionDigest.AsSpan(), [.. "FsusBlog v2 site passkey management v1"u8, .. id]));
-            var flags = new SitePasskeyRow(reader.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds(),
+            var createdAt = reader.GetFieldValue<DateTimeOffset>(1);
+            var flags = new SitePasskeyRow(createdAt.ToUnixTimeMilliseconds(),
                 reader.IsDBNull(2) ? null : reader.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
                 reader.GetBoolean(3), reader.GetBoolean(4), reader.GetBoolean(5));
-            rows.Add(new(id, new(reference, reader.GetInt64(6), reader.GetString(7), flags)));
+            rows.Add(new(id, createdAt.UtcTicks, new(reference, reader.GetInt64(6), reader.GetString(7), flags)));
         }
         if (rows.Count == 0 || !rows[0].Value.Metadata.Current)
             throw new BusinessException(Rejection.Unauthorized, "Session or sign-in ticket is invalid or expired.");
         return rows;
     }
 
-    internal sealed record ManagementEntry(byte[] CredentialId, SitePasskeyManagedRow Value);
+    internal sealed record ManagementEntry(byte[] CredentialId, long CreatedAtTicks, SitePasskeyManagedRow Value);
 }

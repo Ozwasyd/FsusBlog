@@ -22,7 +22,10 @@ const checks = {}
 const inventoryPath = WireRoutes.SitePasskeys
 const managementPath = WireRoutes.SitePasskeyManagement
 const renameRequired = process.env.FSUSBLOG_TEST_PASSKEY_RENAME === '1'
-const enrollmentRequired = process.env.FSUSBLOG_TEST_PASSKEY_ENROLL === '1'
+const removalRequired = process.env.FSUSBLOG_TEST_PASSKEY_REMOVE === '1'
+const removalRollbackRequired = process.env.FSUSBLOG_TEST_PASSKEY_REMOVE_ROLLBACK === '1'
+assert(!removalRollbackRequired || removalRequired, 'Enable the removal flow to verify its database rollback.')
+const enrollmentRequired = removalRequired || process.env.FSUSBLOG_TEST_PASSKEY_ENROLL === '1'
 const friendlyName = 'Writing laptop 🔐'
 const securityPath = '/user/identity/mfa'
 let phase = 'start'
@@ -241,6 +244,87 @@ try {
     assert(entries[0].current && entries[0].lastUsedAt !== null,
       'The newly enrolled credential must authenticate the second session.')
     checks.secondPasskeySignIn = true
+    if (removalRequired) {
+      phase = 'credential-removal'
+      await page.goto(origin + securityPath)
+      const rows = inventoryRegion.getByRole('listitem')
+      const survivor = rows.first()
+      const former = rows.nth(1)
+      await survivor.getByText('Current session passkey', { exact: true }).waitFor()
+      const remove = former.getByRole('button', { name: 'Remove Passkey', exact: true })
+      const confirm = former.getByRole('button', { name: 'Remove with Passkey', exact: true })
+      const confirmation = renameRequired ? `Remove ${friendlyName}?` : /^Remove .+\?$/
+      assert.equal(await survivor.getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+
+      let starts = 0
+      const beginsRemoval = request => request.method() === 'POST' && request.url() === origin + WireRoutes.SitePasskeyRemoveBegin
+      const observeStart = request => { if (beginsRemoval(request)) starts++ }
+      page.on('request', observeStart)
+      try {
+        await remove.click()
+        await former.getByText(confirmation).waitFor()
+        await former.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await confirm.waitFor({ state: 'hidden' })
+        assert.equal(starts, 0, 'Opening and canceling confirmation must not start approval.')
+        assert.equal(await rows.count(), 2)
+      } finally { page.off('request', observeStart) }
+      checks.removalRequiresConfirmation = true
+
+      await remove.click()
+      const began = page.waitForResponse(response => beginsRemoval(response.request()))
+      const completed = page.waitForResponse(response => response.request().method() === 'POST' &&
+        response.url() === origin + WireRoutes.SitePasskeyRemoveComplete)
+      await confirm.click()
+      const [begin, complete] = await Promise.all([began, completed])
+      for (const [result, status, type] of [
+        [begin, 200, FrameType.PasskeyLoginBegin],
+        removalRollbackRequired ? [complete, 503, FrameType.ApiError] : [complete, 200, FrameType.EmptySuccess],
+      ]) {
+        assert.equal(result.status(), status)
+        assert((await result.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()] === next,
+          'Removal must carry the newly signed-in device session handle.')
+        assert.match(await result.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+        assert.equal(decodeFrame(await result.body()).type, type)
+      }
+      const intent = decodeFrame(begin.request().postDataBuffer())
+      assert.equal(intent.type, FrameType.SitePasskeyRemove)
+      const target = Buffer.from(intent.payload)
+      assert.equal(target.length, 40)
+      assert(target.subarray(0, 32).toString('hex') === entries[1].reference && target.readBigInt64LE(32) === entries[1].revision,
+        'Approval must address the selected former device and its displayed revision.')
+      if (removalRollbackRequired) {
+        await inventoryRegion.getByText('Could not confirm Passkey removal. Reload Passkeys to check.', { exact: true }).waitFor()
+        await inventoryRegion.getByRole('button', { name: 'Reload Passkeys', exact: true }).click()
+        await former.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
+        assert.equal(await rows.count(), 2)
+      } else {
+        const repeated = await context.request.post(complete.url(), {
+          headers: { Origin: origin, 'Content-Type': 'application/octet-stream', [WireHeaders.CurrentSession]: next },
+          data: complete.request().postDataBuffer(),
+        })
+        assert.equal(repeated.status(), 401, 'The completed removal cannot be used twice.')
+        await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey removed\.$/ }).waitFor()
+        assert.equal(await rows.count(), 1)
+        assert.equal(await inventoryRegion.getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+        checks.removalReplayDenied = true
+      }
+      const currentAfter = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
+      assert.equal(currentAfter.status(), 200)
+      assert(currentAfter.headers()[WireHeaders.CurrentSession.toLowerCase()] === next, 'The current session must survive removal.')
+      const remaining = await readManagement(context, next)
+      if (removalRollbackRequired) {
+        assert(remaining.length === 2 && remaining.every((item, i) => item.reference === entries[i].reference &&
+          item.current === entries[i].current && item.revision === entries[i].revision && item.name === entries[i].name &&
+          item.lastUsedAt?.getTime() === entries[i].lastUsedAt?.getTime()), 'The failed removal must leave both devices unchanged.')
+        checks.removalRolledBack = true
+      } else {
+        assert.equal(remaining.length, 1)
+        assert(remaining[0].current && remaining[0].reference === entries[0].reference,
+          'Only the second device must remain after removing the first.')
+        checks.removeOtherPasskey = true
+        await page.screenshot({ path: join(evidence, 'passkey-removed.png') })
+      }
+    }
   }
   assert.deepEqual(errors, [])
   assert(responses.some(([path, status]) => path === '/api/binary/auth/passkey/login/complete' && status === 200))

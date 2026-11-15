@@ -16,6 +16,8 @@ V2 的站点账号可以通过可发现的 Passkey 登录。现有 `/api/binary/
 
 **Add Passkey** 用于在已登录账号中增加一个设备。浏览器先用当前会话使用的通行密钥完成用户验证，再在同一已配置的 RP 上创建新通行密钥。创建选项通过帧 63 将账号已有的凭据列为排除项。创建挑战仅供当前会话和账号代次使用，窗口为两分钟，使用后消耗。一个账号同时准入一个创建窗口，最多保留 16 项凭据。成功注册保留原设备、活跃会话和恢复状态，新凭据可用于下次登录。 [固定 v1 账号注册入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1701)
 
+**Remove Passkey** 只显示在非当前凭据旁。用户确认指定设备，再用当前会话的通行密钥完成独立的 WebAuthn 确认。AEDS 33057 绑定所选凭据及其名称修订；服务再检查实际凭据创建坐标和剩余凭据数。当前凭据和最后一个凭据不可移除。服务在同一事务删除目标、目标关联会话和持久刷新链，以及等待 MFA 的目标登录。其他设备和当前会话维持原状态。此操作管理站点凭据。 [固定 v1 删除端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1947)
+
 迁移旧凭据应保留原 `AccountId`、32 字节 user handle、凭据 ID、公钥、签名计数和备份元数据，并验证 RP 一致。`passkey_subject.account_id` 可由离线迁移明确写入旧值。导入后必须同步 identity 序列以防碰撞。旧库映射脚本尚未实现。
 
 实测环境为 .NET SDK 10.0.404、PostgreSQL 18、Chrome 157 及真实 Vite 生产构建。`tests/EndToEnd/passkey-flow.mjs` 通过 Chrome 的虚拟 CTAP2 认证器执行真实 WebAuthn 注册和断言，验证独立首次绑定、已签名登录、写作页、服务端注销和清除 cookie。`tests/Integration/PasskeyPostgresTests.cs` 检查错误浏览器绑定、票据重用和账号代次变更时的数据库拒绝，数据库记录确认没有意外的凭据或会话。实际实体认证器和受控生产 TLS 部署留待验收。
