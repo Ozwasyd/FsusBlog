@@ -114,4 +114,9 @@
 - 复用集成数据库期限和停止流程净减 137 行，66 项定向原生测试通过。停机迁移和早期结构检查复用净减 159 行，原生验证旧版本、WebP 约束和准入顺序。锁定 Release、严格 Vue、Vite、140 项 Core、141 项 Node 协议及 3,847 项差分均通过。纳入新增功能后共 210,422 NCLOC，超出原上限 1,876 行。 [集成复用](../artifacts/goal-next-8b4e350/lanes/native-test-reuse/) · [迁移复用](../artifacts/goal-next-8b4e350/lanes/stopped-migration-reuse/) · [计量](../artifacts/goal-next-8b4e350/code-volume-1b7a38e.json)
 - 同一旧封存包在完整 s、m 的隔离副本通过唯一标题词、正文词和空对照。原固定试词的两项搜索失败仍保留。正式容量沿用 `f303f5c` 的四轮短档，1 次通过，900 秒独占长测尚未运行。 [补充查询证据](../artifacts/c11-singleton-atoms-01f1904/README.md) · [容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
+## 开发提交 `1688602`
+
+- 管理页新增跨作者活动文章与回收站。真实 Caddy TLS 和 Chrome 核对两个所有者的 22 篇活动文章、原生续页、摘要搜索、一篇回收站记录、375px 界面及来源和权限拒绝。正式归档仍可由原流程重新发布。旧列表帧、管理员恢复、批量管理和永久删除仍待实现。 [合并版浏览器](../artifacts/goal-next-8b4e350/inventory-chrome-final/admin-identity-result.json)
+- 最终源码通过 Release、严格 Vue、Vite、三份 FsusUI Wasm 字节对照、140 项 Core、141 项 Node、原生协议向量与 3,847 项差分。五项合并 PostgreSQL 检查通过，涵盖分类、标签、权限、文章归属及摘要。两条旧权利证明在同一合并版重新恢复和独立验签。共 210,626 NCLOC，超出原上限 2,080 行。 [原生检查](../artifacts/goal-next-8b4e350/native-final/tests.log) · [验签](../artifacts/goal-next-8b4e350/historical-rights-final/http-replay.mOyJZTj8/run.txt) · [计量](../artifacts/goal-next-8b4e350/code-volume-1688602.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
