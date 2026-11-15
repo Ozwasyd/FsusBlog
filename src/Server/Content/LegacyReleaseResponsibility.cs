@@ -81,7 +81,7 @@ internal static class LegacyReleaseResponsibility
             await using var read = Store.Sql(connection, null, """
                 select case when not $5 and octet_length(origin.manifest::text)<=131072
                             then pg_catalog.convert_to(origin.manifest::text, 'UTF8') end,
-                       case when octet_length(observed.document::text)<=131072
+                       case when octet_length(observed.document::text)<=1048576
                             then pg_catalog.convert_to(observed.document::text, 'UTF8') end,
                        origin.revision
                 from public.article_publication active

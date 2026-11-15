@@ -57,7 +57,7 @@ internal static partial class Migration
         foreach (var ((kind, _), proof) in records)
         {
             bool linked = entries.ContainsKey((kind, LegacyJsonInt(proof, "article_revision_id")));
-            if ((kind == LegacyRightsProofKind || set.Rows.Length == 4) && !linked ||
+            if ((kind == LegacyRightsProofKind || set.Rows.Length > 3) && !linked ||
                 (proof.GetProperty("transparency_log_entry_id").ValueKind != JsonValueKind.Null) != linked ||
                 (proof.GetProperty("transparency_log_entry_hash").ValueKind != JsonValueKind.Null) != linked)
                 throw new FormatException();

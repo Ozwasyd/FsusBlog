@@ -73,7 +73,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             var parent = rights ? VerifyArchivedSignature(parentArchive, articleId, original, revisionNo, registry, null) : null;
             var proof = VerifyArchivedSignature(archive, articleId, original, revisionNo, registry, parent);
             var rows = evidence.GetProperty("entries");
-            if (rows.GetArrayLength() is < 1 or > 7) return null;
+            if (rows.GetArrayLength() is < 1 or > LegacyTransparencyPayload.ReleaseEntryLimit) return null;
             var chain = rows.EnumerateArray().Select(row => ReadEntry(ReadJson(row.GetBytesFromBase64())))
                 .OrderBy(entry => entry.Seq).ToArray();
             var selected = ReadEntry(ReadJson(transparency.GetProperty("sourceRow").GetBytesFromBase64()));
@@ -229,7 +229,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             var revision = (entry.ArticleId, entry.ArticleRevisionId, entry.RevisionNo);
             if (entry.EntryType == ProofKind)
             {
-                if (published.Count == 4 || !published.Add(revision)) throw new FormatException();
+                if (!published.Add(revision)) throw new FormatException();
             }
             else
             {
@@ -242,10 +242,13 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             leaves.Add(leaf);
             previous = hash;
         }
-        var articles = published.GroupBy(row => row.ArticleId).Select(group => group.Select(row => row.RevisionNo).Order().ToArray())
-            .OrderBy(numbers => numbers.Length).ToArray();
-        if (articles.Length == 1 && published.Count <= 3) return (leaves, previous, false);
-        if (articles is not [[1], [1, 2, 3]] || rights.Any(row => published.Count(p => p.ArticleId == row.ArticleId) != 3))
+        var articles = published.GroupBy(row => row.ArticleId)
+            .ToDictionary(group => group.Key, group => group.Select(row => row.RevisionNo).Order().ToArray());
+        if (articles.Count == 1 && published.Count <= 3) return (leaves, previous, false);
+        var rollbacks = articles.Where(article => article.Value is [1, 2, 3]).Select(article => article.Key).ToArray();
+        if (articles.Count is < 2 or > LegacyTransparencyPayload.ReleaseArticleLimit || rollbacks is not [var rollback] ||
+            articles.Any(article => article.Key != rollback && article.Value is not ([1] or [1, 2])) ||
+            rights.Any(row => row.ArticleId != rollback))
             throw new FormatException();
         return (leaves, previous, true);
     }

@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using FsusBlog.V2.Core.Integrity;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -158,28 +159,33 @@ internal static partial class Migration
         var articles = counts["shadow_article"];
         var rollback = plan.Version == ImportPlanWithRollbackOutboxVersion;
         var historical = rollback ? counts["shadow_article_responsibility_snapshot"] - 2 : 0;
+        var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;
         var validHistory = plan.Version switch
         {
             ImportPlanWithProcessedOutboxVersion => verifiedRepublishEvents == 0,
             ImportPlanWithRepublishOutboxVersion => verifiedRepublishEvents > 0 && verifiedRepublishEvents <= articles,
             ImportPlanWithRollbackOutboxVersion => (articles == 1 ||
-                articles == 2 && plan.PublishProofs is { Rows.Length: 4, Transparency: not null }) &&
-                verifiedRepublishEvents == 1 && verifiedRollbackEvents == 1 &&
+                plan.PublishProofs is { Transparency: not null } proofs && proofs.Rows.Length == publications) &&
+                verifiedRepublishEvents > 0 && verifiedRepublishEvents <= articles && verifiedRollbackEvents == 1 &&
                 historical is >= 0 and <= MaxLegacyHistoricalResponsibilityVersions,
             _ => false
         };
-        var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;
         var rightsProofs = plan.PublishProofs?.RightsRows().Count() ?? 0;
+        var requiredEdges = publications * LegacyRequiredOutboxEdges.Length + historical * LegacyKnownOutboxEdges.Count +
+            rightsProofs * (LegacyKnownOutboxEdges.Count + 1);
+        // The sealed source already verifies every optional publication edge for identity, delivery key and completion.
+        var optionalEdges = rollback && articles > 1
+            ? (publications - rightsProofs) * (LegacyKnownOutboxEdges.Count - LegacyRequiredOutboxEdges.Length) : 0;
         if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
-            !validHistory || plan.Media is not null || articles is < 1 or > 32 || counts["shadow_article_rights_policy"] != articles ||
+            !validHistory || plan.Media is not null || articles is < 1 or > LegacyTransparencyPayload.ReleaseArticleLimit ||
+            counts["shadow_article_rights_policy"] != articles ||
             counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key) &&
                 !(rollback && item.Key == "shadow_article_responsibility_snapshot")) ||
             new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_snapshot" }
                 .Any(table => !counts.TryGetValue(table, out var rows) || rows != publications) ||
             !counts.TryGetValue(LegacyOutboxParent.Table.Name, out var events) || events != publications + historical + rightsProofs ||
             !counts.TryGetValue(LegacyOutboxEdge.Table.Name, out var edges) ||
-            edges != publications * LegacyRequiredOutboxEdges.Length + historical * LegacyKnownOutboxEdges.Count +
-                rightsProofs * (LegacyKnownOutboxEdges.Count + 1))
+            edges < requiredEdges || edges > requiredEdges + optionalEdges)
             throw new InvalidOperationException("Release activation requires a complete verified immediate publication or rollback batch and its retained work.");
         await using var command = new NpgsqlCommand($"""
             SELECT a.owner_id::uuid
@@ -188,7 +194,7 @@ internal static partial class Migration
             JOIN {ImportSchema}.shadow_publication p ON p.source_publication_id=a.current_publication_id
             JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
             JOIN {ImportSchema}.shadow_article_rights_policy q ON q.id=s.article_rights_policy_id AND q.article_id=a.id
-            WHERE a.source_status=2 AND a.deleted=0 AND ((NOT $1 AND a.current_revision IN (1,2)) OR ($1 AND a.current_revision IN (1,3)))
+            WHERE a.source_status=2 AND a.deleted=0 AND a.current_revision BETWEEN 1 AND CASE WHEN $1 THEN 3 ELSE 2 END
               AND a.current_public_revision_candidate=a.current_revision AND a.last_publication_number=a.current_revision
               AND a.summary IS NOT DISTINCT FROM r.summary
               AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=a.current_revision

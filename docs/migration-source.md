@@ -199,13 +199,13 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 `legacy-runtime.sh --activate-rollback-history` 从 PostgreSQL 归档恢复后核对第二修订的责任版本 1 至 4、四个无发布坐标的旧事件及 36 条原跳过记录。修改跳过原因或前序快照会在暂存前拒绝导入。候选备份恢复后，Kestrel 仍公开第三修订，并通过旧接口返回第二修订的责任版本 4。见 `artifacts/legacy-history-chain-09fc9f8/native-status.txt`。
 
-版本 5 可从冻结 PostgreSQL 库的 v1 `article_publish_proof` 表读取发布签名记录。单文章最多三条。双文章批次须同时包含一篇已核验的公开回滚文章与一篇普通首次公开文章，并保全四次发布的签名和对应的透明日志条目。额外首发文章使用原有无责任快照、无权利证明绑定的转换规则。源读取与启用均核对原发布、修订、正文摘要及签名。从独立审核的旧站配置导出公钥 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`，轮换可使用同形状的 JSON 数组。为 `legacy plan`、`legacy import plan/apply` 和 `release-plan/release-activate` 提供同一绝对路径 `FSUSBLOG_LEGACY_V1_PROOF_KEY` 与独立审核的 `_SHA256`。原始行和公钥文件摘要纳入暂存审批。
+版本 5 可从冻结 PostgreSQL 库的 v1 `article_publish_proof` 表读取发布签名记录。单文章最多三条。多文章批次可在原有 32 篇上限内混合一篇已核验的公开回滚文章、普通首发文章和普通再发布文章，并须保全每次发布的签名和对应的透明日志条目。普通首发及再发布使用原有无责任快照、无权利证明绑定的转换规则，并保全来源中已完成的可选通知和完整性投递。源读取与启用均核对原发布、修订、正文摘要及签名。从独立审核的旧站配置导出公钥 JSON，字段为 `keyId`、`version`、`algorithm`、`publicKey`、`notBeforeUtc`、`notAfterUtc`、`revokedAtUtc`、`compromisedAtUtc`。时间使用 ISO 8601 UTC，可空字段保留 `null`，轮换可使用同形状的 JSON 数组。为 `legacy plan`、`legacy import plan/apply` 和 `release-plan/release-activate` 提供同一绝对路径 `FSUSBLOG_LEGACY_V1_PROOF_KEY` 与独立审核的 `_SHA256`。原始行和公钥文件摘要纳入暂存审批。
 
 源计划未从表保全任何证明时，仍可按已审核的全局修订 ID 从同一份冻结备份导出一条 `row_to_json` 原记录。为 `release-plan` 和 `release-activate` 提供它的绝对路径 `FSUSBLOG_LEGACY_V1_PROOF` 和独立审核的 `_SHA256`。公钥及原记录文件权限均须为 `0400` 或 `0600`。
 
 V1 透明日志在站点范围连续编号。迁移和公开归档共用原 V1 条目、Merkle 叶子及检查点的编码算法。当前单文章公开归档保留该文章在获验完整链中的条目。
 
-旧站透明日志可随证明一同迁移。源 PostgreSQL 需包含从序号 1 开始的完整链及覆盖整条链的 V1 `release` Merkle 检查点。批准的双文章批次支持四条发布证明日志。回滚文章的权利证明日志仍受下段条件约束，最多三条。每日检查点和其他日志类型会阻止启用。将独立审核的检查点原行 `row_to_json` UTF-8 字节的小写 SHA-256（不含客户端输出末尾的换行）设置为 `FSUSBLOG_LEGACY_V1_CHECKPOINT_SHA256`，用于源检查和暂存。工具重算证明关联、链、Merkle 根和检查点签名，并将证据编入迁移审批。
+旧站透明日志可随证明一同迁移。源 PostgreSQL 需包含从序号 1 开始的完整链及覆盖整条链的 V1 `release` Merkle 检查点。获批的多文章批次最多包含 65 条发布证明日志。回滚文章的权利证明日志仍受下段条件约束，最多三条。每日检查点和其他日志类型会阻止启用。将独立审核的检查点原行 `row_to_json` UTF-8 字节的小写 SHA-256（不含客户端输出末尾的换行）设置为 `FSUSBLOG_LEGACY_V1_CHECKPOINT_SHA256`，用于源检查和暂存。工具重算证明关联、链、Merkle 根和检查点签名，并将证据编入迁移审批。
 
 对于已验证的第三次回滚发布，工具可保全一条处于 READY 的 v1 `article_rights_proof`。核验使用原文章首次发布时间，检查原权利快照、策略与正文摘要、已入链的父发布证明，并要求同一发布坐标有一条完整的终态 `rights-proof-updated` 事件。该事件保留七条必需投递和通知，原回滚另保留完整的九条投递。审批绑定原载荷、公开更新时间、投递键及关联顺序，并将原证据写入 `legacy_release_origin.evidence.rightsProof` 和 `rightsProjection`。同一回滚来源也可保全首次即时发布和第二次普通再发布的 READY 权利证明。每次历史发布的权利投递、原发布投递和权利日志均须在下一次发布前完成。第二次发布按原投递时间核对责任坐标，包括当时确实不存在快照的情况。每个坐标分别保留原证明和投递，当前公开修订保持原样。非终态投递和更长日志仍需单独处理。
 
@@ -213,7 +213,7 @@ V1 透明日志在站点范围连续编号。迁移和公开归档共用原 V1 �
 
 已归档的 V1 发布证明可提供独立的历史验证响应。启用时，以独立审核的公钥文件 SHA-256 和检查点原行 SHA-256 配置 `IntegrityProof:HistoricalV1:KeysSha256` 与 `IntegrityProof:HistoricalV1:CheckpointSha256`。这两项分别对应迁移时的公钥和检查点固定值。发现旧密钥受损后，可通过 `IntegrityProof:HistoricalV1:BlockedKeyIds:<keyId>=true` 拒绝由其签署的证明或检查点。该配置不需要任何私钥。
 
-访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应以十进制字符串保留原始修订标识和证明标识。`signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名。单文章归档可按 `transparency.chain` 核对条目序列和检查点根，其中只公开重算条目哈希所需的权利证明日志字段。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。双文章归档使用外层 `manifestVersion=2`，保留内层 V1 签名检查点。`transparency.inclusion` 返回所请求条目和 Merkle 路径，权利证明同时返回同一文章的 `parentInclusion`。路径中的其他分支仅包含摘要及左右位置。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
+访问 `/integrity/article/{articleId}/revisions/{revisionNo}/archive.json` 可读取指定的已迁移 V1 修订。响应以十进制字符串保留原始修订标识和证明标识。`signedPayload` 和 `transparency.signedPayload` 是原签名载荷的 Base64，签名是 Base64URL 编码的 P-256 P1363 字节。使用审核过的旧公钥分别验证签名。单文章归档可按 `transparency.chain` 核对条目序列和检查点根，其中只公开重算条目哈希所需的权利证明日志字段。响应描述旧站签发的证据及其纳入记录，验证当前 V2 正文需要单独的原生证明。多文章归档使用外层 `manifestVersion=2`，保留内层 V1 签名检查点。`transparency.inclusion` 返回所请求条目和 Merkle 路径，权利证明同时返回同一文章的 `parentInclusion`。路径中的其他分支仅包含摘要及左右位置。文章撤回、签名或纳入记录失效、固定值不符时返回 404。接口使用 `no-store`。
 
 读取已归档的 V1 权利证明请访问 `/integrity/article/{articleId}/revisions/{revisionNo}/rights/archive.json`。响应使用相同的公钥和检查点审核值，核验指定修订的原权利证明签名、对应发布证明签名，以及两条记录在同一检查点中的纳入顺序。`rights` 提供签名绑定的权利快照标识、发布证明标识、权利策略摘要和正文摘要。标识使用十进制字符串。文章仍公开且该修订有符合条件的归档时可读，响应使用 `no-store`。历史证据绑定的是旧站签发时的坐标和摘要。
 

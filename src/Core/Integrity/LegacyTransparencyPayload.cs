@@ -16,6 +16,12 @@ public sealed record LegacyTransparencySibling(string Hash, bool IsLeftSibling);
 // Cryptographic encoding of frozen V1 data. Scope, membership, and key policy belong to the caller.
 public static class LegacyTransparencyPayload
 {
+    // Release custody supports one rollback article, up to two publications per other article,
+    // and rights proofs only for the three rollback article revisions.
+    public const int ReleaseArticleLimit = 32;
+    public const int ReleasePublicationLimit = 2 * ReleaseArticleLimit + 1;
+    public const int ReleaseEntryLimit = ReleasePublicationLimit + 3;
+
     public static (string Entry, string Leaf) HashProofEntry(LegacyTransparencyProofEntry entry)
     {
         var coordinates = FormattableString.Invariant(
