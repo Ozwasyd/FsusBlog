@@ -82,11 +82,12 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 
 ## 冻结候选与后续开发提交
 
-按同一工具读取两个 Git tree，两个 v2 检查点均无格式化回退。预算沿用固定 v1 基线的 208,546 NCLOC 上限。
+按同一工具读取各 Git tree，以下 v2 检查点均无格式化回退。预算沿用固定 v1 基线的 208,546 NCLOC 上限。
 
 | Git 提交 | 文件 | 生产 | 产品结构 | 测试及规则 | 工具及工程规则 | 总 NCLOC | 剩余预算 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 冻结候选 `f303f5c` | 971 | 93,844 | 4,461 | 70,285 | 3,940 | 172,530 | 36,016 |
 | 开发 `b709592` | 988 | 97,317 | 4,516 | 72,545 | 3,961 | 178,339 | 30,207 |
+| 开发 `cfbc29c` | 991 | 98,534 | 4,589 | 73,557 | 3,961 | 180,641 | 27,905 |
 
-生产代码的生成部分分别为 5,884 和 5,962 行，已经计入合计。两个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [开发提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [发布验收边界](../release-readiness.md)
+生产代码的生成部分分别为 5,884、5,962 和 6,116 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [发布验收边界](../release-readiness.md)
