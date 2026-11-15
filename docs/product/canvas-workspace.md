@@ -23,3 +23,7 @@
 使用 `db53a07` 解包产物补验万级显式文章链接。作者在完整加载的 10,000 节点和 10,000 边上先取消预览，再确认一个新计划。真实服务提交后，测试丢弃首次网络响应。浏览器以完全相同的请求字节重试并取得原始回执。独立 PostgreSQL 复核只增加一次草稿和 Canvas 修订、一次命令及一次 outbox，两个公开版本与 Canvas 两种边全部保留。 [浏览器结果](../../artifacts/canvas-scale-link-db53a07/canvas-scale-result.json) · [数据库复核](../../artifacts/canvas-scale-link-db53a07/canvas-scale-database.txt)
 
 图形工作区仍缺导入覆盖既有文档、有数据的旧开发数据库转换、更广的标题与块转换、CPU、RSS 和完整无障碍审计。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)
+
+## 待验收的公开片段定位
+
+标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。固定 FsusUI 的公开文章渲染缺少可达的目标映射，正文定位待上游修复后复验。 [FsusUI #1082](https://github.com/Ozwasyd/FsusUI/issues/1082) · [实库回归](../../artifacts/canvas-public-anchor-749b9ba/native/integration.txt)

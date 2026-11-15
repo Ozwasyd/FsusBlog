@@ -68,4 +68,6 @@ printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin rend
 
 同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。服务只向工作进程发送修订中已保存的原始 Markdown，输入与输出各限 16 KiB UTF-8。全站最多运行一个预览，繁忙时返回 429；工作进程受原有 cgroup、命名空间、执行期限和回收约束。账号、会话和修订在工作进程退出后复核，批准锁保持到结果送出。批准文件撤回、包失效、工作进程不可用或站点停止时预览失败。
 
-成功响应是 `text/plain; charset=utf-8`，禁止缓存。调用端将返回的 Markdown 作为纯文本展示，避免私有预览触发外部资源加载。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
+成功响应是 `text/plain; charset=utf-8`，禁止缓存。Inspector 使用本地 FsusUI Markdown Wasm，按允许的语义元素展示结果。链接和图片以惰性文字展示，预览不会请求嵌入资源。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
+
+原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、执行期间撤回批准、越权和旧修订。375px Chrome 使用受控响应验证 Inspector 的取消、显示和资源加载边界。浏览器与 Debian 工作进程的同环境联调、发布 Hook、通用用户授权和 IO broker 仍待验收。 [原生服务](../../artifacts/online-plugin-preview-749b9ba/debian/test.log) · [浏览器](../../artifacts/online-plugin-preview-749b9ba/preview-browser-retry.log)
