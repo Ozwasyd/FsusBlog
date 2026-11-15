@@ -2,8 +2,11 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 import {
   acceptCanvasEditorHandoff,
+  acceptEditorSourceHandoff,
   cancelCanvasEditorHandoff,
+  cancelEditorSourceHandoff,
   offerCanvasEditorHandoff,
+  offerSearchEditorHandoff,
 } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
 const target = { articleId: 43, revision: 7n, sourceOffset: 21 }
@@ -41,4 +44,28 @@ test('an elapsed handoff stays consumed if a timer is reset', t => {
   assert.equal(acceptCanvasEditorHandoff(token, 43, 12), undefined)
   tick = 100
   assert.equal(acceptCanvasEditorHandoff(token, 43, 12), undefined)
+})
+
+
+test('the search target shares the opaque one-use slot and belongs to the exact credential handle', () => {
+  const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
+  const match = {
+    articleId: 43, revision: 7n, field: 'body' as const, sourceStart: 10, sourceEnd: 11,
+    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
+  }
+  const canvas = offerCanvasEditorHandoff(target, 12)
+  const token = offerSearchEditorHandoff(match, 12, 'first-handle')
+  assert.equal(acceptCanvasEditorHandoff(canvas, 43, 12), undefined)
+  sourceDigest[0] = 8
+  const current = acceptEditorSourceHandoff(token, 43, 12, 'first-handle')
+  assert.equal(current?.kind, 'search')
+  if (current?.kind === 'search') assert.equal(current.target.sourceDigest[0], 3)
+  assert.equal(acceptEditorSourceHandoff(token, 43, 12, 'first-handle'), undefined)
+
+  const replaced = offerSearchEditorHandoff(match, 12, 'first-handle')
+  assert.equal(acceptEditorSourceHandoff(replaced, 43, 12, 'rotated-handle'), undefined)
+  assert.equal(acceptEditorSourceHandoff(replaced, 43, 12, 'first-handle'), undefined)
+  const canceled = offerSearchEditorHandoff(match, 12, 'first-handle')
+  cancelEditorSourceHandoff(canceled)
+  assert.equal(acceptEditorSourceHandoff(canceled, 43, 12, 'first-handle'), undefined)
 })

@@ -24,7 +24,9 @@ import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import { recentArticleOpens } from '../authoring/recentArticleOpens'
-import { acceptCanvasEditorHandoff, canvasEditorHandoffKey, type CanvasEditorTarget } from '../authoring/canvasEditorHandoff'
+import {
+  acceptEditorSourceHandoff, editorSourceHandoffKey, type EditorSourceSeek, type EditorSourceTarget,
+} from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 import {
@@ -51,16 +53,17 @@ function articleRoute(location: Pick<RouteLocationNormalized, 'name' | 'params'>
 }
 const id = computed(() => articleRoute(route))
 const arrivalState = history.state as Record<string, unknown> | null
-const canvasToken = arrivalState?.[canvasEditorHandoffKey]
-if (canvasToken !== undefined && arrivalState) {
+const sourceToken = arrivalState?.[editorSourceHandoffKey]
+if (sourceToken !== undefined && arrivalState) {
   const state = { ...arrivalState }
-  delete state[canvasEditorHandoffKey]
+  delete state[editorSourceHandoffKey]
   history.replaceState(state, '')
 }
-let canvasArrival: { articleId: number | undefined; target?: CanvasEditorTarget; epoch?: number } | undefined =
-  canvasToken === undefined ? undefined : { articleId: id.value }
-let canvasSessionVerified = false
-const canvasSeek = shallowRef<{ sessionId: number; revision: bigint; offset: number; current: () => boolean }>()
+let sourceArrival: { articleId: number | undefined; source?: EditorSourceTarget; epoch?: number } | undefined =
+  sourceToken === undefined ? undefined : { articleId: id.value }
+let sourceSessionVerified = false
+const sourceSeek = shallowRef<EditorSourceSeek>()
+const searchPositionUnavailable = 'The search position is no longer available. Return to article search and choose a current result.'
 const workspaceTabs = shallowRef<readonly WorkspaceTab[]>([])
 const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>([])
 const hasSecondaryGroup = ref(false)
@@ -337,8 +340,8 @@ watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) 
 }, { immediate: true })
 
 onMounted(() => {
-  void refreshSession(lifetime.signal, !canvasArrival).then(() => {
-    canvasSessionVerified = true
+  void refreshSession(lifetime.signal, !sourceArrival).then(() => {
+    sourceSessionVerified = true
   }).catch(() => {
     if (!lifetime.signal.aborted) failure.value = 'Could not verify your session.'
   }).finally(() => {
@@ -369,10 +372,21 @@ watch(identityEpoch, () => {
   navigationNotice.value = ''
   groupNotice.value = ''
 })
-watch(credentialEpoch, () => { canvasSeek.value = undefined }, { flush: 'sync' })
+watch(credentialEpoch, () => {
+  sourceSeek.value = undefined
+  if (sourceArrival?.source?.kind === 'search') sourceArrival.source = undefined
+}, { flush: 'sync' })
 watch(id, () => {
-  canvasArrival = undefined
-  canvasSeek.value = undefined
+  sourceArrival = undefined
+  sourceSeek.value = undefined
+}, { flush: 'sync' })
+watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, taxonomyDirty, composing, closingTabs,
+  revisionComparisonActive], ([items, recovering, risk, property, taxonomy, composition, closing, comparing]) => {
+  if (sourceSeek.value?.kind === 'search' && (items.length > 0 || recovering || risk !== 'clean' || property || taxonomy ||
+    composition !== undefined || closing || comparing)) {
+    sourceSeek.value = undefined
+    notice.value = searchPositionUnavailable
+  }
 }, { flush: 'sync' })
 
 watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], async ([articleId, identity], _, cleanup) => {
@@ -401,44 +415,61 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     loading.value = false
     return
   }
-  let target: CanvasEditorTarget | undefined
+  let source: EditorSourceTarget | undefined
   const epoch = credentialEpoch.value
-  if (canvasArrival?.articleId === articleId) {
-    if (!canvasArrival.target && canvasSessionVerified) {
-      canvasArrival.target = acceptCanvasEditorHandoff(canvasToken, articleId, epoch)
-      canvasArrival.epoch = epoch
+  if (sourceArrival?.articleId === articleId) {
+    if (!sourceArrival.source && sourceSessionVerified) {
+      sourceArrival.source = acceptEditorSourceHandoff(sourceToken, articleId, epoch, handle)
+      sourceArrival.epoch = epoch
     }
-    target = canvasArrival.epoch === epoch ? canvasArrival.target : undefined
-    if (!target) {
-      failure.value = 'This editor link has expired. Resolve the reference again from the Canvas.'
+    source = sourceArrival.epoch === epoch ? sourceArrival.source : undefined
+    if (!source) {
+      failure.value = 'This editor link has expired. Return to its source and choose it again.'
       loading.value = false
       return
     }
   }
-  if (!target && original.value?.id === articleId) {
+  if (!source && original.value?.id === articleId) {
     loading.value = false
     return
   }
   loading.value = true
   failure.value = ''
   notice.value = ''
-  const current = () => valid && !lifetime.signal.aborted && epoch === credentialEpoch.value
-  const result = await activateArticle(articleId, undefined, undefined, target ? current : undefined, target?.revision)
+  const routeIntent = navigation
+  const current = () => valid && !lifetime.signal.aborted && epoch === credentialEpoch.value &&
+    routeIntent === navigation && currentSession.value?.siteSessionId === handle
+  const result = await activateArticle(articleId, undefined, undefined, source ? current : undefined, source?.target.revision)
   if (!valid || identity !== identityEpoch.value) return
   loading.value = false
   if (result.kind !== 'ready') {
-    failure.value = target && result.kind === 'superseded' ? failureByReason['stale-reference'] : activationFailure(result)
+    if (source?.kind === 'search') {
+      if (sourceArrival) sourceArrival.source = undefined
+      failure.value = result.kind === 'superseded' || result.kind === 'blocked' && result.reason === 'stale-reference'
+        ? searchPositionUnavailable : activationFailure(result)
+    } else {
+      failure.value = source && result.kind === 'superseded' ? failureByReason['stale-reference'] : activationFailure(result)
+    }
     return
   }
-  if (target) {
-    canvasArrival = undefined
-    if (target.sourceOffset !== null) {
-      const sessionId = result.tab.sessionId
-      const revealBy = performance.now() + 5_000
-      canvasSeek.value = { sessionId, revision: target.revision, offset: target.sourceOffset, current: () =>
-        !lifetime.signal.aborted && credentialEpoch.value === epoch && tab.value?.sessionId === sessionId &&
-        tab.value.risk === 'clean' && !recoveryBlocked.value && performance.now() < revealBy }
+  if (!source) return
+  sourceArrival = undefined
+  const sessionId = result.tab.sessionId
+  const revealBy = performance.now() + 6_000
+  const held = () => current() && tab.value?.sessionId === sessionId && tab.value.risk === 'clean' &&
+    !recoveryBlocked.value && performance.now() < revealBy
+  if (source.kind === 'canvas' && source.target.sourceOffset !== null) {
+    sourceSeek.value = { kind: 'canvas', sessionId, revision: source.target.revision, offset: source.target.sourceOffset, current: held }
+  } else if (source.kind === 'search') {
+    if (result.witnessedRevision !== source.target.revision || recoveryItems.value.length > 0) {
+      notice.value = searchPositionUnavailable
+      return
     }
+    const edit = registry.activeEditSequence
+    const target = source.target
+    sourceSeek.value = { kind: 'search', sessionId, target, current: () => held() && canSwitch.value &&
+      editable.value && !pending.value && !revisionComparisonActive.value && registry.activeEditSequence === edit &&
+      original.value?.revision === target.revision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
   }
 }, { immediate: true })
 
@@ -449,10 +480,19 @@ function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?:
     : registry.openOrActivate(articleId, targetGroup, mode, ready, requiredRevision)
 }
 
-function finishCanvasSeek(success: boolean) {
-  if (!canvasSeek.value) return
-  canvasSeek.value = undefined
-  if (!success) notice.value = 'The Canvas source position could not be opened. Resolve it again from the Canvas.'
+function finishSourceSeek(seek: EditorSourceSeek, success: boolean) {
+  if (sourceSeek.value !== seek) return
+  sourceSeek.value = undefined
+  if (seek.kind === 'canvas') {
+    if (!success) notice.value = 'The Canvas source position could not be opened. Resolve it again from the Canvas.'
+    return
+  }
+  if (!success || !seek.current()) {
+    notice.value = searchPositionUnavailable
+    return
+  }
+  recordRecentOpen(seek.target.articleId, seek.target.revision)
+  notice.value = 'Opened the search result at its saved position.'
 }
 
 function activationFailure(receipt: Activation): string {
@@ -1061,7 +1101,7 @@ async function reloadDraft() {
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
-          :source-target="canvasSeek?.sessionId === pane.tab.sessionId ? canvasSeek : undefined" @source-revealed="finishCanvasSeek"
+          :source-target="sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">

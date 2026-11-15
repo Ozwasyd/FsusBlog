@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert'
+import { createHash } from 'node:crypto'
 import test from 'node:test'
-import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange } from '../../src/Web/src/authoring/sourceCoordinates.ts'
+import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange, verifySourceMatch } from '../../src/Web/src/authoring/sourceCoordinates.ts'
 
 const raw = '导言 🧭\r\nCafe\u0301\r\n# Heading ^harbor\r\n'
 const expectedEditor = '导言 🧭\nCafe\u0301\n# Heading ^harbor\n'
@@ -36,4 +37,20 @@ test('the entire textarea must match and neither boundary can split a CRLF pair 
   assert.equal(textareaSourceRange(raw, expectedEditor.normalize(), { start: marker, end: marker }), undefined)
   assert.equal(textareaSourceRange('A\r\nB\n', 'A\nB\n', { start: 3, end: 3 }), undefined)
   assert.equal(textareaSourceRange('A\rB', 'A\nB', { start: 2, end: 2 }), undefined)
+})
+
+test('a search match must have the exact raw coordinates, text, and whole-source digest', async () => {
+  const match = 'Cafe\u0301'
+  const sourceStart = raw.indexOf(match)
+  const sourceByteStart = Buffer.byteLength('导言 🧭\r\n')
+  const target = {
+    sourceStart, sourceEnd: sourceStart + match.length,
+    sourceByteStart, sourceByteEnd: sourceByteStart + Buffer.byteLength(match),
+    sourceDigest: createHash('sha256').update(raw).digest(), match,
+  }
+  assert.equal(await verifySourceMatch(raw, target), true)
+  assert.equal(await verifySourceMatch(raw, { ...target, match: 'Café' }), false)
+  assert.equal(await verifySourceMatch(raw, { ...target, sourceByteStart: sourceStart }), false)
+  assert.equal(await verifySourceMatch(raw, { ...target, sourceByteEnd: target.sourceByteEnd + 1 }), false)
+  assert.equal(await verifySourceMatch(raw.replace('harbor', 'anchor'), target), false)
 })

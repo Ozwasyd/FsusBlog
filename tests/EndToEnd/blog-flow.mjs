@@ -331,7 +331,7 @@ try {
 
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
   await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations, articleCommand)
-  await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations })
+  await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand })
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))

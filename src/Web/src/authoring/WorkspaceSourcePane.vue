@@ -8,18 +8,21 @@ import {
 import type { Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import ArticleOutlineRail from './ArticleOutlineRail.vue'
-import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange } from './sourceCoordinates'
+import type { EditorSourceSeek } from './canvasEditorHandoff'
+import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
 import type { WorkspaceSource } from './workspaceRegistry'
 
 const props = defineProps<{
   pane: WorkspaceSource<Draft>; focus: boolean; blocked: boolean; split: boolean; canSwitch: boolean; concealed: boolean
-  sourceTarget?: Readonly<{ revision: bigint; offset: number; current: () => boolean }>
+  sourceTarget?: EditorSourceSeek
 }>()
 const emit = defineEmits<{
-  edit: [field: 'title' | 'body', value: string]; activate: []; compose: [active: boolean]; sourceRevealed: [success: boolean]
+  edit: [field: 'title' | 'body', value: string]; activate: []; compose: [active: boolean]
+  sourceRevealed: [target: EditorSourceSeek, success: boolean]
 }>()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
 const markdown = ref<InstanceType<typeof ElMarkdownEditor>>()
+const titleInput = ref<InstanceType<typeof ElInput>>()
 // The clipboard confirmation is teleported outside its editor and has no public closing hook.
 const comparisonCommands = defaultMarkdownEditorCommands.filter(command => command.key !== 'paste-as-markdown')
 const titleId = computed(() => props.focus ? 'article-title' : `article-title-${props.pane.tab.sessionId}`)
@@ -113,12 +116,20 @@ function revealOutline(heading: MarkdownEditorOutlineItem): boolean {
   return true
 }
 
-watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async ([target, focused, blocked], _, cleanup) => {
-  if (!target || !focused || blocked) return
-  let current = true
-  cleanup(() => { current = false })
+watch([() => props.sourceTarget, () => props.focus, () => props.blocked, () => props.concealed], async ([target, focused, blocked, concealed], _, cleanup) => {
+  if (!target || !focused || blocked || concealed) return
+  let mounted = true
+  cleanup(() => { mounted = false })
+  const ownsTarget = () => mounted && props.sourceTarget === target && props.focus && !props.blocked && !props.concealed &&
+    props.pane.tab.sessionId === target.sessionId
   await nextTick()
-  if (!current || !props.focus || props.blocked || props.sourceTarget !== target) return
+  if (!ownsTarget()) return
+  if (target.kind === 'search') {
+    let success = false
+    try { success = await revealSearch(target, ownsTarget) } catch { /* The current editor could not verify or reveal the source. */ }
+    if (ownsTarget()) emit('sourceRevealed', target, success)
+    return
+  }
   const body = props.pane.draft.body
   const textarea = document.getElementById(bodyId.value)
   const { offset } = target
@@ -127,8 +138,49 @@ watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async 
     ? textareaSourceRange(body, textarea.value, { start: offset, end: offset }) : undefined
   const success = !!range && markdown.value?.revealSourceRange(range, { mode: 'source', reducedMotion: true }) === 'success'
   if (success && range) editorSelection.value = { start: range.start, end: range.start, direction: 'none' }
-  emit('sourceRevealed', success)
+  emit('sourceRevealed', target, success)
 }, { immediate: true, flush: 'post' })
+
+function visibleInput(control: HTMLInputElement | HTMLTextAreaElement): boolean {
+  return control.isConnected && !control.disabled && !control.readOnly && !control.closest('[inert]') &&
+    control.getClientRects().length !== 0
+}
+
+async function revealSearch(seek: Extract<EditorSourceSeek, { kind: 'search' }>, ownsTarget: () => boolean): Promise<boolean> {
+  const { target } = seek
+  const { field, sourceStart: start, sourceEnd: end } = target
+  const source = props.pane.draft[field]
+  const editor = editorDocument.value
+  const mode = outlineMode.value
+  const previouslyFocused = document.activeElement
+  const current = () => ownsTarget() && seek.current() && props.pane.tab.risk === 'clean' &&
+    props.pane.draft.id === target.articleId && props.pane.draft.revision === target.revision && props.pane.draft[field] === source &&
+    (field === 'title' || editorDocument.value === editor && editorSource.value === editor.source && outlineMode.value === mode)
+  if (!current() || !await verifySourceMatch(source, target) || !current() || document.activeElement !== previouslyFocused) return false
+
+  if (field === 'title') {
+    const input = titleInput.value?.input
+    if (!(input instanceof HTMLInputElement) || !visibleInput(input) || input.value !== source) return false
+    input.focus()
+    if (!current() || document.activeElement !== input || input.value !== source) return false
+    input.setSelectionRange(start, end)
+    return input.selectionStart === start && input.selectionEnd === end
+  }
+
+  const textarea = document.getElementById(bodyId.value)
+  if ((mode !== 'source' && mode !== 'live') || !(textarea instanceof HTMLTextAreaElement) ||
+      !visibleInput(textarea) || textarea.value !== editor.source) return false
+  const range = textareaSourceRange(source, textarea.value, { start, end })
+  if (!range || markdown.value?.revealSourceRange(range, {
+    expected: { documentIdentity: identity.value, revision: editor.revision }, mode, reducedMotion: true,
+  }) !== 'success') return false
+
+  await nextTick()
+  if (!current() || !visibleInput(textarea) || textarea.value !== editor.source || document.activeElement !== textarea ||
+      textarea.selectionStart !== range.start || textarea.selectionEnd !== range.start) return false
+  editorSelection.value = { start: range.start, end: range.start, direction: 'none' }
+  return true
+}
 
 function edit(field: 'title' | 'body', value: string) {
   if (props.focus && !props.blocked) emit('edit', field, field === 'body' && crlf.value ? restoreCrlf(value) : value)
@@ -145,7 +197,7 @@ function edit(field: 'title' | 'body', value: string) {
     </header>
     <slot name="before" />
     <label :for="titleId">Title</label>
-    <ElInput :id="titleId" :model-value="pane.draft.title" @update:model-value="edit('title', $event)"
+    <ElInput ref="titleInput" :id="titleId" :model-value="pane.draft.title" @update:model-value="edit('title', $event)"
       placeholder="Write the article title" size="large" :readonly="!focus" :disabled="focus && blocked" />
     <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">Save the draft before publishing.</p>
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>

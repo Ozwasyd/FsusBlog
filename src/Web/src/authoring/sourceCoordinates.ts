@@ -1,4 +1,8 @@
+import type { SearchEditorTarget } from './canvasEditorHandoff'
+
 type SourceRange = Readonly<{ start: number; end: number }>
+type SourceMatch = Pick<SearchEditorTarget, 'sourceStart' | 'sourceEnd' | 'sourceByteStart' | 'sourceByteEnd' | 'sourceDigest' | 'match'>
+const utf8 = new TextEncoder()
 
 export function hasUniformCrlf(source: string): boolean {
   return source.includes('\r\n') && !/\r(?!\n)|(?<!\r)\n/u.test(source)
@@ -35,4 +39,14 @@ export function textareaSourceRange(source: string, textarea: string, range: Sou
   if (textarea !== normalizeCrlf(source)) return
   const start = textareaOffset(source, range.start)
   return { start, end: range.start === range.end ? start : textareaOffset(source, range.end) }
+}
+
+export async function verifySourceMatch(source: string, target: SourceMatch): Promise<boolean> {
+  const { sourceStart: start, sourceEnd: end, sourceByteStart, sourceByteEnd, sourceDigest, match } = target
+  if (end <= start || !validBoundary(source, start) || !validBoundary(source, end) ||
+      source.slice(start, end) !== match || sourceDigest.length !== 32 || /\p{Surrogate}/u.test(source)) return false
+  const before = utf8.encode(source.slice(0, start)).length
+  if (sourceByteStart !== before || sourceByteEnd !== before + utf8.encode(match).length || !globalThis.crypto?.subtle) return false
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', utf8.encode(source)))
+  return digest.every((byte, index) => byte === sourceDigest[index])
 }

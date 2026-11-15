@@ -1,23 +1,39 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextSearch, type AuthorTextSearchPage } from '../../../Contracts/author-text-search'
+import { authorTextSearch, type AuthorTextSearchPage, type AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
+import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
 
+type Opening = {
+  request: AbortController
+  row: AuthorTextSearchRow
+  token?: string
+  transferred: boolean
+}
+
+const router = useRouter()
 const details = ref<HTMLDetailsElement>()
 const query = ref('')
 const pending = shallowRef<AbortController>()
+const opening = shallowRef<Opening>()
 const result = shallowRef<AuthorTextSearchPage>()
 const error = ref('')
+const locationNotice = ref('')
 
 function reset() {
   pending.value?.abort()
+  const operation = opening.value
+  operation?.request.abort()
+  if (operation?.token && !operation.transferred) cancelEditorSourceHandoff(operation.token)
   pending.value = undefined
+  opening.value = undefined
   result.value = undefined
   error.value = ''
+  locationNotice.value = ''
 }
 
 watch(query, reset, { flush: 'sync' })
@@ -34,7 +50,7 @@ function toggle(event: Event) {
 async function search() {
   const session = currentSession.value
   const text = query.value.trim()
-  if (!text || pending.value || !details.value?.open || !session?.canAuthor ||
+  if (!text || pending.value || opening.value || !details.value?.open || !session?.canAuthor ||
     !session.siteSessionId || session.expiresAt <= Date.now()) return
   const handle = session.siteSessionId
   const epoch = credentialEpoch.value
@@ -42,6 +58,7 @@ async function search() {
   pending.value = request
   result.value = undefined
   error.value = ''
+  locationNotice.value = ''
   const current = () => {
     const live = currentSession.value
     return pending.value === request && !request.signal.aborted && details.value?.open &&
@@ -61,6 +78,96 @@ async function search() {
     if (pending.value === request) pending.value = undefined
   }
 }
+
+function sameMatch(previous: AuthorTextSearchRow, fresh: AuthorTextSearchRow): boolean {
+  return previous.id === fresh.id && previous.revision === fresh.revision &&
+    previous.field === fresh.field && previous.title === fresh.title && previous.snippet === fresh.snippet &&
+    previous.highlightStart === fresh.highlightStart && previous.highlightEnd === fresh.highlightEnd &&
+    previous.sourceStart === fresh.sourceStart && previous.sourceEnd === fresh.sourceEnd &&
+    previous.sourceByteStart === fresh.sourceByteStart && previous.sourceByteEnd === fresh.sourceByteEnd &&
+    previous.sourceDigest.length === fresh.sourceDigest.length &&
+    previous.sourceDigest.every((byte, offset) => byte === fresh.sourceDigest[offset])
+}
+
+async function openMatch(row: AuthorTextSearchRow) {
+  const session = currentSession.value
+  const text = query.value.trim()
+  const page = result.value
+  const origin = router.currentRoute.value
+  const now = Date.now()
+  if (!text || pending.value || opening.value || !page?.ready || !page.rows.includes(row) ||
+    !details.value?.open || !session?.canAuthor || !session.siteSessionId || session.expiresAt <= now) return
+
+  const handle = session.siteSessionId
+  const epoch = credentialEpoch.value
+  const operation: Opening = { request: new AbortController(), row, transferred: false }
+  opening.value = operation
+  locationNotice.value = ''
+  const signal = AbortSignal.any([operation.request.signal, AbortSignal.timeout(Math.min(10_000, session.expiresAt - now))])
+  const eligible = () => {
+    const live = currentSession.value
+    return opening.value === operation && !operation.request.signal.aborted && details.value?.open &&
+      result.value === page && query.value.trim() === text &&
+      credentialEpoch.value === epoch && live?.canAuthor && live.siteSessionId === handle && live.expiresAt > Date.now()
+  }
+  const current = () => eligible() && router.currentRoute.value === origin
+  const revoke = () => {
+    if (operation.token && !operation.transferred) cancelEditorSourceHandoff(operation.token)
+  }
+  signal.addEventListener('abort', revoke, { once: true })
+
+  try {
+    const fresh = await authorTextSearch(text, handle, signal)
+    if (!current()) return
+    signal.throwIfAborted()
+    const confirmed = fresh.ready ? fresh.rows.find(candidate => sameMatch(row, candidate)) : undefined
+    if (!confirmed) {
+      result.value = fresh
+      if (fresh.ready) locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
+      return
+    }
+
+    const token = offerSearchEditorHandoff({
+      articleId: confirmed.id,
+      revision: confirmed.revision,
+      field: confirmed.field,
+      sourceStart: confirmed.sourceStart,
+      sourceEnd: confirmed.sourceEnd,
+      sourceByteStart: confirmed.sourceByteStart,
+      sourceByteEnd: confirmed.sourceByteEnd,
+      sourceDigest: confirmed.sourceDigest.slice(),
+      match: confirmed.snippet.slice(confirmed.highlightStart, confirmed.highlightEnd),
+    }, epoch, handle)
+    operation.token = token
+    // The router commits history state before running afterEach and before the view unmounts.
+    const stop = router.afterEach((to, from, failure) => {
+      if (!failure && from === origin && to.name === 'edit' && String(to.params.id) === String(confirmed.id) &&
+        history.state?.[editorSourceHandoffKey] === token && !signal.aborted && eligible())
+        operation.transferred = true
+    })
+    try {
+      const failure = await router.push({
+        name: 'edit', params: { id: confirmed.id }, state: { articleWorkspace: true, [editorSourceHandoffKey]: token },
+      })
+      if (failure && current()) locationNotice.value = '未能打开编辑器。请重新选择命中位置。'
+    } finally {
+      stop()
+    }
+  } catch (failure) {
+    if (!current()) return
+    if (operation.token) {
+      locationNotice.value = '未能打开编辑器。请重新选择命中位置。'
+      return
+    }
+    result.value = undefined
+    if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
+    locationNotice.value = '无法复查此命中。请重新搜索后再定位。'
+  } finally {
+    signal.removeEventListener('abort', revoke)
+    revoke()
+    if (opening.value === operation) opening.value = undefined
+  }
+}
 </script>
 
 <template>
@@ -70,20 +177,25 @@ async function search() {
       <p id="author-text-search-help">按词搜索当前保存的标题和正文。用英文双引号查找同一字段中的连续词语。</p>
       <ElInput v-model="query" label="全文搜索词" clearable
         v-bind="{ maxlength: WireLimits.AuthorTextSearchQueryChars, 'aria-describedby': 'author-text-search-help' }" />
-      <ElButton type="primary" native-type="submit" :disabled="!!pending || !query.trim()">
+      <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
         {{ result?.ready === false ? '继续搜索' : error ? '重试搜索' : '搜索全文' }}
       </ElButton>
     </form>
+    <p v-if="opening" role="status">正在复查{{ opening.row.field === 'title' ? '标题' : '正文' }}命中位置…</p>
+    <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <p v-if="pending" role="status">正在搜索全文…</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
     <p v-else-if="result?.ready === false" role="status">索引正在更新，选择「继续搜索」处理下一批文章。</p>
-    <section v-else-if="result?.ready" aria-label="全文搜索结果">
+    <section v-else-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!opening">
       <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
           <span class="author-text-search-field">{{ row.field === 'title' ? '标题' : '正文' }}</span>
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
+          <ElButton text native-type="button" v-bind="{ 'aria-disabled': !!opening }" @click="openMatch(row)">
+            跳到命中位置
+          </ElButton>
         </li>
       </ul>
       <p v-if="result.more" role="status">显示前 {{ result.rows.length }} 条结果，可缩小搜索范围。</p>
