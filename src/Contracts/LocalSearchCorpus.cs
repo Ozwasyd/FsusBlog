@@ -6,13 +6,15 @@ using static FsusBlog.V2.Contracts.WireLayouts;
 
 namespace FsusBlog.V2.Contracts;
 
+public readonly record struct LocalSearchCorpusPage(int Number, int DocumentCount, int FirstArticleId, int LastArticleId, byte[] Bytes);
+
 /// <summary>Builds bounded FSPK v4 pages from the current public article projection.</summary>
 public static class LocalSearchCorpus
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private const int PageBytes = WireLimits.SearchCorpusPageBytes;
-    private const int MaxPages = WireLimits.SearchCorpusMaxPages;
-    private const int AggregateBytes = WireLimits.SearchCorpusTotalBytes;
+    private const int MaxStagedPages = 512;
+    private const int MaxStagedAggregateBytes = 256 * 1024 * 1024;
     private const int PostingBudgetBytes = 40;
     private const int PositionBudgetBytes = 7;
     private const byte TitleField = 1;
@@ -20,18 +22,33 @@ public static class LocalSearchCorpus
 
     public static IReadOnlyList<byte[]>? Build(IReadOnlyList<Article> articles, CancellationToken ct = default)
     {
-        // Every page holds at most this many documents even when the byte budget would fit more.
-        if (articles.Count > checked(MaxPages * WireLimits.SearchIndexPageSize))
-        {
-            ct.ThrowIfCancellationRequested();
-            return null;
-        }
         var pages = new List<byte[]>();
+        return TryStagePages(articles, WireLimits.SearchCorpusMaxPages, WireLimits.SearchCorpusTotalBytes, page =>
+        {
+            pages.Add(page.Bytes);
+            return true;
+        }, ct) ? pages.AsReadOnly() : null;
+    }
+
+    /// <summary>Emits consecutive encoded pages to an unpublished stage. A rejected page stops the build.
+    /// Discard the stage if the method returns false or throws.</summary>
+    public static bool TryStagePages(IReadOnlyList<Article> articles, int maxPages, int maxAggregateBytes,
+        Func<LocalSearchCorpusPage, bool> stage, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(articles);
+        ArgumentNullException.ThrowIfNull(stage);
+        if (maxPages is < 1 or > MaxStagedPages) throw new ArgumentOutOfRangeException(nameof(maxPages));
+        if (maxAggregateBytes is < 1 or > MaxStagedAggregateBytes) throw new ArgumentOutOfRangeException(nameof(maxAggregateBytes));
+        ct.ThrowIfCancellationRequested();
+        // Every page holds at most this many documents even when the byte budget would fit more.
+        if (articles.Count > checked(maxPages * WireLimits.SearchIndexPageSize)) return false;
+
         var docs = new List<Document>();
         using var postingBytes = new MemoryStream();
         using var strings = new MemoryStream();
         var projectedBytes = 0;
         var byteCount = 0;
+        var pageCount = 0;
         var lastId = 0;
 
         foreach (var article in articles.OrderBy(article => article.Id))
@@ -41,13 +58,13 @@ public static class LocalSearchCorpus
                 throw new ProtocolException("Invalid or duplicate search corpus article ID");
             lastId = article.Id;
             var doc = Index(article, ct);
-            if (doc is null) return null;
+            if (doc is null) return false;
             // Bound both the exact encoded size and the construction before merging term dictionaries.
             var estimate = doc.EstimatedBytes;
             if (docs.Count != 0 && (projectedBytes + estimate > PageBytes - 512 ||
                                       docs.Count >= WireLimits.SearchIndexPageSize))
             {
-                if (!PublishPage()) return null;
+                if (!StagePage()) return false;
                 docs.Clear();
                 projectedBytes = 0;
             }
@@ -55,18 +72,22 @@ public static class LocalSearchCorpus
             projectedBytes += estimate;
         }
 
-        return (docs.Count == 0 && pages.Count != 0) || PublishPage() ? pages.AsReadOnly() : null;
+        return StagePage();
 
-        bool PublishPage()
+        bool StagePage()
         {
-            if (pages.Count >= MaxPages) return false;
+            ct.ThrowIfCancellationRequested();
+            if (pageCount >= maxPages) return false;
             postingBytes.SetLength(0);
             strings.SetLength(0);
             var page = Package(docs, postingBytes, strings, ct);
-            if (page is null || page.Length > AggregateBytes - byteCount) return false;
+            if (page is null || page.Length > maxAggregateBytes - byteCount) return false;
             byteCount += page.Length;
-            pages.Add(page);
-            return true;
+            var firstId = docs.Count == 0 ? 0 : docs[0].Article.Id;
+            var lastId = docs.Count == 0 ? 0 : docs[^1].Article.Id;
+            var staged = stage(new LocalSearchCorpusPage(++pageCount, docs.Count, firstId, lastId, page));
+            ct.ThrowIfCancellationRequested();
+            return staged;
         }
     }
 

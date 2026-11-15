@@ -14,6 +14,16 @@ Chrome 157 用 220 篇实库文章验证两个分片。发布和撤回第 221 �
 
 发布包附带 `search-lexicon.fsdl`，由同一份仓库词表生成 v1 FSDL v2 格式。节点、边、条目及字符串区按冻结格式生成，保留 UTF-8 排序、标量位置、权重及停用词标志。离线工具支持导出至新路径，或复验已有文件的完整字节。实际 C# 索引和浏览器 Worker 继续从共享词表构建和查询。固定十六进制向量、独立的 trie 读取器及 CLI 用例随原协议测试运行。独立从固定 v1 三份文本重建的 74 个词条和 217 个节点与发布字典逐字节一致，共 6,839 字节。 [离线验证](../../artifacts/fsdl-interoperability/test.log) · [FSDL 工具](../../tools/fsdl-dictionary.py) · [冻结编译器](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs#L469)
 
-专用 FAS4 HTTP 查询已使用当前不可变快照的 BM25 倒排索引，回传前 200 条匹配。真实 PostgreSQL 与 Kestrel 验证排序、撤回和请求内零数据库调用。旧公开浏览计数和手工摘要暂未迁入，可能改变历史并列排序和摘要词权重。短语位置加分属于浏览器 Wasm 路径。 [FAS4 实现与验收](fas4-search.md) · [固定 v1 Wasm](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp)
+专用 FAS4 HTTP 查询已使用当前不可变快照的 BM25 倒排索引，回传前 200 条匹配。真实 PostgreSQL 与 Kestrel 验证排序、撤回和请求内零数据库调用。旧公开浏览计数和手工摘要暂未迁入，可能改变历史并列排序和摘要词权重。浏览器本地 FSR4 路径计算短语位置加分。 [FAS4 实现与验收](fas4-search.md) · [固定 v1 Wasm](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp)
 
 离线工具验证固定 v1 FSIM、FSPT 和三个完整角色分片，可复现通过固定摘要认证的补丁。在线补丁传输、固定浏览器 Wasm 的原始分页和排名仍待验收。 [离线补丁审计](search-patch-audit.md)
+
+## 大语料前置
+
+生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页按得分、发布时间和 ID 合并。当前 Worker 只在内存保留一代完整 FSPK 页，复用前和显示前各检查一次代次。旧代页只有在当前页返回匹配的强 ETag 且响应为空的 304 后才重新校验。网络或代次检查失败后清除活动缓存。IndexedDB 当前用于作者草稿恢复。固定 v1 则通过 Emscripten runtime 加载角色分片，使用 Service Worker 的 CacheStorage 保存资产。固定原始排序与当前 Worker 排序的差分仍由各自的向量验收。 [当前 Worker](../../src/Web/src/search.worker.ts) · [固定 v1 排名](v1-search-ranking-oracle.md) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
+
+FSPK 编码器使用同一逐页生产者服务现有内存收集器与诊断暂存目标。每次输出包含页号、文章数、首末文章 ID 和完整原始页。单页仍最多 200 篇和 8 MiB，现有 HTTP 路径仍最多 128 页和 64 MiB。暂存调用显式给出界限，最多接受 512 页和 256 MiB，这组上限供独立测量使用。预算未满足、取消或暂存方拒绝时丢弃全部暂存页。
+
+以同一组生成器输入运行两个独立 CLR 进程。每次均编码 85,000 篇公开文章及其发布坐标，得到字节相同的 425 页。单程原始载荷为 136,868,326 字节，约 130.5 MiB。最大页为 323,645 字节。含逐页校验、摘要、文件写入和同步的两次运行分别用时 2.896 和 2.910 秒。单次暂存文件实际占用最多 151,392,256 字节。进程峰值 RSS 约 808 MB，包含输入语料。每次累计分配约 2.73 GB 托管内存，密集发布下的重建开销仍需单独测量。原始暂存文件均已清理，C# 和 Node 相关用例分别通过 17 项和 7 项。 [两次字节比对](../../artifacts/search-corpus-staging/first-verification/comparison.json) · [运行和清理记录](../../artifacts/search-corpus-staging/first-verification/run.txt)
+
+未来的宽语料发布可使用进程独占的临时文件保存同代页面，用一份清单记录连续页号、文章范围、字节偏移、长度和 SHA-256。生产者完成且清单校验后才随公开快照切换。暂存失败时由创建者关闭和删除文件。旧代撤下后由文件所有者等该代读请求完成再关闭，临时文件避免进入静态资源目录。运行中只保留活动和候选代，切换与请求均受当前租约限制。浏览器逐页校验后用紧凑数组记录得分、发布时间、ID 和来源页，只解码当前页所需的卡片。宽语料入口需要独立的显示前代次检查，缓存命中仍由服务端确认。清单路由、持久缓存的配额和完整 85,000 篇端到端验证均待独立验收。
