@@ -1,4 +1,12 @@
 sourceDocument	line	targetNumber	interpretation	support	note
+https://github.com/Ozwasyd/FsusBlog/issues/1640	1	1617	prerequisite	#1640:37-55; #1640@6051952411:14-20	查同次专用 runtime 和清理归属。旧执行项状态不能替代当前 fixture、源产物和观测。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	1	1618	prerequisite	#1640:31-55; #1640@6051952411:14-20	消费真实 seed 派生及读取证据；不制造另一发布投影或把旧投影状态直接计入运行。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	1	1638	prerequisite	#1640:27-39; #1640@6051952411:14-20	分类和标签用例须绑定真实派生投影、帧版本以及空桶和最大桶的独立库存。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	1	1639	prerequisite	#1640:33-55; #1640@6051952411:14-20	采集正常搜索索引及真实响应证据；预设路径标记不能代替实际计时采样。
+https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053283046	1	2553	source-handoff	#1640:37-55; #1640@6053283046:1	分布支持仅消费原 registry 的适用范围和场景收据，保留 case 身份、样本、时限和阈值。
+https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	1	2555	source-handoff	#1640@6053329791:1-6; #2555:10-22	catalog 读取既有 case IDs 及生产入口元数据，不增第二份查询 case 清单。
+https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	1	2561	source-handoff	#1640@6053329791:1-6; #2561:10-18	expected 接线复用现有生产查询和测量配置，真实 HTTP 结果独立采集。
+https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	4	1619	scope-exclusion	#1640@6053329791:1-6; #1619:5-9	评论明确排除把分配器当 query registry。实际查询范围从原 #1640 registry 和各当前生产入口取证。
 https://github.com/Ozwasyd/FsusBlog/issues/1810	1	1907	acceptance-gate	#1810:206-212; #1907:88-106	总验收需真实 caption 合入；#1907 正向消费 #2256/#2258/#2261/#2263/#2265 的实际结果，不等待 #1810 聚合关闭。
 https://github.com/Ozwasyd/FsusBlog/issues/1810	3	1907	related	#1810:206-212; #1907:88-106	保留相关声明与 L1 总验收两条出处；本条不建立反向实现顺序。
 https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1909	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
@@ -97,8 +105,21 @@ https://github.com/Ozwasyd/FsusBlog/issues/2491	2	1865	context	#2491:10-18; #186
 https://github.com/Ozwasyd/FsusBlog/issues/2492	2	2490	conditional-prerequisite	#2492:15	只在显式转换命令中消费；拖放只产生 Canvas 边，文章不随该动作写入。
 https://github.com/Ozwasyd/FsusBlog/issues/2495	2	1865	context	#2495:10-18; #1865:186-188	共享安全原则及可复用的壳，Canvas 使用独立 kind、schema 和读者，不走文章导入 fallback。
 https://github.com/Ozwasyd/FsusBlog/issues/2549	2	1619	reference-conflict	#2549:12-15; #2549:45; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	12	1619	reference-conflict	#2549:10-16; #1619:5-9; #1640@6053329791:1-6	完整评论生产图仍需要真实查询矩阵；这里的分配器编号本身不提供查询入口或用例。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	15	1619	reference-conflict	#2549:12-17; #1619:5-9	保留从封存图和 outbox 派生证据的约束；分配器无此查询派生职责。
 https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1619	reference-conflict	#2555:15; #2555:49; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	15	1619	reference-conflict	#2555:10-22; #1619:5-9; #1640@6053329791:1-6	采用运行入口与 catalog 双向精确匹配的约束；#1640 的接线请求明确确认分配器没有 registry。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	49	1619	reference-conflict	#2555:15-18; #2555:48-51; #1640@6053329791:1-6	终验继续要求真实 owner 与 production isolation；分配器的旧编号不作为查询入口通过。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	6	1731	prerequisite	#2556:6-14; #2556:17-23	离线预期须消费封存文章语义角色；实际排序读回只适用于独立运行校验。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	6	1733	prerequisite	#2556:6-14; #2556:18-23	预期绑定场景分配、实测统计身份和版本，缺数据时不推断桶或替换语料。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	15	1728	prerequisite	#2556:10-17; #2556@6053564702:7	Article search canary 使用独立词元及来源范围证据，不读取服务实际结果生成预期。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	15	2316	prerequisite	#2556:10-17; #2556@6053564702:7	Search 命中和未命中需要各自的内容角色、稳定输入以及分词权威事实。
+https://github.com/Ozwasyd/FsusBlog/issues/2556#issuecomment-6053564702	7	1640	source-handoff	#2556:10-23; #2556@6053564702:3-7; #1640@6053329791:3-6	复用现有 exporter 的预期接口方向；旧整数组缺角色及坐标绑定，不能当百万篇来源。
 https://github.com/Ozwasyd/FsusBlog/issues/2561	2	1619	reference-conflict	#2561:6-12; #2561:66; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	11	2556	acceptance-gate	#2561:10-18; #2556:10-23	文章验证者只消费对应域的封存预期，独立实际结果仍来自正常生产路由。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	11	2559	acceptance-gate	#2561:10-18; #2559:6-12	评论验证者只消费对应域的封存角色和可见性预期，不能改用实际公开响应。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	12	1619	reference-conflict	#2561:10-18; #1619:5-9; #1640@6053329791:1-6	实际采集依赖已实现的生产 read-model；保留旧编号的分配责任和真实查询权属的差异。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	19	2553	acceptance-gate	#2561:15-22; #1640@6053283046:1	绑定验证器须按既有场景非均匀适用规则执行，不能因接线变更修改样本、时限或阈值。
 https://github.com/Ozwasyd/FsusBlog/issues/2572	2	2714	acceptance-gate	#2572:9-18; #2714:64; #2714:87-99	聚合登记消费终验收据；终验指向同一聚合父项是收纳关系，两种方向不组成实施环。
 https://github.com/Ozwasyd/FsusBlog/issues/2652	2	1590	tracking	#2652:70-72; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。
 https://github.com/Ozwasyd/FsusBlog/issues/2652	2	1591	tracking	#2652:70-72; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。

@@ -115,10 +115,14 @@ https://github.com/Ozwasyd/FsusBlog/issues/1637	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/1637	https://github.com/Ozwasyd/FsusBlog/issues/1637	issue=1637.body:L1	Depends on	1633	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1637	https://github.com/Ozwasyd/FsusBlog/issues/1637	issue=1637.body:L2	Related	1613	OPEN	related		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1637	https://github.com/Ozwasyd/FsusBlog/issues/1637	issue=1637.body:L2	Related	1614	OPEN	related		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1617	ABSENT	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1618	ABSENT	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1638	ABSENT	prerequisite		1	—	—
-https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1639	ABSENT	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1617	ABSENT	prerequisite		1	#1640:37-55; #1640@6051952411:14-20	查同次专用 runtime 和清理归属。旧执行项状态不能替代当前 fixture、源产物和观测。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1618	ABSENT	prerequisite		1	#1640:31-55; #1640@6051952411:14-20	消费真实 seed 派生及读取证据；不制造另一发布投影或把旧投影状态直接计入运行。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1638	ABSENT	prerequisite		1	#1640:27-39; #1640@6051952411:14-20	分类和标签用例须绑定真实派生投影、帧版本以及空桶和最大桶的独立库存。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640	issue=1640.body:L1	Depends on	1639	ABSENT	prerequisite		1	#1640:33-55; #1640@6051952411:14-20	采集正常搜索索引及真实响应证据；预设路径标记不能代替实际计时采样。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053283046	issue=1640.comment=6053283046.body:L1		2553	OPEN	source-handoff		0	#1640:37-55; #1640@6053283046:1	分布支持仅消费原 registry 的适用范围和场景收据，保留 case 身份、样本、时限和阈值。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	issue=1640.comment=6053329791.body:L1		2555	OPEN	source-handoff		0	#1640@6053329791:1-6; #2555:10-22	catalog 读取既有 case IDs 及生产入口元数据，不增第二份查询 case 清单。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	issue=1640.comment=6053329791.body:L1		2561	OPEN	source-handoff		0	#1640@6053329791:1-6; #2561:10-18	expected 接线复用现有生产查询和测量配置，真实 HTTP 结果独立采集。
+https://github.com/Ozwasyd/FsusBlog/issues/1640	https://github.com/Ozwasyd/FsusBlog/issues/1640#issuecomment-6053329791	issue=1640.comment=6053329791.body:L4		1619	OPEN	scope-exclusion		0	#1640@6053329791:1-6; #1619:5-9	评论明确排除把分配器当 query registry。实际查询范围从原 #1640 registry 和各当前生产入口取证。
 https://github.com/Ozwasyd/FsusBlog/issues/1652	https://github.com/Ozwasyd/FsusBlog/issues/1652	issue=1652.body:L1	Depends on	1633	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1652	https://github.com/Ozwasyd/FsusBlog/issues/1652	issue=1652.body:L1	Depends on	1634	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/1652	https://github.com/Ozwasyd/FsusBlog/issues/1652	issue=1652.body:L1	Depends on	1635	OPEN	prerequisite		1	—	—
@@ -2911,6 +2915,8 @@ https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusBlog/issues/2549	issue=2549.body:L2	Depends on	2546	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusBlog/issues/2549	issue=2549.body:L2	Depends on	2547	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusBlog/issues/2549	issue=2549.body:L2	Depends on	2548	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusBlog/issues/2549	issue=2549.body:L12		1619	OPEN	reference-conflict		0	#2549:10-16; #1619:5-9; #1640@6053329791:1-6	完整评论生产图仍需要真实查询矩阵；这里的分配器编号本身不提供查询入口或用例。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	https://github.com/Ozwasyd/FsusBlog/issues/2549	issue=2549.body:L15		1619	OPEN	reference-conflict		0	#2549:12-17; #1619:5-9	保留从封存图和 outbox 派生证据的约束；分配器无此查询派生职责。
 https://github.com/Ozwasyd/FsusBlog/issues/2550	https://github.com/Ozwasyd/FsusBlog/issues/2550	issue=2550.body:L1	Parent	1733	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2550	https://github.com/Ozwasyd/FsusBlog/issues/2550	issue=2550.body:L2	Depends on	1638	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2550	https://github.com/Ozwasyd/FsusBlog/issues/2550	issue=2550.body:L2	Depends on	1639	ABSENT	prerequisite		1	—	—
@@ -2950,12 +2956,19 @@ https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusBlog/issues/2555	issue=2555.body:L2	Depends on	1731	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusBlog/issues/2555	issue=2555.body:L2	Depends on	1732	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusBlog/issues/2555	issue=2555.body:L2	Depends on	1733	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusBlog/issues/2555	issue=2555.body:L15		1619	OPEN	reference-conflict		0	#2555:10-22; #1619:5-9; #1640@6053329791:1-6	采用运行入口与 catalog 双向精确匹配的约束；#1640 的接线请求明确确认分配器没有 registry。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	https://github.com/Ozwasyd/FsusBlog/issues/2555	issue=2555.body:L49		1619	OPEN	reference-conflict		0	#2555:15-18; #2555:48-51; #1640@6053329791:1-6	终验继续要求真实 owner 与 production isolation；分配器的旧编号不作为查询入口通过。
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L1	Parent	1734	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L2	Depends on	2539	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L2	Depends on	2541	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L2	Depends on	2551	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L2	Depends on	2552	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L2	Depends on	2555	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L6		1731	OPEN	prerequisite		0	#2556:6-14; #2556:17-23	离线预期须消费封存文章语义角色；实际排序读回只适用于独立运行校验。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L6		1733	OPEN	prerequisite		0	#2556:6-14; #2556:18-23	预期绑定场景分配、实测统计身份和版本，缺数据时不推断桶或替换语料。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L15		1728	OPEN	prerequisite		0	#2556:10-17; #2556@6053564702:7	Article search canary 使用独立词元及来源范围证据，不读取服务实际结果生成预期。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556	issue=2556.body:L15		2316	OPEN	prerequisite		0	#2556:10-17; #2556@6053564702:7	Search 命中和未命中需要各自的内容角色、稳定输入以及分词权威事实。
+https://github.com/Ozwasyd/FsusBlog/issues/2556	https://github.com/Ozwasyd/FsusBlog/issues/2556#issuecomment-6053564702	issue=2556.comment=6053564702.body:L7		1640	OPEN	source-handoff		0	#2556:10-23; #2556@6053564702:3-7; #1640@6053329791:3-6	复用现有 exporter 的预期接口方向；旧整数组缺角色及坐标绑定，不能当百万篇来源。
 https://github.com/Ozwasyd/FsusBlog/issues/2559	https://github.com/Ozwasyd/FsusBlog/issues/2559	issue=2559.body:L1	Parent	1734	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2559	https://github.com/Ozwasyd/FsusBlog/issues/2559	issue=2559.body:L2	Depends on	2545	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2559	https://github.com/Ozwasyd/FsusBlog/issues/2559	issue=2559.body:L2	Depends on	2546	OPEN	prerequisite		1	—	—
@@ -2968,6 +2981,10 @@ https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L2	Depends on	2555	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L2	Depends on	2556	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L2	Depends on	2559	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L11		2556	OPEN	acceptance-gate		0	#2561:10-18; #2556:10-23	文章验证者只消费对应域的封存预期，独立实际结果仍来自正常生产路由。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L11		2559	OPEN	acceptance-gate		0	#2561:10-18; #2559:6-12	评论验证者只消费对应域的封存角色和可见性预期，不能改用实际公开响应。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L12		1619	OPEN	reference-conflict		0	#2561:10-18; #1619:5-9; #1640@6053329791:1-6	实际采集依赖已实现的生产 read-model；保留旧编号的分配责任和真实查询权属的差异。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	https://github.com/Ozwasyd/FsusBlog/issues/2561	issue=2561.body:L19		2553	OPEN	acceptance-gate		0	#2561:15-22; #1640@6053283046:1	绑定验证器须按既有场景非均匀适用规则执行，不能因接线变更修改样本、时限或阈值。
 https://github.com/Ozwasyd/FsusBlog/issues/2563	https://github.com/Ozwasyd/FsusBlog/issues/2563	issue=2563.body:L1	Parent	1734	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2563	https://github.com/Ozwasyd/FsusBlog/issues/2563	issue=2563.body:L2	Depends on	2556	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2563	https://github.com/Ozwasyd/FsusBlog/issues/2563	issue=2563.body:L2	Depends on	2557	ABSENT	prerequisite		1	—	—
