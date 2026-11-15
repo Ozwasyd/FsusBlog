@@ -261,34 +261,42 @@ internal static class AuthorTextIndex
     private static string RankHighlightOrder(bool includeSummary, bool includeHeading = false) =>
         $"h.phrase desc,{FieldPriority("h.field", includeSummary, includeHeading)},h.start_u16,h.clause";
 
-    private static string MatchCtes(bool includeSummary = false, bool includeHeading = false) => $"""
+    // Carry each eligible article's coordinates through to ranking. Joining the materialized
+    // eligible scope a second time can scan its entire contents per hit in a generic plan.
+    private static string MatchCoordinates(string alias, bool faceted) => $"{alias}.revision,{alias}.updated_unix_ms" +
+        (faceted ? $",{alias}.state,{alias}.category_id,{alias}.category_name,{alias}.tag_ids" : "");
+
+    private static string MatchCtes(bool includeSummary = false, bool includeHeading = false, bool faceted = false) => $"""
         requirements as (
             select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
                 q(clause,field,phrase,step,term)
         ),
         clause_hits as materialized (
-            select distinct on (p.article_id,q.clause)
-                p.article_id,q.clause,q.phrase,p.field,p.ordinal,p.start_u16,p.end_u16,p.start_u8,p.end_u8
-            from requirements q join public.author_text_posting p on p.owner_id=$1 and p.term=q.term
-            join eligible e on e.id=p.article_id
-            where (select admitted from witness) and q.step=0 and (q.field=0 or p.field=q.field)
-              and p.field<={(includeHeading ? 4 : includeSummary ? 3 : 2)}
-              and not exists (
-                select from requirements rest where rest.clause=q.clause and rest.step>0 and not exists (
-                    select from public.author_text_posting n
-                    where n.owner_id=p.owner_id and n.article_id=p.article_id and n.field=p.field
-                      and n.term=rest.term and (not q.phrase or n.ordinal=p.ordinal+rest.step)
-                      {(includeHeading ? "and n.segment=p.segment" : "")}
-                )
-              )
-            order by p.article_id,q.clause,{FieldPriority("p.field", includeSummary, includeHeading)},p.ordinal
+            select e.id as article_id,q.clause,q.phrase,p.field,p.ordinal,p.start_u16,p.end_u16,p.start_u8,p.end_u8,{MatchCoordinates("e", faceted)}
+            from eligible e join requirements q on q.step=0
+            cross join lateral (
+                select c.field,c.ordinal,c.start_u16,c.end_u16,c.start_u8,c.end_u8
+                from public.author_text_posting c
+                where c.owner_id=$1 and c.term=q.term and c.article_id=e.id and (q.field=0 or c.field=q.field)
+                  and c.field<={(includeHeading ? 4 : includeSummary ? 3 : 2)}
+                  and not exists (
+                    select from requirements rest where rest.clause=q.clause and rest.step>0 and not exists (
+                        select from public.author_text_posting n
+                        where n.owner_id=c.owner_id and n.article_id=c.article_id and n.field=c.field
+                          and n.term=rest.term and (not q.phrase or n.ordinal=c.ordinal+rest.step)
+                          {(includeHeading ? "and n.segment=c.segment" : "")}
+                    )
+                  )
+                order by {FieldPriority("c.field", includeSummary, includeHeading)},c.ordinal limit 1
+            ) p
+            where (select admitted from witness)
         ),
         ranked_hits as (
-            select h.article_id,
+            select h.article_id,{MatchCoordinates("h", faceted)},
                 coalesce(sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
                 sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end)::integer as field_rank
             from clause_hits h
-            group by h.article_id having count(*)=$7
+            group by h.article_id,{MatchCoordinates("h", faceted)} having count(*)=$7
         )
         """;
 
@@ -344,12 +352,8 @@ internal static class AuthorTextIndex
                 select complete,generation,complete and ($10::bytea is null or generation=$10) as admitted from readiness
             ),
             {MatchCtes()},
-            selected as (
-                select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision
-                from ranked_hits m join eligible e on e.id=m.article_id
-            ),
             picked as materialized (
-                select p.* from selected p
+                select p.* from ranked_hits p
                 where $11::integer is null or (p.phrase_rank,p.field_rank,p.updated_unix_ms,-p.article_id)<($11,$12,$13,-$14)
                 order by {ordering} limit $8
             )
@@ -502,11 +506,9 @@ internal static class AuthorTextIndex
             witness as (
                 select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
             ),
-            {{MatchCtes(includeSummary, includeHeading)}},
+            {{MatchCtes(includeSummary, includeHeading, faceted: true)}},
             selected as materialized (
-                select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision,
-                    e.state,e.category_id,e.category_name,e.tag_ids
-                from ranked_hits m join eligible e on e.id=m.article_id
+                select * from ranked_hits
             ),
             {{facetCtes}}
             totals as (
