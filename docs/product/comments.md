@@ -34,6 +34,8 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 确认删除后才申请有效期五分钟的一次性证明。服务端核对账号、当前会话和评论版本，并在同一事务内消费证明、标记评论删除、追加删除记录和 outbox 事件。公开评论树保留通往已批准回复所需的占位，正文和原显示名称从公共投影中移除。删除事件保留账号、版本、审核状态和正文摘要。独立通知投递及强匿名评论仍属其他流程。 [v1 作者端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs#L587) · [#2178](https://github.com/Ozwasyd/FsusBlog/issues/2178)
 
+独立管理员的私有修订读取核对软删终态的审核版本和状态、删除时间、正文摘要及同事务写入的 `CommentDeleted` 记录。删除凭据缺失或与终态冲突时，较早修订页也返回 503。内容修订编号仍按创建、编辑、删除的正文历史单独计数。
+
 ### 登录作者编辑
 
 当前账号持有评论归属、评论已批准且在当前公开文章上对访客可见时，作者可在原评论创建后 30 分钟内从评论区打开 FsusUI 编辑框。旧库可停机执行 `comment author-edit-schema` 安装编辑存储。编辑框读取仅该作者可取得的 AEDS 33003，核对文章、出版版本与评论版本后载入服务端正文。

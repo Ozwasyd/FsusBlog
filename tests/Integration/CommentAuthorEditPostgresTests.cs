@@ -6,6 +6,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Comments;
+using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -18,7 +19,10 @@ public sealed partial class AdminModerationPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (owner, outsider) = await SeedBatchReplies(db, 1, ct);
+        // The shared reply fixture starts with an approved parent. Start this timeline at submission.
         await Execute(db, "update public.comment_submit_command set user_id=$1 where article_id=1 and comment_id=1", ct, owner);
+        await Execute(db, "update public.comment set moderation_status=0,moderation_version=1 where article_id=1 and id=1", ct);
+        var createdAt = await ReadDatabase<DateTime>(db, "select created_at from public.comment where article_id=1 and id=1", ct);
         var replyOwner = await ReadDatabase<Guid>(db, "select user_id from public.comment_account_owner where comment_id=3", ct);
         var actor = new Identity(owner, "Parent author", 1, false, DateTimeOffset.UtcNow.AddMinutes(10));
         var replier = actor with { Id = replyOwner, Name = "Reply author" };
@@ -27,6 +31,7 @@ public sealed partial class AdminModerationPostgresTests
         var moderator = await AddModerator(db, "comment-edit-reviewer", ct);
         var review = CreateStore(fixture);
         var publicRead = new CommentReadStore(fixture.DataSource);
+        await Approve(1);
         await Approve(3);
         var delivered = await ReadDatabase<long>(db, "select message_id from public.comment_reply_notice where reply_id=3", ct);
 
@@ -40,7 +45,7 @@ public sealed partial class AdminModerationPostgresTests
         await Execute(db, "delete from public.comment_blocked_region where article_id=1 and comment_id=1", ct);
         await Execute(db, "update public.comment set created_at=clock_timestamp()-interval '31 minutes' where article_id=1 and id=1", ct);
         await Denied(Rejection.NotFound, () => Own((conn, tx) => CommentAuthorEdits.Detail(conn, tx, owner, 1, ct)));
-        await Execute(db, "update public.comment set created_at=clock_timestamp() where article_id=1 and id=1", ct);
+        await Execute(db, "update public.comment set created_at=$1 where article_id=1 and id=1", ct, createdAt);
 
         const string edited = "Revised root text for a second review.";
         var expired = await Issue(actor, session, 1);
@@ -138,17 +143,82 @@ public sealed partial class AdminModerationPostgresTests
         await Execute(db, "update public.comment_author_edited set body_digest=decode(repeat('00',32),'hex') where comment_id=1", ct);
         await History(HttpStatusCode.ServiceUnavailable, moderator.Token);
         await Execute(db, "update public.comment_author_edited set body_digest=pg_catalog.sha256(convert_to(body,'UTF8')) where comment_id=1", ct);
+        var ownerToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var ownerDigest = Store.TokenDigest(ownerToken)!;
         await Execute(db, """
-            with changed as (
-                update public.comment set deleted=true,moderation_version=moderation_version+1
-                where article_id=1 and id=1 returning *
-            )
-            insert into public.comment_author_deleted
-            select article_id,id,$1,moderation_version,moderation_status,pg_catalog.sha256(convert_to(body,'UTF8')),clock_timestamp()
-            from changed
-            """, ct, owner);
-        using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token), (FrameType)222).ToArray()))
-            AssertRevision(history.RootElement[0], 3, "deleted", edited);
+            insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')
+            """, ct, ownerDigest, owner);
+        using var deleteGrant = await AsOwner(WireRoutes.CommentAuthorChallenge, FrameType.CommentManagementChallengeRequest,
+            """{"purpose":"delete","capabilitySecret":null}"""u8.ToArray(), FrameType.CommentManagementChallengeResponse);
+        Assert.True(deleteGrant.RootElement.GetProperty("issued").GetBoolean());
+        var approvedVersion = deleteGrant.RootElement.GetProperty("currentVersion").GetInt64();
+        Assert.Equal(receipt.CurrentVersion + 1, approvedVersion);
+        var deleteCommand = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            challenge = deleteGrant.RootElement.GetProperty("challenge").GetString(),
+            capabilitySecret = ""
+        });
+        using var deletion = await AsOwner(WireRoutes.CommentAuthorDelete, FrameType.CommentAuthorStatusRequest,
+            deleteCommand, FrameType.CommentAuthorMutationResult);
+        var result = deletion.RootElement;
+        Assert.True(result.GetProperty("success").GetBoolean());
+        Assert.Equal("ok", result.GetProperty("code").GetString());
+        var deletedVersion = result.GetProperty("currentVersion").GetInt64();
+        Assert.Equal(approvedVersion + 1, deletedVersion);
+        Assert.Equal(1, result.GetProperty("moderationStatus").GetInt32());
+        Assert.Equal(receipt.EditedAtUtc, (DateTime?)result.GetProperty("editedAtUtc").GetDateTime());
+        Assert.True(await ReadDatabase<bool>(db, """
+            select c.deleted and c.body=$3 and c.moderation_version=$2 and c.moderation_status=1
+                and d.user_id=$1 and d.comment_version=$2 and d.moderation_status=c.moderation_status
+                and d.body_digest=pg_catalog.sha256(convert_to(c.body,'UTF8')) and d.happened_at>=c.edited_at
+                and o.event_type='CommentDeleted' and not exists(select from public.comment_author_delete_challenge)
+            from public.comment c join public.comment_author_deleted d on (d.article_id,d.comment_id)=(c.article_id,c.id)
+            join public.comment_author_delete_outbox o on (o.article_id,o.comment_id)=(d.article_id,d.comment_id)
+            where c.article_id=1 and c.id=1
+            """, ct, owner, deletedVersion, edited));
+
+        const string rootTimeline = "/api/binary/author/comments/1/moderation-timeline?articleId=1";
+        using (var timeline = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token, rootTimeline),
+            FrameType.CommentModerationTimeline).ToArray()))
+        {
+            var state = timeline.RootElement;
+            Assert.True(state.GetProperty("consistent").GetBoolean());
+            Assert.True(state.GetProperty("deleted").GetBoolean());
+            Assert.Equal(1, state.GetProperty("currentStatus").GetInt32());
+            Assert.Equal(1, state.GetProperty("projectedStatus").GetInt32());
+            var events = state.GetProperty("events").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "create", "approve", "edit", "approve", "delete" },
+                events.Select(row => row.GetProperty("eventType").GetString()));
+            Assert.Equal(new[] { 1L, 2L, 3L, 4L, deletedVersion }, events.Select(row => row.GetProperty("commentVersion").GetInt64()));
+            Assert.Equal(1, events[^1].GetProperty("previousStatus").GetInt32());
+            Assert.Equal(1, events[^1].GetProperty("nextStatus").GetInt32());
+            Assert.Equal("comment_author_deleted", events[^1].GetProperty("transitionSource").GetString());
+            Assert.DoesNotContain(edited, state.GetRawText(), StringComparison.Ordinal);
+        }
+        using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token, historyRoute + "?articleId=1"),
+            FrameType.CommentRevisionList).ToArray()))
+        {
+            Assert.Collection(history.RootElement.EnumerateArray(),
+                row => AssertRevision(row, 3, "deleted", edited),
+                row => AssertRevision(row, 2, "edited", edited),
+                row => AssertRevision(row, 1, "created", original.Body));
+        }
+        var deletedTree = Encoding.UTF8.GetString(await server.Client.GetByteArrayAsync("/api/binary/comment/1", ct));
+        Assert.Contains("已删除评论", deletedTree, StringComparison.Ordinal);
+        Assert.Contains(editedReply, deletedTree, StringComparison.Ordinal);
+        Assert.DoesNotContain(edited, deletedTree, StringComparison.Ordinal);
+        Assert.DoesNotContain(original.Body, deletedTree, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fixture writer", deletedTree, StringComparison.Ordinal);
+        Assert.Equal(CommentReadWire.Context(null, [], []), await server.Client.GetByteArrayAsync("/api/binary/comment/1/context/1", ct));
+
+        await Execute(db, "update public.comment_author_deleted set comment_version=comment_version+1 where article_id=1 and comment_id=1", ct);
+        await RejectDeletedHistory();
+        await Execute(db, "update public.comment_author_deleted set comment_version=$1 where article_id=1 and comment_id=1", ct, deletedVersion);
+        await Execute(db, "delete from public.comment_author_delete_outbox where article_id=1 and comment_id=1", ct);
+        await RejectDeletedHistory();
+        await Execute(db, "insert into public.comment_author_delete_outbox values(1,1,'CommentDeleted')", ct);
+        await History(HttpStatusCode.OK, moderator.Token, historyRoute + "?before=3&articleId=1");
+
         const string timelineRoute = "/api/binary/author/comments/3/moderation-timeline";
         await History(HttpStatusCode.NotFound, moderator.Token, timelineRoute, adminOrigin: false);
         await History(HttpStatusCode.Forbidden, manager.Token, timelineRoute);
@@ -231,6 +301,24 @@ public sealed partial class AdminModerationPostgresTests
             Assert.True(response.Headers.CacheControl?.NoStore);
             Assert.Equal(link, response.Headers.TryGetValues("Link", out var values) ? Assert.Single(values) : null);
             return await response.Content.ReadAsByteArrayAsync(ct);
+        }
+
+        async Task<JsonDocument> AsOwner(string route, FrameType kind, byte[] payload, FrameType expected)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, route.Replace("{id:long}", "1", StringComparison.Ordinal))
+                { Content = new ByteArrayContent(Aeds.Encode(kind, payload)) };
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            request.Headers.Add("Cookie", $"fsus-v2-session={ownerToken}");
+            request.Headers.Add(WireHeaders.CurrentSession, SiteSessions.Id(owner, ownerDigest));
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return JsonDocument.Parse(Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), expected).ToArray());
+        }
+
+        async Task RejectDeletedHistory()
+        {
+            await History(HttpStatusCode.ServiceUnavailable, moderator.Token);
+            await History(HttpStatusCode.ServiceUnavailable, moderator.Token, historyRoute + "?before=3&articleId=1");
         }
 
         static void AssertRevision(JsonElement row, int version, string operation, string text)
