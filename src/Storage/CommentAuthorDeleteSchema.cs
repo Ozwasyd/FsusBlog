@@ -38,18 +38,7 @@ internal static partial class CurrentSchema
         "comment_author_delete_outbox f article_id,comment_id public.comment_author_deleted:article_id,comment_id"
     ];
 
-    internal static async Task<bool> HasCommentAuthorDeleteSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(*) from (values ('public.comment_account_owner'),('public.comment_author_delete_challenge'),
-                ('public.comment_author_deleted'),('public.comment_author_delete_outbox')) as names(name)
-            where pg_catalog.to_regclass(name) is not null
-            """, connection, transaction);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0L => false,
-            4L => true,
-            _ => throw new InvalidOperationException("Comment author deletion storage is incomplete.")
-        };
-    }
+    internal static Task<bool> HasCommentAuthorDeleteSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct) =>
+        HasCompleteRelationsAsync(connection, transaction, ct, "Comment author deletion storage is incomplete.",
+            "public.comment_account_owner", "public.comment_author_delete_challenge", "public.comment_author_deleted", "public.comment_author_delete_outbox");
 }

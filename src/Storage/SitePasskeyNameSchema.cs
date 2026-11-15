@@ -15,9 +15,6 @@ internal static partial class CurrentSchema
         "site_passkey_name c name char_length(name)>=1ANDchar_length(name)<=64ANDoctet_length(name)<=256"
     ];
 
-    internal static async Task<bool> HasSitePasskeyNamesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("select pg_catalog.to_regclass('public.site_passkey_name') is not null", db, tx);
-        return await query.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasSitePasskeyNamesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.site_passkey_name", ct);
 }

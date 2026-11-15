@@ -127,74 +127,52 @@ internal static partial class CurrentSchema
         bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
         bool? requireDocumentExports = null)
     {
-        if (requireArticleMedia is null)
-        {
-            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass('public.article_revision_media') IS NOT NULL", connection, transaction);
-            requireArticleMedia = await relation.ExecuteScalarAsync(cancellationToken) is true;
-        }
+        requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
         if (hasPrivateMediaImportOrigin && !requireArticleMedia.Value)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
-        if (requireSubscription is null)
-        {
-            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-            relation.Parameters.AddWithValue(SiteSubscriptionRelation);
-            requireSubscription = await relation.ExecuteScalarAsync(cancellationToken) is true;
-        }
+        requireSubscription ??= await HasRelationAsync(connection, transaction, SiteSubscriptionRelation, cancellationToken);
         var hasRecoveryKey = await HasSiteRecoveryKeySchemaAsync(connection, transaction, cancellationToken);
-        if (requireRecoveryKey.HasValue && requireRecoveryKey.Value != hasRecoveryKey)
-            throw new InvalidOperationException("The site Recovery Key schema presence does not match the requested operation.");
-        await using var adminInboxRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-        adminInboxRelation.Parameters.AddWithValue(AdminInboxReplyRelation);
-        var hasAdminInboxReply = await adminInboxRelation.ExecuteScalarAsync(cancellationToken) is true;
-        if (requireAdminInboxReply.HasValue && requireAdminInboxReply.Value != hasAdminInboxReply)
-            throw new InvalidOperationException("The administrator inbox reply schema presence does not match the requested operation.");
-        await using var adminInboxStatusRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-        adminInboxStatusRelation.Parameters.AddWithValue(AdminInboxStatusRelation);
-        var hasAdminInboxStatus = await adminInboxStatusRelation.ExecuteScalarAsync(cancellationToken) is true;
-        if (requireAdminInboxStatus.HasValue && requireAdminInboxStatus.Value != hasAdminInboxStatus)
-            throw new InvalidOperationException("The administrator inbox status schema presence does not match the requested operation.");
-        await using var adminInboxNoticeRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-        adminInboxNoticeRelation.Parameters.AddWithValue(AdminInboxNoticeRelation);
-        var hasAdminInboxNotice = await adminInboxNoticeRelation.ExecuteScalarAsync(cancellationToken) is true;
-        if (requireAdminInboxNotice.HasValue && requireAdminInboxNotice.Value != hasAdminInboxNotice)
-            throw new InvalidOperationException("The administrator inbox notice schema presence does not match the requested operation.");
-        await using var adminInboxReadRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-        adminInboxReadRelation.Parameters.AddWithValue(AdminInboxReadRelation);
-        var hasAdminInboxRead = await adminInboxReadRelation.ExecuteScalarAsync(cancellationToken) is true;
-        if (requireAdminInboxRead.HasValue && requireAdminInboxRead.Value != hasAdminInboxRead)
-            throw new InvalidOperationException("The shared administrator inbox read schema presence does not match the requested operation.");
-        if (requireAuthoringWorkspace is null)
-        {
-            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
-            relation.Parameters.AddWithValue(AuthoringWorkspaceRelation);
-            requireAuthoringWorkspace = await relation.ExecuteScalarAsync(cancellationToken) is true;
-        }
+        RequireSchemaPresence(requireRecoveryKey, hasRecoveryKey,
+            "The site Recovery Key schema presence does not match the requested operation.");
+        var hasAdminInboxReply = await HasRelationAsync(connection, transaction, AdminInboxReplyRelation, cancellationToken);
+        RequireSchemaPresence(requireAdminInboxReply, hasAdminInboxReply,
+            "The administrator inbox reply schema presence does not match the requested operation.");
+        var hasAdminInboxStatus = await HasRelationAsync(connection, transaction, AdminInboxStatusRelation, cancellationToken);
+        RequireSchemaPresence(requireAdminInboxStatus, hasAdminInboxStatus,
+            "The administrator inbox status schema presence does not match the requested operation.");
+        var hasAdminInboxNotice = await HasRelationAsync(connection, transaction, AdminInboxNoticeRelation, cancellationToken);
+        RequireSchemaPresence(requireAdminInboxNotice, hasAdminInboxNotice,
+            "The administrator inbox notice schema presence does not match the requested operation.");
+        var hasAdminInboxRead = await HasRelationAsync(connection, transaction, AdminInboxReadRelation, cancellationToken);
+        RequireSchemaPresence(requireAdminInboxRead, hasAdminInboxRead,
+            "The shared administrator inbox read schema presence does not match the requested operation.");
+        requireAuthoringWorkspace ??= await HasRelationAsync(connection, transaction, AuthoringWorkspaceRelation, cancellationToken);
         var hasSiteRefresh = await HasSiteRefreshSchemaAsync(connection, transaction, cancellationToken);
-        if (requireSiteRefresh.HasValue && requireSiteRefresh.Value != hasSiteRefresh)
-            throw new InvalidOperationException("The site refresh schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireSiteRefresh, hasSiteRefresh,
+            "The site refresh schema presence does not match the requested operation.");
         var hasSitePageEditor = await HasSitePageEditorSchemaAsync(connection, transaction, cancellationToken);
-        if (requireSitePageEditor.HasValue && requireSitePageEditor.Value != hasSitePageEditor)
-            throw new InvalidOperationException("The site page editor schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireSitePageEditor, hasSitePageEditor,
+            "The site page editor schema presence does not match the requested operation.");
         var hasAppearanceActivation = await HasAppearanceActivationAsync(connection, transaction, cancellationToken);
-        if (requireAppearanceActivation.HasValue && requireAppearanceActivation.Value != hasAppearanceActivation)
-            throw new InvalidOperationException("The signed appearance schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireAppearanceActivation, hasAppearanceActivation,
+            "The signed appearance schema presence does not match the requested operation.");
         var hasRootCommentPowPolicy = await HasRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
         if ((hasRootCommentPowPolicy && !requireAdminIdentity) ||
             (requireRootCommentPowPolicy.HasValue && requireRootCommentPowPolicy.Value != hasRootCommentPowPolicy))
             throw new InvalidOperationException("The root comment proof policy schema presence does not match the requested operation.");
         var hasSavedViews = await HasSavedViewsAsync(connection, transaction, cancellationToken);
-        if (requireSavedViews.HasValue && requireSavedViews.Value != hasSavedViews)
-            throw new InvalidOperationException("The saved views schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireSavedViews, hasSavedViews,
+            "The saved views schema presence does not match the requested operation.");
         var hasSavedViewPlacement = await HasSavedViewPlacementAsync(connection, transaction, cancellationToken);
         if ((hasSavedViewPlacement && !hasSavedViews) || (requireSavedViewPlacement.HasValue && requireSavedViewPlacement.Value != hasSavedViewPlacement))
             throw new InvalidOperationException("The saved view placement schema presence does not match the requested operation.");
         var hasAdminTagMetadata = await HasAdminTagMetadataAsync(connection, transaction, cancellationToken);
-        if (requireAdminTagMetadata.HasValue && requireAdminTagMetadata.Value != hasAdminTagMetadata)
-            throw new InvalidOperationException("The administrator tag metadata schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireAdminTagMetadata, hasAdminTagMetadata,
+            "The administrator tag metadata schema presence does not match the requested operation.");
         var hasAdminArticleRollback = await HasAdminArticleRollbackSchemaAsync(connection, transaction, cancellationToken);
-        if (requireAdminArticleRollback.HasValue && requireAdminArticleRollback.Value != hasAdminArticleRollback)
-            throw new InvalidOperationException("The administrator article rollback schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireAdminArticleRollback, hasAdminArticleRollback,
+            "The administrator article rollback schema presence does not match the requested operation.");
         var hasAdminArticleDraftRollback = hasAdminArticleRollback &&
             await HasAdminArticleDraftRollbackSchemaAsync(connection, transaction, cancellationToken);
         var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
@@ -208,8 +186,8 @@ internal static partial class CurrentSchema
             (requireCommentAuthorEdit.HasValue && requireCommentAuthorEdit.Value != hasCommentAuthorEdit))
             throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
         var hasCommentReport = await HasCommentReportSchemaAsync(connection, transaction, cancellationToken);
-        if (requireCommentReport.HasValue && requireCommentReport.Value != hasCommentReport)
-            throw new InvalidOperationException("Comment report schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireCommentReport, hasCommentReport,
+            "Comment report schema presence does not match the requested operation.");
         var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
             throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
@@ -230,8 +208,8 @@ internal static partial class CurrentSchema
             (requireAuthorRecentOpens.HasValue && requireAuthorRecentOpens.Value != hasAuthorRecentOpens))
             throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
         var hasAuthorTextIndex = await HasAuthorTextIndexAsync(connection, transaction, cancellationToken);
-        if (requireAuthorTextIndex.HasValue && requireAuthorTextIndex.Value != hasAuthorTextIndex)
-            throw new InvalidOperationException("The author full-text index schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireAuthorTextIndex, hasAuthorTextIndex,
+            "The author full-text index schema presence does not match the requested operation.");
         var hasAuthorTextSummaryIndex = hasAuthorTextIndex &&
             await HasAuthorTextSummaryIndexAsync(connection, transaction, cancellationToken);
         if (requireAuthorTextSummaryIndex && !hasAuthorTextSummaryIndex)
@@ -279,8 +257,8 @@ internal static partial class CurrentSchema
             (requirePublicationHead.HasValue && requirePublicationHead.Value != hasPublicationHead))
             throw new InvalidOperationException("The native publication head schema presence does not match the requested operation.");
         var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
-        if (requireArticleRead.HasValue && requireArticleRead.Value != hasArticleRead)
-            throw new InvalidOperationException("The article read aggregate schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireArticleRead, hasArticleRead,
+            "The article read aggregate schema presence does not match the requested operation.");
         var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
         if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
             throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
@@ -389,8 +367,8 @@ internal static partial class CurrentSchema
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
-        if (requireArticleSummary.HasValue && requireArticleSummary.Value != hasArticleSummary)
-            throw new InvalidOperationException("The article author summary schema presence does not match the requested operation.");
+        RequireSchemaPresence(requireArticleSummary, hasArticleSummary,
+            "The article author summary schema presence does not match the requested operation.");
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);

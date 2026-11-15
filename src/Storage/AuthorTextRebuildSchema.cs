@@ -19,9 +19,6 @@ internal static partial class CurrentSchema
         "author_text_rebuild_job u available_at,owner_id,profile,definition_id"
     ];
 
-    internal static async Task<bool> HasAuthorTextRebuildAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("select pg_catalog.to_regclass('public.author_text_rebuild_job') is not null", db, tx);
-        return await query.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasAuthorTextRebuildAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.author_text_rebuild_job", ct);
 }

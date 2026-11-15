@@ -21,9 +21,6 @@ internal static partial class CurrentSchema
         "comment_report f reporter_id public.blog_user:id"
     ];
 
-    internal static async Task<bool> HasCommentReportSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("select pg_catalog.to_regclass('public.comment_report') is not null", db, tx);
-        return await query.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasCommentReportSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.comment_report", ct);
 }

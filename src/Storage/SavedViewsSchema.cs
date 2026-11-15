@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -33,17 +32,7 @@ internal static partial class CurrentSchema
         "author_saved_view_command c fingerprint octet_length(fingerprint)=32"
     ];
 
-    internal static async Task<bool> HasSavedViewsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(oid) from (values (to_regclass('public.author_saved_view_collection')),
-                (to_regclass('public.author_saved_view')), (to_regclass('public.author_saved_view_command'))) expected(oid)
-            """, db, tx);
-        return (await query.ExecuteScalarAsync(ct)) switch
-        {
-            0L => false,
-            3L => true,
-            _ => throw new InvalidOperationException("The saved views schema is incomplete.")
-        };
-    }
+    internal static Task<bool> HasSavedViewsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The saved views schema is incomplete.",
+            "public.author_saved_view_collection", "public.author_saved_view", "public.author_saved_view_command");
 }

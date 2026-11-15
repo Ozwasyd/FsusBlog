@@ -39,19 +39,9 @@ internal static partial class CurrentSchema
         "admin_root_comment_pow_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
     ];
 
-    internal static async Task<bool> HasRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
-            select num_nonnulls(pg_catalog.to_regclass('public.root_comment_pow_policy'),
-              pg_catalog.to_regclass('public.root_comment_pow_policy_audit'),pg_catalog.to_regclass('public.admin_root_comment_pow_step_up'))
-            """, db, tx);
-        return await command.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            3 => true,
-            _ => throw new InvalidOperationException("The root comment proof policy schema is partially installed.")
-        };
-    }
+    internal static Task<bool> HasRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The root comment proof policy schema is partially installed.",
+            "public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up");
 
     private static async Task VerifyRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

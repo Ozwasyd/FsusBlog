@@ -26,19 +26,9 @@ internal static partial class CurrentSchema
         "admin_tag_metadata_command c session_reference octet_length(session_reference)=32"
     ];
 
-    internal static async Task<bool> HasAdminTagMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(oid) from (values (to_regclass('public.taxonomy_epoch')),
-                (to_regclass('public.admin_tag_metadata_command'))) expected(oid)
-            """, db, tx);
-        return (await query.ExecuteScalarAsync(ct)) switch
-        {
-            0L => false,
-            2L => true,
-            _ => throw new InvalidOperationException("The administrator tag metadata schema is incomplete.")
-        };
-    }
+    internal static Task<bool> HasAdminTagMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The administrator tag metadata schema is incomplete.",
+            "public.taxonomy_epoch", "public.admin_tag_metadata_command");
 
     private static async Task VerifyTaxonomyEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

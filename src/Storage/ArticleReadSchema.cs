@@ -43,20 +43,9 @@ internal static partial class CurrentSchema
         "article_read_total c views views>0"
     ];
 
-    internal static async Task<bool> HasArticleReadSchemaAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(oid) from (values (pg_catalog.to_regclass('public.article_read_hour')),
-                (pg_catalog.to_regclass('public.article_read_dwell')),
-                (pg_catalog.to_regclass('public.article_read_epoch'))) expected(oid)
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0L => false,
-            3L => true,
-            _ => throw new InvalidOperationException("Article read aggregate storage is incomplete.")
-        };
-    }
+    internal static Task<bool> HasArticleReadSchemaAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "Article read aggregate storage is incomplete.",
+            "public.article_read_hour", "public.article_read_dwell", "public.article_read_epoch");
 
     internal static async Task<bool> HasArticleReadTotalSchemaAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
     {

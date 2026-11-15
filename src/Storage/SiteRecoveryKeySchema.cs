@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -46,20 +45,10 @@ internal static partial class CurrentSchema
         "site_recovery_rebind c request_digest,completed_at (request_digestISNULL)=(completed_atISNULL)"
     ];
 
-    internal static async Task<bool> HasSiteRecoveryKeySchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken ct)
-    {
-        await using var check = new NpgsqlCommand("""
-            SELECT num_nonnulls(pg_catalog.to_regclass('public.site_recovery_key'),
-                pg_catalog.to_regclass('public.site_recovery_flow'), pg_catalog.to_regclass('public.site_recovery_rebind'))
-            """, connection, transaction);
-        return await check.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            3 => true,
-            _ => throw new InvalidOperationException("The site Recovery Key schema is partially installed.")
-        };
-    }
+    internal static Task<bool> HasSiteRecoveryKeySchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken ct) =>
+        HasCompleteRelationsAsync(connection, transaction, ct, "The site Recovery Key schema is partially installed.",
+            "public.site_recovery_key", "public.site_recovery_flow", "public.site_recovery_rebind");
 
     // An issued Recovery Key is durable evidence that this account passed Passkey enrollment.
     internal static async Task<bool> RequiresSiteRecoveryAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct)

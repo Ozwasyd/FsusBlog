@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -54,18 +53,7 @@ internal static partial class CurrentSchema
         "comment_appeal_admin_step_up c kind kind>=1ANDkind<=2"
     ];
 
-    internal static async Task<bool> HasCommentAppealSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(*) from (values ('public.comment_appeal_challenge'),('public.comment_appeal'),
-                ('public.comment_appeal_decision'),('public.comment_appeal_event'),('public.comment_appeal_admin_step_up')) as names(name)
-            where pg_catalog.to_regclass(name) is not null
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0L => false,
-            5L => true,
-            _ => throw new InvalidOperationException("Comment appeal storage is incomplete.")
-        };
-    }
+    internal static Task<bool> HasCommentAppealSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "Comment appeal storage is incomplete.",
+            "public.comment_appeal_challenge", "public.comment_appeal", "public.comment_appeal_decision", "public.comment_appeal_event", "public.comment_appeal_admin_step_up");
 }

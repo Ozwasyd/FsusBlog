@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -31,18 +30,8 @@ internal static partial class CurrentSchema
         "site_session_refresh_tombstone c used_at,expires_at used_at<expires_at"
     ];
 
-    internal static async Task<bool> HasSiteRefreshSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken ct)
-    {
-        await using var check = new NpgsqlCommand("""
-            SELECT num_nonnulls(pg_catalog.to_regclass('public.site_session_refresh'),
-                pg_catalog.to_regclass('public.site_session_refresh_tombstone'))
-            """, connection, transaction);
-        return await check.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            2 => true,
-            _ => throw new InvalidOperationException("The site refresh schema is partially installed.")
-        };
-    }
+    internal static Task<bool> HasSiteRefreshSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken ct) =>
+        HasCompleteRelationsAsync(connection, transaction, ct, "The site refresh schema is partially installed.",
+            "public.site_session_refresh", "public.site_session_refresh_tombstone");
 }

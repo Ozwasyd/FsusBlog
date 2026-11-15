@@ -59,49 +59,13 @@ internal static partial class CurrentSchema
         };
     }
 
-    internal static async Task<bool> HasAuthorTextSummaryIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select case when exists (
-                       select from pg_catalog.pg_attribute
-                       where attrelid=pg_catalog.to_regclass('public.author_text_document')
-                         and attname='summary_digest' and attnum>0 and not attisdropped
-                   ) then 1 else 0 end
-                 + case when exists (
-                       select from pg_catalog.pg_constraint
-                       where conrelid=pg_catalog.to_regclass('public.author_text_document')
-                         and conname='author_text_document_summary_digest_check' and contype='c'
-                   ) then 1 else 0 end
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            2 => true,
-            _ => throw new InvalidOperationException("The author full-text summary index schema is incomplete.")
-        };
-    }
+    internal static Task<bool> HasAuthorTextSummaryIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
+        HasColumnAndCheckAsync(db, tx, ct, "public.author_text_document", "summary_digest",
+            "author_text_document_summary_digest_check", "The author full-text summary index schema is incomplete.");
 
-    internal static async Task<bool> HasAuthorTextHeadingIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select case when exists (
-                       select from pg_catalog.pg_attribute
-                       where attrelid=pg_catalog.to_regclass('public.author_text_posting')
-                         and attname='segment' and attnum>0 and not attisdropped
-                   ) then 1 else 0 end
-                 + case when exists (
-                       select from pg_catalog.pg_constraint
-                       where conrelid=pg_catalog.to_regclass('public.author_text_posting')
-                         and conname='author_text_posting_segment_check' and contype='c' and convalidated and conislocal
-                   ) then 1 else 0 end
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            2 => true,
-            _ => throw new InvalidOperationException("The author full-text heading index schema is incomplete.")
-        };
-    }
+    internal static Task<bool> HasAuthorTextHeadingIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
+        HasColumnAndCheckAsync(db, tx, ct, "public.author_text_posting", "segment",
+            "author_text_posting_segment_check", "The author full-text heading index schema is incomplete.", requireLocalValidated: true);
 
     private static async Task VerifyAuthorTextArticleOwnerIndexAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

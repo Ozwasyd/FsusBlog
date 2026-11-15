@@ -21,9 +21,6 @@ internal static partial class CurrentSchema
         "comment_reply_notice f conversation_id,message_id public.inbox_message:conversation_id,id"
     ];
 
-    internal static async Task<bool> HasCommentReplySchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var relation = new NpgsqlCommand("select pg_catalog.to_regclass('public.comment_reply_notice') is not null", db, tx);
-        return await relation.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasCommentReplySchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.comment_reply_notice", ct);
 }

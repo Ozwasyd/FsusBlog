@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -39,18 +38,7 @@ internal static partial class CurrentSchema
         "comment_author_edit_outbox f article_id,comment_id,comment_version public.comment_author_edited:article_id,comment_id,comment_version"
     ];
 
-    internal static async Task<bool> HasCommentAuthorEditSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(*) from (values ('public.comment_author_edit_challenge'),('public.comment_author_edited'),
-                ('public.comment_author_edit_outbox')) as names(name)
-            where pg_catalog.to_regclass(name) is not null
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0L => false,
-            3L => true,
-            _ => throw new InvalidOperationException("Comment author edit storage is incomplete.")
-        };
-    }
+    internal static Task<bool> HasCommentAuthorEditSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "Comment author edit storage is incomplete.",
+            "public.comment_author_edit_challenge", "public.comment_author_edited", "public.comment_author_edit_outbox");
 }

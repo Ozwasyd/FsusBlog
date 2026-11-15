@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -32,17 +31,7 @@ internal static partial class CurrentSchema
         "author_recent_open_receipt c sequence sequence>0"
     ];
 
-    internal static async Task<bool> HasAuthorRecentOpensAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(oid) from (values (pg_catalog.to_regclass('public.author_recent_open_collection')),
-                (pg_catalog.to_regclass('public.author_recent_open')), (pg_catalog.to_regclass('public.author_recent_open_receipt'))) expected(oid)
-            """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0L => false,
-            3L => true,
-            _ => throw new InvalidOperationException("The author recent opens schema is incomplete.")
-        };
-    }
+    internal static Task<bool> HasAuthorRecentOpensAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The author recent opens schema is incomplete.",
+            "public.author_recent_open_collection", "public.author_recent_open", "public.author_recent_open_receipt");
 }

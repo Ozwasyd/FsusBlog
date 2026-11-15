@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -38,19 +37,8 @@ internal static partial class CurrentSchema
         "admin_comment_batch_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
     ];
 
-    internal static async Task<bool> HasAdminCommentBatchSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken cancellationToken)
-    {
-        await using var query = new NpgsqlCommand("""
-            select count(*) from (values ('public.admin_comment_batch'),('public.admin_comment_batch_item'),
-                ('public.admin_comment_batch_step_up')) as names(name)
-            where pg_catalog.to_regclass(name) is not null
-            """, connection, transaction);
-        return await query.ExecuteScalarAsync(cancellationToken) switch
-        {
-            0L => false,
-            3L => true,
-            _ => throw new InvalidOperationException("Administrator comment batch storage is incomplete.")
-        };
-    }
+    internal static Task<bool> HasAdminCommentBatchSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        HasCompleteRelationsAsync(connection, transaction, cancellationToken, "Administrator comment batch storage is incomplete.",
+            "public.admin_comment_batch", "public.admin_comment_batch_item", "public.admin_comment_batch_step_up");
 }

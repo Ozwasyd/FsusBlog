@@ -39,19 +39,9 @@ internal static partial class CurrentSchema
         "admin_site_page_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
     ];
 
-    internal static async Task<bool> HasSitePageEditorSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
-            select num_nonnulls(pg_catalog.to_regclass('public.site_page_content'),
-                pg_catalog.to_regclass('public.site_page_publish_audit'),pg_catalog.to_regclass('public.admin_site_page_step_up'))
-            """, db, tx);
-        return await command.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            3 => true,
-            _ => throw new InvalidOperationException("The site page editor schema is partially installed.")
-        };
-    }
+    internal static Task<bool> HasSitePageEditorSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "The site page editor schema is partially installed.",
+            "public.site_page_content", "public.site_page_publish_audit", "public.admin_site_page_step_up");
 
     private static async Task VerifySitePageCoordinatesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
