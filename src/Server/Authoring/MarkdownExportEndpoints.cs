@@ -21,7 +21,8 @@ internal static class MarkdownExportEndpoints
     {
         Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
-            (title, body, _, _, _, ct) => WordDocumentExport.Write(title, body, ct));
+            (title, body, _, _, attachment, ct) => WordDocumentExport.Write(title, body, ct, attachment: attachment),
+            allowAttachment: true);
         Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
             (title, body, _, _, attachment, ct) => HtmlDocumentExport.Write(title, body, ct, attachment: attachment),
             allowAttachment: true, contentSecurityPolicy: HtmlDocumentExport.ResponsePolicy);
@@ -90,7 +91,7 @@ internal static class MarkdownExportEndpoints
         if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return null;
         if (!allowed || values.Count != 1 || values[0] is not { Length: 36 } text ||
             !Guid.TryParseExact(text, "D", out var asset) || asset == Guid.Empty || asset.ToString("D") != text)
-            throw new BusinessException(Rejection.Invalid, "Choose one private image for an HTML or EPUB download.");
+            throw new BusinessException(Rejection.Invalid, "Choose one private image for a Word, HTML or EPUB download.");
         return asset;
     }
 

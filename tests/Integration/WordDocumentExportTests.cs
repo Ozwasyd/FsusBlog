@@ -3,6 +3,8 @@ using System.Text;
 using System.Xml.Linq;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Authoring;
+using FsusBlog.V2.Server.Content;
+using SkiaSharp;
 
 public sealed class WordDocumentExportTests
 {
@@ -86,6 +88,35 @@ public sealed class WordDocumentExportTests
         AssertFile(legacy, "| Name | Count |", "| B | | Extra value |");
         using var legacyZip = new ZipArchive(new MemoryStream(legacy), ZipArchiveMode.Read);
         Assert.Empty(Read(legacyZip, "word/document.xml").Descendants(Word + "tbl"));
+    }
+
+    [Fact]
+    public void EmbedsJpegInsideThePrintableAreaAndRejectsUnsupportedImageFormats()
+    {
+        using var bitmap = new SKBitmap(1600, 800);
+        bitmap.Erase(SKColors.Blue);
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Jpeg, 90);
+        var attachment = new DocumentExportAttachment("A & B.jpeg", MediaFormat.Jpeg, bitmap.Width, bitmap.Height, encoded.ToArray());
+        var file = WordDocumentExport.Write(Title, Markdown, CancellationToken.None, attachment: attachment);
+        Assert.Equal(file, WordDocumentExport.Write(Title, Markdown, CancellationToken.None, attachment: attachment));
+        using var zip = new ZipArchive(new MemoryStream(file));
+        using var image = zip.GetEntry("word/media/attachment.jpeg")!.Open();
+        using var bytes = new MemoryStream();
+        image.CopyTo(bytes);
+        Assert.Equal(attachment.Bytes, bytes.ToArray());
+        Assert.Contains(Read(zip, "[Content_Types].xml").Root!.Elements(), element =>
+            (string?)element.Attribute("PartName") == "/word/media/attachment.jpeg" &&
+            (string?)element.Attribute("ContentType") == "image/jpeg");
+
+        XNamespace drawing = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+        var inline = Assert.Single(Read(zip, "word/document.xml").Descendants(drawing + "inline"));
+        var extent = inline.Element(drawing + "extent")!;
+        const int printableWidth = 9026 * 635;
+        Assert.Equal(printableWidth, (int?)extent.Attribute("cx"));
+        Assert.Equal(printableWidth / 2, (int?)extent.Attribute("cy"));
+        Assert.Equal("A & B.jpeg", (string?)inline.Element(drawing + "docPr")?.Attribute("descr"));
+        Assert.Throws<BusinessException>(() => WordDocumentExport.Write(Title, Markdown, CancellationToken.None,
+            attachment: attachment with { Format = MediaFormat.Webp }));
     }
 
     internal static void AssertFile(byte[] bytes, params string[] text)

@@ -60,6 +60,8 @@ async function download() {
       failure.value = 'Use a title, basic text Markdown, and an image up to 512 KiB. The EPUB must fit within 2 MiB.'
     else if (format === 'epub' && error instanceof ApiError && error.status === 400)
       failure.value = 'EPUB requires a title and basic text Markdown without links, images, or render directives. It must fit within 2 MiB.'
+    else if (format === 'docx' && attachment && error instanceof ApiError && error.status === 400)
+      failure.value = 'Use a PNG or JPEG image up to 512 KiB. The combined Word file must fit within 2 MiB.'
     else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
       failure.value = 'PDF requires basic text Markdown and supported characters within the page and size limits.'
     else failure.value = `Could not download ${formatLabels[format]}. Try again.`

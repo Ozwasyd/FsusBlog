@@ -24,7 +24,7 @@ const publicationSelection = shallowRef<readonly string[]>([])
 const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
-const preview = shallowRef<{ id: string; path: string }>()
+const preview = shallowRef<{ id: string; path: string; type: string }>()
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
 let task = new AbortController()
 
@@ -84,7 +84,7 @@ async function openPreview(id: string) {
     const bytes = await privateArticlePreview(pair.ticket, signal)
     if (!current(signal)) return
     closePreview()
-    preview.value = { id, path: URL.createObjectURL(bytes) }
+    preview.value = { id, path: URL.createObjectURL(bytes), type: bytes.type }
     error.value = ''
   } catch { if (current(signal)) error.value = 'Private preview expired. Try again from the current draft.' }
   finally { if (current(signal)) pending.value = false }
@@ -194,6 +194,9 @@ onBeforeUnmount(() => {
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"
+            :attachment="preview.id" :disabled="pending || !credential" />
+          <MarkdownExportControl v-if="preview.type === 'image/png' || preview.type === 'image/jpeg'"
+            :article="articleId" :revision="revision" :selected="revision" format="docx"
             :attachment="preview.id" :disabled="pending || !credential" />
         </div>
       </template>

@@ -99,6 +99,11 @@ try {
       assert(previewBytes.length > 0)
       await verifyOfflineAttachment(page, draft, asset.id, file, previewBytes)
       await verifyOfflineEpub(page, draft, asset.id, file, previewBytes)
+      const word = await downloadAttachment(page, draft, asset.id, 'Word', 'docx')
+      assert.equal(word.response.headers()['content-type'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      const wordBytes = await word.response.body()
+      assert.deepEqual(await readFile(await word.download.path()), wordBytes)
+      assert.deepEqual(execFileSync('unzip', ['-p', await word.download.path(), 'word/media/attachment.png']), previewBytes)
       await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
 
       await page.getByRole('button', { name: `Detach ${file}` }).click()
@@ -114,7 +119,7 @@ try {
       assert.deepEqual(diagnostics, [])
       assertions.push({ name, viewport, title: await page.title(), uploadedAssetAttached: true, privatePreviewRendered: true,
         anonymousDenied: true, previousTicketInvalidAfterDetach: true, authorizationHeaderOnly: true,
-        objectUrlRevoked: true, offlineHtmlImage: true, offlineEpubImage: true, keyboard: true })
+        objectUrlRevoked: true, offlineHtmlImage: true, offlineEpubImage: true, privateWordImage: true, keyboard: true })
     } finally { await author.close() }
   }
 } catch (error) { failure = error }
@@ -123,10 +128,9 @@ finally {
   await writeFile(join(evidence, 'article-media-browser.json'), JSON.stringify({ assertions, failure: failure?.stack }, null, 2))
 }
 if (failure) throw failure
-console.log('Native private previews and offline HTML and EPUB images passed in desktop and narrow Chrome.')
+console.log('Native private previews and HTML, EPUB and Word image downloads passed in desktop and narrow Chrome.')
 
-async function downloadAttachment(page, draft, assetId, format) {
-  const extension = format.toLowerCase()
+async function downloadAttachment(page, draft, assetId, format, extension = format.toLowerCase()) {
   const button = page.getByRole('button', { name: `Download saved ${format} with this image`, exact: true })
   const path = `/api/v2/authoring/draft/${draft.id}/export.${extension}`
   const [response, download] = await Promise.all([

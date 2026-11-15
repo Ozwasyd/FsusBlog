@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Security;
 using System.Text;
 using System.Xml;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Content;
 using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 
@@ -15,23 +17,46 @@ internal static class WordDocumentExport
     internal const int MaximumOutput = 2 * 1024 * 1024;
     private const string Word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private const int PageContentWidthTwips = 9026;
+    private const int PageContentHeightTwips = 13958;
+    private const string DocumentRelationship = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static readonly DateTimeOffset ArchiveEpoch = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly XmlWriterSettings Xml = new() { Encoding = Utf8, NewLineHandling = NewLineHandling.None, CloseOutput = true };
 
-    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true)
+    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true,
+        DocumentExportAttachment? attachment = null)
     {
         ct.ThrowIfCancellationRequested();
         if (Utf8.GetByteCount(title) > WireLimits.TitleBytes || Utf8.GetByteCount(body) > WireLimits.BodyBytes ||
             body.Count(c => c is '\n' or '\r' or '\t') > 16_384) throw Unsupported();
         title = XmlText(title);
         body = XmlText(body);
+        var imagePath = attachment?.Format switch
+        {
+            null => null,
+            MediaFormat.Png => "media/attachment.png",
+            MediaFormat.Jpeg => "media/attachment.jpeg",
+            _ => throw new BusinessException(Rejection.Invalid, "Word can embed PNG and JPEG images."),
+        };
+        var types = Types;
+        var documentRelations = DocumentRelations;
+        if (attachment is not null)
+        {
+            types = Types.Replace("</Types>", $"  <Override PartName=\"/word/{imagePath}\" ContentType=\"{attachment.ContentType}\"/>\n</Types>");
+            documentRelations = DocumentRelations.Replace("</Relationships>",
+                $"  <Relationship Id=\"Image\" Type=\"{DocumentRelationship}/image\" Target=\"{imagePath}\"/>\n</Relationships>");
+        }
         using var data = new MemoryStream();
         using (var archive = new ZipArchive(data, ZipArchiveMode.Create, leaveOpen: true))
         {
-            WritePart(archive, "[Content_Types].xml", Types);
+            WritePart(archive, "[Content_Types].xml", types);
             WritePart(archive, "_rels/.rels", RootRelations);
-            WritePart(archive, "word/_rels/document.xml.rels", DocumentRelations);
+            WritePart(archive, "word/_rels/document.xml.rels", documentRelations);
+            if (attachment is not null)
+            {
+                using var image = CreatePart(archive, $"word/{imagePath}");
+                image.Write(attachment.Bytes);
+            }
             using (var styles = XmlWriter.Create(CreatePart(archive, "word/styles.xml"), Xml))
             {
                 styles.WriteStartElement("w", "styles", Word);
@@ -77,6 +102,7 @@ internal static class WordDocumentExport
                 }
                 next = Math.Max(next, block.Span.End + 1);
             }
+            if (attachment is not null) WriteImage(output, attachment);
             output.WriteStartElement("w", "sectPr", Word);
             Empty(output, "pgSz", ("w", "11906"), ("h", "16838"));
             Empty(output, "pgMar", ("top", "1440"), ("right", "1440"), ("bottom", "1440"), ("left", "1440"), ("header", "720"), ("footer", "720"), ("gutter", "0"));
@@ -87,6 +113,41 @@ internal static class WordDocumentExport
         ct.ThrowIfCancellationRequested();
         if (data.Length > MaximumOutput) throw Unsupported();
         return data.ToArray();
+    }
+
+    private static void WriteImage(XmlWriter xml, DocumentExportAttachment image)
+    {
+        // Open XML dimensions are EMUs. Use CSS pixel size unless it exceeds the printable area.
+        const int emusPerTwip = 635;
+        const int emusPerPixel = 9525;
+        int originalWidth = checked(image.Width * emusPerPixel);
+        int originalHeight = checked(image.Height * emusPerPixel);
+        double scale = Math.Min(1d, Math.Min((double)(PageContentWidthTwips * emusPerTwip) / originalWidth,
+            (double)(PageContentHeightTwips * emusPerTwip) / originalHeight));
+        int width = Math.Max(1, (int)(originalWidth * scale));
+        int height = Math.Max(1, (int)(originalHeight * scale));
+        var description = SecurityElement.Escape(XmlText(image.Name));
+        xml.WriteRaw(string.Create(CultureInfo.InvariantCulture, $"""
+            <w:p><w:r><w:drawing>
+              <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+                         xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                         xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
+                         xmlns:r="{DocumentRelationship}">
+                <wp:extent cx="{width}" cy="{height}"/>
+                <wp:docPr id="1" name="Attachment" descr="{description}"/>
+                <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:pic>
+                    <pic:nvPicPr><pic:cNvPr id="0" name="Attachment"/><pic:cNvPicPr/></pic:nvPicPr>
+                    <pic:blipFill><a:blip r:embed="Image"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                    <pic:spPr>
+                      <a:xfrm><a:off x="0" y="0"/><a:ext cx="{width}" cy="{height}"/></a:xfrm>
+                      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                    </pic:spPr>
+                  </pic:pic>
+                </a:graphicData></a:graphic>
+              </wp:inline>
+            </w:drawing></w:r></w:p>
+            """));
     }
 
     private static void WriteTable(XmlWriter xml, Table table, string markdown, CancellationToken ct)

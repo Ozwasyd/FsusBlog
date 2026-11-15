@@ -361,6 +361,44 @@ public sealed partial class PrivateMediaPostgresTests
             await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
             await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, "");
 
+            const string wordType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            using (var word = await Export("docx", detached.Revision, saved.Revision, owner, asset))
+            {
+                Assert.Equal(HttpStatusCode.OK, word.StatusCode);
+                Assert.Equal(wordType, word.Content.Headers.ContentType?.MediaType);
+                Assert.Equal("article.docx", word.Content.Headers.ContentDisposition?.FileName);
+                Assert.True(word.Headers.CacheControl?.Private);
+                Assert.True(word.Headers.CacheControl?.NoStore);
+                var wordBytes = await word.Content.ReadAsByteArrayAsync(ct);
+                using var archive = new ZipArchive(new MemoryStream(wordBytes));
+                XNamespace packageRelationships = "http://schemas.openxmlformats.org/package/2006/relationships";
+                XNamespace documentRelationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+                XNamespace wordprocessing = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+                XNamespace drawing = "http://schemas.openxmlformats.org/drawingml/2006/main";
+                var relationships = ReadPart(archive, "word/_rels/document.xml.rels").Root!.Elements(packageRelationships + "Relationship");
+                var reference = Assert.Single(relationships, relation => (string?)relation.Attribute("Id") == "Image");
+                Assert.Equal("media/attachment.png", (string?)reference.Attribute("Target"));
+                Assert.Equal(documentRelationships.NamespaceName + "/image", (string?)reference.Attribute("Type"));
+                Assert.Null(reference.Attribute("TargetMode"));
+                var document = ReadPart(archive, "word/document.xml");
+                Assert.Contains("Original body.", document.Root!.Value);
+                var picture = Assert.Single(document.Descendants(wordprocessing + "drawing"));
+                var blip = Assert.Single(picture.Descendants(drawing + "blip"));
+                Assert.Equal("Image", (string?)blip.Attribute(documentRelationships + "embed"));
+                Assert.Null(blip.Attribute(documentRelationships + "link"));
+                using var image = archive.GetEntry("word/media/attachment.png")!.Open();
+                using var imageBytes = new MemoryStream();
+                await image.CopyToAsync(imageBytes, ct);
+                Assert.Equal(normalized, imageBytes.ToArray());
+                if (Environment.GetEnvironmentVariable("FSUSBLOG_TEST_DOCX_IMAGE_FIXTURE") is { Length: > 0 } fixture)
+                    await File.WriteAllBytesAsync(fixture, wordBytes, ct);
+            }
+            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
+            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
+            await ExpectWordFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
+            await ExpectWordFailure(HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
+            await ExpectWordFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
+
             var changed = normalized.ToArray();
             changed[^1] ^= 1;
             File.Move(leaf, held);
@@ -371,6 +409,7 @@ public sealed partial class PrivateMediaPostgresTests
                 using var corrupt = await ExportHtml(detached.Revision, saved.Revision, owner, asset);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corrupt.StatusCode);
                 await ExpectEpubFailure(HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
+                await ExpectWordFailure(HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
             }
             finally
             {
@@ -439,6 +478,14 @@ public sealed partial class PrivateMediaPostgresTests
                 using var unavailable = await Export("epub", expected, selected, actor, image, handle);
                 Assert.Equal(status, unavailable.StatusCode);
                 Assert.NotEqual("application/epub+zip", unavailable.Content.Headers.ContentType?.MediaType);
+            }
+
+            async Task ExpectWordFailure(HttpStatusCode status, long expected, long selected, SessionFixture actor, Guid image,
+                string? handle = null)
+            {
+                using var unavailable = await Export("docx", expected, selected, actor, image, handle);
+                Assert.Equal(status, unavailable.StatusCode);
+                Assert.NotEqual(wordType, unavailable.Content.Headers.ContentType?.MediaType);
             }
 
             static XDocument ReadPart(ZipArchive archive, string path)
