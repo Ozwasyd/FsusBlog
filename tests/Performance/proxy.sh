@@ -7,6 +7,20 @@ with socket.socket() as listener:
     print(listener.getsockname()[1])'
 }
 
+verify_proxy_identity() {
+  node --input-type=module - "$1" "$2" <<'JS'
+import { readFileSync } from 'node:fs';
+import { X509Certificate } from 'node:crypto';
+
+const [certificate, origin] = process.argv.slice(2);
+const host = new URL(origin).hostname.replace(/^\[|\]$/g, '');
+if (!new X509Certificate(readFileSync(certificate)).checkIP(host)) {
+  console.error('Generated TLS leaf does not cover the expected proxy IP.');
+  process.exitCode = 1;
+}
+JS
+}
+
 start_proxy() {
   local port=${target##*:} ready config=${1:-$run/source/deploy/Caddyfile}
   proxy_ca="$run/ca.pem"
@@ -44,6 +58,7 @@ EOF
     openssl x509 -req -in "$run/leaf.csr" -CA "$proxy_ca" -CAkey "$run/ca.key" -CAcreateserial \
       -days 1 -sha256 -extfile "$run/cert.cnf" -extensions leaf -out "$FSUSBLOG_TLS_CERTIFICATE"
     openssl verify -CAfile "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE"
+    verify_proxy_identity "$FSUSBLOG_TLS_CERTIFICATE" "$target" || return 1
     openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -subject -issuer -fingerprint -sha256
   } > "$evidence/proxy-certificate.log" 2>&1
   curl_flags+=(--cacert "$proxy_ca")
