@@ -7,6 +7,8 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { publicationProofPath } from '../../src/Contracts/article-publication-proof.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { verifyPublicationHead } from '../../tools/verify-publication-head.mjs'
+import { verifyPublicationProof } from '../../tools/verify-publication-proof.mjs'
 
 const { chromium, expect, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
@@ -34,6 +36,8 @@ const expectedHttp = []
 const absentReceipts = new Set()
 const checks = {}
 const keysPath = '/integrity/v2/keys.json'
+const headPath = '/integrity/v2/log/head.json'
+const checkHead = process.env.FSUSBLOG_TEST_PUBLICATION_HEAD === '1'
 page.on('request', request => {
   const path = new URL(request.url()).pathname
   if (path.startsWith('/integrity/v2/')) calls.push(path)
@@ -55,6 +59,12 @@ page.on('console', message => {
 
 let failure
 try {
+  if (checkHead) {
+    const response = await publicIntegrity(headPath)
+    assert.equal(response.status, 404)
+    await response.arrayBuffer()
+    checks.anonymousEmptyHeadUnavailable = true
+  }
   await post(WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
   const title = 'Original Évidence 🐈'
   const draft = await command(WireRoutes.Save, 0, 0n, title, 'Cafe\u0301\r\n\nProof browser fixture.\n')
@@ -137,6 +147,7 @@ try {
   await expect(receipt).toHaveCount(0)
   checks.mobileExpiryAndVisibilityCleared = true
 
+  const publicHead = checkHead ? await verifyOpaqueHead(nextProof) : null
   await command(WireRoutes.Retract, updated.id, updated.revision)
   absentReceipts.add(nextProof)
   await verify.click()
@@ -144,6 +155,15 @@ try {
   await expect(receipt).toHaveCount(0)
   assert.equal((await author.get(nextProof)).status(), 404)
   checks.withdrawnPublicationReceiptDenied = true
+  if (publicHead) {
+    const withdrawn = await publicIntegrity(nextProof)
+    assert.equal(withdrawn.status, 404)
+    await withdrawn.arrayBuffer()
+    const retained = await publicJsonBytes(headPath)
+    assert.deepEqual(retained, publicHead)
+    await writeFile(join(evidence, 'publication-head-after-withdrawal.json'), retained)
+    checks.anonymousWithdrawnProofDeniedAndOpaqueHeadRetained = true
+  }
   assert.deepEqual(faults, [])
 } catch (error) {
   failure = error
@@ -189,4 +209,40 @@ async function verifies(path) {
   await verify.click()
   await expect(status).toContainText('Publication signature verified at')
   await expect(receipt).toHaveAttribute('href', path)
+}
+
+async function publicIntegrity(path) {
+  // The runner supplies the fixture CA to Node. These requests have no author cookie jar.
+  const response = await fetch(new URL(path, origin), {
+    credentials: 'omit', redirect: 'error', cache: 'no-store',
+    headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5_000),
+  })
+  assert.equal(response.headers.get('cache-control'), 'no-store')
+  assert.equal(response.headers.get('set-cookie'), null)
+  return response
+}
+
+async function publicJsonBytes(path) {
+  const response = await publicIntegrity(path)
+  assert.equal(response.status, 200, path)
+  assert.match(response.headers.get('content-type') ?? '', /^application\/json(?:;|$)/)
+  return Buffer.from(await response.arrayBuffer())
+}
+
+async function verifyOpaqueHead(proofPath) {
+  const registry = await publicJsonBytes(keysPath)
+  const proofBytes = await publicJsonBytes(proofPath)
+  const manifest = JSON.parse(registry)
+  const proof = JSON.parse(proofBytes)
+  verifyPublicationProof(proof, manifest, origin)
+  const headBytes = await publicJsonBytes(headPath)
+  const head = JSON.parse(headBytes)
+  const anchor = verifyPublicationHead(head, manifest, origin)
+  assert.equal(anchor.sequence, '2')
+  assert.notEqual(head.signature, proof.signature)
+  await writeFile(join(evidence, 'publication-key-registry.json'), registry)
+  await writeFile(join(evidence, 'publication-rights-before-withdrawal.json'), proofBytes)
+  await writeFile(join(evidence, 'publication-head-before-withdrawal.json'), headBytes)
+  checks.anonymousSignedOpaqueHeadVerified = anchor
+  return headBytes
 }

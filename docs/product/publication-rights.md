@@ -51,3 +51,5 @@
 公开日志头只含站点来源、当前累计序号、摘要、证明时间、公钥坐标及该头本身的签名。公开后可观察到累计签发量和签发节奏。文章撤回或删除后，已有的聚合承诺仍保留，响应字段局限于该日志头。默认关闭，启用后日志为空时返回 404，无法验证已提交日志头或已经失去租约时返回 503。关闭公开投影时继续签发会使后续日志没有对应的公开签名，重新启用也不会替这些历史头补签。
 
 `node tools/verify-publication-head.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON` 使用当前可信的公钥目录独立比对 JSON 签名，并输出可另外保留的序号和摘要。单个签名只验证该次聚合承诺。可通过私有的 `publication-transparency verify` 核验两个锚点间的日志关系。Merkle 检查点、公开成员证明、历史责任清单和独立时间见证仍待交付。 [独立验证器](../../tools/verify-publication-head.mjs)
+
+`FSUSBLOG_TEST_PUBLICATION_HEAD=1 tests/EndToEnd/run-admin-tls.sh` 在独立 PostgreSQL 库启用空日志，通过真实 Caddy HTTPS 和匿名 Node 请求验签。它检查撤回前公开日志头与单篇证明都可核验，撤回后单篇地址返回 404 且聚合日志头字节保持一致。 [HTTPS 验收脚本](../../tests/EndToEnd/publication-proof-flow.mjs)

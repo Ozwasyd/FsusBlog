@@ -388,6 +388,10 @@ else
   permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE" revoke audit.read
 fi
 
+if [[ ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then
+  "$dotnet" "$migrate" publication-transparency enable >> "$evidence/schema.log"
+  export FSUSBLOG_TEST_PUBLICATION_PROOF=1 IntegrityProof__Signing__NativeV2PublicHeadAnchor=genesis
+fi
 if [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
   mkdir -m 700 "$scratch/publication-proof"
   proof_key=$(cd -- "$scratch/publication-proof" && pwd -P)/fixture.pkcs8
