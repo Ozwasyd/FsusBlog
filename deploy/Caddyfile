@@ -28,5 +28,9 @@
 	tls {$FSUSBLOG_TLS_CERTIFICATE} {$FSUSBLOG_TLS_KEY}
 	@private_preview path /api/v2/media/draft-preview /api/v2/media/draft-preview/*
 	log_skip @private_preview
+	@public_media path /public-media /public-media/*
+	route @public_media {
+		header >Cache-Control "no-store"
+	}
 	import fsusblog_upstream
 }

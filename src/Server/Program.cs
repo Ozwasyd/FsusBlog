@@ -95,7 +95,7 @@ if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetti
     builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Content.MediaFiles(mediaRoot, dist));
     builder.Services.AddSingleton<FsusBlog.V2.Server.Content.MediaStore>();
 }
-var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist);
+var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist, trustLoopbackProxy);
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddRateLimiter(options =>
 {

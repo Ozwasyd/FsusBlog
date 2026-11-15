@@ -13,7 +13,7 @@ internal static class PublishedMediaEndpoints
     internal const string PathPrefix = "/public-media";
     private const string FilePolicy = "published-media-file";
 
-    internal static bool Configure(WebApplicationBuilder builder, string webRoot)
+    internal static bool Configure(WebApplicationBuilder builder, string webRoot, bool trustLoopbackProxy)
     {
         var path = builder.Configuration[StorageSetting];
         if (string.IsNullOrEmpty(path)) return false;
@@ -22,6 +22,7 @@ internal static class PublishedMediaEndpoints
         var appearance = builder.Configuration[AppearanceAssets.RootSetting];
         builder.Services.AddSingleton(services => new PublishedMediaStore(services.GetRequiredService<MediaFiles>(),
             path, webRoot, string.IsNullOrEmpty(appearance) ? [] : [appearance]));
+        if (trustLoopbackProxy) builder.Services.AddSingleton<PublishedMediaProxy>();
         return true;
     }
 
@@ -69,15 +70,18 @@ internal static class PublishedMediaEndpoints
             return Results.Bytes(frame, Aeds.ContentType);
         }).RequireRateLimiting("query");
 
+        var proxy = app.Services.GetService<PublishedMediaProxy>();
         app.MapMethods(WireRoutes.PublicArticleMediaFile, [HttpMethods.Get, HttpMethods.Head],
             (HttpContext ctx, int id, long publication, string digest, CancellationToken ct) =>
-                ReadImage(ctx, id, publication, digest, publications, media, app.Logger, ct))
+                ReadImage(ctx, id, publication, digest, publications, media, proxy, app.Logger, ct))
             .RequireRateLimiting(FilePolicy);
     }
 
     private static async Task ReadImage(HttpContext ctx, int id, long publication, string digest,
-        Publications publications, PublishedMediaStore media, ILogger log, CancellationToken ct)
+        Publications publications, PublishedMediaStore media, PublishedMediaProxy? proxy, ILogger log, CancellationToken ct)
     {
+        // Proxy mode reaches this handler only after validating the peer and forwarded client address.
+        if (proxy is not null && !proxy.Admit(ctx)) return;
         if (!PublishedArticleImage.ValidDigest(digest) || id <= 0 || publication <= 0 ||
             !string.Equals(ctx.Request.Path.Value, PublishedMediaProjection.ImagePath(id, publication, digest), StringComparison.Ordinal) ||
             ctx.Request.QueryString.HasValue)
@@ -127,6 +131,13 @@ internal static class PublishedMediaEndpoints
             ctx.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
-        await PublicResponse.Write(ctx, bytes, MediaImage.ContentType((MediaFormat)image.Format));
+        var contentType = MediaImage.ContentType((MediaFormat)image.Format);
+        if (proxy is null)
+        {
+            await PublicResponse.Write(ctx, bytes, contentType);
+            return;
+        }
+        await PublishedMediaProxy.WriteImage(ctx, bytes, contentType,
+            () => publications.Snapshot?.PublishedImages(id, publication)?.Contains(image) is true);
     }
 }
