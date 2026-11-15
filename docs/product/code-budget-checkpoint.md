@@ -106,6 +106,7 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 | 开发 `bbbde62` | 1,107 | 114,327 | 4,854 | 86,042 | 3,969 | 209,192 | −646 |
 | 开发 `a4b5cfd` | 1,107 | 113,685 | 4,785 | 85,959 | 3,972 | 208,401 | 145 |
 | 开发 `bf80cb6` | 1,111 | 114,116 | 4,785 | 85,959 | 3,972 | 208,832 | −286 |
+| 开发 `7f9841b` | 1,115 | 114,833 | 4,787 | 86,010 | 3,972 | 209,602 | −1,056 |
 
 `e3d58b9` 的生成代码为 6,651 行，已计入生产。历史证据单列 5,259 行。共用集成夹具净减 236 行，受影响的 114 个用例全部通过。 [规范化计量](../../artifacts/targeted-delivery-99abb41/code-volume.json) · [用例覆盖](../../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json)
 
@@ -122,5 +123,7 @@ v1 源文件为 94,039,132 字节、词元近似 18,059,223。v2 检查点为 1,
 `bbbde62` 纳入旧库责任链和证明源表、管理员评论修订、正文查找、两类多图导出及插件授权撤回。管理员浏览器夹具共用本次净减 37 行，生成代码共 6,657 行，计入生产。全仓仍超过原上限 646 行。 [规范化计量](../../artifacts/goal-original-9ebbbeb/code-volume.json)
 
 `a4b5cfd` 复用协议编解码生命周期、同名帧声明、评论提交、管理员目录签名和签名发布测试夹具，并纳入文档导出回执。全仓净减 791 行。生成代码共 6,039 行，计入生产。`bf80cb6` 加入透明日志和属性定义迁移后仍超过原上限 286 行。 [中间计量](../../artifacts/goal-followup-76bb581/code-volume-a4b5cfd.json) · [最新计量](../../artifacts/goal-followup-76bb581/code-volume-bf80cb6.json)
+
+`7f9841b` 纳入旧权利证明、历史公开验签、管理员审核时间线、PDF 多图和失效稿件清理。Inbox 夹具、CLI 分派及 SQLite 暂存的局部复用分别净减 124、74 和 102 行。与固定 v1 基线相比，当前累计减量约 89.95%，仍需按全功能范围复算。 [规范化计量](../../artifacts/goal-closure-a7fd1df/code-volume-7f9841b.json)
 
 生产代码的生成部分分别为 5,884、5,962、6,116、6,494、6,525、6,619、6,631、6,643、6,651、6,651 和 6,651 行，已经计入合计。每个检查点各有 5,259 行历史证据单列。章节标题索引编译固定 FsusUI 源码，适配、打包和回归代码纳入 v2 合计。最终减量在全功能交付范围重新核对。 [冻结候选计量](../../artifacts/author-query-properties-b709592/frozen-code-volume.json) · [章节标题提交计量](../../artifacts/author-query-properties-b709592/base-code-volume.json) · [属性分面与查询修复提交计量](../../artifacts/author-query-properties-b709592/keyed-code-volume.json) · [正文编辑和 Markdown 导入提交计量](../../artifacts/authoring-edits-import-8794a67/code-volume-6c4da5e.json) · [版本化导出提交计量](../../artifacts/code-volume-2ec1b97/result.json) · [属性批写、Passkey 重命名和旧图像准备提交计量](../../artifacts/code-volume-a649068/result.json) · [属性快照、第二设备及私有媒体启用提交计量](../../artifacts/code-volume-d937398/result.json) · [Passkey 移除、属性焦点和批次迁移计量](../../artifacts/delivery-integration-09e4b27/code-volume-6a53e4d.json) · [同字段任一匹配、恢复移除及 EPUB 附图计量](../../artifacts/targeted-delivery-82d0180/code-volume-4556f8e.json) · [旧首发迁移、插件授权、后台标签及 DOCX 附图计量](../../artifacts/targeted-delivery-967805c/code-volume-268e8c6.json) · [再发布迁移、作者搜索及 Passkey 计量](../../artifacts/delivery-review-72d684d/code-volume-7a1558d.json) · [发布验收边界](../release-readiness.md)

@@ -96,4 +96,13 @@
 - 确认原生 FsusUI 命令面板在输入法组合期间会把 Enter 误当作执行命令。已提交 issue 和公开复现步骤，命令面板接入留在隔离分支。 [FsusUI #1083](https://github.com/Ozwasyd/FsusUI/issues/1083) · [复现说明](https://github.com/Ozwasyd/FsusUI/issues/1083#issuecomment-6900787751)
 - 锁定 Release、140 项 Core、141 项 Node 协议及 C#、C++、Wasm 验证通过。最终定向 PostgreSQL 14 项通过，含真实 PDF、Caddy、属性和签名日志。构建仍使用本地 FsusUI，三份 Wasm 字节一致。同口径代码量为 208,832 NCLOC，超过原上限 286 行。封存候选及容量结果继续沿用，四轮短档仅一轮通过，900 秒正式长测待执行。 [合并证据](../artifacts/goal-followup-76bb581/) · [计量](../artifacts/goal-followup-76bb581/code-volume-bf80cb6.json)
 
+## 开发提交 `7f9841b`
+
+- v5 从恢复的 V1 PostgreSQL 核验并保全第三次回滚发布的一条 READY 权利证明、父发布证明和四叶检查点。独立运行库再次备份恢复后，4 条原事件、31 条终态投递和证明原件一致。错误签名或投递摘要在暂存前被拒绝，原隔离候选仍不能启动。 [实库演练](../artifacts/goal-closure-a7fd1df/rights-migration/legacy-runtime.O0iUDwTF/run.txt)
+- 公开历史接口提供三条 V1 发布证明和混合透明链。独立 OpenSSL 校验签名、检查点和四条日志记录，篡改、密钥封禁或撤回文章后返回 404，重启前后响应一致。第一次回放缺少信任配置，补齐后仅重跑该场景。旧权利证明公开验签、多条权利证明、跨文章长链和生产切换仍待完成。 [接口复验](../artifacts/goal-closure-a7fd1df/historical-archive/http-replay.XGnAlx4t/run.txt) · [首次记录](../artifacts/goal-closure-a7fd1df/historical-archive/http-replay.IC5Y1oC2/first-server.log)
+- 即时与排队 PDF 能按序嵌入同一保存修订的 1 至 4 张授权图片。同平台两种产物逐字节一致。macOS、Debian ARM64 和桌面、375px Chrome 均有实测。Debian 首次运行因归档丢失 Fontconfig 目录时间戳的纳秒精度而失败，改用保留原精度的归档后通过，归档摘要为 `8fad25dce7829b4bdf079d5092db64d921d728d4ef1b0d14195bb7feefbbd841`。切换工具前需处理旧 PDF 队列。 [Chrome](../artifacts/goal-closure-a7fd1df/lanes/pdf-images-chrome.json) · [Debian 独立证据](../artifacts/goal-closure-a7fd1df/debian-pdf-worker/proof.sha256) · [首次日志](../artifacts/goal-closure-a7fd1df/debian-pdf-worker/first-runtime-failure.log)
+- 管理员审核时间线覆盖提交、审核、编辑、删除和申诉。实库核对授权、撤权、文章范围与同一时间戳的版本顺序。「最近关闭」在服务器确认稿件删除后移除条目，Chrome 核对当前稿件、路由及焦点。 [实库](../artifacts/goal-closure-a7fd1df/native/combined-native.log) · [浏览器](../artifacts/goal-closure-a7fd1df/lanes/workspace-split.json)
+- 锁定 Release、严格 Vue、Vite、三份本地 FsusUI Wasm 字节对照、140 项 Core、141 项 Node 协议、C#、C++、Wasm 向量、3,847 项差分和合并版 9 项定向 PostgreSQL 测试通过。共用 CLI、SQLite 暂存和 Inbox 夹具一共减少 300 行。新增功能纳入后合计 209,602 NCLOC，超过固定上限 1,056 行。 [合并检查](../artifacts/goal-closure-a7fd1df/) · [计量](../artifacts/goal-closure-a7fd1df/code-volume-7f9841b.json)
+- 正式容量沿用封存候选 `f303f5c` 的四轮短档结果，仅一轮通过，900 秒独占长测尚未运行。C11 两项固定公开搜索仍未通过。 [容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收) · [固定查询用例](issues/risk-scale-query-cases.md)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
