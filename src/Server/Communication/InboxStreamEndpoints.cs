@@ -25,7 +25,8 @@ internal static class InboxStreamEndpoints
         }).RequireRateLimiting("inbox-stream");
     }
 
-    internal static async Task Open(HttpContext ctx, InboxWake wake, InstanceLease lease, Func<CancellationToken, Task<long>> readPosition)
+    internal static async Task Open<T>(HttpContext ctx, InboxWake wake, InstanceLease lease,
+        Func<CancellationToken, Task<T>> readPosition) where T : IEquatable<T>
     {
         VerifyHandshake(ctx);
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, lease.Stopped);
@@ -43,7 +44,7 @@ internal static class InboxStreamEndpoints
                 catch (TimeoutException) { }
                 pulse = wake.Changed;
                 var next = await Position();
-                if (next != position)
+                if (!next.Equals(position))
                 {
                     lease.RequireCurrent();
                     using var send = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
@@ -77,7 +78,7 @@ internal static class InboxStreamEndpoints
             await receive;
         }
 
-        async Task<long> Position()
+        async Task<T> Position()
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             deadline.CancelAfter(TimeSpan.FromSeconds(2));

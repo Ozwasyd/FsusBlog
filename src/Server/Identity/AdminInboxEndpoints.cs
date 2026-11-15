@@ -51,6 +51,7 @@ internal static class AdminInboxEndpoints
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
             if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
+            if (live && filter == -1 && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
@@ -67,12 +68,20 @@ internal static class AdminInboxEndpoints
         }).RequireRateLimiting("command");
 
         if (live)
+        {
+            app.MapMethods(WireRoutes.AdminInboxQueueWake, [HttpMethods.Get, HttpMethods.Connect],
+                (HttpContext ctx, InboxWake wake, InstanceLease lease) =>
+                {
+                    var token = ctx.Request.Cookies[session];
+                    return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxCreationPosition(token, ct));
+                }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
             app.MapMethods(WireRoutes.AdminInboxWake, [HttpMethods.Get, HttpMethods.Connect],
                 (long id, HttpContext ctx, InboxWake wake, InstanceLease lease) =>
                 {
                     var token = ctx.Request.Cookies[session];
                     return InboxStreamEndpoints.Open(ctx, wake, lease, ct => store.InboxAccountReplyPosition(token, id, ct));
                 }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
+        }
 
         if (replies)
         {

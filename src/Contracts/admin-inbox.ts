@@ -13,7 +13,7 @@ export type AdminInboxRow = { id: bigint; account: string; subject: string; stat
   unread: number | null };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
 export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean; sharedAvailable: boolean;
-  activityAvailable: boolean };
+  activityAvailable: boolean; liveEnabled: boolean };
 export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
   liveEnabled: boolean; version: string | null; readSnapshot: { token: string; through: bigint } | null };
 
@@ -35,9 +35,12 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
     const flag = headers.get(WireHeaders.AdminInboxNoticeEnabled);
     const capability = headers.get(WireHeaders.AdminInboxSharedRead);
     const activity = headers.get(WireHeaders.AdminInboxActivityOrder);
+    const live = headers.get(WireHeaders.AdminInboxLive);
     if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1' ||
-        activity !== null && activity !== '1' || order === 'activity' && activity !== '1') throw invalid();
-    return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1', activityAvailable: activity === '1' };
+        activity !== null && activity !== '1' || order === 'activity' && activity !== '1' ||
+        live !== null && (live !== '1' || filter !== '' || next !== null || order !== 'created')) throw invalid();
+    return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1',
+      activityAvailable: activity === '1', liveEnabled: live === '1' };
   }, signal);
 }
 
@@ -69,8 +72,8 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
   }, signal);
 }
 
-export function watchAdminInboxWake(id: bigint, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
-  const path = WireRoutes.AdminInboxWake.replace('{id:long}', String(id));
+export function watchAdminInboxWake(id: bigint | null, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
+  const path = id === null ? WireRoutes.AdminInboxQueueWake : WireRoutes.AdminInboxWake.replace('{id:long}', String(id));
   watchInboxWake(signal, refresh, connected => { if (connected) refresh(); }, onRevoked, path);
 }
 

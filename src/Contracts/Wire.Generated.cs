@@ -653,6 +653,7 @@ public static class WireRoutes
     public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
+    public const string AdminInboxQueueWake = "/api/v2/admin/identity/inbox/wake";
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";
     public const string AdminInboxWake = "/api/v2/admin/identity/inbox/{id:long}/wake";
     public const string AdminInboxReplyPow = "/api/v2/admin/identity/inbox/{id:long}/reply-pow.aeds";

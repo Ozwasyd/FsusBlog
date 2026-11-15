@@ -648,6 +648,7 @@ export const WireRoutes = {
   AdminTagMetadataPow: "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds",
   AdminCommentQueue: "/api/v2/admin/identity/comments/queue.aeds",
   AdminInboxQueue: "/api/v2/admin/identity/inbox.aeds",
+  AdminInboxQueueWake: "/api/v2/admin/identity/inbox/wake",
   AdminInboxThread: "/api/v2/admin/identity/inbox/{id:long}.aeds",
   AdminInboxWake: "/api/v2/admin/identity/inbox/{id:long}/wake",
   AdminInboxReplyPow: "/api/v2/admin/identity/inbox/{id:long}/reply-pow.aeds",

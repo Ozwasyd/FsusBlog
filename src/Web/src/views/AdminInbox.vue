@@ -4,7 +4,7 @@ import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
 import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, watchAdminInboxWake, type AdminInboxFilter,
-  type AdminInboxOrder, type AdminInboxRow,
+  type AdminInboxOrder, type AdminInboxPage, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -18,6 +18,7 @@ const expanded = ref(false)
 const pending = ref(false)
 const failed = ref('')
 const title = ref<HTMLElement>()
+const queue = ref<HTMLElement>()
 const reply = ref('')
 const notice = ref('')
 const destination = ref<AdminInboxStatus>()
@@ -25,6 +26,7 @@ const reason = ref('')
 const needsRefresh = ref(false)
 const sharedRead = ref(false)
 const activityAvailable = ref(false)
+const queueLive = ref(false)
 const unreadAckFailed = ref(false)
 const noticesEnabled = ref(false)
 const composeNotice = ref(false)
@@ -55,6 +57,7 @@ function reset() {
   noticesEnabled.value = false
   sharedRead.value = false
   activityAvailable.value = false
+  queueLive.value = false
   unreadAckFailed.value = false
 }
 
@@ -85,12 +88,17 @@ function loadQueue(cursor: string | null = null) {
     if (!cursor && !sharedRead.value && page.sharedAvailable)
       page = await adminInbox(filter.value, null, signal, true, order.value)
     if (signal.aborted) return
-    rows.value = cursor ? [...rows.value, ...page.rows] : page.rows
-    next.value = page.next
-    noticesEnabled.value = page.noticesEnabled
-    sharedRead.value = page.sharedAvailable
-    activityAvailable.value = page.activityAvailable
+    applyQueuePage(page, cursor !== null)
   })
+}
+
+function applyQueuePage(page: AdminInboxPage, append = false) {
+  rows.value = append ? [...rows.value, ...page.rows] : page.rows
+  next.value = page.next
+  noticesEnabled.value = page.noticesEnabled
+  sharedRead.value = page.sharedAvailable
+  activityAvailable.value = page.activityAvailable
+  queueLive.value = !append && page.liveEnabled
 }
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
@@ -168,11 +176,7 @@ function sendNotice() {
     clearNotice()
     notice.value = 'System notice sent to the account.'
     const page = await adminInbox(filter.value, null, signal, sharedRead.value, order.value)
-    if (!signal.aborted) {
-      rows.value = page.rows
-      next.value = page.next
-      noticesEnabled.value = page.noticesEnabled
-    }
+    if (!signal.aborted) applyQueuePage(page)
   }, 'Could not complete the system notice request. Retry the same form to keep its source event.')
 }
 
@@ -260,6 +264,12 @@ function toggle() {
   if (expanded.value) loadQueue()
 }
 
+function liveScope(): bigint | null | undefined {
+  const current = thread.value
+  if (current) return current.liveEnabled ? current.conversation.id : undefined
+  return expanded.value && queueLive.value && filter.value === '' && order.value === 'created' ? null : undefined
+}
+
 watch([filter, order], () => {
   if (!expanded.value) return
   const shared = sharedRead.value
@@ -270,9 +280,9 @@ watch([filter, order], () => {
   loadQueue()
 })
 watch(() => props.sessionSignal, () => { expanded.value = false; filter.value = ''; order.value = 'created'; reset() }, { flush: 'sync' })
-watch(() => thread.value?.liveEnabled ? thread.value.conversation.id : undefined, (id, _, onCleanup) => {
-  if (id === undefined) return
-  const conversationId = id
+watch(liveScope, (value, _, onCleanup) => {
+  if (value === undefined) return
+  const target = value
   const scope = new AbortController()
   const signal = AbortSignal.any([props.sessionSignal, operation.signal, scope.signal])
   let dirty = false
@@ -281,15 +291,31 @@ watch(() => thread.value?.liveEnabled ? thread.value.conversation.id : undefined
   let delay = 1_000
 
   async function refresh() {
-    if (signal.aborted || !dirty || refreshing || pending.value || retry !== undefined) return
+    if (signal.aborted || liveScope() !== target || !dirty || refreshing || pending.value || retry !== undefined) return
     dirty = false
     refreshing = true
-    const previous = thread.value
     try {
-      const snapshot = await adminInboxThread(conversationId, null, signal, sharedRead.value)
-      if (signal.aborted || thread.value?.conversation.id !== conversationId) return
-      if (pending.value || previous !== thread.value) dirty = true
-      else applyLatestThread(snapshot, unreadAckFailed.value)
+      if (target === null) {
+        const previous = rows.value
+        const page = await adminInbox('', null, signal, sharedRead.value)
+        if (signal.aborted || liveScope() !== target) return
+        if (pending.value || previous !== rows.value) dirty = true
+        else {
+          const focus = document.activeElement
+          applyQueuePage(page)
+          if (focus && queue.value?.contains(focus)) {
+            void nextTick(() => {
+              if (!signal.aborted && !focus.isConnected && document.activeElement === document.body) queue.value?.focus()
+            })
+          }
+        }
+      } else {
+        const previous = thread.value
+        const snapshot = await adminInboxThread(target, null, signal, sharedRead.value)
+        if (signal.aborted || liveScope() !== target) return
+        if (pending.value || previous !== thread.value) dirty = true
+        else applyLatestThread(snapshot, unreadAckFailed.value)
+      }
       delay = 1_000
     } catch (error) {
       if (signal.aborted) return
@@ -313,7 +339,7 @@ watch(() => thread.value?.liveEnabled ? thread.value.conversation.id : undefined
     clearTimeout(retry)
     resume()
   })
-  watchAdminInboxWake(conversationId, signal, wake, () => emit('sessionLost', new ApiError('Administrator session expired.', 401)))
+  watchAdminInboxWake(target, signal, wake, () => emit('sessionLost', new ApiError('Administrator session expired.', 401)))
 })
 onBeforeUnmount(() => operation.abort())
 </script>
@@ -324,7 +350,7 @@ onBeforeUnmount(() => operation.abort())
     <ElButton native-type="button" @click="toggle">{{ expanded ? 'Close support inbox' : 'Open support inbox' }}</ElButton>
     <template v-if="expanded">
       <ElAlert v-if="failed" :title="failed" type="error" :closable="false" />
-      <div v-show="!thread" class="inbox-admin-queue" :aria-busy="pending">
+      <div v-show="!thread" ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="pending">
         <ElSelect v-model="filter" ariaLabel="Filter support inbox" :disabled="pending">
           <ElOption label="All conversations" value="" />
           <ElOption label="Open" value="open" />

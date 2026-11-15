@@ -16,30 +16,22 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   await probe(queue, adminCookieName, siteCookie.value, 401)
 
   const live = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
+  const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
   const sockets = []
   const onSocket = socket => {
-    if (wakePathPattern.test(new URL(socket.url()).pathname)) sockets.push(socket)
+    const path = new URL(socket.url()).pathname
+    if (path === WireRoutes.AdminInboxQueueWake || wakePathPattern.test(path)) sockets.push(socket)
   }
   page.on('websocket', onSocket)
-  if (live) await page.evaluate(pattern => {
-    const NativeSocket = window.WebSocket
-    const pathPattern = new RegExp(pattern)
-    window.fsusTestAdminInboxSocket = null
-    window.fsusTestRestoreAdminInboxSocket = () => {
-      window.WebSocket = NativeSocket
-      delete window.fsusTestAdminInboxSocket
-      delete window.fsusTestRestoreAdminInboxSocket
-    }
-    window.WebSocket = class extends NativeSocket {
-      constructor(url, protocols) {
-        super(url, protocols)
-        if (pathPattern.test(new URL(this.url).pathname)) window.fsusTestAdminInboxSocket = this
-      }
-    }
-  }, wakePathPattern.source)
+  if (live) await captureInboxSocket(page, wakePathPattern.source)
 
   const panel = page.getByRole('region', { name: 'Support inbox' })
-  await panel.getByRole('button', { name: 'Open support inbox' }).click()
+  const [defaultPage] = await Promise.all([
+    page.waitForResponse(response => isDefaultQueueResponse(response, queue, shared)),
+    panel.getByRole('button', { name: 'Open support inbox' }).click(),
+  ])
+  assert.equal(defaultPage.status(), 200)
+  assert.equal(await defaultPage.headerValue(WireHeaders.AdminInboxLive), live ? '1' : null)
   const subject = panel.getByRole('button', { name: 'Inbox QA support case' })
   const closed = panel.getByRole('button', { name: 'Inbox QA closed case' })
   await subject.waitFor()
@@ -55,9 +47,9 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     const sorted = await activityPage
     assert.equal(sorted.status(), 200)
     assert.equal(await sorted.headerValue(WireHeaders.AdminInboxActivityOrder), '1')
+    assert.equal(await sorted.headerValue(WireHeaders.AdminInboxLive), null)
     await first.filter({ hasText: 'Inbox QA support case' }).waitFor()
   } else assert.equal(await order.count(), 0)
-  const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
   const visibleRow = subject.locator('..')
   if (shared) await visibleRow.getByText('1 unread by support', { exact: true }).waitFor()
   else assert.equal(await visibleRow.getByText(/unread by support/).count(), 0)
@@ -98,7 +90,12 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   }
   const filter = panel.getByRole('combobox', { name: 'Filter support inbox' })
   await filter.click()
-  await page.getByRole('option', { name: 'Open', exact: true }).click()
+  const [filtered] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).searchParams.get('status') === 'open'),
+    page.getByRole('option', { name: 'Open', exact: true }).click(),
+  ])
+  assert.equal(filtered.status(), 200)
+  assert.equal(await filtered.headerValue(WireHeaders.AdminInboxLive), null)
   await closed.waitFor({ state: 'hidden' })
   const response = page.waitForResponse(reply => reply.url().startsWith(adminOrigin + '/api/v2/admin/identity/inbox/') &&
     reply.request().method() === 'GET')
@@ -241,7 +238,12 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   }
   await panel.getByRole('button', { name: 'Close support inbox' }).click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
-  if (!live) assert.equal(sockets.length, 0)
+  if (live) {
+    await verifyDefaultQueueUpdates(page, panel, context, adminOrigin, siteOrigin, subject, shared, sockets, evidence)
+  } else {
+    assert.equal(sockets.length, 0)
+    assert.equal((await context.request.get(adminOrigin + WireRoutes.AdminInboxQueueWake)).status(), 404)
+  }
   page.off('websocket', onSocket)
 }
 
@@ -312,6 +314,103 @@ function upgradeStatus(endpoint, origin, cookie) {
   })
 }
 
+function captureInboxSocket(page, pattern) {
+  return page.evaluate(source => {
+    const NativeSocket = window.WebSocket
+    const pathPattern = new RegExp(source)
+    window.fsusTestAdminInboxSocket = null
+    window.fsusTestRestoreAdminInboxSocket = () => {
+      window.WebSocket = NativeSocket
+      delete window.fsusTestAdminInboxSocket
+      delete window.fsusTestRestoreAdminInboxSocket
+    }
+    window.WebSocket = class extends NativeSocket {
+      constructor(url, protocols) {
+        super(url, protocols)
+        if (pathPattern.test(new URL(this.url).pathname)) window.fsusTestAdminInboxSocket = this
+      }
+    }
+  }, pattern)
+}
+
+function waitForInboxSocket(page, url) {
+  return page.waitForFunction(({ url, protocol }) => {
+    const socket = window.fsusTestAdminInboxSocket
+    return socket?.url === url && socket.readyState === WebSocket.OPEN && socket.protocol === protocol
+  }, { url, protocol: wakeProtocol }, { timeout: 30_000 })
+}
+
+function isDefaultQueueResponse(response, queue, shared) {
+  const url = new URL(response.url())
+  return response.request().method() === 'GET' && url.origin + url.pathname === queue &&
+    !url.searchParams.has('status') && !url.searchParams.has('order') && !url.searchParams.has('cursor') &&
+    url.searchParams.get('shared') === (shared ? '1' : null)
+}
+
+async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, siteOrigin, existing, shared, sockets, evidence) {
+  const queue = adminOrigin + WireRoutes.AdminInboxQueue
+  const wakeUrl = new URL(WireRoutes.AdminInboxQueueWake, adminOrigin)
+  wakeUrl.protocol = 'wss:'
+  const subject = 'Inbox QA ticket created while support queue stays open'
+  const body = 'The account opened this ticket with the normal proof flow.'
+  const reader = await context.newPage()
+  await captureInboxSocket(page, `^${wakeUrl.pathname}$`)
+  try {
+    await reader.goto(`${siteOrigin}/user/messagebox`)
+    await reader.getByRole('button', { name: '提交工单', exact: true }).click()
+    await reader.getByLabel('主题（选填）', { exact: true }).fill(subject)
+    await reader.getByLabel('工单内容', { exact: true }).fill(body)
+
+    await page.bringToFront()
+    await panel.getByRole('button', { name: 'Open support inbox' }).click()
+    await existing.waitFor()
+    await existing.focus()
+    const createdRow = panel.getByRole('button', { name: subject, exact: true })
+    assert.equal(await createdRow.count(), 0)
+    await waitForInboxSocket(page, wakeUrl.href)
+    const socket = sockets.findLast(candidate => candidate.url() === wakeUrl.href)
+    assert(socket)
+    const [{ payload }, refreshed] = await Promise.all([
+      socket.waitForEvent('framereceived', { timeout: 15_000 }),
+      page.waitForResponse(async response => isDefaultQueueResponse(response, queue, shared) && response.ok() &&
+        (await response.body()).includes(Buffer.from(subject)), { timeout: 15_000 }),
+      sendTicket(),
+    ])
+    assert(Buffer.isBuffer(payload))
+    decodeSuccess(decodeFrame(payload, FrameType.EmptySuccess).payload)
+    assert.equal(refreshed.status(), 200)
+    assert.equal(await refreshed.headerValue(WireHeaders.AdminInboxLive), '1')
+    const list = new PodReader(decodeFrame(await refreshed.body(), shared ? FrameType.AdminInboxSharedPage : FrameType.AdminInboxPage).payload)
+    list.text(100)
+    assert(list.i32() >= 3)
+    assert(list.i64() > 0n)
+    list.uuid()
+    assert.equal(list.text(640), subject)
+    await createdRow.waitFor()
+    assert.equal(await createdRow.count(), 1)
+    if (shared) await createdRow.locator('..').getByText('1 unread by support', { exact: true }).waitFor()
+    assert.equal(await existing.evaluate(node => document.activeElement === node), true)
+    await page.screenshot({ path: join(evidence, 'admin-inbox-live-new-ticket.png'), animations: 'disabled' })
+    await panel.getByRole('button', { name: 'Close support inbox' }).click()
+  } finally {
+    await page.evaluate(() => window.fsusTestRestoreAdminInboxSocket())
+    await reader.close()
+  }
+
+  async function sendTicket() {
+    const post = (response, path) => response.url() === siteOrigin + path && response.request().method() === 'POST'
+    const [challenge, created] = await Promise.all([
+      reader.waitForResponse(response => post(response, WireRoutes.InboxCreatePowChallenge)),
+      reader.waitForResponse(response => post(response, WireRoutes.InboxList)),
+      reader.getByRole('button', { name: '发送工单', exact: true }).click(),
+    ])
+    assert.equal(challenge.status(), 200)
+    assert.equal(created.status(), 200)
+    await reader.getByText('工单已提交。', { exact: true }).waitFor()
+    await page.bringToFront()
+  }
+}
+
 async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, siteOrigin, id, detailUrl, sockets, evidence) {
   const wakeUrl = new URL(wakeEndpoint)
   wakeUrl.protocol = 'wss:'
@@ -327,10 +426,10 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
     await page.bringToFront()
     await composer.fill(draft)
     await composer.focus()
-    await waitForSocket()
+    await waitForInboxSocket(page, wakeUrl.href)
 
-    const socket = sockets.at(-1)
-    assert.equal(socket?.url(), wakeUrl.href)
+    const socket = sockets.findLast(candidate => candidate.url() === wakeUrl.href)
+    assert(socket)
     const firstReply = 'Inbox QA account reply while the administrator thread stays open.'
     const [{ payload }, refreshed] = await Promise.all([
       socket.waitForEvent('framereceived', { timeout: 15_000 }),
@@ -356,10 +455,9 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
       assert.equal(await panel.getByText(offlineReply, { exact: true }).count(), 0)
       const [recovered] = await Promise.all([
         waitForDetail(offlineReply, 30_000),
-        network.send('Network.setBlockedURLs', { urls: [] }).then(waitForSocket),
+        network.send('Network.setBlockedURLs', { urls: [] }).then(() => waitForInboxSocket(page, wakeUrl.href)),
       ])
-      assert.notEqual(sockets.at(-1), socket)
-      assert.equal(sockets.at(-1)?.url(), wakeUrl.href)
+      assert.notEqual(sockets.findLast(candidate => candidate.url() === wakeUrl.href), socket)
       assert.equal(recovered.status(), 200)
       await verifyDraftAfter(offlineReply)
       assert.equal(await panel.getByText(firstReply, { exact: true }).count(), 1)
@@ -369,13 +467,6 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
     }
     await page.screenshot({ path: join(evidence, 'admin-inbox-live-account-replies.png'), animations: 'disabled' })
   } finally { await reader.close() }
-
-  function waitForSocket() {
-    return page.waitForFunction(({ url, protocol }) => {
-      const socket = window.fsusTestAdminInboxSocket
-      return socket?.url === url && socket.readyState === WebSocket.OPEN && socket.protocol === protocol
-    }, { url: wakeUrl.href, protocol: wakeProtocol }, { timeout: 30_000 })
-  }
 
   function waitForDetail(message, timeout) {
     return page.waitForResponse(async response => response.request().method() === 'GET' &&

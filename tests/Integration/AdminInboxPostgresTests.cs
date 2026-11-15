@@ -1,16 +1,122 @@
 using System.Net;
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
+using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminInboxPostgresTests
 {
+    [PostgresFact]
+    public async Task CreationPositionDetectsAnOlderCommittedTicketWithoutAChangeToMaximumId()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var principal = Guid.NewGuid();
+        var firstAccount = Guid.NewGuid();
+        var secondAccount = Guid.NewGuid();
+        var adminToken = Secret();
+        var firstToken = Secret();
+        var secondToken = Secret();
+        await Execute("insert into public.admin_principal(id,handle,user_handle,enabled,generation) values($1,'create-observer',$2,true,1)",
+            principal, RandomNumberGenerator.GetBytes(32));
+        await Execute("insert into public.admin_passkey_credential values($1,$2,$3,0,false,false)",
+            RandomNumberGenerator.GetBytes(8), principal, new byte[] { 2 });
+        await Execute("insert into public.admin_permission values($1,$2)", principal, CurrentSchema.AdminManagePermission);
+        await Execute("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(adminToken)!, principal);
+        await Execute("""
+            insert into public.blog_user(id,name,can_author,enabled,generation)
+            values($1,'first ticket account',false,true,1),($2,'second ticket account',false,true,1)
+            """, firstAccount, secondAccount);
+        await Execute("""
+            insert into public.user_session(digest,user_id,generation,expires_at)
+            values($1,$2,1,now()+interval '5 minutes'),($3,$4,1,now()+interval '5 minutes')
+            """, Store.TokenDigest(firstToken)!, firstAccount, Store.TokenDigest(secondToken)!, secondAccount);
+
+        var accountStore = new Store(fixture.DataSource);
+        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        Assert.Empty(await adminStore.InboxCreationPosition(adminToken, ct));
+        var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxCreationPosition(firstToken, ct));
+        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
+
+        var allocated = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending = accountStore.WithSession(firstToken, false, async (connection, tx, actor) =>
+        {
+            long id = await AddTicket(new InboxStore(connection, tx, actor.Id), "allocated-first");
+            allocated.SetResult(id);
+            await release.Task.WaitAsync(ct);
+            return id;
+        }, ct);
+        long lower, higher;
+        try
+        {
+            // A failed account transaction cannot leave the test waiting for its allocation signal.
+            var ready = await Task.WhenAny(allocated.Task, pending).WaitAsync(ct);
+            lower = await ready;
+            higher = await accountStore.WithSession(secondToken, false, (connection, tx, actor) =>
+                AddTicket(new InboxStore(connection, tx, actor.Id), "committed-first"), ct);
+            Assert.True(lower < higher);
+            Assert.Equal(Position([higher]), await adminStore.InboxCreationPosition(adminToken, ct));
+            Assert.Equal(higher, await VisibleMaximum());
+        }
+        finally
+        {
+            release.TrySetResult();
+            await pending;
+        }
+
+        Assert.Equal(Position([higher, lower]), await adminStore.InboxCreationPosition(adminToken, ct));
+        Assert.Equal(higher, await VisibleMaximum());
+
+        // The extra row determines whether a cursor exists. Rows below that boundary cannot change the watch position.
+        var newer = await accountStore.WithSession(secondToken, false, async (connection, tx, actor) =>
+        {
+            var inbox = new InboxStore(connection, tx, actor.Id);
+            List<long> ids = [];
+            for (var i = 0; i < Wire.AdminInboxPageSize; i++)
+                ids.Add(await AddTicket(inbox, $"new-ticket-{i}"));
+            return ids;
+        }, ct);
+        newer.Reverse();
+        var bounded = Position(newer.Append(higher));
+        Assert.Equal(bounded, await adminStore.InboxCreationPosition(adminToken, ct));
+        var page = await adminStore.ReadInbox(adminToken, -1, null, ct);
+        Assert.Equal(newer, page.Rows.Select(row => row.Id));
+        Assert.NotNull(page.Next);
+        await Execute("""
+            insert into public.inbox_conversation(account_id,subject,status,is_system,last_message_at)
+            values($1,'Conversation without messages',0,false,now())
+            """, firstAccount);
+        Assert.Equal(bounded, await adminStore.InboxCreationPosition(adminToken, ct));
+
+        async Task<long> AddTicket(InboxStore inbox, string key) =>
+            (await inbox.CreateAsync(key, "Support case", "Account's initial support message", ct)).Message.ConversationId;
+
+        static string Position(IEnumerable<long> ids) => string.Join(",", ids.Select(id => id.ToString(CultureInfo.InvariantCulture)));
+
+        async Task<long> VisibleMaximum()
+        {
+            await using var query = Store.Sql(db, null, "select max(id) from public.inbox_conversation where last_message_id is not null");
+            return (long)(await query.ExecuteScalarAsync(ct))!;
+        }
+
+        async Task Execute(string sql, params object[] args)
+        {
+            await using var command = Store.Sql(db, null, sql, args);
+            await command.ExecuteNonQueryAsync(ct);
+        }
+    }
+
     [PostgresFact]
     public async Task CurrentIndependentAdministratorCanPageReplyAndUpdateStatusWithPrivateAccountDelivery()
     {

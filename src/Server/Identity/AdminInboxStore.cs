@@ -7,6 +7,20 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
+    internal Task<string> InboxCreationPosition(string? token, CancellationToken ct) =>
+        WithLiveAdmin(token, Permission, async (db, tx, _) =>
+        {
+            // An earlier allocated ID may commit after the current maximum.
+            await using var query = Store.Sql(db, tx, """
+                SELECT coalesce(string_agg(id::text, ',' ORDER BY id DESC), '')
+                FROM (
+                    SELECT id FROM public.inbox_conversation WHERE last_message_id IS NOT NULL
+                    ORDER BY id DESC LIMIT $1
+                ) visible
+                """, Wire.AdminInboxPageSize + 1);
+            return (string)(await query.ExecuteScalarAsync(ct))!;
+        }, ct);
+
     internal Task<long> InboxAccountReplyPosition(string? token, long id, CancellationToken ct) =>
         WithLiveAdmin(token, Permission, async (db, tx, _) =>
         {
