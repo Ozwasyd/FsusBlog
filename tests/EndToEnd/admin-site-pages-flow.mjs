@@ -164,12 +164,14 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
     }
     const tampered = await legacyWrite({ ...edit, markdown: '# Changed intent' }, { headers: collected })
     const badPow = await legacyWrite(edit, { headers: { ...collected, [WireHeaders.PowProof]: 'invalid' } })
-    const published = await legacyWrite(edit, { headers: collected })
-    if (published.status() === 200)
+    const attempts = await Promise.all([legacyWrite(edit, { headers: collected }), legacyWrite(edit, { headers: collected })])
+    const legacyStatuses = attempts.map(response => response.status()).sort((left, right) => left - right)
+    const published = attempts.find(response => response.status() === 200) ?? attempts[0]
+    if (published.status() === 200) {
       assert.deepEqual(Array.from(decodeFrame(await published.body(), FrameType.EmptySuccess).payload), [1, 0, 0, 0])
-    const legacyReplay = await legacyWrite(edit, { headers: collected })
+    }
     const v2Replay = await submit(WireRoutes.AdminSitePagePublish, edit, collected)
-    observed = [tampered.status(), badPow.status(), published.status(), legacyReplay.status(), v2Replay.status()]
+    observed = [tampered.status(), badPow.status(), ...legacyStatuses, v2Replay.status()]
     await route.fulfill({ response: published })
   }
   await page.route(commandPath, intercept)
@@ -215,7 +217,7 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   await writeFile(join(evidence, 'legacy-site-page-result.json'), JSON.stringify({
     legacyFrameType: 36, initialRevision: old.revision.toString(), publishedRevision: revised.revision.toString(),
     wrongSite: 404, wrongOrigin: 403, crossSite: 403, missingTag: 428, weakTag: 400, wrongFrame: 400, missingPasskey: 403,
-    tamperedIntent: observed[0], invalidProofOfWork: observed[1], legacyWrite: observed[2], legacyReplay: observed[3], v2Replay: observed[4],
+    tamperedIntent: observed[0], invalidProofOfWork: observed[1], concurrentLegacyWrites: observed.slice(2, 4), v2Replay: observed[4],
   }, null, 2) + '\n')
   await page.screenshot({ path: join(evidence, 'administrator-site-page-published.png') })
 }
