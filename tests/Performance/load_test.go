@@ -23,6 +23,69 @@ import (
 	"time"
 )
 
+func TestLoadTargetRequiresExplicitPrivateLiteral(t *testing.T) {
+	tests := []struct {
+		name, target, privateTarget, authority, expected string
+	}{
+		{name: "loopback IPv4", target: "http://127.0.0.1:8080", expected: "http://127.0.0.1:8080"},
+		{name: "loopback IPv6", target: "https://[::1]:443", expected: "https://[::1]:443"},
+		{name: "default rejects private", target: "http://192.168.0.2:8080"},
+		{name: "default rejects host names", target: "http://localhost:8080"},
+		{name: "private IPv4", privateTarget: "http://192.168.0.2:8080", expected: "http://192.168.0.2:8080"},
+		{name: "private TLS", privateTarget: "https://10.2.3.4:443", authority: "ca.pem", expected: "https://10.2.3.4:443"},
+		{name: "private IPv6", privateTarget: "http://[fd00::2]:8080", expected: "http://[fd00::2]:8080"},
+		{name: "private TLS requires CA", privateTarget: "https://10.2.3.4:443"},
+		{name: "private rejects loopback", privateTarget: "http://127.0.0.1:8080"},
+		{name: "private rejects public", privateTarget: "http://203.0.113.2:8080"},
+		{name: "private rejects link-local", privateTarget: "http://169.254.169.254:80"},
+		{name: "private rejects CGNAT", privateTarget: "http://100.64.1.1:8080"},
+		{name: "private rejects IPv4-mapped address", privateTarget: "http://[::ffff:10.2.3.4]:8080"},
+		{name: "private rejects IPv6 zone", privateTarget: "http://[fd00::2%25en0]:8080"},
+		{name: "private rejects host names", privateTarget: "http://test.local:8080"},
+		{name: "private rejects user info", privateTarget: "http://guest@10.2.3.4:8080"},
+		{name: "private rejects path", privateTarget: "http://10.2.3.4:8080/"},
+		{name: "private rejects query", privateTarget: "http://10.2.3.4:8080/?stage=test"},
+		{name: "private rejects empty query", privateTarget: "http://10.2.3.4:8080?"},
+		{name: "private rejects empty fragment", privateTarget: "http://10.2.3.4:8080#"},
+		{name: "private rejects omitted port", privateTarget: "http://10.2.3.4"},
+		{name: "private rejects zero port", privateTarget: "http://10.2.3.4:0"},
+		{name: "private rejects out of range port", privateTarget: "http://10.2.3.4:65536"},
+		{name: "private rejects other protocols", privateTarget: "ftp://10.2.3.4:8080"},
+		{name: "mutually exclusive", target: "http://127.0.0.1:8080", privateTarget: "http://192.168.0.2:8080"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			origin, err := parseLoadTarget(tc.target, tc.privateTarget, tc.authority)
+			if tc.expected == "" {
+				if err == nil {
+					t.Fatal("unexpected permitted origin:", origin)
+				}
+			} else if err != nil || origin.String() != tc.expected {
+				t.Fatalf("got %s, %v; want %s", origin, err, tc.expected)
+			}
+		})
+	}
+}
+
+func TestRequestPathsCannotChangeLoadOrigin(t *testing.T) {
+	origin, err := parseLoadTarget("", "http://192.168.0.2:8080", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := newLoadRequest(context.Background(), http.MethodGet, origin, "/one/two.aeds?generation=3&page=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.URL.Scheme != origin.Scheme || req.Host != origin.Host || req.URL.RequestURI() != "/one/two.aeds?generation=3&page=1" {
+		t.Fatalf("unexpected target URI %s and Host %s", req.URL, req.Host)
+	}
+	for _, path := range []string{"", "@203.0.113.2:8080/get", "//203.0.113.2:8080/get", "https://203.0.113.2:8080/get"} {
+		if _, err := newLoadRequest(context.Background(), http.MethodGet, origin, path); err == nil {
+			t.Errorf("accepted invalid load path %q", path)
+		}
+	}
+}
+
 func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 	_, current, _, _ := runtime.Caller(0)
 	encodedWire, err := os.ReadFile(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))

@@ -1,4 +1,4 @@
-// Command load drives the fixed public-read workload against a loopback v2 server.
+// Command load drives the fixed public-read workload against an explicitly selected v2 server.
 package main
 
 import (
@@ -19,6 +19,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/signal"
@@ -226,7 +227,7 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 	var evidence corpusPreflight
 	// These requests are outside the timed workload and do not touch the detail cache.
 	request := func(method, query string) (*http.Response, error) {
-		request, err := http.NewRequestWithContext(ctx, method, origin.String()+w.wire.Routes["PublicSearchCorpus"]+query, nil)
+		request, err := newLoadRequest(ctx, method, origin, w.wire.Routes["PublicSearchCorpus"]+query)
 		if err != nil {
 			return nil, err
 		}
@@ -384,8 +385,15 @@ func (c *connection) request(path string, deadline time.Time, inspect func(*http
 	return c.requestEncoded(request, deadline, nil, inspect)
 }
 
+func newLoadRequest(ctx context.Context, method string, origin *url.URL, path string) (*http.Request, error) {
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
+		return nil, errors.New("load request path must be relative to the selected origin")
+	}
+	return http.NewRequestWithContext(ctx, method, origin.String()+path, nil)
+}
+
 func encodeRequest(origin *url.URL, path string) ([]byte, error) {
-	req, err := http.NewRequest("GET", origin.String()+path, nil)
+	req, err := newLoadRequest(context.Background(), http.MethodGet, origin, path)
 	if err != nil {
 		return nil, err
 	}
@@ -1312,9 +1320,44 @@ func captureStage(ctx context.Context, pool []connection, w workload, rate, seco
 	}
 }
 
+func parseLoadTarget(target, privateTarget, authority string) (*url.URL, error) {
+	if target != "" && privateTarget != "" {
+		return nil, errors.New("choose exactly one of -target or -private-target")
+	}
+	value := target
+	if privateTarget != "" {
+		value = privateTarget
+	}
+	origin, err := url.Parse(value)
+	if err != nil || origin.Host == "" || origin.Port() == "" || origin.User != nil || origin.Path != "" ||
+		origin.RawQuery != "" || origin.Fragment != "" || (origin.Scheme != "http" && origin.Scheme != "https") {
+		return nil, errors.New("target requires an explicit HTTP or HTTPS origin and port")
+	}
+	if privateTarget == "" {
+		if !net.ParseIP(origin.Hostname()).IsLoopback() {
+			return nil, errors.New("-target requires a literal loopback address")
+		}
+		return origin, nil
+	}
+
+	host, port := origin.Hostname(), origin.Port()
+	address, addressErr := netip.ParseAddr(host)
+	portNumber, portErr := strconv.ParseUint(port, 10, 16)
+	if addressErr != nil || !address.IsPrivate() || address.Is4In6() || address.Zone() != "" ||
+		portErr != nil || portNumber == 0 || port != strconv.FormatUint(portNumber, 10) ||
+		origin.Host != net.JoinHostPort(host, port) || origin.ForceQuery || strings.Contains(value, "#") {
+		return nil, errors.New("-private-target requires a literal RFC1918 IPv4 or ULA IPv6 address and numeric port")
+	}
+	if origin.Scheme == "https" && authority == "" {
+		return nil, errors.New("a private HTTPS target requires an explicit -ca PEM")
+	}
+	return origin, nil
+}
+
 func run() int {
-	target := flag.String("target", "", "explicit loopback HTTP or TLS origin with port")
-	authority := flag.String("ca", "", "optional PEM authority for an isolated TLS run")
+	target := flag.String("target", "", "explicit loopback HTTP or HTTPS origin with port")
+	privateTarget := flag.String("private-target", "", "explicit isolated private HTTP or HTTPS origin with port")
+	authority := flag.String("ca", "", "PEM authority for an isolated TLS run (required with HTTPS -private-target)")
 	fixture := flag.String("fixture", "", "seed.py manifest")
 	wire := flag.String("wire", "src/Contracts/wire.schema.json", "checked-in wire contract")
 	rate := flag.Int("rate", 0, "scheduled requests per second (0 performs preflight only)")
@@ -1331,11 +1374,15 @@ func run() int {
 	if *coldPressure && *coldLog == "" {
 		return fail(errors.New("cold pressure requires the private cold-cache log"))
 	}
-	origin, err := url.Parse(*target)
-	if err != nil || origin.Host == "" || origin.Port() == "" || origin.User != nil || origin.Path != "" ||
-		origin.RawQuery != "" || origin.Fragment != "" || !net.ParseIP(origin.Hostname()).IsLoopback() ||
-		(origin.Scheme != "http" && origin.Scheme != "https") || *fixture == "" || *output == "" || *rate < 0 || *rate > 11000 || *seconds < 1 || *seconds > 900 {
-		return fail(errors.New("explicit loopback target, fixture and output required; rate 0..11000, seconds 1..900"))
+	origin, err := parseLoadTarget(*target, *privateTarget, *authority)
+	if err != nil {
+		return fail(err)
+	}
+	if *fixture == "" || *output == "" || *rate < 0 || *rate > 11000 || *seconds < 1 || *seconds > 900 {
+		return fail(errors.New("fixture and output required; rate 0..11000, seconds 1..900"))
+	}
+	if *privateTarget != "" && (*coldLog != "" || *runtimeControl != "") {
+		return fail(errors.New("cold-cache logs and runtime measurement markers require the local runner"))
 	}
 	w, err := readWorkload(*fixture, *wire)
 	if err != nil {
@@ -1382,6 +1429,9 @@ func run() int {
 		"startedAt": started, "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture,
 		"requestedRate": *rate, "seconds": *seconds, "preflight": "pass", "protocol": w.protocol, "tlsVersion": w.tlsVersion,
 		"connectionPolicy": "fresh-pool",
+	}
+	if *privateTarget != "" {
+		report["targetScope"] = "explicit-private-literal"
 	}
 	if w.generation != "" {
 		report["corpusPreflight"] = w.corpus
