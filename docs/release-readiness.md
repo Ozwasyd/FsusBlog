@@ -137,4 +137,13 @@
 - 锁定 Release、严格 Vue、Vite、140 项 Core、141 项 Node、C#、C++、Wasm 与 3,847 项差分通过。合并版定向 PostgreSQL 19 项通过，三份 Wasm 与本地 FsusUI 源码 alias 的产物字节一致。首次合并编译缺少三个新增帧的校验实现，补齐原补丁后无警告、无错误。总计 213,336 NCLOC，超出固定上限 4,790 行。 [实库](../artifacts/goal-next-f7d8255/native-final/tests.log) · [首次编译日志](../artifacts/goal-next-f7d8255/release-final-first.log) · [计量](../artifacts/goal-next-f7d8255/code-volume-96dde60.json)
 - 封存包 `f303f5c` 的 SHA-256 已复核。短档容量依旧四轮仅一次通过，900 秒正式长测未运行，C11 两项固定查询仍失败。新增独立供给端证据准入校验，11 项离线检查通过，原始历史矩阵复算结果逐字节一致。本轮未执行正式负载。 [容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收) · [固定查询](issues/risk-scale-query-cases.md) · [准入复验](../artifacts/goal-next-f7d8255/lanes/private-admission/forensic-replay.log)
 
+## 开发提交 `a4d1ee9`
+
+- 原 C11 s、m 的标题和正文试词均复跑通过。四个原请求各只返回原文章 1。两个不存在的对照均为空。仅在副本补齐当前必需的摘要列，整个数据归档在排除此全空列后摘要一致。旧冻结包及失败证据继续保留。 [固定 s、m 复跑](../artifacts/c11-fixed-search-a19a819/README.md) · [当前查询规则](product/fas4-search.md)
+- 历史对话框可比较当前未保存的标题、Markdown、摘要及分类标签。真实 Chrome 在桌面和 375px 验证了本地比较、已保存响应字节一致、脏稿仍限制恢复。独立头图字段及对应差异仍待交付。 [合并版浏览器](../artifacts/goal-next-a19a819/editor-chrome-merged/property-history-result.json)
+- 同站点普通账号可在一次审批中接续一至五枚 Passkey，也可在同一停服副本追加另一个独立审批的账号。实库与 Chrome 分别验证了两枚凭据各自登录、两种账号导入顺序、账号序列保留或推进、原凭据和已撤销主体不变，以及拒绝无效证明或冲突。原单凭据审批和回执兼容。MFA、恢复权限、管理员凭据和生产切换仍待完成。 [多凭据合并版](../artifacts/goal-next-a19a819/passkey-merged/evidence.json) · [连续导入合并版](../artifacts/goal-next-a19a819/passkey-additive-merged/evidence.json) · [反向顺序](../artifacts/legacy-site-passkey-a19a819-additive/advance/evidence.json)
+- 两篇文章可共用一个经独立核验的 V1 全局链。实库保全一个回滚链和一个普通首发的原始记录。合并版从备份恢复，OpenSSL 独立核对四个发布证明、权利证明及父发布的 Merkle 路径。归档外层 v2 只公开所请求成员及兄弟摘要，原 V1 签名字节和旧单文章归档均保持一致。首次合并复跑遗漏校验夹具，补齐后通过。大批次和更多生命周期组合仍待覆盖。 [合并版验签](../artifacts/goal-next-a19a819/lanes/global-v1-proof/global-http.oKjfJCRI/run.txt) · [首次日志](../artifacts/goal-next-a19a819/lanes/global-v1-proof/replay-merged-first.log) · [旧单文章复验](../artifacts/legacy-v1-global-custody/http-replay.iFXj926J/run.txt)
+- 锁定 Release、Vue、Vite、140 项 Core、141 项 Node、3,847 项协议差分和三份本地 FsusUI Wasm 字节对照通过。另通过 8 项检索、10 项定向实库和 2 项 Caddy TLS 检查。共用测试夹具范围净减 188 NCLOC。纳入本轮功能后总计 213,751 NCLOC，超过原上限 5,205 行。 [检索](../artifacts/goal-next-a19a819/fas4-native-merged/tests.log) · [实库](../artifacts/goal-next-a19a819/proof-and-fixtures-native/tests.log) · [Caddy TLS](../artifacts/goal-next-a19a819/native-checkpoints-tls/tests.log) · [计量](../artifacts/goal-next-a19a819/code-volume-a4d1ee9.json)
+- 封存 `f303f5c` 归档 SHA-256 复核一致。四轮原短档容量仅一轮通过，900 秒正式长时验收未运行。 [原始容量矩阵](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
