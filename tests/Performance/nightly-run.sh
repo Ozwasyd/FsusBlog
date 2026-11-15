@@ -203,7 +203,8 @@ if [[ $http_probe == true ]]; then
             tests/Performance/nightly-wide-search-{oracle.sql,tls.sh,probe.mjs} >> "$evidence/run.txt"
     fi
 fi
-shasum -a 256 "$migrate_dll" "$test_dll" tests/Performance/{seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql} >> "$evidence/run.txt"
+shasum -a 256 "$migrate_dll" "$test_dll" \
+    tests/Performance/{seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql,nightly-verify-article-bytes.py} >> "$evidence/run.txt"
 
 phase() {
     local step=$1 started=$SECONDS
@@ -279,7 +280,10 @@ phase verify-operators "${migrate[@]}" verify
 phase verify-publications "${migrate[@]}" publication-canonical verify
 phase verify-rows "${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site" \
     -v nightly="$nightly" -v due_unix_ms="$due" -f tests/Performance/nightly-verify.sql
-python3 - "$evidence" "$scratch/articles.tsv" <<'PY'
+phase verify-article-bytes python3 -B tests/Performance/nightly-verify-article-bytes.py \
+    "$profile" "$scratch/articles.tsv" "$evidence/plan.json" "$db" "$data_dir" "$site" "$evidence/article-bytes.json"
+shasum -a 256 "$evidence/article-bytes.json" >> "$evidence/run.txt"
+python3 - "$evidence" <<'PY'
 import hashlib
 import json
 import sys
@@ -287,11 +291,6 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 plan = json.loads((path / "plan.json").read_text())
-digest = hashlib.sha256()
-with Path(sys.argv[2]).open("rb") as stream:
-    for block in iter(lambda: stream.read(65536), b""):
-        digest.update(block)
-assert digest.hexdigest() == plan["articlePlanSha256"]
 rows = [json.loads(line) for line in (path / "verify-rows.log").read_text().splitlines() if line.startswith("{")]
 articles, = [row["actual"] for row in rows if row["kind"] == "article-graph"]
 comments, = [row["actual"] for row in rows if row["kind"] == "comment-graph"]
