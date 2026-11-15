@@ -143,6 +143,78 @@ public sealed class RevisionHistoryPostgresTests
         Assert.Equal("aaa", twinSaved.Body);
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_body_insertion where article_id=$1", twin.Id));
 
+        var chainBasis = await Write(0, 0, "Insertion sequence", "Alpha 🚢\r\nZeta");
+        var metadata = await Write(chainBasis.Id, chainBasis.Revision, "Same saved body", chainBasis.Body);
+        const string prefix = "> ";
+        const string suffix = "\r\nTail";
+        var withPrefix = prefix + metadata.Body;
+        var sequence = new ArticleBodyInsertionsCommand(metadata.Id, metadata.Revision, Guid.NewGuid(), metadata.Title,
+            withPrefix + suffix, [new(0, prefix.Length), new(withPrefix.Length, suffix.Length)]);
+        var sequenceFrame = Wire.EncodeArticleBodyInsertionsCommand(sequence);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, sequenceFrame, HttpStatusCode.Conflict, ownerHandle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.Conflict);
+        var wrongSequence = Wire.EncodeArticleBodyInsertionsCommand(sequence with { Insertions = [new(1, prefix.Length), sequence.Insertions[1]] });
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, wrongSequence, HttpStatusCode.BadRequest, ownerHandle);
+        await Execute("alter table public.article_body_insertion add constraint test_abort_sequence check (operations is null)");
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        Assert.Equal(metadata.Revision, await Scalar<long>("select revision from public.article where id=$1", metadata.Id));
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", sequence.IdempotencyKey));
+        await Execute("alter table public.article_body_insertion drop constraint test_abort_sequence");
+        var sequenceSaved = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: ownerHandle);
+        Assert.Equal(sequenceSaved, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, handle: ownerHandle));
+        var multiple = Wire.DecodeDraft(sequenceSaved);
+        var oldMap = ChainPath(multiple, metadata.Revision).Replace("body-chain", "body-insertion");
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, oldMap, owner.Token, handle: ownerHandle)).Available);
+        Assert.Equal(new[] { 0, prefix.Length, withPrefix.Length, suffix.Length },
+            await Scalar<int[]>("select operations from public.article_body_insertion where article_id=$1 and revision=$2",
+                multiple.Id, multiple.Revision));
+
+        const string finalInsertion = "\r\n**End**";
+        var final = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
+            Wire.EncodeArticleBodyInsertionCommand(new(multiple.Id, multiple.Revision, Guid.NewGuid(), multiple.Title,
+                multiple.Body + finalInsertion, multiple.Body.Length, finalInsertion.Length)), handle: ownerHandle));
+        var chainPath = ChainPath(final, chainBasis.Revision);
+        await Request(HttpMethod.Get, chainPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: ownerHandle);
+        await Request(HttpMethod.Get, chainPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
+        var chain = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: ownerHandle));
+        Assert.True(chain.Available);
+        Assert.Equal((chainBasis.Body, final.Body), (chain.SourceBody, chain.Body));
+        Assert.Equal(3, chain.Edges.Count);
+        Assert.Empty(chain.Edges[0].Insertions);
+        Assert.Equal(Hash(chainBasis.Body), chain.Edges[0].Digest);
+        Assert.Equal(chain.Edges[0].SourceDigest, chain.Edges[0].Digest);
+        Assert.Equal(sequence.Insertions, chain.Edges[1].Insertions);
+        Assert.Equal(chain.Edges[0].Digest, chain.Edges[1].SourceDigest);
+        Assert.Equal(Hash(multiple.Body), chain.Edges[1].Digest);
+        Assert.Equal(new BodyInsertion(multiple.Body.Length, finalInsertion.Length), Assert.Single(chain.Edges[2].Insertions));
+        Assert.Equal(Hash(final.Body), chain.Edges[2].Digest);
+
+        await Execute("update public.article_body_insertion set operations=ARRAY[0,$3,0,$4] where article_id=$1 and revision=$2",
+            multiple.Id, multiple.Revision, prefix.Length, suffix.Length);
+        var unavailable = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: ownerHandle));
+        Assert.Equal((false, "", ""), (unavailable.Available, unavailable.SourceBody, unavailable.Body));
+        Assert.Empty(unavailable.Edges);
+        await Execute("update public.article_body_insertion set operations=ARRAY[0,$3,$4,$5] where article_id=$1 and revision=$2",
+            multiple.Id, multiple.Revision, prefix.Length, withPrefix.Length, suffix.Length);
+        var gap = await Write(final.Id, final.Revision, final.Title, final.Body + " ordinary");
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(gap, chainBasis.Revision),
+            owner.Token, handle: ownerHandle)).Available);
+
+        await Execute("alter table public.article_body_insertion drop column operations");
+        const string oldStoragePrefix = "## ";
+        var nextSequence = new ArticleBodyInsertionsCommand(gap.Id, gap.Revision, Guid.NewGuid(), gap.Title,
+            oldStoragePrefix + gap.Body + suffix,
+            [new(0, oldStoragePrefix.Length), new(oldStoragePrefix.Length + gap.Body.Length, suffix.Length)]);
+        var olderStorageSave = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
+            Wire.EncodeArticleBodyInsertionsCommand(nextSequence), handle: ownerHandle));
+        Assert.Equal((gap.Revision + 1, nextSequence.Body), (olderStorageSave.Revision, olderStorageSave.Body));
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, ChainPath(olderStorageSave, gap.Revision),
+            owner.Token, handle: ownerHandle)).Available);
+
+        static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+        static string ChainPath(Draft head, long basis) => WireRoutes.DraftRevisionComparison.Replace("{id:int}", head.Id.ToString())
+            .Replace("{sourceRevision:long}", basis.ToString()) + $"?revision={head.Revision}&map=body-chain";
+
         async Task<(string Token, FsusBlog.V2.Core.Identity User)> SignIn(string name, bool author, Guid? user = null)
         {
             var id = user ?? Guid.NewGuid();

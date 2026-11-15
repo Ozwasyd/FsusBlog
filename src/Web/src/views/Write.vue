@@ -9,7 +9,7 @@ import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
 import { saveDraftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
-import { saveWithBodyInsertion, type BodyInsertion } from '../../../Contracts/article-body-insertion'
+import { saveWithBodyInsertion, saveWithBodyInsertions, type BodyInsertion } from '../../../Contracts/article-body-insertion'
 import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
 import { publishArticleImages, type PublishImagesSelection } from '../../../Contracts/published-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
@@ -229,16 +229,22 @@ async function mutationResult(operation: () => Promise<Draft>, signal: AbortSign
 }
 
 const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string,
-  insertion?: BodyInsertion): Promise<DraftSave<Draft>> => {
+  insertions?: readonly BodyInsertion[]): Promise<DraftSave<Draft>> => {
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
   const title = action === 'save' ? draft.title.trim() : ''
   const body = action === 'save' ? draft.body : ''
   return mutationResult(async () => {
     const input = { id: draft.id, expectedRevision: draft.revision, title, body, idempotencyKey }
-    const stored = insertion && action === 'save'
-      ? await saveWithBodyInsertion({ ...input, ...insertion }, handle, signal)
-      : await api[action](input, signal, handle)
+    let stored: Draft
+    if (action === 'save' && insertions?.length) {
+      const [insertion] = insertions
+      stored = insertions.length === 1
+        ? await saveWithBodyInsertion({ ...input, ...insertion }, handle, signal)
+        : await saveWithBodyInsertions({ ...input, insertions }, handle, signal)
+    } else {
+      stored = await api[action](input, signal, handle)
+    }
     if (action === 'save' && (stored.title !== title || stored.body !== body)) {
       throw new Error('The save reply did not match the submitted draft source.')
     }
@@ -996,13 +1002,13 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
-function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, insertion?: BodyInsertion) {
+function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, insertions?: readonly BodyInsertion[]) {
   const document = original.value
   const current = tab.value
   if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !metadataDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
-    if (registry.updateDraft(current, next, field === 'body' ? insertion : undefined)) recovery.persist(next, registry.activeEditSequence)
+    if (registry.updateDraft(current, next, field === 'body' ? insertions : undefined)) recovery.persist(next, registry.activeEditSequence)
   }
 }
 
@@ -1227,7 +1233,7 @@ async function reloadDraft() {
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="!summarySeek && sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
-          @edit="(field, value, insertion) => edit(pane, field, value, insertion)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
+          @edit="(field, value, insertions) => edit(pane, field, value, insertions)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">
               <p v-if="notice" class="write-notice" role="status">

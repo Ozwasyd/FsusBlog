@@ -12,8 +12,10 @@ internal static partial class Migration
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (!await CurrentSchema.HasArticleBodyInsertionAsync(connection, tx, ct))
-        {
             await ApplySchemaAddition(connection, tx, "article-body-insertion.sql", ct);
+        if (!await CurrentSchema.HasArticleBodyInsertionOperationsAsync(connection, tx, ct))
+        {
+            await ApplySchemaAddition(connection, tx, "article-body-insertions.sql", ct);
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct);
         }
         await tx.CommitAsync(ct);

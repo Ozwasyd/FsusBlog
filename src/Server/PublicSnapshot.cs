@@ -196,14 +196,18 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
         ArticleAction action, Edit edit, CancellationToken ct, string? expectedSession = null,
-        ArticleBodyInsertionCommand? insertion = null) =>
+        ArticleBodyInsertionCommand? insertion = null, ArticleBodyInsertionsCommand? insertions = null) =>
         await Change(action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete,
             invalidate => store.WithSession(token, true, async (connection, tx, actor) =>
             {
-                if (insertion is null) FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expectedSession);
+                if (insertion is null && insertions is null)
+                    FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expectedSession);
                 else FsusBlog.V2.Server.Sessions.SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expectedSession);
-                var update = insertion is null ? await Store.Execute(connection, tx, actor, action, edit, ct) :
-                    await Store.SaveBodyInsertion(connection, tx, actor, edit, insertion, ct);
+                var update = insertions is not null ? await Store.SaveBodyInsertions(connection, tx, actor, edit, insertions, ct) :
+                    insertion is not null ? await Store.SaveBodyInsertion(connection, tx, actor, edit, insertion, ct) :
+                    await Store.Execute(connection, tx, actor, action, edit, ct);
+                if (insertions is not null)
+                    FsusBlog.V2.Server.Sessions.SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expectedSession);
                 if (update.Changed) invalidate();
                 return update;
             }, ct), ct);

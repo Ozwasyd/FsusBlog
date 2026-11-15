@@ -4,6 +4,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Authoring;
 using FsusBlog.V2.Server.Operations;
+using FsusBlogV2.Storage;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -139,6 +140,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         Identity actor, Edit edit, ArticleBodyInsertionCommand insertion, CancellationToken ct) =>
         Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, insertion: insertion);
 
+    internal static Task<(ArticleState Article, bool Changed)> SaveBodyInsertions(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, Edit edit, ArticleBodyInsertionsCommand insertions, CancellationToken ct) =>
+        Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, insertions: insertions);
+
     internal static Task<(ArticleState Article, bool Changed)> PublishWithImages(NpgsqlConnection db, NpgsqlTransaction tx,
         Identity actor, Edit edit, Content.PublishedMediaStore media, Content.PublishedMediaSelection selection, CancellationToken ct) =>
         Execute(db, tx, actor, ArticleAction.Publish, edit, ct, null, publishedMedia: (media, selection));
@@ -173,7 +178,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
         ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
         (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null,
-        ArticleSummaryCommand? summary = null, ArticleBodyInsertionCommand? insertion = null)
+        ArticleSummaryCommand? summary = null, ArticleBodyInsertionCommand? insertion = null,
+        ArticleBodyInsertionsCommand? insertions = null)
     {
         var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
             attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
@@ -182,6 +188,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
             taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) :
             summary is not null ? SHA256.HashData(Wire.EncodeArticleSummaryCommand(summary)) :
+            insertions is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionsCommand(insertions)) :
             insertion is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionCommand(insertion)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
         var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null || summary is not null
@@ -244,6 +251,13 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             {
                 var source = await Authoring.RevisionHistoryStore.ReadSource(db, tx, edit.Id, edit.ExpectedRevision, ct);
                 bodyInsertion = Authoring.ArticleBodyInsertionStore.Prepare(source.Body, state.Body, insertion.Offset, insertion.Length);
+            }
+            if (insertions is not null)
+            {
+                var source = await Authoring.RevisionHistoryStore.ReadSource(db, tx, edit.Id, edit.ExpectedRevision, ct);
+                var witness = Authoring.ArticleBodyInsertionStore.PrepareSequence(source.Body, state.Body, insertions.Insertions);
+                if (witness is not null && await CurrentSchema.HasArticleBodyInsertionOperationsAsync(db, tx, ct))
+                    bodyInsertion = witness;
             }
             if (publishedMedia is { } share)
                 images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);

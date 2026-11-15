@@ -20,7 +20,7 @@ import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import {
   cancelEditorSourceHandoff, editorSourceHandoffKey, offerHistoricalSearchEditorHandoff, offerPropertySearchEditorHandoff, offerSearchEditorHandoff,
 } from './canvasEditorHandoff'
-import { rebaseSavedBodyHit } from './savedBodyInsertion'
+import { canRebaseSavedBodyRevision, rebaseSavedBodyHit } from './savedBodyInsertion'
 import { verifySourceMatch } from './sourceCoordinates'
 
 type PropertySelection = { schema: bigint; field: FilterField }
@@ -331,7 +331,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
   const expected = earlier?.latest ?? row
   if (!text || pending.value || opening.value || !page?.ready || !page.rows.includes(expected) ||
     mode !== 'current' && (earlier?.saved !== row || earlier.page !== page) ||
-    mode === 'rebase' && (row.field !== 'body' || expected.revision !== row.revision + 1n) ||
+    mode === 'rebase' && (row.field !== 'body' || !canRebaseSavedBodyRevision(row.revision, expected.revision)) ||
     !details.value?.open || !session?.canAuthor || !session.siteSessionId || session.expiresAt <= now) return
 
   const handle = session.siteSessionId
@@ -481,7 +481,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
     <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <ElButton v-if="historicalMatch" text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
       @click="openMatch(historicalMatch.saved, 'history')">查看原保存修订的命中位置</ElButton>
-    <ElButton v-if="historicalMatch?.saved.field === 'body' && historicalMatch.latest.revision === historicalMatch.saved.revision + 1n"
+    <ElButton v-if="historicalMatch?.saved.field === 'body' && canRebaseSavedBodyRevision(historicalMatch.saved.revision, historicalMatch.latest.revision)"
       text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
       @click="openMatch(historicalMatch.saved, 'rebase')">在新修订中重新定位</ElButton>
     <p v-if="pending" role="status">正在搜索全文…</p>

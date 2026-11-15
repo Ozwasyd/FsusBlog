@@ -359,32 +359,43 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
 
     const beforeInsertion = await search(bodyWord)
     const parentHit = exactHit(beforeInsertion.batch, fixture, revisedRaw, 'body', bodyWord)
-    const writer = await publisher.context().newPage()
-    try {
-      monitor(writer, 'author-saved-body-insertion')
-      await writer.setViewportSize({ width: 375, height: 850 })
-      await writer.goto(editor)
-      const control = writer.getByLabel('Body', { exact: true })
-      await control.waitFor()
-      const editorBody = revisedRaw.replaceAll('\r\n', '\n')
-      await writer.waitForFunction(value => [...document.querySelectorAll('textarea')].some(text => text.value === value), editorBody)
-      await control.evaluate(input => { input.focus(); input.setSelectionRange(0, 0) })
-      await control.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b')
-      await writer.waitForFunction(value => [...document.querySelectorAll('textarea')].some(text => text.value === value), '**text**' + editorBody)
-      const saved = writer.waitForResponse(response => response.request().method() === 'POST' &&
-        new URL(response.url()).pathname === WireRoutes.Save)
-      await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
-      const response = await saved
-      assert.equal(response.status(), 200)
-      decodeFrame(response.request().postDataBuffer(), FrameType.ArticleBodyInsertionCommand)
-      const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
-      assert.equal(updated.revision, fixture.revision + 1n)
-      revisedRaw = '**text**' + revisedRaw
-      assert.equal(updated.body, revisedRaw)
-      fixture = updated
-    } finally {
-      await writer.close()
+    async function saveInsertions(anchors, frame) {
+      const writer = await publisher.context().newPage()
+      try {
+        monitor(writer, 'author-saved-body-insertion')
+        await writer.setViewportSize({ width: 375, height: 850 })
+        await writer.goto(editor)
+        const control = writer.getByLabel('Body', { exact: true })
+        await control.waitFor()
+        const waitForModel = value => writer.waitForFunction(
+          expected => [...document.querySelectorAll('textarea')].some(text => text.value === expected), value)
+        await waitForModel(revisedRaw.replaceAll('\r\n', '\n'))
+        let expected = revisedRaw
+        for (const anchor of anchors) {
+          const rawOffset = expected.indexOf(anchor)
+          assert(rawOffset >= 0)
+          const offset = expected.slice(0, rawOffset).replaceAll('\r\n', '\n').length
+          await control.evaluate((input, at) => { input.focus(); input.setSelectionRange(at, at) }, offset)
+          await control.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b')
+          expected = expected.slice(0, rawOffset) + '**text**' + expected.slice(rawOffset)
+          await waitForModel(expected.replaceAll('\r\n', '\n'))
+        }
+        const saved = writer.waitForResponse(response => response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === WireRoutes.Save)
+        await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
+        const response = await saved
+        assert.equal(response.status(), 200)
+        decodeFrame(response.request().postDataBuffer(), frame)
+        const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+        assert.equal(updated.revision, fixture.revision + 1n)
+        assert.equal(updated.body, expected)
+        revisedRaw = expected
+        fixture = updated
+      } finally {
+        await writer.close()
+      }
     }
+    await saveInsertions([''], FrameType.ArticleBodyInsertionCommand)
     await prepareCurrentIndex(page, beforeInsertion.response, fixture.revision)
     const refreshed = page.waitForResponse(isSearchReply)
     await jump().press('Enter')
@@ -404,6 +415,38 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.deepEqual(rebasedCaret, [shifted, shifted])
     await expectEditorHistory(true)
     await backToSearch()
+
+    const beforeChain = await search(bodyWord)
+    const chainSource = fixture
+    const chainHit = exactHit(beforeChain.batch, fixture, revisedRaw, 'body', bodyWord)
+    await saveInsertions(['起点', 'with '], FrameType.ArticleBodyInsertionsCommand)
+    const unchanged = await articleCommand(WireRoutes.Save, fixture.id, fixture.revision, savedTitle + ' 春季', revisedRaw)
+    assert.equal(unchanged.revision, fixture.revision + 1n)
+    assert.equal(unchanged.body, revisedRaw)
+    fixture = unchanged
+    await saveInsertions(['博客搜索'], FrameType.ArticleBodyInsertionCommand)
+    assert.equal(fixture.revision, chainSource.revision + 3n)
+    await prepareCurrentIndex(page, beforeChain.response, fixture.revision)
+    const chainCheck = page.waitForResponse(isSearchReply)
+    await jump().press('Enter')
+    const currentHit = exactHit(await readSearchReply(await chainCheck), fixture, revisedRaw, 'body', bodyWord)
+    assert.equal(currentHit.sourceStart, chainHit.sourceStart + 2 * '**text**'.length)
+    const chainReply = page.waitForResponse(response => response.request().method() === 'GET' &&
+      new URL(response.url()).searchParams.get('map') === 'body-chain')
+    const draftAfterChain = page.waitForResponse(isDraftReply)
+    await rebase.press('Enter')
+    const chain = await chainReply
+    assert.equal(chain.status(), 200)
+    decodeFrame(await chain.body(), FrameType.DraftRevisionBodyInsertionChain)
+    assert.equal(chain.request().headers()[WireHeaders.CurrentSession.toLowerCase()],
+      beforeChain.response.request().headers()[WireHeaders.CurrentSession.toLowerCase()])
+    await expectSavedDraft(await draftAfterChain)
+    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    const chainCaret = revisedRaw.replaceAll('\r\n', '\n').indexOf(bodyWord)
+    assert.deepEqual(await field('Body').and(page.locator(':focus')).evaluate(input => [input.selectionStart, input.selectionEnd]),
+      [chainCaret, chainCaret])
+    await expectEditorHistory(true)
+    await backToSearch()
     await search(bodyWord)
 
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
@@ -411,6 +454,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     observations.push('A concurrently saved revision keeps the stale browser action in the results with focus, and navigating to the trash during its real delayed current check cannot reopen the editor.')
     observations.push('At 375px an explicit historical search action rechecks the newer saved revision and selects the original CRLF/Unicode hit in a read-only dialog without replacing the current draft.')
     observations.push('At 375px a saved FsusUI keyboard insertion rebases a CRLF/Unicode search hit into the next revision through the exact stored map. An unwitnessed revision still offers its verified historical source.')
+    observations.push('At 375px two keyboard insertions in one save, an unchanged-body title revision, and a later insertion compose into one authenticated three-revision chain. The old result lands on the verified CRLF/Unicode body caret.')
   } finally {
     try {
       for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {

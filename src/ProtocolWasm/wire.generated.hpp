@@ -134,6 +134,10 @@ inline constexpr uint32_t RecoveryKeyOperationFrameBytes = 20;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t MaxArticleBodyInsertionCommandFrameBytes = 1048892;
 inline constexpr uint32_t ArticleBodyInsertionDigestBytes = 64;
+inline constexpr uint32_t ArticleBodyInsertionOperations = 8;
+inline constexpr uint32_t ArticleBodyInsertionChainEdges = 8;
+inline constexpr uint32_t MaxArticleBodyInsertionsCommandFrameBytes = 1048952;
+inline constexpr uint32_t MaxDraftRevisionBodyInsertionChainFrameBytes = 2098833;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
 inline constexpr uint32_t RollbackReasonBytes = 2000;
@@ -572,6 +576,8 @@ enum class FrameType : uint16_t {
     PropertyTextHitRequest = 33034,
     AuthorTextPropertyTextQualifiedQuery = 33035,
     AuthorTextPropertyTextQualifiedPage = 33036,
+    ArticleBodyInsertionsCommand = 33037,
+    DraftRevisionBodyInsertionChain = 33038,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -781,6 +787,8 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertyTextHitRequest:
         case FrameType::AuthorTextPropertyTextQualifiedQuery:
         case FrameType::AuthorTextPropertyTextQualifiedPage:
+        case FrameType::ArticleBodyInsertionsCommand:
+        case FrameType::DraftRevisionBodyInsertionChain:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

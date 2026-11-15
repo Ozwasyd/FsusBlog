@@ -243,6 +243,8 @@ internal static partial class CurrentSchema
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
+        var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
+            await HasArticleBodyInsertionOperationsAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
             (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
@@ -299,7 +301,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
-            .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns] : [])
+            .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations)] : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexColumns : [])
             .Concat(hasAuthorTextRebuild ? [AuthorTextRebuildColumns] : [])
@@ -346,7 +348,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
-            .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints : [])
+            .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations) : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
             .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])

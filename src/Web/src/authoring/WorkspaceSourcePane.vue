@@ -11,7 +11,7 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import ArticleOutlineRail from './ArticleOutlineRail.vue'
 import type { EditorSourceSeek } from './canvasEditorHandoff'
 import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
-import { captureBodyInsertion } from './savedBodyInsertion'
+import { captureBodyInsertions } from './savedBodyInsertion'
 import type { WorkspaceSource } from './workspaceRegistry'
 
 const props = defineProps<{
@@ -19,7 +19,7 @@ const props = defineProps<{
   sourceTarget?: EditorSourceSeek
 }>()
 const emit = defineEmits<{
-  edit: [field: 'title' | 'body', value: string, insertion?: BodyInsertion]; activate: []; compose: [active: boolean]
+  edit: [field: 'title' | 'body', value: string, insertions?: readonly BodyInsertion[]]; activate: []; compose: [active: boolean]
   sourceRevealed: [target: EditorSourceSeek, success: boolean]
 }>()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
@@ -47,7 +47,7 @@ const outlineMode = ref<MarkdownEditorMode>('source')
 const outlineDisabled = computed(() => !props.focus || props.concealed || props.blocked || editorSource.value.includes('\r') ||
   (outlineMode.value !== 'source' && outlineMode.value !== 'live'))
 const editorDocument = shallowRef({ source: editorSource.value, revision: 0 })
-let nextInsertion: { value: string; insertion: BodyInsertion } | undefined
+let nextInsertions: { value: string; insertions: readonly BodyInsertion[] } | undefined
 const editorSelection = shallowRef<MarkdownEditorSelectionEvent['selection']>({
   start: editorSource.value.length, end: editorSource.value.length, direction: 'none',
 })
@@ -98,13 +98,13 @@ const outlineActive = computed(() => {
 function editorTransaction(event: MarkdownEditorTransactionEvent) {
   if (!event.accepted || event.documentIdentity.id !== identity.value.id || event.documentIdentity.epoch !== identity.value.epoch) return
   const prior = editorDocument.value
-  nextInsertion = undefined
+  nextInsertions = undefined
   if (props.focus && !props.blocked && !props.concealed && prior.revision === event.beforeRevision &&
     prior.source === editorSource.value && (outlineMode.value === 'source' || outlineMode.value === 'live')) {
     // The public editor emits the accepted transaction before its model-value update.
     try {
-      const insertion = captureBodyInsertion(props.pane.draft.body, prior.source, crlf.value, event)
-      if (insertion) nextInsertion = { value: event.value, insertion }
+      const insertions = captureBodyInsertions(props.pane.draft.body, prior.source, crlf.value, event)
+      if (insertions) nextInsertions = { value: event.value, insertions }
     } catch {
       // A missing or unsupported coordinate map leaves the ordinary save available.
     }
@@ -200,9 +200,9 @@ async function revealSearch(seek: Extract<EditorSourceSeek, { kind: 'search' }>,
 }
 
 function edit(field: 'title' | 'body', value: string) {
-  const insertion = field === 'body' && nextInsertion?.value === value ? nextInsertion.insertion : undefined
-  if (field === 'body') nextInsertion = undefined
-  if (props.focus && !props.blocked) emit('edit', field, field === 'body' && crlf.value ? restoreCrlf(value) : value, insertion)
+  const insertions = field === 'body' && nextInsertions?.value === value ? nextInsertions.insertions : undefined
+  if (field === 'body') nextInsertions = undefined
+  if (props.focus && !props.blocked) emit('edit', field, field === 'body' && crlf.value ? restoreCrlf(value) : value, insertions)
 }
 </script>
 

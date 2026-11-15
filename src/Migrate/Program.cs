@@ -466,6 +466,8 @@ internal static partial class Migration
             throw new InvalidOperationException("Comment reply notice schema was not installed.");
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
+        if (!await CurrentSchema.HasArticleBodyInsertionOperationsAsync(connection, transaction, token))
+            throw new InvalidOperationException("Article body insertion operations were not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
