@@ -12,7 +12,7 @@ internal static partial class Migration
             select l.seq,l.prev_sha256,l.receipt_sha256,l.entry_sha256,
                    p.origin,c.article_id,c.revision,p.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,
                    c.outbox_id,c.content_sha256,c.policy_sha256,p.key_id,p.key_version,p.key_sha256,p.issued_at,p.signature,
-                   o.processed_at is not null
+                   c.canonical_version,o.processed_at is not null
             from public.article_publication_transparency l
             join public.article_publication_proof p on (p.transparency_seq,p.publication_id)=(l.seq,l.publication_id)
             join public.article_publication_canonical c on c.publication_id=p.publication_id
@@ -29,7 +29,7 @@ internal static partial class Migration
         if (selectedHead.Sequence > head.Sequence) throw BadCheckpointPrefix();
         while (await row.ReadAsync(ct))
         {
-            if (row.GetInt64(0) != ++sequence || !previous.AsSpan().SequenceEqual(row.GetFieldValue<byte[]>(1)) || !row.GetBoolean(19))
+            if (row.GetInt64(0) != ++sequence || !previous.AsSpan().SequenceEqual(row.GetFieldValue<byte[]>(1)) || !row.GetBoolean(20))
                 throw BadCheckpointPrefix();
             var claim = ReadNativeLedgerClaim(row);
             if (claim.Origin != head.Origin || (observedAt.HasValue && claim.IssuedAt > observedAt.Value))

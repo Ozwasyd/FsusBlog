@@ -21,6 +21,24 @@ internal static class NativeArticleCanonicalVectors
             if (ArticleCanonicalHashesV2.PolicyDigest(changed, content).AsSpan().SequenceEqual(policy))
                 throw new InvalidOperationException("A change to an exact native rights fact was lost.");
 
+        var cover = Enumerable.Range(0, 32).Select(static value => (byte)value).ToArray();
+        var covered = article with { CoverMediaSha256 = cover };
+        Equal("article-content-canonical-v3.txt", ArticleCanonicalHashesV2.ContentPayload(covered));
+        var coveredContent = ArticleCanonicalHashesV2.ContentDigest(covered);
+        var coveredPolicy = ArticleCanonicalHashesV2.PolicyDigest(rights, coveredContent);
+        if (Convert.ToHexStringLower(coveredContent) != "cffdeb6306ca41ebdccb54630566de12d19d3f6e0602afa1aea47942553b2be1" ||
+            Convert.ToHexStringLower(coveredPolicy) != "71bf0b9f49605076ce0c60099358f77d241c63f2fcbb265ffd5d4a7d8a4c0dff")
+            throw new InvalidOperationException("A native canonical cover digest differs from the independent vector.");
+        var replacedCoverContent = ArticleCanonicalHashesV2.ContentDigest(covered with { CoverMediaSha256 = new byte[32] });
+        if (replacedCoverContent.AsSpan().SequenceEqual(coveredContent))
+            throw new InvalidOperationException("The managed publication cover did not change the canonical SHA-256.");
+        foreach (var invalid in new byte[][] { [], new byte[31], new byte[33] })
+        {
+            try { ArticleCanonicalHashesV2.ContentDigest(covered with { CoverMediaSha256 = invalid }); }
+            catch (ProtocolException) { continue; }
+            throw new InvalidOperationException("An invalid managed cover digest was accepted.");
+        }
+
         void Equal(string file, byte[] actual)
         {
             if (!File.ReadAllBytes(Path.Combine(fixtures, file)).AsSpan().SequenceEqual(actual))

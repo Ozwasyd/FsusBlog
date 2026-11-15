@@ -1,4 +1,5 @@
 import type { Article } from './public-articles.ts'
+import { managedArticleCoverDigest } from './published-media.ts'
 
 const keysPath = '/integrity/v2/keys.json'
 const algorithm = 'ECDSA_P256_SHA256'
@@ -86,16 +87,21 @@ async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export async function articlePublicationDigests(article: Article): Promise<{ content: string; policy: string }> {
+export async function articlePublicationDigests(article: Article, expectedVersion?: 2 | 3): Promise<{ content: string; policy: string }> {
   const rights = article.rights
   check(rights)
+  const cover = managedArticleCoverDigest(article)
+  check(article.coverImageUrl === '' || validHex(cover))
+  const version = cover === undefined ? 2 : 3
+  check(expectedVersion === undefined || expectedVersion === version)
   const tagIds = [...new Set(article.tags.map(tag => tag.id))].sort((a, b) => a - b)
   const content = await sha256(payload(
-    'fsusblog.integrity.article-content.v2', 'version:i:2',
+    `fsusblog.integrity.article-content.v${version}`, intLine('version', version),
     intLine('articleId', article.id), intLine('revision', article.revision),
     stringLine('title', article.title), stringLine('markdown', article.body),
     article.category.id === 0 ? 'categoryId:n' : intLine('categoryId', article.category.id),
     intLine('tagIds', tagIds.join(',')),
+    ...(cover === undefined ? [] : [`coverMediaSha256:h:${cover}`]),
   ))
   const policy = await sha256(payload(
     'fsusblog.integrity.article-policy.v2', 'version:i:2',
@@ -180,7 +186,8 @@ export async function verifyCurrentPublication(article: Article, origin: string,
   const path = publicationProofPath(article)
   const first = await readJson(path, 4_096, signal)
   const proof = jsonRecord(first)
-  check(proof.proofVersion === 2 && proof.canonicalVersion === 2 && proof.algorithm === algorithm && proof.origin === origin &&
+  check(proof.proofVersion === 2 && (proof.canonicalVersion === 2 || proof.canonicalVersion === 3) &&
+    proof.algorithm === algorithm && proof.origin === origin &&
     proof.articleId === article.id && proof.revision === String(article.revision) &&
     proof.publicationId === String(article.publication) && proof.publicationNo === article.publicationNo &&
     proof.rightsSnapshotId === String(rights.snapshotId) && typeof proof.publicationOutboxId === 'string' &&
@@ -188,7 +195,7 @@ export async function verifyCurrentPublication(article: Article, origin: string,
     time(proof.publishedAtUtc) && time(proof.issuedAtUtc) && proof.issuedAtUtc >= proof.publishedAtUtc &&
     Date.parse(milliseconds(proof.publishedAtUtc)) === article.publishedAt && validId(proof.keyId) && positive(proof.keyVersion) &&
     validHex(proof.contentSha256) && validHex(proof.policySha256) && validHex(proof.keySha256))
-  const { content, policy } = await articlePublicationDigests(article)
+  const { content, policy } = await articlePublicationDigests(article, proof.canonicalVersion)
   check(content === proof.contentSha256 && policy === proof.policySha256)
 
   const key = locateKey(jsonRecord(await readJson(keysPath, 131_072, signal)), proof.keyId)
@@ -200,7 +207,7 @@ export async function verifyCurrentPublication(article: Article, origin: string,
   const spki = fromBase64Url(key.publicKey, 91)
   check(await sha256(spki) === proof.keySha256)
   const transcript = payload(
-    'fsusblog.integrity.native-publication-rights-proof.v2', 'proofVersion:i:2', 'canonicalVersion:i:2',
+    'fsusblog.integrity.native-publication-rights-proof.v2', 'proofVersion:i:2', intLine('canonicalVersion', proof.canonicalVersion),
     stringLine('algorithm', algorithm), stringLine('origin', origin),
     intLine('articleId', article.id), intLine('revision', article.revision),
     intLine('publicationId', article.publication), intLine('publicationNo', article.publicationNo),

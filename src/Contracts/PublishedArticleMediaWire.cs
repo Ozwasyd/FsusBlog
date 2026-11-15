@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 
 namespace FsusBlog.V2.Contracts;
 
@@ -21,6 +22,13 @@ public sealed record PublishedArticleImage(string Digest, int Format, int Length
         3 => IsStaticWebp(bytes),
         _ => false
     };
+
+    public static string FilePath(int article, long publication, string digest)
+    {
+        if (article <= 0 || publication <= 0 || !ValidDigest(digest))
+            throw new ProtocolException("Invalid public image coordinates.");
+        return string.Create(CultureInfo.InvariantCulture, $"/public-media/{article}/{publication}/{digest}");
+    }
 
     public bool Valid() => ValidDigest(Digest) && Format is 1 or 2 or 3 &&
         Length is >= 1 and <= 20 * 1024 * 1024 && Width is >= 1 and <= 8192 && Height is >= 1 and <= 8192 &&

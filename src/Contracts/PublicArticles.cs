@@ -19,7 +19,8 @@ public sealed record Article(
     string? Summary = null,
     TaxonomyName? Category = null,
     IReadOnlyList<TaxonomyName>? Tags = null,
-    PublishedArticleRights? Rights = null);
+    PublishedArticleRights? Rights = null,
+    string? CoverMediaDigest = null);
 
 /// <summary>Current public article payloads selected by the binary HTTP endpoints.</summary>
 public static class PublicArticles
@@ -33,6 +34,7 @@ public static class PublicArticles
         if (Utf8.GetByteCount(article.Body) > WireLimits.BodyBytes)
             throw new ProtocolException("Public article body exceeds its byte limit");
         var body = Utf8.GetBytes(article.Body);
+        var cover = article.CoverMediaDigest is null ? [] : Utf8.GetBytes(PublishedArticleImage.FilePath(article.Id, article.Publication, article.CoverMediaDigest));
         var summary = SummaryBytes(article);
         var taxonomy = EncodeTaxonomy(article);
         const int recordOffset = ArticleDetailHeaderSize;
@@ -40,7 +42,7 @@ public static class PublicArticles
         var rightsOffset = checked(tagOffset + taxonomy.Tags.Length * ArticleTagRecordSize);
         var blobOffset = rightsOffset + ArticleRightsRecordSize;
         var rightsText = article.Rights is { } snapshot ? RightsText(article, snapshot) : [];
-        var blobLength = checked(title.Length + body.Length + summary.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
+        var blobLength = checked(title.Length + body.Length + summary.Length + cover.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
         var bytes = Allocate(checked(blobOffset + blobLength));
         var header = bytes.AsSpan(0, ArticleDetailHeaderSize);
         I32(header, 0, ArticleDetailV5Magic);
@@ -65,7 +67,7 @@ public static class PublicArticles
         WriteText(record, ArticleDetailTitleOffset, blob, title, ref offset);
         WriteText(record, ArticleDetailBodyOffset, blob, body, ref offset);
         WriteText(record, ArticleDetailSummaryOffset, blob, summary, ref offset);
-        WriteSlice(record, ArticleDetailCoverOffset, offset, 0);
+        WriteText(record, ArticleDetailCoverOffset, blob, cover, ref offset);
         WriteText(record, ArticleDetailCategoryOffset, blob, taxonomy.Category, ref offset);
         for (var i = 0; i < taxonomy.Tags.Length; i++)
             WriteTag(bytes.AsSpan(tagOffset + i * ArticleTagRecordSize, ArticleTagRecordSize),

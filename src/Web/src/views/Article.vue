@@ -4,7 +4,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElMarkdownRenderer } from '@ozwasyd/element-plus'
 import { api, ApiError, ProtocolError } from '../../../Contracts/client'
-import { fetchPublicArticleMedia, type PublicArticleImage } from '../../../Contracts/published-media'
+import { fetchPublicArticleMedia, managedArticleCoverDigest, type PublicArticleImage } from '../../../Contracts/published-media'
 import { useArticleReadProof } from '../article-read-proof'
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
@@ -20,11 +20,10 @@ const failedImages = shallowRef<ReadonlySet<string>>(new Set())
 const imageLoadFailed = ref(false)
 const error = ref('')
 const cover = computed(() => {
-  const source = article.value?.coverImageUrl
-  if (!source) return undefined
-  const url = URL.parse(source, location.origin)
-  return url && ['http:', 'https:'].includes(url.protocol) ? url.href : undefined
+  const value = article.value
+  return value && managedArticleCoverDigest(value) ? value.coverImageUrl : undefined
 })
+const galleryImages = computed(() => images.value?.filter(image => image.url !== cover.value))
 const busy = ref(true)
 const retry = ref(0)
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
@@ -104,9 +103,9 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
         :content-version="article.publication.toString()" mode="article" @render-complete="renderedArticle = article" />
       <pre v-else class="article-source">{{ article.body }}</pre>
     </div>
-    <section v-if="images?.length && failedImages.size < images.length" aria-label="Published images"
+    <section v-if="galleryImages?.length && failedImages.size < galleryImages.length" aria-label="Published images"
       v-bind="{ 'data-fsus-public-article-media': '', 'data-article-id': article.id, 'data-publication': article.publication.toString() }">
-      <template v-for="(image, index) in images" :key="image.digest">
+      <template v-for="(image, index) in galleryImages" :key="image.digest">
         <img v-if="!failedImages.has(image.digest)" :src="image.url" :width="image.width" :height="image.height"
           :alt="`Published image ${index + 1}`" loading="lazy" decoding="async" @error="imageUnavailable(image)">
       </template>

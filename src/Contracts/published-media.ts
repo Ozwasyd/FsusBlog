@@ -3,6 +3,16 @@ import { PodWriter } from './binary.ts';
 import { request, validSiteSessionId, type Draft } from './client.ts';
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
+import type { Article } from './public-articles.ts';
+
+export function managedArticleCoverDigest(article: Pick<Article, 'id' | 'publication' | 'coverImageUrl'>): string | undefined {
+  const digest = article.coverImageUrl.slice(-64);
+  if (!/^[0-9a-f]{64}$/.test(digest)) return undefined;
+  const expected = WireRoutes.PublicArticleMediaFile.replace('{id:int}', String(article.id))
+    .replace('{publication:long}', String(article.publication)).replace('{digest}', digest);
+  return article.coverImageUrl === expected ? digest : undefined;
+}
+
 const emptyId = '00000000-0000-0000-0000-000000000000';
 const imageLimit = 32;
 const publicationBytes = 40 * 1024 * 1024;

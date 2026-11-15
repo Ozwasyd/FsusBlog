@@ -63,7 +63,7 @@ internal static partial class Migration
                 select l.seq,l.prev_sha256,l.receipt_sha256,l.entry_sha256,
                        p.origin,c.article_id,c.revision,p.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,
                        c.outbox_id,c.content_sha256,c.policy_sha256,p.key_id,p.key_version,p.key_sha256,p.issued_at,p.signature,
-                       k.not_before,k.not_after,k.revoked_at,k.compromised_at,o.processed_at is not null
+                       c.canonical_version,k.not_before,k.not_after,k.revoked_at,k.compromised_at,o.processed_at is not null
                 from public.article_publication_transparency l
                 join public.article_publication_proof p on (p.transparency_seq,p.publication_id)=(l.seq,l.publication_id)
                 join public.article_publication_canonical c on c.publication_id=p.publication_id
@@ -78,7 +78,7 @@ internal static partial class Migration
                     sequence = checked(sequence + 1);
                     var claim = ReadNativeLedgerClaim(rows);
                     if (rows.GetInt64(0) != sequence || !head.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(1)) ||
-                        claim.Origin != origin || !rows.GetBoolean(23))
+                        claim.Origin != origin || !rows.GetBoolean(24))
                         throw InvalidTransparencyEntry(sequence);
                     var transcript = ArticlePublicationProofPayloadV2.Build(claim);
                     var signature = rows.GetFieldValue<byte[]>(18);
@@ -88,14 +88,14 @@ internal static partial class Migration
                         !head.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(3)))
                         throw InvalidTransparencyEntry(sequence);
                     if (!keys.TryGetValue(claim.KeyId, out var key) || key.Version != claim.KeyVersion ||
-                        !key.Fingerprint.AsSpan().SequenceEqual(claim.KeySha256) || key.Before != rows.GetDateTime(19) ||
-                        key.After != rows.GetDateTime(20) || claim.IssuedAt < key.Before || claim.IssuedAt > key.After ||
+                        !key.Fingerprint.AsSpan().SequenceEqual(claim.KeySha256) || key.Before != rows.GetDateTime(20) ||
+                        key.After != rows.GetDateTime(21) || claim.IssuedAt < key.Before || claim.IssuedAt > key.After ||
                         !key.PublicKey.VerifyData(transcript, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
                         throw new InvalidOperationException($"Native publication transparency signature or key mismatch at sequence {sequence}.");
-                    if (key.Compromised || !rows.IsDBNull(22)) compromised++;
+                    if (key.Compromised || !rows.IsDBNull(23)) compromised++;
                     else
                     {
-                        DateTimeOffset? databaseRevoked = rows.IsDBNull(21) ? null : rows.GetDateTime(21);
+                        DateTimeOffset? databaseRevoked = rows.IsDBNull(22) ? null : rows.GetDateTime(22);
                         if ((key.Revoked.HasValue && claim.IssuedAt >= key.Revoked.Value) ||
                             (databaseRevoked.HasValue && claim.IssuedAt >= databaseRevoked.Value)) revoked++;
                         else
@@ -135,7 +135,7 @@ internal static partial class Migration
     private static ArticlePublicationProofV2 ReadNativeLedgerClaim(NpgsqlDataReader row) =>
         new(row.GetString(4), row.GetInt32(5), row.GetInt64(6), row.GetInt64(7), row.GetInt32(8),
             row.GetDateTime(9), row.GetInt64(10), row.GetInt64(11), row.GetFieldValue<byte[]>(12), row.GetFieldValue<byte[]>(13),
-            row.GetString(14), row.GetInt32(15), row.GetFieldValue<byte[]>(16), row.GetDateTime(17));
+            row.GetString(14), row.GetInt32(15), row.GetFieldValue<byte[]>(16), row.GetDateTime(17), row.GetInt32(19));
 
     private static async Task<(string Current, Dictionary<string, TransparencyAuditKey> Keys)> ReadTransparencyKeysAsync(string path,
         CancellationToken ct)

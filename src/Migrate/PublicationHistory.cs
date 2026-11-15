@@ -90,6 +90,12 @@ internal static partial class Migration
                            is distinct from array(select to_jsonb(m)-'publication_id'-'revision' from public.article_publication_media m
                             where m.article_id=h.article_id and m.publication_id=b.publication_id and m.revision=b.revision order by ordinal)
             """ : "";
+        var restoredCover = hasTrashPublication && await CurrentSchema.HasPublicationCoverAsync(connection, tx, ct) ? """
+                        or (select c.asset_id from public.article_publication_cover c
+                            where c.article_id=h.article_id and c.publication_id=b.source_publication_id)
+                           is distinct from (select c.asset_id from public.article_publication_cover c
+                            where c.article_id=h.article_id and c.publication_id=b.publication_id)
+            """ : "";
         var trashPublicationVerification = hasTrashPublication ? $"""
                     or (b.from_trash and (
                         {adminFromArchive} or {adminDestination}<>2 or h.previous_active is not null
@@ -99,6 +105,7 @@ internal static partial class Migration
                         or source_release.event_no is distinct from h.previous_event-1
                         or source_release.publication_no is distinct from h.previous_count
                         {restoredMedia}
+                        {restoredCover}
                         or source_release.kind not in ('retained-active','publish','replace')
                         {publishedSummary}
                         or coalesce(o.publishes,0)<>1 or coalesce(o.retractions,0)<>0 or coalesce(o.deletions,0)<>0))

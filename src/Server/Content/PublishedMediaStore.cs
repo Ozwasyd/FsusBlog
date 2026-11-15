@@ -46,7 +46,7 @@ internal sealed class PublishedMediaSelection
 }
 
 internal sealed record PublishedMediaReference(Guid AssetId, byte[] Digest, MediaFormat Format,
-    int Length, int Width, int Height);
+    int Length, int Width, int Height, bool IsCover = false);
 
 internal sealed class PublishedMediaStore(MediaFiles privateFiles, string publicRoot, string webRoot,
     params string[] otherForbiddenRoots) : IDisposable
@@ -59,6 +59,17 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         Guid owner, int article, long revision, PublishedMediaSelection selection, CancellationToken ct)
     {
         var images = await ReadSelected(db, tx, owner, article, revision, selection, ct);
+        if (await CurrentSchema.HasPublicationCoverAsync(db, tx, ct))
+        {
+            await using var query = Store.Sql(db, tx, """
+                SELECT asset_id FROM public.article_revision_cover WHERE article_id=$1 AND revision=$2
+                """, article, revision);
+            if (await query.ExecuteScalarAsync(ct) is Guid cover)
+            {
+                for (var index = 0; index < images.Length; index++)
+                    if (images[index].AssetId == cover) images[index] = images[index] with { IsCover = true };
+            }
+        }
         await Materialize(images, ct);
         return images;
     }
@@ -79,9 +90,13 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
     {
         if (!await CurrentSchema.HasPublicationMediaAsync(db, tx, ct)) return null;
         List<PublishedMediaReference> prior = [];
-        await using (var query = Store.Sql(db, tx, """
-            select asset_id,content_hash,format,length,width,height,ordinal from public.article_publication_media
-            where article_id=$1 and publication_id=$2 and revision=$3 order by ordinal limit 33
+        var hasCover = await CurrentSchema.HasPublicationCoverAsync(db, tx, ct);
+        var cover = hasCover ? "c.asset_id is not null" : "false";
+        await using (var query = Store.Sql(db, tx, $"""
+            select m.asset_id,m.content_hash,m.format,m.length,m.width,m.height,m.ordinal,{cover}
+            from public.article_publication_media m
+            {CoverJoin(hasCover)}
+            where m.article_id=$1 and m.publication_id=$2 and m.revision=$3 order by m.ordinal limit 33
             """, article, publication, revision))
         await using (var rows = await query.ExecuteReaderAsync(ct))
             while (await rows.ReadAsync(ct))
@@ -89,7 +104,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
                 if (prior.Count == ArticleMediaStore.Maximum || rows.GetInt32(6) != prior.Count + 1)
                     throw RestoreMediaConflict();
                 prior.Add(new(rows.GetGuid(0), rows.GetFieldValue<byte[]>(1), (MediaFormat)rows.GetInt16(2),
-                    rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5)));
+                    rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5), rows.GetBoolean(7)));
             }
         if (prior.Count == 0) return null;
         if (media is null) throw RestoreMediaConflict();
@@ -103,6 +118,10 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         await media.Materialize(prior, ct);
         return prior;
     }
+
+    internal static string CoverJoin(bool hasCover) => hasCover
+        ? "left join public.article_publication_cover c on (c.article_id,c.publication_id,c.asset_id)=(m.article_id,m.publication_id,m.asset_id)"
+        : "";
 
     private static BusinessException RestoreMediaConflict() => new(Rejection.Conflict, "The former publication images are unavailable.");
 
@@ -158,6 +177,13 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
                 """, articleId, publicationId, revision, ordinal + 1, image.AssetId, image.Digest, (short)image.Format,
                 image.Length, image.Width, image.Height);
             await insert.ExecuteNonQueryAsync(ct);
+            if (image.IsCover)
+            {
+                await using var cover = Store.Sql(db, tx, """
+                    INSERT INTO public.article_publication_cover (article_id,publication_id,asset_id) VALUES ($1,$2,$3)
+                    """, articleId, publicationId, image.AssetId);
+                await cover.ExecuteNonQueryAsync(ct);
+            }
         }
     }
 

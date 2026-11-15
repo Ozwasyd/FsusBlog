@@ -934,6 +934,7 @@ public static class WireHeaders
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string PrivateMediaWebp = "X-Fsus-Private-Media-WebP";
     public const string ArticlePublishImagesEnabled = "X-Fsus-Article-Publish-Images";
+    public const string ArticlePublishCoverEnabled = "X-Fsus-Article-Publish-Cover";
     public const string ArticleCover = "X-Fsus-Article-Cover";
     public const string SourceArticleCover = "X-Fsus-Source-Article-Cover";
     public const string PublicArticleMediaPresent = "X-Fsus-Public-Article-Media";

@@ -126,7 +126,7 @@ internal static partial class CurrentSchema
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
         bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
         bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null,
-        bool? requireAdminArticleTrashRestore = null, bool? requireArticleCover = null)
+        bool? requireAdminArticleTrashRestore = null, bool? requireArticleCover = null, bool? requirePublicationCover = null)
     {
         requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasArticleCover = await HasArticleCoverAsync(connection, transaction, cancellationToken);
@@ -270,6 +270,11 @@ internal static partial class CurrentSchema
         if ((hasPublicationMedia && (!requirePublicationHistory || !requireArticleMedia.Value)) ||
             (requirePublicationMedia.HasValue && requirePublicationMedia.Value != hasPublicationMedia))
             throw new InvalidOperationException("The article publication media schema presence does not match the requested operation.");
+        var hasPublicationCover = await HasPublicationCoverAsync(connection, transaction, cancellationToken);
+        if (hasPublicationCover && (!hasPublicationMedia || !hasPublicationCanonical || !hasArticleCover))
+            throw new InvalidOperationException("Public article covers require author covers, selected publication media, and canonical storage.");
+        RequireSchemaPresence(requirePublicationCover, hasPublicationCover,
+            "The public article cover schema presence does not match the requested operation.");
         var hasPublicationProof = await HasPublicationProofAsync(connection, transaction, cancellationToken);
         if ((hasPublicationProof && !hasPublicationCanonical) ||
             (requirePublicationProof.HasValue && requirePublicationProof.Value != hasPublicationProof))
@@ -308,6 +313,7 @@ internal static partial class CurrentSchema
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
             .Concat(hasPublicationMedia ? PublicationMediaColumns : [])
+            .Concat(hasPublicationCover ? PublicationCoverColumns : [])
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
@@ -398,6 +404,8 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxRead ? AdminInboxReadConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
+            .Concat(hasPublicationCanonical ? [PublicationCanonicalVersionConstraint(hasPublicationCover)] : [])
+            .Concat(hasPublicationCover ? PublicationCoverConstraints : [])
             .Concat(hasPublicationProof ? PublicationProofConstraints : [])
             .Concat(hasPublicationTransparency ? PublicationTransparencyConstraints : [])
             .Concat(hasPublicationHead ? PublicationHeadConstraints : [])

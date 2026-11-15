@@ -24,7 +24,6 @@ internal static partial class CurrentSchema
         "article_publication_canonical f outbox_id,article_id,revision,outbox_kind public.blog_outbox:id,article_id,revision,kind",
         "article_publication_canonical c transition transition=ANY(ARRAY['publish'::text,'replace'::text])",
         "article_publication_canonical c outbox_kind outbox_kind='publish'::text",
-        "article_publication_canonical c canonical_version canonical_version=2",
         "article_publication_canonical c content_sha256 octet_length(content_sha256)=32",
         "article_publication_canonical c policy_sha256 octet_length(policy_sha256)=32"
     ];

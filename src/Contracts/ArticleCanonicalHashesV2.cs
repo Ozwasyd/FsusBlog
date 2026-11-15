@@ -5,7 +5,7 @@ using System.Text;
 namespace FsusBlog.V2.Contracts;
 
 public sealed record CanonicalArticleV2(int ArticleId, long Revision, string Title, string Markdown, int? CategoryId,
-    IReadOnlyList<int> TagIds);
+    IReadOnlyList<int> TagIds, byte[]? CoverMediaSha256 = null);
 
 public static class ArticleCanonicalHashesV2
 {
@@ -19,19 +19,25 @@ public static class ArticleCanonicalHashesV2
     {
         ArgumentNullException.ThrowIfNull(article);
         ArgumentNullException.ThrowIfNull(article.TagIds);
+        var cover = article.CoverMediaSha256;
         if (article.ArticleId <= 0 || article.Revision <= 0 || article.CategoryId is <= 0 ||
             article.TagIds.Count > WireLimits.TaxonomyTagCount || article.TagIds.Any(static tag => tag <= 0) ||
+            cover is { Length: not 32 } ||
             Utf8.GetByteCount(article.Title) is 0 or > WireLimits.TitleBytes || Utf8.GetByteCount(article.Markdown) > WireLimits.BodyBytes)
-            throw new ProtocolException("Invalid canonical v2 article facts.");
-        return Payload(
-            "fsusblog.integrity.article-content.v2",
-            "version:i:2",
+            throw new ProtocolException("Invalid native canonical article facts.");
+        var version = cover is null ? 2 : 3;
+        string[] lines =
+        [
+            "fsusblog.integrity.article-content.v" + version.ToString(CultureInfo.InvariantCulture),
+            Integer("version", version),
             Integer("articleId", article.ArticleId),
             Integer("revision", article.Revision),
             Text("title", article.Title),
             Text("markdown", article.Markdown),
             article.CategoryId is int category ? Integer("categoryId", category) : "categoryId:n",
-            "tagIds:i:" + string.Join(',', article.TagIds.Distinct().Order().Select(tag => tag.ToString(CultureInfo.InvariantCulture))));
+            "tagIds:i:" + string.Join(',', article.TagIds.Distinct().Order().Select(tag => tag.ToString(CultureInfo.InvariantCulture))),
+        ];
+        return Payload(cover is null ? lines : [.. lines, "coverMediaSha256:h:" + Convert.ToHexStringLower(cover)]);
     }
 
     public static byte[] PolicyPayload(ArticleRightsPolicy policy, ReadOnlySpan<byte> contentDigest)

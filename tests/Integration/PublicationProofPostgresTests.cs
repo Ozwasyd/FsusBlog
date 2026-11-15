@@ -1,7 +1,10 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
+using SkiaSharp;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -16,7 +19,7 @@ public sealed class PublicationProofPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (_, session, _) = await fixture.SignIn("Proof author", ct, minutes: 5);
+        var (_, session, handle) = await fixture.SignIn("Proof author", ct, minutes: 5);
         using var previous = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var next = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var scratch = PublicationFixture.PrivateScratch("fsus-proof");
@@ -25,6 +28,14 @@ public sealed class PublicationProofPostgresTests
             var aPath = PublicationFixture.PrivateKey(scratch, "a.pkcs8", previous);
             var bPath = PublicationFixture.PrivateKey(scratch, "b.pkcs8", next);
             var settings = PublicationFixture.NativeSettings(Origin, "a", aPath);
+            var mediaAvailable = OperatingSystem.IsMacOS() || OperatingSystem.IsLinux();
+            if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
+            {
+                var privateRoot = MediaFixture.CreateOwnedDirectory(scratch.FullName, "private");
+                var publicRoot = MediaFixture.CreateOwnedDirectory(scratch.FullName, "public");
+                foreach (var (key, value) in MediaFixture.PublicSettings(privateRoot, publicRoot))
+                    settings.Add(key, value);
+            }
             PublicationFixture.ConfigureKey(settings, "a", "1", previous.ExportSubjectPublicKeyInfo());
             settings[Settings + "NativeV2PrivateKeyFile"] = bPath;
             var wrongKey = await Assert.ThrowsAsync<InvalidOperationException>(async () => { await using var _ = await Start(); });
@@ -41,6 +52,7 @@ public sealed class PublicationProofPostgresTests
                 first = await Edit(server, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
                 firstUrl = await PublicationFixture.ProofPath(db, first.Id, ct);
                 firstProof = await WaitProof(server, firstUrl);
+                Assert.Equal(2, JsonNode.Parse(firstProof)!["canonicalVersion"]!.GetValue<int>());
                 await VerifyIndependently(server, firstProof);
                 var originalSignature = (byte[])(await Scalar("select signature from public.article_publication_proof"))!;
                 await Scalar("update public.article_publication_proof set signature=$1", new byte[64]);
@@ -76,11 +88,17 @@ public sealed class PublicationProofPostgresTests
                 await VerifyIndependently(server, signed);
                 var previousUrl = secondUrl;
                 var successor = await Edit(server, WireRoutes.Save, new(second.Id, second.Revision, Guid.NewGuid(), "Replacement", "New release"));
-                second = await Edit(server, WireRoutes.Publish, new(second.Id, successor.Revision, Guid.NewGuid(), "", ""));
+                string? coverDigest = null;
+                if (mediaAvailable)
+                    (second, coverDigest) = await PublishCover(server, successor);
+                else
+                    second = await Edit(server, WireRoutes.Publish, new(second.Id, successor.Revision, Guid.NewGuid(), "", ""));
                 secondUrl = await PublicationFixture.ProofPath(db, second.Id, ct);
                 using (var replaced = await Send(server, HttpMethod.Get, previousUrl))
                     Assert.Equal(HttpStatusCode.NotFound, replaced.StatusCode);
-                await VerifyIndependently(server, await WaitProof(server, secondUrl));
+                var replacementProof = await WaitProof(server, secondUrl);
+                if (coverDigest is not null) await AssertCoverProof(server, second, replacementProof, coverDigest);
+                await VerifyIndependently(server, replacementProof);
                 var denied = await Edit(server, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Do not sign", "Visible without proof"));
                 var policy = new ArticleRightsCommand(denied.Id, denied.Revision, Guid.NewGuid(), true, "CC0-1.0", "", 0, "", "", "disabled", 0, false, false, false);
                 using var updated = await Send(server, HttpMethod.Post, WireRoutes.DraftRightsCommand, body: Wire.EncodeArticleRightsCommand(policy));
@@ -131,12 +149,70 @@ public sealed class PublicationProofPostgresTests
             }
 
             async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url,
-                string host = "proof.example.test", byte[]? body = null)
+                string host = "proof.example.test", byte[]? body = null, Guid? mutation = null)
             {
-                var response = await PublicationFixture.SendForwarded(server, method, url, host, session, body, ct);
+                using var request = SiteAedsFixture.Request(method, url, body, body is null ? null : session,
+                    mutation.HasValue ? handle : null);
+                PublicationFixture.Forward(request, host);
+                if (mutation is { } key) request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
+                var response = await server.Client.SendAsync(request, ct);
                 if (url.StartsWith("/integrity/v2", StringComparison.Ordinal))
                     Assert.True(response.Headers.CacheControl?.NoStore);
                 return response;
+            }
+
+            async Task<(Draft Published, string Digest)> PublishCover(ServerProcess server, Draft draft)
+            {
+                var image = MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SteelBlue);
+                using var upload = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=signed-cover.png",
+                    frame: null, session, handle);
+                PublicationFixture.Forward(upload, "proof.example.test");
+                upload.Headers.Add(WireHeaders.ClientMutationId, Guid.NewGuid().ToString("D"));
+                upload.Content = new ByteArrayContent(image);
+                upload.Content.Headers.ContentType = new("image/png");
+                using var uploaded = await server.Client.SendAsync(upload, ct);
+                Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+                var asset = MediaFixture.FirstListedAsset(await uploaded.Content.ReadAsByteArrayAsync(ct), 1);
+                var digest = (string)(await Scalar("select encode(content_hash,'hex') from public.private_media where id=$1", asset))!;
+                var key = Guid.NewGuid();
+                using var attached = await Send(server, HttpMethod.Post, WireRoutes.ArticleMediaCommand,
+                    body: Wire.EncodeArticleMediaCommand(new(draft.Id, draft.Revision, key, asset, true)), mutation: key);
+                Assert.Equal(HttpStatusCode.OK, attached.StatusCode);
+                draft = Wire.DecodeDraft(await attached.Content.ReadAsByteArrayAsync(ct));
+                key = Guid.NewGuid();
+                using var covered = await Send(server, HttpMethod.Post, WireRoutes.ArticleCoverSave,
+                    body: Wire.EncodeArticleCoverCommand(new(draft.Id, draft.Revision, key, asset)), mutation: key);
+                Assert.Equal(HttpStatusCode.OK, covered.StatusCode);
+                draft = Wire.DecodeDraft(await covered.Content.ReadAsByteArrayAsync(ct));
+                key = Guid.NewGuid();
+                using var published = await Send(server, HttpMethod.Post, WireRoutes.ArticlePublishImages,
+                    body: Wire.EncodeArticlePublishImages(new(draft.Id, draft.Revision, key, [asset])), mutation: key);
+                Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+                return (Wire.DecodeDraft(await published.Content.ReadAsByteArrayAsync(ct)), digest);
+            }
+
+            async Task AssertCoverProof(ServerProcess server, Draft draft, string proof, string coverDigest)
+            {
+                var claim = JsonNode.Parse(proof)!;
+                Assert.Equal(3, claim["canonicalVersion"]!.GetValue<int>());
+                var publicationId = long.Parse(claim["publicationId"]!.GetValue<string>(), CultureInfo.InvariantCulture);
+                using var image = await Send(server, HttpMethod.Get, PublishedArticleImage.FilePath(draft.Id, publicationId, coverDigest));
+                Assert.Equal(HttpStatusCode.OK, image.StatusCode);
+                var digest = Convert.ToHexStringLower(SHA256.HashData(await image.Content.ReadAsByteArrayAsync(ct)));
+                Assert.Equal(coverDigest, digest);
+                var payload = string.Create(CultureInfo.InvariantCulture, $"""
+                    fsusblog.integrity.article-content.v3
+                    version:i:3
+                    articleId:i:{draft.Id}
+                    revision:i:{draft.Revision}
+                    title:s:UmVwbGFjZW1lbnQ=
+                    markdown:s:TmV3IHJlbGVhc2U=
+                    categoryId:n
+                    tagIds:i:
+                    coverMediaSha256:h:{digest}
+                    """) + "\n";
+                Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload))),
+                    claim["contentSha256"]!.GetValue<string>());
             }
 
             async Task<string> WaitProof(ServerProcess server, string path)

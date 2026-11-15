@@ -2,6 +2,7 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
+using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace FsusBlog.V2.Server.Content;
@@ -24,7 +25,12 @@ internal static class ArticleMediaEndpoints
                 var entries = ids.Select(asset => new ArticleMediaEntry(asset, new ArticleMediaTicket(id, revision, asset).Encode(digest, now))).ToArray();
                 if (SiteSessions.Requested(ctx) is not null)
                     await ArticleMediaStore.WriteCoverHeaders(db, tx, ctx.Response, id, revision, ct);
-                if (publishedMedia) ctx.Response.Headers[WireHeaders.ArticlePublishImagesEnabled] = "1";
+                if (publishedMedia)
+                {
+                    ctx.Response.Headers[WireHeaders.ArticlePublishImagesEnabled] = "1";
+                    if (await CurrentSchema.HasPublicationCoverAsync(db, tx, ct))
+                        ctx.Response.Headers[WireHeaders.ArticlePublishCoverEnabled] = "1";
+                }
                 return Results.Bytes(Wire.EncodeArticleMedia(id, revision, entries), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");

@@ -126,7 +126,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         var pending = new List<Binding>(8);
         await using (var command = Store.Sql(connection, tx, """
             select c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,c.outbox_id,
-                   c.content_sha256,c.policy_sha256
+                   c.content_sha256,c.policy_sha256,c.canonical_version
             from public.article_publication_canonical c
             join public.article_publication p on (p.article_id,p.revision,p.publication_id,p.publication_no,p.published_at)=
                 (c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at)
@@ -223,7 +223,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                 """;
             await using var command = Store.Sql(connection, null, $"""
                 select c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,c.outbox_id,
-                       c.content_sha256,c.policy_sha256,e.key_id,e.key_version,e.key_sha256,e.issued_at,e.signature{ledgerFields}
+                       c.content_sha256,c.policy_sha256,c.canonical_version,e.key_id,e.key_version,e.key_sha256,e.issued_at,e.signature{ledgerFields}
                 from public.article_publication_canonical c join public.article_publication_proof e using(publication_id)
                 {ledgerJoin}
                 join public.publication_proof_key k on k.key_id=e.key_id
@@ -239,20 +239,20 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
             await using var rows = await command.ExecuteReaderAsync(ct);
             if (!await rows.ReadAsync(ct)) return null;
             var binding = Binding.Read(rows);
-            if (!keys.Keys.TryGetValue(rows.GetString(9), out var key) || !binding.Matches(article)) return null;
-            var claim = binding.Claim(keys.Origin, key, rows.GetDateTime(12)) with
+            if (!keys.Keys.TryGetValue(rows.GetString(10), out var key) || !binding.Matches(article)) return null;
+            var claim = binding.Claim(keys.Origin, key, rows.GetDateTime(13)) with
             {
-                KeyVersion = rows.GetInt32(10), KeySha256 = rows.GetFieldValue<byte[]>(11)
+                KeyVersion = rows.GetInt32(11), KeySha256 = rows.GetFieldValue<byte[]>(12)
             };
-            var signature = rows.GetFieldValue<byte[]>(13);
+            var signature = rows.GetFieldValue<byte[]>(14);
             if (!key.Verify(claim, signature)) return null;
             if (archive is null) return Encode(claim, signature);
 
-            var sequence = rows.GetInt64(14);
+            var sequence = rows.GetInt64(15);
             var receipt = PublicationTransparencyV2.ReceiptDigest(ArticlePublicationProofPayloadV2.Build(claim), signature);
-            if (!receipt.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(16))) return null;
-            var entry = PublicationTransparencyV2.EntryDigest(sequence, rows.GetFieldValue<byte[]>(15), receipt);
-            return entry.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(17)) ? archive.FindInclusion(claim.IssuedAt, sequence, entry) : null;
+            if (!receipt.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(17))) return null;
+            var entry = PublicationTransparencyV2.EntryDigest(sequence, rows.GetFieldValue<byte[]>(16), receipt);
+            return entry.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(18)) ? archive.FindInclusion(claim.IssuedAt, sequence, entry) : null;
         }
         catch (OperationCanceledException) when (!request.IsCancellationRequested) { throw new PublicUnavailableException(); }
         catch (Exception error) when (error is ArgumentException or ProtocolException or CryptographicException) { return null; }
@@ -267,7 +267,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
 
     private static byte[] Encode(ArticlePublicationProofV2 claim, byte[] signature) => JsonSerializer.SerializeToUtf8Bytes(new
     {
-        proofVersion = 2, canonicalVersion = 2, algorithm = ArticlePublicationProofPayloadV2.Algorithm,
+        proofVersion = 2, canonicalVersion = claim.CanonicalVersion, algorithm = ArticlePublicationProofPayloadV2.Algorithm,
         origin = claim.Origin, articleId = claim.ArticleId, revision = Decimal(claim.Revision), publicationId = Decimal(claim.PublicationId),
         publicationNo = claim.PublicationNo, publishedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.PublishedAt),
         rightsSnapshotId = Decimal(claim.RightsSnapshotId), publicationOutboxId = Decimal(claim.OutboxId),
@@ -280,23 +280,25 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
     private static NpgsqlParameter Timestamp(DateTimeOffset? value) => new() { NpgsqlDbType = NpgsqlDbType.TimestampTz, Value = (object?)value ?? DBNull.Value };
 
     private sealed record Binding(int Article, long Revision, long Publication, int Number, DateTime PublishedAt, long Rules,
-        long Outbox, byte[] Content, byte[] Policy)
+        long Outbox, byte[] Content, byte[] Policy, int Version)
     {
         internal static Binding Read(NpgsqlDataReader row) => new(row.GetInt32(0), row.GetInt64(1), row.GetInt64(2), row.GetInt32(3),
-            row.GetDateTime(4), row.GetInt64(5), row.GetInt64(6), row.GetFieldValue<byte[]>(7), row.GetFieldValue<byte[]>(8));
+            row.GetDateTime(4), row.GetInt64(5), row.GetInt64(6), row.GetFieldValue<byte[]>(7), row.GetFieldValue<byte[]>(8), row.GetInt32(9));
 
         internal bool Matches(Article? article)
         {
             if (article is not { Rights: { Policy: { Enabled: true, ProofBindingEnabled: true } policy } rights } ||
                 (article.Id, article.Revision, article.Publication, article.PublicationNo, article.PublishedAt, rights.SnapshotId) !=
                 (Article, Revision, Publication, Number, (DateTimeOffset)PublishedAt, Rules)) return false;
+            var cover = article.CoverMediaDigest is { } digest ? Convert.FromHexString(digest) : null;
+            if (Version != (cover is null ? 2 : 3)) return false;
             var content = ArticleCanonicalHashesV2.ContentDigest(new(Article, Revision, article.Title, article.Body, article.Category?.Id,
-                article.Tags?.Select(tag => tag.Id).ToArray() ?? []));
+                article.Tags?.Select(tag => tag.Id).ToArray() ?? [], cover));
             return content.AsSpan().SequenceEqual(Content) && ArticleCanonicalHashesV2.PolicyDigest(policy, content).AsSpan().SequenceEqual(Policy);
         }
 
         internal ArticlePublicationProofV2 Claim(string origin, ProofPublicKey key, DateTime issued) =>
             new(origin, Article, Revision, Publication, Number, PublishedAt, Rules, Outbox, Content, Policy, key.Id, key.Version,
-                key.Fingerprint, issued);
+                key.Fingerprint, issued, Version);
     }
 }

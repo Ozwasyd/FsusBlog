@@ -21,6 +21,12 @@ internal static class PublicationCanonicalFacts
         left join public.article_revision_category category on category.article_id=r.article_id and category.revision=r.revision
         """;
 
+    internal static string CoverColumn(bool hasCover) => hasCover ? """
+        (select m.content_hash from public.article_publication_cover c
+         join public.article_publication_media m using(article_id,publication_id,asset_id)
+         where (m.article_id,m.publication_id,m.revision)=(h.article_id,h.publication_id,h.revision))
+        """ : "null::bytea";
+
     internal static PublicationCanonicalBinding Read(NpgsqlDataReader row)
     {
         var publication = row.GetInt64(0);
@@ -33,14 +39,15 @@ internal static class PublicationCanonicalFacts
         if (publication <= 0 || ordinal <= 0 || rightsId <= 0 || at == DateTime.MinValue || at == DateTime.MaxValue ||
             transition is not ("publish" or "replace"))
             throw new InvalidOperationException("Invalid native publication canonical binding.");
+        var cover = row.IsDBNull(22) ? null : row.GetFieldValue<byte[]>(22);
         var content = ArticleCanonicalHashesV2.ContentDigest(new(article, revision, row.GetString(7), row.GetString(8),
-            row.IsDBNull(9) ? null : row.GetInt32(9), row.GetFieldValue<int[]>(10)));
+            row.IsDBNull(9) ? null : row.GetInt32(9), row.GetFieldValue<int[]>(10), cover));
         var policy = ArticleCanonicalHashesV2.PolicyDigest(new(article, revision, true, row.GetBoolean(11), row.GetString(12),
             row.GetString(13), row.GetInt32(14), row.GetString(15), row.GetString(16), row.GetString(17), row.GetInt32(18),
             row.GetBoolean(19), row.GetBoolean(20), row.GetBoolean(21)), content);
-        return new(publication, article, revision, ordinal, at, transition, rightsId, content, policy);
+        return new(publication, article, revision, ordinal, at, transition, rightsId, cover is null ? 2 : 3, content, policy);
     }
 }
 
 internal sealed record PublicationCanonicalBinding(long Publication, int Article, long Revision, int Number, DateTime PublishedAt,
-    string Transition, long RightsSnapshot, byte[] Content, byte[] Policy);
+    string Transition, long RightsSnapshot, int Version, byte[] Content, byte[] Policy);

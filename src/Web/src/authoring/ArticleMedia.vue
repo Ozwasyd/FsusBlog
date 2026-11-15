@@ -23,6 +23,7 @@ const library = shallowRef<readonly PrivateMediaItem[]>([])
 const more = ref(false)
 const selected = ref<string>()
 const publishEnabled = ref(false)
+const publishCoverEnabled = ref(false)
 const publicationSelection = shallowRef<readonly string[]>([])
 const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
@@ -64,6 +65,7 @@ async function load() {
     cover.value = existing.cover
     if (existing.entries.length <= maxDocumentExportImages) exportSelection.value = existing.entries.map(asset => asset.id)
     publishEnabled.value = existing.publishImages
+    publishCoverEnabled.value = existing.publishCover
     error.value = ''
   } catch { if (current(signal)) error.value = 'Private attachments could not be loaded.' }
   finally { if (current(signal)) pending.value = false }
@@ -174,6 +176,7 @@ watch([() => props.articleId, () => props.revision, () => props.credential, cred
   publicationSelection.value = []
   confirmation.value = undefined
   publishEnabled.value = false
+  publishCoverEnabled.value = false
   closePreview()
   library.value = []
   pending.value = false
@@ -235,7 +238,11 @@ onBeforeUnmount(() => {
           <section v-else aria-label="Confirm image publication" class="publication-confirmation">
             <h3 ref="confirmationHeading" tabindex="-1">Publish selected images?</h3>
             <p>Anyone can download these images after publication. Withdrawing stops new downloads. Recipients may keep copies they received.</p>
-            <ul><li v-for="asset in confirmation.assets" :key="asset">{{ label(asset) }}</li></ul>
+            <ul>
+              <li v-for="asset in confirmation.assets" :key="asset">
+                {{ label(asset) }}<span v-if="publishCoverEnabled && asset === cover"> · Article cover</span>
+              </li>
+            </ul>
             <div class="attachment-actions">
               <ElButton native-type="button" :disabled="pending || !canPublish" @click="publishSelection">Publish article with selected images</ElButton>
               <ElButton native-type="button" @click="cancelPublication">Cancel image publication</ElButton>

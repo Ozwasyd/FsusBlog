@@ -39,6 +39,7 @@ public sealed class PublishedMediaStorePostgresTests
         var draft = await media.Attach(author, original, first, ct);
         draft = await media.Attach(author, draft, second, ct);
         draft = await media.Attach(author, draft, duplicate, ct);
+        draft = await media.SetCover(author, draft, second, ct);
         var key = Guid.NewGuid();
         var unpublished = await media.State(draft.Id, key, ct);
         Assert.Equal(new DatabaseState(draft.Revision, null, null, 0, 0, 0, 0), unpublished);
@@ -77,6 +78,7 @@ public sealed class PublishedMediaStorePostgresTests
         Assert.NotNull(restoredSelection);
         Assert.Equal(manifest.Select(row => row.Asset), restoredSelection.Select(row => row.AssetId));
         Assert.DoesNotContain(restoredSelection, row => row.AssetId == duplicate.Id);
+        Assert.Equal(second.Id, Assert.Single(restoredSelection, row => row.IsCover).AssetId);
         await media.ReplacePrivateSource(first.Id, new byte[first.Image.Bytes.Length], ct);
         await Assert.ThrowsAsync<IOException>(() => media.RestoreSelection(author, draft.Id, published.Article.Revision, publication, ct));
         await media.ReplacePrivateSource(first.Id, first.Image.Bytes, ct);
@@ -279,6 +281,10 @@ public sealed class PublishedMediaStorePostgresTests
         internal Task<ArticleState> Attach(Actor author, ArticleState draft, Asset asset, CancellationToken ct) =>
             AuthorStore.WithSession(author.Token, true, (db, tx, actor) => Store.SetPrivateAttachment(db, tx, actor,
                 new(draft.Id, draft.Revision, Guid.NewGuid(), asset.Id, true), ct), ct);
+
+        internal Task<ArticleState> SetCover(Actor author, ArticleState draft, Asset asset, CancellationToken ct) =>
+            AuthorStore.WithSession(author.Token, true, (db, tx, actor) => Store.SetCover(db, tx, actor,
+                new(draft.Id, draft.Revision, Guid.NewGuid(), asset.Id), ct), ct);
 
         internal Task<(ArticleState Article, bool Changed)> Publish(Actor author, ArticleState draft, Guid key,
             IReadOnlyList<Guid> assets, CancellationToken ct, string? session = null) =>

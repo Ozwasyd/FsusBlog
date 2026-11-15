@@ -166,6 +166,11 @@ internal sealed class PublicSnapshot
             BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
             hash.AppendData(coordinates);
             TaxonomyProjection.AppendGeneration(hash, article);
+            if (article.CoverMediaDigest is { } cover)
+            {
+                hash.AppendData("public-cover-v1\0"u8);
+                hash.AppendData(Convert.FromHexString(cover));
+            }
         }
         if (taxonomyEpoch != 0)
         {
@@ -359,7 +364,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     (tagId, name) => new TaxonomyName(tagId, name)).ToArray();
                 articles.Add(new Article(id, revision, publication, checked((int)revision), row.GetInt32(8),
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
-                    row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights));
+                    row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights, mediaProjection?.CoverDigest(id, publication)));
             }
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
                 ct, taxonomyEpoch, mediaProjection);

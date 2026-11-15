@@ -16,6 +16,15 @@ internal static class NativePublicationProofVectors
         if (!File.ReadAllBytes(Path.Combine(fixtures, "article-publication-proof-v2.txt")).AsSpan().SequenceEqual(actual) ||
             Convert.ToHexStringLower(SHA256.HashData(actual)) != "8169f3b97e599c57fed6d9180d5de33b781766b03d006995a01832b3c0392ce2")
             throw new InvalidOperationException("Native signing transcript differs from the independent vector.");
+        var covered = ArticlePublicationProofPayloadV2.Build(proof with
+        {
+            CanonicalVersion = 3,
+            ContentSha256 = Convert.FromHexString("cffdeb6306ca41ebdccb54630566de12d19d3f6e0602afa1aea47942553b2be1"),
+            PolicySha256 = Convert.FromHexString("71bf0b9f49605076ce0c60099358f77d241c63f2fcbb265ffd5d4a7d8a4c0dff"),
+        });
+        if (!File.ReadAllBytes(Path.Combine(fixtures, "article-publication-proof-canonical-v3.txt")).AsSpan().SequenceEqual(covered) ||
+            Convert.ToHexStringLower(SHA256.HashData(covered)) != "49094228337db15d32c64529d8dfd1d020582387c2c1678fd1ea75888b16923d")
+            throw new InvalidOperationException("The managed cover signing transcript differs from the independent vector.");
         VerifyTransparency(actual);
         var head = new PublicationTransparencyHeadV2("https://proof.example.test", 9007199254741001,
             Convert.FromHexString("7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3"), "rotate-1", 7,
@@ -27,7 +36,7 @@ internal static class NativePublicationProofVectors
         VerifyCheckpoint(fixtures, issue.AddTicks(10));
         VerifyDailyCheckpoint(fixtures, issue.AddTicks(10));
         foreach (var invalid in new[] { proof with { IssuedAt = issue.AddTicks(1) }, proof with { IssuedAt = publication.AddTicks(-10) },
-            proof with { Origin = "https://proof.example.test/private" }, proof with { KeyVersion = 0 } })
+            proof with { Origin = "https://proof.example.test/private" }, proof with { KeyVersion = 0 }, proof with { CanonicalVersion = 4 } })
         {
             try { ArticlePublicationProofPayloadV2.Build(invalid); }
             catch (ArgumentException) { continue; }

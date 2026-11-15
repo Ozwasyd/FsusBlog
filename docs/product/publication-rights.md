@@ -18,6 +18,8 @@
 
 规范内容载荷以 `fsusblog.integrity.article-content.v2` 开始，按源码固定行序编码文章 ID、文章内修订号、精确标题及正文 UTF-8、可空分类 ID 和正整数去重排序标签 ID。权利域 `fsusblog.integrity.article-policy.v2` 绑定该内容 SHA-256 及持久化策略字段，包括 `Enabled`、`ProofBindingEnabled`、空字符串和未设置年份的 `0`。各行由 LF 结束，字符串用标准 Base64，摘要用小写十六进制。正文包括原始组合字符和换行，派生摘要、可变标签名及独立媒体字节不在此 v2 载荷内。 [规范源码](../../src/Contracts/ArticleCanonicalHashesV2.cs) · [独立内容向量](../../tests/Protocol/fixtures/article-content-canonical-v2.txt) · [独立策略向量](../../tests/Protocol/fixtures/article-policy-canonical-v2.txt)
 
+明确公开托管封面的发布使用 canonical 版本 3。其内容域为 `fsusblog.integrity.article-content.v3`，在相同的文章事实后附加 `coverMediaSha256`，绑定封面角色和获准图片字节。现有无封面发布继续使用原 v2 字节和摘要。原生证明版本为 2，仍签入实际 canonical 版本。浏览器仅使用精确发布坐标中的站内图片摘要复算，停机工具和透明日志验证读取持久化的 canonical 版本。
+
 ## 原生 v2 权利签名
 
 此功能默认关闭。现有库先离线运行 `publication-proof schema`，并提供 `FSUSBLOG_PUBLIC_ORIGIN`。设置 `IntegrityProof__Signing__NativeV2Enabled=true` 和 `IntegrityProof__Signing__NativeV2PrivateKeyFile` 后，后台任务在现行公开快照和持久 outbox 都可验证时，绑定真实签发时间并追加 P-256/SHA-256 签名。签发要求已发布策略同时开启权利和证明绑定。处于草稿、已替换、已撤回或删除状态的坐标不提供公开证明。定时文章等实际发布后才有签发资格。

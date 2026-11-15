@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { articlePublicationDigests, publicationProofPath, verifyCurrentPublication } from '../../src/Contracts/article-publication-proof.ts'
 import type { Article } from '../../src/Contracts/public-articles.ts'
+import { verifyPublicationProof } from '../../tools/verify-publication-proof.mjs'
 
 const origin = 'https://proof.example.test'
 const publishedAtUtc = '2026-11-15T08:00:00.120001Z'
@@ -24,6 +25,8 @@ const digest = (value: string | Buffer) => createHash('sha256').update(value).di
 const fixture = (name: string) => readFileSync(new URL(`fixtures/${name}.txt`, import.meta.url), 'utf8')
 const contentSha256 = digest(fixture('article-content-canonical-v2'))
 const policySha256 = digest(fixture('article-policy-canonical-v2').replace('enabled:b:0', 'enabled:b:1'))
+const coverDigest = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'
+const coveredArticle = { ...article, coverImageUrl: `/public-media/${article.id}/${article.publication}/${coverDigest}` }
 
 test('rebuilds exact content and policy from the public article', async () => {
   assert.deepEqual(await articlePublicationDigests(article), {
@@ -31,6 +34,17 @@ test('rebuilds exact content and policy from the public article', async () => {
   })
   assert.notEqual((await articlePublicationDigests({ ...article, body: article.body.normalize('NFC') })).content, contentSha256)
   assert.notEqual((await articlePublicationDigests({ ...article, body: article.body.replace('\r\n', '\n') })).content, contentSha256)
+})
+
+test('rebuilds canonical v3 only from the exact managed cover for the publication', async () => {
+  assert.deepEqual(await articlePublicationDigests(coveredArticle), {
+    content: digest(fixture('article-content-canonical-v3')),
+    policy: '71bf0b9f49605076ce0c60099358f77d241c63f2fcbb265ffd5d4a7d8a4c0dff',
+  })
+  await assert.rejects(articlePublicationDigests(coveredArticle, 2), { reason: 'invalid' })
+  await assert.rejects(articlePublicationDigests(article, 3), { reason: 'invalid' })
+  await assert.rejects(articlePublicationDigests({ ...coveredArticle, publication: article.publication + 1n }), { reason: 'invalid' })
+  await assert.rejects(articlePublicationDigests({ ...coveredArticle, coverImageUrl: coveredArticle.coverImageUrl + '?v=1' }), { reason: 'invalid' })
 })
 
 test('verifies the frozen signing transcript with a rotated key and checks current eligibility again', async t => {
@@ -81,6 +95,29 @@ test('verifies the frozen signing transcript with a rotated key and checks curre
   }
   await verify()
   assert.deepEqual(calls, [path, '/integrity/v2/keys.json', path])
+
+  const manifest = { manifestVersion: 2, kind: 'native-publication-proof-keys', algorithm: proof.algorithm, keys: [validKey] }
+  verifyPublicationProof(proof, manifest, origin)
+  const currentCovered = { ...coveredArticle, rights: current.rights }
+  const coveredContent = digest(fixture('article-content-canonical-v3'))
+  const coveredPolicy = digest(fixture('article-policy-canonical-v2')
+    .replace('enabled:b:0', 'enabled:b:1').replace(contentSha256, coveredContent))
+  const coveredTranscript = fixture('article-publication-proof-canonical-v3')
+    .replace(/^keySha256:h:.+$/m, `keySha256:h:${keySha256}`)
+    .replace(/^policySha256:h:.+$/m, `policySha256:h:${coveredPolicy}`)
+  const coveredProof = {
+    ...proof, canonicalVersion: 3, contentSha256: coveredContent, policySha256: coveredPolicy,
+    signature: sign('SHA256', Buffer.from(coveredTranscript), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url'),
+  }
+  returnedProof = coveredProof
+  await verify(currentCovered)
+  verifyPublicationProof(coveredProof, manifest, origin)
+  await assert.rejects(verify(), { reason: 'invalid' })
+  await assert.rejects(verify({ ...currentCovered, coverImageUrl: currentCovered.coverImageUrl.replace(coverDigest, 'a'.repeat(64)) }),
+    { reason: 'invalid' })
+  assert.throws(() => verifyPublicationProof({ ...coveredProof, canonicalVersion: 2 }, manifest, origin), /signature/)
+  returnedProof = proof
+  await assert.rejects(verify(currentCovered), { reason: 'invalid' })
 
   returnedKey = { ...validKey, compromisedAtUtc: '2026-11-16T08:00:00.000000Z' }
   await assert.rejects(verify(), { reason: 'invalid' })

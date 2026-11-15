@@ -51,7 +51,9 @@ internal static partial class CurrentSchema
             .Concat(PublicationCanonicalColumns).Concat(GetPublicationProofColumns(true))
             .Concat(PublicationTransparencyColumns).Concat(PublicationHeadColumns).ToArray();
         var relations = columns.Select(fact => fact.Split(' ', 2)[0]).ToHashSet(StringComparer.Ordinal);
-        var constraints = Constraints.Concat(PublicationCanonicalConstraints).Concat(PublicationProofConstraints)
+        var hasCover = await HasPublicationCoverAsync(db, tx, ct);
+        var constraints = Constraints.Concat(PublicationCanonicalConstraints)
+            .Append(PublicationCanonicalVersionConstraint(hasCover)).Concat(PublicationProofConstraints)
             .Concat(PublicationTransparencyConstraints).Concat(PublicationHeadConstraints)
             .Where(fact => relations.Contains(fact.Split(' ', 2)[0])).ToArray();
         await VerifyRelationsAsync(db, tx, columns, constraints, ct);

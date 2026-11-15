@@ -928,6 +928,7 @@ export const WireHeaders = {
   PrivateMediaResumable: "X-Fsus-Private-Media-Resumable",
   PrivateMediaWebp: "X-Fsus-Private-Media-WebP",
   ArticlePublishImagesEnabled: "X-Fsus-Article-Publish-Images",
+  ArticlePublishCoverEnabled: "X-Fsus-Article-Publish-Cover",
   ArticleCover: "X-Fsus-Article-Cover",
   SourceArticleCover: "X-Fsus-Source-Article-Cover",
   PublicArticleMediaPresent: "X-Fsus-Public-Article-Media",

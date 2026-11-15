@@ -8,6 +8,7 @@ export type AttachmentEdit = Readonly<{ assetId: string; attach: boolean } | { c
 export interface ArticleMediaState {
   readonly entries: readonly ArticleAttachment[];
   readonly publishImages: boolean;
+  readonly publishCover: boolean;
   readonly cover: string | null | undefined;
 }
 
@@ -30,7 +31,8 @@ export function articleMedia(id: number, revision: bigint, current: string, sign
     reader.finish();
     const cover = decodeArticleCover(headers.get(WireHeaders.ArticleCover));
     if (cover && !known.has(cover)) throw invalid();
-    return { entries, cover, publishImages: headers.get(WireHeaders.ArticlePublishImagesEnabled) === '1' };
+    return { entries, cover, publishImages: headers.get(WireHeaders.ArticlePublishImagesEnabled) === '1',
+      publishCover: headers.get(WireHeaders.ArticlePublishCoverEnabled) === '1' };
   }, signal, 'GET', undefined, siteSessionHeader(current));
 }
 

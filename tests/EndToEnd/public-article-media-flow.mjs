@@ -56,12 +56,14 @@ try {
       })
       await page.goto(origin + '/login')
       const imageWidth = 640
+      const galleryWidth = 240
       const chosen = await imageFixture(page, `publish-choice-${device}.${webp ? 'webp' : 'png'}`, imageWidth, 80, '#2f5d96', '#e7aa70', chosenContentType)
+      const galleryFile = await imageFixture(page, `gallery-image-${device}.png`, galleryWidth, 60, '#32573e', '#b08ba6')
       const privateOnly = await imageFixture(page, `keep-private-${device}.png`, 100, 90, '#851d39', '#338758')
       const ticket = index === 0 ? process.env.FSUSBLOG_TEST_TICKET : process.env.FSUSBLOG_TEST_MOBILE_TICKET
       assert(ticket, 'Provide separate one-time author tickets for the desktop and mobile fixtures.')
       const title = `Explicit article images ${device}`
-      const fixture = await createDraft(page, author, ticket, title, chosen, privateOnly)
+      const fixture = await createDraft(page, author, ticket, title, chosen, galleryFile, privateOnly)
       const articleId = fixture.draft.id
       const articlePath = `${origin}/article/${articleId}`
       const inspector = page.getByRole('button', { name: 'Inspector', exact: true })
@@ -69,23 +71,43 @@ try {
       const review = page.getByRole('button', { name: 'Review image publication', exact: true })
       const confirm = page.getByRole('button', { name: 'Publish article with selected images', exact: true })
       const confirmation = page.getByRole('heading', { name: 'Publish selected images?', exact: true })
+      const reviewPanel = page.getByRole('region', { name: 'Confirm image publication', exact: true })
       const gallery = publicPage.getByRole('region', { name: 'Published images', exact: true })
+      const cover = publicPage.getByRole('img', { name: 'Article cover', exact: true })
+      const attachmentPath = WireRoutes.ArticleMedia.replace('{id:int}', String(articleId))
+
+      async function saveCover(name, assetId) {
+        const [saved, attachments] = await Promise.all([
+          page.waitForResponse(response => response.url() === origin + WireRoutes.ArticleCoverSave && response.request().method() === 'POST'),
+          page.waitForResponse(response => new URL(response.url()).pathname === attachmentPath &&
+            response.headers()[WireHeaders.ArticleCover.toLowerCase()] === assetId),
+          page.getByRole('button', { name: `Use ${name} as draft cover`, exact: true }).press('Enter'),
+        ])
+        assert.equal(saved.status(), 200)
+        assert.equal(attachments.status(), 200)
+        assert.equal(attachments.headers()['cache-control'], 'no-store')
+        return decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+      }
 
       await page.goto(`${origin}/user/manage/article/edit/${articleId}`)
       await inspector.click()
       await manage.click()
       await attach(page, chosen.name)
+      await attach(page, galleryFile.name)
       await attach(page, privateOnly.name)
       const chosenPreview = await preview(page, chosen.name, imageWidth)
+      const galleryPreview = await preview(page, galleryFile.name, galleryWidth)
       const privatePreview = await preview(page, privateOnly.name, 100)
-      assert.notEqual(chosenPreview.digest, privatePreview.digest, 'Fixture must have distinct canonical objects.')
+      assert.equal(new Set([chosenPreview.digest, galleryPreview.digest, privatePreview.digest]).size, 3)
       const privateRoute = origin + WireRoutes.ArticleMediaPreview
       const leakedTicket = await anonymous.request.get(privateRoute, { headers: { Authorization: privatePreview.authorization } })
       assert.equal(leakedTicket.status(), 404)
       assert.equal((await leakedTicket.body()).length, 0)
+      const privateCover = await saveCover(privateOnly.name, fixture.privateOnly.id)
 
       phase = `${device}: cancel explicit publication`
       const choice = page.getByRole('checkbox', { name: `Publish ${chosen.name}`, exact: true })
+      const galleryChoice = page.getByRole('checkbox', { name: `Publish ${galleryFile.name}`, exact: true })
       const unselected = page.getByRole('checkbox', { name: `Publish ${privateOnly.name}`, exact: true })
       await choice.waitFor({ state: 'attached' })
       await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
@@ -110,6 +132,8 @@ try {
       await page.getByText('Article published.', { exact: false }).waitFor()
       const ordinaryRelease = await publicCoordinate(anonymous, articleId)
       assert.equal(ordinaryRelease.media, null)
+      assert.equal(ordinaryRelease.revision, privateCover.revision + 1n)
+      assert.equal(ordinaryRelease.cover, '')
       const ordinaryManifest = await readManifest(anonymous, articleId, ordinaryRelease.publication)
       assert.deepEqual(ordinaryManifest.images, [])
       assert.equal((await anonymous.request.get(rawUrl(articleId, ordinaryRelease.publication, chosenPreview.digest))).status(), 404)
@@ -123,53 +147,79 @@ try {
       await publicPage.getByRole('heading', { name: title, exact: true }).waitFor()
       await publicPage.locator('#app[data-v-app]').waitFor()
       assert.equal(await gallery.count(), 0)
+      assert.equal(await cover.count(), 0)
       assert.deepEqual(manifestReads, [], 'An ordinary publication has no browser manifest request.')
 
       phase = `${device}: explicit publication and anonymous access`
       await inspector.click()
       if (await manage.isVisible()) await manage.click()
-      await choice.waitFor({ state: 'attached' })
-      await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
-      assert.equal(await choice.isChecked(), false, 'A newly saved or published revision starts with no selections.')
-      await choice.press('Space')
-      assert.equal(await unselected.isChecked(), false)
-      await review.press('Enter')
-      await confirmation.waitFor()
-      const explicit = page.waitForResponse(response => response.url() === origin + publishPath && response.request().method() === 'POST')
-      await confirm.press('Enter')
-      const receipt = await explicit
-      assert.equal(receipt.status(), 200)
-      assert.match(await receipt.request().headerValue(WireHeaders.CurrentSession) ?? '', /^[a-f0-9]{64}$/)
-      const command = decodeFrame(receipt.request().postDataBuffer())
-      assert.equal(command.type, FrameType.ArticlePublishImages)
-      const fields = new PodReader(command.payload)
-      assert.equal(fields.i32(), articleId)
-      const revision = fields.i64()
-      assert.equal(fields.uuid(), await receipt.request().headerValue(WireHeaders.ClientMutationId))
-      assert.equal(fields.i32(), 1)
-      assert.equal(fields.uuid(), fixture.chosen.id)
-      fields.finish()
-      const result = decodeFrame(await receipt.body())
-      assert.equal(result.type, FrameType.Draft)
-      const published = decodeDraft(result.payload)
-      assert.equal(published.id, articleId)
-      assert.equal(published.revision, revision + 1n)
-      assert.equal(published.published, true)
-      await page.getByText('Article and selected images published.', { exact: false }).waitFor()
+      async function publishChosen(revision, asCover) {
+        await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
+        assert.equal(await choice.isChecked(), false, 'A newly saved or published revision starts with no selections.')
+        await choice.press('Space')
+        assert.equal(await galleryChoice.isChecked(), false)
+        if (asCover) await galleryChoice.press('Space')
+        assert.equal(await unselected.isChecked(), false)
+        await review.press('Enter')
+        await confirmation.waitFor()
+        assert.equal(await reviewPanel.getByText('Article cover', { exact: false }).count(), asCover ? 1 : 0)
+        const [receipt] = await Promise.all([
+          page.waitForResponse(response => response.url() === origin + publishPath && response.request().method() === 'POST'),
+          confirm.press('Enter'),
+        ])
+        assert.equal(receipt.status(), 200)
+        assert.match(await receipt.request().headerValue(WireHeaders.CurrentSession) ?? '', /^[a-f0-9]{64}$/)
+        const command = decodeFrame(receipt.request().postDataBuffer(), FrameType.ArticlePublishImages)
+        const fields = new PodReader(command.payload)
+        assert.equal(fields.i32(), articleId)
+        assert.equal(fields.i64(), revision)
+        assert.equal(fields.uuid(), await receipt.request().headerValue(WireHeaders.ClientMutationId))
+        assert.equal(fields.i32(), asCover ? 2 : 1)
+        assert.equal(fields.uuid(), fixture.chosen.id)
+        if (asCover) assert.equal(fields.uuid(), fixture.gallery.id)
+        fields.finish()
+        const published = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
+        assert.deepEqual([published.id, published.revision, published.published], [articleId, revision + 1n, true])
+        await page.getByText('Article and selected images published.', { exact: false }).waitFor()
+        return published
+      }
+
+      const galleryOnly = await publishChosen(ordinaryRelease.revision, false)
       assert.equal(explicitWrites.length, 1)
+      const omitted = await publicCoordinate(anonymous, articleId)
+      assert.equal(omitted.revision, galleryOnly.revision)
+      assert.notEqual(omitted.publication, ordinaryRelease.publication)
+      assert.equal(omitted.cover, '')
+      assert.equal(omitted.media, '1')
+      assert.equal((await readManifest(anonymous, articleId, omitted.publication)).images[0].digest, chosenPreview.digest)
+      assert.equal((await anonymous.request.get(rawUrl(articleId, omitted.publication, privatePreview.digest))).status(), 404)
+
+      phase = `${device}: the explicit cover matches the published media coordinate`
+      const selectedCover = await saveCover(chosen.name, fixture.chosen.id)
+      assert.equal(selectedCover.revision, galleryOnly.revision + 1n)
+      assert.deepEqual(await publicCoordinate(anonymous, articleId), omitted, 'Saving a draft cover must leave the live release unchanged.')
+      const published = await publishChosen(selectedCover.revision, true)
+      assert.equal(explicitWrites.length, 2)
 
       const online = await publicCoordinate(anonymous, articleId)
-      assert.notEqual(online.publication, ordinaryRelease.publication)
+      assert.notEqual(online.publication, omitted.publication)
+      assert.equal(online.revision, published.revision)
       assert.equal(online.media, '1')
       const manifest = await readManifest(anonymous, articleId, online.publication)
-      assert.deepEqual(manifest.images, [{ digest: chosenPreview.digest, format: webp ? 3 : 1,
-        length: chosenPreview.length, width: imageWidth, height: 80 }])
-      for (const asset of [fixture.chosen, fixture.privateOnly]) {
+      assert.deepEqual(manifest.images, [
+        { digest: chosenPreview.digest, format: webp ? 3 : 1, length: chosenPreview.length, width: imageWidth, height: 80 },
+        { digest: galleryPreview.digest, format: 1, length: galleryPreview.length, width: galleryWidth, height: 60 },
+      ])
+      const assets = [fixture.chosen, fixture.gallery, fixture.privateOnly]
+      for (const asset of assets) {
         assert.equal(manifest.bytes.includes(asset.name), false)
         assert.equal(manifest.bytes.includes(asset.id), false)
         assert.equal(manifest.bytes.includes(Buffer.from(asset.id.replaceAll('-', ''), 'hex')), false)
       }
       const publicUrl = rawUrl(articleId, online.publication, chosenPreview.digest)
+      const galleryUrl = rawUrl(articleId, online.publication, galleryPreview.digest)
+      assert.equal(online.cover, new URL(publicUrl).pathname)
+      assert.equal((await anonymous.request.get(rawUrl(articleId, omitted.publication, chosenPreview.digest))).status(), 404)
       const raw = await anonymous.request.get(publicUrl)
       assert.equal(raw.status(), 200)
       assert.equal(raw.headers()['cache-control'], 'no-store')
@@ -197,13 +247,15 @@ try {
       const publicHtml = await publicPage.goto(articlePath)
       assert.equal(publicHtml.status(), 200)
       const source = await publicHtml.text()
-      assert(source.includes('aria-label="Published images"') && source.includes(new URL(publicUrl).pathname), 'SSR must include the authorized image.')
-      for (const asset of [fixture.chosen, fixture.privateOnly]) {
+      assert(source.includes('aria-label="Published images"') && source.includes(new URL(galleryUrl).pathname), 'SSR must include the authorized gallery image.')
+      assert.equal(Array.from(source.matchAll(/alt="Article cover"/g)).length, 1)
+      for (const asset of assets) {
         assert(!source.includes(asset.name) && !source.includes(asset.id), 'Public HTML must not expose private attachment metadata.')
       }
       assert.equal((await loadedManifest).status(), 200)
       await publicPage.locator('#app[data-v-app]').getByRole('region', { name: 'Published images', exact: true }).waitFor()
       assert.deepEqual(manifestReads, [manifestUrl(articleId, online.publication)])
+      assert.equal(await cover.count(), 1)
       assert.equal(await gallery.getByRole('img').count(), 1)
       assert.equal(await gallery.getAttribute('data-publication'), String(online.publication))
       if (process.env.FSUSBLOG_TEST_REQUIRE_NATIVE === '1') {
@@ -212,8 +264,11 @@ try {
       }
       const publicImage = gallery.getByRole('img', { name: 'Published image 1', exact: true })
       await publicImage.scrollIntoViewIfNeeded()
-      await publicPage.waitForFunction(width => Array.from(document.images).some(image => image.alt === 'Published image 1' && image.naturalWidth === width), imageWidth)
-      assert.equal(new URL(await publicImage.getAttribute('src'), origin).href, publicUrl)
+      await publicPage.waitForFunction(dimensions => Object.entries(dimensions).every(([label, width]) =>
+        Array.from(document.images).some(image => image.alt === label && image.naturalWidth === width)),
+      { 'Article cover': imageWidth, 'Published image 1': galleryWidth })
+      assert.equal(new URL(await publicImage.getAttribute('src'), origin).href, galleryUrl)
+      assert.equal(new URL(await cover.getAttribute('src'), origin).href, publicUrl)
       assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       await publicPage.screenshot({ path: join(evidence, `public-images-gallery-${device}.png`), animations: 'disabled' })
       if (device === 'mobile') {
@@ -225,6 +280,11 @@ try {
           await staticImage.scrollIntoViewIfNeeded()
           const bounds = await staticImage.boundingBox()
           assert(bounds && bounds.width > 0 && bounds.width <= viewport.width, 'Server-rendered image must fit a narrow viewport before hydration.')
+          const staticCover = staticPage.getByRole('img', { name: 'Article cover', exact: true })
+          await staticCover.waitFor()
+          assert.equal(await staticCover.count(), 1)
+          assert.equal(new URL(await staticCover.getAttribute('src'), origin).href, publicUrl)
+          assert.equal(new URL(await staticImage.getAttribute('src'), origin).href, galleryUrl)
           assert.equal(await staticPage.locator('#app[data-v-app]').count(), 0)
         } finally { await serverRendered.close() }
       }
@@ -240,6 +300,7 @@ try {
       assert.equal(withdrawn.headers()['cache-control'], 'no-store')
       assert.equal((await withdrawn.body()).length, 0)
       assert.equal((await anonymous.request.head(publicUrl)).status(), 404)
+      assert.equal((await anonymous.request.get(galleryUrl)).status(), 404)
       assert.equal((await anonymous.request.get(manifestUrl(articleId, online.publication))).status(), 404)
       assert.equal((await anonymous.request.get(articlePath)).status(), 404)
       await inspector.click()
@@ -252,7 +313,8 @@ try {
       assertions.push({ device, viewport, title, articleId, imageContentType: chosenContentType,
         previous: String(ordinaryRelease.publication), publication: String(online.publication),
         imageDigest: chosenPreview.digest, imageBytes: chosenPreview.length, explicitWrites: explicitWrites.length, cancellationKeptPrivate: true,
-        ordinaryPublicationNoImages: true, unpublishedAssetHidden: true, publicHtmlAndHydratedGallery: true,
+        ordinaryPublicationNoImages: true, unpublishedAssetHidden: true, omittedDraftCoverStayedPrivate: true,
+        approvedCoverRendersOnce: true, independentGalleryImageRenders: true,
         anonymousGetHead: true, withdrawnConditionalDenied: true, privatePreviewRetained: true })
     } finally {
       await anonymous.close()
@@ -284,7 +346,7 @@ async function imageFixture(page, name, width, height, background, accent, type 
   return new File([Buffer.from(data.split(',')[1], 'base64')], name, { type })
 }
 
-async function createDraft(page, context, ticket, title, chosen, privateOnly) {
+async function createDraft(page, context, ticket, title, chosen, galleryFile, privateOnly) {
   let cookie
   const native = globalThis.fetch
   globalThis.fetch = async (path, options) => {
@@ -299,10 +361,11 @@ async function createDraft(page, context, ticket, title, chosen, privateOnly) {
     assert(cookie)
     await context.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict', secure: origin.startsWith('https:') }])
     const selectedAsset = webp ? await uploadWebpInLibrary(page, chosen) : await uploadMedia(chosen, crypto.randomUUID())
+    const galleryAsset = await uploadMedia(galleryFile, crypto.randomUUID())
     const unselectedAsset = await uploadMedia(privateOnly, crypto.randomUUID())
     const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(), title,
       body: 'The gallery holds only the images selected for this publication.' }, undefined, session.siteSessionId)
-    return { draft, chosen: selectedAsset, privateOnly: unselectedAsset }
+    return { draft, chosen: selectedAsset, gallery: galleryAsset, privateOnly: unselectedAsset }
   } finally { globalThis.fetch = native }
 }
 
@@ -366,7 +429,9 @@ async function publicCoordinate(context, id) {
   assert.equal(response.status(), 200)
   const frame = decodeFrame(await response.body())
   assert.equal(frame.type, FrameType.ArticleDetail)
-  return { publication: decodeArticle(frame.payload).publication, media: response.headers()[WireHeaders.PublicArticleMediaPresent.toLowerCase()] ?? null }
+  const article = decodeArticle(frame.payload)
+  return { publication: article.publication, revision: article.revision, cover: article.coverImageUrl,
+    media: response.headers()[WireHeaders.PublicArticleMediaPresent.toLowerCase()] ?? null }
 }
 
 async function readManifest(context, id, publication) {

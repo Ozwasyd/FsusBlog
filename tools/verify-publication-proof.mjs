@@ -41,7 +41,8 @@ function verifyNativeSignature(claim, manifest, attestedAt, bytes) {
 
 export function verifyPublicationProof(proof, manifest, expectedOrigin) {
   if (new URL(expectedOrigin).origin !== expectedOrigin || new URL(expectedOrigin).protocol !== 'https:' ||
-      proof.origin !== expectedOrigin || proof.proofVersion !== 2 || proof.canonicalVersion !== 2 || proof.algorithm !== algorithm ||
+      proof.origin !== expectedOrigin || proof.proofVersion !== 2 ||
+      (proof.canonicalVersion !== 2 && proof.canonicalVersion !== 3) || proof.algorithm !== algorithm ||
       !positiveInt(proof.articleId) || !positiveInt(proof.publicationNo) || !positiveInt(proof.keyVersion) ||
       ![proof.revision, proof.publicationId, proof.rightsSnapshotId, proof.publicationOutboxId].every(decimal) ||
       ![proof.contentSha256, proof.policySha256, proof.keySha256].every(digest) ||
@@ -49,7 +50,7 @@ export function verifyPublicationProof(proof, manifest, expectedOrigin) {
       !utc(proof.publishedAtUtc) || !utc(proof.issuedAtUtc) || proof.issuedAtUtc < proof.publishedAtUtc)
     throw new Error('Invalid native publication proof facts')
   const bytes = Buffer.from([
-    'fsusblog.integrity.native-publication-rights-proof.v2', 'proofVersion:i:2', 'canonicalVersion:i:2',
+    'fsusblog.integrity.native-publication-rights-proof.v2', 'proofVersion:i:2', field('canonicalVersion', 'i', proof.canonicalVersion),
     string('algorithm', algorithm), string('origin', expectedOrigin), field('articleId', 'i', proof.articleId),
     field('revision', 'i', proof.revision), field('publicationId', 'i', proof.publicationId),
     field('publicationNo', 'i', proof.publicationNo), field('publishedAt', 't', proof.publishedAtUtc),

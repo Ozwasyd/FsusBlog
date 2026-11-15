@@ -100,6 +100,13 @@ internal static partial class Migration
             (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: exists),
             requiresAdminIdentity: false);
 
+    private static Task InitializePublicationCoverAsync(NpgsqlConnection connection, CancellationToken token) =>
+        InitializeOptionalSchemaAsync(connection, token, "zzzz-publication-cover.sql", "Verified the public article cover schema.",
+            CurrentSchema.HasPublicationCoverAsync,
+            (db, tx, exists, ct) => CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true,
+                requirePublicationCanonical: true, requirePublicationMedia: true, requireArticleCover: true, requirePublicationCover: exists),
+            verifyWhenInstalled: true, requiresAdminIdentity: false);
+
     private static Task InitializeArticleCoverAsync(NpgsqlConnection connection, CancellationToken token) =>
         InitializeOptionalSchemaAsync(connection, token, "zzzz-article-cover.sql", "Verified the saved article cover schema.",
             CurrentSchema.HasArticleCoverAsync,

@@ -20,11 +20,16 @@ internal static class PublicArticleHtml
               $"<p>{HtmlEncoder.Default.Encode(rights.CopyrightHolder)}{(rights.CopyrightYear > 0 ? $" {rights.CopyrightYear}" : "")}</p>" +
               $"<p>{HtmlEncoder.Default.Encode(rights.RightsStatement)}</p></aside>"
             : "";
-        return $"<main><article><h1>{header}</h1>{RenderMarkdown(article.Body)}{RenderImages(article, images)}{disclosure}</article></main>";
+        var cover = article.CoverMediaDigest is { } digest
+            ? $"<img src=\"{PublishedMediaProjection.ImagePath(article.Id, article.Publication, digest)}\" alt=\"Article cover\" class=\"article-cover\">"
+            : "";
+        return $"<main><article>{cover}<h1>{header}</h1>{RenderMarkdown(article.Body)}{RenderImages(article, images)}{disclosure}</article></main>";
     }
 
     private static string RenderImages(Article article, IReadOnlyList<PublishedArticleImage>? images)
     {
+        if (article.CoverMediaDigest is { } cover && images is not null)
+            images = images.Where(image => image.Digest != cover).ToArray();
         if (images is not { Count: > 0 }) return "";
         var html = new StringBuilder();
         html.Append(CultureInfo.InvariantCulture,

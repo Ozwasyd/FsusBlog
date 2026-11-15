@@ -5,7 +5,7 @@ namespace FsusBlog.V2.Contracts;
 
 public sealed record ArticlePublicationProofV2(string Origin, int ArticleId, long Revision, long PublicationId, int PublicationNo,
     DateTimeOffset PublishedAt, long RightsSnapshotId, long OutboxId, byte[] ContentSha256, byte[] PolicySha256,
-    string KeyId, int KeyVersion, byte[] KeySha256, DateTimeOffset IssuedAt);
+    string KeyId, int KeyVersion, byte[] KeySha256, DateTimeOffset IssuedAt, int CanonicalVersion = 2);
 
 public static class ArticlePublicationProofPayloadV2
 {
@@ -19,11 +19,12 @@ public static class ArticlePublicationProofPayloadV2
             site.Scheme != Uri.UriSchemeHttps || site.GetLeftPart(UriPartial.Authority) != value.Origin || site.UserInfo.Length != 0 ||
             value.ArticleId <= 0 || value.Revision <= 0 || value.PublicationId <= 0 || value.PublicationNo <= 0 ||
             value.RightsSnapshotId <= 0 || value.OutboxId <= 0 || value.KeyVersion <= 0 ||
+            value.CanonicalVersion is not (2 or 3) ||
             value.ContentSha256.Length != 32 || value.PolicySha256.Length != 32 || value.KeySha256.Length != 32 ||
             !ValidKeyId(value.KeyId) || value.IssuedAt < value.PublishedAt)
             throw new ArgumentException("Invalid native publication proof facts.", nameof(value));
         return Encoding.UTF8.GetBytes(string.Join('\n',
-            Domain, "proofVersion:i:2", "canonicalVersion:i:2", "algorithm:s:" + Base64(Algorithm),
+            Domain, "proofVersion:i:2", Integer("canonicalVersion", value.CanonicalVersion), "algorithm:s:" + Base64(Algorithm),
             "origin:s:" + Base64(value.Origin), Integer("articleId", value.ArticleId), Integer("revision", value.Revision),
             Integer("publicationId", value.PublicationId), Integer("publicationNo", value.PublicationNo),
             "publishedAt:t:" + Time(value.PublishedAt), Integer("rightsSnapshotId", value.RightsSnapshotId),

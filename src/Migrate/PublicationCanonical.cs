@@ -35,7 +35,9 @@ internal static partial class Migration
         await using var tx = await BeginReadOnlyAsync(connection, ct);
         if (!await CurrentSchema.HasPublicationCanonicalAsync(connection, tx, ct))
             throw new InvalidOperationException("Native publication canonical storage is not installed.");
+        var hasCover = await CurrentSchema.HasPublicationCoverAsync(connection, tx, ct);
         long count = 0;
+        var latestVersion = 2;
         string? receipt = null;
         await using (var command = new NpgsqlCommand($"""
             with canonical_outbox as materialized (
@@ -43,7 +45,8 @@ internal static partial class Migration
                 join public.blog_outbox o on o.id=e.outbox_id and o.article_id=e.article_id and o.revision=e.revision and o.kind=e.outbox_kind
                 where ($1 is null or e.publication_id=$1)
             )
-            select {PublicationCanonicalFacts.Columns},e.outbox_id,e.content_sha256,e.policy_sha256
+            select {PublicationCanonicalFacts.Columns},{PublicationCanonicalFacts.CoverColumn(hasCover)},
+                   e.outbox_id,e.content_sha256,e.policy_sha256,e.canonical_version
             from canonical_outbox e join public.article_publication_history h
               on h.publication_id=e.publication_id and h.article_id=e.article_id and h.revision=e.revision
               and h.publication_no=e.publication_no and h.happened_at=e.published_at and h.kind=e.transition
@@ -57,14 +60,16 @@ internal static partial class Migration
             while (await row.ReadAsync(ct))
             {
                 var facts = PublicationCanonicalFacts.Read(row);
-                if (!CryptographicOperations.FixedTimeEquals(facts.Content, row.GetFieldValue<byte[]>(23)) ||
-                    !CryptographicOperations.FixedTimeEquals(facts.Policy, row.GetFieldValue<byte[]>(24)))
+                if (facts.Version != row.GetInt32(26) ||
+                    !CryptographicOperations.FixedTimeEquals(facts.Content, row.GetFieldValue<byte[]>(24)) ||
+                    !CryptographicOperations.FixedTimeEquals(facts.Policy, row.GetFieldValue<byte[]>(25)))
                     throw new InvalidOperationException($"Native publication {facts.Publication} canonical digests differ from retained revision and policy facts.");
                 count++;
+                latestVersion = Math.Max(latestVersion, facts.Version);
                 if (publication.HasValue)
                     receipt = JsonSerializer.Serialize(new
                     {
-                        canonicalVersion = 2,
+                        canonicalVersion = facts.Version,
                         publicationId = facts.Publication.ToString(CultureInfo.InvariantCulture),
                         articleId = facts.Article,
                         revision = facts.Revision.ToString(CultureInfo.InvariantCulture),
@@ -72,7 +77,7 @@ internal static partial class Migration
                         publishedAtUtc = facts.PublishedAt.ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'", CultureInfo.InvariantCulture),
                         transition = facts.Transition,
                         rightsSnapshotId = facts.RightsSnapshot.ToString(CultureInfo.InvariantCulture),
-                        publicationOutboxId = row.GetInt64(22).ToString(CultureInfo.InvariantCulture),
+                        publicationOutboxId = row.GetInt64(23).ToString(CultureInfo.InvariantCulture),
                         contentSha256 = Convert.ToHexStringLower(facts.Content),
                         policySha256 = Convert.ToHexStringLower(facts.Policy),
                     });
@@ -88,6 +93,6 @@ internal static partial class Migration
         if (publication.HasValue && receipt is null)
             throw new InvalidOperationException("The requested publication has no native canonical binding.");
         await tx.CommitAsync(ct);
-        Console.WriteLine(receipt ?? JsonSerializer.Serialize(new { canonicalVersion = 2, verifiedPublications = count }));
+        Console.WriteLine(receipt ?? JsonSerializer.Serialize(new { canonicalVersion = latestVersion, verifiedPublications = count }));
     }
 }
