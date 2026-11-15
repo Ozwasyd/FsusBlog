@@ -418,3 +418,53 @@ https://github.com/Ozwasyd/FsusBlog/issues/2175	6	2173	prerequisite	#2175:1-12; 
 https://github.com/Ozwasyd/FsusBlog/issues/2175	6	2174	prerequisite	#2174:10-20; #2175:6-19	读侧消费正式生命周期回执。撤回、恢复或新发布后，从各真实边独立读取精确发布、generation、权利和摘要。
 https://github.com/Ozwasyd/FsusBlog/issues/2175	18	2176	acceptance-gate	#2175:10-19; #2176:1-11	清理与重跑消费实际边缘的终态、投影身份与摘要，需要区分旧代、缺失边、人工回暖和运行恢复。
 https://github.com/Ozwasyd/FsusBlog/issues/2543	11	1724	prerequisite	#2543:10-24; #1724:44-56	差分生产侧走唯一真实 writer，核对含权利、责任、proof、旧新发布和 outbox 的完整语义图。另一侧独立使用 bulk factory/provider，不能同源自证。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	2293	prerequisite	#2296:10; #2296:19-20; #1854:9-12	关闭及恢复复用稳定 tab/session 身份和唯一 open-or-activate。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	2294	prerequisite	#2296:15-19; #1854:9-12	原会话宿主负责异步清理与精确恢复，取消时保留会话。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	2295	prerequisite	#2296:13; #2296:15-19; #2295:10-20	关闭后标签与活动路由沿用同一个 Registry 投影。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	1813	prerequisite	#2296:11; #2296:14; #2296:16	关闭前必须确认原崩溃恢复记录已经妥善处理。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	2263	prerequisite	#2296:11; #2296:14; #2296:65-69; #2263:11-21	保存后关闭须确认附件账本与恢复义务已结清。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	2	2265	prerequisite	#2296:65-69; #2265:22-32	关闭验收消费真实附件链终态，caption 另归 #1907。
+https://github.com/Ozwasyd/FsusBlog/issues/2316	2	1805	prerequisite	#2316:11-13; #1805:11-17	标题段使用大纲的原始节点及定位坐标。
+https://github.com/Ozwasyd/FsusBlog/issues/2316	2	2322	prerequisite	#2316:11; #2316:14; #2322:10-12; #2322:21	可检索属性遵从定义的稳定 ID、类型和 eligibility。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	2	1724	prerequisite	#2317:10-18; #1724:28-40	索引样本来自实际生命周期写入与原始修订。
+https://github.com/Ozwasyd/FsusBlog/issues/2317	2	2323	prerequisite	#2317:10-17; #2323:10; #2323:19; #2323:22	索引消费绑定修订的属性快照，并处理引用目标失效。
+https://github.com/Ozwasyd/FsusBlog/issues/2318	2	2317	prerequisite	#2318:10-20; #2317:16-20	查询只接受完整且当前的索引；部分重建返回不可用。
+https://github.com/Ozwasyd/FsusBlog/issues/2318	2	2230	prerequisite	#2318:14; #2230:10-18	最近历史经授权后只可用作显式次级信号。
+https://github.com/Ozwasyd/FsusBlog/issues/2318	2	2231	prerequisite	#2318:6; #2318:13-14; #2318:30; #2231:6; #2231:10-16	内容检索和 Quick Switcher 各自保持原查询职责。
+https://github.com/Ozwasyd/FsusBlog/issues/2320	2	2318	prerequisite	#2320:12-18; #2320:22; #2318:10-20	旧内容入口须切到通过当前权限核验的全文查询。
+https://github.com/Ozwasyd/FsusBlog/issues/2320	2	2319	prerequisite	#2320:13; #2320:16-22; #2319:10-19	核验真实全文界面及原文定位后才删除旧内容入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2417	1	1866	tracking	#2417:4–6; #2417:25–29; #1866:9; #1866:17–26	父项统筹四格式。子项提供唯一 PDF 格式，存储、UI 和旧路径各归原子任务。
+https://github.com/Ozwasyd/FsusBlog/issues/2417	2	2412	prerequisite	#2417:6; #2417:10–11; #2412:10–19	PDF 仅消费明确修订的冻结输入与工具调用契约，不在运行中读取最新源。
+https://github.com/Ozwasyd/FsusBlog/issues/2417	2	2414	prerequisite	#2417:14–15; #2417:20–22; #2414:10–21	沿用唯一隔离宿主验证工具、无网络及资源限额，取消或超时后清理实际进程。
+https://github.com/Ozwasyd/FsusBlog/issues/2417	2	2416	prerequisite	#2417:6; #2417:10–15; #2416:10–20	共享 Markdown 与受控文档表示。HTML 是内部渲染输入，PDF 下载仍需格式独立验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2417	prerequisite	#2422:6; #2422:10–11; #2422:17–20; #2417:20–22	私有结果存储只接收经格式 verifier 确认的 PDF 输出，绑定字节、摘要和实际清理。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2417	prerequisite	#2424:6; #2424:10–18; #2417:10; #2417:18–21	导出中心使用真实 PDF 可用性、格式、警告和状态，不另建渲染提供方。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	1	1866	tracking	#2426:4–6; #2426:27–32; #1866:80–92	父项汇总任务、格式和交付。此子项核对旧路径并决定迁移、降级或删除。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2412	acceptance-gate	#2426:18–25; #2412:10–19	核对新旧调用只由明确修订和冻结输入驱动，再退役 latest、mtime 和重复任务入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2414	acceptance-gate	#2426:12–16; #2426:20–25; #2414:10–21	实际固定参数与离线隔离通过后退役旧 shell、自动工具探测及联网路径。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2416	acceptance-gate	#2426:14–16; #2426:20–25; #2416:10–17	先证明 HTML 的共同 Markdown 权威和离线闭合，再退役分叉解析器及旧资源读取。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2417	acceptance-gate	#2426:12; #2426:20–25; #2426@6052019112:7; #2426@6052019112:15–17; #2417:44–50	先验证真实分页 PDF 再退役旧截图或打印替代路径。此门槛没有反向阻塞 PDF 实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2419	acceptance-gate	#2426:16; #2426:20–25; #2419:6; #2419:10–11	实际 DOCX 提供方须通过结构和 MIME 正负例，旧 DOCX 入口不得改交其他格式。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2421	acceptance-gate	#2426:16; #2426:20–25; #2421:6; #2421:10–11	实际 EPUB 提供方须通过 EPUB3 验证后再退役旧路径，保留格式错误的拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2422	acceptance-gate	#2426:17; #2426:20–25; #2422:10–11; #2422:17–20	先验证到期、鉴权及私有结果存储，再退役公共 URL 和永久结果。
+https://github.com/Ozwasyd/FsusBlog/issues/2426	2	2424	acceptance-gate	#2426:20–25; #2424:12–18; #2426@6052019112:7	先验证实际格式、修订、授权和警告实现，再退役原导出入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2417	acceptance-gate	#2428:11–17; #2417:32–50	独立验证 PDF 是真实分页且含预期字形、语义摘要和安全边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2426	acceptance-gate	#2428:6; #2428:10; #2428:19–26; #2426:49–55	全链验证消费旧路径处置，分别拒绝截图权威、shell、新鲜度漂移和其他格式代偿。
+https://github.com/Ozwasyd/FsusBlog/issues/2483	1	1872	tracking	#2483:4–6; #1872:9; #1872:50–61; #1872:85–93	私有 Canvas 父项统筹各域。引用解析只提供服务端事实及打开意图。
+https://github.com/Ozwasyd/FsusBlog/issues/2483	2	2482	prerequisite	#2483:6; #2483:10–14; #2483:20–21	查询绑定已有文档、修订和节点，读取稳定引用坐标。
+https://github.com/Ozwasyd/FsusBlog/issues/2483	2	1868	prerequisite	#2483:10–14; #1868:42–53; #1868:61–70	锚点以文章身份和 FsusUI 显式源标记为准，重复或无效目标须显式拒绝。
+https://github.com/Ozwasyd/FsusBlog/issues/2483	2	1808	prerequisite	#2483:10–18; #1808:25–39; #1808:52–55	复用稳定目标及权限事实，Canvas 解析只读，链接和显示标题不得成为目标身份。
+https://github.com/Ozwasyd/FsusBlog/issues/2483	2	2293	prerequisite	#2483:18; #2483:41; #1872:85–93	打开意图进入统一工作区打开或激活契约，引用读取不自行创建会话。
+https://github.com/Ozwasyd/FsusBlog/issues/2485	1	1872	tracking	#2485:4–6; #2485:26–30; #1872:50–61; #1872:85–93	父项统筹 Canvas 能力。此子项拥有画布操作及历史。
+https://github.com/Ozwasyd/FsusBlog/issues/2485	2	2482	prerequisite	#2485:6; #2485:10–12; #2485:17–24	操作与撤销进入同一 Canvas 持久权威和 CAS，原子记录受限历史。
+https://github.com/Ozwasyd/FsusBlog/issues/2485	2	2483	prerequisite	#2485:10; #2485:14; #2485:20–24; #2483:10–18; #2485@5996548081:1	新建和固定引用通过权限及确切目标解析，完整输入先验后写。
+https://github.com/Ozwasyd/FsusBlog/issues/2487	2	2483	prerequisite	#2487:12–17; #2487:22–25; #2483:10–18	链接计划使用来源与目标的稳定引用和确切修订，确认前无文章写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2487	2	2485	prerequisite	#2487:10–17; #2487:22–25; #2485:12–16	显式选边和真实 CAS 验证来源，普通画布操作不得附带文章写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2489	2	2483	prerequisite	#2489:10–18; #2483:10–18	界面展示权限过滤的服务器引用及固定状态，将打开意图交给原工作区。
+https://github.com/Ozwasyd/FsusBlog/issues/2489	2	2485	prerequisite	#2489:13–18; #2485:10–23	界面通过原命令及 CAS 更新画布，并展示原操作和历史状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2491	2	2483	prerequisite	#2491:11–20; #2483:10–18	包只携带可移植引用，到目标站点重新核验坐标和权限，再执行导入。
+https://github.com/Ozwasyd/FsusBlog/issues/2491	2	2485	prerequisite	#2491:15–20; #2485:10–23	导入合法包后沿原 Canvas 命令和 CAS 原子执行，目标文章不随导入写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2493	2	2483	acceptance-gate	#2493:11–20; #2483:10–18	旧实验数据只保全经验证的稳定引用，正文或 HTML 缓存须另作处置。
+https://github.com/Ozwasyd/FsusBlog/issues/2493	2	2485	acceptance-gate	#2493:15–20; #2485:10–24	验证真实命令与 CAS 后迁移旧记录，保留冲突与失败，切换期间使用唯一写入权威。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2483	acceptance-gate	#2494:10–17; #2494:22–25; #2483:33–45	终态矩阵分别核对当前、固定、失权、过时与坏锚点，也要核对万节点资源边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2485	acceptance-gate	#2494:10–17; #2485:33–51	实际多标签及万节点场景核对操作、CAS、历史与零文章副作用。
