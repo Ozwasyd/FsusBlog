@@ -83,8 +83,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             var restore = new NpgsqlConnectionStringBuilder(maintenance.ConnectionString) { Database = name };
             await using var control = new NpgsqlConnection(maintenance.ConnectionString);
             await control.OpenAsync(ct);
-            await using (var create = new NpgsqlCommand($"CREATE DATABASE {name} TEMPLATE template0", control))
-                await create.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(control, null, ct, $"CREATE DATABASE {name} TEMPLATE template0");
             try
             {
                 var dump = Path.Combine(root.FullName, "site.dump");
@@ -184,8 +183,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     private static async Task<Guid> SiteId(NpgsqlDataSource source, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
-        await using var query = Store.Sql(db, null, "SELECT site_id FROM public.authoring_recovery_site WHERE singleton");
-        return Assert.IsType<Guid>(await query.ExecuteScalarAsync(ct));
+        return Assert.IsType<Guid>(await FixtureSql.ScalarAsync(db, null, ct, "SELECT site_id FROM public.authoring_recovery_site WHERE singleton"));
     }
 
     [UnsupportedOSPlatform("windows")]

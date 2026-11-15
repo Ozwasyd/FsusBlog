@@ -40,7 +40,7 @@ public sealed class ArticleSearchPostgresTests
         var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
         await using (var transaction = await db.BeginTransactionAsync(ct))
         {
-            await using var seed = Store.Sql(db, transaction, """
+            await FixtureSql.ExecuteAsync(db, transaction, ct, """
                 insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
                 overriding system value
                 select id,$1,1,title,body,case when id=9 then null else 1 end,case when id=9 then 0 else 1 end,false,
@@ -55,8 +55,7 @@ public sealed class ArticleSearchPostgresTests
                 select id,$1,1,'Common','silence',1,1,false,timestamptz '2024-01-01 UTC',timestamptz '2024-01-01 UTC'
                 from generate_series(1001,1205) id
                 """, author);
-            await seed.ExecuteNonQueryAsync(ct);
-            await using var publication = Store.Sql(db, transaction, """
+            await FixtureSql.ExecuteAsync(db, transaction, ct, """
                 insert into public.category(id,name) values (41,'Needle');
                 insert into public.tag(id,name) values (81,'Needle');
                 insert into public.article_revision(article_id,revision,title,body,happened_at)
@@ -73,7 +72,6 @@ public sealed class ArticleSearchPostgresTests
                 insert into public.article_publication_rights (article_id,publication_id,revision)
                     select article_id,publication_id,revision from public.article_publication;
                 """);
-            await publication.ExecuteNonQueryAsync(ct);
             await transaction.CommitAsync(ct);
         }
 
@@ -136,9 +134,7 @@ public sealed class ArticleSearchPostgresTests
 
             async Task Retract(HttpStatusCode status)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract) { Content = new ByteArrayContent(retract) };
-                request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
+                using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract, retract, session.Token, handle: null);
                 using var response = await client.SendAsync(request, ct);
                 Assert.Equal(status, response.StatusCode);
             }
@@ -164,11 +160,8 @@ public sealed class ArticleSearchPostgresTests
             evidence.Delete(recursive: true);
         }
 
-        async Task Sql(string statement, params object[] inputs)
-        {
-            await using var command = Store.Sql(db, null, statement, inputs);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string statement, params object[] inputs) =>
+            FixtureSql.ExecuteAsync(db, null, ct, statement, inputs);
     }
 
     private static string PathFor(string keyword) => $"{WireRoutes.PublicSearch}?q={Uri.EscapeDataString(keyword)}";

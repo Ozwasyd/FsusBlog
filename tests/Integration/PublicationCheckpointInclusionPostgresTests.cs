@@ -164,11 +164,9 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 await Get(client, $"{Checkpoints}/daily/{day}/{covered.Sequence}.json", HttpStatusCode.NotFound);
                 await Get(client, $"/integrity/v2/article/{omitted.Article.Id}/{covered.Publication}/daily-proof.json", HttpStatusCode.NotFound);
 
-                using var retract = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract);
-                retract.Headers.Add("Cookie", "fsus-v2-session=" + session);
-                retract.Content = new ByteArrayContent(Wire.EncodeArticleCommand(
-                    new(oddLeaf.Article.Id, oddLeaf.Article.Revision, Guid.NewGuid(), "", "")));
-                retract.Content.Headers.ContentType = new(Aeds.ContentType);
+                using var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
+                    Wire.EncodeArticleCommand(new(oddLeaf.Article.Id, oddLeaf.Article.Revision, Guid.NewGuid(), "", "")),
+                    session, handle: null);
                 using var response = await client.SendAsync(retract, ct);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 await Get(client, oddLeaf.Path, HttpStatusCode.NotFound);
@@ -424,11 +422,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             }
         }
 
-        async Task<object?> Scalar(NpgsqlTransaction? tx, string sql, params object[] values)
-        {
-            await using var command = Store.Sql(connection, tx, sql, values);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(NpgsqlTransaction? tx, string sql, params object[] values) =>
+            FixtureSql.ScalarAsync(connection, tx, ct, sql, values);
     }
 
     private static string RepositoryTool(string name) => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../tools", name));

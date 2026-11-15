@@ -61,6 +61,10 @@
 \set owner_enabled false
 \endif
 
+\if :{?mixed_profile}
+\else
+\set mixed_profile false
+\endif
 \if :{?media_batch}
 \else
 \set media_batch false
@@ -75,6 +79,12 @@
 \set media_count 1
 \set media_references 1
 \set article_next 43
+\endif
+\if :mixed_profile
+\set article_count 2
+\set article_next 44
+\set publication_next 900000004
+\set rights_next 703
 \endif
 
 \if :copy_out
@@ -106,19 +116,19 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
          FROM fsus_legacy_candidate.candidate WHERE singleton)
     AND (SELECT plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha'
          FROM fsus_legacy_candidate.current_projection WHERE singleton)
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:publication_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:publication_count+(:mixed_profile)::int
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count AS expected_seal \gset
 \if :media_profile
 SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=:media_count
     AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=:media_references AS expected_seal \gset
 \else
-SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*:publication_count AS expected_seal \gset
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count+(:mixed_profile)::int
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*(:publication_count+(:mixed_profile)::int) AS expected_seal \gset
 \endif
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
     AND to_regnamespace('fsus_legacy_candidate') IS NULL
-    AND (SELECT count(*) FROM public.blog_user)=:article_count
+    AND (SELECT count(*) FROM public.blog_user)=:article_count-(:mixed_profile)::int
     AND (SELECT enabled=:owner_enabled AND can_author=:owner_enabled FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
 \endif
 \if :expected_seal
@@ -127,7 +137,7 @@ DO $$ BEGIN RAISE EXCEPTION 'Rehearsal source seal or runtime readback identity 
 \endif
 
 SELECT (SELECT count(*) FROM public.article)=:article_count
-    AND (SELECT count(*) FROM public.article_publication)=1
+    AND (SELECT count(*) FROM public.article_publication)=1+(:mixed_profile)::int
     AND (SELECT NOT deleted AND revision=:revision_count AND published_revision=:public_revision
              AND publication_count=:publication_count AND owner_id=:'owner_id'::uuid
          FROM public.article WHERE id=42)
@@ -168,6 +178,18 @@ SELECT (SELECT NOT deleted AND revision=2 AND published_revision IS NULL AND pub
 \if :verified_second_article
 \else
 DO $$ BEGIN RAISE EXCEPTION 'Second private article or its reviewed owner differs'; END $$;
+\endif
+\endif
+
+\if :mixed_profile
+SELECT (SELECT NOT deleted AND revision=1 AND published_revision=1 AND publication_count=1
+        AND owner_id=:'owner_id'::uuid FROM public.article WHERE id=43)
+    AND (SELECT publication_id=900000003 AND revision=1 FROM public.article_publication WHERE article_id=43)
+    AND (SELECT array_agg(id)=ARRAY[702::bigint] FROM public.article_publication_rights WHERE article_id=43)
+    AS verified_first_article \gset
+\if :verified_first_article
+\else
+DO $$ BEGIN RAISE EXCEPTION 'The independent immediate first publication differs'; END $$;
 \endif
 \endif
 

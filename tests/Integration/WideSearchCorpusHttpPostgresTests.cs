@@ -59,11 +59,9 @@ public sealed class WideSearchCorpusHttpPostgresTests
         await AssertNotModified(client, current, first.Validator, ct);
         await AssertRejectedCoordinates(client, current, ct);
 
-        using (var retract = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract))
+        using (var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
+            Wire.EncodeArticleCommand(new(ArticleCount, 1, Guid.NewGuid(), "", "")), token, handle: null))
         {
-            retract.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            retract.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(ArticleCount, 1, Guid.NewGuid(), "", "")));
-            retract.Content.Headers.ContentType = new(Aeds.ContentType);
             using var response = await client.SendAsync(retract, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(new Draft(ArticleCount, 2, "Quiet", "boundaryrank", false),

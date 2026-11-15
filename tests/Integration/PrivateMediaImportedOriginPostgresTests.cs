@@ -45,8 +45,7 @@ public sealed partial class PrivateMediaPostgresTests
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
             var schemaFile = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
                 "../../../../../src/Migrate/OptionalSchema/private-media-import-origin.sql"));
-            await using (var schema = Store.Sql(connection, null, await File.ReadAllTextAsync(schemaFile, ct)))
-                await schema.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, await File.ReadAllTextAsync(schemaFile, ct));
             await CurrentSchema.VerifyAsync(connection, ct);
             int article;
             long revision;
@@ -56,27 +55,22 @@ public sealed partial class PrivateMediaPostgresTests
                 var (draft, _) = await Store.Execute(connection, tx, actor, ArticleAction.Save,
                     new Edit(0, 0, Guid.NewGuid(), "Verified import fixture", "Private content."), ct);
                 (article, revision) = (draft.Id, draft.Revision);
-                await using (var provenance = Store.Sql(connection, tx, """
+                Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, tx, ct, """
                     insert into public.private_media_import
                       (asset_id,owner_id,source_site_id,target_site_id,source_owner_id,activation_sha256,plan_sha256,
                        projection_sha256,custody_manifest_sha256,request_sha256,prepared_manifest_sha256,normalizer_sha256,raw_sha256)
                     select $1,$2,$3,site_id,73,$4,$4,$4,$4,$4,$4,$4,$5 from public.authoring_recovery_site where singleton
-                    """, asset, owner.Id, Guid.NewGuid(), originDigest, rawDigest))
-                    Assert.Equal(1, await provenance.ExecuteNonQueryAsync(ct));
-                await using (var ready = Store.Sql(connection, tx, """
+                    """, asset, owner.Id, Guid.NewGuid(), originDigest, rawDigest));
+                await FixtureSql.ExecuteAsync(connection, tx, ct, """
                     insert into public.private_media(id,owner_id,import_origin_id,content_hash,name,format,length,width,height,phase)
                     values($1,$2,$1,$3,$4,1,$5,$6,$7,1)
-                    """, asset, owner.Id, normalized.Hash, name, normalized.Bytes.Length, normalized.Width, normalized.Height))
-                    await ready.ExecuteNonQueryAsync(ct);
-                await using (var attachment = Store.Sql(connection, tx,
-                    "insert into public.article_revision_media(article_id,revision,asset_id) values($1,$2,$3)", article, revision, asset))
-                    await attachment.ExecuteNonQueryAsync(ct);
-                await using (var reference = Store.Sql(connection, tx, """
+                    """, asset, owner.Id, normalized.Hash, name, normalized.Bytes.Length, normalized.Width, normalized.Height);
+                await FixtureSql.ExecuteAsync(connection, tx, ct, "insert into public.article_revision_media(article_id,revision,asset_id) values($1,$2,$3)", article, revision, asset);
+                await FixtureSql.ExecuteAsync(connection, tx, ct, """
                     insert into public.article_revision_media_import
                       (article_id,revision,asset_id,source_revision_id,reference_count,alt_text)
                     values($1,$2,$3,5000000003,2,'Original private alternative');
-                    """, article, revision, asset))
-                    await reference.ExecuteNonQueryAsync(ct);
+                    """, article, revision, asset);
                 await tx.CommitAsync(ct);
             }
             await using (var source = Store.Sql(connection, null, """

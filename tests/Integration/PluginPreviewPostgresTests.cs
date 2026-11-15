@@ -82,6 +82,11 @@ public sealed class PluginPreviewPostgresTests
         File.Move(approval, withdrawn);
         try { await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable, grant: beforeWithdrawal); }
         finally { File.Move(withdrawn, approval); }
+        var beforeRestore = await Grant(current);
+        File.Move(approval, withdrawn);
+        File.Move(withdrawn, approval);
+        await Preview(https, current, owner, HttpStatusCode.ServiceUnavailable, grant: beforeRestore);
+        await Preview(https, current, owner, HttpStatusCode.OK, grant: await Grant(current));
         var firstOffer = await Grant(current);
         var latestOffer = await Grant(current);
         await Preview(https, current, owner, HttpStatusCode.Forbidden, grant: firstOffer);

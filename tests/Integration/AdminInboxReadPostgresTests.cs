@@ -149,11 +149,8 @@ public sealed class AdminInboxReadPostgresTests
             await query.ExecuteNonQueryAsync(ct);
         }
 
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var query = Store.Sql(db, null, sql, args);
-            return await query.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
     }
 
     private static BinaryReader Read(byte[] frame, FrameType type) => new(new MemoryStream(Aeds.Decode(frame, type).ToArray()));

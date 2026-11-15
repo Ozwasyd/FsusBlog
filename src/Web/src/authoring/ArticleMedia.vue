@@ -6,6 +6,7 @@ import { ApiError } from '../../../Contracts/client'
 import { articleMedia, privateArticlePreview, type ArticleAttachment, type AttachmentEdit } from '../../../Contracts/article-media'
 import type { PublishImagesSelection } from '../../../Contracts/published-media'
 import { credentialEpoch } from '../session'
+import { createDocumentExportTask } from '../../../Contracts/document-export-tasks'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 
@@ -24,7 +25,8 @@ const publicationSelection = shallowRef<readonly string[]>([])
 const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
-const preview = shallowRef<{ id: string; path: string; type: string }>()
+const preview = shallowRef<{ id: string; path: string; type: string; taskId?: string; queued?: boolean }>()
+const documentTasks = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
 let task = new AbortController()
 
@@ -87,6 +89,22 @@ async function openPreview(id: string) {
     preview.value = { id, path: URL.createObjectURL(bytes), type: bytes.type }
     error.value = ''
   } catch { if (current(signal)) error.value = 'Private preview expired. Try again from the current draft.' }
+  finally { if (current(signal)) pending.value = false }
+}
+
+async function queueHtml() {
+  const selection = preview.value
+  const { articleId: article, revision, credential } = props
+  if (!selection || !credential || pending.value || selection.queued) return
+  const signal = task.signal
+  selection.taskId ??= crypto.randomUUID()
+  pending.value = true
+  error.value = ''
+  try {
+    await createDocumentExportTask({ id: selection.taskId, article, revision, sourceRevision: revision, format: 'html' },
+      credential, signal, selection.id)
+    if (current(signal) && preview.value === selection) preview.value = { ...selection, queued: true }
+  } catch { if (current(signal)) error.value = 'Could not queue HTML with this image.' }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -193,6 +211,9 @@ onBeforeUnmount(() => {
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
+          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || preview.queued" @click="queueHtml">
+            {{ preview.queued ? 'HTML task added' : 'Queue HTML with this image' }}
+          </ElButton>
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"
             :attachment="preview.id" :disabled="pending || !credential" />
           <MarkdownExportControl v-if="preview.type === 'image/png' || preview.type === 'image/jpeg'"

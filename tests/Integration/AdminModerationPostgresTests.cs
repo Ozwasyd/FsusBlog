@@ -297,8 +297,7 @@ public sealed partial class AdminModerationPostgresTests
 
         async Task<T> Scalar<T>(string sql, params object[] parameters)
         {
-            await using var query = Store.Sql(db, null, sql, parameters);
-            return Assert.IsType<T>(await query.ExecuteScalarAsync(ct));
+            return Assert.IsType<T>(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters));
         }
 
         async Task<HttpResponseMessage> Send(ServerProcess app, PublicCommentReply command, bool challenge, string? proofHeader = null,
@@ -476,11 +475,8 @@ public sealed partial class AdminModerationPostgresTests
             catch (BusinessException changed) when (changed.Rejection == Rejection.Conflict) { return false; }
         }
 
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var query = Store.Sql(db, null, sql, args);
-            return await query.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
     }
 
     [PostgresFact]
@@ -501,8 +497,7 @@ public sealed partial class AdminModerationPostgresTests
         ClaimAttempt[] results;
         await using (var gate = await db.BeginTransactionAsync(ct))
         {
-            await using (var hold = Store.Sql(db, gate, "select 1 from public.comment where article_id=1 and id=1 for update"))
-                Assert.Equal(1, await hold.ExecuteScalarAsync(ct));
+            Assert.Equal(1, await FixtureSql.ScalarAsync(db, gate, ct, "select 1 from public.comment where article_id=1 and id=1 for update"));
             var a = Attempt(first);
             var b = Attempt(second);
             await using var observer = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -553,11 +548,10 @@ public sealed partial class AdminModerationPostgresTests
         var afterRevocation = await service.AcquireCommentClaim(conflict.Admin.Token, target, ct);
         Assert.Equal(afterExpiry.ClaimGeneration + 1, afterRevocation.ClaimGeneration);
         Assert.True(afterRevocation.ClaimVersion > afterExpiry.ClaimVersion);
-        await using var live = Store.Sql(db, null, """
+        Assert.Equal(conflict.Admin.Id, await FixtureSql.ScalarAsync(db, null, ct, """
             select principal_id from public.admin_comment_claim
             where article_id=1 and comment_id=1 and state=1 and expires_at>clock_timestamp()
-            """);
-        Assert.Equal(conflict.Admin.Id, await live.ExecuteScalarAsync(ct));
+            """));
 
         async Task<ClaimAttempt> Attempt(Moderator moderator)
         {
@@ -597,13 +591,12 @@ public sealed partial class AdminModerationPostgresTests
         await Execute(db, "alter table public.admin_comment_moderation add constraint fixture_refuse_audit check (false)", ct);
         var rejected = await Assert.ThrowsAsync<PostgresException>(() => service.DecideComment(owner.Token, proof, decision, ct));
         Assert.Equal(PostgresErrorCodes.CheckViolation, rejected.SqlState);
-        await using (var check = Store.Sql(db, null, """
+        Assert.Equal(true, await FixtureSql.ScalarAsync(db, null, ct, """
             select c.moderation_status=0 and c.moderation_version=1 and s.state=1 and s.claim_version=$2
                 and exists(select from public.admin_step_up where digest=$1)
             from public.comment c join public.admin_comment_claim s on (s.article_id,s.comment_id)=(c.article_id,c.id)
             where c.article_id=1 and c.id=1
-            """, proofDigest, claim.ClaimVersion))
-            Assert.Equal(true, await check.ExecuteScalarAsync(ct));
+            """, proofDigest, claim.ClaimVersion));
 
         await Execute(db, "alter table public.admin_comment_moderation drop constraint fixture_refuse_audit", ct);
         await service.DecideComment(owner.Token, proof, decision, ct);
@@ -705,8 +698,7 @@ public sealed partial class AdminModerationPostgresTests
 
     private static async Task<T> ReadDatabase<T>(NpgsqlConnection db, string sql, CancellationToken ct, params object[] parameters)
     {
-        await using var query = Store.Sql(db, null, sql, parameters);
-        return Assert.IsType<T>(await query.ExecuteScalarAsync(ct));
+        return Assert.IsType<T>(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters));
     }
 
     private static async Task AddPendingComment(NpgsqlConnection db, CancellationToken ct)
@@ -746,11 +738,8 @@ public sealed partial class AdminModerationPostgresTests
         return new(principal, token, digest);
     }
 
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] parameters)
-    {
-        await using var command = Store.Sql(db, null, sql, parameters);
-        await command.ExecuteNonQueryAsync(ct);
-    }
+    private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] parameters) =>
+        FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>
         Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);

@@ -7,6 +7,7 @@ internal static class ExtensionDisk
 {
     private const UnixFileMode PrivateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode ImmutableFile = UnixFileMode.UserRead;
+    internal readonly record struct Stamp(NativeUnixFile.ChangeStamp Directory, NativeUnixFile.ChangeStamp File);
 
     internal static string ValidatePrivateRoot(DirectoryInfo root)
     {
@@ -21,10 +22,17 @@ internal static class ExtensionDisk
         return root.FullName;
     }
 
-    internal static byte[] Read(string root, string name, int limit, CancellationToken cancellationToken)
+    internal static byte[] Read(string root, string name, int limit, CancellationToken cancellationToken) =>
+        Read(root, name, limit, cancellationToken, stampChanges: false, out _);
+
+    internal static byte[] ReadStamped(string root, string name, int limit, CancellationToken cancellationToken, out Stamp stamp) =>
+        Read(root, name, limit, cancellationToken, stampChanges: true, out stamp);
+
+    private static byte[] Read(string root, string name, int limit, CancellationToken cancellationToken, bool stampChanges, out Stamp stamp)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var directory = NativeUnixFile.OpenDirectory(root);
+        var directoryStamp = stampChanges ? NativeUnixFile.InspectChanges(directory) : default;
         if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true)) throw Reject("private-root-mode");
         using var handle = NativeUnixFile.OpenFile(directory, name, NativeUnixFile.FileReadFlags, out var error);
         if (handle is null)
@@ -32,6 +40,7 @@ internal static class ExtensionDisk
             if (error == NativeUnixFile.NotFound) throw new FileNotFoundException("The installed file is unavailable.", Path.Combine(root, name));
             throw Reject("installed-file-shape");
         }
+        var fileStamp = stampChanges ? NativeUnixFile.InspectChanges(handle) : default;
         if (!NativeUnixFile.IsRegular(handle)) throw Reject("installed-file-size");
         if (!NativeUnixFile.HasMode(handle, ImmutableFile, owned: true)) throw Reject("installed-file-shape");
         using var file = new FileStream(handle, FileAccess.Read);
@@ -45,6 +54,9 @@ internal static class ExtensionDisk
             offset += read;
         }
         if (file.ReadByte() != -1) throw Reject("installed-file-size");
+        if (stampChanges && (fileStamp != NativeUnixFile.InspectChanges(handle) || directoryStamp != NativeUnixFile.InspectChanges(directory)))
+            throw Reject("installed-file-changed");
+        stamp = new(directoryStamp, fileStamp);
         cancellationToken.ThrowIfCancellationRequested();
         return bytes;
     }

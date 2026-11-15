@@ -106,11 +106,8 @@ public sealed class AdminTaxonomyPostgresTests
             (await publications.Command(store, token, action, new(id, revision, Guid.NewGuid(), title,
                 action == ArticleAction.Save ? "Taxonomy fixtures retain article content" : ""), ct)).Article;
 
-        async Task Sql(string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
 
         async Task<byte[]> Get(string path, HttpStatusCode expected, string secret, bool adminHost = true, bool siteCookie = false)
         {

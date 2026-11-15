@@ -64,7 +64,24 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     const title = 'QA targeted system notice'
     const content = 'This is a system notice visible to its specified account.'
     const reader = await context.newPage()
+    const systemViewer = live && shared ? await context.newPage() : null
     try {
+      let systemSocket, systemRow
+      if (systemViewer) {
+        const wakeUrl = new URL(WireRoutes.AdminInboxQueueWake + '?status=system&shared=1', adminOrigin)
+        wakeUrl.protocol = 'wss:'
+        await systemViewer.goto(adminOrigin + '/admin/identity')
+        await captureInboxSocket(systemViewer, `^${wakeUrl.pathname}$`)
+        const socket = systemViewer.waitForEvent('websocket', candidate => candidate.url() === wakeUrl.href)
+        const systemPanel = systemViewer.getByRole('region', { name: 'Support inbox' })
+        await systemPanel.getByRole('button', { name: 'Open support inbox' }).click()
+        await systemPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
+        await systemViewer.getByRole('option', { name: 'System notices', exact: true }).click()
+        await waitForInboxSocket(systemViewer, wakeUrl.href)
+        systemSocket = await socket
+        systemRow = systemPanel.getByRole('button', { name: title, exact: true })
+        assert.equal(await systemRow.count(), 0)
+      }
       await reader.goto(`${siteOrigin}/user/messagebox`)
       await reader.getByRole('button', { name: /Inbox QA support case/ }).waitFor()
       await page.bringToFront()
@@ -76,15 +93,22 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await panel.getByLabel('Notice message').fill(content)
       const challenge = page.waitForResponse(response => response.url().endsWith('/system-send-pow.aeds'))
       const send = page.waitForResponse(response => response.url().endsWith('/system-send.aeds'))
-      await submit.click()
-      assert.equal((await challenge).status(), 200)
-      assert.equal((await send).status(), 200)
+      const [challenged, sent, wake] = await Promise.all([
+        challenge, send, systemSocket?.waitForEvent('framereceived', { timeout: 15_000 }), submit.click(),
+      ])
+      assert.equal(challenged.status(), 200)
+      assert.equal(sent.status(), 200)
       await panel.getByText('System notice sent to the account.', { exact: true }).waitFor()
+      if (wake && systemRow) {
+        assert(Buffer.isBuffer(wake.payload))
+        decodeSuccess(decodeFrame(wake.payload, FrameType.EmptySuccess).payload)
+        await systemRow.waitFor()
+      }
       await reader.bringToFront()
       await reader.getByRole('button', { name: new RegExp(title) }).click()
       await reader.getByText(content, { exact: true }).last().waitFor()
       await reader.screenshot({ path: join(evidence, 'admin-inbox-account-notice.png'), animations: 'disabled' })
-    } finally { await reader.close() }
+    } finally { await Promise.all([reader.close(), systemViewer?.close()]) }
   } else {
     assert.equal(await panel.getByRole('button', { name: 'Compose system notice', exact: true }).count(), 0)
   }

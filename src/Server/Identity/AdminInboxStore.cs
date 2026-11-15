@@ -22,7 +22,8 @@ internal sealed partial class AdminPasskeyStore
                 FROM (
                     SELECT c.id,concat_ws(':',c.id,c.status,c.last_message_id,{statusHead}) AS position
                     FROM public.inbox_conversation c
-                    WHERE c.last_message_id IS NOT NULL AND ($1=-1 OR c.status=$1)
+                    WHERE c.last_message_id IS NOT NULL
+                        AND CASE $1 WHEN -1 THEN true WHEN 4 THEN c.is_system ELSE c.status=$1 END
                     ORDER BY c.id DESC LIMIT $2
                 ) visible
                 """, filter, Wire.AdminInboxPageSize + 1);

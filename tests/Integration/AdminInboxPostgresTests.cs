@@ -107,15 +107,11 @@ public sealed class AdminInboxPostgresTests
 
         async Task<long> VisibleMaximum()
         {
-            await using var query = Store.Sql(db, null, "select max(id) from public.inbox_conversation where last_message_id is not null");
-            return (long)(await query.ExecuteScalarAsync(ct))!;
+            return (long)(await FixtureSql.ScalarAsync(db, null, ct, "select max(id) from public.inbox_conversation where last_message_id is not null"))!;
         }
 
-        async Task Execute(string sql, params object[] args)
-        {
-            await using var command = Store.Sql(db, null, sql, args);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
     }
 
     [PostgresFact]
@@ -229,8 +225,7 @@ public sealed class AdminInboxPostgresTests
         }
         await using (var delivery = Store.Sql(db, null, "select array_agg(kind order by sequence) from public.inbox_event where account_id=$1 and message_id=$2", user, replyId))
             Assert.Equal(new short[] { 12, 13 }, (short[])(await delivery.ExecuteScalarAsync(ct))!);
-        await using (var stored = Store.Sql(db, null, "select read_through from public.inbox_conversation where id=26"))
-            Assert.Equal(26L, await stored.ExecuteScalarAsync(ct));
+        Assert.Equal(26L, await FixtureSql.ScalarAsync(db, null, ct, "select read_through from public.inbox_conversation where id=26"));
 
         const string privateReason = " Awaiting private evidence 🐈 ";
         var statusPath = WireRoutes.AdminInboxStatus.Replace("{id:long}", "26", StringComparison.Ordinal);
@@ -308,10 +303,8 @@ public sealed class AdminInboxPostgresTests
             where account_id=$1 and conversation_id=26 and message_id=$2
             """, user, replyId))
             Assert.Equal(new short[] { 12, 13, 12, 12, 12, 12 }, (short[])(await delivery.ExecuteScalarAsync(ct))!);
-        await using (var remaining = Store.Sql(db, null, "select count(*) from public.inbox_message where conversation_id=26"))
-            Assert.Equal(27L, await remaining.ExecuteScalarAsync(ct));
-        await using (var stored = Store.Sql(db, null, "select read_through from public.inbox_conversation where id=26"))
-            Assert.Equal(26L, await stored.ExecuteScalarAsync(ct));
+        Assert.Equal(27L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.inbox_message where conversation_id=26"));
+        Assert.Equal(26L, await FixtureSql.ScalarAsync(db, null, ct, "select read_through from public.inbox_conversation where id=26"));
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Get(thread, HttpStatusCode.Unauthorized, adminToken);
         await Status(statusPow, HttpStatusCode.Unauthorized, adminToken, await Version(otherToken), close, nonce);
@@ -418,11 +411,8 @@ public sealed class AdminInboxPostgresTests
             await Sql("insert into public.admin_session values($1,$2,1,now()+interval '5 minutes')", Store.TokenDigest(token)!, id);
         }
 
-        async Task Sql(string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
 
         async Task<byte[]> Get(string path, HttpStatusCode expected, string secret, bool host = true, bool site = false)
         {

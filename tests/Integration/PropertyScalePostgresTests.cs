@@ -178,7 +178,7 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
 
         async Task SeedArticles()
         {
-            await using var seed = Store.Sql(conn, null, """
+            Assert.Equal(ArticleCount + 1, await FixtureSql.ExecuteAsync(conn, null, ct, """
                 with inserted as (
                     insert into public.article(id,owner_id,revision,title,body,deleted,created_at,updated_at) overriding system value
                     select n,case when n<=$3 then $1::uuid else $2::uuid end,1,'Scale draft '||n,
@@ -189,20 +189,18 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
                 )
                 insert into public.article_revision(article_id,revision,title,body,happened_at)
                 select id,revision,title,body,created_at from inserted
-                """, owner.Id, outsider.Id, ArticleCount);
-            Assert.Equal(ArticleCount + 1, await seed.ExecuteNonQueryAsync(ct));
+                """, owner.Id, outsider.Id, ArticleCount));
         }
 
         async Task SeedValues()
         {
             // The cap test replaces the last URL definition with a Text definition. Its seed type follows the replacement.
             await using var tx = await conn.BeginTransactionAsync(ct);
-            await using (var articles = Store.Sql(conn, tx, """
+            Assert.Equal(ArticleCount, await FixtureSql.ExecuteAsync(conn, tx, ct, """
                 insert into public.property_article(article_id,owner_id,revision)
                 select id,owner_id,1 from public.article where owner_id=$1
-                """, owner.Id))
-                Assert.Equal(ArticleCount, await articles.ExecuteNonQueryAsync(ct));
-            await using (var values = Store.Sql(conn, tx, """
+                """, owner.Id));
+            Assert.Equal(88_000, await FixtureSql.ExecuteAsync(conn, tx, ct, """
                 with defs as (select id, n::integer from unnest($2::uuid[]) with ordinality as f(id,n)),
                 entries as (
                     select a.article_id as id, f.id as definition, (case when f.n=1000 then 0 else (f.n-1)%8 end) as kind,
@@ -223,8 +221,7 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
                     when 7 then jsonb_build_object('$type','url','Value','https://example.test/draft/'||id)
                 end, case when kind=6 then array[ref] else '{}'::integer[] end
                 from entries where kind<>4 or id%5<>4 or definition<>$5::uuid
-                """, owner.Id, definitions, red.Id, blue.Id, category))
-                Assert.Equal(88_000, await values.ExecuteNonQueryAsync(ct));
+                """, owner.Id, definitions, red.Id, blue.Id, category));
             await tx.CommitAsync(ct);
         }
     }

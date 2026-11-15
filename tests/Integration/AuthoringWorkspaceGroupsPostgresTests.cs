@@ -116,11 +116,10 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         var author = await Login(db, "Workspace author", true, ct);
         await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-        await using (var drop = Store.Sql(connection, null, """
+        await FixtureSql.ExecuteAsync(connection, null, ct, """
             alter table public.authoring_workspace drop column secondary_active_article_id,
                 drop column secondary_tabs, drop column focused_group
-            """))
-            await drop.ExecuteNonQueryAsync(ct);
+            """);
 
         await using (var legacy = await ServerProcess.Start(db.ConnectionString, ct))
         {
@@ -134,8 +133,7 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
             await Send(legacy.Client, HttpMethod.Get, WireRoutes.AuthoringWorkspace, author, null, HttpStatusCode.OK, ct);
         }
 
-        await using (var partial = Store.Sql(connection, null, "alter table public.authoring_workspace add column focused_group integer not null default 0"))
-            await partial.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "alter table public.authoring_workspace add column focused_group integer not null default 0");
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await using var rejected = await ServerProcess.Start(db.ConnectionString, ct);
@@ -148,13 +146,12 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
         var id = Guid.NewGuid();
         var ticket = RandomNumberGenerator.GetBytes(32);
         await using var dbConnection = await db.DataSource.OpenConnectionAsync(ct);
-        await using var sql = Store.Sql(dbConnection, null, """
+        await FixtureSql.ExecuteAsync(dbConnection, null, ct, """
             with created as (
                 insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
             )
             insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
             """, id, name, canAuthor, SHA256.HashData(ticket));
-        await sql.ExecuteNonQueryAsync(ct);
         var token = (await new Store(db.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
         return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
     }

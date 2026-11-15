@@ -105,10 +105,8 @@ public sealed class DistributionPostgresTests
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var user = Guid.NewGuid();
         var secret = RandomNumberGenerator.GetBytes(32);
-        await using (var insert = Store.Sql(connection, null, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'distribution-author',true,true,1)", user))
-            await insert.ExecuteNonQueryAsync(ct);
-        await using (var ticket = Store.Sql(connection, null, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user))
-            await ticket.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'distribution-author',true,true,1)", user);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user);
         await using (var catalog = Store.Sql(connection, null, """
             insert into public.category(id,name) values(11,'Published category'),(12,'Draft category');
             insert into public.tag(id,name) values(41,'Public tag'),(42,'Draft tag');
@@ -238,10 +236,7 @@ public sealed class DistributionPostgresTests
 
             async Task<HttpResponseMessage> Mutation(string route, byte[] frame)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, route);
-                request.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-                request.Content = new ByteArrayContent(frame);
-                request.Content.Headers.ContentType = new("application/octet-stream");
+                using var request = SiteAedsFixture.Request(HttpMethod.Post, route, frame, actor.Token, handle: null);
                 var response = await client.SendAsync(request, ct);
                 response.EnsureSuccessStatusCode();
                 return response;

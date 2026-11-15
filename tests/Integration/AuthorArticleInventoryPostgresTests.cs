@@ -88,8 +88,8 @@ public sealed class AuthorArticleInventoryPostgresTests
         Assert.Equal(otherDraft.Id, Assert.Single((await Page(other, "?scope=trash")).Rows).Id);
         Assert.Empty((await Page(other, "?scope=active")).Rows);
         Assert.Empty((await Page(other, $"?scope=trash&before={first.Next}&keyword=Owner")).Rows);
-        using var draftRequest = new HttpRequestMessage(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", trash.Id.ToString()));
-        draftRequest.Headers.Add("Cookie", $"fsus-v2-session={owner}");
+        using var draftRequest = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", trash.Id.ToString()),
+            frame: null, owner, handle: null);
         using var deleted = await client.SendAsync(draftRequest, ct);
         Assert.Equal(HttpStatusCode.NotFound, deleted.StatusCode);
         await store.SignOut(owner, ct);
@@ -100,13 +100,12 @@ public sealed class AuthorArticleInventoryPostgresTests
             var id = Guid.NewGuid();
             var ticket = RandomNumberGenerator.GetBytes(32);
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var row = Store.Sql(connection, null, """
+            await FixtureSql.ExecuteAsync(connection, null, ct, """
                 with created as (
                     insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
                 )
                 insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
                 """, id, name, author, SHA256.HashData(ticket));
-            await row.ExecuteNonQueryAsync(ct);
             return (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
         }
 
@@ -115,9 +114,7 @@ public sealed class AuthorArticleInventoryPostgresTests
 
         async Task<byte[]> POST(string token, string route, byte[] body)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Post, route) { Content = new ByteArrayContent(body) };
-            message.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            message.Content.Headers.ContentType = new("application/octet-stream");
+            using var message = SiteAedsFixture.Request(HttpMethod.Post, route, body, token, handle: null);
             using var response = await client.SendAsync(message, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);
@@ -145,8 +142,7 @@ public sealed class AuthorArticleInventoryPostgresTests
 
         async Task<HttpResponseMessage> GET(string? token, string query)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AuthorArticles + query);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.AuthorArticles + query, frame: null, token, handle: null);
             return await client.SendAsync(request, ct);
         }
     }

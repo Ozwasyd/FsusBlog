@@ -325,21 +325,15 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         var token = RandomNumberGenerator.GetBytes(32);
         var digest = SHA256.HashData(token);
         await using var db = await source.OpenConnectionAsync(ct);
-        await using (var user = Store.Sql(db, null,
-            "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name))
-            await user.ExecuteNonQueryAsync(ct);
-        await using var session = Store.Sql(db, null,
-            "INSERT INTO public.user_session (digest,user_id,generation,expires_at) VALUES ($1,$2,1,now()+interval '5 minutes')", digest, id);
-        await session.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
+        await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.user_session (digest,user_id,generation,expires_at) VALUES ($1,$2,1,now()+interval '5 minutes')", digest, id);
         return new(Convert.ToHexStringLower(token), SiteSessions.Id(id, digest));
     }
 
     private static async Task<long> PublicationId(NpgsqlDataSource source, Draft draft, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
-        await using var query = Store.Sql(db, null, "SELECT publication_id FROM public.article_publication WHERE article_id=$1 AND revision=$2",
-            draft.Id, draft.Revision);
-        return Assert.IsType<long>(await query.ExecuteScalarAsync(ct));
+        return Assert.IsType<long>(await FixtureSql.ScalarAsync(db, null, ct, "SELECT publication_id FROM public.article_publication WHERE article_id=$1 AND revision=$2", draft.Id, draft.Revision));
     }
 
     private static byte[] Image(SKEncodedImageFormat format, SKColor color)

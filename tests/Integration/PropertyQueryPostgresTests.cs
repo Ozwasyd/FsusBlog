@@ -483,17 +483,13 @@ public sealed class PropertyQueryPostgresTests
         async Task<int> SavedDefinitionVersion(Guid id)
         {
             await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(conn, null,
-                "select get_byte(definition,0) from public.author_saved_view where owner_id=$1 and id=$2", ownerId, id);
-            return Assert.IsType<int>(await command.ExecuteScalarAsync(ct));
+            return Assert.IsType<int>(await FixtureSql.ScalarAsync(conn, null, ct, "select get_byte(definition,0) from public.author_saved_view where owner_id=$1 and id=$2", ownerId, id));
         }
 
         async Task<long> ModifiedAt(int id)
         {
             await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(conn, null,
-                "select floor(extract(epoch from updated_at)*1000)::bigint from public.article where id=$1", id);
-            return Assert.IsType<long>(await command.ExecuteScalarAsync(ct));
+            return Assert.IsType<long>(await FixtureSql.ScalarAsync(conn, null, ct, "select floor(extract(epoch from updated_at)*1000)::bigint from public.article where id=$1", id));
         }
 
         async Task<AuthorTextFacetedPage> Qualified(AuthorTextQualifiedQuery query, HttpStatusCode status = HttpStatusCode.OK,

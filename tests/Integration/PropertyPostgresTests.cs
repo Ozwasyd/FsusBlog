@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -175,9 +174,7 @@ public sealed class PropertyPostgresTests
             Assert.Equal(WireLayouts.ErrorBytes, Aeds.Decode(await Post(path, bytes, token, status), FrameType.ApiError).Length);
         async Task<byte[]> Post(string path, byte[] bytes, string token, HttpStatusCode status)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(bytes) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, bytes, token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
@@ -188,9 +185,7 @@ public sealed class PropertyPostgresTests
             var id = Guid.NewGuid();
             var seed = RandomNumberGenerator.GetBytes(32);
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using (var user = Store.Sql(connection, null,
-                "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, canAuthor))
-                await user.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, canAuthor);
             await using (var ticket = Store.Sql(connection, null,
                 "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
                 SHA256.HashData(seed), id)) await ticket.ExecuteNonQueryAsync(ct);

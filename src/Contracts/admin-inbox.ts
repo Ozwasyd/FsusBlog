@@ -6,11 +6,11 @@ import { watchInboxWake } from './inbox-wake.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
-export type AdminInboxFilter = AdminInboxLiveStatus | 'unread' | 'system';
-export type AdminInboxLiveStatus = '' | 'open' | 'pending' | 'closed';
+export type AdminInboxFilter = AdminInboxLiveStatus | 'unread';
+export type AdminInboxLiveStatus = '' | 'open' | 'pending' | 'closed' | 'system';
 
 export function supportsAdminInboxLiveStatus(filter: AdminInboxFilter): filter is AdminInboxLiveStatus {
-  return filter !== 'unread' && filter !== 'system';
+  return filter !== 'unread';
 }
 export type AdminInboxOrder = 'created' | 'activity';
 export type AdminInboxStatus = 0 | 1 | 2;
@@ -43,7 +43,8 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
     const live = headers.get(WireHeaders.AdminInboxLive);
     if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1' ||
         activity !== null && activity !== '1' || order === 'activity' && activity !== '1' ||
-        live !== null && (live !== '1' || !supportsAdminInboxLiveStatus(filter) || next !== null || order !== 'created')) throw invalid();
+        live !== null && (live !== '1' || !supportsAdminInboxLiveStatus(filter) || (filter === 'system' && !shared) ||
+          next !== null || order !== 'created')) throw invalid();
     return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1',
       activityAvailable: activity === '1', liveEnabled: live === '1' };
   }, signal);
@@ -78,8 +79,10 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
 }
 
 export function watchAdminInboxWake(scope: bigint | AdminInboxLiveStatus, signal: AbortSignal, refresh: () => void, onRevoked: () => void) {
+  const query = typeof scope === 'string' && scope ? new URLSearchParams({ status: scope }) : undefined;
+  if (scope === 'system') query?.set('shared', '1');
   const path = typeof scope === 'bigint' ? WireRoutes.AdminInboxWake.replace('{id:long}', String(scope)) :
-    WireRoutes.AdminInboxQueueWake + (scope ? '?' + new URLSearchParams({ status: scope }) : '');
+    WireRoutes.AdminInboxQueueWake + (query ? `?${query}` : '');
   watchInboxWake(signal, refresh, connected => { if (connected) refresh(); }, onRevoked, path);
 }
 

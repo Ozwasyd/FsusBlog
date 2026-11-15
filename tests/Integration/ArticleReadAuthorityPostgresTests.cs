@@ -142,15 +142,14 @@ public sealed class ArticleReadAuthorityPostgresTests
         var clock = new ReadClock();
         var now = clock.GetUtcNow();
         var prior = ArticleReadTickets.Epoch(now) - 1;
-        await using (var seed = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             with hourly as (
                 insert into public.article_read_hour(article_id,hour_utc,count) values($1,$2,2147483646) returning article_id
             ), total as (
                 insert into public.article_read_total(article_id,views) select article_id,2147483646 from hourly
             )
             update public.article_read_epoch set last_epoch=$3 where singleton
-            """, id, now, prior))
-            await seed.ExecuteNonQueryAsync(ct);
+            """, id, now, prior);
 
         await using var authority = new ArticleReadAuthority(PrivateConnection(database.ConnectionString), lease, clock);
         foreach (var viewer in new[] { IPAddress.Loopback, IPAddress.IPv6Loopback })
@@ -196,9 +195,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     {
         var actor = new Identity(Guid.NewGuid(), "read-proof-owner", 1, true, DateTimeOffset.UtcNow.AddHours(1));
         await using var tx = await db.BeginTransactionAsync(ct);
-        await using (var user = Store.Sql(db, tx,
-            "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", actor.Id, actor.Name))
-            await user.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, tx, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", actor.Id, actor.Name);
         var (saved, _) = await Store.Execute(db, tx, actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Read article", "Public body."), ct);
         _ = await Store.Execute(db, tx, actor, ArticleAction.Publish, new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
         await tx.CommitAsync(ct);
@@ -214,17 +211,11 @@ public sealed class ArticleReadAuthorityPostgresTests
         return await query.ExecuteScalarAsync(ct) is int views ? views : 0;
     }
 
-    private static async Task<object?> Scalar(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var cmd = new NpgsqlCommand(sql, db);
-        return await cmd.ExecuteScalarAsync(ct);
-    }
+    private static Task<object?> Scalar(NpgsqlConnection db, string sql, CancellationToken ct) =>
+        FixtureSql.ScalarAsync(db, null, ct, sql);
 
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var cmd = new NpgsqlCommand(sql, db);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
+    private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct) =>
+        FixtureSql.ExecuteAsync(db, null, ct, sql);
 
     private sealed class ReadClock : TimeProvider
     {

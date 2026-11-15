@@ -1,7 +1,7 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { request, siteSessionHeader } from './client.ts';
-import { FrameType, WireRoutes } from './wire.generated.ts';
+import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 const formats = ['html', 'pdf', 'docx', 'epub'] as const;
 const statuses = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'blocked', 'cancelling'] as const;
@@ -35,7 +35,7 @@ export type DocumentExportCreate = Readonly<{
 export type DocumentExportTask = DocumentExportCreate & Readonly<{
   status: DocumentExportStatus;
   failure: DocumentExportFailure;
-  provider: 1 | 2;
+  provider: 1 | 2 | 3;
   createdUnixMs: bigint;
   startedUnixMs: bigint;
   finishedUnixMs: bigint;
@@ -111,7 +111,7 @@ function readTask(reader: PodReader): DocumentExportTask {
   const coordinates = readCoordinates(reader);
   const [statusCode, failureCode, provider] = reader.fixedBytes(3);
   const status = statuses[statusCode - 1], failure = failures[failureCode];
-  if (!status || !failure || (provider !== 1 && provider !== 2)) throw new ProtocolError('Invalid document export task state');
+  if (!status || !failure || (provider !== 1 && provider !== 2 && provider !== 3)) throw new ProtocolError('Invalid document export task state');
   const createdUnixMs = reader.i64(), startedUnixMs = reader.i64(), finishedUnixMs = reader.i64(), expiresUnixMs = reader.i64();
   const failed = status === 'failed' || status === 'blocked';
   const terminal = failed || status === 'succeeded' || status === 'cancelled';
@@ -166,15 +166,18 @@ export function listDocumentExportTasks(article: number, session: string, signal
   }, signal, 'GET', undefined, exportHeaders(session));
 }
 
-export function createDocumentExportTask(input: DocumentExportCreate, session: string, signal: AbortSignal): Promise<DocumentExportTask> {
+export function createDocumentExportTask(input: DocumentExportCreate, session: string, signal: AbortSignal,
+  attachment?: string): Promise<DocumentExportTask> {
   const { id, article, revision, sourceRevision, format } = input;
+  const headers = new Headers(exportHeaders(session));
+  if (attachment !== undefined) headers.set(WireHeaders.HtmlExportAttachment, attachment);
   return request(WireRoutes.DocumentExportCreate, FrameType.DocumentExportTask, payload => {
     const task = decodeDocumentExportTask(payload);
     if (task.id !== id.toLowerCase() || task.article !== article || task.revision !== revision ||
-        task.sourceRevision !== sourceRevision || task.format !== format)
+        task.sourceRevision !== sourceRevision || task.format !== format || (task.provider === 3) !== (attachment !== undefined))
       throw new ProtocolError('Unexpected document export task');
     return task;
-  }, signal, 'POST', encodeDocumentExportCreate(input), exportHeaders(session));
+  }, signal, 'POST', encodeDocumentExportCreate(input), headers);
 }
 
 export function cancelDocumentExportTask(id: string, session: string, signal: AbortSignal): Promise<DocumentExportTask> {

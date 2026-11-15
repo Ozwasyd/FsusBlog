@@ -43,11 +43,9 @@ public sealed class ArticleSearchWideHttpPostgresTests
             Assert.Contains(LastBody, await html.Content.ReadAsStringAsync(ct));
         }
 
-        using (var request = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract))
+        using (var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
+            Wire.EncodeArticleCommand(new(LastArticle, 1, Guid.NewGuid(), "", "")), token, handle: null))
         {
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            request.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(LastArticle, 1, Guid.NewGuid(), "", "")));
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
             using var response = await client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var receipt = Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
@@ -120,16 +118,14 @@ public sealed class ArticleSearchWideHttpPostgresTests
         await using (var db = await fixture.DataSource.OpenConnectionAsync(ct))
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await using var user = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'FAS4 wide author',true,true,1)
                 """, author);
-            await user.ExecuteNonQueryAsync(ct);
-            await using var ticket = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '5 minutes')
                 """, SHA256.HashData(secret), author);
-            await ticket.ExecuteNonQueryAsync(ct);
             // With equal timestamps, the snapshot's descending ID order puts article 1 at the final ordinal.
-            await using var seed = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
                 overriding system value
                 select id,$1,1,case when id in (1,$3) then 'Boundaryrank' else 'Quiet' end,
@@ -137,18 +133,15 @@ public sealed class ArticleSearchWideHttpPostgresTests
                     1,1,false,timestamptz '2025-01-01 UTC',timestamptz '2025-01-01 UTC'
                 from generate_series(1,$2) id
                 """, author, ArticleCount, MiddleHit, LastBody);
-            await seed.ExecuteNonQueryAsync(ct);
-            await using var revision = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.article_revision(article_id,revision,title,body,happened_at)
                 select id,revision,title,body,created_at from public.article
                 """);
-            await revision.ExecuteNonQueryAsync(ct);
-            await using var publication = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.article_publication(article_id,revision,publication_id,published_at)
                 select id,revision,$1+id,created_at from public.article
                 """, PublicationBase);
-            await publication.ExecuteNonQueryAsync(ct);
-            await using var evidence = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.article_revision_rights(article_id,revision,enabled,license_type,
                     copyright_holder,copyright_year,rights_statement,attribution_template,
                     copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
@@ -161,7 +154,6 @@ public sealed class ArticleSearchWideHttpPostgresTests
                 select article_id,1,revision,publication_no,publication_id,'retained-active','pre-history',published_at
                 from public.article_publication
                 """);
-            await evidence.ExecuteNonQueryAsync(ct);
             await tx.CommitAsync(ct);
         }
         var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);

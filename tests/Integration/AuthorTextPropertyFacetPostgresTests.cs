@@ -298,8 +298,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         async Task Execute(string sql, params object[] args)
         {
             await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(conn, null, sql, args);
-            await command.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(conn, null, ct, sql, args);
         }
     }
 

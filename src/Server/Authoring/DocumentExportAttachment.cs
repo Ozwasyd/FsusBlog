@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -10,6 +11,18 @@ namespace FsusBlog.V2.Server.Authoring;
 internal sealed record DocumentExportAttachment(string Name, MediaFormat Format, int Width, int Height, byte[] Bytes)
 {
     private const int MaximumBytes = 512 * 1024;
+
+    internal static bool PrivateTransport(HttpContext ctx) =>
+        ctx.Request.IsHttps || ctx.Connection.RemoteIpAddress is { } peer && IPAddress.IsLoopback(peer);
+
+    internal static Guid? ReadSelection(HttpContext ctx, bool allowed)
+    {
+        if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return null;
+        if (!allowed || values.Count != 1 || values[0] is not { Length: 36 } text ||
+            !Guid.TryParseExact(text, "D", out var asset) || asset == Guid.Empty || asset.ToString("D") != text)
+            throw new BusinessException(Rejection.Invalid, "Choose one private image for a Word, HTML or EPUB download.");
+        return asset;
+    }
 
     internal static async Task<DocumentExportAttachment> Read(NpgsqlConnection db, NpgsqlTransaction tx, MediaFiles? files,
         Guid owner, int article, long revision, Guid asset, CancellationToken ct)

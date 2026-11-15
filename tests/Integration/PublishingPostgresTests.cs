@@ -121,9 +121,7 @@ public sealed class PublishingPostgresTests
         Assert.True(oldOwner > 0);
         // Hold the transaction barrier an admitted writer keeps until it commits or rolls back.
         await using var admitted = await inspection.BeginTransactionAsync(ct);
-        await using (var share = Store.Sql(inspection, admitted, "select pg_catalog.pg_advisory_xact_lock_shared($1,$2)",
-            FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject))
-            await share.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(inspection, admitted, ct, "select pg_catalog.pg_advisory_xact_lock_shared($1,$2)", FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject);
         await using (var terminate = Store.Sql(control, null, "select pg_catalog.pg_terminate_backend($1, 5000)", oldOwner))
             Assert.True((bool)(await terminate.ExecuteScalarAsync(ct))!);
 
@@ -159,24 +157,22 @@ public sealed class PublishingPostgresTests
 
         async Task<int> OwnerPid()
         {
-            await using var ownership = Store.Sql(control, null, """
+            return (int)(await FixtureSql.ScalarAsync(control, null, ct, """
                 select l.pid from pg_catalog.pg_locks l
                 join pg_catalog.pg_database d on d.oid=l.database
                 where l.locktype='advisory' and d.datname=current_database() and l.objsubid=1
                     and ((l.classid::bigint << 32) | l.objid::bigint)=$1 and l.mode='ExclusiveLock' and l.granted
-                """, InstanceLease.OwnershipKey);
-            return (int)(await ownership.ExecuteScalarAsync(ct))!;
+                """, InstanceLease.OwnershipKey))!;
         }
 
         async Task<bool> HandoffBlocked()
         {
-            await using var waiting = Store.Sql(control, null, """
+            return (bool)(await FixtureSql.ScalarAsync(control, null, ct, """
                 select exists(select from pg_catalog.pg_locks l
                     join pg_catalog.pg_database d on d.oid=l.database
                     where l.locktype='advisory' and d.datname=current_database() and l.objsubid=2
                         and l.classid=$1::oid and l.objid=$2::oid and l.mode='ExclusiveLock' and not l.granted)
-                """, FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject);
-            return (bool)(await waiting.ExecuteScalarAsync(ct))!;
+                """, FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject))!;
         }
 
         async Task VerifyOldOwnerClosed()
@@ -253,12 +249,8 @@ public sealed class PublishingPostgresTests
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        async Task<object?> Pending(string action)
-        {
-            await using var cmd = Store.Sql(database, null,
-                "select count(*) from public.blog_outbox where article_id=$1 and kind=$2 and processed_at is null", saved.Id, action);
-            return await cmd.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Pending(string action) =>
+            FixtureSql.ScalarAsync(database, null, ct, "select count(*) from public.blog_outbox where article_id=$1 and kind=$2 and processed_at is null", saved.Id, action);
 
         async Task AssertPublicClosed()
         {
@@ -342,10 +334,8 @@ public sealed class PublishingPostgresTests
     private static async Task<byte[]> Write(HttpClient client, string token, string route, ArticleCommand command, CancellationToken ct,
         HttpStatusCode expected = HttpStatusCode.OK)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, route);
-        request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-        request.Content = new ByteArrayContent(Wire.EncodeArticleCommand(command));
-        request.Content.Headers.ContentType = new("application/octet-stream");
+        using var request = SiteAedsFixture.Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command),
+            token, handle: null);
         using var response = await client.SendAsync(request, ct);
         Assert.Equal(expected, response.StatusCode);
         return await response.Content.ReadAsByteArrayAsync(ct);
@@ -375,8 +365,7 @@ public sealed class PublishingPostgresTests
                 + (select count(*) from public.article_command) + (select count(*) from public.blog_outbox)
             """)) Assert.Equal(0L, await verify.ExecuteScalarAsync(ct));
 
-        await using (var removeFault = Store.Sql(db, null, "alter table public.blog_outbox drop constraint test_reject_save"))
-            await removeFault.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "alter table public.blog_outbox drop constraint test_reject_save");
         var saved = await publications.Command(store, session.Token, ArticleAction.Save, command, ct);
         Assert.True(saved.Changed);
         var replay = await publications.Command(store, session.Token, ArticleAction.Save, command, ct);
@@ -402,14 +391,11 @@ public sealed class PublishingPostgresTests
         await AssertDenied(reader.Token, Rejection.Forbidden);
         await AssertDenied(null, Rejection.Unauthorized);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await using (var revoke = Store.Sql(db, null, "update public.blog_user set generation=generation+1 where id=$1", author.User.Id))
-            Assert.Equal(1, await revoke.ExecuteNonQueryAsync(ct));
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.blog_user set generation=generation+1 where id=$1", author.User.Id));
         await AssertDenied(author.Token, Rejection.Unauthorized);
-        await using (var expire = Store.Sql(db, null, "update public.user_session set expires_at=clock_timestamp()-interval '1 second' where user_id=$1", reader.User.Id))
-            Assert.Equal(1, await expire.ExecuteNonQueryAsync(ct));
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.user_session set expires_at=clock_timestamp()-interval '1 second' where user_id=$1", reader.User.Id));
         await AssertDenied(reader.Token, Rejection.Unauthorized);
-        await using var count = Store.Sql(db, null, "select count(*) from public.article");
-        Assert.Equal(0L, await count.ExecuteScalarAsync(ct));
+        Assert.Equal(0L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.article"));
 
         async Task AssertDenied(string? session, Rejection expected)
         {
@@ -526,8 +512,7 @@ public sealed class PublishingPostgresTests
         var id = Guid.NewGuid();
         var secret = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
         await using var connection = await source.OpenConnectionAsync(ct);
-        await using (var user = Store.Sql(connection, null, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, author))
-            await user.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", id, name, author);
         await using (var ticket = Store.Sql(connection, null, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')",
             System.Security.Cryptography.SHA256.HashData(secret), id)) await ticket.ExecuteNonQueryAsync(ct);
         return (id, Convert.ToHexStringLower(secret));

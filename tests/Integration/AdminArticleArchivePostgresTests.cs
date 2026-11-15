@@ -276,13 +276,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
 
         async Task<HttpResponseMessage> OwnerRequest(HttpClient client, HttpMethod method, string path, byte[]? payload = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-            if (payload is not null)
-            {
-                request.Content = new ByteArrayContent(payload);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, path, payload, session.Token, handle: null);
             return await client.SendAsync(request, ct);
         }
 

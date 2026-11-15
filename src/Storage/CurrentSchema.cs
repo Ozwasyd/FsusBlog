@@ -228,6 +228,8 @@ internal static partial class CurrentSchema
         var hasDocumentExports = await HasDocumentExportsAsync(connection, transaction, cancellationToken);
         var currentDocumentExportProvider = hasDocumentExports &&
             await HasCurrentDocumentExportProviderAsync(connection, transaction, cancellationToken);
+        var hasDocumentExportAttachments = hasDocumentExports &&
+            await HasDocumentExportAttachmentsAsync(connection, transaction, cancellationToken);
         if (requireDocumentExports.HasValue && requireDocumentExports.Value != hasDocumentExports)
             throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
@@ -296,7 +298,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)] : [])
-            .Concat(hasDocumentExports ? [DocumentExportColumns] : [])
+            .Concat(hasDocumentExports ? [DocumentExportColumns + (hasDocumentExportAttachments ? " attachment_id:uuid?" : "")] : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexColumns : [])
             .Concat(hasAuthorTextRebuild ? [AuthorTextRebuildColumns] : [])
@@ -347,9 +349,11 @@ internal static partial class CurrentSchema
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
             .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits) : [])
             .Concat(hasDocumentExports
-                ? DocumentExportConstraints.Append(currentDocumentExportProvider
-                    ? "author_document_export c provider provider>=1ANDprovider<=2"
-                    : "author_document_export c provider provider=1") : [])
+                ? DocumentExportConstraints.Concat(hasDocumentExportAttachments
+                    ? ["author_document_export c provider provider>=1ANDprovider<=3",
+                       "author_document_export c provider,attachment_id (provider=3)=(attachment_idISNOTNULL)"]
+                    : [currentDocumentExportProvider ? "author_document_export c provider provider>=1ANDprovider<=2"
+                        : "author_document_export c provider provider=1"]) : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
             .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])

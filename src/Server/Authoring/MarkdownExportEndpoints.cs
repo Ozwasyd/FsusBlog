@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
@@ -51,7 +50,7 @@ internal static class MarkdownExportEndpoints
                 {
                     if (source.Attachment is not null)
                     {
-                        if (!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !IPAddress.IsLoopback(peer)))
+                        if (!DocumentExportAttachment.PrivateTransport(ctx))
                             throw ArticleMediaStore.Missing();
                         SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
                     }
@@ -73,7 +72,7 @@ internal static class MarkdownExportEndpoints
                 if (id <= 0 || selected > expected)
                     throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
 
-                var attachment = ReadAttachment(ctx, allowAttachment);
+                var attachment = DocumentExportAttachment.ReadSelection(ctx, allowAttachment);
                 var document = await render(ctx, store, ctx.Request.Cookies[cookie], new(id, expected, selected, attachment), ct);
                 ct.ThrowIfCancellationRequested();
                 ctx.Response.Headers.CacheControl = "private, no-store";
@@ -85,15 +84,6 @@ internal static class MarkdownExportEndpoints
     }
 
     private readonly record struct DownloadSource(int Id, long Expected, long Selected, Guid? Attachment);
-
-    private static Guid? ReadAttachment(HttpContext ctx, bool allowed)
-    {
-        if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return null;
-        if (!allowed || values.Count != 1 || values[0] is not { Length: 36 } text ||
-            !Guid.TryParseExact(text, "D", out var asset) || asset == Guid.Empty || asset.ToString("D") != text)
-            throw new BusinessException(Rejection.Invalid, "Choose one private image for a Word, HTML or EPUB download.");
-        return asset;
-    }
 
     private static Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(
         Store store, string? token, DownloadSource source, CancellationToken ct)

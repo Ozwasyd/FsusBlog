@@ -221,10 +221,15 @@ public sealed partial class PrivateMediaPostgresTests
         File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
             ? "/private" + directory.FullName : directory.FullName;
+        var settings = new Dictionary<string, string>
+        {
+            [MediaEndpoints.StorageSetting] = root, ["FSUSBLOG_DOCUMENT_EXPORT_TASKS"] = "true",
+            ["FSUSBLOG_PDF_TOOL_ROOT"] = "", ["FSUSBLOG_PDF_TOOL_SHA256"] = ""
+        };
+        ServerProcess? server = null;
         try
         {
-            await using var server = await ServerProcess.Start(db.ConnectionString, ct,
-                new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root });
+            server = await ServerProcess.Start(db.ConnectionString, ct, settings);
             var client = server.Client;
             var png = EncodeImage(SKEncodedImageFormat.Png);
             const string mediaName = "draft & proof.png";
@@ -447,9 +452,93 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, priorEpub.StatusCode);
             Assert.Equal(epubBytes, await priorEpub.Content.ReadAsByteArrayAsync(ct));
 
-            async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes)
+            var jobInput = new DocumentExportCreate(Guid.NewGuid(), draft.Id, externalDraft.Revision, saved.Revision, DocumentExportFormat.Html);
+            var frame = Wire.EncodeDocumentExportCreate(jobInput);
+            await using var gate = await db.DataSource.OpenConnectionAsync(ct);
+            await DocumentExportPostgresTests.HoldClaim(gate, jobInput.Id, ct);
+            using var taskCreated = await Command(WireRoutes.DocumentExportCreate, owner, frame, asset);
+            Assert.Equal(HttpStatusCode.OK, taskCreated.StatusCode);
+            var receipt = Wire.DecodeDocumentExportTask(await taskCreated.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal((jobInput, (byte)3), (receipt.Request, receipt.Provider));
+            Assert.Equal(DocumentExportState.Queued, receipt.State);
+            using var replay = await Command(WireRoutes.DocumentExportCreate, owner, frame, asset);
+            Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+            Assert.Equal(receipt.SourceDigest, Wire.DecodeDocumentExportTask(await replay.Content.ReadAsByteArrayAsync(ct)).SourceDigest);
+            using var changedSelection = await Command(WireRoutes.DocumentExportCreate, owner, frame);
+            Assert.Equal(HttpStatusCode.Conflict, changedSelection.StatusCode);
+            var plainRequest = jobInput with { Id = Guid.NewGuid() };
+            using var foreignAsset = await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest), foreign);
+            Assert.Equal(HttpStatusCode.NotFound, foreignAsset.StatusCode);
+            using var detachedAsset = await Command(WireRoutes.DocumentExportCreate, owner,
+                Wire.EncodeDocumentExportCreate(plainRequest with { SourceRevision = detached.Revision }), asset);
+            Assert.Equal(HttpStatusCode.NotFound, detachedAsset.StatusCode);
+            using var textTask = await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest));
+            Assert.Equal(HttpStatusCode.OK, textTask.StatusCode);
+            Assert.Equal(2, Wire.DecodeDocumentExportTask(await textTask.Content.ReadAsByteArrayAsync(ct)).Provider);
+
+            var queuedServer = server;
+            server = null;
+            await queuedServer.DisposeAsync();
+            await DocumentExportPostgresTests.ReleaseClaim(gate, ct);
+            server = await ServerProcess.Start(db.ConnectionString, ct, settings);
+            client = server.Client;
+
+            var listPath = WireRoutes.DocumentExportTaskList.Replace("{id:int}", draft.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            DocumentExportTask finished;
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            wait.CancelAfter(TimeSpan.FromSeconds(15));
+            do
+            {
+                using var tasks = await Send(client, HttpMethod.Get, listPath, owner, wait.Token);
+                finished = Assert.Single(Wire.DecodeDocumentExportTaskList(await tasks.Content.ReadAsByteArrayAsync(wait.Token)),
+                    value => value.Request.Id == jobInput.Id);
+                if (finished.State is not (DocumentExportState.Queued or DocumentExportState.Running)) break;
+                await Task.Delay(50, wait.Token);
+            } while (true);
+            Assert.Equal(DocumentExportState.Succeeded, finished.State);
+            var download = Wire.EncodeDocumentExportTaskRef(jobInput.Id);
+            using var rendered = await Command(WireRoutes.DocumentExportDownload, owner, download);
+            Assert.Equal(HttpStatusCode.OK, rendered.StatusCode);
+            Assert.True(rendered.Headers.CacheControl?.Private);
+            Assert.True(rendered.Headers.CacheControl?.NoStore);
+            Assert.Contains("img-src data:", Assert.Single(rendered.Headers.GetValues("Content-Security-Policy")));
+            var renderedBytes = await rendered.Content.ReadAsByteArrayAsync(ct);
+            Assert.Equal(SHA256.HashData(renderedBytes), finished.OutputDigest);
+            var renderedHtml = System.Text.Encoding.UTF8.GetString(renderedBytes);
+            Assert.Contains("Original body.", renderedHtml);
+            Assert.DoesNotContain("Edited body", renderedHtml);
+            Assert.Contains("data:image/png;base64," + Convert.ToBase64String(normalized), renderedHtml);
+            using (var savedAsset = db.DataSource.CreateCommand("select attachment_id from public.author_document_export where id=$1"))
+            {
+                savedAsset.Parameters.AddWithValue(jobInput.Id);
+                Assert.Equal(asset, await savedAsset.ExecuteScalarAsync(ct));
+            }
+            File.Move(leaf, held);
+            try
+            {
+                await File.WriteAllBytesAsync(leaf, changed, ct);
+                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
+                using var corruptDownload = await Command(WireRoutes.DocumentExportDownload, owner, download);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptDownload.StatusCode);
+            }
+            finally
+            {
+                File.Delete(leaf);
+                File.Move(held, leaf);
+            }
+            var priorServer = server;
+            server = null;
+            await priorServer.DisposeAsync();
+            server = await ServerProcess.Start(db.ConnectionString, ct, settings);
+            client = server.Client;
+            using var reloaded = await Command(WireRoutes.DocumentExportDownload, owner, download);
+            Assert.Equal(HttpStatusCode.OK, reloaded.StatusCode);
+            Assert.Equal(renderedBytes, await reloaded.Content.ReadAsByteArrayAsync(ct));
+
+            async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes, Guid? image = null)
             {
                 using var request = Request(HttpMethod.Post, path, actor);
+                if (image is Guid id) request.Headers.Add(WireHeaders.HtmlExportAttachment, id.ToString("D"));
                 request.Content = new ByteArrayContent(bytes);
                 request.Content.Headers.ContentType = new(Aeds.ContentType);
                 return await client.SendAsync(request, ct);
@@ -542,7 +631,11 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.All(completed, status => Assert.Equal(HttpStatusCode.OK, status));
             }
         }
-        finally { directory.Delete(recursive: true); }
+        finally
+        {
+            try { if (server is not null) await server.DisposeAsync(); }
+            finally { directory.Delete(recursive: true); }
+        }
     }
 
     [PostgresFact]

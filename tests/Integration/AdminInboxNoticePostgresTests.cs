@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -34,7 +35,8 @@ public sealed class AdminInboxNoticePostgresTests
         await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            [AdminInboxEndpoints.NoticeSetting] = "true"
+            [AdminInboxEndpoints.NoticeSetting] = "true", [AdminInboxEndpoints.LiveSetting] = "true",
+            [AdminInboxEndpoints.SharedReadSetting] = "true"
         });
         const long eventId = 9981221123;
         const string content = "An explicitly targeted system message 🐈";
@@ -49,9 +51,24 @@ public sealed class AdminInboxNoticePostgresTests
         await Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.Unauthorized, firstToken, otherNotice, proof);
         await Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.Unauthorized, firstToken, notice, proof, eventId + 1);
         var parallel = await Work(firstToken, notice);
+        const string system = "?status=system&shared=1";
+        await RejectWake("?status=system", $"fsus-v2-admin-session={otherAdmin}", HttpStatusCode.BadRequest);
+        await RejectWake(system, $"fsus-v2-session={strangerToken}", HttpStatusCode.Unauthorized);
+        using var observer = WakeClient($"fsus-v2-admin-session={otherAdmin}");
+        await observer.ConnectAsync(WakeUri(system), ct);
         var receipts = await Task.WhenAll(
             Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.OK, firstToken, notice, proof),
             Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.OK, firstToken, notice, parallel));
+        using (var bound = CancellationTokenSource.CreateLinkedTokenSource(ct))
+        {
+            bound.CancelAfter(TimeSpan.FromSeconds(12));
+            var bytes = new byte[Aeds.HeaderSize + 8];
+            var wake = await observer.ReceiveAsync(bytes.AsMemory(), bound.Token);
+            Assert.Equal(WebSocketMessageType.Binary, wake.MessageType);
+            Assert.True(wake.EndOfMessage);
+            Assert.Equal(Wire.EncodeEmptySuccess(), bytes[..wake.Count]);
+            await observer.CloseAsync(WebSocketCloseStatus.NormalClosure, null, bound.Token);
+        }
         var responses = receipts.Select(data => Aeds.Decode(data, FrameType.ConversationDetailV2).ToArray()).ToArray();
         var id = BinaryPrimitives.ReadInt64LittleEndian(responses[0]);
         Assert.Equal(id, BinaryPrimitives.ReadInt64LittleEndian(responses[1]));
@@ -105,6 +122,27 @@ public sealed class AdminInboxNoticePostgresTests
         Assert.Equal(id, rows.GetInt64(7));
         Assert.False(await rows.ReadAsync(ct));
 
+        Uri WakeUri(string query) => new UriBuilder(new Uri(server.Client.BaseAddress!, WireRoutes.AdminInboxQueueWake + query))
+            { Scheme = "ws" }.Uri;
+
+        async Task RejectWake(string query, string cookie, HttpStatusCode status)
+        {
+            using var socket = WakeClient(cookie);
+            await Assert.ThrowsAsync<WebSocketException>(() => socket.ConnectAsync(WakeUri(query), ct));
+            Assert.Equal(status, socket.HttpStatusCode);
+        }
+
+        static ClientWebSocket WakeClient(string cookie)
+        {
+            var socket = new ClientWebSocket();
+            socket.Options.CollectHttpResponseDetails = true;
+            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
+            socket.Options.SetRequestHeader("Host", "localhost");
+            socket.Options.SetRequestHeader("Origin", "http://localhost");
+            socket.Options.SetRequestHeader("Cookie", cookie);
+            return socket;
+        }
+
         async Task<string> Work(string cookie, byte[] frame, long sourceEvent = eventId)
         {
             const string nonce = "7ddb277082ed464a845d2be0e1abeaba";
@@ -133,8 +171,7 @@ public sealed class AdminInboxNoticePostgresTests
 
         async Task<byte[]> Get(string path, string token, HttpStatusCode status)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Get, path, frame: null, token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);
@@ -156,11 +193,8 @@ public sealed class AdminInboxNoticePostgresTests
                 Store.TokenDigest(token)!, id);
         }
 
-        async Task Sql(string sql, params object[] parameters)
-        {
-            await using var command = Store.Sql(db, null, sql, parameters);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string sql, params object[] parameters) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
     }
 
     private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));

@@ -196,8 +196,7 @@ public sealed class PropertyBatchPostgresTests
         async Task<T> Scalar<T>(string sql)
         {
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(connection, null, sql);
-            return Assert.IsType<T>(await command.ExecuteScalarAsync(ct));
+            return Assert.IsType<T>(await FixtureSql.ScalarAsync(connection, null, ct, sql));
         }
 
         async Task<ArticleState> Save(int article, long revision, string body) =>

@@ -25,8 +25,7 @@ public sealed class PublicationRightsPostgresTests
             alter table public.article_publication_rights drop constraint publication_rights_native_binding;
             alter table public.blog_outbox drop constraint outbox_native_publication_binding;
             """, db)) await prepare.ExecuteNonQueryAsync(ct);
-        await using (var author = Store.Sql(db, null, "insert into public.blog_user values($1,'Previous catalog author',true,true,1)", actor))
-            await author.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user values($1,'Previous catalog author',true,true,1)", actor);
         await using (var session = Store.Sql(db, null,
             "insert into public.user_session (digest,user_id,generation,expires_at) values($1,$2,1,clock_timestamp()+interval '5 minutes')",
             Store.TokenDigest(token)!, actor)) await session.ExecuteNonQueryAsync(ct);
@@ -40,9 +39,7 @@ public sealed class PublicationRightsPostgresTests
 
         async Task<Draft> Send(string path, ArticleCommand command)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(Wire.EncodeArticleCommand(command)) };
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-            request.Headers.Add("Cookie", "fsus-v2-session=" + token);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, Wire.EncodeArticleCommand(command), token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
@@ -170,13 +167,7 @@ public sealed class PublicationRightsPostgresTests
         }
         async Task<byte[]> Response(HttpMethod method, string route, string? token, byte[]? body, HttpStatusCode status)
         {
-            using var request = new HttpRequestMessage(method, route);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, route, body, token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             Assert.Equal(status, response.StatusCode);
@@ -202,8 +193,7 @@ public sealed class PublicationRightsPostgresTests
         Task<long> Count(string sql, params object[] args) => Scalar<long>(sql, args);
         async Task<T> Scalar<T>(string sql, params object[] args)
         {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            return (T)(await cmd.ExecuteScalarAsync(ct))!;
+            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, args))!;
         }
     }
 }

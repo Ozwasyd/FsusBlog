@@ -69,11 +69,8 @@ public sealed class AdminClusterPostgresTests
         await Execute("update public.admin_principal set generation=2 where id=$1", admin);
         await Denied(second, HttpStatusCode.Unauthorized, token);
 
-        async Task Execute(string sql, params object[] arguments)
-        {
-            await using var cmd = Store.Sql(db, null, sql, arguments);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] arguments) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
 
         async Task<AdminClusterStatus> Observation(ServerProcess server, string credential)
         {

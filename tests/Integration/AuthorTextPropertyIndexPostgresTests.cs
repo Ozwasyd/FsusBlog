@@ -18,10 +18,9 @@ public sealed class AuthorTextPropertyIndexPostgresTests
         await using var scratch = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await scratch.DataSource.OpenConnectionAsync(ct);
         var actor = new Identity(Guid.NewGuid(), "Property search owner", 1, true, DateTimeOffset.UtcNow.AddMinutes(2));
-        await using (var insert = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)
-            """, actor.Id, actor.Name))
-            await insert.ExecuteNonQueryAsync(ct);
+            """, actor.Id, actor.Name);
 
         var id = Guid.NewGuid();
         var created = await Transaction(tx => new PropertyStore(db, tx, actor).Change(
@@ -89,9 +88,7 @@ public sealed class AuthorTextPropertyIndexPostgresTests
 
         async Task<long> CountDocuments()
         {
-            await using var command = Store.Sql(db, null,
-                "select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2", actor.Id, id);
-            return Assert.IsType<long>(await command.ExecuteScalarAsync(ct));
+            return Assert.IsType<long>(await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2", actor.Id, id));
         }
 
         async Task<byte[]?> Generation()

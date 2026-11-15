@@ -214,22 +214,20 @@ public sealed class PropertySnapshotPostgresTests
         async Task<int> InsertUncapturedRevision(Guid user)
         {
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var insert = Store.Sql(connection, null, """
+            return Assert.IsType<int>(await FixtureSql.ScalarAsync(connection, null, ct, """
                 with legacy as (
                     insert into public.article(owner_id,revision,title,body,deleted)
                     values($1,1,'Old article','Old body',false) returning id,title,body
                 )
                 insert into public.article_revision(article_id,revision,title,body,happened_at)
                 select id,1,title,body,now() from legacy returning article_id
-                """, user);
-            return Assert.IsType<int>(await insert.ExecuteScalarAsync(ct));
+                """, user));
         }
 
         async Task<T> Scalar<T>(string sql, params object[] values)
         {
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var cmd = Store.Sql(connection, null, sql, values);
-            return Assert.IsType<T>(await cmd.ExecuteScalarAsync(ct));
+            return Assert.IsType<T>(await FixtureSql.ScalarAsync(connection, null, ct, sql, values));
         }
 
         Task<byte[]> Snapshot(int id, long current, long selected, (Guid Id, string Token, string Handle)? session,

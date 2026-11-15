@@ -97,13 +97,12 @@ public sealed class AuthorRecentOpenPostgresTests
             var id = Guid.NewGuid();
             var ticket = RandomNumberGenerator.GetBytes(32);
             await using var dbConnection = await db.DataSource.OpenConnectionAsync(ct);
-            await using var sql = Store.Sql(dbConnection, null, """
+            await FixtureSql.ExecuteAsync(dbConnection, null, ct, """
                 with created as (
                     insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
                 )
                 insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
                 """, id, name, canAuthor, SHA256.HashData(ticket));
-            await sql.ExecuteNonQueryAsync(ct);
             var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
             return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
         }

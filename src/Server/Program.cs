@@ -73,7 +73,8 @@ if (documentExportTasks)
 {
     template = template.Replace("</head>", DocumentExportEndpoints.Marker + "</head>", StringComparison.Ordinal);
     builder.Services.AddHostedService(services => new DocumentExportWorker(services.GetRequiredService<NpgsqlDataSource>(),
-        services.GetRequiredService<InstanceLease>(), pdfExport, services.GetRequiredService<ILogger<DocumentExportWorker>>()));
+        services.GetRequiredService<InstanceLease>(), pdfExport, services.GetService<MediaFiles>(),
+        services.GetRequiredService<ILogger<DocumentExportWorker>>()));
 }
 if (pdfExport is not null)
     template = template.Replace("</head>", FsusBlog.V2.Server.Authoring.PdfDocumentExport.PageMarker + "</head>", StringComparison.Ordinal);

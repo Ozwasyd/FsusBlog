@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
 using Npgsql;
 using NpgsqlTypes;
@@ -8,7 +9,7 @@ using NpgsqlTypes;
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLease lease, PdfDocumentExport? pdf,
-    ILogger<DocumentExportWorker> log) : BackgroundService
+    MediaFiles? media, ILogger<DocumentExportWorker> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -106,12 +107,14 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             var input = await InTransaction(async (db, tx) =>
             {
                 await RequireAuthority(db, tx, job, budget.Token);
-                return await DocumentExportInput.Read(db, tx, job.Request, budget.Token);
+                Guid? asset = job.Provider == DocumentExportInput.AttachmentProvider
+                    ? await DocumentExportStore.ReadAttachmentId(db, tx, job.Owner, job.Request.Id, budget.Token) : null;
+                return await DocumentExportInput.Read(db, tx, job.Request, media, job.Owner, asset, budget.Token);
             }, budget.Token);
-            if (job.Provider is not (1 or DocumentExportInput.CurrentProvider) ||
+            if (job.Provider is not (1 or DocumentExportInput.CurrentProvider or DocumentExportInput.AttachmentProvider) ||
                 !CryptographicOperations.FixedTimeEquals(job.SourceDigest, input.Digest(job.Request, (byte)job.Provider, pdf?.ToolDigest)))
                 throw new PublicUnavailableException();
-            output = await Render(job.Request.Format, input, job.Provider == DocumentExportInput.CurrentProvider, budget.Token);
+            output = await Render(job.Request.Format, input, job.Provider != 1, budget.Token);
             budget.Token.ThrowIfCancellationRequested();
             if (output.Length is <= 0 or > PdfDocumentExport.MaximumOutput) throw new PublicUnavailableException();
         }
@@ -209,10 +212,10 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
     private async Task<byte[]> Render(DocumentExportFormat format, DocumentExportInput input, bool includeTables, CancellationToken ct) =>
         format switch
         {
-            DocumentExportFormat.Html => HtmlDocumentExport.Write(input.Title, input.Body, ct, includeTables),
+            DocumentExportFormat.Html => HtmlDocumentExport.Write(input.Title, input.Body, ct, includeTables, input.Attachment),
             DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(input.Title, input.Body, input.HappenedAt, ct, includeTables),
-            DocumentExportFormat.Docx => WordDocumentExport.Write(input.Title, input.Body, ct, includeTables),
-            DocumentExportFormat.Epub => EpubDocumentExport.Write(input.Title, input.Body, input.HappenedAt, ct, includeTables),
+            DocumentExportFormat.Docx => WordDocumentExport.Write(input.Title, input.Body, ct, includeTables, input.Attachment),
+            DocumentExportFormat.Epub => EpubDocumentExport.Write(input.Title, input.Body, input.HappenedAt, ct, includeTables, input.Attachment),
             _ => throw new PublicUnavailableException()
         };
 

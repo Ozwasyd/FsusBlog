@@ -62,9 +62,6 @@ public sealed class ArticleReadSchemaPostgresTests
         await CurrentSchema.VerifyAsync(db, ct);
     }
 
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand(sql, db);
-        await command.ExecuteNonQueryAsync(ct);
-    }
+    private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct) =>
+        FixtureSql.ExecuteAsync(db, null, ct, sql);
 }

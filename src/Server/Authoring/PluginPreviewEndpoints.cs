@@ -20,7 +20,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
     private readonly Dictionary<string, Consent> _consents = new(StringComparer.Ordinal);
 
     private sealed record Scope(Guid Author, long Generation, string Session, int Article, long Revision);
-    private sealed record Consent(Scope Scope, string Token, string Approval, long Issued);
+    private sealed record Consent(Scope Scope, string Token, PureRenderPlugin.Approval Approval, long Issued);
 
     internal static PluginPreviewEndpoints? Read(IConfiguration configuration, string? origin, string dist, string? mediaRoot)
     {
@@ -70,7 +70,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
             var session = SiteSessions.Requested(ctx);
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped, app.Lifetime.ApplicationStopping);
             lifetime.CancelAfter(TimeSpan.FromSeconds(12));
-            string? expectedApproval = null;
+            PureRenderPlugin.Approval? expectedApproval = null;
             try
             {
                 if (review)
@@ -78,7 +78,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
                     var (scope, _) = await Read(lifetime.Token, includeBody: false);
                     using var approval = PureRenderPlugin.Open(registry, pluginId, TimeProvider.System, lifetime.Token);
                     approval.VerifyCompletion(lifetime.Token);
-                    ctx.Response.Headers[ConsentHeader] = Offer(scope, approval.ApprovalDigest);
+                    ctx.Response.Headers[ConsentHeader] = Offer(scope, approval.ApprovalIdentity);
                     ctx.Response.Headers["X-Fsus-Plugin-Id"] = pluginId;
                     ctx.Response.Headers["X-Fsus-Plugin-Version"] = approval.Version;
                     ctx.Response.Headers["X-Fsus-Plugin-Digest"] = approval.ArchiveSha256;
@@ -121,7 +121,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
         }).RequireRateLimiting(RatePolicy);
     }
 
-    private string Offer(Scope scope, string approval)
+    private string Offer(Scope scope, PureRenderPlugin.Approval approval)
     {
         lock (_consents)
         {
@@ -135,7 +135,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
         }
     }
 
-    private string Take(Scope scope, string? token)
+    private PureRenderPlugin.Approval Take(Scope scope, string? token)
     {
         lock (_consents)
         {

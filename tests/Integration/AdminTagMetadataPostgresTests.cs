@@ -131,8 +131,7 @@ public sealed class AdminTagMetadataPostgresTests
 
         async Task<long> Number(string text)
         {
-            await using var query = Store.Sql(db, null, text);
-            return (long)(await query.ExecuteScalarAsync(ct))!;
+            return (long)(await FixtureSql.ScalarAsync(db, null, ct, text))!;
         }
     }
 }

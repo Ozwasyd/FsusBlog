@@ -74,8 +74,7 @@ public sealed class ArticleSchedulePostgresTests
         // Existing account lock order means a due pass can skip a concurrent account update without deadlocking.
         await using (var account = await db.BeginTransactionAsync(ct))
         {
-            await using var busy = Store.Sql(db, account, "select id from public.blog_user where id=$1 for update", author);
-            await busy.ExecuteScalarAsync(ct);
+            await FixtureSql.ScalarAsync(db, account, ct, "select id from public.blog_user where id=$1 for update", author);
             Assert.Equal(0, await Tick(newDue));
             await account.RollbackAsync(ct);
         }
@@ -237,13 +236,7 @@ public sealed class ArticleSchedulePostgresTests
             Request(HttpMethod.Post, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(input), status);
         async Task<byte[]> Request(HttpMethod method, string route, byte[]? body, HttpStatusCode status)
         {
-            using var request = new HttpRequestMessage(method, route);
-            request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, route, body, session.Token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
@@ -256,8 +249,7 @@ public sealed class ArticleSchedulePostgresTests
         }
         async Task<T> Scalar<T>(string sql, params object[] values)
         {
-            await using var cmd = Store.Sql(db, null, sql, values);
-            return (T)(await cmd.ExecuteScalarAsync(ct))!;
+            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
         }
     }
 

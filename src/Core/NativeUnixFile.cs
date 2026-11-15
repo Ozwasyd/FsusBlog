@@ -10,8 +10,11 @@ internal static class NativeUnixFile
     private const ushort PermissionMask = 0x0fff;
     private const int LinuxEmptyPath = 0x1000;
     private const uint LinuxFields = 0xb; // STATX_TYPE | STATX_MODE | STATX_UID
+    private const uint LinuxChanges = 0x180; // STATX_CTIME | STATX_INO
     internal const int NotFound = 2;
     internal const int ReadWrite = 2;
+
+    internal readonly record struct ChangeStamp(ulong Device, ulong Inode, long Seconds, long Nanoseconds);
 
     internal static bool Supported => (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux()) &&
         RuntimeInformation.ProcessArchitecture is Architecture.Arm64 or Architecture.X64;
@@ -89,17 +92,41 @@ internal static class NativeUnixFile
 
     private static (ushort Mode, uint Uid) Inspect(SafeFileHandle handle)
     {
-        if (!Supported) throw new PlatformNotSupportedException("Native file metadata requires macOS or Linux on x64 or ARM64.");
         if (OperatingSystem.IsLinux())
         {
-            if (StatLinux(handle, "", LinuxEmptyPath, LinuxFields, out var status) != 0)
-                throw Failure("Could not inspect the open Unix file.", Marshal.GetLastPInvokeError());
-            if ((status.Mask & LinuxFields) != LinuxFields) throw new IOException("The Unix file metadata is incomplete.");
+            var status = LinuxMetadata(handle, LinuxFields);
             return (status.Mode, status.Uid);
         }
+        var metadata = DarwinMetadata(handle);
+        return (metadata.Mode, metadata.Uid);
+    }
+
+    internal static ChangeStamp InspectChanges(SafeFileHandle handle)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            var status = LinuxMetadata(handle, LinuxChanges);
+            return new(((ulong)status.DeviceMajor << 32) | status.DeviceMinor, status.Inode, status.Seconds, status.Nanoseconds);
+        }
+        var metadata = DarwinMetadata(handle);
+        return new(metadata.Device, metadata.Inode, metadata.Seconds, metadata.Nanoseconds);
+    }
+
+    private static LinuxStat LinuxMetadata(SafeFileHandle handle, uint fields)
+    {
+        if (!Supported) throw new PlatformNotSupportedException();
+        if (StatLinux(handle, "", LinuxEmptyPath, fields, out var status) != 0)
+            throw Failure("Could not inspect the open Unix file.", Marshal.GetLastPInvokeError());
+        if ((status.Mask & fields) != fields) throw new IOException("The Unix file metadata is incomplete.");
+        return status;
+    }
+
+    private static DarwinStat DarwinMetadata(SafeFileHandle handle)
+    {
+        if (!Supported) throw new PlatformNotSupportedException();
         var success = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
             ? StatDarwin(handle, out var metadata) : StatDarwinInode64(handle, out metadata);
-        return success == 0 ? (metadata.Mode, metadata.Uid)
+        return success == 0 ? metadata
             : throw Failure("Could not inspect the open Unix file.", Marshal.GetLastPInvokeError());
     }
 
@@ -109,8 +136,12 @@ internal static class NativeUnixFile
     [StructLayout(LayoutKind.Explicit, Size = 144)]
     private struct DarwinStat
     {
+        [FieldOffset(0)] public uint Device;
         [FieldOffset(4)] public ushort Mode;
+        [FieldOffset(8)] public ulong Inode;
         [FieldOffset(16)] public uint Uid;
+        [FieldOffset(64)] public long Seconds;
+        [FieldOffset(72)] public long Nanoseconds;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 256)]
@@ -119,6 +150,11 @@ internal static class NativeUnixFile
         [FieldOffset(0)] public uint Mask;
         [FieldOffset(20)] public uint Uid;
         [FieldOffset(28)] public ushort Mode;
+        [FieldOffset(32)] public ulong Inode;
+        [FieldOffset(96)] public long Seconds;
+        [FieldOffset(104)] public uint Nanoseconds;
+        [FieldOffset(136)] public uint DeviceMajor;
+        [FieldOffset(140)] public uint DeviceMinor;
     }
 
     [DllImport("libc", EntryPoint = "open", SetLastError = true)]

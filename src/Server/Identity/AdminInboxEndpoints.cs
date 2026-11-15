@@ -51,7 +51,7 @@ internal static class AdminInboxEndpoints
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
             if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
-            if (live && filter <= 2 && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
+            if (live && (filter <= 2 || filter == 4) && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
@@ -79,9 +79,10 @@ internal static class AdminInboxEndpoints
                         {
                             null when !ctx.Request.QueryString.HasValue => -1,
                             "open" => 0, "pending" => 1, "closed" => 2,
+                            "system" when ctx.Request.Query.Count == 2 && Shared(ctx) => 4,
                             _ => throw new BusinessException(Rejection.Invalid, "Invalid live administrator inbox filter.")
                         };
-                        if (ctx.Request.Query.Count > 1)
+                        if (filter != 4 && ctx.Request.Query.Count > 1)
                             throw new BusinessException(Rejection.Invalid, "Unexpected live administrator inbox query.");
                         return store.InboxQueuePosition(token, filter, status, ct);
                     }, allowQuery: true);

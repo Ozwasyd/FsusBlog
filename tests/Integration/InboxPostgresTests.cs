@@ -71,12 +71,7 @@ public sealed class InboxPostgresTests
 
         async Task<HttpResponseMessage> Send(string path, byte[] frame, string command, string token, string? work = null, bool issuing = false)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path)
-            {
-                Content = new ByteArrayContent(frame)
-            };
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, frame, token, handle: null);
             request.Headers.Add(WireHeaders.ClientMutationId, command);
             if (issuing) request.Headers.Add(WireHeaders.PowClientNonce, ClientNonce);
             if (work is not null) request.Headers.Add(WireHeaders.PowProof, work);
@@ -365,8 +360,7 @@ public sealed class InboxPostgresTests
 
     private static async Task<HttpResponseMessage> InboxGet(HttpClient client, string path, string session, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        request.Headers.Add("Cookie", $"fsus-v2-session={session}");
+        using var request = SiteAedsFixture.Request(HttpMethod.Get, path, frame: null, session, handle: null);
         return await client.SendAsync(request, ct);
     }
 

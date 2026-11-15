@@ -309,7 +309,7 @@ public sealed partial class DocumentExportPostgresTests
     }
 
     // Prevent only the selected fixture task from starting, regardless of the worker timer.
-    private static Task<int> HoldClaim(NpgsqlConnection db, Guid id, CancellationToken ct) => Execute(db, $"""
+    internal static Task<int> HoldClaim(NpgsqlConnection db, Guid id, CancellationToken ct) => Execute(db, $"""
         create function public.document_export_fixture_hold() returns trigger language plpgsql
         as $$ begin return null; end; $$;
         create trigger document_export_fixture_hold before update of state on public.author_document_export
@@ -317,7 +317,7 @@ public sealed partial class DocumentExportPostgresTests
         execute function public.document_export_fixture_hold();
         """, ct);
 
-    private static Task<int> ReleaseClaim(NpgsqlConnection db, CancellationToken ct) => Execute(db, """
+    internal static Task<int> ReleaseClaim(NpgsqlConnection db, CancellationToken ct) => Execute(db, """
         drop trigger document_export_fixture_hold on public.author_document_export;
         drop function public.document_export_fixture_hold();
         """, ct);

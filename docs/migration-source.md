@@ -167,7 +167,7 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 ### 启用已审核的即时发布文章
 
-对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇文章。计划版本 3 要求每篇只有首次即时发布，版本 4 要求每篇依次即时首发、普通再发布。两种计划均要求完整修订、发布坐标、对应权利、每次发布的原出站事件和七条已完成的投递边，并核对当前权利与最后一次公开快照。附件、定时发布、责任快照、已启用的证明绑定及其他未转换的有效数据仍会阻塞启用。旧版管理员操作者、出站事件及投递边留在隔离库。
+对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇文章。计划版本 3 要求每篇只有首次即时发布，版本 4 允许首发文章和依次完成即时首发、普通再发布的文章同批启用，并逐篇核对发布历史。两种计划均要求完整修订、发布坐标、对应权利、每次发布的原出站事件和七条已完成的投递边，并核对当前权利与最后一次公开快照。附件、定时发布、责任快照、已启用的证明绑定及其他未转换的有效数据仍会阻塞启用。旧版管理员操作者、出站事件及投递边留在隔离库。
 
 为运行副本独立审核并预置原映射 UUID 对应的禁用所有者。目标须为 `fsusv2_import_runtime_*` 当前库，通过所有者专用 Unix socket 连接且 PostgreSQL 不监听 TCP。另行备份该基线并保存清单 SHA-256。使用 `FSUSBLOG_IMPORT_DB` 指向原隔离库，使用 `FSUSBLOG_RELEASE_ACTIVATION_DB` 指向运行副本。导出计划，审核绑定的来源、目标及回退摘要和待写关系，再独立保管审批文件 SHA-256。
 
@@ -184,6 +184,8 @@ release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sh
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢复首发与再发布链。两条原事件和 14 条投递边仍由隔离库保管。正式命令启用运行副本并接受同一审批的复验，修改已被取代的第一条修订会使复验失败。再次归档并恢复后的 Kestrel 返回修订 2、发布 `900000002` 和权利 `701`，拒绝前一发布的公开关联与证明坐标。相同构建也通过首发启用，并拒绝把版本 5 的责任快照作为普通再发布启用。见 `artifacts/legacy-republish-activation-72d684d/native-suite-status-2.txt`。
+
+`legacy-runtime.sh --activate-mixed` 在同一受审核的版本 4 批次处理两篇文章。隔离库保全三次发布、三个原事件和 21 条终态投递边。运行副本从备份还原后，Kestrel 返回再发布文章的 `(42, 2, 900000002, 701)` 和同期首发文章的 `(43, 1, 900000003, 702)`，依次对应文章、修订、发布和权利快照。见 `artifacts/legacy-mixed-release-99abb41/native-activate-mixed-2.log`。
 
 ### 离线验看附件来源
 

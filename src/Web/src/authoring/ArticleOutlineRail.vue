@@ -8,6 +8,7 @@ const props = defineProps<{
   active: string | null
   state: 'loading' | 'ready' | 'unavailable'
   disabled: boolean
+  foreground: boolean
   reveal: (heading: MarkdownEditorOutlineItem) => boolean
 }>()
 const emit = defineEmits<{ visibility: [open: boolean] }>()
@@ -73,14 +74,14 @@ function afterRender(key: number, action: () => void) {
 
 function focusHeading(id?: string) {
   const root = content.value
-  if (!root) return
+  if (!props.foreground || props.disabled || !root) return
   const button = id ? root.ownerDocument.getElementById(headingButtonId(id)) : null
   const target = button && root.contains(button) ? button : root
   target.focus()
 }
 
 function enter(owner: Presentation) {
-  if (surface.value !== owner || !expanded.value) return
+  if (!props.foreground || surface.value !== owner || !expanded.value) return
   afterRender(owner.key, () => {
     if (!expanded.value || surface.value !== owner) return
     focusHeading(tabStop.value?.nodeId)
@@ -88,7 +89,7 @@ function enter(owner: Presentation) {
 }
 
 function open() {
-  if (props.disabled || expanded.value) return
+  if (!props.foreground || props.disabled || expanded.value) return
   compact.value = media?.matches ?? compact.value
   const owner: Presentation = {
     key: advance(), compact: compact.value,
@@ -121,12 +122,12 @@ function finish(owner: Presentation) {
   afterRender(key, () => {
     const selection = owner.selection
     // Wait until the compact Drawer has released its focus trap.
-    const revealed = selection !== undefined && !props.disabled && props.state === 'ready'
+    const revealed = props.foreground && selection !== undefined && !props.disabled && props.state === 'ready'
       && selection.reveal === props.reveal && props.headings.includes(selection.heading)
       && selection.reveal(selection.heading)
     if (key !== generation) return
     broadcast(false)
-    if (!revealed && launcher.value) focusInspectorOpener(launcher.value, null)
+    if (!revealed && props.foreground && launcher.value) focusInspectorOpener(launcher.value, null)
   })
 }
 
@@ -174,7 +175,7 @@ function reset() {
   expanded.value = false
   broadcast(false)
   if (returnFocus) afterRender(key, () => {
-    if (launcher.value) focusInspectorOpener(launcher.value, null)
+    if (props.foreground && launcher.value) focusInspectorOpener(launcher.value, null)
   })
 }
 
@@ -208,6 +209,10 @@ watch([expanded, headings, () => props.active], () => {
   }
 })
 watch(() => props.disabled, disabled => { if (disabled) reset() })
+watch(() => props.foreground, foreground => {
+  // The compact Drawer is teleported outside the hidden pane.
+  if (!foreground && surface.value?.compact) reset()
+})
 onMounted(() => {
   media = window.matchMedia('(max-width: 1023px)')
   resize()
@@ -221,7 +226,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="outline-rail" @keydown="escapePane">
+  <div v-show="foreground" class="outline-rail" @keydown="escapePane">
     <button
       ref="launcher" class="outline-launcher" type="button" :aria-expanded="expanded"
       :aria-controls="expanded ? contentId : undefined" :aria-haspopup="compact ? 'dialog' : undefined"

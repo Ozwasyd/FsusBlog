@@ -21,14 +21,15 @@ public sealed class PureRenderPlugin : IDisposable
     private readonly TimeProvider _clock;
     private readonly long _started;
     private readonly SignedArchiveTrust _trust;
-    private readonly string _registryDigest;
     private readonly FileStream _lease;
+
+    internal readonly record struct Approval(string Digest, ExtensionDisk.Stamp Stamp);
 
     public string JavaScript { get; }
     public int TimeoutMs { get; }
     internal string Version { get; }
     internal string ArchiveSha256 => _trust.Source.ArchiveSha256;
-    internal string ApprovalDigest => _registryDigest;
+    internal Approval ApprovalIdentity { get; }
 
     public static PureRenderPlugin Open(DirectoryInfo root, string id, TimeProvider clock, CancellationToken ct = default)
     {
@@ -39,7 +40,7 @@ public sealed class PureRenderPlugin : IDisposable
         try
         {
             var start = clock.GetTimestamp();
-            var json = ExtensionDisk.Read(directory, "platform-plugin.json", 32 * 1024, ct);
+            var json = ReadApproval(directory, ct, out var approval);
             var policy = JsonSerializer.Deserialize<Policy>(json, Json) ?? throw Reject("plugin-approval");
             if (!policy.Enabled || policy.PluginId != id || policy.Permissions is not ["article.render"] || policy.Source is null ||
                 policy.Key is null || !IsDigest(policy.Source.ArchiveSha256)) throw Reject("plugin-approval");
@@ -64,7 +65,7 @@ public sealed class PureRenderPlugin : IDisposable
                 throw Reject("plugin-config-subset");
             trust.RequireCurrent(clock, ct);
             return new(directory, Utf8.GetString(entries.JavaScript), manifest.Version, manifest.Hooks[0].TimeoutMs,
-                clock, start, trust, Digest(json), lease);
+                clock, start, trust, approval, lease);
         }
         catch (Exception error)
         {
@@ -75,7 +76,7 @@ public sealed class PureRenderPlugin : IDisposable
     }
 
     private PureRenderPlugin(string root, string script, string version, int timeout, TimeProvider clock, long started,
-        SignedArchiveTrust trust, string registryDigest, FileStream lease)
+        SignedArchiveTrust trust, Approval approval, FileStream lease)
     {
         _root = root;
         JavaScript = script;
@@ -84,7 +85,7 @@ public sealed class PureRenderPlugin : IDisposable
         _clock = clock;
         _started = started;
         _trust = trust;
-        _registryDigest = registryDigest;
+        ApprovalIdentity = approval;
         _lease = lease;
     }
 
@@ -92,7 +93,8 @@ public sealed class PureRenderPlugin : IDisposable
     {
         ObjectDisposedException.ThrowIf(_lease.SafeFileHandle.IsClosed, this);
         ExtensionDisk.ValidatePrivateRoot(new(_root));
-        if (Digest(ExtensionDisk.Read(_root, "platform-plugin.json", 32 * 1024, ct)) != _registryDigest)
+        ReadApproval(_root, ct, out var approval);
+        if (approval != ApprovalIdentity)
             throw Reject("plugin-approval-changed");
         ReadArchive(_root, _trust.Source.ArchiveSha256, ct);
         if (_clock.GetElapsedTime(_started) >= TimeSpan.FromSeconds(15)) throw Reject("plugin-operation-expired");
@@ -102,6 +104,13 @@ public sealed class PureRenderPlugin : IDisposable
     }
 
     public void Dispose() => _lease.Dispose();
+
+    private static byte[] ReadApproval(string root, CancellationToken ct, out Approval approval)
+    {
+        var json = ExtensionDisk.ReadStamped(root, "platform-plugin.json", 32 * 1024, ct, out var stamp);
+        approval = new(Digest(json), stamp);
+        return json;
+    }
 
     private static FileStream Acquire(string directory)
     {

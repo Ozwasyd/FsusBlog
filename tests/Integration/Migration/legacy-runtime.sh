@@ -7,6 +7,8 @@ cd "$repo"
 fixture="$repo/tests/Integration/Migration"
 activate=false
 republish_profile=false
+mixed_profile=false
+expected_articles=1
 case "$# ${1:-}" in
     '0 '|'1 --activate')
         if [[ "${1:-}" == --activate ]]; then activate=true; fi
@@ -14,10 +16,14 @@ case "$# ${1:-}" in
         source_overlays=("$fixture/legacy-runtime-first-publication-fixture.sql")
         public_expectation=(42 1 900000001 700 11 'News' 'Blog News' 'Legacy first publication' 'Verified starlight rehearsal.' 'Verified starlight rehearsal.')
         ;;
-    '1 --activate-republish')
+    '1 --activate-republish'|'1 --activate-mixed')
         activate=true republish_profile=true
         profile=republish plan_version=4 expected_publications=2 rollback_profile=false
         source_overlays=("$fixture/legacy-republish-outbox-fixture.sql")
+        if [[ "$1" == --activate-mixed ]]; then
+            mixed_profile=true profile=mixed expected_articles=2 expected_publications=3
+            source_overlays+=("$fixture/legacy-runtime-mixed-fixture.sql")
+        fi
         public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
         ;;
     '1 --rollback')
@@ -25,7 +31,7 @@ case "$# ${1:-}" in
         source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate|--activate-republish]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed]\n' "$0" >&2; exit 2 ;;
 esac
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
@@ -177,36 +183,37 @@ export FSUSBLOG_IMPORT_DB FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA=public
 intake_status=0
 migrate_db "$quarantine_db" legacy plan postgres > "$scratch/intake.json" || intake_status=$?
 [[ "$intake_status" == 2 ]]
-python3 - "$scratch/intake.json" "$scratch/owners.json" "$owner" <<'PY'
+python3 - "$scratch/intake.json" "$scratch/owners.json" "$owner" "$expected_articles" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-intake, output, owner = sys.argv[1:]
+intake, output, owner, articles = sys.argv[1:]
+articles = int(articles)
 report = json.loads(Path(intake).read_text())
 article, = [row for row in report["audit"]["projections"] if row["table"] == "article"]
-assert article["rows"] == 1, article
+assert article["rows"] == articles, article
 Path(output).write_text(json.dumps({
     "sourceArticleSha256": article["sha256"], "sourceAdminIdentitySha256": report["sourceAdminIdentitySha256"],
-    "owners": [{"articleId": 42, "legacyAdminId": 7, "v2UserId": owner}],
+    "owners": [{"articleId": 42 + offset, "legacyAdminId": 7, "v2UserId": owner} for offset in range(articles)],
 }))
 PY
 legacy_input=(postgres "$scratch/owners.json" "$quarantine_backup" "$quarantine_backup_sha")
 migrate_db "$quarantine_db" legacy import plan "${legacy_input[@]}" > "$scratch/reviewed.json"
-python3 - "$scratch/reviewed.json" "$plan_version" "$expected_publications" <<'PY'
+python3 - "$scratch/reviewed.json" "$plan_version" "$expected_articles" "$expected_publications" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-path, version, publications = sys.argv[1:]
+path = sys.argv[1]
+version, articles, publications = map(int, sys.argv[2:])
 plan = json.loads(Path(path).read_text())
-publications = int(publications)
-assert plan["version"] == int(version) and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
+assert plan["version"] == version and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
 counts = {row["table"]: row["rows"] for row in plan["expectedTables"]}
-assert counts["shadow_article"] == 1
+assert counts["shadow_article"] == articles
 assert counts["shadow_revision"] == counts["shadow_publication"] == publications
 assert counts["shadow_article_mutation_outbox"] == publications and counts["shadow_article_mutation_outbox_edge"] == 7 * publications
-assert counts["shadow_article_responsibility_snapshot"] == (2 if publications == 3 else 0)
+assert counts["shadow_article_responsibility_snapshot"] == (2 if version == 5 else 0)
 assert "shadow_article_mutation_command" not in counts
 PY
 migrate_db "$quarantine_db" legacy import apply "${legacy_input[@]}" "$scratch/reviewed.json" > "$scratch/applied.json"
@@ -234,20 +241,20 @@ verify_quarantine() {
     [[ "$(json_hash "$scratch/quarantine-checked.json" projectionSha256)" == "$projection_sha" ]]
 }
 verify_quarantine
-python3 - "$scratch/projected.json" "$scratch/quarantine-checked.json" "$expected_publications" <<'PY'
+python3 - "$scratch/projected.json" "$scratch/quarantine-checked.json" "$expected_publications" "$plan_version" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-projected, verified, publications = sys.argv[1:]
-publications = int(publications)
+projected, verified = sys.argv[1:3]
+publications, version = map(int, sys.argv[3:])
 reports = [json.loads(Path(path).read_text()) for path in (projected, verified)]
 assert [row["result"] for row in reports] == ["projected", "verified"]
 for row in reports:
     assert not row["readyToApply"] and row["retainedLegacyPublicationRows"] == publications
     assert row["retainedLegacyCreateCommands"] == row["retainedInitialSchedules"] == 0
     assert row["retainedLegacyOutboxEvents"] == publications and row["retainedLegacyOutboxEdges"] == 7 * publications
-    assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRollbackOutboxEvents"] == (1 if publications == 3 else 0)
+    assert row["verifiedPublishedRollbackRows"] == row["retainedLegacyRollbackOutboxEvents"] == (1 if version == 5 else 0)
     assert row["retainedLegacyRepublishOutboxEvents"] == (1 if publications >= 2 else 0)
 PY
 if [[ "$rollback_profile" == true ]]; then
@@ -303,7 +310,7 @@ transfer() {
     local db=$1 oid=$2 site=$3 dir=$4 mode=$5 seal=$6 interrupt=$7
     (cd -- "$dir" && psql_db "$db" -v database_name="$db" -v database_oid="$oid" -v site_id="$site" \
         -v plan_sha="$plan_sha" -v projection_sha="$projection_sha" -v owner_id="$owner" \
-        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" -v republish_profile="$republish_profile" \
+        -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" -v republish_profile="$republish_profile" -v mixed_profile="$mixed_profile" \
         -f "$fixture/legacy-runtime-transfer.sql")
 }
 transfer "$quarantine_db" "$quarantine_oid" "$quarantine_site" "$scratch/transfer" true true false
@@ -321,27 +328,27 @@ if [[ "$activate" == true ]]; then
     rg -Fq 'approved release activation plan differs' "$evidence/release-wrong-target.log"
     if FSUSBLOG_IMPORT_DB="$(dsn "$restored_seed")" run_release > "$evidence/release-wrong-source.log" 2>&1; then exit 1; fi
     rg -Fq 'not the original staged database and site' "$evidence/release-wrong-source.log"
-    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='Unreviewed change'"
+    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='Unreviewed change' WHERE article_id=42"
     if run_release > "$evidence/release-wrong-rights.log" 2>&1; then exit 1; fi
     rg -Fq 'Staged source has changed: shadow_article_rights_policy' "$evidence/release-wrong-rights.log"
     policy='Retained fixture rights.'
     if [[ "$republish_profile" == true ]]; then policy='Updated rights'; fi
-    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='$policy'"
+    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='$policy' WHERE article_id=42"
     FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
     run_release > "$evidence/release-activated.json"
     if [[ "$republish_profile" == true ]]; then
-        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='Unapproved first revision' WHERE revision=1"
+        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='Unapproved first revision' WHERE article_id=42 AND revision=1"
         if run_release > "$evidence/release-wrong-history.log" 2>&1; then exit 1; fi
         rg -Fq 'match neither the empty rollback nor this complete approved batch' "$evidence/release-wrong-history.log"
-        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='first' WHERE revision=1"
+        psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='first' WHERE article_id=42 AND revision=1"
     fi
     run_release > "$evidence/release-retry.json"
-    python3 - "$evidence/release-activated.json" "$evidence/release-retry.json" "$release_sha" <<'RELEASE_REPLAY'
+    python3 - "$evidence/release-activated.json" "$evidence/release-retry.json" "$release_sha" "$expected_articles" <<'RELEASE_REPLAY'
 import json, pathlib, sys
 applied, retried = [json.loads(pathlib.Path(path).read_bytes()) for path in sys.argv[1:3]]
 assert applied['result'] == 'activated' and retried['result'] == 'revalidated'
 assert applied['activationSha256'] == retried['activationSha256'] == sys.argv[3]
-assert applied['publications'] == 1 and not applied['legacyCandidateServing'] and not applied['readyToApply']
+assert applied['publications'] == int(sys.argv[4]) and not applied['legacyCandidateServing'] and not applied['readyToApply']
 RELEASE_REPLAY
 else
     if [[ "$rollback_profile" == true ]]; then
@@ -434,6 +441,10 @@ probe_server() {
     done
     [[ "$found" == yes ]]
     env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" "${public_expectation[@]}" > "$evidence/$label-probe.sha256"
+    if [[ "$mixed_profile" == true ]]; then
+        env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" 43 1 900000003 702 11 'News' 'Blog News' \
+            'Independent masthead' 'first' 'Different first summary' >> "$evidence/$label-probe.sha256"
+    fi
     stop_server
 }
 probe_server first

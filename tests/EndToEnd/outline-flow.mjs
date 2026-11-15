@@ -168,7 +168,7 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await expect(editor).toHaveURL(editPath(first.id))
     await expectCaret(secondRepeat)
     assert.equal(await body().evaluate((live, original) => live === original, editorA), true)
-    await open(sidebar)
+    await expect(sidebar).toBeVisible()
     await expect(repeated.nth(1)).toHaveAttribute('aria-current', 'location')
 
     observations.push('The FsusUI article outline ignores fenced pseudo-headings, preserves duplicate heading order and exact CRLF/Unicode caret positions, closes the 375px drawer before transferring focus, and restores the opener on Escape without moving the caret. Byte-identical drafts keep independent active headings and retained editor instances.')

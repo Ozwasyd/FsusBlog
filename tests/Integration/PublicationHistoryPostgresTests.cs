@@ -124,16 +124,13 @@ public sealed class PublicationHistoryPostgresTests
 
         async Task<T> Scalar<T>(string sql, params object[] values)
         {
-            await using var cmd = Store.Sql(db, null, sql, values);
-            return (T)(await cmd.ExecuteScalarAsync(ct))!;
+            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
         }
 
         async Task<byte[]> Post(string route, ArticleCommand command, HttpStatusCode expected = HttpStatusCode.OK)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, route);
-            request.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-            request.Content = new ByteArrayContent(Wire.EncodeArticleCommand(command));
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command),
+                session.Token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);

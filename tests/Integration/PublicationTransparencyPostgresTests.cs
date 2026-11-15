@@ -136,10 +136,8 @@ public sealed class PublicationTransparencyPostgresTests
             Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, orphan.SqlState);
             await using (var tx = await db.BeginTransactionAsync(ct))
             {
-                await using var deleteLeaf = Store.Sql(db, tx, "delete from public.article_publication_transparency where seq=3");
-                await deleteLeaf.ExecuteNonQueryAsync(ct);
-                await using var deleteProof = Store.Sql(db, tx, "delete from public.article_publication_proof where publication_id=$1", tail);
-                await deleteProof.ExecuteNonQueryAsync(ct);
+                await FixtureSql.ExecuteAsync(db, tx, ct, "delete from public.article_publication_transparency where seq=3");
+                await FixtureSql.ExecuteAsync(db, tx, ct, "delete from public.article_publication_proof where publication_id=$1", tail);
                 await tx.CommitAsync(ct);
             }
             Denied(await Audit("3", finalPin), "prefix was not found or changed");
@@ -221,11 +219,8 @@ public sealed class PublicationTransparencyPostgresTests
             throw new InvalidOperationException("The native ledger fixture did not reach the expected state.");
         }
 
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
 
         async Task RemoveLedgerSchema()
         {

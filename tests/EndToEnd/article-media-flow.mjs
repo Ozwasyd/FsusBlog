@@ -99,6 +99,24 @@ try {
       assert(previewBytes.length > 0)
       await verifyOfflineAttachment(page, draft, asset.id, file, previewBytes)
       await verifyOfflineEpub(page, draft, asset.id, file, previewBytes)
+      const taskWithImage = process.env.FSUSBLOG_DOCUMENT_EXPORT_TASKS === 'true'
+      if (taskWithImage) {
+        const [queued] = await Promise.all([
+          page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.DocumentExportCreate),
+          page.getByRole('button', { name: 'Queue HTML with this image' }).click(),
+        ])
+        assert.equal(queued.status(), 200)
+        assert.equal(await queued.request().headerValue(WireHeaders.HtmlExportAttachment), asset.id)
+        await page.getByRole('button', { name: 'HTML task added' }).waitFor()
+        await page.getByText('Document export tasks', { exact: true }).click()
+        const tasks = page.getByRole('region', { name: 'Document export tasks' })
+        const [result] = await Promise.all([
+          page.waitForEvent('download'), tasks.getByRole('button', { name: 'Download export' }).click(),
+        ])
+        const downloaded = await readFile(await result.path(), 'utf8')
+        assert(downloaded.includes('data:image/png;base64,' + previewBytes.toString('base64')))
+        assert(downloaded.includes('Public text remains independent of private attachments.'))
+      }
       const word = await downloadAttachment(page, draft, asset.id, 'Word', 'docx')
       assert.equal(word.response.headers()['content-type'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
       const wordBytes = await word.response.body()
@@ -119,7 +137,7 @@ try {
       assert.deepEqual(diagnostics, [])
       assertions.push({ name, viewport, title: await page.title(), uploadedAssetAttached: true, privatePreviewRendered: true,
         anonymousDenied: true, previousTicketInvalidAfterDetach: true, authorizationHeaderOnly: true,
-        objectUrlRevoked: true, offlineHtmlImage: true, offlineEpubImage: true, privateWordImage: true, keyboard: true })
+        objectUrlRevoked: true, offlineHtmlImage: true, offlineEpubImage: true, privateWordImage: true, taskWithImage, keyboard: true })
     } finally { await author.close() }
   }
 } catch (error) { failure = error }

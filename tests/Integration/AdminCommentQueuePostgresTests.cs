@@ -154,11 +154,8 @@ public sealed class AdminCommentQueuePostgresTests
                     SHA256.HashData(Encoding.UTF8.GetBytes(body)), article, comment);
         }
 
-        async Task Execute(string sql, params object[] arguments)
-        {
-            await using var cmd = Store.Sql(db, null, sql, arguments);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] arguments) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
     }
 
     private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));

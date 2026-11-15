@@ -252,11 +252,8 @@ public sealed class PublishedMediaStorePostgresTests
             var id = Guid.NewGuid();
             var secret = RandomNumberGenerator.GetBytes(32);
             await using var db = await _db.OpenConnectionAsync(ct);
-            await using var user = Store.Sql(db, null, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
-            await user.ExecuteNonQueryAsync(ct);
-            await using var ticket = Store.Sql(db, null, "INSERT INTO public.login_ticket (digest,user_id,expires_at) VALUES ($1,$2,now()+interval '1 minute')",
-                SHA256.HashData(secret), id);
-            await ticket.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
+            await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.login_ticket (digest,user_id,expires_at) VALUES ($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), id);
             var session = await AuthorStore.SignIn(Convert.ToHexStringLower(secret), ct);
             return new(id, session.Token);
         }

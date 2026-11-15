@@ -98,8 +98,7 @@ public sealed class ExtensionDocumentReadPostgresTests
             using (var operation = NewRange(owner, grant, 1, 3))
             {
                 await using var held = await connection.BeginTransactionAsync(ct);
-                await using var take = Store.Sql(connection, held, "select id from public.article where id=$1 for update", saved.Id);
-                await take.ExecuteScalarAsync(ct);
+                await FixtureSql.ScalarAsync(connection, held, ct, "select id from public.article where id=$1 for update", saved.Id);
                 using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 var pending = broker.ReadRangeAsync(operation, cancellation.Token).AsTask();
                 cancellation.Cancel();
@@ -142,12 +141,8 @@ public sealed class ExtensionDocumentReadPostgresTests
         {
             var account = Guid.NewGuid();
             var ticket = RandomNumberGenerator.GetBytes(32);
-            await using (var add = Store.Sql(connection, null,
-                "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", account, name))
-                await add.ExecuteNonQueryAsync(ct);
-            await using (var add = Store.Sql(connection, null,
-                "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(ticket), account))
-                await add.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", account, name);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(ticket), account);
             var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
             return (token, SiteSessions.Id(account, Store.TokenDigest(token)!));
         }

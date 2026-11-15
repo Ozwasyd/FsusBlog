@@ -38,8 +38,7 @@ public sealed class SubscriptionPreferencePostgresTests
         });
         Assert.Contains("explicit public HTTPS origin", noOrigin.Message);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await using var remove = Store.Sql(db, null, "drop table public.site_subscription");
-        await remove.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "drop table public.site_subscription");
         await CurrentSchema.VerifyAsync(db, ct);
         var noSchema = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -102,10 +101,9 @@ public sealed class SubscriptionPreferencePostgresTests
         await Sql("alter table public.site_subscription drop constraint subscription_failure_test");
         await using (var barrier = await db.BeginTransactionAsync(ct))
         {
-            await using var lockRow = Store.Sql(db, barrier, """
+            await FixtureSql.ExecuteAsync(db, barrier, ct, """
                 update public.site_subscription set proof_expires_at=clock_timestamp()+interval '350 milliseconds' where email_key=$1
                 """, lookup);
-            await lockRow.ExecuteNonQueryAsync(ct);
             var waiting = Post(WireRoutes.SubscriptionCancel, FixtureEmail, 2, secret, source: "192.0.2.35");
             await Task.Delay(TimeSpan.FromMilliseconds(800), ct);
             await barrier.CommitAsync(ct);
@@ -154,17 +152,11 @@ public sealed class SubscriptionPreferencePostgresTests
             return bytes;
         }
 
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            return await cmd.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
 
-        async Task Sql(string sql, params object[] args)
-        {
-            await using var cmd = Store.Sql(db, null, sql, args);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string sql, params object[] args) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, args);
 
     }
 

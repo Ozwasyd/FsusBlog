@@ -138,7 +138,7 @@ public static partial class Wire
         var terminal = task.State is DocumentExportState.Succeeded or DocumentExportState.Failed or
             DocumentExportState.Cancelled or DocumentExportState.Blocked;
         var failure = task.State is DocumentExportState.Failed or DocumentExportState.Blocked;
-        if (!Enum.IsDefined(task.State) || !Enum.IsDefined(task.Failure) || task.Provider is not (1 or 2) ||
+        if (!Enum.IsDefined(task.State) || !Enum.IsDefined(task.Failure) || task.Provider is not (1 or 2 or 3) ||
             task.Created <= 0 || task.Expires <= task.Created ||
             (task.Started != 0 && task.Started < task.Created) ||
             (task.Finished != 0 && task.Finished < Math.Max(task.Created, task.Started)) ||

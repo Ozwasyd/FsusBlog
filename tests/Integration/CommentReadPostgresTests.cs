@@ -101,8 +101,7 @@ public sealed class CommentReadPostgresTests
             var error = await Assert.ThrowsAsync<PostgresException>(() => crossArticle.ExecuteNonQueryAsync(ct));
             Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, error.SqlState);
         }
-        await using (var withdraw = Store.Sql(connection, null, "update public.article set published_revision=null where id=1"))
-            await withdraw.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set published_revision=null where id=1");
         Assert.Equal(unavailable, await read.Context(1, Start + 3, 6, ct));
         Assert.Equal(0, Read32(Payload(await read.Roots(1, null, 10, ct), FrameType.CommentTreeRootCursor), 9));
         Assert.Equal(unavailable, await server.Client.GetByteArrayAsync($"/api/binary/comment/1/context/{Start + 3}", ct));
@@ -117,7 +116,7 @@ public sealed class CommentReadPostgresTests
         await Seed(fixture, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var token = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-        await using (var configure = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             with session as (
                 insert into public.user_session(digest,user_id,generation,expires_at)
                 values($1,$2,1,now()+interval '5 minutes')
@@ -125,8 +124,7 @@ public sealed class CommentReadPostgresTests
                 insert into public.comment_public_handle(user_id,display_name) values($2,'Public Handle')
             )
             insert into public.comment_public_write(article_id) values(1)
-            """, Store.TokenDigest(token)!, AccountId))
-            await configure.ExecuteNonQueryAsync(ct);
+            """, Store.TokenDigest(token)!, AccountId);
 
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
             new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true" });
@@ -154,11 +152,10 @@ public sealed class CommentReadPostgresTests
         using (var changed = await Send(input with { Body = "different body" }, proof: sameProof))
             Assert.Equal(HttpStatusCode.Unauthorized, changed.StatusCode);
         var anotherToken = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-        await using (var rotated = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at)
             values($1,$2,1,now()+interval '5 minutes')
-            """, Store.TokenDigest(anotherToken)!, AccountId))
-            await rotated.ExecuteNonQueryAsync(ct);
+            """, Store.TokenDigest(anotherToken)!, AccountId);
         using (var wrongSession = await Send(input, proof: sameProof, sessionToken: anotherToken))
             Assert.Equal(HttpStatusCode.Unauthorized, wrongSession.StatusCode);
         var concurrent = await Task.WhenAll(Send(input, proof: sameProof), Send(input, proof: sameProof));
@@ -182,16 +179,13 @@ public sealed class CommentReadPostgresTests
             Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
         var rootFrame = await server.Client.GetByteArrayAsync("/api/binary/comment/1", ct);
         Assert.DoesNotContain("pending submission body", Encoding.UTF8.GetString(rootFrame), StringComparison.Ordinal);
-        await using (var shut = Store.Sql(db, null, "delete from public.comment_public_write where article_id=1"))
-            await shut.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.comment_public_write where article_id=1");
         using (var policyClosed = await Send(input with { IdempotencyKey = Guid.NewGuid() }, challenge: true))
             Assert.Equal(HttpStatusCode.Forbidden, policyClosed.StatusCode);
         using (var lateRetry = await Send(input, proof: await ObtainProof(input)))
             Assert.True(Wire.DecodePublicCommentSubmissionResult(await lateRetry.Content.ReadAsByteArrayAsync(ct)).Replayed);
-        await using var count = Store.Sql(db, null, "select count(*) from public.comment_submit_command");
-        Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
-        await using (var proofs = Store.Sql(db, null, "select count(*) from public.scoped_pow_consumed"))
-            Assert.Equal(3L, await proofs.ExecuteScalarAsync(ct));
+        Assert.Equal(1L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.comment_submit_command"));
+        Assert.Equal(3L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.scoped_pow_consumed"));
 
         async Task<string> ObtainProof(PublicCommentSubmission command)
         {
@@ -274,11 +268,10 @@ public sealed class CommentReadPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var admin = Guid.NewGuid();
-        await using (var seed = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.admin_principal(id,handle,user_handle,enabled,generation)
             values($1,'root-proof-operator',$2,true,1)
-            """, admin, RandomNumberGenerator.GetBytes(32)))
-            await seed.ExecuteNonQueryAsync(ct);
+            """, admin, RandomNumberGenerator.GetBytes(32));
         var clock = new PowTime();
         var authority = new ScopedPow(clock);
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
@@ -328,8 +321,7 @@ public sealed class CommentReadPostgresTests
             await Consume(tx, Issue(restored), restored);
             await tx.CommitAsync(ct);
         }
-        await using var used = Store.Sql(db, null, "select count(*) from public.scoped_pow_consumed");
-        Assert.Equal(1L, await used.ExecuteScalarAsync(ct));
+        Assert.Equal(1L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.scoped_pow_consumed"));
 
         PowProof Issue(RootCommentPowPolicy policy)
         {
@@ -389,7 +381,7 @@ public sealed class CommentReadPostgresTests
     {
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using var tx = await db.BeginTransactionAsync(ct);
-        await using var setup = Store.Sql(db, tx, """
+        await FixtureSql.ExecuteAsync(db, tx, ct, """
             insert into public.blog_user(id,name,can_author,enabled,generation)
             values ('87dead9a-1591-4eae-846c-0192aaeeccca','comment fixture',true,true,1);
             insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted)
@@ -403,7 +395,6 @@ public sealed class CommentReadPostgresTests
             insert into public.article_publication_rights (article_id,publication_id,revision)
                 select article_id,publication_id,revision from public.article_publication where article_id=1;
             """);
-        await setup.ExecuteNonQueryAsync(ct);
 
         await Add(1, 0, null, 0, 0); // Unattached pending root is completely absent.
         await Add(1, 1, null, 1, 3, body: "hidden private", author: "private author");
@@ -415,20 +406,17 @@ public sealed class CommentReadPostgresTests
         await Add(1, 11, 1, 1, 1, body: "regional secret");
         await Add(2, 12, null, 12, 1, body: "private article body");
         await Add(1, 13, null, 13, 1, body: "public root");
-        await using var block = Store.Sql(db, tx, "insert into public.comment_blocked_region values (1,$1,'CN')", Start + 11);
-        await block.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, tx, ct, "insert into public.comment_blocked_region values (1,$1,'CN')", Start + 11);
         await tx.CommitAsync(ct);
 
         async Task Add(int article, int id, int? parent, int root, short status, int depth = 1,
             bool deleted = false, int? replyTo = null, string body = "comment", string author = VisibleAuthor)
         {
-            await using var command = Store.Sql(db, tx, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.comment(article_id,id,parent_id,root_id,parent_depth,reply_to_id,depth,moderation_status,deleted,
                     body,author_mode,display_name,display_language,created_at)
                 values ($1,$2,nullif($3,0),$4,nullif($5,-1),nullif($6,0),$7,$8,$9,$10,3,$11,'en',now())
-                """, article, Start + id, parent is { } p ? Start + p : 0L, Start + root, parent.HasValue ? depth - 1 : -1,
-                    replyTo is { } r ? Start + r : 0L, parent.HasValue ? depth : 0, status, deleted, body, author);
-            await command.ExecuteNonQueryAsync(ct);
+                """, article, Start + id, parent is { } p ? Start + p : 0L, Start + root, parent.HasValue ? depth - 1 : -1, replyTo is { } r ? Start + r : 0L, parent.HasValue ? depth : 0, status, deleted, body, author);
         }
     }
 

@@ -305,11 +305,8 @@ public sealed class PublicationHeadPostgresTests
 
         async Task<string> ProofPath(int article) => $"/integrity/v2/article/{article}/{await Scalar(
             "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
 
         Task Migrate(string operation)
         {

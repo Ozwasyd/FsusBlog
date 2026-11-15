@@ -128,11 +128,8 @@ public sealed class AdminInboxActivityPostgresTests
             return token;
         }
 
-        async Task Sql(string command, params object[] values)
-        {
-            await using var sql = Store.Sql(db, null, command, values);
-            await sql.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string command, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, command, values);
     }
 
     private static (long[] Ids, string Cursor) Page(byte[] frame, FrameType type)

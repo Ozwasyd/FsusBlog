@@ -51,10 +51,7 @@ public sealed class InboxWakePostgresTests
             await notification.WaitAsync(ct);
         }
 
-        async Task<object?> Scalar(string sql, params object[] inputs)
-        {
-            await using var command = Store.Sql(control, null, sql, inputs);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] inputs) =>
+            FixtureSql.ScalarAsync(control, null, ct, sql, inputs);
     }
 }

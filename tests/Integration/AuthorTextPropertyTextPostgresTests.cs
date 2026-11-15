@@ -68,12 +68,11 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var oldForeignSchema = stranger.SchemaRevision;
         await Create(stranger, "other", PropertyFieldKind.Boolean);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await using (var stale = Store.Sql(db, null, """
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.author_text_rebuild_job
                 (owner_id,profile,definition_id,owner_generation,schema_revision,definition_revision,available_at)
             values ($1,$2,$3,1,$4,$5,statement_timestamp())
-            """, stranger.Id, (int)AuthorTextRebuildProfile.PropertyText, foreignField.Id, oldForeignSchema, foreignField.Revision))
-            Assert.Equal(1, await stale.ExecuteNonQueryAsync(ct));
+            """, stranger.Id, (int)AuthorTextRebuildProfile.PropertyText, foreignField.Id, oldForeignSchema, foreignField.Revision));
 
         // Only PostgreSQL observations occur before the next search request.
         await using (var queued = Store.Sql(db, null, """

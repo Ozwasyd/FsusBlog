@@ -23,10 +23,8 @@ public sealed class PublicationProofPostgresTests
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var actor = Guid.NewGuid();
         var ticket = RandomNumberGenerator.GetBytes(32);
-        await using (var owner = Store.Sql(db, null, "insert into public.blog_user values($1,'Proof author',true,true,1)", actor))
-            await owner.ExecuteNonQueryAsync(ct);
-        await using (var auth = Store.Sql(db, null, "insert into public.login_ticket values($1,$2,now()+interval '5 minutes')", SHA256.HashData(ticket), actor))
-            await auth.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user values($1,'Proof author',true,true,1)", actor);
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.login_ticket values($1,$2,now()+interval '5 minutes')", SHA256.HashData(ticket), actor);
         var (session, _) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
         using var previous = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var next = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -230,11 +228,8 @@ public sealed class PublicationProofPostgresTests
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead);
             return path;
         }
-        async Task<object?> Scalar(string sql, params object[] args)
-        {
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Scalar(string sql, params object[] args) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, args);
     }
 
     private static void Forward(HttpRequestMessage request)

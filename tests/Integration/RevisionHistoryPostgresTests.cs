@@ -289,8 +289,7 @@ public sealed class RevisionHistoryPostgresTests
 
         async Task<T> Scalar<T>(string sql, params object[] values)
         {
-            await using var command = Store.Sql(db, null, sql, values);
-            return (T)(await command.ExecuteScalarAsync(ct))!;
+            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
         }
 
         string History(Draft draft) => WireRoutes.DraftRevisionHistory.Replace("{id:int}", draft.Id.ToString()) + $"?revision={draft.Revision}";
@@ -305,14 +304,7 @@ public sealed class RevisionHistoryPostgresTests
         async Task<byte[]> Request(HttpMethod method, string path, string? token, byte[]? body = null,
             HttpStatusCode status = HttpStatusCode.OK, string? handle = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            if (handle is not null) request.Headers.Add(WireHeaders.CurrentSession, handle);
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, path, body, token, handle);
             using var response = await server.Client.SendAsync(request, ct);
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             Assert.Equal(status, response.StatusCode);
@@ -330,21 +322,16 @@ public sealed class RevisionHistoryPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         // Reproduce the supported physical shape before body-edit evidence was installed.
-        await using (var downgrade = Store.Sql(db, null, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             alter table public.article_body_insertion
                 drop column edit_texts,
                 alter column offset_utf16 set not null,
                 alter column length_utf16 set not null
-            """))
-            await downgrade.ExecuteNonQueryAsync(ct);
+            """);
         var owner = Guid.NewGuid();
-        await using (var author = Store.Sql(db, null,
-            "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Old schema author',true,true,1)", owner))
-            await author.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Old schema author',true,true,1)", owner);
         var ticket = RandomNumberGenerator.GetBytes(32);
-        await using (var mint = Store.Sql(db, null, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')",
-            SHA256.HashData(ticket), owner))
-            await mint.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), owner);
         var (token, actor) = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
         var handle = SiteSessions.Id(actor.Id, Store.TokenDigest(token)!);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -364,14 +351,7 @@ public sealed class RevisionHistoryPostgresTests
 
         async Task<byte[]> Request(HttpMethod method, string route, byte[]? bytes = null)
         {
-            using var request = new HttpRequestMessage(method, route);
-            request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            request.Headers.Add(WireHeaders.CurrentSession, handle);
-            if (bytes is not null)
-            {
-                request.Content = new ByteArrayContent(bytes);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
-            }
+            using var request = SiteAedsFixture.Request(method, route, bytes, token, handle);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);

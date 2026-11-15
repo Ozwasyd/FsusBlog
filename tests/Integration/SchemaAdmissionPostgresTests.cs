@@ -110,7 +110,7 @@ public sealed class SchemaAdmissionPostgresTests
 
     private static async Task<string> ReadState(NpgsqlConnection db, CancellationToken ct)
     {
-        await using var command = new NpgsqlCommand("""
+        return (string)(await FixtureSql.ScalarAsync(db, null, ct, """
             SELECT jsonb_build_object(
                 'version', (SELECT version FROM public.v2_schema WHERE singleton),
                 'tables', (SELECT jsonb_agg(table_name ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'),
@@ -119,7 +119,6 @@ public sealed class SchemaAdmissionPostgresTests
                 'users', (SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM public.blog_user u),
                 'events', (SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY id), '[]') FROM public.blog_outbox e)
             )::text
-            """, db);
-        return (string)(await command.ExecuteScalarAsync(ct))!;
+            """))!;
     }
 }

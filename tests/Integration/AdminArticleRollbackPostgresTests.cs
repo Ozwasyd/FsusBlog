@@ -288,11 +288,9 @@ public sealed partial class AdminArticleRollbackPostgresTests
             var draft = Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal(new Draft(1, 3, "Historical release", "Historical body", false), draft);
         }
-        using (var publish = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Publish))
+        using (var publish = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Publish,
+            Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")), session.Token, handle: null))
         {
-            publish.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
-            publish.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")));
-            publish.Content.Headers.ContentType = new(Aeds.ContentType);
             using var response = await restarted.Client.SendAsync(publish, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -401,8 +399,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
 
     private static async Task<T> ScalarSql<T>(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters)
     {
-        await using var command = Store.Sql(db, null, sql, parameters);
-        return (T)(await command.ExecuteScalarAsync(ct))!;
+        return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters))!;
     }
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>

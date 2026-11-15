@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -20,13 +19,8 @@ public sealed class PropertyKindsPostgresTests
         var key = RandomNumberGenerator.GetBytes(32);
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
         {
-            await using (var user = Store.Sql(connection, null,
-                "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'author',true,true,1)", id))
-                await user.ExecuteNonQueryAsync(ct);
-            await using var ticket = Store.Sql(connection, null,
-                "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minute')",
-                SHA256.HashData(key), id);
-            await ticket.ExecuteNonQueryAsync(ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'author',true,true,1)", id);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minute')", SHA256.HashData(key), id);
         }
         var session = (await store.SignIn(Convert.ToHexStringLower(key), ct)).Token;
         var source = await Edit(ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Source", "Text"));
@@ -110,9 +104,7 @@ public sealed class PropertyKindsPostgresTests
         }
         async Task<byte[]> Send(string path, byte[] bytes, HttpStatusCode expected = HttpStatusCode.OK)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(bytes) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            request.Headers.Add("Cookie", $"fsus-v2-session={session}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, bytes, session, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             return await response.Content.ReadAsByteArrayAsync(ct);

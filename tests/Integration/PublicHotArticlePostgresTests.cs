@@ -109,9 +109,7 @@ public sealed class PublicHotArticlePostgresTests
             async Task<Draft> Command(string path, int id, long revision, string title = "")
             {
                 var data = Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, title.Length == 0 ? "" : "body"));
-                using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(data) };
-                request.Headers.Add("Cookie", "fsus-v2-session=" + session.Token);
-                request.Content.Headers.ContentType = new(Aeds.ContentType);
+                using var request = SiteAedsFixture.Request(HttpMethod.Post, path, data, session.Token, handle: null);
                 using var response = await server.Client.SendAsync(request, ct);
                 response.EnsureSuccessStatusCode();
                 return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
@@ -137,11 +135,8 @@ public sealed class PublicHotArticlePostgresTests
             evidence.Delete(recursive: true);
         }
 
-        async Task Sql(string statement, params object[] values)
-        {
-            await using var command = Store.Sql(db, null, statement, values);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Sql(string statement, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, statement, values);
     }
 
     private static long Count(JsonElement observation, string name) =>

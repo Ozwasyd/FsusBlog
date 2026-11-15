@@ -19,8 +19,7 @@ public sealed class AuthorTextSearchPostgresTests
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         // This fixture checks exact foreground batch counts on the compatible pre-worker schema.
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var schema = Store.Sql(connection, null, "drop table public.author_text_rebuild_job"))
-            await schema.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "drop table public.author_text_rebuild_job");
         var store = new Store(db.DataSource);
         var owner = await Login("Full-text owner", true);
         var stranger = await Login("Full-text stranger", true);
@@ -86,9 +85,7 @@ public sealed class AuthorTextSearchPostgresTests
         for (var i = 0; i < 22; i++) bodyHits.Add(await Save(owner, "Rank body " + i, rankedTerm));
         var titleHit = await Save(owner, "Harborproof launch", "blue orbit");
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var ties = Store.Sql(connection, null,
-            "update public.article set updated_at='2025-01-01T00:00:00Z' where id=any($1)", bodyHits.Select(row => row.Id).ToArray()))
-            Assert.Equal(22, await ties.ExecuteNonQueryAsync(ct));
+        Assert.Equal(22, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set updated_at='2025-01-01T00:00:00Z' where id=any($1)", bodyHits.Select(row => row.Id).ToArray()));
 
         Assert.False((await Ranked(rankedTerm, "", owner)).Ready);
         Assert.False((await Ranked(rankedTerm, "", owner)).Ready);
@@ -113,9 +110,7 @@ public sealed class AuthorTextSearchPostgresTests
 
         // The rank witness includes clock changes at the same source revision, as in scheduled publication.
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var time = Store.Sql(connection, null,
-            "update public.article set updated_at='2025-01-02T00:00:00Z' where id=$1", bodyHits[^1].Id))
-            Assert.Equal(1, await time.ExecuteNonQueryAsync(ct));
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set updated_at='2025-01-02T00:00:00Z' where id=$1", bodyHits[^1].Id));
         await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
         first = await Ranked(rankedTerm, "", owner);
         Assert.Equal(bodyHits[^1].Id, first.Rows[1].Id);
@@ -130,11 +125,10 @@ public sealed class AuthorTextSearchPostgresTests
         Assert.Equal(restored.Revision, Assert.Single((await Search("updated", owner)).Rows).Revision);
 
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var taxonomy = Store.Sql(connection, null, """
+        Assert.Equal(31, await FixtureSql.ExecuteAsync(connection, null, ct, """
             insert into public.category(id,name) select id,'分类 ' || id from generate_series(101,115) id;
             insert into public.tag(id,name) select id,'Étiquette ' || id from generate_series(201,216) id;
-            """))
-            Assert.Equal(31, await taxonomy.ExecuteNonQueryAsync(ct));
+            """));
         for (var i = 0; i < 14; i++)
         {
             var body = bodyHits[i];
@@ -199,8 +193,7 @@ public sealed class AuthorTextSearchPostgresTests
 
         // Renaming a shared label must invalidate only a mode that returned it.
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var rename = Store.Sql(connection, null, "update public.tag set name='改名 201' where id=201"))
-            Assert.Equal(1, await rename.ExecuteNonQueryAsync(ct));
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.tag set name='改名 201' where id=201"));
         await SendFaceted(rankedTerm, facets.NextCursor, owner, HttpStatusCode.Conflict);
         Assert.True((await Ranked(rankedTerm, rankedOnly.NextCursor, owner)).Ready);
         var renamed = await Faceted(rankedTerm, "", owner);
@@ -251,8 +244,7 @@ public sealed class AuthorTextSearchPostgresTests
         async Task<long> IndexedCount(Guid id)
         {
             await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(conn, null, "select count(*) from public.author_text_document where owner_id=$1", id);
-            return Assert.IsType<long>(await command.ExecuteScalarAsync(ct));
+            return Assert.IsType<long>(await FixtureSql.ScalarAsync(conn, null, ct, "select count(*) from public.author_text_document where owner_id=$1", id));
         }
 
         async Task<Actor> Login(string name, bool canAuthor)

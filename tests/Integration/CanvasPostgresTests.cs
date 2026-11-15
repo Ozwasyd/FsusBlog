@@ -98,9 +98,7 @@ public sealed class CanvasPostgresTests
 
         async Task<byte[]> Post(string path, byte[] bytes, HttpStatusCode status, string? token)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(bytes) };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, bytes, token, handle: null);
             using var response = await server.Client.SendAsync(request, test.Token);
             Assert.Equal(status, response.StatusCode);
             Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
@@ -386,13 +384,7 @@ public sealed class CanvasPostgresTests
 
         async Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, string[]? sessions = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(method, path, body, token, handle: null);
             if (sessions is not null) request.Headers.Add(WireHeaders.CurrentSession, sessions);
             using var response = await server.Client.SendAsync(request, test.Token);
             Assert.Equal(status, response.StatusCode);
@@ -569,13 +561,7 @@ public sealed class CanvasPostgresTests
 
         async Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status = HttpStatusCode.OK, byte[]? body = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var request = SiteAedsFixture.Request(method, path, body, token, handle: null);
             using var response = await server.Client.SendAsync(request, test.Token);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
@@ -742,8 +728,7 @@ public sealed class CanvasPostgresTests
         internal async Task<object?> Scalar(string sql, params object[] args)
         {
             await using var db = await database.DataSource.OpenConnectionAsync(Token);
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteScalarAsync(Token);
+            return await FixtureSql.ScalarAsync(db, null, Token, sql, args);
         }
 
         public async ValueTask DisposeAsync()

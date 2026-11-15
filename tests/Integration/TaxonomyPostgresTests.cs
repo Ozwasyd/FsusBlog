@@ -125,10 +125,8 @@ public sealed class TaxonomyPostgresTests
         await GetFrame($"/api/binary/article/list/tag/4/2/1.aeds?cursor={cursor}", FrameType.ApiError, HttpStatusCode.BadRequest);
         await GetFrame($"/api/binary/article/list/category/1/2/1.aeds?cursor={cursor}", FrameType.ArticleList);
 
-        using var retract = new HttpRequestMessage(HttpMethod.Post, WireRoutes.Retract);
-        retract.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
-        retract.Content = new ByteArrayContent(Wire.EncodeArticleCommand(new(first.Id, changed.Revision, Guid.NewGuid(), "", "")));
-        retract.Content.Headers.ContentType = new("application/octet-stream");
+        using var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
+            Wire.EncodeArticleCommand(new(first.Id, changed.Revision, Guid.NewGuid(), "", "")), actor.Token, handle: null);
         using var response = await client.SendAsync(retract, ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(new[] { (4, 0) }, ReadCounts(await GetFrame(WireRoutes.TagList, FrameType.TagList)));
@@ -143,11 +141,8 @@ public sealed class TaxonomyPostgresTests
         Assert.DoesNotContain("Taxonomy article one", await client.GetStringAsync("/category/1", ct));
         Assert.DoesNotContain("Taxonomy article one", await client.GetStringAsync("/tag/4", ct));
 
-        async Task Execute(string sql, params object[] values)
-        {
-            await using var command = Store.Sql(db, null, sql, values);
-            await command.ExecuteNonQueryAsync(ct);
-        }
+        Task Execute(string sql, params object[] values) =>
+            FixtureSql.ExecuteAsync(db, null, ct, sql, values);
 
         async Task<ArticleState> Save(string title) => (await publications.Command(store, actor.Token, ArticleAction.Save,
             new(0, 0, Guid.NewGuid(), title, "article body"), ct)).Article;
@@ -166,9 +161,8 @@ public sealed class TaxonomyPostgresTests
 
         async Task<DraftTaxonomy?> Assign(TaxonomyAssignment value, string? token, HttpStatusCode status = HttpStatusCode.OK)
         {
-            using var request = Request(HttpMethod.Post, WireRoutes.TaxonomyAssignment, token);
-            request.Content = new ByteArrayContent(Wire.EncodeTaxonomyAssignment(value));
-            request.Content.Headers.ContentType = new("application/octet-stream");
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.TaxonomyAssignment,
+                Wire.EncodeTaxonomyAssignment(value), token, handle: null);
             using var result = await client.SendAsync(request, ct);
             Assert.Equal(status, result.StatusCode);
             return status == HttpStatusCode.OK ? Wire.DecodeDraftTaxonomy(await result.Content.ReadAsByteArrayAsync(ct)) : null;

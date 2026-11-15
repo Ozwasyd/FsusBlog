@@ -223,8 +223,7 @@ public sealed class AuthorTextPropertySortPostgresTests
         async Task<int> Execute(string sql, params object[] args)
         {
             await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteNonQueryAsync(ct);
+            return await FixtureSql.ExecuteAsync(db, null, ct, sql, args);
         }
     }
 

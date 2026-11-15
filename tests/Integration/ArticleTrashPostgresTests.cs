@@ -135,11 +135,8 @@ public sealed class ArticleTrashPostgresTests
             return bytes;
         }
 
-        async Task<object?> Sql(string sql, params object[] parameters)
-        {
-            await using var command = Store.Sql(db, null, sql, parameters);
-            return await command.ExecuteScalarAsync(ct);
-        }
+        Task<object?> Sql(string sql, params object[] parameters) =>
+            FixtureSql.ScalarAsync(db, null, ct, sql, parameters);
 
         async Task<string> Login(string name, bool canAuthor)
         {

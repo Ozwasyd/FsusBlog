@@ -44,7 +44,8 @@ type OutlineModel = ReturnType<typeof createMarkdownOutlineModel>
 const outlineVisible = ref(false)
 const outlineState = ref<'loading' | 'ready' | 'unavailable'>('loading')
 const outlineMode = ref<MarkdownEditorMode>('source')
-const outlineDisabled = computed(() => !props.focus || props.concealed || props.blocked || editorSource.value.includes('\r') ||
+const outlineForeground = computed(() => props.focus && !props.concealed && !props.blocked)
+const outlineDisabled = computed(() => editorSource.value.includes('\r') ||
   (outlineMode.value !== 'source' && outlineMode.value !== 'live'))
 const editorDocument = shallowRef({ source: editorSource.value, revision: 0 })
 let nextEdits: { value: string; edits: readonly BodyEdit[] } | undefined
@@ -57,16 +58,13 @@ let previousOutline: OutlineModel['projection'] | undefined
 const outlineArticle = computed(() => props.pane.draft.id)
 
 watch(() => props.split, () => { outlineMode.value = 'source' })
-watch(outlineDisabled, disabled => { if (disabled) outlineVisible.value = false }, { flush: 'sync' })
 watch(outlineArticle, () => { previousOutline = undefined }, { flush: 'sync' })
-watch([outlineVisible, outlineDisabled, outlineArticle, outlineDocument], ([visible, disabled, articleId, source], _, cleanup) => {
+watch([outlineVisible, outlineDisabled, outlineArticle, outlineDocument, outlineForeground], ([visible, disabled, articleId, source, foreground], _, cleanup) => {
+  if (visible && !disabled && outlineSnapshot.value?.document === source && outlineSnapshot.value?.articleId === articleId) return
   outlineSnapshot.value = undefined
   outlineState.value = 'loading'
-  if (!visible || disabled) {
-    previousOutline = undefined
-    return
-  }
-  if (!source) return
+  if (!visible || disabled) previousOutline = undefined
+  if (!visible || disabled || !foreground || !source) return
   if (source.source.length > 200_000) {
     outlineState.value = 'unavailable'
     return
@@ -120,7 +118,7 @@ function editorSelectionChanged(event: MarkdownEditorSelectionEvent) {
 
 function revealOutline(heading: MarkdownEditorOutlineItem): boolean {
   const snapshot = outlineSnapshot.value
-  if (outlineDisabled.value || !snapshot || snapshot.articleId !== outlineArticle.value || snapshot.document !== outlineDocument.value ||
+  if (!outlineForeground.value || outlineDisabled.value || !snapshot || snapshot.articleId !== outlineArticle.value || snapshot.document !== outlineDocument.value ||
     !snapshot.model.items.includes(heading)) return false
   const { start, end } = heading.sourceRange
   const status = markdown.value?.revealSourceRange({ start, end }, {
@@ -222,7 +220,7 @@ function edit(field: 'title' | 'body', value: string) {
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
     <div class="workspace-source__body-heading">
       <label :for="bodyId">Body</label>
-      <ArticleOutlineRail v-if="nativeMarkdown && focus && !concealed"
+      <ArticleOutlineRail v-if="nativeMarkdown" :foreground="outlineForeground"
         :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState"
         :disabled="outlineDisabled" :reveal="revealOutline" @visibility="outlineVisible = $event" />
     </div>

@@ -269,8 +269,7 @@ public sealed class CanvasHistoryPostgresTests
         internal async Task<object?> Scalar(string sql, params object[] args)
         {
             await using var db = await database.DataSource.OpenConnectionAsync(Token);
-            await using var command = Store.Sql(db, null, sql, args);
-            return await command.ExecuteScalarAsync(Token);
+            return await FixtureSql.ScalarAsync(db, null, Token, sql, args);
         }
 
         public async ValueTask DisposeAsync()

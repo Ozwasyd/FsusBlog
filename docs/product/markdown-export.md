@@ -46,4 +46,6 @@ PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结
 
 停服执行 `document-exports` 可安装第二版文档提供方。新任务支持 Markdown 管道表格。HTML、EPUB 和 PDF 共用离线表格解析，DOCX 生成带重复表头的原生表格。旧任务继续使用第一版提供方和原源摘要，已有附件字节不变。实际升级连续执行两次，并核对升级前后的完整旧行和附件。 [停服升级](../../artifacts/document-export-profiles-749b9ba/stopped-upgrade.log) · [旧版和新版任务回归](../../artifacts/document-export-profiles-749b9ba/native/integration.txt)
 
+停服执行 `document-exports` 后，私有附件预览可以将当前选中的一张图片加入 HTML 任务。任务 API 也接受 EPUB 的 PNG、JPEG、WebP，以及 Word 的 PNG、JPEG。第 3 版任务持久化附件标识，并将所选修订和核验过的图片字节、格式、名称及尺寸绑定到输入摘要。重启后按同一摘要渲染，下载时复核归属和摘要。未选择附件的任务继续用现有提供方版本。
+
 真实 macOS PDF 工作进程已验证运行中取消后退出和临时目录清理。数据库租约丢失时会清理运行中的渲染进程，重启后被中断的 PDF 保留失败回执，排队 HTML 继续。初次 SIGTERM 演练暂停了子进程，macOS 将该状态报告给 .NET 的退出等待，导致信号处理延迟，原失败保留。用自然运行的真实 PDF 重试，观察到 828 毫秒内回收渲染进程和临时目录并关闭服务。重启后运行中的任务保留中断回执，排队任务继续。暂停子进程的 HTTP 取消和租约丢失也有独立通过结果。 [真实 SIGTERM 演练](../../artifacts/document-export-sigterm-2ec1b97/graceful-and-cancellation.log) · [首次失败](../../artifacts/document-export-pdf-749b9ba/restart-2.log) · [macOS 等待结果](../../artifacts/document-export-sigterm-2ec1b97/darwin-child-wait.log)

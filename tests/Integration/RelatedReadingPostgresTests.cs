@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -50,12 +49,8 @@ public sealed class RelatedReadingPostgresTests
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var user = Guid.NewGuid();
         var secret = RandomNumberGenerator.GetBytes(32);
-        await using (var insert = Store.Sql(connection, null,
-            "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'related-author',true,true,1)", user))
-            await insert.ExecuteNonQueryAsync(ct);
-        await using (var ticket = Store.Sql(connection, null,
-            "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user))
-            await ticket.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'related-author',true,true,1)", user);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '1 minute')", SHA256.HashData(secret), user);
         var actor = await new Store(database.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct);
 
@@ -105,11 +100,9 @@ public sealed class RelatedReadingPostgresTests
 
         async Task<Draft> Command(string path, int id, long revision, string title = "", string body = "")
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path);
-            request.Headers.Add("Cookie", $"fsus-v2-session={actor.Token}");
             var command = new ArticleCommand(id, revision, Guid.NewGuid(), title, body);
-            request.Content = new ByteArrayContent(Wire.EncodeArticleCommand(command));
-            request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(Aeds.ContentType);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, Wire.EncodeArticleCommand(command),
+                actor.Token, handle: null);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
