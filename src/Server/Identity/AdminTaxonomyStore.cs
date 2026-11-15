@@ -12,9 +12,7 @@ internal sealed partial class AdminPasskeyStore
         {
             var after = TaxonomyCursor(query);
             var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
-            var (registry, links, key) = tags
-                ? ("tag", "article_revision_tag", "tag_id")
-                : ("category", "article_revision_category", "category_id");
+            var (registry, _, _) = TaxonomyRelations(tags);
 
             // The identifier choices above are fixed. Scope joins to the admitted page and use one PostgreSQL snapshot.
             await using var select = Store.Sql(db, tx, $"""
@@ -32,15 +30,7 @@ internal sealed partial class AdminPasskeyStore
                            (count(*) filter (where current and not deleted and not scheduled and published_revision is null and publication_count>0))::int as retracted,
                            (count(*) filter (where current and deleted))::int as deleted,
                            count(*)::int as retained
-                    from (
-                        select a.deleted,a.published_revision,a.publication_count,
-                               bool_or(l.revision=a.revision) as current,
-                               exists(select from public.article_schedule s join public.blog_user u on u.id=s.actor_id
-                                      where s.article_id=a.id and s.revision=a.revision and s.actor_id=a.owner_id
-                                        and s.generation=u.generation and u.enabled and u.can_author) as scheduled
-                        from public.{links} l join public.article a on a.id=l.article_id
-                        where l.{key}=p.id group by a.id
-                    ) members
+                    from ({TaxonomyMembers(tags, "p.id")}) members
                 ) counts on p.id is not null
                 order by p.id
                 """, after, WireLimits.AdminTaxonomyPageSize + 1);
@@ -59,11 +49,55 @@ internal sealed partial class AdminPasskeyStore
             return new AdminTaxonomyPage(0, items);
         }, ct);
 
+    internal Task<AdminTaxonomyDependencies> TaxonomyDependencies(string? token, bool tags, IQueryCollection query, CancellationToken ct) =>
+        WithSession(token, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>
+        {
+            var id = TaxonomyCoordinate(query, "dependency", "Invalid administrator taxonomy dependency ID.");
+            var (registry, _, _) = TaxonomyRelations(tags);
+            var aliasCount = tags ? "(select count(*)::int from public.tag_url_name where tag_id=t.id)" : "0";
+            await using var select = Store.Sql(db, tx, $"""
+                select (count(*) filter (where not m.deleted and (m.current or m.published)))::int,
+                       (count(*) filter (where m.deleted or not (m.current or m.published)))::int,
+                       {aliasCount}
+                from public.{registry} t
+                left join lateral ({TaxonomyMembers(tags, "t.id")}) m on true
+                where t.id=$1
+                group by t.id
+                """, id);
+            await using var row = await select.ExecuteReaderAsync(ct);
+            if (!await row.ReadAsync(ct))
+                throw new BusinessException(Rejection.NotFound, "The taxonomy entry was not found.");
+            return new AdminTaxonomyDependencies(id, row.GetInt32(0), row.GetInt32(1), row.GetInt32(2));
+        }, ct);
+
+    private static (string Registry, string Links, string Key) TaxonomyRelations(bool tags) => tags
+        ? ("tag", "article_revision_tag", "tag_id")
+        : ("category", "article_revision_category", "category_id");
+
+    private static string TaxonomyMembers(bool tags, string coordinate)
+    {
+        var (_, links, key) = TaxonomyRelations(tags);
+        return $"""
+            select a.deleted,a.published_revision,a.publication_count,
+                   bool_or(l.revision=a.revision) as current,
+                   bool_or(l.revision=coalesce(a.published_revision,0)) as published,
+                   exists(select from public.article_schedule s join public.blog_user u on u.id=s.actor_id
+                          where s.article_id=a.id and s.revision=a.revision and s.actor_id=a.owner_id
+                            and s.generation=u.generation and u.enabled and u.can_author) as scheduled
+            from public.{links} l join public.article a on a.id=l.article_id
+            where l.{key}={coordinate} group by a.id
+            """;
+    }
+
     private static int TaxonomyCursor(IQueryCollection query)
     {
-        if (query.Count == 0) return 0;
-        if (query.Count == 1 && query["after"] is { Count: 1 } after && after[0] is { Length: > 0 and <= 10 } raw &&
+        return query.Count == 0 ? 0 : TaxonomyCoordinate(query, "after", "Invalid administrator taxonomy cursor.");
+    }
+
+    private static int TaxonomyCoordinate(IQueryCollection query, string key, string failure)
+    {
+        if (query.Count == 1 && query[key] is { Count: 1 } values && values[0] is { Length: > 0 and <= 10 } raw &&
             int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0) return value;
-        throw new BusinessException(Rejection.Invalid, "Invalid administrator taxonomy cursor.");
+        throw new BusinessException(Rejection.Invalid, failure);
     }
 }

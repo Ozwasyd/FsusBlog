@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { readAdminTaxonomy, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
+import { readAdminTaxonomy, readAdminTaxonomyDependencies,
+  type AdminTaxonomyDependencies, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
 import { taxonomyMetadataAvailable } from '../../../Contracts/admin-tag-metadata'
 import AdminTagMetadata from './AdminTagMetadata.vue'
 
 type TaxonomyKind = Parameters<typeof readAdminTaxonomy>[0]
+type ReferenceDetails = { name: string } & (
+  { state: 'loading' } |
+  { state: 'ready'; counts: AdminTaxonomyDependencies } |
+  { state: 'failed'; message: string }
+)
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
 const kind = ref<TaxonomyKind>('categories')
 const metadataKind = computed(() => kind.value === 'categories' ? 'category' : 'tag')
@@ -21,8 +27,11 @@ const target = ref<number>()
 const edited = ref<number>()
 const notice = ref('')
 const heading = ref<HTMLElement>()
+const inspectButton = ref<InstanceType<typeof ElButton>>()
+const references = shallowRef<ReferenceDetails>()
 let opener: HTMLElement | undefined
 let request: AbortController | undefined
+let referenceRequest: AbortController | undefined
 let viewGeneration = 0
 
 function reset(next: TaxonomyKind) {
@@ -34,6 +43,7 @@ function reset(next: TaxonomyKind) {
 
 async function load(index: number) {
   viewGeneration++
+  clearReferences()
   request?.abort()
   const current = new AbortController()
   const listKind = kind.value
@@ -50,8 +60,8 @@ async function load(index: number) {
     const data = await readAdminTaxonomy(listKind, cursors.value[index] ?? null, current.signal)
     if (current.signal.aborted) return
     page.value = data
-    // Category and empty list reads can render before the optional writer is confirmed.
-    if (itemKind === 'category' || !data.items.length) pending.value = false
+    // Listing and reference inspection do not depend on the optional writer.
+    pending.value = false
     const enabled = await taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false)
     if (!current.signal.aborted) canEditMetadata.value = enabled
   } catch (error) {
@@ -64,6 +74,46 @@ async function load(index: number) {
       pending.value = false
     }
   }
+}
+
+function clearReferences() {
+  referenceRequest?.abort()
+  referenceRequest = undefined
+  references.value = undefined
+}
+
+async function inspectReferences() {
+  const item = page.value?.items.find(entry => entry.id === target.value)
+  if (!item || references.value?.state === 'loading') return
+  clearReferences()
+  const currentKind = kind.value
+  const current = new AbortController()
+  referenceRequest = current
+  references.value = { name: item.name, state: 'loading' }
+  try {
+    const counts = await readAdminTaxonomyDependencies(currentKind, item.id, current.signal)
+    if (!current.signal.aborted) references.value = { name: item.name, state: 'ready', counts }
+  } catch (error) {
+    if (current.signal.aborted) return
+    if (error instanceof ApiError && error.status === 401) {
+      clearReferences()
+      emit('session-lost', error)
+    } else {
+      const message = error instanceof ApiError && error.status === 403
+        ? 'You do not have permission to view these references.' : 'Could not load the taxonomy references.'
+      references.value = { name: item.name, state: 'failed', message }
+    }
+  } finally {
+    if (referenceRequest === current) referenceRequest = undefined
+  }
+}
+
+async function closeReferences() {
+  const id = target.value
+  const view = viewGeneration
+  clearReferences()
+  await nextTick()
+  if (view === viewGeneration && target.value === id && !references.value) inspectButton.value?.ref?.focus()
 }
 
 function openEditor(id: number | undefined, event: Event) {
@@ -98,9 +148,11 @@ function next() {
   void load(pageNumber.value + 1)
 }
 
+watch(target, clearReferences, { flush: 'sync' })
 onBeforeUnmount(() => {
   viewGeneration++
   request?.abort()
+  clearReferences()
 })
 </script>
 
@@ -154,16 +206,36 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <div v-if="canEditMetadata && page.items.length" class="taxonomy-actions" role="group" :aria-label="`Edit ${kind} on this page`">
-        <label :for="`admin-${metadataKind}-target`">{{ metadataLabel }} to edit</label>
+      <div v-if="page.items.length" class="taxonomy-actions" role="group" :aria-label="`${canEditMetadata ? 'Edit' : 'Inspect'} ${kind} on this page`">
+        <label :for="`admin-${metadataKind}-target`">{{ metadataLabel }} to {{ canEditMetadata ? 'edit' : 'inspect' }}</label>
         <select :id="`admin-${metadataKind}-target`" v-model="target">
           <option :value="undefined" disabled>Choose a {{ metadataKind }}</option>
           <option v-for="item in page.items" :key="item.id" :value="item.id">{{ item.name }}</option>
         </select>
-        <ElButton native-type="button" text :disabled="!target || edited !== undefined" @click="openEditor(target, $event)">
+        <ElButton ref="inspectButton" native-type="button" text :disabled="!target || references?.state === 'loading'" @click="inspectReferences">
+          Inspect references
+        </ElButton>
+        <ElButton v-if="canEditMetadata" native-type="button" text :disabled="!target || edited !== undefined" @click="openEditor(target, $event)">
           Edit selected {{ metadataKind }}
         </ElButton>
       </div>
+      <section v-if="references" class="taxonomy-references" aria-label="Taxonomy references" :aria-busy="references.state === 'loading'">
+        <h3>References for {{ references.name }}</h3>
+        <p v-if="references.state === 'loading'" role="status">Loading references…</p>
+        <ElAlert v-else-if="references.state === 'failed'" :title="references.message" type="error" :closable="false" />
+        <template v-else>
+          <dl>
+            <dt>Active references</dt><dd>{{ references.counts.activeArticles }}</dd>
+            <dt>Retained-only references</dt><dd>{{ references.counts.retainedOnlyArticles }}</dd>
+            <dt>Reserved aliases</dt><dd>{{ references.counts.reservedAliases }}</dd>
+          </dl>
+          <p v-if="references.counts.activeArticles || references.counts.retainedOnlyArticles || references.counts.reservedAliases">
+            Physical deletion is blocked by existing references or reserved aliases.
+          </p>
+          <p v-else>No article references or reserved aliases were found.</p>
+        </template>
+        <ElButton native-type="button" text @click="closeReferences">Close reference details</ElButton>
+      </section>
       <p v-if="page.items.length" id="taxonomy-count-notes" class="taxonomy-notes">
         <span class="taxonomy-scroll-note">Scroll the table to see all counts. </span>
         An article can be both published and scheduled. Retained references include articles with this {{ kind === 'categories' ? 'category' : 'tag' }} on any saved revision.
@@ -185,6 +257,8 @@ onBeforeUnmount(() => {
 .taxonomy-table-scroll { overflow-x: auto; }
 .taxonomy-table-scroll:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
 .taxonomy-notes { margin: 0; color: var(--fsus-color-text-muted); }
+.taxonomy-references { padding: var(--fsus-space-3); border: 1px solid var(--fsus-border); }
+.taxonomy-references h3 { margin-block-start: 0; }
 .taxonomy-scroll-note { display: none; }
 table { width: 100%; border-collapse: collapse; }
 caption { text-align: start; padding-block: .5rem; color: var(--fsus-color-text-muted); }

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -27,6 +28,7 @@ public sealed class AdminTaxonomyPostgresTests
         await Sql("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(ticket)!, author);
         await Sql("insert into public.category(id,name) select id,'Category '||id from generate_series(1,26) id");
         await Sql("insert into public.tag(id,name) values(1,'Tag primary'),(2,'Tag private'),(3,'Tag historical')");
+        await Sql("insert into public.tag_url_name values('OLDER HISTORICAL TAG',3)");
 
         var store = new Store(fixture.DataSource);
         var token = (await store.SignIn(ticket, ct)).Token;
@@ -51,9 +53,17 @@ public sealed class AdminTaxonomyPostgresTests
         await Get(WireRoutes.AdminCategories, HttpStatusCode.NotFound, adminToken, adminHost: false);
         await Get(WireRoutes.AdminCategories, HttpStatusCode.Unauthorized, token, siteCookie: true);
         await Get(WireRoutes.AdminCategories, HttpStatusCode.Forbidden, adminToken);
+        var categoryDependencies = WireRoutes.AdminCategories + "?dependency=";
+        var tagDependencies = WireRoutes.AdminTags + "?dependency=";
+        await Get(categoryDependencies + "1", HttpStatusCode.NotFound, adminToken, adminHost: false);
+        await Get(categoryDependencies + "1", HttpStatusCode.Unauthorized, token, siteCookie: true);
+        await Get(categoryDependencies + "1", HttpStatusCode.Forbidden, adminToken);
         await Sql("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.ArticleWritePermission);
         await Get(WireRoutes.AdminCategories + "?after=1&after=2", HttpStatusCode.BadRequest, adminToken);
         await Get(WireRoutes.AdminCategories + "?after=%2B1", HttpStatusCode.BadRequest, adminToken);
+        foreach (var invalid in new[] { "0", "%2B1", "2147483648", "1&after=1", "1&dependency=2" })
+            await Get(categoryDependencies + invalid, HttpStatusCode.BadRequest, adminToken);
+        await Get(tagDependencies + "999", HttpStatusCode.NotFound, adminToken);
 
         var page = Decode(await Get(WireRoutes.AdminCategories, HttpStatusCode.OK, adminToken));
         Assert.Equal(24, page.NextId);
@@ -67,6 +77,10 @@ public sealed class AdminTaxonomyPostgresTests
         var tags = Decode(await Get(WireRoutes.AdminTags, HttpStatusCode.OK, adminToken));
         Assert.Equal(new AdminTaxonomyItem(1, "Tag primary", 2, 1, 1, 1, 1, 5), tags.Items[0]);
         Assert.Equal(new AdminTaxonomyItem(3, "Tag historical", 0, 0, 0, 0, 0, 1), tags.Items[2]);
+        Assert.Equal(new AdminTaxonomyDependencies(1, 4, 2, 0), await Dependencies(categoryDependencies + "1"));
+        Assert.Equal(new AdminTaxonomyDependencies(26, 0, 0, 0), await Dependencies(categoryDependencies + "26"));
+        Assert.Equal(new AdminTaxonomyDependencies(1, 4, 1, 0), await Dependencies(tagDependencies + "1"));
+        Assert.Equal(new AdminTaxonomyDependencies(3, 0, 1, 1), await Dependencies(tagDependencies + "3"));
 
         // This deliberately held projection instance cannot combine a newer durable public write with older released counts.
         var direct = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
@@ -74,6 +88,17 @@ public sealed class AdminTaxonomyPostgresTests
         await Assert.ThrowsAsync<PublicUnavailableException>(() => direct.Taxonomy(adminToken, false, QueryCollection.Empty, publications, ct));
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Get(WireRoutes.AdminTags, HttpStatusCode.Unauthorized, adminToken);
+        await Get(tagDependencies + "3", HttpStatusCode.Unauthorized, adminToken);
+
+        async Task<AdminTaxonomyDependencies> Dependencies(string path)
+        {
+            var frame = await Get(path, HttpStatusCode.OK, adminToken);
+            var data = Aeds.Decode(frame, FrameType.AdminTaxonomyDependencies);
+            Assert.Equal(16, data.Length);
+            return new(BinaryPrimitives.ReadInt32LittleEndian(data),
+                BinaryPrimitives.ReadInt32LittleEndian(data[4..]), BinaryPrimitives.ReadInt32LittleEndian(data[8..]),
+                BinaryPrimitives.ReadInt32LittleEndian(data[12..]));
+        }
 
         Task<ArticleState> Publish(ArticleState draft) => Change(ArticleAction.Publish, draft.Id, draft.Revision);
 

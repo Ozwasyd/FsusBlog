@@ -151,12 +151,20 @@ internal static class AdminIdentityEndpoints
             AdminSitePageEditorEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         if (appearance is { Online: true })
             AdminAppearanceEndpoints.Map(app, config.Origin, store, session, Limit, readFrame, appearance.Registry);
-        app.MapGet(WireRoutes.AdminCategories, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], false, ctx.Request.Query, publications, ct))))
+        app.MapGet(WireRoutes.AdminCategories, (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            Taxonomy(ctx, publications, false, ct))
             .RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminTags, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], true, ctx.Request.Query, publications, ct))))
+        app.MapGet(WireRoutes.AdminTags, (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            Taxonomy(ctx, publications, true, ct))
             .RequireRateLimiting("command");
+        async Task<IResult> Taxonomy(HttpContext ctx, Publications publications, bool tags, CancellationToken ct)
+        {
+            var token = ctx.Request.Cookies[session];
+            var input = ctx.Request.Query;
+            return Frame(input.ContainsKey("dependency")
+                ? Wire.EncodeAdminTaxonomyDependencies(await store.TaxonomyDependencies(token, tags, input, ct))
+                : Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(token, tags, input, publications, ct)));
+        }
         app.MapGet(WireRoutes.AdminArticleInventory, (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";

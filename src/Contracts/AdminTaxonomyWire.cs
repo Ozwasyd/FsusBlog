@@ -3,9 +3,22 @@ namespace FsusBlog.V2.Contracts;
 public sealed record AdminTaxonomyItem(int Id, string Name, int Published, int Drafts, int Scheduled, int Retracted, int Deleted,
     int RetainedArticles);
 public sealed record AdminTaxonomyPage(int NextId, IReadOnlyList<AdminTaxonomyItem> Items);
+public sealed record AdminTaxonomyDependencies(int Id, int ActiveArticles, int RetainedOnlyArticles, int ReservedAliases);
 
 public static partial class Wire
 {
+    public static byte[] EncodeAdminTaxonomyDependencies(AdminTaxonomyDependencies value)
+    {
+        if (value.Id <= 0 || value.ActiveArticles < 0 || value.RetainedOnlyArticles < 0 || value.ReservedAliases < 0)
+            throw new ProtocolException("Invalid administrator taxonomy dependencies.");
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I32(value.ActiveArticles);
+        writer.I32(value.RetainedOnlyArticles);
+        writer.I32(value.ReservedAliases);
+        return Aeds.Encode(FrameType.AdminTaxonomyDependencies, writer.Written);
+    }
+
     public static byte[] EncodeAdminTaxonomyPage(AdminTaxonomyPage page)
     {
         if (page.Items.Count > WireLimits.AdminTaxonomyPageSize || page.NextId < 0 ||

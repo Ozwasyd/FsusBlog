@@ -505,6 +505,7 @@ enum class FrameType : uint16_t {
     AdminAppearanceHistory = 33002,
     AdminAppearanceFontDetail = 33039,
     AdminTaxonomyPage = 32864,
+    AdminTaxonomyDependencies = 33070,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
     AdminInboxThread = 32897,
@@ -739,6 +740,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminAppearanceHistory:
         case FrameType::AdminAppearanceFontDetail:
         case FrameType::AdminTaxonomyPage:
+        case FrameType::AdminTaxonomyDependencies:
         case FrameType::AdminCommentQueue:
         case FrameType::AdminInboxPage:
         case FrameType::AdminInboxThread:

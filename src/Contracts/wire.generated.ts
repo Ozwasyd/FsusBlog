@@ -105,6 +105,7 @@ export const FrameType = {
   AdminAppearanceHistory: 33002,
   AdminAppearanceFontDetail: 33039,
   AdminTaxonomyPage: 32864,
+  AdminTaxonomyDependencies: 33070,
   AdminCommentQueue: 32862,
   AdminInboxPage: 32896,
   AdminInboxThread: 32897,

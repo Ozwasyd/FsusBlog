@@ -14,6 +14,12 @@ export type AdminTaxonomyItem = Readonly<{
   retainedArticles: number;
 }>;
 export type AdminTaxonomyPage = Readonly<{ nextId: number | null; items: readonly AdminTaxonomyItem[] }>;
+export type AdminTaxonomyDependencies = Readonly<{
+  id: number;
+  activeArticles: number;
+  retainedOnlyArticles: number;
+  reservedAliases: number;
+}>;
 
 export function decodeAdminTaxonomyPage(payload: Uint8Array): AdminTaxonomyPage {
   const reader = new PodReader(payload);
@@ -50,4 +56,22 @@ export async function readAdminTaxonomy(kind: AdminTaxonomyKind, after: number |
   if (after !== null && page.items.length > 0 && page.items[0].id <= after)
     throw new ProtocolError('Administrator taxonomy cursor did not advance');
   return page;
+}
+
+export function readAdminTaxonomyDependencies(kind: AdminTaxonomyKind, id: number, signal: AbortSignal) {
+  if (!Number.isInteger(id) || id <= 0 || id > 0x7fffffff)
+    throw new ProtocolError('Invalid taxonomy dependency ID');
+
+  const path = kind === 'categories' ? WireRoutes.AdminCategories : WireRoutes.AdminTags;
+  return request(`${path}?dependency=${id}`, FrameType.AdminTaxonomyDependencies, payload => {
+    const reader = new PodReader(payload);
+    const result: AdminTaxonomyDependencies = {
+      id: reader.i32(), activeArticles: reader.i32(), retainedOnlyArticles: reader.i32(), reservedAliases: reader.i32(),
+    };
+    reader.finish();
+    if (result.id !== id || Math.min(result.activeArticles, result.retainedOnlyArticles, result.reservedAliases) < 0 ||
+        kind === 'categories' && result.reservedAliases !== 0)
+      throw new ProtocolError('Invalid taxonomy dependency response');
+    return result;
+  }, signal);
 }

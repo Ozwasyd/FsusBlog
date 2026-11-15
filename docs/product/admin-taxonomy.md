@@ -8,7 +8,9 @@
 
 新库初始化独立管理员结构 v4。已有管理员 v1、v2 或 v3 的安装应在停服务后运行离线迁移工具的 `admin-identity schema`，校验旧结构后在同一事务中升级。`admin-identity grant HANDLE article.write` 和 `admin-identity revoke HANDLE article.write` 在权限实际变更时递增该管理员的会话代次，撤销旧会话及邀约。`admin.manage` 仍通过 bootstrap 发放。见 [管理员身份与操作](admin-identity.md)。
 
-v1 同类读取通过 `/api/binary/author/taxonomy/categories` 和 `/api/binary/author/taxonomy/tags`，独立管理员需要 `article.write`。v1 目录含归档状态和删除资格；这些字段依赖其状态机与写操作。v2 在独立管理页面提供原生二进制目录，标签改名见[标签元数据](admin-tag-metadata.md)。见 [v1 授权与目录入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs)及 [v1 目录统计](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.cs)。
+管理员可选中一项检查引用。两个目录读取路径加 `?dependency=ID` 返回 AEDS 33070，四个小端 Int32 依次为 ID、活跃引用文章数、仅保留引用文章数、已保留的标签别名数。活跃引用对未删除文章的编辑头和当前发布修订取并集，每篇最多计一次。仅保留引用包含只出现在历史修订或已删除文章上的关联。标签别名按登记行统计。无引用结果只陈述当次读取的事实，删除仍受审计回执外键及此后的写入约束。
+
+v1 同类读取通过 `/api/binary/author/taxonomy/categories` 和 `/api/binary/author/taxonomy/tags`，独立管理员需要 `article.write`。归档数统计关联的已归档文章。v1 分类与标签删除入口物理移除数据，v2 此处只读取依赖。 [v1 授权与目录入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs) · [v1 目录统计](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.cs) · [v1 物理删除](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs#L287)
 
 开启 `FSUSBLOG_ADMIN_CATEGORY_METADATA=true` 后，具备 `article.write` 的管理员可在同一界面创建分类、改名或清除描述。已有 v2 数据库先在停服下核对 `tag-metadata`，再运行 `category-metadata`。新库包含两个可选目录，开关默认关闭。
 

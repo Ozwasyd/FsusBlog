@@ -32,6 +32,9 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   await probe(categoryEndpoint, siteCookie.name, siteCookie.value, 401)
   await probe(categoryEndpoint, adminCookieName, siteCookie.value, 401)
   assert.equal((await context.request.get(categoryEndpoint)).status(), 403)
+  const categoryDependency = categoryEndpoint + '?dependency=1'
+  assert.equal((await context.request.get(categoryDependency)).status(), 403)
+  await probe(tagEndpoint + '?dependency=2', siteCookie.name, siteCookie.value, 401)
   await panel.waitFor({ state: 'detached' })
 
   await run(grant, [], { timeout: 8_000 })
@@ -83,6 +86,12 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   assert(await scrollRegion.evaluate(element => element.scrollWidth > element.clientWidth), 'Narrow taxonomy tables must expose horizontal scrolling.')
   await panel.getByRole('heading', { name: 'Taxonomy usage', exact: true }).evaluate(heading => heading.scrollIntoView({ block: 'start' }))
   await page.screenshot({ path: join(evidence, 'administrator-taxonomy-mobile.png'), animations: 'disabled' })
+  await inspectReferences('Tag', tagEndpoint, 2, [1, 1, 0], process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
+  await inspectReferences('Tag', tagEndpoint, 3, [0, 0, 0], process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
+  await read(categories, categoryEndpoint)
+  await inspectReferences('Category', categoryEndpoint, 1, [2, 1, 0], process.env.FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA === '1')
+  await probe(siteOrigin.origin + WireRoutes.AdminCategories + '?dependency=1', adminCookieName, grantedCookie.value, 404)
+  await read(tags, tagEndpoint)
   if (process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
     await editUnusedTag()
   if (process.env.FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA === '1')
@@ -90,6 +99,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
 
   await run(revoke, [], { timeout: 8_000 })
   await probe(tagEndpoint, adminCookieName, grantedCookie.value, 401)
+  await probe(categoryDependency, adminCookieName, grantedCookie.value, 401)
   assert.equal((await read(tags, tagEndpoint)).status(), 401)
   await revoked.waitFor()
   await panel.waitFor({ state: 'hidden' })
@@ -112,6 +122,37 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     await row.getByRole('rowheader', { name, exact: true }).waitFor()
     assert.deepEqual(await row.getByRole('cell').allTextContents(), values)
   }
+  async function inspectReferences(kind, endpoint, id, counts, writable) {
+    const inspect = panel.getByRole('button', { name: 'Inspect references', exact: true })
+    const details = panel.getByRole('region', { name: 'Taxonomy references', exact: true })
+    const picker = panel.getByLabel(`${kind} to ${writable ? 'edit' : 'inspect'}`, { exact: true })
+    const blocked = details.getByText('Physical deletion is blocked by existing references or reserved aliases.', { exact: true })
+    if (!writable) {
+      assert.equal(await panel.getByRole('button', { name: `Create ${kind.toLowerCase()}`, exact: true }).count(), 0)
+      assert.equal(await panel.getByRole('button', { name: `Edit selected ${kind.toLowerCase()}`, exact: true }).count(), 0)
+    }
+    await picker.selectOption(String(id))
+    const received = await read(inspect, `${endpoint}?dependency=${id}`)
+    assert.equal(received.status(), 200)
+    assert((await received.headerValue('Cache-Control'))?.includes('no-store'))
+    const packet = decodeFrame(await received.body(), FrameType.AdminTaxonomyDependencies).payload
+    assert.equal(packet.length, 16)
+    const input = new PodReader(packet)
+    assert.deepEqual([input.i32(), input.i32(), input.i32(), input.i32()], [id, ...counts])
+    input.finish()
+    await details.getByText('Active references', { exact: true }).waitFor()
+    assert.deepEqual(await details.locator('dt').allTextContents(), ['Active references', 'Retained-only references', 'Reserved aliases'])
+    assert.deepEqual(await details.locator('dd').allTextContents(), counts.map(String))
+    if (counts.some(Boolean)) await blocked.waitFor()
+    else assert.equal(await blocked.count(), 0)
+    assert.equal(await panel.getByRole('button', { name: /delete|remove/i }).count(), 0)
+    if (kind === 'Category')
+      await page.screenshot({ path: join(evidence, 'administrator-taxonomy-references-mobile.png'), animations: 'disabled' })
+    await details.getByRole('button', { name: 'Close reference details', exact: true }).click()
+    await details.waitFor({ state: 'hidden' })
+    await inspect.and(page.locator(':focus')).waitFor()
+  }
+
   async function writeMetadata(form, method, path, powPath, buttonName, commandType, receiptType) {
     const endpoint = adminOrigin.origin + path
     const proof = adminOrigin.origin + powPath
@@ -245,6 +286,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert.equal((await saved).status(), 200)
     await panel.getByText('Tag metadata saved.', { exact: true }).waitFor()
     await assertRow('Tag usage', renamed, ['0', '0', '0', '0', '0', '0'])
+    await inspectReferences('Tag', tagEndpoint, 3, [0, 0, 2], true)
     const shorthand = await context.request.get(siteOrigin.origin + '/tag/' + encodeURIComponent(current) + '?page=2', { maxRedirects: 0 })
     assert.equal(shorthand.status(), 301)
     assert.equal(shorthand.headers().location, '/tag/3?page=2')
