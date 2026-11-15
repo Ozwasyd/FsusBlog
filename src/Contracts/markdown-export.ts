@@ -10,6 +10,7 @@ const exportsByFormat = {
   pdf: { type: 'application/pdf', maxBytes: 4 * 1024 * 1024 },
 } as const
 export type ArticleExportFormat = keyof typeof exportsByFormat
+export const maxHtmlExportImages = 4
 type DocumentExportAttachment = Readonly<{ id: string; credential: string }>
 
 export async function exportArticleRevision(format: ArticleExportFormat, article: number, revision: bigint, selected: bigint,
@@ -21,8 +22,10 @@ export async function exportArticleRevision(format: ArticleExportFormat, article
   const headers = new Headers(attachment ? siteSessionHeader(attachment.credential) : undefined)
   headers.set('Accept', type)
   if (attachment) {
-    if ((format !== 'html' && format !== 'epub' && format !== 'docx') || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(attachment.id) ||
-        attachment.id === '00000000-0000-0000-0000-000000000000')
+    const ids = attachment.id.split(',')
+    const limit = format === 'html' ? maxHtmlExportImages : format === 'epub' || format === 'docx' ? 1 : 0
+    if (ids.length > limit || new Set(ids).size !== ids.length || ids.some(id =>
+      !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id) || id === '00000000-0000-0000-0000-000000000000'))
       throw new ProtocolError('Invalid document attachment selection')
     headers.set(WireHeaders.HtmlExportAttachment, attachment.id)
   }

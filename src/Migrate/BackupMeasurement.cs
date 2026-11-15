@@ -153,19 +153,27 @@ internal static partial class Migration
             : $"SELECT {render} FROM {qualified} t ORDER BY {string.Join(", ", order)} LIMIT {BackupRowsPerRelation + 1}";
         await using var rows = new NpgsqlCommand(sql, connection, transaction);
         await using var read = await rows.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, token);
+        return await MeasureBackupRowsAsync(relation.Name, relation.Kind, read, token);
+    }
+
+    private static async Task<BackupRelation> MeasureBackupRowsAsync(string name, string kind,
+        NpgsqlDataReader read, CancellationToken token, List<string>? retained = null)
+    {
         using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(digest, relation.Name);
-        AppendLegacyValue(digest, relation.Kind);
+        AppendLegacyValue(digest, name);
+        AppendLegacyValue(digest, kind);
         long count = 0;
         while (await read.ReadAsync(token))
         {
             if (++count > BackupRowsPerRelation)
-                throw new InvalidOperationException($"Backup relation {relation.Name} exceeds the measurement row budget.");
+                throw new InvalidOperationException($"Backup relation {name} exceeds the measurement row budget.");
             if (await read.IsDBNullAsync(0, token))
-                throw new InvalidOperationException($"Backup relation {relation.Name} contains a row outside the measurement byte budget.");
-            AppendLegacyValue(digest, read.GetString(0));
+                throw new InvalidOperationException($"Backup relation {name} contains a row outside the measurement byte budget.");
+            var content = read.GetString(0);
+            AppendLegacyValue(digest, content);
+            retained?.Add(content);
         }
-        return new BackupRelation(relation.Name, relation.Kind, count, Convert.ToHexStringLower(digest.GetHashAndReset()));
+        return new BackupRelation(name, kind, count, Convert.ToHexStringLower(digest.GetHashAndReset()));
     }
 
     private static async Task<List<BackupMedia>> BackupMediaAsync(NpgsqlConnection connection,

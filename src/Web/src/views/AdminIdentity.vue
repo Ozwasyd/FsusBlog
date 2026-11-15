@@ -168,21 +168,33 @@ function clearOperations() {
 }
 
 async function checkOperations() {
-  if (!permits('audit.read') || busy.value || operationsBusy.value) return
+  const active = authority.value
+  if (active?.status !== 'active' || !permits('audit.read') || busy.value || operationsBusy.value) return
   clearOperations()
   const check = new AbortController()
   operationsRequest = check
   operationsBusy.value = true
+  const live = () => authority.value === active && !check.signal.aborted
+  const same = (observed: AdminAuthority) => observed.status === 'active' &&
+    observed.session.permissionSession === active.session.permissionSession
   try {
-    const status = await readAdminOperations(check.signal)
-    if (!check.signal.aborted) operations.value = status
+    const status = await readAdminOperations(active.session, check.signal)
+    if (!live()) return
+    const observed = await readAdminAuthority(check.signal)
+    if (!live()) return
+    if (!same(observed)) setAuthority(observed)
+    else operations.value = status
   } catch (error) {
-    if (check.signal.aborted) return
-    if (!handleSessionLoss(error)) {
-      operationsFailure.value = error instanceof ApiError && error.status === 403
-        ? 'You do not have permission to view operations status.'
-        : 'Could not check operations status. Try again.'
+    if (!live()) return
+    if (error instanceof ApiError && error.status === 401) {
+      const observed = await readAdminAuthority(check.signal).catch(() => null)
+      if (!live()) return
+      if (observed?.status === 'signed-out') { handleSessionLoss(error); return }
+      if (observed && !same(observed)) { setAuthority(observed); return }
     }
+    operationsFailure.value = error instanceof ApiError && error.status === 403
+      ? 'You do not have permission to view operations status.'
+      : 'Could not check operations status. Try again.'
   } finally {
     if (operationsRequest === check) {
       operationsRequest = undefined

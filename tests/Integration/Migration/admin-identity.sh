@@ -2,33 +2,8 @@
 set -euo pipefail
 umask 077
 
-if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" || -z "${FSUSBLOG_TEST_MIGRATE_DLL:-}" ]]; then
-    printf '%s\n' 'Configure a native scratch PostgreSQL cluster and the built migration DLL.' >&2
-    exit 2
-fi
-
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/fsus-admin-identity.XXXXXXXX")
-database="fsusv2_admin_$(openssl rand -hex 12)"
-pg=(psql -X --no-password -v ON_ERROR_STOP=1)
-migrate=("${DOTNET_BIN:-dotnet}" "$FSUSBLOG_TEST_MIGRATE_DLL")
-created=0
-cleanup() {
-    local result=$?
-    trap - EXIT
-    if (( created == 1 )) && ! "${pg[@]}" -d postgres -qc "DROP DATABASE \"$database\""; then result=1; fi
-    if ! rm -f "$scratch/plan.json" "$scratch/rejection.log" || ! rmdir "$scratch"; then result=1; fi
-    if (( result == 0 )); then printf '%s\n' 'Removed the administrator identity test database and scratch files.'; fi
-    exit "$result"
-}
-trap cleanup EXIT
-
-"${pg[@]}" -d postgres -qc "CREATE DATABASE \"$database\" TEMPLATE template0"
-created=1
-export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
-query=("${pg[@]}" -d "$database" -qAtc)
-"${migrate[@]}" plan > "$scratch/plan.json"
-"${migrate[@]}" apply "$scratch/plan.json"
-"${migrate[@]}" verify
+source "$(dirname -- "$0")/identity-schema-fixture.sh"
+start_identity_fixture admin-identity admin 'administrator identity'
 
 # Retain a site account with the same name across the additive admin upgrade.
 "${migrate[@]}" operator identity-fixture > /dev/null
@@ -44,6 +19,10 @@ remove_moderation_component() {
         ALTER TABLE public.comment DROP COLUMN moderation_version'
 }
 
+"${query[@]}" 'DROP TABLE public.comment_reply_notice, public.comment_appeal_admin_step_up, public.comment_appeal_event,
+    public.comment_appeal_decision, public.comment_appeal, public.comment_appeal_challenge,
+    public.admin_comment_batch_step_up, public.admin_comment_batch_item, public.admin_comment_batch,
+    public.admin_root_comment_pow_step_up, public.root_comment_pow_policy_audit, public.root_comment_pow_policy'
 remove_moderation_component
 "${query[@]}" 'ALTER TABLE public.article_publication_history DROP COLUMN admin_actor_id, DROP COLUMN admin_command_id;
     DROP TABLE public.comment_author_delete_outbox, public.comment_author_deleted,

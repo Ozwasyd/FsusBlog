@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using FsusBlog.V2.Core;
 using Microsoft.Win32.SafeHandles;
 
 internal static partial class Migration
@@ -93,7 +94,7 @@ internal static partial class Migration
             using (var existing = new SafeFileHandle((nint)OpenImportChild(parent, name, ImportFileFlags), ownsHandle: true))
                 if (!existing.IsInvalid || Marshal.GetLastPInvokeError() != 2) // ENOENT
                     throw new IOException("An offline package output already exists or is inaccessible. Use a new package name.");
-            if (LegacyMediaMkdirAt(parent, temporary, LegacyMediaPrivate) != 0)
+            if (NativeUnixFile.MakeDirectoryAt(parent, temporary, LegacyMediaPrivate) != 0)
                 throw new IOException("Could not reserve a new offline media package.");
             try
             {
@@ -119,7 +120,7 @@ internal static partial class Migration
             foreach (var leaf in leaves)
             {
                 using var payload = OpenLegacyMediaFile(package, leaf);
-                if (LegacyMediaSync(payload.SafeFileHandle) != 0)
+                if (NativeUnixFile.Sync(payload.SafeFileHandle) != 0)
                     throw new IOException("Could not synchronize an offline media payload.");
             }
             using (var output = CreateMember(LegacyMediaManifestName))
@@ -128,16 +129,13 @@ internal static partial class Migration
                 output.Flush(flushToDisk: true);
             }
             RequireLegacyMediaLeaves(package, leaves);
-            if (LegacyMediaChmod(package, LegacyMediaSealed) != 0 || LegacyMediaSync(package) != 0)
+            if (NativeUnixFile.SetMode(package, LegacyMediaSealed) != 0 || NativeUnixFile.Sync(package) != 0)
                 throw new IOException("Could not seal the offline media package.");
 
-            var renamed = OperatingSystem.IsMacOS()
-                ? LegacyMediaRenameMac(parent, temporary, parent, name, 0x4) // RENAME_EXCL
-                : LegacyMediaRenameLinux(parent, temporary, parent, name, 1); // RENAME_NOREPLACE
-            if (renamed != 0)
+            if (NativeUnixFile.RenameExclusiveAt(parent, temporary, name) != 0)
                 throw new IOException("Could not publish the package exclusively. Use a new package name on storage that supports an atomic rename.");
             published = true;
-            if (LegacyMediaSync(parent) != 0)
+            if (NativeUnixFile.Sync(parent) != 0)
                 throw new IOException("Could not synchronize the sealed package directory entry.");
         }
 
@@ -146,18 +144,14 @@ internal static partial class Migration
             RequireClosedPayload();
             if (leaves.Contains(leaf))
                 throw new InvalidOperationException("The offline media package contains a duplicate member.");
-            int flags = ImportFileFlags | 1 | (OperatingSystem.IsMacOS() ? 0xa00 : 0xc0);
-            // The variadic mode argument belongs on the stack on Darwin arm64.
-            int fd = OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64
-                ? LegacyMediaCreateMacArm64(package, leaf, flags, 0, 0, 0, 0, 0, LegacyMediaReadOnly)
-                : LegacyMediaCreate(package, leaf, flags, LegacyMediaReadOnly);
+            var fd = NativeUnixFile.CreateExclusiveAt(package, leaf, ImportFileFlags, LegacyMediaReadOnly);
             var handle = new SafeFileHandle((nint)fd, ownsHandle: true);
             try
             {
                 if (handle.IsInvalid)
                     throw new IOException("Could not create a new owner-private package member.");
                 leaves.Add(leaf);
-                if (LegacyMediaChmod(handle, LegacyMediaReadOnly) != 0)
+                if (NativeUnixFile.SetMode(handle, LegacyMediaReadOnly) != 0)
                     throw new IOException("Could not restrict a new offline media package member.");
                 RequireLegacyMediaNode(handle, LegacyMediaRegular, LegacyMediaReadOnly);
                 active = new FileStream(handle, FileAccess.Write);
@@ -181,7 +175,7 @@ internal static partial class Migration
             {
                 try
                 {
-                    if (!published && LegacyMediaChmod(package, LegacyMediaPrivate) == 0)
+                    if (!published && NativeUnixFile.SetMode(package, LegacyMediaPrivate) == 0)
                     {
                         foreach (var leaf in leaves) LegacyMediaUnlinkAt(package, leaf, 0);
                         LegacyMediaUnlinkAt(parent, temporary, LegacyMediaRemoveDirectory);
@@ -286,25 +280,12 @@ internal static partial class Migration
 
     private static void RequireLegacyMediaNode(SafeFileHandle handle, int type, int expected, bool allowWritable = false)
     {
-        uint uid, links;
-        ushort mode;
-        if (OperatingSystem.IsMacOS())
-        {
-            var result = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
-                ? LegacyMediaStatMac(handle, out var stat)
-                : LegacyMediaStatMacInode64(handle, out stat);
-            if (result != 0) throw new IOException("Could not inspect the offline media input.");
-            (uid, links, mode) = (stat.Uid, stat.Links, stat.Mode);
-        }
-        else
-        {
-            const uint mask = 0xf; // STATX_TYPE | STATX_MODE | STATX_NLINK | STATX_UID
-            if (LegacyMediaStatLinux(handle, "", 0x1000, mask, out var stat) != 0 || (stat.Mask & mask) != mask)
-                throw new IOException("Could not inspect the offline media input.");
-            (uid, links, mode) = (stat.Uid, stat.Links, stat.Mode);
-        }
+        (ushort mode, uint uid, uint links) metadata;
+        try { metadata = NativeUnixFile.Inspect(handle, includeLinks: true); }
+        catch (IOException) { throw new IOException("Could not inspect the offline media input."); }
+        var (mode, uid, links) = metadata;
         int permissions = mode & 0xfff;
-        if (uid != LegacyMediaEffectiveUid() || (mode & 0xf000) != type || type == LegacyMediaRegular && links != 1 ||
+        if (uid != NativeUnixFile.EffectiveUid() || (mode & 0xf000) != type || type == LegacyMediaRegular && links != 1 ||
             permissions != expected && !(allowWritable && permissions == LegacyMediaReadWrite))
             throw new InvalidOperationException("Offline media requires exact owner-private permissions and regular files with one link.");
         if (OperatingSystem.IsMacOS())
@@ -323,51 +304,8 @@ internal static partial class Migration
 
     private static int LegacyMediaRemoveDirectory => OperatingSystem.IsMacOS() ? 0x80 : 0x200;
 
-    [StructLayout(LayoutKind.Explicit, Size = 144)]
-    private struct LegacyMediaDarwinStat
-    {
-        [FieldOffset(4)] public ushort Mode;
-        [FieldOffset(6)] public ushort Links;
-        [FieldOffset(16)] public uint Uid;
-    }
-
-    [StructLayout(LayoutKind.Explicit, Size = 256)]
-    private struct LegacyMediaLinuxStat
-    {
-        [FieldOffset(0)] public uint Mask;
-        [FieldOffset(16)] public uint Links;
-        [FieldOffset(20)] public uint Uid;
-        [FieldOffset(28)] public ushort Mode;
-    }
-
-    [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
-    private static extern int LegacyMediaMkdirAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, uint mode);
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int LegacyMediaCreate(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags, uint mode);
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int LegacyMediaCreateMacArm64(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf,
-        int flags, uint register3, uint register4, uint register5, uint register6, uint register7, uint mode);
     [DllImport("libc", EntryPoint = "unlinkat", SetLastError = true)]
     private static extern int LegacyMediaUnlinkAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags);
-    [DllImport("libc", EntryPoint = "renameatx_np", SetLastError = true)]
-    private static extern int LegacyMediaRenameMac(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
-        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
-    [DllImport("libc", EntryPoint = "renameat2", SetLastError = true)]
-    private static extern int LegacyMediaRenameLinux(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
-        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
-    [DllImport("libc", EntryPoint = "geteuid")]
-    private static extern uint LegacyMediaEffectiveUid();
-    [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
-    private static extern int LegacyMediaChmod(SafeFileHandle handle, uint mode);
-    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
-    private static extern int LegacyMediaSync(SafeFileHandle handle);
-    [DllImport("libc", EntryPoint = "fstat", SetLastError = true)]
-    private static extern int LegacyMediaStatMac(SafeFileHandle handle, out LegacyMediaDarwinStat stat);
-    [DllImport("libc", EntryPoint = "fstat$INODE64", SetLastError = true)]
-    private static extern int LegacyMediaStatMacInode64(SafeFileHandle handle, out LegacyMediaDarwinStat stat);
-    [DllImport("libc", EntryPoint = "statx", SetLastError = true)]
-    private static extern int LegacyMediaStatLinux(SafeFileHandle handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
-        int flags, uint mask, out LegacyMediaLinuxStat stat);
     [DllImport("libc", EntryPoint = "fdopendir", SetLastError = true)]
     private static extern nint LegacyMediaFdOpenDir(SafeFileHandle fd);
     [DllImport("libc", EntryPoint = "fdopendir$INODE64", SetLastError = true)]

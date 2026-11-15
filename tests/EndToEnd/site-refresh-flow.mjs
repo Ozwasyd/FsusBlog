@@ -1,25 +1,19 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { createHmac, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { decodeApiError, decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, setupSiteTotp, totp } from './site-authentication-fixture.mjs'
 
-const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium, expect, request } = packages('@playwright/test')
+const emptySuccess = reply => assertEmptySuccess(reply, 'Authentication response may be stored.')
 const exec = promisify(execFile)
-const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
-const origin = url.origin
-const ownerTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const peerTicket = process.env.FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
 const probe = process.env.FSUSBLOG_TEST_SITE_REFRESH_PROBE
-const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
-assert(url.hostname === 'localhost' && url.protocol === 'https:' && ownerTicket && peerTicket &&
-  ownerTicket !== peerTicket && probe && /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins),
+const { origin, ownerTicket, pins } = readTlsIdentityFixture(peerTicket, probe,
   'Provide the isolated native TLS runner with two separate accounts and the PostgreSQL fixture probe.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-refresh-browser')
 await mkdir(evidence, { recursive: true })
@@ -32,8 +26,7 @@ const {
   SiteRefreshRotate: rotate,
   SiteRefreshSignOut: refreshSignOut,
 } = WireRoutes
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
-  args: [`--ignore-certificate-errors-spki-list=${pins}`] })
+const browser = await launchIdentityBrowser(pins)
 const startedAt = new Date().toISOString()
 const checks = {}
 const responses = []
@@ -55,17 +48,7 @@ try {
   await passkey(owner.page, false, 1)
   const original = await checkSession(owner.context, 200)
   await owner.page.goto(origin + '/user/identity/mfa')
-  await button(owner.page, 'Set up authenticator').click()
-  const seed = await owner.page.getByTestId('mfa-seed').textContent()
-  assert(/^[A-Z2-7]{32}$/.test(seed), 'The fixture authenticator seed was unavailable.')
-  sensitive.push(seed)
-  const secret = readSeed(seed)
-  const setupStep = Math.floor(Date.now() / 30_000)
-  const setupCode = totp(secret, setupStep)
-  sensitive.push(setupCode)
-  await owner.page.getByLabel('Authenticator code', { exact: true }).fill(setupCode)
-  assert.equal((await clickApi(owner.page, WireRoutes.MfaSetupVerify, 'Enable verification')).status(), 200)
-  await button(owner.page, 'Hide recovery codes').click()
+  const { secret, setupStep } = await setupSiteTotp(owner.page, clickApi, sensitive, 'The fixture authenticator seed was unavailable.')
   assert.equal((await clickApi(owner.page, WireRoutes.SignOut, 'Log out')).status(), 200)
   await owner.page.waitForURL(origin + '/')
 
@@ -225,29 +208,15 @@ if (failure) throw new Error(`${phase}: ${failure}`)
 function observe(context, role) {
   context.setDefaultTimeout(12_000)
   context.on('page', page => page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' })))
-  context.on('response', response => {
-    const url = new URL(response.url())
-    if (url.origin !== origin || !url.pathname.startsWith('/api/')) return
-    responses.push({ role, path: url.pathname, status: response.status() })
-    if (response.status() >= 500) faults.push({ role, path: url.pathname, status: response.status() })
-  })
+  context.on('response', recordIdentityResponse(origin, role, responses, faults))
 }
 
 async function openBrowser(role) {
   const context = await browser.newContext()
   observe(context, role)
   const page = await context.newPage()
-  const cdp = await context.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
+  await enableAuthenticator(context, page)
   return { context, page }
-}
-
-function button(page, name) {
-  return page.getByRole('button', { name, exact: true })
 }
 
 function isApi(reply, path, method) {
@@ -321,13 +290,6 @@ function assertCookieOptions(access, refresh) {
 
 function rotateVia(api) {
   return api.post(origin + rotate, { headers: { Origin: origin }, maxRedirects: 0 })
-}
-
-async function emptySuccess(reply) {
-  assert.equal(reply.status(), 200)
-  const headers = 'allHeaders' in reply ? await reply.allHeaders() : reply.headers()
-  assert(headers['cache-control']?.includes('no-store'), 'Authentication response may be stored.')
-  decodeSuccess(decodeFrame(await reply.body(), FrameType.EmptySuccess).payload)
 }
 
 async function refreshError(reply, status, message) {
@@ -438,28 +400,4 @@ async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
   } finally {
     await swapped.close()
   }
-}
-
-function readSeed(seed) {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-  let bits = 0
-  let value = 0
-  const bytes = []
-  for (const letter of seed) {
-    bits += 5
-    value = (value << 5) | alphabet.indexOf(letter)
-    if (bits >= 8) {
-      bits -= 8
-      bytes.push((value >> bits) & 255)
-    }
-  }
-  return Buffer.from(bytes)
-}
-
-function totp(secret, step) {
-  const interval = Buffer.alloc(8)
-  interval.writeBigUInt64BE(BigInt(step))
-  const mac = createHmac('sha1', secret).update(interval).digest()
-  const offset = mac.at(-1) & 15
-  return ((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0')
 }

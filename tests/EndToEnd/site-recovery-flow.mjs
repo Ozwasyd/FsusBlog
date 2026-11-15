@@ -1,32 +1,22 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { createHmac } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSession, encodeRecoveryKeyOperation, FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { assertEmptySuccess, button, enableAuthenticator, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, setupSiteTotp, totp } from './site-authentication-fixture.mjs'
 
-const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium, request } = packages('@playwright/test')
-const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
-const origin = url.origin
-const ownerTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const peerTicket = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET
 const probeReservation = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PROBE
-const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
 const removeCurrent = process.env.FSUSBLOG_TEST_SITE_RECOVERY_REMOVE_CURRENT === '1'
-assert(url.hostname === 'localhost' && url.protocol === 'https:' &&
-  ownerTicket && peerTicket && ownerTicket !== peerTicket && probeReservation &&
-  /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins),
+const { origin, ownerTicket, pins } = readTlsIdentityFixture(peerTicket, probeReservation,
   'Provide a scratch HTTPS localhost site, two separate fixture accounts, the reservation probe and the local leaf certificate pins.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-recovery-browser')
 await mkdir(evidence, { recursive: true })
 
 const startedAt = new Date().toISOString()
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
-  args: [`--ignore-certificate-errors-spki-list=${pins}`] })
+const browser = await launchIdentityBrowser(pins)
 const checks = {}
 const responses = []
 const faults = []
@@ -34,6 +24,7 @@ const secrets = [ownerTicket, peerTicket]
 const siteCookieName = 'fsus-v2-session'
 const rebindCookieName = 'fsus-v2-site-recovery'
 const recoveryFailed = 'Could not recover this account. Check your Recovery Key and try again.'
+const emptySuccess = reply => assertEmptySuccess(reply, 'Recovery response may be stored.')
 const exec = promisify(execFile)
 let phase = 'bootstrap'
 let failure
@@ -65,17 +56,7 @@ try {
 
   phase = 'configure-mfa'
   await owner.page.goto(origin + '/user/identity/mfa')
-  await owner.page.getByRole('button', { name: 'Set up authenticator', exact: true }).click()
-  const seed = await owner.page.getByTestId('mfa-seed').textContent()
-  assert(/^[A-Z2-7]{32}$/.test(seed), 'The authenticator seed was unavailable.')
-  secrets.push(seed)
-  const secret = readSeed(seed)
-  const setupStep = Math.floor(Date.now() / 30_000)
-  const setupCode = totp(secret, setupStep)
-  secrets.push(setupCode)
-  await owner.page.getByLabel('Authenticator code', { exact: true }).fill(setupCode)
-  assert.equal((await clickApi(owner.page, WireRoutes.MfaSetupVerify, 'Enable verification')).status(), 200)
-  await owner.page.getByRole('button', { name: 'Hide recovery codes', exact: true }).click()
+  const { secret, setupStep } = await setupSiteTotp(owner.page, clickApi, secrets, 'The authenticator seed was unavailable.')
   const cookieBeforeRebind = await siteCookie(owner.context)
   const mfaState = await session(owner.context, 200)
 
@@ -277,28 +258,14 @@ async function siteBrowser(role, authenticator = true) {
   context.setDefaultTimeout(18_000)
   const page = await context.newPage()
   page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' }))
-  page.on('response', response => {
-    const url = new URL(response.url())
-    if (url.origin !== origin || !url.pathname.startsWith('/api/')) return
-    responses.push({ role, path: url.pathname, status: response.status() })
-    if (response.status() >= 500) faults.push({ role, path: url.pathname, status: response.status() })
-  })
+  page.on('response', recordIdentityResponse(origin, role, responses, faults))
   if (!authenticator) return { context, page }
-  const cdp = await context.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
+  const { cdp, authenticatorId } = await enableAuthenticator(context, page)
   return { context, page, cdp, authenticatorId }
 }
 
 function setVerified(fixture, isUserVerified) {
   return fixture.cdp.send('WebAuthn.setUserVerified', { authenticatorId: fixture.authenticatorId, isUserVerified })
-}
-
-function button(page, name) {
-  return page.getByRole('button', { name, exact: true })
 }
 
 function isApi(response, path, method) {
@@ -312,13 +279,6 @@ function waitApi(page, path) {
 async function clickApi(page, path, name) {
   const [reply] = await Promise.all([waitApi(page, path), button(page, name).click()])
   return reply
-}
-
-async function emptySuccess(response) {
-  assert.equal(response.status(), 200)
-  const headers = 'allHeaders' in response ? await response.allHeaders() : response.headers()
-  assert(headers['cache-control']?.includes('no-store'), 'Recovery response may be stored.')
-  decodeSuccess(decodeFrame(await response.body(), FrameType.EmptySuccess).payload)
 }
 
 function assertNoSessionGrant(header) {
@@ -442,28 +402,4 @@ async function assertRecoveryProof(reply, challenge) {
   assert.equal(challenge.status(), 200)
   assert(Boolean((await reply.request().allHeaders())[WireHeaders.PowProof.toLowerCase()]),
     'The browser recovery request did not include its scoped proof of work.')
-}
-
-function readSeed(seed) {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-  let bits = 0
-  let value = 0
-  const bytes = []
-  for (const letter of seed) {
-    bits += 5
-    value = (value << 5) | alphabet.indexOf(letter)
-    if (bits >= 8) {
-      bits -= 8
-      bytes.push((value >> bits) & 255)
-    }
-  }
-  return Buffer.from(bytes)
-}
-
-function totp(secret, step) {
-  const interval = Buffer.alloc(8)
-  interval.writeBigUInt64BE(BigInt(step))
-  const mac = createHmac('sha1', secret).update(interval).digest()
-  const offset = mac.at(-1) & 15
-  return ((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0')
 }

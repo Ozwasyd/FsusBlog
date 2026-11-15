@@ -8,6 +8,7 @@ import type { PublishImagesSelection } from '../../../Contracts/published-media'
 import { credentialEpoch } from '../session'
 import { createDocumentExportTask } from '../../../Contracts/document-export-tasks'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
+import { maxHtmlExportImages } from '../../../Contracts/markdown-export'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 
 const props = defineProps<{ articleId: number; revision: bigint; credential?: string; canChange: boolean; canPublish: boolean }>()
@@ -27,6 +28,7 @@ const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
 const preview = shallowRef<{ id: string; path: string; type: string; taskId?: string; queued?: boolean }>()
 const documentTasks = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
+const htmlImages = computed(() => attached.value.map(asset => asset.id).join(','))
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
 let task = new AbortController()
 
@@ -185,6 +187,9 @@ onBeforeUnmount(() => {
           </li>
         </ul>
         <p v-else-if="!pending">No images are attached to this revision.</p>
+        <MarkdownExportControl v-if="attached.length > 1 && attached.length <= maxHtmlExportImages"
+          :article="articleId" :revision="revision" :selected="revision" format="html"
+          :attachment="htmlImages" :disabled="pending || !credential" />
         <div v-if="publishEnabled && attached.length" class="publication-actions">
           <ElButton v-if="!confirmation" ref="reviewButton" native-type="button"
             :disabled="pending || !canPublish || !publicationSelection.length" @click="reviewPublication">Review image publication</ElButton>

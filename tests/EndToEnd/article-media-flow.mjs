@@ -45,11 +45,12 @@ try {
         return result
       }
       let draft
-      let asset
+      let asset, second
       try {
         await api.signIn(ticket)
         assert(cookie)
         asset = await uploadMedia(new File([bytes], file, { type: 'image/png' }), crypto.randomUUID())
+        second = await uploadMedia(new File([bytes], 'companion-' + file, { type: 'image/png' }), crypto.randomUUID())
         draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(),
           title: `Private attachments ${name}`, body: 'Public text remains independent of private attachments.' })
       } finally { globalThis.fetch = native }
@@ -68,7 +69,7 @@ try {
       const choose = page.getByRole('combobox', { name: 'Choose a private image' })
       await choose.focus()
       await page.keyboard.press('Enter')
-      await page.getByRole('option', { name: file }).click()
+      await page.getByRole('option', { name: file, exact: true }).click()
       await page.getByRole('button', { name: 'Attach image' }).click()
       const preview = page.getByRole('button', { name: `Preview ${file}` })
       await preview.waitFor()
@@ -122,8 +123,20 @@ try {
       const wordBytes = await word.response.body()
       assert.deepEqual(await readFile(await word.download.path()), wordBytes)
       assert.deepEqual(execFileSync('unzip', ['-p', await word.download.path(), 'word/media/attachment.png']), previewBytes)
-      await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
 
+      await choose.press('Enter')
+      await page.getByRole('option', { name: 'companion-' + file, exact: true }).click()
+      await page.getByRole('button', { name: 'Attach image' }).click()
+      const [selection, images] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === `/api/v2/authoring/draft/${draft.id}/export.html`),
+        page.waitForEvent('download'), page.getByRole('button', { name: 'Download saved HTML with these images' }).click(),
+      ])
+      assert.equal(selection.status(), 200)
+      assert.deepEqual((await selection.request().headerValue(WireHeaders.HtmlExportAttachment)).split(',').sort(),
+        [asset.id, second.id].sort())
+      assert.equal((await readFile(await images.path(), 'utf8')).split('data:image/png;base64,' + previewBytes.toString('base64')).length, 3)
+      await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
+      await page.getByRole('button', { name: 'Detach companion-' + file, exact: true }).click()
       await page.getByRole('button', { name: `Detach ${file}` }).click()
       await page.getByText('No images are attached to this revision.', { exact: true }).waitFor()
       assert.equal((await author.request.get(previewUrl, { headers: { Authorization: authorization } })).status(), 404)
@@ -137,7 +150,7 @@ try {
       assert.deepEqual(diagnostics, [])
       assertions.push({ name, viewport, title: await page.title(), uploadedAssetAttached: true, privatePreviewRendered: true,
         anonymousDenied: true, previousTicketInvalidAfterDetach: true, authorizationHeaderOnly: true,
-        objectUrlRevoked: true, offlineHtmlImage: true, offlineEpubImage: true, privateWordImage: true, taskWithImage, keyboard: true })
+        objectUrlRevoked: true, offlineHtmlImage: true, htmlImageBatch: true, offlineEpubImage: true, privateWordImage: true, taskWithImage, keyboard: true })
     } finally { await author.close() }
   }
 } catch (error) { failure = error }

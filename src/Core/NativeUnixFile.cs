@@ -10,6 +10,7 @@ internal static class NativeUnixFile
     private const ushort PermissionMask = 0x0fff;
     private const int LinuxEmptyPath = 0x1000;
     private const uint LinuxFields = 0xb; // STATX_TYPE | STATX_MODE | STATX_UID
+    private const uint LinuxLinkCount = 0x4; // STATX_NLINK
     private const uint LinuxChanges = 0x180; // STATX_CTIME | STATX_INO
     internal const int NotFound = 2;
     internal const int ReadWrite = 2;
@@ -67,38 +68,38 @@ internal static class NativeUnixFile
 
     internal static UnixFileMode? RegularMode(SafeFileHandle handle)
     {
-        var (mode, _) = Inspect(handle);
+        var (mode, _, _) = Inspect(handle);
         return (mode & TypeMask) == Regular ? (UnixFileMode)(mode & PermissionMask) : null;
     }
 
     internal static bool IsRegular(SafeFileHandle handle, UnixFileMode expectedMode, bool owned)
     {
-        var (mode, uid) = Inspect(handle);
+        var (mode, uid, _) = Inspect(handle);
         return (mode & TypeMask) == Regular && (mode & PermissionMask) == (int)expectedMode && (!owned || uid == EffectiveUid());
     }
 
     internal static bool HasMode(SafeFileHandle handle, UnixFileMode expectedMode, bool owned = false)
     {
-        var (mode, uid) = Inspect(handle);
+        var (mode, uid, _) = Inspect(handle);
         return (mode & PermissionMask) == (int)expectedMode && (!owned || uid == EffectiveUid());
     }
 
     internal static bool IsRootControlled(SafeFileHandle handle, bool regular)
     {
-        var (mode, uid) = Inspect(handle);
+        var (mode, uid, _) = Inspect(handle);
         const ushort externalWrite = 0x12; // group write or other write
         return uid == 0 && (mode & externalWrite) == 0 && (mode & TypeMask) == (regular ? Regular : 0x4000);
     }
 
-    private static (ushort Mode, uint Uid) Inspect(SafeFileHandle handle)
+    internal static (ushort Mode, uint Uid, uint Links) Inspect(SafeFileHandle handle, bool includeLinks = false)
     {
         if (OperatingSystem.IsLinux())
         {
-            var status = LinuxMetadata(handle, LinuxFields);
-            return (status.Mode, status.Uid);
+            var status = LinuxMetadata(handle, LinuxFields | (includeLinks ? LinuxLinkCount : 0));
+            return (status.Mode, status.Uid, status.Links);
         }
         var metadata = DarwinMetadata(handle);
-        return (metadata.Mode, metadata.Uid);
+        return (metadata.Mode, metadata.Uid, metadata.Links);
     }
 
     internal static ChangeStamp InspectChanges(SafeFileHandle handle)
@@ -130,6 +131,23 @@ internal static class NativeUnixFile
             : throw Failure("Could not inspect the open Unix file.", Marshal.GetLastPInvokeError());
     }
 
+    internal static int CreateExclusiveAt(SafeFileHandle directory, string leaf, int flags, uint mode)
+    {
+        flags |= WriteOnly | ExclusiveCreate;
+        // The first variadic argument goes on the stack on Darwin ARM64.
+        return OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+            ? OpenAtDarwinArm64(directory, leaf, flags, 0, 0, 0, 0, 0, mode)
+            : OpenAtCreate(directory, leaf, flags, mode);
+    }
+
+    internal static int RenameExclusiveAt(SafeFileHandle directory, string source, string destination) =>
+        OperatingSystem.IsMacOS()
+            ? RenameDarwin(directory, source, directory, destination, 4) // RENAME_EXCL
+            : RenameLinux(directory, source, directory, destination, 1); // RENAME_NOREPLACE
+
+    private const int WriteOnly = 1;
+    private static int ExclusiveCreate => OperatingSystem.IsMacOS() ? 0xa00 : 0xc0;
+
     private static IOException Failure(string message, int error) => error == NotFound
         ? new FileNotFoundException(message) : new IOException(message, error);
 
@@ -138,6 +156,7 @@ internal static class NativeUnixFile
     {
         [FieldOffset(0)] public uint Device;
         [FieldOffset(4)] public ushort Mode;
+        [FieldOffset(6)] public ushort Links;
         [FieldOffset(8)] public ulong Inode;
         [FieldOffset(16)] public uint Uid;
         [FieldOffset(64)] public long Seconds;
@@ -148,6 +167,7 @@ internal static class NativeUnixFile
     private struct LinuxStat
     {
         [FieldOffset(0)] public uint Mask;
+        [FieldOffset(16)] public uint Links;
         [FieldOffset(20)] public uint Uid;
         [FieldOffset(28)] public ushort Mode;
         [FieldOffset(32)] public ulong Inode;
@@ -160,9 +180,26 @@ internal static class NativeUnixFile
     [DllImport("libc", EntryPoint = "open", SetLastError = true)]
     private static extern int Open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags);
+    internal static extern int OpenAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags);
+    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
+    private static extern int OpenAtCreate(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags, uint mode);
+    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
+    private static extern int OpenAtDarwinArm64(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf,
+        int flags, uint register3, uint register4, uint register5, uint register6, uint register7, uint mode);
+    [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
+    internal static extern int MakeDirectoryAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, uint mode);
+    [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
+    internal static extern int SetMode(SafeFileHandle handle, uint mode);
+    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    internal static extern int Sync(SafeFileHandle handle);
+    [DllImport("libc", EntryPoint = "renameatx_np", SetLastError = true)]
+    private static extern int RenameDarwin(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
+        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
+    [DllImport("libc", EntryPoint = "renameat2", SetLastError = true)]
+    private static extern int RenameLinux(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
+        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
     [DllImport("libc", EntryPoint = "geteuid")]
-    private static extern uint EffectiveUid();
+    internal static extern uint EffectiveUid();
     [DllImport("libc", EntryPoint = "fstat", SetLastError = true)]
     private static extern int StatDarwin(SafeFileHandle handle, out DarwinStat status);
     [DllImport("libc", EntryPoint = "fstat$INODE64", SetLastError = true)]

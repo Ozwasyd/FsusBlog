@@ -443,8 +443,45 @@ public sealed partial class PrivateMediaPostgresTests
             pin.Parameters.AddWithValue(asset);
             Assert.Equal(3L, await pin.ExecuteScalarAsync(ct));
 
+            using var secondUpload = await Upload(client, owner, Guid.NewGuid(), "second.jpg", "image/jpeg", EncodeImage(SKEncodedImageFormat.Jpeg), ct);
+            Assert.Equal(HttpStatusCode.OK, secondUpload.StatusCode);
+            var second = First(await secondUpload.Content.ReadAsByteArrayAsync(ct), 1);
+            var secondBytes = await File.ReadAllBytesAsync(Path.Combine(root, $"{second:N}.media"), ct);
+            var both = await ChangeSecondImage(publishedDraft.Revision, true);
+            var single = await ChangeSecondImage(both.Revision, false);
+            var selectedPair = $"{second:D},{asset:D}";
+            using var bundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
+            Assert.Equal(HttpStatusCode.OK, bundle.StatusCode);
+            var markup = await bundle.Content.ReadAsStringAsync(ct);
+            var figures = System.Text.RegularExpressions.Regex.Matches(markup, """<img src="data:image/(jpeg|png);base64,([^"]+)" alt="([^"]+)"[^>]*>""");
+            Assert.Equal(new[] { ("jpeg", Convert.ToBase64String(secondBytes), "second.jpg"),
+                ("png", Convert.ToBase64String(normalized), "draft &amp; proof.png") },
+                figures.Select(image => (image.Groups[1].Value, image.Groups[2].Value, image.Groups[3].Value)));
+            foreach (var (format, revision, ids, status) in new[]
+            {
+                ("html", both.Revision, $"{asset:D},{asset:D}", HttpStatusCode.BadRequest),
+                ("html", both.Revision, $"{asset:D},{foreign:D}", HttpStatusCode.NotFound),
+                ("html", single.Revision, selectedPair, HttpStatusCode.NotFound),
+                ("docx", both.Revision, selectedPair, HttpStatusCode.BadRequest)
+            })
+            {
+                using var denied = await Export(format, single.Revision, revision, owner, null, selection: ids);
+                Assert.Equal(status, denied.StatusCode);
+                Assert.DoesNotContain("data:image/", await denied.Content.ReadAsStringAsync(ct));
+            }
+            File.Move(leaf, held);
+            try
+            {
+                await File.WriteAllBytesAsync(leaf, changed, ct);
+                File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
+                using var badBundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, badBundle.StatusCode);
+                Assert.DoesNotContain("data:image/", await badBundle.Content.ReadAsStringAsync(ct));
+            }
+            finally { File.Delete(leaf); File.Move(held, leaf); }
+
             using var saveExternal = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
-                new(draft.Id, publishedDraft.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)")));
+                new(draft.Id, single.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)")));
             Assert.Equal(HttpStatusCode.OK, saveExternal.StatusCode);
             var externalDraft = Wire.DecodeDraft(await saveExternal.Content.ReadAsByteArrayAsync(ct));
             await ExpectEpubFailure(HttpStatusCode.BadRequest, externalDraft.Revision, externalDraft.Revision, owner, asset);
@@ -535,6 +572,14 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, reloaded.StatusCode);
             Assert.Equal(renderedBytes, await reloaded.Content.ReadAsByteArrayAsync(ct));
 
+            async Task<Draft> ChangeSecondImage(long current, bool attachImage)
+            {
+                using var result = await Command(WireRoutes.ArticleMediaCommand, owner,
+                    Wire.EncodeArticleMediaCommand(new(draft.Id, current, Guid.NewGuid(), second, attachImage)));
+                Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+                return Wire.DecodeDraft(await result.Content.ReadAsByteArrayAsync(ct));
+            }
+
             async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes, Guid? image = null)
             {
                 using var request = Request(HttpMethod.Post, path, actor);
@@ -548,11 +593,11 @@ public sealed partial class PrivateMediaPostgresTests
                 string? handle = null) => Export("html", expected, selected, actor, image, handle);
 
             async Task<HttpResponseMessage> Export(string format, long expected, long selected, SessionFixture? actor, Guid? image,
-                string? handle = null)
+                string? handle = null, string? selection = null)
             {
                 using var request = Request(HttpMethod.Get,
                     $"/api/v2/authoring/draft/{draft.Id}/export.{format}?revision={expected}&sourceRevision={selected}", actor);
-                if (image is Guid id) request.Headers.Add(WireHeaders.HtmlExportAttachment, id.ToString("D"));
+                if ((selection ?? image?.ToString("D")) is { } ids) request.Headers.Add(WireHeaders.HtmlExportAttachment, ids);
                 if (handle is not null)
                 {
                     request.Headers.Remove(WireHeaders.CurrentSession);

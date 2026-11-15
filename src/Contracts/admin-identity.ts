@@ -68,8 +68,12 @@ export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
   await request(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
 }
 
-export function readAdminOperations(signal?: AbortSignal): Promise<AdminOperationsStatus> {
-  return request(WireRoutes.AdminOperationsStatus, FrameType.AdminOperationsStatus, readOperationsStatus, signal);
+export function readAdminOperations(session: AdminSession, signal: AbortSignal): Promise<AdminOperationsStatus> {
+  return request(WireRoutes.AdminOperationsStatus, FrameType.AdminOperationsStatus, (payload, headers) => {
+    if (!session.permissionSession || readPermissionSession(headers) !== session.permissionSession)
+      throw new ProtocolError('Administrator permission session changed.');
+    return readOperationsStatus(payload);
+  }, signal);
 }
 
 export function readAdminEffectivePermissions(session: AdminSession, signal: AbortSignal): Promise<readonly AdminPermission[]> {

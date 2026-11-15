@@ -96,7 +96,7 @@ internal static class LegacyMediaPreparationCommand
                 throw new IOException("The named offline output already exists or is inaccessible.");
         var pending = $".legacy-media-{Guid.NewGuid():N}.pending";
         var pendingPath = Path.Join(outputParent, pending);
-        if (MakeDirectory(parent, pending, (uint)PrivateDirectory) != 0)
+        if (NativeUnixFile.MakeDirectoryAt(parent, pending, (uint)PrivateDirectory) != 0)
             throw new IOException("Could not create a new owner-private preparation directory.");
 
         byte[] manifest;
@@ -125,11 +125,11 @@ internal static class LegacyMediaPreparationCommand
             await output.Materialize(Manifest, manifest, SHA256.HashData(manifest), ct);
         }
         using var sealedOutput = OwnedDirectory(pendingPath, PrivateDirectory);
-        if (Restrict(sealedOutput, (uint)SealedDirectory) != 0 || Sync(sealedOutput) != 0)
+        if (NativeUnixFile.SetMode(sealedOutput, (uint)SealedDirectory) != 0 || NativeUnixFile.Sync(sealedOutput) != 0)
             throw new IOException("Could not seal the prepared media directory.");
         ct.ThrowIfCancellationRequested();
-        var renamed = OperatingSystem.IsMacOS() ? RenameMac(parent, pending, parent, name, 4) : RenameLinux(parent, pending, parent, name, 1);
-        if (renamed != 0 || Sync(parent) != 0) throw new IOException("Could not establish the prepared media package exclusively.");
+        if (NativeUnixFile.RenameExclusiveAt(parent, pending, name) != 0 || NativeUnixFile.Sync(parent) != 0)
+            throw new IOException("Could not establish the prepared media package exclusively.");
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             manifestSha256 = Hex(SHA256.HashData(manifest)), requestSha256 = requestHash, normalizerSha256 = normalizerHash,
@@ -263,17 +263,4 @@ internal static class LegacyMediaPreparationCommand
 
     private sealed record NormalizerIdentity(string Platform, string RuntimeVersion, NormalizerFile[] Files);
     private sealed record NormalizerFile(string Name, string Sha256);
-
-    [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
-    private static extern int MakeDirectory(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, uint mode);
-    [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
-    private static extern int Restrict(SafeFileHandle directory, uint mode);
-    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
-    private static extern int Sync(SafeFileHandle directory);
-    [DllImport("libc", EntryPoint = "renameatx_np", SetLastError = true)]
-    private static extern int RenameMac(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string oldName,
-        SafeFileHandle target, [MarshalAs(UnmanagedType.LPUTF8Str)] string newName, uint flags);
-    [DllImport("libc", EntryPoint = "renameat2", SetLastError = true)]
-    private static extern int RenameLinux(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string oldName,
-        SafeFileHandle target, [MarshalAs(UnmanagedType.LPUTF8Str)] string newName, uint flags);
 }

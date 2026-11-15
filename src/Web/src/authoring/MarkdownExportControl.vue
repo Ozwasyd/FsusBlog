@@ -53,7 +53,7 @@ async function download() {
     else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
     else if (format === 'html' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = 'Use basic text Markdown and an image up to 512 KiB. The combined HTML must fit within 2 MiB.'
+      failure.value = 'Use basic text Markdown and images totaling up to 512 KiB. The combined HTML must fit within 2 MiB.'
     else if (format === 'html' && error instanceof ApiError && error.status === 400)
       failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
     else if (format === 'epub' && attachment && error instanceof ApiError && error.status === 400)
@@ -80,7 +80,7 @@ onScopeDispose(reset)
 <template>
   <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}{{ attachment ? ' with this image' : '' }}
+      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}{{ attachment?.includes(',') ? ' with these images' : attachment ? ' with this image' : '' }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>

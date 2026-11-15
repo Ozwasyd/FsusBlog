@@ -156,7 +156,9 @@ internal static partial class Migration
                     --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
                                         Plan or activate an approved private image batch in the isolated runtime copy
                   legacy import release-plan|release-activate PLAN.json PLAN_SHA256 BACKUP SHA256 RUNTIME_SITE ROLLBACK SHA256 [APPROVAL.json SHA256]
-                                        Activate verified first publications or ordinary republishes in an isolated runtime copy
+                                        Activate verified first publications, ordinary republishes or supported public rollbacks in an isolated runtime copy
+                  legacy release-origin-schema
+                                        Install the offline legacy release origin schema
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
                   legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID
@@ -332,6 +334,9 @@ internal static partial class Migration
                     break;
                 case ["private-media-import-origin", "schema"]:
                     await InitializePrivateMediaImportOriginAsync(connection, token);
+                    break;
+                case ["legacy", "release-origin-schema"]:
+                    await InitializeLegacyReleaseOriginSchemaAsync(connection, token);
                     break;
                 case ["article-private-media"]:
                     await InitializeArticleMediaAsync(connection, token);
@@ -719,6 +724,22 @@ internal static partial class Migration
     {
         await using var command = new NpgsqlCommand(sql, connection, transaction);
         await command.ExecuteNonQueryAsync(token);
+    }
+
+    private static async Task InitializeLegacyReleaseOriginSchemaAsync(NpgsqlConnection db, CancellationToken ct)
+    {
+        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        await PrepareSchemaAddition(db, tx, ct);
+        if (!await CurrentSchema.HasLegacyReleaseOriginAsync(db, tx, ct))
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FsusBlogV2.OptionalSchema.legacy-release-origin.sql")
+                ?? throw new InvalidOperationException("The legacy release origin schema is unavailable.");
+            using var sql = new StreamReader(stream);
+            await ExecuteAsync(db, tx, await sql.ReadToEndAsync(ct), ct);
+        }
+        await CurrentSchema.VerifyCatalogAsync(db, tx, ct);
+        await tx.CommitAsync(ct);
+        Console.WriteLine("Verified legacy release origin schema.");
     }
 
     private static async Task<string> SchemaSqlAsync(CancellationToken token)

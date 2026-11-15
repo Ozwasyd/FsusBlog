@@ -170,6 +170,7 @@ const canChangeSummary = computed(() => !!credential.value && editable.value && 
   validBody.value && validTitle.value)
 const canArrangeGroups = computed(() => !!credential.value && editable.value && !opening.value && !layoutRestoring.value &&
   !closingTabs.value && composing.value === undefined && !revisionComparisonActive.value)
+const otherGroup = computed<WorkspaceGroup | undefined>(() => tab.value && (tab.value.group === 'main' ? 'secondary' : 'main'))
 const activeGroupTabs = computed(() => workspaceTabs.value.filter(candidate => candidate.group === tab.value?.group))
 const activeGroupIndex = computed(() => activeGroupTabs.value.findIndex(candidate => candidate.active))
 const canCloseGroupTabs = computed(() => editable.value && canSwitch.value && !opening.value &&
@@ -774,8 +775,8 @@ async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGro
   finally { if (explicitNavigation === intent) explicitNavigation = undefined }
 }
 
-function activateQuickResult(articleId: number, revision: bigint, current: () => boolean) {
-  return navigateTo(articleId, undefined, undefined, { revision, current })
+function activateQuickResult(articleId: number, revision: bigint, current: () => boolean, targetGroup?: WorkspaceGroup) {
+  return navigateTo(articleId, undefined, targetGroup, { revision, current })
 }
 
 function focusQuickResult(articleId: number) {
@@ -787,14 +788,13 @@ function quickResultHref(articleId: number) {
   return router.resolve(address(articleId)).href
 }
 
-function openArticle(otherGroup = false) {
+function openArticle(splitGroup = false) {
   const articleId = inputArticle.value
   if (articleId === undefined) {
     navigationNotice.value = 'Enter a valid article ID.'
     return
   }
-  const target = otherGroup ? tab.value?.group === 'secondary' ? 'main' : 'secondary' : undefined
-  void navigateTo(articleId, undefined, target)
+  void navigateTo(articleId, undefined, splitGroup ? otherGroup.value : undefined)
 }
 
 async function focusGroup(target: WorkspaceTab) {
@@ -1326,7 +1326,7 @@ async function reloadDraft() {
           </template>
         </div>
       </details>
-      <ArticleQuickSwitcher :disabled="!canSwitch || revisionComparisonActive" :activate="activateQuickResult"
+      <ArticleQuickSwitcher :disabled="!canSwitch || revisionComparisonActive" :other-group="otherGroup" :activate="activateQuickResult"
         :article-href="quickResultHref" @activated="focusQuickResult" />
       <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
         :disabled="!canSwitch" :activate="navigateTo" />

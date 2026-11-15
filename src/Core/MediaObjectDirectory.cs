@@ -8,11 +8,9 @@ internal sealed class MediaObjectDirectory : IDisposable
 {
     private const int FileNotFound = 2;
     private const int FileExists = 17;
-    private const int WriteOnly = 1;
     private const UnixFileMode PrivateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode ReadOnlyFile = UnixFileMode.UserRead;
     private const int LockExclusiveNonBlocking = 6;
-    private static int ExclusiveCreate => OperatingSystem.IsMacOS() ? 0xa00 : 0xc0;
 
     private readonly SafeFileHandle directory;
     private readonly int maximumBytes;
@@ -70,16 +68,14 @@ internal sealed class MediaObjectDirectory : IDisposable
 
         token.ThrowIfCancellationRequested();
         var temp = $".{Path.GetFileNameWithoutExtension(leaf)}.{Guid.NewGuid():N}.pending";
-        var flags = WriteOnly | NativeUnixFile.NoFollow | NativeUnixFile.CloseOnExec | ExclusiveCreate;
-        var fd = OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64
-            ? OpenAtDarwinArm64(Fd, temp, flags, 0, 0, 0, 0, 0, (uint)ReadOnlyFile)
-            : OpenAt(Fd, temp, flags, (uint)ReadOnlyFile);
+        var flags = NativeUnixFile.NoFollow | NativeUnixFile.CloseOnExec;
+        var fd = NativeUnixFile.CreateExclusiveAt(directory, temp, flags, (uint)ReadOnlyFile);
         if (fd < 0) throw Failure("Could not reserve a media file.");
         try
         {
             using (var handle = Handle(fd))
             {
-                if (Chmod(fd, (uint)ReadOnlyFile) != 0) throw Failure("Could not restrict the media file mode.");
+                if (NativeUnixFile.SetMode(handle, (uint)ReadOnlyFile) != 0) throw Failure("Could not restrict the media file mode.");
                 using var file = new FileStream(handle, FileAccess.Write);
                 await file.WriteAsync(bytes, token);
                 file.Flush(flushToDisk: true);
@@ -146,7 +142,7 @@ internal sealed class MediaObjectDirectory : IDisposable
 
     private void SyncRoot()
     {
-        if (Sync(Fd) != 0) throw Failure("Could not synchronize the media directory.");
+        if (NativeUnixFile.Sync(directory) != 0) throw Failure("Could not synchronize the media directory.");
     }
 
     private static SafeFileHandle Handle(int file) => new((nint)file, ownsHandle: true);
@@ -166,12 +162,6 @@ internal sealed class MediaObjectDirectory : IDisposable
         finally { Free(pointer); }
     }
 
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenAt(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags, uint mode);
-    // Darwin arm64's first variadic argument is on the stack. Fill the unused argument registers so mode is placed there.
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenAtDarwinArm64(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags,
-        uint register3, uint register4, uint register5, uint register6, uint register7, uint mode);
     [DllImport("libc", EntryPoint = "linkat", SetLastError = true)]
     private static extern int LinkAt(int source, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int target,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, int flags);
@@ -183,8 +173,4 @@ internal sealed class MediaObjectDirectory : IDisposable
     private static extern void Free(nint memory);
     [DllImport("libc", EntryPoint = "flock", SetLastError = true)]
     private static extern int Flock(int file, int operation);
-    [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
-    private static extern int Chmod(int file, uint mode);
-    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
-    private static extern int Sync(int descriptor);
 }

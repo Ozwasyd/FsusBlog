@@ -15,13 +15,40 @@ internal sealed record DocumentExportAttachment(string Name, MediaFormat Format,
     internal static bool PrivateTransport(HttpContext ctx) =>
         ctx.Request.IsHttps || ctx.Connection.RemoteIpAddress is { } peer && IPAddress.IsLoopback(peer);
 
-    internal static Guid? ReadSelection(HttpContext ctx, bool allowed)
+    internal static Guid? ReadSelection(HttpContext ctx, bool allowed) =>
+        ReadSelections(ctx, allowed ? 1 : 0) is [var asset] ? asset : null;
+
+    internal static Guid[] ReadSelections(HttpContext ctx, int limit)
     {
-        if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return null;
-        if (!allowed || values.Count != 1 || values[0] is not { Length: 36 } text ||
-            !Guid.TryParseExact(text, "D", out var asset) || asset == Guid.Empty || asset.ToString("D") != text)
-            throw new BusinessException(Rejection.Invalid, "Choose one private image for a Word, HTML or EPUB download.");
-        return asset;
+        if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return [];
+        if (values.Count != 1 || values[0] is not { } text || text.Length > limit * 37 - 1) throw InvalidSelection();
+        var entries = text.Split(',');
+        if (entries.Length > limit) throw InvalidSelection();
+        var ids = new Guid[entries.Length];
+        for (var index = 0; index < entries.Length; index++)
+            if (!Guid.TryParseExact(entries[index], "D", out ids[index]) || ids[index] == Guid.Empty ||
+                ids[index].ToString("D") != entries[index] || ids.AsSpan(0, index).Contains(ids[index]))
+                throw InvalidSelection();
+        return ids;
+    }
+
+    private static BusinessException InvalidSelection() =>
+        new(Rejection.Invalid, "Select distinct saved images within the document format limit.");
+
+    internal static async Task<DocumentExportAttachment[]> ReadAll(NpgsqlConnection db, NpgsqlTransaction tx, MediaFiles? files,
+        Guid owner, int article, long revision, Guid[] assets, CancellationToken ct)
+    {
+        var images = new DocumentExportAttachment[assets.Length];
+        int size = 0;
+        for (var index = 0; index < assets.Length; index++)
+        {
+            var image = await Read(db, tx, files, owner, article, revision, assets[index], ct);
+            size += image.Bytes.Length;
+            if (size > MaximumBytes)
+                throw new BusinessException(Rejection.Invalid, "The selected images exceed the combined 512 KiB limit.");
+            images[index] = image;
+        }
+        return images;
     }
 
     internal static async Task<DocumentExportAttachment> Read(NpgsqlConnection db, NpgsqlTransaction tx, MediaFiles? files,

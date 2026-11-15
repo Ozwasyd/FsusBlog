@@ -6,10 +6,12 @@ import { listRecentOpens } from '../../../Contracts/author-recent-opens'
 import { ApiError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, identityEpoch } from '../session'
+import type { WorkspaceGroup } from './workspaceRegistry'
 
 const props = defineProps<{
   disabled: boolean
-  activate: (id: number, revision: bigint, current: () => boolean) => Promise<boolean>
+  otherGroup?: WorkspaceGroup
+  activate: (id: number, revision: bigint, current: () => boolean, targetGroup?: WorkspaceGroup) => Promise<boolean>
   articleHref: (id: number) => string
 }>()
 const emit = defineEmits<{ activated: [id: number] }>()
@@ -111,7 +113,7 @@ function onKeys(event: Event) {
   }
   if (event.key === 'Enter' && !event.altKey && !event.shiftKey) {
     event.preventDefault()
-    if (!event.repeat && selected.value) void choose(selected.value, event.metaKey || event.ctrlKey)
+    if (!event.repeat && selected.value) void choose(selected.value, event.metaKey || event.ctrlKey ? 'browser' : 'workspace')
     return
   }
   if (!rows.value.length || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
@@ -126,12 +128,14 @@ function onKeys(event: Event) {
   if (selected.value) document.getElementById(optionId(selected.value.id))?.scrollIntoView({ block: 'nearest' })
 }
 
-async function choose(row: Result, separate: boolean) {
-  if (busy.value || props.disabled) return
+async function choose(row: Result, destination: 'workspace' | 'browser' | 'other-group') {
+  const targetGroup = destination === 'other-group' ? props.otherGroup : undefined
+  if (busy.value || props.disabled || destination === 'other-group' && !targetGroup) return
   const identity = identityEpoch.value, credential = credentialEpoch.value, handle = currentSession.value?.siteSessionId
   if (!handle || !current(handle, identity, credential)) return
 
   // Reserve a browser tab inside the native gesture, before the async ownership check.
+  const separate = destination === 'browser'
   const child = separate ? window.open('about:blank', '_blank') : null
   if (child) child.opener = null
   if (separate && !child) {
@@ -160,7 +164,7 @@ async function choose(row: Result, separate: boolean) {
       if (child.closed) return
       child.location.replace(new URL(props.articleHref(row.id), location.origin).href)
     } else {
-      if (!await props.activate(row.id, confirmed.revision, valid)) {
+      if (!await props.activate(row.id, confirmed.revision, valid, targetGroup)) {
         if (valid()) failure.value = 'Could not open this article. Search again to continue.'
         return
       }
@@ -214,12 +218,14 @@ onBeforeUnmount(() => { cancelAction(); window.removeEventListener('keydown', sh
     <p v-if="failure" role="alert">{{ failure }}</p>
     <ul :id="listId" v-show="rows.length" class="quick-results" role="listbox" aria-label="Articles" :aria-busy="busy">
       <li v-for="(row, at) in rows" :id="optionId(row.id)" :key="row.id" role="option" :aria-selected="at === index"
-        @mousedown.prevent @click="index = at; void choose(row, false)">
+        @mousedown.prevent @click="index = at; void choose(row, 'workspace')">
         <span>{{ row.title }}</span>
         <small>{{ row.state ? labels[row.state] : 'Opened' }} · {{ clock.format(row.at) }}</small>
       </li>
     </ul>
     <template #footer>
+      <ElButton v-if="otherGroup" native-type="button" :disabled="!selected || busy || disabled"
+        @click="selected && choose(selected, 'other-group')">Open in other group</ElButton>
       <ElButton v-if="failure" native-type="button" text @click="retry++; nextTick(() => search?.focus())">Refresh results</ElButton>
       <ElButton native-type="button" @click="close">Cancel</ElButton>
     </template>

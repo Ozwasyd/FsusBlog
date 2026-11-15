@@ -165,7 +165,7 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 2026-11-15 使用已独立校验的 `ecbff9d` 发布包，在 PostgreSQL 18.7 上通过回滚与首发两种演练。回滚模式在原库和隔离库之间逐项比对 44 条记录，复验三条原始事件 JSON 的摘要和 21 条投递键。副本恢复后公开修订 3、发布 `900000003` 和权利 `702`。前两次发布坐标被拒绝，第二次发布的内容不出现在公开页面或搜索中。两个模式都完成重启摘要复验、停止后的全表及序列比较，并清理各自拥有的数据库、副本和临时目录。见 `artifacts/native-migration/legacy-runtime.7jHj6mG1/run.txt` 和 `artifacts/native-migration/legacy-runtime-rollback-native-20261115T022901Z.log`。
 
-### 启用已审核的即时发布文章
+### 启用已审核的即时发布及公开回滚文章
 
 对已经过 `legacy import verify` 的 PostgreSQL 隔离投影，可在独立运行副本启用最多 32 篇文章。计划版本 3 要求每篇只有首次即时发布，版本 4 允许首发文章和依次完成即时首发、普通再发布的文章同批启用，并逐篇核对发布历史。两种计划均要求完整修订、发布坐标、对应权利、每次发布的原出站事件和七条已完成的投递边，并核对当前权利与最后一次公开快照。附件、定时发布、责任快照、已启用的证明绑定及其他未转换的有效数据仍会阻塞启用。旧版管理员操作者、出站事件及投递边留在隔离库。
 
@@ -179,13 +179,15 @@ release_args=("$plan" "$plan_sha256" "$quarantine_backup" "$quarantine_backup_sh
 "${migrate[@]}" legacy import release-activate "${release_args[@]}" "$release_approval" "$approved_sha256"
 ```
 
-启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 的公开回滚仍须保留并转换旧责任治理、历史责任快照和对应的公开读取契约。当前启动副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
+启用在同一事务中复制核验过的业务行、推进相应序列并做独立回读。服务开始写入前，同一审批可复验完整提交；部分状态或任何其他基线变更均被拒绝。原隔离库保持禁用，运行副本也没有新增登录权限。计划版本 5 另支持一篇有完整即时首发、普通再发布和公开回滚的文章。须先在运行副本停服执行 `legacy release-origin-schema`，再创建基线备份。范围限于已核验的两条原责任快照、无额外站点配置或旧证明、无独立署名或评审及证据条目、无生效时间的历史。原责任、发布与投递坐标、旧操作者 ID 及主体验证摘要随同审批写入离线来源关系。公开当前及历史责任清单沿用旧路径，仅在文章公开时读取；缺省作者使用冻结 v1 的 `Fsu`。运行副本不会推定 v2 管理员替代旧责任或签发旧内容证明。完整 v1 归档认证、旧会话废止、其余历史和生产切换仍需独立验收。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate` 从原生旧库归档恢复一篇首发文章，再运行正式离线命令。另一个库实地恢复了启用前基线和非空启用结果。替换隔离来源、替换为同站点的另一物理目标库及修改权利均被拒绝。恢复出的运行副本经真实 Kestrel 验证公开 HTML、AEDS、权利、分类、标签别名及搜索，重启前后读回相同。原隔离库仍拒绝启动，临时资源已清理。见 `artifacts/legacy-first-release-activation-967805c/native-activation-final.log`。
 
 PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢复首发与再发布链。两条原事件和 14 条投递边仍由隔离库保管。正式命令启用运行副本并接受同一审批的复验，修改已被取代的第一条修订会使复验失败。再次归档并恢复后的 Kestrel 返回修订 2、发布 `900000002` 和权利 `701`，拒绝前一发布的公开关联与证明坐标。相同构建也通过首发启用，并拒绝把版本 5 的责任快照作为普通再发布启用。见 `artifacts/legacy-republish-activation-72d684d/native-suite-status-2.txt`。
 
 `legacy-runtime.sh --activate-mixed` 在同一受审核的版本 4 批次处理两篇文章。隔离库保全三次发布、三个原事件和 21 条终态投递边。运行副本从备份还原后，Kestrel 返回再发布文章的 `(42, 2, 900000002, 701)` 和同期首发文章的 `(43, 1, 900000003, 702)`，依次对应文章、修订、发布和权利快照。见 `artifacts/legacy-mixed-release-99abb41/native-activate-mixed-2.log`。
+
+`legacy-runtime.sh --activate-rollback` 在 PostgreSQL 18.7 从旧库归档恢复后成功完成启用、备份和回读。来源关系保留三个发布、原操作者 `7/8/7`、责任快照 `799/无/802`、三个事件和 21 条投递边。Kestrel 恢复后返回当前及三条已发布修订的旧责任 JSON，查找未知坐标或在文章撤出公开坐标后读取返回 404。改动旧操作者后拒绝复验，恢复记录后同一审批可复验。见 `artifacts/legacy-v5-accountability-6eccdaf/native-activate-rollback-2.log`。
 
 ### 离线验看附件来源
 

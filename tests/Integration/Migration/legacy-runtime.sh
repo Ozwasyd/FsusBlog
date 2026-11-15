@@ -6,6 +6,7 @@ repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$repo"
 fixture="$repo/tests/Integration/Migration"
 activate=false
+activate_rollback=false
 republish_profile=false
 mixed_profile=false
 expected_articles=1
@@ -26,12 +27,15 @@ case "$# ${1:-}" in
         fi
         public_expectation=(42 2 900000002 701 12 'Work in progress' 'In progress' 'Public' 'published ☃' 'Second public summary' --republish)
         ;;
-    '1 --rollback')
+    '1 --rollback'|'1 --activate-rollback')
         profile=rollback plan_version=5 expected_publications=3 rollback_profile=true
+        if [[ "$1" == --activate-rollback ]]; then
+            activate=true activate_rollback=true profile=rollback-activated
+        fi
         source_overlays=("$fixture/legacy-republish-outbox-fixture.sql" "$fixture/legacy-rollback-outbox-fixture.sql")
         public_expectation=(42 3 900000003 702 11 'News' 'Blog News' 'First' 'first' 'First public summary' --rollback)
         ;;
-    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--rollback|--activate|--activate-republish|--activate-mixed|--activate-rollback]\n' "$0" >&2; exit 2 ;;
 esac
 source_fixtures=("$fixture/legacy-source-fixture.sql" "$fixture/legacy-shared-rights-fixture.sql"
     "$fixture/legacy-article-outbox-fixture.sql" "${source_overlays[@]}")
@@ -117,7 +121,7 @@ source_db=legacy_runtime_v1
 quarantine_db=fsusv2_import_runtime_quarantine
 runtime_db=legacy_runtime_v2
 restore_db=legacy_runtime_v2_restore
-if [[ "$activate" == true ]]; then
+if [[ "$activate" == true || "$rollback_profile" == true ]]; then
     v1_prefix="fsusv2_import_$(openssl rand -hex 12)"
     source_db="${v1_prefix}_source"
     recovered_source="${v1_prefix}_source_restore"
@@ -144,22 +148,32 @@ for db in "$source_db" "$quarantine_db" "$runtime_db" "$restore_db"; do
     psql_db postgres -c "CREATE DATABASE $db TEMPLATE template0"
 done
 for source_fixture in "${source_fixtures[@]}"; do psql_db "$source_db" -f "$source_fixture"; done
+if [[ "$rollback_profile" == true ]]; then
+    psql_db "$source_db" -c 'CREATE TABLE public.sys_systemconfig (key varchar(64) PRIMARY KEY, value varchar(512) NOT NULL)'
+fi
 if [[ "$republish_profile" == true ]]; then
     # Both actual publications have null responsibility. The v1 policy digest excludes the proof-binding flag.
     psql_db "$source_db" -c "DELETE FROM article_responsibility_snapshot; UPDATE article_rights_snapshot SET proof_binding_enabled=false;
         UPDATE article_rights_policy SET proof_binding_enabled=false;
         INSERT INTO tag_url_alias VALUES ('IN PROGRESS',22,'In progress','2026-09-07 00:00:00')"
 fi
-if [[ "$activate" == true ]]; then
+if [[ "$activate" == true || "$rollback_profile" == true ]]; then
     psql_db postgres -c "CREATE DATABASE $recovered_source TEMPLATE template0"
-    psql_db postgres -c "CREATE DATABASE $restored_seed TEMPLATE template0"
-    mkdir -m 700 "$scratch/v1-backup" "$scratch/approval"
+    mkdir -m 700 "$scratch/v1-backup"
     PYTHONDONTWRITEBYTECODE=1 python3 "$fixture/legacy-source-backup.py" "$source_db" "$recovered_source" "$scratch/v1-backup" \
         > "$evidence/legacy-source-restore.json"
     source_db="$recovered_source"
 fi
+if [[ "$activate" == true ]]; then
+    psql_db postgres -c "CREATE DATABASE $restored_seed TEMPLATE template0"
+    mkdir -m 700 "$scratch/approval"
+fi
 bootstrap "$quarantine_db"
 bootstrap "$runtime_db"
+if [[ "$activate_rollback" == true ]]; then
+    migrate_db "$runtime_db" legacy release-origin-schema > "$evidence/release-origin-schema.log"
+    [[ "$(psql_db "$runtime_db" -Atc 'SELECT count(*) FROM public.legacy_release_origin')" == 0 ]]
+fi
 quarantine_site=$(site_id "$quarantine_db")
 runtime_site=$(site_id "$runtime_db")
 [[ -n "$quarantine_site" && -n "$runtime_site" && "$quarantine_site" != "$runtime_site" ]]
@@ -235,6 +249,9 @@ plan_sha=$(json_hash "$scratch/applied.json" planSha256)
 projection_args=("$scratch/reviewed.json" "$plan_sha" "$quarantine_backup" "$quarantine_backup_sha")
 migrate_db "$quarantine_db" legacy import project "${projection_args[@]}" > "$scratch/projected.json"
 projection_sha=$(json_hash "$scratch/projected.json" projectionSha256)
+if [[ "$activate_rollback" == true ]]; then
+    source_admin_sha=$(json_hash "$scratch/reviewed.json" sourceAdminIdentitySha256)
+fi
 verify_quarantine() {
     FSUSBLOG_IMPORT_DB="$(dsn "$quarantine_db");Options=-c default_transaction_read_only=on" \
         migrate_db "$quarantine_db" legacy import verify "${projection_args[@]}" > "$scratch/quarantine-checked.json"
@@ -313,29 +330,79 @@ transfer() {
         -v copy_out="$mode" -v source_seal="$seal" -v interrupt_transfer="$interrupt" -v rollback_profile="$rollback_profile" -v republish_profile="$republish_profile" -v mixed_profile="$mixed_profile" \
         -f "$fixture/legacy-runtime-transfer.sql")
 }
+check_release_origin() {
+    local db=$1 output=$2
+    psql_db "$db" -At -v plan_sha="$plan_sha" -v projection_sha="$projection_sha" -v source_admin_sha="$source_admin_sha" \
+        > "$output" <<'ORIGIN_ROWS'
+SELECT jsonb_build_array(article_id,revision,publication_id,source_revision_id,source_actor_id,source_rollback_revision_id,
+    rollback_reason,responsibility->>'id',jsonb_array_length(evidence->'edges'),manifest->>'responsibilitySnapshotId',
+    manifest->'legacyFallback',manifest #>> '{authors,0,name}',evidence #> '{rights,proof_binding_enabled}',
+    evidence ?& ARRAY['publication','rights','event','edges'],
+    plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha' AND source_admin_identity_sha256=:'source_admin_sha',
+    encode(sha256(convert_to(jsonb_build_array(responsibility,evidence,manifest)::text,'UTF8')),'hex'))
+FROM public.legacy_release_origin ORDER BY article_id,revision;
+ORIGIN_ROWS
+    python3 - "$output" <<'CHECK_ORIGIN_ROWS'
+import json
+import re
+import sys
+from pathlib import Path
+
+rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+assert [row[:12] for row in rows] == [
+    [42, 1, 900000001, 5000000001, 7, None, None, '799', 7, '799', False, 'Fsu'],
+    [42, 2, 900000002, 5000000002, 8, None, None, None, 7, None, True, 'Fsu'],
+    [42, 3, 900000003, 5000000003, 7, 5000000001, 'Restore the original reviewed article', '802', 7, '802', False, 'Fsu'],
+]
+for row in rows:
+    # The frozen SQLite-compatible projection can encode the same true value as the integer 1.
+    assert row[12] in (True, 1) and row[13:15] == [True, True] and re.fullmatch(r'[0-9a-f]{64}', row[15]), row
+CHECK_ORIGIN_ROWS
+}
 transfer "$quarantine_db" "$quarantine_oid" "$quarantine_site" "$scratch/transfer" true true false
 if [[ "$activate" == true ]]; then
-    export FSUSBLOG_RELEASE_ACTIVATION_DB="$(dsn "$runtime_db")"
+    FSUSBLOG_RELEASE_ACTIVATION_DB=$(dsn "$runtime_db")
+    export FSUSBLOG_RELEASE_ACTIVATION_DB
     seed="$scratch/backups/runtime-seed"
     pg_restore --no-owner --no-privileges --exit-on-error --single-transaction -d "$restored_seed" "$seed/database.dump"
     FSUSBLOG_DB="$(dsn "$restored_seed")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
     release_plan="$scratch/approval/release.json"
     launch=("$runtime_site" "$seed" "$runtime_empty_sha")
     migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "${launch[@]}" > "$release_plan"
+    if [[ "$activate_rollback" == true ]]; then
+        python3 - "$release_plan" <<'CHECK_APPROVED_ORIGIN'
+import json
+import re
+import sys
+from pathlib import Path
+
+approved = json.loads(Path(sys.argv[1]).read_text())
+origin, = [row for row in approved['relations'] if row['name'] == 'legacy_release_origin']
+assert origin['rows'] == 3 and origin['kind'] == 'r' and re.fullmatch(r'[0-9a-f]{64}', origin['sha256']), origin
+CHECK_APPROVED_ORIGIN
+    fi
     release_sha="$(shasum -a 256 "$release_plan" | cut -d' ' -f1)"
     run_release() { migrate_db "$quarantine_db" legacy import release-activate "${projection_args[@]}" "${launch[@]}" "$release_plan" "$release_sha"; }
     if FSUSBLOG_RELEASE_ACTIVATION_DB="$(dsn "$restored_seed")" run_release > "$evidence/release-wrong-target.log" 2>&1; then exit 1; fi
     rg -Fq 'approved release activation plan differs' "$evidence/release-wrong-target.log"
     if FSUSBLOG_IMPORT_DB="$(dsn "$restored_seed")" run_release > "$evidence/release-wrong-source.log" 2>&1; then exit 1; fi
     rg -Fq 'not the original staged database and site' "$evidence/release-wrong-source.log"
+    policy=$(psql_db "$quarantine_db" -Atc 'SELECT rights_statement FROM fsus_legacy_candidate.shadow_article_rights_policy WHERE article_id=42')
     psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='Unreviewed change' WHERE article_id=42"
     if run_release > "$evidence/release-wrong-rights.log" 2>&1; then exit 1; fi
     rg -Fq 'Staged source has changed: shadow_article_rights_policy' "$evidence/release-wrong-rights.log"
-    policy='Retained fixture rights.'
-    if [[ "$republish_profile" == true ]]; then policy='Updated rights'; fi
-    psql_db "$quarantine_db" -c "UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement='$policy' WHERE article_id=42"
+    psql_db "$quarantine_db" -v original_policy="$policy" <<'RESTORE_POLICY'
+UPDATE fsus_legacy_candidate.shadow_article_rights_policy SET rights_statement=:'original_policy' WHERE article_id=42;
+RESTORE_POLICY
     FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$seed" "$runtime_empty_sha" "$scratch/media"
     run_release > "$evidence/release-activated.json"
+    if [[ "$activate_rollback" == true ]]; then
+        check_release_origin "$runtime_db" "$evidence/activated-release-origin.jsonl"
+        psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=8 WHERE article_id=42 AND revision=3'
+        if run_release > "$evidence/release-wrong-origin.log" 2>&1; then exit 1; fi
+        rg -Fq 'match neither the empty rollback nor this complete approved batch' "$evidence/release-wrong-origin.log"
+        psql_db "$runtime_db" -c 'UPDATE public.legacy_release_origin SET source_actor_id=7 WHERE article_id=42 AND revision=3'
+    fi
     if [[ "$republish_profile" == true ]]; then
         psql_db "$runtime_db" -c "UPDATE public.article_revision SET body='Unapproved first revision' WHERE article_id=42 AND revision=1"
         if run_release > "$evidence/release-wrong-history.log" 2>&1; then exit 1; fi
@@ -352,9 +419,9 @@ assert applied['publications'] == int(sys.argv[4]) and not applied['legacyCandid
 RELEASE_REPLAY
 else
     if [[ "$rollback_profile" == true ]]; then
-        if migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "$runtime_site" \
+        if FSUSBLOG_RELEASE_ACTIVATION_DB="$(dsn "$runtime_db")" migrate_db "$quarantine_db" legacy import release-plan "${projection_args[@]}" "$runtime_site" \
             "$scratch/backups/runtime-seed" "$runtime_empty_sha" > "$evidence/release-rollback-refused.log" 2>&1; then exit 1; fi
-        rg -Fq 'requires a complete batch of immediate first publications or ordinary republishes' "$evidence/release-rollback-refused.log"
+        rg -Fq 'Rollback activation requires the offline legacy release-origin schema.' "$evidence/release-rollback-refused.log"
     fi
     if transfer "$runtime_db" "$runtime_oid" "$quarantine_site" "$scratch/transfer" false false false > "$evidence/wrong-site.log" 2>&1; then exit 1; fi
     rg -Fq 'Rehearsal transfer database identity or ownership lock differs' "$evidence/wrong-site.log"
@@ -371,7 +438,7 @@ migrate_db "$runtime_db" verify
 runtime_backup_sha=$(capture "$runtime_db" runtime-ready)
 runtime_backup="$scratch/backups/runtime-ready"
 python3 tools/site-backup.py verify "$runtime_backup" "$runtime_backup_sha"
-python3 - "$scratch/backups/runtime-seed/manifest.json" "$runtime_backup/manifest.json" "$scratch/transfer" "$activate" <<'PY'
+python3 - "$scratch/backups/runtime-seed/manifest.json" "$runtime_backup/manifest.json" "$scratch/transfer" "$activate" "$activate_rollback" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -381,12 +448,13 @@ def read(path):
     assert not site["media"]
     return {row["name"]: row for row in site["relations"]}
 
-before, after, exported, activated = sys.argv[1:]
+before, after, exported, activated, activated_rollback = sys.argv[1:]
 expected = {row.stem for row in Path(exported).glob("*.csv")} | {
     "blog_user", "article_id_seq", "category_id_seq", "tag_id_seq", "article_publication_publication_id_seq",
     "article_publication_rights_id_seq",
 }
 if activated == 'true': expected.remove('blog_user')
+if activated_rollback == 'true': expected.add('legacy_release_origin')
 left, right = read(before), read(after)
 assert left.keys() == right.keys()
 assert {name for name in left if left[name] != right[name]} == expected
@@ -397,6 +465,11 @@ PY
 pg_restore --no-owner --no-privileges --exit-on-error --single-transaction -d "$restore_db" "$runtime_backup/database.dump"
 [[ "$(site_id "$restore_db")" == "$runtime_site" ]]
 FSUSBLOG_DB="$(dsn "$restore_db")" python3 tools/site-backup.py verify-restored "$runtime_backup" "$runtime_backup_sha" "$scratch/restored-media"
+if [[ "$activate_rollback" == true ]]; then
+    check_release_origin "$restore_db" "$evidence/restored-release-origin.jsonl"
+    cmp "$evidence/activated-release-origin.jsonl" "$evidence/restored-release-origin.jsonl"
+    shasum -a 256 "$evidence/restored-release-origin.jsonl" >> "$evidence/run.txt"
+fi
 
 start_server() {
     (
@@ -441,6 +514,15 @@ probe_server() {
     done
     [[ "$found" == yes ]]
     env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" "${public_expectation[@]}" > "$evidence/$label-probe.sha256"
+    if [[ "$activate_rollback" == true ]]; then
+        env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "$url" > "$evidence/$label-accountability.sha256"
+        if [[ "$label" == restarted ]]; then
+            # Remove the restored scratch article's active coordinate while the original Kestrel snapshot is still resident.
+            psql_db "$served_db" -c 'BEGIN; UPDATE public.article SET published_revision=NULL WHERE id=42;
+                DELETE FROM public.article_publication WHERE article_id=42; COMMIT;'
+            env -i PATH="$PATH" node "$fixture/legacy-runtime-accountability.mjs" "$url" --hidden > "$evidence/hidden-accountability.sha256"
+        fi
+    fi
     if [[ "$mixed_profile" == true ]]; then
         env -i PATH="$PATH" node "$fixture/legacy-runtime-public.mjs" "$url" 43 1 900000003 702 11 'News' 'Blog News' \
             'Independent masthead' 'first' 'Different first summary' >> "$evidence/$label-probe.sha256"
@@ -450,6 +532,9 @@ probe_server() {
 probe_server first
 probe_server restarted
 cmp "$evidence/first-probe.sha256" "$evidence/restarted-probe.sha256"
+if [[ "$activate_rollback" == true ]]; then
+    cmp "$evidence/first-accountability.sha256" "$evidence/restarted-accountability.sha256"
+fi
 FSUSBLOG_DB="$(dsn "$runtime_db")" python3 tools/site-backup.py verify-restored "$runtime_backup" "$runtime_backup_sha" "$scratch/media"
 verify_quarantine
 printf 'plan_sha256=%s\nprojection_sha256=%s\nruntime_manifest_sha256=%s\n' "$plan_sha" "$projection_sha" "$runtime_backup_sha" >> "$evidence/run.txt"

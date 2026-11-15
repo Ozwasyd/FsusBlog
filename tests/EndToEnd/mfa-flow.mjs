@@ -1,17 +1,14 @@
 import assert from 'node:assert/strict'
-import { createHmac } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
+import { enableAuthenticator, launchIdentityBrowser, readSeed, request, totp } from './site-authentication-fixture.mjs'
 
-const source = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium, request } = source('@playwright/test')
 const origin = process.env.FSUSBLOG_TEST_MFA_URL
 const ticket = process.env.FSUSBLOG_TEST_MFA_TICKET
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/mfa-browser')
 assert(origin && ticket, 'Provide an isolated WebAuthn + TOTP origin and an unused passkey provisioning ticket.')
 await mkdir(evidence, { recursive: true })
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+const browser = await launchIdentityBrowser()
 const responses = []
 const faults = []
 const start = new Date().toISOString()
@@ -32,12 +29,7 @@ try {
     responses.push([url.pathname, response.status()])
     if (response.status() >= 500) faults.push(url.pathname + ' returned ' + response.status())
   })
-  const cdp = await context.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
+  await enableAuthenticator(context, page)
   const waitApi = (path, method = 'POST') => page.waitForResponse(response => response.url() === origin + path &&
     response.request().method() === method, { timeout: 9_000 })
   const logout = async () => {
@@ -95,7 +87,9 @@ try {
   await page.getByRole('button', { name: 'Set up authenticator', exact: true }).click()
   const seedNode = page.getByTestId('mfa-seed')
   await seedNode.waitFor({ timeout: 9_000 })
-  const secret = readSeed(await seedNode.textContent())
+  const seed = await seedNode.textContent()
+  assert.match(seed, /^[A-Z2-7]{32}$/)
+  const secret = readSeed(seed)
   const step = Math.floor(Date.now() / 30_000)
   const setupCode = totp(secret, step)
   const beforeSetup = await sessionCookie()
@@ -192,27 +186,3 @@ try {
   }, null, 2))
 }
 if (failure) throw failure
-
-function readSeed(text) {
-  assert.match(text, /^[A-Z2-7]{32}$/)
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-  let bits = 0
-  let value = 0
-  const bytes = []
-  for (const letter of text) {
-    bits += 5
-    value = (value << 5) | alphabet.indexOf(letter)
-    if (bits >= 8) {
-      bits -= 8
-      bytes.push((value >> bits) & 255)
-    }
-  }
-  return Buffer.from(bytes)
-}
-function totp(secret, step) {
-  const bytes = Buffer.alloc(8)
-  bytes.writeBigUInt64BE(BigInt(step))
-  const mac = createHmac('sha1', secret).update(bytes).digest()
-  const offset = mac.at(-1) & 15
-  return ((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0')
-}

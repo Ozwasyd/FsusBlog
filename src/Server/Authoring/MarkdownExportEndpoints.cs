@@ -20,14 +20,14 @@ internal static class MarkdownExportEndpoints
     {
         Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
-            (title, body, _, _, attachment, ct) => WordDocumentExport.Write(title, body, ct, attachment: attachment),
-            allowAttachment: true);
+            (title, body, _, _, attachment, ct) => WordDocumentExport.Write(title, body, ct, attachment: attachment.SingleOrDefault()),
+            attachmentLimit: 1);
         Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
-            (title, body, _, _, attachment, ct) => HtmlDocumentExport.Write(title, body, ct, attachment: attachment),
-            allowAttachment: true, contentSecurityPolicy: HtmlDocumentExport.ResponsePolicy);
+            (title, body, _, _, attachment, ct) => HtmlDocumentExport.Write(title, body, attachment, ct),
+            attachmentLimit: HtmlDocumentExport.MaximumImages, contentSecurityPolicy: HtmlDocumentExport.ResponsePolicy);
         Attach("/api/v2/authoring/draft/{id:int}/export.epub", EpubDocumentExport.ContentType, "article.epub",
-            (title, body, _, happenedAt, attachment, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct, attachment: attachment),
-            allowAttachment: true);
+            (title, body, _, happenedAt, attachment, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct, attachment: attachment.SingleOrDefault()),
+            attachmentLimit: 1);
 
         if (pdf is not null)
             Download("/api/v2/authoring/draft/{id:int}/export.pdf", PdfDocumentExport.ContentType, "article.pdf",
@@ -43,12 +43,12 @@ internal static class MarkdownExportEndpoints
                 }, policy: PdfDocumentExport.RatePolicy);
 
         void Attach(string route, string mediaType, string filename,
-            Func<string, string, long, DateTimeOffset, DocumentExportAttachment?, CancellationToken, byte[]> render,
-            bool allowAttachment = false, string? contentSecurityPolicy = null)
+            Func<string, string, long, DateTimeOffset, DocumentExportAttachment[], CancellationToken, byte[]> render,
+            int attachmentLimit = 0, string? contentSecurityPolicy = null)
             => Download(route, mediaType, filename, (ctx, store, token, source, ct) =>
                 store.WithSession(token, true, async (db, tx, actor) =>
                 {
-                    if (source.Attachment is not null)
+                    if (source.Attachments.Length != 0)
                     {
                         if (!DocumentExportAttachment.PrivateTransport(ctx))
                             throw ArticleMediaStore.Missing();
@@ -56,14 +56,14 @@ internal static class MarkdownExportEndpoints
                     }
                     await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
                     var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
-                    var attachment = source.Attachment is Guid asset ? await DocumentExportAttachment.Read(db, tx,
-                        app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, asset, ct) : null;
+                    var attachment = source.Attachments.Length == 0 ? [] : await DocumentExportAttachment.ReadAll(db, tx,
+                        app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, source.Attachments, ct);
                     return render(title, body, source.Selected, happenedAt, attachment, ct);
-                }, ct), contentSecurityPolicy, allowAttachment: allowAttachment);
+                }, ct), contentSecurityPolicy, attachmentLimit: attachmentLimit);
 
         void Download(string route, string mediaType, string filename,
             Func<HttpContext, Store, string?, DownloadSource, CancellationToken, Task<byte[]>> render,
-            string? contentSecurityPolicy = null, string policy = "command", bool allowAttachment = false)
+            string? contentSecurityPolicy = null, string policy = "command", int attachmentLimit = 0)
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
@@ -72,18 +72,18 @@ internal static class MarkdownExportEndpoints
                 if (id <= 0 || selected > expected)
                     throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
 
-                var attachment = DocumentExportAttachment.ReadSelection(ctx, allowAttachment);
+                var attachment = DocumentExportAttachment.ReadSelections(ctx, attachmentLimit);
                 var document = await render(ctx, store, ctx.Request.Cookies[cookie], new(id, expected, selected, attachment), ct);
                 ct.ThrowIfCancellationRequested();
                 ctx.Response.Headers.CacheControl = "private, no-store";
                 if (contentSecurityPolicy is not null)
-                    ctx.Response.Headers.ContentSecurityPolicy = attachment is null ? contentSecurityPolicy : HtmlDocumentExport.ImageResponsePolicy;
+                    ctx.Response.Headers.ContentSecurityPolicy = attachment.Length == 0 ? contentSecurityPolicy : HtmlDocumentExport.ImageResponsePolicy;
                 return Results.Bytes(document, mediaType, filename);
             }).RequireRateLimiting(policy);
         }
     }
 
-    private readonly record struct DownloadSource(int Id, long Expected, long Selected, Guid? Attachment);
+    private readonly record struct DownloadSource(int Id, long Expected, long Selected, Guid[] Attachments);
 
     private static Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(
         Store store, string? token, DownloadSource source, CancellationToken ct)

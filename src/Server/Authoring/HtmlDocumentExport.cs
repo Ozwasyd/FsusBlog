@@ -11,7 +11,7 @@ namespace FsusBlog.V2.Server.Authoring;
 internal static class HtmlDocumentExport
 {
     internal const string ContentType = "text/html; charset=utf-8";
-    internal const int MaximumOutput = 2 * 1024 * 1024;
+    internal const int MaximumOutput = 2 * 1024 * 1024, MaximumImages = 4;
     private const string DocumentPolicy = "default-src 'none'; base-uri 'none'; form-action 'none'";
     private const string DocumentImagePolicy = DocumentPolicy + "; img-src data:";
     internal const string ResponsePolicy = DocumentPolicy + "; frame-ancestors 'none'";
@@ -23,11 +23,14 @@ internal static class HtmlDocumentExport
         { "mermaid", "katex", "latex", "math" };
 
     internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true, DocumentExportAttachment? attachment = null)
+        => Write(title, body, attachment is null ? [] : [attachment], ct, includeTables);
+
+    internal static byte[] Write(string title, string body, DocumentExportAttachment[] attachments, CancellationToken ct, bool includeTables = true)
     {
-        var content = RenderBody(title, body, "HTML", ct, includeTables);
-        var documentPolicy = attachment is null ? DocumentPolicy : DocumentImagePolicy;
-        if (attachment is not null)
-            content += attachment.Figure($"data:{attachment.ContentType};base64,{Convert.ToBase64String(attachment.Bytes)}", xhtml: false);
+        var content = new StringBuilder(RenderBody(title, body, "HTML", ct, includeTables));
+        var documentPolicy = attachments.Length == 0 ? DocumentPolicy : DocumentImagePolicy;
+        foreach (var attachment in attachments)
+            content.Append(attachment.Figure($"data:{attachment.ContentType};base64,{Convert.ToBase64String(attachment.Bytes)}", xhtml: false));
         var heading = HtmlEncoder.Default.Encode(title);
         var html = $"""
             <!doctype html>

@@ -421,11 +421,13 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
   assert(granted.principal.generation > generation)
   assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage', 'audit.read']), granted.principal.generation)
   await expectPanelHidden(page, 'Moderation queue')
-  const grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  let grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert(grantedCookie.value !== priorCookie.value)
+  const association = WireHeaders.AdminPermissionSession.toLowerCase()
   const status = await checkStatus()
   assert.equal(status.status(), 200)
   assert((await status.headerValue('Cache-Control'))?.includes('no-store'))
+  assert(granted.binding && status.headers()[association] === granted.binding)
   const body = await status.body()
   assertNoCredential(body, grantedCookie.value)
   const observed = decodeAdminOperationsStatus(decodeFrame(body, FrameType.AdminOperationsStatus).payload)
@@ -435,16 +437,37 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
   await page.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
   for (const name of ['Public snapshot', 'Publication watermark', 'Pending publication events'])
     await page.getByText(name, { exact: true }).waitFor()
+
+  await context.clearCookies({ name: adminCookieName })
+  await page.reload()
+  await logIn(page)
+  const expired = await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401, true)
+  grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  const binding = (await snapshot(context)).binding
+  const unavailable = alert('Could not check operations status. Try again.')
+  for (const [code, payload] of [[200, body], [401, expired]]) {
+    await page.route(endpoint, route => route.fulfill({ status: code, body: payload, contentType: 'application/octet-stream',
+      headers: { [association]: granted.binding } }), { times: 1 })
+    assert.equal((await checkStatus()).status(), code)
+    await unavailable.or(displayedSnapshot).or(alert(revokedMessage)).first().waitFor()
+    assert(await unavailable.isVisible(), 'A retired session response must not render or sign out the current administrator.')
+  }
+  assert.equal((await checkStatus()).headers()[association], binding)
+  await displayedSnapshot.waitFor()
+  checks.operationsStatusRejectsOtherSessionBinding = true
   await page.screenshot({ path: join(evidence, 'administrator-operations-status.png') })
 
-  await promisify(execFile)(revoke, [], { timeout: 8_000 })
+  await page.route(endpoint, async route => {
+    const issued = await route.fetch()
+    await promisify(execFile)(revoke, [], { timeout: 8_000 })
+    await route.fulfill({ response: issued })
+  }, { times: 1 })
+  assert.equal((await checkStatus()).status(), 200)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, grantedCookie.value, 401)
   await credentialProbe(adminOrigin.origin + permissions, adminCookieName, grantedCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
-  assert.equal((await checkStatus()).status(), 401)
-  await alert(revokedMessage).waitFor()
-  await displayedSnapshot.waitFor({ state: 'hidden' })
   await logIn(page)
+  checks.operationsStatusRecheckedAfterRevocation = true
   const revoked = await snapshot(context)
   assert(revoked.principal.generation > granted.principal.generation)
   assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage']), revoked.principal.generation)
@@ -773,11 +796,12 @@ async function rejectReplay(context, original) {
   assert(replay.status() >= 400 && replay.status() < 500, 'A completed browser ceremony must be one-use.')
 }
 
-async function credentialProbe(url, name, value, expectedStatus) {
+async function credentialProbe(url, name, value, expectedStatus, capture = false) {
   const probe = await request.newContext()
   try {
     const response = await probe.get(url, { headers: { Cookie: name + '=' + value }, maxRedirects: 0 })
     assert.equal(response.status(), expectedStatus, 'The explicitly selected credential must have its own scoped authority.')
+    if (capture) return await response.body()
   } finally { await probe.dispose() }
 }
 
@@ -795,7 +819,7 @@ async function snapshot(context) {
   const principal = decodeAdminSessionSnapshot(decodeFrame(body, FrameType.AdminSessionSnapshot).payload)
   assert(principal.handle.length > 0 && principal.generation > 0n && principal.expiresAt > BigInt(Date.now()),
     'A real administrator session must have an active principal, generation, and expiration.')
-  return { principal, body }
+  return { principal, body, binding: response.headers()[WireHeaders.AdminPermissionSession.toLowerCase()] }
 }
 
 function assertNoCredential(frame, token) {

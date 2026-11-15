@@ -20,6 +20,8 @@
 
 在已保存草稿的 **Private attachments** 中预览图片后，**Download saved HTML with this image** 会将这张图片放在正文末尾。图片须是该修订关联的已归一化 PNG、JPEG 或 WebP，最多 512 KiB，整个 HTML 仍最多 2 MiB。服务通过 `X-Fsus-Export-Attachment` 选择单张图片，并以当前会话及修订参数核验文章和附件归属、大小与内容摘要。图片作为唯一允许的内嵌数据资源交付，离线打开时无需联网或重新登录。此操作使用即时 HTML 下载入口。
 
+有两至四张附件时，**Download saved HTML with these images** 将列表中的图片全部内嵌。API 在同一请求头中接受按顺序逗号分隔的附件 ID。服务按同一所选修订核验整组图片，图片合计最多 512 KiB。任意图片不可用时，下载整组失败。
+
 `GET /api/v2/authoring/draft/{id}/export.epub` 使用相同授权和两个修订参数。Inspector 的 **Download saved EPUB** 和历史对照的 **Download revision EPUB** 下载 `article.epub`，响应为 `application/epub+zip` 和 `private, no-store`。文件使用可重排的单章 XHTML、目录和正文导航，语言未记录时标为 `und`，正文方向由阅读器按文本确定。包标识根据章节内容生成，修改时间来自所选修订，文件顺序和 ZIP 时间固定。 [EPUB 3.3](https://www.w3.org/TR/epub-33/)
 
 EPUB 使用与 HTML 相同的基础 Markdown，并检查章节的 XHTML 结构。Markdown 内的链接、图片、指定渲染围栏、XML 无法表示的字符、空标题和超出 2 MiB 的章节或文件返回 400。基础文件只含文本和包内导航，字体由阅读器选择。 [EPUB 可访问性元数据](https://www.w3.org/TR/epub-a11y-11/#sec-discov-meta)

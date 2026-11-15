@@ -122,8 +122,11 @@ internal static class AdminIdentityEndpoints
             return Frame(await store.CompleteModerationStepUp(ctx.Request.Cookies[session], input, ct));
         }).RequireRateLimiting(Limit);
         app.MapGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminOperationsStatus(await store.OperationsStatus(ctx.Request.Cookies[session], publications, ct))))
-            .RequireRateLimiting("command");
+        {
+            var result = await store.OperationsStatus(ctx.Request.Cookies[session], publications, ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
+            return Frame(Wire.EncodeAdminOperationsStatus(result.Status));
+        }).RequireRateLimiting("command");
         var batchModeration = app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false);
         app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
             Frame(Wire.EncodeAdminCommentQueue(await store.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct,

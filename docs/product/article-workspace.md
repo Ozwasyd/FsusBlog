@@ -22,7 +22,7 @@
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
 
-「Quick switch articles」或 Ctrl/Cmd+O 打开 FsusUI 对话框。默认列出最近打开的文章，输入标题后读取第一页授权结果。可以用方向键、Home、End 或 Page Up/Down 选择。Enter 在当前工作区激活原所属组或打开文章，Ctrl/Cmd+Enter 在独立标签打开。提交前复核当前会话、权限和修订，已打开编辑器保留未保存内容。取消或账号发生变化会中止尚未完成的激活。离线模式和完整无障碍矩阵仍待验收。 [#2233](https://github.com/Ozwasyd/FsusBlog/issues/2233) · [真实浏览器验收](../../artifacts/workspace-quick-switcher-e75ccdf/chromium-1/article-library-result.json)
+「Quick switch articles」或 Ctrl/Cmd+O 打开 FsusUI 对话框。默认列出最近打开的文章，输入标题后读取第一页授权结果。可以用方向键、Home、End 或 Page Up/Down 选择。Enter 在当前工作区激活原所属组或打开文章，Ctrl/Cmd+Enter 在独立浏览器标签打开。「Open in other group」可将尚未打开的结果放入另一编辑组，已经打开的结果仍回到原标签。提交前复核当前会话、权限和修订，已打开编辑器保留未保存内容。取消或账号发生变化会中止尚未完成的激活。离线模式和完整无障碍矩阵仍待验收。 [#2233](https://github.com/Ozwasyd/FsusBlog/issues/2233) · [真实浏览器验收](../../artifacts/workspace-quick-switcher-e75ccdf/chromium-1/article-library-result.json)
 
 编辑页的「Article library」使用与作者文章管理相同的权限查询，每页取 20 条元数据。可按标题与发布状态筛选。活动文章按文章 ID 标记，即使不在当前结果页也会单独查找并显示。双向箭头和 Home、End 在结果间移动焦点。Enter 使用当前工作区的同一打开命令，Ctrl 或 ⌘+Enter 在独立浏览器标签打开。桌面面板不会改变正文宽度，窄屏使用本地 FsusUI Drawer。关闭后焦点返回入口。全文模糊排序、分类与标签筛选、布局偏好持久化及 10,000 篇浏览器规模验证仍待完成。 [#1853](https://github.com/Ozwasyd/FsusBlog/issues/1853) · [#2231](https://github.com/Ozwasyd/FsusBlog/issues/2231)
 

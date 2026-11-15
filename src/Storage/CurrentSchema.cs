@@ -129,6 +129,7 @@ internal static partial class CurrentSchema
     {
         requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
+        var hasLegacyReleaseOrigin = await HasLegacyReleaseOriginAsync(connection, transaction, cancellationToken);
         if (hasPrivateMediaImportOrigin && !requireArticleMedia.Value)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
         requireSubscription ??= await HasRelationAsync(connection, transaction, SiteSubscriptionRelation, cancellationToken);
@@ -272,6 +273,7 @@ internal static partial class CurrentSchema
             .Concat(hasPropertySnapshots ? PropertySnapshotColumns : [])
             .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion))
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns)
+            .Concat(hasLegacyReleaseOrigin ? [LegacyReleaseOriginColumns] : [])
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
             .Concat(hasCommentReport ? [CommentReportColumns] : [])
@@ -320,6 +322,7 @@ internal static partial class CurrentSchema
             .Concat(PropertyConstraints).Concat(hasPropertySnapshots ? PropertySnapshotConstraints : [])
             .Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
+            .Concat(hasLegacyReleaseOrigin ? LegacyReleaseOriginConstraints : [])
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
             .Concat(hasCommentReport ? CommentReportConstraints : [])

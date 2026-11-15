@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Runtime.InteropServices;
 using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
 using Microsoft.Win32.SafeHandles;
@@ -67,8 +66,8 @@ internal static partial class Migration
         catch { handle.Dispose(); throw; }
     }
 
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenImportChild(SafeFileHandle directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
+    private static int OpenImportChild(SafeFileHandle directory, string path, int flags) =>
+        NativeUnixFile.OpenAt(directory, path, flags);
 
     private static bool IsSha256(string? token) => token is { Length: 64 } && token.All(char.IsAsciiHexDigitLower);
 

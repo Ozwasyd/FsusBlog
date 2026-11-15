@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeEnrollmentBegin } from '../../src/Contracts/passkey.ts'
 import { decodeSitePasskeyManagement, encodeSitePasskeyRemove } from '../../src/Contracts/site-passkey-names.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { addAuthenticator, enableAuthenticator, launchIdentityBrowser } from './site-authentication-fixture.mjs'
 
-const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = requireWeb('@playwright/test')
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 const ticket = process.env.FSUSBLOG_TEST_PASSKEY_TICKET
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/passkey-browser')
@@ -31,14 +29,12 @@ const friendlyName = 'Writing laptop 🔐'
 const securityPath = '/user/identity/mfa'
 let phase = 'start'
 let failure
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+const browser = await launchIdentityBrowser()
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await context.newPage()
   monitor(page)
-  const cdp = await context.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  const firstDevice = await addAuthenticator(cdp)
+  const { cdp, authenticatorId: firstAuthenticatorId } = await enableAuthenticator(context, page)
   let secondCreatedAt
 
   phase = 'provision'
@@ -142,7 +138,7 @@ try {
       const approved = await route.fetch({ maxRedirects: 0 })
       if (approved.status() === 200) {
         assert(!switched, 'The browser approved enrollment more than once.')
-        await cdp.send('WebAuthn.removeVirtualAuthenticator', firstDevice)
+        await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId: firstAuthenticatorId })
         await addAuthenticator(cdp)
         switched = true
       }
@@ -369,13 +365,6 @@ try {
     chromium: browser.version(), phase, checks, responses, errors, exitCode: failure ? 1 : 0 }, null, 2))
 }
 if (failure) throw failure
-
-function addAuthenticator(cdp) {
-  return cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
-}
 
 async function readManagement(context, currentSession) {
   const result = await context.request.get(origin + managementPath, {

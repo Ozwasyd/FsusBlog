@@ -19,11 +19,14 @@ internal static partial class Migration
 
     private static async Task RunLegacyReleaseActivationAsync(NpgsqlConnection source, NpgsqlTransaction sourceTx,
         ImportPlan plan, string planSha, string projectionSha, LegacyReleaseActivationInput input,
-        ProjectionRelation[] projection, List<BackupRelation> business, int verifiedRepublishEvents, CancellationToken ct)
+        ProjectionRelation[] projection, List<BackupRelation> business, int verifiedRepublishEvents, int verifiedRollbackEvents, CancellationToken ct)
     {
         if (input.Site == plan.TargetSiteId)
             throw new InvalidOperationException("The approved runtime site must differ from the source quarantine site.");
-        var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, ct);
+        var rollback = plan.Version == ImportPlanWithRollbackOutboxVersion;
+        var owners = await VerifyLegacyReleaseScopeAsync(source, sourceTx, plan, verifiedRepublishEvents, verifiedRollbackEvents, ct);
+        var origin = rollback ? await ReadLegacyReleaseOriginAsync(source, sourceTx, planSha, projectionSha,
+            plan.SourceAdminIdentitySha256, ct) : null;
         string? approved = null;
         if (input.Approval is [var path, var digest])
         {
@@ -44,6 +47,8 @@ internal static partial class Migration
         await SetBackupRepresentationAsync(target, tx, ct);
         await CurrentSchema.VerifyCatalogAsync(target, tx, ct, requireArticleMedia: true, requireArticleSummary: true);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(target, tx, ct);
+        if (rollback && !await CurrentSchema.HasLegacyReleaseOriginAsync(target, tx, ct))
+            throw new InvalidOperationException("Rollback activation requires the offline legacy release-origin schema.");
         var identity = await ReadTargetAsync(target, tx, ct);
         var cluster = await ReadLegacyPostgresClusterAsync(target, tx, ct);
         await using (var gate = new NpgsqlCommand("""
@@ -66,7 +71,13 @@ internal static partial class Migration
 
         var transferredNames = projection.Select(relation => relation.Name).Concat(ProjectionSequences.Select(sequence => sequence.Name))
             .ToHashSet(StringComparer.Ordinal);
-        var expected = business.Where(relation => transferredNames.Contains(relation.Name)).OrderBy(row => row.Name, StringComparer.Ordinal).ToArray();
+        var measured = business.Where(relation => transferredNames.Contains(relation.Name));
+        if (origin is not null)
+        {
+            transferredNames.Add(origin.Measurement.Name);
+            measured = measured.Append(origin.Measurement);
+        }
+        var expected = measured.OrderBy(row => row.Name, StringComparer.Ordinal).ToArray();
         if (expected.Length != transferredNames.Count) throw new InvalidOperationException("The verified source release rows are incomplete.");
         var before = backup.Site.Relations.ToDictionary(row => row.Name, StringComparer.Ordinal);
         foreach (var row in before.Values)
@@ -111,6 +122,16 @@ internal static partial class Migration
                 var next = await ProjectionSequenceNextAsync(source, sourceTx, sequence, ct);
                 await ExecuteAsync(target, tx, $"ALTER SEQUENCE public.{sequence.Name} RESTART WITH {next.ToString(CultureInfo.InvariantCulture)}", ct);
             }
+            if (origin is not null)
+            {
+                await using var write = new NpgsqlCommand("""
+                    INSERT INTO public.legacy_release_origin
+                    SELECT * FROM json_populate_recordset(NULL::public.legacy_release_origin,$1::json)
+                    """, target, tx);
+                write.Parameters.AddWithValue(origin.Rows);
+                if (await write.ExecuteNonQueryAsync(ct) != origin.Measurement.Rows)
+                    throw new InvalidOperationException("Legacy release accountability rows were not imported.");
+            }
             await ExecuteAsync(target, tx, "SET CONSTRAINTS ALL IMMEDIATE", ct);
             var (written, attached) = await ReadBackupSiteAsync(target, tx, ct);
             if (attached.Count != 0 || !written.Where(row => transferredNames.Contains(row.Name)).OrderBy(row => row.Name, StringComparer.Ordinal).SequenceEqual(expected) ||
@@ -129,7 +150,7 @@ internal static partial class Migration
     }
 
     private static async Task<Guid[]> VerifyLegacyReleaseScopeAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        ImportPlan plan, int verifiedRepublishEvents, CancellationToken ct)
+        ImportPlan plan, int verifiedRepublishEvents, int verifiedRollbackEvents, CancellationToken ct)
     {
         var counts = plan.ExpectedTables.ToDictionary(row => row.Table, row => row.Rows, StringComparer.Ordinal);
         var articles = counts["shadow_article"];
@@ -137,16 +158,20 @@ internal static partial class Migration
         {
             ImportPlanWithProcessedOutboxVersion => verifiedRepublishEvents == 0,
             ImportPlanWithRepublishOutboxVersion => verifiedRepublishEvents > 0 && verifiedRepublishEvents <= articles,
+            ImportPlanWithRollbackOutboxVersion => articles == 1 && verifiedRepublishEvents == 1 && verifiedRollbackEvents == 1 &&
+                counts["shadow_article_responsibility_snapshot"] == 2,
             _ => false
         };
-        var publications = articles + verifiedRepublishEvents;
+        var rollback = plan.Version == ImportPlanWithRollbackOutboxVersion;
+        var publications = articles + verifiedRepublishEvents + verifiedRollbackEvents;
         if (plan.Provider != "postgres" || plan.SourceSeal?.Provenance != PostgresClusterProvenance ||
             !validHistory || plan.Media is not null || articles is < 1 or > 32 || counts["shadow_article_rights_policy"] != articles ||
-            counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key)) ||
+            counts.Any(item => item.Value != 0 && !ReleaseActivationShadows.Value.Contains(item.Key) &&
+                !(rollback && item.Key == "shadow_article_responsibility_snapshot")) ||
             new[] { "shadow_revision", "shadow_publication", "shadow_article_rights_snapshot", LegacyOutboxParent.Table.Name }
                 .Any(table => !counts.TryGetValue(table, out var rows) || rows != publications) ||
             !counts.TryGetValue(LegacyOutboxEdge.Table.Name, out var edges) || edges != publications * LegacyRequiredOutboxEdges.Length)
-            throw new InvalidOperationException("Release activation requires a complete batch of immediate first publications or ordinary republishes and their retained work.");
+            throw new InvalidOperationException("Release activation requires a complete verified immediate publication or rollback batch and its retained work.");
         await using var command = new NpgsqlCommand($"""
             SELECT a.owner_id::uuid
             FROM {ImportSchema}.shadow_article a
@@ -154,12 +179,12 @@ internal static partial class Migration
             JOIN {ImportSchema}.shadow_publication p ON p.source_publication_id=a.current_publication_id
             JOIN {ImportSchema}.shadow_article_rights_snapshot s ON s.id=p.source_rights_snapshot_id
             JOIN {ImportSchema}.shadow_article_rights_policy q ON q.id=s.article_rights_policy_id AND q.article_id=a.id
-            WHERE a.source_status=2 AND a.deleted=0 AND a.current_revision IN (1,2)
+            WHERE a.source_status=2 AND a.deleted=0 AND ((NOT $1 AND a.current_revision IN (1,2)) OR ($1 AND a.current_revision=3))
               AND a.current_public_revision_candidate=a.current_revision AND a.last_publication_number=a.current_revision
               AND a.summary IS NOT DISTINCT FROM r.summary
               AND p.article_id=a.id AND p.source_revision_id=r.source_revision_id AND r.article_id=a.id AND r.revision=a.current_revision
-              AND p.publication_number=a.current_revision AND p.revision=a.current_revision AND p.source_transition='immediate-publish'
-              AND p.source_responsibility_snapshot_id IS NULL AND s.enabled=1 AND s.proof_binding_enabled=0
+              AND p.publication_number=a.current_revision AND p.revision=a.current_revision AND s.enabled=1
+              AND ($1 OR s.proof_binding_enabled=0)
               AND (q.enabled,q.license_type,q.copyright_holder,q.copyright_year,q.rights_statement,q.attribution_template,
                 q.copy_policy,q.max_excerpt_chars,q.allow_code_copy,q.show_public_badge,q.proof_binding_enabled)
                   IS NOT DISTINCT FROM (s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,s.attribution_template,
@@ -174,12 +199,14 @@ internal static partial class Migration
                       AND e.article_revision_id=original.source_revision_id AND e.article_publication_id=old.source_publication_id
                       AND e.rights_snapshot_id=rights.id
                   WHERE old.article_id=a.id AND old.publication_number BETWEEN 1 AND a.current_revision
-                    AND old.revision=old.publication_number AND old.source_transition='immediate-publish'
-                    AND old.source_responsibility_snapshot_id IS NULL AND rights.enabled=1 AND rights.proof_binding_enabled=0)=a.current_revision
+                    AND old.revision=old.publication_number AND rights.enabled=1
+                    AND old.source_transition=CASE WHEN old.publication_number=3 THEN 'rollback' ELSE 'immediate-publish' END
+                    AND ($1 OR (old.source_responsibility_snapshot_id IS NULL AND rights.proof_binding_enabled=0)))=a.current_revision
               AND NOT EXISTS (SELECT FROM {ImportSchema}.shadow_article_revision_content_block b
                   WHERE NOT EXISTS (SELECT FROM {ImportSchema}.shadow_revision x WHERE x.source_content_block_id=b.id))
             ORDER BY a.id
             """, db, tx);
+        command.Parameters.AddWithValue(rollback);
         var owners = new List<Guid>();
         await using var rows = await command.ExecuteReaderAsync(ct);
         while (await rows.ReadAsync(ct)) owners.Add(rows.GetGuid(0));

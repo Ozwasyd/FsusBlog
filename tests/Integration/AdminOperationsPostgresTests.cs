@@ -33,7 +33,8 @@ public sealed class AdminOperationsPostgresTests
         await Denied(Rejection.Forbidden, () => adminStore.OperationsStatus(key, publications, ct));
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(null, publications, ct));
         await Execute("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.AuditReadPermission);
-        var empty = await adminStore.OperationsStatus(key, publications, ct);
+        var (empty, binding) = await adminStore.OperationsStatus(key, publications, ct);
+        Assert.Equal((await adminStore.SessionWithPermissionBinding(key, ct)).PermissionSession, binding);
         Assert.Equal(new AdminOperationsStatus(false, 0, 0, 0), empty);
 
         var site = new Store(fixture.DataSource);
@@ -46,7 +47,7 @@ public sealed class AdminOperationsPostgresTests
             new Edit(0, 0, Guid.NewGuid(), "A fixture article", "A fixture body"), ct);
         await publications.Command(site, siteToken, ArticleAction.Publish,
             new Edit(draft.Id, draft.Revision, Guid.NewGuid(), "A fixture article", "A fixture body"), ct);
-        var published = await adminStore.OperationsStatus(key, publications, ct);
+        var (published, _) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.True(published.SnapshotReady);
         Assert.True(published.PublicationWatermark > 0);
         Assert.Equal(0L, published.PendingPublicationEvents);
@@ -56,13 +57,13 @@ public sealed class AdminOperationsPostgresTests
             insert into public.blog_outbox(article_id,revision,kind,created_at)
             select id,revision,'retract',$2 from public.article where id=$1
             """, draft.Id, queued);
-        var lagging = await adminStore.OperationsStatus(key, publications, ct);
+        var (lagging, _) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.Equal(published.PublicationWatermark, lagging.PublicationWatermark);
         Assert.Equal(1L, lagging.PendingPublicationEvents);
         Assert.Equal(queued.ToUnixTimeMilliseconds(), lagging.OldestPendingAt);
         Assert.Equal(lagging, Wire.DecodeAdminOperationsStatus(Wire.EncodeAdminOperationsStatus(lagging)));
         await publications.Refresh(ct);
-        var caughtUp = await adminStore.OperationsStatus(key, publications, ct);
+        var (caughtUp, _) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.True(caughtUp.PublicationWatermark > lagging.PublicationWatermark);
         Assert.Equal(0L, caughtUp.PendingPublicationEvents);
         Assert.Equal(0L, caughtUp.OldestPendingAt);

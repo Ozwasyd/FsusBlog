@@ -28,7 +28,11 @@ cleanup() {
     for db in ${created[@]+"${created[@]}"}; do
         "${maintenance[@]}" -c "DROP DATABASE \"$db\" WITH (FORCE)" || code=1
     done
-    find "$scratch" -depth -delete || code=1
+    if (( code == 0 )); then
+        find "$scratch" -depth -delete || code=1
+    else
+        printf 'Preserved the Outbox drill files at %s.\n' "$scratch" >&2
+    fi
     exit "$code"
 }
 trap cleanup EXIT
@@ -87,6 +91,8 @@ plan=("${command[@]}" plan postgres "$scratch/owner.json" "$backup" "$backup_sha
 apply=("${command[@]}" apply postgres "$scratch/owner.json" "$backup" "$backup_sha" "$scratch/reviewed.json")
 event_table=article_mutation_outbox
 edge_table=article_mutation_outbox_edge
+shadow_event="fsus_legacy_candidate.shadow_$event_table"
+shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
 outbox_event=04226af3773343789bd570bd9861f531
 
 expect_refused() {
@@ -97,7 +103,7 @@ expect_refused() {
     [[ -s "$scratch/error.log" || -s "$scratch/refused.json" ]]
 }
 expect_source_finding() {
-    local kind="$1" table="$2" code=0
+    local kind="$1" table="$2" apply_rejection="${3:-contains unsupported rows}" code=0
     "${plan[@]}" > "$scratch/blocked.json" || code=$?
     [[ "$code" == 2 ]]
     python3 - "$scratch/blocked.json" "$kind" "$table" <<'PY'
@@ -111,26 +117,70 @@ assert any(row["category"] == sys.argv[2] and row["source"] == sys.argv[3] and r
            for row in report["findings"]), report
 PY
     expect_refused "${apply[@]}"
-    rg -Fq 'contains unsupported rows' "$scratch/error.log"
+    rg -Fq "$apply_rejection" "$scratch/error.log"
     [[ "$("${target[@]}" -qAtc "SELECT version,to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == '1|t' ]]
 }
 
-if [[ "${1:-}" == --rollback ]]; then
-    "${plan[@]}" > "$scratch/reviewed.json"
-    python3 - "$scratch/reviewed.json" <<'PY'
+check_outbox_plan() {
+    python3 - "$scratch/reviewed.json" "$@" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-plan = json.loads(Path(sys.argv[1]).read_text())
-assert plan["version"] == 5 and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
+path, version, events, edges = sys.argv[1:]
+plan = json.loads(Path(path).read_text())
+assert plan["version"] == int(version) and plan["readyToStage"] is True and plan["readyToApply"] is False
+assert not plan["findings"], plan
 for key, prefix in (("sourceProjections", ""), ("expectedTables", "shadow_")):
     assert len(plan[key]) == 14
     assert [(row["table"], row["rows"]) for row in plan[key][-2:]] == [
-        (prefix + "article_mutation_outbox", 3), (prefix + "article_mutation_outbox_edge", 21)]
+        (prefix + "article_mutation_outbox", int(events)), (prefix + "article_mutation_outbox_edge", int(edges))]
     assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in plan[key][-2:])
 PY
+}
+
+measure_plan() {
+    plan_sha="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["planSha256"])' < "$scratch/applied.json")"
+    [[ "$plan_sha" =~ ^[0-9a-f]{64}$ ]]
+}
+
+project_and_verify() {
+    local version="$1"
+    unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
+    project_rows=("${command[@]}" project "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
+    verify_rows=("${command[@]}" verify "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
+    local reports=("$scratch/projected.json")
+    "${project_rows[@]}" > "${reports[0]}"
+    if [[ "$version" != 4 ]]; then
+        "${project_rows[@]}" > "$scratch/revalidated.json"
+        reports+=("$scratch/revalidated.json")
+    fi
+    FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" "${verify_rows[@]}" > "$scratch/verified.json"
+    python3 - "$version" "${reports[@]}" "$scratch/verified.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+version, *paths = sys.argv[1:]
+expected = {
+    "3": {"retainedLegacyOutboxEvents": 1, "retainedLegacyOutboxEdges": 8, "retainedLegacyCreateCommands": 1},
+    "4": {"retainedLegacyOutboxEvents": 2, "retainedLegacyOutboxEdges": 14, "retainedLegacyRepublishOutboxEvents": 1},
+    "5": {"retainedLegacyOutboxEvents": 3, "retainedLegacyOutboxEdges": 21, "retainedLegacyRepublishOutboxEvents": 1,
+          "retainedLegacyRollbackOutboxEvents": 1, "verifiedPublishedRollbackRows": 1},
+}[version]
+reports = [json.loads(Path(path).read_text()) for path in paths]
+operations = ["projected", "verified"] if version == "4" else ["projected", "revalidated", "verified"]
+assert [row["result"] for row in reports] == operations
+assert len({row["projectionSha256"] for row in reports}) == 1
+assert all(row["readyToApply"] is False and all(row[key] == count for key, count in expected.items())
+           for row in reports), reports
+PY
+}
+
+if [[ "${1:-}" == --rollback ]]; then
+    "${plan[@]}" > "$scratch/reviewed.json"
+    check_outbox_plan 5 3 21
     "${source_sql[@]}" -c "COPY (SELECT * FROM $event_table WHERE id=991000002) TO STDOUT" > "$scratch/second-event.copy"
     "${source_sql[@]}" -c "COPY (SELECT * FROM $edge_table WHERE outbox_event_id=991000002 ORDER BY id) TO STDOUT" > "$scratch/second-edges.copy"
     "${source_sql[@]}" -c "DELETE FROM $edge_table WHERE outbox_event_id=991000002; DELETE FROM $event_table WHERE id=991000002"
@@ -159,10 +209,7 @@ PY
     "${plan[@]}" > "$scratch/repeated.json"
     cmp "$scratch/reviewed.json" "$scratch/repeated.json"
     "${apply[@]}" > "$scratch/applied.json"
-    plan_sha="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["planSha256"])' < "$scratch/applied.json")"
-    [[ "$plan_sha" =~ ^[0-9a-f]{64}$ ]]
-    shadow_event="fsus_legacy_candidate.shadow_$event_table"
-    shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
+    measure_plan
     [[ "$("${target[@]}" -qAtc "SELECT event_type,article_revision_id,revision_no,article_publication_id,
         publication_no,rights_snapshot_id,responsibility_snapshot_id,responsibility_version,
         created_at::timestamp,(payload_json::jsonb->'before'->>'categoryId'),(payload_json::jsonb->'after'->>'categoryId')
@@ -173,24 +220,7 @@ PY
         == $'991000001|7\n991000002|7\n991000003|7' ]]
     [[ "$("${source_sql[@]}" -qAtc "SELECT delivery_key FROM $edge_table ORDER BY id")" \
         == "$("${target[@]}" -qAtc "SELECT delivery_key FROM $shadow_edge ORDER BY id")" ]]
-    unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
-    project_rows=("${command[@]}" project "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-    verify_rows=("${command[@]}" verify "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-    "${project_rows[@]}" > "$scratch/projected.json"
-    "${project_rows[@]}" > "$scratch/revalidated.json"
-    FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" "${verify_rows[@]}" > "$scratch/verified.json"
-    python3 - "$scratch/projected.json" "$scratch/revalidated.json" "$scratch/verified.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-reports = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
-assert [row["result"] for row in reports] == ["projected", "revalidated", "verified"]
-assert len({row["projectionSha256"] for row in reports}) == 1
-assert all(row["retainedLegacyOutboxEvents"] == 3 and row["retainedLegacyOutboxEdges"] == 21
-           and row["retainedLegacyRepublishOutboxEvents"] == 1 and row["retainedLegacyRollbackOutboxEvents"] == 1
-           and row["verifiedPublishedRollbackRows"] == 1 and not row["readyToApply"] for row in reports)
-PY
+    project_and_verify 5
     [[ "$("${target[@]}" -qAtc 'SELECT a.revision,a.title,p.publication_id,p.publication_no,r.id,
         (SELECT count(*) FROM public.article_rollback),(SELECT count(*) FROM public.article_command),
         (SELECT count(*) FROM public.blog_outbox) FROM public.article a JOIN public.article_publication p ON p.article_id=a.id
@@ -208,20 +238,7 @@ fi
 
 if [[ "${1:-}" == --republish ]]; then
     "${plan[@]}" > "$scratch/reviewed.json"
-    python3 - "$scratch/reviewed.json" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-plan = json.loads(Path(sys.argv[1]).read_text())
-assert plan["version"] == 4 and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
-for key, scope in (("sourceProjections", ""), ("expectedTables", "shadow_")):
-    assert len(plan[key]) == 14
-    assert [(row["table"], row["rows"]) for row in plan[key][-2:]] == [
-        (scope + "article_mutation_outbox", 2), (scope + "article_mutation_outbox_edge", 14)]
-    assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in plan[key][-2:])
-PY
+    check_outbox_plan 4 2 14
     "${source_sql[@]}" -c "COPY (SELECT * FROM $event_table WHERE id=991000001) TO STDOUT" > "$scratch/first-event.copy"
     "${source_sql[@]}" -c "COPY (SELECT * FROM $edge_table WHERE outbox_event_id=991000001 ORDER BY id) TO STDOUT" > "$scratch/first-edges.copy"
     "${source_sql[@]}" -c "DELETE FROM $edge_table WHERE outbox_event_id=991000001; DELETE FROM $event_table WHERE id=991000001"
@@ -263,10 +280,7 @@ PY
     "${plan[@]}" > "$scratch/repeated.json"
     cmp "$scratch/reviewed.json" "$scratch/repeated.json"
     "${apply[@]}" > "$scratch/applied.json"
-    plan_sha="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["planSha256"])' < "$scratch/applied.json")"
-    [[ "$plan_sha" =~ ^[0-9a-f]{64}$ ]]
-    shadow_event="fsus_legacy_candidate.shadow_$event_table"
-    shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
+    measure_plan
     [[ "$("${target[@]}" -qAtc "SELECT event_type,article_revision_id,revision_no,article_publication_id,
         publication_no,rights_snapshot_id,responsibility_snapshot_id IS NULL,responsibility_version IS NULL,
         created_at::timestamp,(payload_json::jsonb->'before'->>'categoryId'),(payload_json::jsonb->'after'->>'categoryId')
@@ -276,23 +290,7 @@ PY
         == "$("${target[@]}" -qAtc "SELECT encode(sha256(convert_to(payload_json,'UTF8')),'hex') FROM $shadow_event ORDER BY id")" ]]
     [[ "$("${target[@]}" -qAtc "SELECT outbox_event_id,count(*) FROM $shadow_edge GROUP BY outbox_event_id ORDER BY outbox_event_id")" \
         == $'991000001|7\n991000002|7' ]]
-    unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
-    project_rows=("${command[@]}" project "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-    verify_rows=("${command[@]}" verify "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-    "${project_rows[@]}" > "$scratch/projected.json"
-    FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" "${verify_rows[@]}" > "$scratch/verified.json"
-    python3 - "$scratch/projected.json" "$scratch/verified.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-projected, verified = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
-assert [projected["result"], verified["result"]] == ["projected", "verified"]
-assert projected["projectionSha256"] == verified["projectionSha256"]
-assert all(row["retainedLegacyOutboxEvents"] == 2 and row["retainedLegacyOutboxEdges"] == 14
-           and row["retainedLegacyRepublishOutboxEvents"] == 1 and not row["readyToApply"]
-           for row in (projected, verified))
-PY
+    project_and_verify 4
     [[ "$("${target[@]}" -qAtc 'SELECT a.revision,p.publication_id,p.publication_no,(SELECT count(*) FROM public.article_command),
         (SELECT count(*) FROM public.blog_outbox) FROM public.article a JOIN public.article_publication p ON p.article_id=a.id')" \
         == '2|900000002|2|0|0' ]]
@@ -304,22 +302,7 @@ PY
 fi
 
 "${plan[@]}" > "$scratch/reviewed.json"
-python3 - "$scratch/reviewed.json" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-plan = json.loads(Path(sys.argv[1]).read_text())
-assert plan["version"] == 3 and plan["readyToStage"] is True and plan["readyToApply"] is False
-assert not plan["findings"]
-for key, prefix in (("sourceProjections", ""), ("expectedTables", "shadow_")):
-    assert len(plan[key]) == 14
-    events, edges = plan[key][-2:]
-    assert events["table"] == prefix + "article_mutation_outbox" and events["rows"] == 1
-    assert edges["table"] == prefix + "article_mutation_outbox_edge" and edges["rows"] == 8
-    assert all(re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) for item in (events, edges))
-PY
+check_outbox_plan 3 1 8
 
 "${source_sql[@]}" -c "DELETE FROM $edge_table WHERE edge_name='notification'"
 "${plan[@]}" > "$scratch/without-optional.json"
@@ -366,7 +349,7 @@ expect_source_finding legacy-outbox-orphan-edge "$edge_table"
 expect_source_finding legacy-outbox-missing-required-edge "$event_table"
 "${source_sql[@]}" -c "UPDATE $edge_table SET outbox_event_id=991000001 WHERE edge_name='search-projection'"
 "${source_sql[@]}" -c 'DROP INDEX ux_article_mutation_outbox_edge_event_name'
-expect_source_finding legacy-outbox-catalog "$edge_table"
+expect_source_finding legacy-outbox-catalog "$edge_table" 'The import plan no longer matches the PostgreSQL source identity or catalog.'
 "${source_sql[@]}" -c "CREATE UNIQUE INDEX ux_article_mutation_outbox_edge_event_name ON $edge_table(outbox_event_id,edge_name)"
 "${source_sql[@]}" -c "UPDATE $edge_table SET attempt_count=2 WHERE edge_name='search-projection'"
 "${plan[@]}" > "$scratch/source-drift.json"
@@ -408,8 +391,6 @@ source_bytes() {
 source_before="$(source_bytes)"
 "${apply[@]}" > "$scratch/applied.json"
 [[ "$(source_bytes)" == "$source_before" ]]
-shadow_event="fsus_legacy_candidate.shadow_$event_table"
-shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
 [[ "$("${target[@]}" -qAtc "SELECT id,event_id,aggregate_id,article_revision_id,rights_snapshot_id,article_publication_id,
     created_at,next_retry_at::timestamp,processed_at::timestamp,status,
     claim_token IS NULL,claimed_by IS NULL,last_error IS NULL FROM $shadow_event")" \
@@ -418,8 +399,7 @@ shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
     == "$("${target[@]}" -qAtc "SELECT encode(sha256(convert_to(payload_json,'UTF8')),'hex') FROM $shadow_event")" ]]
 [[ "$("${target[@]}" -qAtc "SELECT count(*),bool_and(status='completed' AND attempt_count=1 AND
     delivery_key=encode(sha256(convert_to('$outbox_event:' || edge_name,'UTF8')),'hex')) FROM $shadow_edge")" == '8|t' ]]
-plan_sha="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["planSha256"])' < "$scratch/applied.json")"
-[[ "$plan_sha" =~ ^[0-9a-f]{64}$ ]]
+measure_plan
 
 # A partial phase-3 interruption with matching source is recoverable.
 "${target[@]}" -c "DROP TABLE $shadow_event,$shadow_edge,fsus_legacy_candidate.shadow_article_rights_policy,
@@ -438,23 +418,7 @@ assert [(row["phase"], row["result"]) for row in report["phases"]] == [
     (1, "revalidated"), (2, "revalidated"), (3, "staged")]
 PY
 [[ "$(source_bytes)" == "$source_before" ]]
-unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
-project_rows=("${command[@]}" project "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-verify_rows=("${command[@]}" verify "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
-"${project_rows[@]}" > "$scratch/projected.json"
-"${project_rows[@]}" > "$scratch/revalidated.json"
-FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" "${verify_rows[@]}" > "$scratch/verified.json"
-python3 - "$scratch/projected.json" "$scratch/revalidated.json" "$scratch/verified.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-reports = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
-assert [row["result"] for row in reports] == ["projected", "revalidated", "verified"]
-assert all(row["retainedLegacyOutboxEvents"] == 1 and row["retainedLegacyOutboxEdges"] == 8
-           and row["retainedLegacyCreateCommands"] == 1 and row["readyToApply"] is False for row in reports), reports
-assert len({report["projectionSha256"] for report in reports}) == 1
-PY
+project_and_verify 3
 "${target[@]}" -c "UPDATE $shadow_edge SET attempt_count=2 WHERE edge_name='search-projection'"
 expect_refused "${verify_rows[@]}"
 rg -Fx 'Staged source has changed: shadow_article_mutation_outbox_edge.' "$scratch/error.log"
