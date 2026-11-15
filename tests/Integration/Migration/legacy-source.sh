@@ -140,6 +140,7 @@ PY
 if [[ "$provider" == postgres ]]; then
     "${source_sql[@]}" "
         ALTER TABLE article ADD COLUMN views integer NOT NULL DEFAULT 0;
+        UPDATE article SET views=19 WHERE id=42;
         CREATE TABLE article_view_seed(article_id integer PRIMARY KEY, legacy_views integer NOT NULL DEFAULT 0,
             seeded_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'));
         INSERT INTO article_view_seed VALUES (42, 7, '2026-10-04 00:00:00');
@@ -159,15 +160,16 @@ raw = pathlib.Path(sys.argv[2]).read_text()
 after = json.loads(raw)
 admission = after['importAdmission']
 assert admission['classificationComplete'] and not admission['eligibleForCandidatePlanning']
-assert admission['sourceProjections'] == before['importAdmission']['sourceProjections']
+assert admission['sourceProjections'][:-2] == before['importAdmission']['sourceProjections']
+assert [(item['table'], item['rows']) for item in admission['sourceProjections'][-2:]] == [
+    ('article.views', 1), ('article_view_seed', 1)
+]
 assert admission['findings'] == [
     {'category': category, 'source': source, 'rows': 1}
     for category, source in [
         ('identity-or-privilege', 'admin_passkey_credential'),
         ('legacy-privilege', 'admin_principal.isroot'),
         ('legacy-privilege', 'admin_principal.permissions'),
-        ('unregistered-source-field', 'article.views'),
-        ('unsupported-source-relation', 'article_view_seed'),
     ]
 ]
 assert 'fixture-private-grant' not in raw and 'fixture-private-credential' not in raw

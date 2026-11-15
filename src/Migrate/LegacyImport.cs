@@ -19,7 +19,7 @@ internal static partial class Migration
 
     private sealed record ImportFinding(string Category, string Source, long Rows);
     private sealed record LegacyImportEvidence(LegacyCreateCommandRead Commands, LegacyOutboxRead Outbox,
-        LegacyTaxonomyEvidence Taxonomy, ImportFinding[] Findings)
+        LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, ImportFinding[] Findings)
     {
         internal LegacyProjection[] SourceProjections(LegacyAudit audit, bool includeTaxonomy = true)
         {
@@ -27,6 +27,7 @@ internal static partial class Migration
             if (Commands.Projection is { } command) projections.Add(command);
             projections.AddRange(Outbox.Entries.Select(entry => entry.Projection));
             if (includeTaxonomy) projections.AddRange(Taxonomy.Projections);
+            projections.AddRange(ReadingHistory.Projections);
             return projections.ToArray();
         }
     }
@@ -97,10 +98,10 @@ internal static partial class Migration
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
         var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy, token);
-        var (commands, outbox, _, findings) = evidence;
+        var (commands, outbox, _, readingHistory, findings) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
-            commands.Rows, outbox.Entries);
+            commands.Rows, outbox.Entries, readingHistory.Rows);
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -174,23 +175,25 @@ internal static partial class Migration
     {
         var commands = await ReadLegacyCreateCommandsAsync(source, transaction, catalog, tables, principal, token);
         var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
-        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, token);
-        return new LegacyImportEvidence(commands, outbox, taxonomy, findings);
+        var history = await ReadLegacyReadingHistoryAsync(source, transaction, tables[Article], catalog, token);
+        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, token);
+        return new LegacyImportEvidence(commands, outbox, taxonomy, history, findings);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
-        LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy,
+        LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history,
         CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
+        if (history.Finding is { } historyFinding) found.Add(historyFinding);
         found.AddRange(outbox.Findings);
         foreach (var relation in catalog)
         {
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
-                taxonomy.Covers(relation.Name)) continue;
+                taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)
@@ -251,6 +254,7 @@ internal static partial class Migration
             var known = LegacyColumns[name];
             foreach (var field in relation.Columns.Where(field => !known.Contains(field.Name, StringComparer.OrdinalIgnoreCase)))
             {
+                if (name == Article && history.HandlesViews && field.Name.Equals("views", StringComparison.OrdinalIgnoreCase)) continue;
                 await CountUnsupported("unregistered-source-field", name + "." + field.Name,
                     $"FROM {source.Table(relation)} WHERE {source.Quote(field.Name)} IS NOT NULL");
             }

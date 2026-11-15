@@ -58,7 +58,7 @@ internal static partial class Migration
     private static async Task<LegacyShadow> MaterializeLegacyShadowAsync(LegacySource source, DbTransaction transaction,
         Dictionary<string, LegacyTable> tables, LegacyTable principals, LegacyAudit audit,
         (OwnerMap Map, string Digest) ownerMap, CancellationToken token, LegacyCreateCommand[]? commands = null,
-        LegacyOutboxEntry[]? outbox = null)
+        LegacyOutboxEntry[]? outbox = null, LegacyReadingHistoryRow[]? readingHistory = null)
     {
         if (audit.Projections.Any(projection => projection.Rows > RehearsalLimit))
             throw new InvalidOperationException($"The shadow rehearsal supports up to {RehearsalLimit} rows per table.");
@@ -77,7 +77,7 @@ internal static partial class Migration
         {
             await shadow.OpenAsync(token);
             return await PopulateLegacyShadowAsync(source, transaction, tables, audit, shadow, owners, ownerDigest,
-                adminIdentitySha256, token, commands, outbox ?? []);
+                adminIdentitySha256, token, commands, outbox ?? [], readingHistory);
         }
         catch
         {
@@ -89,7 +89,7 @@ internal static partial class Migration
     private static async Task<LegacyShadow> PopulateLegacyShadowAsync(LegacySource source, DbTransaction transaction,
         Dictionary<string, LegacyTable> tables, LegacyAudit audit, SqliteConnection shadow,
         Dictionary<int, ArticleOwner> owners, string ownerDigest, string adminIdentitySha256, CancellationToken token,
-        LegacyCreateCommand[]? commands, LegacyOutboxEntry[] outbox)
+        LegacyCreateCommand[]? commands, LegacyOutboxEntry[] outbox, LegacyReadingHistoryRow[]? readingHistory)
     {
         await using var shadowTransaction = shadow.BeginTransaction();
         await using (var ddl = CreateLegacyCommand(shadowTransaction, ShadowDdl))
@@ -110,11 +110,14 @@ internal static partial class Migration
         await BuildShadowPublicationsAsync(shadowTransaction, token);
         if (commands is not null) await WriteLegacyCreateCommandShadowAsync(shadowTransaction, commands, token);
         foreach (var entry in outbox) await WriteLegacyOutboxShadowAsync(shadowTransaction, entry, token);
+        if (readingHistory is not null) await WriteLegacyReadingHistoryShadowAsync(shadowTransaction, readingHistory, token);
         await shadowTransaction.CommitAsync(token);
         await using var readBack = shadow.BeginTransaction(deferred: true);
         var checkedRows = await VerifyShadowRowsAsync(readBack, audit, revisionTagRows, token);
         if (commands is not null) checkedRows = [.. checkedRows, await VerifyLegacyCreateCommandShadowAsync(readBack, commands, token)];
         foreach (var entry in outbox) checkedRows = [.. checkedRows, await VerifyLegacyOutboxShadowAsync(readBack, entry, token)];
+        if (readingHistory is not null)
+            checkedRows = [.. checkedRows, await VerifyLegacyReadingHistoryShadowAsync(readBack, readingHistory, token)];
         await readBack.RollbackAsync(token);
         return new LegacyShadow(shadow, new ShadowReport(RehearsalVersion, ownerDigest, adminIdentitySha256, checkedRows), owners.Values.ToArray());
     }

@@ -320,6 +320,66 @@ PY
         DROP TABLE category_public_article_count,tag_public_article_count,article_public_taxonomy_projection'
     "${source_fixture_sql[@]}" "$taxonomy_fixture"
     [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
+
+    cp "$root/import.json" "$root/no-views.json"
+    "${source_sql[@]}" 'ALTER TABLE article ADD COLUMN views integer NOT NULL DEFAULT 0;
+        UPDATE article SET views=19 WHERE id=42'
+    "${plan[@]}" > "$root/views-only.json"
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'The import plan no longer matches' "$root/error.log"
+    # The exact fixed v1 PostgreSQL article_view_seed DDL. The live counter has progressed independently.
+    "${source_sql[@]}" "CREATE TABLE article_view_seed(
+        article_id integer PRIMARY KEY,legacy_views integer NOT NULL DEFAULT 0,
+        seeded_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'))"
+    "${plan[@]}" > "$root/empty-seed.json"
+    "${source_sql[@]}" "INSERT INTO article_view_seed VALUES (42,0,TIMESTAMP '2026-10-01 01:02:03.456789')"
+    "${plan[@]}" > "$root/zero-seed.json"
+    "${source_sql[@]}" 'UPDATE article_view_seed SET legacy_views=7 WHERE article_id=42'
+    "${plan[@]}" > "$root/import.json"
+    python3 - "$root"/{no-views,views-only,empty-seed,zero-seed,import}.json <<'PY'
+import json, pathlib, sys
+old, views, empty_seed, zero_seed, full = (json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:])
+assert all(plan["version"] == old["version"] and plan["readyToStage"] and not plan["readyToApply"]
+           for plan in (views, empty_seed, zero_seed, full))
+table = "shadow_article_view_history"
+for plan, more in ((views, [("article.views", 1)]), (empty_seed, [("article.views", 1), ("article_view_seed", 0)]),
+                   (zero_seed, [("article.views", 1), ("article_view_seed", 1)]),
+                   (full, [("article.views", 1), ("article_view_seed", 1)])):
+    base, added = plan["sourceProjections"][:len(old["sourceProjections"])], plan["sourceProjections"][len(old["sourceProjections"]):]
+    assert base == old["sourceProjections"] and [(row["table"], row["rows"]) for row in added] == more
+    assert plan["expectedTables"][:-1] == old["expectedTables"]
+    assert (plan["expectedTables"][-1]["table"], plan["expectedTables"][-1]["rows"]) == (table, 1)
+assert views["expectedTables"] == empty_seed["expectedTables"]
+assert len({plan["expectedTables"][-1]["sha256"] for plan in (views, zero_seed, full)}) == 3
+PY
+    "${source_sql[@]}" 'UPDATE article SET views=20 WHERE id=42'
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'The import plan no longer matches' "$root/error.log"
+    "${source_sql[@]}" "UPDATE article SET views=19 WHERE id=42;
+        INSERT INTO article_view_seed VALUES (9000,0,TIMESTAMP '2026-10-01 01:02:03.456789')"
+    rc=0
+    "${plan[@]}" > "$root/rejected.json" || rc=$?
+    [[ "$rc" == 2 ]]
+    python3 - "$root/rejected.json" <<'PY'
+import json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert not report["readyToStage"] and not report["readyToApply"]
+assert report["findings"] == [{"category": "legacy-reading-history-values", "source": "article.views", "rows": 1}]
+PY
+    "${source_sql[@]}" 'DELETE FROM article_view_seed WHERE article_id=9000'
+    "${source_sql[@]}" 'ALTER TABLE article_view_seed ALTER COLUMN seeded_at_utc DROP NOT NULL'
+    rc=0
+    "${plan[@]}" > "$root/rejected.json" || rc=$?
+    [[ "$rc" == 2 ]]
+    python3 - "$root/rejected.json" <<'PY'
+import json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert not report["readyToStage"] and not report["readyToApply"]
+assert report["findings"] == [{"category": "legacy-reading-history-catalog", "source": "article_view_seed", "rows": 1}]
+PY
+    "${source_sql[@]}" 'ALTER TABLE article_view_seed ALTER COLUMN seeded_at_utc SET NOT NULL'
+    "${plan[@]}" > "$root/views-clean.json"
+    cmp "$root/import.json" "$root/views-clean.json"
 fi
 
 "${apply[@]}" > "$root/applied.json"
@@ -328,6 +388,8 @@ fi
 [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM fsus_legacy_candidate.shadow_publication")" == 2 ]]
 [[ "$("${target_sql[@]}" -qAtc "SELECT source_revision_id,publication_number,source_rights_snapshot_id FROM fsus_legacy_candidate.shadow_publication ORDER BY publication_number")" == $'5000000001|1|700\n5000000002|2|701' ]]
 if [[ "$provider" == postgres ]]; then
+    [[ "$("${target_sql[@]}" -qAtc 'SELECT article_id,views,legacy_views,seeded_at_utc
+        FROM fsus_legacy_candidate.shadow_article_view_history')" == '42|19|7|2026-10-01T01:02:03.4567890Z' ]]
     [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM pg_class WHERE relname IN
         ('category_public_article_count','tag_public_article_count','article_public_taxonomy_projection')")" == 0 ]]
     [[ "$("${target_sql[@]}" -qAtc "SELECT id,admin_principal_id,client_mutation_id,request_hash,article_id,revision_id,
@@ -381,6 +443,10 @@ if [[ "$provider" == postgres ]]; then
     verify_args=("${migrate[@]}" legacy import verify "$root/import.json" "$plan_sha" "$backup" "$manifest")
     unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
     "${project_args[@]}" > "$root/projected.json"
+    "${target_sql[@]}" -c 'UPDATE fsus_legacy_candidate.shadow_article_view_history SET legacy_views=8 WHERE article_id=42'
+    if "${verify_args[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'shadow_article_view_history' "$root/error.log"
+    "${target_sql[@]}" -c 'UPDATE fsus_legacy_candidate.shadow_article_view_history SET legacy_views=7 WHERE article_id=42'
     shadow_unique="$("${target_sql[@]}" -qAtc "SELECT conname FROM pg_constraint
         WHERE conrelid='fsus_legacy_candidate.shadow_article_mutation_command'::regclass AND contype='u'")"
     [[ "$shadow_unique" =~ ^[a-z0-9_]+$ ]]
@@ -400,5 +466,8 @@ assert all(item["retainedLegacyCreateCommands"] == 1 and item["readyToApply"] is
 PY
     [[ "$("${target_sql[@]}" -qAtc 'SELECT (SELECT count(*) FROM public.article),
         (SELECT count(*) FROM public.article_command),(SELECT count(*) FROM public.blog_outbox)')" == '1|0|0' ]]
+    [[ "$("${target_sql[@]}" -qAtc 'SELECT (SELECT count(*) FROM public.article_read_hour),
+        (SELECT count(*) FROM public.article_read_dwell),(SELECT count(*) FROM public.article_read_total),
+        (SELECT last_epoch IS NULL FROM public.article_read_epoch WHERE singleton)')" == '0|0|0|t' ]]
 fi
 printf 'Legacy %s source to PostgreSQL candidate import, resume, refusal and independent recovery passed.\n' "$provider"

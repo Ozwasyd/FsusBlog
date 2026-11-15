@@ -72,6 +72,10 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 新导入计划只封存已核验派生表的行数与带原始时间的摘要，`apply` 重新核验相同来源。旧计划可继续按原字节复验缺表或仍为空的范围。派生行留在来源中，不写隔离候选或当前运行库。现有实库证据使用合成旧站输入，完整激活仍需经过审核的真实旧站来源和备份恢复验收。
 
+PostgreSQL 旧源有 `article.views` 时，导入计划分别封存文章原计数和可选的 `article_view_seed` 摘要。候选第一阶段把原计数、可空的旧基线和原 UTC 播种时间写入 `fsus_legacy_candidate.shadow_article_view_history`，保留缺行与零值的区别。没有这些字段的源继续使用原计划和检查点。隔离表不参与在线浏览量、热门排行或真人阅读统计。 [保全规则](../src/Migrate/LegacyReadingHistory.cs)
+
+2026-11-15，PostgreSQL 18.7 合成源通过旧计数保全、目录与行篡改拒绝、断开旧源的候选复验和备份恢复。同次 SQLite 旧格式导入也通过。 [本地运行记录](../artifacts/p5-read-history-media-native/attempt-1/timeline.txt)
+
 `tests/Integration/Migration/legacy-import.sh [sqlite|postgres|mysql]` 对三种只读源执行相同的候选实写、禁用启动、检查点续跑、改动拒绝和导入前备份恢复。2026-11-15 用 SDK 10.0.404、SQLite 3.54.0、PostgreSQL 18.7 和 MySQL 8.4.13 原生实例通过。PostgreSQL 来源连接明确强制只读事务，MySQL 来源位于无网络监听的临时实例，使用只有 `SELECT` 权限的账号。独立确认测试结束后自建库、临时目录和 MySQL socket 已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/provider-import-20261114T162656.log`。
 
 ### 演练写入当前文章表
