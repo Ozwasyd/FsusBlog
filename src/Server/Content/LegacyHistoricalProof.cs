@@ -73,7 +73,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             var parent = rights ? VerifyArchivedSignature(parentArchive, articleId, original, revisionNo, registry, null) : null;
             var proof = VerifyArchivedSignature(archive, articleId, original, revisionNo, registry, parent);
             var rows = evidence.GetProperty("entries");
-            if (rows.GetArrayLength() is < 1 or > 5) return null;
+            if (rows.GetArrayLength() is < 1 or > 6) return null;
             var chain = rows.EnumerateArray().Select(row => ReadEntry(ReadJson(row.GetBytesFromBase64())))
                 .OrderBy(entry => entry.Seq).ToArray();
             var selected = ReadEntry(ReadJson(transparency.GetProperty("sourceRow").GetBytesFromBase64()));
@@ -231,7 +231,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
             }
             else
             {
-                if (rights.Count == 2 || !published.Contains(revision) || !rights.Add(revision)) throw new FormatException();
+                if (!published.Contains(revision) || !rights.Add(revision)) throw new FormatException();
             }
 
             var transcript = FormattableString.Invariant($"""
