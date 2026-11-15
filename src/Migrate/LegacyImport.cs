@@ -85,7 +85,8 @@ internal static partial class Migration
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var commands = await ReadLegacyCreateCommandsAsync(source, sourceTransaction, catalog, tables, principal, token);
         var outbox = await ReadLegacyProcessedOutboxAsync(source, sourceTransaction, catalog, tables, principal, token);
-        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, outbox, token);
+        var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
+        var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, outbox, taxonomy, token);
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries);
@@ -99,6 +100,10 @@ internal static partial class Migration
         var sourceProjections = audit.Projections.ToArray();
         if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
         sourceProjections = [.. sourceProjections, ..outbox.Entries.Select(entry => entry.Projection)];
+        // Previously admitted empty derived tables were not sealed. An existing approved plan can replay that empty case.
+        if (taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
+            prior.Any(row => IsLegacyTaxonomyRelation(row.Table)))
+            sourceProjections = [.. sourceProjections, ..taxonomy.Projections];
         var version = outbox.RollbackCount > 0 ? ImportPlanWithRollbackOutboxVersion :
             outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
             outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
@@ -150,16 +155,17 @@ internal static partial class Migration
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
-        LegacyOutboxRead outbox,
+        LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy,
         CancellationToken token)
     {
-        var found = new List<ImportFinding>();
+        var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
         found.AddRange(outbox.Findings);
         foreach (var relation in catalog)
         {
             var name = relation.Name.ToLowerInvariant();
-            if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation)) continue;
+            if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
+                taxonomy.Covers(relation.Name)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)

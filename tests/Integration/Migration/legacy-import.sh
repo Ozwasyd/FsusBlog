@@ -112,9 +112,10 @@ python3 tools/site-backup.py verify "$backup" "$manifest"
 rc=0
 "${migrate[@]}" legacy plan "$provider" > "$root/intake.json" || rc=$?
 [[ "$rc" == 2 ]]
-python3 - "$root/intake.json" "$root/owner.json" <<'PY'
+python3 - "$root/intake.json" "$root/owner.json" "$provider" <<'PY'
 import json, pathlib, sys
 report=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert report["taxonomyProjection"]["status"] == ("absent" if sys.argv[3] == "postgres" else "not-applicable")
 article=next(row for row in report["audit"]["projections"] if row["table"] == "article")
 owner={"sourceArticleSha256":article["sha256"],"sourceAdminIdentitySha256":report["sourceAdminIdentitySha256"],
        "owners":[{"articleId":42,"legacyAdminId":7,"v2UserId":"968ffb2b-77ef-4868-89ec-6a0a19b28b95"}]}
@@ -254,12 +255,81 @@ PY
 "${source_sql[@]}" "UPDATE admin_principal SET permissions='[]', isroot=false"
 [[ "$("${target_sql[@]}" -qAtc 'SELECT version FROM public.v2_schema')" == 1 ]]
 
+if [[ "$provider" == postgres ]]; then
+    source_fixture_sql=(psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_db" -f)
+    taxonomy_fixture=tests/Integration/Migration/legacy-taxonomy-projection-fixture.sql
+    "${source_fixture_sql[@]}" "$taxonomy_fixture"
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'The import plan no longer matches' "$root/error.log"
+    cp "$root/import.json" "$root/no-taxonomy.json"
+    rc=0
+    "${migrate[@]}" legacy plan postgres > "$root/with-taxonomy-intake.json" || rc=$?
+    [[ "$rc" == 2 ]]
+    "${plan[@]}" > "$root/import.json"
+    python3 - "$root/no-taxonomy.json" "$root/import.json" "$root/with-taxonomy-intake.json" <<'PY'
+import json, pathlib, re, sys
+old, new, intake = (json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:])
+proof = intake["taxonomyProjection"]
+assert proof["status"] == "verified" and not proof["findings"]
+counts = {"category_public_article_count": 2, "tag_public_article_count": 3, "article_public_taxonomy_projection": 1}
+added = new["sourceProjections"][len(old["sourceProjections"]):]
+assert added == proof["projections"] and {row["table"]: row["rows"] for row in added} == counts
+assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in added)
+new["sourceProjections"] = new["sourceProjections"][:-len(added)]
+assert new == old
+PY
+    expect_taxonomy_refused() {
+        local exit_code=0
+        "${plan[@]}" > "$root/rejected.json" || exit_code=$?
+        [[ "$exit_code" == 2 ]]
+        python3 - "$root/rejected.json" "$1" <<'PY'
+import json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert not report["readyToStage"] and any(row["category"] == sys.argv[2] for row in report["findings"]), report
+PY
+    }
+    "${source_sql[@]}" 'UPDATE category_public_article_count SET article_count=2 WHERE category_id=12'
+    expect_taxonomy_refused legacy-taxonomy-count
+    "${source_sql[@]}" 'UPDATE category_public_article_count SET article_count=1 WHERE category_id=12'
+    "${source_sql[@]}" "UPDATE article_public_taxonomy_projection SET category_id=11,tag_ids='21'"
+    expect_taxonomy_refused legacy-taxonomy-projection
+    "${source_sql[@]}" "UPDATE article_public_taxonomy_projection SET category_id=12,tag_ids='22,23',updated_at_utc='infinity'"
+    expect_taxonomy_refused legacy-taxonomy-timestamp
+    "${source_sql[@]}" "UPDATE article_public_taxonomy_projection SET updated_at_utc='2026-10-03 00:00:00.000007'"
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'The import plan no longer matches' "$root/error.log"
+    "${source_sql[@]}" "UPDATE article_public_taxonomy_projection SET updated_at_utc='2026-10-03 00:00:00.000006'"
+    "${source_sql[@]}" 'ALTER TABLE tag_public_article_count RENAME TO hidden_taxonomy_count'
+    expect_taxonomy_refused legacy-taxonomy-catalog
+    "${source_sql[@]}" 'ALTER TABLE hidden_taxonomy_count RENAME TO tag_public_article_count'
+    "${source_sql[@]}" 'ALTER TABLE tag_public_article_count ALTER COLUMN article_count DROP NOT NULL'
+    expect_taxonomy_refused legacy-taxonomy-catalog
+    "${source_sql[@]}" 'ALTER TABLE tag_public_article_count ALTER COLUMN article_count SET NOT NULL'
+    "${source_sql[@]}" "TRUNCATE category_public_article_count,tag_public_article_count,article_public_taxonomy_projection;
+        UPDATE article SET status=3,archived_at='2026-10-04 00:00:00' WHERE id=42"
+    rc=0
+    "${migrate[@]}" legacy plan postgres > "$root/empty-taxonomy-intake.json" || rc=$?
+    [[ "$rc" == 2 ]]
+    python3 - "$root/empty-taxonomy-intake.json" <<'PY'
+import json, pathlib, sys
+proof = json.loads(pathlib.Path(sys.argv[1]).read_text())["taxonomyProjection"]
+assert proof["status"] == "verified-empty" and not proof["findings"], proof
+assert len(proof["projections"]) == 3 and all(row["rows"] == 0 for row in proof["projections"])
+PY
+    "${source_sql[@]}" 'UPDATE article SET status=2,archived_at=NULL WHERE id=42;
+        DROP TABLE category_public_article_count,tag_public_article_count,article_public_taxonomy_projection'
+    "${source_fixture_sql[@]}" "$taxonomy_fixture"
+    [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
+fi
+
 "${apply[@]}" > "$root/applied.json"
 [[ "$("${target_sql[@]}" -qAtc 'SELECT version FROM public.v2_schema')" == -1 ]]
 [[ "$("${target_sql[@]}" -qAtc 'SELECT count(*) FROM public.article')" == 0 ]]
 [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM fsus_legacy_candidate.shadow_publication")" == 2 ]]
 [[ "$("${target_sql[@]}" -qAtc "SELECT source_revision_id,publication_number,source_rights_snapshot_id FROM fsus_legacy_candidate.shadow_publication ORDER BY publication_number")" == $'5000000001|1|700\n5000000002|2|701' ]]
 if [[ "$provider" == postgres ]]; then
+    [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM pg_class WHERE relname IN
+        ('category_public_article_count','tag_public_article_count','article_public_taxonomy_projection')")" == 0 ]]
     [[ "$("${target_sql[@]}" -qAtc "SELECT id,admin_principal_id,client_mutation_id,request_hash,article_id,revision_id,
         revision_no,release_id,release_no,status,rights_snapshot_id,rights_revision_no,created_at_utc::timestamp
         FROM fsus_legacy_candidate.shadow_article_mutation_command")" \

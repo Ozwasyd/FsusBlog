@@ -58,6 +58,9 @@ internal static partial class Migration
             : null;
         if (audit is not null)
             blockers.AddRange(audit.Issues.Select(issue => $"{issue.Kind}: {issue.Count}"));
+        var taxonomy = mode == "plan" && audit is not null && blockers.Count == 0
+            ? await VerifyLegacyTaxonomyAsync(source, transaction, catalog, tables, audit, token)
+            : null;
 
         string? sourceAdminIdentitySha256 = null;
         ShadowReport? shadow = null;
@@ -83,6 +86,8 @@ internal static partial class Migration
                 blockers.Add("admin_principal.id and handle must be readable from one supported v1 base table");
             }
         }
+        if (taxonomy is not null)
+            blockers.AddRange(taxonomy.Findings.Select(finding => $"{finding.Category}: {finding.Source} ({finding.Rows})"));
         bool rehearsed = shadow is not null && blockers.Count == 0;
         if (mode is "plan" or "rehearse")
         {
@@ -103,6 +108,7 @@ internal static partial class Migration
             readyToApply = false,
             catalog,
             audit,
+            taxonomyProjection = taxonomy,
             sourceAdminIdentitySha256,
             rehearsal = shadow,
             blockers
