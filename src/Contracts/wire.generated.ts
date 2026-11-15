@@ -208,6 +208,8 @@ export const FrameType = {
   DocumentExportTaskRef: 33045,
   DocumentExportTask: 33046,
   DocumentExportTaskList: 33047,
+  PropertyValueBatchCommand: 33048,
+  PropertyValueBatchReceipt: 33049,
   PropertyDefinitionProjectionCommand: 33024,
   PropertyDefinitionProjection: 33025,
   DraftTaxonomy: 32790,
@@ -398,6 +400,8 @@ export const WireLimits = {
   PropertyDefinitionDigestBytes: 64,
   PropertyValueBytes: 65536,
   PropertyMaxCommandBytes: 65792,
+  PropertyBatchMaxChanges: 16,
+  PropertyBatchMaxCommandBytes: 1049152,
   PropertyTextHitRequestFrameBytes: 100,
   PropertyPageSize: 25,
   PropertyQueryCursorChars: 48,
@@ -3183,6 +3187,34 @@ export function decodePropertyCommandReceipt(payload: Uint8Array): PropertyComma
     definitionId: reader.uuid(),
     schemaRevision: reader.i64(),
     revision: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface PropertyValueBatchReceipt {
+  articleId: number;
+  schemaRevision: bigint;
+  valueRevision: bigint;
+  requestId: string;
+}
+
+export function encodePropertyValueBatchReceipt(value: PropertyValueBatchReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.schemaRevision);
+  writer.i64(value.valueRevision);
+  writer.uuid(value.requestId);
+  return writer.finish();
+}
+
+export function decodePropertyValueBatchReceipt(payload: Uint8Array): PropertyValueBatchReceipt {
+  const reader = new PodReader(payload);
+  const value: PropertyValueBatchReceipt = {
+    articleId: reader.i32(),
+    schemaRevision: reader.i64(),
+    valueRevision: reader.i64(),
+    requestId: reader.uuid(),
   };
   reader.finish();
   return value;

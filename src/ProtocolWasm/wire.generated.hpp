@@ -181,6 +181,8 @@ inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyDefinitionDigestBytes = 64;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
+inline constexpr uint32_t PropertyBatchMaxChanges = 16;
+inline constexpr uint32_t PropertyBatchMaxCommandBytes = 1049152;
 inline constexpr uint32_t PropertyTextHitRequestFrameBytes = 100;
 inline constexpr uint32_t PropertyPageSize = 25;
 inline constexpr uint32_t PropertyQueryCursorChars = 48;
@@ -598,6 +600,8 @@ enum class FrameType : uint16_t {
     DocumentExportTaskRef = 33045,
     DocumentExportTask = 33046,
     DocumentExportTaskList = 33047,
+    PropertyValueBatchCommand = 33048,
+    PropertyValueBatchReceipt = 33049,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -819,6 +823,8 @@ constexpr bool known(FrameType type) {
         case FrameType::DocumentExportTaskRef:
         case FrameType::DocumentExportTask:
         case FrameType::DocumentExportTaskList:
+        case FrameType::PropertyValueBatchCommand:
+        case FrameType::PropertyValueBatchReceipt:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

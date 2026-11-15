@@ -3,9 +3,10 @@ import { PodReader, PodWriter } from './binary.ts'
 import { request, siteSessionHeader } from './client.ts'
 import { encodePropertyTextHitRequest, type PropertyTextHitRequest } from './property-text-hit.ts'
 import {
-  decodePropertyCommandReceipt, encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
+  decodePropertyCommandReceipt, decodePropertyValueBatchReceipt, encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
   type PropertyDefinitionCommand, type PropertyTextCommand, type PropertyWorkspaceRequest,
 } from './wire.generated.ts'
+export { decodePropertyValueBatchReceipt, type PropertyValueBatchReceipt } from './wire.generated.ts'
 
 export const propertyKinds = ['text', 'number', 'boolean', 'date', 'single-select', 'multi-select', 'article-reference', 'url'] as const
 export type PropertyKind = typeof propertyKinds[number]
@@ -31,6 +32,10 @@ export type PropertySchemaCommand = PropertyDefinitionCommand & {
 }
 
 export type PropertyValueCommand = Omit<PropertyTextCommand, 'remove' | 'value'> & { value: PropertyValue }
+export type PropertyValueChange = Pick<PropertyValueCommand, 'definitionId' | 'definitionRevision' | 'value'>
+export type PropertyValueBatchCommand = Omit<PropertyValueCommand, keyof PropertyValueChange> & {
+  changes: readonly PropertyValueChange[]
+}
 
 export type EditableProperty = {
   definitionId: string
@@ -303,6 +308,29 @@ export function encodePropertyValueCommand(input: PropertyValueCommand): Uint8Ar
   return writer.finish()
 }
 
+export function encodePropertyValueBatch(input: PropertyValueBatchCommand): Uint8Array {
+  requireProperty(input.articleId > 0 && input.articleRevision > 0n && input.schemaRevision > 0n &&
+    input.valueRevision >= 0n && input.valueRevision < 9_223_372_036_854_775_807n &&
+    input.changes.length > 0 && input.changes.length <= WireLimits.PropertyBatchMaxChanges, 'batch coordinates')
+  const writer = new PodWriter()
+  writer.i32(input.articleId)
+  writer.i64(input.articleRevision)
+  writer.i64(input.schemaRevision)
+  writer.i64(input.valueRevision)
+  writer.uuid(uuid(input.requestId))
+  writer.i32(input.changes.length)
+  const fields = new Set<string>()
+  for (const change of input.changes) {
+    const id = uuid(change.definitionId)
+    requireProperty(change.definitionRevision > 0n && !fields.has(id), 'batch field')
+    fields.add(id)
+    writer.uuid(id)
+    writer.i64(change.definitionRevision)
+    writeValue(writer, change.value)
+  }
+  return writer.finish()
+}
+
 export function decodePropertyEditor(payload: Uint8Array): PropertyWorkspace {
   const reader = new PodReader(payload)
   const articleId = reader.i32()
@@ -388,5 +416,14 @@ export const propertyApi = {
         receipt.schemaRevision === input.schemaRevision && receipt.revision === input.valueRevision + 1n, 'value receipt')
       return receipt
     }, signal, 'POST', body)
+  },
+  values(input: PropertyValueBatchCommand, signal?: AbortSignal, credential?: string) {
+    const body = encodeFrame(FrameType.PropertyValueBatchCommand, encodePropertyValueBatch(input))
+    return request(WireRoutes.PropertyValueCommand, FrameType.PropertyValueBatchReceipt, payload => {
+      const receipt = decodePropertyValueBatchReceipt(payload)
+      requireProperty(receipt.articleId === input.articleId && receipt.schemaRevision === input.schemaRevision &&
+        receipt.valueRevision === input.valueRevision + 1n && receipt.requestId === uuid(input.requestId), 'batch receipt')
+      return receipt
+    }, signal, 'POST', body, credential === undefined ? undefined : siteSessionHeader(credential))
   },
 }

@@ -209,6 +209,8 @@ public enum FrameType : ushort
     DocumentExportTaskRef = 33045,
     DocumentExportTask = 33046,
     DocumentExportTaskList = 33047,
+    PropertyValueBatchCommand = 33048,
+    PropertyValueBatchReceipt = 33049,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -401,6 +403,8 @@ public static class WireLimits
     public const int PropertyDefinitionDigestBytes = 64;
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
+    public const int PropertyBatchMaxChanges = 16;
+    public const int PropertyBatchMaxCommandBytes = 1049152;
     public const int PropertyTextHitRequestFrameBytes = 100;
     public const int PropertyPageSize = 25;
     public const int PropertyQueryCursorChars = 48;
@@ -957,6 +961,7 @@ public sealed record PropertyDefinitionProjectionCommand(Guid DefinitionId, Guid
 public sealed record PropertyDefinitionProjection(Guid DefinitionId, long SchemaRevision, long DefinitionRevision, bool Deprecated, bool SearchEligible, bool Filterable, bool Sortable, string Digest);
 public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
 public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
+public sealed record PropertyValueBatchReceipt(int ArticleId, long SchemaRevision, long ValueRevision, Guid RequestId);
 
 public static partial class Wire
 {
@@ -2470,6 +2475,26 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyCommandReceipt));
         var value = new PropertyCommandReceipt(reader.Uuid(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodePropertyValueBatchReceipt(PropertyValueBatchReceipt value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.SchemaRevision);
+        writer.I64(value.ValueRevision);
+        writer.Uuid(value.RequestId);
+        return Aeds.Encode(FrameType.PropertyValueBatchReceipt, writer.Written);
+    }
+
+    public static PropertyValueBatchReceipt DecodePropertyValueBatchReceipt(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyValueBatchReceipt));
+        var value = new PropertyValueBatchReceipt(reader.I32(), reader.I64(), reader.I64(), reader.Uuid());
         reader.Finish();
         Validate(value);
         return value;

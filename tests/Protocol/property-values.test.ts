@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
-  decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand, normalizePropertyDecimal, propertyApi,
-  type PropertySchemaCommand, type PropertyValueCommand,
+  decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueBatch, encodePropertyValueCommand,
+  normalizePropertyDecimal, propertyApi, type PropertySchemaCommand, type PropertyValueBatchCommand, type PropertyValueCommand,
 } from '../../src/Contracts/property-values.ts'
 import { encodePropertyCommandReceipt, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { encodePropertyQuery, queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
@@ -89,6 +89,37 @@ test('property commands match independently framed bytes', () => {
     fixture('property-definition-options'))
   assert.deepEqual(encodeFrame(FrameType.PropertyValueCommand, encodePropertyValueCommand(valueCommand)),
     fixture('property-value-exact-decimal'))
+})
+
+test('property batch uses fixed mixed-value bytes and binds the receipt to the command', async t => {
+  const batch = {
+    articleId: valueCommand.articleId, articleRevision: valueCommand.articleRevision,
+    schemaRevision: valueCommand.schemaRevision, valueRevision: valueCommand.valueRevision, requestId,
+    changes: [
+      { definitionId, definitionRevision: 1n, value: valueCommand.value },
+      { definitionId: schemaCommand.definitionId, definitionRevision: 3n, value: { kind: 'missing' } },
+    ],
+  } satisfies PropertyValueBatchCommand
+  assert.throws(() => encodePropertyValueBatch({ ...batch, changes: [] }), /batch coordinates/)
+  assert.throws(() => encodePropertyValueBatch({ ...batch, changes: [...batch.changes, batch.changes[0]] }), /batch field/)
+
+  const credential = 'a'.repeat(64)
+  let returned = fixture('property-value-batch-receipt')
+  const fetch = t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
+    assert.equal(path, WireRoutes.PropertyValueCommand)
+    assert.equal(init.method, 'POST')
+    assert.equal(new Headers(init.headers).get(WireHeaders.CurrentSession), credential)
+    assert.deepEqual(init.body, fixture('property-value-batch'))
+    return new Response(returned, { headers: { 'content-type': 'application/octet-stream' } })
+  })
+  assert.deepEqual(await propertyApi.values(batch, undefined, credential), {
+    articleId: 17, schemaRevision: 10n, valueRevision: 9n, requestId,
+  })
+  const payload = Uint8Array.from(decodeFrame(returned, FrameType.PropertyValueBatchReceipt).payload)
+  new DataView(payload.buffer).setBigInt64(12, 10n, true)
+  returned = encodeFrame(FrameType.PropertyValueBatchReceipt, payload)
+  await assert.rejects(propertyApi.values(batch, undefined, credential), /batch receipt/)
+  assert.equal(fetch.mock.callCount(), 2)
 })
 
 test('the AND request preserves independent decimal and UTC comparison bytes', async t => {

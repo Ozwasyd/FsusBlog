@@ -181,8 +181,26 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     internal async Task<PropertyCommandReceipt> Write(PropertyValueInput input, bool textOnly, byte[] originalFrame, CancellationToken ct)
     {
+        var single = new PropertyValueBatchInput(input.ArticleId, input.ArticleRevision, input.SchemaRevision, input.ValueRevision,
+            input.RequestId, [new(input.DefinitionId, input.DefinitionRevision, input.Value)]);
+        var next = await WriteValues(single, textOnly, originalFrame, ct);
+        return new(input.DefinitionId, input.SchemaRevision, next);
+    }
+
+    internal async Task<PropertyValueBatchReceipt> WriteBatch(PropertyValueBatchInput input, byte[] originalFrame,
+        AuthorTextRebuildWorker rebuild, Identity actor, CancellationToken ct)
+    {
+        var next = await WriteValues(input, textOnly: false, originalFrame, ct, (rebuild, actor));
+        return new(input.ArticleId, input.SchemaRevision, next, input.RequestId);
+    }
+
+    private async Task<long> WriteValues(PropertyValueBatchInput input, bool textOnly, byte[] originalFrame, CancellationToken ct,
+        (AuthorTextRebuildWorker Worker, Identity Actor)? projection = null)
+    {
         await ScopeLock(ct);
         long articleRevision = await AssertArticle(input.ArticleId, expectedRevision: null, ct);
+        // The request fingerprint binds every field. Keep the first definition as the existing journal coordinate.
+        var firstDefinition = input.Changes[0].DefinitionId;
         var fingerprint = SHA256.HashData(originalFrame);
         await using (var replay = Store.Sql(db, tx, """
             select fingerprint,definition_id,revision from public.property_value_command where article_id=$1 and request_id=$2
@@ -191,23 +209,37 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         {
             if (await reader.ReadAsync(ct))
             {
-                if (!CryptographicOperations.FixedTimeEquals(fingerprint, reader.GetFieldValue<byte[]>(0))) throw Conflict();
-                return new(reader.GetGuid(1), input.SchemaRevision, reader.GetInt64(2));
+                if (!CryptographicOperations.FixedTimeEquals(fingerprint, reader.GetFieldValue<byte[]>(0)) ||
+                    reader.GetGuid(1) != firstDefinition)
+                    throw Conflict();
+                return reader.GetInt64(2);
             }
         }
 
         if (input.ArticleRevision != articleRevision) throw Conflict();
         var schema = await ReadSchema(ct);
         if (schema.Revision != input.SchemaRevision) throw Conflict();
-        var definition = schema.Find(input.DefinitionId) ?? throw Missing();
-        if (textOnly && definition.Settings.Kind != PropertyKind.Text || definition.Status == PropertyStatus.Deleted) throw Missing();
-        if (definition.Revision != input.DefinitionRevision) throw Conflict();
-        var candidate = DomainValue(input.Value);
-        if (candidate is null && definition.Settings.Presence.Required) throw Invalid();
-        var referenceFacts = await ValidateReferences(input.ArticleId, ReferenceIds(candidate), ct);
-        var value = candidate is null ? null : PropertyValues.Validate(definition, candidate, input.ArticleId,
-            target => referenceFacts.GetValueOrDefault(checked((int)target)));
+        var candidates = new List<(PropertyDefinition Definition, PropertyValue? Value)>(input.Changes.Count);
+        foreach (var change in input.Changes)
+        {
+            var definition = schema.Find(change.DefinitionId) ?? throw Missing();
+            if (textOnly && definition.Settings.Kind != PropertyKind.Text || definition.Status == PropertyStatus.Deleted) throw Missing();
+            if (definition.Revision != change.DefinitionRevision) throw Conflict();
+            var candidate = DomainValue(change.Value);
+            if (candidate is null && definition.Settings.Presence.Required) throw Invalid();
+            candidates.Add((definition, candidate));
+        }
+        var references = candidates.SelectMany(candidate => ReferenceIds(candidate.Value)).Distinct().ToArray();
+        var referenceFacts = await ValidateReferences(input.ArticleId, references, ct);
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var (definition, value) = candidates[index];
+            if (value is not null)
+                candidates[index] = (definition, PropertyValues.Validate(definition, value, input.ArticleId,
+                    target => referenceFacts.GetValueOrDefault(checked((int)target))));
+        }
 
+        long next;
         await using (var advance = Store.Sql(db, tx, """
             insert into public.property_article(article_id,owner_id,revision)
             select $1,$2,1 where $3=0 or exists (
@@ -216,31 +248,52 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             on conflict(article_id) do update set revision=property_article.revision+1
             where property_article.owner_id=$2 and property_article.revision=$3 returning revision
             """, input.ArticleId, ownerId, input.ValueRevision))
+            next = await advance.ExecuteScalarAsync(ct) as long? ?? throw Conflict();
+
+        foreach (var (definition, value) in candidates)
         {
-            if (await advance.ExecuteScalarAsync(ct) is not long next) throw Conflict();
             if (value is not null)
             {
                 await using var upsert = Store.Sql(db, tx, """
                     insert into public.property_value(article_id,owner_id,definition_id,data,references_ids) values($1,$2,$3,$4,$5)
                     on conflict(article_id,definition_id) do update set data=excluded.data,references_ids=excluded.references_ids
-                    """, input.ArticleId, ownerId, input.DefinitionId, Json(value), ReferenceIds(value));
+                    """, input.ArticleId, ownerId, definition.Id, Json(value), ReferenceIds(value));
                 await upsert.ExecuteNonQueryAsync(ct);
             }
             else
             {
                 await using var remove = Store.Sql(db, tx, """
                     delete from public.property_value where article_id=$1 and owner_id=$2 and definition_id=$3
-                    """, input.ArticleId, ownerId, input.DefinitionId);
+                    """, input.ArticleId, ownerId, definition.Id);
                 await remove.ExecuteNonQueryAsync(ct);
             }
-
-            await using var record = Store.Sql(db, tx, """
-                insert into public.property_value_command(article_id,request_id,fingerprint,definition_id,revision)
-                values($1,$2,$3,$4,$5)
-                """, input.ArticleId, input.RequestId, fingerprint, input.DefinitionId, next);
-            await record.ExecuteNonQueryAsync(ct);
-            return new(input.DefinitionId, input.SchemaRevision, next);
         }
+
+        await using var record = Store.Sql(db, tx, """
+            insert into public.property_value_command(article_id,request_id,fingerprint,definition_id,revision)
+            values($1,$2,$3,$4,$5)
+            """, input.ArticleId, input.RequestId, fingerprint, firstDefinition, next);
+        await record.ExecuteNonQueryAsync(ct);
+        if (projection is { } queue && queue.Worker.Installed)
+            await EnqueueChangedText(input, schema, queue.Worker, queue.Actor, ct);
+        return next;
+    }
+
+    private async Task EnqueueChangedText(PropertyValueBatchInput input, PropertySchema schema,
+        AuthorTextRebuildWorker rebuild, Identity actor, CancellationToken ct)
+    {
+        // All still-present Text values carry the article-wide revision. Also include fields removed by this command.
+        var affected = input.Changes.Select(change => change.DefinitionId).ToHashSet();
+        await using (var read = Store.Sql(db, tx, """
+            select definition_id from public.property_value where article_id=$1 and owner_id=$2
+            """, input.ArticleId, ownerId))
+        await using (var rows = await read.ExecuteReaderAsync(ct))
+            while (await rows.ReadAsync(ct)) affected.Add(rows.GetGuid(0));
+
+        var definitions = affected.Select(schema.Find).Where(definition =>
+                definition is { Status: PropertyStatus.Active, Settings: { Kind: PropertyKind.Text, SearchEligible: true } })
+            .Select(definition => (definition!.Id, definition.Revision)).ToArray();
+        await rebuild.EnqueueProperties(db, tx, actor, schema.Revision, definitions, ct);
     }
 
     private Task ScopeLock(CancellationToken ct) =>

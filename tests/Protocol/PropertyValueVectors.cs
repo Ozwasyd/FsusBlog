@@ -38,6 +38,27 @@ internal static class PropertyValueVectors
             throw new InvalidOperationException("Typed property command changed the exact decimal or coordinates.");
         Reject(() => Wire.EncodePropertyValueInput(value with { Value = new PropertyFieldValue.Unavailable() }));
 
+        var batch = new PropertyValueBatchInput(17, articleRevision, 10, 8, requestId,
+        [
+            new(value.DefinitionId, 1, number),
+            new(Guid.Parse("00000000-0000-4000-8000-000000000004"), 3, new PropertyFieldValue.Missing())
+        ]);
+        var batchBytes = Fixture("property-value-batch");
+        BytesEqual(batchBytes, Wire.EncodePropertyValueBatch(batch));
+        var decodedBatch = Wire.DecodePropertyValueBatch(batchBytes);
+        if (decodedBatch with { Changes = batch.Changes } != batch ||
+            !decodedBatch.Changes.SequenceEqual(batch.Changes))
+            throw new InvalidOperationException("Property batch differs from the independent byte vector.");
+        Reject(() => Wire.EncodePropertyValueBatch(batch with { Changes = [batch.Changes[0], batch.Changes[0]] }));
+        var invalidBatch = Aeds.Decode(batchBytes, FrameType.PropertyValueBatchCommand).ToArray();
+        invalidBatch[44] = checked((byte)(WireLimits.PropertyBatchMaxChanges + 1));
+        Reject(() => Wire.DecodePropertyValueBatch(Aeds.Encode(FrameType.PropertyValueBatchCommand, invalidBatch)));
+        var batchReceipt = new PropertyValueBatchReceipt(17, 10, 9, requestId);
+        var batchReceiptBytes = Fixture("property-value-batch-receipt");
+        BytesEqual(batchReceiptBytes, Wire.EncodePropertyValueBatchReceipt(batchReceipt));
+        if (Wire.DecodePropertyValueBatchReceipt(batchReceiptBytes) != batchReceipt)
+            throw new InvalidOperationException("Property batch receipt differs from the independent byte vector.");
+
         var groupBytes = Fixture("property-query-group");
         var group = new PropertyArticleQueryGroup(10,
         [

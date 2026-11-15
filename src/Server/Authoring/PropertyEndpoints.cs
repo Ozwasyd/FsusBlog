@@ -38,8 +38,23 @@ internal static class PropertyEndpoints
                 : await store.Change(Wire.DecodePropertySchemaInput(frame), textOnly: false, ct);
             return Wire.EncodePropertyCommandReceipt(receipt);
         });
-        Map(WireRoutes.PropertyValueCommand, async (store, frame, ct) =>
-            Wire.EncodePropertyCommandReceipt(await store.Write(Wire.DecodePropertyValueInput(frame), textOnly: false, frame, ct)));
+        MapSession(WireRoutes.PropertyValueCommand, async (store, actor, ctx, frame, session, ct) =>
+        {
+            Aeds.Decode(frame, out var type);
+            if (type != FrameType.PropertyValueBatchCommand)
+            {
+                if (frame.Length > WireLimits.PropertyMaxCommandBytes)
+                    throw new BusinessException(Rejection.Invalid, "Invalid article property.");
+                return Wire.EncodePropertyCommandReceipt(await store.Write(Wire.DecodePropertyValueInput(frame), textOnly: false, frame, ct));
+            }
+            var expected = SiteSessions.Requested(ctx);
+            SiteSessions.IfCurrent(actor.Id, session, expected);
+            var rebuild = ctx.RequestServices.GetRequiredService<AuthorTextRebuildWorker>();
+            var receipt = await store.WriteBatch(Wire.DecodePropertyValueBatch(frame), frame, rebuild, actor, ct);
+            ct.ThrowIfCancellationRequested();
+            SiteSessions.IfCurrent(actor.Id, session, expected);
+            return Wire.EncodePropertyValueBatchReceipt(receipt);
+        }, WireLimits.PropertyBatchMaxCommandBytes);
         Map(WireRoutes.PropertyFilterability, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.SetFilterable(Wire.DecodePropertyFilterabilityCommand(frame), ct)));
 

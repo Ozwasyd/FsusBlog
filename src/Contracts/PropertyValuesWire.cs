@@ -25,6 +25,9 @@ public abstract record PropertyFieldValue
 
 public sealed record PropertyValueInput(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision,
     Guid DefinitionId, long DefinitionRevision, Guid RequestId, PropertyFieldValue Value);
+public sealed record PropertyValueChange(Guid DefinitionId, long DefinitionRevision, PropertyFieldValue Value);
+public sealed record PropertyValueBatchInput(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision,
+    Guid RequestId, IReadOnlyList<PropertyValueChange> Changes);
 public sealed record PropertyEditorField(Guid DefinitionId, long DefinitionRevision, string MachineKey, string Label,
     bool Deprecated, PropertyFieldKind Kind, IReadOnlyList<PropertyFieldOption> Options, PropertyFieldValue Value);
 public sealed record PropertyEditorWorkspace(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision,
@@ -89,6 +92,64 @@ public static partial class Wire
         ValidateValueInput(value);
         reader.Finish();
         return value;
+    }
+
+    public static byte[] EncodePropertyValueBatch(PropertyValueBatchInput input)
+    {
+        ValidateBatch(input);
+        var writer = new Writer();
+        writer.I32(input.ArticleId);
+        writer.I64(input.ArticleRevision);
+        writer.I64(input.SchemaRevision);
+        writer.I64(input.ValueRevision);
+        writer.Uuid(input.RequestId);
+        writer.I32(input.Changes.Count);
+        foreach (var change in input.Changes)
+        {
+            writer.Uuid(change.DefinitionId);
+            writer.I64(change.DefinitionRevision);
+            WriteValue(writer, change.Value);
+        }
+        return Aeds.Encode(FrameType.PropertyValueBatchCommand, writer.Written);
+    }
+
+    public static PropertyValueBatchInput DecodePropertyValueBatch(ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length > WireLimits.PropertyBatchMaxCommandBytes) throw InvalidProperty();
+        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyValueBatchCommand));
+        var article = reader.I32();
+        var revision = reader.I64();
+        var schema = reader.I64();
+        var values = reader.I64();
+        var request = reader.Uuid();
+        var count = reader.I32();
+        if (count is < 1 or > WireLimits.PropertyBatchMaxChanges) throw InvalidProperty();
+        var changes = new PropertyValueChange[count];
+        for (var index = 0; index < changes.Length; index++)
+            changes[index] = new(reader.Uuid(), reader.I64(), ReadValue(ref reader));
+        reader.Finish();
+        var input = new PropertyValueBatchInput(article, revision, schema, values, request, changes);
+        ValidateBatch(input);
+        return input;
+    }
+
+    private static void ValidateBatch(PropertyValueBatchInput input)
+    {
+        if (input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.SchemaRevision <= 0 ||
+            input.ValueRevision is < 0 or long.MaxValue || input.RequestId == Guid.Empty ||
+            input.Changes.Count is < 1 or > WireLimits.PropertyBatchMaxChanges)
+            throw InvalidProperty();
+        var fields = new HashSet<Guid>();
+        foreach (var change in input.Changes)
+            if (change.DefinitionId == Guid.Empty || change.DefinitionRevision <= 0 ||
+                change.Value is null or PropertyFieldValue.Unavailable || !fields.Add(change.DefinitionId))
+                throw InvalidProperty();
+    }
+
+    private static void Validate(PropertyValueBatchReceipt receipt)
+    {
+        if (receipt.ArticleId <= 0 || receipt.SchemaRevision <= 0 || receipt.ValueRevision <= 0 || receipt.RequestId == Guid.Empty)
+            throw InvalidProperty();
     }
 
     public static byte[] EncodePropertyEditor(PropertyEditorWorkspace input)
