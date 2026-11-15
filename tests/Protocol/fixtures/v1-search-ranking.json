@@ -1,0 +1,199 @@
+{
+  "fixedSource": "2605b438eed8f16d12ddddf033d08a6fa18fcd12",
+  "nowMs": 1700000000000,
+  "packageSha256": "c60673fb3bb7a764f1dea3ba7b7b7c3cfd614cef47b574d5a7c2517c1027bdc4",
+  "cases": [
+    {
+      "name": "relevance-page1",
+      "query": "ALPHA",
+      "sort": 0,
+      "page": 1,
+      "size": 2,
+      "ids": [
+        10,
+        40
+      ],
+      "total": 5,
+      "scores": {
+        "10": [
+          4.45945945945946,
+          0
+        ],
+        "20": [
+          2.9312638301823117,
+          0.29340686174538017
+        ],
+        "30": [
+          2.8285714285714287,
+          0
+        ],
+        "50": [
+          2.870394857739335,
+          4.414553294057308
+        ]
+      }
+    },
+    {
+      "name": "relevance-page2",
+      "query": "alpha",
+      "sort": 0,
+      "page": 2,
+      "size": 2,
+      "ids": [
+        20,
+        50
+      ],
+      "total": 5
+    },
+    {
+      "name": "relevance-last-page",
+      "query": "alpha",
+      "sort": 0,
+      "page": 3,
+      "size": 2,
+      "ids": [
+        30
+      ],
+      "total": 5
+    },
+    {
+      "name": "out-of-range-keeps-total",
+      "query": "alpha",
+      "sort": 0,
+      "page": 25,
+      "size": 2,
+      "ids": [],
+      "total": 5
+    },
+    {
+      "name": "newest",
+      "query": "alpha",
+      "sort": 1,
+      "page": 1,
+      "size": 10,
+      "ids": [
+        30,
+        20,
+        10,
+        40,
+        50
+      ],
+      "total": 5
+    },
+    {
+      "name": "hot",
+      "query": "alpha",
+      "sort": 2,
+      "page": 1,
+      "size": 10,
+      "ids": [
+        50,
+        20,
+        10,
+        40,
+        30
+      ],
+      "total": 5
+    },
+    {
+      "name": "default-sort-and-zero-page-size",
+      "query": "alpha",
+      "sort": 9,
+      "page": 0,
+      "size": 0,
+      "ids": [
+        10
+      ],
+      "total": 5
+    },
+    {
+      "name": "empty-query",
+      "query": "!!!",
+      "sort": 2,
+      "page": 1,
+      "size": 2,
+      "ids": [],
+      "total": 0
+    },
+    {
+      "name": "hash-order-and-overlap",
+      "query": "foo bar",
+      "sort": 0,
+      "page": 1,
+      "size": 10,
+      "ids": [
+        10,
+        20,
+        30
+      ],
+      "total": 3,
+      "scores": {
+        "10": [
+          4.222972972972973,
+          0
+        ],
+        "20": [
+          3.075665374583856,
+          0.29340686174538017
+        ],
+        "30": [
+          1.4864864864864864,
+          0
+        ]
+      }
+    },
+    {
+      "name": "reversed-repeated-terms",
+      "query": "bar foo bar",
+      "sort": 0,
+      "page": 1,
+      "size": 10,
+      "ids": [
+        10,
+        20,
+        30
+      ],
+      "total": 3
+    },
+    {
+      "name": "role-idf-mean-and-quantized-tf",
+      "query": "needle",
+      "sort": 0,
+      "page": 1,
+      "size": 10,
+      "ids": [
+        20,
+        50,
+        30
+      ],
+      "total": 3,
+      "scores": {
+        "20": [
+          2.9934342072463056,
+          0.29340686174538017
+        ],
+        "30": [
+          1.4042553191489362,
+          0
+        ],
+        "50": [
+          2.942872267377889,
+          4.414553294057308
+        ]
+      }
+    }
+  ],
+  "sharedCoreDifferential": {
+    "query": "foo bar",
+    "rawIds": [
+      10,
+      20,
+      30
+    ],
+    "v2Ids": [
+      20,
+      30,
+      10
+    ]
+  }
+}
