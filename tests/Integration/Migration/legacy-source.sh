@@ -39,6 +39,10 @@ cleanup() {
         if [[ "$code" == 0 ]]; then code=1; fi
         exit "$code"
     fi
+    if (( code != 0 )); then
+        printf 'Preserved failed source rehearsal reports in %s. PostgreSQL fixture, if created: %s\n' "$scratch" "$database" >&2
+        exit "$code"
+    fi
     if [[ "$created" == 1 ]] && ! "${pg[@]}" -d postgres -c "DROP DATABASE \"$database\""; then
         printf 'Could not remove owned test database %s\n' "$database" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
@@ -178,6 +182,52 @@ PY
         DROP TABLE admin_passkey_credential, article_view_seed;
         UPDATE admin_principal SET isroot=false, permissions='[]' WHERE id=7;
         ALTER TABLE article DROP COLUMN views;
+    "
+
+    "${source_sql[@]}" "
+        CREATE TABLE article_property_definition_display_name(definition_id uuid NOT NULL, locale varchar(32) NOT NULL,
+            value varchar(256) NOT NULL, PRIMARY KEY(definition_id,locale));
+        INSERT INTO article_property_definition_display_name VALUES
+            ('435573a4-aa8a-4c8a-9a4c-de821839be53', 'en', 'fixture-private-name'),
+            ('435573a4-aa8a-4c8a-9a4c-de821839be53', 'zh', '仅供取证');
+        CREATE TABLE article_property_unreviewed_value(id integer PRIMARY KEY, value text);
+        INSERT INTO article_property_unreviewed_value VALUES (1, 'fixture-private-property-value');
+        CREATE VIEW article_property_unverified_view AS SELECT value FROM article_property_unreviewed_value;
+    "
+    expect_blocked "$scratch/corrupt.json"
+    "${migrate[@]}" legacy inventory postgres > "$scratch/inventory.json"
+    "${source_sql[@]}" "UPDATE article_property_definition_display_name SET value = 'changed-private-name' WHERE locale = 'en'"
+    expect_blocked "$scratch/repeat.json"
+    python3 - "$scratch" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+raw = (root / 'corrupt.json').read_text()
+plan = json.loads(raw)
+after = json.loads((root / 'repeat.json').read_text())
+inventory = json.loads((root / 'inventory.json').read_text())
+assert all(value not in raw for value in ['fixture-private-name', 'fixture-private-property-value', '仅供取证'])
+assert plan['propertyInventory'] == inventory['propertyInventory']
+assert not plan['readyToApply'] and not plan['importAdmission']['eligibleForCandidatePlanning']
+relations = {item['relation']: item for item in plan['propertyInventory']}
+assert set(relations) == {'article_property_definition_display_name', 'article_property_unreviewed_value', 'article_property_unverified_view'}
+known = relations['article_property_definition_display_name']
+view = relations['article_property_unverified_view']
+unknown = relations['article_property_unreviewed_value']
+assert known['relation'] == 'article_property_definition_display_name'
+assert known['rows'] == 2 and known['recordedInFrozenDefinitionAuthority']
+assert known['disposition'] == 'requires-review' and len(known['postgreSqlSha256']) == 64
+assert view['disposition'] == 'unverifiable-relation' and view['rows'] is None
+assert not unknown['recordedInFrozenDefinitionAuthority'] and unknown['rows'] == 1 and unknown['postgreSqlSha256'] is None
+assert after['propertyInventory'][0]['postgreSqlSha256'] != known['postgreSqlSha256']
+assert after['audit']['projections'] == plan['audit']['projections']
+print('Legacy property inventory classified 2 frozen definition rows, 1 unknown value row and an unverifiable view. Values remain redacted.')
+PY
+    "${source_sql[@]}" "
+        DROP VIEW article_property_unverified_view;
+        DROP TABLE article_property_definition_display_name, article_property_unreviewed_value;
     "
 fi
 

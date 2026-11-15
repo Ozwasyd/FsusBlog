@@ -19,6 +19,8 @@
 
 `legacy plan postgres` 的 `importAdmission` 在同一个只读快照使用 `legacy import plan/apply` 的来源校验，无需候选库连接、所有者文件或备份。报告列出阻塞类别、来源表或列和确测行数，以及已识别投影的行数与摘要。未通过基础目录、文章或管理员身份结构检查时，`classificationComplete` 为 false，具体原因见 `blockers`。`eligibleForCandidatePlanning` 只表示分类完成且现有导入器未发现来源阻塞。后续计划仍须核对已审核的归属映射、目标隔离和独立备份。未支持的数据继续阻塞，预检不会导出权限、凭据或会话值。
 
+在 PostgreSQL 的 `legacy inventory` 和 `legacy plan` 中，`propertyInventory` 单列旧属性关系。固定 v1 定义权威中的基表使用同一只读快照记录行数及绑定目录的摘要。未识别的属性基表只计行，视图和其他无法核验的关系单列。报告保留原迁移阻塞，并省略字段值和标签。后续转换仍需审核定义、历史和所有权映射。 [固定 v1 定义结构](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/ArticlePropertyDefinitionAuthorityMigrationDefinitions.cs) · [实库取证](../artifacts/legacy-property-inventory-a649068/native-2/verification.log)
+
 SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧字段形状的隔离样本，通过了行数、稳定摘要、Unicode 正文、错误哈希、错配发布坐标及缺列测试。MySQL 也拒绝了转为 MyISAM 的表。预检尚未核对外部附件、备份摘要身份、完整权限和主体现实映射。
 
 测试入口为 [legacy-source.sh](../tests/Integration/Migration/legacy-source.sh)，接受 `sqlite`、`postgres` 或 `mysql`。MySQL 分支使用 `MYSQL_TOOLS_DIR` 或 PATH 中的原生 MySQL 8.4 工具。在独立的临时数据目录启动无 TCP 监听的实例，以仅有 SELECT 权限的账号验证预检，结束时关闭和清理实例。2026-11-14 22:14 实跑退出码为 0，基准提交、工作树文件摘要及原始输出在本地 `artifacts/native-migration/mysql-20261114T141427.log`。
