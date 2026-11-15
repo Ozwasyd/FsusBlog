@@ -9,7 +9,7 @@ type SearchArticle = ArticleCard & { length: number };
 type Taxon = ArticleCard['category'];
 type Shard = { documents: Map<number, SearchArticle>; matches: Map<number, number> };
 type Result = { items: ArticleCard[]; total: number; nextCursor: null };
-type PhraseHits = Map<number, Map<number, bigint>>;
+type PositionSpan = (id: number, start: number, end: number) => void;
 type CorpusPages = { generation: string; pages: Uint8Array[] };
 type CorpusCache = { corpus?: CorpusPages };
 
@@ -142,21 +142,22 @@ function dictionary(bytes: Bytes, start: number, count: number, strings: number,
   return result;
 }
 
-function readPostings(
-  bytes: Bytes,
-  term: Term,
-  documents: Map<number, SearchArticle>,
-  meanLength: number,
-  matches: Map<number, number> | undefined,
-  phraseHits: PhraseHits,
-  wordMask: bigint,
-) {
-  let offset = term.offset;
-  function vint() {
+class PostingReader {
+  private readonly bytes: Bytes;
+  offset: number;
+  readonly end: number;
+
+  constructor(bytes: Bytes, offset: number, end: number) {
+    this.bytes = bytes;
+    this.offset = offset;
+    this.end = end;
+  }
+
+  vint() {
     let result = 0;
     for (let i = 0; i < 5; i++) {
-      requireWire(offset < term.end, 'posting length');
-      const next = bytes.u8(offset++);
+      requireWire(this.offset < this.end, 'posting length');
+      const next = this.bytes.u8(this.offset++);
       requireWire(i < 4 || next < 16, 'varint range');
       result += (next & 127) * (2 ** (i * 7));
       if (next < 128) {
@@ -166,33 +167,44 @@ function readPostings(
     }
     throw new ProtocolError('Invalid local search varint');
   }
+}
 
-  const count = vint();
+function readPostings(
+  bytes: Bytes,
+  term: Term,
+  documents: Map<number, SearchArticle>,
+  meanLength: number,
+  matches: Map<number, number> | undefined,
+  recordPositions: PositionSpan | undefined,
+) {
+  const read = new PostingReader(bytes, term.offset, term.end);
+  const count = read.vint();
   requireWire(count > 0 && count <= documents.size, 'posting document count');
   let id = 0;
   let hasPositions = false;
   for (let i = 0; i < count; i++) {
-    const delta = vint();
+    const delta = read.vint();
     id += delta;
     const doc = documents.get(id);
-    requireWire(delta > 0 && doc !== undefined && offset + 3 < term.end, 'posting document ID');
-    const title = tf[bytes.u8(offset++)];
-    const meta = tf[bytes.u8(offset++)];
-    const body = tf[bytes.u8(offset++)];
+    requireWire(delta > 0 && doc !== undefined && read.offset + 3 < term.end, 'posting document ID');
+    const title = tf[bytes.u8(read.offset++)];
+    const meta = tf[bytes.u8(read.offset++)];
+    const body = tf[bytes.u8(read.offset++)];
     requireWire(title !== undefined && meta !== undefined && body !== undefined && title + meta + body > 0, 'term frequency');
-    const positions = vint();
+    const positions = read.vint();
     requireWire((term.hasPositions || positions === 0) && positions <= doc.length * maxWord &&
-      positions * 3 <= term.end - offset, 'posting position count');
+      positions * 3 <= term.end - read.offset, 'posting position count');
     hasPositions ||= positions > 0;
     let position = 0;
     let previousField = 0;
     let previousWidth = 0;
     let titlePositions = 0;
     let bodyPositions = 0;
+    const positionStart = read.offset;
     for (let j = 0; j < positions; j++) {
-      const delta = vint();
-      const width = vint();
-      const field = vint();
+      const delta = read.vint();
+      const width = read.vint();
+      const field = read.vint();
       position += delta;
       requireWire(width > 0 && width <= maxWord && position + width <= doc.length &&
         (field === titleField || field === bodyField) &&
@@ -201,30 +213,118 @@ function readPostings(
       previousWidth = width;
       if (field === titleField) titlePositions++;
       else bodyPositions++;
-      if (wordMask !== 0n) {
-        let docHits = phraseHits.get(id);
-        if (!docHits) phraseHits.set(id, docHits = new Map());
-        const lane = position * 2 + (field === bodyField ? 1 : 0);
-        const coordinate = lane * maxWord + width - 1;
-        docHits.set(coordinate, (docHits.get(coordinate) ?? 0n) | wordMask);
-      }
     }
     requireWire((titlePositions === 0 || title > 0) && (bodyPositions === 0 || body > 0), 'posting position fields');
+    if (positions > 0) recordPositions?.(id, positionStart, read.offset);
     if (matches) {
       const frequency = title * 2.5 + meta * 0.9 + body;
       const score = term.idf * (frequency * 2.2) / (frequency + 1.2 * (0.25 + 0.75 * doc.length / meanLength));
       matches.set(id, (matches.get(id) ?? 0) + score);
     }
   }
-  requireWire(offset === term.end && term.hasPositions === hasPositions, 'posting end or position flag');
+  requireWire(read.offset === term.end && term.hasPositions === hasPositions, 'posting end or position flag');
 }
 
-function hasPhrase(hits: Map<number, bigint>, expected: bigint): boolean {
+class PhraseSpans {
+  private readonly slots = new Map<number, number>();
+  private readonly masks: bigint[] = [];
+  private readonly rows = new Map<number, number>();
+  private readonly spans: Uint32Array;
+  private readonly expected: bigint;
+
+  constructor(terms: readonly number[], documents: Map<number, SearchArticle>) {
+    for (const [index, hash] of terms.entries()) {
+      const slot = this.slots.get(hash) ?? this.masks.length;
+      this.slots.set(hash, slot);
+      this.masks[slot] = (this.masks[slot] ?? 0n) | (1n << BigInt(index));
+    }
+    let row = 0;
+    for (const id of documents.keys()) this.rows.set(id, row++);
+    // A validated byte range per document/query hash is sufficient for the phrase merge.
+    this.spans = new Uint32Array(documents.size * this.masks.length * 2);
+    this.expected = 1n << BigInt(terms.length - 1);
+  }
+
+  recorder(hash: number): PositionSpan | undefined {
+    const slot = this.slots.get(hash);
+    if (slot === undefined) return undefined;
+    return (id, start, end) => {
+      const at = (this.rows.get(id)! * this.masks.length + slot) * 2;
+      this.spans[at] = start;
+      this.spans[at + 1] = end;
+    };
+  }
+
+  addBonuses(bytes: Bytes, matches: Map<number, number>) {
+    const width = this.masks.length;
+    for (const [id, row] of this.rows) {
+      const first = row * width * 2;
+      let present = 0;
+      while (present < width && this.spans[first + present * 2 + 1] !== 0) present++;
+      if (present !== width) continue;
+      const positions: PositionStream[] = [];
+      for (let slot = 0; slot < width; slot++) {
+        const at = first + slot * 2;
+        positions.push(new PositionStream(bytes, this.spans[at], this.spans[at + 1], this.masks[slot]));
+      }
+      if (hasPhrase(positions, this.expected)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
+    }
+  }
+}
+
+class PositionStream {
+  private readonly read: PostingReader;
+  private position = 0;
+  readonly words: bigint;
+  coordinate = 0;
+
+  constructor(bytes: Bytes, start: number, end: number, words: bigint) {
+    this.read = new PostingReader(bytes, start, end);
+    this.words = words;
+    this.advance();
+  }
+
+  advance(): boolean {
+    if (this.read.offset === this.read.end) return false;
+    this.position += this.read.vint();
+    const width = this.read.vint();
+    const field = this.read.vint();
+    const lane = this.position * 2 + (field === bodyField ? 1 : 0);
+    this.coordinate = lane * maxWord + width - 1;
+    return true;
+  }
+}
+
+function replacePositionHead(heap: PositionStream[], value: PositionStream) {
+  let parent = 0;
+  for (let child = 1; child < heap.length; child = parent * 2 + 1) {
+    if (child + 1 < heap.length && heap[child + 1].coordinate < heap[child].coordinate) child++;
+    if (value.coordinate <= heap[child].coordinate) break;
+    heap[parent] = heap[child];
+    parent = child;
+  }
+  heap[parent] = value;
+}
+
+function hasPhrase(positions: PositionStream[], expected: bigint): boolean {
   // Each lane encodes one field and offset. A matching word advances by its stored width.
   const lanes = (maxWord + 1) * 2;
   const endpoints = new Array<number>(lanes).fill(-1);
   const prefixes = new Array<bigint>(lanes).fill(0n);
-  for (const [coordinate, words] of [...hits].sort((a, b) => a[0] - b[0])) {
+  // One head per matched term. Each individual span is already in coordinate order.
+  positions.sort((a, b) => a.coordinate - b.coordinate);
+  while (positions.length > 0) {
+    const coordinate = positions[0].coordinate;
+    let words = 0n;
+    do {
+      const head = positions[0];
+      words |= head.words;
+      if (head.advance()) replacePositionHead(positions, head);
+      else {
+        const last = positions.pop()!;
+        if (positions.length > 0) replacePositionHead(positions, last);
+      }
+    } while (positions[0]?.coordinate === coordinate);
     const lane = Math.floor(coordinate / maxWord);
     const slot = lane % lanes;
     const prefix = endpoints[slot] === lane ? prefixes[slot] : 0n;
@@ -243,6 +343,11 @@ function hasPhrase(hits: Map<number, bigint>, expected: bigint): boolean {
 /** Parses a complete core shard, including all posting lists even when their terms do not match. */
 export function queryCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
   requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
+  // The phrase pass reuses validated byte spans. Isolate potentially shared backing first.
+  if (!(payload.buffer instanceof ArrayBuffer)) {
+    requireWire(payload.length <= Limit.SearchCorpusPageBytes, 'package header');
+    payload = Uint8Array.from(payload);
+  }
   try {
     return parseCorpusPage(payload, terms, false);
   } catch (error) {
@@ -330,12 +435,7 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted
   requireWire(consumedReferences === referenceCount, 'shard tag references');
 
   const matches = new Map<number, number>();
-  const phrase = new Map<number, bigint>();
-  const phraseHits: PhraseHits = new Map();
-  if (terms.length > 1) {
-    for (const [index, hash] of terms.entries())
-      phrase.set(hash, (phrase.get(hash) ?? 0n) | (1n << BigInt(index)));
-  }
+  const phrase = terms.length > 1 ? new PhraseSpans(terms, documents) : undefined;
   const uniqueTerms = new Set(terms);
   let priorHash = -1;
   let consumed = postingAt;
@@ -351,18 +451,13 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted
     const hit = uniqueTerms.has(hash);
     if (hit || !admitted) {
       readPostings(b, { offset, end: offset + length, idf, hasPositions: positionFlag === 1 }, documents,
-        average, hit ? matches : undefined, phraseHits, phrase.get(hash) ?? 0n);
+        average, hit ? matches : undefined, positionFlag === 1 ? phrase?.recorder(hash) : undefined);
     }
     priorHash = hash;
     consumed += length;
   }
   requireWire(consumed === end, 'shard trailing bytes');
-  if (phraseHits.size > 0) {
-    const expected = 1n << BigInt(terms.length - 1);
-    for (const [id, hits] of phraseHits) {
-      if (hasPhrase(hits, expected)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
-    }
-  }
+  phrase?.addBonuses(b, matches);
   return { documents, matches };
 }
 
