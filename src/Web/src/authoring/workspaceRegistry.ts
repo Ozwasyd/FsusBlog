@@ -450,13 +450,15 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         this.#remove(session)
         return blocked('expired')
       }
-      if (result?.kind !== 'ready' || result.draft.id !== articleId || result.draft.revision <= 0n) {
-        this.#remove(session)
-        return result?.kind === 'blocked' ? result : blocked('unavailable')
-      }
       if (!canActivate()) {
         this.#remove(session)
         return { kind: 'superseded' }
+      }
+      if (result?.kind !== 'ready' || result.draft.id !== articleId || result.draft.revision <= 0n) {
+        this.#remove(session)
+        if (result?.kind === 'blocked' && (result.reason === 'missing' || result.reason === 'forbidden' || result.reason === 'deleted') &&
+            this.#forgetRecent(articleId)) this.#changed()
+        return result?.kind === 'blocked' ? result : blocked('unavailable')
       }
       if (requiredRevision !== undefined && result.draft.revision !== requiredRevision) {
         this.#remove(session)
@@ -870,9 +872,11 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     })
   }
 
-  #forgetRecent(articleId: number): void {
+  #forgetRecent(articleId: number): boolean {
     const index = this.#recent.findIndex(item => item.articleId === articleId)
-    if (index !== -1) this.#recent.splice(index, 1)
+    if (index === -1) return false
+    this.#recent.splice(index, 1)
+    return true
   }
 
   #close(session: Session<Draft>): void {

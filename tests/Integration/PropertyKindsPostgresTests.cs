@@ -11,9 +11,7 @@ public sealed class PropertyKindsPostgresTests
     [PostgresFact]
     public async Task AllEightKindsRoundTripInOneAuthorizedEditor()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var id = Guid.NewGuid();
         var key = RandomNumberGenerator.GetBytes(32);

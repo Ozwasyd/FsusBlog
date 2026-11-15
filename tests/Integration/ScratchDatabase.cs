@@ -11,6 +11,7 @@ internal sealed class ScratchDatabase : IAsyncDisposable
 
     private readonly string _database;
     private readonly string _maintenanceConnectionString;
+    private CancellationTokenSource? _deadline;
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
 
@@ -52,6 +53,28 @@ internal sealed class ScratchDatabase : IAsyncDisposable
         _maintenanceConnectionString = maintenanceConnectionString;
         ConnectionString = new NpgsqlConnectionStringBuilder(maintenanceConnectionString) { Database = database }.ConnectionString;
         DataSource = NpgsqlDataSource.Create(ConnectionString);
+    }
+
+    internal static Task<ScratchDatabase> CreateTimed(out CancellationToken ct, TimeSpan? timeout = null)
+    {
+        var deadline = new CancellationTokenSource(timeout ?? TimeSpan.FromMinutes(2));
+        ct = deadline.Token;
+        return CreateWithDeadline(deadline);
+    }
+
+    private static async Task<ScratchDatabase> CreateWithDeadline(CancellationTokenSource deadline)
+    {
+        try
+        {
+            var fixture = await Create(Environment.GetEnvironmentVariable(Variable)!, deadline.Token);
+            fixture._deadline = deadline;
+            return fixture;
+        }
+        catch
+        {
+            deadline.Dispose();
+            throw;
+        }
     }
 
     internal static async Task<ScratchDatabase> Create(string dsn, CancellationToken ct)
@@ -101,12 +124,16 @@ internal sealed class ScratchDatabase : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await DataSource.DisposeAsync();
-        // Separate server instances created by tests may own their own pool. Drop only our generated database.
-        await using var maintenance = new NpgsqlConnection(_maintenanceConnectionString);
-        await maintenance.OpenAsync();
-        await using var drop = new NpgsqlCommand($"DROP DATABASE {_database} WITH (FORCE)", maintenance);
-        await drop.ExecuteNonQueryAsync();
+        try
+        {
+            await DataSource.DisposeAsync();
+            // Separate server instances created by tests may own their own pool. Drop only our generated database.
+            await using var maintenance = new NpgsqlConnection(_maintenanceConnectionString);
+            await maintenance.OpenAsync();
+            await using var drop = new NpgsqlCommand($"DROP DATABASE {_database} WITH (FORCE)", maintenance);
+            await drop.ExecuteNonQueryAsync();
+        }
+        finally { _deadline?.Dispose(); }
     }
 
     private static string SchemaDirectory()

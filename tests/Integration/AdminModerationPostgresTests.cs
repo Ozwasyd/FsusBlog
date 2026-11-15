@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -10,6 +11,7 @@ using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
@@ -20,9 +22,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task BatchModerationRollsBackClaimsProofAuditAndBothRecipientJournalsOnFailure()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (first, second) = await SeedBatchReplies(db, 2, ct);
         var moderator = await AddModerator(db, "batch-reviewer", ct);
@@ -157,9 +157,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task ConcurrentBatchesWithOppositeRecipientOrderCommitBothPrivateJournals()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (first, second) = await SeedBatchReplies(db, 4, ct);
         var left = await AddModerator(db, "batch-left-reviewer", ct);
@@ -192,9 +190,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task ApprovedReplyNotifiesOnlyTheVisibleDirectParentOwnerAndRollsBackWithModeration()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await AddPendingComment(db, ct);
         var recipient = await Scalar<Guid>("select owner_id from public.article where id=1");
@@ -360,9 +356,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task AppealRequiresAnOwnedAdverseReceiptAndAnIndependentBoundDecision()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await AddPendingComment(db, ct);
         var owner = (Guid)(await Scalar("select owner_id from public.article where id=1"))!;
@@ -464,6 +458,21 @@ public sealed partial class AdminModerationPostgresTests
         Assert.Single(attempts, result => !result);
         Assert.Equal((short)2, await Scalar("select moderation_status from public.comment where article_id=1 and id=2"));
         Assert.Equal((short)2, await Scalar("select next_status from public.comment_appeal_event where appeal_id=$1 and kind=2", secondAppeal));
+        await CheckTimeline(1, 1, 3);
+        await CheckTimeline(2, 2, 2);
+
+        async Task CheckTimeline(long comment, int status, long version)
+        {
+            var frame = await service.CommentTimeline(reviewer.Token, comment, QueryCollection.Empty, ct);
+            using var receipt = JsonDocument.Parse(Aeds.Decode(frame, (FrameType)225).ToArray());
+            Assert.True(receipt.RootElement.GetProperty("consistent").GetBoolean());
+            Assert.Equal(status, receipt.RootElement.GetProperty("currentStatus").GetInt32());
+            var actions = receipt.RootElement.GetProperty("events").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "create", "reject", "appeal", "appeal_decision" },
+                actions.Select(row => row.GetProperty("eventType").GetString()));
+            Assert.Equal(version, actions[^1].GetProperty("commentVersion").GetInt64());
+            Assert.Equal(reviewer.Id, actions[^1].GetProperty("adminPrincipal").GetGuid());
+        }
 
         async Task<bool> ResolveSecond()
         {
@@ -482,9 +491,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task ClaimSerializesOwnershipAndFencesEarlierVersions()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await AddPendingComment(db, ct);
         var first = await AddModerator(db, "first-moderator", ct);
@@ -563,9 +570,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task DecisionKeepsProofAndClaimUntilAuditCommits()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await AddPendingComment(db, ct);
         var owner = await AddModerator(db, "decision-owner", ct);

@@ -21,9 +21,7 @@ public sealed class CommentReadPostgresTests
     [PostgresFact]
     public async Task PublicFramesExposeOnlyApprovedVisibleTextAndBoundedTreeRelations()
     {
-        using var time = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = time.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await Seed(fixture, ct);
         var read = new CommentReadStore(fixture.DataSource);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -110,9 +108,7 @@ public sealed class CommentReadPostgresTests
     [PostgresFact]
     public async Task PublicCommentSubmissionRequiresOptInAndDurablyKeepsOrderedConcurrentRetriesPending()
     {
-        using var time = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = time.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await Seed(fixture, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var token = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
@@ -221,9 +217,7 @@ public sealed class CommentReadPostgresTests
     [PostgresFact]
     public async Task ProofChecksBindSourceAndExpireAndRollbackWithItsTransaction()
     {
-        using var time = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = time.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var clock = new PowTime();
         var authority = new ScopedPow(clock);
@@ -263,9 +257,7 @@ public sealed class CommentReadPostgresTests
     [PostgresFact]
     public async Task RootProofPolicyRejectsUnspentGenerationAfterRollbackToTheSameLifetime()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var admin = Guid.NewGuid();
         await FixtureSql.ExecuteAsync(db, null, ct, """

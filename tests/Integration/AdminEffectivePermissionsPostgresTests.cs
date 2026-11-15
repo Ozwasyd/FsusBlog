@@ -15,9 +15,7 @@ public sealed class AdminEffectivePermissionsPostgresTests
     [PostgresFact]
     public async Task ReturnsOnlyTheCurrentIndependentPrincipalsEffectiveGrants()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var store = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);

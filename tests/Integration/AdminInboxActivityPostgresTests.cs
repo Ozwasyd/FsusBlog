@@ -1,9 +1,10 @@
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlogV2.Storage;
+
+using static FsusBlog.V2.Integration.Tests.InboxFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -12,9 +13,7 @@ public sealed class AdminInboxActivityPostgresTests
     [PostgresFact]
     public async Task ActivityPagesPinTheLatestVisibleMessageAcrossCommitsAndPreserveLiveFilters()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = Guid.NewGuid();
         var secondOwner = Guid.NewGuid();
@@ -41,11 +40,8 @@ public sealed class AdminInboxActivityPostgresTests
             select setval(pg_get_serial_sequence('public.inbox_conversation','id'),27);
             select setval(pg_get_serial_sequence('public.inbox_message','id'),28)
             """);
-        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            ["FSUSBLOG_ADMIN_INBOX_SHARED_READ"] = "true", [InboxActivityFence.Setting] = "true"
-        });
+        await using var server = await StartAdmin(fixture, ct,
+            "FSUSBLOG_ADMIN_INBOX_SHARED_READ", InboxActivityFence.Setting);
         const string activity = "?order=activity&shared=1";
         var legacy = Page(await Get("", admin), FrameType.AdminInboxPage);
         Assert.Equal(27L, legacy.Ids[0]);
@@ -106,9 +102,7 @@ public sealed class AdminInboxActivityPostgresTests
 
         async Task<byte[]> Get(string query, string token, HttpStatusCode expected = HttpStatusCode.OK)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AdminInboxQueue + query);
-            request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token}");
+            using var request = AdminRequest(HttpMethod.Get, WireRoutes.AdminInboxQueue + query, token);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             if (response.IsSuccessStatusCode)
@@ -121,23 +115,5 @@ public sealed class AdminInboxActivityPostgresTests
 
         Task Sql(string command, params object[] values) =>
             FixtureSql.ExecuteAsync(db, null, ct, command, values);
-    }
-
-    private static (long[] Ids, string Cursor) Page(byte[] frame, FrameType type)
-    {
-        using var reader = new BinaryReader(new MemoryStream(Aeds.Decode(frame, type).ToArray()));
-        var cursor = Encoding.UTF8.GetString(reader.ReadBytes(reader.ReadInt32()));
-        long[] ids = new long[reader.ReadInt32()];
-        for (var index = 0; index < ids.Length; index++)
-        {
-            ids[index] = reader.ReadInt64();
-            reader.ReadBytes(16);
-            reader.ReadBytes(reader.ReadInt32());
-            reader.ReadInt32();
-            reader.ReadBoolean();
-            reader.ReadInt64();
-            if (type == FrameType.AdminInboxSharedPage) reader.ReadInt32();
-        }
-        return (ids, cursor);
     }
 }

@@ -10,9 +10,7 @@ public sealed class PropertyBatchPostgresTests
     [PostgresFact]
     public async Task OneAuthorizedBatchAppliesAllFieldsAtOneRevisionAndRetriesExactly()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var (author, session, _) = await db.SignIn("Property batch author", ct);
         var (_, otherSession, _) = await db.SignIn(author, ct);

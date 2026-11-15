@@ -8,6 +8,8 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlogV2.Storage;
 
+using static FsusBlog.V2.Integration.Tests.InboxFixture;
+
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminInboxNoticePostgresTests
@@ -15,9 +17,7 @@ public sealed class AdminInboxNoticePostgresTests
     [PostgresFact]
     public async Task ExplicitActiveAccountReceivesOneAuditedNoticeAcrossProofAndResponseRetries()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var database = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
         var (primary, firstToken, _) = await FixtureSql.AdminAsync(db, ct, "notice-admin", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var (_, otherAdmin, _) = await FixtureSql.AdminAsync(db, ct, "different-admin", 5, RandomNumberGenerator.GetBytes(8), [2]);
@@ -26,14 +26,11 @@ public sealed class AdminInboxNoticePostgresTests
         var replacement = Secret();
         var recipientToken = Secret();
         var strangerToken = Secret();
-        await SeedAccount(recipient, "notice-account", recipientToken);
-        await SeedAccount(stranger, "unrelated-account", strangerToken);
-        await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
-        {
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            [AdminInboxEndpoints.NoticeSetting] = "true", [AdminInboxEndpoints.LiveSetting] = "true",
-            [AdminInboxEndpoints.SharedReadSetting] = "true"
-        });
+        await SeedSession(db, recipient, "notice-account", recipientToken, ct);
+        await SeedSession(db, stranger, "unrelated-account", strangerToken, ct);
+        await using var server = await StartAdmin(database, ct,
+            AdminInboxEndpoints.NoticeSetting, AdminInboxEndpoints.LiveSetting,
+            AdminInboxEndpoints.SharedReadSetting);
         const long eventId = 9981221123;
         const string content = "An explicitly targeted system message 🐈";
         var notice = Wire.EncodeAdminInboxNotice(new(recipient, "", content));
@@ -50,19 +47,15 @@ public sealed class AdminInboxNoticePostgresTests
         const string system = "?status=system&shared=1";
         await RejectWake("?status=system", $"fsus-v2-admin-session={otherAdmin}", HttpStatusCode.BadRequest);
         await RejectWake(system, $"fsus-v2-session={strangerToken}", HttpStatusCode.Unauthorized);
-        using var observer = WakeClient($"fsus-v2-admin-session={otherAdmin}");
-        await observer.ConnectAsync(WakeUri(system), ct);
+        using var observer = AdminWakeClient($"fsus-v2-admin-session={otherAdmin}");
+        await observer.ConnectAsync(WakeUri(server, WireRoutes.AdminInboxQueueWake + system), ct);
         var receipts = await Task.WhenAll(
             Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.OK, firstToken, notice, proof),
             Send(WireRoutes.AdminInboxSendNotice, HttpStatusCode.OK, firstToken, notice, parallel));
         using (var bound = CancellationTokenSource.CreateLinkedTokenSource(ct))
         {
             bound.CancelAfter(TimeSpan.FromSeconds(12));
-            var bytes = new byte[Aeds.HeaderSize + 8];
-            var wake = await observer.ReceiveAsync(bytes.AsMemory(), bound.Token);
-            Assert.Equal(WebSocketMessageType.Binary, wake.MessageType);
-            Assert.True(wake.EndOfMessage);
-            Assert.Equal(Wire.EncodeEmptySuccess(), bytes[..wake.Count]);
+            await ExpectWake(observer, bound.Token);
             await observer.CloseAsync(WebSocketCloseStatus.NormalClosure, null, bound.Token);
         }
         var responses = receipts.Select(data => Aeds.Decode(data, FrameType.ConversationDetailV2).ToArray()).ToArray();
@@ -118,71 +111,37 @@ public sealed class AdminInboxNoticePostgresTests
         Assert.Equal(id, rows.GetInt64(7));
         Assert.False(await rows.ReadAsync(ct));
 
-        Uri WakeUri(string query) => new UriBuilder(new Uri(server.Client.BaseAddress!, WireRoutes.AdminInboxQueueWake + query))
-            { Scheme = "ws" }.Uri;
-
         async Task RejectWake(string query, string cookie, HttpStatusCode status)
         {
-            using var socket = WakeClient(cookie);
-            await Assert.ThrowsAsync<WebSocketException>(() => socket.ConnectAsync(WakeUri(query), ct));
+            using var socket = AdminWakeClient(cookie);
+            await Assert.ThrowsAsync<WebSocketException>(() => socket.ConnectAsync(WakeUri(server, WireRoutes.AdminInboxQueueWake + query), ct));
             Assert.Equal(status, socket.HttpStatusCode);
-        }
-
-        static ClientWebSocket WakeClient(string cookie)
-        {
-            var socket = new ClientWebSocket();
-            socket.Options.CollectHttpResponseDetails = true;
-            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
-            socket.Options.SetRequestHeader("Host", "localhost");
-            socket.Options.SetRequestHeader("Origin", "http://localhost");
-            socket.Options.SetRequestHeader("Cookie", cookie);
-            return socket;
         }
 
         async Task<string> Work(string cookie, byte[] frame, long sourceEvent = eventId)
         {
             const string nonce = "7ddb277082ed464a845d2be0e1abeaba";
             var response = await Send(WireRoutes.AdminInboxSendNoticePow, HttpStatusCode.OK, cookie, frame, nonce, sourceEvent);
-            var result = Aeds.Decode(response, FrameType.PowChallenge);
-            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
-                Encoding.UTF8.GetString(result[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(result[WireLayouts.PowChallengeSaltBytes..]),
-                BinaryPrimitives.ReadInt64LittleEndian(result[WireLayouts.PowChallengeTimestampOffset..]), nonce);
+            return SolveChallenge(response, nonce);
         }
 
         async Task<byte[]> Send(string path, HttpStatusCode status, string token, byte[] frame, string? value = null,
             long sourceEvent = eventId, bool admin = true)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(frame) };
-            if (admin) request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token}");
+            using var request = AdminRequest(HttpMethod.Post, path, token, frame, adminHost: admin);
             request.Headers.Add(WireHeaders.SourceEventId, sourceEvent.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (value is not null)
                 request.Headers.Add(path == WireRoutes.AdminInboxSendNoticePow ? WireHeaders.PowClientNonce : WireHeaders.PowProof, value);
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
+            return await ExpectBody(server, request, status, ct);
         }
 
         async Task<byte[]> Get(string path, string token, HttpStatusCode status)
         {
             using var request = SiteAedsFixture.Request(HttpMethod.Get, path, frame: null, token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
-
-        async Task SeedAccount(Guid id, string name, string token)
-        {
-            await Sql("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,true,1)", id, name);
-            await Sql("insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')",
-                Store.TokenDigest(token)!, id);
+            return await ExpectBody(server, request, status, ct);
         }
 
         Task Sql(string sql, params object[] parameters) =>
             FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
     }
-
-    private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 }

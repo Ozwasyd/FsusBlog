@@ -46,6 +46,8 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 管理员专用源可通过 v1 的 `GET /api/binary/author/comments/{commentId}/revisions` 读取当前站点已证明归属的登录评论修订。需要活动管理会话及 `comment.moderate`。返回 AEDS 222，按最新到最旧列出原文、编辑和作者删除快照及 SHA-256。内容版本独立于审核版本；首次编辑前的原文来自事务保留的上一版本。每页至多 64 条，较旧记录沿响应 `Link` 翻页。历史字节、摘要或当前状态不一致时拒绝读出受影响的结果。旧库缺少所需存储或无法证明归属时该请求不可用。 [真实 PostgreSQL 和 Kestrel](../../artifacts/admin-comment-revisions-9ebbbeb/final/combined-native.log)
 
+管理员专用源同样可用 v1 的 `GET /api/binary/author/comments/{commentId}/moderation-timeline` 读取 AEDS 225。可加 `articleId` 精确限定同一文章。省略文章时按已验证的唯一登录账号归属定位。时间线投影保存实际提交、审核、编辑、删除、申诉和独立裁决，保留原事件的来源、审核版本、管理员 UUID 或数据库角色。没有当前版本凭证的记录仍可显示，但一致性检查为 false。一次请求最多返回 128 个完整事件，超出时返回不可用。实库验证了审核和编辑顺序、通过及驳回申诉、离线记录、公开域和撤权拒绝。 [真实 PostgreSQL 和 Kestrel](../../artifacts/moderation-timeline-a7fd1df/first/combined-native.log)
+
 ### 登录作者申诉
 
 旧部署停机执行 `comment appeal-schema` 后，登录账号可以在「我的评论」中查看已证明归属的评论。当前可申诉范围为通过独立管理员线上审核、留有当期驳回记录的评论。申诉理由经去除首尾空白后须为 10–1,000 个 UTF-16 单元。提交消费绑定当前账号、会话、版本和原驳回记录的一次性申诉挑战。每次驳回只接受一条申诉。

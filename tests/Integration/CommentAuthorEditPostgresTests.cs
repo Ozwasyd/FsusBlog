@@ -149,8 +149,46 @@ public sealed partial class AdminModerationPostgresTests
             """, ct, owner);
         using (var history = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token), (FrameType)222).ToArray()))
             AssertRevision(history.RootElement[0], 3, "deleted", edited);
+        const string timelineRoute = "/api/binary/author/comments/3/moderation-timeline";
+        await History(HttpStatusCode.NotFound, moderator.Token, timelineRoute, adminOrigin: false);
+        await History(HttpStatusCode.Forbidden, manager.Token, timelineRoute);
+        await History(HttpStatusCode.NotFound, moderator.Token, timelineRoute + "?articleId=2");
+        var timelinePacket = await History(HttpStatusCode.OK, moderator.Token, timelineRoute);
+        Assert.Equal(timelinePacket, await History(HttpStatusCode.OK, moderator.Token, timelineRoute + "?articleId=1"));
+        using (var timeline = JsonDocument.Parse(Aeds.Decode(timelinePacket, (FrameType)225).ToArray()))
+        {
+            var state = timeline.RootElement;
+            Assert.True(state.GetProperty("consistent").GetBoolean());
+            Assert.Equal(1, state.GetProperty("currentStatus").GetInt32());
+            Assert.Equal(1, state.GetProperty("projectedStatus").GetInt32());
+            var events = state.GetProperty("events").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "create", "approve", "edit", "approve" },
+                events.Select(row => row.GetProperty("eventType").GetString()));
+            Assert.Equal(new[] { 1L, 2L, 3L, 4L }, events.Select(row => row.GetProperty("commentVersion").GetInt64()));
+            Assert.Equal(moderator.Id, events[1].GetProperty("adminPrincipal").GetGuid());
+            Assert.DoesNotContain(editedReply, state.GetRawText());
+        }
+        await Execute(db, """
+            with changed as (
+                update public.comment set moderation_status=3,moderation_version=moderation_version+1
+                where article_id=1 and id=3 returning *
+            )
+            insert into public.comment_moderation_log(article_id,comment_id,previous_status,next_status,moderator_db_role,reason)
+            select article_id,id,1,moderation_status,current_user,'Recorded offline correction' from changed
+            """, ct);
+        using (var timeline = JsonDocument.Parse(Aeds.Decode(await History(HttpStatusCode.OK, moderator.Token, timelineRoute),
+            (FrameType)225).ToArray()))
+        {
+            var state = timeline.RootElement;
+            Assert.False(state.GetProperty("consistent").GetBoolean());
+            Assert.Equal(3, state.GetProperty("currentStatus").GetInt32());
+            var last = state.GetProperty("events")[4];
+            Assert.Equal("comment_moderation_log", last.GetProperty("transitionSource").GetString());
+            Assert.Equal(JsonValueKind.Null, last.GetProperty("commentVersion").ValueKind);
+        }
         await Execute(db, "update public.admin_principal set generation=generation+1 where id=$1", ct, moderator.Id);
         await History(HttpStatusCode.Unauthorized, moderator.Token);
+        await History(HttpStatusCode.Unauthorized, moderator.Token, timelineRoute);
 
         async Task<byte[]> History(HttpStatusCode expected, string? token, string path = historyRoute, bool adminOrigin = true)
         {

@@ -12,9 +12,7 @@ public sealed class PropertySnapshotPostgresTests
     [PostgresFact]
     public async Task SavedPropertiesRemainPrivateAndImmutableAcrossPublishRetractAndRestart()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var owner = await db.SignIn("Property snapshot owner", ct);
         var secondSession = await db.SignIn(owner.Id, ct);

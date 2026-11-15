@@ -10,9 +10,7 @@ public sealed class PropertyQueryPostgresTests
     [PostgresFact]
     public async Task ExactOwnedFiltersRejectDisabledFieldsAndKeepDistinctValueStates()
     {
-        using var stop = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = stop.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var (ownerId, owner, handle) = await db.SignIn("First owner", ct);
         var (_, outsider, outsiderHandle) = await db.SignIn("Second owner", ct);

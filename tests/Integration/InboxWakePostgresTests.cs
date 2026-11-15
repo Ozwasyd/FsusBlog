@@ -9,9 +9,7 @@ public sealed class InboxWakePostgresTests
     [PostgresFact]
     public async Task NotificationSessionReconnectsAndReleasesTheSocketOnStop()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(20));
         await using var control = await fixture.DataSource.OpenConnectionAsync(ct);
         using var wake = new InboxWake(fixture.ConnectionString, NullLogger<InboxWake>.Instance);
 

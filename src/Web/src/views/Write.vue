@@ -388,7 +388,8 @@ const registry = new WorkspaceRegistry<Draft>({
       if (signal.aborted || currentSession.value?.siteSessionId !== handle) return { kind: 'blocked', reason: 'unavailable' }
       return { kind: 'ready', draft }
     } catch (error) {
-      return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : await workspaceBlock(error, handle, signal) }
+      const reason = signal.aborted ? 'unavailable' : await workspaceBlock(error, handle, signal)
+      return { kind: 'blocked', reason: reason !== 'expired' && currentSession.value?.siteSessionId !== handle ? 'unavailable' : reason }
     }
   },
   save: send('save'),
@@ -773,6 +774,15 @@ async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGro
     return true
   }
   finally { if (explicitNavigation === intent) explicitNavigation = undefined }
+}
+
+async function reopenRecent(item: RecentlyClosed, event: MouseEvent) {
+  const opener = event.currentTarget
+  const current = registry.activeTab
+  const epoch = identityEpoch.value
+  if (await navigateTo(item.articleId, item) || !current || !(opener instanceof HTMLElement)) return
+  await nextTick()
+  if (!opener.isConnected && document.activeElement === document.body) await focusSource(current, epoch)
 }
 
 function activateQuickResult(articleId: number, revision: bigint, current: () => boolean, targetGroup?: WorkspaceGroup) {
@@ -1335,7 +1345,7 @@ async function reloadDraft() {
         <summary>Recently closed</summary>
         <ul>
           <li v-for="item in recentlyClosed" :key="item.articleId">
-            <ElButton text native-type="button" :disabled="!canSwitch" @click="navigateTo(item.articleId, item)">
+            <ElButton text native-type="button" :disabled="!canSwitch" @click="reopenRecent(item, $event)">
               Reopen {{ item.title }}
             </ElButton>
           </li>

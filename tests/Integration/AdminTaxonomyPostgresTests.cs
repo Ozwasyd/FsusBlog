@@ -18,9 +18,7 @@ public sealed class AdminTaxonomyPostgresTests
     [PostgresFact]
     public async Task AdminTaxonomyReportsPublishedAndRetainedRevisionCoordinatesWithIndependentPermission()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "taxonomy-reviewer", 10, [1], [2], CurrentSchema.CommentModeratePermission);
         var author = Guid.NewGuid();

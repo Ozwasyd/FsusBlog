@@ -10,9 +10,7 @@ public sealed partial class AdminModerationPostgresTests
     [PostgresFact]
     public async Task SignedInCommentReportsDeduplicateByAccountAndArticleWithoutChangingModeration()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (first, second) = await SeedBatchReplies(db, 0, ct);
         await Execute(db, """

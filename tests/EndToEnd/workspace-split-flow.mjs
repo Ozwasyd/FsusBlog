@@ -7,7 +7,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, expect, readDraft } from './browser-authoring-fixture.mjs'
+import { authorFixture, button, chromium, expect, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -740,7 +740,24 @@ async function exerciseSingleDirtyClose(author) {
     await expect(title(page)).toHaveValue(victim.title)
     await expect(body(page)).toHaveValue(savedSource)
     await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
-    observations.push({ singleDirtyCloseCancelPreservesRouteAndFocus: true, singleDiscardAbortPreservesRecoveryCopy: true,
+    await press(page, close)
+    await expect(page).toHaveURL(editPath(anchor.id))
+    const removed = await submitArticle(author.request, origin + WireRoutes.Delete, {
+      id: victim.id, expectedRevision: victim.revision + 1n, title: '', body: '',
+    })
+    assert.equal(removed.status(), 200)
+    decodeFrame(await removed.body(), FrameType.EmptySuccess)
+    if (!await recent.isVisible()) await page.getByText('Recently closed', { exact: true }).click()
+    const denied = page.waitForResponse(response => response.url() === draftPath(victim.id))
+    await press(page, recent)
+    assert.equal((await denied).status(), 404)
+    await expect(page.getByText('The article is unavailable.', { exact: true })).toBeVisible()
+    await expect(recent).toHaveCount(0)
+    await expect(page).toHaveURL(editPath(anchor.id))
+    await expect(body(page)).toHaveValue(anchor.body)
+    await expect(body(page)).toBeFocused()
+    observations.push({ deletedRecentEntryRemoved: true, failedReopenPreservesEditorAndFocus: true,
+      singleDirtyCloseCancelPreservesRouteAndFocus: true, singleDiscardAbortPreservesRecoveryCopy: true,
       confirmedSingleDiscardReopensDurableDraft: true, singleCloseRejectsChangedSaveReplySource: true,
       verifiedSingleSaveClosesBeforeRouting: true })
   } finally {

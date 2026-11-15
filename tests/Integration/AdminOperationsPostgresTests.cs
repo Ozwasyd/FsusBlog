@@ -14,9 +14,7 @@ public sealed class AdminOperationsPostgresTests
     [PostgresFact]
     public async Task AuditPermissionKeepsActualPublicationStateInIndependentCurrentAdminSession()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (admin, key, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2]);
         var actor = Guid.NewGuid();

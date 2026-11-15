@@ -7,6 +7,7 @@ import {
   type EditorTransport,
   type SavedWorkspaceLayout,
   type WorkspaceGroup,
+  type WorkspaceBlock,
   type WorkspaceTab,
 } from '../../src/Web/src/authoring/workspaceRegistry.ts'
 
@@ -535,6 +536,22 @@ test('idle retains scoped tabs and recently closed entries are bounded and never
   registry.setIdentity(null)
   assert.deepEqual(registry.tabs, [])
   assert.deepEqual(registry.recentlyClosed, [])
+})
+
+test('only a current terminal reopen failure removes its recently closed entry', async () => {
+  let reason: WorkspaceBlock | undefined
+  const registry = setup({ load: async id => id === 1 && reason ? { kind: 'blocked', reason } : { kind: 'ready', draft: draft(id) } })
+  registry.requestClose(await activate(registry, 1))
+  const active = await activate(registry, 2)
+  reason = 'unavailable'
+  assert.deepEqual(await registry.openOrActivate(1), { kind: 'blocked', reason })
+  assert.equal(registry.recentlyClosed[0].articleId, 1)
+  reason = 'missing'
+  assert.deepEqual(await registry.openOrActivate(1, 'main', 'preview', () => false), { kind: 'superseded' })
+  assert.equal(registry.recentlyClosed[0].articleId, 1)
+  assert.deepEqual(await registry.openOrActivate(1), { kind: 'blocked', reason })
+  assert.deepEqual(registry.recentlyClosed, [])
+  assert.deepEqual(registry.tabs, [active])
 })
 
 test('both groups expose exactly their selected sessions while the credentialed focus owns draft writes', async () => {

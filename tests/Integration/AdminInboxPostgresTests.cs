@@ -11,6 +11,8 @@ using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 
+using static FsusBlog.V2.Integration.Tests.InboxFixture;
+
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminInboxPostgresTests
@@ -18,23 +20,15 @@ public sealed class AdminInboxPostgresTests
     [PostgresFact]
     public async Task CreationPositionDetectsAnOlderCommittedTicketWithoutAChangeToMaximumId()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (_, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "create-observer", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var firstAccount = Guid.NewGuid();
         var secondAccount = Guid.NewGuid();
         var firstToken = Secret();
         var secondToken = Secret();
-        await Execute("""
-            insert into public.blog_user(id,name,can_author,enabled,generation)
-            values($1,'first ticket account',false,true,1),($2,'second ticket account',false,true,1)
-            """, firstAccount, secondAccount);
-        await Execute("""
-            insert into public.user_session(digest,user_id,generation,expires_at)
-            values($1,$2,1,now()+interval '5 minutes'),($3,$4,1,now()+interval '5 minutes')
-            """, Store.TokenDigest(firstToken)!, firstAccount, Store.TokenDigest(secondToken)!, secondAccount);
+        await SeedSession(db, firstAccount, "first ticket account", firstToken, ct);
+        await SeedSession(db, secondAccount, "second ticket account", secondToken, ct);
 
         var accountStore = new Store(fixture.DataSource);
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
@@ -110,17 +104,13 @@ public sealed class AdminInboxPostgresTests
     [PostgresFact]
     public async Task CurrentIndependentAdministratorCanPageReplyAndUpdateStatusWithPrivateAccountDelivery()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "support-primary", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var (other, otherToken, _) = await FixtureSql.AdminAsync(db, ct, "support-another", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var user = Guid.NewGuid();
         var siteToken = Secret();
-        await Sql("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'support-site',true,true,1)", user);
-        await Sql("insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')",
-            Store.TokenDigest(siteToken)!, user);
+        await SeedSession(db, user, "support-site", siteToken, ct, canAuthor: true);
         await Sql("""
             insert into public.inbox_conversation(id,account_id,subject,status,is_system,last_message_at)
             select id,$1,'Support case '||id,case when id=1 then 2 else 0 end,false,now() from generate_series(1,26) id
@@ -135,12 +125,9 @@ public sealed class AdminInboxPostgresTests
             update public.inbox_conversation set last_message_id=124 where id=26
             """);
         await Sql("select setval(pg_get_serial_sequence('public.inbox_message','id'),124)");
-        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            [AdminInboxEndpoints.ReplySetting] = "true", [AdminInboxEndpoints.StatusSetting] = "true",
-            [AdminInboxEndpoints.LiveSetting] = "true"
-        });
+        await using var server = await StartAdmin(fixture, ct,
+            AdminInboxEndpoints.ReplySetting, AdminInboxEndpoints.StatusSetting,
+            AdminInboxEndpoints.LiveSetting);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.NotFound, adminToken, host: false);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.Unauthorized, siteToken, site: true);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.Unauthorized, siteToken);
@@ -154,14 +141,14 @@ public sealed class AdminInboxPostgresTests
         Assert.Equal(new long[] { 1 }, Page(await Get(WireRoutes.AdminInboxQueue + "?status=closed", HttpStatusCode.OK, adminToken)).Ids);
         var thread = WireRoutes.AdminInboxThread.Replace("{id:long}", "26", StringComparison.Ordinal);
         using var newest = Reader(await Get(thread, HttpStatusCode.OK, adminToken), FrameType.AdminInboxThread);
-        Assert.Equal(26L, InboxId(newest));
+        Assert.Equal(26L, ConversationId(newest));
         string older = Text(newest);
         Assert.NotEmpty(older);
         var latest = Messages(newest);
         Assert.Equal(24, latest.Count);
         Assert.Equal(101, latest[0].Id);
         using var historical = Reader(await Get(thread + "?before=" + older, HttpStatusCode.OK, adminToken), FrameType.AdminInboxThread);
-        Assert.Equal(26L, InboxId(historical));
+        Assert.Equal(26L, ConversationId(historical));
         Assert.Empty(Text(historical));
         var earliest = Messages(historical);
         Assert.Equal(new long[] { 26, 100 }, earliest.Select(message => message.Id));
@@ -300,12 +287,8 @@ public sealed class AdminInboxPostgresTests
 
         async Task<ClientWebSocket> Observe(string path)
         {
-            var socket = new ClientWebSocket();
-            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
-            socket.Options.SetRequestHeader("Host", "localhost");
-            socket.Options.SetRequestHeader("Origin", "http://localhost");
-            socket.Options.SetRequestHeader("Cookie", $"fsus-v2-admin-session={otherToken}");
-            var uri = new UriBuilder(new Uri(server.Client.BaseAddress!, path)) { Scheme = "ws" }.Uri;
+            var socket = AdminWakeClient($"fsus-v2-admin-session={otherToken}", collect: false);
+            var uri = WakeUri(server, path);
             try
             {
                 await socket.ConnectAsync(uri, ct);
@@ -322,18 +305,12 @@ public sealed class AdminInboxPostgresTests
         {
             using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct);
             bound.CancelAfter(TimeSpan.FromSeconds(15));
-            var bytes = new byte[Aeds.HeaderSize + 8];
-            var received = await socket.ReceiveAsync(bytes.AsMemory(), bound.Token);
-            Assert.Equal(WebSocketMessageType.Binary, received.MessageType);
-            Assert.True(received.EndOfMessage);
-            Assert.Equal(Wire.EncodeEmptySuccess(), bytes.AsSpan(0, received.Count).ToArray());
+            await ExpectWake(socket, bound.Token);
         }
 
         async Task<string> Version(string? token = null)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, thread);
-            request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token ?? adminToken}");
+            using var request = AdminRequest(HttpMethod.Get, thread, token ?? adminToken);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             return Assert.Single(response.Headers.GetValues(WireHeaders.AdminInboxVersion));
@@ -349,46 +326,27 @@ public sealed class AdminInboxPostgresTests
         }
 
         async Task<string> StatusWork(string version, byte[] data, string? token = null) =>
-            Solve(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce));
+            SolveChallenge(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce), nonce);
 
         async Task<byte[]> Status(string route, HttpStatusCode expected, string token, string version, byte[] data, string value)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = new ByteArrayContent(data) };
-            request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token}");
+            using var request = AdminRequest(HttpMethod.Post, route, token, data);
             request.Headers.Add(WireHeaders.AdminInboxVersion, version);
             request.Headers.Add(route.EndsWith("-pow.aeds", StringComparison.Ordinal) ? WireHeaders.PowClientNonce : WireHeaders.PowProof, value);
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
+            return await ExpectBody(server, request, expected, ct);
         }
 
-        async Task<string> Work() => Solve(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce));
-
-        string Solve(byte[] body)
-        {
-            var result = Aeds.Decode(body, FrameType.PowChallenge);
-            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
-                Encoding.UTF8.GetString(result[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(result[WireLayouts.PowChallengeSaltBytes..]),
-                BinaryPrimitives.ReadInt64LittleEndian(result[WireLayouts.PowChallengeTimestampOffset..]), nonce);
-        }
+        async Task<string> Work() => SolveChallenge(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), nonce);
 
         async Task<byte[]> Post(string path, HttpStatusCode expected, string secret, string key, byte[] data, string? nonce = null,
             string? proof = null, string? origin = null)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(data) };
-            request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"fsus-v2-admin-session={secret}");
+            using var request = AdminRequest(HttpMethod.Post, path, secret, data);
             request.Headers.Add(WireHeaders.ClientMutationId, key);
             if (origin is not null) request.Headers.Add("Origin", origin);
             if (nonce is not null) request.Headers.Add(WireHeaders.PowClientNonce, nonce);
             if (proof is not null) request.Headers.Add(WireHeaders.PowProof, proof);
-            request.Content.Headers.ContentType = new(Aeds.ContentType);
-            using var http = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, http.StatusCode);
-            return await http.Content.ReadAsByteArrayAsync(ct);
+            return await ExpectBody(server, request, expected, ct);
         }
 
         Task Sql(string sql, params object[] args) =>
@@ -396,50 +354,11 @@ public sealed class AdminInboxPostgresTests
 
         async Task<byte[]> Get(string path, HttpStatusCode expected, string secret, bool host = true, bool site = false)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            if (host) request.Headers.Host = "localhost";
-            request.Headers.Add("Cookie", $"{(site ? "fsus-v2-session" : "fsus-v2-admin-session")}={secret}");
+            using var request = AdminRequest(HttpMethod.Get, path, secret, adminHost: host, site: site);
             using var response = await server.Client.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             if (response.IsSuccessStatusCode) Assert.True(response.Headers.CacheControl?.NoStore);
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
     }
-
-    private static (string Cursor, long[] Ids) Page(byte[] frame)
-    {
-        using var reader = Reader(frame, FrameType.AdminInboxPage);
-        var cursor = Text(reader);
-        return (cursor, Enumerable.Range(0, reader.ReadInt32()).Select(_ => InboxId(reader)).ToArray());
-    }
-
-    private static long InboxId(BinaryReader reader)
-    {
-        var id = reader.ReadInt64();
-        reader.ReadBytes(16);
-        Text(reader);
-        reader.ReadInt32();
-        reader.ReadBoolean();
-        reader.ReadInt64();
-        return id;
-    }
-
-    private static List<(long Id, bool Internal, string Body)> Messages(BinaryReader reader)
-    {
-        int count = reader.ReadInt32();
-        List<(long Id, bool Internal, string Body)> result = [];
-        for (var i = 0; i < count; ++i)
-        {
-            var id = reader.ReadInt64();
-            reader.ReadInt32();
-            var hidden = reader.ReadBoolean();
-            reader.ReadInt64();
-            result.Add((id, hidden, Text(reader)));
-        }
-        return result;
-    }
-
-    private static BinaryReader Reader(byte[] frame, FrameType type) => new(new MemoryStream(Aeds.Decode(frame, type).ToArray()));
-    private static string Text(BinaryReader reader) => Encoding.UTF8.GetString(reader.ReadBytes(reader.ReadInt32()));
-    private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 }

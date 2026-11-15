@@ -17,6 +17,12 @@ internal static class AdminCommentRevisions
                 context.Response.Headers.Link = FormattableString.Invariant($"</api/binary/author/comments/{id}/revisions?before={version}>; rel=\"next\"");
             return Results.Bytes(result.Frame, Aeds.ContentType);
         }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminCommentTimeline, async (long id, HttpContext context, CancellationToken ct) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Bytes(await store.CommentTimeline(context.Request.Cookies[session], id, context.Request.Query, ct),
+                Aeds.ContentType);
+        }).RequireRateLimiting("command");
     }
 
     internal static long Before(IQueryCollection query)

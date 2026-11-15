@@ -19,9 +19,7 @@ public sealed class AdminCommentQueuePostgresTests
     [PostgresFact]
     public async Task ModeratorReadsTrackedPendingCommentsAcrossPagesWithRevocationAndPublicIsolation()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "moderator", 10, [1], [2], CurrentSchema.AuditReadPermission);
         var owner = Guid.NewGuid();

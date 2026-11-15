@@ -10,9 +10,7 @@ public sealed class AdminClusterPostgresTests
     [PostgresFact]
     public async Task SingleModeReportsOnlyTheCurrentPrimaryOwnerToCurrentSystemConfigSessions()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (admin, token, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2], "audit.read");
         var settings = new Dictionary<string, string>

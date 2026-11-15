@@ -14,9 +14,7 @@ public sealed class AdminStepUpPostgresTests
     [PostgresFact]
     public async Task ModerationProofIsScopedAndAtomicWithItsConsumer()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var member = Guid.NewGuid();
         await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Site fixture',true,true,1)", member);

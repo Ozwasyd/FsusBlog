@@ -16,9 +16,7 @@ public sealed class InboxPostgresTests
     [PostgresFact]
     public async Task LegacyInboxWritesRequireOneUseProofBoundToConversationAndCommand()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
         var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
@@ -81,12 +79,7 @@ public sealed class InboxPostgresTests
         {
             using var result = await Send(path, frame, command, token, issuing: true);
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            var challenge = Aeds.Decode(await result.Content.ReadAsByteArrayAsync(ct), FrameType.PowChallenge).ToArray();
-            return CommentReadPostgresTests.Solve(
-                Encoding.UTF8.GetString(challenge.AsSpan(0, WireLayouts.PowChallengeSaltBytes)).TrimEnd('\0'),
-                Encoding.UTF8.GetString(challenge.AsSpan(WireLayouts.PowChallengeSignatureOffset)).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(challenge.AsSpan(WireLayouts.PowChallengeSaltBytes)),
-                BinaryPrimitives.ReadInt64LittleEndian(challenge.AsSpan(WireLayouts.PowChallengeTimestampOffset)), ClientNonce);
+            return InboxFixture.SolveChallenge(await result.Content.ReadAsByteArrayAsync(ct), ClientNonce);
         }
     }
 
@@ -95,9 +88,7 @@ public sealed class InboxPostgresTests
     [PostgresFact]
     public async Task InboxSocketOnlyWakesForOwnedCommitAndClosesOnRevocation()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
         var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
@@ -150,23 +141,14 @@ public sealed class InboxPostgresTests
         other.Abort();
         await Assert.ThrowsAnyAsync<Exception>(async () => await unrelated);
 
-        static ClientWebSocket Client(string source, string? token)
-        {
-            var socket = new ClientWebSocket();
-            socket.Options.CollectHttpResponseDetails = true;
-            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
-            socket.Options.SetRequestHeader("Origin", source);
-            if (token is not null) socket.Options.SetRequestHeader("Cookie", $"fsus-v2-session={token}");
-            return socket;
-        }
+        static ClientWebSocket Client(string source, string? token) =>
+            InboxFixture.WakeClient(source, token is null ? null : $"fsus-v2-session={token}");
     }
 
     [PostgresFact]
     public async Task HttpReplayRechecksSessionAndRejectsAnotherSessionsCursor()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
         var aliceSession = (await db.SignIn(alice, ct, minutes: 1)).Token;
@@ -235,9 +217,7 @@ public sealed class InboxPostgresTests
     [PostgresFact]
     public async Task MessageMutationReadPositionAndPrivateReplayAreAtomic()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var alice = await AddUser(db.DataSource, "alice", ct);
         var bob = await AddUser(db.DataSource, "bob", ct);
 
@@ -304,9 +284,7 @@ public sealed class InboxPostgresTests
     [PostgresFact]
     public async Task FirstListPageFreezesMessageVisibilityAcrossNewActivity()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var user = await AddUser(db.DataSource, "reader", ct);
         var older = await InTransaction(db.DataSource, user, inbox => inbox.CreateAsync("older", "First", "Old preview", ct), ct);
         var newer = await InTransaction(db.DataSource, user, inbox => inbox.CreateAsync("newer", "Second", "New preview", ct), ct);
