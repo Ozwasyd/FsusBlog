@@ -22,6 +22,17 @@ case "${FSUSBLOG_TEST_C11_WIDE_BROWSER:-0}" in
         ;;
     *) printf 'Set FSUSBLOG_TEST_C11_WIDE_BROWSER to 0 or 1.\n' >&2; exit 2 ;;
 esac
+list_taxonomy=false
+case "${FSUSBLOG_TEST_C11_LIST_TAXONOMY:-0}" in
+    0) ;;
+    1)
+        [[ $profile == nightly && $http_probe == true ]] || {
+            printf 'The list/taxonomy witness requires nightly with --http.\n' >&2; exit 2;
+        }
+        list_taxonomy=true
+        ;;
+    *) printf 'Set FSUSBLOG_TEST_C11_LIST_TAXONOMY to 0 or 1.\n' >&2; exit 2 ;;
+esac
 if [[ $profile == nightly ]]; then articles=100000 nightly=true; else articles=20 nightly=false; fi
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then export PATH="$PG_TOOLS_DIR:$PATH"; fi
 dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
@@ -181,7 +192,8 @@ db="fsusv2_nightly_$run_id"
 due=$(python3 -c 'import time; print((int(time.time()) + 86400) * 1000)')
 source_commit=$(git rev-parse HEAD)
 {
-    printf 'run_id=%s\nprofile=%s\nhttp_probe=%s\nstarted=%s\ndue_unix_ms=%s\n' "$run_id" "$profile" "$http_probe" "$(date -u +%FT%TZ)" "$due"
+    printf 'run_id=%s\nprofile=%s\nhttp_probe=%s\nlist_taxonomy=%s\nstarted=%s\ndue_unix_ms=%s\n' \
+        "$run_id" "$profile" "$http_probe" "$list_taxonomy" "$(date -u +%FT%TZ)" "$due"
     printf '%s\n' "$source_commit"
     "$dotnet" --version
     psql --version
@@ -194,6 +206,18 @@ if [[ $http_probe == true ]]; then
     if ! git diff --quiet "$source_commit" -- "${decoders[@]}" tools/verify-release.py; then
         printf 'HTTP decoders and release manifest reader must match the selected source commit.\n' >&2
         exit 1
+    fi
+    if [[ $list_taxonomy == true ]]; then
+        list_inputs=(tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs})
+        for input in "${list_inputs[@]}"; do
+            git cat-file -e "$source_commit:$input" || {
+                printf 'List/taxonomy inputs must exist in the selected source commit.\n' >&2; exit 1;
+            }
+        done
+        if ! git diff --quiet "$source_commit" -- "${list_inputs[@]}"; then
+            printf 'List/taxonomy inputs must match the selected source commit.\n' >&2; exit 1
+        fi
+        shasum -a 256 "${list_inputs[@]}" >> "$evidence/run.txt"
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     migrate_dll="$scratch/release/migrate/FsusBlogV2.Migrate.dll"
@@ -336,6 +360,11 @@ if [[ $http_probe == true ]]; then
     oracle=("${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site"
         -v profile="$profile" -v due_unix_ms="$due" -v fixture_sha256="$fixture_sha" -v readback_sha256="$readback_sha")
     "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle.json" 2> "$evidence/http-oracle.log"
+    if [[ $list_taxonomy == true ]]; then
+        stage=http-list-taxonomy-oracle-before
+        "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
+            > "$evidence/list-taxonomy-oracle.ndjson" 2> "$evidence/list-taxonomy-oracle.log"
+    fi
 
     stage=http-start
     mkdir "$scratch/http-cwd" "$evidence/http-responses"
@@ -370,8 +399,21 @@ if [[ $http_probe == true ]]; then
 
     phase http-probe env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-http-probe.mjs \
         "$origin" "$evidence/http-oracle.json" "$evidence/http-actual.ndjson" "$evidence/http-responses"
+    if [[ $list_taxonomy == true ]]; then
+        phase http-list-taxonomy env -i PATH="$PATH" LC_ALL=C TZ=UTC node tests/Performance/nightly-list-taxonomy-probe.mjs "$evidence"
+    fi
     stage=http-stop
     stop_http_server
+    if [[ $list_taxonomy == true ]]; then
+        stage=http-list-taxonomy-oracle-after
+        "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
+            > "$evidence/list-taxonomy-oracle-after.ndjson" 2> "$evidence/list-taxonomy-oracle-after.log"
+        cmp "$evidence"/list-taxonomy-oracle{,-after}.ndjson
+        shasum -a 256 "$evidence"/list-taxonomy-oracle{,-after}.ndjson "$evidence/http-actual.ndjson" \
+            "$evidence/http-responses/001-article-list-first-page.aeds" \
+            "$evidence/http-responses/002-article-list-continuation-page-2.aeds" \
+            "$evidence/list-taxonomy/actual.ndjson" "$evidence"/list-taxonomy/*.aeds > "$evidence/list-taxonomy-proof.sha256"
+    fi
     if [[ $wide_browser == true ]]; then
         stage=wide-browser-oracle
         "${oracle[@]}" -f tests/Performance/nightly-wide-search-oracle.sql > "$evidence/wide-search-oracle.json" 2> "$evidence/wide-search-oracle.log"
