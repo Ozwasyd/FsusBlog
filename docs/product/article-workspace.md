@@ -8,7 +8,11 @@
 
 当前持久化覆盖单组标签布局与文章 Inspector 的开关。宽屏以侧栏恢复，窄屏以 FsusUI Drawer 恢复。视口变化沿用同一开关状态。现有工作区安装可重新执行停机 `authoring-workspace` 命令为旧布局添加默认关闭的 Inspector 开关。分栏比例、Rail、Inspector 内部视图、旧布局偏好迁移与 FsusUI 编辑器内部状态留待后续切片。刷新或重开恢复最近一次已获服务器确认的布局。
 
-桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。路由最多挂载一个 FsusUI Markdown 编辑面，当前 registry 最多容纳 100 个会话。
+桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。当前 registry 最多容纳 100 个会话，界面最多挂载两个选中的 FsusUI 编辑器。
+
+已打开一篇文章时，可在「Article ID」输入另一篇文章并选择「Open in other group」。已有文章会回到原组。空间充足时，两组并排显示各自的 Markdown 源码，只有焦点组可以编辑。可用宽度低于 59 rem 时收起另一组，仍可从「Article groups」切换。宽度恢复时先重新校验另一组的草稿权限。两组保留原编辑器实例，焦点切换和视口收起不会重新挂载。 [#1855](https://github.com/Ozwasyd/FsusBlog/issues/1855)
+
+第二组仅在当前浏览器标签内保留，双组时暂停写入旧单组布局。打开与关闭的保护仍由原会话处理。两组共用写入入口，双组时只提供源码编辑和普通粘贴。可调比例、移组与合并、双组富预览、跨设备恢复和完整编辑器挂起仍待交付。
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
 
@@ -18,7 +22,7 @@
 
 直达链接、浏览器新窗口、前进后退、工作区恢复及草稿保存不计入当前打开历史。离线打开不排队回写，CAS 冲突不自动重放旧动作。老数据库停机运行 `author-recent-opens` 后启用此视图。编辑历史、外部审计摘要、独立校验器及跨组导航仍待交付。
 
-编辑器使用本地 FsusUI 的公开 `documentIdentity` 切换上下文。每篇文章保留正文、修订和未保存状态。当前 FsusUI 的公开切换会重建选择和撤销历史，切换后不能宣称完整恢复旧 FsusUI 会话。完整挂起及恢复仍需可验证的编辑器快照接口。 [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294)
+编辑器使用本地 FsusUI 的公开 `documentIdentity`。每篇文章保留正文、修订和未保存状态。已经换下的编辑器再次显示时可能需要重新挂载。完整挂起及恢复仍需可验证的编辑器快照接口。 [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294)
 
 Registry 单元验证覆盖 100 会话、组内预览替换、异步加载失效、跨身份退回、权限撤销、远端修订冲突及最近关闭容量。单独使用 Chrome 验证了 33 条标签投影的桌面和溢出上限、键盘焦点、固定和窄屏切换。当前环境未提供 Browser 技能，本机测试使用项目的 Playwright 和已安装的 Chrome。
 

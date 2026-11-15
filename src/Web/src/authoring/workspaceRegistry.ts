@@ -42,17 +42,19 @@ export interface EditorSessionRef {
 
 type Risk = 'clean' | 'dirty' | 'saving' | 'conflict' | 'recovery' | 'pending' | 'blocked'
 type TabMode = 'preview' | 'pinned'
+export type WorkspaceGroup = 'main' | 'secondary'
 
 export type WorkspaceTab = Readonly<EditorSessionRef & {
   title: string
-  group: string
+  group: WorkspaceGroup
   mode: TabMode
   risk: Risk
   active: boolean
   retry?: WriteCommand
 }>
 
-export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: string; mode: TabMode }>
+export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
+export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft }>
 
 export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number; inspectorOpen?: boolean }>
 
@@ -72,7 +74,7 @@ type CloseReceipt = Readonly<{ kind: 'closed' | 'stale' | 'protected' }>
 type Session<Draft> = {
   id: number
   sessionId: number
-  group: string
+  group: WorkspaceGroup
   mode: TabMode
   controller: AbortController
   phase: 'loading' | 'ready' | 'blocked'
@@ -120,6 +122,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #identity: WorkspaceIdentity | null = null
   #expired = false
   #active: Session<Draft> | undefined
+  readonly #selected: Partial<Record<WorkspaceGroup, Session<Draft>>> = {}
   #inspectorOpen = false
   #opening: AbortController | undefined
   #activation = 0
@@ -155,6 +158,42 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
 
   get activeEditSequence(): number {
     return this.#active && this.#currentIdentity() ? this.#active.edit : 0
+  }
+
+  get hasSecondaryGroup(): boolean {
+    return this.#currentIdentity() && Array.from(this.#sessions.values()).some(session =>
+      session.group === 'secondary' && session.phase !== 'loading')
+  }
+
+  get sourcePanes(): readonly WorkspaceSource<Draft>[] {
+    if (!this.#currentIdentity()) return []
+    const panes: WorkspaceSource<Draft>[] = []
+    for (const session of [this.#selected.main, this.#selected.secondary]) {
+      if (session?.phase === 'ready' && session.draft)
+        panes.push(Object.freeze({ tab: this.#view(session), draft: structuredClone(session.draft) }))
+    }
+    return Object.freeze(panes)
+  }
+
+  async recheckComparison(tab: EditorSessionRef, signal: AbortSignal): Promise<boolean> {
+    const session = this.#find(tab)
+    if (!session?.draft || session.phase !== 'ready' || this.#selected[session.group] !== session || signal.aborted)
+      return false
+    if (session === this.#active || session.id === 0) return true
+    const activation = this.#activation
+    const current = AbortSignal.any([signal, session.controller.signal])
+    const result = await untilAborted(current, () => this.#transport.load(session.id, current)).catch(() => undefined)
+    if (current.aborted || activation !== this.#activation || this.#find(tab) !== session ||
+        this.#selected[session.group] !== session || session === this.#active)
+      return false
+    if (result?.kind === 'blocked' && result.reason !== 'unavailable') this.invalidate(tab, result.reason)
+    if (result?.kind !== 'ready' || result.draft.id !== session.id || result.draft.revision < session.draft.revision) return false
+    if (session.draft.revision !== result.draft.revision) {
+      if (this.#risk(session) === 'clean') session.draft = structuredClone(result.draft)
+      else if (!session.request && !session.writing) session.conflict = true
+      this.#changed()
+    }
+    return true
   }
 
   get tabs(): readonly WorkspaceTab[] {
@@ -242,6 +281,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         controller: new AbortController(), phase: 'ready', dirty: false, conflict: false, recovery: false, pending: false, edit: 0 })
     }
     this.#active = this.#sessions.get(layout.activeArticleId)
+    this.#selected.main = this.#active
     this.#inspectorOpen = layout.inspectorOpen === true
     if (restored.length || this.#inspectorOpen) this.#changed()
     return layout.tabs.length - restored.length
@@ -249,12 +289,13 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
 
   async openOrActivate(
     articleId: number,
-    group = this.#active?.group ?? 'main',
+    group: WorkspaceGroup = this.#active?.group ?? 'main',
     mode: TabMode = 'preview',
     canActivate: () => boolean = () => true,
   ): Promise<Activation> {
     if (!Number.isSafeInteger(articleId) || articleId < 0) return blocked('missing')
     if (!this.#currentIdentity()) return blocked(this.#identity ? 'expired' : 'forbidden')
+    if (group !== 'main' && group !== 'secondary') return blocked('unavailable')
 
     const intent = ++this.#activation
     this.#opening?.abort()
@@ -333,15 +374,17 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!canActivate()) return { kind: 'superseded' }
     if (mode === 'pinned') session.mode = mode
     this.#active = session
+    this.#selected[session.group] = session
     this.#forgetRecent(articleId)
     this.#changed()
     if (intent !== this.#activation || this.#active !== session || !this.#currentIdentity()) return { kind: 'superseded' }
     return { kind: 'ready', tab: this.#view(session), workspaceRevision: this.#revision, witnessedRevision }
   }
 
-  startDraft(draft: Draft, group = this.#active?.group ?? 'main'): Promise<Activation> {
+  startDraft(draft: Draft, group: WorkspaceGroup = this.#active?.group ?? 'main'): Promise<Activation> {
     if (draft.id !== 0 || draft.revision !== 0n) return Promise.resolve(blocked('missing'))
     if (!this.#currentIdentity()) return Promise.resolve(blocked(this.#identity ? 'expired' : 'forbidden'))
+    if (group !== 'main' && group !== 'secondary') return Promise.resolve(blocked('unavailable'))
     if (!this.#sessions.has(0)) {
       const visibleCount = Array.from(this.#sessions.values()).filter(session => session.phase !== 'loading').length
       if (visibleCount >= this.#limit) return Promise.resolve({ kind: 'capacity' })
@@ -492,7 +535,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     delete session.request
     session.mode = 'pinned'
     session.controller.abort()
-    if (this.#active === session) this.#active = undefined
+    this.#unselect(session)
     this.#changed()
     return true
   }
@@ -578,7 +621,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return session?.sessionId === tab.sessionId ? session : undefined
   }
 
-  #cleanPreview(group: string): Session<Draft> | undefined {
+  #cleanPreview(group: WorkspaceGroup): Session<Draft> | undefined {
     return Array.from(this.#sessions.values()).find(session =>
       session.phase === 'ready' && session.group === group && session.mode === 'preview' && this.#risk(session) === 'clean')
   }
@@ -622,10 +665,15 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #remove(session: Session<Draft>): void {
     if (this.#sessions.get(session.id) !== session) return
     this.#sessions.delete(session.id)
-    if (this.#active === session) this.#active = undefined
+    this.#unselect(session)
     delete session.draft
     delete session.request
     session.controller.abort()
+  }
+
+  #unselect(session: Session<Draft>): void {
+    if (this.#active === session) this.#active = undefined
+    if (this.#selected[session.group] === session) delete this.#selected[session.group]
   }
 
   #clear(): void {
@@ -633,6 +681,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#sessions.clear()
     this.#recent.length = 0
     this.#active = undefined
+    delete this.#selected.main
+    delete this.#selected.secondary
     this.#inspectorOpen = false
     this.cancelOpening()
     for (const session of previous) {

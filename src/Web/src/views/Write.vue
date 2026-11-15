@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
-import { ElAlert, ElButton, ElInput, ElMarkdownEditor, ElMessageBox } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElMessageBox } from '@ozwasyd/element-plus'
 import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
@@ -12,6 +12,7 @@ import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/articl
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
+import WorkspaceSourcePane from '../authoring/WorkspaceSourcePane.vue'
 import ArticleLibraryRail from '../authoring/ArticleLibraryRail.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
@@ -30,6 +31,8 @@ import {
   type Activation,
   type RecentlyClosed,
   type WorkspaceBlock,
+  type WorkspaceGroup,
+  type WorkspaceSource,
   type WorkspaceTab,
 } from '../authoring/workspaceRegistry'
 
@@ -38,7 +41,6 @@ type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history' | 'schedule
 type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
-const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
 function articleRoute(location: Pick<RouteLocationNormalized, 'name' | 'params'>) {
   if (location.name === 'write') return 0
   if (location.name === 'edit') return Number(location.params.id)
@@ -46,16 +48,20 @@ function articleRoute(location: Pick<RouteLocationNormalized, 'name' | 'params'>
 }
 const id = computed(() => articleRoute(route))
 const workspaceTabs = shallowRef<readonly WorkspaceTab[]>([])
+const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>([])
+const hasSecondaryGroup = ref(false)
 const recentlyClosed = shallowRef<readonly RecentlyClosed[]>([])
 const tabsControl = ref<InstanceType<typeof WorkspaceTabs>>()
 const articleInput = ref<InstanceType<typeof ElInput>>()
 const openInput = ref('')
 const navigationNotice = ref('')
 const opening = ref(false)
+const composing = ref<number>()
 let navigation = 0
 type NavigationIntent = {
   path: string
   restore?: RecentlyClosed
+  targetGroup?: WorkspaceGroup
   witness?: Readonly<{ sessionId: number; articleRevision: bigint }>
 }
 let explicitNavigation: NavigationIntent | undefined
@@ -85,7 +91,7 @@ const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'c
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
 const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
-  !(articlePending.value && tab.value?.articleId === 0))
+  composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(original.value?.title.trim() ?? '').length)
@@ -98,8 +104,45 @@ const validBody = computed(() => {
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
 const cannotWrite = computed(() => pending.value || recoveryBlocked.value || hasConflict.value || taxonomyDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
-const documentIdentity = computed(() => tab.value
-  ? { id: `blog-editor-${tab.value.sessionId}-${tab.value.articleId}`, epoch: tab.value.sessionId } : undefined)
+const editorArea = ref<HTMLElement>()
+const wideEditorArea = ref(false)
+const comparisonReady = ref(false)
+const twoSources = computed(() => sourcePanes.value.length === 2)
+const showComparison = computed(() => twoSources.value && wideEditorArea.value && comparisonReady.value)
+const comparisonTab = computed(() => sourcePanes.value.find(pane => !pane.tab.active)?.tab)
+const credential = computed(() => currentSession.value?.siteSessionId)
+let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
+
+watch(editorArea, (area, _, cleanup) => {
+  wideEditorArea.value = false
+  if (!area) return
+  function measure() {
+    if (!area) return
+    const minimum = 59 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const available = Math.min(area.clientWidth, window.visualViewport?.width ?? window.innerWidth)
+    wideEditorArea.value = available >= minimum
+  }
+  const observer = new ResizeObserver(measure)
+  observer.observe(area)
+  window.visualViewport?.addEventListener('resize', measure)
+  measure()
+  cleanup(() => {
+    observer.disconnect()
+    window.visualViewport?.removeEventListener('resize', measure)
+  })
+})
+
+function paneFocused(pane: WorkspaceSource<Draft>) {
+  return editable.value && pane.tab.active && tab.value?.sessionId === pane.tab.sessionId
+}
+
+function changeComposition(pane: WorkspaceSource<Draft>, active: boolean) {
+  if (active) {
+    if (paneFocused(pane)) composing.value = pane.tab.sessionId
+  } else if (composing.value === pane.tab.sessionId) {
+    void nextTick(() => { if (composing.value === pane.tab.sessionId) composing.value = undefined })
+  }
+}
 
 const failureByReason: Record<WorkspaceBlock, string> = {
   missing: 'The article is unavailable.',
@@ -189,7 +232,9 @@ const registry = new WorkspaceRegistry<Draft>({
     const handle = currentSession.value?.siteSessionId
     if (!handle) return { kind: 'blocked', reason: 'unavailable' }
     try {
-      return { kind: 'ready', draft: await api.draft(articleId, signal, handle) }
+      const draft = await api.draft(articleId, signal, handle)
+      if (signal.aborted || currentSession.value?.siteSessionId !== handle) return { kind: 'blocked', reason: 'unavailable' }
+      return { kind: 'ready', draft }
     } catch (error) {
       return { kind: 'blocked', reason: signal.aborted ? 'unavailable' : await workspaceBlock(error, handle, signal) }
     }
@@ -197,7 +242,7 @@ const registry = new WorkspaceRegistry<Draft>({
   save: send('save'),
   confirmed: recovery.confirmed,
 })
-const persistence = workspacePersistence(() => registry.savedLayout)
+const persistence = workspacePersistence(() => registry.savedLayout, () => !registry.hasSecondaryGroup)
 const { record: recordRecentOpen, changed: recentOpensVersion, notice: recentOpensNotice } = recentArticleOpens()
 const layoutNotice = persistence.notice
 const inspectorOpen = ref(false)
@@ -215,10 +260,21 @@ const unsubscribe = registry.subscribe(() => {
   original.value = next
   tab.value = registry.activeTab
   workspaceTabs.value = registry.tabs
+  sourcePanes.value = registry.sourcePanes
+  hasSecondaryGroup.value = registry.hasSecondaryGroup
   recentlyClosed.value = registry.recentlyClosed
   inspectorOpen.value = registry.inspectorOpen
   recovery.setCurrent(tab.value, next, registry.activeEditSequence)
   persistence.changed()
+})
+watch([twoSources, wideEditorArea, editable, () => comparisonTab.value?.sessionId, credential, identityEpoch], async ([two, wide, ready, sessionId, handle], _, cleanup) => {
+  comparisonReady.value = false
+  const candidate = comparisonTab.value
+  if (!two || !wide || !ready || !candidate || candidate.sessionId !== sessionId || !handle) return
+  const controller = new AbortController()
+  cleanup(() => controller.abort())
+  const checked = await registry.recheckComparison(candidate, AbortSignal.any([controller.signal, AbortSignal.timeout(5_000)]))
+  if (!controller.signal.aborted && checked) comparisonReady.value = true
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
   const handle = session?.siteSessionId
@@ -266,6 +322,9 @@ onUnmounted(() => {
 watch(identityEpoch, () => {
   ++navigation
   opening.value = false
+  composing.value = undefined
+  comparisonReady.value = false
+  deferredFocus = undefined
   navigationNotice.value = ''
 })
 
@@ -308,10 +367,10 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
   if (result.kind !== 'ready') failure.value = activationFailure(result)
 }, { immediate: true })
 
-function activateArticle(articleId: number, restore?: { group: string; mode: WorkspaceTab['mode'] }, ready?: () => boolean) {
+function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'], ready?: () => boolean) {
   return articleId === 0
     ? registry.startDraft({ id: 0, revision: 0n, title: '', body: '', published: false })
-    : registry.openOrActivate(articleId, restore?.group, restore?.mode, ready)
+    : registry.openOrActivate(articleId, targetGroup, mode, ready)
 }
 
 function activationFailure(receipt: Activation): string {
@@ -337,7 +396,7 @@ onBeforeRouteUpdate(async (to, from) => {
   const epoch = identityEpoch.value
   opening.value = true
   const explicit = explicitNavigation?.path === to.path ? explicitNavigation : undefined
-  const result = await activateArticle(articleId, explicit?.restore,
+  const result = await activateArticle(articleId, explicit?.targetGroup ?? explicit?.restore?.group, explicit?.restore?.mode,
     () => intent === navigation && epoch === identityEpoch.value && canSwitch.value && !lifetime.signal.aborted)
   if (intent !== navigation || epoch !== identityEpoch.value || lifetime.signal.aborted) return false
   opening.value = false
@@ -369,11 +428,11 @@ async function openSavedWorkspace() {
   persistentWorkspace.value = true
 }
 
-async function navigateTo(articleId: number, restore?: RecentlyClosed) {
+async function navigateTo(articleId: number, restore?: RecentlyClosed, targetGroup?: WorkspaceGroup) {
   if (!canSwitch.value) return false
   if (registry.activeTab?.articleId === articleId && id.value === articleId) return true
   const destination = address(articleId)
-  const intent: NavigationIntent = { restore, path: router.resolve(destination).path }
+  const intent: NavigationIntent = { restore, targetGroup, path: router.resolve(destination).path }
   const epoch = identityEpoch.value
   const handle = currentSession.value?.siteSessionId
   explicitNavigation = intent
@@ -389,14 +448,47 @@ async function navigateTo(articleId: number, restore?: RecentlyClosed) {
   finally { if (explicitNavigation === intent) explicitNavigation = undefined }
 }
 
-function openArticle() {
+function openArticle(otherGroup = false) {
   const articleId = inputArticle.value
   if (articleId === undefined) {
     navigationNotice.value = 'Enter a valid article ID.'
     return
   }
-  void navigateTo(articleId)
+  const target = otherGroup ? tab.value?.group === 'secondary' ? 'main' : 'secondary' : undefined
+  void navigateTo(articleId, undefined, target)
 }
+
+async function focusGroup(target: WorkspaceTab) {
+  const epoch = identityEpoch.value
+  deferredFocus = undefined
+  if (!await navigateTo(target.articleId) || tab.value?.sessionId !== target.sessionId) return
+  await nextTick()
+  if (epoch !== identityEpoch.value || tab.value?.sessionId !== target.sessionId || !editable.value) return
+  if (!recoveryBlocked.value) {
+    document.getElementById('article-body')?.focus({ preventScroll: true })
+    return
+  }
+  const pane = document.getElementById(`workspace-source-${target.sessionId}`)
+  if (pane) {
+    pane.focus({ preventScroll: true })
+    deferredFocus = { sessionId: target.sessionId, epoch, pane }
+  }
+}
+
+watch([recoveryBlocked, () => tab.value?.sessionId, editable], async ([blocked, sessionId, ready]) => {
+  const request = deferredFocus
+  if (!request) return
+  if (sessionId !== request.sessionId || request.epoch !== identityEpoch.value) {
+    deferredFocus = undefined
+    return
+  }
+  if (blocked || !ready) return
+  await nextTick()
+  if (deferredFocus !== request) return
+  deferredFocus = undefined
+  if (document.activeElement === request.pane && tab.value?.sessionId === request.sessionId && editable.value)
+    document.getElementById('article-body')?.focus({ preventScroll: true })
+})
 
 function setInspectorOpen(open: boolean) {
   if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
@@ -507,10 +599,10 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
-function edit(field: 'title' | 'body', value: string) {
+function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (editable.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
+  if (paneFocused(pane) && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
     if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
@@ -630,15 +722,23 @@ async function reloadDraft() {
     <section v-if="authorizationReady && currentSession?.canAuthor" class="workspace-actions" aria-label="Article workspace">
       <WorkspaceTabs ref="tabsControl" :tabs="workspaceTabs" :disabled="!canSwitch"
         @activate="navigateTo($event.articleId)" @pin="togglePin" @close="closeTab" />
-      <form class="workspace-open" @submit.prevent="openArticle">
+      <form class="workspace-open" @submit.prevent="openArticle()">
         <label for="workspace-article-id">Article ID</label>
         <ElInput id="workspace-article-id" ref="articleInput" v-model="openInput" class="workspace-open-field"
           :disabled="!canSwitch" />
         <ElButton native-type="submit" :disabled="!canSwitch">Open article</ElButton>
+        <ElButton v-if="tab" native-type="button" :disabled="!canSwitch || inputArticle === undefined"
+          @click="openArticle(true)">Open in other group</ElButton>
         <RouterLink v-if="openAddress" :to="openAddress" target="_blank" rel="noopener">Open in browser tab</RouterLink>
         <RouterLink :to="{ name: 'write', state: persistentWorkspace ? workspaceState : undefined }">New draft</RouterLink>
         <ElButton v-if="!persistentWorkspace && id !== undefined" text native-type="button" :disabled="!canSwitch" @click="openSavedWorkspace">Open saved workspace</ElButton>
       </form>
+      <div v-if="twoSources && !showComparison" class="workspace-groups" role="group" aria-label="Article groups">
+        <ElButton v-for="pane in sourcePanes" :key="pane.tab.sessionId" text native-type="button"
+          :disabled="!canSwitch || pane.tab.active" @click="focusGroup(pane.tab)">
+          {{ pane.tab.group === 'main' ? 'Focus primary group' : 'Focus secondary group' }}
+        </ElButton>
+      </div>
       <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :recent-opens-version="recentOpensVersion"
         :disabled="!canSwitch" :activate="navigateTo" />
       <details v-if="recentlyClosed.length">
@@ -654,6 +754,7 @@ async function reloadDraft() {
       <p v-if="opening" role="status">Opening article…</p>
       <p v-if="navigationNotice" role="alert">{{ navigationNotice }}</p>
       <p v-if="layoutNotice" role="status">{{ layoutNotice }}</p>
+      <p v-if="hasSecondaryGroup && persistentWorkspace" role="status">The second group stays open in this browser tab.</p>
       <p v-if="recentOpensNotice" role="status">{{ recentOpensNotice }}</p>
     </section>
     <p v-if="!authorizationReady || loading" role="status">Opening the editor…</p>
@@ -666,45 +767,45 @@ async function reloadDraft() {
       <ElAlert :title="failure" type="error" :closable="false" />
       <ElButton class="retry" @click="reload++">Retry</ElButton>
     </template>
-    <section v-else id="workspace-editor" class="editor-document" role="tabpanel" :aria-label="selectedPanelTitle">
-      <div class="editor-source">
-        <p v-if="notice" class="write-notice" role="status">
-          {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">Read the published article</RouterLink>
-        </p>
-        <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-        <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
-        <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
-        <label for="article-title">Title</label>
-        <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty || recoveryBlocked" />
-        <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>
-        <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
-        <label for="article-body">Body</label>
-        <ElMarkdownEditor
-          v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
-          :document-identity="documentIdentity"
-          :disabled="pending || taxonomyDirty || recoveryBlocked" :show-actions="false"
-        />
-        <template v-else>
-          <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
-          <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty || recoveryBlocked" />
-        </template>
-        <p v-if="recoveryFailure" role="status">Local draft recovery is unavailable. Save to keep your changes on the server.</p>
-        <section v-if="recoveryItems.length" aria-labelledby="draft-recovery-title">
-          <h2 id="draft-recovery-title">Recover an unsaved draft</h2>
-          <p>Unsaved text is stored in this browser for up to seven days. It is not encrypted.</p>
-          <div v-for="item in recoveryItems" :key="`${item.writer}-${item.editSequence}`">
-            <h3>{{ item.title || 'Untitled draft' }}</h3>
-            <p v-if="item.relationship === 'compare'">This recovery copy and the server draft have different revisions.</p>
-            <details>
-              <summary>Compare drafts</summary>
-              <h4>Server draft</h4><pre>{{ original?.body }}</pre>
-              <h4>Recovery copy</h4><pre>{{ item.body }}</pre>
-            </details>
-            <ElButton native-type="button" :disabled="pending || recoveryWorking || articleDirty" @click="restoreDraft(item)">Restore draft</ElButton>
-            <ElButton native-type="button" :disabled="pending || recoveryWorking" @click="recovery.remove(item)">Discard recovery copy</ElButton>
-          </div>
-        </section>
-        <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
+    <section v-if="authorizationReady && currentSession?.canAuthor && sourcePanes.length" v-show="editable"
+      id="workspace-editor" class="editor-document" role="tabpanel" :aria-label="selectedPanelTitle">
+      <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
+        <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
+          :concealed="!pane.tab.active && !showComparison"
+          :blocked="pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
+          @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
+          <template #before>
+            <template v-if="paneFocused(pane)">
+              <p v-if="notice" class="write-notice" role="status">
+                {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">Read the published article</RouterLink>
+              </p>
+              <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
+              <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
+              <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
+            </template>
+          </template>
+          <template #after>
+            <template v-if="paneFocused(pane)">
+              <p v-if="recoveryFailure" role="status">Local draft recovery is unavailable. Save to keep your changes on the server.</p>
+              <section v-if="recoveryItems.length" aria-labelledby="draft-recovery-title">
+                <h2 id="draft-recovery-title">Recover an unsaved draft</h2>
+                <p>Unsaved text is stored in this browser for up to seven days. It is not encrypted.</p>
+                <div v-for="item in recoveryItems" :key="`${item.writer}-${item.editSequence}`">
+                  <h3>{{ item.title || 'Untitled draft' }}</h3>
+                  <p v-if="item.relationship === 'compare'">This recovery copy and the server draft have different revisions.</p>
+                  <details>
+                    <summary>Compare drafts</summary>
+                    <h4>Server draft</h4><pre>{{ original?.body }}</pre>
+                    <h4>Recovery copy</h4><pre>{{ item.body }}</pre>
+                  </details>
+                  <ElButton native-type="button" :disabled="pending || recoveryWorking || articleDirty" @click="restoreDraft(item)">Restore draft</ElButton>
+                  <ElButton native-type="button" :disabled="pending || recoveryWorking" @click="recovery.remove(item)">Discard recovery copy</ElButton>
+                </div>
+              </section>
+              <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
+            </template>
+          </template>
+        </WorkspaceSourcePane>
       </div>
       <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive"
         :opened="persistentWorkspace ? inspectorOpen : undefined" @update:opened="setInspectorOpen">
@@ -776,6 +877,7 @@ async function reloadDraft() {
 .workspace-actions summary {
   cursor: pointer;
 }
+.workspace-groups { display: flex; flex-wrap: wrap; gap: .5rem; }
 .editor-document {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "source" "launcher";
@@ -786,6 +888,9 @@ async function reloadDraft() {
   gap: .5rem;
   min-inline-size: 0;
 }
+.editor-source--split { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--fsus-space-4); }
+.editor-source--split :deep(.workspace-source__heading) { min-block-size: var(--fsus-control-height-action); }
+.editor-source--split > .workspace-source--secondary { border-inline-start: 1px solid var(--fsus-border); padding-inline-start: .75rem; }
 @media (min-width: 1024px) {
   .editor-document:has(> .inspector-launcher[aria-expanded="true"]) {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 36%);

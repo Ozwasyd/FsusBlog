@@ -6,7 +6,7 @@ import type { SavedWorkspaceLayout } from './workspaceRegistry'
 const layoutKey = (layout: SavedWorkspaceLayout, legacy: boolean) =>
   `${layout.activeArticleId}:${layout.tabs.join(',')}:${legacy ? '' : layout.inspectorOpen === true}`
 
-export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
+export function workspacePersistence(layout: () => SavedWorkspaceLayout, canSaveLayout: () => boolean = () => true) {
   let lifetime = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
   let session: string | undefined
@@ -58,7 +58,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
   }
 
   function changed() {
-    if (!session || writing || layoutKey(layout(), legacy) === stored) return
+    if (!session || writing || !canSaveLayout() || layoutKey(layout(), legacy) === stored) return
     clearTimeout(timer)
     timer = setTimeout(() => { void flush() }, 175)
   }
@@ -73,7 +73,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
     }
     const handle = session
     const desired = layout()
-    if (!handle || layoutKey(desired, legacy) === stored) return
+    if (!handle || !canSaveLayout() || layoutKey(desired, legacy) === stored) return
     const scope = lifetime.signal
     const signal = AbortSignal.any([scope, AbortSignal.timeout(3_000)])
     writing = (async () => {
@@ -94,7 +94,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
       } finally {
         if (!scope.aborted) {
           writing = undefined
-          if (session && layoutKey(layout(), legacy) !== stored) changed()
+          changed()
         }
       }
     })()

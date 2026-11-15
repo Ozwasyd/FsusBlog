@@ -89,6 +89,10 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery || ${FSUSBLOG_TEST_FLOW:
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-split ]]; then
+  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-split-outsider)
+  export FSUSBLOG_TEST_OUTSIDER_TICKET
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator comment-delete-outsider --reader)
   FSUSBLOG_TEST_COMMENTER_TICKET=$("${migrate[@]}" operator comment-delete-owner --reader)
@@ -142,6 +146,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
   node tests/EndToEnd/workspace-recovery-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-split ]]; then
+  node tests/EndToEnd/workspace-split-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
   node tests/EndToEnd/article-library-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then

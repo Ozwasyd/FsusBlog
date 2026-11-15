@@ -5,6 +5,7 @@ import {
   type DraftLoad,
   type DraftSave,
   type EditorTransport,
+  type WorkspaceGroup,
   type WorkspaceTab,
 } from '../../src/Web/src/authoring/workspaceRegistry.ts'
 
@@ -29,7 +30,7 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: string): Promise<WorkspaceTab> {
+async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: WorkspaceGroup): Promise<WorkspaceTab> {
   const result = await registry.openOrActivate(id, group)
   assert.equal(result.kind, 'ready')
   return result.tab
@@ -85,18 +86,19 @@ test('duplicate entrypoints await one ready receipt and activate the original gr
   const pending = deferred<DraftLoad<Draft>>()
   let loads = 0
   const registry = setup({ load: () => { loads++; return pending.promise } })
-  const rail = registry.openOrActivate(12, 'primary')
-  const route = registry.openOrActivate(12, 'other-group')
+  const rail = registry.openOrActivate(12, 'main')
+  const route = registry.openOrActivate(12, 'secondary')
   assert.equal(registry.activeDraft, undefined)
   assert.deepEqual(registry.tabs, [])
   pending.resolve({ kind: 'ready', draft: draft(12) })
   assert.deepEqual(await rail, { kind: 'superseded' })
   const result = await route
   assert.equal(result.kind, 'ready')
-  assert.equal(result.tab.group, 'primary')
+  assert.equal(result.tab.group, 'main')
   assert.equal(registry.activeTab?.sessionId, result.tab.sessionId)
   assert.equal(loads, 1)
-  assert.equal((await activate(registry, 12, 'third-group')).sessionId, result.tab.sessionId)
+  assert.equal((await activate(registry, 12, 'secondary')).sessionId, result.tab.sessionId)
+  assert.deepEqual(await registry.openOrActivate(13, 'third-group' as WorkspaceGroup), { kind: 'blocked', reason: 'unavailable' })
   assert.equal(registry.tabs.length, 1)
 })
 
@@ -353,7 +355,7 @@ test('100 pinned tabs stay bounded and existing sessions still activate at capac
   for (let id = 1; id <= 100; id++) assert.equal((await registry.openOrActivate(id, 'main', 'pinned')).kind, 'ready')
   assert.equal(registry.tabs.length, 100)
   assert.deepEqual(await registry.openOrActivate(101), { kind: 'capacity' })
-  assert.equal((await activate(registry, 1, 'other-group')).group, 'main')
+  assert.equal((await activate(registry, 1, 'secondary')).group, 'main')
   assert.deepEqual(registry.tabs.filter(tab => tab.active).map(tab => tab.articleId), [1])
 })
 
@@ -364,7 +366,7 @@ test('returning to an inactive session rechecks authority without overwriting di
     load: async id => id === 1 && !permission ? { kind: 'blocked', reason: 'forbidden' } :
       { kind: 'ready', draft: draft(id, id === 1 ? revision : 1n, 'server') },
   })
-  const one = await activate(registry, 1, 'first')
+  const one = await activate(registry, 1, 'main')
   registry.updateDraft(one, draft(1, 1n, 'local'))
   const other = await activate(registry, 2)
   revision = 2n
@@ -404,14 +406,14 @@ test('idle retains scoped tabs and recently closed entries are bounded and never
   })
   registry.setIdentity(author)
   for (let id = 1; id < 18; id++) {
-    const result = await registry.openOrActivate(id, 'one', 'pinned')
+    const result = await registry.openOrActivate(id, 'main', 'pinned')
     assert.equal(result.kind, 'ready')
     assert.equal(result.tab.title, `Private ${id}`)
     assert.equal(registry.requestClose(result.tab).kind, 'closed')
   }
   assert.equal(registry.recentlyClosed.length, 12)
   assert.equal(registry.recentlyClosed[0].title, 'Article 17')
-  const restored = await registry.openOrActivate(17, 'one', 'pinned')
+  const restored = await registry.openOrActivate(17, 'main', 'pinned')
   assert.equal(restored.kind, 'ready')
   assert.equal(restored.tab.title, 'Private 17')
   registry.idle()
@@ -421,4 +423,60 @@ test('idle retains scoped tabs and recently closed entries are bounded and never
   registry.setIdentity(null)
   assert.deepEqual(registry.tabs, [])
   assert.deepEqual(registry.recentlyClosed, [])
+})
+
+test('both groups expose exactly their selected sessions while the credentialed focus owns draft writes', async () => {
+  const registry = setup()
+  const primary = await activate(registry, 1)
+  assert.equal(registry.updateDraft(primary, draft(1, 1n, 'unsaved primary')), true)
+  const secondary = await activate(registry, 2, 'secondary')
+  assert.equal(registry.hasSecondaryGroup, true)
+  assert.deepEqual(registry.sourcePanes.map(pane => [pane.tab.sessionId, pane.tab.active, pane.draft.body]), [
+    [primary.sessionId, false, 'unsaved primary'], [secondary.sessionId, true, 'same source'],
+  ])
+  assert.equal(registry.updateDraft(primary, draft(1, 1n, 'incorrect session')), false)
+  const original = await activate(registry, 1, 'secondary')
+  assert.equal(original.group, 'main')
+  assert.equal(original.sessionId, primary.sessionId)
+  assert.equal(registry.activeDraft?.body, 'unsaved primary')
+  assert.equal(registry.tabs.length, 2)
+  assert.equal(registry.requestClose(secondary).kind, 'closed')
+  assert.equal(registry.hasSecondaryGroup, false)
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), [primary.sessionId])
+})
+
+test('reexposing the comparison rechecks permission and retains dirty text across revision conflict', async () => {
+  let permission = true
+  let revision = 1n
+  const registry = setup({ load: async id => id !== 1 || permission
+    ? { kind: 'ready', draft: draft(id, id === 1 ? revision : 1n) } : { kind: 'blocked', reason: 'forbidden' } })
+  const first = await activate(registry, 1)
+  registry.updateDraft(first, draft(1, 1n, 'local only'))
+  const second = await activate(registry, 2, 'secondary')
+  revision++
+  const signal = new AbortController().signal
+  assert.equal(await registry.recheckComparison(first, signal), true)
+  assert.equal(registry.sourcePanes[0].draft.body, 'local only')
+  assert.equal(registry.sourcePanes[0].tab.risk, 'conflict')
+  assert.equal(registry.activeTab?.sessionId, second.sessionId)
+  permission = false
+  assert.equal(await registry.recheckComparison(first, signal), false)
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), [second.sessionId])
+  assert.equal(registry.tabs.find(tab => tab.sessionId === first.sessionId)?.risk, 'blocked')
+})
+
+test('the comparison cannot restore a response after authority changes', async () => {
+  const pending = deferred<DraftLoad<Draft>>()
+  let delayed = false
+  const registry = setup({ load: async id => delayed && id === 1 ? pending.promise : { kind: 'ready', draft: draft(id) } })
+  const first = await activate(registry, 1)
+  await activate(registry, 2, 'secondary')
+  delayed = true
+  const exposed = registry.recheckComparison(first, new AbortController().signal)
+  await Promise.resolve()
+  registry.setIdentity({ ...author, generation: 2n })
+  pending.resolve({ kind: 'ready', draft: draft(1, 2n, 'old identity private text') })
+  assert.equal(await exposed, false)
+  assert.deepEqual(registry.sourcePanes, [])
+  assert.equal(registry.hasSecondaryGroup, false)
 })
