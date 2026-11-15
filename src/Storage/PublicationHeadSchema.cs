@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Npgsql;
 
 namespace FsusBlogV2.Storage;
@@ -25,5 +29,31 @@ internal static partial class CurrentSchema
         await using var command = new NpgsqlCommand(
             "select pg_catalog.to_regclass('public.publication_transparency_head') is not null", db, tx);
         return await command.ExecuteScalarAsync(ct) is true;
+    }
+
+    internal static async Task VerifyPublicationCheckpointSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await using (var marker = new NpgsqlCommand("""
+            select version from public.v2_schema
+            where current_setting('session_replication_role')='origin'
+              and not exists(select from pg_catalog.pg_namespace where nspname='fsus_legacy_candidate')
+            """, db, tx))
+        await using (var row = await marker.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct) || row.GetInt32(0) != Version || await row.ReadAsync(ct))
+                throw new InvalidOperationException("Automatic daily checkpoints require an active native V2 database.");
+        }
+        if (await PublicationTransparencyStateAsync(db, tx, ct) is not true || !await HasPublicationHeadAsync(db, tx, ct))
+            throw new InvalidOperationException("Automatic daily checkpoints require the active native ledger and signed head.");
+
+        var columns = Columns.Where(fact => fact.StartsWith("v2_schema ", StringComparison.Ordinal) ||
+                                            fact.StartsWith("blog_outbox ", StringComparison.Ordinal))
+            .Concat(PublicationCanonicalColumns).Concat(GetPublicationProofColumns(true))
+            .Concat(PublicationTransparencyColumns).Concat(PublicationHeadColumns).ToArray();
+        var relations = columns.Select(fact => fact.Split(' ', 2)[0]).ToHashSet(StringComparer.Ordinal);
+        var constraints = Constraints.Concat(PublicationCanonicalConstraints).Concat(PublicationProofConstraints)
+            .Concat(PublicationTransparencyConstraints).Concat(PublicationHeadConstraints)
+            .Where(fact => relations.Contains(fact.Split(' ', 2)[0])).ToArray();
+        await VerifyRelationsAsync(db, tx, columns, constraints, ct);
     }
 }

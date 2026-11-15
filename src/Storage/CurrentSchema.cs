@@ -379,6 +379,22 @@ internal static partial class CurrentSchema
             .Concat(hasArticleReadTotal ? ArticleReadTotalConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
+        var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
+        if (requireArticleSummary.HasValue && requireArticleSummary.Value != hasArticleSummary)
+            throw new InvalidOperationException("The article author summary schema presence does not match the requested operation.");
+        if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
+        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
+        if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
+        if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
+        if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
+        if (hasAuthorTextIndex) await VerifyAuthorTextArticleOwnerIndexAsync(connection, transaction, cancellationToken);
+        if (hasDocumentExports) await VerifyDocumentExportIndexesAsync(connection, transaction, cancellationToken);
+        return webpMedia;
+    }
+
+    private static async Task<bool> VerifyRelationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        string[] expectedColumns, string[] expectedConstraints, CancellationToken cancellationToken)
+    {
         const string sql = """
             WITH owned AS (
                 SELECT c.*
@@ -461,16 +477,7 @@ internal static partial class CurrentSchema
         var webpMedia = constraints.Contains("private_media c format format>=1ANDformat<=3", StringComparer.Ordinal);
         if (webpMedia) expectedConstraints = expectedConstraints.Select(WithWebpFormat).ToArray();
         AssertShape("relation/column", expectedColumns, columns);
-        if (requireArticleSummary.HasValue && requireArticleSummary.Value != hasArticleSummary)
-            throw new InvalidOperationException("The article author summary schema presence does not match the requested operation.");
         AssertShape("constraint", expectedConstraints, constraints);
-        if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
-        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
-        if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
-        if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
-        if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
-        if (hasAuthorTextIndex) await VerifyAuthorTextArticleOwnerIndexAsync(connection, transaction, cancellationToken);
-        if (hasDocumentExports) await VerifyDocumentExportIndexesAsync(connection, transaction, cancellationToken);
         return webpMedia;
     }
 

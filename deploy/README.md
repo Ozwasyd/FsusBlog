@@ -59,4 +59,13 @@ IntegrityProof__CheckpointSigning__KeyId=checkpoint
 IntegrityProof__CheckpointSigning__PrivateKeyFile=/etc/fsusblog/checkpoint-private/key.pkcs8
 ```
 
+为专用数据库账号授予目标库的 `CONNECT`、`public` schema 的 `USAGE` 和以下读取权限。
+
+```sql
+GRANT SELECT ON public.v2_schema, public.publication_transparency_head, public.publication_proof_key,
+    public.article_publication_transparency, public.article_publication_proof,
+    public.article_publication_canonical TO checkpoint_reader;
+GRANT SELECT (id, processed_at) ON public.blog_outbox TO checkpoint_reader;
+```
+
 将两个单元安装到 `/etc/systemd/system/` 后运行 `systemctl daemon-reload` 和 `systemctl enable --now fsusblog-daily-checkpoint.timer`。单元自动为该账户创建仅自己可访问的 `/var/lib/fsusblog-checkpoints`。用 `journalctl -u fsusblog-daily-checkpoint.service` 检查退出状态、归档摘要和锚点。停机恢复时定时器补触发一次，指定失败或遗漏的具体日期时以同一签名账户运行带 `YYYY-MM-DD` 参数的命令。分发归档时按公开归档流程独立核验后，将已批准文件及摘要交给站点部署配置。 [签发与验签](../docs/product/publication-rights.md)

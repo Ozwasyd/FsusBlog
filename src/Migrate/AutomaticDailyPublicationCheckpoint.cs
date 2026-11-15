@@ -31,7 +31,6 @@ internal static partial class Migration
                 standaloneKey.Fingerprint.AsSpan().SequenceEqual(keys[current].Fingerprint))
                 throw new InvalidOperationException("Automatic daily checkpoints require a separately registered checkpoint signing key.");
 
-            await CurrentSchema.VerifyAsync(db, ct);
             await using var tx = await BeginReadOnlyAsync(db, ct);
             // Transaction start precedes the snapshot. A job crossing midnight cannot seal the new day early.
             await using var clock = new NpgsqlCommand("select transaction_timestamp() where not pg_is_in_recovery()", db, tx);
@@ -42,9 +41,7 @@ internal static partial class Migration
             if (!PublicationCheckpointV2.TryDay(scope, out var day)) throw new ArgumentException("Supply a UTC day in YYYY-MM-DD format.");
             var midnight = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
             if (midnight.AddDays(1) > at) throw new InvalidOperationException("The requested UTC day is still open.");
-            if (await CurrentSchema.PublicationTransparencyStateAsync(db, tx, ct) is not true ||
-                !await CurrentSchema.HasPublicationHeadAsync(db, tx, ct))
-                throw new InvalidOperationException("Automatic daily checkpoints require the active native ledger and signed head.");
+            await CurrentSchema.VerifyPublicationCheckpointSchemaAsync(db, tx, ct);
             var latest = await ReadExactDailyTail(db, tx, args[0], at, ct);
             await VerifyAutomaticHead(db, tx, keys, latest.Claim, latest.Signature, ct);
             if (latest.Claim.KeySha256.AsSpan().SequenceEqual(standaloneKey.Fingerprint))
