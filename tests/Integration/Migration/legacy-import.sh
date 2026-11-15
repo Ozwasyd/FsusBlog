@@ -2,10 +2,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 provider="${1:-sqlite}"
+source_backup=false
+if [[ "${2:-}" == --source-backup && "$provider" == postgres ]]; then source_backup=true; fi
 case "$provider" in
     sqlite|postgres|mysql) ;;
     *) printf 'Usage: %s [sqlite|postgres|mysql]\n' "$0" >&2; exit 2 ;;
 esac
+if [[ "$#" -gt 1 && ( "$#" != 2 || "$source_backup" != true ) ]]; then
+    printf 'Usage: %s [sqlite|postgres|mysql] [--source-backup (postgres only)]\n' "$0" >&2
+    exit 2
+fi
 if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" ]]; then
     printf '%s\n' 'Set FSUSBLOG_TEST_DB and matching libpq variables for the isolated cluster.' >&2
     exit 2
@@ -529,6 +535,39 @@ PY
     [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
 fi
 
+if [[ "$source_backup" == true ]]; then
+    source_backup_restore="${database}_source_restore"
+    "${maintenance[@]}" -c "CREATE DATABASE \"$source_backup_restore\" TEMPLATE template0"
+    created+=("$source_backup_restore")
+    mkdir -m 700 "$root/source-backup"
+    PGHOST="$(cd -- "$PGHOST" && pwd -P)" PYTHONDONTWRITEBYTECODE=1 python3 \
+        tests/Integration/Migration/legacy-source-backup.py "$source_db" "$source_backup_restore" "$root/source-backup" \
+        > "$root/source-backup-witness.json"
+    psql -X --no-password -v ON_ERROR_STOP=1 -d "$source_backup_restore" -c "
+        GRANT USAGE ON SCHEMA public TO \"$source_reader\";
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"$source_reader\";
+        REVOKE EXECUTE ON FUNCTION pg_catalog.pg_control_system() FROM PUBLIC;"
+    live_source="$FSUSBLOG_V1_DB"
+    export FSUSBLOG_V1_DB="$live_source;Database=$source_backup_restore"
+    mv "$root/import.json" "$root/live-source-plan.json"
+    "${plan[@]}" > "$root/import.json"
+    python3 - "$root/live-source-plan.json" "$root/import.json" "$root/source-backup-witness.json" <<'PY'
+import json, pathlib, sys
+source, restore, witness = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:]]
+original_seal, restored_seal = source.pop("sourceSeal"), restore.pop("sourceSeal")
+witness["sourceDatabaseSha256"] = original_seal.pop("databaseSha256")
+witness["restoredDatabaseSha256"] = restored_seal.pop("databaseSha256")
+assert witness["sourceDatabaseSha256"] != witness["restoredDatabaseSha256"]
+witness["sourcePhysicalCatalogSha256"] = original_seal.pop("catalogSha256")
+witness["restoredPhysicalCatalogSha256"] = restored_seal.pop("catalogSha256")
+# A logical restore compacts the column positions left by the earlier dropped-column negative.
+assert witness["sourcePhysicalCatalogSha256"] != witness["restoredPhysicalCatalogSha256"]
+assert original_seal == restored_seal and source == restore
+pathlib.Path(sys.argv[3]).write_text(json.dumps(witness, sort_keys=True))
+PY
+    expect_source_seal_refused env FSUSBLOG_V1_DB="$live_source" "${apply[@]}"
+fi
+
 "${apply[@]}" > "$root/applied.json"
 [[ "$("${target_sql[@]}" -qAtc 'SELECT version FROM public.v2_schema')" == -1 ]]
 [[ "$("${target_sql[@]}" -qAtc 'SELECT count(*) FROM public.article')" == 0 ]]
@@ -638,5 +677,15 @@ PY
     [[ "$("${target_sql[@]}" -qAtc 'SELECT (SELECT count(*) FROM public.article_read_hour),
         (SELECT count(*) FROM public.article_read_dwell),(SELECT count(*) FROM public.article_read_total),
         (SELECT last_epoch IS NULL FROM public.article_read_epoch WHERE singleton)')" == '0|0|0|t' ]]
+fi
+if [[ "$source_backup" == true ]]; then
+    python3 - "$root/source-backup-witness.json" "$root/applied.json" "$root/resumed.json" "$root/verified.json" "$manifest" <<'PY'
+import json, pathlib, sys
+source, applied, resumed, verified = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:5]]
+assert applied["planSha256"] == resumed["planSha256"] == verified["planSha256"]
+assert not applied["readyToApply"] and not resumed["readyToApply"] and not verified["readyToApply"]
+print(json.dumps({"sourceBackupRehearsal": source, "planSha256": applied["planSha256"],
+                  "projectionSha256": verified["projectionSha256"], "targetRollbackManifestSha256": sys.argv[5]}, sort_keys=True))
+PY
 fi
 printf 'Legacy %s source to PostgreSQL candidate import, resume, refusal and independent recovery passed.\n' "$provider"

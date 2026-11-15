@@ -68,6 +68,8 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 目标结构摘要与原计划匹配时，已有未封存的 PostgreSQL 计划仍可与原已隔离候选一同续跑或离线复验。新的 PostgreSQL 候选分阶段写入需要当前工具生成的封存计划。SQLite 和 MySQL 的计划格式继续沿用当前各自的来源核验。
 
+`bash tests/Integration/Migration/legacy-import.sh postgres --source-backup` 在私有 PostgreSQL 演练中从导出的旧源快照生成真实 custom archive。工具把同一只读文件描述符交给 `pg_restore`，复查实际原库和恢复库的结构及数据读取摘要，并确认数据库身份不同。测量保留两份原生读取摘要。结构及数据比较只归一化 PostgreSQL 18 对固定 v1 保存视图计数约束的等价括号写法。恢复会压缩先前删除的列所留下的物理位置，目录摘要按各自数据库记录。随后用只读恢复库生成导入计划，核对其业务投影与原库一致，并验证原库不能替代计划中的恢复来源。输出关联已消费归档、候选计划、隔离投影和用于目标回退的 v2 备份。演练同时验证目标断点续跑及独立回退。原始 v1 加密包的身份认证和同一次数据库／非空媒体启用仍须按原始备份与恢复合约验收。
+
 候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
 旧站已安装 `20260904-post-author-saved-view` 且有记录时，PostgreSQL `legacy import plan/apply` 按固定 v1 形状核验八张表，保全旧管理员整数与站点范围、视图 UUID、默认与置顶状态、条件与操作数、排序和投影、回执、变更明细与幂等记录。源事务检查键、空值约束、默认引用归属、回执次序及幂等关系。每表最多 5,000 行，总文本预算 128 MB。计划报告行数、摘要和阻塞项。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs) · [v1 持久化](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs)
