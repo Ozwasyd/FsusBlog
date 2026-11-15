@@ -13,3 +13,16 @@
 使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlogV2.Migrate.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。在线 Hook 分发、站点前端接入、SQL 注册表、集群协调、Lua、可调用 IO broker 和生产插件隔离资格仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
 
 本机 macOS 使用 .NET SDK 10.0.404、Jint 4.13.0 和锁定的 Acornima 1.6.2 运行测试。原生进程测试覆盖签名转换、信任撤销、脚本环境无宿主句柄、执行与字节上限、登记文件并发变更时拒绝结果、锁争用、包篡改和 FIFO 拒绝。测试暂停本次调用的子进程，确认父进程超时终止并回收子进程。系统日志记录了子进程读取 `/private/etc/hosts` 被拒绝。 [验证日志](../../artifacts/offline-platform-plugin/native.log)
+
+## Linux ARM64 隔离能力检查
+
+原生探针在非特权身份下启动 Bubblewrap，显式要求独立的 user、mount、PID、network、IPC、UTS 和 cgroup 命名空间。它以只读方式挂载探针自身，使用独立 PID 命名空间的 procfs，清空环境和继承描述符，并通过已封存的匿名描述符交付 ARM64 seccomp 白名单。探针读取实际命名空间标识、描述符列表、有效权限及根挂载标志，并验证网络、本机套接字和文件写入的内核拒绝。 [Bubblewrap 0.12.0](https://github.com/containers/bubblewrap/tree/v0.12.0) · [内核 seccomp](https://docs.kernel.org/userspace-api/seccomp_filter.html)
+
+```sh
+cc -std=c11 -O2 -Wall -Wextra -Werror -static tests/Integration/Migration/linux-plugin-isolation.c -o /tmp/fsus-plugin-probe
+python3 tests/Integration/Migration/linux-plugin-isolation.py /tmp/fsus-plugin-probe
+```
+
+实测环境为 Debian 13 ARM64，内核 6.12.115、Bubblewrap 0.12.0、GCC 14.2 和 glibc 2.41。默认及 Python 优化模式均通过。探针核对根挂载、程序和 procfs 均为只读，确认有效及环境 capabilities 为零，并验证直接进入探针分支时会拒绝运行。 [原生日志](../../artifacts/linux-plugin-isolation/native.log)
+
+该白名单适用于无依赖的探针。Linux Jint 调用仍禁用。托管 worker 接入还须核验专用只读运行时及程序集目录、实际施加的 cgroup v2 内存和任务上限，以及取消或父进程退出后的整组回收。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
