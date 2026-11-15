@@ -69,4 +69,16 @@ soak 和显式启用运行时观察的 smoke 使用私有文件标记划定计�
 
 用 `python3 tests/Performance/capacity.py --direct PATH --proxy PATH` 复算已完成矩阵的数字门槛。两种参数均可重复传入独立运行目录。脚本检查冻结档位、请求配比、每条路由的延迟、完整失败分母及清理记录，输出样本的最高档判定；同机供给余量和双次独立资格仍由验收记录确认。
 
+### 独立供给结果准入
+
+在数字复算命令加 `--private-supplier-inputs TRUSTED_INPUTS` 启用独立供给的短档准入。该目录由运行协调方保留，含实际封存包 `fsusblog-v2.tar.gz`、`payload.sha256`、使用的 `wire.schema.json` 和执行的 Go 二进制 `load`。验收只读取归档及原始报告。同机运行器目前不会产出该凭据。缺少凭据或原始输入时，准入退出非零。原命令仍可复算历史数字。
+
+协调方先验证两台实机及独占资源，再通过现有受信控制通道交接本次地址、语料和 TLS CA。每轮保留现有 `outcome.txt`、`owner.txt`、`release-input.json`、`fixture.json` 和正式矩阵的其余记录。私网直连在 `owner.txt` 也需记录显式 `target`。TLS 则留下实际使用的公开 `ca.pem` 及代理进程归属，Kestrel 上游仍是回环。协调方在本轮证据目录独立保留 `private-supplier.json`，不得从移动后的报告反推运行归属。
+
+- `version` 为 1。记录 `runId`、`invocationId`、`attemptId`、`topology`（direct/proxy）、`target`、预查的公开 `generation` 字符串，以及设备身份的稳定 `serverHostId` 和 `supplierHostId` SHA-256。设备身份来自现有运维记录。用同机上的 VM 或新用户名更名不会取得独立资源证明。
+- 记录实际 `archiveSha256`、`payloadManifestSha256`、`fixtureSha256`、`wireSha256`、`toolSha256`、`ownerSha256`、`outcomeSha256` 和 `releaseInputSha256`。代理拓扑另记录 `caSha256`。直连的 `caSha256` 为 null。
+- `stages` 按 2000、5000、8000、10500 排序，每项包含 `rate`、实际 `supplierPid`、`exitCode`、`reportSha256`、UTC `acceptedAt` 和 `collectedAt`。协调方在启动供给进程前查验自己的服务和数据库仍就绪并记下前者，收取报告时再复查并记下后者。两机 UTC 应校验同步，60 秒计时由供给端单调时钟记录。各档沿用原池预热 30 秒和 15 秒冷却。
+
+校验把原始结果绑定到就绪、当前目标和归属区间，复算沿用原阈值。协调方还须根据双方的真实进程、CPU 和链路记录确认独占及供给余量。短档记录通过后，900 秒采样另需真实服务端标记围合供给进程的计时窗口。
+
 `supplyBySecond` 使用计划起点及单调时钟分桶。计划数按原定桶记录，调度器唤醒、准入、漏发、完整 socket 写入、响应头、读完预期上限内的响应体、校验及尝试结束按各自发生时间记录。收尾可以延伸到计划窗口之外。历史字段 `sent` 仍为准入后的尝试数，包含连接或发送阶段失败。`socketWritten` 表示完整请求进入客户端连接，服务端收到多少仍须跟应用计数核对。观察到的在途峰值有并发采样误差，漏发时确认已达 256 个。每轮也留存负载进程的用户与系统 CPU、Go GC 暂停 CPU 时间与分配字节起止值。使用 `go test -race tests/Performance/{load,cold,load_test}.go` 验证取消收尾、分桶和连接读写计数。
