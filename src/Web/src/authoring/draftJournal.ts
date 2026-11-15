@@ -53,6 +53,8 @@ type RecoveryRecord = PendingSource & DraftJournalScope & {
 
 type Admission = 'stored' | 'stale' | 'full' | 'closed'
 type PendingWrite = { document: string; sequence: number; cancelled: boolean }
+type RecoveryCopy = Readonly<{ target: DraftTarget; source: PendingSource }>
+type DiscardScope = Readonly<{ signal: AbortSignal; current: () => boolean }>
 
 function documentKey(target: DraftTarget): string {
   if ('articleId' in target) {
@@ -121,18 +123,30 @@ function transaction<Result>(
   database: IDBDatabase,
   scope: DraftJournalScope,
   fn: (store: IDBObjectStore, records: RecoveryRecord[], generation: string, revoke: () => void) => Result,
-  mode: 'readonly' | 'readwrite' = 'readwrite',
+  { mode = 'readwrite', signal, pruneInvalid = true }:
+    { mode?: 'readonly' | 'readwrite'; signal?: AbortSignal; pruneInvalid?: boolean } = {},
 ): Promise<Result> {
+  if (signal?.aborted) return Promise.reject(signal.reason)
   return new Promise((resolve, reject) => {
     const tx = database.transaction([recordsStore, scopesStore], mode, mode === 'readwrite' ? { durability: 'strict' } : undefined)
+    const abort = () => {
+      try { tx.abort() } catch { /* A commit can already have completed when the scope changes. */ }
+    }
+    signal?.addEventListener('abort', abort, { once: true })
     const store = tx.objectStore(recordsStore)
     const scopes = tx.objectStore(scopesStore)
     const key = [scope.site, scope.userId]
     const readScope = scopes.get(key)
     let result: Result
     let error: unknown
-    tx.oncomplete = () => resolve(result)
-    tx.onabort = () => reject(error ?? tx.error ?? new Error('Draft recovery transaction aborted'))
+    tx.oncomplete = () => {
+      signal?.removeEventListener('abort', abort)
+      resolve(result)
+    }
+    tx.onabort = () => {
+      signal?.removeEventListener('abort', abort)
+      reject(error ?? tx.error ?? new Error('Draft recovery transaction aborted'))
+    }
     readScope.onsuccess = () => {
       const read = store.getAll()
       read.onsuccess = () => {
@@ -142,13 +156,13 @@ function transaction<Result>(
           const now = Date.now()
           const live = (read.result as RecoveryRecord[]).filter(record => {
             const valid = admitted(record, now)
-            if (!valid && mode === 'readwrite') store.delete(record.key)
+            if (!valid && mode === 'readwrite' && pruneInvalid) store.delete(record.key)
             return valid
           })
           result = fn(store, live, generation, () => { scopes.put(crypto.randomUUID(), key) })
         } catch (cause) {
           error = cause
-          tx.abort()
+          abort()
         }
       }
     }
@@ -222,23 +236,38 @@ export class DraftJournal {
     }
   }
 
-  async verifyCopies(copies: readonly Readonly<{ target: DraftTarget; source: PendingSource }>[]): Promise<boolean> {
-    if (this.#closed || copies.length === 0 || copies.length > maxRecords) return false
+  verifyCopies(copies: readonly RecoveryCopy[]): Promise<boolean> {
+    return this.#checkCopies(copies)
+  }
+
+  discardCopies(copies: readonly RecoveryCopy[], scope: DiscardScope): Promise<boolean> {
+    return this.#checkCopies(copies, scope)
+  }
+
+  async #checkCopies(copies: readonly RecoveryCopy[], discard?: DiscardScope): Promise<boolean> {
+    if (this.#closed || discard?.signal.aborted || copies.length === 0 || copies.length > maxRecords) return false
     const expected = await Promise.all(copies.map(async ({ target, source }) => ({
       document: documentKey(target), source, digest: await sourceDigest(source),
     })))
+    const documents = new Set(expected.map(copy => copy.document))
     if (this.#closed) return false
-    const verified = await transaction(this.#database, this.#scope, (_store, live, generation) => {
+    const verified = await transaction(this.#database, this.#scope, (store, live, generation) => {
       if (this.#closed || this.#generation !== generation) return false
+      if (discard && (!discard.current() || documents.size !== expected.length ||
+          Array.from(this.#pending).some(write => documents.has(write.document)))) return false
       const owned = new Map(live.filter(record => record.writer === this.#writer && this.#matches(undefined, record))
         .map(record => [record.document, record]))
-      return expected.every(({ document, source, digest }) => {
+      const matched: RecoveryRecord[] = []
+      for (const { document, source, digest } of expected) {
         const record = owned.get(document)
-        return record?.digest === digest && record.baseRevision === source.baseRevision &&
-          record.editSequence === source.editSequence && record.title === source.title && record.body === source.body
-      })
-    }, 'readonly')
-    return verified && !this.#closed
+        if (!record || record.digest !== digest || record.baseRevision !== source.baseRevision ||
+            record.editSequence !== source.editSequence || record.title !== source.title || record.body !== source.body) return false
+        matched.push(record)
+      }
+      if (discard) for (const record of matched) store.delete(record.key)
+      return true
+    }, discard ? { signal: discard.signal, pruneInvalid: false } : { mode: 'readonly' })
+    return verified && (discard !== undefined || !this.#closed)
   }
 
   async inspect(target: DraftTarget, durable: JournalSource & { revision: bigint }): Promise<readonly RecoveryCandidate[]> {

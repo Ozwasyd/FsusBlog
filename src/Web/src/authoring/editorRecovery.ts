@@ -4,7 +4,7 @@ import {
   DraftJournal, type DraftTarget, type PendingSource, type RecoveryCandidate,
 } from './draftJournal'
 import { verifyDraftScope } from './draftScope'
-import type { EditorTransport, RecoverableCloseDraft, WorkspaceTab } from './workspaceRegistry'
+import type { DiscardReservation, EditorTransport, RecoverableCloseDraft, WorkspaceTab } from './workspaceRegistry'
 
 type Confirmation = Parameters<NonNullable<EditorTransport<Draft>['confirmed']>>[0]
 type ActiveDraft = { tab: WorkspaceTab; draft: Draft; edit: number }
@@ -165,14 +165,29 @@ export function editorRecovery() {
     return owner?.acknowledge(document, edit).catch(() => { failure.value = true })
   }
 
+  const closeCopies = (drafts: readonly RecoverableCloseDraft<Draft>[]) => drafts.map(({ draft, edit }) => ({
+    target: { articleId: draft.id }, source: source(draft, edit),
+  }))
+
   async function verifyCloseCopies(drafts: readonly RecoverableCloseDraft<Draft>[]): Promise<boolean> {
     const owner = journal
     if (!owner) return false
     try {
-      const verified = await owner.verifyCopies(drafts.map(({ draft, edit }) => ({
-        target: { articleId: draft.id }, source: source(draft, edit),
-      })))
+      const verified = await owner.verifyCopies(closeCopies(drafts))
       return verified && journal === owner
+    } catch {
+      return false
+    }
+  }
+
+  async function discardCloseCopies(reservation: DiscardReservation<Draft>): Promise<boolean> {
+    const owner = journal
+    if (!owner) return false
+    try {
+      return await owner.discardCopies(closeCopies(reservation.drafts), {
+        signal: AbortSignal.any([reservation.signal, scopeRequest.signal]),
+        current: () => journal === owner && reservation.current(),
+      })
     } catch {
       return false
     }
@@ -196,7 +211,7 @@ export function editorRecovery() {
   }
 
   return {
-    setCurrent, attach, close, persist, confirmed, remove, discardArticle, verifyCloseCopies, dismissCandidates,
+    setCurrent, attach, close, persist, confirmed, remove, discardArticle, verifyCloseCopies, discardCloseCopies, dismissCandidates,
     candidates: readonly(candidates), failure: readonly(failure), guarded,
   }
 }

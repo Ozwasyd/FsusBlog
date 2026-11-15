@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
-import { ElAlert, ElButton, ElInput, ElMessageBox } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElInput, ElMessageBox } from '@ozwasyd/element-plus'
 import { api, ApiError, type Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
@@ -611,25 +611,36 @@ const closeRiskLabel = {
   recovery: 'draft recovery', pending: 'pending change', blocked: 'unavailable',
 } satisfies Record<Exclude<WorkspaceTab['risk'], 'clean'>, string>
 
-async function closeWithRecoveryCopies(plan: ClosePlan, current: () => boolean) {
+async function confirmGroupClose(plan: ClosePlan, current: () => boolean) {
   const drafts = registry.recoveryDraftsForClose(plan)
   if (!drafts?.length) return 'protected'
-  const message = h('div', [
-    h('p', 'You can recover your unsaved edits when you reopen these articles on this browser.'),
+  let discard = false
+  const message = h(() => current() ? h('div', [
+    h('p', 'Unsaved edits are kept in browser recovery by default.'),
     h('ul', {
       'aria-label': 'Tabs to close', tabindex: 0,
       style: { maxBlockSize: 'min(40vh, 16rem)', overflowY: 'auto', overflowWrap: 'anywhere', paddingInlineStart: '1.5rem' },
     }, plan.tabs.map(({ title, risk, articleId, sessionId }) => h('li', { key: sessionId },
       `${title} (${risk === 'clean' ? 'up to date' : closeRiskLabel[risk]})${articleId ? ` · Article ${articleId}` : ''}`))),
-  ])
+    plan.tabs.every(tab => tab.articleId > 0) ? h(ElCheckbox, {
+      'onUpdate:modelValue': (value: unknown) => { discard = value === true },
+    }, { default: () => 'Discard unsaved edits from this browser' }) : null,
+  ]) : h('p', 'The workspace changed while this confirmation was open.'))
   closingGroupTabs.value = true
   try {
     const consent = await ElMessageBox.confirm(
-      message, 'Close tabs and keep recovery copies?', {
-        type: 'warning', confirmButtonText: 'Close and keep copies', cancelButtonText: 'Keep writing', closeOnClickModal: false,
+      message, 'Close tabs with unsaved edits?', {
+        type: 'warning', confirmButtonText: 'Close tabs', cancelButtonText: 'Keep writing', closeOnClickModal: false,
       })
     if (!consent.ok) return 'cancelled'
     if (!current() || registry.revision !== plan.revision) return 'stale'
+    if (discard) {
+      const reservation = registry.reserveDiscard(plan)
+      if (!reservation) return 'stale'
+      const committed = await recovery.discardCloseCopies(reservation)
+      const result = registry.completeDiscard(reservation, committed)
+      return committed || result.kind === 'stale' ? result.kind : 'discard-unavailable'
+    }
     if (!await recovery.verifyCloseCopies(drafts)) return 'copies-unavailable'
     return current() ? registry.discardMany(plan).kind : 'stale'
   } catch {
@@ -648,17 +659,19 @@ async function closeGroupTabs(event: MouseEvent, onlyRight: boolean) {
   if (targets.length === 0) return
   const focused = event.currentTarget
   const epoch = identityEpoch.value
+  const path = route.path
   const isCurrent = () => epoch === identityEpoch.value && !lifetime.signal.aborted &&
-    registry.activeTab?.sessionId === current.sessionId
+    route.path === path && registry.activeTab?.sessionId === current.sessionId
   const plan = registry.planClose(targets)
   const result = plan ? registry.applyClose(plan).kind : 'stale'
-  const outcome = plan && result === 'protected' ? await closeWithRecoveryCopies(plan, isCurrent) : result
+  const outcome = plan && result === 'protected' ? await confirmGroupClose(plan, isCurrent) : result
   if (!isCurrent()) return
   if (outcome !== 'closed') {
     groupNotice.value = ''
     const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${closeRiskLabel[risk]})`]) ?? []
     navigationNotice.value = outcome === 'protected' ? `Could not close tabs. ${blocked.join(', ')}.`
       : outcome === 'copies-unavailable' ? 'Could not verify recovery copies. Save the drafts before closing these tabs.'
+      : outcome === 'discard-unavailable' ? 'Could not discard the recovery copies. The tabs are still open.'
       : outcome === 'stale' ? 'Tabs changed before closing. Try again.' : ''
     await nextTick()
     if (isCurrent() && focused instanceof HTMLElement && focused.isConnected) focused.focus({ preventScroll: true })

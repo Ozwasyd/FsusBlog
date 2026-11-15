@@ -74,8 +74,55 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       await first.write(fresh, { ...source, body: 'New unpersisted draft', baseRevision: 0n })
       first.close()
       second.close()
-      return { dispositions, copyChecks }
-    }, { modulePath, time }), { dispositions: ['stored', 'stored', 'stored', 'stale'], copyChecks: [true, false, false, false, false] })
+      const discardScope = { site: 'example.test', userId: 'discard-fixture' }
+      const discardOwner = await DraftJournal.open(discardScope)
+      const discardPeer = await DraftJournal.open(discardScope)
+      const kept = { target: { articleId: 23 }, source }
+      await discardOwner.write(a, source)
+      await discardOwner.write(b, secondArticle)
+      await discardOwner.write(kept.target, kept.source)
+      await discardPeer.write(a, otherWriter)
+      const attempt = { signal: new AbortController().signal, current: () => true }
+      const mismatched = await discardOwner.discardCopies([
+        copies[0], { target: b, source: { ...secondArticle, baseRevision: 2n } },
+      ], attempt)
+      const stillPresent = await discardOwner.verifyCopies(copies)
+      const originalDelete = IDBObjectStore.prototype.delete
+      const transactions = new Set()
+      let queued = 0
+      let aborted = false
+      IDBObjectStore.prototype.delete = function (key) {
+        const request = originalDelete.call(this, key)
+        if (Array.isArray(key) && key[1] === discardScope.userId) {
+          const { transaction } = this
+          transactions.add(transaction)
+          if (++queued === 1) queueMicrotask(() => transaction.abort())
+        }
+        return request
+      }
+      try {
+        await discardOwner.discardCopies(copies, attempt)
+      } catch { aborted = true }
+      finally { IDBObjectStore.prototype.delete = originalDelete }
+      const afterAbort = await discardOwner.verifyCopies(copies)
+      const oldScope = await discardOwner.discardCopies(copies, { ...attempt, current: () => false })
+      const committed = await discardOwner.discardCopies(copies, attempt)
+      const afterCommit = await Promise.all(copies.map(copy => discardOwner.verifyCopies([copy])))
+      const peerPreserved = await discardPeer.verifyCopies([{ target: a, source: otherWriter }])
+      const otherArticlePreserved = await discardOwner.verifyCopies([kept])
+      discardOwner.close()
+      discardPeer.close()
+      return { dispositions, copyChecks, discard: {
+        mismatched, stillPresent, aborted, queued, durability: [...transactions].map(tx => tx.durability),
+        afterAbort, oldScope, committed, afterCommit, peerPreserved, otherArticlePreserved,
+      } }
+    }, { modulePath, time }), {
+      dispositions: ['stored', 'stored', 'stored', 'stale'], copyChecks: [true, false, false, false, false],
+      discard: {
+        mismatched: false, stillPresent: true, aborted: true, queued: 2, durability: ['strict'],
+        afterAbort: true, oldScope: false, committed: true, afterCommit: [false, false], peerPreserved: true, otherArticlePreserved: true,
+      },
+    })
     await context.close()
     context = await launch()
     page = context.pages()[0]

@@ -56,6 +56,11 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
 export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft; selected: boolean }>
 export type RecoverableCloseDraft<Draft> = Readonly<{ draft: Draft; edit: number }>
+export type DiscardReservation<Draft> = Readonly<{
+  drafts: readonly RecoverableCloseDraft<Draft>[]
+  signal: AbortSignal
+  current: () => boolean
+}>
 
 export type SavedWorkspaceLayout = Readonly<{
   tabs: readonly number[]
@@ -136,6 +141,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #retainedSource: Session<Draft> | undefined
   #inspectorOpen = false
   #opening: AbortController | undefined
+  #discarding: { reservation: DiscardReservation<Draft>; controller: AbortController; sessions: Set<Session<Draft>> } | undefined
   #activation = 0
   #sequence = 0
   #editSequence = 0
@@ -362,6 +368,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!Number.isSafeInteger(articleId) || articleId < 0) return blocked('missing')
     if (!this.#currentIdentity()) return blocked(this.#identity ? 'expired' : 'forbidden')
     if (group !== 'main' && group !== 'secondary') return blocked('unavailable')
+    if (this.#discarding) return blocked('unavailable')
 
     const intent = ++this.#activation
     this.#opening?.abort()
@@ -458,6 +465,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   startDraft(draft: Draft, group: WorkspaceGroup = this.#active?.group ?? 'main'): Promise<Activation> {
     if (draft.id !== 0 || draft.revision !== 0n) return Promise.resolve(blocked('missing'))
     if (!this.#currentIdentity()) return Promise.resolve(blocked(this.#identity ? 'expired' : 'forbidden'))
+    if (this.#discarding) return Promise.resolve(blocked('unavailable'))
     if (group !== 'main' && group !== 'secondary') return Promise.resolve(blocked('unavailable'))
     if (!this.#sessions.has(0)) {
       const visibleCount = Array.from(this.#sessions.values()).filter(session => session.phase !== 'loading').length
@@ -657,6 +665,40 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return sources
   }
 
+  reserveDiscard(plan: ClosePlan): DiscardReservation<Draft> | undefined {
+    const active = this.#active
+    if (!active || this.#discarding || this.#opening || Array.from(this.#sessions.values()).some(session => session.phase === 'loading'))
+      return undefined
+    const drafts = this.recoveryDraftsForClose(plan)
+    if (!drafts?.length) return undefined
+    const sessions = new Set<Session<Draft>>()
+    for (const tab of plan.tabs) {
+      const session = this.#find(tab)
+      if (!session || session === active || session.group !== active.group || session.id <= 0) return undefined
+      sessions.add(session)
+    }
+    const controller = new AbortController()
+    const reservation: DiscardReservation<Draft> = Object.freeze({
+      drafts, signal: controller.signal,
+      current: () => this.#discarding?.reservation === reservation && this.#currentIdentity(),
+    })
+    this.#discarding = { reservation, controller, sessions }
+    return reservation
+  }
+
+  completeDiscard(reservation: DiscardReservation<Draft>, committed: boolean): CloseReceipt {
+    const held = this.#discarding
+    if (!held || held.reservation !== reservation || !reservation.current()) return { kind: 'stale' }
+    this.#discarding = undefined
+    if (!committed) {
+      held.controller.abort()
+      return { kind: 'protected' }
+    }
+    for (const session of held.sessions) this.#close(session)
+    this.#changed()
+    return { kind: 'closed' }
+  }
+
   requestClose(tab: EditorSessionRef): CloseReceipt {
     const plan = this.planClose([tab])
     return plan ? this.applyClose(plan) : { kind: 'stale' }
@@ -706,7 +748,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #find(tab: EditorSessionRef): Session<Draft> | undefined {
     if (!this.#currentIdentity()) return undefined
     const session = this.#sessions.get(tab.articleId)
-    return session?.sessionId === tab.sessionId ? session : undefined
+    return session && session.sessionId === tab.sessionId && !this.#discarding?.sessions.has(session) ? session : undefined
   }
 
   #cleanPreview(group: WorkspaceGroup): Session<Draft> | undefined {
@@ -717,7 +759,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #groupChange(tab: EditorSessionRef, expectedRevision: number): Session<Draft> | undefined {
     const session = this.#find(tab)
     if (this.#revision !== expectedRevision || !session || session !== this.#active || session.phase !== 'ready' ||
-        this.#opening || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
+        this.#opening || this.#discarding || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
     return session
   }
 
@@ -788,6 +830,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   #clear(): void {
+    this.#discarding?.controller.abort()
+    this.#discarding = undefined
     const previous = Array.from(this.#sessions.values())
     this.#sessions.clear()
     this.#recent.length = 0

@@ -169,12 +169,14 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
   try {
     const others = button(page, 'Close other tabs')
     const right = button(page, 'Close tabs to the right')
-    const dialog = page.getByRole('dialog', { name: 'Close tabs and keep recovery copies?', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
+    const discard = dialog.getByRole('checkbox', { name: 'Discard unsaved edits from this browser', exact: true })
     const listedTabs = dialog.getByRole('list', { name: 'Tabs to close', exact: true }).getByRole('listitem')
     const confirmedTargets = [`${first.title} (unsaved changes) · Article ${first.id}`, `${tail.title} (up to date) · Article ${tail.id}`]
     await page.getByText('Group actions', { exact: true }).click()
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
+    await expect(discard).not.toBeChecked()
     await button(dialog, 'Keep writing').click()
     await expect(dialog).toBeHidden()
     await expect(others).toBeFocused()
@@ -198,7 +200,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
         return tx
       }
     })
-    await button(dialog, 'Close and keep copies').click()
+    await button(dialog, 'Close tabs').click()
     await expect(page.locator('html')).toHaveAttribute('data-recovery-read-aborted', '1')
     await expect(page.getByText('Could not verify recovery copies. Save the drafts before closing these tabs.', { exact: true })).toBeVisible()
     await expect(others).toBeFocused()
@@ -247,7 +249,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expectPane(primary, alternate, alternate.body, true)
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
-    await button(dialog, 'Close and keep copies').click()
+    await button(dialog, 'Close tabs').click()
     await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, first, 'Unsaved')).toHaveCount(0)
@@ -263,10 +265,31 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toBeVisible()
     await button(page, 'Restore draft').click()
     await expect(body(primary)).toHaveValue(localSource)
+    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
+
+    await button(page, `Reopen Article ${tail.id}`).click()
+    await expect(page).toHaveURL(editPath(tail.id))
+    await press(page, tab(page, alternate, 'Pinned'))
+    await expect(page).toHaveURL(editPath(alternate.id))
+    await press(page, others)
+    await expect(listedTabs).toHaveText(confirmedTargets)
+    await expect(discard).not.toBeChecked()
+    await dialog.getByText('Discard unsaved edits from this browser', { exact: true }).click()
+    await expect(discard).toBeChecked()
+    await button(dialog, 'Close tabs').click()
+    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expect(tabList(page).getByRole('tab')).toHaveCount(2)
+    await expect(tab(page, alternate, 'Pinned')).toBeFocused()
+    await expectSameEditor(body(secondary), secondNode)
+    await page.getByText('Recently closed', { exact: true }).click()
+    await button(page, `Reopen Article ${first.id}`).click()
+    await expect(page).toHaveURL(editPath(first.id))
+    await expectPane(primary, first, first.body, true)
+    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
   } finally { await alternateNode.dispose() }
   observations.push({ cancelPreservesMixedBatch: true, abortedRecoveryReadPreservesMixedBatch: true,
     desktopCloseRightPreservesEarlierTabs: true, compactCloseOthersKeepsActiveDraft: true, closeBatchPreservesOtherGroup: true,
-    confirmedMixedCloseRestoresRealRecoveryCopy: true })
+    confirmedMixedCloseRestoresRealRecoveryCopy: true, explicitMixedDiscardReopensDurableDraft: true })
 }
 
 async function changeGroupLayout(page, readLayout, before, command, expected) {
