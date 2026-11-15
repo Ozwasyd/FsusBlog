@@ -19,6 +19,7 @@ internal sealed class PublicSnapshot
     private readonly byte[][] _index;
     private readonly IReadOnlyList<byte[]>? _corpus;
     private readonly EntityTagHeaderValue[] _corpusTags;
+    private readonly CorpusDelta? _corpusDelta;
     private readonly FrozenDictionary<int, Article> _byId;
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
@@ -51,6 +52,7 @@ internal sealed class PublicSnapshot
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
         _byId = articles.ToFrozenDictionary(article => article.Id);
+        _corpusDelta = BuildCorpusDelta(previous, cancellationToken);
         _media = media;
         _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
@@ -82,6 +84,10 @@ internal sealed class PublicSnapshot
 
     internal EntityTagHeaderValue CorpusTag(int page) => _corpusTags[page - 1];
 
+    internal byte[]? CorpusPatch(int page, string baseGeneration, string? baseTag) =>
+        _corpusDelta is { } delta && delta.Page == page && delta.BaseGeneration == baseGeneration &&
+        delta.BaseTag == baseTag ? delta.Bytes : null;
+
     internal byte[] List(string scope, int page, int size, string? keyword, string? sort, string? cursor,
         CancellationToken ct, Func<Article, bool>? filter = null) =>
         _listing.Read(PublicListQuery.Parse(scope, page, size, keyword, sort, cursor), ct, filter);
@@ -103,6 +109,31 @@ internal sealed class PublicSnapshot
         }
         return tags;
     }
+
+    private CorpusDelta? BuildCorpusDelta(PublicSnapshot? previous, CancellationToken ct)
+    {
+        if (previous?._corpus is not { } basis || _corpus is not { } target || previous.Generation == Generation ||
+            previous.PublicArticleCount != PublicArticleCount || basis.Count != target.Count || target.Count < 2 ||
+            !previous._corpusTags[0].Equals(_corpusTags[0])) return null;
+
+        var changed = -1;
+        for (var index = 1; index < target.Count; index++)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (previous._corpusTags[index].Equals(_corpusTags[index])) continue;
+            if (changed >= 0) return null;
+            changed = index;
+        }
+        if (changed < 0) return null;
+
+        var baseTag = previous._corpusTags[changed].Tag.ToString();
+        var targetTag = _corpusTags[changed].Tag.ToString();
+        var bytes = SearchCorpusPatch.TryCreate(previous.Generation, Generation, changed + 1, basis[changed], target[changed],
+            Convert.FromHexString(baseTag[1..^1]), Convert.FromHexString(targetTag[1..^1]), ct);
+        return bytes is null ? null : new CorpusDelta(changed + 1, previous.GenerationHeader, baseTag, bytes);
+    }
+
+    private sealed record CorpusDelta(int Page, string BaseGeneration, string BaseTag, byte[] Bytes);
 
     private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch,
         IReadOnlyList<byte[]>? corpus, bool wideSearch, CancellationToken ct)

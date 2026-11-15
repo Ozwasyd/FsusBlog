@@ -12,6 +12,7 @@ type Result = { items: ArticleCard[]; total: number; nextCursor: null };
 type PositionSpan = (id: number, start: number, end: number) => void;
 type CorpusPages = { generation: string; pages: Uint8Array[] };
 type CorpusCache = { corpus?: CorpusPages };
+type PreviousCorpusPage = { generation: string; bytes: Uint8Array };
 
 const utf8 = new TextEncoder();
 const none: Taxon = { id: 0, name: '' };
@@ -19,6 +20,7 @@ const tf = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30, 50, 100, 140];
 const titleField = 1;
 const bodyField = 4;
 const phraseBonus = 1.25;
+const corpusPatchType = 'application/vnd.fsus.search-patch';
 const cjk = /^[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+$/u;
 const weights = new Map(Object.entries(lexicon.words).filter(([word]) => cjk.test(word)));
 for (const word of lexicon.stopwords) if (!weights.has(word)) weights.set(word, 1);
@@ -603,22 +605,60 @@ async function readBytes(response: Response, limit: number): Promise<Uint8Array>
   return bytes;
 }
 
+function digestTag(digest: Uint8Array): string {
+  return `"${Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')}"`;
+}
+
+async function pageTag(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  return digestTag(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+}
+
+async function applyCorpusPatch(
+  patch: Uint8Array, base: PreviousCorpusPage, baseTag: string, targetTag: string, generation: string, page: number,
+): Promise<Uint8Array> {
+  const headerSize = L.SearchCorpusPatchHeaderSize;
+  const header = new DataView(patch.buffer, patch.byteOffset, patch.byteLength);
+  requireWire(patch.length >= headerSize && header.getUint32(0, true) === L.SearchCorpusPatchMagic &&
+    header.getUint32(4, true) === L.SearchCorpusPatchVersion && header.getBigInt64(8, true).toString() === base.generation &&
+    header.getBigInt64(16, true).toString() === generation && header.getUint32(24, true) === page &&
+    header.getUint32(28, true) === base.bytes.length && digestTag(patch.subarray(44, 76)) === baseTag &&
+    digestTag(patch.subarray(76, 108)) === targetTag, 'patch binding');
+  const length = header.getUint32(32, true);
+  const prefix = header.getUint32(36, true);
+  const suffix = header.getUint32(40, true);
+  requireWire(length <= Limit.SearchCorpusPatchPageBytes && patch.length <= length / 2 &&
+    prefix + suffix <= base.bytes.length && prefix + suffix <= length &&
+    patch.length === headerSize + length - prefix - suffix, 'patch spans');
+
+  const bytes = new Uint8Array(length);
+  bytes.set(base.bytes.subarray(0, prefix));
+  bytes.set(patch.subarray(headerSize), prefix);
+  bytes.set(base.bytes.subarray(base.bytes.length - suffix), length - suffix);
+  requireWire(await pageTag(bytes) === targetTag, 'patch target digest');
+  return bytes;
+}
+
 async function corpusRequest(
   signal: AbortSignal | undefined,
   generation: string | undefined,
   page: number | undefined,
-  previous?: Uint8Array,
-) {
+  previous?: PreviousCorpusPage,
+): Promise<{ generation: string; pages: number; bytes: Uint8Array }> {
   const query = new URLSearchParams();
   if (page !== undefined) query.set('page', String(page));
   if (generation !== undefined) query.set('generation', generation);
   const headers = new Headers({ Accept: 'application/octet-stream' });
   let validator: string | undefined;
-  if (page !== undefined && previous?.buffer instanceof ArrayBuffer && globalThis.crypto?.subtle) {
-    const bytes = new Uint8Array(previous.buffer, previous.byteOffset, previous.byteLength);
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-    validator = `"${Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')}"`;
+  if (page !== undefined && previous?.bytes.buffer instanceof ArrayBuffer && globalThis.crypto?.subtle) {
+    const bytes = new Uint8Array(previous.bytes.buffer, previous.bytes.byteOffset, previous.bytes.byteLength);
+    validator = await pageTag(bytes);
     headers.set('If-None-Match', validator);
+  }
+  const patchBase = validator !== undefined && page !== undefined && page > 1 && generation !== undefined &&
+    previous && previous.generation !== generation && previous.bytes.length <= Limit.SearchCorpusPatchPageBytes ? previous : undefined;
+  if (patchBase) {
+    query.set('baseGeneration', patchBase.generation);
+    headers.set('Accept', `${corpusPatchType}, application/octet-stream`);
   }
   signal?.throwIfAborted();
   const response = await fetch(`${WireRoutes.PublicSearchCorpus}?${query}`, {
@@ -649,10 +689,27 @@ async function corpusRequest(
       'corpus page validator');
     // Chromium exposes an empty stream for an HTTP 304.
     if (response.body !== null) await readBytes(response, 0);
-    return { generation: current, pages, bytes: previous };
+    return { generation: current, pages, bytes: previous.bytes };
   }
-  requireWire(response.status === 200 && response.headers.get('Content-Type')?.split(';')[0] === 'application/octet-stream',
-    'corpus response type');
+  const contentType = response.headers.get('Content-Type')?.split(';')[0];
+  if (contentType === corpusPatchType) {
+    requireWire(patchBase !== undefined && validator !== undefined, 'unsolicited patch');
+    try {
+      requireWire(response.status === 200 && response.headers.get('ETag') === null, 'patch representation');
+      const targetDigest = response.headers.get(WireHeaders.SearchCorpusTargetDigest);
+      requireWire(targetDigest !== null && /^[0-9a-f]{64}$/.test(targetDigest), 'patch target header');
+      const patch = await readBytes(response, Limit.SearchCorpusPatchBytes);
+      const bytes = await applyCorpusPatch(patch, patchBase, validator, `"${targetDigest}"`, current, page);
+      signal?.throwIfAborted();
+      return { generation: current, pages, bytes };
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (!(error instanceof ProtocolError)) throw error;
+      // Retry only the same pinned page, without the previous validator or the patch offer.
+      return corpusRequest(signal, current, page);
+    }
+  }
+  requireWire(response.status === 200 && contentType === 'application/octet-stream', 'corpus response type');
   return { generation: current, pages, bytes: await readBytes(response, Limit.SearchCorpusPageBytes) };
 }
 
@@ -688,7 +745,7 @@ async function currentCachedCorpus(cache: CorpusCache, signal: AbortSignal | und
   } catch (error) {
     cache.corpus = undefined;
     if (!(error instanceof ApiError) || error.status !== 409) throw error;
-    return { previous: prior.pages };
+    return { previous: prior };
   }
 }
 
@@ -701,17 +758,17 @@ async function runCorpusSearch(query: string, signal: AbortSignal | undefined, p
   if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
   const { admitted, previous } = cache ? await currentCachedCorpus(cache, signal) : {};
-  // Only verified, byte-identical pages can enter the new generation. Retire unmatched
-  // buffers as we go, bounded by the same aggregate budget between requests.
-  const reusable: (Uint8Array | undefined)[] | undefined = previous;
+  // Reused or reconstructed pages still pass the canonical parser and generation checks.
+  // Retire unmatched buffers as we go under the same aggregate budget between requests.
+  const reusable: (Uint8Array | undefined)[] | undefined = previous?.pages;
   let unusedBytes = reusable?.reduce((sum, bytes) => sum + (bytes?.length ?? 0), 0) ?? 0;
-  function takePrevious(pageNumber: number): Uint8Array | undefined {
+  function takePrevious(pageNumber: number): PreviousCorpusPage | undefined {
     const old = reusable?.[pageNumber - 1];
-    if (old && reusable) {
+    if (old && reusable && previous) {
       reusable[pageNumber - 1] = undefined;
       unusedBytes -= old.length;
+      return { generation: previous.generation, bytes: old };
     }
-    return old;
   }
   const first = admitted
     ? { generation: admitted.generation, pages: admitted.pages.length, bytes: admitted.pages[0] }

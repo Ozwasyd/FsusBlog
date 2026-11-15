@@ -383,6 +383,10 @@ app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head
     RequireCurrentSnapshot(ctx, snapshot);
     ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
     if (head) return Results.NoContent();
+    if (page > 1 && ctx.Request.Headers.Accept.ToString() == SearchCorpusPatch.Accept &&
+        Query(ctx, "baseGeneration", 19) is { } baseGeneration && ctx.Request.Headers.IfNoneMatch is { Count: 1 } validators &&
+        snapshot.CorpusPatch(page, baseGeneration, validators[0]) is { } patch)
+        return new CurrentSearchCorpusPatch(snapshot, publications, snapshot.CorpusTag(page).Tag.ToString()[1..^1], patch);
     return snapshot.Corpus(page) is { } bytes ? Results.Bytes(bytes, Binary, entityTag: snapshot.CorpusTag(page))
         : Error(ctx, 404, "Search corpus page not found.");
 });
@@ -585,5 +589,21 @@ internal sealed record AedsError(int Status, byte[] Packet) : IResult
         ctx.Response.ContentType = "application/octet-stream";
         ctx.Response.ContentLength = Packet.Length;
         await ctx.Response.Body.WriteAsync(Packet, ctx.RequestAborted);
+    }
+}
+
+file sealed record CurrentSearchCorpusPatch(PublicSnapshot Snapshot, Publications Publications, string TargetDigest, byte[] Bytes) : IResult
+{
+    public Task ExecuteAsync(HttpContext context)
+    {
+        if (!ReferenceEquals(Snapshot, Publications.Snapshot))
+        {
+            context.Response.Headers.Remove(WireHeaders.SearchIndexGeneration);
+            throw new PublicUnavailableException();
+        }
+        // Snapshot sets no-store. The full page's strong ETag never labels this representation.
+        context.RequestAborted.ThrowIfCancellationRequested();
+        context.Response.Headers[WireHeaders.SearchCorpusTargetDigest] = TargetDigest;
+        return Results.Bytes(Bytes, SearchCorpusPatch.ContentType).ExecuteAsync(context);
     }
 }

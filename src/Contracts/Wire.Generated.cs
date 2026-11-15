@@ -255,6 +255,8 @@ public static class WireLimits
     public const int SearchCorpusPageBytes = 8388608;
     public const int SearchCorpusTotalBytes = 67108864;
     public const int SearchCorpusMaxPages = 128;
+    public const int SearchCorpusPatchPageBytes = 524288;
+    public const int SearchCorpusPatchBytes = 65536;
     public const int SearchWideCorpusMaxPages = 512;
     public const int SearchWideCorpusTotalBytes = 268435456;
     public const int SearchQueryChars = 128;
@@ -439,6 +441,9 @@ public static class WireLayouts
     public const int SearchShardMagic = 0x32534846;
     public const int SearchResultMagic = 0x34525346;
     public const int SearchArtifactVersion = 4;
+    public const int SearchCorpusPatchMagic = 0x54505346;
+    public const int SearchCorpusPatchVersion = 4;
+    public const int SearchCorpusPatchHeaderSize = 108;
     public const int SearchWideManifestVersion = 1;
     public const int SearchWideManifestHeaderSize = 60;
     public const int SearchWideManifestPageRecordSize = 60;
@@ -753,6 +758,7 @@ public static class WireHeaders
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string SearchCorpusDigest = "X-Fsus-Search-Corpus-Digest";
+    public const string SearchCorpusTargetDigest = "X-Fsus-Search-Corpus-Target-Digest";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";

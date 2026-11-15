@@ -190,18 +190,19 @@ test('FSR4 empty pages preserve the distinction between no tokens, no matches, a
   assert.deepEqual(calls, ['HEAD ?generation=710', 'HEAD ?generation=710']);
 });
 
+function pageWithId(id: number) {
+  const result = packageBytes.slice();
+  const shard = new DataView(result.buffer, L.SearchPackagePayloadOffset);
+  shard.setUint32(shard.getUint32(40, true), id, true);
+  const postingAt = shard.getUint32(60, true);
+  for (let i = 0; i < shard.getUint32(16, true); i++) {
+    const termOffset = L.SearchShardHeaderSize + i * L.SearchTermRecordSize;
+    shard.setUint8(postingAt + shard.getUint32(termOffset + 8, true) + 1, id);
+  }
+  return result;
+}
+
 test('route worker cache reuses only fully admitted pages of the confirmed generation', async (t) => {
-  const pageWithId = (id: number) => {
-    const result = packageBytes.slice();
-    const shard = new DataView(result.buffer, L.SearchPackagePayloadOffset);
-    shard.setUint32(shard.getUint32(40, true), id, true);
-    const postingAt = shard.getUint32(60, true);
-    for (let i = 0; i < shard.getUint32(16, true); i++) {
-      const termOffset = L.SearchShardHeaderSize + i * L.SearchTermRecordSize;
-      shard.setUint8(postingAt + shard.getUint32(termOffset + 8, true) + 1, id);
-    }
-    return result;
-  };
   let generation = '800';
   let corpus = [packageBytes, pageWithId(43)];
   let available = true;
@@ -287,4 +288,95 @@ test('route worker cache reuses only fully admitted pages of the confirmed gener
   corpus = [pageWithId(44), pageWithId(45)];
   assert.deepEqual(await ids('needle'), [45, 44]);
   assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:803:2', 'HEAD:803:-']);
+});
+
+test('FSPT admits an exact target in the normal Worker cache and retries a damaged patch only at its pin', async (t) => {
+  const baseGeneration = '9007199254740995';
+  const targetGeneration = '9007199254740996';
+  const media = 'application/vnd.fsus.search-patch';
+  const base = pageWithId(43);
+  const target = base.slice();
+  const revisionOffset = 32 + Buffer.from(target).readUInt32LE(72) + 52;
+  const targetRevision = 9007199254740994n;
+  new DataView(target.buffer).setBigInt64(revisionOffset, targetRevision, true);
+  const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest();
+  const tag = (bytes: Uint8Array) => `"${sha(bytes).toString('hex')}"`;
+
+  // Independent encoder with one explicit edit from the fixed FSPK fixture.
+  const sample = Buffer.alloc(116);
+  sample.write('FSPT');
+  sample.writeUInt32LE(4, 4);
+  sample.writeBigInt64LE(BigInt(baseGeneration), 8);
+  sample.writeBigInt64LE(BigInt(targetGeneration), 16);
+  sample.writeUInt32LE(2, 24);
+  sample.writeUInt32LE(base.length, 28);
+  sample.writeUInt32LE(target.length, 32);
+  sample.writeUInt32LE(revisionOffset, 36);
+  sample.writeUInt32LE(base.length - revisionOffset - 8, 40);
+  sha(base).copy(sample, 44);
+  sha(target).copy(sample, 76);
+  sample.writeBigInt64LE(targetRevision, 108);
+
+  let current = baseGeneration;
+  let patch: Uint8Array = Uint8Array.from(sample);
+  let withdrewDuringFallback = false;
+  const calls: string[] = [];
+  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
+    const url = new URL(path, 'http://localhost');
+    const pinned = url.searchParams.get('generation');
+    const page = Number(url.searchParams.get('page'));
+    const offer = url.searchParams.get('baseGeneration');
+    const request = new Headers(init.headers);
+    calls.push(`${init.method}:${pinned ?? 'current'}:${page || '-'}${offer === null ? '' : ':patch'}`);
+    const headers = { [WireHeaders.SearchIndexGeneration]: current, [WireHeaders.SearchIndexPages]: '2' };
+    if (pinned !== null && pinned !== current) return new Response(null, { status: 409 });
+    if (init.method === 'HEAD') return new Response(null, { status: 204, headers });
+    const bytes = page === 1 ? packageBytes : current === baseGeneration ? base : target;
+    if (offer !== null) {
+      assert.equal(offer, baseGeneration);
+      assert.equal(pinned, targetGeneration);
+      assert.equal(page, 2);
+      assert.equal(request.get('Accept'), `${media}, application/octet-stream`);
+      assert.equal(request.get('If-None-Match'), tag(base));
+      return new Response(Uint8Array.from(patch), { headers: { ...headers, 'Content-Type': media,
+        [WireHeaders.SearchCorpusTargetDigest]: sha(target).toString('hex'),
+      } });
+    }
+    if (withdrewDuringFallback && page === 2 && pinned === targetGeneration) return new Response(null, { status: 409 });
+    const etag = tag(bytes);
+    if (request.get('If-None-Match') === etag) return new Response(null, { status: 304, headers: { ...headers, ETag: etag } });
+    return new Response(bytes.slice(), { headers: { ...headers, 'Content-Type': 'application/octet-stream', ETag: etag } });
+  });
+
+  const refresh = [`HEAD:${baseGeneration}:-`, 'GET:current:1', `GET:${targetGeneration}:2:patch`];
+  for (const corruptAt of [-1, 4, 8, 16, 24, 28, 32, 36, 44, 76, 108, -2]) {
+    current = baseGeneration;
+    const search = createCorpusSearch();
+    assert.equal((await search('needle')).generation, baseGeneration);
+    calls.length = 0;
+    patch = Uint8Array.from(sample);
+    if (corruptAt >= 0) patch[corruptAt] ^= 0x80;
+    if (corruptAt === -2) {
+      // The replacement and its embedded digest agree, but not with the separately sealed target.
+      patch.set(base.subarray(revisionOffset, revisionOffset + 8), 108);
+      patch.set(sha(base), 76);
+    }
+    current = targetGeneration;
+    const result = await search('needle');
+    const cold = await searchCorpus('needle');
+    assert.deepEqual(result.frame, cold.frame);
+    assert.equal(decodeLocalSearchResult(result.frame).items[0].revision, targetRevision);
+    await verifySearchGeneration(result.generation!);
+    assert.deepEqual(calls, [...refresh, ...(corruptAt === -1 ? [] : [`GET:${targetGeneration}:2`]),
+      'GET:current:1', `GET:${targetGeneration}:2`, `HEAD:${targetGeneration}:-`]);
+  }
+
+  current = baseGeneration;
+  const search = createCorpusSearch();
+  await search('needle');
+  calls.length = 0;
+  current = targetGeneration;
+  withdrewDuringFallback = true;
+  await assert.rejects(search('needle'), { status: 409 });
+  assert.deepEqual(calls, [...refresh, `GET:${targetGeneration}:2`]);
 });

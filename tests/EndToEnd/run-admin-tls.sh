@@ -174,6 +174,11 @@ if [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -v fixture_count=26002 -d "$database" \
     -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/wide-search-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
+elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
+  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator browser-author)
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -v fixture_count=220 -d "$database" \
+    -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/search-patch-fixture.log"
+  shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
 else
   FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
 fi
@@ -525,6 +530,8 @@ elif [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/article-read-proof-flow.mjs
 elif [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
   node tests/EndToEnd/wide-search-worker-flow.mjs
+elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
+  node tests/EndToEnd/search-corpus-reuse-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
 fi
