@@ -38,7 +38,7 @@ internal static class RevisionHistoryEndpoints
         {
             var expected = Expected(ctx, id);
             var map = query(ctx, "map", 16);
-            if (map is not (null or "body-insertion" or "body-chain" or "body-edit" or "properties"))
+            if (map is not (null or "body-insertion" or "body-chain" or "body-edit" or "properties" or "metadata"))
                 throw new BusinessException(Rejection.Invalid, "Unknown saved revision map.");
             if (sourceRevision <= 0 || sourceRevision > expected || (sourceRevision == expected && map != "properties"))
                 throw new BusinessException(Rejection.Invalid, "A historical source revision is required.");
@@ -50,6 +50,12 @@ internal static class RevisionHistoryEndpoints
                 var digest = requireCurrent ? Store.TokenDigest(token)! : null;
                 if (requireCurrent) SiteSessions.RequireCurrent(actor.Id, digest!, handle);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
+                if (map == "metadata")
+                {
+                    ctx.Response.Headers.CacheControl = "no-store";
+                    var metadata = await RevisionHistoryStore.ReadMetadata(db, tx, id, expected, sourceRevision, ct);
+                    return Reply(metadata, pair => Wire.EncodeRevisionMetadataComparison(id, expected, sourceRevision, pair.Current, pair.Source));
+                }
                 if (map == "properties")
                 {
                     var cursor = query(ctx, "offset", 4);

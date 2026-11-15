@@ -68,6 +68,35 @@ internal static class RevisionHistoryStore
         return revisions;
     }
 
+    internal static async Task<(SavedRevisionMetadata Current, SavedRevisionMetadata Source)> ReadMetadata(
+        NpgsqlConnection db, NpgsqlTransaction tx, int id, long expected, long source, CancellationToken ct)
+    {
+        await using var query = Store.Sql(db, tx, """
+            select r.revision,coalesce(r.author_summary,''),c.id,c.name,t.ids,t.names
+            from public.article_revision r
+            left join public.article_revision_category rc using (article_id,revision)
+            left join public.category c on c.id=rc.category_id
+            left join lateral (
+                select array_agg(tag.id order by tag.id) as ids,array_agg(tag.name order by tag.id) as names
+                from public.article_revision_tag rt join public.tag tag on tag.id=rt.tag_id
+                where (rt.article_id,rt.revision)=(r.article_id,r.revision)
+            ) t on true
+            where r.article_id=$1 and r.revision in ($2,$3) order by r.revision desc
+            """, id, expected, source);
+        await using var rows = await query.ExecuteReaderAsync(ct);
+        return (await ReadOne(expected), await ReadOne(source));
+
+        async Task<SavedRevisionMetadata> ReadOne(long revision)
+        {
+            if (!await rows.ReadAsync(ct) || rows.GetInt64(0) != revision)
+                throw new BusinessException(Rejection.NotFound, "Article revision metadata is unavailable.");
+            var category = rows.IsDBNull(2) ? null : new TaxonomyName(rows.GetInt32(2), rows.GetString(3));
+            var tags = rows.IsDBNull(4) ? [] : rows.GetFieldValue<int[]>(4).Zip(rows.GetFieldValue<string[]>(5),
+                (tagId, name) => new TaxonomyName(tagId, name)).ToArray();
+            return new(rows.GetString(1), category, tags);
+        }
+    }
+
     internal static async Task RecordRollback(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, long newRevision,
         DraftRollback input, CancellationToken ct)
     {

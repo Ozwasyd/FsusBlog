@@ -3,14 +3,14 @@ import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
-  compareDraftRevision, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
+  compareDraftRevision, compareRevisionMetadata, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
 } from '../../../Contracts/revision-history'
 import { draftSummary } from '../../../Contracts/article-summary-client'
 import type { RevisionComparison } from '../../../Contracts/wire.generated'
 import MarkdownExportControl from './MarkdownExportControl.vue'
 import DocumentExportTasks from './DocumentExportTasks.vue'
 import RevisionPropertyPage from './RevisionPropertyPage.vue'
-import { credentialEpoch } from '../session'
+import { credentialEpoch, currentSession } from '../session'
 import type { HistoricalSearchSeek } from './canvasEditorHandoff'
 import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
 
@@ -42,6 +42,9 @@ const historicalLabel = {
 } as const
 const comparisonOpen = ref(false)
 const propertiesOpen = ref(false)
+const metadataOpen = ref(false)
+const metadata = shallowRef<Awaited<ReturnType<typeof compareRevisionMetadata>>>()
+const metadataFailure = ref('')
 let ownsModal = false
 const comparisonError = ref('')
 const reason = ref('')
@@ -58,7 +61,16 @@ const sources = computed(() => pair.value ? [
 const changed = computed(() => pair.value ? {
   title: pair.value.title !== pair.value.sourceTitle,
   body: pair.value.body !== pair.value.sourceBody,
+  markdownDelta: pair.value.sourceBody.length - pair.value.body.length,
 } : undefined)
+const metadataChanges = computed(() => {
+  if (!metadata.value) return ''
+  const { source, current } = metadata.value
+  const tags = (item: typeof source) => item.tags.map(tag => tag.id).join(',')
+  return [source.summary !== current.summary ? 'Summary changed.' : 'Summary unchanged.',
+    source.category?.id !== current.category?.id ? 'Category changed.' : 'Category unchanged.',
+    tags(source) !== tags(current) ? 'Tags changed.' : 'Tags unchanged.'].join(' ')
+})
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
 
@@ -76,6 +88,7 @@ function closeComparison() {
   const source = historical.value
   comparisonOpen.value = false
   propertiesOpen.value = false
+  metadataOpen.value = false
   compareRequest?.abort()
   pair.value = undefined
   historical.value = undefined
@@ -127,6 +140,7 @@ async function load(more = false) {
 async function compare(source: bigint) {
   compareRequest?.abort()
   propertiesOpen.value = false
+  metadataOpen.value = false
   const controller = compareRequest = new AbortController()
   openComparisonModal()
   comparing.value = true
@@ -155,6 +169,26 @@ async function compare(source: bigint) {
     if (!controller.signal.aborted) comparing.value = false
   }
 }
+
+watch([metadataOpen, pair, credentialEpoch], async ([show, selected], _, cleanup) => {
+  metadata.value = undefined
+  metadataFailure.value = ''
+  if (!show || !selected) return
+  const session = currentSession.value?.siteSessionId
+  if (!session) {
+    metadataFailure.value = 'A current author session is required for saved metadata.'
+    return
+  }
+  const controller = new AbortController()
+  cleanup(() => controller.abort())
+  try {
+    const fields = await compareRevisionMetadata(selected.id, selected.revision, selected.sourceRevision, session, controller.signal)
+    if (!controller.signal.aborted) metadata.value = fields
+  } catch (cause) {
+    if (!controller.signal.aborted) metadataFailure.value = cause instanceof ApiError && cause.status === 409
+      ? 'The saved draft or session changed. Reopen the comparison.' : 'Saved metadata is unavailable.'
+  }
+}, { flush: 'sync' })
 
 async function readHistoricalSource(seek: HistoricalSearchSeek, signal: AbortSignal) {
   const { target, currentRevision, credential } = seek
@@ -291,6 +325,7 @@ onScopeDispose(() => {
       <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
       <div v-if="pair && changed" class="revision-comparison">
         <p>{{ changed.title ? 'Title changed.' : 'Title unchanged.' }} {{ changed.body ? 'Markdown changed.' : 'Markdown unchanged.' }}</p>
+        <p v-if="changed.body">Earlier Markdown length difference (UTF-16): {{ changed.markdownDelta > 0 ? '+' : '' }}{{ changed.markdownDelta }}</p>
         <div class="revision-sources">
           <section v-for="source in sources" :key="source.key" class="revision-source" :aria-labelledby="`${compareId}-${source.key}`">
             <h3 :id="`${compareId}-${source.key}`">{{ source.label }} · {{ source.revision }}</h3>
@@ -298,6 +333,24 @@ onScopeDispose(() => {
             <pre tabindex="0" :aria-label="`${source.label} Markdown`">{{ source.body }}</pre>
           </section>
         </div>
+        <details @toggle="metadataOpen = ($event.currentTarget as HTMLDetailsElement).open">
+          <summary>Saved summary and classification</summary>
+          <p v-if="metadataOpen && !metadata && !metadataFailure" role="status">Loading saved metadata…</p>
+          <p v-if="metadataFailure" role="alert">{{ metadataFailure }}</p>
+          <template v-if="metadata">
+            <p>{{ metadataChanges }}</p>
+            <div class="revision-sources">
+              <section v-for="(fields, index) in [metadata.source, metadata.current]" :key="index" class="revision-source">
+                <h4>{{ sources[index].label }}</h4>
+                <dl class="revision-metadata">
+                  <dt>Summary</dt><dd>{{ fields.summary || 'No saved summary' }}</dd>
+                  <dt>Category</dt><dd>{{ fields.category?.name ?? 'No category' }}</dd>
+                  <dt>Tags</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || 'No tags' }}</dd>
+                </dl>
+              </section>
+            </div>
+          </template>
+        </details>
         <details @toggle="propertiesOpen = ($event.currentTarget as HTMLDetailsElement).open">
           <summary>Saved properties</summary>
           <div v-if="propertiesOpen" class="revision-sources">
@@ -349,6 +402,7 @@ onScopeDispose(() => {
   overflow-wrap: anywhere;
 }
 .revision-source h3 { font-size: 1rem; }
+.revision-metadata dd { margin-inline-start: 0; white-space: pre-wrap; }
 .revision-source pre {
   white-space: pre-wrap;
   max-block-size: min(40dvh, 24rem);

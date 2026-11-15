@@ -496,6 +496,7 @@ enum class FrameType : uint16_t {
     AdminArticleArchivePreview = 33011,
     AdminArticleTrashRestoreIntent = 33062,
     AdminArticleTrashRestoreReceipt = 33063,
+    RevisionMetadataComparison = 33068,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -729,6 +730,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminArticleArchivePreview:
         case FrameType::AdminArticleTrashRestoreIntent:
         case FrameType::AdminArticleTrashRestoreReceipt:
+        case FrameType::RevisionMetadataComparison:
         case FrameType::AdminSitePageRevision:
         case FrameType::AdminSitePagePublish:
         case FrameType::AdminAppearanceState:

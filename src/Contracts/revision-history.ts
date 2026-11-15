@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
 import { request, siteSessionHeader } from './client.ts';
+import type { ArticleTaxonomy } from './author-articles.ts';
 import {
   decodeDraft, decodeRevisionComparison, encodeDraftRollback, FrameType, WireHeaders, WireLimits, WireRoutes,
   type Draft, type DraftRollback, type RevisionComparison,
@@ -19,6 +20,8 @@ export type RevisionHistoryPage = Readonly<{
   nextCursor: string | null;
   items: readonly RevisionHistoryItem[];
 }>;
+
+type SavedRevisionMetadata = { summary: string; category: ArticleTaxonomy | null; tags: ArticleTaxonomy[] };
 
 export function validRollbackReason(value: string): boolean {
   if (value.length < 8 || value.length > 1000 || value !== value.trim() || /\p{Cc}/u.test(value)) return false;
@@ -72,6 +75,38 @@ export function compareDraftRevision(id: number, revision: bigint, sourceRevisio
       sourceRevision <= 0n || sourceRevision >= revision || !pair.title || !pair.sourceTitle)
       throw new ProtocolError('Invalid draft revision comparison');
     return pair;
+  }, signal, 'GET', undefined, siteSessionHeader(session));
+}
+
+export function compareRevisionMetadata(id: number, revision: bigint, sourceRevision: bigint, session: string, signal: AbortSignal) {
+  const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(id)).replace('{sourceRevision:long}', String(sourceRevision));
+  return request(`${path}?revision=${revision}&map=metadata`, FrameType.RevisionMetadataComparison, payload => {
+    const reader = new PodReader(payload);
+    const invalid = () => new ProtocolError('Invalid saved revision metadata');
+    if (reader.i32() !== id || reader.i64() !== revision || reader.i64() !== sourceRevision) throw invalid();
+    const taxonomy = (itemId: number): ArticleTaxonomy => {
+      const name = reader.text(WireLimits.TaxonomyNameBytes);
+      if (itemId <= 0 || !name || name.includes('\0')) throw invalid();
+      return { id: itemId, name };
+    };
+    const metadata = (): SavedRevisionMetadata => {
+      const summary = reader.text(WireLimits.ArticleSummaryReadBytes);
+      const categoryId = reader.i32();
+      const category = categoryId === 0 ? null : taxonomy(categoryId);
+      const count = reader.i32();
+      if (summary.includes('\0') || count < 0 || count > WireLimits.TaxonomyTagCount) throw invalid();
+      const tags: ArticleTaxonomy[] = [];
+      for (let index = 0; index < count; index++) {
+        const tag = taxonomy(reader.i32());
+        if (index > 0 && tag.id <= tags[index - 1].id) throw invalid();
+        tags.push(tag);
+      }
+      return { summary, category, tags };
+    };
+    const current = metadata();
+    const source = metadata();
+    reader.finish();
+    return { current, source };
   }, signal, 'GET', undefined, siteSessionHeader(session));
 }
 

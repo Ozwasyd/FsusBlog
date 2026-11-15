@@ -3,9 +3,10 @@ import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { encodeArticleSummaryCommand } from '../../src/Contracts/article-summary.ts'
 import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import {
-  decodeArticleRightsPolicy, decodeDraft, decodePropertyCommandReceipt, encodeArticleCommand, encodeArticleRightsCommand,
+  decodeArticleRightsPolicy, decodeDraft, decodeDraftTaxonomy, decodePropertyCommandReceipt, encodeArticleCommand, encodeArticleRightsCommand, encodeTaxonomyAssignment,
   encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
@@ -81,10 +82,28 @@ try {
       licenseType: 'CC0-1.0', copyrightHolder: '', copyrightYear: 0, rightsStatement: '', attributionTemplate: '', copyPolicy: 'disabled',
       maxExcerptChars: 0, allowCodeCopy: false, showPublicBadge: false, proofBindingEnabled: false }),
     FrameType.ArticleRightsPolicy, credential)).payload)
-  const earlier = await command(WireRoutes.Publish, initial.id, rights.revision)
+  const earlierSummary = 'Earlier saved summary 漢字'
+  const currentSummary = 'Changed private summary 🧭'
+  const beforePublish = await metadata(rights.revision, earlierSummary, 1, [4])
+  const earlier = await command(WireRoutes.Publish, initial.id, beforePublish)
   const finalDefinition = await changeDefinition(2, schema, firstDefinition.revision, afterLabel)
   const finalValueRevision = await writeValue(earlier, finalDefinition, firstValueRevision, savedAfter)
-  const current = await command(WireRoutes.Save, initial.id, earlier.revision, initial.title, 'New private article source.')
+  const changed = await metadata(earlier.revision, currentSummary, 2, [])
+  const current = await command(WireRoutes.Save, initial.id, changed, initial.title, 'New private article source.')
+
+  async function metadata(revision, text, categoryId, tagIds) {
+    const idempotencyKey = randomUUID()
+    const response = await owner.request.post(origin + WireRoutes.ArticleSummarySave, {
+      data: Buffer.from(encodeArticleSummaryCommand({ id: initial.id, expectedRevision: revision, idempotencyKey, text })),
+      headers: { 'Content-Type': 'application/octet-stream', [WireHeaders.CurrentSession]: credential,
+        [WireHeaders.ClientMutationId]: idempotencyKey },
+    })
+    assert.equal(response.status(), 200)
+    const saved = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+    return decodeDraftTaxonomy((await post(owner, WireRoutes.TaxonomyAssignment, FrameType.TaxonomyAssignment,
+      encodeTaxonomyAssignment({ id: initial.id, expectedRevision: saved.revision, idempotencyKey: randomUUID(), categoryId, tagIds }),
+      FrameType.DraftTaxonomy, credential)).payload).revision
+  }
 
   const comparisonPath = revision => WireRoutes.DraftRevisionComparison.replace('{id:int}', String(initial.id))
     .replace('{sourceRevision:long}', String(revision))
@@ -116,6 +135,23 @@ try {
   const compare = inspector.getByRole('button', { name: `Compare revision ${earlier.revision}`, exact: true })
   await compare.click()
   const modal = page.getByRole('dialog', { name: 'Revision comparison', exact: true })
+  const metadataLink = modal.getByText('Saved summary and classification', { exact: true })
+  const [fields] = await Promise.all([
+    page.waitForResponse(response => response.url() === historyPath(earlier.revision).replace('map=properties', 'map=metadata')),
+    metadataLink.press('Enter'),
+  ])
+  assert.equal(fields.status(), 200)
+  assert.equal(fields.headers()['cache-control'], 'no-store')
+  assert.equal(fields.request().headers()[WireHeaders.CurrentSession.toLowerCase()], credential)
+  assert.equal(decodeFrame(await fields.body()).type, FrameType.RevisionMetadataComparison)
+  await expect(modal.getByText('Summary changed. Category changed. Tags changed.', { exact: true })).toBeVisible()
+  await expect(modal.locator('dd')).toHaveText([earlierSummary, 'Web engineering', 'Café', currentSummary, 'Empty category', 'No tags'])
+  await page.setViewportSize({ width: 375, height: 850 })
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+  await modal.screenshot({ path: join(evidence, 'revision-metadata-mobile.png'), animations: 'disabled' })
+  await metadataLink.press('Enter')
+  await expect(modal.locator('dd')).toHaveCount(0)
+  await page.setViewportSize({ width: 1280, height: 850 })
   const disclosure = modal.getByText('Saved properties', { exact: true })
   await expect(disclosure).toBeVisible()
   assert.equal(requests, 0)
@@ -171,9 +207,10 @@ try {
     assert.equal(publicResponse.status(), 200, path)
     const bytes = await publicResponse.body()
     assert.equal(bytes.includes(Buffer.from(earlier.body)), true)
-    for (const text of [beforeLabel, afterLabel, savedBefore, savedAfter]) assert.equal(bytes.includes(Buffer.from(text)), false)
+    for (const text of [beforeLabel, afterLabel, savedBefore, savedAfter, currentSummary]) assert.equal(bytes.includes(Buffer.from(text)), false)
   }
   assert.deepEqual(result.diagnostics, [])
+  result.observations.push('The saved-revision comparison shows exact summaries and taxonomy assignments, with disclosure scoped to the current author session.')
   result.observations.push('The author compared exact saved property values and their frozen labels after a rename. The compact Inspector shows both readonly snapshots and retrieves one numeric-offset page at a time. Anonymous, outsider and stale reads reveal nothing, and public HTML/AEDS omit private property labels and values.')
 } catch (error) {
   result.failure = String(error)

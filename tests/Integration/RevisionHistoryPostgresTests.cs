@@ -55,6 +55,23 @@ public sealed class RevisionHistoryPostgresTests
             .Replace("{sourceRevision:long}", article.Revision.ToString()) + $"?revision={current.Revision}";
         var pair = Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token));
         Assert.Equal((current.Title, current.Body, article.Title, article.Body), (pair.Title, pair.Body, pair.SourceTitle, pair.SourceBody));
+        await Execute("update public.article_revision set author_summary=$3 where article_id=$1 and revision=$2", article.Id, article.Revision, "Earlier saved summary");
+        await Execute("update public.article_revision set author_summary=$3 where article_id=$1 and revision=$2", article.Id, current.Revision, "Current saved summary");
+        await Execute("delete from public.article_revision_tag where article_id=$1 and revision=$2", article.Id, current.Revision);
+        var metadataRoute = compare + "&map=metadata";
+        await Request(HttpMethod.Get, metadataRoute, owner.Token, status: HttpStatusCode.Conflict);
+        await Request(HttpMethod.Get, metadataRoute, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, metadataRoute, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
+        var metadataBytes = await Request(HttpMethod.Get, metadataRoute, owner.Token, handle: owner.Handle);
+        using (var fields = new BinaryReader(new MemoryStream(Aeds.Decode(metadataBytes, FrameType.RevisionMetadataComparison).ToArray())))
+        {
+            static string Text(BinaryReader bytes) => Encoding.UTF8.GetString(bytes.ReadBytes(bytes.ReadInt32()));
+            Assert.Equal((article.Id, current.Revision, article.Revision), (fields.ReadInt32(), fields.ReadInt64(), fields.ReadInt64()));
+            Assert.Equal(("Current saved summary", 2, "Public category", 0), (Text(fields), fields.ReadInt32(), Text(fields), fields.ReadInt32()));
+            Assert.Equal(("Earlier saved summary", 1, "Original category", 1, 4, "Original tag"),
+                (Text(fields), fields.ReadInt32(), Text(fields), fields.ReadInt32(), fields.ReadInt32(), Text(fields)));
+            Assert.Equal(fields.BaseStream.Length, fields.BaseStream.Position);
+        }
         await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound);
         Assert.Equal(pair, Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token, handle: owner.Handle)));
         await Request(HttpMethod.Get, compare, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
@@ -80,6 +97,7 @@ public sealed class RevisionHistoryPostgresTests
         await Restore(input with { IdempotencyKey = Guid.NewGuid() }, owner.Token, HttpStatusCode.Conflict);
         await Request(HttpMethod.Get, History(current) + nextPage, owner.Token, status: HttpStatusCode.Conflict);
         await Request(HttpMethod.Get, compare, owner.Token, status: HttpStatusCode.Conflict);
+        await Request(HttpMethod.Get, metadataRoute, owner.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
         var restoredHistory = Wire.DecodeRevisionHistory(await Request(HttpMethod.Get, History(restored), owner.Token));
         Assert.Equal(input.SourceRevision, restoredHistory.Items[0].SourceRevision);
         Assert.Equal(input.Reason, restoredHistory.Items[0].Reason);
