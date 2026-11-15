@@ -257,8 +257,8 @@ internal static partial class AuthorTextIndex
     // Field weights follow the frozen author search registry. Every clause
     // contributes at most one match. Repetition cannot increase its weight.
     private static string FieldPriority(string field, bool includeSummary, bool includeHeading) =>
-        includeHeading ? $"case {field} when 1 then 1 when 4 then 2 when 3 then 3 else 4 end" :
-        includeSummary ? $"case {field} when 1 then 1 when 3 then 2 else 3 end" : field;
+        includeHeading ? $"case {field} when 1 then 1 when 4 then 2 when 3 then 3 when 2 then 4 else 5 end" :
+        includeSummary ? $"case {field} when 1 then 1 when 3 then 2 when 2 then 3 else 4 end" : field;
 
     private static string RankHighlightOrder(bool includeSummary, bool includeHeading = false) =>
         $"h.phrase desc,{FieldPriority("h.field", includeSummary, includeHeading)},h.start_u16,h.clause";
@@ -268,14 +268,9 @@ internal static partial class AuthorTextIndex
     private static string MatchCoordinates(string alias, bool faceted) => $"{alias}.revision,{alias}.updated_unix_ms" +
         (faceted ? $",{alias}.state,{alias}.category_id,{alias}.category_name,{alias}.tag_ids" : "");
 
-    private static string MatchCtes(bool includeSummary = false, bool includeHeading = false, bool faceted = false) => $"""
-        requirements as (
-            select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
-                q(clause,field,phrase,step,term)
-        ),
-        clause_hits as materialized (
+    private static string ArticleClauseHits(bool includeSummary, bool includeHeading, bool faceted, bool mixed) => $"""
             select e.id as article_id,q.clause,q.phrase,p.field,p.ordinal,p.start_u16,p.end_u16,p.start_u8,p.end_u8,{MatchCoordinates("e", faceted)}
-            from eligible e join requirements q on q.step=0
+            from eligible e join requirements q on q.step=0{(mixed ? $" and q.field<>{(int)AuthorTextField.PropertyText}" : "")}
             cross join lateral (
                 select c.field,c.ordinal,c.start_u16,c.end_u16,c.start_u8,c.end_u8
                 from public.author_text_posting c
@@ -292,15 +287,35 @@ internal static partial class AuthorTextIndex
                 order by {FieldPriority("c.field", includeSummary, includeHeading)},c.ordinal limit 1
             ) p
             where (select admitted from witness)
-        ),
-        ranked_hits as (
-            select h.article_id,{MatchCoordinates("h", faceted)},
-                coalesce(sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
-                sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end)::integer as field_rank
-            from clause_hits h
-            group by h.article_id,{MatchCoordinates("h", faceted)} having count(*)=$7
-        )
-        """;
+            """;
+
+    private static string MatchCtes(bool includeSummary = false, bool includeHeading = false, bool faceted = false,
+        PropertyTextParameters? propertyText = null, bool mixed = false)
+    {
+        var hits = propertyText is { } projected ? PropertyTextClauseHits(projected.Definition) : "";
+        if (propertyText is null || mixed)
+        {
+            var article = ArticleClauseHits(includeSummary, includeHeading, faceted, mixed);
+            hits = mixed ? $"{article}\nunion all\n{hits}" : article;
+        }
+        const string weight = "case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end";
+        return $"""
+            requirements as (
+                select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
+                    q(clause,field,phrase,step,term)
+            ),
+            clause_hits as materialized (
+                {hits}
+            ),
+            ranked_hits as (
+                select h.article_id,{MatchCoordinates("h", faceted)},
+                    coalesce(sum({weight}) filter (where h.phrase),0)::integer as phrase_rank,
+                    sum({weight})::integer as field_rank
+                from clause_hits h
+                group by h.article_id,{MatchCoordinates("h", faceted)} having count(*)=$7
+            )
+            """;
+    }
 
     internal static object[] MatchArguments(Guid owner, AuthorTextQuery input)
     {
@@ -408,7 +423,7 @@ internal static partial class AuthorTextIndex
         $"pg_catalog.int4send(octet_length(pg_catalog.convert_to({column},'UTF8'))) || pg_catalog.convert_to({column},'UTF8')";
 
     private static string FacetMetadata(int generationParameter, bool includeSummary, bool includeHeading,
-        PropertyTextParameters? propertyText = null) => $$"""
+        PropertyTextParameters? propertyText = null, bool mixed = false) => $$"""
         owner_scope as materialized (
             select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventoryEndpoints.CurrentState}} as state,
                 coalesce(c.id,0) as category_id,coalesce(c.name,'') as category_name,
@@ -425,9 +440,20 @@ internal static partial class AuthorTextIndex
             ) t on true
             where {{OwnerEligible}}
         ),
-        {{(propertyText is { } text ? AuthorTextPropertyIndex.Changes("owner_scope", text.Definition, text.Revision) :
-            IndexChanges("owner_scope", includeSummary, includeHeading))}}
+        {{FacetedIndexChanges(includeSummary, includeHeading, propertyText, mixed)}}
         """;
+
+    private static string FacetedIndexChanges(bool includeSummary, bool includeHeading, PropertyTextParameters? propertyText, bool mixed)
+    {
+        if (propertyText is not { } text) return IndexChanges("owner_scope", includeSummary, includeHeading);
+        var properties = AuthorTextPropertyIndex.Changes("owner_scope", text.Definition, text.Revision);
+        return mixed ? $"{IndexChanges("owner_scope", includeSummary, includeHeading)},\n{properties}" : properties;
+    }
+
+    private static string IndexReady(PropertyTextParameters? propertyText, bool mixed) =>
+        propertyText is null ? "not exists(select from changed)" :
+        mixed ? "not exists(select from changed) and not exists(select from property_text_changed)" :
+        "not exists(select from property_text_changed)";
 
     // Every article contributes its exact current lifecycle and ordered taxonomy facts.
     // Names are prefixed by their UTF-8 byte length and tags by their count.
@@ -459,7 +485,8 @@ internal static partial class AuthorTextIndex
     }
 
     private sealed record QualifiedFilters(long? UpdatedFromUnixMs, long? UpdatedUntilUnixMs, PropertyStore.Condition[] Conditions,
-        PropertyStore.FacetDefinition? Facet, PropertyStore.SortDefinition? Sort = null, AuthorTextPropertyScope? PropertyText = null);
+        PropertyStore.FacetDefinition? Facet, PropertyStore.SortDefinition? Sort = null, AuthorTextPropertyScope? PropertyText = null,
+        bool MixedText = false);
 
     private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
@@ -495,15 +522,19 @@ internal static partial class AuthorTextIndex
         if (qualification is not null)
             foreach (var condition in qualification.Conditions) PropertyStore.AppendCondition(filter, parameters, condition);
         var text = AddPropertyTextParameters(parameters, qualification?.PropertyText);
+        var mixed = qualification?.MixedText == true;
         var sourceGeneration = FacetedSourceGeneration(parameters, qualification, text);
-        var changed = text.HasValue ? "property_text_changed" : "changed";
-        var matchCtes = text is { } projected ? PropertyTextMatchCtes(projected.Definition) : MatchCtes(includeSummary, includeHeading, faceted: true);
-        var raw = text.HasValue
-            ? $"case when octet_length(v.data::text)<={AuthorTextPropertyIndex.MaxStoredTextBytes} then v.data::text end,d.source_digest"
-            : $"case h.field when 1 then r.title {(includeSummary ? "when 3 then r.author_summary " : "")}else r.body end, " +
-              $"case h.field when 1 then d.title_digest {(includeSummary ? "when 3 then d.summary_digest " : "")}else d.body_digest end";
-        var sourceJoins = text is { } source ? PropertyTextSourceJoins(source.Definition) :
-            "left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision";
+        var matchCtes = MatchCtes(includeSummary, includeHeading, faceted: true, propertyText: text, mixed: mixed);
+        var rawArticle = $"case h.field when 1 then r.title {(includeSummary ? "when 3 then r.author_summary " : "")}else r.body end";
+        var articleDigest = $"case h.field when 1 then d.title_digest {(includeSummary ? "when 3 then d.summary_digest " : "")}else d.body_digest end";
+        var rawProperty = $"case when octet_length(v.data::text)<={AuthorTextPropertyIndex.MaxStoredTextBytes} then v.data::text end";
+        var raw = text is null ? $"{rawArticle},{articleDigest}" : mixed
+            ? $"case when h.field={(int)AuthorTextField.PropertyText} then {rawProperty} else {rawArticle} end," +
+              $"case when h.field={(int)AuthorTextField.PropertyText} then pd.source_digest else {articleDigest} end"
+            : $"{rawProperty},pd.source_digest";
+        const string articleSourceJoin = "left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision";
+        var sourceJoins = text is { } source ? PropertyTextSourceJoins(source.Definition) : "";
+        if (text is null || mixed) sourceJoins = $"{articleSourceJoin}\n{sourceJoins}";
         var facet = qualification?.Facet;
         var facetCtes = facet is null ? "" : PropertyStore.FacetCtes(facet, parameters);
         var sort = qualification?.Sort;
@@ -516,14 +547,14 @@ internal static partial class AuthorTextIndex
             : "p.sort_position>(select sort_position from property_sort_fence)";
 
         await using (var query = Store.Sql(db, tx, $$"""
-            with {{FacetMetadata(14, includeSummary, includeHeading, text)}},
+            with {{FacetMetadata(14, includeSummary, includeHeading, text, mixed)}},
             eligible as materialized (
                 select * from owner_scope a
                 where ($15=0 or a.state=$15) and ($16=0 or a.category_id=$16)
                     and ($17=0 or $17=any(a.tag_ids)){{filter}}
             ),
             readiness as (
-                select case when not exists(select from {{changed}}) then ({{sourceGeneration}}) end as generation
+                select case when {{IndexReady(text, mixed)}} then ({{sourceGeneration}}) end as generation
             ),
             witness as (
                 select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
@@ -607,7 +638,7 @@ internal static partial class AuthorTextIndex
                     more = true;
                     break;
                 }
-                matches.Add(ReadMatch(rows, input.Text, qualification?.PropertyText));
+                matches.Add(ReadMatch(rows, input.Text, qualification?.PropertyText, mixed));
             }
         }
 
@@ -635,17 +666,19 @@ internal static partial class AuthorTextIndex
         return (facets, ids.Length > WireLimits.AuthorTextSearchFacetRows);
     }
 
-    private static AuthorTextRankedRow ReadMatch(NpgsqlDataReader rows, AuthorTextQuery input, AuthorTextPropertyScope? propertyText = null)
+    private static AuthorTextRankedRow ReadMatch(NpgsqlDataReader rows, AuthorTextQuery input, AuthorTextPropertyScope? propertyText = null,
+        bool mixed = false)
     {
         if (rows.IsDBNull(10) || rows.IsDBNull(11)) throw InvalidIndex();
         var id = rows.GetInt32(2);
         var field = rows.GetInt32(4);
         var raw = rows.GetString(10);
-        if (propertyText is not null)
+        if (field == (int)AuthorTextField.PropertyText)
         {
-            if (field != (int)AuthorTextField.PropertyText) throw InvalidIndex();
+            if (propertyText is null) throw InvalidIndex();
             raw = PropertyStore.ReadTextSource(propertyText, id, raw) ?? throw InvalidIndex();
         }
+        else if (propertyText is not null && !mixed) throw InvalidIndex();
         var digest = rows.GetFieldValue<byte[]>(11);
         var start = rows.GetInt32(5);
         var end = rows.GetInt32(6);
@@ -681,12 +714,12 @@ internal static partial class AuthorTextIndex
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
         var text = AddPropertyTextParameters(parameters, qualification?.PropertyText);
-        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5, includeSummary, includeHeading, text) : Changed();
-        var changed = text.HasValue ? "property_text_changed" : "changed";
+        var mixed = qualification?.MixedText == true;
+        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5, includeSummary, includeHeading, text, mixed) : Changed();
         var sourceGeneration = facetAuthorityGeneration.HasValue ? FacetedSourceGeneration(parameters, qualification, text) : Generation;
         await using var check = Store.Sql(db, tx, $"""
             with {metadata}
-            select not exists(select from {changed}) and ($4::bytea is null or $4=({sourceGeneration})) and not exists (
+            select {IndexReady(text, mixed)} and ($4::bytea is null or $4=({sourceGeneration})) and not exists (
                 select from unnest($2::integer[],$3::bigint[]) expected(id,revision)
                 where not exists(select from {scope} e where e.id=expected.id and e.revision=expected.revision)
             )

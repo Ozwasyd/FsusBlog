@@ -9,7 +9,8 @@ internal static partial class AuthorTextIndex
 {
     internal static async Task<AuthorTextFacetedPage> ReadPropertyText(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextPropertyTextQuery query, AuthorTextRankKey? after, byte[]? expectedGeneration,
-        CancellationToken ct, PropertyStore.FacetSelection? facet = null, PropertyStore.SortSelection? sort = null)
+        CancellationToken ct, PropertyStore.FacetSelection? facet = null, PropertyStore.SortSelection? sort = null,
+        bool mixed = false, bool includeHeading = false)
     {
         ValidateContinuation(after, expectedGeneration);
         var properties = new PropertyStore(db, tx, actor);
@@ -41,9 +42,14 @@ internal static partial class AuthorTextIndex
             throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
         }
 
-        if (after is null) await properties.ReconcileTextProjection(text, ct);
+        if (after is null)
+        {
+            if (mixed) await Reconcile(db, tx, actor.Id, ct, includeSummary: true, includeHeading: includeHeading);
+            await properties.ReconcileTextProjection(text, ct);
+        }
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, facetDefinition, sortDefinition, text));
+            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, facetDefinition, sortDefinition, text, mixed),
+            includeSummary: mixed, includeHeading: includeHeading);
     }
 
     private readonly record struct PropertyTextParameters(int Definition, int Revision);
@@ -64,17 +70,12 @@ internal static partial class AuthorTextIndex
             : generation;
     }
 
-    private static string PropertyTextMatchCtes(int definition) => $$"""
-        requirements as (
-            select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
-                q(clause,field,phrase,step,term)
-        ),
-        clause_hits as materialized (
-            select e.id as article_id,q.clause,q.phrase,q.field,p.start_u16,p.end_u16,p.start_u8,p.end_u8,{{MatchCoordinates("e", true)}}
+    private static string PropertyTextClauseHits(int definition) => $$"""
+            select e.id as article_id,q.clause,q.phrase,q.field,p.ordinal,p.start_u16,p.end_u16,p.start_u8,p.end_u8,{{MatchCoordinates("e", true)}}
             from eligible e
             join requirements q on q.step=0 and q.field={{(int)AuthorTextField.PropertyText}}
             cross join lateral (
-                select c.start_u16,c.end_u16,c.start_u8,c.end_u8
+                select c.ordinal,c.start_u16,c.end_u16,c.start_u8,c.end_u8
                 from public.author_text_property_posting c
                 where c.owner_id=$1 and c.definition_id=${{definition}} and c.term=q.term and c.article_id=e.id
                   and not exists (
@@ -87,19 +88,12 @@ internal static partial class AuthorTextIndex
                 order by c.ordinal limit 1
             ) p
             where (select admitted from witness)
-        ),
-        ranked_hits as (
-            select h.article_id,{{MatchCoordinates("h", true)}},
-                count(*) filter (where h.phrase)::integer as phrase_rank,count(*)::integer as field_rank
-            from clause_hits h
-            group by h.article_id,{{MatchCoordinates("h", true)}} having count(*)=$7
-        )
-        """;
+            """;
 
     private static string PropertyTextSourceJoins(int definition) => $$"""
         left join property_text_source s on s.article_id=p.article_id
         left join public.property_value v on v.owner_id=$1 and v.article_id=p.article_id and v.definition_id=${{definition}}
-        left join public.author_text_property_document d on d.owner_id=$1 and d.article_id=p.article_id and d.definition_id=${{definition}}
-            and d.definition_revision=s.definition_revision and d.value_revision=s.value_revision
+        left join public.author_text_property_document pd on pd.owner_id=$1 and pd.article_id=p.article_id and pd.definition_id=${{definition}}
+            and pd.definition_revision=s.definition_revision and pd.value_revision=s.value_revision
         """;
 }

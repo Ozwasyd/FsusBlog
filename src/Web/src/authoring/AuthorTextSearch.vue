@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { ElButton, ElInput } from '@ozwasyd/element-plus'
+import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import {
   authorTextHeadingSearch, authorTextPropertyFacetSearch, authorTextPropertySortSearch,
-  authorTextPropertyTextQualifiedSearch, authorTextPropertyTextSearch,
+  authorTextPropertyTextMixedSearch, authorTextPropertyTextQualifiedSearch, authorTextPropertyTextSearch,
   authorTextSummarySearch,
 } from '../../../Contracts/author-text-ranked-client'
 import type {
@@ -26,7 +26,7 @@ import { verifySourceMatch } from './sourceCoordinates'
 type PropertySelection = { schema: bigint; field: FilterField }
 type SortSelection = PropertySelection & { direction: AuthorTextPropertySortQuery['direction'] }
 type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'> & {
-  includeHeading: boolean; facet?: PropertySelection; sort?: SortSelection; textSource?: PropertySelection
+  includeHeading: boolean; mixedSources: boolean; facet?: PropertySelection; sort?: SortSelection; textSource?: PropertySelection
 }
 type SearchReply = AuthorTextFacetedPage & { propertyFacet?: AuthorTextPropertyFacet }
 type SearchPage = SearchReply & { input: SearchInput; cursor: string; previous: readonly string[] }
@@ -58,6 +58,7 @@ const properties = shallowRef<Pick<PropertyQuery, 'schema' | 'conditions'>>()
 const facet = shallowRef<PropertySelection>()
 const sort = shallowRef<SortSelection>()
 const textSource = shallowRef<PropertySelection>()
+const mixedSources = ref(false)
 const pending = shallowRef<AbortController>()
 const opening = shallowRef<Opening>()
 const result = shallowRef<SearchPage>()
@@ -80,7 +81,8 @@ function reset() {
   locationNotice.value = ''
 }
 
-watch([query, updatedFrom, updatedUntil, properties, facet, sort, textSource], reset, { flush: 'sync' })
+watch([query, updatedFrom, updatedUntil, properties, facet, sort, textSource, mixedSources], reset, { flush: 'sync' })
+watch(textSource, value => { if (!value) mixedSources.value = false }, { flush: 'sync' })
 watch(credentialEpoch, () => {
   query.value = ''
   updatedFrom.value = ''
@@ -141,18 +143,18 @@ function search() {
   }
   const text = query.value.trim()
   const includeHeading = usesHeadingQualifier(text)
-  if (textSource.value && includeHeading) {
+  if (textSource.value && !mixedSources.value && includeHeading) {
     error.value = '请切换到文章全文搜索后使用章节标题限定词。'
     return
   }
   return loadPage({
-    query: text, includeHeading, updatedFromUnixMs: from, updatedUntilUnixMs: until,
+    query: text, includeHeading, mixedSources: mixedSources.value, updatedFromUnixMs: from, updatedUntilUnixMs: until,
     schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [],
     facet: facet.value, sort: sort.value, textSource: textSource.value,
   }, '', [], false)
 }
 
-async function readPage({ includeHeading, facet, sort, textSource, ...input }: SearchInput, cursor: string, session: string,
+async function readPage({ includeHeading, mixedSources, facet, sort, textSource, ...input }: SearchInput, cursor: string, session: string,
   signal: AbortSignal): Promise<SearchReply> {
   const selectedProperty = textSource ?? sort ?? facet
   if (!selectedProperty) {
@@ -167,9 +169,11 @@ async function readPage({ includeHeading, facet, sort, textSource, ...input }: S
   const facetSelection = facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null
   let page
   if (textSource) {
-    if (!facet && !sort) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
-    page = await authorTextPropertyTextQualifiedSearch({ search, ...selection, facet: facetSelection,
-      sort: sort ? { definitionId: sort.field.id, definitionRevision: sort.field.revision, direction: sort.direction } : null }, session, signal)
+    if (!mixedSources && !facet && !sort) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
+    const selectedQuery = { search, ...selection, facet: facetSelection,
+      sort: sort ? { definitionId: sort.field.id, definitionRevision: sort.field.revision, direction: sort.direction } : null }
+    page = mixedSources ? await authorTextPropertyTextMixedSearch({ ...selectedQuery, includeHeading }, session, signal)
+      : await authorTextPropertyTextQualifiedSearch(selectedQuery, session, signal)
   } else if (sort) {
     page = await authorTextPropertySortSearch({ search, includeHeading, ...selection, direction: sort.direction,
       facet: facetSelection }, session, signal)
@@ -457,9 +461,10 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
       <p id="author-text-search-help">
         可组合关键词和英文双引号短语。
-        <template v-if="!textSource">
+        <template v-if="!textSource || mixedSources">
           用 <code>field.title:</code> 限定标题、<code>field.markdown-body:</code> 限定正文，
           <code>field.summary:</code> 限定摘要，<code>field.heading:</code> 限定章节标题。
+          <template v-if="mixedSources">添加 <code>field.property:</code> 限定所选文本属性。两类字段各需一个词或短语。</template>
         </template>
         <template v-else>关键词仅匹配所选文本属性。</template>
         可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
@@ -473,6 +478,9 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       </fieldset>
       <AuthorPropertyFilter ref="propertyControls" embedded @conditions-change="properties = $event"
         @facet-change="facet = $event" @sort-change="sort = $event" @text-source-change="textSource = $event" @edit="reset" />
+      <ElCheckbox v-if="textSource" :model-value="mixedSources" @update:model-value="mixedSources = $event === true">
+        同时匹配文章字段
+      </ElCheckbox>
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
         {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
       </ElButton>

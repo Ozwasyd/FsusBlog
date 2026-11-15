@@ -15,6 +15,8 @@ import {
   type AuthorTextPropertyTextQuery,
   decodeAuthorTextPropertyTextQualifiedPage, decodeAuthorTextPropertyTextQualifiedQuery,
   encodeAuthorTextPropertyTextQualifiedQuery, type AuthorTextPropertyTextQualifiedQuery,
+  decodeAuthorTextPropertyTextMixedPage, decodeAuthorTextPropertyTextMixedQuery,
+  encodeAuthorTextPropertyTextMixedQuery, type AuthorTextPropertyTextMixedQuery,
   encodeAuthorTextRankedPage, encodeAuthorTextRankedQuery, type AuthorTextSearchRow, type AuthorTextTaxonomyFacet,
 } from '../../src/Contracts/author-text-search.ts';
 import type { FilterField } from '../../src/Contracts/property-query.ts';
@@ -675,4 +677,82 @@ test('qualified property text page accepts only lexical field rows and exact req
     throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([pending, Uint8Array.of(0)]), expectFacet), ProtocolError);
     throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([pending, Uint8Array.of(1), facet]), expectFacet), ProtocolError);
   }
+});
+
+test('mixed property text request adds heading mode before the existing optional selector bytes', () => {
+  const lexical = Buffer.from(
+    '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000',
+    'hex');
+  const selectors = Buffer.from(
+    '01aaaaaaaaaaaa4aaa8aaa00000000000704000000000000000112345678123440009000123456789abc050000000000000001',
+    'hex');
+  const both: AuthorTextPropertyTextMixedQuery = { ...propertyTextQualifiedQuery, includeHeading: true };
+  const neither: AuthorTextPropertyTextMixedQuery = { ...both, includeHeading: false, facet: null, sort: null };
+  const golden = Buffer.concat([lexical, Uint8Array.of(1), selectors]);
+
+  equal(FrameType.AuthorTextPropertyTextMixedQuery, 33040);
+  for (const [query, bytes] of [[both, golden], [neither, Buffer.concat([lexical, Uint8Array.of(0, 0, 0)])]] as const) {
+    const frame = encodeAuthorTextPropertyTextMixedQuery(query);
+    deepEqual(Buffer.from(decodeFrame(frame, FrameType.AuthorTextPropertyTextMixedQuery).payload), bytes);
+    deepEqual(decodeAuthorTextPropertyTextMixedQuery(bytes), query);
+    throws(() => decodeFrame(frame, FrameType.AuthorTextPropertyTextQualifiedQuery), ProtocolError);
+  }
+  const old = encodeAuthorTextPropertyTextQualifiedQuery(propertyTextQualifiedQuery);
+  deepEqual(Buffer.from(decodeFrame(old).payload), Buffer.concat([lexical, selectors]));
+  throws(() => decodeFrame(old, FrameType.AuthorTextPropertyTextMixedQuery), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedQuery(lexical), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQualifiedQuery(golden), ProtocolError);
+  for (const offset of [51, 52, 77, 102]) {
+    const invalid = Buffer.from(golden);
+    invalid[offset] = 2;
+    throws(() => decodeAuthorTextPropertyTextMixedQuery(invalid), ProtocolError);
+  }
+  throws(() => decodeAuthorTextPropertyTextMixedQuery(golden.subarray(0, -1)), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedQuery(Buffer.concat([golden, Uint8Array.of(0)])), ProtocolError);
+});
+
+test('mixed property text page admits headings only with heading mode and retains the optional facet shape', () => {
+  function mixed(fields: readonly number[], suffix: Uint8Array = Uint8Array.of(0)) {
+    const header = Buffer.from(propertyTextPagePayload.subarray(0, 39));
+    for (const offset of [5, 9, 35]) header.writeInt32LE(fields.length, offset); // Total, draft total, and row count.
+    const rows = fields.map((field, index) => {
+      const match = Buffer.from(propertyTextPagePayload.subarray(39));
+      match.writeInt32LE(index + 1, 0);
+      match.writeInt32LE(field, 22);
+      // The single-token range is valid even under the shorter title and summary limits.
+      for (const offset of [43, 51]) {
+        match.writeInt32LE(0, offset);
+        match.writeInt32LE(5, offset + 4);
+      }
+      return match;
+    });
+    return Buffer.concat([header, ...rows, suffix]);
+  }
+
+  const fields = [1, 2, 3, 5];
+  const fieldNames = ['title', 'body', 'summary', 'property-text'];
+  const withoutHeading = mixed(fields);
+  const withHeading = mixed([...fields, 4]);
+  const facet = Buffer.from(
+    '01aaaaaaaaaaaa4aaa8aaa0000000000070400000000000000020000000300000000000000000000000200000000010000000100000000',
+    'hex');
+  const present = mixed(fields, facet);
+  equal(FrameType.AuthorTextPropertyTextMixedPage, 33041);
+  const frame = encodeFrame(FrameType.AuthorTextPropertyTextMixedPage, present);
+  const ready = decodeAuthorTextPropertyTextMixedPage(decodeFrame(frame, FrameType.AuthorTextPropertyTextMixedPage).payload, false, true);
+  deepEqual(ready.search.rows.map(match => match.field), fieldNames);
+  equal(ready.facet?.definitionId, propertyTextQualifiedQuery.facet?.definitionId);
+  deepEqual(decodeAuthorTextPropertyTextMixedPage(withoutHeading, false, false).search.rows.map(match => match.field), fieldNames);
+  deepEqual(decodeAuthorTextPropertyTextMixedPage(withHeading, true, false).search.rows.map(match => match.field), [...fieldNames, 'heading']);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(withHeading, false, false), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(mixed([6]), true, false), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(mixed(fields, Uint8Array.of(2)), false, false), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(present, false, false), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(withoutHeading, false, true), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQualifiedPage(withoutHeading, false), ProtocolError);
+  throws(() => decodeFrame(frame, FrameType.AuthorTextPropertyTextQualifiedPage), ProtocolError);
+
+  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  equal(decodeAuthorTextPropertyTextMixedPage(pending, true, true).search.ready, false);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(Buffer.concat([pending, Uint8Array.of(0)]), true, true), ProtocolError);
 });

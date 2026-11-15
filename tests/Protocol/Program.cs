@@ -137,4 +137,28 @@ Reject(() => Wire.DecodeAuthorTextPropertyTextQualifiedPage(lexicalFacetFrame, f
 Reject(() => Wire.DecodeAuthorTextPropertySortPage(lexicalFacetFrame));
 Reject(() => Wire.EncodeAuthorTextPropertyTextQualifiedPage(new(lexicalPage with { Rows = [propertyHit with { Field = 2 }] }, facetData)));
 
+var mixedPropertyText = new AuthorTextPropertyTextMixedQuery(propertyText.Search, propertyText.DefinitionId,
+    propertyText.DefinitionRevision, true, facetSelector, sortSelector);
+var mixedPropertyFrame = Aeds.Encode(FrameType.AuthorTextPropertyTextMixedQuery,
+    [.. propertyTextPayload, 1, .. qualifiedPropertyPayload]);
+Equal(mixedPropertyFrame, Wire.EncodeAuthorTextPropertyTextMixedQuery(mixedPropertyText));
+Equal(mixedPropertyFrame, Wire.EncodeAuthorTextPropertyTextMixedQuery(Wire.DecodeAuthorTextPropertyTextMixedQuery(mixedPropertyFrame)));
+var noMixedSelectors = Aeds.Encode(FrameType.AuthorTextPropertyTextMixedQuery, [.. propertyTextPayload, 0, 0, 0]);
+Equal(noMixedSelectors, Wire.EncodeAuthorTextPropertyTextMixedQuery(mixedPropertyText with { IncludeHeading = false, Facet = null, Sort = null }));
+Reject(() => Wire.DecodeAuthorTextPropertyTextMixedQuery(qualifiedPropertyFrame));
+Reject(() => Wire.DecodeAuthorTextPropertyTextQualifiedQuery(mixedPropertyFrame));
+Reject(() => Wire.DecodeAuthorTextPropertyTextMixedQuery(Aeds.Encode(FrameType.AuthorTextPropertyTextMixedQuery,
+    [.. propertyTextPayload, 2, 0, 0])));
+
+var mixedFacetFrame = Wire.EncodeAuthorTextPropertyTextMixedPage(new(lexicalPage, facetData), includeHeading: false);
+Equal(lexicalFacetFixture, Aeds.Decode(mixedFacetFrame, FrameType.AuthorTextPropertyTextMixedPage));
+Reject(() => Wire.DecodeAuthorTextPropertyTextMixedPage(mixedFacetFrame, includeHeading: false, expectFacet: false));
+Reject(() => Wire.DecodeAuthorTextPropertyTextQualifiedPage(mixedFacetFrame, expectFacet: true));
+var headingSearchPage = lexicalPage with { Rows = [propertyHit with { Field = 4 }] };
+var mixedHeadingFrame = Wire.EncodeAuthorTextPropertyTextMixedPage(new(headingSearchPage, facetData), includeHeading: true);
+Reject(() => Wire.EncodeAuthorTextPropertyTextMixedPage(new(headingSearchPage, facetData), includeHeading: false));
+Reject(() => Wire.DecodeAuthorTextPropertyTextMixedPage(mixedHeadingFrame, includeHeading: false, expectFacet: true));
+Equal(mixedHeadingFrame, Wire.EncodeAuthorTextPropertyTextMixedPage(
+    Wire.DecodeAuthorTextPropertyTextMixedPage(mixedHeadingFrame, includeHeading: true, expectFacet: true), includeHeading: true));
+
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

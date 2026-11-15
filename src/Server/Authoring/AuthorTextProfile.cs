@@ -56,8 +56,11 @@ internal static class AuthorTextProfile
 
     internal static AuthorTextFacetedQuery ParsePropertyText(string raw) => ParseQuery(raw, faceted: true, propertyText: true);
 
+    internal static AuthorTextFacetedQuery ParseMixedPropertyText(string raw, bool includeHeading) =>
+        ParseQuery(raw, faceted: true, includeSummary: true, includeHeading: includeHeading, propertyText: true, mixed: true);
+
     private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false, bool includeHeading = false,
-        bool propertyText = false)
+        bool propertyText = false, bool mixed = false)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
@@ -96,10 +99,11 @@ internal static class AuthorTextProfile
             }
             var field = prefix switch
             {
-                null or "field.property" when propertyText => AuthorTextField.PropertyText,
+                "field.property" when propertyText => AuthorTextField.PropertyText,
+                null when propertyText && !mixed => AuthorTextField.PropertyText,
                 null => AuthorTextField.Any,
-                "field.title" when !propertyText => AuthorTextField.Title,
-                "field.markdown-body" when !propertyText => AuthorTextField.MarkdownBody,
+                "field.title" when !propertyText || mixed => AuthorTextField.Title,
+                "field.markdown-body" when !propertyText || mixed => AuthorTextField.MarkdownBody,
                 "field.summary" when includeSummary => AuthorTextField.Summary,
                 "field.heading" when includeHeading => AuthorTextField.Heading,
                 _ => throw InvalidQuery(),
@@ -118,7 +122,9 @@ internal static class AuthorTextProfile
                     clause.Terms.SequenceEqual(operands, StringComparer.Ordinal)))
                 clauses.Add(new(field, phrase, operands));
         }
-        if (clauses.Count == 0) throw InvalidQuery();
+        if (clauses.Count == 0 || mixed && (!clauses.Any(clause => clause.Field == AuthorTextField.PropertyText) ||
+                !clauses.Any(clause => clause.Field != AuthorTextField.PropertyText)))
+            throw InvalidQuery();
         return new(new(clauses.ToArray()), status, categoryId, tagId);
     }
 

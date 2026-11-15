@@ -6,6 +6,7 @@ import {
   decodeAuthorTextPropertySortPage, decodeAuthorTextPropertySortQuery,
   decodeAuthorTextPropertyTextPage, decodeAuthorTextPropertyTextQuery, decodeAuthorTextSummaryPage,
   decodeAuthorTextPropertyTextQualifiedPage, decodeAuthorTextPropertyTextQualifiedQuery,
+  decodeAuthorTextPropertyTextMixedPage, decodeAuthorTextPropertyTextMixedQuery,
 } from '../../src/Contracts/author-text-search.ts'
 import { decodePropertyEditor, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import { decodePropertyTextHitRequest } from '../../src/Contracts/property-text-hit.ts'
@@ -16,9 +17,9 @@ import {
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
 export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand }) {
-  const marker = `facetprobe${randomUUID().replaceAll('-', '')}`
+  const marker = `facetprobe${randomUUID().replaceAll('-', '').slice(0, 16)}`
   const textMarker = `propertyprobe${randomUUID().replaceAll('-', '')}`
-  const privateText = `编校提示 🧭 ${textMarker}`
+  const privateText = `编校提示 🧭 ${textMarker} private`
   const page = await publisher.context().newPage()
   const drafts = []
   const valueRevisions = new Map()
@@ -231,11 +232,24 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       await page.getByRole('option', { name: 'Editorial approval · editorial-approval', exact: true }).click()
       await sortSelector.click()
       await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).click()
-      const positive = await searchProperty(true)
-      assert.deepEqual(positive.query.facet, { definitionId: fields.approval.definitionId, definitionRevision: fields.approval.definitionRevision })
-      assert.deepEqual(positive.query.sort, { definitionId: fields.score.definitionId, definitionRevision: sortable.revision, direction: 'ascending' })
-      assert.deepEqual(positive.page.rows.map(row => row.id), [drafts[0].id, drafts[2].id])
+      const qualified = await searchProperty(true)
+      assert.deepEqual(qualified.query.facet, { definitionId: fields.approval.definitionId, definitionRevision: fields.approval.definitionRevision })
+      assert.deepEqual(qualified.query.sort, { definitionId: fields.score.definitionId, definitionRevision: sortable.revision, direction: 'ascending' })
+      assert.deepEqual(qualified.page.rows.map(row => row.id), [drafts[0].id, drafts[2].id])
       await facet.getByRole('heading', { name: 'Editorial approval', exact: true }).waitFor()
+      await counts({ 尚未设置: 1, 显式空值: 0, 否: 1, 是: 0 })
+
+      await form.getByText('同时匹配文章字段', { exact: true }).click()
+      assert(await form.getByRole('checkbox', { name: '同时匹配文章字段', exact: true }).isChecked())
+      const mixed = `status:draft field.heading:${marker} field.property:`
+      await query.fill(mixed + textMarker)
+      const headings = await mixedSearch(mixed + textMarker)
+      assert.deepEqual(headings.page.rows.map(row => [row.id, row.field]), [[drafts[0].id, 'heading'], [drafts[2].id, 'heading']])
+      assert(headings.page.rows.every(row => row.snippet.slice(row.highlightStart, row.highlightEnd) === marker))
+      const combined = `${mixed}"${textMarker} private"`
+      await query.fill(combined)
+      const positive = await mixedSearch(combined)
+      assert.deepEqual(positive.page.rows.map(row => [row.id, row.field]), [[drafts[0].id, 'property-text'], [drafts[2].id, 'property-text']])
       await counts({ 尚未设置: 1, 显式空值: 0, 否: 1, 是: 0 })
       const draft = drafts[2]
       const hit = exactPropertyRow(positive.page, draft)
@@ -267,7 +281,8 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
       assert.equal(new URL(page.url()).search, '')
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
-      observations.push('At 375px a selected Text field combines with a Boolean property facet and numeric ordering. Normal body text is excluded, and the sorted, faceted query is replayed exactly before opening the private property hit.')
+      observations.push('At 375px a selected Text field combines with a Boolean property facet and numeric ordering. The visible facet totals and ordered property hits match the server reply.')
+      observations.push('At 375px one query intersects a saved heading with a selected Text property. Heading weight wins equal terms, an exact property phrase wins the field change, and the query keeps typed ordering, facet totals, and the same raw property jump.')
       observations.push('At 375px a keyboard property hit replays identical search bytes, pins the exact saved value revision, and focuses and selects its UTF-16 range in the native FsusUI Inspector input.')
 
       current = await openPropertySearch()
@@ -416,6 +431,17 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
         assert.equal(sent.definitionRevision, eligible.revision)
         assert(found.page.rows.every(row => row.field === 'property-text' && row.snippet.slice(row.highlightStart, row.highlightEnd) === textMarker))
         return { ...found, query: sent, frame, decode }
+      }
+
+      async function mixedSearch(expected) {
+        const frame = FrameType.AuthorTextPropertyTextMixedPage
+        const decode = payload => decodeAuthorTextPropertyTextMixedPage(payload, true, true).search
+        const found = await submitSearch(frame, decode)
+        const sent = decodeAuthorTextPropertyTextMixedQuery(decodeFrame(found.response.request().postDataBuffer(),
+          FrameType.AuthorTextPropertyTextMixedQuery).payload)
+        assert.deepEqual(sent, { ...qualified.query, search: { ...qualified.query.search, query: expected }, includeHeading: true })
+        assert.equal(found.page.total, 2)
+        return { ...found, frame, decode }
       }
 
       async function submitSearch(frame, decode) {

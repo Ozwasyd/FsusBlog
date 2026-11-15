@@ -235,6 +235,92 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await using var count = Store.Sql(db, null, "select count(*) from public.author_text_document where owner_id=$1", owner.Id);
         Assert.Equal(0L, Assert.IsType<long>(await count.ExecuteScalarAsync(ct)));
 
+        selected = await EnableText(owner, selected, true);
+        order = await ChangeFlags(owner, order, searchEligible: false, sortable: true);
+        const string specialBody = "# Canopy Orbit\r\n\r\nVerified manuscript";
+        const string specialSummary = "Verified star witness";
+        var special = await Save(owner, "Mixed evidence", specialBody);
+        var summary = Wire.DecodeDraft(await Send(WireRoutes.ArticleSummarySave,
+            Wire.EncodeArticleSummaryCommand(new(special.Id, special.Revision, Guid.NewGuid(), specialSummary)), owner));
+        special = special with { Revision = summary.Revision };
+        await Put(owner, special, selected, new PropertyFieldValue.Text("Enamel vault"));
+
+        var mixed = new AuthorTextPropertyTextMixedQuery(new($"field.title:article field.property:{phrase} status:draft",
+            "", DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeMilliseconds(), null, owner.SchemaRevision, []),
+            selected.Id, selected.Revision, false, new(flag.Id, flag.Revision),
+            new(order.Id, order.Revision, AuthorTextPropertySortDirection.Ascending));
+        var coldMixed = await ReadMixed(mixed);
+        Assert.False(coldMixed.Search.Ready);
+        Assert.Empty(coldMixed.Search.Rows);
+        Assert.Null(coldMixed.Facet);
+        var readyMixed = await ReadyMixed(mixed);
+        Assert.Equal(cohort.Count, readyMixed.Search.Total);
+        Assert.Equal(offPage.Id, readyMixed.Search.Rows[0].Id);
+        RequireBooleanFacet(readyMixed, cohort.Count - 2, falseCount: 1, trueCount: 1);
+        Assert.All(readyMixed.Search.Rows, row => RequireSource(row, 5, canonical, "Café"));
+        var mixedAfter = mixed with { Search = mixed.Search with { Cursor = readyMixed.Search.NextCursor } };
+        var lastMixedPage = await ReadMixed(mixedAfter);
+        var lastMixed = Assert.Single(lastMixedPage.Search.Rows);
+        RequireBooleanFacet(lastMixedPage, cohort.Count - 2, falseCount: 1, trueCount: 1);
+        Assert.Equal(cohort.Select(article => article.Id).Order(),
+            readyMixed.Search.Rows.Append(lastMixed).Select(row => row.Id).Order());
+        await RejectMixed(mixedAfter with { IncludeHeading = true }, HttpStatusCode.Conflict);
+        await Reject(new(mixedAfter.Search with { Query = $"field.property:{phrase}" }, selected.Id, selected.Revision),
+            owner, HttpStatusCode.Conflict);
+
+        var fromBody = await ReadyMixed(mixed with
+        {
+            Search = mixed.Search with { Query = "field.markdown-body:\"Independent body\" field.property:café" },
+            Facet = null,
+            Sort = null,
+        });
+        Assert.Equal(cohort.Count, fromBody.Search.Total);
+        Assert.All(fromBody.Search.Rows, row => RequireSource(row, 2, "Independent body", "Independent"));
+        var fromTitle = await ReadyMixed(mixed with { Search = mixed.Search with { Query = "field.title:article field.property:café" } });
+        Assert.All(fromTitle.Search.Rows, row =>
+        {
+            var article = Assert.Single(cohort, item => item.Id == row.Id);
+            RequireSource(row, 1, article.Title, "article");
+        });
+        var fromSummary = await ReadyMixed(mixed with
+        {
+            Search = mixed.Search with { Query = "field.summary:\"star witness\" field.property:enamel" },
+        });
+        RequireSource(Assert.Single(fromSummary.Search.Rows), 3, specialSummary, "star");
+        var headingQuery = mixed with { Search = mixed.Search with { Query = "field.heading:\"canopy orbit\" field.property:enamel" } };
+        await RejectMixed(headingQuery, HttpStatusCode.BadRequest);
+        RequireSource(Assert.Single((await ReadyMixed(headingQuery with { IncludeHeading = true })).Search.Rows), 4, specialBody, "Canopy");
+
+        Assert.Empty((await ReadyMixed(mixed with
+        {
+            Search = mixed.Search with { Query = "field.title:\"property orbit\" field.property:orbit" },
+        })).Search.Rows);
+        Assert.Empty((await ReadyMixed(mixed with
+        {
+            Search = mixed.Search with { Query = $"field.title:café field.property:{phrase}" },
+        })).Search.Rows);
+        await RejectMixed(mixed with { Search = mixed.Search with { Query = "field.title:article" } }, HttpStatusCode.BadRequest);
+        await RejectMixed(mixed with { Search = mixed.Search with { Query = "field.property:café" } }, HttpStatusCode.BadRequest);
+        var bothFiltered = await ReadyMixed(mixed with
+        {
+            Search = mixed.Search with { Query = $"independent field.property:{phrase}", Conditions = filtered.Search.Conditions },
+        });
+        Assert.Equal(cohort[0].Id, Assert.Single(bothFiltered.Search.Rows).Id);
+        RequireBooleanFacet(bothFiltered, 0, falseCount: 0, trueCount: 1);
+
+        var mixedArticle = Assert.Single(cohort, article => article.Id == lastMixed.Id);
+        var articleEdit = (await store.WithSession(owner.Token, true, (conn, tx, identity) =>
+            Store.Execute(conn, tx, identity, ArticleAction.Save,
+                new(mixedArticle.Id, mixedArticle.Revision, Guid.NewGuid(), mixedArticle.Title, "Current replacement body"), ct), ct)).Article;
+        await RejectMixed(mixedAfter, HttpStatusCode.Conflict);
+        var currentMixed = await ReadyMixed(mixed);
+        var propertyAfter = mixed with { Search = mixed.Search with { Cursor = currentMixed.Search.NextCursor } };
+        await Put(owner, articleEdit, selected, new PropertyFieldValue.Text("Replaced precise property"));
+        await RejectMixed(propertyAfter, HttpStatusCode.Conflict);
+        var removed = await ReadyMixed(mixed);
+        Assert.Equal(cohort.Count - 1, removed.Search.Total);
+        Assert.DoesNotContain(removed.Search.Rows, row => row.Id == articleEdit.Id);
+
         static AuthorTextPropertyTextQuery Query(Actor actor, Field field, string text) =>
             new(new(text, "", null, null, actor.SchemaRevision, []), field.Id, field.Revision);
 
@@ -263,6 +349,37 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         Task<byte[]> RejectComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor, HttpStatusCode status) =>
             Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor, status);
+
+        async Task<AuthorTextPropertySortPage> ReadyMixed(AuthorTextPropertyTextMixedQuery request)
+        {
+            for (var attempt = 0; attempt < 8; attempt++)
+            {
+                var page = await ReadMixed(request);
+                if (page.Search.Ready) return page;
+                Assert.Empty(page.Search.Rows);
+            }
+            throw new InvalidOperationException("The fixture mixed index did not finish within eight requests.");
+        }
+
+        async Task<AuthorTextPropertySortPage> ReadMixed(AuthorTextPropertyTextMixedQuery request) =>
+            Wire.DecodeAuthorTextPropertyTextMixedPage(
+                await Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextMixedQuery(request), owner),
+                includeHeading: request.IncludeHeading, expectFacet: request.Facet is not null);
+
+        Task<byte[]> RejectMixed(AuthorTextPropertyTextMixedQuery request, HttpStatusCode status) =>
+            Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextMixedQuery(request), owner, status);
+
+        static void RequireSource(AuthorTextSearchRow row, int field, string raw, string term)
+        {
+            var start = raw.IndexOf(term, StringComparison.Ordinal);
+            Assert.True(start >= 0);
+            Assert.Equal(field, row.Field);
+            Assert.Equal(term, row.Snippet[row.HighlightStart..row.HighlightEnd]);
+            Assert.Equal((start, start + term.Length), (row.SourceStart, row.SourceEnd));
+            Assert.Equal((Encoding.UTF8.GetByteCount(raw.AsSpan(0, start)), Encoding.UTF8.GetByteCount(raw.AsSpan(0, start + term.Length))),
+                (row.SourceByteStart, row.SourceByteEnd));
+            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(raw)), row.SourceDigest);
+        }
 
         void RequireBooleanFacet(AuthorTextPropertySortPage page, int missing, int falseCount, int trueCount)
         {

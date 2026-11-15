@@ -101,6 +101,11 @@ export type DecodedAuthorTextPropertyTextQualifiedQuery = Omit<AuthorTextPropert
   search: DecodedAuthorTextQualifiedQuery;
 }>;
 
+export type AuthorTextPropertyTextMixedQuery = AuthorTextPropertyTextQualifiedQuery & Readonly<{ includeHeading: boolean }>;
+export type DecodedAuthorTextPropertyTextMixedQuery = Omit<AuthorTextPropertyTextMixedQuery, 'search'> & Readonly<{
+  search: DecodedAuthorTextQualifiedQuery;
+}>;
+
 const emptyUuid = '00000000-0000-0000-0000-000000000000';
 const utf8 = new TextEncoder();
 const textFields = ['title', 'body', 'summary', 'heading', 'property-text'] as const;
@@ -404,9 +409,7 @@ function decodeOptionalPropertyFacetPage(payload: Uint8Array, maxField: number, 
 export function encodeAuthorTextPropertyTextQuery(value: AuthorTextPropertyTextQuery): Uint8Array<ArrayBuffer> {
   validatePropertySelector(value, value.search.schema);
   const writer = new PodWriter();
-  writeQualifiedQuery(writer, value.search, false, true);
-  writer.uuid(value.definitionId);
-  writer.i64(value.definitionRevision);
+  writePropertyTextSelection(writer, value);
   return encodeFrame(FrameType.AuthorTextPropertyTextQuery, writer.finish());
 }
 
@@ -430,20 +433,8 @@ export function decodeAuthorTextPropertyTextPage(payload: Uint8Array): AuthorTex
 export function encodeAuthorTextPropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery): Uint8Array<ArrayBuffer> {
   validatePropertyTextQualifiedQuery(value);
   const writer = new PodWriter();
-  writeQualifiedQuery(writer, value.search, false, true);
-  writer.uuid(value.definitionId);
-  writer.i64(value.definitionRevision);
-  writer.bool(value.facet !== null);
-  if (value.facet !== null) {
-    writer.uuid(value.facet.definitionId);
-    writer.i64(value.facet.definitionRevision);
-  }
-  writer.bool(value.sort !== null);
-  if (value.sort !== null) {
-    writer.uuid(value.sort.definitionId);
-    writer.i64(value.sort.definitionRevision);
-    writer.bool(value.sort.direction === 'descending');
-  }
+  writePropertyTextSelection(writer, value);
+  writePropertySelectors(writer, value.facet, value.sort);
   return encodeFrame(FrameType.AuthorTextPropertyTextQualifiedQuery, writer.finish());
 }
 
@@ -453,10 +444,7 @@ export function decodeAuthorTextPropertyTextQualifiedQuery(payload: Uint8Array):
   const reader = new PodReader(payload);
   const search = readQualifiedQuery(reader, false, true);
   const definitionId = reader.uuid(), definitionRevision = reader.i64();
-  const facet = reader.bool() ? { definitionId: reader.uuid(), definitionRevision: reader.i64() } : null;
-  const sort: AuthorTextPropertySortSelector | null = reader.bool() ? {
-    definitionId: reader.uuid(), definitionRevision: reader.i64(), direction: reader.bool() ? 'descending' : 'ascending',
-  } : null;
+  const { facet, sort } = readPropertySelectors(reader);
   reader.finish();
   const value = { search, definitionId, definitionRevision, facet, sort };
   validatePropertyTextQualifiedQuery(value);
@@ -469,14 +457,78 @@ export function decodeAuthorTextPropertyTextQualifiedPage(payload: Uint8Array, e
   return page;
 }
 
+export function encodeAuthorTextPropertyTextMixedQuery(value: AuthorTextPropertyTextMixedQuery): Uint8Array<ArrayBuffer> {
+  if (typeof value.includeHeading !== 'boolean') throw new ProtocolError('Invalid author text heading mode');
+  validatePropertySelector(value, value.search.schema);
+  validatePropertySelectors(value.search.schema, value.facet, value.sort);
+  const writer = new PodWriter();
+  writePropertyTextSelection(writer, value);
+  writer.bool(value.includeHeading);
+  writePropertySelectors(writer, value.facet, value.sort);
+  return encodeFrame(FrameType.AuthorTextPropertyTextMixedQuery, writer.finish());
+}
+
+export function decodeAuthorTextPropertyTextMixedQuery(payload: Uint8Array): DecodedAuthorTextPropertyTextMixedQuery {
+  if (payload.length > WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes - WireHeader.HeaderSize)
+    throw new ProtocolError('Author text search query exceeds its frame limit');
+  const reader = new PodReader(payload);
+  const search = readQualifiedQuery(reader, false, true);
+  const definitionId = reader.uuid(), definitionRevision = reader.i64(), includeHeading = reader.bool();
+  const { facet, sort } = readPropertySelectors(reader);
+  reader.finish();
+  const value = { search, definitionId, definitionRevision, includeHeading, facet, sort };
+  validatePropertySelector(value, search.schema);
+  validatePropertySelectors(search.schema, facet, sort);
+  return value;
+}
+
+export function decodeAuthorTextPropertyTextMixedPage(payload: Uint8Array, includeHeading: boolean, expectFacet: boolean): AuthorTextPropertySortPage {
+  const page = decodeOptionalPropertyFacetPage(payload, 5, expectFacet);
+  if (!includeHeading && page.search.rows.some(row => row.field === 'heading'))
+    throw new ProtocolError('Invalid author text heading mode');
+  return page;
+}
+
+function writePropertyTextSelection(writer: PodWriter, value: AuthorTextPropertyTextQuery): void {
+  writeQualifiedQuery(writer, value.search, false, true);
+  writer.uuid(value.definitionId);
+  writer.i64(value.definitionRevision);
+}
+
+function writePropertySelectors(writer: PodWriter, facet: AuthorTextPropertyFacetSelector | null, sort: AuthorTextPropertySortSelector | null): void {
+  writer.bool(facet !== null);
+  if (facet !== null) {
+    writer.uuid(facet.definitionId);
+    writer.i64(facet.definitionRevision);
+  }
+  writer.bool(sort !== null);
+  if (sort !== null) {
+    writer.uuid(sort.definitionId);
+    writer.i64(sort.definitionRevision);
+    writer.bool(sort.direction === 'descending');
+  }
+}
+
+function readPropertySelectors(reader: PodReader): Pick<AuthorTextPropertyTextQualifiedQuery, 'facet' | 'sort'> {
+  const facet = reader.bool() ? { definitionId: reader.uuid(), definitionRevision: reader.i64() } : null;
+  const sort: AuthorTextPropertySortSelector | null = reader.bool() ? {
+    definitionId: reader.uuid(), definitionRevision: reader.i64(), direction: reader.bool() ? 'descending' : 'ascending',
+  } : null;
+  return { facet, sort };
+}
+
 function validatePropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery | DecodedAuthorTextPropertyTextQualifiedQuery): void {
   const schema = value.search.schema;
   validatePropertySelector(value, schema);
   if (value.facet === null && value.sort === null) throw new ProtocolError('A property facet or sort is required');
-  if (value.facet !== null) validatePropertySelector(value.facet, schema);
-  if (value.sort !== null) {
-    validatePropertySelector(value.sort, schema);
-    if (value.sort.direction !== 'ascending' && value.sort.direction !== 'descending')
+  validatePropertySelectors(schema, value.facet, value.sort);
+}
+
+function validatePropertySelectors(schema: bigint, facet: AuthorTextPropertyFacetSelector | null, sort: AuthorTextPropertySortSelector | null): void {
+  if (facet !== null) validatePropertySelector(facet, schema);
+  if (sort !== null) {
+    validatePropertySelector(sort, schema);
+    if (sort.direction !== 'ascending' && sort.direction !== 'descending')
       throw new ProtocolError('Invalid author text property sort direction');
   }
 }

@@ -7,6 +7,7 @@ import {
   decodeAuthorTextPropertySortPage, encodeAuthorTextPropertySortQuery,
   decodeAuthorTextPropertyTextPage, encodeAuthorTextPropertyTextQuery, type AuthorTextPropertyTextQuery,
   decodeAuthorTextPropertyTextQualifiedPage, encodeAuthorTextPropertyTextQualifiedQuery, type AuthorTextPropertyTextQualifiedQuery,
+  decodeAuthorTextPropertyTextMixedPage, encodeAuthorTextPropertyTextMixedQuery, type AuthorTextPropertyTextMixedQuery,
   type AuthorTextPropertySortPage, type AuthorTextPropertySortQuery,
   type AuthorTextPropertyFacetPage, type AuthorTextPropertyFacetQuery,
   type AuthorTextFacetedPage, type AuthorTextQualifiedQuery,
@@ -78,4 +79,12 @@ export function authorTextPropertyTextQualifiedSearch(
   return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextQualifiedPage,
     payload => decodeAuthorTextPropertyTextQualifiedPage(payload, input.facet !== null), signal, 'POST',
     encodeAuthorTextPropertyTextQualifiedQuery(input), siteSessionHeader(session));
+}
+
+export function authorTextPropertyTextMixedSearch(
+  input: AuthorTextPropertyTextMixedQuery, session: string, signal: AbortSignal,
+): Promise<AuthorTextPropertySortPage> {
+  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextMixedPage,
+    payload => decodeAuthorTextPropertyTextMixedPage(payload, input.includeHeading, input.facet !== null), signal, 'POST',
+    encodeAuthorTextPropertyTextMixedQuery(input), siteSessionHeader(session));
 }
