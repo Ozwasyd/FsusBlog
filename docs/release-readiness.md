@@ -73,4 +73,9 @@
 - v5 从隔离恢复的旧库保留 `Seo_Author` 原值并按 v1 的 20 字节规则计算公开署名。另支持验签并保全一条经独立审批的旧发布证明及公钥。恢复后证明原件字节一致，错误签名、已撤销或受损密钥、遗漏审批均被拒绝。附加责任历史、旧证明整库迁移和公开验证仍待完成。 [自定义作者演练](../artifacts/short-path-f9fc6d7/migration-site-author/) · [旧证明演练](../artifacts/short-path-f9fc6d7/migration-proof/)
 - 锁定 Release 编译、140 项 Core、141 项协议、严格 Vue 检查和 Vite 构建通过。三个 FsusUI Wasm 与本地源码产物逐字节一致。合并版定向 PostgreSQL 30 项通过，含真实 PDF。正式口径为 208,475 NCLOC，低于上限 71 行。封存候选 `f303f5c` 继续使用原包，四轮短档通过 1 轮，900 秒正式长测待执行。 [合并版证据](../artifacts/short-path-f9fc6d7/) · [规范化计量](../artifacts/short-path-f9fc6d7/code-volume.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
+## 开发提交 `09fc9f8`
+
+- 从 PostgreSQL 归档恢复后，v5 保全原第二修订的两个历史责任版本、两个无发布坐标的原事件，以及 18 条带原跳过原因和投递键的记录。篡改原因在暂存前被拒绝。恢复出的 Kestrel 仍公开第三修订，通过历史入口显示第二修订的责任版本 2。同一构建复验通过单条旧签名证明。默认和自定义站点作者的旧清单响应字节也在独立验证中保持一致。 [合并演练](../artifacts/legacy-null-release-history-f9fc6d7/merged-09fc9f8/) · [兼容性](../artifacts/legacy-null-release-history-f9fc6d7/native-suite-status-1.txt)
+- 同口径全仓为 208,737 NCLOC，超过原上限 191 行。更广的旧责任历史、整库证明迁移及公开验证、正式数据切换和容量仍需完成。 [规范化计量](../artifacts/legacy-null-release-history-f9fc6d7/merged-09fc9f8/code-volume.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
