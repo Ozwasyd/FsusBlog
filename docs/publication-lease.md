@@ -22,6 +22,10 @@ tests/Integration/Migration/physical-standby.sh RELEASE_DIRECTORY NEW_EVIDENCE_D
 
 演练只覆盖停写且已达到回放坐标的计划切换。灾难场景的恢复点取决于实际回放进度。生产操作仍需由外部仲裁隔离原主库，并单独验证私有媒体和其他节点事实。
 
+`physical-standby.sh` 可用第三个参数 `--rejoin` 复验原主库入组。封存候选 `f303f5c` 完成真实 WAL 分叉、`pg_rewind` 及时间线 2 的流复制。测试在备库追平公开写入后先暂停备库，仅在仍是唯一主库的旧库写入隔离标记，再干净停机。首次因旧时间线 WAL 已回收失败，现场保留。第二轮为夹具保留所需 WAL，回卷后核对标记已消失、接收端与发送端归属，以及原应用进程在 socket 恢复后仍拒绝读写。连接新备库的应用在监听前被拒绝。
+
+升主后的应用继续发布并重放原命令。原文章保持撤回，旧进程仍返回 503，两库在回放到新事务落盘坐标后，文章、版本、发布、权利、命令及 outbox 事实逐字节一致。演练完成后清理了所用进程和文件。生产实际需要独立确认旧主库停机、同集群身份和时间线历史，并保留回卷点所需 WAL。 [通过记录](../artifacts/native-physical-rejoin-f303f5c-retry/run.log) · [首次失败](../artifacts/native-physical-rejoin-f303f5c/rewind.log) · [回卷工具](https://www.postgresql.org/docs/18/app-pgrewind.html) · [WAL 接收归属](https://www.postgresql.org/docs/18/monitoring-stats.html#MONITORING-PG-STAT-WAL-RECEIVER-VIEW)
+
 ## 管理域部署状态
 
 独立管理域的 `system.config` 管理员可手动读取 `GET /api/v2/admin/identity/operations/cluster.aeds`，返回 v2 AEDS 32962。结果记录此进程实例 ID、程序集版本、启动时间、读取时间、当前 PostgreSQL 主库租约证明的年龄及公开快照就绪状态。年龄使用相同单调时钟，从绑定当前确认的探针发起时计量。响应禁用缓存并绑定发起读取的管理会话。租约丢失时旧实例的请求走 `503`，接替实例重新生成身份。可用 `FSUSBLOG_NODE_ID` 配置节点标签，最长 64 个 ASCII 字母、数字、点、连字符或下划线。省略时无需公开机器名或进程号。

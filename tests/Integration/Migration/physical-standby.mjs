@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
 const [worktree, mode, failed, promoted, input, receipt] = process.argv.slice(2)
-assert(mode === 'write' || mode === 'compare')
+assert(['write', 'compare', 'rejoin'].includes(mode))
 const request = (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(4000), redirect: 'error' })
 const { decodeFrame, encodeFrame } = await import(pathToFileURL(worktree + '/src/Contracts/aeds.ts'))
 const { decodeDraft, decodeSession, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } =
@@ -65,7 +65,7 @@ if (mode === 'write') {
     token, expectedSession, id: draft.id, revision: String(publication.revision),
     generation, publication: String(detail.publication), publishCommand: Buffer.from(publishCommand).toString('base64'),
   }), { flag: 'wx', mode: 0o600 })
-} else {
+} else if (mode === 'compare') {
   const original = JSON.parse(await readFile(input, 'utf8'))
   token = original.token
   expectedSession = original.expectedSession
@@ -94,4 +94,43 @@ if (mode === 'write') {
     restoreRevision: original.revision, restoreGeneration: original.generation, durableReplay: true,
     durableRetraction: String(decodeDraft(retract.payload).revision), oldGenerationAfterRetraction: 409,
     oldHtml: 503, newHtmlAndAedsAfterRetraction: 404 }))
+} else {
+  const original = JSON.parse(await readFile(input, 'utf8'))
+  token = original.token
+  expectedSession = original.expectedSession
+  const originalArticle = { id: original.id, revision: BigInt(original.revision) }
+  assert.equal((await request(failed + '/health/ready')).status, 503)
+  assert.equal((await request(promoted + '/health/ready')).status, 204)
+  await visibility(failed, originalArticle, 503)
+  await visibility(promoted, originalArticle, 404)
+  await write(failed, WireRoutes.Publish, FrameType.ArticleCommand,
+    Buffer.from(original.publishCommand, 'base64'), FrameType.ApiError, 503)
+
+  const title = marker + ' after rejoin'
+  const body = 'Only the promoted primary accepts this publication after its former primary rejoins.'
+  const save = await write(promoted, WireRoutes.Save, FrameType.ArticleCommand, command(0, 0n, title, body), FrameType.Draft)
+  const draft = decodeDraft(save.payload)
+  assert.notEqual(draft.id, original.id)
+  const publishCommand = command(draft.id, draft.revision)
+  const published = await write(promoted, WireRoutes.Publish, FrameType.ArticleCommand, publishCommand, FrameType.Draft)
+  const article = decodeDraft(published.payload)
+  assert(article.published)
+  const retry = await write(promoted, WireRoutes.Publish, FrameType.ArticleCommand, publishCommand, FrameType.Draft)
+  assert.deepEqual(retry.payload, published.payload)
+  const corpus = await request(promoted + WireRoutes.PublicSearchCorpus)
+  assert.equal(corpus.status, 200)
+  await corpus.arrayBuffer()
+  const generation = corpus.headers.get(WireHeaders.SearchIndexGeneration)
+  assert.match(generation, /^(0|[1-9][0-9]{0,18})$/)
+  assert.notEqual(generation, original.generation)
+  const detail = await visibility(promoted, article, 200, generation)
+  assert.equal(detail.title, title)
+  assert.equal(detail.body, body)
+  assert.equal(detail.revision, article.revision)
+  await visibility(promoted, originalArticle, 404)
+  await visibility(failed, article, 503)
+  console.log(JSON.stringify({
+    oldReady: 503, oldPublishReplay: 503, promotedReady: 204, retractedArticle: 404, newArticle: article.id,
+    newRevision: String(article.revision), newPublication: String(detail.publication), generation, replayedNewPublication: true,
+  }))
 }
