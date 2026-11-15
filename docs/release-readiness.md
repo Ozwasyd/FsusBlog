@@ -52,4 +52,12 @@
 - 异步 HTML 界面可从私有预览明确选择单张图片。第 3 版任务在 worker 重启后仍按所选历史修订重建输入，图片篡改会阻止下载。旧第 1、2 版任务升级前后的记录和输出字节一致。桌面和 375px Chrome 通过。遇到存储损坏时，已成功的回执可能仍在，下载会拒绝。完整附件清单、版式及异步 PDF 附图仍待交付。 [浏览器](../artifacts/targeted-delivery-99abb41/combined-export-browser/article-media-browser.json) · [实库与旧版本升级](../artifacts/targeted-delivery-99abb41/export-attachment/)
 - 锁定 Release 编译、严格 Vue 类型检查、Vite、三份 FsusUI Wasm 字节比对及 141 项协议测试通过。夹具复用净减 236 NCLOC，受影响的 114 项全部通过。全套集成首轮到达监督时限，结果仅计入已运行的用例。当前代码量为 208,541 NCLOC，距上限 5 行。正式容量沿用封存包四轮短档的结果，1 轮通过，900 秒正式长测未开始。 [合并检查](../artifacts/targeted-delivery-99abb41/) · [夹具覆盖](../artifacts/targeted-delivery-99abb41/fixture-reuse/scope-coverage.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
 
+## 开发提交 `845f8c1`
+
+- v5 单篇公开回滚已从恢复的 V1 库实际启用。独立 PostgreSQL 备份恢复后，Kestrel 返回当前和历史责任清单，保留原操作者、快照及 21 条投递边。篡改旧记录后原审批被拒绝。清单禁止缓存，文章撤出公开后当前和历史入口都返回 404。兼容回归通过 v3 首发、v4 混合批次及缺少可选架构时拒绝启用。自定义责任人与来源、已签发的旧证明及全量生产切换待完成。 [合并演练](../artifacts/targeted-delivery-6eccdaf/final-v5.log) · [兼容性](../artifacts/legacy-v5-accountability-6eccdaf/native-suite-status-2.txt)
+- 旧管理员会话的迟到运维状态响应无法写入当前页面。真实 Caddy TLS 和 Passkey 验证了会话切换及响应在途撤权。375px Chrome 验证快速切换器可用键盘打开另一编辑组，已打开的稿件仍回到原组，未保存状态保留。 [双 HTTPS 会话](../artifacts/targeted-delivery-6eccdaf/new-ops/) · [浏览器工作区](../artifacts/targeted-delivery-6eccdaf/quick-switcher/)
+- 离线 HTML 可按顺序内嵌同一保存修订的最多四张授权图片。实库验证越权、重复及损坏时拒绝整份导出，桌面和 375px Chrome 实测双图下载。累计上限为 512 KiB，未独立实跑大图超限样本。异步多图和完整清单仍待交付。 [浏览器](../artifacts/targeted-delivery-6eccdaf/multi-image-chrome/article-media-browser.json) · [定向测试](../artifacts/targeted-delivery-6eccdaf/final-native.log)
+- 锁定 Release 编译、140 项 Core、141 项协议、严格 Vue 及本地 FsusUI 三份 Wasm 字节对比通过。定向 PostgreSQL 19 项通过，PDF 和旧来源专用配置两项跳过。七组 schema 命令的 34 项原生对照、两平台私有媒体恢复和 Debian 签名 worker 通过。身份夹具的三组回归及首发、再发布、回滚 outbox 夹具通过。 [合并检查](../artifacts/targeted-delivery-6eccdaf/) · [身份升级](../artifacts/identity-fixture-6eccdaf/)
+- 同口径计量共 208,998 NCLOC，超出上限 452 行。完整代码量门槛尚未通过。正式容量沿用封存包结果，四轮短档 1 次通过，900 秒正式长测未开始。 [计量](../artifacts/targeted-delivery-6eccdaf/code-volume.json) · [正式容量](../tests/Performance/matrix-2026-11-15.md#封存候选-f303f5c-四轮独占验收)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
