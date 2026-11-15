@@ -3,13 +3,15 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } fro
 import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import ArticleLibraryResults from './ArticleLibraryResults.vue'
 import ArticleLibraryRecent from './ArticleLibraryRecent.vue'
+import ArticleLibrarySaved from './ArticleLibrarySaved.vue'
 import { identityEpoch } from '../session'
 
 const props = defineProps<{ articleId?: number; articleRevision?: bigint; recentOpensVersion: number; disabled: boolean;
   activate: (id: number) => Promise<boolean> }>()
 const visible = ref(false)
 const recentAvailable = ref(false)
-const recent = ref(false)
+const pinnedAvailable = ref(false)
+const mode = ref<'all' | 'recent' | 'pinned'>('all')
 const compact = ref(false)
 const launcher = ref<HTMLButtonElement>()
 const results = ref<InstanceType<typeof ArticleLibraryResults>>()
@@ -28,7 +30,7 @@ function viewport() {
   if (next === compact.value) return
   compact.value = next
   const intent = ++generation
-  if (visible.value && !next) void nextTick(() => { if (visible.value && generation === intent) results.value?.focus() })
+  if (visible.value && !next) void nextTick(() => { if (visible.value && generation === intent && mode.value === 'all') results.value?.focus() })
 }
 
 onMounted(() => {
@@ -46,12 +48,22 @@ watch(identityEpoch, () => {
 }, { flush: 'sync' })
 watch(visible, () => {
   recentAvailable.value = false
-  recent.value = false
+  pinnedAvailable.value = false
+  mode.value = 'all'
 }, { flush: 'sync' })
 
 function recentSupport(supported: boolean) {
   recentAvailable.value = supported
-  if (!supported) recent.value = false
+  if (!supported && mode.value === 'recent') mode.value = 'all'
+}
+
+function pinnedSupport(supported: boolean) {
+  pinnedAvailable.value = supported
+  if (!supported && mode.value === 'pinned') {
+    mode.value = 'all'
+    const intent = generation
+    void nextTick(() => { if (visible.value && generation === intent && mode.value === 'all') results.value?.focus() })
+  }
 }
 
 async function toggle() {
@@ -105,16 +117,18 @@ async function activate(id: number, separate: boolean) {
     <div ref="parking" hidden />
     <Teleport v-if="target" :to="target">
       <template v-if="visible">
-        <div v-if="recentAvailable" class="library-modes" role="group" aria-label="Article library views">
-          <button type="button" :aria-pressed="!recent" @click="recent = false">All articles</button>
-          <button type="button" :aria-pressed="recent" @click="recent = true">Recent opens</button>
+        <div v-if="recentAvailable || pinnedAvailable" class="library-modes" role="group" aria-label="Article library views">
+          <button type="button" :aria-pressed="mode === 'all'" @click="mode = 'all'">All articles</button>
+          <button v-if="recentAvailable" type="button" :aria-pressed="mode === 'recent'" @click="mode = 'recent'">Recent opens</button>
+          <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">Pinned views</button>
         </div>
-        <div v-show="!recent">
+        <div v-show="mode === 'all'">
           <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision"
             :disabled="disabled" @open="activate" />
         </div>
-        <ArticleLibraryRecent :active="recent" :version="recentOpensVersion" :article-id="articleId" :disabled="disabled"
+        <ArticleLibraryRecent :active="mode === 'recent'" :version="recentOpensVersion" :article-id="articleId" :disabled="disabled"
           @supported="recentSupport" @open="activate" />
+        <ArticleLibrarySaved :active="mode === 'pinned'" :disabled="disabled" @available="pinnedSupport" />
       </template>
     </Teleport>
   </div>

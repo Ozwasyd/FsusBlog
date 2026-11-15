@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exercisePinnedViewRail, verifyUnpinnedViewRail } from './pinned-view-rail-flow.mjs'
 
 export async function exercisePropertyFilter(publisher, origin, article, exactScore, observations) {
   const page = await publisher.context().newPage()
@@ -96,6 +97,7 @@ async function verifySavedView(page, article, observations) {
   await section.getByRole('link', { name: article.title, exact: true }).waitFor()
   const firstLink = await page.getByRole('link', { name: '保存视图链接', exact: true }).getAttribute('href')
   assert.equal(firstLink, stableLink)
+  await verifyUnpinnedViewRail(page, article)
   await page.getByRole('button', { name: '固定视图', exact: true }).click()
   await page.getByRole('button', { name: '取消固定视图', exact: true }).waitFor()
   await page.getByRole('button', { name: '设为默认视图', exact: true }).click()
@@ -117,7 +119,10 @@ async function verifySavedView(page, article, observations) {
   assert.match(peerLink, /\?view=[0-9a-f-]{36}&viewSchema=1$/)
 
   const linked = await page.context().newPage()
+  const orderedPins = [{ title: 'Peer editorial checklist', href: peerLink }, { title: renamed, href: firstLink }]
+  let editorRail
   try {
+    editorRail = await exercisePinnedViewRail({ page, article, links: orderedPins, observations })
     const origin = new URL(page.url()).origin
     const output = linked.getByRole('region', { name: '保存视图结果' })
     const pinned = linked.getByRole('navigation', { name: '固定视图' })
@@ -130,6 +135,7 @@ async function verifySavedView(page, article, observations) {
       response.request().method() === 'POST')
     await control('确认移除视图').click()
     assert.equal((await retire).status(), 200)
+    await editorRail.refresh(orderedPins.slice(1))
     await output.waitFor({ state: 'detached' })
     await control('打开保存视图').waitFor({ state: 'hidden' })
     await pinned.getByRole('link', { name: `${renamed}（默认）`, exact: true }).waitFor()
@@ -149,12 +155,13 @@ async function verifySavedView(page, article, observations) {
       response.request().method() === 'POST')
     await control('确认移除视图').click()
     assert.equal((await retireDefault).status(), 200)
+    await editorRail.refresh([])
     await control('打开保存视图').waitFor({ state: 'hidden' })
     await linked.getByRole('link', { name: `${renamed}（默认）`, exact: true }).waitFor({ state: 'hidden' })
     await linked.getByRole('combobox', { name: '选择保存视图', exact: true }).click()
     assert.equal(await linked.getByRole('option', { name: renamed, exact: true }).count(), 0)
   } finally {
-    await linked.close()
+    await Promise.all([linked.close(), editorRail?.close()])
   }
   observations.push('At 375px, private saved views preserve the date/decimal query, pin and reorder with the keyboard, resolve explicit deep links, and never fall back to the still-active default for invalid or retired links.')
 }
