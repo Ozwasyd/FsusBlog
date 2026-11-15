@@ -55,7 +55,7 @@ internal sealed partial class PropertyStore
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
         if (schema.Find(input.DefinitionId) is null) throw Missing();
-        return await ApplyChange(schema, new(actor.Id, input.RequestId, input.SchemaRevision, input.DefinitionRevision,
+        return await ApplyChange(schema, new(ownerId, input.RequestId, input.SchemaRevision, input.DefinitionRevision,
             new PropertyChange.SetFilterable(input.DefinitionId, input.Enabled)), ct);
     }
 
@@ -167,7 +167,7 @@ internal sealed partial class PropertyStore
             select a.id,a.revision,a.title from public.article a
             where a.owner_id=$1 and not a.deleted and {ArchivedArticleAuthority.Available}
             """);
-        var parameters = new List<object> { actor.Id, before, WireLimits.PropertyPageSize + 1 };
+        var parameters = new List<object> { ownerId, before, WireLimits.PropertyPageSize + 1 };
         sql.Append(before != 0 ? " and a.id<$2" : " and a.id>$2");
         if (keyword.Length != 0)
         {

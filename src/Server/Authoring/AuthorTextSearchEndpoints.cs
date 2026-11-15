@@ -11,7 +11,7 @@ internal static class AuthorTextSearchEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var cursors = new AuthorTextCursor(TimeProvider.System);
-        app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, CancellationToken ct) =>
+        app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, AuthorTextRebuildWorker rebuild, CancellationToken ct) =>
         {
             var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
@@ -46,6 +46,8 @@ internal static class AuthorTextSearchEndpoints
                     (AuthorTextRankKey Position, byte[] Generation)? after = search.Cursor.Length == 0
                         ? null : cursors.Decode(search.Cursor, actor, digest, cursorQuery, type);
                     var page = await AuthorTextIndex.ReadPropertyText(db, tx, actor, input, query, after?.Position, after?.Generation, ct);
+                    if (!page.Ready)
+                        await rebuild.EnqueueProperty(db, tx, actor, query.DefinitionId, search.SchemaRevision, query.DefinitionRevision, ct);
                     var next = page.More ? cursors.Encode(page.Rows[^1].Key, page.Generation!, actor, digest, cursorQuery, type) : "";
                     encoded = Wire.EncodeAuthorTextPropertyTextPage(new(page.Ready, next, page.Total, page.StateCounts,
                         page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
@@ -55,6 +57,7 @@ internal static class AuthorTextSearchEndpoints
                     var input = AuthorTextProfile.Parse(Wire.DecodeAuthorTextSearchQuery(frame));
                     await RequireIndex();
                     var page = await AuthorTextIndex.Read(db, tx, actor, input, ct);
+                    if (!page.Ready) await rebuild.EnqueueBody(db, tx, actor, ct);
                     encoded = Wire.EncodeAuthorTextSearchPage(page);
                 }
                 else
@@ -100,6 +103,7 @@ internal static class AuthorTextSearchEndpoints
                                 qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
                                 after?.Generation, ct, includeSummary: includeSummary, includeHeading: includeHeading,
                                 facet: facet, sort: propertySort is null ? null : new(propertySort.DefinitionId, propertySort.DefinitionRevision, propertySort.Direction));
+                        if (!page.Ready) await rebuild.EnqueueBody(db, tx, actor, ct, includeSummary, includeHeading);
                         var next = Next(page.More, page.Rows, page.Generation);
                         var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
                             page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
@@ -117,6 +121,7 @@ internal static class AuthorTextSearchEndpoints
                         var input = AuthorTextProfile.ParseRanked(request.Query);
                         await RequireIndex();
                         var page = await AuthorTextIndex.ReadRanked(db, tx, actor, input, after?.Position, after?.Generation, ct);
+                        if (!page.Ready) await rebuild.EnqueueBody(db, tx, actor, ct);
                         var next = Next(page.More, page.Rows, page.Generation);
                         encoded = Wire.EncodeAuthorTextRankedPage(new(page.Ready, next, page.Rows.Select(row => row.Match).ToArray()));
                     }

@@ -20,8 +20,11 @@ internal static partial class Migration
             await ApplySchemaAddition(connection, tx, "author-search.v3.sql", ct);
         if (!await CurrentSchema.HasAuthorTextPropertyIndexAsync(connection, tx, ct))
             await ApplySchemaAddition(connection, tx, "zz-author-search.v4.sql", ct);
+        if (!await CurrentSchema.HasAuthorTextRebuildAsync(connection, tx, ct))
+            await ApplySchemaAddition(connection, tx, "zz-author-search.v5.sql", ct);
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAuthorTextIndex: true,
-            requireAuthorTextSummaryIndex: true, requireAuthorTextHeadingIndex: true, requireAuthorTextPropertyIndex: true);
+            requireAuthorTextSummaryIndex: true, requireAuthorTextHeadingIndex: true, requireAuthorTextPropertyIndex: true,
+            requireAuthorTextRebuild: true);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified the author full-text index schema.");
     }

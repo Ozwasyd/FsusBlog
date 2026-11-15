@@ -6,6 +6,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Sessions;
+using AuthorTextRebuildProfile = FsusBlog.V2.Server.Authoring.AuthorTextRebuildProfile;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -56,7 +57,43 @@ public sealed class AuthorTextPropertyTextPostgresTests
         Assert.False(pending.Ready);
         Assert.Empty(pending.Rows);
         Assert.Empty(pending.NextCursor);
-        var first = await Ready(query, owner);
+
+        // Seed an already obsolete durable job in the owned fixture. The same definition
+        // ID in the other scope has saved text and stays cold even when its old job is drained.
+        var oldForeignSchema = stranger.SchemaRevision;
+        await Create(stranger, "other", PropertyFieldKind.Boolean);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using (var stale = Store.Sql(db, null, """
+            insert into public.author_text_rebuild_job
+                (owner_id,profile,definition_id,owner_generation,schema_revision,definition_revision,available_at)
+            values ($1,$2,$3,1,$4,$5,statement_timestamp())
+            """, stranger.Id, (int)AuthorTextRebuildProfile.PropertyText, foreignField.Id, oldForeignSchema, foreignField.Revision))
+            Assert.Equal(1, await stale.ExecuteNonQueryAsync(ct));
+
+        // Only PostgreSQL observations occur before the next search request.
+        await using (var queued = Store.Sql(db, null, """
+            select exists(select from public.author_text_rebuild_job where owner_id in ($1,$2) and definition_id=$3)
+            """, owner.Id, stranger.Id, selected.Id))
+        {
+            for (var attempt = 0; await queued.ExecuteScalarAsync(ct) is true; attempt++)
+            {
+                Assert.True(attempt < 100, "Property search jobs did not drain autonomously within ten seconds.");
+                await Task.Delay(TimeSpan.FromMilliseconds(100), ct);
+            }
+        }
+        await using (var projected = Store.Sql(db, null, """
+            select count(*) from public.author_text_property_document d
+            join public.property_article a on a.article_id=d.article_id and a.owner_id=d.owner_id and a.revision=d.value_revision
+            where d.owner_id=$1 and d.definition_id=$2 and d.definition_revision=$3 and d.article_id=any($4)
+            """, owner.Id, selected.Id, selected.Revision, cohort.Append(unrelated).Select(article => article.Id).ToArray()))
+            Assert.Equal(cohort.Count + 1L, Assert.IsType<long>(await projected.ExecuteScalarAsync(ct)));
+        await using (var foreignProjection = Store.Sql(db, null, """
+            select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2
+            """, stranger.Id, foreignField.Id))
+            Assert.Equal(0L, Assert.IsType<long>(await foreignProjection.ExecuteScalarAsync(ct)));
+
+        var first = await Read(query, owner);
+        Assert.True(first.Ready);
         Assert.Equal(cohort.Count, first.Total);
         Assert.Equal(new[] { cohort.Count, 0, 0, 0 }, first.StateCounts);
         Assert.Equal(WireLimits.AuthorTextSearchRows, first.Rows.Count);
@@ -126,7 +163,6 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         selected = await EnableText(owner, selected, false);
         await Reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using var count = Store.Sql(db, null, "select count(*) from public.author_text_document where owner_id=$1", owner.Id);
         Assert.Equal(0L, Assert.IsType<long>(await count.ExecuteScalarAsync(ct)));
 

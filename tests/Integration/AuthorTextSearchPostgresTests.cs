@@ -19,6 +19,10 @@ public sealed class AuthorTextSearchPostgresTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var ct = timeout.Token;
         await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        // This fixture checks exact foreground batch counts on the compatible pre-worker schema.
+        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
+        await using (var schema = Store.Sql(connection, null, "drop table public.author_text_rebuild_job"))
+            await schema.ExecuteNonQueryAsync(ct);
         var store = new Store(db.DataSource);
         var owner = await Login("Full-text owner", true);
         var stranger = await Login("Full-text stranger", true);

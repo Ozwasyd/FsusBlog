@@ -72,6 +72,7 @@ internal sealed class InstanceLease : IAsyncDisposable
     internal CancellationToken Stopped => _stopped.Token;
     internal bool WebpMedia { get; private set; }
     internal bool RootCommentPowPolicyInstalled { get; private set; }
+    internal bool AuthorTextRebuildInstalled { get; private set; }
 
     internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null,
         bool? requireAdminInboxReply = null, bool? requireSitePageEditor = null, bool? requireSiteRefresh = null,
@@ -97,6 +98,7 @@ internal sealed class InstanceLease : IAsyncDisposable
         // The catalog verifier has already rejected partial or malformed installations.
         await using (var policy = Store.Sql(_owner, null, "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null"))
             RootCommentPowPolicyInstalled = await policy.ExecuteScalarAsync(ct) is true;
+        AuthorTextRebuildInstalled = await CurrentSchema.HasAuthorTextRebuildAsync(_owner, null, ct);
         _pid = _owner.ProcessID;
         await using (var identity = new NpgsqlCommand("select backend_start from pg_catalog.pg_stat_activity where pid=pg_backend_pid()", _owner))
             _backendStart = (DateTime)(await identity.ExecuteScalarAsync(ct))!;

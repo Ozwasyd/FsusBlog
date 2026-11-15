@@ -123,7 +123,7 @@ internal static partial class CurrentSchema
         bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
         bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
         bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
-        bool requireAuthorTextPropertyIndex = false)
+        bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false)
     {
         if (requireArticleMedia is null)
         {
@@ -238,6 +238,9 @@ internal static partial class CurrentSchema
         var hasAuthorTextPropertyIndex = await HasAuthorTextPropertyIndexAsync(connection, transaction, cancellationToken);
         if (hasAuthorTextPropertyIndex && !hasAuthorTextHeadingIndex || requireAuthorTextPropertyIndex && !hasAuthorTextPropertyIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install text property indexing.");
+        var hasAuthorTextRebuild = await HasAuthorTextRebuildAsync(connection, transaction, cancellationToken);
+        if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || requireAuthorTextRebuild && !hasAuthorTextRebuild)
+            throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
@@ -299,6 +302,7 @@ internal static partial class CurrentSchema
             .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns] : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexColumns : [])
+            .Concat(hasAuthorTextRebuild ? [AuthorTextRebuildColumns] : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
@@ -345,6 +349,7 @@ internal static partial class CurrentSchema
             .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
+            .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])

@@ -79,7 +79,7 @@ internal sealed partial class PropertyStore
             from picked p left join public.property_value v
                 on p.value_revision is not null and v.owner_id=$1 and v.definition_id=$2 and v.article_id=p.article_id
             order by p.article_id
-            """, actor.Id, scope.Definition.Id, scope.Definition.Revision, TextProjectionBatch))
+            """, ownerId, scope.Definition.Id, scope.Definition.Revision, TextProjectionBatch))
         {
             command.CommandTimeout = 3;
             await using var rows = await command.ExecuteReaderAsync(ct);
@@ -100,13 +100,13 @@ internal sealed partial class PropertyStore
             ct.ThrowIfCancellationRequested();
             await using (var delete = Store.Sql(db, tx, """
                 delete from public.author_text_property_posting where owner_id=$1 and definition_id=$2 and article_id=$3
-                """, actor.Id, scope.Definition.Id, entry.ArticleId))
+                """, ownerId, scope.Definition.Id, entry.ArticleId))
                 await delete.ExecuteNonQueryAsync(ct);
             if (entry.ValueRevision is not long valueRevision)
             {
                 await using var remove = Store.Sql(db, tx, """
                     delete from public.author_text_property_document where owner_id=$1 and definition_id=$2 and article_id=$3
-                    """, actor.Id, scope.Definition.Id, entry.ArticleId);
+                    """, ownerId, scope.Definition.Id, entry.ArticleId);
                 await remove.ExecuteNonQueryAsync(ct);
                 continue;
             }
@@ -117,7 +117,7 @@ internal sealed partial class PropertyStore
                 values ($1,$2,$3,$4,$5,$6)
                 on conflict (owner_id,definition_id,article_id) do update
                     set definition_revision=excluded.definition_revision,value_revision=excluded.value_revision,source_digest=excluded.source_digest
-                """, actor.Id, scope.Definition.Id, entry.ArticleId, scope.Definition.Revision, valueRevision,
+                """, ownerId, scope.Definition.Id, entry.ArticleId, scope.Definition.Revision, valueRevision,
                 SHA256.HashData(PropertyTextUtf8.GetBytes(text))))
                 await document.ExecuteNonQueryAsync(ct);
             if (text.Length == 0) continue;
@@ -130,7 +130,7 @@ internal sealed partial class PropertyStore
             {
                 if (PropertyTextUtf8.GetByteCount(token.Value) > AuthorTextProfile.MaxTermBytes) continue;
                 await copy.StartRowAsync(ct);
-                await copy.WriteAsync(actor.Id, NpgsqlDbType.Uuid, ct);
+                await copy.WriteAsync(ownerId, NpgsqlDbType.Uuid, ct);
                 await copy.WriteAsync(scope.Definition.Id, NpgsqlDbType.Uuid, ct);
                 await copy.WriteAsync(entry.ArticleId, NpgsqlDbType.Integer, ct);
                 await copy.WriteAsync(token.Ordinal, NpgsqlDbType.Integer, ct);

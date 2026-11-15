@@ -118,6 +118,8 @@ if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetti
 }
 var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist, trustLoopbackProxy);
 builder.Services.AddHostedService<OutboxWorker>();
+builder.Services.AddSingleton<AuthorTextRebuildWorker>();
+builder.Services.AddHostedService(services => services.GetRequiredService<AuthorTextRebuildWorker>());
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
