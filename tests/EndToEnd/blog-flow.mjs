@@ -11,6 +11,7 @@ import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
+import { exerciseArticleOutline } from './outline-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
 import { exerciseCanvas } from './canvas-flow.mjs'
@@ -246,6 +247,8 @@ try {
   observations.push('The author inspects and restores an unconfirmed IndexedDB draft in a new page. Server acknowledgement purges it.')
 
   await exerciseWorkspace({ page: publisher, origin, article: { id: writtenId, title, body }, screenshot: screen, monitor, token, observations })
+  await exerciseArticleOutline({ page: publisher, origin, createDraft: (title, body) => articleCommand(WireRoutes.Save, 0, 0n, title, body),
+    screenshot: screen, monitor, observations })
   await exerciseInspector({ page: publisher, screenshot: screen, token, observations })
   await exerciseArticleSchedule(publisher, screen, observations)
   await exerciseArticleRights(publisher, observations)

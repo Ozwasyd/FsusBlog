@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { defaultMarkdownEditorCommands, ElAlert, ElButton, ElInput, ElMarkdownEditor } from '@ozwasyd/element-plus'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
+import {
+  createMarkdownOutlineModel, defaultMarkdownEditorCommands, ElAlert, ElButton, ElInput, ElMarkdownEditor,
+  resolveMarkdownOutlineActive, type MarkdownEditorMode, type MarkdownEditorOutlineItem,
+  type MarkdownEditorSelectionEvent, type MarkdownEditorTransactionEvent,
+} from '@ozwasyd/element-plus'
 import type { Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import ArticleOutlineRail from './ArticleOutlineRail.vue'
 import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange } from './sourceCoordinates'
 import type { WorkspaceSource } from './workspaceRegistry'
 
@@ -30,6 +35,84 @@ watch(() => props.pane.draft.body, body => {
 }, { immediate: true, flush: 'sync' })
 const editorSource = computed(() => crlf.value ? normalizeCrlf(props.pane.draft.body) : props.pane.draft.body)
 
+type OutlineModel = ReturnType<typeof createMarkdownOutlineModel>
+const outlineVisible = ref(false)
+const outlineState = ref<'loading' | 'ready' | 'unavailable'>('loading')
+const outlineMode = ref<MarkdownEditorMode>('source')
+const outlineDisabled = computed(() => !props.focus || props.concealed || props.blocked || editorSource.value.includes('\r') ||
+  (outlineMode.value !== 'source' && outlineMode.value !== 'live'))
+const editorDocument = shallowRef({ source: editorSource.value, revision: 0 })
+const editorSelection = shallowRef<MarkdownEditorSelectionEvent['selection']>({
+  start: editorSource.value.length, end: editorSource.value.length, direction: 'none',
+})
+const outlineDocument = computed(() => editorDocument.value.source === editorSource.value ? editorDocument.value : undefined)
+const outlineSnapshot = shallowRef<{ model: OutlineModel; articleId: number; document: typeof editorDocument.value }>()
+let previousOutline: OutlineModel['projection'] | undefined
+const outlineArticle = computed(() => props.pane.draft.id)
+
+watch(() => props.split, () => { outlineMode.value = 'source' })
+watch(outlineDisabled, disabled => { if (disabled) outlineVisible.value = false }, { flush: 'sync' })
+watch(outlineArticle, () => { previousOutline = undefined }, { flush: 'sync' })
+watch([outlineVisible, outlineDisabled, outlineArticle, outlineDocument], ([visible, disabled, articleId, source], _, cleanup) => {
+  outlineSnapshot.value = undefined
+  outlineState.value = 'loading'
+  if (!visible || disabled) {
+    previousOutline = undefined
+    return
+  }
+  if (!source) return
+  if (source.source.length > 200_000) {
+    outlineState.value = 'unavailable'
+    return
+  }
+  const frame = requestAnimationFrame(() => {
+    try {
+      const model = createMarkdownOutlineModel(source.source, identity.value, previousOutline)
+      previousOutline = model.projection
+      outlineSnapshot.value = { model, articleId, document: source }
+      outlineState.value = 'ready'
+    } catch {
+      previousOutline = undefined
+      outlineState.value = 'unavailable'
+    }
+  })
+  cleanup(() => cancelAnimationFrame(frame))
+}, { flush: 'sync' })
+
+const outlineActive = computed(() => {
+  const snapshot = outlineSnapshot.value
+  if (!snapshot) return null
+  const selection = editorSelection.value
+  return resolveMarkdownOutlineActive({
+    items: snapshot.model.items, documentId: identity.value.id, documentEpoch: identity.value.epoch,
+    revision: snapshot.document.revision, caret: selection.end, selection,
+  }).headingId
+})
+
+function editorTransaction(event: MarkdownEditorTransactionEvent) {
+  if (!event.accepted || event.documentIdentity.id !== identity.value.id || event.documentIdentity.epoch !== identity.value.epoch) return
+  if (editorDocument.value.source !== event.value || editorDocument.value.revision !== event.revision)
+    editorDocument.value = { source: event.value, revision: event.revision }
+  editorSelection.value = event.selection
+}
+
+function editorSelectionChanged(event: MarkdownEditorSelectionEvent) {
+  if (event.revision === editorDocument.value.revision) editorSelection.value = event.selection
+}
+
+function revealOutline(heading: MarkdownEditorOutlineItem): boolean {
+  const snapshot = outlineSnapshot.value
+  if (outlineDisabled.value || !snapshot || snapshot.articleId !== outlineArticle.value || snapshot.document !== outlineDocument.value ||
+    !snapshot.model.items.includes(heading)) return false
+  const { start, end } = heading.sourceRange
+  const status = markdown.value?.revealSourceRange({ start, end }, {
+    expected: { documentIdentity: identity.value, revision: snapshot.document.revision }, mode: outlineMode.value,
+  })
+  if (status !== 'success') return false
+  editorSelection.value = { start, end: start, direction: 'none' }
+  return true
+}
+
 watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async ([target, focused, blocked], _, cleanup) => {
   if (!target || !focused || blocked) return
   let current = true
@@ -43,6 +126,7 @@ watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async 
     textarea instanceof HTMLTextAreaElement && textarea.value === editorSource.value
     ? textareaSourceRange(body, textarea.value, { start: offset, end: offset }) : undefined
   const success = !!range && markdown.value?.revealSourceRange(range, { mode: 'source', reducedMotion: true }) === 'success'
+  if (success && range) editorSelection.value = { start: range.start, end: range.start, direction: 'none' }
   emit('sourceRevealed', success)
 }, { immediate: true, flush: 'post' })
 
@@ -65,9 +149,15 @@ function edit(field: 'title' | 'body', value: string) {
       placeholder="Write the article title" size="large" :readonly="!focus" :disabled="focus && blocked" />
     <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">Save the draft before publishing.</p>
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
-    <label :for="bodyId">Body</label>
+    <div class="workspace-source__body-heading">
+      <label :for="bodyId">Body</label>
+      <ArticleOutlineRail v-if="nativeMarkdown && focus && !concealed"
+        :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState"
+        :disabled="outlineDisabled" :reveal="revealOutline" @visibility="outlineVisible = $event" />
+    </div>
     <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
       :model-value="editorSource" @update:model-value="edit('body', $event)" placeholder="Start writing here."
+      @transaction="editorTransaction" @selection-change="editorSelectionChanged" @mode-change="outlineMode = $event"
       :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
       :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />
     <template v-else>
@@ -84,4 +174,5 @@ function edit(field: 'title' | 'body', value: string) {
 .workspace-source[hidden] { display: none; }
 .workspace-source__heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
 .workspace-source__heading h2 { margin: 0; font-size: var(--fsus-typography-heading-sm-size); }
+.workspace-source__body-heading { display: flex; align-items: center; gap: var(--fsus-space-3); }
 </style>

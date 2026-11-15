@@ -26,6 +26,10 @@
 
 编辑器使用本地 FsusUI 的公开 `documentIdentity`。每篇文章保留正文、修订和未保存状态。已经换下的编辑器再次显示时可能需要重新挂载。完整挂起及恢复仍需可验证的编辑器快照接口。 [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294)
 
+活动编辑器的「Outline」使用本地 FsusUI 公开投影，按原稿顺序显示标题和已知结构诊断。桌面侧栏和窄屏 Drawer 共用当前文档及编辑修订；关闭侧栏或切换文档会丢弃其局部状态。键盘可选择标题，Escape 返回原触发按钮。当前章节跟随 FsusUI 的公开选区事件。跳转使用同一编辑器的公开定位操作，并保留 LF 和统一 CRLF 稿件的保存格式。纯视口滚动跟随、独立标题折叠、偏好持久化和完整规模矩阵仍待验证。 [#1805](https://github.com/Ozwasyd/FsusBlog/issues/1805)
+
+原生 Chrome 验证桌面编辑宽度、重复标题的键盘顺序、代码围栏排除、375px Drawer 关闭与回焦，以及相同正文跨组切换时分别保留各自的光标和编辑器。首轮在切换视口后立即打开时读到了旧布局状态。修正后以同一流程复测。 [浏览器结果](../../artifacts/article-outline-browser/run-2/browser-result.json)
+
 Registry 单元验证覆盖 100 会话、组内预览替换、异步加载失效、跨身份退回、权限撤销、远端修订冲突及最近关闭容量。单独使用 Chrome 验证了 33 条标签投影的桌面和溢出上限、键盘焦点、固定和窄屏切换。当前环境未提供 Browser 技能，本机测试使用项目的 Playwright 和已安装的 Chrome。
 
 原生 PostgreSQL、Kestrel 与 Chrome 联合测试通过实际延迟草稿响应、找不到文章、预览替换、固定标签保留未保存文字、键盘与浏览器历史、375px 窄屏、取消关闭后焦点、最近关闭重开及独立浏览器标签。服务与数据库清理通过。 [本机浏览器证据](../../artifacts/workspace-combined-20261114-scoped/browser-result.json)
