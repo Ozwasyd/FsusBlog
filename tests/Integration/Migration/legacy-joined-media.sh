@@ -7,10 +7,12 @@ export DOTNET_BIN="${DOTNET_BIN:-dotnet}"
 export FSUSBLOG_MIGRATE_DLL="${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll}"
 migrate=("$DOTNET_BIN" "$FSUSBLOG_MIGRATE_DLL")
 prepared=false
+activate=false
 case "$# ${1:-}" in
     '0 ') ;;
     '1 --prepared') prepared=true ;;
-    *) printf 'Usage: %s [--prepared]\n' "$0" >&2; exit 2 ;;
+    '1 --activate') prepared=true; activate=true ;;
+    *) printf 'Usage: %s [--prepared|--activate]\n' "$0" >&2; exit 2 ;;
 esac
 [[ -f "$FSUSBLOG_MIGRATE_DLL" ]]
 if [[ "$prepared" == true ]]; then
@@ -18,11 +20,17 @@ if [[ "$prepared" == true ]]; then
     [[ "$server_dll" == /* && -f "$server_dll" ]]
     preparer=(env -i PATH="$PATH" LC_ALL=C TZ=UTC "$DOTNET_BIN" "$server_dll" legacy-media)
 fi
+if [[ "$activate" == true ]]; then
+    runtime_web="${FSUSBLOG_ACTIVATION_TEST_WEB_DIST:?Set FSUSBLOG_ACTIVATION_TEST_WEB_DIST to built web assets.}"
+    [[ "$runtime_web" == /* && -f "$runtime_web/index.html" ]]
+fi
 umask 077
 scratch="$(mktemp -d /tmp/fsus-media-join.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
+runtime_pid=
 cleanup() {
     local status=$? lane
+    if [[ -n "$runtime_pid" ]]; then stop_runtime || status=1; fi
     for lane in target source; do
         if [[ -f "$scratch/$lane/postmaster.pid" ]] && ! pg_ctl -D "$scratch/$lane" -w -m fast stop; then
             status=1
@@ -135,10 +143,13 @@ for db in "$source" "$restored"; do
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO joined_reader;
         GRANT EXECUTE ON FUNCTION pg_catalog.pg_control_system() TO joined_reader;'
 done
-export FSUSBLOG_V1_DB="$(dsn source "$restored");Username=joined_reader;Options=-c default_transaction_read_only=on"
+FSUSBLOG_V1_DB="$(dsn source "$restored");Username=joined_reader;Options=-c default_transaction_read_only=on"
+export FSUSBLOG_V1_DB
 export FSUSBLOG_V1_SCHEMA=public
 
-export FSUSBLOG_DB="$(dsn target "$target")" FSUSBLOG_IMPORT_DB="$(dsn target "$target")"
+FSUSBLOG_DB="$(dsn target "$target")"
+FSUSBLOG_IMPORT_DB="$FSUSBLOG_DB"
+export FSUSBLOG_DB FSUSBLOG_IMPORT_DB
 export PGHOST="$scratch/target-s" PGDATABASE="$target"
 "${migrate[@]}" plan > "$scratch/bootstrap.json"
 "${migrate[@]}" apply "$scratch/bootstrap.json"
@@ -345,6 +356,12 @@ VERIFIED_ORIGIN
 else
     refuse 'Preparation requires supported private images' text-preparation "${migrate[@]}" legacy import media-request \
         "$scratch/import.json" "$plan_sha" "$backup" "$backup_sha" "${media[@]}"
+fi
+
+if [[ "$activate" == true ]]; then
+    # Exercise the production CLI against a separate app-shaped, independently backed up runtime copy.
+    source tests/Integration/Migration/legacy-media-activation-fixture.sh
+    prove_media_activation
 fi
 
 # Restore the pre-cutover database and its own media set as a separate matched pair.

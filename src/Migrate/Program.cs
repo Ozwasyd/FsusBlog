@@ -73,6 +73,8 @@ internal static partial class Migration
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
                   media-webp schema     Enable limited static WebP media with the server stopped
+                  private-media-import-origin schema
+                                        Install the offline private-media import origin schema
                   article-private-media Add article revision attachment storage with the server stopped
                   article-public-media  Add explicit publication attachment storage with the server stopped
                   article-public-media verify|rebuild SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
@@ -147,6 +149,10 @@ internal static partial class Migration
                   legacy import media-verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
                     --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
                                         Verify the prepared private image artifact against the original quarantine
+                  legacy import media-activation-plan|media-activate PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
+                    [--approval APPROVAL.json SHA256] --destination MEDIA_ROOT SITE_ID ROLLBACK_DIR ROLLBACK_SHA256
+                    --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
+                                        Plan or activate a single approved private image in the isolated runtime copy
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
                   legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID
@@ -317,6 +323,9 @@ internal static partial class Migration
                     break;
                 case ["media-webp", "schema"]:
                     await UpgradeMediaFormatsAsync(connection, token);
+                    break;
+                case ["private-media-import-origin", "schema"]:
+                    await InitializePrivateMediaImportOriginAsync(connection, token);
                     break;
                 case ["article-private-media"]:
                     await InitializeArticleMediaAsync(connection, token);

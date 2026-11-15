@@ -235,6 +235,26 @@ dotnet "$verified_server_dll" legacy-media prepare "$request" "$request_sha256" 
 
 `bash tests/Integration/Migration/legacy-joined-media.sh --prepared` 在两个 PostgreSQL 18.7 Unix socket 实例中恢复原生旧库和私有 PNG，再用已构建的真实 Server CLI 准备图像，并从独立目录副本回读验证。旧文章 `42` 的全局修订 `5000000003` 仍映射到 v2 修订 `3`，引用计数及替代文本经重新导出的请求核对。另一件输入与原图的像素、尺寸及归档长度相同，实际规范化制品逐字节一致，但因原始来源摘要不同而被拒绝。错误规范化器摘要和准备文件变更也被拒绝。旧 TXT 演练仍证明联合保管，图像准备命令拒绝该格式。全部运行保持私有媒体表为空，复验导入前恢复库，并清理本次服务器和临时目录。本地证据为 `artifacts/legacy-media-prepared-de88453/native-prepared-final.log` 和 `native-text.log`。
 
+### 在独立运行副本中离线启用一件私有 PNG
+
+启用使用已核验的原始隔离库和准备包。提前建立一个当前结构的独立运行副本，复核作者账号、文章及其私有当前修订，确保相关当前发布和不可变发布历史等于隔离投影。运行副本必须使用独立站点 UUID、`fsusv2_import_runtime_*` 库名和进程所有的私有 Unix socket 目录，PostgreSQL 不监听 TCP。先停止服务和写入者，安装导入来源结构，再对副本和空媒体目录做配对备份。使用 `FSUSBLOG_IMPORT_DB` 指向原隔离库，`FSUSBLOG_MEDIA_ACTIVATION_DB` 指向明确审核的运行副本。
+
+```bash
+FSUSBLOG_DB="$runtime_dsn" "${migrate[@]}" private-media-import-origin schema
+source_args=("$plan" "$plan_sha256" "$backup" "$backup_manifest_sha256")
+activation_args=(--destination "$runtime_media" "$runtime_site_uuid" "$runtime_rollback" "$runtime_rollback_sha256"
+  --prepared "$private_output_parent/prepared" "$prepared_manifest_sha256" "$normalizer_sha256"
+  --media "$custody_package" "$custody_manifest_sha256")
+"${migrate[@]}" legacy import media-activation-plan "${source_args[@]}" "${activation_args[@]}" > "$approval"
+"${migrate[@]}" legacy import media-activate "${source_args[@]}" --approval "$approval" "$approved_sha256" "${activation_args[@]}"
+```
+
+独立审核计划中的库和站点标识、媒体目录、回退清单、作者和修订，并记录批准的 SHA-256。当前只接受一件已规范化的私有 PNG 和一条当前未发布修订引用。沿用旧来源 UUID，写入配对的导入来源以及引用旧全局修订、替代文本和引用计数，上传命令和请求摘要留空。运行文件以真实规范化结果落盘、同步并回读后，附件与来源记录在同一数据库事务提交。原始隔离库继续禁止启动，公开附件表不接收该文件。
+
+提交回执丢失时，使用原批准文件复核这个精确的事务及媒体文件。仅当同一批准的字节已经完整落盘时，允许从文件在场、数据库记录仍未提交的状态续跑。已提交记录的文件缺失或存在未知文件时应从已验证的数据库和媒体配对恢复。原始时间、来源摘要和目标运行副本的审批键留在导入记录。独立副本之外的站点、多文件及历史公开修订仍需单独验收。
+
+`bash tests/Integration/Migration/legacy-joined-media.sh --activate` 在独立 PostgreSQL 18.7 实例及真正的 Server 中通过。从 v1 归档恢复的 86 字节原图经规范化得到 99 字节 PNG。启用及备份恢复保留原附件 UUID、旧全局修订 `5000000003`、当前 v2 修订 `3`、原所有者和替代文本。实际落盘、原审批重跑、仅剩已落盘文件后的续跑、已提交文件丢失时拒绝均已验收。恢复非空配对数据后，新签发的所有者会话通过原图和草稿预览获取完全相同的字节，匿名和其他作者均不能读取。公开页面继续提供修订 `2`。导入前备份已另行恢复，所有本机进程和临时目录已清理。本地证据位于 `artifacts/legacy-media-activation-a649068/native-final.log`。
+
 ### 离线核对身份兼容性
 
 ```bash

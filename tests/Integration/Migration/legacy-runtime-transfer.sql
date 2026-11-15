@@ -1,6 +1,25 @@
 \set ON_ERROR_STOP on
-\if :rollback_profile
+\if :{?media_profile}
+\else
+\set media_profile false
+\endif
+\if :media_profile
 \set revision_count 3
+\set public_revision 2
+\set publication_count 2
+\set responsibility_count 3
+\set proof_binding true
+\set publication_id 900000002
+\set rights_id 701
+\set category_next 13
+\set tag_next 24
+\set publication_next 900000003
+\set rights_next 702
+\set owner_enabled true
+\elif :rollback_profile
+\set revision_count 3
+\set public_revision 3
+\set publication_count 3
 \set responsibility_count 2
 \set proof_binding true
 \set publication_id 900000003
@@ -9,8 +28,11 @@
 \set tag_next 24
 \set publication_next 900000004
 \set rights_next 703
+\set owner_enabled false
 \else
 \set revision_count 1
+\set public_revision 1
+\set publication_count 1
 \set responsibility_count 0
 \set proof_binding false
 \set publication_id 900000001
@@ -19,6 +41,7 @@
 \set tag_next 22
 \set publication_next 900000002
 \set rights_next 701
+\set owner_enabled false
 \endif
 
 \if :copy_out
@@ -50,15 +73,20 @@ SELECT (SELECT version=-1 FROM public.v2_schema WHERE singleton)
          FROM fsus_legacy_candidate.candidate WHERE singleton)
     AND (SELECT plan_sha256=:'plan_sha' AND projection_sha256=:'projection_sha'
          FROM fsus_legacy_candidate.current_projection WHERE singleton)
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:revision_count
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:revision_count
-    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*:revision_count AS expected_seal \gset
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_publication)=:publication_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_responsibility_snapshot)=:responsibility_count AS expected_seal \gset
+\if :media_profile
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset)=1
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_content_asset_reference)=1 AS expected_seal \gset
+\else
+SELECT :'expected_seal'::boolean AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox)=:publication_count
+    AND (SELECT count(*) FROM fsus_legacy_candidate.shadow_article_mutation_outbox_edge)=7*:publication_count AS expected_seal \gset
+\endif
 \else
 SELECT (SELECT version=1 FROM public.v2_schema WHERE singleton)
     AND to_regnamespace('fsus_legacy_candidate') IS NULL
     AND (SELECT count(*) FROM public.blog_user)=1
-    AND (SELECT NOT enabled AND NOT can_author FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
+    AND (SELECT enabled=:owner_enabled AND can_author=:owner_enabled FROM public.blog_user WHERE id=:'owner_id'::uuid) AS expected_seal \gset
 \endif
 \if :expected_seal
 \else
@@ -67,21 +95,21 @@ DO $$ BEGIN RAISE EXCEPTION 'Rehearsal source seal or runtime readback identity 
 
 SELECT (SELECT count(*) FROM public.article)=1
     AND (SELECT count(*) FROM public.article_publication)=1
-    AND (SELECT NOT deleted AND revision=:revision_count AND published_revision=:revision_count
-             AND publication_count=:revision_count AND owner_id=:'owner_id'::uuid
+    AND (SELECT NOT deleted AND revision=:revision_count AND published_revision=:public_revision
+             AND publication_count=:publication_count AND owner_id=:'owner_id'::uuid
          FROM public.article WHERE id=42)
     AND (SELECT array_agg(revision ORDER BY revision) FROM public.article_revision WHERE article_id=42)
         = ARRAY(SELECT n::bigint FROM generate_series(1,:revision_count) n)
-    AND (SELECT count(*)=:revision_count AND bool_and(enabled AND proof_binding_enabled=:'proof_binding'::boolean)
+    AND (SELECT count(*)=:publication_count AND bool_and(enabled AND proof_binding_enabled=:'proof_binding'::boolean)
          FROM public.article_revision_rights WHERE article_id=42)
-    AND (SELECT publication_id=:publication_id AND publication_no=:revision_count AND revision=:revision_count
+    AND (SELECT publication_id=:publication_id AND publication_no=:publication_count AND revision=:public_revision
          FROM public.article_publication WHERE article_id=42)
-    AND (SELECT count(*)=1 AND bool_and(event_no=1 AND revision=:revision_count
-             AND publication_id=:publication_id AND publication_no=:revision_count AND kind='retained-active'
+    AND (SELECT count(*)=1 AND bool_and(event_no=1 AND revision=:public_revision
+             AND publication_id=:publication_id AND publication_no=:publication_count AND kind='retained-active'
              AND reason='pre-history' AND supersedes_id IS NULL AND actor_id IS NULL AND command_id IS NULL
              AND admin_actor_id IS NULL AND admin_command_id IS NULL)
          FROM public.article_publication_history WHERE article_id=42)
-    AND (SELECT count(*)=:revision_count AND bool_and(id=699+revision AND publication_id=900000000+revision)
+    AND (SELECT count(*)=:publication_count AND bool_and(id=699+revision AND publication_id=900000000+revision)
              AND max(id)=:rights_id FROM public.article_publication_rights WHERE article_id=42)
     AND NOT EXISTS (SELECT FROM public.article_rollback)
     AND NOT EXISTS (SELECT FROM public.admin_article_rollback)
@@ -123,7 +151,7 @@ DO $$ BEGIN RAISE EXCEPTION 'Rehearsal runtime target is not pristine'; END $$;
 \endif
 
 INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
-    VALUES (:'owner_id'::uuid,'Legacy rehearsal custodian',false,false,1);
+    VALUES (:'owner_id'::uuid,'Legacy rehearsal custodian',:owner_enabled,:owner_enabled,1);
 \copy public.category (id,name,description) FROM 'category.csv' CSV
 \copy public.tag (id,name,description) FROM 'tag.csv' CSV
 \copy public.tag_url_name (name_key,tag_id) FROM 'tag_url_name.csv' CSV

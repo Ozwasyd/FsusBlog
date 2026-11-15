@@ -13,7 +13,7 @@ internal static partial class Migration
 
     private static async Task<int> RunLegacyProjectionAsync(string mode, string planPath, string planDigest, string backupPath,
         string backupDigest, DateTimeOffset? scheduleEvaluation, LegacyImportMediaInput? mediaInput,
-        PreparedLegacyMediaInput? prepared, CancellationToken token)
+        PreparedLegacyMediaInput? prepared, LegacyMediaActivationInput? activation, CancellationToken token)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -29,7 +29,7 @@ internal static partial class Migration
                 throw new InvalidOperationException("The independently recorded staging plan and current schema must match exactly.");
             var definitions = CandidateDefinitions(plan);
             var mediaPackage = await ReadLegacyImportMediaAsync(mediaInput, plan, ct);
-            var preparesMedia = mode is "media-request" or "media-verify";
+            var preparesMedia = mode is "media-request" or "media-verify" || activation is not null;
             if (preparesMedia && mediaPackage is null)
                 throw new InvalidOperationException("Media preparation requires a joined legacy media plan.");
             var backup = await ReadLegacyImportBackupAsync(backupPath, backupDigest, ct);
@@ -86,6 +86,12 @@ internal static partial class Migration
                 var bytes = JsonSerializer.SerializeToUtf8Bytes(request, LegacyMediaPreparation.Json);
                 if (bytes.Length > LegacyMediaPreparation.MaxManifestBytes)
                     throw new InvalidOperationException("The private media preparation request exceeds its byte budget.");
+                if (activation is not null)
+                {
+                    await RunLegacyMediaActivationAsync(target, tx, plan, backupPath, mediaInput!, mediaPackage!, prepared!, activation, request, bytes, ct);
+                    await tx.CommitAsync(ct);
+                    return 0;
+                }
                 await tx.CommitAsync(ct);
                 if (prepared is not null)
                     await VerifyPreparedLegacyMediaAsync(prepared, request, bytes, ct);

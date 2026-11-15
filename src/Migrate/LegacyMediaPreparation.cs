@@ -54,8 +54,8 @@ internal static partial class Migration
             plan.Media.SourceSiteId, plan.TargetSiteId, assets, references.ToArray());
     }
 
-    private static async Task VerifyPreparedLegacyMediaAsync(PreparedLegacyMediaInput approved,
-        LegacyMediaPreparationRequest request, byte[] requestBytes, CancellationToken ct)
+    private static async Task<LegacyMediaPreparationResult> ReadPreparedLegacyMediaAsync(PreparedLegacyMediaInput approved,
+        LegacyMediaPreparationRequest request, byte[] requestBytes, CancellationToken ct, Action<byte[]>? readImage = null)
     {
         if (!IsSha256(approved.ManifestSha256) || !IsSha256(approved.NormalizerSha256))
             throw new ArgumentException("Supply the independently recorded prepared manifest and normalizer SHA-256 values.");
@@ -89,12 +89,20 @@ internal static partial class Migration
             if (inputFile.ReadByte() != -1 || Convert.ToHexStringLower(SHA256.HashData(encoded)) != output.NormalizedSha256 ||
                 !PublishedArticleImage.MatchesFormat(encoded, output.Format))
                 throw new InvalidOperationException("A prepared media payload differs from its sealed image metadata.");
+            readImage?.Invoke(encoded);
         }
         package.RequireExactFiles(request.Assets.Select(asset => asset.AssetId));
+        return result;
+    }
+
+    private static async Task VerifyPreparedLegacyMediaAsync(PreparedLegacyMediaInput approved,
+        LegacyMediaPreparationRequest request, byte[] requestBytes, CancellationToken ct)
+    {
+        var result = await ReadPreparedLegacyMediaAsync(approved, request, requestBytes, ct);
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             origin = LegacyMediaPreparation.ResultFormat,
-            requestSha256,
+            result.RequestSha256,
             preparedManifestSha256 = approved.ManifestSha256,
             normalizerSha256 = approved.NormalizerSha256,
             planSha256 = request.PlanSha256,

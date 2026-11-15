@@ -55,22 +55,36 @@ internal static partial class Migration
             prepared = new(package, digest, normalizerDigest);
             arguments = projection;
         }
-        if (arguments is [("project" or "verify" or "media-request" or "media-verify") and var projectionMode, var plan, var planDigest,
+        LegacyMediaActivationInput? activation = null;
+        if (arguments is [.. var activate, "--destination", var root, var site, var recovery, var recoveryDigest])
+        {
+            activation = new(root, ParseLegacySiteId(site), recovery, recoveryDigest, null, null);
+            arguments = activate;
+            if (arguments is [.. var approved, "--approval", var approval, var approvalDigest])
+            {
+                activation = activation with { Approval = approval, ApprovalSha256 = approvalDigest };
+                arguments = approved;
+            }
+        }
+        if (arguments is [("project" or "verify" or "media-request" or "media-verify" or "media-activation-plan" or "media-activate") and var projectionMode, var plan, var planDigest,
                 var backupDirectory, var backupDigest, .. var options])
         {
-            if ((projectionMode == "media-verify") != (prepared is not null))
-                throw new ArgumentException("Use --prepared PACKAGE SHA256 NORMALIZER_SHA256 with media-verify.");
-            if (projectionMode is "media-request" or "media-verify" && media is null)
-                throw new ArgumentException("Media preparation requires the joined --media PACKAGE SHA256.");
+            var activates = projectionMode is "media-activation-plan" or "media-activate";
+            if (activates != (activation is not null) || activates && (projectionMode == "media-activate") != (activation!.Approval is not null))
+                throw new ArgumentException("Supply the destination and, for media-activate, the approved activation plan.");
+            if ((projectionMode == "media-verify" || activates) != (prepared is not null))
+                throw new ArgumentException("Supply --prepared PACKAGE SHA256 NORMALIZER_SHA256 for prepared media verification or activation.");
+            if ((projectionMode is "media-request" or "media-verify" || activates) && media is null)
+                throw new ArgumentException("Use the joined --media PACKAGE SHA256.");
             var evaluation = options switch
             {
                 [] => (DateTimeOffset?)null,
                 ["--evaluate-schedules-at", var timestamp] => ParseLegacyScheduleEvaluation(timestamp),
                 _ => throw new ArgumentException("Use --evaluate-schedules-at with one UTC evaluation timestamp.")
             };
-            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, evaluation, media, prepared, token);
+            return await RunLegacyProjectionAsync(projectionMode, plan, planDigest, backupDirectory, backupDigest, evaluation, media, prepared, activation, token);
         }
-        if (prepared is not null || arguments.Length is < 5 or > 6 || arguments[0] is not ("plan" or "apply") ||
+        if (prepared is not null || activation is not null || arguments.Length is < 5 or > 6 || arguments[0] is not ("plan" or "apply") ||
             (arguments[0] == "apply") != (arguments.Length == 6))
             throw new ArgumentException("Use legacy import plan|apply with provider, owner map, backup directory, manifest digest, and apply plan.");
 
