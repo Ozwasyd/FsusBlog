@@ -78,4 +78,6 @@
 - 从 PostgreSQL 归档恢复后，v5 保全原第二修订的两个历史责任版本、两个无发布坐标的原事件，以及 18 条带原跳过原因和投递键的记录。篡改原因在暂存前被拒绝。恢复出的 Kestrel 仍公开第三修订，通过历史入口显示第二修订的责任版本 2。同一构建复验通过单条旧签名证明。默认和自定义站点作者的旧清单响应字节也在独立验证中保持一致。 [合并演练](../artifacts/legacy-null-release-history-f9fc6d7/merged-09fc9f8/) · [兼容性](../artifacts/legacy-null-release-history-f9fc6d7/native-suite-status-1.txt)
 - 同口径全仓为 208,737 NCLOC，超过原上限 191 行。更广的旧责任历史、整库证明迁移及公开验证、正式数据切换和容量仍需完成。 [规范化计量](../artifacts/legacy-null-release-history-f9fc6d7/merged-09fc9f8/code-volume.json)
 
+开发提交 `d3e3d91` 复用站点身份和发布的实库夹具，合并版 21 项通过。全仓计量为 208,687 NCLOC，仍超过原上限 141 行。 [合并版实库](../artifacts/native-identity-fixture-09fc9f8/merged/combined-native.log) · [规范化计量](../artifacts/native-identity-fixture-09fc9f8/code-volume.json)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。
