@@ -59,6 +59,10 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
 var pdfExport = FsusBlog.V2.Server.Authoring.PdfDocumentExport.Read(builder.Configuration);
+var pluginPreview = PluginPreviewEndpoints.Read(builder.Configuration, publicSite.Origin, dist,
+    builder.Configuration[MediaEndpoints.StorageSetting]);
+if (pluginPreview is not null)
+    template = template.Replace("</head>", PluginPreviewEndpoints.Marker + "</head>", StringComparison.Ordinal);
 var documentExportTasks = builder.Configuration.GetValue(DocumentExportEndpoints.Setting, false);
 if (documentExportTasks)
 {
@@ -146,6 +150,8 @@ builder.Services.AddRateLimiter(options =>
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     if (documentExportTasks)
         options.AddConcurrencyLimiter("document-export-download", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+    if (pluginPreview is not null)
+        options.AddConcurrencyLimiter(PluginPreviewEndpoints.RatePolicy, limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
     if (pdfExport is not null)
         options.AddConcurrencyLimiter(FsusBlog.V2.Server.Authoring.PdfDocumentExport.RatePolicy,
             limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
@@ -327,6 +333,7 @@ FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query, pdfExport);
 if (documentExportTasks) DocumentExportEndpoints.Map(app, Cookie, pdfExport, ReadFrame);
+pluginPreview?.Map(app, Cookie, Query);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
     lease.RootCommentPowPolicyInstalled);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);

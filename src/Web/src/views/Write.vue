@@ -17,6 +17,7 @@ import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
 import WorkspaceSourcePane from '../authoring/WorkspaceSourcePane.vue'
 import ArticleLibraryRail from '../authoring/ArticleLibraryRail.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
+import AuthorPluginPreview from '../authoring/AuthorPluginPreview.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
 import ArticleSchedule from '../authoring/ArticleSchedule.vue'
 import ArticleRights from '../authoring/ArticleRights.vue'
@@ -145,6 +146,9 @@ const credential = computed(() => currentSession.value?.siteSessionId)
 const canImportDraft = computed(() => !!credential.value && editable.value && canSwitch.value && !opening.value &&
   !pending.value && !recoveryBlocked.value && !hasConflict.value && !retry.value && tab.value?.risk === 'clean' &&
   original.value?.id === 0 && original.value.title === '' && original.value.body === '')
+const canPreviewPlugin = computed(() => !!credential.value && editable.value && canSwitch.value && !opening.value &&
+  !pending.value && !recoveryBlocked.value && !hasConflict.value && !retry.value && tab.value?.risk === 'clean' &&
+  original.value !== undefined && original.value.id > 0 && original.value.revision > 0n)
 const canChangeSummary = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
   !closingTabs.value && !pending.value && !recoveryBlocked.value && !hasConflict.value && !taxonomyDirty.value &&
   validBody.value && validTitle.value)
@@ -1301,6 +1305,8 @@ async function reloadDraft() {
           :disabled="pending || hasConflict" format="pdf" />
         <DocumentExportTasks :article="original.id" :revision="original.revision" :selected="original.revision"
           :active="inspectorReady && !revisionComparisonActive" :disabled="pending || hasConflict" />
+        <AuthorPluginPreview :article="original.id" :revision="original.revision"
+          :active="inspectorReady && !revisionComparisonActive" :disabled="!canPreviewPlugin" />
         <ArticleMedia :article-id="original.id" :revision="original.revision"
           :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"

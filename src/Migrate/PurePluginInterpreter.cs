@@ -116,5 +116,3 @@ internal static class PurePluginInterpreter
         })();
         """;
 }
-
-internal sealed record PurePluginRequest(string Id, string Source, string Markdown, int TimeoutMs);

@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
 using FsusBlog.V2.Core.Extensions;
 
 namespace FsusBlogV2.Migrate;
@@ -55,13 +54,8 @@ internal static class PlatformPluginCommand
             if (Environment.GetEnvironmentVariable("FSUSBLOG_PLATFORM_PLUGIN_ROOT") is not { } root || !Path.IsPathFullyQualified(root))
                 throw Deny("plugin-registry-required");
             var input = Utf8.GetString(await PluginWorkerCompletion.ReadAsync(Console.OpenStandardInput(), PureRenderPlugin.MaximumMarkdownBytes, ct));
-            if (input.Contains('\0')) throw Deny("plugin-markdown-input");
-            using var approval = PureRenderPlugin.Open(new(root), id, TimeProvider.System, ct);
-            var request = JsonSerializer.SerializeToUtf8Bytes(new PurePluginRequest(id, approval.JavaScript, input, approval.TimeoutMs));
-            var result = linux is null ? await RunIsolatedAsync(request, ct) : await linux.RunAsync(request, ct);
-            if (Utf8.GetString(result).Contains('\0')) throw Deny("plugin-worker-output");
-            approval.VerifyCompletion(ct);
-            await Console.OpenStandardOutput().WriteAsync(result, ct);
+            await PureRenderInvocation.RunAsync(new(root), id, input, linux is null ? RunIsolatedAsync : linux.RunAsync,
+                authorizeResult: null, (result, cancellation) => Console.OpenStandardOutput().WriteAsync(result, cancellation).AsTask(), ct);
             return 0;
         }
         catch (OperationCanceledException error) when (ct.IsCancellationRequested)

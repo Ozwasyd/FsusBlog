@@ -12,7 +12,7 @@
 
 工作进程回收完成后才可发布结果。若工作和回收均出错，标准错误第一行保留最先的工作错误，第二行为 `cleanup=plugin-worker-drain`。调用方取消时保持退出码 130，若回收也出错则同时报告 `plugin-cancelled` 与回收标记。单独的回收失败返回 `plugin-worker-drain`。这些失败均不输出 Markdown、系统路径或原始异常消息。
 
-使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlogV2.Migrate.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。在线 Hook 分发、站点前端接入、SQL 注册表、集群协调、Lua、可调用 IO broker 和生产插件隔离资格仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
+使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlogV2.Migrate.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。通用在线 Hook 分发、SQL 注册表、站点用户批准、集群协调、Lua 和可调用 IO broker 仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
 
 本机 macOS 使用 .NET SDK 10.0.404、Jint 4.13.0 和锁定的 Acornima 1.6.2 运行测试。原生进程测试覆盖签名转换、信任撤销、脚本环境无宿主句柄、执行与字节上限、登记文件并发变更时拒绝结果、锁争用、包篡改和 FIFO 拒绝。测试暂停本次调用的子进程，确认父进程超时终止并回收子进程。系统日志记录了子进程读取 `/private/etc/hosts` 被拒绝。 [验证日志](../../artifacts/offline-platform-plugin/native.log)
 
@@ -61,3 +61,11 @@ printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin rend
 宿主在工作进程启动前检查安装清单和经签名的包。临时 systemd 服务使用 128 MiB 内存、零交换、24 个任务和 100% 的单 CPU 配额。Bubblewrap 从专用只读目录启动 .NET，清空继承环境及额外描述符，隔离网络与 IPC，并加载第一个 seccomp 过滤器。工作进程再把禁止重新执行程序的过滤器同步到 CLR 线程，完成后回报就绪。宿主核对实际 cgroup 限额，只在就绪后传送输入。结果发布前核对进程组退出、已安装字节和包审批。管理器在启动客户端消失后仍实施独立的运行期限。 [内核系统调用过滤和线程同步](https://docs.kernel.org/userspace-api/seccomp_filter.html) · [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
 安装测试环境后，通过 `python3 tests/Integration/Migration/linux-managed-plugin-flow.py /absolute/FsusBlogV2.Migrate.dll` 复现签名工作流。Debian 13 ARM64 原生测试核对了 206 个安装文件。12 个用例覆盖实际转换、错签名、撤销、输入输出限制、在途批准变化、宿主期限及宿主被强制退出后的回收。测试安装和临时单元已清理。标准站点发行包仍由原发布脚本生成，Linux 工作进程另行部署。 [原生验证](../../artifacts/linux-plugin-managed/signed-guest-native.log) · [清理日志](../../artifacts/linux-plugin-managed/signed-guest-cleanup.log)
+
+## Linux ARM64 站点作者预览
+
+在相同的 Linux ARM64 部署中，可额外设置 `FSUSBLOG_AUTHOR_PLUGIN_PREVIEW_ID` 为批准包 ID，并配置站点的 `FSUSBLOG_PUBLIC_ORIGIN`。站点使用上面的 `FSUSBLOG_PLATFORM_PLUGIN_ROOT`、Linux 开关及安装摘要。运行站点的非 root 账号必须拥有私有批准目录和可用的 systemd 用户会话，安装目录仍由 root 持有。批准目录须独立于站点 Web 及私有媒体目录。该配置缺省时站点没有预览端点，也不会宣告预览功能。
+
+同源 HTTPS 的 `POST /api/v2/authoring/draft/{id}/plugin-preview.md?revision={revision}` 要求有效站点会话、`X-Fsus-Current-Session` 及当前未删除、未归档的所属文章修订。请求没有正文。服务只向工作进程发送修订中已保存的原始 Markdown，输入与输出各限 16 KiB UTF-8。全站最多运行一个预览，繁忙时返回 429；工作进程受原有 cgroup、命名空间、执行期限和回收约束。账号、会话和修订在工作进程退出后复核，批准锁保持到结果送出。批准文件撤回、包失效、工作进程不可用或站点停止时预览失败。
+
+成功响应是 `text/plain; charset=utf-8`，禁止缓存。调用端将返回的 Markdown 作为纯文本展示，避免私有预览触发外部资源加载。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
