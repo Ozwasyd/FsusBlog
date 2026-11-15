@@ -7,6 +7,7 @@ import { api, ApiError, ProtocolError } from '../../../Contracts/client'
 import { fetchPublicArticleMedia, type PublicArticleImage } from '../../../Contracts/published-media'
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
+import ArticlePublicationProof from '../components/ArticlePublicationProof.vue'
 import RelatedReading from '../components/RelatedReading.vue'
 
 const route = useRoute()
@@ -111,6 +112,8 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       </p>
       <p v-if="article.rights.rightsStatement">{{ article.rights.rightsStatement }}</p>
     </aside>
+    <ArticlePublicationProof v-if="article.rights?.enabled && article.rights.proofBindingEnabled"
+      :key="article.publication.toString()" :article="article" />
     <RelatedReading :article-id="article.id" :publication="article.publication" />
     <ArticleComments :key="article.id" :article-id="article.id" :publication="article.publication" />
   </article>

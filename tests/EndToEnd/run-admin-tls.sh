@@ -377,6 +377,23 @@ else
   permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE" revoke audit.read
 fi
 
+if [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
+  mkdir -m 700 "$scratch/publication-proof"
+  proof_key=$(cd -- "$scratch/publication-proof" && pwd -P)/fixture.pkcs8
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -pkeyopt ec_param_enc:named_curve |
+    openssl pkcs8 -topk8 -nocrypt -outform DER -out "$proof_key"
+  chmod 400 "$proof_key"
+  proof_spki=$(openssl pkey -inform DER -in "$proof_key" -pubout -outform DER | openssl base64 -A | tr '/+' '_-' | tr -d '=')
+  export IntegrityProof__Signing__NativeV2Enabled=true
+  export IntegrityProof__Signing__NativeV2PrivateKeyFile="$proof_key"
+  export IntegrityProof__Signing__CurrentKeyId=browser_fixture
+  export IntegrityProof__Signing__Keys__browser_fixture__PublicKey="$proof_spki"
+  export IntegrityProof__Signing__Keys__browser_fixture__Version=1
+  export IntegrityProof__Signing__Keys__browser_fixture__Algorithm=ECDSA_P256_SHA256
+  export IntegrityProof__Signing__Keys__browser_fixture__NotBeforeUtc=2020-01-01T00:00:00.000000Z
+  export IntegrityProof__Signing__Keys__browser_fixture__NotAfterUtc=2099-01-01T00:00:00.000000Z
+fi
+
 "$caddy" validate --config deploy/Caddyfile.admin --adapter caddyfile > "$evidence/caddy-validation.log" 2>&1
 "$dotnet" "$server" --urls "http://127.0.0.1:$upstream_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!
@@ -435,6 +452,8 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   done
 elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   node tests/EndToEnd/site-refresh-flow.mjs
+elif [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
+  node tests/EndToEnd/publication-proof-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
 fi

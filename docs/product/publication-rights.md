@@ -8,7 +8,7 @@
 
 此实现采用 v1 Rights V3 策略字段及固定记录布局。迁移验证与协议向量共用 `ArticleCanonicalHashesV1`。隔离候选只用保留的 v1 来源事实复算已有摘要，包括全局修订 ID、正数来源分类 ID、原始可空元数据和策略，以及经验证的历史发布时间或首发排期。两个冻结向量同时比对完整载荷和摘要。即时发布、带确切来源证据的再次发布及公开回滚、首发排期仍分别按迁移既有边界验证。 [共用规范](../../src/Contracts/ArticleCanonicalHashesV1.cs) · [冻结向量](../../tests/Protocol/fixtures/canonical-hash-golden-vectors.json)
 
-原生 v2 只有文章内修订号，没有 v1 权利哈希所需的全局修订 ID。其可选分类和由正文生成的摘要也不能代替来源元数据。原生发布的公开记录中规范哈希及证明字段仍为空。复制策略和 `ProofBindingEnabled` 按原样记录。公开 v2 签名单独提供。透明日志、责任历史包和浏览器复制增强仍待交付。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/rights-v3-schema.md)
+原生 v2 只有文章内修订号，没有 v1 权利哈希所需的全局修订 ID。其可选分类和由正文生成的摘要也不能代替来源元数据。原生发布的 ARD5 详情中预留的 v1 哈希和证明字段保持空值。复制策略和 `ProofBindingEnabled` 按原样记录。公开 v2 签名单独提供。透明日志、责任历史包和浏览器复制增强仍待交付。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/rights-v3-schema.md)
 
 ## 原生 v2 摘要与离线核验
 
@@ -25,3 +25,11 @@
 沿用 `IntegrityProof__Signing__CurrentKeyId` 及 `Keys` 公钥目录。每条记录提供正整数 `Version`、DER SPKI 的无填充 Base64URL `PublicKey`、`Algorithm=ECDSA_P256_SHA256` 和显式 UTC `NotBeforeUtc`、`NotAfterUtc`。当前私钥是同一公钥的 DER PKCS#8 文件，路径绝对、无符号链接，由服务 UID 持有，文件 `0400`，直接父目录 `0700`，远离前端目录、数据库和发布包。部署轮换使用新 ID，重启时保留旧 ID、公钥和时间窗口，只注入新私钥。`RevokedAtUtc` 排除该时刻及之后的签发，`CompromisedAtUtc` 排除该密钥的全部记录。旧键坐标和撤销状态在数据库保留，重启时拒绝换绑、删除或取消已记录的撤销。下载过的签名需用当前可信公钥和状态重新验证。
 
 `GET /integrity/v2/keys.json` 和 `GET /integrity/v2/article/{articleId}/{publicationId}/rights.json` 仅在配置的 HTTPS 公共来源提供，使用 `no-store`。第一个返回当前验证公钥和完整时间窗，第二个返回可独立重建的签名字段。可用 `node tools/verify-publication-proof.mjs HTTPS_ORIGIN KEYS_JSON PROOF_JSON` 核验由可信来源获取的响应。签名绑定原生正文、规则、发布与 outbox 坐标及实际签发时间。签名不覆盖外观、分发 feed、附件独立字节或透明日志。 [签名字节](../../src/Contracts/ArticlePublicationProofV2.cs) · [独立验证器](../../tools/verify-publication-proof.mjs)
+
+## 公开文章验签
+
+公开文章为启用证明绑定的已发布权利策略提供 **Verify publication**。读者点击后，浏览器独立从当前详情帧中的标题、原始 Markdown、分类及标签 ID 和权利策略复算两份摘要，按固定字节顺序重建签名载荷，并从本站 HTTPS 来源即时读取公钥和签名收据。验证检查公开坐标、权利快照、密钥指纹、签发时间范围和撤销状态。最后再次读取收据，检查文章与证明仍可公开取得。成功后短暂显示核验时间和 JSON 收据链接，页面离开、切换标签或三十秒后清除结果。打开文章本身不发送证明请求。无签名、签名未就绪或已撤回的坐标显示不可用。
+
+固定 v1 浏览器提供责任清单的公开链接和服务端材料状态。v2 文章页会对眼前这次发布执行本地签名比对。信任依据为当次同源公开密钥目录。部署中的 CDN 和 Service Worker 须直通 `/integrity/v2/`，避免重放旧的密钥状态和收据。历史责任清单、外部钥匙锚点及独立透明日志仍待交付。 [固定 v1 公开组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/article/ArticleResponsibilityDisclosure.vue#L68-L115)
+
+使用 `FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 可通过真实 Chrome、Caddy 和 PostgreSQL 核验签名、拒绝篡改的签名及已泄露的公钥状态、拒绝被替换或撤回文章的旧证明，并检查窄屏及切换标签时的状态清除。测试使用独立临时数据库、公钥和私钥。 [浏览器验收](../../tests/EndToEnd/publication-proof-flow.mjs)
