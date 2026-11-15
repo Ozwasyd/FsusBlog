@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -112,6 +113,35 @@ public sealed class PublicationHeadPostgresTests
             var signedCheckpoint = await Checkpoint(currentPath);
             Assert.True(signedCheckpoint.Code == 0, signedCheckpoint.Error);
             await VerifyCheckpoint(signedCheckpoint.Output, "first");
+            var priorDay = ((DateTime)(await Scalar("select min(issued_at) from public.article_publication_proof"))!).AddDays(-1)
+                .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var dailyCheckpoint = await Checkpoint(currentPath, day: priorDay);
+            Assert.True(dailyCheckpoint.Code == 0, dailyCheckpoint.Error);
+            var dayBundle = JsonNode.Parse(dailyCheckpoint.Output)!;
+            Assert.Equal("daily", dayBundle["checkpoint"]!["checkpointKind"]!.GetValue<string>());
+            Assert.Equal(0, dayBundle["checkpoint"]!["entryCount"]!.GetValue<int>());
+            Assert.Equal("0", dayBundle["checkpoint"]!["fromSequence"]!.GetValue<string>());
+            Assert.Equal("0", dayBundle["checkpoint"]!["toSequence"]!.GetValue<string>());
+            Assert.Null(dayBundle["inclusion"]);
+            var dayFile = Path.Combine(scratch.FullName, "daily-checkpoint.json");
+            await File.WriteAllTextAsync(dayFile, dailyCheckpoint.Output, ct);
+            await Run(new("node") { ArgumentList = { Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
+                Path.Combine(scratch.FullName, "head.json"), dayFile, "--daily", priorDay } });
+            var openDay = await Checkpoint(currentPath, day: attestedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            Assert.NotEqual(0, openDay.Code);
+            Assert.Empty(openDay.Output);
+            Assert.Contains("on or after the next UTC midnight", openDay.Error);
+            var emptyInclusion = await Checkpoint(currentPath, day: priorDay, include: "1");
+            Assert.NotEqual(0, emptyInclusion.Code);
+            Assert.Empty(emptyInclusion.Output);
+            Assert.Contains("cannot include a ledger entry", emptyInclusion.Error);
+            var originalIssue = (DateTime)(await Scalar("select issued_at from public.article_publication_proof where transparency_seq=2"))!;
+            await Scalar("update public.article_publication_proof set issued_at=issued_at+interval '1 second' where transparency_seq=2");
+            var tamperedDay = await Checkpoint(currentPath, day: priorDay);
+            Assert.NotEqual(0, tamperedDay.Code);
+            Assert.Empty(tamperedDay.Output);
+            Assert.Contains("does not connect to the independently retained native head", tamperedDay.Error);
+            await Scalar("update public.article_publication_proof set issued_at=$1 where transparency_seq=2", originalIssue);
             var wrongCurrentKey = await Checkpoint(currentPath, "next");
             Assert.NotEqual(0, wrongCurrentKey.Code);
             Assert.Contains("differs from the trusted registry's current key", wrongCurrentKey.Error);
@@ -291,18 +321,25 @@ public sealed class PublicationHeadPostgresTests
             return Run(options);
         }
 
-        Task<(int Code, string Output, string Error)> Checkpoint(string privateKey, string currentKeyId = "first")
+        Task<(int Code, string Output, string Error)> Checkpoint(string privateKey, string currentKeyId = "first",
+            string? day = null, string? include = null)
         {
             var options = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet")
             {
                 ArgumentList =
                 {
                     Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!,
-                    "publication-transparency", "checkpoint-release", Origin,
+                    "publication-transparency", day is null ? "checkpoint-release" : "checkpoint-daily", Origin,
                     Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"),
-                    "release-fixture.1", "1", "2", "2",
                 },
             };
+            if (day is null)
+                foreach (var argument in new[] { "release-fixture.1", "1", "2", "2" }) options.ArgumentList.Add(argument);
+            else
+            {
+                options.ArgumentList.Add(day);
+                if (include is not null) options.ArgumentList.Add(include);
+            }
             options.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
             options.Environment[Settings + "CurrentKeyId"] = currentKeyId;
             options.Environment[Settings + "NativeV2PrivateKeyFile"] = privateKey;

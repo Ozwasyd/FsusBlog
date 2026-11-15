@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FsusBlog.V2.Contracts;
 using FsusBlogV2.Storage;
 using FsusBlogV2.Migrate;
 using Npgsql;
@@ -54,6 +55,8 @@ internal static partial class Migration
                                         Install optional native public head storage with the server stopped
                   publication-transparency checkpoint-release HTTPS_ORIGIN KEYS_JSON HEAD_JSON RELEASE_ID FROM_SEQ TO_SEQ [INCLUDE_SEQ]
                                         Sign a release checkpoint from a pinned native log with the server stopped
+                  publication-transparency checkpoint-daily HTTPS_ORIGIN KEYS_JSON HEAD_JSON YYYY-MM-DD [INCLUDE_SEQ]
+                                        Sign a closed UTC day within the witnessed native log prefix
                   publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]
                                         Verify a local issuance ledger with a trusted public key manifest
                   admin-article-rollback schema
@@ -264,7 +267,10 @@ internal static partial class Migration
                     await InitializePublicationHeadAsync(connection, token);
                     break;
                 case ["publication-transparency", "checkpoint-release", .. var checkpointArgs]:
-                    await CreatePublicationReleaseCheckpointAsync(connection, checkpointArgs, token);
+                    await CreatePublicationCheckpointAsync(connection, checkpointArgs, PublicationCheckpointKind.Release, token);
+                    break;
+                case ["publication-transparency", "checkpoint-daily", .. var dailyCheckpointArgs]:
+                    await CreatePublicationCheckpointAsync(connection, dailyCheckpointArgs, PublicationCheckpointKind.Daily, token);
                     break;
                 case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
                     await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);

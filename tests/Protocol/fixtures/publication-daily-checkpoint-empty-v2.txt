@@ -1,0 +1,16 @@
+fsusblog.integrity.native-publication-daily-checkpoint.v2
+checkpointVersion:i:2
+kind:s:ZGFpbHk=
+algorithm:s:RUNEU0FfUDI1Nl9TSEEyNTY=
+origin:s:aHR0cHM6Ly9wcm9vZi5leGFtcGxlLnRlc3Q=
+scopeKey:s:MjAyNi0xMS0xNA==
+fromSequence:i:0
+toSequence:i:0
+entryCount:i:0
+rootSha256:h:3d0959f57c8020c30b6386278aed45cf3a56a37bd08b54f4f89f1bba59827cda
+headSequence:i:6
+headEntrySha256:h:6666666666666666666666666666666666666666666666666666666666666666
+keyId:s:cm90YXRlLTE=
+keyVersion:i:7
+keySha256:h:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a
+attestedAt:t:2026-11-15T08:10:00.000002Z

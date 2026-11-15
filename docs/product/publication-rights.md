@@ -60,4 +60,12 @@
 
 检查点使用停机服务中 `IntegrityProof__Signing__CurrentKeyId` 指定的有效密钥签名。该 ID 必须与可信目录的当前密钥相符。工具核对持久密钥指纹、发行窗口、退役和泄露状态，并从 `IntegrityProof__Signing__NativeV2PrivateKeyFile` 所指文件读取匹配的 DER PKCS#8 私钥。私钥文件需要放在公开服务目录之外，由执行用户持有且权限为 `0400`，直接上级目录为 `0700`。检查点使用 PostgreSQL 当前 UTC 时间。正常退役之前签发的旧日志头仍可作为锚点，任何已知泄露使受影响的签名失效。
 
-树叶绑定序号和该次签发的不透明账本摘要，节点按序组合，奇数末项与自身配对。可选成员证明只返回所选序号、叶摘要和相邻摘要路径。使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON RELEASE_ID [SEQ ENTRY_SHA256]` 核验两个签名、预期发布标签、区间和路径。证明选中已见证的日志头序号时，工具自动核对叶摘要与该头的一致性。其他序号可提供独立保存的账本摘要。离线签发命令会重算私有账本的连续链。独立验证器核验签名者对树根与日志头关系的承诺，以及所提供的成员路径。文章当前可见性由公开文章证明独立确认。每日检查点写入、公开检查点／成员证明、历史责任清单和独立时间见证仍待交付。 [独立检查点验证器](../../tools/verify-publication-checkpoint.mjs)
+树叶绑定序号和该次签发的不透明账本摘要，节点按序组合，奇数末项与自身配对。可选成员证明只返回所选序号、叶摘要和相邻摘要路径。使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON RELEASE_ID [SEQ ENTRY_SHA256]` 核验两个签名、预期发布标签、区间和路径。证明选中已见证的日志头序号时，工具自动核对叶摘要与该头的一致性。其他序号可提供独立保存的账本摘要。离线签发命令会重算私有账本的连续链。独立验证器核验签名者对树根与日志头关系的承诺，以及所提供的成员路径。文章当前可见性由公开文章证明独立确认。 [独立检查点验证器](../../tools/verify-publication-checkpoint.mjs)
+
+## 离线 UTC 日检查点
+
+同样在服务停止后，用 `publication-transparency checkpoint-daily HTTPS_ORIGIN KEYS_JSON HEAD_JSON YYYY-MM-DD [INCLUDE_SEQ]` 签发指定 UTC 日的本地检查点。提供的原始签名日志头必须签发于次日 UTC 零点或之后。工具在只读快照内验算从序号 1 到该头的全部链和原始签名收据载荷，并按收据中的原始签发时间选出该日 `[00:00, 次日 00:00)` 的条目。这个完整前缀最多 16,384 条，单日最多 4,096 条。超限、缺行、摘要不一致或所选成员不在该日时，命令失败且不输出检查点。
+
+时钟回拨可能使同日条目在日志中不连续。日树按原始序号排列并保留间隔。可选成员证明只包含原始序号、在日树中的位置、不透明账本摘要和相邻摘要路径。若已认证前缀内该日没有条目，工具签发零计数和固定空树摘要。缺失结论仅覆盖该签名头所承诺的前缀，之后追加的条目仍可能带有该日时间戳。
+
+使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON --daily YYYY-MM-DD [SEQ ENTRY_SHA256]` 独立核验日志头、日检查点签名及所给成员路径。日检查点使用独立签名域。验证器核对签名者对前缀覆盖范围的声明，私有账本重算由停机命令执行。成员关系只证明原收据已纳入账本，原收据签名的可信状态另由 `publication-transparency verify` 核验。目前只有离线人工签发。自动每日签发、公开检查点或成员证明、历史责任清单及独立时间见证仍待交付。 [规范代码](../../src/Contracts/PublicationCheckpointV2.cs)

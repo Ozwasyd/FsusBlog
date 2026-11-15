@@ -76,9 +76,7 @@ internal static partial class Migration
                 while (await rows.ReadAsync(ct))
                 {
                     sequence = checked(sequence + 1);
-                    var claim = new ArticlePublicationProofV2(rows.GetString(4), rows.GetInt32(5), rows.GetInt64(6), rows.GetInt64(7), rows.GetInt32(8),
-                        rows.GetDateTime(9), rows.GetInt64(10), rows.GetInt64(11), rows.GetFieldValue<byte[]>(12), rows.GetFieldValue<byte[]>(13),
-                        rows.GetString(14), rows.GetInt32(15), rows.GetFieldValue<byte[]>(16), rows.GetDateTime(17));
+                    var claim = ReadNativeLedgerClaim(rows);
                     if (rows.GetInt64(0) != sequence || !head.AsSpan().SequenceEqual(rows.GetFieldValue<byte[]>(1)) ||
                         claim.Origin != origin || !rows.GetBoolean(23))
                         throw InvalidTransparencyEntry(sequence);
@@ -133,6 +131,11 @@ internal static partial class Migration
 
     private static InvalidOperationException InvalidTransparencyEntry(long sequence) =>
         new($"Native publication transparency chain failed at sequence {sequence}.");
+
+    private static ArticlePublicationProofV2 ReadNativeLedgerClaim(NpgsqlDataReader row) =>
+        new(row.GetString(4), row.GetInt32(5), row.GetInt64(6), row.GetInt64(7), row.GetInt32(8),
+            row.GetDateTime(9), row.GetInt64(10), row.GetInt64(11), row.GetFieldValue<byte[]>(12), row.GetFieldValue<byte[]>(13),
+            row.GetString(14), row.GetInt32(15), row.GetFieldValue<byte[]>(16), row.GetDateTime(17));
 
     private static async Task<(string Current, Dictionary<string, TransparencyAuditKey> Keys)> ReadTransparencyKeysAsync(string path,
         CancellationToken ct)

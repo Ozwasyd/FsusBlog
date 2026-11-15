@@ -8,17 +8,26 @@ using Npgsql;
 
 internal static partial class Migration
 {
-    private static async Task CreatePublicationReleaseCheckpointAsync(NpgsqlConnection db, string[] args, CancellationToken ct)
+    private static async Task CreatePublicationCheckpointAsync(NpgsqlConnection db, string[] args, PublicationCheckpointKind kind,
+        CancellationToken ct)
     {
-        if (args.Length is < 6 or > 7 || !PublicationCheckpointV2.ValidScope(args[3]))
-            throw new ArgumentException("Supply the trusted origin, keys, signed head, release ID, and an explicit nonempty sequence range.");
+        var daily = kind == PublicationCheckpointKind.Daily;
+        var required = daily ? 4 : 6;
+        if (args.Length < required || args.Length > required + 1)
+            throw new ArgumentException("Supply the origin, trusted keys and signed head, then the checkpoint scope. Run --help for usage.");
+        var day = default(DateOnly);
+        if (daily ? !PublicationCheckpointV2.TryDay(args[3], out day) : !PublicationCheckpointV2.ValidScope(args[3]))
+            throw new ArgumentException("Invalid native checkpoint scope.");
         var head = await ReadPublicationCheckpointHead(args[2], args[0], ct);
-        var from = CheckpointSequence(args[4]);
-        var to = CheckpointSequence(args[5]);
-        long? inclusion = args.Length == 7 ? CheckpointSequence(args[6]) : null;
-        if (from > to || to > head.Claim.Sequence || to - from >= PublicationCheckpointV2.MaxLeaves ||
+        var from = daily ? 0 : CheckpointSequence(args[4]);
+        var to = daily ? 0 : CheckpointSequence(args[5]);
+        long? inclusion = args.Length == required + 1 ? CheckpointSequence(args[required]) : null;
+        var midnight = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        if (daily && (head.Claim.Sequence > PublicationCheckpointV2.MaxPrefixEntries || head.Claim.AttestedAt < midnight.AddDays(1)))
+            throw new ArgumentException("The native daily checkpoint requires the full bounded prefix and a head from on or after the next UTC midnight.");
+        if (!daily && (from > to || to > head.Claim.Sequence || to - from >= PublicationCheckpointV2.MaxLeaves ||
             head.Claim.Sequence - from >= PublicationCheckpointV2.MaxPrefixEntries ||
-            (inclusion.HasValue && (inclusion.Value < from || inclusion.Value > to)))
+            (inclusion.HasValue && (inclusion.Value < from || inclusion.Value > to))))
             throw new ArgumentException("The checkpoint or inclusion range exceeds the pinned native prefix limits.");
 
         var (current, keys) = await ReadTransparencyKeysAsync(args[1], ct);
@@ -38,8 +47,12 @@ internal static partial class Migration
                     DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
                 throw new InvalidOperationException("The independently retained native head signature is invalid.");
 
-            var entries = await ReadCheckpointRange(db, tx, from, to, head.Claim, ct);
-            var checkpoint = PublicationCheckpointTreeV2.Build(from, entries, inclusion);
+            var entries = daily ? await ReadDailyCheckpointEntries(db, tx, midnight, head.Claim, ct) :
+                await ReadCheckpointRange(db, tx, from, to, head.Claim, ct);
+            if (entries.Count == 0 && inclusion.HasValue)
+                throw new ArgumentException("An empty native daily checkpoint cannot include a ledger entry.");
+            var checkpoint = entries.Count == 0 ? (RootSha256: PublicationCheckpointTreeV2.EmptyDailyRoot(), Inclusion: (PublicationCheckpointWitness?)null) :
+                PublicationCheckpointTreeV2.Build(entries, inclusion);
             await using var clock = new NpgsqlCommand("select clock_timestamp()", db, tx);
             if (await clock.ExecuteScalarAsync(ct) is not DateTime issued || issued < head.Claim.AttestedAt)
                 throw new InvalidOperationException("The native checkpoint clock precedes its witnessed head.");
@@ -47,15 +60,16 @@ internal static partial class Migration
             using var key = NativePublicationSigningKey.Open(
                 Environment.GetEnvironmentVariable("IntegrityProof__Signing__NativeV2PrivateKeyFile"),
                 signer.PublicKey.ExportSubjectPublicKeyInfo());
-            var claim = new PublicationCheckpointV2(args[0], args[3], from, to, entries.Count, checkpoint.RootSha256, head.Claim.Sequence,
-                head.Claim.EntrySha256, current, signer.Version, signer.Fingerprint, issued);
+            var claim = new PublicationCheckpointV2(args[0], args[3], entries.Count == 0 ? 0 : entries[0].Sequence,
+                entries.Count == 0 ? 0 : entries[^1].Sequence, entries.Count, checkpoint.RootSha256, head.Claim.Sequence,
+                head.Claim.EntrySha256, current, signer.Version, signer.Fingerprint, issued, kind);
             var signature = key.SignData(claim.Payload(), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
             await tx.CommitAsync(ct);
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 checkpoint = new
                 {
-                    checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = "release",
+                    checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = daily ? "daily" : "release",
                     algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin = claim.Origin, scopeKey = claim.ScopeKey,
                     fromSequence = DecimalSequence(claim.FromSequence), toSequence = DecimalSequence(claim.ToSequence),
                     entryCount = claim.EntryCount, rootSha256 = Convert.ToHexStringLower(claim.RootSha256),
@@ -63,17 +77,22 @@ internal static partial class Migration
                     keyId = claim.KeyId, keyVersion = claim.KeyVersion, keySha256 = Convert.ToHexStringLower(claim.KeySha256),
                     attestedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.AttestedAt), signature = CanonicalBase64Url(signature),
                 },
-                inclusion = checkpoint.Inclusion is { } witness ? new
-                {
-                    sequence = DecimalSequence(witness.Sequence), leafSha256 = Convert.ToHexStringLower(witness.LeafSha256),
-                    siblings = witness.Siblings.Select(Convert.ToHexStringLower).ToArray(),
-                } : null,
+                inclusion = EncodeCheckpointInclusion(checkpoint.Inclusion, daily),
             }));
         }
         finally
         {
             foreach (var key in keys.Values) key.PublicKey.Dispose();
         }
+    }
+
+    private static object? EncodeCheckpointInclusion(PublicationCheckpointWitness? witness, bool daily)
+    {
+        if (witness is null) return null;
+        var sequence = DecimalSequence(witness.Sequence);
+        var siblings = witness.Siblings.Select(Convert.ToHexStringLower).ToArray();
+        return daily ? new { sequence, position = witness.Position, entrySha256 = Convert.ToHexStringLower(witness.Entry.EntrySha256), siblings } :
+            new { sequence, leafSha256 = Convert.ToHexStringLower(witness.LeafSha256), siblings };
     }
 
     private static async Task<(PublicationTransparencyHeadV2 Claim, byte[] Signature)> ReadPublicationCheckpointHead(string path,
@@ -131,7 +150,7 @@ internal static partial class Migration
     private static InvalidOperationException UntrustedCheckpointKey() =>
         new("A native checkpoint or head signing key is ineligible at its attested time.");
 
-    private static async Task<List<byte[]>> ReadCheckpointRange(NpgsqlConnection db, NpgsqlTransaction tx, long from, long to,
+    private static async Task<List<PublicationCheckpointEntry>> ReadCheckpointRange(NpgsqlConnection db, NpgsqlTransaction tx, long from, long to,
         PublicationTransparencyHeadV2 head, CancellationToken ct)
     {
         await using var query = new NpgsqlCommand("""
@@ -141,7 +160,7 @@ internal static partial class Migration
         query.Parameters.AddWithValue(from);
         query.Parameters.AddWithValue(head.Sequence);
         await using var row = await query.ExecuteReaderAsync(ct);
-        var selected = new List<byte[]>((int)(to - from + 1));
+        var selected = new List<PublicationCheckpointEntry>((int)(to - from + 1));
         var sequence = from - 1;
         byte[]? previous = from == 1 ? new byte[32] : null;
         while (await row.ReadAsync(ct))
@@ -151,7 +170,7 @@ internal static partial class Migration
             if (previous is not null && !previous.AsSpan().SequenceEqual(predecessor)) throw BadCheckpointPrefix();
             var value = PublicationTransparencyV2.EntryDigest(sequence, predecessor, row.GetFieldValue<byte[]>(2));
             if (!value.AsSpan().SequenceEqual(row.GetFieldValue<byte[]>(3))) throw BadCheckpointPrefix();
-            if (sequence <= to) selected.Add(value);
+            if (sequence <= to) selected.Add(new(sequence, value));
             previous = value;
         }
         if (sequence != head.Sequence || previous is null || !previous.AsSpan().SequenceEqual(head.EntrySha256))

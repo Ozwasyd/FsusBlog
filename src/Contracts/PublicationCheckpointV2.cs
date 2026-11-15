@@ -6,24 +6,25 @@ using System.Text;
 namespace FsusBlog.V2.Contracts;
 
 public sealed record PublicationCheckpointV2(string Origin, string ScopeKey, long FromSequence, long ToSequence, int EntryCount,
-    byte[] RootSha256, long HeadSequence, byte[] HeadEntrySha256, string KeyId, int KeyVersion, byte[] KeySha256, DateTimeOffset AttestedAt)
+    byte[] RootSha256, long HeadSequence, byte[] HeadEntrySha256, string KeyId, int KeyVersion, byte[] KeySha256, DateTimeOffset AttestedAt,
+    PublicationCheckpointKind Kind = PublicationCheckpointKind.Release)
 {
     public const int MaxLeaves = 4096;
     public const int MaxPrefixEntries = 16384;
     public const string Domain = "fsusblog.integrity.native-publication-release-checkpoint.v2";
+    public const string DailyDomain = "fsusblog.integrity.native-publication-daily-checkpoint.v2";
 
     public byte[] Payload()
     {
         if (Origin.Length > 256 || !Uri.TryCreate(Origin, UriKind.Absolute, out var site) || site.Scheme != Uri.UriSchemeHttps ||
-            site.GetLeftPart(UriPartial.Authority) != Origin || site.UserInfo.Length != 0 || !ValidScope(ScopeKey) ||
-            FromSequence <= 0 || FromSequence > ToSequence || ToSequence > HeadSequence ||
-            EntryCount is < 1 or > MaxLeaves || ToSequence - FromSequence != EntryCount - 1 ||
-            HeadSequence - FromSequence >= MaxPrefixEntries ||
+            site.GetLeftPart(UriPartial.Authority) != Origin || site.UserInfo.Length != 0 || !ValidRange() ||
             RootSha256.Length != 32 || HeadEntrySha256.Length != 32 || KeySha256.Length != 32 ||
             KeyVersion <= 0 || !ArticlePublicationProofPayloadV2.ValidKeyId(KeyId))
-            throw new ArgumentException("Invalid native release checkpoint facts.");
+            throw new ArgumentException("Invalid native checkpoint facts.");
 
-        return Encoding.UTF8.GetBytes(string.Join('\n', Domain, "checkpointVersion:i:2", Text("kind", "release"),
+        var kind = Kind == PublicationCheckpointKind.Daily ? "daily" : "release";
+        return Encoding.UTF8.GetBytes(string.Join('\n', Kind == PublicationCheckpointKind.Daily ? DailyDomain : Domain,
+            "checkpointVersion:i:2", Text("kind", kind),
             Text("algorithm", ArticlePublicationProofPayloadV2.Algorithm), Text("origin", Origin), Text("scopeKey", ScopeKey),
             Integer("fromSequence", FromSequence), Integer("toSequence", ToSequence), Integer("entryCount", EntryCount),
             Hash("rootSha256", RootSha256), Integer("headSequence", HeadSequence), Hash("headEntrySha256", HeadEntrySha256),
@@ -31,15 +32,42 @@ public sealed record PublicationCheckpointV2(string Origin, string ScopeKey, lon
             "attestedAt:t:" + ArticlePublicationProofPayloadV2.Time(AttestedAt), ""));
     }
 
+    private bool ValidRange()
+    {
+        if (HeadSequence <= 0 || EntryCount is < 0 or > MaxLeaves) return false;
+        var nonempty = EntryCount > 0 && FromSequence > 0 && FromSequence <= ToSequence && ToSequence <= HeadSequence;
+        return Kind switch
+        {
+            PublicationCheckpointKind.Release => ValidScope(ScopeKey) && nonempty &&
+                ToSequence - FromSequence == EntryCount - 1 && HeadSequence - FromSequence < MaxPrefixEntries,
+            PublicationCheckpointKind.Daily => TryDay(ScopeKey, out _) && HeadSequence <= MaxPrefixEntries &&
+                (EntryCount == 0
+                    ? FromSequence == 0 && ToSequence == 0 && RootSha256.AsSpan().SequenceEqual(PublicationCheckpointTreeV2.EmptyDailyRoot())
+                    : nonempty && (EntryCount == 1 ? FromSequence == ToSequence : ToSequence - FromSequence >= EntryCount - 1)),
+            _ => false,
+        };
+    }
+
     public static bool ValidScope(string value) => value.Length is >= 1 and <= 64 &&
         char.IsAsciiLetterOrDigit(value[0]) && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.');
+
+    public static bool TryDay(string value, out DateOnly day) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out day) &&
+        day != DateOnly.MaxValue && value == day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static string Integer(string field, long value) => field + ":i:" + value.ToString(CultureInfo.InvariantCulture);
     private static string Hash(string field, byte[] value) => field + ":h:" + Convert.ToHexStringLower(value);
     private static string Text(string field, string value) => field + ":s:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
 }
 
-public sealed record PublicationCheckpointWitness(long Sequence, byte[] LeafSha256, IReadOnlyList<byte[]> Siblings);
+public enum PublicationCheckpointKind { Release, Daily }
+
+public sealed record PublicationCheckpointEntry(long Sequence, byte[] EntrySha256);
+public sealed record PublicationCheckpointWitness(PublicationCheckpointEntry Entry, int Position, byte[] LeafSha256,
+    IReadOnlyList<byte[]> Siblings)
+{
+    public long Sequence => Entry.Sequence;
+}
 
 public static class PublicationCheckpointTreeV2
 {
@@ -47,16 +75,31 @@ public static class PublicationCheckpointTreeV2
         long fromSequence, IReadOnlyList<byte[]> entryHashes, long? inclusionSequence)
     {
         if (fromSequence <= 0 || entryHashes.Count is < 1 or > PublicationCheckpointV2.MaxLeaves ||
-            fromSequence > long.MaxValue - (entryHashes.Count - 1) ||
-            (inclusionSequence.HasValue && (inclusionSequence.Value < fromSequence ||
-                inclusionSequence.Value - fromSequence >= entryHashes.Count)))
-            throw new ArgumentException("Invalid native checkpoint range or inclusion sequence.");
+            fromSequence > long.MaxValue - (entryHashes.Count - 1))
+            throw new ArgumentException("Invalid native checkpoint range.");
+        return Build(entryHashes.Select((hash, index) => new PublicationCheckpointEntry(fromSequence + index, hash)).ToArray(), inclusionSequence);
+    }
 
-        var level = new byte[entryHashes.Count][];
-        for (var index = 0; index < level.Length; index++)
-            level[index] = Leaf(fromSequence + index, entryHashes[index]);
-        var position = inclusionSequence.HasValue ? (int)(inclusionSequence.Value - fromSequence) : -1;
-        var leaf = position >= 0 ? level[position] : null;
+    public static (byte[] RootSha256, PublicationCheckpointWitness? Inclusion) Build(
+        IReadOnlyList<PublicationCheckpointEntry> entries, long? inclusionSequence)
+    {
+        if (entries.Count is < 1 or > PublicationCheckpointV2.MaxLeaves)
+            throw new ArgumentException("Invalid native checkpoint range.");
+        var level = new byte[entries.Count][];
+        long previous = 0;
+        var selection = -1;
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var entry = entries[index];
+            if (entry.Sequence <= previous) throw new ArgumentException("Native checkpoint entries must be in increasing sequence order.");
+            level[index] = Leaf(entry.Sequence, entry.EntrySha256);
+            if (entry.Sequence == inclusionSequence) selection = index;
+            previous = entry.Sequence;
+        }
+        if (inclusionSequence.HasValue && selection < 0)
+            throw new ArgumentException("The inclusion sequence is outside the native checkpoint's selected entries.");
+        var position = selection;
+        var leaf = selection >= 0 ? level[selection] : null;
         var siblings = new List<byte[]>();
         while (level.Length > 1)
         {
@@ -70,8 +113,10 @@ public static class PublicationCheckpointTreeV2
                 parents[index / 2] = Node(level[index], level[Math.Min(index + 1, level.Length - 1)]);
             level = parents;
         }
-        return (level[0], leaf is null ? null : new(inclusionSequence!.Value, leaf, siblings));
+        return (level[0], leaf is null ? null : new(entries[selection], selection, leaf, siblings));
     }
+
+    public static byte[] EmptyDailyRoot() => SHA256.HashData("fsusblog.integrity.native-publication-daily-empty.v2\0"u8);
 
     private static byte[] Leaf(long sequence, ReadOnlySpan<byte> value)
     {
