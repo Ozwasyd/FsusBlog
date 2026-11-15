@@ -1,6 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request } from './client.ts'
+import { request, siteSessionHeader } from './client.ts'
 import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts'
 
 export type CanvasGeometry = { x: number; y: number; width: number; height: number }
@@ -407,16 +407,17 @@ export const canvasGraph = {
       return history
     }, signal)
   },
-  resolve(id: string, nodeId: string, revision: bigint, signal?: AbortSignal): Promise<CanvasReferenceResolution> {
+  resolve(id: string, nodeId: string, revision: bigint, signal?: AbortSignal, currentSession?: string): Promise<CanvasReferenceResolution> {
     const canvas = identity(id)
     const node = identity(nodeId)
     check(revision > 0n && BigInt.asIntN(64, revision) === revision, 'reference revision')
     const path = WireRoutes.CanvasReference.replace('{id:guid}', canvas).replace('{nodeId:guid}', node)
-    return request(`${path}?revision=${revision}`, FrameType.CanvasReferenceResolution, payload => {
+    const current = currentSession === undefined ? '' : '&current=1'
+    return request(`${path}?revision=${revision}${current}`, FrameType.CanvasReferenceResolution, payload => {
       const resolution = decodeCanvasReferenceResolution(payload)
       check(resolution.canvasId === canvas && resolution.nodeId === node && resolution.canvasRevision === revision, 'reference response coordinates')
       return resolution
-    }, signal)
+    }, signal, 'GET', undefined, siteSessionHeader(currentSession))
   },
   write(command: CanvasGraphCommand, signal?: AbortSignal): Promise<CanvasGraphHeader> {
     const body = encodeFrame(FrameType.CanvasGraphCommand, encodeCanvasGraphCommand(command))

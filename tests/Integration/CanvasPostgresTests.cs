@@ -6,6 +6,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Authoring;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -238,9 +239,14 @@ public sealed class CanvasPostgresTests
         await using var test = await Fixture.Open();
         var owner = await test.Author("Canvas resolver owner");
         var outsider = await test.Author("Canvas resolver outsider");
+        var otherBrowser = await test.SignIn(owner.User.Id);
+        var ownerSession = SiteSessions.Id(owner.User.Id, Store.TokenDigest(owner.Token)!);
+        var otherSession = SiteSessions.Id(owner.User.Id, Store.TokenDigest(otherBrowser.Token)!);
+        var outsiderSession = SiteSessions.Id(outsider.User.Id, Store.TokenDigest(outsider.Token)!);
         var foreign = await test.Save(outsider.Token, "Sensitive foreign title", "Sensitive foreign source");
         const string initialBody = "Utility 🐈\r\n\r\n# Pinned heading ^overview\r\n\r\nPinned paragraph ^detail";
         var initial = await test.Save(owner.Token, "Old private title", initialBody);
+        var crlfSource = await test.Save(owner.Token, "Current source with CRLF", initialBody);
         var current = await test.Save(owner.Token, "New private title", "# Latest heading ^overview\n\n" +
             "First instance ^ambiguous\n\nSecond instance ^ambiguous\n\n" +
             "```markdown\n# Looks like a heading ^hidden\n```", initial.Id, initial.Revision);
@@ -248,7 +254,10 @@ public sealed class CanvasPostgresTests
         Guid canvas = Guid.NewGuid();
         Guid heading = Guid.NewGuid();
         Guid pin = Guid.NewGuid();
+        Guid currentPin = Guid.NewGuid();
         Guid article = Guid.NewGuid();
+        Guid crlfBlock = Guid.NewGuid();
+        Guid crlfArticle = Guid.NewGuid();
         Guid ambiguous = Guid.NewGuid();
         Guid hidden = Guid.NewGuid();
         Guid mismatchedKind = Guid.NewGuid();
@@ -257,7 +266,10 @@ public sealed class CanvasPostgresTests
         [
             Node(heading, 1, current.Id, "overview", null),
             Node(pin, 2, current.Id, "detail", initial.Revision),
+            Node(currentPin, 1, current.Id, "overview", current.Revision),
             Node(article, 0, current.Id, null, null),
+            Node(crlfBlock, 2, crlfSource.Id, "detail", null),
+            Node(crlfArticle, 0, crlfSource.Id, null, null),
             Node(ambiguous, 2, current.Id, "ambiguous", null),
             Node(hidden, 1, current.Id, "hidden", null),
             Node(mismatchedKind, 1, current.Id, "detail", initial.Revision),
@@ -271,14 +283,21 @@ public sealed class CanvasPostgresTests
         var live = await Resolve(heading);
         Assert.Equal((CanvasReferenceState.Resolved, "New private title", current.Id, current.Revision, false, "Latest heading", 17),
             (live.State, live.Title, live.ArticleId, live.ArticleRevision, live.Pinned, live.Excerpt, live.SourceOffset));
+        Assert.Equal(live, await Resolve(heading, requireCurrent: true));
+        Assert.Equal(live with { NodeId = currentPin, Pinned = true }, await Resolve(currentPin, requireCurrent: true));
         var historical = await Resolve(pin);
         Assert.Equal((CanvasReferenceState.Resolved, "Old private title", current.Id, initial.Revision, true, "Pinned paragraph", initialBody.IndexOf("^detail", StringComparison.Ordinal)),
             (historical.State, historical.Title, historical.ArticleId, historical.ArticleRevision, historical.Pinned, historical.Excerpt, historical.SourceOffset));
+        Assert.Equal(Stale(pin), await Resolve(pin, requireCurrent: true));
         var metadata = await Resolve(article);
         Assert.Equal((CanvasReferenceState.Resolved, "New private title", current.Revision),
             (metadata.State, metadata.Title, metadata.ArticleRevision));
         Assert.Null(metadata.Excerpt);
         Assert.Null(metadata.SourceOffset);
+        Assert.Equal(metadata, await Resolve(article, requireCurrent: true));
+        Assert.Equal(initialBody.IndexOf("^detail", StringComparison.Ordinal), (await Resolve(crlfBlock)).SourceOffset);
+        Assert.Equal(Stale(crlfBlock), await Resolve(crlfBlock, requireCurrent: true));
+        Assert.Equal(crlfSource.Revision, (await Resolve(crlfArticle, requireCurrent: true)).ArticleRevision);
         foreach (var (node, expected) in new[] {
             (ambiguous, CanvasReferenceState.DuplicateAnchor), (hidden, CanvasReferenceState.MissingAnchor),
             (mismatchedKind, CanvasReferenceState.MissingAnchor)
@@ -292,31 +311,46 @@ public sealed class CanvasPostgresTests
 
         // Exercise the endpoint's regression boundary for a corrupted or migrated old reference.
         await test.Mutate("update public.canvas_node set article_id=$3 where canvas_id=$1 and id=$2", canvas, wrong, foreign.Id);
-        Assert.Equal(new(canvas, wrong, 1, CanvasReferenceState.Unavailable, null, null, false, null, null, null), await Resolve(wrong));
+        var unavailable = new CanvasReferenceResolution(canvas, wrong, 1, CanvasReferenceState.Unavailable, null, null, false, null, null, null);
+        Assert.Equal(unavailable, await Resolve(wrong));
+        Assert.Equal(unavailable, await Resolve(wrong, requireCurrent: true));
         await Request(HttpMethod.Get, Route(heading, 1), outsider.Token, HttpStatusCode.NotFound);
         await Request(HttpMethod.Get, Route(heading, 1), null, HttpStatusCode.Unauthorized);
         await Request(HttpMethod.Get, Route(heading, 3), owner.Token, HttpStatusCode.Conflict);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), outsider.Token, HttpStatusCode.NotFound, sessions: [outsiderSession]);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), null, HttpStatusCode.Unauthorized, sessions: [ownerSession]);
+        await Request(HttpMethod.Get, Route(heading, 3, "&current=1"), owner.Token, HttpStatusCode.Conflict, sessions: [ownerSession]);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), owner.Token, HttpStatusCode.Conflict);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), owner.Token, HttpStatusCode.Conflict, sessions: [otherSession]);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), owner.Token, HttpStatusCode.Conflict, sessions: [ownerSession, ownerSession]);
+        foreach (var malformed in new[] { "&current", "&current=", "&current=0", "&current=true", "&current=01", "&current=1&current=1" })
+            await Request(HttpMethod.Get, Route(heading, 1, malformed), owner.Token, HttpStatusCode.BadRequest, sessions: [ownerSession]);
 
         var noWriteCount = await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", canvas);
         Assert.Equal(1L, noWriteCount);
         var bodyEdit = await test.Save(owner.Token, "Another private title", "# Latest changed ^overview", current.Id, current.Revision);
-        Assert.Equal(bodyEdit.Revision, (await Resolve(heading)).ArticleRevision);
+        Assert.Equal(bodyEdit.Revision, (await Resolve(heading, requireCurrent: true)).ArticleRevision);
         Assert.Equal(initial.Revision, (await Resolve(pin)).ArticleRevision);
+        Assert.Equal(current.Revision, (await Resolve(currentPin)).ArticleRevision);
+        Assert.Equal(Stale(currentPin), await Resolve(currentPin, requireCurrent: true));
         await test.Mutate("update public.article set deleted=true where id=$1", current.Id);
         Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(heading)).State);
         Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(pin)).State);
         await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
         await Request(HttpMethod.Get, Route(heading, 1), owner.Token, HttpStatusCode.Unauthorized);
+        await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), owner.Token, HttpStatusCode.Unauthorized, sessions: [ownerSession]);
 
         static CanvasChangeFrame Node(Guid id, int kind, int target, string? anchor, long? pinned) =>
             new CanvasChangeFrame.PutNode(new(id, kind, 0, 0, 12000, 8000, target, anchor, pinned));
-        string Route(Guid id, long revision) =>
+        CanvasReferenceResolution Stale(Guid id) => new(canvas, id, 1, CanvasReferenceState.StaleRevision, null, null, false, null, null, null);
+        string Route(Guid id, long revision, string mode = "") =>
             WireRoutes.CanvasReference.Replace("{id:guid}", canvas.ToString("D")).Replace("{nodeId:guid}", id.ToString("D"))
-            + $"?revision={revision}";
-        async Task<CanvasReferenceResolution> Resolve(Guid id) =>
-            Wire.DecodeCanvasReferenceResolution(await Request(HttpMethod.Get, Route(id, 1), owner.Token, HttpStatusCode.OK));
+            + $"?revision={revision}{mode}";
+        async Task<CanvasReferenceResolution> Resolve(Guid id, bool requireCurrent = false) =>
+            Wire.DecodeCanvasReferenceResolution(await Request(HttpMethod.Get, Route(id, 1, requireCurrent ? "&current=1" : ""),
+                owner.Token, HttpStatusCode.OK, sessions: requireCurrent ? [ownerSession] : null));
 
-        async Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null)
+        async Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, string[]? sessions = null)
         {
             using var request = new HttpRequestMessage(method, path);
             if (body is not null)
@@ -325,6 +359,7 @@ public sealed class CanvasPostgresTests
                 request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
             }
             if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            if (sessions is not null) request.Headers.Add(WireHeaders.CurrentSession, sessions);
             using var response = await server.Client.SendAsync(request, test.Token);
             Assert.Equal(status, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);

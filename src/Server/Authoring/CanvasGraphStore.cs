@@ -64,14 +64,14 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         return new(current, NextOffset(current, offset, edges.Count), [], edges.Select(ToFrame).ToArray());
     }
 
-    internal async Task<CanvasReferenceResolution> Resolve(Guid id, Guid nodeId, long revision, CancellationToken ct)
+    internal async Task<CanvasReferenceResolution> Resolve(Guid id, Guid nodeId, long revision, bool requireCurrent, CancellationToken ct)
     {
         if (id == Guid.Empty || nodeId == Guid.Empty || revision <= 0)
             throw Invalid("A valid Canvas reference coordinate is required.");
         var current = await Current(id, write: false, ct) ?? throw Missing();
         if (current.Deleted) throw Missing();
         if (current.Revision != revision) throw Conflict();
-        return await CanvasReferenceStore.Resolve(db, tx, actor.Id, id, nodeId, current.Revision, ct);
+        return await CanvasReferenceStore.Resolve(db, tx, actor.Id, id, nodeId, current.Revision, requireCurrent, ct);
     }
 
     internal async Task<byte[]> ExportBundle(Guid id, long revision, CancellationToken ct)

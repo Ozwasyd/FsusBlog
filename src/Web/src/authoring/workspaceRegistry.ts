@@ -11,7 +11,7 @@ export interface ArticleDraft {
   readonly title?: string
 }
 
-export type WorkspaceBlock = 'missing' | 'forbidden' | 'deleted' | 'expired' | 'unavailable'
+export type WorkspaceBlock = 'missing' | 'forbidden' | 'deleted' | 'expired' | 'unavailable' | 'stale-reference'
 
 type Blocked = Readonly<{ kind: 'blocked'; reason: WorkspaceBlock }>
 
@@ -356,6 +356,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     group: WorkspaceGroup = this.#active?.group ?? 'main',
     mode: TabMode = 'preview',
     canActivate: () => boolean = () => true,
+    requiredRevision?: bigint,
   ): Promise<Activation> {
     if (!Number.isSafeInteger(articleId) || articleId < 0) return blocked('missing')
     if (!this.#currentIdentity()) return blocked(this.#identity ? 'expired' : 'forbidden')
@@ -385,7 +386,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     }
 
     let witnessedRevision: bigint | undefined
-    if (session.phase === 'ready' && session.id > 0 && session !== this.#active) {
+    if (session.phase === 'ready' && session.id > 0 && (session !== this.#active || requiredRevision !== undefined)) {
       const { id } = session
       const opening = new AbortController()
       this.#opening = opening
@@ -403,6 +404,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         }
         return blocked('unavailable')
       }
+      if (requiredRevision !== undefined && (result.draft.revision !== requiredRevision || this.#risk(session) !== 'clean'))
+        return blocked('stale-reference')
       if (this.#risk(session) === 'clean') session.draft = structuredClone(result.draft)
       else if (session.draft?.revision !== result.draft.revision && !session.request && !session.writing)
         session.conflict = true
@@ -423,6 +426,10 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       if (!canActivate()) {
         this.#remove(session)
         return { kind: 'superseded' }
+      }
+      if (requiredRevision !== undefined && result.draft.revision !== requiredRevision) {
+        this.#remove(session)
+        return blocked('stale-reference')
       }
       const currentPreview = session.mode === 'preview' && mode === 'preview' ? this.#cleanPreview(session.group) : undefined
       if (currentPreview) this.#remove(currentPreview)

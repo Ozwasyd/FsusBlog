@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { defaultMarkdownEditorCommands, ElAlert, ElButton, ElInput, ElMarkdownEditor } from '@ozwasyd/element-plus'
 import type { Draft } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import type { WorkspaceSource } from './workspaceRegistry'
 
-const props = defineProps<{ pane: WorkspaceSource<Draft>; focus: boolean; blocked: boolean; split: boolean; canSwitch: boolean; concealed: boolean }>()
-const emit = defineEmits<{ edit: [field: 'title' | 'body', value: string]; activate: []; compose: [active: boolean] }>()
+const props = defineProps<{
+  pane: WorkspaceSource<Draft>; focus: boolean; blocked: boolean; split: boolean; canSwitch: boolean; concealed: boolean
+  sourceTarget?: Readonly<{ revision: bigint; offset: number; current: () => boolean }>
+}>()
+const emit = defineEmits<{
+  edit: [field: 'title' | 'body', value: string]; activate: []; compose: [active: boolean]; sourceRevealed: [success: boolean]
+}>()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
+const markdown = ref<InstanceType<typeof ElMarkdownEditor>>()
 // The clipboard confirmation is teleported outside its editor and has no public closing hook.
 const comparisonCommands = defaultMarkdownEditorCommands.filter(command => command.key !== 'paste-as-markdown')
 const titleId = computed(() => props.focus ? 'article-title' : `article-title-${props.pane.tab.sessionId}`)
@@ -16,6 +22,21 @@ const groupName = computed(() => props.pane.tab.group === 'main' ? 'Primary arti
 const identity = computed(() => ({ id: `blog-editor-${props.pane.tab.sessionId}`, epoch: props.pane.tab.sessionId }))
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(props.pane.draft.title.trim()).length)
+
+watch([() => props.sourceTarget, () => props.focus, () => props.blocked], async ([target, focused, blocked], _, cleanup) => {
+  if (!target || !focused || blocked) return
+  let current = true
+  cleanup(() => { current = false })
+  await nextTick()
+  if (!current || !props.focus || props.blocked || props.sourceTarget !== target) return
+  const body = props.pane.draft.body
+  const textarea = document.getElementById(bodyId.value)
+  const { offset } = target
+  const exactSource = target.current() && props.pane.draft.revision === target.revision && body[offset] === '^' &&
+    textarea instanceof HTMLTextAreaElement && textarea.value.slice(0, offset + 1) === body.slice(0, offset + 1)
+  const success = exactSource && markdown.value?.revealSourceRange({ start: offset, end: offset }, { mode: 'source', reducedMotion: true }) === 'success'
+  emit('sourceRevealed', success)
+}, { immediate: true, flush: 'post' })
 
 function edit(field: 'title' | 'body', value: string) {
   if (props.focus && !props.blocked) emit('edit', field, value)
@@ -37,7 +58,7 @@ function edit(field: 'title' | 'body', value: string) {
     <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">Save the draft before publishing.</p>
     <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
     <label :for="bodyId">Body</label>
-    <ElMarkdownEditor v-if="nativeMarkdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
+    <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
       :model-value="pane.draft.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
       :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
       :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />

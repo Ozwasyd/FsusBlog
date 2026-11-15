@@ -13,8 +13,9 @@ import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-
 import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
 import CanvasBoard from '../authoring/CanvasBoard.vue'
 import CanvasBundlePanel from '../authoring/CanvasBundlePanel.vue'
+import { canvasEditorHandoffKey, cancelCanvasEditorHandoff, offerCanvasEditorHandoff } from '../authoring/canvasEditorHandoff'
 import { canvasBundle } from '../../../Contracts/canvas-bundle'
-import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +58,7 @@ let historyRequest: AbortController | undefined
 const reference = shallowRef<CanvasReferenceResolution>()
 const referenceLoading = ref(false)
 const referenceError = ref(false)
+const referenceOpenNotice = ref('')
 let referenceRequest: AbortController | undefined
 const form = ref<'title' | 'node' | 'edge'>()
 const nodeKind = ref<CanvasNode['kind']>('plain-text-note')
@@ -76,6 +78,8 @@ const selectedReference = computed(() => {
   const node = selectedNode.value
   return node && 'articleId' in node ? node : undefined
 })
+const canOpenReference = computed(() => reference.value?.state === 'resolved' &&
+  !!currentSession.value?.siteSessionId && (reference.value.sourceOffset === null || import.meta.env.FSUS_MARKDOWN_NATIVE))
 const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])))
 const involved = computed(() => selectedEdge.value && {
   from: byId.value.get(selectedEdge.value.sourceNodeId), to: byId.value.get(selectedEdge.value.targetNodeId),
@@ -347,6 +351,7 @@ function clearReference() {
   reference.value = undefined
   referenceLoading.value = false
   referenceError.value = false
+  referenceOpenNotice.value = ''
 }
 
 watch([document, selectedReference, view, stale], clearReference, { flush: 'sync' })
@@ -388,6 +393,53 @@ async function resolveReference() {
       recordError(cause, signal, 'Could not resolve the reference.', true)
     } else {
       referenceError.value = true
+    }
+  } finally {
+    if (referenceRequest === request) {
+      referenceLoading.value = false
+      referenceRequest = undefined
+    }
+  }
+}
+
+async function openReference() {
+  const canvas = document.value
+  const node = selectedReference.value
+  const preview = reference.value
+  const handle = currentSession.value?.siteSessionId
+  const epoch = credentialEpoch.value
+  const signal = scope.signal
+  if (!canvas || !node || !canOpenReference.value || !preview?.articleId || preview.articleRevision === null ||
+    !handle || disabled.value || referenceLoading.value || !scoped(signal) || !canNavigate()) return
+
+  const request = new AbortController()
+  referenceRequest = request
+  referenceLoading.value = true
+  referenceOpenNotice.value = ''
+  const isLatest = () => scoped(signal) && request === referenceRequest && !request.signal.aborted &&
+    document.value === canvas && selectedReference.value === node && credentialEpoch.value === epoch && canNavigate()
+
+  let token: string | undefined
+  try {
+    const result = await canvasGraph.resolve(canvas.id, node.id, canvas.revision, request.signal, handle)
+    if (!isLatest()) return
+    if (result.state !== 'resolved' || result.articleId !== preview.articleId ||
+      result.articleRevision !== preview.articleRevision || result.sourceOffset !== preview.sourceOffset || result.pinned !== preview.pinned) {
+      referenceOpenNotice.value = preview.pinned && result.state === 'stale-revision'
+        ? 'The pinned revision cannot be opened as the current draft.'
+        : 'Could not open this reference at its resolved position. Resolve it again.'
+      return
+    }
+    token = offerCanvasEditorHandoff({ articleId: preview.articleId, revision: preview.articleRevision, sourceOffset: result.sourceOffset }, epoch)
+    if (await router.push({ name: 'edit', params: { id: preview.articleId }, state: { [canvasEditorHandoffKey]: token } })) {
+      cancelCanvasEditorHandoff(token)
+      if (isLatest()) referenceOpenNotice.value = 'The editor could not be opened. Try again.'
+    }
+  } catch (cause) {
+    if (token) cancelCanvasEditorHandoff(token)
+    if (isLatest()) {
+      if (cause instanceof ApiError && cause.status === 401) invalidateSession()
+      referenceOpenNotice.value = 'The editor could not be opened. Resolve the reference again.'
     }
   } finally {
     if (referenceRequest === request) {
@@ -759,6 +811,8 @@ function edgeLabel(edge: CanvasGraphEdge) {
                     <h3 v-if="reference.title">{{ reference.title }}</h3>
                     <p>{{ reference.pinned ? 'Pinned revision' : 'Resolved revision' }} {{ reference.articleRevision }}</p>
                     <p v-if="reference.state === 'resolved' && reference.excerpt" class="canvas-reference-excerpt">{{ reference.excerpt }}</p>
+                    <ElButton v-if="canOpenReference" native-type="button" :disabled="disabled || referenceLoading" @click="openReference">Open in editor</ElButton>
+                    <p v-if="referenceOpenNotice" role="status">{{ referenceOpenNotice }}</p>
                   </template>
                 </template>
               </div>

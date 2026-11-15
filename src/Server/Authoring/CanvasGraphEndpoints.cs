@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -54,8 +55,17 @@ internal static class CanvasGraphEndpoints
         app.MapGet(WireRoutes.CanvasReference, (HttpContext ctx, Store store, Guid id, Guid nodeId, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
-            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                Frame(Wire.EncodeCanvasReferenceResolution(await new CanvasGraphStore(db, tx, actor).Resolve(id, nodeId, revision, ct))), ct);
+            bool requireCurrent = ctx.Request.Query.TryGetValue("current", out var current);
+            if (requireCurrent && (current.Count != 1 || current[0] != "1"))
+                throw new BusinessException(Rejection.Invalid, "Invalid Canvas reference mode.");
+            var token = ctx.Request.Cookies[cookie];
+            return store.WithSession(token, true, async (db, tx, actor) =>
+            {
+                if (requireCurrent)
+                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
+                var resolved = await new CanvasGraphStore(db, tx, actor).Resolve(id, nodeId, revision, requireCurrent, ct);
+                return Frame(Wire.EncodeCanvasReferenceResolution(resolved));
+            }, ct);
         }).RequireRateLimiting("command");
 
         app.MapGet(WireRoutes.CanvasGraphHistory, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>

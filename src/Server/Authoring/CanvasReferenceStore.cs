@@ -8,7 +8,7 @@ namespace FsusBlog.V2.Server.Authoring;
 internal static class CanvasReferenceStore
 {
     internal static async Task<CanvasReferenceResolution> Resolve(NpgsqlConnection db, NpgsqlTransaction tx,
-        Guid owner, Guid canvasId, Guid nodeId, long revision, CancellationToken ct)
+        Guid owner, Guid canvasId, Guid nodeId, long revision, bool requireCurrent, CancellationToken ct)
     {
         CanvasReferenceResolution Empty(CanvasReferenceState state) =>
             new(canvasId, nodeId, revision, state, null, null, false, null, null, null);
@@ -46,6 +46,7 @@ internal static class CanvasReferenceStore
         }
 
         long target = pin ?? current;
+        if (requireCurrent && target != current) return Empty(CanvasReferenceState.StaleRevision);
         bool inspectSource = kind != CanvasNodeKind.ArticleReference;
         await using var source = Store.Sql(db, tx, inspectSource ? """
             select title,case when octet_length(body)<=$3 and char_length(body)<=$4 then body end
@@ -66,6 +67,9 @@ internal static class CanvasReferenceStore
         if (body.Length > CanvasAnchor.MaxSourceCharacters) return Empty(CanvasReferenceState.StaleRevision);
         var coordinate = CanvasAnchor.Find(body, anchor, kind == CanvasNodeKind.HeadingReference, ct);
         ct.ThrowIfCancellationRequested();
+        // The source editor restores selection in a textarea, whose value normalizes carriage returns.
+        if (requireCurrent && coordinate.SourceOffset is int offset && body.AsSpan(0, offset).Contains('\r'))
+            return Empty(CanvasReferenceState.StaleRevision);
         var state = coordinate.State switch
         {
             CanvasAnchorState.Resolved => CanvasReferenceState.Resolved,

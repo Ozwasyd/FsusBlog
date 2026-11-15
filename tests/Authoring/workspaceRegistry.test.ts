@@ -40,6 +40,37 @@ async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: 
   return result.tab
 }
 
+test('an exact reference cannot replace a ready tab with an unwitnessed newer revision', async () => {
+  const registry = setup({ load: async id => ({ kind: 'ready', draft: draft(id, id === 2 ? 4n : 1n) }) }, 1)
+  const old = await activate(registry, 1)
+  const stale = await registry.openOrActivate(2, 'main', 'preview', undefined, 3n)
+  assert.deepEqual(stale, { kind: 'blocked', reason: 'stale-reference' })
+  assert.deepEqual(registry.tabs, [old])
+  const ready = await registry.openOrActivate(2, 'main', 'preview', undefined, 4n)
+  assert.equal(ready.kind, 'ready')
+  assert.equal(ready.witnessedRevision, 4n)
+  assert.equal(registry.activeDraft?.id, 2)
+})
+
+test('an exact reference rechecks a ready source and preserves dirty and stale state', async () => {
+  let currentRevision = 2n
+  let loads = 0
+  const registry = setup({ load: async id => {
+    ++loads
+    return { kind: 'ready', draft: draft(id, currentRevision) }
+  } })
+  const tab = await activate(registry, 2)
+  assert.equal(registry.updateDraft(tab, draft(2, 2n, 'local source')), true)
+  const dirty = await registry.openOrActivate(2, 'main', 'preview', undefined, 2n)
+  assert.deepEqual(dirty, { kind: 'blocked', reason: 'stale-reference' })
+  assert.equal(registry.activeDraft?.body, 'local source')
+  currentRevision = 3n
+  const stale = await registry.openOrActivate(2, 'main', 'preview', undefined, 2n)
+  assert.deepEqual(stale, { kind: 'blocked', reason: 'stale-reference' })
+  assert.equal(registry.activeDraft?.revision, 2n)
+  assert.equal(loads, 3)
+})
+
 test('saved layout restores only ready drafts, retaining order, preview and selected article', async () => {
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? held.promise : id === 3

@@ -24,8 +24,9 @@ import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import { recentArticleOpens } from '../authoring/recentArticleOpens'
+import { acceptCanvasEditorHandoff, canvasEditorHandoffKey, type CanvasEditorTarget } from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
-import { currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 import {
   WorkspaceRegistry,
   type DraftSave,
@@ -48,6 +49,17 @@ function articleRoute(location: Pick<RouteLocationNormalized, 'name' | 'params'>
   return undefined
 }
 const id = computed(() => articleRoute(route))
+const arrivalState = history.state as Record<string, unknown> | null
+const canvasToken = arrivalState?.[canvasEditorHandoffKey]
+if (canvasToken !== undefined && arrivalState) {
+  const state = { ...arrivalState }
+  delete state[canvasEditorHandoffKey]
+  history.replaceState(state, '')
+}
+let canvasArrival: { articleId: number | undefined; target?: CanvasEditorTarget; epoch?: number } | undefined =
+  canvasToken === undefined ? undefined : { articleId: id.value }
+let canvasSessionVerified = false
+const canvasSeek = shallowRef<{ sessionId: number; revision: bigint; offset: number; current: () => boolean }>()
 const workspaceTabs = shallowRef<readonly WorkspaceTab[]>([])
 const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>([])
 const hasSecondaryGroup = ref(false)
@@ -158,6 +170,7 @@ const failureByReason: Record<WorkspaceBlock, string> = {
   forbidden: 'You can no longer edit this article.',
   expired: 'Log in again to continue writing.',
   unavailable: 'The server could not confirm this change. Try again.',
+  'stale-reference': 'The referenced revision is no longer current. Resolve it again from the Canvas.',
 }
 
 async function workspaceBlock(error: unknown, handle: string | undefined, signal: AbortSignal): Promise<WorkspaceBlock> {
@@ -315,7 +328,9 @@ watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) 
 }, { immediate: true })
 
 onMounted(() => {
-  void refreshSession(lifetime.signal).catch(() => {
+  void refreshSession(lifetime.signal, !canvasArrival).then(() => {
+    canvasSessionVerified = true
+  }).catch(() => {
     if (!lifetime.signal.aborted) failure.value = 'Could not verify your session.'
   }).finally(() => {
     if (!lifetime.signal.aborted) authorizationReady.value = true
@@ -345,6 +360,11 @@ watch(identityEpoch, () => {
   navigationNotice.value = ''
   groupNotice.value = ''
 })
+watch(credentialEpoch, () => { canvasSeek.value = undefined }, { flush: 'sync' })
+watch(id, () => {
+  canvasArrival = undefined
+  canvasSeek.value = undefined
+}, { flush: 'sync' })
 
 watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], async ([articleId, identity], _, cleanup) => {
   let valid = true
@@ -372,23 +392,58 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     loading.value = false
     return
   }
-  if (original.value?.id === articleId) {
+  let target: CanvasEditorTarget | undefined
+  const epoch = credentialEpoch.value
+  if (canvasArrival?.articleId === articleId) {
+    if (!canvasArrival.target && canvasSessionVerified) {
+      canvasArrival.target = acceptCanvasEditorHandoff(canvasToken, articleId, epoch)
+      canvasArrival.epoch = epoch
+    }
+    target = canvasArrival.epoch === epoch ? canvasArrival.target : undefined
+    if (!target) {
+      failure.value = 'This editor link has expired. Resolve the reference again from the Canvas.'
+      loading.value = false
+      return
+    }
+  }
+  if (!target && original.value?.id === articleId) {
     loading.value = false
     return
   }
   loading.value = true
   failure.value = ''
   notice.value = ''
-  const result = await activateArticle(articleId)
+  const current = () => valid && !lifetime.signal.aborted && epoch === credentialEpoch.value
+  const result = await activateArticle(articleId, undefined, undefined, target ? current : undefined, target?.revision)
   if (!valid || identity !== identityEpoch.value) return
   loading.value = false
-  if (result.kind !== 'ready') failure.value = activationFailure(result)
+  if (result.kind !== 'ready') {
+    failure.value = target && result.kind === 'superseded' ? failureByReason['stale-reference'] : activationFailure(result)
+    return
+  }
+  if (target) {
+    canvasArrival = undefined
+    if (target.sourceOffset !== null) {
+      const sessionId = result.tab.sessionId
+      const revealBy = performance.now() + 5_000
+      canvasSeek.value = { sessionId, revision: target.revision, offset: target.sourceOffset, current: () =>
+        !lifetime.signal.aborted && credentialEpoch.value === epoch && tab.value?.sessionId === sessionId &&
+        tab.value.risk === 'clean' && !recoveryBlocked.value && performance.now() < revealBy }
+    }
+  }
 }, { immediate: true })
 
-function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'], ready?: () => boolean) {
+function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'], ready?: () => boolean,
+  requiredRevision?: bigint) {
   return articleId === 0
     ? registry.startDraft({ id: 0, revision: 0n, title: '', body: '', published: false })
-    : registry.openOrActivate(articleId, targetGroup, mode, ready)
+    : registry.openOrActivate(articleId, targetGroup, mode, ready, requiredRevision)
+}
+
+function finishCanvasSeek(success: boolean) {
+  if (!canvasSeek.value) return
+  canvasSeek.value = undefined
+  if (!success) notice.value = 'The Canvas source position could not be opened. Resolve it again from the Canvas.'
 }
 
 function activationFailure(receipt: Activation): string {
@@ -839,6 +894,7 @@ async function reloadDraft() {
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="pending || taxonomyDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
+          :source-target="canvasSeek?.sessionId === pane.tab.sessionId ? canvasSeek : undefined" @source-revealed="finishCanvasSeek"
           @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">
