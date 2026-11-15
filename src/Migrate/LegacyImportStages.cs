@@ -45,7 +45,8 @@ internal static partial class Migration
         ImportPlanVersion => StagingDefinitions.Value,
         ImportPlanWithCreateCommandsVersion when plan.Provider == "postgres" && HasCompleteLegacyCommandPlan(plan) =>
             [.. StagingDefinitions.Value, LegacyCreateCommandShadow],
-        ImportPlanWithProcessedOutboxVersion when plan.Provider == "postgres" && HasCompleteLegacyOutboxPlan(plan) =>
+        ImportPlanWithProcessedOutboxVersion or ImportPlanWithRepublishOutboxVersion
+            when plan.Provider == "postgres" && HasCompleteLegacyOutboxPlan(plan) =>
             [.. StagingDefinitions.Value, .. OptionalLegacyCommandDefinition(plan), LegacyOutboxParent.Table, LegacyOutboxEdge.Table],
         _ => throw new InvalidOperationException("The legacy import plan version and provider do not support this projection.")
     };

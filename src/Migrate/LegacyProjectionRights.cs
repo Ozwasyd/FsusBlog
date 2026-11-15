@@ -10,16 +10,20 @@ internal static partial class Migration
         "yyyy-MM-dd'T'HH:mm:ssK", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK"
     ];
 
-    private static async Task VerifyProjectedLegacyRightsAsync(NpgsqlConnection target, NpgsqlTransaction tx,
-        CancellationToken token)
+    private static async Task<int> VerifyProjectedLegacyRightsAsync(NpgsqlConnection target, NpgsqlTransaction tx,
+        bool hasRepublishOutbox, CancellationToken token)
     {
+        var ordinary = hasRepublishOutbox ? $"""
+            EXISTS (SELECT FROM {ImportSchema}.{LegacyOutboxParent.Table.Name} event
+                WHERE event.event_type='updated' AND event.article_publication_id=p.source_publication_id)
+            """ : "false";
         await using var command = new NpgsqlCommand($"""
             SELECT p.article_id,p.source_revision_id,p.revision,p.source_transition,p.published_at,
                    r.title,r.body,r.summary,r.cover_image_url,r.source_category_id,r.source_tag_ids,
                    s.id,s.enabled,s.license_type,s.copyright_holder,s.copyright_year,s.rights_statement,
                    s.attribution_template,s.copy_policy,s.max_excerpt_chars,s.allow_code_copy,s.show_public_badge,
                    s.proof_binding_enabled,s.canonical_url,s.content_canonical_hash,s.policy_hash,first.published_at,
-                   p.publication_number,a.published_at,p.source_created_at,r.happened_at,s.created_at
+                   p.publication_number,a.published_at,p.source_created_at,r.happened_at,s.created_at,{ordinary}
             FROM {ImportSchema}.shadow_publication p
             LEFT JOIN {ImportSchema}.shadow_revision r ON r.source_revision_id=p.source_revision_id
                 AND r.article_id=p.article_id AND r.revision=p.revision
@@ -31,6 +35,7 @@ internal static partial class Migration
             """, target, tx);
         await using var rows = await command.ExecuteReaderAsync(token);
         var sources = new HashSet<long>();
+        var republished = 0;
         while (await rows.ReadAsync(token))
         {
             if (rows.IsDBNull(11) || rows.IsDBNull(5) || rows.IsDBNull(6) || rows.IsDBNull(10))
@@ -46,12 +51,19 @@ internal static partial class Migration
             var eventAt = LegacyRightsText(rows, 4);
             var firstAt = LegacyRightsText(rows, 26);
             var expectedContent = LegacyRightsText(rows, 24);
-            var content = LegacyRevisionContentHash(rows, status: 2, transition == "rollback" ? firstAt : eventAt, scheduledAt: null);
-            if (transition == "immediate-publish" && content != expectedContent && rows.GetInt64(27) > 1 &&
+            var ordinaryRepublish = rows.GetBoolean(32);
+            if (ordinaryRepublish && (transition != "immediate-publish" || rows.GetInt64(27) != 2 ||
+                !CanVerifyLegacyRepublish(rows, firstAt, eventAt)))
+                throw new InvalidOperationException("A retained legacy republish event lacks its original first and second release coordinates.");
+            var content = LegacyRevisionContentHash(rows, status: 2,
+                transition == "rollback" || ordinaryRepublish ? firstAt : eventAt, scheduledAt: null);
+            if (!ordinaryRepublish && transition == "immediate-publish" && content != expectedContent && rows.GetInt64(27) > 1 &&
                 CanVerifyLegacyRepublish(rows, firstAt, eventAt))
                 content = LegacyRevisionContentHash(rows, status: 2, firstAt, scheduledAt: null);
             VerifyLegacyRevisionRightsHashes(rows, content, "publication");
+            if (ordinaryRepublish) republished++;
         }
+        return republished;
     }
 
     // Both frozen sources select the same canonical revision and policy coordinates.

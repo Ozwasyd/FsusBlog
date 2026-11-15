@@ -33,9 +33,10 @@ internal static partial class Migration
 
     private sealed record LegacyOutboxDefinition(string Source, CandidateTable Table, LegacyField[] Fields);
     private sealed record LegacyOutboxEntry(CandidateTable Table, LegacyProjection Projection, object?[][] Rows);
-    private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings);
-    private sealed record LegacyTerminalEvent(string EventId, DateTime CreatedAt, DateTime ProcessedAt, object?[] Values,
-        HashSet<string> Edges);
+    private sealed record LegacyOutboxRead(LegacyTable[] Relations, LegacyOutboxEntry[] Entries, ImportFinding[] Findings,
+        int RepublishCount = 0);
+    private sealed record LegacyTerminalEvent(string EventId, int Article, long PublicationId, DateTime CreatedAt,
+        DateTime ProcessedAt, bool ExactDatabaseClock, LegacyRepublishEvidence? Republish, object?[] Values, HashSet<string> Edges);
 
     private static readonly string[] LegacyOutboxUnsettledStates = ["pending", "processing", "poison"];
     private static readonly string[] LegacyOutboxSensitiveFields =
@@ -86,7 +87,7 @@ internal static partial class Migration
         source.Rows is >= 1 && source.Rows <= limit && source.Rows == target.Rows && IsSha256(source.Sha256) && IsSha256(target.Sha256);
 
     private static async Task<LegacyOutboxRead> ReadLegacyProcessedOutboxAsync(LegacySource source, DbTransaction tx,
-        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, CancellationToken ct)
+        LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principals, CancellationToken ct)
     {
         if (source.Provider != "postgres") return new LegacyOutboxRead([], [], []);
         var parents = catalog.Where(table => table.Name.Equals(LegacyOutboxSource, StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -99,15 +100,26 @@ internal static partial class Migration
         if (!parentsKnown || !edgesKnown)
             return new LegacyOutboxRead(relations, [], findings.ToArray());
 
-        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], findings, ct);
+        var republishEvidence = await ReadLegacyOrdinaryRepublishAsync(source, tx, tables, principals, parents[0], ct);
+        var events = await ReadLegacyTerminalEventsAsync(source, tx, tables, parents[0], republishEvidence, findings, ct);
         var edgeRows = await ReadLegacyTerminalEdgesAsync(source, tx, edges[0], events, findings, ct);
         int incomplete = events.Values.Count(item => LegacyRequiredOutboxEdges.Any(edge => !item.Edges.Contains(edge)));
         if (incomplete > 0) findings.Add(new ImportFinding("legacy-outbox-missing-required-edge", LegacyOutboxSource, incomplete));
+        var creates = events.Values.Where(item => item.Republish is null).ToDictionary(item => item.Article);
+        var updates = events.Values.Where(item => item.Republish is not null).ToArray();
+        int missingPredecessors = updates.Count(update =>
+        {
+            var evidence = update.Republish!;
+            return !creates.TryGetValue(update.Article, out var first) || !first.ExactDatabaseClock ||
+                first.PublicationId != evidence.PreviousReleaseId || first.CreatedAt != evidence.PreviousReleaseAt ||
+                !first.Edges.IsSupersetOf(LegacyRequiredOutboxEdges);
+        });
+        if (missingPredecessors > 0) findings.Add(new ImportFinding("legacy-outbox-predecessor", LegacyOutboxSource, missingPredecessors));
         if (findings.Count != 0 || events.Count == 0) return new LegacyOutboxRead(relations, [], findings.ToArray());
 
         return new LegacyOutboxRead(relations,
             [MakeOutboxEntry(LegacyOutboxParent, events.Values.Select(item => item.Values).ToArray()),
-             MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], []);
+             MakeOutboxEntry(LegacyOutboxEdge, edgeRows)], [], updates.Length);
 
         async Task<bool> KnownOutboxShapeAsync(LegacyTable[] selection, LegacyOutboxDefinition definition)
         {
@@ -147,7 +159,8 @@ internal static partial class Migration
     }
 
     private static async Task<SortedDictionary<long, LegacyTerminalEvent>> ReadLegacyTerminalEventsAsync(LegacySource source,
-        DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable relation, List<ImportFinding> findings, CancellationToken ct)
+        DbTransaction tx, Dictionary<string, LegacyTable> tables, LegacyTable relation,
+        Dictionary<long, LegacyRepublishEvidence> republishEvidence, List<ImportFinding> findings, CancellationToken ct)
     {
         string E(string name) => "e." + source.Field(relation, name);
         string A(string name) => "a." + source.Field(tables[Article], name);
@@ -165,7 +178,7 @@ internal static partial class Migration
         }) + " AS " + source.Quote(field.Name));
         await using var query = CreateLegacyCommand(tx, $"""
             SELECT {string.Join(',', projection)}, {R("categoryid")}, {R("tag_ids")},
-                {A("createtime")}={E("created_at")} AND {R("created_at")}={E("created_at")}
+                ({E("event_type")}<>'created' OR {A("createtime")}={E("created_at")}) AND {R("created_at")}={E("created_at")}
                 AND {P("created_at")}={E("created_at")} AND {P("published_at")}={E("created_at")}
                 AND {P("transition_kind")}='immediate-publish' AND {S("created_at")}={E("created_at")}
                 AND {P("responsibility_snapshot_id")} IS NOT DISTINCT FROM {E("responsibility_snapshot_id")}
@@ -193,9 +206,10 @@ internal static partial class Migration
         var accepted = new SortedDictionary<long, LegacyTerminalEvent>();
         var observedIds = new HashSet<long>();
         var eventIds = new HashSet<string>(StringComparer.Ordinal);
-        var createdArticles = new HashSet<int>();
+        var slots = new HashSet<(int Article, int Publication)>();
         var invalidState = 0;
         var invalidEnvelope = 0;
+        var duplicateReleases = 0;
         var unsettled = new int[LegacyOutboxUnsettledStates.Length];
         long payloadBytes = 0;
         var count = 0;
@@ -229,12 +243,17 @@ internal static partial class Migration
 
             var shape = fields.Length;
             var article = reader.GetInt32(3);
+            var eventType = reader.GetString(12);
+            bool ordinaryUpdate = eventType == "updated";
+            var expectedRelease = ordinaryUpdate ? 2 : 1;
+            var republish = republishEvidence.GetValueOrDefault(id);
             var responsibility = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8);
             var responsibilityVersion = reader.IsDBNull(9) ? (int?)null : reader.GetInt32(9);
-            if (article <= 0 || reader.GetInt32(4) != 2 || reader.GetString(12) != "created" ||
-                reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) || reader.GetInt32(6) != 1 ||
+            if (article <= 0 || reader.GetInt32(4) != 2 || eventType is not ("created" or "updated") ||
+                ordinaryUpdate && (republish is null || responsibility is not null) ||
+                reader.IsDBNull(5) || reader.GetInt64(5) <= 0 || reader.IsDBNull(6) || reader.GetInt32(6) != expectedRelease ||
                 reader.IsDBNull(7) || reader.GetInt64(7) <= 0 || reader.IsDBNull(10) || reader.GetInt64(10) <= 0 ||
-                reader.IsDBNull(11) || reader.GetInt32(11) != 1 ||
+                reader.IsDBNull(11) || reader.GetInt32(11) != expectedRelease ||
                 (responsibility is null) != (responsibilityVersion is null) || responsibility is <= 0 || responsibilityVersion is <= 0 ||
                 reader.IsDBNull(13) || reader.IsDBNull(shape) || reader.IsDBNull(shape + 1) || reader.IsDBNull(shape + 2) ||
                 !reader.GetBoolean(shape + 2))
@@ -246,22 +265,28 @@ internal static partial class Migration
             payloadBytes += StrictUtf8.GetByteCount(payload);
             if (payloadBytes > LegacyOutboxTotalPayloadBytes)
                 throw new InvalidOperationException("Legacy outbox envelopes exceed their cumulative observation byte budget.");
-            var tags = reader.GetString(shape + 1);
-            var expectedTags = tags.Length == 0 ? [] : tags.Split(',').Select(ParseRevisionTag).ToArray();
+            var expectedTags = ParseLegacyOutboxTags(reader.GetString(shape + 1));
             if (!VerifyLegacyOutboxEnvelope(payload, article, reader.GetInt64(5), reader.GetInt64(7), responsibility,
-                responsibilityVersion, reader.GetInt64(10), created, reader.GetInt32(shape), expectedTags) || !createdArticles.Add(article))
+                responsibilityVersion, reader.GetInt64(10), created, reader.GetInt32(shape), expectedTags, out var exactClock,
+                republish?.BeforeCategory, republish?.BeforeTags))
             {
                 invalidEnvelope++;
                 continue;
             }
-            accepted.Add(id, new LegacyTerminalEvent(eventId, created, reader.GetDateTime(clocks[1]), LegacyOutboxValues(reader, shape),
-                new HashSet<string>(StringComparer.Ordinal)));
+            if (!slots.Add((article, expectedRelease)))
+            {
+                duplicateReleases++;
+                continue;
+            }
+            accepted.Add(id, new LegacyTerminalEvent(eventId, article, reader.GetInt64(10), created, reader.GetDateTime(clocks[1]),
+                exactClock, republish, LegacyOutboxValues(reader, shape), new HashSet<string>(StringComparer.Ordinal)));
         }
 
         if (invalidState > 0) findings.Add(new ImportFinding("legacy-outbox-state", relation.Name, invalidState));
         for (int i = 0; i < unsettled.Length; i++)
             if (unsettled[i] > 0) findings.Add(new ImportFinding("legacy-outbox-" + LegacyOutboxUnsettledStates[i], relation.Name, unsettled[i]));
         if (invalidEnvelope > 0) findings.Add(new ImportFinding("legacy-outbox-envelope", relation.Name, invalidEnvelope));
+        if (duplicateReleases > 0) findings.Add(new ImportFinding("legacy-outbox-duplicate-release", relation.Name, duplicateReleases));
         return accepted;
     }
 

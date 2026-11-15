@@ -107,7 +107,7 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 
 旧出站事件由 `article_mutation_outbox` 主行与 `article_mutation_outbox_edge` 逐边记录共同描述。旧分派器在七个必需边为 `completed` 或 `skipped` 后才将主行标为 `processed`，并清空认领信息。通知和完整性证明属于可选边，核对时继续区分。后续可先保全这类已完成的主行与边、原始 JSON 和投递键。`pending`、`processing`、`poison` 则需要先排空或单独对账，迁移工具不能从旧回执判定下游已投递。有效的版本 2 草稿创建事件可无发布、版权和责任坐标。PostgreSQL 边表有可复用的固定历史 DDL，主表最终结构来自 v1 CodeFirst 实体及后续列迁移。冻结版本的 SQLite 与 MySQL 离线代表性源库注册不含这两个表。[完成条件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#L968-L998) · [草稿写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs#L195-L217) · [边表和认领迁移](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs#L345-L396)
 
-#### 保全已处理的首次发布出站事件
+#### 保全已处理的发布出站事件
 
 当前范围接受 PostgreSQL 中由常规文章创建流程生成、初始即发布的版本 2 `created` 事件。每篇文章只接受一条。主行须有正整数存储 ID、精确的非空小写 `N` 格式事件 UUID、`processed`、处理时间和空认领字段。JSON 须符合固定写入字段集，重复键及旧别名会被拒绝。文章、首次修订、首次发布和版权快照必须一致。若原事件绑定了责任快照，同时核对其 ID 和版本。分类和标签与首次修订比较。保留 JSON 的原始时间字节，两个时间先作完整精度比较，再与数据库微秒坐标相比。保留 `next_retry_at` 原值，领取时写入的租约截止可能晚于完成时间。[固定写入](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticlePublicationTransition.cs#L208-L232) · [领取时钟](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#L654-L677)
 
@@ -116,6 +116,10 @@ dotnet run --no-build --project src/Migrate -- legacy import verify "$plan" "$pl
 工具在同一个只读来源快照中按主键枚举两张表，最多读取 5,000 个事件、45,000 条边和累计 32 MiB 的 JSON，单条 JSON 上限为 16 KiB。表只存在一侧、数据越界或存在未支持状态时整批停止。现有迁移命令使用计划版本 3，绑定精确行数、顺序摘要和备份，并允许同一计划同时带入可验证的旧建文回执。第三检查点在一个事务内写入 `shadow_article_mutation_outbox` 和 `shadow_article_mutation_outbox_edge`，复验数量和原数据摘要后提交。候选永远禁止启动，隔离记录不参与运行时 `blog_outbox` 或公开投影水位。此前 v1 的 PostgreSQL 源码测试覆盖了重试与重新认领、过期事件跳过、重启防重复投递，部分下游由测试替身提供。[重试及重新认领](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/tests/backend/Integration/SchemaMigrationIntegrationTests.cs#L1229-L1278) · [跳过和重启](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/tests/backend/Integration/ArticleMutationVersionedOutboxIntegrationTests.cs#L510-L568)
 
 2026-11-15 用 PostgreSQL 18.7 和 SDK 10.0.404，通过冻结边表 DDL 及与固定实体一致的合成主表测试。回读保留了一个事件、八条边和原 JSON 字节。测试覆盖第三阶段中断恢复、逐边摘要、原源只读、断开源库后的验证、篡改拒绝和永久隔离。实际旧部署数据及其下游投递仍待核对。见 `artifacts/native-migration/legacy-processed-outbox-20261115T003938Z.log`。
+
+同一范围内，计划版本 4 增加常规文章更新生成的第二次即时发布 `updated`。要求同篇文章具备完整的首次 `created` 事件，待归档的事件对应第二修订和第二发布。前后公开分类与标签各自对照相应的不可变修订，且两次事件的七个必需边均满足完成条件。首次事件的 JSON 时间必须与存储时间完全吻合。第二次发布的事件时间与实际第二次发布时间一致；内容和策略按普通旧更新使用的首发存储时间验证。写入第二修订的旧管理员必须存在，数字身份留在隔离修订。旧 `article_mutation_command` 仍只表示建文。此切片不生成作者或管理员权限、更新命令、可运行队列或下游投递。公开回滚的出站事件、第二次发布带新的责任快照、未记录前态及其他发布顺序仍会阻止归档。[普通更新入队](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleService.Mutations.cs#L413-L483)
+
+2026-11-15 在 PostgreSQL 18.7 用 `tests/Integration/Migration/legacy-outbox.sh --republish` 验证两个事件及 14 条边，核对分类与标签变化、旧发布人从管理员 7 变为 8、原 JSON 和逐边投递键。复验可在源库断开和目标事务只读时完成。测试拒绝缺失或时间不符的首发事件、错误分类、权利摘要篡改、额外责任、重复发布事件和未完成处理。见 `artifacts/native-migration/legacy-republish-outbox-20261115T010630Z.log`。
 
 ### 离线验看附件来源
 

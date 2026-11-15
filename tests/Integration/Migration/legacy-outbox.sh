@@ -2,6 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 
+case "${1:-}" in
+    ""|--republish) ;;
+    *) printf 'Usage: %s [--republish]\n' "$0" >&2; exit 2 ;;
+esac
+
 if [[ "${PGHOST:-}" != /* || -z "${PGUSER:-}" || -z "${FSUSBLOG_TEST_DB:-}" ]]; then
     printf '%s\n' 'Set the isolated PostgreSQL maintenance DSN and matching Unix socket/client variables.' >&2
     exit 2
@@ -41,6 +46,9 @@ export FSUSBLOG_V1_SCHEMA=public
 fixture=tests/Integration/Migration
 "${source_sql[@]}" -f "$fixture/legacy-source-fixture.sql" -f "$fixture/legacy-shared-rights-fixture.sql" \
     -f "$fixture/legacy-article-outbox-fixture.sql"
+if [[ "${1:-}" == --republish ]]; then
+    "${source_sql[@]}" -f "$fixture/legacy-republish-outbox-fixture.sql"
+fi
 
 "$DOTNET_BIN" restore "$project" --configfile NuGet.Config --locked-mode
 "$DOTNET_BIN" build "$project" --no-restore
@@ -103,6 +111,103 @@ PY
     rg -Fq 'contains unsupported rows' "$scratch/error.log"
     [[ "$("${target[@]}" -qAtc "SELECT version,to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == '1|t' ]]
 }
+
+if [[ "${1:-}" == --republish ]]; then
+    "${plan[@]}" > "$scratch/reviewed.json"
+    python3 - "$scratch/reviewed.json" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+plan = json.loads(Path(sys.argv[1]).read_text())
+assert plan["version"] == 4 and plan["readyToStage"] and not plan["readyToApply"] and not plan["findings"], plan
+for key, scope in (("sourceProjections", ""), ("expectedTables", "shadow_")):
+    assert len(plan[key]) == 14
+    assert [(row["table"], row["rows"]) for row in plan[key][-2:]] == [
+        (scope + "article_mutation_outbox", 2), (scope + "article_mutation_outbox_edge", 14)]
+    assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in plan[key][-2:])
+PY
+    "${source_sql[@]}" -c "COPY (SELECT * FROM $event_table WHERE id=991000001) TO STDOUT" > "$scratch/first-event.copy"
+    "${source_sql[@]}" -c "COPY (SELECT * FROM $edge_table WHERE outbox_event_id=991000001 ORDER BY id) TO STDOUT" > "$scratch/first-edges.copy"
+    "${source_sql[@]}" -c "DELETE FROM $edge_table WHERE outbox_event_id=991000001; DELETE FROM $event_table WHERE id=991000001"
+    expect_source_finding legacy-outbox-predecessor "$event_table"
+    "${source_sql[@]}" -c "\copy $event_table FROM '$scratch/first-event.copy'"
+    "${source_sql[@]}" -c "\copy $edge_table FROM '$scratch/first-edges.copy'"
+    "${source_sql[@]}" -c "UPDATE $event_table SET payload_json=replace(payload_json,'00:00:00Z','00:00:00.0000007Z') WHERE id=991000001"
+    expect_source_finding legacy-outbox-predecessor "$event_table"
+    "${source_sql[@]}" -c "UPDATE $event_table SET payload_json=replace(payload_json,'.0000007Z','Z') WHERE id=991000001"
+    "${source_sql[@]}" -c "UPDATE $event_table SET payload_json=replace(payload_json,
+        '\"before\":{\"categoryId\":11','\"before\":{\"categoryId\":12') WHERE id=991000002"
+    expect_source_finding legacy-outbox-envelope "$event_table"
+    "${source_sql[@]}" -c "UPDATE $event_table SET payload_json=replace(payload_json,
+        '\"before\":{\"categoryId\":12','\"before\":{\"categoryId\":11') WHERE id=991000002"
+    "${source_sql[@]}" -c "UPDATE article_rights_snapshot SET content_canonical_hash='sha256:'||repeat('0',64) WHERE id=701"
+    expect_source_finding legacy-outbox-envelope "$event_table"
+    "${source_sql[@]}" -c "UPDATE article_rights_snapshot
+        SET content_canonical_hash='sha256:361987dad74f14fef450a416c7f360af5859fd71b246ae1b20ab46eedf9fb7f1' WHERE id=701"
+    "${source_sql[@]}" -c "UPDATE $event_table SET responsibility_snapshot_id=799,responsibility_version=1 WHERE id=991000002"
+    expect_source_finding legacy-outbox-envelope "$event_table"
+    "${source_sql[@]}" -c "UPDATE $event_table SET responsibility_snapshot_id=NULL,responsibility_version=NULL WHERE id=991000002"
+    duplicate_event=7e26cc17bbd844a7807868e3633b177a
+    "${source_sql[@]}" -c "INSERT INTO $event_table
+        SELECT replica.* FROM $event_table e CROSS JOIN LATERAL jsonb_populate_record(NULL::$event_table,
+            to_jsonb(e) || jsonb_build_object('id',991000003,'event_id','$duplicate_event')) replica WHERE e.id=991000002;
+        INSERT INTO $edge_table (id,outbox_event_id,edge_name,status,attempt_count,updated_at,delivery_key)
+        SELECT id+100,991000003,edge_name,status,attempt_count,updated_at,
+            encode(sha256(convert_to('$duplicate_event:' || edge_name,'UTF8')),'hex')
+        FROM $edge_table WHERE outbox_event_id=991000002"
+    expect_source_finding legacy-outbox-duplicate-release "$event_table"
+    "${source_sql[@]}" -c "DELETE FROM $edge_table WHERE outbox_event_id=991000003; DELETE FROM $event_table WHERE id=991000003"
+    "${source_sql[@]}" -c "UPDATE $event_table SET status='pending',processed_at=NULL WHERE id=991000002"
+    expect_source_finding legacy-outbox-pending "$event_table"
+    "${source_sql[@]}" -c "UPDATE $event_table SET status='processed',processed_at='2026-10-02 00:00:03' WHERE id=991000002"
+    "${source_sql[@]}" -c "UPDATE $edge_table SET attempt_count=2 WHERE outbox_event_id=991000002 AND edge_name='search-projection'"
+    expect_refused "${apply[@]}"
+    rg -Fq 'The import plan no longer matches' "$scratch/error.log"
+    "${source_sql[@]}" -c "UPDATE $edge_table SET attempt_count=1 WHERE outbox_event_id=991000002 AND edge_name='search-projection'"
+    "${plan[@]}" > "$scratch/repeated.json"
+    cmp "$scratch/reviewed.json" "$scratch/repeated.json"
+    "${apply[@]}" > "$scratch/applied.json"
+    plan_sha="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["planSha256"])' < "$scratch/applied.json")"
+    [[ "$plan_sha" =~ ^[0-9a-f]{64}$ ]]
+    shadow_event="fsus_legacy_candidate.shadow_$event_table"
+    shadow_edge="fsus_legacy_candidate.shadow_$edge_table"
+    [[ "$("${target[@]}" -qAtc "SELECT event_type,article_revision_id,revision_no,article_publication_id,
+        publication_no,rights_snapshot_id,responsibility_snapshot_id IS NULL,responsibility_version IS NULL,
+        created_at::timestamp,(payload_json::jsonb->'before'->>'categoryId'),(payload_json::jsonb->'after'->>'categoryId')
+        FROM $shadow_event ORDER BY id")" \
+        == $'created|5000000001|1|900000001|1|700|t|t|2026-10-01 00:00:00||11\nupdated|5000000002|2|900000002|2|701|t|t|2026-10-02 00:00:00|11|12' ]]
+    [[ "$("${source_sql[@]}" -qAtc "SELECT encode(sha256(convert_to(payload_json,'UTF8')),'hex') FROM $event_table ORDER BY id")" \
+        == "$("${target[@]}" -qAtc "SELECT encode(sha256(convert_to(payload_json,'UTF8')),'hex') FROM $shadow_event ORDER BY id")" ]]
+    [[ "$("${target[@]}" -qAtc "SELECT outbox_event_id,count(*) FROM $shadow_edge GROUP BY outbox_event_id ORDER BY outbox_event_id")" \
+        == $'991000001|7\n991000002|7' ]]
+    unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
+    project_rows=("${command[@]}" project "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
+    verify_rows=("${command[@]}" verify "$scratch/reviewed.json" "$plan_sha" "$backup" "$backup_sha")
+    "${project_rows[@]}" > "$scratch/projected.json"
+    FSUSBLOG_IMPORT_DB="$FSUSBLOG_IMPORT_DB;Options=-c default_transaction_read_only=on" "${verify_rows[@]}" > "$scratch/verified.json"
+    python3 - "$scratch/projected.json" "$scratch/verified.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+projected, verified = [json.loads(Path(path).read_text()) for path in sys.argv[1:]]
+assert [projected["result"], verified["result"]] == ["projected", "verified"]
+assert projected["projectionSha256"] == verified["projectionSha256"]
+assert all(row["retainedLegacyOutboxEvents"] == 2 and row["retainedLegacyOutboxEdges"] == 14
+           and row["retainedLegacyRepublishOutboxEvents"] == 1 and not row["readyToApply"]
+           for row in (projected, verified))
+PY
+    [[ "$("${target[@]}" -qAtc 'SELECT a.revision,p.publication_id,p.publication_no,(SELECT count(*) FROM public.article_command),
+        (SELECT count(*) FROM public.blog_outbox) FROM public.article a JOIN public.article_publication p ON p.article_id=a.id')" \
+        == '2|900000002|2|0|0' ]]
+    [[ "$("${target[@]}" -qAtc "SELECT source_admin_id FROM fsus_legacy_candidate.shadow_revision WHERE revision=2")" == 8 ]]
+    expect_refused "${migrate[@]}" verify
+    rg -F 'isolated legacy import candidate and cannot serve' "$scratch/error.log"
+    printf '%s\n' 'Legacy PostgreSQL republish Outbox evidence passed with exact first capture, changed taxonomy, rights provenance and no live replay.'
+    exit 0
+fi
 
 "${plan[@]}" > "$scratch/reviewed.json"
 python3 - "$scratch/reviewed.json" <<'PY'

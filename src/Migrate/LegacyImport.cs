@@ -12,6 +12,7 @@ internal static partial class Migration
     private const int ImportPlanVersion = 1;
     private const int ImportPlanWithCreateCommandsVersion = 2;
     private const int ImportPlanWithProcessedOutboxVersion = 3;
+    private const int ImportPlanWithRepublishOutboxVersion = 4;
     private const int ImportQuarantineVersion = -1;
     private const long ImportBackupBytes = 1024L * 1024 * 1024;
 
@@ -82,7 +83,7 @@ internal static partial class Migration
         if (audit.Issues.Count != 0)
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var commands = await ReadLegacyCreateCommandsAsync(source, sourceTransaction, catalog, tables, principal, token);
-        var outbox = await ReadLegacyProcessedOutboxAsync(source, sourceTransaction, catalog, tables, token);
+        var outbox = await ReadLegacyProcessedOutboxAsync(source, sourceTransaction, catalog, tables, principal, token);
         var findings = await ScanImportBoundariesAsync(source, sourceTransaction, catalog, tables, principal, commands, outbox, token);
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
@@ -97,7 +98,8 @@ internal static partial class Migration
         var sourceProjections = audit.Projections.ToArray();
         if (commands.Projection is { } commandProjection) sourceProjections = [.. sourceProjections, commandProjection];
         sourceProjections = [.. sourceProjections, ..outbox.Entries.Select(entry => entry.Projection)];
-        var version = outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
+        var version = outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
+            outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
             commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion;
         var plan = new ImportPlan(version,
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
