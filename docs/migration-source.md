@@ -70,6 +70,10 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 候选仍返回 `readyToApply: false`。附件、旧角色或凭据、额外字段和未注册持久表会阻塞暂存，报告逐类列出确测行数。当前作者权限与旧角色含义、签名和权利摘要重算、定时发布解释和生产激活皆需独立实现及验收。本文的候选流程不能作为现有业务库的升级工具。
 
+旧站已安装 `20260904-post-author-saved-view` 且有记录时，PostgreSQL `legacy import plan/apply` 按固定 v1 形状核验八张表，保全旧管理员整数与站点范围、视图 UUID、默认与置顶状态、条件与操作数、排序和投影、回执、变更明细与幂等记录。源事务检查键、空值约束、默认引用归属、回执次序及幂等关系。每表最多 5,000 行，总文本预算 128 MB。计划报告行数、摘要和阻塞项。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs) · [v1 持久化](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs)
+
+第三阶段把完整行写入隔离 schema。UUID 和微秒时间使用可逆文本，整数和布尔使用有符号整数列。计划绑定各表源与影子摘要及数据库来源。续跑和离线 `legacy import verify` 逐表复核隔离记录。生产启用仍需验证旧管理员和新作者、站点身份、类型化操作数、依赖、排序及投影的等价性。隔离候选始终禁止启动。
+
 固定 v1 完成 `taxonomy-projection` 出站边时维护三张 PostgreSQL 派生表。`category_public_article_count` 与 `tag_public_article_count` 分别以 `category_id`、`tag_id` 为整数主键，保存 `bigint` 计数和 `updated_at_utc`。`article_public_taxonomy_projection` 以整数 `article_id` 为主键，保存可空的整数 `category_id`、排序后的文本 `tag_ids` 及 `updated_at_utc`。固定 v1 按可见性选择文章，再读取该文章的当前分类与标签关系。 [固定 v1 DDL](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs#L1275-L1310) · [出站边](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/ArticleMutationSideEffects.cs#L502-L513) · [可见性与关系来源](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Taxonomy/TaxonomyCountProjectionService.cs#L133-L181)
 
 `legacy plan postgres` 和 `legacy import plan/apply` 在现有只读快照中验证三表结构，重算双向文章关系和分类标签计数。仍存在的分类或标签可保留当前计数为零的旧行。对可见但无正数分类坐标的文章，固定 v1 的回填与增量计数规则不同，本核验要求另外对账。缺少部分派生表、主键或空值约束变化、关系或计数失配以及无效时间都会阻止暂存。诊断区分 PostgreSQL 三表全缺、已核验为空、已核验有行及不适用的来源提供方。 [原生校验](../src/Migrate/LegacyTaxonomyProjection.cs)

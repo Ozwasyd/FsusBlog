@@ -20,7 +20,7 @@ internal static partial class Migration
 
     private sealed record ImportFinding(string Category, string Source, long Rows);
     private sealed record LegacyImportEvidence(LegacyCreateCommandRead Commands, LegacyOutboxRead Outbox,
-        LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, ImportFinding[] Findings)
+        LegacyTaxonomyEvidence Taxonomy, LegacyReadingHistoryRead ReadingHistory, LegacySavedViewRead SavedViews, ImportFinding[] Findings)
     {
         internal LegacyProjection[] SourceProjections(LegacyAudit audit, bool includeTaxonomy = true)
         {
@@ -29,6 +29,7 @@ internal static partial class Migration
             projections.AddRange(Outbox.Entries.Select(entry => entry.Projection));
             if (includeTaxonomy) projections.AddRange(Taxonomy.Projections);
             projections.AddRange(ReadingHistory.Projections);
+            projections.AddRange(SavedViews.Relations.Select(relation => relation.Projection));
             return projections.ToArray();
         }
     }
@@ -105,10 +106,10 @@ internal static partial class Migration
             throw new InvalidOperationException("The source has article integrity defects. Run legacy plan for details.");
         var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
         var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy, token);
-        var (commands, outbox, _, readingHistory, findings) = evidence;
+        var (commands, outbox, _, readingHistory, savedViews, findings) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
-            commands.Rows, outbox.Entries, readingHistory.Rows);
+            commands.Rows, outbox.Entries, readingHistory.Rows, savedViews.Relations);
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -185,24 +186,26 @@ internal static partial class Migration
         var commands = await ReadLegacyCreateCommandsAsync(source, transaction, catalog, tables, principal, token);
         var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
         var history = await ReadLegacyReadingHistoryAsync(source, transaction, tables[Article], catalog, token);
-        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, token);
-        return new LegacyImportEvidence(commands, outbox, taxonomy, history, findings);
+        var savedViews = await ReadLegacySavedViewsAsync(source, transaction, catalog, principal, token);
+        var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox, taxonomy, history, savedViews, token);
+        return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
-        LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history,
+        LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
         CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
         if (history.Finding is { } historyFinding) found.Add(historyFinding);
+        if (savedViews.Finding is { } savedViewFinding) found.Add(savedViewFinding);
         found.AddRange(outbox.Findings);
         foreach (var relation in catalog)
         {
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
-                taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed)) continue;
+                taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)

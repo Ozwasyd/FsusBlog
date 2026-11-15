@@ -459,6 +459,44 @@ PY
     "${source_sql[@]}" 'ALTER TABLE article_view_seed ALTER COLUMN seeded_at_utc SET NOT NULL'
     "${plan[@]}" > "$root/views-clean.json"
     cmp "$root/import.json" "$root/views-clean.json"
+
+    mv "$root/import.json" "$root/no-saved-views.json"
+    "${source_fixture_sql[@]}" tests/Integration/Migration/legacy-saved-views-fixture.sql
+    "${plan[@]}" > "$root/import.json"
+    "${plan[@]}" > "$root/saved-views-clean.json"
+    cmp "$root/import.json" "$root/saved-views-clean.json"
+    python3 - "$root/no-saved-views.json" "$root/import.json" <<'PY'
+import json, pathlib, re, sys
+earlier, saved = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:]]
+assert earlier["readyToStage"] and saved["readyToStage"] and not saved["readyToApply"]
+assert saved["sourceSeal"]["databaseSha256"] == earlier["sourceSeal"]["databaseSha256"]
+assert saved["sourceSeal"]["catalogSha256"] != earlier["sourceSeal"]["catalogSha256"]
+suffixes = {"_collection": 1, "": 1, "_condition": 1, "_condition_value": 1, "_projection": 1,
+            "_receipt": 3, "_receipt_change": 2, "_idempotency": 3}
+for key, prefix in [("sourceProjections", ""), ("expectedTables", "shadow_")]:
+    assert saved[key][:-8] == earlier[key]
+    rows = saved[key][-8:]
+    assert {row["table"]: row["rows"] for row in rows} == {prefix + "author_saved_view" + suffix: count for suffix, count in suffixes.items()}
+    assert all(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) for row in rows)
+PY
+    "${source_sql[@]}" 'UPDATE author_saved_view_collection SET active_view_count=0 WHERE owner_admin_principal_id=7'
+    rc=0
+    "${plan[@]}" > "$root/broken-saved-views.json" || rc=$?
+    [[ "$rc" == 2 ]]
+    python3 - "$root/broken-saved-views.json" <<'PY'
+import json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert not report["readyToStage"] and not report["readyToApply"]
+assert {"category":"legacy-saved-views-graph", "source":"author_saved_view", "rows":1} in report["findings"]
+PY
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -F 'contains unsupported rows' "$root/error.log"
+    "${source_sql[@]}" "UPDATE author_saved_view_collection SET active_view_count=1 WHERE owner_admin_principal_id=7;
+        UPDATE author_saved_view_condition_value SET value='category:12'"
+    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -Fx 'The import plan no longer matches its source, owners, backup, schema or target.' "$root/error.log"
+    "${source_sql[@]}" "UPDATE author_saved_view_condition_value SET value='category:11'"
+    [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
 fi
 
 "${apply[@]}" > "$root/applied.json"
@@ -467,6 +505,19 @@ fi
 [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM fsus_legacy_candidate.shadow_publication")" == 2 ]]
 [[ "$("${target_sql[@]}" -qAtc "SELECT source_revision_id,publication_number,source_rights_snapshot_id FROM fsus_legacy_candidate.shadow_publication ORDER BY publication_number")" == $'5000000001|1|700\n5000000002|2|701' ]]
 if [[ "$provider" == postgres ]]; then
+    saved_view=6f94f86a-c4de-48bb-bde6-d15893701a42
+    [[ "$("${target_sql[@]}" -qAtc '
+        SELECT v.id,v.owner_admin_principal_id,v.site_scope,v.revision,v.pinned,v.order_key,
+            c.revision,c.default_view_id,c.active_view_count,v.query_digest,v.dependency_digest
+        FROM fsus_legacy_candidate.shadow_author_saved_view v JOIN fsus_legacy_candidate.shadow_author_saved_view_collection c
+        USING(owner_admin_principal_id,site_scope)')" == \
+        "$saved_view|7|primary|2|1|1|3|$saved_view|1|e123af6f257e7edc5bd8c8a3d73fcd9620b195d869667e6cc168c6f06bdbc7ae|9435dc3f58b9b1d66e75ca057a12e996089b6619cb7669ecf8ec78ad6c09cc6b" ]]
+    [[ "$("${target_sql[@]}" -qAtc '
+        SELECT (SELECT count(*) FROM fsus_legacy_candidate.shadow_author_saved_view_receipt),
+            (SELECT count(*) FROM fsus_legacy_candidate.shadow_author_saved_view_receipt_change),
+            (SELECT count(*) FROM fsus_legacy_candidate.shadow_author_saved_view_idempotency),
+            (SELECT count(*) FROM public.author_saved_view), (SELECT count(*) FROM public.author_saved_view_command),
+            (SELECT count(*) FROM public.author_saved_view_pin), (SELECT count(*) FROM public.author_saved_view_default)')" == '3|2|3|0|0|0|0' ]]
     [[ "$("${target_sql[@]}" -qAtc 'SELECT article_id,views,legacy_views,seeded_at_utc
         FROM fsus_legacy_candidate.shadow_article_view_history')" == '42|19|7|2026-10-01T01:02:03.4567890Z' ]]
     [[ "$("${target_sql[@]}" -qAtc "SELECT count(*) FROM pg_class WHERE relname IN
@@ -497,6 +548,9 @@ phase_three_tables='fsus_legacy_candidate.shadow_article_rights_policy,
     fsus_legacy_candidate.shadow_article_rights_snapshot, fsus_legacy_candidate.shadow_article_responsibility_snapshot'
 if [[ "$provider" == postgres ]]; then
     phase_three_tables+=', fsus_legacy_candidate.shadow_article_mutation_command'
+    for suffix in _collection '' _condition _condition_value _projection _receipt _receipt_change _idempotency; do
+        phase_three_tables+=", fsus_legacy_candidate.shadow_author_saved_view$suffix"
+    done
 fi
 "${target_sql[@]}" -c "BEGIN; DROP TABLE $phase_three_tables; DELETE FROM fsus_legacy_candidate.checkpoint WHERE phase=3; COMMIT"
 "${apply[@]}" > "$root/resumed.json"
@@ -522,6 +576,10 @@ if [[ "$provider" == postgres ]]; then
     verify_args=("${migrate[@]}" legacy import verify "$root/import.json" "$plan_sha" "$backup" "$manifest")
     unset FSUSBLOG_V1_DB FSUSBLOG_V1_SCHEMA
     "${project_args[@]}" > "$root/projected.json"
+    "${target_sql[@]}" -c "UPDATE fsus_legacy_candidate.shadow_author_saved_view_condition_value SET value='category:12'"
+    if "${verify_args[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+    rg -Fx 'Staged source has changed: shadow_author_saved_view_condition_value.' "$root/error.log"
+    "${target_sql[@]}" -c "UPDATE fsus_legacy_candidate.shadow_author_saved_view_condition_value SET value='category:11'"
     "${target_sql[@]}" -c 'UPDATE fsus_legacy_candidate.shadow_article_view_history SET legacy_views=8 WHERE article_id=42'
     if "${verify_args[@]}" > "$root/error.log" 2>&1; then exit 1; fi
     rg -F 'shadow_article_view_history' "$root/error.log"
