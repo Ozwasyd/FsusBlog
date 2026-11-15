@@ -134,12 +134,24 @@ const editable = computed(() => Boolean(currentSession.value?.canAuthor && origi
 const cannotWrite = computed(() => closingTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
   metadataDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
+const minimumEditorWidthRem = 29
+const splitterWidthRem = 1
 const editorArea = ref<HTMLElement>()
-const wideEditorArea = ref(false)
+const splitter = ref<HTMLElement>()
+const editorMeasure = shallowRef({ width: 0, rem: 16 })
+const preferredPrimaryWidth = ref(50)
 const comparisonReady = ref(false)
 const selectedPanes = computed(() => sourcePanes.value.filter(pane => pane.selected))
 const twoSources = computed(() => selectedPanes.value.length === 2)
+const trackWidth = computed(() => editorMeasure.value.width - splitterWidthRem * editorMeasure.value.rem)
+const minimumShare = computed(() => trackWidth.value > 0
+  ? Math.max(30, Math.ceil(100 * minimumEditorWidthRem * editorMeasure.value.rem / trackWidth.value)) : 100)
+const wideEditorArea = computed(() => minimumShare.value <= 50)
+const primaryWidth = computed(() => Math.max(minimumShare.value, Math.min(100 - minimumShare.value, preferredPrimaryWidth.value)))
 const showComparison = computed(() => twoSources.value && wideEditorArea.value && comparisonReady.value)
+const splitColumns = computed(() => showComparison.value
+  ? `minmax(0, ${primaryWidth.value}fr) ${splitterWidthRem}rem minmax(0, ${100 - primaryWidth.value}fr)` : undefined)
+const primaryPane = computed(() => selectedPanes.value.find(pane => pane.tab.group === 'main')?.tab)
 const comparisonTab = computed(() => selectedPanes.value.find(pane => !pane.tab.active)?.tab)
 const selectedLocations = computed(() => selectedPanes.value.map(pane => `${pane.tab.sessionId}:${pane.tab.group}`).join(','))
 const credential = computed(() => currentSession.value?.siteSessionId)
@@ -163,13 +175,13 @@ const canPublishImages = computed(() => !!credential.value && editable.value && 
 let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
 
 watch(editorArea, (area, _, cleanup) => {
-  wideEditorArea.value = false
+  editorMeasure.value = { width: 0, rem: 16 }
   if (!area) return
   function measure() {
     if (!area) return
-    const minimum = 59 * parseFloat(getComputedStyle(document.documentElement).fontSize)
-    const available = Math.min(area.clientWidth, window.visualViewport?.width ?? window.innerWidth)
-    wideEditorArea.value = available >= minimum
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const width = Math.min(area.clientWidth, window.visualViewport?.width ?? window.innerWidth)
+    editorMeasure.value = { width, rem }
   }
   const observer = new ResizeObserver(measure)
   observer.observe(area)
@@ -179,6 +191,59 @@ watch(editorArea, (area, _, cleanup) => {
     observer.disconnect()
     window.visualViewport?.removeEventListener('resize', measure)
   })
+})
+
+let resizing: { pointer: number; start: number; width: number; direction: number; tracks: number } | undefined
+
+function direction() {
+  return editorArea.value && getComputedStyle(editorArea.value).direction === 'rtl' ? -1 : 1
+}
+
+function resizePrimary(width: number) {
+  if (showComparison.value) preferredPrimaryWidth.value = Math.max(minimumShare.value,
+    Math.min(100 - minimumShare.value, Math.round(width)))
+}
+
+function startResize(event: PointerEvent) {
+  const divider = splitter.value
+  if (!showComparison.value || !divider || resizing || !event.isPrimary || event.button !== 0) return
+  event.preventDefault()
+  divider.setPointerCapture(event.pointerId)
+  divider.focus({ preventScroll: true })
+  resizing = { pointer: event.pointerId, start: event.clientX, width: primaryWidth.value, direction: direction(), tracks: trackWidth.value }
+}
+
+function dragResize(event: PointerEvent) {
+  const drag = resizing
+  if (drag?.pointer === event.pointerId)
+    resizePrimary(drag.width + drag.direction * (event.clientX - drag.start) / drag.tracks * 100)
+}
+
+function endResize(event: PointerEvent) {
+  if (resizing?.pointer === event.pointerId) resizing = undefined
+}
+
+function keyboardResize(event: KeyboardEvent) {
+  if (!showComparison.value || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  const width = event.key === 'ArrowLeft' ? primaryWidth.value - direction() :
+    event.key === 'ArrowRight' ? primaryWidth.value + direction() :
+    event.key === 'Home' ? minimumShare.value : event.key === 'End' ? 100 - minimumShare.value : undefined
+  if (width === undefined) return
+  event.preventDefault()
+  resizePrimary(width)
+}
+
+watch(identityEpoch, () => { preferredPrimaryWidth.value = 50 }, { flush: 'sync' })
+watch(showComparison, async (wide, previous) => {
+  if (wide) return
+  resizing = undefined
+  const divider = splitter.value
+  const current = tab.value
+  const epoch = identityEpoch.value
+  if (!previous || !divider || document.activeElement !== divider || !current) return
+  await nextTick()
+  if (!showComparison.value && (document.activeElement === document.body || document.activeElement === divider))
+    await focusSource(current, epoch)
 })
 
 function paneFocused(pane: WorkspaceSource<Draft>) {
@@ -1250,7 +1315,8 @@ async function reloadDraft() {
     </template>
     <section v-if="authorizationReady && currentSession?.canAuthor && sourcePanes.length" v-show="editable"
       id="workspace-editor" class="editor-document" role="tabpanel" :aria-label="selectedPanelTitle">
-      <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }">
+      <div ref="editorArea" class="editor-source" :class="{ 'editor-source--split': showComparison }"
+        :style="{ gridTemplateColumns: splitColumns }">
         <WorkspaceSourcePane v-for="pane in sourcePanes" :key="pane.tab.sessionId" :pane="pane" :focus="paneFocused(pane)"
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
@@ -1290,6 +1356,12 @@ async function reloadDraft() {
             </template>
           </template>
         </WorkspaceSourcePane>
+        <div v-if="showComparison && primaryPane" ref="splitter" class="workspace-splitter" role="separator" tabindex="0"
+          aria-label="Resize article groups" aria-orientation="vertical" :aria-controls="`workspace-source-${primaryPane.sessionId}`"
+          :aria-valuemin="minimumShare" :aria-valuemax="100 - minimumShare" :aria-valuenow="primaryWidth"
+          :aria-valuetext="`Primary group ${primaryWidth}%`"
+          @pointerdown="startResize" @pointermove="dragResize" @pointerup="endResize" @pointercancel="endResize"
+          @lostpointercapture="endResize" @keydown="keyboardResize" />
       </div>
       <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive"
         :opened="persistentWorkspace ? !sourceInspectorPending && inspectorOpen : undefined" @update:opened="setInspectorOpen">
@@ -1391,10 +1463,31 @@ async function reloadDraft() {
   gap: .5rem;
   min-inline-size: 0;
 }
-.editor-source--split { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--fsus-space-4); }
+.editor-source--split { align-items: start; column-gap: 0; }
 .editor-source--split :deep(.workspace-source__heading) { min-block-size: var(--fsus-control-height-action); }
 .editor-source--split > .workspace-source { grid-row: 1; grid-column: 1; }
-.editor-source--split > .workspace-source--secondary { grid-column: 2; border-inline-start: 1px solid var(--fsus-border); padding-inline-start: .75rem; }
+.editor-source--split > .workspace-source--secondary { grid-column: 3; }
+.workspace-splitter {
+  position: relative;
+  grid-row: 1;
+  grid-column: 2;
+  align-self: stretch;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+.workspace-splitter::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 50%;
+  inline-size: 1px;
+  border-inline-start: 1px solid var(--fsus-border);
+  content: '';
+}
+.workspace-splitter:hover::before, .workspace-splitter:focus-visible::before {
+  border-inline-start-color: var(--fsus-color-action-primary);
+}
+.workspace-splitter:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: -2px; }
 @media (min-width: 1024px) {
   .editor-document:has(> .inspector-launcher[aria-expanded="true"]) {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 36%);

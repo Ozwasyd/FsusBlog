@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -77,6 +78,162 @@ async function expectPane(pane, draft, source, writable) {
 async function expectSameEditor(locator, original) {
   assert.equal(await locator.evaluate((current, previous) => current === previous && current instanceof HTMLTextAreaElement,
     original), true, 'The same native FsusUI textarea must remain mounted for that session')
+}
+
+const separator = page => page.getByRole('separator', { name: 'Resize article groups', exact: true })
+
+async function pageWidths(page) {
+  const widths = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    client: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+  }))
+  const viewport = page.viewportSize()
+  if (viewport) assert.equal(widths.viewport, viewport.width)
+  assert(widths.document <= widths.client && widths.body <= widths.client, 'The workspace must not overflow the page horizontally')
+  return widths
+}
+
+async function splitGeometry(page, primary, secondary) {
+  const [left, divider, right] = await Promise.all([primary.boundingBox(), separator(page).boundingBox(), secondary.boundingBox()])
+  assert(left && divider && right)
+  const rem = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
+  const minimumPane = 29 * rem
+  const available = left.width + right.width
+  const track = right.x - left.x - left.width
+  assert(Math.abs(track - rem) <= 1, 'The visible groups must reserve exactly the divider track')
+  assert(Math.abs(divider.x + divider.width / 2 - (right.x - track / 2)) <= 1, 'The interactive divider must be centered in its track')
+  assert(left.width >= minimumPane - 1 && right.width >= minimumPane - 1, 'The divider must preserve both 29rem minimums')
+  const attributes = await separator(page).evaluate(element => Object.fromEntries(
+    ['min', 'now', 'max'].map(name => [name, element.getAttribute('aria-value' + name)])))
+  for (const value of Object.values(attributes)) assert.match(value, /^[0-9]+$/)
+  const values = { min: Number(attributes.min), now: Number(attributes.now), max: Number(attributes.max) }
+  assert(values.min <= values.now && values.now <= values.max)
+  assert(Math.abs(values.now - Math.round(100 * left.width / available)) <= 1, 'The reported position must match the effective pane width')
+  assert(Math.abs(values.min - Math.round(100 * minimumPane / available)) <= 1)
+  assert(Math.abs(values.max - Math.round(100 * (available - minimumPane) / available)) <= 1)
+  return { left, divider, right, values, available, track, minimumPane }
+}
+
+async function exerciseSplitter(page, primary, secondary) {
+  const handle = separator(page)
+  await expect(handle).toBeVisible()
+  await expect(handle).toHaveAttribute('aria-orientation', 'vertical')
+  const controlledPane = await primary.getAttribute('id')
+  assert(controlledPane)
+  await expect(handle).toHaveAttribute('aria-controls', controlledPane)
+  await expect(handle).toHaveAttribute('aria-valuetext', 'Primary group 50%')
+  const initial = await splitGeometry(page, primary, secondary)
+  assert.equal(initial.values.now, 50)
+  assert(initial.values.min < 50 && initial.values.max > 50)
+
+  await press(page, handle, 'ArrowRight')
+  const increased = await splitGeometry(page, primary, secondary)
+  assert(increased.left.width > initial.left.width)
+  assert.equal(increased.values.now, initial.values.now + 1)
+  await page.keyboard.press('ArrowLeft')
+  const returned = await splitGeometry(page, primary, secondary)
+  assert.equal(returned.values.now, initial.values.now)
+  assert(Math.abs(returned.left.width - initial.left.width) <= 1)
+  await page.keyboard.press('Home')
+  const home = await splitGeometry(page, primary, secondary)
+  assert.equal(home.values.now, home.values.min)
+  await page.keyboard.press('End')
+  const end = await splitGeometry(page, primary, secondary)
+  assert.equal(end.values.now, end.values.max)
+  assert(home.left.width < returned.left.width && returned.left.width < end.left.width)
+  assert(home.right.width > returned.right.width && returned.right.width > end.right.width)
+
+  await handle.scrollIntoViewIfNeeded()
+  const box = await handle.boundingBox()
+  assert(box)
+  const startX = box.x + box.width / 2
+  const visibleTop = Math.max(1, box.y)
+  const visibleBottom = Math.min(page.viewportSize().height - 1, box.y + box.height)
+  assert(visibleBottom > visibleTop)
+  const y = (visibleTop + visibleBottom) / 2
+  const preferred = Math.round(home.values.min + (end.values.max - home.values.min) * 0.3)
+  const targetX = end.left.x + end.track / 2 + end.available * preferred / 100
+  await handle.evaluate(element => {
+    element.addEventListener('pointerdown', event => { element.dataset.testPointer = String(event.pointerId) }, { once: true })
+  })
+  await page.mouse.move(startX, y)
+  await page.mouse.down()
+  try {
+    assert.equal(await handle.evaluate(element => element.hasPointerCapture(Number(element.dataset.testPointer))), true)
+    assert.equal((await splitGeometry(page, primary, secondary)).values.now, end.values.now)
+    await page.mouse.move(targetX, y, { steps: 4 })
+    await expect(handle).toHaveAttribute('aria-valuenow', String(preferred))
+  } finally {
+    await page.mouse.up()
+  }
+  const pointer = await splitGeometry(page, primary, secondary)
+  assert(Math.abs(pointer.left.width - end.available * preferred / 100) <= end.available / 100)
+  await page.mouse.move(startX, y)
+  await expect(handle).toHaveAttribute('aria-valuenow', String(preferred))
+  return { initialPercent: initial.values.now, keyboardIncreasedPercent: increased.values.now,
+    minPercent: home.values.now, maxPercent: end.values.now, pointerPercent: preferred, minimumPaneWidth: initial.minimumPane,
+    lowerBoundPaneWidths: [home.left.width, home.right.width], upperBoundPaneWidths: [end.left.width, end.right.width],
+    pointerPaneWidths: [pointer.left.width, pointer.right.width], dividerTrackWidth: pointer.track }
+}
+
+async function exerciseNativePageZoom(author, first, second) {
+  const cookies = (await author.storageState()).cookies
+  const checks = []
+  for (const factor of [1, 1.5, 2]) {
+    const directory = await mkdtemp(join(tmpdir(), 'fsus-workspace-page-zoom-'))
+    try {
+      const profile = join(directory, 'Default')
+      await mkdir(profile)
+      // Chrome reads default page zoom from the root storage partition of this temporary profile.
+      await writeFile(join(profile, 'Preferences'), JSON.stringify({
+        partition: { default_zoom_level: { x: Math.log(factor) / Math.log(1.2) } },
+      }))
+      const context = await chromium.launchPersistentContext(directory, {
+        executablePath: process.env.FSUSBLOG_TEST_CHROME, viewport: null, args: ['--window-size=1440,900'],
+      })
+      try {
+        await context.addCookies(cookies)
+        const page = context.pages()[0] ?? await context.newPage()
+        monitor(page)
+        await page.goto(editPath(first.id))
+        await expectPane(group(page, 'Primary'), first, first.body, true)
+        await openById(page, second.id)
+        await expect(page).toHaveURL(editPath(second.id))
+        await expectPane(group(page, 'Secondary'), second, second.body, true)
+        const primary = group(page, 'Primary')
+        if (factor === 1) {
+          await expectPane(primary, first, first.body, false)
+          await splitGeometry(page, primary, group(page, 'Secondary'))
+        } else {
+          await expect(primary).toBeHidden()
+          await expect(separator(page)).toHaveCount(0)
+          await expect(page.locator('.el-markdown-editor')).toHaveCount(2)
+          await press(page, button(page, 'Focus primary group'), 'Space')
+          await expect(page).toHaveURL(editPath(first.id))
+          await expectPane(primary, first, first.body, true)
+          await expect(group(page, 'Secondary')).toBeHidden()
+          await expect(body(primary)).toBeFocused()
+        }
+        const widths = await pageWidths(page)
+        const { outer, dpr, visualScale } = await page.evaluate(() => ({
+          outer: window.outerWidth, dpr: window.devicePixelRatio, visualScale: window.visualViewport.scale,
+        }))
+        const firstCheck = checks[0] ?? { outer, dpr, viewport: widths.viewport }
+        assert.equal(outer, firstCheck.outer)
+        assert.equal(visualScale, 1)
+        assert(Math.abs(dpr / firstCheck.dpr - factor) < .01)
+        assert(Math.abs(widths.viewport * factor - firstCheck.viewport) <= 2)
+        checks.push({ factor, outer, dpr, visualScale, ...widths, groups: factor === 1 ? 2 : 1 })
+      } finally {
+        await context.close()
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  }
+  return checks
 }
 
 async function holdDraft(page, id) {
@@ -848,6 +1005,7 @@ try {
   const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
   const first = await createDraft(author, 'Primary workspace draft', 'Primary server source.')
   const second = await createDraft(author, 'Secondary workspace draft', 'Secondary server source.')
+  const nativePageZoom = await exerciseNativePageZoom(author, first, second)
   const alternate = await createDraft(author, 'Another primary workspace draft', 'Another primary server source.')
   const foreign = await createDraft(outsider, 'Private draft from another author', 'Private source from another author.')
   const localSuffix = ' Local unsaved source.'
@@ -876,6 +1034,7 @@ try {
   await expect(page.getByText('The article is unavailable.', { exact: true })).toBeVisible()
   await expect(page).toHaveURL(editPath(first.id))
   await expect(secondary).toHaveCount(0)
+  await expect(separator(page)).toHaveCount(0)
   await expect(page.locator('.el-markdown-editor')).toHaveCount(1)
   await expect(body(page)).toHaveValue(localSource)
   await expectSameEditor(body(page), firstNode)
@@ -903,6 +1062,16 @@ try {
   assert(left && right)
   assert(left.width > 360 && right.width > 360, 'Both desktop groups must have usable widths')
   assert(left.x + left.width <= right.x + 2, 'Desktop groups must be side by side')
+  await body(secondary).press('End')
+  await body(secondary).press('Shift+ArrowLeft')
+  const secondSelection = await selection(body(secondary))
+  assert.deepEqual(secondSelection, [second.body.length - 1, second.body.length])
+  const splitter = await exerciseSplitter(page, primary, secondary)
+  const checkedViewports = [{ ...await pageWidths(page), groups: 2, primaryPercent: splitter.pointerPercent }]
+  await expect(page).toHaveURL(editPath(second.id))
+  await expectSameEditor(body(primary), firstNode)
+  await expectSameEditor(body(secondary), secondNode)
+  assert.deepEqual(await selection(body(secondary)), secondSelection)
   await capture(page, 'workspace-split-desktop')
 
   await press(page, button(primary, 'Edit in this group'))
@@ -913,17 +1082,43 @@ try {
   await expectSameEditor(body(primary), firstNode)
   assert.deepEqual(await selection(body(primary)), firstSelection)
   await expectSameEditor(body(secondary), secondNode)
-  await body(primary).press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
-  await expect(body(primary)).toHaveValue(first.body)
-  await body(primary).press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+Shift+z')
-  await expect(body(primary)).toHaveValue(localSource)
-  await expect(body(secondary)).toHaveValue(second.body)
+
+  await page.setViewportSize({ width: 1040, height: 900 })
+  await expect.poll(async () => Number(await separator(page).getAttribute('aria-valuemin'))).toBeGreaterThan(splitter.pointerPercent)
+  const clamped = await splitGeometry(page, primary, secondary)
+  assert.equal(clamped.values.now, clamped.values.min)
+  checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: clamped.values.now })
+
+  await page.setViewportSize({ width: 1024, height: 900 })
+  await expectPane(primary, first, localSource, true)
+  await expectPane(secondary, second, second.body, false)
+  await expectSameEditor(body(primary), firstNode)
+  await expectSameEditor(body(secondary), secondNode)
+  const at1024 = await splitGeometry(page, primary, secondary)
+  assert.equal(at1024.values.now, at1024.values.min)
+  assert(at1024.values.min >= clamped.values.min)
+  checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: at1024.values.now })
+  await separator(page).focus()
+  await expect(separator(page)).toBeFocused()
+
+  await page.setViewportSize({ width: 768, height: 900 })
+  await expectPane(primary, first, localSource, true)
+  await expect(secondary).toBeHidden()
+  await expect(separator(page)).toHaveCount(0)
+  await expect(body(primary)).toBeFocused()
+  await expectSameEditor(body(primary), firstNode)
+  assert.equal(await secondNode.evaluate(element => element.isConnected), true)
+  assert.deepEqual(await selection(body(primary)), firstSelection)
+  checkedViewports.push({ ...await pageWidths(page), groups: 1 })
 
   await page.setViewportSize({ width: 375, height: 850 })
   await expect(primary).toBeVisible()
   await expect(secondary).toBeHidden()
+  await expect(separator(page)).toHaveCount(0)
+  await expect(body(primary)).toBeFocused()
+  assert.deepEqual(await selection(body(primary)), firstSelection)
   assert.equal(await secondNode.evaluate(element => element.isConnected), true, 'Responsive collapse must retain the second editor')
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+  checkedViewports.push({ ...await pageWidths(page), groups: 1 })
   await press(page, button(page, 'Focus secondary group'), 'Space')
   await expect(page).toHaveURL(editPath(second.id))
   await expect(primary).toBeHidden()
@@ -933,14 +1128,48 @@ try {
   await expectSameEditor(body(secondary), secondNode)
   await capture(page, 'workspace-split-mobile')
 
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(page.locator('html')).toHaveAttribute('data-theme-resolved', 'dark')
+  await expectPane(primary, first, localSource, false)
+  await expectPane(secondary, second, second.body, true)
+  await expectSameEditor(body(primary), firstNode)
+  await expectSameEditor(body(secondary), secondNode)
+  assert.deepEqual(await selection(body(secondary)), secondSelection)
+  const at1440 = await splitGeometry(page, primary, secondary)
+  assert.equal(at1440.values.now, splitter.pointerPercent)
+  checkedViewports.push({ ...await pageWidths(page), groups: 2, primaryPercent: at1440.values.now, theme: 'dark', reducedMotion: true })
+  await capture(page, 'workspace-split-dark-1440')
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'no-preference' })
+
   await page.setViewportSize({ width: 1366, height: 900 })
   await expectPane(primary, first, localSource, false)
   await expectPane(secondary, second, second.body, true)
   await expectSameEditor(body(primary), firstNode)
   await expectSameEditor(body(secondary), secondNode)
+  await expect(separator(page)).toHaveAttribute('aria-valuenow', String(splitter.pointerPercent))
+  const restored = await splitGeometry(page, primary, secondary)
+  for (const [index, width] of [restored.left.width, restored.right.width].entries())
+    assert(Math.abs(width - splitter.pointerPaneWidths[index]) <= 1)
+  assert.deepEqual(await selection(body(secondary)), secondSelection)
+
+  await press(page, button(primary, 'Edit in this group'))
+  await expect(page).toHaveURL(editPath(first.id))
+  await expect(body(primary)).toBeFocused()
+  assert.deepEqual(await selection(body(primary)), firstSelection)
+  await body(primary).press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
+  await expect(body(primary)).toHaveValue(first.body)
+  await body(primary).press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+Shift+z')
+  await expect(body(primary)).toHaveValue(localSource)
+  await expect(body(secondary)).toHaveValue(second.body)
+  await press(page, button(secondary, 'Edit in this group'))
+  await expect(page).toHaveURL(editPath(second.id))
+  await expect(body(secondary)).toBeFocused()
+  assert.deepEqual(await selection(body(secondary)), secondSelection)
 
   const savedSecondSuffix = ' Saved in the secondary group.'
-  await body(secondary).press('End')
+  await body(secondary).press('ArrowRight')
+  await expect.poll(() => selection(body(secondary))).toEqual([second.body.length, second.body.length])
   await page.keyboard.insertText(savedSecondSuffix)
   await expect(body(secondary)).toHaveValue(second.body + savedSecondSuffix)
   const save = page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` &&
@@ -994,7 +1223,9 @@ try {
   observations.push({ realDeniedDraft: true, waitsForRealReceipt: true, twoDistinctSourceEditors: true,
     exactEditorNodesAcrossFocusAndCollapse: true, focusedOnlyWrites: true, selectionAndIndependentUndo: true,
     exactFocusedSaveReceipt: true, duplicateKeepsOwningGroup: true, keyboardCompactSwitch: true, identityInvalidatesBothEditors: true,
-    wideViewport: 1366, compactViewport: 375, paneWidths: [left.width, right.width] })
+    wideViewport: 1366, compactViewport: 375, paneWidths: [left.width, right.width],
+    splitter: { ...splitter, clampedPercentAt1040: clamped.values.now, restoredPaneWidths: [restored.left.width, restored.right.width],
+      checkedViewports, nativePageZoom } })
   assert.deepEqual(diagnostics, [])
 } catch (error) {
   failure = error

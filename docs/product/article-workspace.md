@@ -10,11 +10,13 @@
 
 桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。当前 registry 最多容纳 100 个会话，界面最多挂载两个选中的 FsusUI 编辑器。
 
-已打开一篇文章时，可在「Article ID」输入另一篇文章并选择「Open in other group」。已有文章会回到原组。空间充足时，两组并排显示各自的 Markdown 源码，只有焦点组可以编辑。可用宽度低于 59 rem 时收起另一组，仍可从「Article groups」切换。宽度恢复时先重新校验另一组的草稿权限。两组保留原编辑器实例，焦点切换和视口收起不会重新挂载。 [#1855](https://github.com/Ozwasyd/FsusBlog/issues/1855)
+已打开一篇文章时，可在「Article ID」输入另一篇文章并选择「Open in other group」。已有文章会回到原组。空间充足时，两组并排显示各自的 Markdown 源码，只有焦点组可以编辑。可以拖动分隔条，也可以用左右方向键调整比例，用 Home 和 End 调到当前可用的边界。每组至少保留 29 rem。空间不足时收起另一组，仍可从「Article groups」切换。宽度恢复时先重新校验另一组的草稿权限，再恢复可容纳的比例。比例保留在当前挂载的工作区内，切换身份或刷新后从一半开始。两组保留原编辑器实例，焦点切换和视口收起不会重新挂载。 [#1855](https://github.com/Ozwasyd/FsusBlog/issues/1855) · [#2299](https://github.com/Ozwasyd/FsusBlog/issues/2299)
+
+原生 Chrome 在六种宽度和实际 100%、150%、200% 页面缩放下验证了分隔条、窄屏焦点交接、选区与撤销保留，以及页面没有横向溢出。 [分隔条浏览器证据](../../artifacts/workspace-splitter-2ec1b97/run-4-zoom/workspace-split-result.json)
 
 「Group actions」可以把当前稿件移到另一组或合并两组。移动把稿件追加到目标组。合并把次组标签按原顺序追加到主组。预览位置冲突时固定移入的预览，两个标签都保留。操作保留焦点稿件的路由、修订、未保存内容和已经挂载的编辑器。另一组已挂载的编辑器可暂时隐藏，工作区仍最多挂载两个。 [#2300](https://github.com/Ozwasyd/FsusBlog/issues/2300)
 
-离线期间的布局变化保留在当前浏览器标签，恢复联网后仍需重新加载已保存的工作区才继续同步。未确认的草稿内容继续由草稿恢复处理。双组提供源码编辑和普通粘贴。拖放、未选中标签的直接移动、可调比例、双组富预览、Rail 布局偏好、Inspector 内部视图和完整编辑器挂起仍待交付。
+离线期间的布局变化保留在当前浏览器标签，恢复联网后仍需重新加载已保存的工作区才继续同步。未确认的草稿内容继续由草稿恢复处理。双组提供源码编辑和普通粘贴。标签拖放、未选中标签的直接移动、双组富预览、Rail 布局偏好、Inspector 内部视图和完整编辑器挂起仍待交付。
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
 
