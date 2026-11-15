@@ -13,6 +13,7 @@ internal static class DocumentExportEndpoints
 {
     internal const string Setting = "FSUSBLOG_DOCUMENT_EXPORT_TASKS";
     private const string ReceiptType = "application/vnd.fsus.document-export-receipt+json";
+    private const string WordReceiptType = "application/vnd.fsus.document-export-receipt.v2+json";
     internal const string Marker = "<meta name=\"fsus-document-export-tasks\" content=\"1\">";
     internal static BusinessException Missing() => new(Rejection.NotFound, "Document export is unavailable.");
 
@@ -63,14 +64,17 @@ internal static class DocumentExportEndpoints
         app.MapPost(WireRoutes.DocumentExportDownload, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var id = await ReadTaskRef(ctx, ct);
-            var receipt = string.Equals(ctx.Request.Headers.Accept, ReceiptType, StringComparison.OrdinalIgnoreCase);
+            var accept = ctx.Request.Headers.Accept.ToString();
+            var receiptVersion = string.Equals(accept, WordReceiptType, StringComparison.OrdinalIgnoreCase) ? 2 :
+                string.Equals(accept, ReceiptType, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             var result = await Session(ctx, store, (db, tx, actor) => DocumentExportStore.Download(db, tx, actor, id,
-                media, DocumentExportAttachment.PrivateTransport(ctx), receipt, pdf?.ToolDigest, ct), ct);
+                media, DocumentExportAttachment.PrivateTransport(ctx), receiptVersion, pdf?.ToolDigest, ct), ct);
             ctx.Response.Headers.XContentTypeOptions = "nosniff";
             ctx.Response.Headers["Cross-Origin-Resource-Policy"] = "same-origin";
             ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
             ctx.Response.Headers.Vary = "Accept";
-            if (receipt) return Results.Bytes(result.Bytes, ReceiptType, "article.export-receipt.json");
+            if (receiptVersion != 0)
+                return Results.Bytes(result.Bytes, receiptVersion == 2 ? WordReceiptType : ReceiptType, "article.export-receipt.json");
             if (result.Format == DocumentExportFormat.Html)
                 ctx.Response.Headers.ContentSecurityPolicy = result.HasAttachment ? HtmlDocumentExport.ImageResponsePolicy : HtmlDocumentExport.ResponsePolicy;
             var (type, extension) = Presentation(result.Format);

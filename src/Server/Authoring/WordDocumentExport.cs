@@ -8,6 +8,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using Markdig.Extensions.Tables;
 using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -112,6 +113,50 @@ internal static class WordDocumentExport
         return data.ToArray();
 
         string ImageId(int index) => images.Length == 1 ? "Image" : string.Create(CultureInfo.InvariantCulture, $"Image{index + 1}");
+    }
+
+    internal sealed record FormatWarning(string Code, int Start, int Length, int Occurrences);
+
+    internal static FormatWarning[] Warnings(string body, bool includeTables, CancellationToken ct)
+    {
+        var warnings = new Dictionary<string, FormatWarning>(StringComparer.Ordinal);
+        var markdown = HtmlDocumentExport.ParseMarkdown(body, "Word", ct, includeTables, precise: true);
+        foreach (var heading in markdown.OfType<HeadingBlock>())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (heading.Level > 3) Record("heading-level-reduced", heading);
+            if (HeadingLabel(heading) is null) Record("heading-markup-as-text", heading);
+        }
+        foreach (var node in markdown.Descendants<MarkdownObject>())
+        {
+            ct.ThrowIfCancellationRequested();
+            var code = node switch
+            {
+                ListBlock => "list-as-text",
+                QuoteBlock => "quote-as-text",
+                LinkInline { IsImage: true } => "inline-image-as-text",
+                LinkInline or AutolinkInline or LinkReferenceDefinitionGroup => "link-as-text",
+                EmphasisInline => "emphasis-as-text",
+                CodeInline => "inline-code-as-text",
+                ThematicBreakBlock => "rule-as-text",
+                FencedCodeBlock fence when HtmlDocumentExport.IsRenderDirective(fence) => "render-directive-as-code",
+                FencedCodeBlock { Info.Length: > 0 } => "code-language-omitted",
+                _ => null
+            };
+            if (code is not null) Record(code, node);
+        }
+        return warnings.Values.OrderBy(value => value.Start).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray();
+
+        void Record(string code, MarkdownObject node)
+        {
+            var start = node.Span.Start;
+            var end = Math.Min(node.Span.End, body.Length - 1);
+            if (start < 0 || start > end) return;
+            var known = warnings.GetValueOrDefault(code);
+            var count = (known?.Occurrences ?? 0) + 1;
+            warnings[code] = known is not null && known.Start <= start
+                ? known with { Occurrences = count } : new(code, start, end - start + 1, count);
+        }
     }
 
     private static void WriteImage(XmlWriter xml, DocumentExportAttachment image, int index, string relationship)
@@ -253,7 +298,7 @@ internal static class WordDocumentExport
         var label = new StringBuilder();
         for (var inline = heading.Inline?.FirstChild; inline is not null; inline = inline.NextSibling)
         {
-            if (inline is not Markdig.Syntax.Inlines.LiteralInline literal) return null;
+            if (inline is not LiteralInline literal) return null;
             label.Append(literal.Content.AsSpan());
         }
         return label.Length > 0 ? label.ToString() : null;

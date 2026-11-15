@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
@@ -111,11 +112,13 @@ internal static class DocumentExportStore
     }
 
     internal static async Task<(DocumentExportFormat Format, byte[] Bytes, bool HasAttachment)> Download(NpgsqlConnection db, NpgsqlTransaction tx,
-        Identity actor, Guid id, MediaFiles? media, bool privateTransport, bool receipt, byte[]? pdfToolDigest, CancellationToken ct)
+        Identity actor, Guid id, MediaFiles? media, bool privateTransport, int receiptVersion, byte[]? pdfToolDigest, CancellationToken ct)
     {
         var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
-        if (task.State != DocumentExportState.Succeeded) throw DocumentExportEndpoints.Missing();
+        if (task.State != DocumentExportState.Succeeded || (receiptVersion == 2 && task.Request.Format != DocumentExportFormat.Docx))
+            throw DocumentExportEndpoints.Missing();
+        var receipt = receiptVersion != 0;
         var hasAttachment = task.Provider is DocumentExportInput.AttachmentProvider or DocumentExportInput.ImageListProvider;
         if (hasAttachment && !privateTransport) throw DocumentExportEndpoints.Missing();
         var toolDigest = task.Request.Format == DocumentExportFormat.Pdf ? pdfToolDigest : null;
@@ -134,15 +137,16 @@ internal static class DocumentExportStore
             !CryptographicOperations.FixedTimeEquals(SHA256.HashData(output), row.GetFieldValue<byte[]>(1)) ||
             !CryptographicOperations.FixedTimeEquals(task.OutputDigest!, row.GetFieldValue<byte[]>(1)))
             throw new PublicUnavailableException();
-        return (task.Request.Format, receipt ? SerializeReceipt(task, verified!, toolDigest) : output, hasAttachment);
+        return (task.Request.Format, receipt ? SerializeReceipt(task, verified!, toolDigest, receiptVersion, ct) : output, hasAttachment);
     }
 
-    private static byte[] SerializeReceipt(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest)
+    private static byte[] SerializeReceipt(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest,
+        int version, CancellationToken ct)
     {
         var (mime, format) = DocumentExportEndpoints.Presentation(task.Request.Format);
-        return JsonSerializer.SerializeToUtf8Bytes(new
+        var result = new
         {
-            version = 1, taskId = task.Request.Id, article = task.Request.Article,
+            version, taskId = task.Request.Id, article = task.Request.Article,
             expectedRevision = task.Request.Revision.ToString(CultureInfo.InvariantCulture),
             sourceRevision = task.Request.SourceRevision.ToString(CultureInfo.InvariantCulture),
             format, provider = task.Provider, layout = "basic-layout-1", state = "succeeded",
@@ -162,7 +166,12 @@ internal static class DocumentExportStore
                 sha256 = Convert.ToHexStringLower(image.VerifiedDigest!)
             }).ToArray(),
             output = new { mime = mime.Split(';', 2)[0], bytes = task.OutputBytes, sha256 = Convert.ToHexStringLower(task.OutputDigest!) }
-        });
+        };
+        if (version == 1) return JsonSerializer.SerializeToUtf8Bytes(result);
+        var details = JsonSerializer.SerializeToNode(result)!.AsObject();
+        details["warnings"] = JsonSerializer.SerializeToNode(WordDocumentExport.Warnings(input.Body, task.Provider != 1, ct)
+            .Select(warning => new { code = warning.Code, start = warning.Start, length = warning.Length, occurrences = warning.Occurrences }));
+        return JsonSerializer.SerializeToUtf8Bytes(details);
 
         static string TextDigest(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     }

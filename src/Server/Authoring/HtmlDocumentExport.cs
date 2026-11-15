@@ -17,8 +17,10 @@ internal static class HtmlDocumentExport
     internal const string ResponsePolicy = DocumentPolicy + "; frame-ancestors 'none'";
     internal const string ImageResponsePolicy = DocumentImagePolicy + "; frame-ancestors 'none'";
     private const int MaximumExpandedTableCells = 32_768;
-    private static readonly MarkdownPipeline BasicMarkdown = new MarkdownPipelineBuilder().DisableHtml().Build();
-    private static readonly MarkdownPipeline TableMarkdown = new MarkdownPipelineBuilder().DisableHtml().UsePipeTables().Build();
+    private static readonly MarkdownPipeline BasicMarkdown = BuildPipeline(tables: false, precise: false);
+    private static readonly MarkdownPipeline TableMarkdown = BuildPipeline(tables: true, precise: false);
+    private static readonly MarkdownPipeline LocatedMarkdown = BuildPipeline(tables: false, precise: true);
+    private static readonly MarkdownPipeline LocatedTableMarkdown = BuildPipeline(tables: true, precise: true);
     private static readonly HashSet<string> RenderedFences = new(StringComparer.OrdinalIgnoreCase)
         { "mermaid", "katex", "latex", "math" };
 
@@ -65,10 +67,10 @@ internal static class HtmlDocumentExport
         if (Encoding.UTF8.GetByteCount(title) > WireLimits.TitleBytes || Encoding.UTF8.GetByteCount(body) > WireLimits.BodyBytes)
             throw TooLarge(format);
 
-        var pipeline = includeTables ? SelectPipeline(body, format, ct) : BasicMarkdown;
+        var pipeline = SelectPipeline(body, format, ct, includeTables, precise: false);
         var document = Markdown.Parse(body, pipeline);
         if (document.Descendants<MarkdownObject>().Any(node => node is LinkInline or AutolinkInline or LinkReferenceDefinitionGroup ||
-            node is FencedCodeBlock { Info: { } info } && RenderedFences.Contains(info)))
+            node is FencedCodeBlock fence && IsRenderDirective(fence)))
             throw new BusinessException(Rejection.Invalid,
                 $"Offline {format} supports basic text Markdown without links, images, or render directives.");
 
@@ -76,10 +78,26 @@ internal static class HtmlDocumentExport
         return Markdown.ToHtml(document, pipeline);
     }
 
-    internal static MarkdownDocument ParseMarkdown(string body, string format, CancellationToken ct, bool includeTables) =>
-        Markdown.Parse(body, includeTables ? SelectPipeline(body, format, ct) : BasicMarkdown);
+    internal static bool IsRenderDirective(FencedCodeBlock fence) => fence.Info is { } info && RenderedFences.Contains(info);
 
-    private static MarkdownPipeline SelectPipeline(string body, string format, CancellationToken ct)
+    internal static MarkdownDocument ParseMarkdown(string body, string format, CancellationToken ct, bool includeTables, bool precise = false) =>
+        Markdown.Parse(body, SelectPipeline(body, format, ct, includeTables, precise));
+
+    private static MarkdownPipeline SelectPipeline(string body, string format, CancellationToken ct, bool includeTables, bool precise)
+    {
+        var tables = includeTables && UseTables(body, format, ct);
+        return tables ? (precise ? LocatedTableMarkdown : TableMarkdown) : (precise ? LocatedMarkdown : BasicMarkdown);
+    }
+
+    private static MarkdownPipeline BuildPipeline(bool tables, bool precise)
+    {
+        var pipeline = new MarkdownPipelineBuilder().DisableHtml();
+        if (tables) pipeline.UsePipeTables();
+        if (precise) pipeline.UsePreciseSourceLocation();
+        return pipeline.Build();
+    }
+
+    private static bool UseTables(string body, string format, CancellationToken ct)
     {
         var lines = 0;
         var maxPipes = 0;
@@ -93,10 +111,10 @@ internal static class HtmlDocumentExport
             maxPipes = Math.Max(maxPipes, pipes);
             possibleSeparator |= IsTableSeparator(line);
         }
-        if (!possibleSeparator || lines < 2) return BasicMarkdown;
+        if (!possibleSeparator || lines < 2) return false;
         // Markdig pads short rows to the widest row. Bound that expansion before parsing.
         if ((long)lines * (maxPipes + 1) > MaximumExpandedTableCells) throw TooLarge(format);
-        return TableMarkdown;
+        return true;
     }
 
     private static bool IsTableSeparator(ReadOnlySpan<char> line)

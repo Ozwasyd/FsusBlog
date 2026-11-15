@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
@@ -206,6 +207,79 @@ public sealed partial class DocumentExportPostgresTests
         await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
         await ExportResponseFixture.Receipt(final.Client, wordId, owner.Token, owner.Handle, HttpStatusCode.Unauthorized, ct);
+    }
+
+    [PostgresFact]
+    public async Task WordReceiptReportsTheSavedSourcesLiteralFormattingWithoutChangingOutput()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var owner = await Login(fixture, "Word warning owner", canAuthor: true, ct);
+        const string body = """
+            #### Heading *markup*
+
+            - **First**
+            - *Second*
+
+            > [Link](https://export.invalid/reference)
+
+            `inline code` and ![image](media.png).
+
+            ---
+
+            ~~~mermaid
+            ignored **[markup](https://export.invalid/code)** in the directive
+            ~~~
+
+            ~~~js
+            const plain = 'code';
+            ~~~
+            """;
+        const string type = "application/vnd.fsus.document-export-receipt.v2+json";
+        var id = Guid.NewGuid();
+        byte[] audited;
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, Settings))
+        {
+            var source = await Save(server.Client, owner, 0, 0, "Original formatting", body, ct);
+            var current = await Save(server.Client, owner, source.Id, source.Revision, "Later source", "Plain text.", ct);
+            await ReadTask(server.Client, CreateRoute, owner, Create(id, source.Id, current.Revision, source.Revision, 3), ct);
+            var ready = await AwaitTask(server.Client, owner, source.Id, id, Succeeded, ct);
+            var document = await Download(server.Client, owner, ready,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "article.docx", ct);
+            WordDocumentExportTests.AssertFile(document, "- **First**", "> [Link](https://export.invalid/reference)", "`inline code`");
+            var receipt = JsonNode.Parse(await ExportResponseFixture.Receipt(server.Client, id, owner.Token,
+                owner.Handle, HttpStatusCode.OK, ct))!;
+            Assert.Equal(1, (int)receipt["version"]!);
+            Assert.Null(receipt["warnings"]);
+            audited = await ReadWordWarnings(server.Client);
+            var details = JsonNode.Parse(audited)!;
+            Assert.Equal(2, (int)details["version"]!);
+            Assert.Equal(Convert.ToHexStringLower(ready.OutputDigest), (string?)details["output"]?["sha256"]);
+            var warnings = details["warnings"]!.AsArray().ToDictionary(item => (string)item!["code"]!);
+            Assert.Equal(11, warnings.Count);
+            Span("list-as-text", "- **First**", 1);
+            Span("link-as-text", "[Link]", 1);
+            Span("emphasis-as-text", "*markup*", 3);
+            Span("render-directive-as-code", "~~~mermaid", 1);
+            Span("code-language-omitted", "~~~js", 1);
+            void Span(string code, string prefix, int occurrences)
+            {
+                var warning = warnings[code]!;
+                Assert.Equal(occurrences, (int)warning["occurrences"]!);
+                Assert.StartsWith(prefix, body.Substring((int)warning["start"]!, (int)warning["length"]!), StringComparison.Ordinal);
+            }
+        }
+        await using var restarted = await ServerProcess.Start(fixture.ConnectionString, ct, Settings);
+        Assert.Equal(audited, await ReadWordWarnings(restarted.Client));
+
+        async Task<byte[]> ReadWordWarnings(HttpClient client)
+        {
+            using var response = await SiteAedsFixture.ExpectPrivateResponse(client, HttpMethod.Post, DownloadRoute, Reference(id),
+                owner.Token, owner.Handle, HttpStatusCode.OK, ct, type);
+            ExportResponseFixture.Attachment(response, type, "article.export-receipt.json");
+            return await response.Content.ReadAsByteArrayAsync(ct);
+        }
     }
 
     [PostgresFact]

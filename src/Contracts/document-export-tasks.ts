@@ -1,7 +1,7 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { consumeBounded, request, siteSessionHeader } from './client.ts';
-import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
+import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const formats = ['html', 'pdf', 'docx', 'epub'] as const;
 const statuses = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'blocked', 'cancelling'] as const;
@@ -191,13 +191,42 @@ export function cancelDocumentExportTask(id: string, session: string, signal: Ab
 }
 
 const receiptType = 'application/vnd.fsus.document-export-receipt+json';
+const wordReceiptType = 'application/vnd.fsus.document-export-receipt.v2+json';
+export const wordWarningLabels = {
+  'heading-level-reduced': 'Deep headings use the Word Heading 3 style.',
+  'heading-markup-as-text': 'Heading markup is preserved as text.',
+  'list-as-text': 'List markers are preserved as text.',
+  'quote-as-text': 'Quote markers are preserved as text.',
+  'inline-image-as-text': 'Markdown image references are preserved as text.',
+  'link-as-text': 'Links are preserved as text.',
+  'emphasis-as-text': 'Emphasis markers are preserved as text.',
+  'inline-code-as-text': 'Inline code markers are preserved as text.',
+  'rule-as-text': 'Thematic breaks are preserved as text.',
+  'render-directive-as-code': 'Render directives are preserved as code.',
+  'code-language-omitted': 'Code blocks use plain monospace without language highlighting.',
+} as const;
+export type WordExportWarning = Readonly<{
+  code: keyof typeof wordWarningLabels;
+  start: number;
+  length: number;
+  occurrences: number;
+}>;
 
 export async function downloadDocumentExportTask(task: DocumentExportTask, session: string, signal: AbortSignal, receipt = false): Promise<Blob> {
+  return (await fetchDocumentExport(task, session, signal, receipt ? 1 : 0)).file;
+}
+
+export function readWordExportReceipt(task: DocumentExportTask, session: string, signal: AbortSignal) {
+  if (task.format !== 'docx') throw new ProtocolError('Expected a Word export task');
+  return fetchDocumentExport(task, session, signal, 2);
+}
+
+async function fetchDocumentExport(task: DocumentExportTask, session: string, signal: AbortSignal, version: 0 | 1 | 2) {
   requireOutput(task);
   const output = documentOutputs[task.format];
   if (task.status !== 'succeeded' || !output || task.outputBytes > output.limit)
     throw new ProtocolError('Document export is not ready');
-  const type = receipt ? receiptType : output.type;
+  const type = version === 2 ? wordReceiptType : version === 1 ? receiptType : output.type;
   const expectedHash = task.outputHash.slice();
   const headers = new Headers(exportHeaders(session));
   headers.set('Accept', type);
@@ -216,20 +245,34 @@ export async function downloadDocumentExportTask(task: DocumentExportTask, sessi
     throw new ProtocolError('Expected a document attachment');
   }
 
-  if (receipt) {
+  if (version) {
     const chunks: Uint8Array<ArrayBuffer>[] = [];
     await consumeBounded(response.body, 16 * 1024, 'Document export receipt is too large', chunk => { chunks.push(chunk); });
     const file = new Blob(chunks, { type });
     const document = JSON.parse(await file.text());
     const hex = (hash: Uint8Array) => Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
     signal.throwIfAborted();
-    if (document?.version !== 1 || document.taskId !== task.id || document.article !== task.article ||
+    if (document?.version !== version || document.taskId !== task.id || document.article !== task.article ||
         document.expectedRevision !== String(task.revision) || document.sourceRevision !== String(task.sourceRevision) ||
         document.format !== task.format || document.provider !== task.provider || document.sourceSha256 !== hex(task.sourceHash) ||
         document.output?.mime !== output.type || document.output.bytes !== task.outputBytes ||
         document.output.sha256 !== hex(expectedHash))
       throw new ProtocolError('Document export receipt differs from the task');
-    return file;
+    const warnings: WordExportWarning[] = [];
+    if (version === 2) {
+      if (!Array.isArray(document.warnings)) throw new ProtocolError('Invalid Word export warnings');
+      const codes = new Set<string>();
+      for (const warning of document.warnings) {
+        if (typeof warning?.code !== 'string' || !Object.hasOwn(wordWarningLabels, warning.code) ||
+            codes.has(warning.code) || !Number.isSafeInteger(warning.start) || warning.start < 0 ||
+            !Number.isSafeInteger(warning.length) || warning.length < 1 || warning.start + warning.length > WireLimits.BodyBytes ||
+            !Number.isSafeInteger(warning.occurrences) || warning.occurrences < 1 || warning.occurrences > WireLimits.BodyBytes)
+          throw new ProtocolError('Invalid Word export warnings');
+        codes.add(warning.code);
+        warnings.push(warning);
+      }
+    }
+    return { file, warnings };
   }
 
   const bytes = new Uint8Array(task.outputBytes);
@@ -241,5 +284,5 @@ export async function downloadDocumentExportTask(task: DocumentExportTask, sessi
   signal.throwIfAborted();
   if (!hash.every((byte, index) => byte === expectedHash[index]))
     throw new ProtocolError('Document export differs from its recorded digest');
-  return new Blob([bytes], { type });
+  return { file: new Blob([bytes], { type }), warnings: [] };
 }

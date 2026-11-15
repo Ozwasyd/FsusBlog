@@ -56,4 +56,6 @@ PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结
 
 下载就绪任务时可另存导出回执。回执记录所选修订的标题、保存时间与正文摘要、按顺序核验的图片清单、提供方版本和布局、产物的 MIME、长度和 SHA-256，以及执行时间和到期时间。PDF 回执还绑定创建任务时固定的工具摘要。服务复核当前授权、原输入承诺和实际产物字节后才交付回执。回执不含正文或图片原始字节。
 
+就绪 Word 任务可通过 **Review Word formatting** 查看所选修订的格式提示。Word 回执以 `application/vnd.fsus.document-export-receipt.v2+json` 交付机器可读的提示类别、出现次数和首次出现范围。范围使用从零开始的 UTF-16 正文索引。提示涵盖保留为文本的列表、引用、链接、图片、强调、行内代码、分隔线和标题标记，也标记降低的标题层级、保留为代码的渲染指令和没有语法高亮的语言代码块。回执沿用同一份文档产物和输入摘要。
+
 真实 macOS PDF 工作进程已验证运行中取消后退出和临时目录清理。数据库租约丢失时会清理运行中的渲染进程，重启后被中断的 PDF 保留失败回执，排队 HTML 继续。初次 SIGTERM 演练暂停了子进程，macOS 将该状态报告给 .NET 的退出等待，导致信号处理延迟，原失败保留。用自然运行的真实 PDF 重试，观察到 828 毫秒内回收渲染进程和临时目录并关闭服务。重启后运行中的任务保留中断回执，排队任务继续。暂停子进程的 HTTP 取消和租约丢失也有独立通过结果。 [真实 SIGTERM 演练](../../artifacts/document-export-sigterm-2ec1b97/graceful-and-cancellation.log) · [首次失败](../../artifacts/document-export-pdf-749b9ba/restart-2.log) · [macOS 等待结果](../../artifacts/document-export-sigterm-2ec1b97/darwin-child-wait.log)

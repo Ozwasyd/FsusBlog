@@ -4,6 +4,7 @@ import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError, ProtocolError } from '../../../Contracts/aeds'
 import {
   cancelDocumentExportTask, createDocumentExportTask, downloadDocumentExportTask, listDocumentExportTasks,
+  readWordExportReceipt, wordWarningLabels, type WordExportWarning,
   type DocumentExportFailure, type DocumentExportFormat, type DocumentExportStatus, type DocumentExportTask,
 } from '../../../Contracts/document-export-tasks'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
@@ -31,6 +32,7 @@ const listError = ref('')
 const actionError = ref('')
 const format = ref<DocumentExportFormat>('html')
 const tasks = shallowRef<readonly DocumentExportTask[]>([])
+const wordWarnings = shallowRef<{ id: string; items: WordExportWarning[] }>()
 const eligible = computed(() => enabled && !!currentSession.value?.canAuthor && !!currentSession.value?.siteSessionId)
 const visible = computed(() => eligible.value && props.active && open.value)
 const createKeys = new Map<DocumentExportFormat, string>()
@@ -51,6 +53,7 @@ function stop() {
   request = undefined
   loading.value = busy.value = loaded.value = false
   tasks.value = []
+  wordWarnings.value = undefined
   listError.value = actionError.value = ''
 }
 
@@ -158,16 +161,19 @@ async function cancel(task: DocumentExportTask) {
   })
 }
 
-async function download(task: DocumentExportTask, receipt = false) {
+async function download(task: DocumentExportTask, action: 'export' | 'receipt' | 'review' = 'export') {
   if (!downloadable(task, Date.now())) return
   await run('action', async (handle, signal, current) => {
-    const blob = await downloadDocumentExportTask(task, handle, signal, receipt)
+    const details = task.format === 'docx' && action !== 'export' ? await readWordExportReceipt(task, handle, signal) : undefined
+    const blob = details?.file ?? await downloadDocumentExportTask(task, handle, signal, action === 'receipt')
     if (!current() || !downloadable(task, Date.now())) return
+    if (details) wordWarnings.value = { id: task.id, items: details.warnings }
+    if (action === 'review') return
     const url = URL.createObjectURL(blob)
     try {
       const link = document.createElement('a')
       link.href = url
-      link.download = receipt ? 'article.export-receipt.json' : `article.${task.format}`
+      link.download = action === 'receipt' ? 'article.export-receipt.json' : `article.${task.format}`
       link.click()
     } finally {
       setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -215,8 +221,17 @@ onScopeDispose(stop)
             <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">Cancel task</ElButton>
             <template v-if="downloadable(task)">
               <ElButton native-type="button" text :disabled="busy" @click="download(task)">Download export</ElButton>
-              <ElButton native-type="button" text :disabled="busy" @click="download(task, true)">Download receipt</ElButton>
+              <ElButton native-type="button" text :disabled="busy" @click="download(task, 'receipt')">Download receipt</ElButton>
+              <ElButton v-if="task.format === 'docx'" native-type="button" text :disabled="busy" @click="download(task, 'review')">Review Word formatting</ElButton>
             </template>
+          </div>
+          <div v-if="downloadable(task) && wordWarnings?.id === task.id" role="status">
+            <ul v-if="wordWarnings.items.length">
+              <li v-for="warning in wordWarnings.items" :key="warning.code">
+                {{ wordWarningLabels[warning.code] }} ({{ warning.occurrences }})
+              </li>
+            </ul>
+            <p v-else>No Word formatting warnings were reported.</p>
           </div>
         </li>
       </ul>
