@@ -8,6 +8,8 @@
 
 属性表单有未提交改动时，需先保存或取消，再离开编辑页或更新文章和分类。服务端响应未确认时，重试会继续使用原请求和原请求键。切换文章、文章修订或登录身份会取消旧请求并清空旧表单。日期输入只接受 UTC 时间，单独输入日期时使用 UTC 午夜。编辑页区分空文本、显式空值、未设置和不可用引用。
 
+「Edit multiple properties」可暂存最多 16 个不同字段，再一次提交设置或清除。属性列表只挂载当前一页，翻页保留暂存值。服务器校验文章、定义集合、各字段和当前属性值版本。属性值、新版本、幂等回执和受影响的私有索引任务在同一事务提交。收到 409 时可查看暂存值，再由作者明确取消并读取新版本。原单字段保存继续可用。 [实库事务验证](../../artifacts/property-batch-de88453/native-final.log) · [真实浏览器验证](../../artifacts/property-inspector-de88453/chromium-2/browser-result.json)
+
 | 路径 | AEDS 请求和响应 |
 | --- | --- |
 | POST `/api/v2/authoring/properties/editor.aeds` | PropertyWorkspaceRequest (32780) → PropertyEditor (32786) |

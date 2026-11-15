@@ -10,7 +10,9 @@ import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-readi
 import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodePropertyEditor, decodePropertyValueBatchReceipt, encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
+import { decodeDraft, decodePropertyCommandReceipt, encodeArticleCommand, encodePropertyWorkspaceRequest,
+  FrameType, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseArticleOutline } from './outline-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
@@ -133,6 +135,221 @@ async function articleCommand(path, id, revision, title = '', body = '', expecte
   assert.equal(response.status(), 200)
   const frame = decodeFrame(await response.body(), expected)
   return expected === FrameType.Draft ? decodeDraft(frame.payload) : undefined
+}
+
+async function exercisePropertyBatch(publisher, observations) {
+  const article = await articleCommand(WireRoutes.Save, 0, 0n, 'Independent property batch draft', 'The batch changes properties only.')
+  const page = await publisher.context().newPage()
+  monitor(page, 'property-batch')
+  const editor = `${origin}/user/manage/article/edit/${article.id}`
+  const panel = page.getByRole('region', { name: 'Properties', exact: true })
+  const control = name => button(panel, name)
+  const textLabel = 'Article subtitle'
+  const numberLabel = 'Editorial score'
+  const booleanLabel = 'Editorial approval'
+  const committedText = 'Batch subtitle 漢字 🧭'
+  const committedNumber = '9876543210987654321.12345678'
+  const staleText = 'Uncommitted batch subtitle'
+  const staleNumber = '0.12345678901234567898765432'
+  const requests = []
+
+  function isValueBatch(request) {
+    return request.method() === 'POST' && new URL(request.url()).pathname === WireRoutes.PropertyValueCommand &&
+      decodeFrame(request.postDataBuffer()).type === FrameType.PropertyValueBatchCommand
+  }
+  page.on('request', request => {
+    if (isValueBatch(request)) requests.push(request)
+  })
+
+  async function nativeProperty(path, type, payload, expected) {
+    const receipt = await page.request.post(`${origin}${path}`, { data: Buffer.from(encodeFrame(type, payload)),
+      headers: { 'Content-Type': 'application/octet-stream' } })
+    assert.equal(receipt.status(), 200)
+    return decodeFrame(await receipt.body(), expected).payload
+  }
+
+  async function read() {
+    const payload = encodePropertyWorkspaceRequest({ articleId: article.id, articleRevision: article.revision,
+      schemaRevision: 0n, valueRevision: 0n, afterKey: '' })
+    const workspace = decodePropertyEditor(await nativeProperty(WireRoutes.PropertyEditor,
+      FrameType.PropertyWorkspaceRequest, payload, FrameType.PropertyEditor))
+    assert.equal(workspace.articleId, article.id)
+    assert.equal(workspace.articleRevision, article.revision)
+    return workspace
+  }
+
+  function values(workspace) {
+    return ['article-subtitle', 'editorial-score', 'editorial-approval'].map(key => {
+      const field = workspace.fields.find(item => item.machineKey === key)
+      assert(field, `Fixture lacks ${key}`)
+      return field.value
+    })
+  }
+
+  async function openPanel() {
+    await button(page, 'Inspector').click()
+    await control('Edit multiple properties').waitFor()
+  }
+
+  async function stageText(label, content) {
+    await control(`Edit ${label}`).click()
+    await panel.getByLabel(`${label} value`, { exact: true }).fill(content)
+    await control('Stage property').click()
+  }
+
+  const staged = panel.getByText('2 staged changes', { exact: true })
+  async function saveBatch(previous, count) {
+    await staged.waitFor()
+    const pending = page.waitForResponse(response => isValueBatch(response.request()))
+    await control('Save property changes').click()
+    const reply = await pending
+    assert.equal(reply.status(), 200)
+    const receipt = decodePropertyValueBatchReceipt(decodeFrame(await reply.body(), FrameType.PropertyValueBatchReceipt).payload)
+    assert.equal(receipt.articleId, article.id)
+    assert.equal(receipt.schemaRevision, previous.schemaRevision)
+    assert.equal(receipt.valueRevision, previous.valueRevision + 1n)
+    assert.equal(requests.length, count)
+    await panel.getByText('Property changes saved.', { exact: true }).waitFor()
+    return receipt
+  }
+
+  try {
+    await page.goto(editor)
+    await openPanel()
+    const start = await read()
+    const missing = { kind: 'missing' }
+    assert.deepEqual(values(start), [missing, missing, missing])
+    await control('Edit multiple properties').click()
+    await stageText(textLabel, committedText)
+    await stageText(numberLabel, committedNumber)
+    assert.equal(requests.length, 0)
+    assert.deepEqual(values(await read()), [missing, missing, missing], 'Staging cannot change stored values')
+    const success = await saveBatch(start, 1)
+    const text = { kind: 'text', value: committedText }
+    const number = { kind: 'number', value: committedNumber }
+    await page.reload()
+    await openPanel()
+    await panel.getByText(committedText, { exact: true }).waitFor()
+    await panel.getByText(committedNumber, { exact: true }).waitFor()
+    const current = await read()
+    assert.equal(current.valueRevision, success.valueRevision)
+    assert.deepEqual(values(current), [text, number, missing])
+
+    await control('Edit multiple properties').click()
+    await stageText(textLabel, staleText)
+    await stageText(numberLabel, staleNumber)
+    await staged.waitFor()
+    await page.setViewportSize({ width: 375, height: 850 })
+    await page.getByRole('dialog', { name: 'Article inspector', exact: true }).waitFor()
+    await staged.waitFor()
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+    const stagedValues = panel.getByRole('list', { name: 'Staged property changes' })
+    async function expectStagedValues() {
+      await stagedValues.getByText(`${textLabel} · ${staleText}`, { exact: true }).waitFor()
+      await stagedValues.getByText(`${numberLabel} · ${staleNumber}`, { exact: true }).waitFor()
+    }
+    await expectStagedValues()
+    const boolean = current.fields.find(field => field.machineKey === 'editorial-approval')
+    assert(boolean)
+    const update = encodePropertyValueCommand({ articleId: article.id, articleRevision: article.revision,
+      schemaRevision: current.schemaRevision, valueRevision: current.valueRevision, definitionId: boolean.definitionId,
+      definitionRevision: boolean.definitionRevision, requestId: randomUUID(), value: { kind: 'boolean', value: false } })
+    const concurrent = decodePropertyCommandReceipt(await nativeProperty(WireRoutes.PropertyValueCommand,
+      FrameType.PropertyValueCommand, update, FrameType.PropertyCommandReceipt))
+    assert.equal(concurrent.revision, current.valueRevision + 1n)
+
+    const reached = Promise.withResolvers()
+    const release = Promise.withResolvers()
+    const done = Promise.withResolvers()
+    const path = `${origin}${WireRoutes.PropertyValueCommand}`
+    await page.route(path, async route => {
+      try {
+        const upstream = await route.fetch({ timeout: 5_000 })
+        reached.resolve({ status: upstream.status() })
+        await release.promise
+        await route.fulfill({ response: upstream })
+        done.resolve()
+      } catch (error) {
+        reached.resolve({ error })
+        done.resolve(error)
+      }
+    }, { times: 1 })
+    try {
+      const conflict = page.waitForResponse(response => isValueBatch(response.request()))
+      await control('Save property changes').click()
+      const held = await reached.promise
+      if (held.error) throw held.error
+      assert.equal(held.status, 409)
+      assert.equal(requests.length, 2)
+      assert.equal(await control('Save property changes').isDisabled(), true)
+      await staged.waitFor()
+      release.resolve()
+      assert.equal((await conflict).status(), 409)
+      const routeError = await done.promise
+      if (routeError) throw routeError
+    } finally {
+      release.resolve()
+    }
+    await panel.getByRole('alert').waitFor()
+    await staged.waitFor()
+    await expectStagedValues()
+    assert.equal(requests.length, 2)
+    const witnessed = await read()
+    assert.equal(witnessed.valueRevision, concurrent.revision)
+    assert.deepEqual(values(witnessed), [text, number, { kind: 'boolean', value: false }])
+    await control('Discard staged changes').click()
+    await staged.waitFor({ state: 'hidden' })
+    await control('Edit multiple properties').click()
+    await control(`Edit ${textLabel}`).click()
+    await control('Stage removal').click()
+    await control(`Edit ${booleanLabel}`).click()
+    await panel.getByRole('radiogroup', { name: `${booleanLabel} value` }).getByText('True', { exact: true }).click()
+    await control('Stage property').click()
+    const removal = await saveBatch(witnessed, 3)
+    await page.reload()
+    await openPanel()
+    await panel.getByText('True', { exact: true }).waitFor()
+    const final = await read()
+    assert.equal(final.valueRevision, removal.valueRevision)
+    assert.deepEqual(values(final), [missing, number, { kind: 'boolean', value: true }])
+    assert.equal(await panel.getByText(committedText, { exact: true }).count(), 0)
+
+    // Append to the test owner's schema after the other blog scenarios finished using it.
+    let schemaRevision = final.schemaRevision
+    const added = Math.max(1, WireLimits.PropertyPageSize + 1 - final.fields.length)
+    for (let index = 1; index <= added; ++index) {
+      const key = `zz-page-${String(index).padStart(2, '0')}`
+      const command = encodePropertySchemaCommand({ operation: 1, definitionId: randomUUID(), definitionRevision: 0n,
+        schemaRevision, requestId: randomUUID(), machineKey: key, label: `Paged property ${index}`, kind: 'text' })
+      const receipt = decodePropertyCommandReceipt(await nativeProperty(WireRoutes.PropertySchemaCommand,
+        FrameType.PropertySchemaCommand, command, FrameType.PropertyCommandReceipt))
+      assert.equal(receipt.schemaRevision, ++schemaRevision)
+    }
+    await page.reload()
+    await openPanel()
+    assert.equal(await panel.locator('dt').count(), WireLimits.PropertyPageSize)
+    await control('Edit multiple properties').click()
+    await stageText(textLabel, staleText)
+    await control('More properties').click()
+    await panel.getByText('Property page 2', { exact: true }).waitFor()
+    assert.equal(await panel.locator('dt').count() <= WireLimits.PropertyPageSize, true)
+    assert.equal(await control(`Edit ${textLabel}`).count(), 0)
+    await stageText(`Paged property ${added}`, 'On the next page')
+    await control('Previous properties').click()
+    await panel.getByText('Property page 1', { exact: true }).waitFor()
+    await staged.waitFor()
+    assert.equal(await panel.locator('dt').count(), WireLimits.PropertyPageSize)
+    await page.waitForFunction(() => document.activeElement?.id === 'article-properties-title')
+    assert.equal(requests.length, 3)
+    await control('Discard staged changes').click()
+    assert.equal((await read()).valueRevision, final.valueRevision)
+
+    observations.push('One property batch saves Unicode and exact decimal values under one revision. A real concurrent 409 in the rehosted 375px Inspector keeps both staged changes and stores neither. After explicit discard, a fresh batch removes text and updates a Boolean without changing the article revision. Previous and More keep at most one page mounted while staged values span both pages.')
+  } finally {
+    try { await page.close() } finally {
+      await articleCommand(WireRoutes.Delete, article.id, article.revision, '', '', FrameType.EmptySuccess)
+    }
+  }
 }
 
 let writtenId
@@ -555,6 +772,7 @@ try {
       await importer.close()
     }
   }
+  await exercisePropertyBatch(publisher, observations)
   const signOut = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SignOut)
   await button(publisher, 'Log out').click()
   assert.equal((await signOut).status(), 200)

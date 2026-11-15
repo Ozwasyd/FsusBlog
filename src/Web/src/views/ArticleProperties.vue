@@ -5,11 +5,12 @@ import { ApiError } from '../../../Contracts/client'
 import {
   normalizePropertyDecimal, propertyApi, propertyKinds,
   type EditableProperty, type PropertyKind, type PropertyOption, type PropertySchemaCommand, type PropertyValue,
-  type PropertyValueCommand, type PropertyWorkspace,
+  type PropertyValueBatchCommand, type PropertyValueCommand, type PropertyWorkspace,
 } from '../../../Contracts/property-values'
+import { WireLimits } from '../../../Contracts/wire.generated'
 import type { PropertySearchSeek } from '../authoring/canvasEditorHandoff'
 import { verifySourceMatch } from '../authoring/sourceCoordinates'
-import { invalidateSession } from '../session'
+import { currentSession, invalidateSession } from '../session'
 
 const props = defineProps<{
   articleId: number; revision: bigint; identity: number; disabled: boolean
@@ -20,6 +21,8 @@ const emit = defineEmits<{
   sourceRevealed: [target: PropertySearchSeek, success: boolean]
 }>()
 const workspace = shallowRef<PropertyWorkspace>()
+const pageKeys = shallowRef<readonly string[]>([''])
+const heading = shallowRef<HTMLElement>()
 const busy = ref(false)
 const message = ref('')
 const failure = ref('')
@@ -39,12 +42,17 @@ let scope = new AbortController()
 type Command =
   | { kind: 'definition'; request: PropertySchemaCommand }
   | { kind: 'value'; request: PropertyValueCommand }
+  | { kind: 'batch'; request: PropertyValueBatchCommand }
+type StagedValue = { field: EditableProperty; value: PropertyValue }
+const batchMode = ref(false)
+const staged = shallowRef<ReadonlyMap<string, StagedValue>>(new Map())
+const batchFull = computed(() => staged.value.size >= WireLimits.PropertyBatchMaxChanges)
 const retained = shallowRef<Command>()
 const canRetry = ref(false)
 const shouldReload = ref(false)
 const mutating = ref(false)
 const formTouched = ref(false)
-const unsettled = computed(() => mutating.value || canRetry.value || formTouched.value)
+const unsettled = computed(() => mutating.value || canRetry.value || formTouched.value || staged.value.size > 0)
 const disabledInput = computed(() => props.disabled || busy.value || canRetry.value || shouldReload.value)
 const editingDisabled = computed(() => disabledInput.value || editing.value?.deprecated === true)
 const kindLabels: Record<PropertyKind, string> = {
@@ -141,6 +149,9 @@ watch(() => [props.articleId, props.revision, props.identity, retryCount.value] 
   canRetry.value = false
   shouldReload.value = false
   mutating.value = false
+  staged.value = new Map()
+  batchMode.value = false
+  pageKeys.value = ['']
   clearEdits()
   message.value = ''
   void load(scope)
@@ -150,33 +161,53 @@ onScopeDispose(() => {
   emit('pending', false)
 })
 
-async function load(lifetime: AbortController, next = false) {
+async function load(lifetime: AbortController, keys: readonly string[] = [''], expected?: PropertyWorkspace) {
   busy.value = true
   shouldReload.value = false
   failure.value = ''
-  const current = next ? workspace.value : undefined
+  const afterKey = keys.at(-1) ?? ''
   try {
     const result = await propertyApi.workspace({
       articleId: props.articleId, articleRevision: props.revision,
-      schemaRevision: current?.schemaRevision ?? 0n, valueRevision: current?.valueRevision ?? 0n,
-      afterKey: current?.nextKey ?? '',
+      schemaRevision: afterKey && expected ? expected.schemaRevision : 0n,
+      valueRevision: afterKey && expected ? expected.valueRevision : 0n,
+      afterKey,
     }, lifetime.signal)
-    if (lifetime.signal.aborted) return
+    if (lifetime.signal.aborted) return false
     if (result.articleId !== props.articleId || result.articleRevision !== props.revision) throw Error('Property identity changed')
-    workspace.value = current ? { ...result, fields: [...current.fields, ...result.fields] } : result
+    if (expected && (result.schemaRevision !== expected.schemaRevision || result.valueRevision !== expected.valueRevision)) {
+      failure.value = 'The property schema or values changed. Reload to see the current properties.'
+      shouldReload.value = true
+      return false
+    }
+    workspace.value = result
+    pageKeys.value = keys
+    return true
   } catch (cause) {
     if (!lifetime.signal.aborted) {
       failure.value = failureMessage(cause)
-      shouldReload.value = true
+      shouldReload.value = !expected || (cause instanceof ApiError && (cause.status === 409 || cause.status === 404))
     }
+    return false
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
 }
 
+async function changePage(forward: boolean) {
+  const current = workspace.value
+  if (!current || disabledInput.value || editing.value || creating.value) return
+  const keys = pageKeys.value
+  if (forward ? !current.nextKey : keys.length === 1) return
+  const lifetime = scope
+  const opener = document.activeElement
+  if (!await load(lifetime, forward ? [...keys, current.nextKey] : keys.slice(0, -1), current)) return
+  focusHeading(opener)
+}
+
 function createDefinition() {
   const current = workspace.value
-  if (!current || busy.value || props.disabled || canRetry.value || shouldReload.value) return
+  if (!current || disabledInput.value || batchMode.value) return
   const validLabel = (label: string) => label.trim().length > 0 && label.length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/u.test(label)
   if (definitionKey.value.length > 64 || !/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(definitionKey.value) ||
       !validLabel(definitionName.value)) {
@@ -266,12 +297,76 @@ function writeValue(action: 'save' | 'remove' = 'save') {
     failure.value = error instanceof Error ? error.message : 'Enter a valid property value.'
     return
   }
+  if (batchMode.value) {
+    if (batchFull.value && !staged.value.has(property.definitionId)) return
+    const pending = new Map(staged.value)
+    pending.set(property.definitionId, { field: property, value: updated })
+    staged.value = pending
+    clearEdits()
+    focusField(property)
+    return
+  }
   void perform({ kind: 'value', request: {
     articleId: current.articleId, articleRevision: current.articleRevision, schemaRevision: current.schemaRevision,
     valueRevision: current.valueRevision, definitionId: property.definitionId, definitionRevision: property.definitionRevision,
     requestId: crypto.randomUUID(), value: updated,
   } })
 }
+
+function startBatch() {
+  if (disabledInput.value || creating.value || editing.value) return
+  batchMode.value = true
+  message.value = ''
+  failure.value = ''
+}
+
+function discardBatch() {
+  if (busy.value || canRetry.value) return
+  staged.value = new Map()
+  batchMode.value = false
+  clearEdits()
+  if (shouldReload.value) retryCount.value++
+  else failure.value = ''
+  focusHeading()
+}
+
+function unstage(id: string) {
+  if (busy.value || canRetry.value || editing.value) return
+  const pending = new Map(staged.value)
+  pending.delete(id)
+  staged.value = pending
+  if (shouldReload.value && !pending.size) batchMode.value = false
+  focusHeading()
+}
+
+function saveBatch() {
+  const current = workspace.value
+  if (!current || disabledInput.value || editing.value || !staged.value.size) return
+  void perform({ kind: 'batch', request: {
+    articleId: current.articleId, articleRevision: current.articleRevision, schemaRevision: current.schemaRevision,
+    valueRevision: current.valueRevision, requestId: crypto.randomUUID(),
+    changes: Array.from(staged.value.values(), ({ field, value }) => ({
+      definitionId: field.definitionId, definitionRevision: field.definitionRevision, value,
+    })),
+  } })
+}
+
+function focusHeading(opener = document.activeElement) {
+  const lifetime = scope
+  void nextTick(() => {
+    if (!lifetime.signal.aborted && (document.activeElement === opener || document.activeElement === document.body))
+      heading.value?.focus()
+  })
+}
+
+const fieldActionId = (field: EditableProperty) => `property-edit-${field.definitionId}`
+function focusField(field: EditableProperty) {
+  const lifetime = scope
+  void nextTick(() => {
+    if (!lifetime.signal.aborted) document.getElementById(fieldActionId(field))?.focus({ preventScroll: true })
+  })
+}
+
 
 async function perform(command: Command) {
   if (busy.value || props.disabled) return
@@ -283,14 +378,29 @@ async function perform(command: Command) {
   message.value = ''
   retained.value = command
   try {
-    const receipt = command.kind === 'definition'
-      ? await propertyApi.definition(command.request, lifetime.signal)
-      : await propertyApi.value(command.request, lifetime.signal)
+    switch (command.kind) {
+      case 'definition':
+        await propertyApi.definition(command.request, lifetime.signal)
+        break
+      case 'value':
+        await propertyApi.value(command.request, lifetime.signal)
+        break
+      case 'batch': {
+        const session = currentSession.value
+        if (!session?.canAuthor || !session.siteSessionId || session.expiresAt <= Date.now()) {
+          failure.value = 'Log in again to edit properties.'
+          return
+        }
+        await propertyApi.values(command.request, lifetime.signal, session.siteSessionId)
+        break
+      }
+    }
     if (lifetime.signal.aborted) return
-    if (receipt.definitionId !== command.request.definitionId) throw Error('Wrong property receipt')
     retained.value = undefined
+    staged.value = new Map()
+    batchMode.value = false
     clearEdits()
-    message.value = command.kind === 'definition' ? 'Property created.'
+    message.value = command.kind === 'definition' ? 'Property created.' : command.kind === 'batch' ? 'Property changes saved.'
       : command.request.value.kind === 'missing' ? 'Property removed.' : 'Property saved.'
     await load(lifetime)
   } catch (cause) {
@@ -314,7 +424,7 @@ async function perform(command: Command) {
 function beginValue(field: EditableProperty) {
   clearEdits()
   editing.value = field
-  const stored = field.value
+  const stored = staged.value.get(field.definitionId)?.value ?? field.value
   if (stored.kind === 'boolean') boolean.value = stored.value
   else if (stored.kind === 'single-select') selected.value = [stored.value]
   else if (stored.kind === 'multi-select') selected.value = [...stored.value]
@@ -337,7 +447,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
     cleanup(() => request.abort())
     const current = () => !request.signal.aborted && props.sourceTarget === seek && props.inspectorReady === true && seek.current() &&
       props.articleId === target.articleId && props.revision === target.revision && workspace.value === snapshot &&
-      !disabledInput.value && !creating.value && !unsettled.value && !retained.value
+      !disabledInput.value && !creating.value && !batchMode.value && !unsettled.value && !retained.value
     const previousFocus = document.activeElement
     let success = false
     try {
@@ -370,8 +480,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
     }
   }, { immediate: true, flush: 'post' })
 
-function showValue(field: EditableProperty): string {
-  const stored = field.value
+function showValue(field: EditableProperty, stored = field.value): string {
   function optionsLabel(optionIds: string[]) {
     const labels = field.options.filter(option => optionIds.includes(option.id)).map(option => option.label)
     return labels.length ? labels.join(', ') : 'None selected'
@@ -391,12 +500,35 @@ function showValue(field: EditableProperty): string {
 
 <template>
   <section class="editor-taxonomy" aria-labelledby="article-properties-title">
-    <h2 id="article-properties-title">Properties</h2>
-    <p v-if="busy" role="status">Loading article properties…</p>
+    <h2 id="article-properties-title" ref="heading" tabindex="-1">Properties</h2>
+    <p v-if="mutating" role="status">Saving article properties…</p>
+    <p v-else-if="busy" role="status">Loading article properties…</p>
     <p v-if="message" role="status">{{ message }}</p>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
-    <ElButton v-if="shouldReload" :disabled="busy || disabled" @click="retryCount++">Reload properties</ElButton>
+    <ElButton v-if="shouldReload && !staged.size" :disabled="busy || disabled" @click="retryCount++">Reload properties</ElButton>
     <ElButton v-if="canRetry && retained" :disabled="busy || disabled" @click="perform(retained)">Retry last property change</ElButton>
+    <div v-if="batchMode" class="property-batch">
+      <p v-if="staged.size" role="status">{{ staged.size }} {{ staged.size === 1 ? 'staged change' : 'staged changes' }}</p>
+      <p v-else>Choose properties to edit and stage them before saving.</p>
+      <p v-if="batchFull">This batch has reached the limit of {{ WireLimits.PropertyBatchMaxChanges }} properties.</p>
+      <p v-if="shouldReload && staged.size">Discard the staged changes to load the current properties.</p>
+      <ul v-if="staged.size" class="staged-properties" aria-label="Staged property changes">
+        <li v-for="entry in staged.values()" :key="entry.field.definitionId">
+          <span>{{ entry.field.label }} · {{ showValue(entry.field, entry.value) }}</span>
+          <ElButton text native-type="button" :disabled="busy || canRetry || !!editing" @click="unstage(entry.field.definitionId)">
+            Unstage {{ entry.field.label }}
+          </ElButton>
+        </li>
+      </ul>
+      <div class="editor-taxonomy-actions">
+        <ElButton type="primary" native-type="button" :disabled="disabledInput || !staged.size || !!editing" @click="saveBatch">
+          Save property changes
+        </ElButton>
+        <ElButton native-type="button" :disabled="busy || canRetry" @click="discardBatch">
+          {{ staged.size ? 'Discard staged changes' : 'Cancel batch' }}
+        </ElButton>
+      </div>
+    </div>
     <template v-if="workspace && !shouldReload">
       <p v-if="!workspace.fields.length && !creating">No properties yet.</p>
       <dl v-if="workspace.fields.length">
@@ -406,8 +538,9 @@ function showValue(field: EditableProperty): string {
             <span>{{ showValue(field) }}</span>
             <ElButton
               v-if="!field.deprecated || field.value.kind !== 'missing'"
+              v-bind="{ id: fieldActionId(field) }"
               text
-              :disabled="disabledInput || creating || !!editing"
+              :disabled="disabledInput || creating || !!editing || (batchMode && batchFull && !staged.has(field.definitionId))"
               @click="beginValue(field)"
             >
               {{ field.deprecated ? 'Manage' : 'Edit' }} {{ field.label }}
@@ -415,8 +548,17 @@ function showValue(field: EditableProperty): string {
           </dd>
         </template>
       </dl>
-      <ElButton v-if="workspace.nextKey" text :disabled="busy || !!editing || creating || canRetry" @click="load(scope, true)">More properties</ElButton>
-      <ElButton v-if="!creating && !editing" :disabled="disabledInput" @click="startDefinition">Add property</ElButton>
+      <nav v-if="pageKeys.length > 1 || workspace.nextKey" class="editor-taxonomy-actions" aria-label="Property pages">
+        <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || pageKeys.length === 1"
+          @click="changePage(false)">Previous properties</ElButton>
+        <span role="status">Property page {{ pageKeys.length }}</span>
+        <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || !workspace.nextKey"
+          @click="changePage(true)">More properties</ElButton>
+      </nav>
+      <div v-if="!creating && !editing && !batchMode" class="editor-taxonomy-actions">
+        <ElButton :disabled="disabledInput" native-type="button" @click="startDefinition">Add property</ElButton>
+        <ElButton v-if="workspace.fields.length" :disabled="disabledInput" native-type="button" @click="startBatch">Edit multiple properties</ElButton>
+      </div>
       <form v-if="creating" class="property-form" @submit.prevent="createDefinition">
         <label for="new-property-label">Property label</label>
         <ElInput id="new-property-label" v-model="definitionName" :disabled="disabledInput" @input="formTouched = true" />
@@ -469,8 +611,12 @@ function showValue(field: EditableProperty): string {
         </template>
         <p v-if="inputHelp" class="metadata">{{ inputHelp }}</p>
         <div class="editor-taxonomy-actions">
-          <ElButton v-if="!editing.deprecated" native-type="submit" type="primary" :disabled="disabledInput">Save property</ElButton>
-          <ElButton v-if="editing.value.kind !== 'missing'" :disabled="disabledInput" @click="writeValue('remove')">Remove value</ElButton>
+          <ElButton v-if="!editing.deprecated" native-type="submit" type="primary" :disabled="disabledInput">
+            {{ batchMode ? 'Stage property' : 'Save property' }}
+          </ElButton>
+          <ElButton v-if="editing.value.kind !== 'missing'" :disabled="disabledInput" native-type="button" @click="writeValue('remove')">
+            {{ batchMode ? 'Stage removal' : 'Remove value' }}
+          </ElButton>
           <ElButton :disabled="busy || canRetry" @click="clearEdits">Cancel</ElButton>
         </div>
       </form>
@@ -479,6 +625,9 @@ function showValue(field: EditableProperty): string {
 </template>
 
 <style scoped>
-.property-form { display: grid; gap: .5rem; min-width: 0; }
+.property-form, .property-batch { display: grid; gap: .5rem; min-width: 0; }
+.property-batch p, .staged-properties { margin-block: 0; }
+.staged-properties { padding-inline-start: 1.25rem; overflow-wrap: anywhere; }
+.staged-properties li { margin-block: .25rem; }
 dd { overflow-wrap: anywhere; }
 </style>
