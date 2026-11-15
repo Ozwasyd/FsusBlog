@@ -138,6 +138,110 @@ public sealed class AppearanceRegistryTests
         Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
     }
 
+    [Fact]
+    public void SignedLegacyPaletteKeepsTheOriginalArchiveCoordinateAndEmitsTheSameV2Tokens()
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
+        using var disk = new AppearanceDirectory();
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var differentSigner = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var archive = LegacyTheme();
+        var source = disk.Add(signer, archive, "legacy-theme", "fstheme-v1-palette");
+        var clock = new TestClock();
+        disk.Configure(signer, [source], null);
+        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        Assert.Null(registry.StyleDigest);
+        var choice = Assert.Single(registry.Available());
+        Assert.Equal(new AppearancePackage("fsusblog.theme.fixture", "1.0.0", Hash(archive), false), choice);
+        var selection = new AppearanceSelection(choice.ArchiveDigest);
+        var css = Encoding.UTF8.GetString(Assert.IsType<byte[]>(registry.SelectedStyle(selection, 1)));
+        Assert.Contains("html:root:not(.dark){--fsus-color-action-primary:#663322;--fsus-color-action-primary-hover:#774433}", css);
+        Assert.Contains("html:root.dark{--fsus-color-action-primary:#eecc99;--fsus-color-action-primary-hover:#ffddcc}", css);
+        Assert.DoesNotContain("data-theme", css);
+        Assert.DoesNotContain("preview", css);
+        clock.Now = Now.AddHours(1);
+        Assert.Null(registry.SelectedStyle(selection, 1));
+        clock.Now = Now;
+        Assert.False(registry.IsCurrent(selection));
+        disk.Configure(differentSigner, [source], null);
+        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+    }
+
+    [Theory]
+    [InlineData("minimal-ink", "appearance-fstheme-unsupported")]
+    [InlineData("extra-asset", "appearance-fstheme-unsupported")]
+    [InlineData("configuration", "appearance-fstheme-unsupported")]
+    [InlineData("theme-css", "appearance-fstheme-unsupported")]
+    [InlineData("selector-budget", "appearance-fstheme-unsupported")]
+    [InlineData("wrong-scope", "appearance-fstheme-palette")]
+    [InlineData("unknown-role", "appearance-fstheme-palette")]
+    [InlineData("duplicate", "appearance-fstheme-palette")]
+    [InlineData("css-url", "appearance-fstheme-palette")]
+    [InlineData("contrast", "appearance-palette-contrast")]
+    public void SignedLegacyPaletteRejectsUnsupportedThemeSemantics(string variation, string expected)
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
+        using var disk = new AppearanceDirectory();
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var source = disk.Add(signer, LegacyTheme(variation), "legacy-theme", "fstheme-v1-palette");
+        disk.Configure(signer, [source], null);
+        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
+    }
+
+    private static byte[] LegacyTheme(string variation = "")
+    {
+        var minimalInk = variation == "minimal-ink";
+        var id = minimalInk ? "fsusblog.theme.minimal-ink" : "fsusblog.theme.fixture";
+        var manifest = new
+        {
+            id, name = minimalInk ? "Minimal Ink" : "Fixture accents", version = "1.0.0", fsusblog = ">=1.3.0 <1.4.0",
+            author = "example", description = "A reading theme", type = "theme",
+            entry = new { tokens = "styles/tokens.css", theme = "styles/theme.css" }, modes = new[] { "light", "dark" },
+            supports = new { @public = true, admin = false, console = false, highContrast = minimalInk, reducedMotion = minimalInk, rtl = false },
+            assets = new { preview = "assets/preview.png" }, configSchema = "config/schema.json",
+            permissions = new { script = false, network = false, filesystem = false },
+            budgets = new { cssBytes = 65536, assetBytes = 524288, maxSelectors = variation == "selector-budget" ? 1 : 512, maxSelectorDepth = 4,
+                maxImportant = 8, maxMotionDurationMs = 1000, previewBytes = 262144 }
+        };
+        var tokens = minimalInk ? $$""":root[data-theme="{{id}}"] { --fsus-color-page-bg: #fff; }""" : $$"""
+            :root[data-theme="{{id}}"] { --fsus-color-action-primary: #663322; --fsus-color-action-primary-hover: #774433; }
+            :root[data-theme="{{id}}"][data-color-scheme="dark"] { --fsus-color-action-primary: #eecc99; --fsus-color-action-primary-hover: #ffddcc; }
+            """;
+        tokens = variation switch
+        {
+            "wrong-scope" => tokens.Replace("[data-color-scheme=\"dark\"]", "[data-color-scheme=\"light\"]", StringComparison.Ordinal),
+            "unknown-role" => tokens.Replace("--fsus-color-action-primary:", "--fsus-color-action-primary-bg:", StringComparison.Ordinal),
+            "duplicate" => tokens.Replace("#663322;", "#663322; --fsus-color-action-primary:#123443;", StringComparison.Ordinal),
+            "css-url" => tokens.Replace("#663322;", "url(https://untrusted.invalid);", StringComparison.Ordinal),
+            "contrast" => tokens.Replace("#663322;", "#aaaaff;", StringComparison.Ordinal),
+            _ => tokens
+        };
+        var style = minimalInk ? $$"""[data-theme="{{id}}"] .fsus-theme-scope { background: var(--fsus-color-page-bg); }"""
+            : variation == "theme-css" ? "@import url('unsafe');" : "\n";
+        var properties = minimalInk ? "\"fontScale\":{\"type\":\"number\"},\"showAuthor\":{\"type\":\"boolean\"}"
+            : variation == "configuration" ? "\"fontScale\":{\"type\":\"number\"}" : "";
+        const string pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==";
+        using var output = new MemoryStream();
+        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            Write("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest));
+            Write("styles/tokens.css", Encoding.UTF8.GetBytes(tokens));
+            Write("styles/theme.css", Encoding.UTF8.GetBytes(style));
+            Write("assets/preview.png", minimalInk ? [0x89, 0x50, 0x4e, 0x47] : Convert.FromBase64String(pixel));
+            Write("config/schema.json", Encoding.UTF8.GetBytes($$$"""
+                {"type":"object","additionalProperties":false,"properties":{ {{{properties}}} }}
+                """));
+            if (variation == "extra-asset") Write("docs/README.md", "extra"u8);
+
+            void Write(string name, ReadOnlySpan<byte> content)
+            {
+                using var stream = zip.CreateEntry(name).Open();
+                stream.Write(content);
+            }
+        }
+        return output.ToArray();
+    }
+
     private static byte[] LegacyFontBytes()
     {
         var bytes = new byte[48];
@@ -232,7 +336,8 @@ public sealed class AppearanceRegistryTests
         {
             var signed = signer.SignData(zip, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
             var manifest = new Descriptor($"approved-source/{id}", Hash(zip), Hash(signed), format);
-            Put(manifest.ArchiveSha256 + (format is null ? ".zip" : ".fsfont"), zip);
+            var suffix = format switch { "fsfont-v1" => ".fsfont", "fstheme-v1-palette" => ".fstheme", _ => ".zip" };
+            Put(manifest.ArchiveSha256 + suffix, zip);
             Put(manifest.SignatureSha256 + ".signature", signed);
             return manifest;
         }

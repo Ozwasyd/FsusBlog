@@ -293,9 +293,16 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   export FSUSBLOG_APPEARANCE_ROOT=$(cd "$scratch" && pwd -P)/appearance FSUSBLOG_APPEARANCE_ACTIVATION=true
   fontsource=src/Web/node_modules/@fontsource/google-sans
   font_fixture="$fontsource/files/google-sans-latin-400-normal.woff2"
-  appearance_format=zip
-  if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT:-0} == 1 ]]; then appearance_format=fsfont-v1; fi
-  python3 tests/EndToEnd/appearance-fixture.py "$FSUSBLOG_APPEARANCE_ROOT" "$font_fixture" "$fontsource/LICENSE" online "$appearance_format" > "$evidence/appearance-baseline.log"
+  font_format=zip theme_format=zip
+  if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT:-0} == 1 ]]; then font_format=fsfont-v1; fi
+  if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME:-0} == 1 ]]; then theme_format=fstheme-v1-palette; fi
+  python3 tests/EndToEnd/appearance-fixture.py "$FSUSBLOG_APPEARANCE_ROOT" "$font_fixture" "$fontsource/LICENSE" online "$font_format" "$theme_format" > "$evidence/appearance-baseline.log"
+  if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME:-0} == 1 ]]; then
+    theme_archives=("$FSUSBLOG_APPEARANCE_ROOT"/*.fstheme)
+    [[ ${#theme_archives[@]} == 1 && -f "${theme_archives[0]}" ]]
+    legacy_theme_name=${theme_archives[0]##*/}
+    export FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME_SHA256=${legacy_theme_name%.fstheme}
+  fi
   "$dotnet" "$migrate" appearance schema > "$evidence/appearance-schema.log"
   "$dotnet" "$migrate" appearance schema >> "$evidence/appearance-schema.log"
   appearance_before=$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")

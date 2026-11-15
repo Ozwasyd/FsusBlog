@@ -45,6 +45,7 @@ public sealed partial class AppearanceRegistry
             {
                 null => descriptor.ArchiveSha256 + ".zip",
                 "fsfont-v1" => descriptor.ArchiveSha256 + ".fsfont",
+                LegacyThemeFormat => descriptor.ArchiveSha256 + ".fstheme",
                 _ => throw Reject("appearance-package-format")
             };
             var archive = ExtensionDisk.Read(path, archiveName, MaxRegistryArchive, default);
@@ -52,7 +53,8 @@ public sealed partial class AppearanceRegistry
             if (Digest(signed) != descriptor.SignatureSha256) throw Reject("appearance-signature-digest");
             var trust = verifier.VerifyArchive(descriptor.Source, archive, signed, default, requireCurrent: false);
             if (trust.Source.ArchiveSha256 != descriptor.ArchiveSha256) throw Reject("appearance-archive-reference");
-            var item = Read(archive, trust, legacyFont: descriptor.Format == "fsfont-v1");
+            var item = descriptor.Format == LegacyThemeFormat ? ReadLegacyTheme(archive, trust)
+                : Read(archive, trust, legacyFont: descriptor.Format == "fsfont-v1");
             if (!byId.TryAdd(item.Id, item)) throw Reject("appearance-package-id-duplicate");
         }
         var theme = Select<Theme>(byId, configuration.ActiveTheme);

@@ -16,6 +16,9 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const applyUrl = admin(WireRoutes.AdminAppearanceApply)
   const alias = '/site-appearance/current.css'
   const legacyFont = process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSFONT === '1'
+  const legacyTheme = process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME === '1'
+  const legacyThemeDigest = legacyTheme ? process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME_SHA256 : undefined
+  if (legacyTheme) assert.match(legacyThemeDigest, /^[a-f0-9]{64}$/)
   const fontName = legacyFont ? 'fsusblog.font.fixture' : 'fixture.font'
   const section = page.getByRole('region', { name: 'Site appearance', exact: true })
   const check = () => section.getByRole('button', { name: 'Check active appearance', exact: true }).click()
@@ -36,6 +39,8 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
 
   const sites = await context.newPage()
+  const siteErrors = []
+  sites.on('pageerror', error => siteErrors.push(error.message))
   await sites.emulateMedia({ colorScheme: 'light' })
   const current = async (revision, accent) => {
     const redirect = await context.request.get(pub(alias), { maxRedirects: 0 })
@@ -86,7 +91,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
 
   const theme = section.getByRole('combobox', { name: 'Theme', exact: true })
   await theme.click()
-  await page.getByRole('option', { name: 'fixture.alternate 1.0', exact: true }).click()
+  await page.getByRole('option', { name: legacyThemeDigest ? 'fsusblog.theme.fixture 1.0.0' : 'fixture.alternate 1.0', exact: true }).click()
   let observations = []
   const intercept = async route => {
     const request = route.request()
@@ -108,6 +113,30 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await page.unroute(applyUrl, intercept)
   assert.deepEqual(observations, [403, 400, 200, 409])
   const alternate = await current(1, '#663322')
+  if (legacyThemeDigest) {
+    const activeFrame = await context.request.get(stateUrl)
+    const active = decodeAdminAppearanceState(decodeFrame(await activeFrame.body(), FrameType.AdminAppearanceState).payload)
+    assert.equal(active.theme, legacyThemeDigest)
+    const readTokens = (accent, hover) => sites.waitForFunction(([primary, alternate]) => {
+      const root = getComputedStyle(document.documentElement)
+      return root.getPropertyValue('--fsus-color-action-primary').trim() === primary &&
+        root.getPropertyValue('--fsus-color-action-primary-hover').trim() === alternate
+    }, [accent, hover])
+    await readTokens('#663322', '#774433')
+    const skipLink = sites.getByRole('link', { name: 'Skip to content', exact: true })
+    await sites.keyboard.press('Tab')
+    const focusRing = () => skipLink.evaluate(element => ({
+      focused: element.matches(':focus-visible'), shadow: getComputedStyle(element).boxShadow,
+    }))
+    assert.deepEqual(await focusRing(), { focused: true, shadow: 'rgb(102, 51, 34) 0px 0px 0px 2px inset' })
+    assert.equal(new URL(sites.url()).origin, siteOrigin.origin)
+    await sites.screenshot({ path: join(evidence, 'appearance-public-light.png') })
+    await sites.emulateMedia({ colorScheme: 'dark' })
+    await readTokens('#eecc99', '#ffddcc')
+    assert.deepEqual(await focusRing(), { focused: true, shadow: 'rgb(238, 204, 153) 0px 0px 0px 2px inset' })
+    await sites.screenshot({ path: join(evidence, 'appearance-public-dark.png') })
+    await sites.emulateMedia({ colorScheme: 'light' })
+  }
   for (const path of Object.values(initial)) assert.equal((await context.request.get(pub(path))).status(), 404)
   await section.getByRole('button', { name: `Restore fixture.theme / ${fontName} with Passkey` }).click()
   await section.getByText('Previous appearance restored.', { exact: true }).waitFor()
@@ -115,6 +144,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   for (const path of [...Object.values(initial), ...Object.values(alternate)])
     assert.equal((await context.request.get(pub(path))).status(), 404)
   await writeFile(join(evidence, 'appearance-rollback-url.txt'), restored.css)
+  assert.deepEqual(siteErrors, [])
   await page.screenshot({ path: join(evidence, 'administrator-appearance.png') })
   await sites.close()
   await promisify(execFile)(revoke, [], { timeout: 8_000 })

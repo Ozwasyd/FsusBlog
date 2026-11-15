@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from base64 import b64decode
 from hashlib import sha256
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -37,7 +38,7 @@ def p1363(der):
     return b''.join(output)
 
 
-def build(root, font, license_text, online=False, legacy_font=False):
+def build(root, font, license_text, online=False, legacy_font=False, legacy_theme=False):
     root.mkdir(mode=0o700)
     now = datetime.now(timezone.utc)
     expiry = now + timedelta(seconds=20)
@@ -59,6 +60,7 @@ def build(root, font, license_text, online=False, legacy_font=False):
         active_font = 'fsusblog.font.fixture' if legacy_font else 'fixture.font'
         for package_id, kind, manifest, members in choices:
             reference = f'approved-source/{package_id}'
+            is_v1_theme = legacy_theme and package_id == 'alternate'
             manifest.update(Format=1, Id=f'fixture.{package_id}', Version='1.0', Kind=kind, Publisher='test.publisher',
                             SignatureReference='signature/one', TrustPolicyReference='trust/release')
             if legacy_font and kind == 'font':
@@ -72,6 +74,25 @@ def build(root, font, license_text, online=False, legacy_font=False):
                                 loading=dict(display='swap', preload=[], defer=[]))
                 members = {'fonts/': b'', 'license/': b'', 'fonts/body-regular.woff2': font,
                            'license/LICENSE.txt': license_text, 'license/source.json': json.dumps(source)}
+            if is_v1_theme:
+                identifier = 'fsusblog.theme.fixture'
+                manifest = dict(id=identifier, name='Fixture accents', version='1.0.0', fsusblog='>=1.3.0 <1.4.0',
+                                author='Fixture publisher', description='Two-mode accents', type='theme',
+                                entry=dict(tokens='styles/tokens.css', theme='styles/theme.css'), modes=['light', 'dark'],
+                                supports=dict(public=True, admin=False, console=False, highContrast=False, reducedMotion=False, rtl=False),
+                                assets=dict(preview='assets/preview.png'), configSchema='config/schema.json',
+                                permissions=dict(script=False, network=False, filesystem=False),
+                                budgets=dict(cssBytes=65536, assetBytes=524288, maxSelectors=512, maxSelectorDepth=4,
+                                             maxImportant=8, maxMotionDurationMs=1000, previewBytes=262144))
+                members = {
+                    'styles/tokens.css': (
+                        f':root[data-theme="{identifier}"] {{ --fsus-color-action-primary: #663322; --fsus-color-action-primary-hover: #774433; }}\n'
+                        f':root[data-theme="{identifier}"][data-color-scheme="dark"] '
+                        '{ --fsus-color-action-primary: #eecc99; --fsus-color-action-primary-hover: #ffddcc; }\n'),
+                    'styles/theme.css': '\n',
+                    'assets/preview.png': b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=='),
+                    'config/schema.json': '{"type":"object","additionalProperties":false,"properties":{}}',
+                }
             path = temp / f'{package_id}.zip'
             with ZipFile(path, 'w') as archive:
                 archive.writestr('manifest.json', json.dumps(manifest))
@@ -82,13 +103,16 @@ def build(root, font, license_text, online=False, legacy_font=False):
             archive_sha = digest(contents)
             signature_sha = digest(signed)
             is_v1_font = legacy_font and kind == 'font'
-            store(root, archive_sha + ('.fsfont' if is_v1_font else '.zip'), contents)
+            suffix = '.fstheme' if is_v1_theme else '.fsfont' if is_v1_font else '.zip'
+            store(root, archive_sha + suffix, contents)
             store(root, signature_sha + '.signature', signed)
             sources.append(dict(Reference=reference, Provenance=f'provenance/{package_id}', Publisher='test.publisher', KeyId='first',
                                 ArchiveSha256=archive_sha, SignatureReference='signature/one', TrustPolicyReference='trust/release'))
             descriptor = dict(Source=reference, ArchiveSha256=archive_sha, SignatureSha256=signature_sha)
             if is_v1_font:
                 descriptor['Format'] = 'fsfont-v1'
+            if is_v1_theme:
+                descriptor['Format'] = 'fstheme-v1-palette'
             packages.append(descriptor)
         keys = [dict(Publisher='test.publisher', KeyId='first', SubjectPublicKeyInfo=list(spki),
                      ValidFrom=(now - timedelta(hours=1)).isoformat(), ValidUntil=(now + timedelta(hours=1)).isoformat(),
@@ -101,4 +125,4 @@ def build(root, font, license_text, online=False, legacy_font=False):
 if __name__ == '__main__':
     target, font, license_file = map(Path, sys.argv[1:4])
     print(build(target, font.read_bytes(), license_file.read_bytes(), online='online' in sys.argv[4:],
-                legacy_font='fsfont-v1' in sys.argv[4:]))
+                legacy_font='fsfont-v1' in sys.argv[4:], legacy_theme='fstheme-v1-palette' in sys.argv[4:]))

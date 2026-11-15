@@ -29,6 +29,14 @@ internal static partial class LegacyThemeInspection
         if (archive.Length is < 1 or > MaximumArchiveBytes) throw Reject("fstheme-archive-size");
         var verifier = new ExtensionPackageVerifier(keys, sources, clock);
         var trust = verifier.VerifyArchive(source, archive, signature, cancellationToken);
+        var package = ReadVerified(archive, trust, cancellationToken);
+        trust.RequireCurrent(clock, cancellationToken);
+        return package.Report;
+    }
+
+    internal static Package ReadVerified(byte[] archive, SignedArchiveTrust trust, CancellationToken cancellationToken)
+    {
+        if (archive.Length is < 1 or > MaximumArchiveBytes) throw Reject("fstheme-archive-size");
         try
         {
             using var zip = new ZipArchive(new MemoryStream(archive, writable: false), ZipArchiveMode.Read);
@@ -39,6 +47,8 @@ internal static partial class LegacyThemeInspection
             var schema = Read(entries[SchemaPath]);
             var config = Config(Decode<ConfigSchema>(schema, "fstheme-config"));
             var inspected = new List<PackageEntry>(entries.Count);
+            string? tokenCss = null;
+            string? themeCss = null;
             foreach (var entry in entries.Values.OrderBy(item => item.FullName, StringComparer.Ordinal))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -48,15 +58,22 @@ internal static partial class LegacyThemeInspection
                     SchemaPath => schema,
                     _ => Read(entry)
                 };
-                if (styles.Contains(entry.FullName)) _ = Utf8.GetCharCount(content);
+                switch (entry.FullName)
+                {
+                    case TokenPath: tokenCss = Utf8.GetString(content); break;
+                    case ThemePath: themeCss = Utf8.GetString(content); break;
+                    default:
+                        if (styles.Contains(entry.FullName)) _ = Utf8.GetCharCount(content);
+                        break;
+                }
                 inspected.Add(new(entry.FullName, content.Length, Digest(content)));
             }
-            trust.RequireCurrent(clock, cancellationToken);
-            return new("fsusblog.fstheme.v1.structural.v1", "inspection-only", trust.Source.ArchiveSha256, trust.Source.Reference,
-                trust.Source.Publisher, manifest.Id, manifest.Name, manifest.Version, manifest.FsusBlog, manifest.Modes,
-                manifest.Supports, inspected.Single(entry => entry.Path == PreviewPath),
-                styles.Order(StringComparer.Ordinal).ToArray(), new SortedDictionary<string, string>(manifest.Assets, StringComparer.Ordinal),
-                config, inspected);
+            var report = new Report("fsusblog.fstheme.v1.structural.v1", "inspection-only", trust.Source.ArchiveSha256,
+                trust.Source.Reference, trust.Source.Publisher, manifest.Id, manifest.Name, manifest.Version, manifest.FsusBlog,
+                manifest.Modes, manifest.Supports, inspected.Single(entry => entry.Path == PreviewPath),
+                styles.Order(StringComparer.Ordinal).ToArray(), new SortedDictionary<string, string>(manifest.Assets, StringComparer.Ordinal), config, inspected);
+            return new(report, tokenCss ?? throw Reject("fstheme-required-entry"), themeCss ?? throw Reject("fstheme-required-entry"),
+                manifest.Budgets.MaxSelectors);
         }
         catch (DecoderFallbackException) { throw Reject("fstheme-css-encoding"); }
         catch (Exception error) when (error is IOException or InvalidDataException or NotSupportedException)
@@ -200,6 +217,7 @@ internal static partial class LegacyThemeInspection
     [GeneratedRegex(@"\A(?<operator>>=|>|<=|<|=)(?<version>[0-9]+\.[0-9]+\.[0-9]+)\z", RegexOptions.CultureInvariant)]
     private static partial Regex Boundary();
 
+    internal sealed record Package(Report Report, string TokenCss, string ThemeCss, int MaximumSelectors);
     internal sealed record Report(string Schema, string State, string ArchiveSha256, string Source, string Publisher,
         string Id, string Name, string Version, string FsusBlog, string[] Modes, Support Supports, PackageEntry Preview,
         IReadOnlyList<string> StylePaths, IReadOnlyDictionary<string, string> Assets,
