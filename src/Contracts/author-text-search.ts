@@ -1,7 +1,8 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, PodWriter, ProtocolError } from './binary.ts';
 import { request, siteSessionHeader } from './client.ts';
-import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts';
+import { readPropertyConditions, writePropertyConditions, type PropertyCondition, type PropertyQueryOperand } from './property-query.ts';
+import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export type AuthorTextSearchRow = Readonly<{
   id: number;
@@ -20,6 +21,15 @@ export type AuthorTextSearchRow = Readonly<{
 
 export type AuthorTextSearchPage = Readonly<{ ready: boolean; more: boolean; rows: readonly AuthorTextSearchRow[] }>;
 export type AuthorTextRankedQuery = Readonly<{ query: string; cursor: string }>;
+export type AuthorTextQualifiedQuery = AuthorTextRankedQuery & Readonly<{
+  updatedFromUnixMs: bigint | null;
+  updatedUntilUnixMs: bigint | null;
+  schema: bigint;
+  conditions: readonly PropertyCondition[];
+}>;
+export type DecodedAuthorTextQualifiedQuery = Omit<AuthorTextQualifiedQuery, 'conditions'> & Readonly<{
+  conditions: readonly PropertyQueryOperand[];
+}>;
 export type AuthorTextRankedPage = Readonly<{ ready: boolean; nextCursor: string; rows: readonly AuthorTextSearchRow[] }>;
 export type AuthorTextTaxonomyFacet = Readonly<{ id: number; name: string; count: number }>;
 export type AuthorTextFacetedPage = Readonly<{
@@ -71,6 +81,48 @@ export function encodeAuthorTextRankedQuery(value: AuthorTextRankedQuery): Uint8
 
 export function encodeAuthorTextFacetedQuery(value: AuthorTextRankedQuery): Uint8Array<ArrayBuffer> {
   return encodeCursorQuery(value, FrameType.AuthorTextFacetedQuery);
+}
+
+export function encodeAuthorTextQualifiedQuery(value: AuthorTextQualifiedQuery): Uint8Array<ArrayBuffer> {
+  validateQualifiedQuery(value);
+  const writer = new PodWriter();
+  writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes);
+  writer.text(value.cursor, WireLimits.AuthorTextRankedCursorChars);
+  writer.bool(value.updatedFromUnixMs !== null);
+  if (value.updatedFromUnixMs !== null) writer.i64(value.updatedFromUnixMs);
+  writer.bool(value.updatedUntilUnixMs !== null);
+  if (value.updatedUntilUnixMs !== null) writer.i64(value.updatedUntilUnixMs);
+  writer.i64(value.schema);
+  writePropertyConditions(writer, value.schema, value.conditions, true);
+  return encodeFrame(FrameType.AuthorTextQualifiedQuery, writer.finish());
+}
+
+export function decodeAuthorTextQualifiedQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
+  if (payload.length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes - WireHeader.HeaderSize)
+    throw new ProtocolError('Author text search query exceeds its frame limit');
+  const reader = new PodReader(payload);
+  const query = reader.text(WireLimits.AuthorTextSearchQueryBytes);
+  const cursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
+  const updatedFromUnixMs = reader.bool() ? reader.i64() : null;
+  const updatedUntilUnixMs = reader.bool() ? reader.i64() : null;
+  const schema = reader.i64();
+  const conditions = readPropertyConditions(reader, schema, true);
+  reader.finish();
+  const value = { query, cursor, updatedFromUnixMs, updatedUntilUnixMs, schema, conditions };
+  validateQualifiedQuery(value);
+  return value;
+}
+
+function validateQualifiedQuery(value: AuthorTextQualifiedQuery | DecodedAuthorTextQualifiedQuery): void {
+  validateQuery(value.query);
+  validateCursor(value.cursor);
+  const { updatedFromUnixMs: from, updatedUntilUnixMs: until } = value;
+  const minUnixMs = -62_135_596_800_000n, maxUnixMs = 253_402_300_799_999n;
+  if ((from !== null && (from < minUnixMs || from > maxUnixMs)) ||
+      (until !== null && (until < minUnixMs || until > maxUnixMs)) ||
+      (from !== null && until !== null && from >= until) ||
+      (from === null && until === null && value.conditions.length === 0))
+    throw new ProtocolError('Invalid qualified author text search');
 }
 
 function encodeCursorQuery(value: AuthorTextRankedQuery, frameType: FrameType): Uint8Array<ArrayBuffer> {

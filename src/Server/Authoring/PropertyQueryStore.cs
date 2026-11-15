@@ -39,18 +39,14 @@ internal sealed partial class PropertyStore
 
     internal async Task<PropertyArticlePage> Filter(PropertyArticleQueryGroup input, string session, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
-        var conditions = Resolve(schema, input);
+        var conditions = await ResolveQuery(input.SchemaRevision, input.Conditions, ct);
         await ValidateQueryReferences(conditions, ct);
-        return await Filter(conditions, schema.Revision, session, input.Cursor, input.Keyword, ct);
+        return await Filter(conditions, input.SchemaRevision, session, input.Cursor, input.Keyword, ct);
     }
 
     internal async Task<byte[]> CaptureSavedView(PropertyArticleQueryGroup input, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
-        var conditions = Resolve(schema, input);
+        var conditions = await ResolveQuery(input.SchemaRevision, input.Conditions, ct);
         await ValidateQueryReferences(conditions, ct);
         var references = conditions.SelectMany(item => ReferenceIds(item.Value)).ToHashSet();
         return Wire.EncodeSavedViewDefinition(conditions.Select(item => new SavedViewCondition(item.DefinitionId, item.Kind,
@@ -73,18 +69,23 @@ internal sealed partial class PropertyStore
 
     internal static BusinessException SavedViewDependency() => new(Rejection.Conflict, "A saved view dependency is unavailable. Update its conditions.");
 
-    private async Task ValidateQueryReferences(Condition[] conditions, CancellationToken ct)
+    internal async Task ValidateQueryReferences(Condition[] conditions, CancellationToken ct)
     {
-        var referenceIds = conditions.SelectMany(item => ReferenceIds(item.Value)).Distinct().ToArray();
+        var referenceIds = QueryReferenceIds(conditions);
         if (referenceIds.Length != 0 && !(await ReadReferences(referenceIds, ct)).SetEquals(referenceIds)) throw Missing();
     }
 
-    private static Condition[] Resolve(PropertySchema schema, PropertyArticleQueryGroup input)
+    internal async Task<Condition[]> ResolveQuery(long schemaRevision, IReadOnlyList<PropertyCondition> conditions, CancellationToken ct)
     {
-        if (schema.Revision != input.SchemaRevision) throw Conflict();
-        return input.Conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        if (schema.Revision != schemaRevision) throw Conflict();
+        return conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
     }
+
+    private static int[] QueryReferenceIds(Condition[] conditions) =>
+        conditions.SelectMany(item => ReferenceIds(item.Value)).Distinct().ToArray();
 
     private async Task<PropertyArticlePage> Filter(Condition[] conditions, long schema, string session, string cursor, string keyword,
         CancellationToken ct)
@@ -121,7 +122,7 @@ internal sealed partial class PropertyStore
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);
     }
 
-    private sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
+    internal sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
 
     private static byte[] CursorBinding(string session, long revision, Condition[] conditions, string keyword)
     {
@@ -170,7 +171,7 @@ internal sealed partial class PropertyStore
         return new(condition.DefinitionId, condition.DefinitionRevision, FieldKind(definition.Settings.Kind), condition.Comparison, normalized);
     }
 
-    private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
+    internal static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
     {
         var isPresent = condition.Comparison == PropertyComparison.IsPresent;
         parameters.Add(condition.DefinitionId);
@@ -227,16 +228,48 @@ internal sealed partial class PropertyStore
                 sql.Append(" and (").Append(expression).Append(')').Append(comparison).Append('$').Append(parameters.Count);
             }
         }
-        if (condition.Value is PropertyValue.ArticleReference || isPresent && condition.Kind == PropertyFieldKind.ArticleReference)
-            sql.Append("""
+        if (ChecksReferenceVisibility(condition))
+            sql.Append($"""
                  and not exists (select from unnest(v.references_ids) target(id)
-                    where not exists (select from public.article r join public.article_publication p
-                        on p.article_id=r.id and p.revision=r.published_revision
-                        join public.article_publication_rights w
-                        on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
+                    where not exists (select from public.article r
+                        {ReferenceAuthorityJoins("join")}
                         where r.id=target.id and r.owner_id=$1 and not r.deleted))
                 """);
         sql.Append(')');
+    }
+
+    private static bool ChecksReferenceVisibility(Condition condition) =>
+        condition.Value is PropertyValue.ArticleReference ||
+        condition.Comparison == PropertyComparison.IsPresent && condition.Kind == PropertyFieldKind.ArticleReference;
+
+    private static string ReferenceAuthorityJoins(string join) => $"""
+        {join} public.article_publication p on p.article_id=r.id and p.revision=r.published_revision
+        {join} public.article_publication_rights w
+            on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
+        """;
+
+    internal static string ReferenceDependencyWitness(Condition[] conditions, List<object> parameters)
+    {
+        var definitions = conditions.Where(ChecksReferenceVisibility).Select(condition => condition.DefinitionId).Distinct().ToArray();
+        if (definitions.Length == 0) return "''::bytea";
+        parameters.Add(definitions);
+        var definitionParameter = parameters.Count;
+        parameters.Add(QueryReferenceIds(conditions));
+        var operandParameter = parameters.Count;
+        return $"""
+            (select pg_catalog.sha256(coalesce(string_agg(
+                pg_catalog.int4send(target.id) || pg_catalog.int8send(coalesce(r.published_revision,0)) ||
+                pg_catalog.int8send(coalesce(p.publication_id,0)) || pg_catalog.int8send(coalesce(w.id,0)),
+                ''::bytea order by target.id), ''::bytea))
+            from (
+                select unnest(v.references_ids) as id
+                from public.property_value v join owner_scope e on e.id=v.article_id
+                where v.owner_id=$1 and v.definition_id=any(${definitionParameter})
+                union select unnest(${operandParameter}::integer[])
+            ) target
+            left join public.article r on r.id=target.id and r.owner_id=$1 and not r.deleted
+            {ReferenceAuthorityJoins("left join")})
+            """;
     }
 
     private static string Cursor(byte[] binding, int before)

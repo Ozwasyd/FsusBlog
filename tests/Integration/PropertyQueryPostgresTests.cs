@@ -19,9 +19,12 @@ public sealed class PropertyQueryPostgresTests
         var store = new Store(db.DataSource);
         var owner = await SignIn("First owner");
         var outsider = await SignIn("Second owner");
+        var ownerId = await store.WithSession(owner, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
+        var handle = SiteSessions.Id(ownerId, Store.TokenDigest(owner)!);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         const string matchText = "C12%_Needle";
         const string keyword = "c12%_needle";
+        const string lexicalQuery = "needle";
         var summaryPrefix = string.Concat(Enumerable.Repeat("😀", 200 - matchText.Length));
         var primary = await Article("Match " + matchText, owner);
         var empty = await Article("Empty " + matchText, owner);
@@ -77,6 +80,11 @@ public sealed class PropertyQueryPostgresTests
         for (var i = 0; i < fields.Count; i++)
         {
             Assert.Equal(primary.Id, Assert.Single((await Filter(i, definitions[i].Item2)).Rows).Id);
+            var qualified = await Qualified(new(lexicalQuery, "", null, null, schema,
+                [new(fields[i], 2, PropertyComparison.Equal, definitions[i].Item2)]));
+            Assert.Equal(primary.Id, Assert.Single(qualified.Rows).Id);
+            Assert.Equal(1, qualified.Total);
+            Assert.Equal(new[] { 1, 0, 0, 0 }, qualified.StateCounts);
             Assert.Contains((await Filter(i, new PropertyFieldValue.Missing())).Rows, row => row.Id == missing.Id);
             Assert.DoesNotContain((await Filter(i, new PropertyFieldValue.Missing())).Rows, row => row.Id == foreign.Id);
             int[] presentIds = definitions[i].Item3 is PropertyFieldValue.Null ? [primary.Id] : [empty.Id, primary.Id];
@@ -87,13 +95,13 @@ public sealed class PropertyQueryPostgresTests
         Assert.Empty((await Filter(1, new PropertyFieldValue.Number(9007199254740993.1234568m))).Rows);
         await Filter(1, new PropertyFieldValue.Text("0"), HttpStatusCode.BadRequest);
 
-        var summaryMatches = new List<int>();
+        var summaryMatches = new List<ArticleState>();
         for (var i = 0; i < WireLimits.PropertyPageSize; i++)
         {
             var body = (i == 0 ? summaryPrefix : "Private ") + matchText;
             var article = await Article($"Number page {i}", owner, body);
             await Put(article, fields[1], definitions[1].Item2, 0, 2);
-            summaryMatches.Add(article.Id);
+            summaryMatches.Add(article);
         }
         var firstPage = await Filter(1, definitions[1].Item2);
         Assert.Equal(WireLimits.PropertyPageSize, firstPage.Rows.Count);
@@ -116,6 +124,37 @@ public sealed class PropertyQueryPostgresTests
             Value = new PropertyFieldValue.Date(time.AddMilliseconds(-1)) }])).Rows).Id);
         Assert.Equal(primary.Id, Assert.Single((await Group([lower, new(fields[2], 2, PropertyComparison.Equal,
             new PropertyFieldValue.Boolean(false))])).Rows).Id);
+        var falseCondition = new PropertyCondition(fields[2], 2, PropertyComparison.Equal, new PropertyFieldValue.Boolean(false));
+        var modified = await ModifiedAt(primary.Id);
+        var dateSearch = new AuthorTextQualifiedQuery(lexicalQuery, "", modified, modified + 1, schema, [lower, upper, date, falseCondition]);
+        var inRange = await Qualified(dateSearch);
+        Assert.Equal(primary.Id, Assert.Single(inRange.Rows).Id);
+        Assert.Equal(1, inRange.Total);
+        var beyond = await Qualified(dateSearch with { UpdatedFromUnixMs = null, UpdatedUntilUnixMs = modified });
+        Assert.Empty(beyond.Rows);
+        Assert.Equal(0, beyond.Total);
+        Assert.Equal(new[] { 0, 0, 0, 0 }, beyond.StateCounts);
+        var dateOnly = await Qualified(dateSearch with { SchemaRevision = 0, Conditions = [] });
+        Assert.Contains(dateOnly.Rows, row => row.Id == primary.Id);
+
+        var allScores = new AuthorTextQualifiedQuery(lexicalQuery, "", null, null, schema, [lower, upper]);
+        var rankedScores = await Qualified(allScores);
+        Assert.Equal(summaryMatches.Count + 1, rankedScores.Total);
+        Assert.NotEmpty(rankedScores.NextCursor);
+        var scoreContinuation = allScores with { Cursor = rankedScores.NextCursor };
+        var trailingScores = await Qualified(scoreContinuation);
+        Assert.Equal(rankedScores.Total, trailingScores.Total);
+        Assert.Equal(rankedScores.StateCounts, trailingScores.StateCounts);
+        Assert.Empty(rankedScores.Rows.Select(row => row.Id).Intersect(trailingScores.Rows.Select(row => row.Id)));
+        await Qualified(scoreContinuation with { UpdatedUntilUnixMs = modified + 1 }, HttpStatusCode.Conflict);
+        await Qualified(scoreContinuation with { Conditions = [lower] }, HttpStatusCode.Conflict);
+        var changedOffPage = summaryMatches.Single(item => item.Id == trailingScores.Rows[^1].Id);
+        var rankTimeBeforeEdit = await ModifiedAt(changedOffPage.Id);
+        await Put(changedOffPage, fields[1], new PropertyFieldValue.Number(0), 1, 2);
+        Assert.Equal(rankTimeBeforeEdit, await ModifiedAt(changedOffPage.Id));
+        await Qualified(scoreContinuation, HttpStatusCode.Conflict);
+        Assert.Equal(rankedScores.Total - 1, (await Qualified(allScores)).Total);
+        await Put(changedOffPage, fields[1], definitions[1].Item2, 2, 2);
         var groupPage = await Group([lower, upper]);
         Assert.Equal(firstPage.Rows.Select(row => row.Id), groupPage.Rows.Select(row => row.Id));
         Assert.NotEmpty(groupPage.NextCursor);
@@ -127,7 +166,6 @@ public sealed class PropertyQueryPostgresTests
         await Group([Present(1)], groupPage.NextCursor, HttpStatusCode.BadRequest);
         await Group([lower, upper with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
         await Group([lower with { DefinitionId = fields[2] }], status: HttpStatusCode.BadRequest);
-        var ownerId = await store.WithSession(owner, true, (_, _, actor) => Task.FromResult(actor.Id), ct);
         var anotherOwnerSession = await Ticket(ownerId);
         var groupContinuation = Wire.EncodePropertyArticleQueryGroup(new(schema, [lower, upper], groupPage.NextCursor));
         await Send(WireRoutes.PropertyArticleQuery, groupContinuation, anotherOwnerSession, HttpStatusCode.BadRequest);
@@ -139,8 +177,8 @@ public sealed class PropertyQueryPostgresTests
         var save = new SavedViewCommand(SavedViewAction.Save, viewId, 0, 0, Guid.NewGuid(), "  Re\u0301vision  ",
             new(schema, [upper, lower], ""));
         var packet = Wire.EncodeSavedViewCommand(save);
-        var (handle, peerHandle) = (SiteSessions.Id(ownerId, Store.TokenDigest(owner)!),
-            SiteSessions.Id(ownerId, Store.TokenDigest(anotherOwnerSession)!));
+        var peerHandle = SiteSessions.Id(ownerId, Store.TokenDigest(anotherOwnerSession)!);
+        await Qualified(scoreContinuation, HttpStatusCode.Conflict, anotherOwnerSession, peerHandle);
         var firstSave = await Saved(WireRoutes.SavedViews, packet);
         Assert.Equal(firstSave, await Saved(WireRoutes.SavedViews, packet));
         Assert.Equal(new SavedViewReceipt(viewId, 1, 1, false), Wire.DecodeSavedViewReceipt(firstSave));
@@ -180,6 +218,7 @@ public sealed class PropertyQueryPostgresTests
         await Filter(6, definitions[6].Item2, HttpStatusCode.NotFound);
         Assert.Empty((await Group([Present(6)])).Rows);
         await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Item2)], status: HttpStatusCode.NotFound);
+        await Qualified(new(lexicalQuery, "", null, null, schema, [ReferenceAnyOf(target.Id)]), HttpStatusCode.NotFound);
         await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[1], Guid.NewGuid(), schema, 3, false)), owner);
         await Filter(1, definitions[1].Item2, HttpStatusCode.Conflict, firstPage.NextCursor);
         schema++;
@@ -369,7 +408,7 @@ public sealed class PropertyQueryPostgresTests
         await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, HttpStatusCode.Conflict);
         await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, HttpStatusCode.Conflict, peerHandle);
         var keywordPage = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, keywordFrame, owner, sessionId: handle));
-        Assert.Equal(summaryMatches.AsEnumerable().Reverse(), keywordPage.Rows.Select(row => row.Id));
+        Assert.Equal(summaryMatches.Select(row => row.Id).Reverse(), keywordPage.Rows.Select(row => row.Id));
         Assert.NotEmpty(keywordPage.NextCursor);
         var combinedFrame = Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Conditions = [scoreMatch, Present(2)] });
         var combinedPage = Wire.DecodePropertyArticlePage(await Send(WireRoutes.PropertyArticleQuery, combinedFrame, owner, sessionId: handle));
@@ -406,12 +445,53 @@ public sealed class PropertyQueryPostgresTests
         Assert.Equal(5, await SavedDefinitionVersion(referenceViewId));
         Assert.Equal(6, await SavedDefinitionVersion(keywordViewId));
 
+        foreach (var article in summaryMatches)
+            await Put(article, fields[6], new PropertyFieldValue.ArticleReference([target.Id]),
+                article.Id == changedOffPage.Id ? 3 : 1, 2);
+        var referenceSearch = new AuthorTextQualifiedQuery(lexicalQuery, "", null, null, schema, [Present(6)]);
+        var referencePage = await Qualified(referenceSearch);
+        Assert.Equal(summaryMatches.Count + 1, referencePage.Total);
+        Assert.NotEmpty(referencePage.NextCursor);
+        var referenceContinuation = referenceSearch with { Cursor = referencePage.NextCursor };
+        await Publication(target, ArticleAction.Retract, owner);
+        await Qualified(referenceContinuation, HttpStatusCode.Conflict);
+        Assert.Equal(0, (await Qualified(referenceSearch)).Total);
+
+        var laterScoreSearch = allScores with { SchemaRevision = schema, Conditions = [scoreMatch] };
+        var laterScores = await Qualified(laterScoreSearch);
+        Assert.NotEmpty(laterScores.NextCursor);
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(
+            new(fields[1], Guid.NewGuid(), schema, 5, false)), owner);
+        await Qualified(laterScoreSearch with { Cursor = laterScores.NextCursor }, HttpStatusCode.Conflict);
+
         async Task<int> SavedDefinitionVersion(Guid id)
         {
             await using var conn = await db.DataSource.OpenConnectionAsync(ct);
             await using var command = Store.Sql(conn, null,
                 "select get_byte(definition,0) from public.author_saved_view where owner_id=$1 and id=$2", ownerId, id);
             return Assert.IsType<int>(await command.ExecuteScalarAsync(ct));
+        }
+
+        async Task<long> ModifiedAt(int id)
+        {
+            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
+            await using var command = Store.Sql(conn, null,
+                "select floor(extract(epoch from updated_at)*1000)::bigint from public.article where id=$1", id);
+            return Assert.IsType<long>(await command.ExecuteScalarAsync(ct));
+        }
+
+        async Task<AuthorTextFacetedPage> Qualified(AuthorTextQualifiedQuery query, HttpStatusCode status = HttpStatusCode.OK,
+            string? session = null, string? sessionId = null)
+        {
+            for (var attempt = 0; attempt < 8; attempt++)
+            {
+                var bytes = await Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextQualifiedQuery(query), session ?? owner,
+                    status, sessionId ?? handle);
+                if (status != HttpStatusCode.OK) return new(false, "", 0, [0, 0, 0, 0], false, [], false, [], []);
+                var page = Wire.DecodeAuthorTextFacetedPage(bytes);
+                if (page.Ready) return page;
+            }
+            throw new InvalidOperationException("The fixture index did not finish within eight requests.");
         }
 
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,

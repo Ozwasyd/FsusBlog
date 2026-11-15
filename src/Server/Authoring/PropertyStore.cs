@@ -234,11 +234,10 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         var visible = new HashSet<int>();
         if (ids.Length == 0) return visible;
-        await using var command = Store.Sql(db, tx, """
-            select a.id from public.article a join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
-            join public.article_publication_rights w
-                on w.article_id=p.article_id and w.publication_id=p.publication_id and w.revision=p.revision
-            where a.id=any($1) and a.owner_id=$2 and not a.deleted order by a.id for share of a
+        await using var command = Store.Sql(db, tx, $"""
+            select r.id from public.article r
+            {ReferenceAuthorityJoins("join")}
+            where r.id=any($1) and r.owner_id=$2 and not r.deleted order by r.id for share of r
             """, ids, actor.Id);
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct)) visible.Add(reader.GetInt32(0));

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -12,7 +12,13 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import SavedViewPanel from './SavedViewPanel.vue'
 import { credentialEpoch, currentSession, identityEpoch, invalidateSession } from '../session'
 
-const props = defineProps<{ keyword?: string }>()
+const props = defineProps<{ keyword?: string; embedded?: boolean }>()
+const emit = defineEmits<{
+  'conditions-change': [value: Pick<PropertyQuery, 'schema' | 'conditions'> | undefined]
+  edit: []
+}>()
+const fieldId = useId(), operatorId = useId(), valueId = useId()
+const embeddedCredential = computed(() => props.embedded ? credentialEpoch.value : 0)
 const open = ref(false)
 const retry = ref(0)
 const catalog = shallowRef<FilterCatalog>()
@@ -27,6 +33,7 @@ const dateComparisons = {
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
 }
 const conditions = shallowRef<readonly PropertyCondition[]>([])
+const canAdd = computed(() => conditions.value.length < WireLimits.PropertyQueryConditionCount - (props.embedded ? 0 : 1))
 const text = ref('')
 const choice = ref('')
 const multiple = ref<string[]>([])
@@ -40,7 +47,8 @@ const error = computed(() => operationError.value || queryError.value)
 const submitted = shallowRef<PropertyQuery>()
 const savable = computed(() => submitted.value ? { ...submitted.value, cursor: '' } : undefined)
 const result = shallowRef<PropertyMatches>()
-const field = computed(() => catalog.value?.fields.find(item => item.id === selection.value))
+const selectableFields = computed(() => (catalog.value?.fields ?? []).filter(item => !props.embedded || item.enabled))
+const field = computed(() => selectableFields.value.find(item => item.id === selection.value))
 const rangeComparisons = computed(() => {
   const labels = field.value?.kind === 'date' ? dateComparisons : field.value?.kind === 'number' ? comparisons : undefined
   return labels ? Object.entries(labels).filter(([comparison]) => comparison !== 'equal') : []
@@ -59,11 +67,19 @@ function reset() {
   operationBusy.value = false
   operationError.value = ''
   pendingChange.value = undefined
-  conditions.value = []
+  if (conditions.value.length) conditions.value = []
   clearResults()
 }
 
-watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cleanup) => {
+watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, attempt, credential], [, previousEpoch, previousAttempt, previousCredential], cleanup) => {
+  if (props.embedded && epoch === previousEpoch && attempt === previousAttempt && credential === previousCredential) {
+    if (!show) {
+      operation?.abort()
+      operationBusy.value = false
+      return
+    }
+    if (catalog.value) return
+  }
   reset()
   catalog.value = undefined
   selection.value = ''
@@ -94,8 +110,13 @@ watch(selection, () => {
   flag.value = false
 }, { flush: 'sync' })
 
-watch([selection, mode, text, choice, multiple, flag, conditions, () => props.keyword, credentialEpoch],
-  clearResults, { flush: 'sync' })
+watch([selection, mode, text, choice, multiple, flag, conditions, () => props.keyword, credentialEpoch], () => {
+  clearResults()
+  if (props.embedded) emit('edit')
+}, { flush: 'sync' })
+watch(conditions, value => {
+  if (props.embedded) emit('conditions-change', value.length && catalog.value ? { schema: catalog.value.revision, conditions: value } : undefined)
+}, { flush: 'sync' })
 
 function clearResults() {
   queryRequest.value?.abort()
@@ -151,7 +172,7 @@ function currentCondition(): PropertyCondition {
 }
 
 function add() {
-  if (conditions.value.length + 1 >= WireLimits.PropertyQueryConditionCount) return
+  if (!canAdd.value) return
   try {
     conditions.value = [...conditions.value, currentCondition()]
     selection.value = ''
@@ -262,11 +283,12 @@ async function search(more = false) {
 
 <template>
   <details class="property-filter" @toggle="toggle">
-    <summary>按文章属性筛选</summary>
+    <summary>{{ embedded ? '全文搜索属性条件' : '按文章属性筛选' }}</summary>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="busy" role="status">正在读取文章属性…</p>
-    <ElButton v-if="error && !busy && !pendingChange" text @click="retry++">重新加载属性定义</ElButton>
+    <ElButton v-if="(error || embedded && catalog) && !busy && !pendingChange" text @click="retry++">重新加载属性定义</ElButton>
     <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
+    <p v-else-if="embedded && selectableFields.length">添加的条件会用于下一次全文搜索。</p>
     <template v-if="catalog?.fields.length">
       <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
       <ul v-if="conditions.length" aria-label="已有筛选条件">
@@ -276,20 +298,23 @@ async function search(more = false) {
             @click="conditions = conditions.filter((_, index) => index !== position)">移除</ElButton>
         </li>
       </ul>
-      <label for="property-filter-field">属性字段</label>
-      <ElSelect id="property-filter-field" v-model="selection" ariaLabel="属性字段" :disabled="busy || !!pendingChange">
-        <ElOption v-for="item in catalog.fields" :key="item.id" :value="item.id"
-          :label="`${item.label} · ${item.machineKey}`" />
-      </ElSelect>
+      <template v-if="selectableFields.length">
+        <label :for="fieldId">属性字段</label>
+        <ElSelect :id="fieldId" v-model="selection" ariaLabel="属性字段" :disabled="busy || !!pendingChange">
+          <ElOption v-for="item in selectableFields" :key="item.id" :value="item.id"
+            :label="`${item.label} · ${item.machineKey}`" />
+        </ElSelect>
+      </template>
+      <p v-else>这里没有已启用筛选的属性。</p>
       <ElButton v-if="catalog.nextKey" text :disabled="busy || !!pendingChange" @click="later">更多属性</ElButton>
       <template v-if="field">
         <p v-if="field.deprecated">该属性已停用。</p>
-        <ElButton v-else text :disabled="busy" @click="changeFilterability">
+        <ElButton v-else-if="!embedded" text :disabled="busy" @click="changeFilterability">
           {{ pendingChange ? '重试筛选设置' : field.enabled ? '停用此字段的筛选' : '启用此字段的筛选' }}
         </ElButton>
         <template v-if="field.enabled">
-          <label for="property-filter-operator">匹配方式</label>
-          <ElSelect id="property-filter-operator" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
+          <label :for="operatorId">匹配方式</label>
+          <ElSelect :id="operatorId" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
             <ElOption value="equal" label="精确匹配" />
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
             <ElOption v-if="field.kind === 'single-select'" value="single-select-any-of" label="任一匹配" />
@@ -300,28 +325,28 @@ async function search(more = false) {
             <ElOption value="null" label="显式空值" />
           </ElSelect>
           <template v-if="mode !== 'is-present' && mode !== 'missing' && mode !== 'null'">
-            <label for="property-filter-value">属性值</label>
-            <ElSelect v-if="field.kind === 'boolean'" id="property-filter-value" v-model="flag" ariaLabel="属性值" :disabled="busy">
+            <label :for="valueId">属性值</label>
+            <ElSelect v-if="field.kind === 'boolean'" :id="valueId" v-model="flag" ariaLabel="属性值" :disabled="busy">
               <ElOption :value="false" label="False" /><ElOption :value="true" label="True" />
             </ElSelect>
-            <ElSelect v-else-if="field.kind === 'single-select' && mode !== 'single-select-any-of'" id="property-filter-value" v-model="choice"
+            <ElSelect v-else-if="field.kind === 'single-select' && mode !== 'single-select-any-of'" :id="valueId" v-model="choice"
               ariaLabel="属性值" :disabled="busy">
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
-            <ElSelect v-else-if="field.kind === 'multi-select' || mode === 'single-select-any-of'" id="property-filter-value" v-model="multiple"
+            <ElSelect v-else-if="field.kind === 'multi-select' || mode === 'single-select-any-of'" :id="valueId" v-model="multiple"
               ariaLabel="属性值" :disabled="busy" multiple>
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
-            <ElInput v-else id="property-filter-value" v-model="text" :disabled="busy"
+            <ElInput v-else :id="valueId" v-model="text" :disabled="busy"
               :placeholder="mode === 'reference-any-of' ? '文章 ID，用逗号分隔' : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? '文章 ID' : undefined" />
           </template>
-          <ElButton v-if="conditions.length + 1 < WireLimits.PropertyQueryConditionCount" text
+          <ElButton v-if="canAdd" text
             :disabled="busy || !!pendingChange" @click="add">添加条件</ElButton>
         </template>
       </template>
-      <ElButton v-if="field?.enabled || !field && conditions.length" type="primary"
+      <ElButton v-if="!embedded && (field?.enabled || !field && conditions.length)" type="primary"
         :disabled="busy || !!pendingChange" @click="search()">{{ conditions.length ? '匹配全部条件' : '筛选属性' }}</ElButton>
-      <section v-if="result" aria-label="属性筛选结果">
+      <section v-if="!embedded && result" aria-label="属性筛选结果">
         <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
         <ul v-else>
           <li v-for="item in result.rows" :key="item.id">
@@ -332,7 +357,7 @@ async function search(more = false) {
       </section>
     </template>
   </details>
-  <SavedViewPanel :query="savable" />
+  <SavedViewPanel v-if="!embedded" :query="savable" />
 </template>
 
 <style scoped>

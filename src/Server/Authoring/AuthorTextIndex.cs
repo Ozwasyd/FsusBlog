@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Core.Authoring;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -55,6 +56,38 @@ internal static class AuthorTextIndex
         await Store.LockCommand(db, tx, actor.Id, Scope, ct);
         if (after is null) await Reconcile(db, tx, actor.Id, ct);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct);
+    }
+
+    internal static async Task<AuthorTextFacetedPage> ReadQualified(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
+        AuthorTextFacetedQuery input, long? updatedFromUnixMs, long? updatedUntilUnixMs, long schemaRevision,
+        IReadOnlyList<PropertyCondition> conditions, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+    {
+        ValidateContinuation(after, expectedGeneration);
+        var properties = new PropertyStore(db, tx, actor);
+        PropertyStore.Condition[] resolved = [];
+        try
+        {
+            // The property scope precedes any article locks and stays held through readback.
+            if (conditions.Count != 0) resolved = await properties.ResolveQuery(schemaRevision, conditions, ct);
+            await Store.LockCommand(db, tx, actor.Id, Scope, ct);
+            if (resolved.Length != 0) await properties.ValidateQueryReferences(resolved, ct);
+        }
+        catch (BusinessException error) when (after.HasValue && error.Rejection is Rejection.NotFound or Rejection.Conflict or Rejection.Invalid)
+        {
+            throw AuthorTextCursor.Invalid();
+        }
+        catch (PropertyValidationException)
+        {
+            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Invalid, "Invalid article property.");
+        }
+        catch (PropertySchemaException)
+        {
+            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
+        }
+
+        if (after is null) await Reconcile(db, tx, actor.Id, ct);
+        return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
+            new(updatedFromUnixMs, updatedUntilUnixMs, resolved));
     }
 
     private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
@@ -338,8 +371,26 @@ internal static class AuthorTextIndex
         from owner_scope e
         """;
 
+    private static string SourceGeneration(List<object> parameters, PropertyStore.Condition[]? conditions)
+    {
+        if (conditions is not { Length: > 0 }) return FacetedGeneration;
+        var references = PropertyStore.ReferenceDependencyWitness(conditions, parameters);
+        return $"""
+            select pg_catalog.sha256(pg_catalog.convert_to('fsusblog-author-text-typed.v1','UTF8') || ({FacetedGeneration}) ||
+                pg_catalog.int8send(coalesce((select revision from public.property_schema where owner_id=$1),0)) ||
+                (select pg_catalog.sha256(coalesce(string_agg(
+                    pg_catalog.int4send(e.id) || pg_catalog.int8send(coalesce(v.revision,0)),
+                    ''::bytea order by e.id), ''::bytea))
+                 from owner_scope e left join public.property_article v on v.article_id=e.id and v.owner_id=$1) ||
+                {references})
+            """;
+    }
+
+    private sealed record QualifiedFilters(long? UpdatedFromUnixMs, long? UpdatedUntilUnixMs, PropertyStore.Condition[] Conditions);
+
     private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
-        AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
+        AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
+        QualifiedFilters? qualification = null)
     {
         var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
         var total = 0;
@@ -351,15 +402,35 @@ internal static class AuthorTextIndex
         var moreTags = false;
         byte[]? generation = null;
 
+        List<object> parameters = [.. MatchArguments(actor.Id, input.Text), WireLimits.AuthorTextSearchRows + 1,
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
+            after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0, actor.Generation,
+            (int?)input.Status ?? 0, input.CategoryId ?? 0, input.TagId ?? 0];
+        var filter = new StringBuilder();
+        if (qualification?.UpdatedFromUnixMs is long from)
+        {
+            parameters.Add(from);
+            filter.Append(" and a.updated_unix_ms >= $").Append(parameters.Count);
+        }
+        if (qualification?.UpdatedUntilUnixMs is long until)
+        {
+            parameters.Add(until);
+            filter.Append(" and a.updated_unix_ms < $").Append(parameters.Count);
+        }
+        if (qualification is not null)
+            foreach (var condition in qualification.Conditions) PropertyStore.AppendCondition(filter, parameters, condition);
+        var sourceGeneration = SourceGeneration(parameters, qualification?.Conditions);
+
         await using (var query = Store.Sql(db, tx, $$"""
             with {{FacetMetadata(14)}},
             eligible as materialized (
-                select * from owner_scope e
-                where ($15=0 or e.state=$15) and ($16=0 or e.category_id=$16)
-                    and ($17=0 or $17=any(e.tag_ids))
+                select * from owner_scope a
+                where ($15=0 or a.state=$15) and ($16=0 or a.category_id=$16)
+                    and ($17=0 or $17=any(a.tag_ids)){{filter}}
             ),
             readiness as (
-                select case when not exists(select from changed) then ({{FacetedGeneration}}) end as generation
+                select case when not exists(select from changed) then ({{sourceGeneration}}) end as generation
             ),
             witness as (
                 select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
@@ -415,11 +486,7 @@ internal static class AuthorTextIndex
             left join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
             left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
             order by {{RankOrder}}
-            """, [.. MatchArguments(actor.Id, input.Text), WireLimits.AuthorTextSearchRows + 1,
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
-                after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0, actor.Generation,
-                (int?)input.Status ?? 0, input.CategoryId ?? 0, input.TagId ?? 0]))
+            """, parameters.ToArray()))
         {
             query.CommandTimeout = 3;
             await using var rows = await query.ExecuteReaderAsync(ct);
@@ -448,7 +515,8 @@ internal static class AuthorTextIndex
             }
         }
 
-        if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation))
+        if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation,
+                qualification?.Conditions))
             throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
         return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags);
     }
@@ -491,7 +559,8 @@ internal static class AuthorTextIndex
     }
 
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null)
+        IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null,
+        PropertyStore.Condition[]? conditions = null)
     {
         var ids = matches.Select(row => row.Match.Id).ToArray();
         if (ids.Length > 0)
@@ -506,10 +575,10 @@ internal static class AuthorTextIndex
         // and ranking state in a new statement even when a ranked result has zero rows.
         var scope = facetAuthorityGeneration.HasValue ? "owner_scope" : "eligible";
         var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5) : Changed;
-        var sourceGeneration = facetAuthorityGeneration.HasValue ? FacetedGeneration : Generation;
         var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
+        var sourceGeneration = facetAuthorityGeneration.HasValue ? SourceGeneration(parameters, conditions) : Generation;
         await using var check = Store.Sql(db, tx, $"""
             with {metadata}
             select not exists(select from changed) and ($4::bytea is null or $4=({sourceGeneration})) and not exists (

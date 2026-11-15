@@ -93,6 +93,29 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await page.getByText('搜索词格式无效。请检查关键词、引号和筛选条件。', { exact: true }).waitFor()
     assert.equal(await results.count(), 0)
 
+    await form.getByText('全文搜索属性条件', { exact: true }).click()
+    await form.getByRole('combobox', { name: '属性字段', exact: true }).click()
+    await page.getByRole('option', { name: 'Editorial date · editorial-date', exact: true }).click()
+    await form.getByLabel('属性值', { exact: true }).fill('2024-02-29T17:06:01.150Z')
+    await form.getByRole('button', { name: '添加条件', exact: true }).click()
+    const qualified = await search(bodyTerm)
+    assert.deepEqual(qualified.batch.rows.map(row => row.id), [article.id])
+    assert.equal(qualified.batch.total, 1)
+    decodeFrame(qualified.response.request().postDataBuffer(), FrameType.AuthorTextQualifiedQuery)
+
+    const until = form.getByLabel('更新截止日期（不含）', { exact: true })
+    await until.fill('1970-01-01')
+    const beforeEpoch = await search(bodyTerm)
+    decodeFrame(beforeEpoch.response.request().postDataBuffer(), FrameType.AuthorTextQualifiedQuery)
+    assert.equal(beforeEpoch.batch.total, 0)
+    await until.fill('')
+    await form.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
+    const cleared = await search(bodyTerm)
+    assert.equal(cleared.batch.total, 1)
+    decodeFrame(cleared.response.request().postDataBuffer(), FrameType.AuthorTextFacetedQuery)
+    assert.equal(new URL(page.url()).search, '')
+    observations.push('At 375px the existing, enabled Editorial date property qualifies a saved body hit; adding a UTC cutoff excludes it, and clearing both conditions restores the unqualified search.')
+
     const pagingWord = `rankedpage${randomUUID().replaceAll('-', '')}`
     for (let i = 0; i <= WireLimits.AuthorTextSearchRows; i++) {
       pagingFixtures.push(await articleCommand(WireRoutes.Save, 0, 0n, `${pagingWord} ${i}`, 'Saved content'))

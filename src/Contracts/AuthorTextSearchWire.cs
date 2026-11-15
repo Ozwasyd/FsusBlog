@@ -8,6 +8,8 @@ public sealed record AuthorTextSearchRow(int Id, long Revision, string Title, in
 
 public sealed record AuthorTextSearchPage(bool Ready, bool More, IReadOnlyList<AuthorTextSearchRow> Rows);
 public sealed record AuthorTextRankedQuery(string Query, string Cursor);
+public sealed record AuthorTextQualifiedQuery(string Query, string Cursor, long? UpdatedFromUnixMs, long? UpdatedUntilUnixMs,
+    long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions);
 public sealed record AuthorTextRankedPage(bool Ready, string NextCursor, IReadOnlyList<AuthorTextSearchRow> Rows);
 public sealed record AuthorTextTaxonomyFacet(int Id, string Name, int Count);
 public sealed record AuthorTextFacetedPage(bool Ready, string NextCursor, int Total, IReadOnlyList<int> StateCounts,
@@ -83,6 +85,52 @@ public static partial class Wire
 
     public static AuthorTextRankedQuery DecodeAuthorTextFacetedQuery(ReadOnlySpan<byte> frame) =>
         DecodeAuthorTextCursorQuery(frame, FrameType.AuthorTextFacetedQuery);
+
+    public static byte[] EncodeAuthorTextQualifiedQuery(AuthorTextQualifiedQuery value)
+    {
+        ValidateAuthorTextQualifiedQuery(value);
+        var writer = new Writer();
+        writer.Text(value.Query, WireLimits.AuthorTextSearchQueryBytes);
+        writer.Text(value.Cursor, WireLimits.AuthorTextRankedCursorChars);
+        writer.Bool(value.UpdatedFromUnixMs.HasValue);
+        if (value.UpdatedFromUnixMs is { } from) writer.I64(from);
+        writer.Bool(value.UpdatedUntilUnixMs.HasValue);
+        if (value.UpdatedUntilUnixMs is { } until) writer.I64(until);
+        writer.I64(value.SchemaRevision);
+        WritePropertyConditions(writer, value.Conditions);
+        return Aeds.Encode(FrameType.AuthorTextQualifiedQuery, writer.Written);
+    }
+
+    public static AuthorTextQualifiedQuery DecodeAuthorTextQualifiedQuery(ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes)
+            throw new ProtocolException("Author text search query exceeds its frame limit.");
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextQualifiedQuery));
+        var query = reader.Text(WireLimits.AuthorTextSearchQueryBytes);
+        var cursor = reader.Text(WireLimits.AuthorTextRankedCursorChars);
+        long? from = reader.Bool() ? reader.I64() : null;
+        long? until = reader.Bool() ? reader.I64() : null;
+        var schema = reader.I64();
+        var conditions = ReadPropertyConditions(ref reader, allowEmpty: true);
+        reader.Finish();
+        var value = new AuthorTextQualifiedQuery(query, cursor, from, until, schema, conditions);
+        ValidateAuthorTextQualifiedQuery(value);
+        return value;
+    }
+
+    private static void ValidateAuthorTextQualifiedQuery(AuthorTextQualifiedQuery value)
+    {
+        ValidateAuthorTextQuery(value.Query);
+        ValidateAuthorTextCursor(value.Cursor);
+        ValidatePropertyConditions(value.SchemaRevision, value.Conditions, allowEmpty: true);
+        const long minUnixMs = -62_135_596_800_000;
+        const long maxUnixMs = 253_402_300_799_999;
+        if (value.UpdatedFromUnixMs is < minUnixMs or > maxUnixMs ||
+            value.UpdatedUntilUnixMs is < minUnixMs or > maxUnixMs ||
+            value.UpdatedFromUnixMs >= value.UpdatedUntilUnixMs ||
+            (value.UpdatedFromUnixMs is null && value.UpdatedUntilUnixMs is null && value.Conditions.Count == 0))
+            throw new ProtocolException("Invalid qualified author text search.");
+    }
 
     private static byte[] EncodeAuthorTextCursorQuery(AuthorTextRankedQuery value, FrameType type)
     {

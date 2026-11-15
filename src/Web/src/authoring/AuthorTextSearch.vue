@@ -2,14 +2,18 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextFacetedSearch } from '../../../Contracts/author-text-ranked-client'
-import type { AuthorTextFacetedPage, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
+import { authorTextFacetedSearch, authorTextQualifiedSearch } from '../../../Contracts/author-text-ranked-client'
+import type { AuthorTextFacetedPage, AuthorTextQualifiedQuery, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
+import type { PropertyQuery } from '../../../Contracts/property-query'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
+import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
 
-type SearchPage = AuthorTextFacetedPage & { cursor: string; previous: readonly string[] }
+type Qualification = Omit<AuthorTextQualifiedQuery, 'query' | 'cursor'>
+type SearchInput = { query: string; qualification?: Qualification }
+type SearchPage = AuthorTextFacetedPage & { input: SearchInput; cursor: string; previous: readonly string[] }
 const PreviousPageLimit = 500
 const states = [
   { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
@@ -27,6 +31,9 @@ const router = useRouter()
 const details = ref<HTMLDetailsElement>()
 const form = ref<HTMLFormElement>()
 const query = ref('')
+const updatedFrom = ref('')
+const updatedUntil = ref('')
+const properties = shallowRef<Pick<PropertyQuery, 'schema' | 'conditions'>>()
 const pending = shallowRef<AbortController>()
 const opening = shallowRef<Opening>()
 const result = shallowRef<SearchPage>()
@@ -47,9 +54,12 @@ function reset() {
   locationNotice.value = ''
 }
 
-watch(query, reset, { flush: 'sync' })
+watch([query, updatedFrom, updatedUntil, properties], reset, { flush: 'sync' })
 watch(credentialEpoch, () => {
   query.value = ''
+  updatedFrom.value = ''
+  updatedUntil.value = ''
+  properties.value = undefined
   reset()
 }, { flush: 'sync' })
 onBeforeUnmount(reset)
@@ -58,21 +68,55 @@ function toggle(event: Event) {
   if (!(event.currentTarget as HTMLDetailsElement).open) reset()
 }
 
+function utcMidnight(day: string): bigint | null {
+  if (!day) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day.startsWith('0000')) throw new Error('Invalid UTC day')
+  const iso = `${day}T00:00:00.000Z`
+  const milliseconds = Date.parse(iso)
+  if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== iso) throw new Error('Invalid UTC day')
+  return BigInt(milliseconds)
+}
+
 function search() {
-  return loadPage('', [], false)
+  if (pending.value || opening.value) return
+  let from: bigint | null, until: bigint | null
+  try {
+    from = utcMidnight(updatedFrom.value)
+    until = utcMidnight(updatedUntil.value)
+    if (from !== null && until !== null && from >= until) throw new Error('Invalid UTC interval')
+  } catch {
+    error.value = '请输入有效的 UTC 日期。起始日期必须早于截止日期。'
+    return
+  }
+  const qualification = from !== null || until !== null || properties.value
+    ? { updatedFromUnixMs: from, updatedUntilUnixMs: until, schema: properties.value?.schema ?? 0n,
+        conditions: properties.value?.conditions ?? [] }
+    : undefined
+  return loadPage({ query: query.value.trim(), qualification }, '', [], false)
+}
+
+function readPage(input: SearchInput, cursor: string, session: string, signal: AbortSignal) {
+  const request = { query: input.query, cursor }
+  return input.qualification
+    ? authorTextQualifiedSearch({ ...request, ...input.qualification }, session, signal)
+    : authorTextFacetedSearch(request, session, signal)
+}
+
+function propertyDependenciesChanged(input: SearchInput, failure: unknown) {
+  return !!input.qualification?.conditions.length && failure instanceof ApiError && (failure.status === 404 || failure.status === 409)
 }
 
 function showNextPage() {
   const page = result.value
   if (!page?.ready || !page.nextCursor) return
-  return loadPage(page.nextCursor, [...page.previous.slice(1 - PreviousPageLimit), page.cursor], true)
+  return loadPage(page.input, page.nextCursor, [...page.previous.slice(1 - PreviousPageLimit), page.cursor], true)
 }
 
 function showPreviousPage() {
   const page = result.value
   const cursor = page?.previous.at(-1)
   if (!page?.ready || cursor === undefined) return
-  return loadPage(cursor, page.previous.slice(0, -1), true)
+  return loadPage(page.input, cursor, page.previous.slice(0, -1), true)
 }
 
 function expirePage() {
@@ -85,9 +129,9 @@ function expirePage() {
   })
 }
 
-async function loadPage(cursor: string, previous: readonly string[], paging: boolean) {
+async function loadPage(input: SearchInput, cursor: string, previous: readonly string[], paging: boolean) {
   const session = currentSession.value
-  const text = query.value.trim()
+  const text = input.query
   if (!text || pending.value || opening.value || !details.value?.open || !session?.canAuthor ||
     !session.siteSessionId || session.expiresAt <= Date.now()) return
   const handle = session.siteSessionId
@@ -106,14 +150,19 @@ async function loadPage(cursor: string, previous: readonly string[], paging: boo
   }
 
   try {
-    const response = await authorTextFacetedSearch({ query: text, cursor }, handle, request.signal)
+    const response = await readPage(input, cursor, handle, request.signal)
     if (!current()) return
     if (cursor && !response.ready) { expirePage(); return }
-    result.value = { ...response, cursor, previous }
+    result.value = { ...response, input, cursor, previous }
   } catch (failure) {
     if (!current()) return
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
     if (cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
+    if (propertyDependenciesChanged(input, failure)) {
+      result.value = undefined
+      error.value = '属性条件已失效。请重新加载属性定义并添加条件。'
+      return
+    }
     error.value = failure instanceof ApiError && failure.status === 400
       ? '搜索词格式无效。请检查关键词、引号和筛选条件。' : '无法完成全文搜索，请重试。'
   } finally {
@@ -159,13 +208,13 @@ async function openMatch(row: AuthorTextSearchRow) {
   signal.addEventListener('abort', revoke, { once: true })
 
   try {
-    const fresh = await authorTextFacetedSearch({ query: text, cursor: page.cursor }, handle, signal)
+    const fresh = await readPage(page.input, page.cursor, handle, signal)
     if (!current()) return
     signal.throwIfAborted()
     const confirmed = fresh.ready ? fresh.rows.find(candidate => sameMatch(row, candidate)) : undefined
     if (!confirmed) {
       if (page.cursor && !fresh.ready) { expirePage(); return }
-      result.value = { ...fresh, cursor: page.cursor, previous: page.previous }
+      result.value = { ...fresh, input: page.input, cursor: page.cursor, previous: page.previous }
       if (fresh.ready) locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
       return
     }
@@ -205,7 +254,8 @@ async function openMatch(row: AuthorTextSearchRow) {
     if (page.cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     result.value = undefined
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
-    locationNotice.value = '无法复查此命中。请重新搜索后再定位。'
+    locationNotice.value = propertyDependenciesChanged(page.input, failure)
+      ? '属性条件已失效。请重新加载属性定义并添加条件。' : '无法复查此命中。请重新搜索后再定位。'
   } finally {
     signal.removeEventListener('abort', revoke)
     revoke()
@@ -224,6 +274,12 @@ async function openMatch(row: AuthorTextSearchRow) {
       </p>
       <ElInput v-model="query" label="全文搜索词" clearable
         v-bind="{ maxlength: WireLimits.AuthorTextSearchQueryChars, 'aria-describedby': 'author-text-search-help' }" />
+      <fieldset class="author-text-search-dates">
+        <legend>更新时间（UTC）</legend>
+        <ElInput v-model="updatedFrom" type="date" label="更新起始日期（含）" />
+        <ElInput v-model="updatedUntil" type="date" label="更新截止日期（不含）" />
+      </fieldset>
+      <AuthorPropertyFilter embedded @conditions-change="properties = $event" @edit="reset" />
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
         {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
       </ElButton>
@@ -285,6 +341,7 @@ async function openMatch(row: AuthorTextSearchRow) {
 .author-text-search summary { cursor: pointer; }
 .author-text-search form { display: grid; gap: var(--fsus-space-2); justify-items: start; }
 .author-text-search form > p { margin-block-end: 0; }
+.author-text-search-dates { display: grid; gap: var(--fsus-space-2); min-inline-size: 0; }
 .author-text-search ul { display: grid; gap: var(--fsus-space-3); padding-inline-start: 1.25rem; }
 .author-text-search li, .author-text-search-facets dt { overflow-wrap: anywhere; }
 .author-text-search-facets dl { display: grid; gap: var(--fsus-space-1); }

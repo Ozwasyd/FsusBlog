@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { request, siteSessionHeader } from './client.ts'
-import { propertyKinds, writeValue, type PropertyKind, type PropertyOption, type PropertyValue } from './property-values.ts'
+import { propertyKinds, readPropertyOperand, writeValue, type PropertyKind, type PropertyOption, type PropertyValue } from './property-values.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyFilterabilityCommand, FrameType, WireLimits, WireRoutes,
   type PropertyFilterabilityCommand,
@@ -17,6 +17,9 @@ export const propertyComparisons = [
 ] as const
 export type PropertyComparison = typeof propertyComparisons[number]
 export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
+export type PropertyQueryOperand = Readonly<{
+  definitionId: string; definitionRevision: bigint; comparison: PropertyComparison; value: PropertyValue
+}>
 export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string; keyword?: string }>
 export type PropertyMatches = Readonly<{
   nextCursor: string; rows: readonly Readonly<{ id: number; revision: bigint; title: string }>[]
@@ -58,34 +61,78 @@ export function setPropertyFilterable(input: PropertyFilterabilityCommand, signa
 }
 
 export function encodePropertyQuery(query: PropertyQuery) {
-  if (!query.conditions.length || query.conditions.length > WireLimits.PropertyQueryConditionCount)
-    throw new ProtocolError('Invalid property condition count')
   const keyword = query.keyword ?? ''
   if (keyword.length > WireLimits.AuthorArticleKeywordChars || /(^\p{Z}|\p{Z}$|\p{Cc}|\p{Cs})/u.test(keyword))
     throw new ProtocolError('Invalid article keyword')
   const output = new PodWriter()
   output.i64(query.schema)
   if (keyword) output.text(keyword, WireLimits.AuthorArticleKeywordChars * 4)
-  output.i32(query.conditions.length)
-  for (const condition of query.conditions) {
-    if (condition.comparison === 'is-present' && condition.value.kind !== 'missing')
-      throw new ProtocolError('Property presence does not accept a value')
-    if (condition.comparison === 'multi-select-any-of' &&
-        (condition.field.kind !== 'multi-select' || condition.value.kind !== 'multi-select'))
-      throw new ProtocolError('Property overlap requires a multi-select field and alternatives')
-    if (condition.comparison === 'single-select-any-of' &&
-        (condition.field.kind !== 'single-select' || condition.value.kind !== 'multi-select' || condition.value.value.length === 0))
-      throw new ProtocolError('Single-select matching requires at least one alternative')
-    if (condition.comparison === 'reference-any-of' &&
-        (condition.field.kind !== 'article-reference' || condition.value.kind !== 'article-reference'))
-      throw new ProtocolError('Reference matching requires article ID alternatives')
-    output.uuid(condition.field.id)
-    output.i64(condition.field.revision)
-    output.i32(propertyComparisons.indexOf(condition.comparison))
-    writeValue(output, condition.value)
-  }
+  writePropertyConditions(output, query.schema, query.conditions)
   output.text(query.cursor, WireLimits.PropertyQueryCursorChars)
   return encodeFrame(keyword ? FrameType.PropertyKeywordQuery : FrameType.PropertyArticleQueryGroup, output.finish())
+}
+
+export function writePropertyConditions(
+  output: PodWriter, schema: bigint, conditions: readonly PropertyCondition[], allowEmpty = false,
+): void {
+  validateConditionCount(schema, conditions.length, allowEmpty)
+  const seen = new Set<string>()
+  output.i32(conditions.length)
+  for (const { field, comparison, value } of conditions) {
+    if ((comparison === 'multi-select-any-of' && field.kind !== 'multi-select') ||
+        (comparison === 'single-select-any-of' && field.kind !== 'single-select') ||
+        (comparison === 'reference-any-of' && field.kind !== 'article-reference'))
+      throw new ProtocolError('Invalid filter comparison for property field')
+    const index = validateCondition(schema, { definitionId: field.id, definitionRevision: field.revision, comparison, value }, seen)
+    output.uuid(field.id)
+    output.i64(field.revision)
+    output.i32(index)
+    writeValue(output, value)
+  }
+}
+
+export function readPropertyConditions(input: PodReader, schema: bigint, allowEmpty = false): PropertyQueryOperand[] {
+  const count = input.i32()
+  validateConditionCount(schema, count, allowEmpty)
+  const seen = new Set<string>()
+  return Array.from({ length: count }, () => {
+    const definitionId = input.uuid(), definitionRevision = input.i64()
+    const comparison = propertyComparisons[input.i32()]
+    const operand = { definitionId, definitionRevision, comparison, value: readPropertyOperand(input) }
+    validateCondition(schema, operand, seen)
+    return operand
+  })
+}
+
+function validateConditionCount(schema: bigint, count: number, allowEmpty: boolean): void {
+  if (count < (allowEmpty ? 0 : 1) || count > WireLimits.PropertyQueryConditionCount ||
+      (count === 0 ? schema !== 0n : schema <= 0n))
+    throw new ProtocolError('Invalid property condition count or schema revision')
+}
+
+function validateCondition(schema: bigint, condition: PropertyQueryOperand, seen: Set<string>): number {
+  const { definitionId, definitionRevision, comparison, value } = condition
+  const index = propertyComparisons.indexOf(comparison)
+  const key = `${definitionId.toLowerCase()}:${index}`
+  if (definitionId === '00000000-0000-0000-0000-000000000000' ||
+      definitionRevision <= 0n || definitionRevision > schema || seen.has(key) ||
+      !validComparison(comparison, value))
+    throw new ProtocolError('Invalid property condition')
+  seen.add(key)
+  return index
+}
+
+function validComparison(comparison: PropertyComparison, value: PropertyValue): boolean {
+  switch (comparison) {
+    case 'equal': return true
+    case 'is-present': return value.kind === 'missing'
+    case 'multi-select-any-of': return value.kind === 'multi-select'
+    case 'single-select-any-of': return value.kind === 'multi-select' && value.value.length > 0
+    case 'reference-any-of': return value.kind === 'article-reference'
+    case 'less-than': case 'at-most': case 'greater-than': case 'at-least':
+      return value.kind === 'number' || value.kind === 'date'
+    default: return false
+  }
 }
 
 export function decodePropertyMatches(bytes: Uint8Array): PropertyMatches {

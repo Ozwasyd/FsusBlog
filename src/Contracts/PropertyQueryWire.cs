@@ -90,14 +90,7 @@ public static partial class Wire
         writer.I64(input.SchemaRevision);
         var hasKeyword = input.Keyword.Length != 0;
         if (hasKeyword) writer.Text(input.Keyword, WireLimits.AuthorArticleKeywordChars * 4);
-        writer.I32(input.Conditions.Count);
-        foreach (var condition in input.Conditions)
-        {
-            writer.Uuid(condition.DefinitionId);
-            writer.I64(condition.DefinitionRevision);
-            writer.I32((int)condition.Comparison);
-            WriteValue(writer, condition.Value);
-        }
+        WritePropertyConditions(writer, input.Conditions);
         writer.Text(input.Cursor, WireLimits.PropertyQueryCursorChars);
         return Aeds.Encode(hasKeyword ? FrameType.PropertyKeywordQuery : FrameType.PropertyArticleQueryGroup, writer.Written);
     }
@@ -119,11 +112,7 @@ public static partial class Wire
         var revision = reader.I64();
         var keyword = hasKeyword ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
         if (hasKeyword && keyword.Length == 0) throw InvalidProperty();
-        var count = reader.I32();
-        if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
-        var conditions = new PropertyCondition[count];
-        for (var i = 0; i < count; i++)
-            conditions[i] = new(reader.Uuid(), reader.I64(), (PropertyComparison)reader.I32(), ReadValue(ref reader));
+        var conditions = ReadPropertyConditions(ref reader);
         var input = new PropertyArticleQueryGroup(revision, conditions, reader.Text(WireLimits.PropertyQueryCursorChars), keyword);
         reader.Finish();
         Validate(input);
@@ -171,12 +160,43 @@ public static partial class Wire
 
     private static void Validate(PropertyArticleQueryGroup input)
     {
-        if (input.Conditions.Count is < 1 or > WireLimits.PropertyQueryConditionCount || !ValidCursor(input.Cursor) ||
-            !IsCanonicalAuthorArticleKeyword(input.Keyword))
-            throw InvalidProperty();
+        if (!ValidCursor(input.Cursor) || !IsCanonicalAuthorArticleKeyword(input.Keyword)) throw InvalidProperty();
+        ValidatePropertyConditions(input.SchemaRevision, input.Conditions);
+    }
+
+    private static void WritePropertyConditions(Writer writer, IReadOnlyList<PropertyCondition> conditions)
+    {
+        writer.I32(conditions.Count);
+        foreach (var condition in conditions)
+        {
+            writer.Uuid(condition.DefinitionId);
+            writer.I64(condition.DefinitionRevision);
+            writer.I32((int)condition.Comparison);
+            WriteValue(writer, condition.Value);
+        }
+    }
+
+    private static PropertyCondition[] ReadPropertyConditions(ref Reader reader, bool allowEmpty = false)
+    {
+        var count = reader.I32();
+        if (count < (allowEmpty ? 0 : 1) || count > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
+        var conditions = new PropertyCondition[count];
+        for (var i = 0; i < count; i++)
+            conditions[i] = new(reader.Uuid(), reader.I64(), (PropertyComparison)reader.I32(), ReadValue(ref reader));
+        return conditions;
+    }
+
+    private static void ValidatePropertyConditions(long schema, IReadOnlyList<PropertyCondition> conditions, bool allowEmpty = false)
+    {
+        if (conditions.Count == 0)
+        {
+            if (!allowEmpty || schema != 0) throw InvalidProperty();
+            return;
+        }
+        if (conditions.Count > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
         var unique = new HashSet<(Guid, PropertyComparison)>();
-        foreach (var condition in input.Conditions)
-            if (!ValidCondition(input.SchemaRevision, condition.DefinitionId, condition.DefinitionRevision, condition.Value) ||
+        foreach (var condition in conditions)
+            if (!ValidCondition(schema, condition.DefinitionId, condition.DefinitionRevision, condition.Value) ||
                 !ValidComparison(condition.Comparison, condition.Value) || !unique.Add((condition.DefinitionId, condition.Comparison)))
                 throw InvalidProperty();
     }

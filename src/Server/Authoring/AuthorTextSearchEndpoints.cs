@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
@@ -12,7 +13,7 @@ internal static class AuthorTextSearchEndpoints
         var cursors = new AuthorTextCursor(TimeProvider.System);
         app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, CancellationToken ct) =>
         {
-            var frame = await readFrame(context, WireLimits.MaxAuthorTextRankedQueryFrameBytes, ct);
+            var frame = await readFrame(context, WireLimits.MaxAuthorTextQualifiedQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
             var payload = await store.WithSession(token, true, async (db, tx, actor) =>
@@ -32,15 +33,24 @@ internal static class AuthorTextSearchEndpoints
                 }
                 else
                 {
-                    var faceted = type == FrameType.AuthorTextFacetedQuery;
-                    var request = faceted ? Wire.DecodeAuthorTextFacetedQuery(frame) : Wire.DecodeAuthorTextRankedQuery(frame);
+                    var qualified = type == FrameType.AuthorTextQualifiedQuery ? Wire.DecodeAuthorTextQualifiedQuery(frame) : null;
+                    var faceted = qualified is not null || type == FrameType.AuthorTextFacetedQuery;
+                    var request = qualified is not null ? new AuthorTextRankedQuery(qualified.Query, qualified.Cursor)
+                        : faceted ? Wire.DecodeAuthorTextFacetedQuery(frame) : Wire.DecodeAuthorTextRankedQuery(frame);
+                    // Re-encode the exact requested criteria without its cursor to bind both filters and text.
+                    var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(
+                        SHA256.HashData(Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" })));
                     (AuthorTextRankKey Position, byte[] Generation)? after = request.Cursor.Length == 0
-                        ? null : cursors.Decode(request.Cursor, actor, digest, request.Query, type);
+                        ? null : cursors.Decode(request.Cursor, actor, digest, cursorQuery, type);
                     if (faceted)
                     {
                         var input = AuthorTextProfile.ParseFaceted(request.Query);
                         await RequireIndex();
-                        var page = await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct);
+                        var page = qualified is null
+                            ? await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct)
+                            : await AuthorTextIndex.ReadQualified(db, tx, actor, input, qualified.UpdatedFromUnixMs,
+                                qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
+                                after?.Generation, ct);
                         var next = Next(page.More, page.Rows, page.Generation);
                         encoded = Wire.EncodeAuthorTextFacetedPage(new(page.Ready, next, page.Total, page.StateCounts,
                             page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
@@ -55,7 +65,7 @@ internal static class AuthorTextSearchEndpoints
                     }
 
                     string Next(bool more, IReadOnlyList<AuthorTextRankedRow> rows, byte[]? generation) =>
-                        more ? cursors.Encode(rows[^1].Key, generation!, actor, digest, request.Query, type) : "";
+                        more ? cursors.Encode(rows[^1].Key, generation!, actor, digest, cursorQuery, type) : "";
                 }
                 ct.ThrowIfCancellationRequested();
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);

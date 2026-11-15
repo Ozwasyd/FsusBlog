@@ -217,9 +217,19 @@ function readValue(input: PodReader, kind: PropertyKind): PropertyReadValue {
     requireProperty(kind === 'article-reference', 'unavailable reference')
     return { kind: 'unavailable' }
   }
+  if (tag >= 0) requireProperty(decodeKind(tag) === kind, 'definition/value kind mismatch')
+  return readTaggedValue(input, tag)
+}
+
+// Query operands carry their type tag and no client-side definition metadata.
+export function readPropertyOperand(input: PodReader): PropertyValue {
+  return readTaggedValue(input, input.i32())
+}
+
+function readTaggedValue(input: PodReader, tag: number): PropertyValue {
   if (tag === -2) return { kind: 'missing' }
   if (tag === -1) return { kind: 'null' }
-  requireProperty(decodeKind(tag) === kind, 'definition/value kind mismatch')
+  const kind = decodeKind(tag)
   switch (kind) {
     case 'text':
       return { kind, value: propertyText(input.text(WireLimits.PropertyValueBytes)) }
