@@ -44,6 +44,12 @@ for executable in go python3 node openssl curl git psql initdb pg_ctl postgres s
   command -v "$executable" >/dev/null || { echo "Missing local executable: $executable" >&2; exit 2; }
 done
 [[ -f src/Web/node_modules/vite/bin/vite.js ]] || { echo 'Restore the locked Web dependencies offline first.' >&2; exit 2; }
+supplier_env=(env)
+supplier_procs=${FSUSBLOG_PERF_SUPPLIER_PROCS:-}
+if [[ -n "$supplier_procs" ]]; then
+  [[ "$supplier_procs" =~ ^[1-9][0-9]?$ ]] || { printf '%s\n' 'Invalid load supplier processor count.' >&2; exit 2; }
+  supplier_env+=("GOMAXPROCS=$supplier_procs")
+fi
 mkdir "$output_arg"
 evidence=$(cd "$output_arg" && pwd -P)
 run=$(mktemp -d /tmp/fsusv2-p.XXXXXXXX)
@@ -200,6 +206,7 @@ ui_status=$(git -C ../FsusUI status --porcelain)
   postgres --version
   printf 'dotnet_gc_conserve_memory=%s\n' "${DOTNET_GCConserveMemory:-unset}"
   printf 'dotnet_gc_heap_hard_limit=%s\n' "${DOTNET_GCHeapHardLimit:-unset}"
+  printf 'supplier_gomaxprocs=%s\n' "${supplier_procs:-${GOMAXPROCS:-runtime-default}}"
   if [[ "$proxy_mode" == true ]]; then
     "$caddy" version
     printf 'topology=Caddy TLS -> Kestrel HTTP/1.1 loopback, native PostgreSQL over private Unix socket, same-host load client\n'
@@ -350,8 +357,9 @@ measure() {
   if ((warm_seconds != 0)); then args+=(-shared-warmup-seconds "$warm_seconds"); fi
   if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then args+=(-runtime-control "$run"); fi
   if [[ "$slow_requests" == true ]]; then args+=(-slow-requests); fi
-  { printf 'load'; printf ' %q' "${args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
-  "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
+  printf '%q ' "${supplier_env[@]}" load "${args[@]}" >> "$evidence/commands.txt"
+  printf '\n' >> "$evidence/commands.txt"
+  "${supplier_env[@]}" "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
   load_pid=$!
   wait "$load_pid"
   load_pid=
@@ -382,8 +390,9 @@ case "$mode" in
     cold_args=(-target "$origin" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
       -cold-log "$evidence/server.log" -out "$evidence/cold.json")
     if [[ "${FSUSBLOG_PERF_COLD_PRESSURE:-}" == 1 ]]; then cold_args+=(-cold-pressure); fi
-    { printf 'load'; printf ' %q' "${cold_args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
-    "$run/load" "${cold_args[@]}" > "$evidence/cold.log" 2>&1 &
+    printf '%q ' "${supplier_env[@]}" load "${cold_args[@]}" >> "$evidence/commands.txt"
+    printf '\n' >> "$evidence/commands.txt"
+    "${supplier_env[@]}" "$run/load" "${cold_args[@]}" > "$evidence/cold.log" 2>&1 &
     load_pid=$!
     wait "$load_pid"
     load_pid=

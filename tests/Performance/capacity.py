@@ -17,7 +17,7 @@ def read_properties(path):
     return dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
 
 
-def stage(path, rate, p95_limit, p99_limit):
+def stage(path, rate, p95_limit, p99_limit, supplier_procs):
     report = json.loads(path.read_text())
     expected = rate * SECONDS
     by_route = report["routes"]
@@ -29,6 +29,12 @@ def stage(path, rate, p95_limit, p99_limit):
         or (report["requestedRate"], report["seconds"], report["expected"]) != (rate, SECONDS, expected)
     ):
         raise ValueError(f"{path}: workload or preflight differs from the frozen protocol")
+    if supplier_procs != "runtime-default" and (
+        not supplier_procs.isascii() or not supplier_procs.isdecimal() or int(supplier_procs) < 1
+        or any(report.get(key, {}).get("runtimeMaxProcs") != int(supplier_procs)
+               for key in ("producerBefore", "producerAfter"))
+    ):
+        raise ValueError(f"{path}: load supplier processor count differs from the recorded configuration")
     if any(totals[k] != sum(by_route[route][k] for route in ROUTE_WEIGHTS) for k in ("sent", "dropped", "ok")):
         raise ValueError(f"{path}: route totals do not reconcile")
     unreached = expected - totals["sent"] - totals["dropped"]
@@ -128,7 +134,8 @@ def matrix(directory, topology):
     if (directory / "source-status.txt").read_text():
         raise ValueError(f"{directory}: requires a clean candidate")
     p95_limit, p99_limit = (25, 75) if topology == "direct" else (40, 100)
-    stages = [stage(directory / f"{topology}-{rate}.json", rate, p95_limit, p99_limit) for rate in RATES]
+    supplier_procs = environment.get("supplier_gomaxprocs", "runtime-default")
+    stages = [stage(directory / f"{topology}-{rate}.json", rate, p95_limit, p99_limit, supplier_procs) for rate in RATES]
     fixture = stages[0][0]
     if any(digest != fixture for digest, _ in stages):
         raise ValueError(f"{directory}: fixture differs between stages")
@@ -143,6 +150,7 @@ def matrix(directory, topology):
         "sourceSha256": environment["source_sha256"],
         "fixtureSha256": fixture,
         "connectionPolicy": stages[0][1]["connectionPolicy"],
+        "supplierGomaxprocs": supplier_procs,
         "runId": outcome["run_id"],
         "startedAt": outcome["started_at"],
         "finishedAt": outcome["finished_at"],
@@ -164,6 +172,8 @@ def main():
     ids = {item["runId"] for item in matrices}
     if len(coordinates) != 1 or len(ids) != len(matrices):
         parser.error("matrices must use the same source and fixture and have distinct owners")
+    if len({item["supplierGomaxprocs"] for item in matrices}) != 1:
+        parser.error("acceptance matrices must use the same load supplier processor configuration")
     for kind in ("direct", "proxy"):
         if len({item["connectionPolicy"] for item in matrices if item["topology"] == kind}) > 1:
             parser.error(f"{kind} acceptance matrices must use the same connection policy")
