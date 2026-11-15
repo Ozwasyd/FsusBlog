@@ -493,9 +493,39 @@ PY
     rg -F 'contains unsupported rows' "$root/error.log"
     "${source_sql[@]}" "UPDATE author_saved_view_collection SET active_view_count=1 WHERE owner_admin_principal_id=7;
         UPDATE author_saved_view_condition_value SET value='category:12'"
-    if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
-    rg -Fx 'The import plan no longer matches its source, owners, backup, schema or target.' "$root/error.log"
+    expect_saved_view_digest_refused() {
+        local exit_code=0
+        "${plan[@]}" > "$root/saved-view-digest-refused.json" || exit_code=$?
+        [[ "$exit_code" == 2 ]]
+        python3 - "$root/saved-view-digest-refused.json" "$1" <<'PY'
+import json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert not report["readyToStage"] and not report["readyToApply"]
+assert {"category": "legacy-saved-views-" + sys.argv[2], "source":"author_saved_view", "rows":1} in report["findings"]
+PY
+        if "${apply[@]}" > "$root/error.log" 2>&1; then exit 1; fi
+        rg -F 'contains unsupported rows' "$root/error.log"
+    }
+    expect_saved_view_digest_refused query-digest
     "${source_sql[@]}" "UPDATE author_saved_view_condition_value SET value='category:11'"
+    move_saved_view_site() {
+        local from="$1" to="$2"
+        "${source_sql[@]}" "BEGIN;
+            INSERT INTO author_saved_view_collection
+                SELECT owner_admin_principal_id,'$to',revision,default_view_id,active_view_count,last_command_digest,content_digest
+                FROM author_saved_view_collection WHERE site_scope='$from';
+            UPDATE author_saved_view SET site_scope='$to' WHERE site_scope='$from';
+            UPDATE author_saved_view_receipt SET site_scope='$to' WHERE site_scope='$from';
+            UPDATE author_saved_view_idempotency SET site_scope='$to' WHERE site_scope='$from';
+            DELETE FROM author_saved_view_collection WHERE site_scope='$from'; COMMIT"
+    }
+    move_saved_view_site primary moved-fixture
+    expect_saved_view_digest_refused view-digest
+    move_saved_view_site moved-fixture primary
+    "${source_sql[@]}" "UPDATE author_saved_view_collection SET last_command_digest=repeat('a',64)"
+    expect_saved_view_digest_refused collection-digest
+    "${source_sql[@]}" 'UPDATE author_saved_view_collection SET last_command_digest=(
+        SELECT command_digest FROM author_saved_view_receipt WHERE collection_revision=3)'
     [[ "$("${target_sql[@]}" -qAtc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema")" == t ]]
 fi
 
@@ -600,6 +630,8 @@ assert [projected["result"], verified["result"]] == ["projected", "verified"]
 assert projected["projectionSha256"] == verified["projectionSha256"]
 assert all(item["retainedLegacyCreateCommands"] == 1 and item["readyToApply"] is False
            for item in (projected, verified))
+assert all(item["verifiedLegacySavedViewQueries"] == 1 and item["verifiedLegacySavedViewOwnerSiteBindings"] == 1
+           and item["verifiedLegacySavedViewCollections"] == 1 for item in (projected, verified))
 PY
     [[ "$("${target_sql[@]}" -qAtc 'SELECT (SELECT count(*) FROM public.article),
         (SELECT count(*) FROM public.article_command),(SELECT count(*) FROM public.blog_outbox)')" == '1|0|0' ]]

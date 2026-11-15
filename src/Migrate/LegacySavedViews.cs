@@ -134,6 +134,8 @@ internal static partial class Migration
         }
         if (results.All(table => table.Values.Length == 0)) return new([]);
         if (!await VerifySavedViewGraphAsync(source, postgres, principal, ct)) return Refuse("graph", LegacySavedViewPrefix);
+        var canonical = VerifyLegacySavedViewDigests(results.ToDictionary(table => table.Relation.Name, table => table.Values, StringComparer.Ordinal));
+        if (canonical.Finding is { } finding) return new([], finding);
         return new(results.ToArray());
     }
 

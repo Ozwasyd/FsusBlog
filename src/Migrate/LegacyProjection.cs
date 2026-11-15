@@ -38,6 +38,7 @@ internal static partial class Migration
             await SetBackupRepresentationAsync(target, tx, ct);
 
             bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, definitions, scheduleEvaluation.HasValue, ct);
+            var savedViewDigests = await VerifyRetainedLegacySavedViewDigestsAsync(target, tx, definitions, ct);
             if (mode == "verify" && !already)
                 throw new InvalidOperationException("No sealed current-table projection exists.");
             await VerifyLegacyProjectionFactsAsync(target, tx, scheduleEvaluation.HasValue, ct);
@@ -87,6 +88,9 @@ internal static partial class Migration
                 retainedLegacyRepublishOutboxEvents = verifiedRepublishEvents,
                 retainedLegacyRollbackOutboxEvents = verifiedRollbackEvents,
                 retainedInitialSchedules = schedules.Length,
+                verifiedLegacySavedViewQueries = savedViewDigests?.Queries ?? 0,
+                verifiedLegacySavedViewOwnerSiteBindings = savedViewDigests?.OwnerSiteViews ?? 0,
+                verifiedLegacySavedViewCollections = savedViewDigests?.Collections ?? 0,
                 scheduleEvaluatedAtUtc = scheduleEvaluation,
                 remaining = new[] { "quarantined legacy history and responsibility metadata", "nonpublished rights and digital proof custody",
                     "unsupported domain conversion and activation" }
