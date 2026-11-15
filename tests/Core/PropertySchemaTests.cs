@@ -149,16 +149,26 @@ public sealed class PropertySchemaTests
         var definition = schema.Find(Field)!;
         var one = new PropertyValue.MultiSelect([First]);
         Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeFilter(definition, one));
-        Assert.Equal(new[] { First }, PropertyValues.NormalizeMultiSelectAlternatives(definition, one).OptionIds.ToArray());
-        Assert.Empty(PropertyValues.NormalizeMultiSelectAlternatives(definition, new([])).OptionIds);
-        Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeMultiSelectAlternatives(definition, new([Second, First])).OptionIds.ToArray());
+        Assert.Equal(new[] { First }, PropertyValues.NormalizeSelectionAlternatives(definition, one).OptionIds.ToArray());
+        Assert.Empty(PropertyValues.NormalizeSelectionAlternatives(definition, new([])).OptionIds);
+        Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeSelectionAlternatives(definition, new([Second, First])).OptionIds.ToArray());
         var changed = Command(schema, new PropertyChange.ChangeSettings(Field, settings with
         {
             Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1] with { Label = "Renamed" }]
         }));
         var current = schema.Apply(changed, countAffected: (_, _) => 0).Schema.Find(Field)!;
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeMultiSelectAlternatives(current, one));
-        Assert.Equal(new[] { Second }, PropertyValues.NormalizeMultiSelectAlternatives(current, new([Second])).OptionIds.ToArray());
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(current, one));
+        Assert.Equal(new[] { Second }, PropertyValues.NormalizeSelectionAlternatives(current, new([Second])).OptionIds.ToArray());
+    }
+
+    [Fact]
+    public void SingleSelectAlternativesRequireAtLeastOneActiveOption()
+    {
+        var definition = Create(new(PropertyKind.SingleSelect, new(), Options: Options(), Filterable: true)).Find(Field)!;
+        Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeSelectionAlternatives(definition, new([Second, First])).OptionIds.ToArray());
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([])));
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([First, First])));
+        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([First, Guid.NewGuid()])));
     }
 
     [Fact]

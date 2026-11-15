@@ -279,10 +279,33 @@ public sealed class PropertyQueryPostgresTests
             Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openOverlap)).Rows.ToArray());
         await Saved(WireRoutes.SavedViewExecute, openOverlap, HttpStatusCode.NotFound, outsider, outsiderHandle);
 
+        await Put(nullChoices, fields[4], new PropertyFieldValue.Null(), 1, 2);
+        await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(new(
+            new(1, fields[4], Guid.NewGuid(), 1, 0, "same-single", "Same single field"), PropertyFieldKind.SingleSelect, options)), outsider);
+        await Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(new(foreign.Id, foreign.Revision, 2, 1,
+            fields[4], 1, Guid.NewGuid(), new PropertyFieldValue.SingleSelect(red))), outsider);
+        Assert.Equal(primary.Id, Assert.Single((await Group([SingleAnyOf(red)])).Rows).Id);
+        Assert.Empty((await Group([SingleAnyOf(green)])).Rows);
+        var single = await Group([SingleAnyOf(blue, red)]);
+        Assert.Equal(new[] { empty.Id, primary.Id }, single.Rows.Select(row => row.Id));
+        Assert.Equal(single.Rows.ToArray(), (await Group([SingleAnyOf(red, blue)])).Rows.ToArray());
+        await Group([SingleAnyOf(red) with { DefinitionId = fields[5] }], status: HttpStatusCode.BadRequest);
+        await Group([SingleAnyOf(Guid.NewGuid())], status: HttpStatusCode.BadRequest);
+        await Group([SingleAnyOf(red) with { DefinitionRevision = 1 }], status: HttpStatusCode.Conflict);
+
+        var singleViewId = Guid.NewGuid();
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(new(SavedViewAction.Save, singleViewId, 0, 13,
+            Guid.NewGuid(), "Single-selection alternatives", new(schema, [SingleAnyOf(blue, red)], ""))));
+        var openSingle = Wire.EncodeSavedViewExecute(new(singleViewId, 1, ""));
+        Assert.Equal(single.Rows.ToArray(), Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openSingle)).Rows.ToArray());
+        await Saved(WireRoutes.SavedViewExecute, openSingle, HttpStatusCode.NotFound, outsider, outsiderHandle);
         await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[5], Guid.NewGuid(), schema++, 2, false)), owner);
         await Group([AnyOf(red) with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
         await Saved(WireRoutes.SavedViewExecute, openPresence, HttpStatusCode.Conflict);
         await Saved(WireRoutes.SavedViewExecute, openOverlap, HttpStatusCode.Conflict);
+        await Send(WireRoutes.PropertyFilterability, Wire.EncodePropertyFilterabilityCommand(new(fields[4], Guid.NewGuid(), schema++, 2, false)), owner);
+        await Group([SingleAnyOf(red) with { DefinitionRevision = 3 }], status: HttpStatusCode.NotFound);
+        await Saved(WireRoutes.SavedViewExecute, openSingle, HttpStatusCode.Conflict);
 
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
@@ -292,6 +315,9 @@ public sealed class PropertyQueryPostgresTests
 
         PropertyCondition AnyOf(params Guid[] alternatives) =>
             new(fields[5], 2, PropertyComparison.MultiSelectAnyOf, new PropertyFieldValue.MultiSelect(alternatives));
+
+        PropertyCondition SingleAnyOf(params Guid[] alternatives) =>
+            new(fields[4], 2, PropertyComparison.SingleSelectAnyOf, new PropertyFieldValue.MultiSelect(alternatives));
 
         async Task<PropertyArticlePage> Group(PropertyCondition[] conditions, string cursor = "", HttpStatusCode status = HttpStatusCode.OK)
         {

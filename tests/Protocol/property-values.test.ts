@@ -127,6 +127,18 @@ test('multi-select alternatives preserve independent query bytes', () => {
   assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, value: { kind: 'null' } }] }), ProtocolError)
 })
 
+test('single-select filters encode nonempty UUID alternatives without changing stored values', () => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'single-select', machineKey: 'tag', label: 'Tag',
+    enabled: true, deprecated: false, options: [red, blue] }
+  const condition = { field, comparison: 'single-select-any-of', value: { kind: 'multi-select', value: [blue.id, red.id] } } as const
+  const query = { schema: 10n, cursor: '', conditions: [condition] }
+  assert.deepEqual(encodePropertyQuery(query), fixture('property-query-single-select-any-of'))
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, value: { kind: 'multi-select', value: [] } }] }),
+    ProtocolError)
+  assert.throws(() => encodePropertyQuery({ ...query, conditions: [{ ...condition, field: { ...field, kind: 'multi-select' } }] }),
+    ProtocolError)
+})
+
 test('typed writers reject unsupported identity, dates, and exact decimal overflow', () => {
   assert.equal(normalizePropertyDecimal('-000.000'), '0')
   assert.equal(normalizePropertyDecimal('09007199254740993.0020000'), '9007199254740993.002')

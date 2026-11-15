@@ -129,8 +129,13 @@ public static partial class Wire
     {
         Validate(new PropertyArticleQueryGroup(1, conditions.Select(item => new PropertyCondition(item.DefinitionId, 1,
             item.Comparison, item.Value)).ToArray(), ""));
-        var version = conditions.Any(item => item.Comparison == PropertyComparison.MultiSelectAnyOf) ? 3
-            : conditions.Any(item => item.Comparison == PropertyComparison.IsPresent) ? 2 : 1;
+        var version = conditions.Max(item => item.Comparison switch
+        {
+            PropertyComparison.SingleSelectAnyOf => 4,
+            PropertyComparison.MultiSelectAnyOf => 3,
+            PropertyComparison.IsPresent => 2,
+            _ => 1,
+        });
         var writer = new Writer();
         writer.I32(version);
         writer.I32(conditions.Count);
@@ -139,9 +144,10 @@ public static partial class Wire
             writer.Uuid(item.DefinitionId);
             writer.I32((int)item.Kind);
             writer.I32((int)item.Comparison);
-            if (item.Comparison == PropertyComparison.MultiSelectAnyOf)
+            if (item.Comparison is PropertyComparison.SingleSelectAnyOf or PropertyComparison.MultiSelectAnyOf)
             {
-                if (item.Kind != PropertyFieldKind.MultiSelect || item.Value is not PropertyFieldValue.MultiSelect options ||
+                var expectedKind = item.Comparison == PropertyComparison.SingleSelectAnyOf ? PropertyFieldKind.SingleSelect : PropertyFieldKind.MultiSelect;
+                if (item.Kind != expectedKind || item.Value is not PropertyFieldValue.MultiSelect options ||
                     options.Value.Count > WireLimits.PropertyOptionCount)
                     throw InvalidSavedView();
                 WriteValue(writer, new PropertyFieldValue.MultiSelect(options.Value.Order().ToArray()));
@@ -155,7 +161,7 @@ public static partial class Wire
     {
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
-        if (reader.I32() is not (1 or 2 or 3)) throw InvalidSavedView();
+        if (reader.I32() is not (1 or 2 or 3 or 4)) throw InvalidSavedView();
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];

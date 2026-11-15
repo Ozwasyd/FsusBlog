@@ -20,7 +20,7 @@ const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
   'greater-than': '大于', 'at-least': '大于或等于',
-} as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of'>, string>
+} as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of' | 'single-select-any-of'>, string>
 const dateComparisons = {
   ...comparisons,
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
@@ -106,6 +106,8 @@ function report(failure: unknown, fallback: string) {
 function operand(): PropertyValue | undefined {
   if (mode.value === 'is-present') return { kind: 'missing' }
   if (mode.value === 'null' || mode.value === 'missing') return { kind: mode.value }
+  if (mode.value === 'single-select-any-of')
+    return multiple.value.length ? { kind: 'multi-select', value: [...multiple.value] } : undefined
   switch (field.value?.kind) {
     case 'text': return { kind: 'text', value: text.value }
     case 'number': return { kind: 'number', value: normalizePropertyDecimal(text.value.trim()) }
@@ -150,7 +152,7 @@ function conditionText(condition: PropertyCondition) {
   const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || '空选项集合'
     : value.kind === 'single-select' ? names.get(value.value)
     : value.kind === 'article-reference' ? value.value.join('、') : String(value.value)
-  if (comparison === 'multi-select-any-of') return `${field.label} · 任一匹配 ${description}`
+  if (comparison === 'multi-select-any-of' || comparison === 'single-select-any-of') return `${field.label} · 任一匹配 ${description}`
   const labels = field.kind === 'date' ? dateComparisons : comparisons
   return `${field.label} · ${labels[comparison]} ${description}`
 }
@@ -261,6 +263,7 @@ async function search(more = false) {
           <ElSelect id="property-filter-operator" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
             <ElOption value="equal" label="精确匹配" />
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
+            <ElOption v-if="field.kind === 'single-select'" value="single-select-any-of" label="任一匹配" />
             <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" label="任一匹配" />
             <ElOption value="is-present" label="值存在" />
             <ElOption value="missing" label="尚未设置" />
@@ -271,11 +274,11 @@ async function search(more = false) {
             <ElSelect v-if="field.kind === 'boolean'" id="property-filter-value" v-model="flag" ariaLabel="属性值" :disabled="busy">
               <ElOption :value="false" label="False" /><ElOption :value="true" label="True" />
             </ElSelect>
-            <ElSelect v-else-if="field.kind === 'single-select'" id="property-filter-value" v-model="choice"
+            <ElSelect v-else-if="field.kind === 'single-select' && mode !== 'single-select-any-of'" id="property-filter-value" v-model="choice"
               ariaLabel="属性值" :disabled="busy">
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
-            <ElSelect v-else-if="field.kind === 'multi-select'" id="property-filter-value" v-model="multiple"
+            <ElSelect v-else-if="field.kind === 'multi-select' || mode === 'single-select-any-of'" id="property-filter-value" v-model="multiple"
               ariaLabel="属性值" :disabled="busy" multiple>
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>

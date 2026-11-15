@@ -175,12 +175,15 @@ public static class PropertyValues
         return NormalizePresent(definition.Settings, value);
     }
 
-    public static PropertyValue.MultiSelect NormalizeMultiSelectAlternatives(PropertyDefinition definition, PropertyValue.MultiSelect value)
+    public static PropertyValue.MultiSelect NormalizeSelectionAlternatives(PropertyDefinition definition, PropertyValue.MultiSelect value)
     {
-        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable || definition.Settings.Kind != PropertyKind.MultiSelect)
+        var settings = definition.Settings;
+        if (definition.Status != PropertyStatus.Active || !settings.Filterable ||
+            settings.Kind is not (PropertyKind.SingleSelect or PropertyKind.MultiSelect))
             throw Invalid("filter-unavailable");
         // Alternatives describe a query, so stored-value cardinality and empty policies do not apply.
-        return new(ValidateSet(value.OptionIds, null, id => IsActive(definition.Settings, id)));
+        var bounds = new PropertyCountRange(settings.Kind == PropertyKind.SingleSelect ? 1 : 0, settings.Options.Length);
+        return new(ValidateSet(value.OptionIds, bounds, id => IsActive(settings, id)));
     }
 
     private static PropertyValue NormalizePresent(PropertySettings settings, PropertyValue value)
