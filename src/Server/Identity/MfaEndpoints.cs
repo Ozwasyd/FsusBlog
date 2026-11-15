@@ -1,5 +1,7 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -57,8 +59,12 @@ internal static class MfaEndpoints
         {
             origin(ctx);
             var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
-            if (action != MfaWire.Disable) throw Forbidden();
-            return Frame(await store.BeginDisable(Session(ctx), ct));
+            return action switch
+            {
+                MfaWire.Disable => Frame(await store.BeginDisable(Session(ctx), ct)),
+                MfaWire.Regenerate => Frame(await store.BeginRecoveryRegeneration(Session(ctx), ct, SiteSessions.Requested(ctx))),
+                _ => throw Forbidden()
+            };
         }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.MfaChallengeVerify, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -66,6 +72,8 @@ internal static class MfaEndpoints
             var attempt = MfaWire.ReadAttempt(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct));
             if (attempt.Action == MfaWire.Disable)
                 return Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
+            if (attempt.Action == MfaWire.Regenerate)
+                return Frame(await store.VerifyRecoveryRegeneration(Session(ctx), attempt, ct, SiteSessions.Requested(ctx)));
             if (attempt.Action != MfaWire.Login) throw Forbidden();
             var (session, number) = await store.FinishLogin(attempt, ctx.Request.Cookies[LoginCookie], persistentEnabled, ct);
             ctx.Response.Cookies.Delete(LoginCookie, cookie(WireRoutes.MfaChallengeVerify));
@@ -83,6 +91,18 @@ internal static class MfaEndpoints
                 return Frame(Wire.EncodeEmptySuccess());
             }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.MfaRecoveryRegenerate, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            origin(ctx);
+            if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>() is { CanHaveBody: true })
+                throw new BusinessException(Rejection.Invalid, "This operation does not accept a body.");
+            try { return Frame(await store.RegenerateRecoveryCodes(Session(ctx), Proof(ctx), ct, SiteSessions.Requested(ctx))); }
+            catch (MfaProofRequiredException) { return Precondition(ctx); }
+            catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
+            {
+                return Error(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
+            }
         }).RequireRateLimiting("mfa");
 
         string? Session(HttpContext ctx) => ctx.Request.Cookies[sessionName];

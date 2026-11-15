@@ -1,9 +1,11 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, request } from './client.ts';
+import { api, request, siteSessionHeader } from './client.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
-export const mfaAction = { setup: 'mfa_setup', disable: 'mfa_disable', login: 'login' } as const;
+export const mfaAction = {
+  setup: 'mfa_setup', disable: 'mfa_disable', regenerate: 'mfa_recovery_regenerate', login: 'login',
+} as const;
 const encoder = new TextEncoder();
 const invalid = () => new ProtocolError('Invalid MFA AEDS payload.');
 
@@ -40,20 +42,8 @@ export function beginMfaSetup(proof: string, signal?: AbortSignal) {
 }
 
 export function completeMfaSetup(code: string, signal?: AbortSignal): Promise<string[]> {
-  return request(WireRoutes.MfaSetupVerify, FrameType.MfaSetupVerify, payload => {
-    const count = WireLimits.MfaCodeCount;
-    if (payload.length !== WireLayouts.MfaSetupVerifyBytes + count * WireLayouts.MfaFixedCodeBytes ||
-        payload[0] !== 1 || payload.subarray(1, 4).some(Boolean) || view(payload).getInt32(4, true) !== count)
-      throw invalid();
-    const codes: string[] = [];
-    for (let index = 0; index < count; index++) {
-      const offset = WireLayouts.MfaSetupVerifyBytes + index * WireLayouts.MfaFixedCodeBytes;
-      const code = fixed(payload.subarray(offset, offset + WireLayouts.MfaFixedCodeBytes));
-      if (!/^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/.test(code) || codes.includes(code)) throw invalid();
-      codes.push(code);
-    }
-    return codes;
-  }, signal, 'POST', encoded(FrameType.MfaSetupVerifyRequest, [code]));
+  return request(WireRoutes.MfaSetupVerify, FrameType.MfaSetupVerify, payload => recoveryCodes(payload, WireLimits.MfaCodeCount),
+    signal, 'POST', encoded(FrameType.MfaSetupVerifyRequest, [code]));
 }
 
 export async function completeMfaLogin(token: string, factor: Factor, signal?: AbortSignal) {
@@ -64,12 +54,25 @@ export async function completeMfaLogin(token: string, factor: Factor, signal?: A
 }
 
 export async function disableMfa(factor: Factor, signal?: AbortSignal) {
-  const token = await request(WireRoutes.MfaChallengeStart, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, mfaAction.disable, false), signal, 'POST', mfaStartData(mfaAction.disable));
-  const proof = await request(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, mfaAction.disable, true), signal, 'POST', attempt(token, mfaAction.disable, factor));
+  const proof = await proveMfaAction(mfaAction.disable, factor, signal);
   await request(WireRoutes.MfaDisable, FrameType.EmptySuccess, decodeSuccess, signal,
     'POST', undefined, { [WireHeaders.MfaProof]: proof });
+}
+
+export async function regenerateMfaRecoveryCodes(factor: Factor, expected: string, signal?: AbortSignal): Promise<string[]> {
+  const headers = new Headers(siteSessionHeader(expected));
+  const proof = await proveMfaAction(mfaAction.regenerate, factor, signal, headers);
+  signal?.throwIfAborted();
+  headers.set(WireHeaders.MfaProof, proof);
+  return request(WireRoutes.MfaRecoveryRegenerate, FrameType.MfaSetupVerify,
+    payload => recoveryCodes(payload, WireLimits.MfaRegeneratedCodeCount), signal, 'POST', undefined, headers);
+}
+
+async function proveMfaAction(action: string, factor: Factor, signal?: AbortSignal, headers?: HeadersInit): Promise<string> {
+  const token = await request(WireRoutes.MfaChallengeStart, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, action, false), signal, 'POST', mfaStartData(action), headers);
+  return request(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, action, true), signal, 'POST', attempt(token, action, factor), headers);
 }
 
 export function validMfaFactor(text: string): Factor | null {
@@ -77,6 +80,20 @@ export function validMfaFactor(text: string): Factor | null {
   if (/^[0-9]{6}$/.test(value)) return { code: value };
   if (/^(?:[A-Fa-f0-9]{4}-){7}[A-Fa-f0-9]{4}$/.test(value)) return { recovery: value };
   return null;
+}
+
+function recoveryCodes(payload: Uint8Array, count: number): string[] {
+  if (payload.length !== WireLayouts.MfaSetupVerifyBytes + count * WireLayouts.MfaFixedCodeBytes ||
+      payload[0] !== 1 || payload.subarray(1, 4).some(Boolean) || view(payload).getInt32(4, true) !== count)
+    throw invalid();
+  const codes: string[] = [];
+  for (let index = 0; index < count; index++) {
+    const offset = WireLayouts.MfaSetupVerifyBytes + index * WireLayouts.MfaFixedCodeBytes;
+    const code = fixed(payload.subarray(offset, offset + WireLayouts.MfaFixedCodeBytes));
+    if (!/^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/.test(code) || codes.includes(code)) throw invalid();
+    codes.push(code);
+  }
+  return codes;
 }
 
 function challengeResult(payload: Uint8Array, action: string, verified: boolean, withUser: boolean): string {

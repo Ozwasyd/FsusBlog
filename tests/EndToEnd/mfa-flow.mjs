@@ -15,13 +15,16 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 const responses = []
 const faults = []
 const start = new Date().toISOString()
+const regeneratePath = '/api/binary/auth/mfa/recovery/regenerate'
 let phase = 'bootstrap'
 let failure
 let assertions = 0
 let rotations = 0
+let recoveryRegenerated = false
 try {
   const context = await browser.newContext()
   const page = await context.newPage()
+  assert.equal((await context.request.post(origin + regeneratePath)).status(), 401)
   page.on('pageerror', error => faults.push(error.message))
   page.on('response', response => {
     const url = new URL(response.url())
@@ -121,18 +124,54 @@ try {
   assert.equal((await passkey())[20], 2)
   assert.equal(await verify(recovery[0]), 200)
   await signedIn()
+
+  phase = 'regenerate-recovery-codes'
+  await page.getByRole('link', { name: 'Account security', exact: true }).first().click()
+  assert.equal((await context.request.post(origin + regeneratePath)).status(), 428)
+  const beforeRegeneration = await sessionCookie()
+  const recoveryList = page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ })
+  await page.getByRole('button', { name: 'Regenerate recovery codes', exact: true }).click()
+  await page.getByLabel('Authenticator or recovery code to regenerate', { exact: true }).fill(recovery[1])
+  const regenerated = waitApi(regeneratePath)
+  await page.getByRole('button', { name: 'Replace recovery codes', exact: true }).click()
+  const replacement = await regenerated
+  assert.equal(replacement.status(), 200)
+  assert.equal(replacement.headers()['cache-control'], 'no-store')
+  assert.equal((await replacement.headerValues('set-cookie')).length, 0)
+  assert((await sessionCookie()).value === beforeRegeneration.value, 'Recovery code rotation changed the active cookie.')
+  assert.equal(replacement.request().postData(), null)
+  const usedProof = await replacement.request().headerValue('x-fsus-mfa-proof')
+  assert(Boolean(usedProof), 'Recovery rotation required an action proof.')
+  const repeated = await context.request.post(origin + regeneratePath, { headers: { 'X-Fsus-Mfa-Proof': usedProof } })
+  assert.equal(repeated.status(), 428)
+  await recoveryList.nth(9).waitFor({ timeout: 9_000 })
+  const newCodes = await recoveryList.allTextContents()
+  assert.equal(newCodes.length, 10)
+  assert.equal(new Set(newCodes).size, 10)
+  assert(newCodes.every(code => !recovery.includes(code)))
+  await page.getByRole('button', { name: 'Hide recovery codes', exact: true }).click()
+  await page.getByRole('heading', { name: 'Recovery codes', exact: true }).waitFor({ state: 'detached' })
+  await page.reload()
+  await page.getByRole('button', { name: 'Regenerate recovery codes', exact: true }).waitFor()
+  assert.equal(await recoveryList.count(), 0)
   await logout()
   assert.equal((await passkey())[20], 2)
-  assert.equal(await verify(recovery[0]), 401)
+  assert.equal(await verify(recovery[2]), 401)
   await page.getByText('Verification failed. Use a fresh code or start a new login.').waitFor()
-  assert.equal(await verify(recovery[1]), 200)
+  assert.equal(await verify(newCodes[0]), 200)
   await signedIn()
+  recoveryRegenerated = true
 
   phase = 'one-use-disable-proof'
   const beforeDisable = await sessionCookie()
   await page.getByRole('link', { name: 'Account security', exact: true }).first().click()
+  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[0])
+  const usedCode = waitApi('/api/binary/auth/mfa/challenge')
+  await page.getByRole('button', { name: 'Disable authenticator verification', exact: true }).click()
+  assert.equal((await usedCode).status(), 401)
+  await page.getByText('Could not verify your request. Use a fresh code and try again.', { exact: true }).waitFor()
   const disabled = waitApi('/api/binary/auth/mfa/disable')
-  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(recovery[2])
+  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[1])
   await page.getByRole('button', { name: 'Disable authenticator verification', exact: true }).click()
   assert.equal((await disabled).status(), 200)
   await page.getByRole('button', { name: 'Set up authenticator', exact: true }).waitFor({ timeout: 9_000 })
@@ -149,7 +188,7 @@ try {
   await browser.close()
   await writeFile(join(evidence, 'mfa-result.json'), JSON.stringify({
     start, end: new Date().toISOString(), origin, chromium: browser.version(), phase, validSessions: assertions, rotations,
-    responses, faults, exitCode: failure ? 1 : 0,
+    responses, faults, recoveryRegenerated, exitCode: failure ? 1 : 0,
   }, null, 2))
 }
 if (failure) throw failure

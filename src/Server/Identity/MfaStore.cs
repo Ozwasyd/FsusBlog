@@ -4,6 +4,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authentication;
 using FsusBlog.V2.Server.Operations;
+using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
@@ -13,7 +14,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
 {
     private const int MaxFailures = 5;
     private const string Issuer = "FsusBlog";
-    internal enum Purpose { Assertion = 1, SetupProof = 2, Login = 3, DisableChallenge = 4, DisableProof = 5 }
+    internal enum Purpose { Assertion = 1, SetupProof = 2, Login = 3, FactorChallenge = 4, FactorProof = 5 }
     internal sealed record Subject(Guid Id, long Generation, int Number, byte[] Scope);
 
     internal async Task<byte[]> Profile(string? session, CancellationToken ct)
@@ -77,50 +78,56 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             insert into public.mfa_totp(user_id,sealed_seed,last_step,verified_at,retry_after,failed_count)
             values($1,$2,$3,clock_timestamp(),clock_timestamp(),0)
             """, actor.Id, envelope, matched.Value);
-        var recovery = new string[WireLimits.MfaCodeCount];
-        for (var i = 0; i < recovery.Length; i++)
-        {
-            var raw = RandomNumberGenerator.GetBytes(16);
-            try
-            {
-                var text = Convert.ToHexString(raw);
-                recovery[i] = string.Join('-', Enumerable.Range(0, 8).Select(index => text.Substring(index * 4, 4)));
-                await Execute(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", actor.Id, SHA256.HashData(raw));
-            }
-            finally { CryptographicOperations.ZeroMemory(raw); }
-        }
+        var recovery = await IssueRecoveryCodes(db, tx, actor.Id, WireLimits.MfaCodeCount, ct);
         await Execute(db, tx, ct, "delete from public.mfa_setup where user_id=$1", actor.Id);
         var (token, expiry) = await RotateSession(db, tx, actor, mfa: true, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return (MfaWire.EncodeSetupVerified(recovery), token, expiry);
     }
 
-    internal async Task<byte[]> BeginDisable(string? session, CancellationToken ct)
+    internal Task<byte[]> BeginDisable(string? session, CancellationToken ct) =>
+        BeginFactorChallenge(session, MfaWire.Disable, null, ct);
+
+    internal Task<byte[]> BeginRecoveryRegeneration(string? session, CancellationToken ct, string? expectedSession = null) =>
+        BeginFactorChallenge(session, MfaWire.Regenerate, expectedSession, ct);
+
+    private async Task<byte[]> BeginFactorChallenge(string? session, string action, string? expectedSession, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
+        if (expectedSession is not null) SiteSessions.RequireCurrent(actor.Id, actor.Scope, expectedSession);
         if (!await IsEnabled(db, tx, actor.Id, ct)) throw Denied();
-        var token = await BeginFlow(db, tx, actor, Purpose.DisableChallenge, "", ct);
+        var token = await BeginFlow(db, tx, actor, Purpose.FactorChallenge, FactorScope(action), ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return MfaWire.EncodeChallenge(false, MfaWire.Disable, token);
+        return MfaWire.EncodeChallenge(false, action, token);
     }
 
-    internal async Task<byte[]> VerifyDisable(string? session, MfaAttempt attempt, CancellationToken ct)
+    internal Task<byte[]> VerifyDisable(string? session, MfaAttempt attempt, CancellationToken ct) =>
+        VerifyFactorChallenge(session, attempt, MfaWire.Disable, null, ct);
+
+    internal Task<byte[]> VerifyRecoveryRegeneration(string? session, MfaAttempt attempt, CancellationToken ct, string? expectedSession = null) =>
+        VerifyFactorChallenge(session, attempt, MfaWire.Regenerate, expectedSession, ct);
+
+    private async Task<byte[]> VerifyFactorChallenge(string? session, MfaAttempt attempt, string action,
+        string? expectedSession, CancellationToken ct)
     {
+        if (attempt.Action != action) throw Denied();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
-        await ReadFlow(db, tx, actor, Purpose.DisableChallenge, attempt.Token, consume: false, ct);
+        if (expectedSession is not null) SiteSessions.RequireCurrent(actor.Id, actor.Scope, expectedSession);
+        var scope = FactorScope(action);
+        await ReadFlow(db, tx, actor, Purpose.FactorChallenge, attempt.Token, consume: false, ct, scope);
         if (!await VerifyFactor(db, tx, actor.Id, attempt, ct))
         {
             await InstanceLease.CommitProtected(tx, lease, ct);
             throw Denied();
         }
-        await ReadFlow(db, tx, actor, Purpose.DisableChallenge, attempt.Token, consume: true, ct);
-        var proof = await BeginFlow(db, tx, actor, Purpose.DisableProof, "", ct);
+        await ReadFlow(db, tx, actor, Purpose.FactorChallenge, attempt.Token, consume: true, ct, scope);
+        var proof = await BeginFlow(db, tx, actor, Purpose.FactorProof, scope, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return MfaWire.EncodeChallenge(true, MfaWire.Disable, proof);
+        return MfaWire.EncodeChallenge(true, action, proof);
     }
 
     internal async Task<(string Token, DateTimeOffset Expires)> Disable(string? session, string? proof, CancellationToken ct)
@@ -128,12 +135,31 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
-        await ConsumeProof(db, tx, actor, Purpose.DisableProof, proof, ct);
+        await ConsumeProof(db, tx, actor, Purpose.FactorProof, proof, ct, FactorScope(MfaWire.Disable));
         await Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
         await Execute(db, tx, ct, "delete from public.mfa_totp where user_id=$1", actor.Id);
         var result = await RotateSession(db, tx, actor, mfa: false, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return result;
+    }
+
+    internal async Task<byte[]> RegenerateRecoveryCodes(string? session, string? proof, CancellationToken ct, string? expectedSession = null)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        var actor = await RequireSession(db, tx, session, ct);
+        if (expectedSession is not null) SiteSessions.RequireCurrent(actor.Id, actor.Scope, expectedSession);
+        await ConsumeProof(db, tx, actor, Purpose.FactorProof, proof, ct, MfaWire.Regenerate);
+        if (!await IsEnabled(db, tx, actor.Id, ct))
+        {
+            await InstanceLease.CommitProtected(tx, lease, ct);
+            throw new BusinessException(Rejection.Invalid, "Authenticator verification is not enabled.");
+        }
+        await Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
+        var recovery = await IssueRecoveryCodes(db, tx, actor.Id, WireLimits.MfaRegeneratedCodeCount, ct);
+        var frame = MfaWire.EncodeSetupVerified(recovery);
+        await InstanceLease.CommitProtected(tx, lease, ct);
+        return frame;
     }
 
     internal async Task<(SiteRefreshStore.Issued Session, int Number)> FinishLogin(MfaAttempt attempt, string? binding,
@@ -221,29 +247,50 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await Execute(db, tx, ct, """
             insert into public.mfa_flow(digest,user_id,generation,kind,scope,options,expires_at)
             values($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '5 minutes')
-            """, FlowDigest(token), actor.Id, actor.Generation, (int)kind, actor.Scope, options);
+            """, FlowDigest(token, options), actor.Id, actor.Generation, (int)kind, actor.Scope, options);
         return token;
     }
 
     internal static async Task<string> ReadFlow(NpgsqlConnection db, NpgsqlTransaction tx, Subject actor,
-        Purpose kind, string? token, bool consume, CancellationToken ct)
+        Purpose kind, string? token, bool consume, CancellationToken ct, string? options = null)
     {
         const string key = """
             from public.mfa_flow where digest=$1 and user_id=$2 and generation=$3 and kind=$4 and scope=$5 and expires_at>clock_timestamp()
             """;
-        await using var query = Store.Sql(db, tx, (consume ? "delete " + key + " returning options" : "select options " + key + " for update"),
-            FlowDigest(token), actor.Id, actor.Generation, (int)kind, actor.Scope);
+        var filter = options is null ? key : key + " and options=$6";
+        object[] coordinates = [FlowDigest(token, options), actor.Id, actor.Generation, (int)kind, actor.Scope];
+        await using var query = Store.Sql(db, tx, (consume ? "delete " + filter + " returning options" : "select options " + filter + " for update"),
+            options is null ? coordinates : [.. coordinates, options]);
         return (await query.ExecuteScalarAsync(ct) as string) ?? throw Denied();
     }
 
     private static async Task ConsumeProof(NpgsqlConnection db, NpgsqlTransaction tx, Subject actor,
-        Purpose kind, string? proof, CancellationToken ct)
+        Purpose kind, string? proof, CancellationToken ct, string? options = null)
     {
-        try { await ReadFlow(db, tx, actor, kind, proof, consume: true, ct); }
+        try { await ReadFlow(db, tx, actor, kind, proof, consume: true, ct, options); }
         catch (BusinessException error) when (error.Rejection == Rejection.Unauthorized)
         {
             throw new MfaProofRequiredException();
         }
+    }
+
+    private static string FactorScope(string action) => action == MfaWire.Disable ? "" : action;
+
+    private static async Task<string[]> IssueRecoveryCodes(NpgsqlConnection db, NpgsqlTransaction tx, Guid user, int count, CancellationToken ct)
+    {
+        var recovery = new string[count];
+        for (var i = 0; i < recovery.Length; i++)
+        {
+            var raw = RandomNumberGenerator.GetBytes(16);
+            try
+            {
+                var text = Convert.ToHexString(raw);
+                recovery[i] = string.Join('-', Enumerable.Range(0, 8).Select(index => text.Substring(index * 4, 4)));
+                await Execute(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", user, SHA256.HashData(raw));
+            }
+            finally { CryptographicOperations.ZeroMemory(raw); }
+        }
+        return recovery;
     }
 
     private async Task<bool> VerifyFactor(NpgsqlConnection db, NpgsqlTransaction tx, Guid id, MfaAttempt attempt, CancellationToken ct)
@@ -293,10 +340,12 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         finally { CryptographicOperations.ZeroMemory(bytes); }
     }
 
-    internal static byte[] FlowDigest(string? token)
+    internal static byte[] FlowDigest(string? token, string? action = null)
     {
         if (token is not { Length: 43 } || !token.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')) throw Denied();
-        return SHA256.HashData(Encoding.ASCII.GetBytes(token));
+        // Prior builds recognized kinds 4 and 5 as disable and checked only the unscoped digest.
+        var input = action == MfaWire.Regenerate ? $"{MfaWire.Regenerate}:{token}" : token;
+        return SHA256.HashData(Encoding.ASCII.GetBytes(input));
     }
 
     private static async Task<(string Token, DateTimeOffset Expires)> RotateSession(NpgsqlConnection db,

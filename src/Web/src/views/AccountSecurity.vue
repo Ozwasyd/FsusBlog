@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
-import { beginMfaSetup, completeMfaSetup, disableMfa, mfaProfile, validMfaFactor, type MfaSetup } from '../../../Contracts/mfa'
+import { beginMfaSetup, completeMfaSetup, disableMfa, mfaProfile, regenerateMfaRecoveryCodes, validMfaFactor, type MfaSetup } from '../../../Contracts/mfa'
 import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
@@ -11,19 +11,48 @@ import SiteRecoveryKey from './SiteRecoveryKey.vue'
 import SiteSessions from './SiteSessions.vue'
 
 const lifetime = new AbortController()
-onUnmounted(() => lifetime.abort())
 const profile = ref<{ verifiedAt: Date | null } | null>(null)
 const setup = ref<MfaSetup | null>(null)
 const recovery = ref<string[]>([])
+const regenerated = ref<string[]>([])
+const regenerateOpen = ref(false)
+const regenerateCode = ref('')
 const code = ref('')
 const busy = ref(false)
 const error = ref('')
+let regeneration: AbortController | undefined
+
+function hideRecoveryCodes() {
+  recovery.value = []
+  regenerated.value = []
+}
+
+function closeRegeneration() {
+  regeneration?.abort()
+  regeneration = undefined
+  regenerateOpen.value = false
+  regenerateCode.value = ''
+  regenerated.value = []
+}
+
+function leavePage() {
+  closeRegeneration()
+  hideRecoveryCodes()
+}
+
+watch(identityEpoch, closeRegeneration, { flush: 'sync' })
+onMounted(() => window.addEventListener('pagehide', leavePage))
+onUnmounted(() => {
+  lifetime.abort()
+  window.removeEventListener('pagehide', leavePage)
+  leavePage()
+})
 
 watch(currentSession, async (session, previous) => {
   if (!session || (previous && previous.name !== session.name)) {
     profile.value = null
     setup.value = null
-    recovery.value = []
+    hideRecoveryCodes()
     code.value = ''
     error.value = ''
   }
@@ -80,10 +109,43 @@ async function disable() {
     await changeSecuritySession(epoch, signal => disableMfa(method, signal))
     if (lifetime.signal.aborted || identityEpoch.value !== epoch) return
     code.value = ''
-    recovery.value = []
+    hideRecoveryCodes()
     profile.value = await mfaProfile(lifetime.signal)
     await refreshSession(lifetime.signal, false)
   })
+}
+
+async function regenerate() {
+  const factor = validMfaFactor(regenerateCode.value)
+  const expected = currentSession.value?.siteSessionId
+  if (busy.value || !factor || !expected || !profile.value?.verifiedAt) return
+  const epoch = identityEpoch.value
+  const request = new AbortController()
+  const signal = AbortSignal.any([request.signal, lifetime.signal])
+  regeneration = request
+  const isLive = () => !signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === expected
+  busy.value = true
+  error.value = ''
+  regenerateCode.value = ''
+  hideRecoveryCodes()
+  try {
+    const codes = await withSiteAuthMutation(signal, async () => {
+      const current = await readSiteAuthority(signal)
+      if (!isLive() || current?.siteSessionId !== expected) throw new ApiError('The current browser session changed.', 409)
+      const issued = await regenerateMfaRecoveryCodes(factor, expected, signal)
+      if (!isLive() || (await readSiteAuthority(signal))?.siteSessionId !== expected)
+        throw new ApiError('The current browser session changed.', 409)
+      return issued
+    })
+    if (!isLive()) return
+    regenerateOpen.value = false
+    regenerated.value = codes
+  } catch {
+    if (isLive()) error.value = 'Could not replace recovery codes. Use a fresh code and try again.'
+  } finally {
+    if (regeneration === request) regeneration = undefined
+    if (!lifetime.signal.aborted) busy.value = false
+  }
 }
 
 function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -109,12 +171,22 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <template v-if="profile?.verifiedAt">
       <p>Authenticator verification is enabled.</p>
-      <div v-if="recovery.length">
+      <div v-if="recovery.length || regenerated.length">
         <h3>Recovery codes</h3>
         <p>Save these one-use codes in a safe place. They are shown only once.</p>
-        <ul><li v-for="item in recovery" :key="item"><code>{{ item }}</code></li></ul>
-        <ElButton native-type="button" @click="recovery = []">Hide recovery codes</ElButton>
+        <ul><li v-for="item in regenerated.length ? regenerated : recovery" :key="item"><code>{{ item }}</code></li></ul>
+        <ElButton native-type="button" @click="hideRecoveryCodes">Hide recovery codes</ElButton>
       </div>
+      <ElButton v-if="!regenerateOpen && !regenerated.length" native-type="button" :disabled="busy" @click="regenerateOpen = true">
+        Regenerate recovery codes
+      </ElButton>
+      <form v-else-if="regenerateOpen" class="auth-form" @submit.prevent="regenerate">
+        <p>Replacing recovery codes invalidates all previously saved codes.</p>
+        <label for="regenerate-mfa-code">Authenticator or recovery code to regenerate</label>
+        <ElInput id="regenerate-mfa-code" v-model="regenerateCode" type="password" autocomplete="one-time-code" :disabled="busy" />
+        <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(regenerateCode)">Replace recovery codes</ElButton>
+        <ElButton native-type="button" :disabled="busy" @click="closeRegeneration">Cancel regeneration</ElButton>
+      </form>
       <form class="auth-form" @submit.prevent="disable">
         <label for="disable-mfa-code">Authenticator or recovery code</label>
         <ElInput id="disable-mfa-code" v-model="code" autocomplete="one-time-code" :disabled="busy" />

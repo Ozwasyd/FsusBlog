@@ -11,6 +11,7 @@ public static class MfaWire
     private static readonly UTF8Encoding Utf8 = new(false, true);
     public const string Setup = "mfa_setup";
     public const string Disable = "mfa_disable";
+    public const string Regenerate = "mfa_recovery_regenerate";
     public const string Login = "login";
 
     public static byte[] EncodeSetup(string seed, string uri, string issuer, string account)

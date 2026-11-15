@@ -289,6 +289,7 @@ public static class WireLimits
     public const int PasskeyTransportCount = 6;
     public const int MaxMfaFrameBytes = 4096;
     public const int MfaCodeCount = 8;
+    public const int MfaRegeneratedCodeCount = 10;
 }
 
 public static class WireLayouts
@@ -630,6 +631,7 @@ public static class WireRoutes
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
     public const string MfaProfile = "/api/binary/auth/mfa/profile";
     public const string MfaDisable = "/api/binary/auth/mfa/disable";
+    public const string MfaRecoveryRegenerate = "/api/binary/auth/mfa/recovery/regenerate";
     public const string MfaChallengeStart = "/api/binary/auth/mfa/challenge/start";
     public const string MfaChallengeVerify = "/api/binary/auth/mfa/challenge";
     public const string PasskeyStepUpBegin = "/api/binary/auth/step-up/passkey/begin";

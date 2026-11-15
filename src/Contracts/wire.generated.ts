@@ -286,6 +286,7 @@ export const WireLimits = {
   PasskeyTransportCount: 6,
   MaxMfaFrameBytes: 4096,
   MfaCodeCount: 8,
+  MfaRegeneratedCodeCount: 10,
 } as const;
 
 export const WireLayouts = {
@@ -625,6 +626,7 @@ export const WireRoutes = {
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
   MfaProfile: "/api/binary/auth/mfa/profile",
   MfaDisable: "/api/binary/auth/mfa/disable",
+  MfaRecoveryRegenerate: "/api/binary/auth/mfa/recovery/regenerate",
   MfaChallengeStart: "/api/binary/auth/mfa/challenge/start",
   MfaChallengeVerify: "/api/binary/auth/mfa/challenge",
   PasskeyStepUpBegin: "/api/binary/auth/step-up/passkey/begin",

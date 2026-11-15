@@ -144,6 +144,7 @@ inline constexpr uint32_t PasskeyUserHandleBytes = 32;
 inline constexpr uint32_t PasskeyTransportCount = 6;
 inline constexpr uint32_t MaxMfaFrameBytes = 4096;
 inline constexpr uint32_t MfaCodeCount = 8;
+inline constexpr uint32_t MfaRegeneratedCodeCount = 10;
 }
 
 namespace layouts {

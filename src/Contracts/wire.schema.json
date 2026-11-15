@@ -329,6 +329,7 @@
     "MfaSetupVerify": "/api/binary/auth/mfa/setup/verify",
     "MfaProfile": "/api/binary/auth/mfa/profile",
     "MfaDisable": "/api/binary/auth/mfa/disable",
+    "MfaRecoveryRegenerate": "/api/binary/auth/mfa/recovery/regenerate",
     "MfaChallengeStart": "/api/binary/auth/mfa/challenge/start",
     "MfaChallengeVerify": "/api/binary/auth/mfa/challenge",
     "PasskeyStepUpBegin": "/api/binary/auth/step-up/passkey/begin",
@@ -489,7 +490,8 @@
     "PasskeyUserHandleBytes": 32,
     "PasskeyTransportCount": 6,
     "MaxMfaFrameBytes": 4096,
-    "MfaCodeCount": 8
+    "MfaCodeCount": 8,
+    "MfaRegeneratedCodeCount": 10
   },
   "layouts": {
     "SubscriptionRssChannel": 1,
