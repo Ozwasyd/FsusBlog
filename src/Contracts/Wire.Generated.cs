@@ -187,6 +187,13 @@ public enum FrameType : ushort
     AuthorTextHeadingPage = 33021,
     AuthorTextPropertyFacetQuery = 33022,
     AuthorTextPropertyFacetPage = 33023,
+    AuthorTextPropertySortQuery = 33026,
+    AuthorTextPropertySortPage = 33027,
+    PropertyProjectionCatalog = 33028,
+    AuthorTextPropertyTextQuery = 33029,
+    AuthorTextPropertyTextPage = 33030,
+    ArticleBodyInsertionCommand = 33032,
+    DraftRevisionBodyInsertion = 33033,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -258,6 +265,9 @@ public static class WireLimits
     public const int MaxAuthorTextRankedQueryFrameBytes = 792;
     public const int MaxAuthorTextQualifiedQueryFrameBytes = 263110;
     public const int MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
+    public const int MaxAuthorTextPropertySortQueryFrameBytes = 263161;
+    public const int MaxAuthorTextPropertyTextQueryFrameBytes = 263134;
+    public const int AuthorTextPropertyTextSourceChars = 16384;
     public const int AuthorTextSearchRows = 20;
     public const int AuthorTextSearchStateCount = 4;
     public const int AuthorTextSearchFacetRows = 12;
@@ -326,6 +336,8 @@ public static class WireLimits
     public const int RecoveryKeyVerifyFrameBytes = 100;
     public const int RecoveryKeyOperationFrameBytes = 20;
     public const int MaxCommandFrameBytes = 1048884;
+    public const int MaxArticleBodyInsertionCommandFrameBytes = 1048892;
+    public const int ArticleBodyInsertionDigestBytes = 64;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;
@@ -892,6 +904,8 @@ public sealed record ArticleSchedule(int Id, long Revision, long DueUnixMs, long
 public sealed record ArticleScheduleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, long DueUnixMs);
 public sealed record RevisionComparison(int Id, long Revision, long SourceRevision, string Title, string Body, string SourceTitle, string SourceBody);
 public sealed record ArticleCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, string Title, string Body);
+public sealed record ArticleBodyInsertionCommand(int Id, long ExpectedRevision, Guid IdempotencyKey, string Title, string Body, int Offset, int Length);
+public sealed record DraftRevisionBodyInsertion(int Id, long Revision, long SourceRevision, bool Available, int Offset, int Length, string SourceDigest, string Digest, string SourceBody, string Body);
 public sealed record CanvasCreate(Guid CanvasId, Guid EdgeId, int HostArticleId, int TargetArticleId);
 public sealed record CanvasCreated(Guid CanvasId, Guid EdgeId, long CanvasRevision);
 public sealed record CanvasPreview(Guid CanvasId, Guid EdgeId, long CanvasRevision, long HostRevision, long TargetRevision, int SourceOffset);
@@ -2059,6 +2073,55 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleCommand));
         var value = new ArticleCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeArticleBodyInsertionCommand(ArticleBodyInsertionCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.ExpectedRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Text(value.Title, WireLimits.TitleBytes);
+        writer.Text(value.Body, WireLimits.BodyBytes);
+        writer.I32(value.Offset);
+        writer.I32(value.Length);
+        return Aeds.Encode(FrameType.ArticleBodyInsertionCommand, writer.Written);
+    }
+
+    public static ArticleBodyInsertionCommand DecodeArticleBodyInsertionCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleBodyInsertionCommand));
+        var value = new ArticleBodyInsertionCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes), reader.I32(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeDraftRevisionBodyInsertion(DraftRevisionBodyInsertion value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Id);
+        writer.I64(value.Revision);
+        writer.I64(value.SourceRevision);
+        writer.Bool(value.Available);
+        writer.I32(value.Offset);
+        writer.I32(value.Length);
+        writer.Text(value.SourceDigest, WireLimits.ArticleBodyInsertionDigestBytes);
+        writer.Text(value.Digest, WireLimits.ArticleBodyInsertionDigestBytes);
+        writer.Text(value.SourceBody, WireLimits.BodyBytes);
+        writer.Text(value.Body, WireLimits.BodyBytes);
+        return Aeds.Encode(FrameType.DraftRevisionBodyInsertion, writer.Written);
+    }
+
+    public static DraftRevisionBodyInsertion DecodeDraftRevisionBodyInsertion(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRevisionBodyInsertion));
+        var value = new DraftRevisionBodyInsertion(reader.I32(), reader.I64(), reader.I64(), reader.Bool(), reader.I32(), reader.I32(), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.BodyBytes));
         reader.Finish();
         Validate(value);
         return value;

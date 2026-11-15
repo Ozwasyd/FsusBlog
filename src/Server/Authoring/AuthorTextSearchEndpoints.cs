@@ -13,7 +13,7 @@ internal static class AuthorTextSearchEndpoints
         var cursors = new AuthorTextCursor(TimeProvider.System);
         app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, CancellationToken ct) =>
         {
-            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes, ct);
+            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
             var payload = await store.WithSession(token, true, async (db, tx, actor) =>
@@ -21,12 +21,36 @@ internal static class AuthorTextSearchEndpoints
                 var digest = Store.TokenDigest(token)!;
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 Aeds.Decode(frame, out var type);
-                if (type != FrameType.AuthorTextPropertyFacetQuery && frame.Length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes)
-                    throw new BadHttpRequestException("Request too large.", 413);
+                var maximum = type switch
+                {
+                    FrameType.AuthorTextPropertyTextQuery => WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes,
+                    FrameType.AuthorTextPropertySortQuery => WireLimits.MaxAuthorTextPropertySortQueryFrameBytes,
+                    FrameType.AuthorTextPropertyFacetQuery => WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes,
+                    _ => WireLimits.MaxAuthorTextQualifiedQueryFrameBytes,
+                };
+                if (frame.Length > maximum) throw new BadHttpRequestException("Request too large.", 413);
                 // Serialize under the account/session and exact result article locks.
                 // WithSession rechecks expiry and commits before sending any response.
                 byte[] encoded;
-                if (type == FrameType.AuthorTextSearchQuery)
+                if (type == FrameType.AuthorTextPropertyTextQuery)
+                {
+                    var query = Wire.DecodeAuthorTextPropertyTextQuery(frame);
+                    var search = query.Search;
+                    var input = AuthorTextProfile.ParsePropertyText(search.Query);
+                    if (!await CurrentSchema.HasAuthorTextPropertyIndexAsync(db, tx, ct))
+                        throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
+                    var cursorQuery = Convert.ToHexStringLower(SHA256.HashData(Wire.EncodeAuthorTextPropertyTextQuery(query with
+                    {
+                        Search = search with { Cursor = "" },
+                    })));
+                    (AuthorTextRankKey Position, byte[] Generation)? after = search.Cursor.Length == 0
+                        ? null : cursors.Decode(search.Cursor, actor, digest, cursorQuery, type);
+                    var page = await AuthorTextIndex.ReadPropertyText(db, tx, actor, input, query, after?.Position, after?.Generation, ct);
+                    var next = page.More ? cursors.Encode(page.Rows[^1].Key, page.Generation!, actor, digest, cursorQuery, type) : "";
+                    encoded = Wire.EncodeAuthorTextPropertyTextPage(new(page.Ready, next, page.Total, page.StateCounts,
+                        page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray()));
+                }
+                else if (type == FrameType.AuthorTextSearchQuery)
                 {
                     var input = AuthorTextProfile.Parse(Wire.DecodeAuthorTextSearchQuery(frame));
                     await RequireIndex();
@@ -36,10 +60,12 @@ internal static class AuthorTextSearchEndpoints
                 else
                 {
                     var propertyFacet = type == FrameType.AuthorTextPropertyFacetQuery ? Wire.DecodeAuthorTextPropertyFacetQuery(frame) : null;
-                    var includeHeading = type == FrameType.AuthorTextHeadingQuery || propertyFacet?.IncludeHeading == true;
-                    var includeSummary = includeHeading || propertyFacet is not null || type == FrameType.AuthorTextSummaryQuery;
+                    var propertySort = type == FrameType.AuthorTextPropertySortQuery ? Wire.DecodeAuthorTextPropertySortQuery(frame) : null;
+                    var includeHeading = type == FrameType.AuthorTextHeadingQuery || propertyFacet?.IncludeHeading == true || propertySort?.IncludeHeading == true;
+                    var includeSummary = includeHeading || propertyFacet is not null || propertySort is not null || type == FrameType.AuthorTextSummaryQuery;
                     var qualified = type switch
                     {
+                        FrameType.AuthorTextPropertySortQuery => propertySort!.Search,
                         FrameType.AuthorTextPropertyFacetQuery => propertyFacet!.Search,
                         FrameType.AuthorTextHeadingQuery => Wire.DecodeAuthorTextHeadingQuery(frame),
                         FrameType.AuthorTextSummaryQuery => Wire.DecodeAuthorTextSummaryQuery(frame),
@@ -52,6 +78,7 @@ internal static class AuthorTextSearchEndpoints
                     // Re-encode the exact requested criteria without its cursor to bind both filters and text.
                     var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(SHA256.HashData(type switch
                     {
+                        FrameType.AuthorTextPropertySortQuery => Wire.EncodeAuthorTextPropertySortQuery(propertySort! with { Search = qualified with { Cursor = "" } }),
                         FrameType.AuthorTextPropertyFacetQuery => Wire.EncodeAuthorTextPropertyFacetQuery(propertyFacet! with { Search = qualified with { Cursor = "" } }),
                         FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingQuery(qualified with { Cursor = "" }),
                         FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryQuery(qualified with { Cursor = "" }),
@@ -63,18 +90,22 @@ internal static class AuthorTextSearchEndpoints
                     {
                         var input = includeHeading ? AuthorTextProfile.ParseHeading(request.Query) :
                             includeSummary ? AuthorTextProfile.ParseSummary(request.Query) : AuthorTextProfile.ParseFaceted(request.Query);
+                        PropertyStore.FacetSelection? facet = propertySort?.Facet is { } sortFacet
+                            ? new(sortFacet.DefinitionId, sortFacet.DefinitionRevision)
+                            : propertyFacet is null ? null : new(propertyFacet.DefinitionId, propertyFacet.DefinitionRevision);
                         await RequireIndex();
                         var page = qualified is null
                             ? await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct)
                             : await AuthorTextIndex.ReadQualified(db, tx, actor, input, qualified.UpdatedFromUnixMs,
                                 qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
                                 after?.Generation, ct, includeSummary: includeSummary, includeHeading: includeHeading,
-                                facet: propertyFacet is null ? null : new(propertyFacet.DefinitionId, propertyFacet.DefinitionRevision));
+                                facet: facet, sort: propertySort is null ? null : new(propertySort.DefinitionId, propertySort.DefinitionRevision, propertySort.Direction));
                         var next = Next(page.More, page.Rows, page.Generation);
                         var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
                             page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
                         encoded = type switch
                         {
+                            FrameType.AuthorTextPropertySortQuery => Wire.EncodeAuthorTextPropertySortPage(new(response, page.PropertyFacet), includeHeading),
                             FrameType.AuthorTextPropertyFacetQuery => Wire.EncodeAuthorTextPropertyFacetPage(new(response, page.PropertyFacet), includeHeading),
                             FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingPage(response),
                             FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryPage(response),

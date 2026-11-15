@@ -36,33 +36,35 @@ public static partial class Wire
         if (value.Search.Ready != (value.Facet is not null)) throw InvalidAuthorTextPropertyFacet();
         var writer = new Writer();
         WriteAuthorTextFacetedPage(writer, value.Search, AuthorTextPropertyFacetMaxField(includeHeading));
-        if (value.Facet is { } facet)
-        {
-            ValidateAuthorTextPropertyFacet(facet, value.Search.Total);
-            writer.Uuid(facet.DefinitionId);
-            writer.I64(facet.DefinitionRevision);
-            writer.I32((int)facet.Kind);
-            writer.I32(facet.Missing);
-            writer.I32(facet.Null);
-            writer.I32(facet.Empty);
-            writer.I32(facet.Buckets.Count);
-            foreach (var bucket in facet.Buckets)
-            {
-                switch (bucket.Value)
-                {
-                    case PropertyFieldValue.Boolean boolean:
-                        writer.Bool(boolean.Value);
-                        break;
-                    case PropertyFieldValue.SingleSelect selection:
-                        writer.Uuid(selection.Value);
-                        break;
-                    default:
-                        throw InvalidAuthorTextPropertyFacet();
-                }
-                writer.I32(bucket.Count);
-            }
-        }
+        if (value.Facet is { } facet) WriteAuthorTextPropertyFacet(writer, facet, value.Search.Total);
         return Aeds.Encode(FrameType.AuthorTextPropertyFacetPage, writer.Written);
+    }
+
+    private static void WriteAuthorTextPropertyFacet(Writer writer, AuthorTextPropertyFacet facet, int total)
+    {
+        ValidateAuthorTextPropertyFacet(facet, total);
+        writer.Uuid(facet.DefinitionId);
+        writer.I64(facet.DefinitionRevision);
+        writer.I32((int)facet.Kind);
+        writer.I32(facet.Missing);
+        writer.I32(facet.Null);
+        writer.I32(facet.Empty);
+        writer.I32(facet.Buckets.Count);
+        foreach (var bucket in facet.Buckets)
+        {
+            switch (bucket.Value)
+            {
+                case PropertyFieldValue.Boolean boolean:
+                    writer.Bool(boolean.Value);
+                    break;
+                case PropertyFieldValue.SingleSelect selection:
+                    writer.Uuid(selection.Value);
+                    break;
+                default:
+                    throw InvalidAuthorTextPropertyFacet();
+            }
+            writer.I32(bucket.Count);
+        }
     }
 
     public static AuthorTextPropertyFacetPage DecodeAuthorTextPropertyFacetPage(ReadOnlySpan<byte> frame, bool includeHeading = true)
@@ -100,10 +102,13 @@ public static partial class Wire
 
     private static void ValidateAuthorTextPropertyFacetQuery(AuthorTextPropertyFacetQuery value)
     {
-        if (value.DefinitionId == Guid.Empty || value.DefinitionRevision <= 0 ||
-            value.DefinitionRevision > value.Search.SchemaRevision) throw InvalidAuthorTextPropertyFacet();
+        if (!ValidAuthorTextPropertySelector(value.DefinitionId, value.DefinitionRevision, value.Search.SchemaRevision))
+            throw InvalidAuthorTextPropertyFacet();
         ValidateAuthorTextQualifiedQuery(value.Search, requireQualifier: false, propertyFacet: true);
     }
+
+    private static bool ValidAuthorTextPropertySelector(Guid definition, long revision, long schema) =>
+        definition != Guid.Empty && revision > 0 && revision <= schema;
 
     private static void ValidateAuthorTextPropertyFacet(AuthorTextPropertyFacet facet, int total)
     {

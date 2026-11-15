@@ -9,6 +9,7 @@ import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
 import { saveDraftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
+import { saveWithBodyInsertion, type BodyInsertion } from '../../../Contracts/article-body-insertion'
 import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
 import { publishArticleImages, type PublishImagesSelection } from '../../../Contracts/published-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
@@ -64,6 +65,7 @@ if (sourceToken !== undefined && arrivalState) {
 let sourceArrival: { articleId: number | undefined; source?: EditorSourceTarget; epoch?: number } | undefined =
   sourceToken === undefined ? undefined : { articleId: id.value }
 let sourceSessionVerified = false
+const sourceInspectorPending = ref(sourceToken !== undefined)
 const sourceSeek = shallowRef<EditorSourceSeek>()
 const historicalSeek = shallowRef<HistoricalSearchSeek>()
 const summarySeek = computed(() => {
@@ -224,13 +226,17 @@ async function mutationResult(operation: () => Promise<Draft>, signal: AbortSign
   }
 }
 
-const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>> => {
+const send = (action: ArticleAction) => (draft: Draft, signal: AbortSignal, idempotencyKey: string,
+  insertion?: BodyInsertion): Promise<DraftSave<Draft>> => {
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
   const title = action === 'save' ? draft.title.trim() : ''
   const body = action === 'save' ? draft.body : ''
   return mutationResult(async () => {
-    const stored = await api[action]({ id: draft.id, expectedRevision: draft.revision, title, body, idempotencyKey }, signal, handle)
+    const input = { id: draft.id, expectedRevision: draft.revision, title, body, idempotencyKey }
+    const stored = insertion && action === 'save'
+      ? await saveWithBodyInsertion({ ...input, ...insertion }, handle, signal)
+      : await api[action](input, signal, handle)
     if (action === 'save' && (stored.title !== title || stored.body !== body)) {
       throw new Error('The save reply did not match the submitted draft source.')
     }
@@ -402,6 +408,7 @@ watch(credentialEpoch, () => {
 }, { flush: 'sync' })
 watch(id, () => {
   sourceArrival = undefined
+  sourceInspectorPending.value = false
   sourceSeek.value = undefined
   historicalSeek.value = undefined
 }, { flush: 'sync' })
@@ -453,6 +460,7 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     }
     source = sourceArrival.epoch === epoch ? sourceArrival.source : undefined
     if (!source) {
+      sourceInspectorPending.value = false
       failure.value = 'This editor link has expired. Return to its source and choose it again.'
       loading.value = false
       return
@@ -473,6 +481,7 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
   if (!valid || identity !== identityEpoch.value) return
   loading.value = false
   if (result.kind !== 'ready') {
+    sourceInspectorPending.value = false
     if (source && source.kind !== 'canvas') {
       if (sourceArrival) sourceArrival.source = undefined
       failure.value = result.kind === 'superseded' || result.kind === 'blocked' && result.reason === 'stale-reference'
@@ -482,7 +491,10 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     }
     return
   }
-  if (!source) return
+  if (!source) {
+    sourceInspectorPending.value = false
+    return
+  }
   sourceArrival = undefined
   const sessionId = result.tab.sessionId
   const revealBy = performance.now() + 6_000
@@ -492,19 +504,22 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
     sourceSeek.value = { kind: 'canvas', sessionId, revision: source.target.revision, offset: source.target.sourceOffset, current: held }
   } else if (source.kind === 'search') {
     if (result.witnessedRevision !== source.target.revision || recoveryItems.value.length > 0) {
+      sourceInspectorPending.value = false
       notice.value = searchPositionUnavailable
       return
     }
     const edit = registry.activeEditSequence
     const target = source.target
+    // A restored mobile drawer must never open before the source caret receives focus.
+    setInspectorOpen(target.field === 'summary')
     sourceSeek.value = { kind: 'search', sessionId, target, current: () => held() && canSwitch.value &&
       editable.value && !pending.value && !revisionComparisonActive.value && registry.activeEditSequence === edit &&
       original.value?.revision === target.revision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
-    if (target.field === 'summary') setInspectorOpen(true)
   } else if (source.kind === 'search-history') {
     const { currentRevision, target } = source
     if (!handle || !persistentWorkspace.value || result.witnessedRevision !== currentRevision ||
       recoveryItems.value.length > 0 || recoveryWorking.value || revisionComparisonActive.value) {
+      sourceInspectorPending.value = false
       notice.value = searchPositionUnavailable
       return
     }
@@ -515,6 +530,7 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
       original.value?.revision === currentRevision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
     setInspectorOpen(true)
   }
+  sourceInspectorPending.value = false
 }, { immediate: true })
 
 function activateArticle(articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'], ready?: () => boolean,
@@ -536,7 +552,8 @@ function finishSourceSeek(seek: EditorSourceSeek, success: boolean) {
     return
   }
   recordRecentOpen(seek.target.articleId, seek.target.revision)
-  notice.value = 'Opened the search result at its saved position.'
+  notice.value = seek.target.precision === 'rebased' ? 'Opened the search result at its verified position in the newer revision.'
+    : 'Opened the search result at its saved position.'
 }
 
 function finishHistoricalSeek(seek: HistoricalSearchSeek, success: boolean) {
@@ -945,13 +962,13 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
-function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string) {
+function edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, insertion?: BodyInsertion) {
   const document = original.value
   const current = tab.value
   if (paneFocused(pane) && !closingTabs.value && !recoveryBlocked.value && !metadataDirty.value && !propertyPending.value
       && current && document && document[field] !== value) {
     const next = { ...document, [field]: value }
-    if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
+    if (registry.updateDraft(current, next, field === 'body' ? insertion : undefined)) recovery.persist(next, registry.activeEditSequence)
   }
 }
 
@@ -1176,7 +1193,7 @@ async function reloadDraft() {
           :concealed="!pane.selected || (!pane.tab.active && !showComparison)"
           :blocked="closingTabs || pending || metadataDirty || recoveryBlocked" :split="hasSecondaryGroup" :can-switch="canSwitch"
           :source-target="!summarySeek && sourceSeek?.sessionId === pane.tab.sessionId ? sourceSeek : undefined" @source-revealed="finishSourceSeek"
-          @edit="(field, value) => edit(pane, field, value)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
+          @edit="(field, value, insertion) => edit(pane, field, value, insertion)" @activate="focusGroup(pane.tab)" @compose="changeComposition(pane, $event)">
           <template #before>
             <template v-if="paneFocused(pane)">
               <p v-if="notice" class="write-notice" role="status">
@@ -1211,7 +1228,7 @@ async function reloadDraft() {
         </WorkspaceSourcePane>
       </div>
       <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive"
-        :opened="persistentWorkspace ? inspectorOpen : undefined" @update:opened="setInspectorOpen">
+        :opened="persistentWorkspace ? !sourceInspectorPending && inspectorOpen : undefined" @update:opened="setInspectorOpen">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"

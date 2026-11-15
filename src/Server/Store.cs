@@ -135,6 +135,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
     internal static Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct) => Execute(db, tx, actor, action, edit, ct, null);
 
+    internal static Task<(ArticleState Article, bool Changed)> SaveBodyInsertion(NpgsqlConnection db, NpgsqlTransaction tx,
+        Identity actor, Edit edit, ArticleBodyInsertionCommand insertion, CancellationToken ct) =>
+        Execute(db, tx, actor, ArticleAction.Save, edit, ct, null, insertion: insertion);
+
     internal static Task<(ArticleState Article, bool Changed)> PublishWithImages(NpgsqlConnection db, NpgsqlTransaction tx,
         Identity actor, Edit edit, Content.PublishedMediaStore media, Content.PublishedMediaSelection selection, CancellationToken ct) =>
         Execute(db, tx, actor, ArticleAction.Publish, edit, ct, null, publishedMedia: (media, selection));
@@ -169,7 +173,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         ArticleAction action, Edit edit, CancellationToken ct, TaxonomyAssignment? taxonomy, DraftRollback? rollback = null,
         ArticleScheduleCommand? schedule = null, ArticleRightsCommand? rights = null, ArticleMediaCommand? attachment = null,
         (Content.PublishedMediaStore Store, Content.PublishedMediaSelection Selection)? publishedMedia = null,
-        ArticleSummaryCommand? summary = null)
+        ArticleSummaryCommand? summary = null, ArticleBodyInsertionCommand? insertion = null)
     {
         var fingerprint = publishedMedia is { } media ? media.Selection.Fingerprint(edit) :
             attachment is not null ? SHA256.HashData(Wire.EncodeArticleMediaCommand(attachment)) :
@@ -177,7 +181,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             schedule is not null ? SHA256.HashData(Wire.EncodeArticleScheduleCommand(schedule)) :
             rollback is not null ? SHA256.HashData(Wire.EncodeDraftRollback(rollback)) :
             taxonomy is not null ? SHA256.HashData(Wire.EncodeTaxonomyAssignment(taxonomy)) :
-            summary is not null ? SHA256.HashData(Wire.EncodeArticleSummaryCommand(summary)) : Publishing.Fingerprint(action, edit);
+            summary is not null ? SHA256.HashData(Wire.EncodeArticleSummaryCommand(summary)) :
+            insertion is not null ? SHA256.HashData(Wire.EncodeArticleBodyInsertionCommand(insertion)) : Publishing.Fingerprint(action, edit);
         await LockCommand(db, tx, actor.Id, edit.Key, ct);
         var current = taxonomy is not null || rollback is not null || schedule is not null || rights is not null || attachment is not null || summary is not null
             ? await Find(db, tx, actor, edit.Id, true, ct) : null;
@@ -208,6 +213,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             return (replay, false);
         }
         ArticleState state;
+        Authoring.ArticleBodyInsertionWitness? bodyInsertion = null;
         IReadOnlyList<Content.PublishedMediaReference>? images = null;
         if (edit.Id == 0)
         {
@@ -234,6 +240,11 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 edit = edit with { Title = source.Title, Body = source.Body };
             }
             state = Publishing.Change(action, edit, current, actor);
+            if (insertion is not null)
+            {
+                var source = await Authoring.RevisionHistoryStore.ReadSource(db, tx, edit.Id, edit.ExpectedRevision, ct);
+                bodyInsertion = Authoring.ArticleBodyInsertionStore.Prepare(source.Body, state.Body, insertion.Offset, insertion.Length);
+            }
             if (publishedMedia is { } share)
                 images = await share.Store.Prepare(db, tx, actor, edit, share.Selection, ct);
             await using var update = Sql(db, tx, """
@@ -249,6 +260,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, state.Id, state.Revision, state.Title, state.Body, rollback?.SourceRevision ?? edit.ExpectedRevision,
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)summary?.Text ?? DBNull.Value }))
             await revision.ExecuteNonQueryAsync(ct);
+        if (bodyInsertion is not null)
+            await Authoring.ArticleBodyInsertionStore.Record(db, tx, state.Id, state.Revision, edit.ExpectedRevision, bodyInsertion, ct);
         if (taxonomy is not null)
             await Content.TaxonomyStore.Replace(db, tx, state.Id, state.Revision, taxonomy.CategoryId, taxonomy.TagIds, ct);
         else if (edit.Id != 0)

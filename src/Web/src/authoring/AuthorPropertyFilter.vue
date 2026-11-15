@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import type { AuthorTextPropertySortQuery } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import {
   propertyFilterCatalog, queryPropertyArticles, setPropertyFilterable,
@@ -15,16 +16,22 @@ import { credentialEpoch, currentSession, identityEpoch, invalidateSession } fro
 const props = defineProps<{ keyword?: string; embedded?: boolean }>()
 const emit = defineEmits<{
   'facet-change': [value: { schema: bigint; field: FilterField } | undefined]
+  'text-source-change': [value: { schema: bigint; field: FilterField } | undefined]
+  'sort-change': [value: { schema: bigint; field: FilterField; direction: AuthorTextPropertySortQuery['direction'] } | undefined]
   'conditions-change': [value: Pick<PropertyQuery, 'schema' | 'conditions'> | undefined]
   edit: []
 }>()
 const fieldId = useId(), operatorId = useId(), valueId = useId(), facetId = useId()
+const sortId = useId(), sortDirectionId = useId(), textSourceId = useId()
 const embeddedCredential = computed(() => props.embedded ? credentialEpoch.value : 0)
 const open = ref(false)
 const retry = ref(0)
 const catalog = shallowRef<FilterCatalog>()
 const selection = ref('')
 const facetSelection = ref('')
+const textSourceSelection = ref('')
+const sortSelection = ref('')
+const sortDirection = ref<AuthorTextPropertySortQuery['direction']>('ascending')
 const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
   'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
@@ -54,6 +61,10 @@ const field = computed(() => selectableFields.value.find(item => item.id === sel
 const facetFields = computed(() => selectableFields.value.filter(item => item.enabled &&
   (item.kind === 'boolean' || item.kind === 'single-select' || item.kind === 'multi-select')))
 const facetField = computed(() => facetFields.value.find(item => item.id === facetSelection.value))
+const textSources = computed(() => (catalog.value?.fields ?? []).filter(item => item.kind === 'text' && item.searchEligible && !item.deprecated))
+const textSource = computed(() => textSources.value.find(item => item.id === textSourceSelection.value))
+const sortFields = computed(() => (catalog.value?.fields ?? []).filter(item => item.sortable && !item.deprecated))
+const sortField = computed(() => sortFields.value.find(item => item.id === sortSelection.value))
 const rangeComparisons = computed(() => {
   const labels = field.value?.kind === 'date' ? dateComparisons : field.value?.kind === 'number' ? comparisons : undefined
   return labels ? Object.entries(labels).filter(([comparison]) => comparison !== 'equal') : []
@@ -89,6 +100,9 @@ watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, att
   catalog.value = undefined
   selection.value = ''
   facetSelection.value = ''
+  textSourceSelection.value = ''
+  sortSelection.value = ''
+  sortDirection.value = 'ascending'
   if (!show || epoch !== previousEpoch) pendingField.value = ''
   const handle = props.embedded ? currentSession.value?.siteSessionId : undefined
   if (!show || props.embedded && !handle) return
@@ -96,7 +110,7 @@ watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, att
   cleanup(() => load.abort())
   operationBusy.value = true
   try {
-    const page = await propertyFilterCatalog(load.signal, undefined, handle)
+    const page = await propertyFilterCatalog(load.signal, undefined, handle, props.embedded)
     if (!load.signal.aborted) {
       catalog.value = page
       selection.value = page.fields.some(item => item.id === pendingField.value) ? pendingField.value : ''
@@ -126,6 +140,12 @@ watch(conditions, value => {
 }, { flush: 'sync' })
 watch([facetField, () => catalog.value?.revision], ([field, schema]) => {
   if (props.embedded) emit('facet-change', field && schema ? { field, schema } : undefined)
+}, { flush: 'sync' })
+watch([textSource, () => catalog.value?.revision], ([field, schema]) => {
+  if (props.embedded) emit('text-source-change', field && schema ? { field, schema } : undefined)
+}, { flush: 'sync' })
+watch([sortField, sortDirection, () => catalog.value?.revision], ([field, direction, schema]) => {
+  if (props.embedded) emit('sort-change', field && schema ? { field, direction, schema } : undefined)
 }, { flush: 'sync' })
 
 function clearResults() {
@@ -233,7 +253,7 @@ async function later() {
   operationError.value = ''
   queryError.value = ''
   try {
-    const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision }, handle)
+    const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision }, handle, props.embedded)
     if (!request.signal.aborted) catalog.value = { ...next, fields: [...current.fields, ...next.fields] }
   } catch (failure) {
     if (!request.signal.aborted) report(failure, '暂时无法读取更多属性。')
@@ -318,13 +338,36 @@ async function search(more = false) {
     <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
     <p v-else-if="embedded && selectableFields.length">添加的条件会用于下一次全文搜索。</p>
     <template v-if="catalog?.fields.length">
-      <template v-if="embedded && facetFields.length">
+      <template v-if="embedded && textSources.length">
+        <label :for="textSourceId">搜索来源</label>
+        <ElSelect :id="textSourceId" v-model="textSourceSelection" ariaLabel="搜索来源" :disabled="busy">
+          <ElOption value="" label="文章全文" />
+          <ElOption v-for="item in textSources" :key="item.id" :value="item.id"
+            :label="`${item.label} · ${item.machineKey}`" />
+        </ElSelect>
+      </template>
+      <template v-if="embedded && !textSource && facetFields.length">
         <label :for="facetId">属性分面字段</label>
         <ElSelect :id="facetId" v-model="facetSelection" ariaLabel="属性分面字段" :disabled="busy">
           <ElOption value="" label="不显示属性分面" />
           <ElOption v-for="item in facetFields" :key="item.id" :value="item.id"
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
+      </template>
+      <template v-if="embedded && !textSource && sortFields.length">
+        <label :for="sortId">属性排序字段</label>
+        <ElSelect :id="sortId" v-model="sortSelection" ariaLabel="属性排序字段" :disabled="busy">
+          <ElOption value="" label="默认搜索顺序" />
+          <ElOption v-for="item in sortFields" :key="item.id" :value="item.id"
+            :label="`${item.label} · ${item.machineKey}`" />
+        </ElSelect>
+        <template v-if="sortField">
+          <label :for="sortDirectionId">属性排序方向</label>
+          <ElSelect :id="sortDirectionId" v-model="sortDirection" ariaLabel="属性排序方向" :disabled="busy">
+            <ElOption value="ascending" label="升序" />
+            <ElOption value="descending" label="降序" />
+          </ElSelect>
+        </template>
       </template>
       <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
       <ul v-if="conditions.length" aria-label="已有筛选条件">

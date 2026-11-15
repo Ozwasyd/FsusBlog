@@ -229,6 +229,7 @@ public static partial class Wire
 
     private static int AuthorTextMaxField(FrameType type) => type switch
     {
+        FrameType.AuthorTextPropertyTextPage => 5,
         FrameType.AuthorTextHeadingPage => 4,
         FrameType.AuthorTextSummaryPage => 3,
         _ => 2,
@@ -412,6 +413,7 @@ public static partial class Wire
             1 => (WireLimits.TitleBytes, WireLimits.TitleBytes),
             2 or 4 => (WireLimits.BodyBytes, WireLimits.BodyBytes),
             3 => (WireLimits.ArticleSummaryReadChars, WireLimits.ArticleSummaryReadBytes),
+            5 => (WireLimits.AuthorTextPropertyTextSourceChars, WireLimits.PropertyValueBytes),
             _ => throw new ProtocolException("Invalid author text search row."),
         };
         if (row.Field > maxField || row.Id <= 0 || row.Revision <= 0 || (previousId != 0 && row.Id >= previousId) ||

@@ -40,10 +40,20 @@ internal static class RevisionHistoryEndpoints
                 throw new BusinessException(Rejection.Invalid, "A historical source revision is required.");
             var token = ctx.Request.Cookies[cookie];
             var handle = SiteSessions.Requested(ctx);
+            var bodyInsertion = query(ctx, "map", 16);
+            if (bodyInsertion is not null && bodyInsertion != "body-insertion")
+                throw new BusinessException(Rejection.Invalid, "Unknown saved revision map.");
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
-                if (handle is not null) SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
+                if (handle is not null || bodyInsertion is not null)
+                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
+                if (bodyInsertion is not null)
+                {
+                    var proof = await ArticleBodyInsertionStore.Read(db, tx, id, expected, sourceRevision, ct);
+                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, handle);
+                    return Results.Bytes(Wire.EncodeDraftRevisionBodyInsertion(proof), Aeds.ContentType);
+                }
                 var current = await RevisionHistoryStore.ReadSource(db, tx, id, expected, ct);
                 var source = await RevisionHistoryStore.ReadSource(db, tx, id, sourceRevision, ct);
                 var comparison = new RevisionComparison(id, expected, sourceRevision, current.Title, current.Body, source.Title, source.Body);

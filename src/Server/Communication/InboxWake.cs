@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Communication;
@@ -29,7 +30,7 @@ internal sealed class InboxWake(string connectionString, ILogger<InboxWake> log)
                 // Let Npgsql finish the bounded wait before closing the notification socket.
                 while (!stop.IsCancellationRequested) await connection.WaitAsync(WaitSlice);
             }
-            catch (NpgsqlException failure)
+            catch (Exception failure) when (failure is NpgsqlException or SocketException)
             {
                 if (stop.IsCancellationRequested) return;
                 log.LogWarning(failure, "Inbox wake listener will reconnect.");

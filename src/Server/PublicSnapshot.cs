@@ -195,12 +195,15 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
-        ArticleAction action, Edit edit, CancellationToken ct, string? expectedSession = null) =>
+        ArticleAction action, Edit edit, CancellationToken ct, string? expectedSession = null,
+        ArticleBodyInsertionCommand? insertion = null) =>
         await Change(action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete,
             invalidate => store.WithSession(token, true, async (connection, tx, actor) =>
             {
-                FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expectedSession);
-                var update = await Store.Execute(connection, tx, actor, action, edit, ct);
+                if (insertion is null) FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expectedSession);
+                else FsusBlog.V2.Server.Sessions.SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expectedSession);
+                var update = insertion is null ? await Store.Execute(connection, tx, actor, action, edit, ct) :
+                    await Store.SaveBodyInsertion(connection, tx, actor, edit, insertion, ct);
                 if (update.Changed) invalidate();
                 return update;
             }, ct), ct);

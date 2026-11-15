@@ -16,17 +16,39 @@ internal sealed partial class PropertyStore
 
     internal async Task<PropertyFilterCatalog> Catalog(string? after, long schemaRevision, CancellationToken ct)
     {
+        var (revision, next, definitions) = await ReadCatalog(after, schemaRevision, ct);
+        return new(revision, next, definitions.Select(FilterField).ToArray());
+    }
+
+    internal async Task<PropertyProjectionCatalog> ProjectionCatalog(string? after, long schemaRevision, CancellationToken ct)
+    {
+        var (revision, next, definitions) = await ReadCatalog(after, schemaRevision, ct);
+        return new(revision, next, definitions.Select(definition =>
+        {
+            var field = FilterField(definition);
+            var settings = definition.Settings;
+            return new PropertyProjectionCatalogField(field,
+                !field.Deprecated && settings.SearchEligible && field.Kind == PropertyFieldKind.Text,
+                !field.Deprecated && settings.Sortable && SupportsSort(field.Kind));
+        }).ToArray());
+    }
+
+    private async Task<(long Revision, string Next, PropertyDefinition[] Definitions)> ReadCatalog(string? after, long schemaRevision,
+        CancellationToken ct)
+    {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
         if (after is not null && schemaRevision != schema.Revision) throw Conflict();
         var fields = schema.Page(after, WireLimits.PropertyPageSize + 1);
         var page = fields.Take(WireLimits.PropertyPageSize).ToArray();
         var next = fields.Length > page.Length ? page[^1].MachineKey : "";
-        return new(schema.Revision, next, page.Select(d => new PropertyFilterField(d.Id, d.Revision, d.MachineKey,
-            d.Names.FirstOrDefault(n => n.Locale == "zh")?.Label ?? d.Names[0].Label, FieldKind(d.Settings.Kind),
-            d.Status == PropertyStatus.Active && d.Settings.Filterable, d.Status != PropertyStatus.Active,
-            d.Settings.Options.Where(o => o.Status == PropertyStatus.Active).Select(o => new PropertyFieldOption(o.Id, o.Label)).ToArray())).ToArray());
+        return (schema.Revision, next, page);
     }
+
+    private static PropertyFilterField FilterField(PropertyDefinition definition) => new(definition.Id, definition.Revision, definition.MachineKey,
+        definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label, FieldKind(definition.Settings.Kind),
+        definition.Status == PropertyStatus.Active && definition.Settings.Filterable, definition.Status != PropertyStatus.Active,
+        definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active).Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray());
 
     internal async Task<PropertyCommandReceipt> SetFilterable(PropertyFilterabilityCommand input, CancellationToken ct)
     {
@@ -76,27 +98,54 @@ internal sealed partial class PropertyStore
     }
 
     internal async Task<Condition[]> ResolveQuery(long schemaRevision, IReadOnlyList<PropertyCondition> conditions, CancellationToken ct) =>
-        (await ResolveSearchQuery(schemaRevision, conditions, null, ct)).Conditions;
+        (await ResolveSearchQuery(schemaRevision, conditions, null, null, ct)).Conditions;
 
-    internal async Task<(Condition[] Conditions, FacetDefinition? Facet)> ResolveSearchQuery(long schemaRevision,
-        IReadOnlyList<PropertyCondition> conditions, FacetSelection? facet, CancellationToken ct)
+    internal async Task<(Condition[] Conditions, FacetDefinition? Facet, SortDefinition? Sort)> ResolveSearchQuery(long schemaRevision,
+        IReadOnlyList<PropertyCondition> conditions, FacetSelection? facet, SortSelection? sort, CancellationToken ct)
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
         if (schema.Revision != schemaRevision) throw Conflict();
         var resolved = conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
-        if (facet is not { } selection) return (resolved, null);
+        return (resolved, facet is { } selection ? ResolveFacet(schema, selection) : null,
+            sort is { } ordering ? ResolveSort(schema, ordering) : null);
+    }
 
-        var definition = schema.Find(selection.DefinitionId) ?? throw Missing();
-        if (definition.Revision != selection.DefinitionRevision) throw Conflict();
-        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable) throw Missing();
+    private static FacetDefinition ResolveFacet(PropertySchema schema, FacetSelection selection)
+    {
+        var definition = ActiveDefinition(schema, selection.DefinitionId, selection.DefinitionRevision);
+        if (!definition.Settings.Filterable) throw Missing();
         var kind = FieldKind(definition.Settings.Kind);
         if (kind is not (PropertyFieldKind.Boolean or PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect)) throw Invalid();
+        return new(definition.Id, definition.Revision, kind, ActiveOptionIds(definition));
+    }
+
+    private static SortDefinition ResolveSort(PropertySchema schema, SortSelection selection)
+    {
+        var definition = ActiveDefinition(schema, selection.DefinitionId, selection.DefinitionRevision);
+        if (!definition.Settings.Sortable) throw Missing();
+        var kind = FieldKind(definition.Settings.Kind);
+        if (!SupportsSort(kind) || !Enum.IsDefined(selection.Direction)) throw Invalid();
+        return new(definition.Id, kind, selection.Direction, ActiveOptionIds(definition));
+    }
+
+    private static PropertyDefinition ActiveDefinition(PropertySchema schema, Guid id, long revision)
+    {
+        var definition = schema.Find(id) ?? throw Missing();
+        if (definition.Revision != revision) throw Conflict();
+        return definition.Status == PropertyStatus.Active ? definition : throw Missing();
+    }
+
+    private static bool SupportsSort(PropertyFieldKind kind) => kind is PropertyFieldKind.Text or PropertyFieldKind.Number or
+        PropertyFieldKind.Boolean or PropertyFieldKind.Date or PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect;
+
+    private static Guid[] ActiveOptionIds(PropertyDefinition definition)
+    {
         var optionIds = definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
             .Select(option => option.Id).Order().ToArray();
         if (optionIds.Length > WireLimits.PropertyOptionCount) throw Invalid();
-        return (resolved, new(definition.Id, definition.Revision, kind, optionIds));
+        return optionIds;
     }
 
     private static int[] QueryReferenceIds(Condition[] conditions) =>
@@ -140,6 +189,67 @@ internal sealed partial class PropertyStore
     internal sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
     internal readonly record struct FacetSelection(Guid DefinitionId, long DefinitionRevision);
     internal sealed record FacetDefinition(Guid Id, long Revision, PropertyFieldKind Kind, Guid[] OptionIds);
+    internal readonly record struct SortSelection(Guid DefinitionId, long DefinitionRevision, AuthorTextPropertySortDirection Direction);
+    internal sealed record SortDefinition(Guid Id, PropertyFieldKind Kind, AuthorTextPropertySortDirection Direction, Guid[] OptionIds);
+
+    internal static string SortCtes(SortDefinition sort, List<object> parameters, string rankOrder)
+    {
+        parameters.Add(sort.Id);
+        var definition = parameters.Count;
+        parameters.Add(PropertyTypeTag(sort.Kind));
+        var kind = parameters.Count;
+        var key = SortKey(sort, parameters);
+        var direction = sort.Direction == AuthorTextPropertySortDirection.Ascending ? "asc" : "desc";
+        return $"""
+            property_sort_values as materialized (
+                select s.*, v.data is null as missing_sort_value, v.data->>'$type'='null' as explicit_sort_null,
+                    case when v.data->>'$type'=${kind} then {key} end as sort_value
+                from selected s left join public.property_value v
+                    on v.owner_id=$1 and v.article_id=s.article_id and v.definition_id=${definition}
+            ),
+            property_sort_order as materialized (
+                select p.*, row_number() over (order by
+                    case when p.sort_value is not null then 0 when p.explicit_sort_null then 1
+                         when p.missing_sort_value then 2 else 3 end,
+                    p.sort_value {direction} nulls last, {rankOrder}) as sort_position
+                from property_sort_values p
+            ),
+            property_sort_fence as materialized (
+                select sort_position from property_sort_order where article_id=$13
+            ),
+            """;
+    }
+
+    private static string SortKey(SortDefinition sort, List<object> parameters)
+    {
+        const string Text = "v.data->>'Value'";
+        const string Value = "v.data->'Value'";
+        if (sort.Kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect)
+        {
+            parameters.Add(sort.OptionIds.Select(id => id.ToString("D")).ToArray());
+            var active = parameters.Count;
+            if (sort.Kind == PropertyFieldKind.SingleSelect)
+                return $"case when v.data->>'OptionId'=any(${active}::text[]) then (v.data->>'OptionId')::uuid end";
+
+            return $$"""
+                case when jsonb_typeof(v.data->'OptionIds')='array' then (
+                    select case when count(*)=count(distinct option_id)
+                        then coalesce(array_agg(option_id order by option_id), '{}'::uuid[]) end
+                    from (select case when item.value=any(${{active}}::text[]) then item.value::uuid end as option_id
+                          from jsonb_array_elements_text(v.data->'OptionIds') item(value)) options
+                ) end
+                """;
+        }
+
+        return sort.Kind switch
+        {
+            PropertyFieldKind.Text => $"case when jsonb_typeof({Value})='string' then ({Text}) collate \"C\" end",
+            PropertyFieldKind.Number => $"case when jsonb_typeof({Value})='number' then ({Text})::numeric end",
+            PropertyFieldKind.Boolean => $"case when jsonb_typeof({Value})='boolean' then ({Text})::boolean end",
+            PropertyFieldKind.Date => $"case when pg_catalog.pg_input_is_valid({Text},'timestamp with time zone') then ({Text})::timestamptz end",
+            _ => throw Invalid(),
+        };
+    }
 
     internal static string FacetCtes(FacetDefinition facet, List<object> parameters)
     {

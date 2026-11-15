@@ -10,6 +10,7 @@ import {
 export type FilterField = Readonly<{
   id: string; revision: bigint; machineKey: string; label: string; kind: PropertyKind
   enabled: boolean; deprecated: boolean; options: readonly PropertyOption[]
+  searchEligible?: boolean; sortable?: boolean
 }>
 export type FilterCatalog = Readonly<{ revision: bigint; nextKey: string; fields: readonly FilterField[] }>
 export const propertyComparisons = [
@@ -26,10 +27,12 @@ export type PropertyMatches = Readonly<{
 }>
 
 export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: string; schema: bigint },
-  session?: string): Promise<FilterCatalog> {
-  const url = after ? WireRoutes.PropertyFilterCatalog + '?' + new URLSearchParams({ after: after.key, schema: String(after.schema) })
-    : WireRoutes.PropertyFilterCatalog
-  return request(url, FrameType.PropertyFilterCatalog, bytes => {
+  session?: string, projection = false): Promise<FilterCatalog> {
+  const params = new URLSearchParams(after ? { after: after.key, schema: String(after.schema) } : undefined)
+  if (projection) params.set('projection', '1')
+  const url = `${WireRoutes.PropertyFilterCatalog}${params.size ? `?${params}` : ''}`
+  const frame = projection ? FrameType.PropertyProjectionCatalog : FrameType.PropertyFilterCatalog
+  return request(url, frame, bytes => {
     const input = new PodReader(bytes)
     const revision = input.i64(), nextKey = input.text(WireLimits.PropertyKeyBytes), count = input.i32()
     if (revision < 0n || (after && after.schema !== revision) || count < 0 || count > WireLimits.PropertyPageSize)
@@ -46,7 +49,13 @@ export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: strin
       const options: PropertyOption[] = []
       for (let option = 0; option < optionCount; option++)
         options.push({ id: input.uuid(), label: input.text(WireLimits.PropertyLabelBytes) })
-      fields.push({ id, revision: fieldRevision, machineKey, label, kind, enabled, deprecated, options })
+      const field = { id, revision: fieldRevision, machineKey, label, kind, enabled, deprecated, options }
+      if (projection) {
+        const searchEligible = input.bool(), sortable = input.bool()
+        if (searchEligible && (deprecated || kind !== 'text') || sortable && (deprecated || kind === 'article-reference' || kind === 'url'))
+          throw new ProtocolError('Invalid property projection flags')
+        fields.push({ ...field, searchEligible, sortable })
+      } else fields.push(field)
       previous = machineKey
     }
     input.finish()

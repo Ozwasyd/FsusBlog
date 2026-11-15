@@ -16,7 +16,7 @@ export function restoreCrlf(source: string): string {
   return source.replace(/\r\n?|\n/gu, '\r\n')
 }
 
-function validBoundary(source: string, offset: number): boolean {
+export function validBoundary(source: string, offset: number): boolean {
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) return false
   const before = source.charCodeAt(offset - 1)
   const after = source.charCodeAt(offset)

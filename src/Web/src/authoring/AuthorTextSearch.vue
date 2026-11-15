@@ -2,9 +2,12 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextHeadingSearch, authorTextPropertyFacetSearch, authorTextSummarySearch } from '../../../Contracts/author-text-ranked-client'
+import {
+  authorTextHeadingSearch, authorTextPropertyFacetSearch, authorTextPropertySortSearch, authorTextPropertyTextSearch,
+  authorTextSummarySearch,
+} from '../../../Contracts/author-text-ranked-client'
 import type {
-  AuthorTextFacetedPage, AuthorTextPropertyFacet, AuthorTextQualifiedQuery, AuthorTextSearchRow,
+  AuthorTextFacetedPage, AuthorTextPropertyFacet, AuthorTextPropertySortQuery, AuthorTextQualifiedQuery, AuthorTextSearchRow,
 } from '../../../Contracts/author-text-search'
 import { ProtocolError } from '../../../Contracts/aeds'
 import { ApiError } from '../../../Contracts/client'
@@ -13,14 +16,18 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerHistoricalSearchEditorHandoff, offerSearchEditorHandoff } from './canvasEditorHandoff'
+import { rebaseSavedBodyHit } from './savedBodyInsertion'
 
-type FacetSelection = { schema: bigint; field: FilterField }
-type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'> & { includeHeading: boolean; facet?: FacetSelection }
+type PropertySelection = { schema: bigint; field: FilterField }
+type SortSelection = PropertySelection & { direction: AuthorTextPropertySortQuery['direction'] }
+type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'> & {
+  includeHeading: boolean; facet?: PropertySelection; sort?: SortSelection; textSource?: PropertySelection
+}
 type SearchReply = AuthorTextFacetedPage & { propertyFacet?: AuthorTextPropertyFacet }
 type SearchPage = SearchReply & { input: SearchInput; cursor: string; previous: readonly string[] }
 type FacetBucket = { key: string; label: string; count: number; condition?: PropertyCondition }
 const PreviousPageLimit = 500
-const fieldLabels = { title: '标题', body: '正文', summary: '摘要', heading: '章节标题' } as const
+const fieldLabels = { title: '标题', body: '正文', summary: '摘要', heading: '章节标题', 'property-text': '文本属性' } as const
 const states = [
   { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
   { value: 'published', label: '已发布' }, { value: 'retracted', label: '已撤回' },
@@ -43,7 +50,9 @@ const query = ref('')
 const updatedFrom = ref('')
 const updatedUntil = ref('')
 const properties = shallowRef<Pick<PropertyQuery, 'schema' | 'conditions'>>()
-const facet = shallowRef<FacetSelection>()
+const facet = shallowRef<PropertySelection>()
+const sort = shallowRef<SortSelection>()
+const textSource = shallowRef<PropertySelection>()
 const pending = shallowRef<AbortController>()
 const opening = shallowRef<Opening>()
 const result = shallowRef<SearchPage>()
@@ -66,13 +75,15 @@ function reset() {
   locationNotice.value = ''
 }
 
-watch([query, updatedFrom, updatedUntil, properties, facet], reset, { flush: 'sync' })
+watch([query, updatedFrom, updatedUntil, properties, facet, sort, textSource], reset, { flush: 'sync' })
 watch(credentialEpoch, () => {
   query.value = ''
   updatedFrom.value = ''
   updatedUntil.value = ''
   properties.value = undefined
   facet.value = undefined
+  sort.value = undefined
+  textSource.value = undefined
   reset()
 }, { flush: 'sync' })
 onBeforeUnmount(reset)
@@ -124,23 +135,37 @@ function search() {
     return
   }
   const text = query.value.trim()
+  const includeHeading = usesHeadingQualifier(text)
+  if (textSource.value && includeHeading) {
+    error.value = '请切换到文章全文搜索后使用章节标题限定词。'
+    return
+  }
   return loadPage({
-    query: text, includeHeading: usesHeadingQualifier(text), updatedFromUnixMs: from, updatedUntilUnixMs: until,
-    schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [], facet: facet.value,
+    query: text, includeHeading, updatedFromUnixMs: from, updatedUntilUnixMs: until,
+    schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [],
+    facet: textSource.value ? undefined : facet.value, sort: textSource.value ? undefined : sort.value,
+    textSource: textSource.value,
   }, '', [], false)
 }
 
-async function readPage({ includeHeading, facet, ...input }: SearchInput, cursor: string, session: string,
+async function readPage({ includeHeading, facet, sort, textSource, ...input }: SearchInput, cursor: string, session: string,
   signal: AbortSignal): Promise<SearchReply> {
-  if (!facet) {
+  const selectedProperty = textSource ?? sort ?? facet
+  if (!selectedProperty) {
     const read = includeHeading ? authorTextHeadingSearch : authorTextSummarySearch
     return read({ ...input, cursor }, session, signal)
   }
-  const { field, schema } = facet
-  if (input.schema && input.schema !== schema) throw new ProtocolError('Inconsistent property catalog revision')
-  const page = await authorTextPropertyFacetSearch({ search: { ...input, schema, cursor }, includeHeading,
-    definitionId: field.id, definitionRevision: field.revision }, session, signal)
-  if (!page.search.ready) return page.search
+  const { schema } = selectedProperty
+  if ((input.schema && input.schema !== schema) || (facet && facet.schema !== schema))
+    throw new ProtocolError('Inconsistent property catalog revision')
+  const search = { ...input, schema, cursor }
+  const selection = { definitionId: selectedProperty.field.id, definitionRevision: selectedProperty.field.revision }
+  if (textSource) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
+  const page = sort ? await authorTextPropertySortSearch({ search, includeHeading, ...selection, direction: sort.direction,
+    facet: facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null }, session, signal)
+    : await authorTextPropertyFacetSearch({ search, includeHeading, ...selection }, session, signal)
+  if (!facet || !page.search.ready) return page.search
+  const { field } = facet
   const matched = page.facet
   if (!matched || matched.definitionId !== field.id || matched.definitionRevision !== field.revision || matched.kind !== field.kind)
     throw new ProtocolError('Unexpected property facet coordinates')
@@ -196,6 +221,10 @@ function applyBucket(page: SearchPage, bucket: FacetBucket) {
 function queryAvailabilityError(input: SearchInput, failure: unknown): string | undefined {
   if (!(failure instanceof ApiError)) return
   if (input.includeHeading && failure.status === 422) return '有文章超出章节标题解析上限。仍可按标题、摘要或正文搜索。'
+  if (input.textSource && (failure.status === 404 || failure.status === 409))
+    return '文本属性搜索来源已失效。请重新加载属性定义。'
+  if (input.sort && (failure.status === 404 || failure.status === 409))
+    return input.facet ? '属性排序或分面已失效。请重新加载属性定义。' : '属性排序已失效。请重新加载属性定义。'
   if (input.facet && (failure.status === 404 || failure.status === 409))
     return '属性分面已失效。请重新加载属性定义。'
   if (input.conditions.length > 0 && (failure.status === 404 || failure.status === 409))
@@ -279,16 +308,18 @@ function sameMatch(previous: AuthorTextSearchRow, fresh: AuthorTextSearchRow): b
     previous.sourceDigest.every((byte, offset) => byte === fresh.sourceDigest[offset])
 }
 
-async function openMatch(row: AuthorTextSearchRow, historical = false) {
+async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' | 'rebase' = 'current') {
+  if (row.field === 'property-text') return
   const session = currentSession.value
   const text = query.value.trim()
   const page = result.value
   const origin = router.currentRoute.value
   const now = Date.now()
-  const earlier = historical ? historicalMatch.value : undefined
+  const earlier = mode !== 'current' ? historicalMatch.value : undefined
   const expected = earlier?.latest ?? row
   if (!text || pending.value || opening.value || !page?.ready || !page.rows.includes(expected) ||
-    historical && (earlier?.saved !== row || earlier.page !== page) ||
+    mode !== 'current' && (earlier?.saved !== row || earlier.page !== page) ||
+    mode === 'rebase' && (row.field !== 'body' || expected.revision !== row.revision + 1n) ||
     !details.value?.open || !session?.canAuthor || !session.siteSessionId || session.expiresAt <= now) return
 
   const handle = session.siteSessionId
@@ -323,12 +354,13 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
       if (fresh.ready) {
         locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
         const latest = fresh.rows.find(candidate => candidate.id === row.id && candidate.revision > row.revision)
-        if (!earlier && latest) historicalMatch.value = { saved: row, latest, page: next }
+        if (!earlier && latest && latest.field !== 'property-text') historicalMatch.value = { saved: row, latest, page: next }
       }
       return
     }
 
     const match = earlier?.saved ?? confirmed
+    if (match.field === 'property-text') return
     const target = {
       articleId: match.id,
       revision: match.revision,
@@ -340,8 +372,20 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
       sourceDigest: match.sourceDigest.slice(),
       match: match.snippet.slice(match.highlightStart, match.highlightEnd),
     }
-    const token = earlier ? offerHistoricalSearchEditorHandoff(target, confirmed.revision, epoch, handle)
-      : offerSearchEditorHandoff(target, epoch, handle)
+    let token: string
+    if (mode === 'rebase') {
+      const rebased = await rebaseSavedBodyHit(target, confirmed.revision, handle, signal)
+      if (!current()) return
+      signal.throwIfAborted()
+      if (!rebased) {
+        locationNotice.value = '此命中没有可用的跨修订编辑记录，可以查看原保存修订。'
+        return
+      }
+      token = offerSearchEditorHandoff(rebased, epoch, handle)
+    } else {
+      token = earlier ? offerHistoricalSearchEditorHandoff(target, confirmed.revision, epoch, handle)
+        : offerSearchEditorHandoff(target, epoch, handle)
+    }
     operation.token = token
     // The router commits history state before running afterEach and before the view unmounts.
     const stop = router.afterEach((to, from, failure) => {
@@ -381,8 +425,12 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
     <summary>作者全文搜索</summary>
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
       <p id="author-text-search-help">
-        可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题、<code>field.markdown-body:</code> 限定正文，
-        <code>field.summary:</code> 限定摘要，<code>field.heading:</code> 限定章节标题。
+        可组合关键词和英文双引号短语。
+        <template v-if="!textSource">
+          用 <code>field.title:</code> 限定标题、<code>field.markdown-body:</code> 限定正文，
+          <code>field.summary:</code> 限定摘要，<code>field.heading:</code> 限定章节标题。
+        </template>
+        <template v-else>关键词仅匹配所选文本属性。</template>
         可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
       </p>
       <ElInput ref="queryInput" v-model="query" label="全文搜索词" clearable
@@ -393,7 +441,7 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
         <ElInput v-model="updatedUntil" type="date" label="更新截止日期（不含）" />
       </fieldset>
       <AuthorPropertyFilter ref="propertyControls" embedded @conditions-change="properties = $event"
-        @facet-change="facet = $event" @edit="reset" />
+        @facet-change="facet = $event" @sort-change="sort = $event" @text-source-change="textSource = $event" @edit="reset" />
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
         {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
       </ElButton>
@@ -401,13 +449,19 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
     <p v-if="opening" role="status">正在复查{{ fieldLabels[opening.row.field] }}命中位置…</p>
     <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <ElButton v-if="historicalMatch" text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
-      @click="openMatch(historicalMatch.saved, true)">查看原保存修订的命中位置</ElButton>
+      @click="openMatch(historicalMatch.saved, 'history')">查看原保存修订的命中位置</ElButton>
+    <ElButton v-if="historicalMatch?.saved.field === 'body' && historicalMatch.latest.revision === historicalMatch.saved.revision + 1n"
+      text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
+      @click="openMatch(historicalMatch.saved, 'rebase')">在新修订中重新定位</ElButton>
     <p v-if="pending" role="status">正在搜索全文…</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
     <p v-else-if="stalePage" role="status">搜索结果已变化，请从第一页重新搜索。</p>
     <p v-else-if="result?.ready === false" role="status">索引正在更新，选择「继续搜索」处理下一批文章。</p>
     <section v-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!pending || !!opening">
       <p role="status">共 {{ result.total }} 篇</p>
+      <p v-if="result.input.sort">
+        按 <span dir="auto">{{ result.input.sort.field.label }}</span> {{ result.input.sort.direction === 'ascending' ? '升序' : '降序' }}
+      </p>
       <div v-if="result.total" class="author-text-search-facets">
         <dl aria-label="状态分面">
           <div v-for="(state, index) in states" :key="state.value">
@@ -451,9 +505,11 @@ async function openMatch(row: AuthorTextSearchRow, historical = false) {
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
-          <span class="author-text-search-field">{{ fieldLabels[row.field] }}</span>
+          <span class="author-text-search-field" dir="auto">{{ row.field === 'property-text'
+            ? result.input.textSource?.field.label : fieldLabels[row.field] }}</span>
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
-          <ElButton text native-type="button" v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
+          <ElButton v-if="row.field !== 'property-text'" text native-type="button"
+            v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
             跳到命中位置
           </ElButton>
         </li>

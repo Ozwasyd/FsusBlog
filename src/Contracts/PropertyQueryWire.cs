@@ -24,37 +24,52 @@ public static partial class Wire
     public static byte[] EncodePropertyFilterCatalog(PropertyFilterCatalog catalog)
     {
         var writer = new Writer();
-        writer.I64(catalog.SchemaRevision);
-        writer.Text(catalog.NextKey, WireLimits.PropertyKeyBytes);
-        writer.I32(catalog.Fields.Count);
-        foreach (var field in catalog.Fields)
-        {
-            writer.Uuid(field.Id);
-            writer.I64(field.Revision);
-            writer.Text(field.MachineKey, WireLimits.PropertyKeyBytes);
-            writer.Text(field.Label, WireLimits.PropertyLabelBytes);
-            writer.I32((int)field.Kind);
-            writer.Bool(field.Enabled);
-            writer.Bool(field.Deprecated);
-            WriteOptions(writer, field.Options);
-        }
+        WritePropertyCatalogHeader(writer, catalog.SchemaRevision, catalog.NextKey, catalog.Fields.Count);
+        foreach (var field in catalog.Fields) WritePropertyFilterField(writer, field);
         return Aeds.Encode(FrameType.PropertyFilterCatalog, writer.Written);
     }
 
     public static PropertyFilterCatalog DecodePropertyFilterCatalog(ReadOnlySpan<byte> frame)
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyFilterCatalog));
+        var (revision, next, count) = ReadPropertyCatalogHeader(ref reader);
+        var fields = new PropertyFilterField[count];
+        for (var i = 0; i < count; i++) fields[i] = ReadPropertyFilterField(ref reader);
+        reader.Finish();
+        return new(revision, next, fields);
+    }
+
+    private static void WritePropertyCatalogHeader(Writer writer, long revision, string next, int count)
+    {
+        writer.I64(revision);
+        writer.Text(next, WireLimits.PropertyKeyBytes);
+        writer.I32(count);
+    }
+
+    private static (long Revision, string Next, int Count) ReadPropertyCatalogHeader(ref Reader reader)
+    {
         var revision = reader.I64();
         var next = reader.Text(WireLimits.PropertyKeyBytes);
         var count = reader.I32();
         if (revision < 0 || count < 0 || count > WireLimits.PropertyPageSize) throw InvalidProperty();
-        var fields = new PropertyFilterField[count];
-        for (var i = 0; i < count; i++)
-            fields[i] = new(reader.Uuid(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes),
-                reader.Text(WireLimits.PropertyLabelBytes), ReadKind(ref reader), reader.Bool(), reader.Bool(), ReadOptions(ref reader));
-        reader.Finish();
-        return new(revision, next, fields);
+        return (revision, next, count);
     }
+
+    private static void WritePropertyFilterField(Writer writer, PropertyFilterField field)
+    {
+        writer.Uuid(field.Id);
+        writer.I64(field.Revision);
+        writer.Text(field.MachineKey, WireLimits.PropertyKeyBytes);
+        writer.Text(field.Label, WireLimits.PropertyLabelBytes);
+        writer.I32((int)field.Kind);
+        writer.Bool(field.Enabled);
+        writer.Bool(field.Deprecated);
+        WriteOptions(writer, field.Options);
+    }
+
+    private static PropertyFilterField ReadPropertyFilterField(ref Reader reader) =>
+        new(reader.Uuid(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes), reader.Text(WireLimits.PropertyLabelBytes),
+            ReadKind(ref reader), reader.Bool(), reader.Bool(), ReadOptions(ref reader));
 
     public static byte[] EncodePropertyArticleQuery(PropertyArticleQuery input)
     {

@@ -186,6 +186,13 @@ export const FrameType = {
   AuthorTextHeadingPage: 33021,
   AuthorTextPropertyFacetQuery: 33022,
   AuthorTextPropertyFacetPage: 33023,
+  AuthorTextPropertySortQuery: 33026,
+  AuthorTextPropertySortPage: 33027,
+  PropertyProjectionCatalog: 33028,
+  AuthorTextPropertyTextQuery: 33029,
+  AuthorTextPropertyTextPage: 33030,
+  ArticleBodyInsertionCommand: 33032,
+  DraftRevisionBodyInsertion: 33033,
   PropertyDefinitionProjectionCommand: 33024,
   PropertyDefinitionProjection: 33025,
   DraftTaxonomy: 32790,
@@ -255,6 +262,9 @@ export const WireLimits = {
   MaxAuthorTextRankedQueryFrameBytes: 792,
   MaxAuthorTextQualifiedQueryFrameBytes: 263110,
   MaxAuthorTextPropertyFacetQueryFrameBytes: 263135,
+  MaxAuthorTextPropertySortQueryFrameBytes: 263161,
+  MaxAuthorTextPropertyTextQueryFrameBytes: 263134,
+  AuthorTextPropertyTextSourceChars: 16384,
   AuthorTextSearchRows: 20,
   AuthorTextSearchStateCount: 4,
   AuthorTextSearchFacetRows: 12,
@@ -323,6 +333,8 @@ export const WireLimits = {
   RecoveryKeyVerifyFrameBytes: 100,
   RecoveryKeyOperationFrameBytes: 20,
   MaxCommandFrameBytes: 1048884,
+  MaxArticleBodyInsertionCommandFrameBytes: 1048892,
+  ArticleBodyInsertionDigestBytes: 64,
   RevisionHistoryPageSize: 20,
   RevisionHistoryCursorChars: 54,
   RollbackReasonBytes: 2000,
@@ -2568,6 +2580,89 @@ export function decodeArticleCommand(payload: Uint8Array): ArticleCommand {
     expectedRevision: reader.i64(),
     idempotencyKey: reader.uuid(),
     title: reader.text(WireLimits.TitleBytes),
+    body: reader.text(WireLimits.BodyBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface ArticleBodyInsertionCommand {
+  id: number;
+  expectedRevision: bigint;
+  idempotencyKey: string;
+  title: string;
+  body: string;
+  offset: number;
+  length: number;
+}
+
+export function encodeArticleBodyInsertionCommand(value: ArticleBodyInsertionCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.expectedRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.text(value.title, WireLimits.TitleBytes);
+  writer.text(value.body, WireLimits.BodyBytes);
+  writer.i32(value.offset);
+  writer.i32(value.length);
+  return writer.finish();
+}
+
+export function decodeArticleBodyInsertionCommand(payload: Uint8Array): ArticleBodyInsertionCommand {
+  const reader = new PodReader(payload);
+  const value: ArticleBodyInsertionCommand = {
+    id: reader.i32(),
+    expectedRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    title: reader.text(WireLimits.TitleBytes),
+    body: reader.text(WireLimits.BodyBytes),
+    offset: reader.i32(),
+    length: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface DraftRevisionBodyInsertion {
+  id: number;
+  revision: bigint;
+  sourceRevision: bigint;
+  available: boolean;
+  offset: number;
+  length: number;
+  sourceDigest: string;
+  digest: string;
+  sourceBody: string;
+  body: string;
+}
+
+export function encodeDraftRevisionBodyInsertion(value: DraftRevisionBodyInsertion): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.id);
+  writer.i64(value.revision);
+  writer.i64(value.sourceRevision);
+  writer.bool(value.available);
+  writer.i32(value.offset);
+  writer.i32(value.length);
+  writer.text(value.sourceDigest, WireLimits.ArticleBodyInsertionDigestBytes);
+  writer.text(value.digest, WireLimits.ArticleBodyInsertionDigestBytes);
+  writer.text(value.sourceBody, WireLimits.BodyBytes);
+  writer.text(value.body, WireLimits.BodyBytes);
+  return writer.finish();
+}
+
+export function decodeDraftRevisionBodyInsertion(payload: Uint8Array): DraftRevisionBodyInsertion {
+  const reader = new PodReader(payload);
+  const value: DraftRevisionBodyInsertion = {
+    id: reader.i32(),
+    revision: reader.i64(),
+    sourceRevision: reader.i64(),
+    available: reader.bool(),
+    offset: reader.i32(),
+    length: reader.i32(),
+    sourceDigest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
+    digest: reader.text(WireLimits.ArticleBodyInsertionDigestBytes),
+    sourceBody: reader.text(WireLimits.BodyBytes),
     body: reader.text(WireLimits.BodyBytes),
   };
   reader.finish();

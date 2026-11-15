@@ -60,6 +60,9 @@ inline constexpr uint32_t AuthorTextRankedCursorChars = 256;
 inline constexpr uint32_t MaxAuthorTextRankedQueryFrameBytes = 792;
 inline constexpr uint32_t MaxAuthorTextQualifiedQueryFrameBytes = 263110;
 inline constexpr uint32_t MaxAuthorTextPropertyFacetQueryFrameBytes = 263135;
+inline constexpr uint32_t MaxAuthorTextPropertySortQueryFrameBytes = 263161;
+inline constexpr uint32_t MaxAuthorTextPropertyTextQueryFrameBytes = 263134;
+inline constexpr uint32_t AuthorTextPropertyTextSourceChars = 16384;
 inline constexpr uint32_t AuthorTextSearchRows = 20;
 inline constexpr uint32_t AuthorTextSearchStateCount = 4;
 inline constexpr uint32_t AuthorTextSearchFacetRows = 12;
@@ -128,6 +131,8 @@ inline constexpr uint32_t RecoveryKeyBytes = 80;
 inline constexpr uint32_t RecoveryKeyVerifyFrameBytes = 100;
 inline constexpr uint32_t RecoveryKeyOperationFrameBytes = 20;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
+inline constexpr uint32_t MaxArticleBodyInsertionCommandFrameBytes = 1048892;
+inline constexpr uint32_t ArticleBodyInsertionDigestBytes = 64;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
 inline constexpr uint32_t RollbackReasonBytes = 2000;
@@ -555,6 +560,13 @@ enum class FrameType : uint16_t {
     AuthorTextHeadingPage = 33021,
     AuthorTextPropertyFacetQuery = 33022,
     AuthorTextPropertyFacetPage = 33023,
+    AuthorTextPropertySortQuery = 33026,
+    AuthorTextPropertySortPage = 33027,
+    PropertyProjectionCatalog = 33028,
+    AuthorTextPropertyTextQuery = 33029,
+    AuthorTextPropertyTextPage = 33030,
+    ArticleBodyInsertionCommand = 33032,
+    DraftRevisionBodyInsertion = 33033,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -754,6 +766,13 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextHeadingPage:
         case FrameType::AuthorTextPropertyFacetQuery:
         case FrameType::AuthorTextPropertyFacetPage:
+        case FrameType::AuthorTextPropertySortQuery:
+        case FrameType::AuthorTextPropertySortPage:
+        case FrameType::PropertyProjectionCatalog:
+        case FrameType::AuthorTextPropertyTextQuery:
+        case FrameType::AuthorTextPropertyTextPage:
+        case FrameType::ArticleBodyInsertionCommand:
+        case FrameType::DraftRevisionBodyInsertion:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

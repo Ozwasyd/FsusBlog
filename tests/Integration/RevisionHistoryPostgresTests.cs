@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
@@ -105,6 +106,42 @@ public sealed class RevisionHistoryPostgresTests
         await Request(HttpMethod.Post, WireRoutes.Publish, owner.Token,
             Wire.EncodeArticleCommand(new(article.Id, restored.Revision, Guid.NewGuid(), "", "")));
         Assert.Contains("First body", await server.Client.GetStringAsync($"/article/{article.Id}", ct));
+
+        var basis = await Write(0, 0, "Private insertion", "首行 🚢\r\n\r\n正文 marker.");
+        const string inserted = "**Earlier**\r\n\r\n";
+        var mappedCommand = new ArticleBodyInsertionCommand(basis.Id, basis.Revision, Guid.NewGuid(), basis.Title,
+            inserted + basis.Body, 0, inserted.Length);
+        var mappedBytes = Wire.EncodeArticleBodyInsertionCommand(mappedCommand);
+        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, mappedBytes, HttpStatusCode.Conflict, ownerHandle);
+        var impossible = Wire.EncodeArticleBodyInsertionCommand(mappedCommand with { Offset = 1 });
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.BadRequest, ownerHandle);
+        await Execute("alter table public.article_body_insertion add constraint test_abort_insertion check (length_utf16 < 0)");
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, HttpStatusCode.ServiceUnavailable, ownerHandle);
+        Assert.Equal(basis.Revision, await Scalar<long>("select revision from public.article where id=$1", basis.Id));
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", mappedCommand.IdempotencyKey));
+        await Execute("alter table public.article_body_insertion drop constraint test_abort_insertion");
+        var newDraftBytes = await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: ownerHandle);
+        Assert.Equal(newDraftBytes, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, handle: ownerHandle));
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.Conflict, ownerHandle);
+        var newDraft = Wire.DecodeDraft(newDraftBytes);
+        var mapPath = WireRoutes.DraftRevisionComparison.Replace("{id:int}", basis.Id.ToString())
+            .Replace("{sourceRevision:long}", basis.Revision.ToString()) + $"?revision={newDraft.Revision}&map=body-insertion";
+        await Request(HttpMethod.Get, mapPath, owner.Token, status: HttpStatusCode.Conflict);
+        await Request(HttpMethod.Get, mapPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsiderHandle);
+        var map = Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: ownerHandle));
+        Assert.Equal(new DraftRevisionBodyInsertion(basis.Id, newDraft.Revision, basis.Revision, true, 0, inserted.Length,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(basis.Body))),
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(newDraft.Body))), basis.Body, newDraft.Body), map);
+        Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_body_insertion where article_id=$1", basis.Id));
+        await Execute("update public.article_body_insertion set body_digest=decode(repeat('11',32),'hex') where article_id=$1", basis.Id);
+        Assert.False(Wire.DecodeDraftRevisionBodyInsertion(await Request(HttpMethod.Get, mapPath, owner.Token, handle: ownerHandle)).Available);
+
+        var twin = await Write(0, 0, "Ambiguous insertion", "aa");
+        var twinCommand = new ArticleBodyInsertionCommand(twin.Id, twin.Revision, Guid.NewGuid(), twin.Title, "aaa", 0, 1);
+        var twinSaved = Wire.DecodeDraft(await Request(HttpMethod.Post, WireRoutes.Save, owner.Token,
+            Wire.EncodeArticleBodyInsertionCommand(twinCommand), handle: ownerHandle));
+        Assert.Equal("aaa", twinSaved.Body);
+        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_body_insertion where article_id=$1", twin.Id));
 
         async Task<(string Token, FsusBlog.V2.Core.Identity User)> SignIn(string name, bool author, Guid? user = null)
         {

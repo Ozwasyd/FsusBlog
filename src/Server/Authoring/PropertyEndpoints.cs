@@ -43,7 +43,13 @@ internal static class PropertyEndpoints
         app.MapGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[cookie];
-            var expected = SiteSessions.Requested(ctx);
+            var projection = query(ctx, "projection", 1) switch
+            {
+                null => false,
+                "1" => true,
+                _ => throw new BusinessException(Rejection.Invalid, "Invalid property catalog mode."),
+            };
+            var expected = SiteSessions.Requested(ctx) ?? (projection ? "" : null);
             var after = query(ctx, "after", WireLimits.PropertyKeyBytes);
             var schema = query(ctx, "schema", 19);
             long version = 0;
@@ -54,10 +60,12 @@ internal static class PropertyEndpoints
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
                 SiteSessions.IfCurrent(actor.Id, token, expected);
-                var catalog = await new PropertyStore(db, tx, actor).Catalog(after, version, ct);
+                var properties = new PropertyStore(db, tx, actor);
+                var catalog = projection ? Wire.EncodePropertyProjectionCatalog(await properties.ProjectionCatalog(after, version, ct))
+                    : Wire.EncodePropertyFilterCatalog(await properties.Catalog(after, version, ct));
                 ct.ThrowIfCancellationRequested();
                 SiteSessions.IfCurrent(actor.Id, token, expected);
-                return Results.Bytes(Wire.EncodePropertyFilterCatalog(catalog), Aeds.ContentType);
+                return Results.Bytes(catalog, Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");
         MapSession(WireRoutes.PropertyArticleQuery, async (store, actor, ctx, frame, session, ct) =>

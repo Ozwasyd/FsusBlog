@@ -9,6 +9,10 @@ import {
   decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, encodeAuthorTextHeadingQuery,
   decodeAuthorTextPropertyFacetPage, decodeAuthorTextPropertyFacetQuery, encodeAuthorTextPropertyFacetQuery,
   type AuthorTextPropertyFacetQuery,
+  decodeAuthorTextPropertySortPage, decodeAuthorTextPropertySortQuery, encodeAuthorTextPropertySortQuery,
+  type AuthorTextPropertySortQuery,
+  decodeAuthorTextPropertyTextPage, decodeAuthorTextPropertyTextQuery, encodeAuthorTextPropertyTextQuery,
+  type AuthorTextPropertyTextQuery,
   encodeAuthorTextRankedPage, encodeAuthorTextRankedQuery, type AuthorTextSearchRow, type AuthorTextTaxonomyFacet,
 } from '../../src/Contracts/author-text-search.ts';
 import type { FilterField } from '../../src/Contracts/property-query.ts';
@@ -418,4 +422,133 @@ test('property facet response counts overlapping multi-select options under exac
     selectedPayload(5, 1, [0], ['00000000-0000-0000-0000-000000000000']),
     selectedPayload(5, 1, new Array(33).fill(0), optionIds),
   ]) throws(() => decodeAuthorTextPropertyFacetPage(payload), ProtocolError);
+});
+
+
+const propertySortQuery: AuthorTextPropertySortQuery = {
+  ...propertyFacetQuery,
+  includeHeading: true,
+  direction: 'descending',
+  facet: { definitionId: numberProperty.id, definitionRevision: 4n },
+};
+
+test('property sort binds both selected revisions, direction and heading mode in one schema', () => {
+  const golden = Buffer.from(
+    '050000004f726269740000000000000a000000000000000000000001111111111111411181111111111111110300000000000000' +
+    '010112345678123440009000123456789abc0400000000000000',
+    'hex');
+  const frame = encodeAuthorTextPropertySortQuery(propertySortQuery);
+  equal(FrameType.AuthorTextPropertySortQuery, 33026);
+  const { payload } = decodeFrame(frame, FrameType.AuthorTextPropertySortQuery);
+  deepEqual(Buffer.from(payload), golden);
+  deepEqual(decodeAuthorTextPropertySortQuery(golden), propertySortQuery);
+  throws(() => decodeFrame(frame, FrameType.AuthorTextPropertyFacetQuery), ProtocolError);
+
+  const ascending = { ...propertySortQuery, direction: 'ascending', facet: null } as const;
+  const noFacet = decodeFrame(encodeAuthorTextPropertySortQuery(ascending)).payload;
+  deepEqual(decodeAuthorTextPropertySortQuery(noFacet), ascending);
+  deepEqual(noFacet.subarray(-2), Uint8Array.of(0, 0));
+
+  const filtered = decodeFrame(encodeAuthorTextPropertySortQuery({ ...propertySortQuery, search: qualified })).payload;
+  deepEqual(filtered.subarray(0, -51), decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload);
+  for (const offset of [27, 52, 53]) {
+    const invalid = Buffer.from(golden);
+    invalid[offset] = 2;
+    throws(() => decodeAuthorTextPropertySortQuery(invalid), ProtocolError);
+  }
+  throws(() => decodeAuthorTextPropertySortQuery(golden.subarray(0, -1)), ProtocolError);
+  for (const invalid of [
+    { ...propertySortQuery, search: { ...propertySortQuery.search, schema: 0n } },
+    { ...propertySortQuery, definitionRevision: 11n },
+    { ...propertySortQuery, facet: { ...propertySortQuery.facet!, definitionRevision: 11n } },
+    { ...propertySortQuery, facet: { ...propertySortQuery.facet!, definitionId: '00000000-0000-0000-0000-000000000000' } },
+  ]) throws(() => encodeAuthorTextPropertySortQuery(invalid), ProtocolError);
+});
+
+test('property sort page retains existing row bytes and exposes only the optional property facet', () => {
+  // Independently packed optional facet bytes: definition, revision, Boolean kind, then missing/null/empty and both buckets.
+  const facetBytes = Buffer.from(
+    '111111111111411181111111111111110300000000000000020000000100000002000000000000000200000000010000000100000000',
+    'hex');
+  const base = facetedPayload({ total: 4, states: [4, 0, 0, 0], rows: [row, { ...row, id: 17 }] });
+  equal(FrameType.AuthorTextPropertySortPage, 33027);
+  const absent = Buffer.concat([base, Uint8Array.of(0)]);
+  const present = Buffer.concat([base, Uint8Array.of(1), facetBytes]);
+  const expected = decodeAuthorTextFacetedPage(base);
+  deepEqual(decodeAuthorTextPropertySortPage(absent, false, false), { search: expected, facet: null });
+  deepEqual(decodeAuthorTextPropertySortPage(present, false, true),
+    decodeAuthorTextPropertyFacetPage(Buffer.concat([base, facetBytes]), false));
+  deepEqual(decodeAuthorTextPropertySortPage(absent).search.rows.map(match => match.id), [4, 17]);
+  throws(() => decodeAuthorTextPropertySortPage(present, false, false), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(absent, false, true), ProtocolError);
+  throws(() => decodeAuthorTextPropertyFacetPage(present), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([base, Uint8Array.of(2)])), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(base), ProtocolError);
+
+  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  equal(decodeAuthorTextPropertySortPage(pending, false, true).facet, null);
+  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([pending, Uint8Array.of(0)])), ProtocolError);
+
+  const heading = Buffer.from(absent);
+  heading.writeInt32LE(4, 61); // First row field code follows the six-byte title.
+  equal(decodeAuthorTextPropertySortPage(heading, true).search.rows[0].field, 'heading');
+  throws(() => decodeAuthorTextPropertySortPage(heading, false), ProtocolError);
+});
+
+
+test('property text query carries its exact definition coordinates under the existing qualified schema', () => {
+  const golden = Buffer.from(
+    '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000',
+    'hex');
+  const query: AuthorTextPropertyTextQuery = {
+    search: propertyFacetQuery.search, definitionId: propertyFacetQuery.definitionId, definitionRevision: 3n,
+  };
+  const frame = encodeAuthorTextPropertyTextQuery(query);
+  equal(FrameType.AuthorTextPropertyTextQuery, 33029);
+  deepEqual(Buffer.from(decodeFrame(frame, FrameType.AuthorTextPropertyTextQuery).payload), golden);
+  deepEqual(decodeAuthorTextPropertyTextQuery(golden), query);
+  throws(() => decodeFrame(frame, FrameType.AuthorTextPropertySortQuery), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQuery(golden.subarray(0, -1)), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQuery(Buffer.concat([golden, Uint8Array.of(0)])), ProtocolError);
+
+  const filtered = decodeFrame(encodeAuthorTextPropertyTextQuery({ ...query, search: qualified })).payload;
+  deepEqual(filtered.subarray(0, -24), decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload);
+  for (const invalid of [
+    { ...query, search: { ...query.search, schema: 0n } },
+    { ...query, definitionRevision: 0n },
+    { ...query, definitionRevision: 11n },
+    { ...query, definitionId: '00000000-0000-0000-0000-000000000000' },
+  ]) throws(() => encodeAuthorTextPropertyTextQuery(invalid), ProtocolError);
+});
+
+test('property text page uses closed field 5 with independent UTF-16 and UTF-8 source limits', () => {
+  // Packed independently from a source of 16,379 copies of 北 followed by Orbit.
+  const payload = Buffer.from(
+    '0100000000010000000100000000000000000000000000000000000000000000000000010000000400000017' +
+    '0000000000000006000000486172626f7205000000050000004f726269740000000005000000fb3f00000040' +
+    '0000f1bf0000f6bf000088c0ad4bb018b4f9fa932dff490c9616d779ca27e05d87a6288d37483d5a0ddd',
+    'hex');
+  equal(FrameType.AuthorTextPropertyTextPage, 33030);
+  const page = decodeAuthorTextPropertyTextPage(payload);
+  deepEqual(page.rows.map(({ sourceDigest, ...match }) => ({ ...match, digest: Buffer.from(sourceDigest).toString('hex') })), [{
+    id: 4, revision: 23n, title: 'Harbor', field: 'property-text', snippet: 'Orbit', highlightStart: 0, highlightEnd: 5,
+    sourceStart: 16_379, sourceEnd: 16_384, sourceByteStart: 49_137, sourceByteEnd: 49_142,
+    digest: '88c0ad4bb018b4f9fa932dff490c9616d779ca27e05d87a6288d37483d5a0ddd',
+  }]);
+  throws(() => decodeAuthorTextHeadingPage(payload), ProtocolError);
+  throws(() => decodeAuthorTextPropertyFacetPage(payload), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([payload, Uint8Array.of(0)])), ProtocolError);
+  throws(() => encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: page.rows }), ProtocolError);
+  const body = Buffer.from(payload);
+  body.writeInt32LE(2, 61);
+  equal(decodeAuthorTextHeadingPage(body).rows[0].field, 'body');
+  throws(() => decodeAuthorTextPropertyTextPage(body), ProtocolError);
+  for (const [start, limit] of [[82, WireLimits.AuthorTextPropertyTextSourceChars], [90, WireLimits.PropertyValueBytes]]) {
+    const invalid = Buffer.from(payload);
+    invalid.writeInt32LE(limit - 4, start);
+    invalid.writeInt32LE(limit + 1, start + 4);
+    throws(() => decodeAuthorTextPropertyTextPage(invalid), ProtocolError);
+  }
+  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  equal(decodeAuthorTextPropertyTextPage(pending).ready, false);
 });

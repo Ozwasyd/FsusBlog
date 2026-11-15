@@ -52,6 +52,27 @@ test('an exact reference cannot replace a ready tab with an unwitnessed newer re
   assert.equal(registry.activeDraft?.id, 2)
 })
 
+test('an uncertain save freezes its one body insertion and later edits cannot reuse the witness', async () => {
+  const calls: Array<{ key: string; body: string; insertion: unknown }> = []
+  const registry = setup({ save: async (item, _signal, key, insertion) => {
+    calls.push({ key, body: item.body, insertion })
+    if (calls.length === 1) return { kind: 'blocked', reason: 'unavailable' }
+    return { kind: 'saved', draft: { ...item, revision: item.revision + 1n } }
+  } })
+  const tab = await activate(registry, 1)
+  const insertion = { offset: 0, length: 4 }
+  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source'), insertion))
+  insertion.offset = 5
+  assert.equal((await registry.save(tab)).kind, 'blocked')
+  assert(registry.updateDraft(tab, draft(1, 1n, 'new same source plus unsaved changes'), { offset: 15, length: 21 }))
+  assert.equal((await registry.retry(tab)).kind, 'saved')
+  assert.deepEqual(calls[0], { key: calls[1]!.key, body: 'new same source', insertion: { offset: 0, length: 4 } })
+  assert.deepEqual(calls[1], calls[0])
+  assert.equal((await registry.save(tab)).kind, 'saved')
+  assert.equal(calls[2]?.body, 'new same source plus unsaved changes')
+  assert.equal(calls[2]?.insertion, undefined)
+})
+
 test('an exact reference rechecks a ready source and preserves dirty and stale state', async () => {
   let currentRevision = 2n
   let loads = 0

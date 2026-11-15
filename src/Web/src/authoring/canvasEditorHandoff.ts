@@ -14,6 +14,7 @@ export type SearchEditorTarget = Readonly<{
   sourceByteEnd: number
   sourceDigest: Uint8Array
   match: string
+  precision?: 'rebased'
 }>
 
 export type EditorSourceTarget =

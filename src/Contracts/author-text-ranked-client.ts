@@ -4,6 +4,9 @@ import {
   encodeAuthorTextQualifiedQuery, decodeAuthorTextSummaryPage, encodeAuthorTextSummaryQuery,
   decodeAuthorTextHeadingPage, encodeAuthorTextHeadingQuery,
   decodeAuthorTextPropertyFacetPage, encodeAuthorTextPropertyFacetQuery,
+  decodeAuthorTextPropertySortPage, encodeAuthorTextPropertySortQuery,
+  decodeAuthorTextPropertyTextPage, encodeAuthorTextPropertyTextQuery, type AuthorTextPropertyTextQuery,
+  type AuthorTextPropertySortPage, type AuthorTextPropertySortQuery,
   type AuthorTextPropertyFacetPage, type AuthorTextPropertyFacetQuery,
   type AuthorTextFacetedPage, type AuthorTextQualifiedQuery,
   type AuthorTextRankedPage, type AuthorTextRankedQuery,
@@ -51,4 +54,19 @@ export function authorTextPropertyFacetSearch(
   return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyFacetPage,
     payload => decodeAuthorTextPropertyFacetPage(payload, input.includeHeading), signal, 'POST',
     encodeAuthorTextPropertyFacetQuery(input), siteSessionHeader(session));
+}
+
+export function authorTextPropertySortSearch(
+  input: AuthorTextPropertySortQuery, session: string, signal: AbortSignal,
+): Promise<AuthorTextPropertySortPage> {
+  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertySortPage,
+    payload => decodeAuthorTextPropertySortPage(payload, input.includeHeading, input.facet !== null), signal, 'POST',
+    encodeAuthorTextPropertySortQuery(input), siteSessionHeader(session));
+}
+
+export function authorTextPropertyTextSearch(
+  input: AuthorTextPropertyTextQuery, session: string, signal: AbortSignal,
+): Promise<AuthorTextFacetedPage> {
+  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextPage, decodeAuthorTextPropertyTextPage,
+    signal, 'POST', encodeAuthorTextPropertyTextQuery(input), siteSessionHeader(session));
 }

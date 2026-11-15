@@ -5,7 +5,7 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3, Heading = 4 }
+internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3, Heading = 4, PropertyText = 5 }
 internal sealed record AuthorTextClause(AuthorTextField Field, bool Phrase, string[] Terms);
 internal sealed record AuthorTextQuery(AuthorTextClause[] Clauses);
 internal sealed record AuthorTextFacetedQuery(AuthorTextQuery Text, AuthorArticleState? Status, int? CategoryId, int? TagId);
@@ -54,7 +54,10 @@ internal static class AuthorTextProfile
 
     internal static AuthorTextFacetedQuery ParseHeading(string raw) => ParseQuery(raw, faceted: true, includeSummary: true, includeHeading: true);
 
-    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false, bool includeHeading = false)
+    internal static AuthorTextFacetedQuery ParsePropertyText(string raw) => ParseQuery(raw, faceted: true, propertyText: true);
+
+    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false, bool includeHeading = false,
+        bool propertyText = false)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
@@ -93,9 +96,10 @@ internal static class AuthorTextProfile
             }
             var field = prefix switch
             {
+                null or "field.property" when propertyText => AuthorTextField.PropertyText,
                 null => AuthorTextField.Any,
-                "field.title" => AuthorTextField.Title,
-                "field.markdown-body" => AuthorTextField.MarkdownBody,
+                "field.title" when !propertyText => AuthorTextField.Title,
+                "field.markdown-body" when !propertyText => AuthorTextField.MarkdownBody,
                 "field.summary" when includeSummary => AuthorTextField.Summary,
                 "field.heading" when includeHeading => AuthorTextField.Heading,
                 _ => throw InvalidQuery(),
@@ -106,7 +110,7 @@ internal static class AuthorTextProfile
             if (tokens.Length > remaining || tokens.Any(term => ByteCount(term.Value) > MaxTermBytes) ||
                 !phrase && tokens.Any(term => value.AsSpan(term.Start, term.End - term.Start) is "AND" or "OR" or "NOT" or "NEAR"))
                 throw InvalidQuery();
-            if ((phrase || field != AuthorTextField.Any) && tokens.Length == 0) throw InvalidQuery();
+            if ((phrase || prefix is not null) && tokens.Length == 0) throw InvalidQuery();
             remaining -= tokens.Length;
             var terms = tokens.Select(term => term.Value);
             var operands = (phrase ? terms : terms.Distinct(StringComparer.Ordinal)).ToArray();

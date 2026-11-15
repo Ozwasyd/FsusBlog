@@ -303,7 +303,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const prior = exactHit(old.batch, fixture, raw, 'body', bodyWord)
     const focus = jump()
     await focus.focus()
-    const revisedRaw = ['另一段 🚢', '', ...lines].join('\r\n')
+    let revisedRaw = ['另一段 🚢', '', ...lines].join('\r\n')
     fixture = await articleCommand(WireRoutes.Save, fixture.id, fixture.revision, savedTitle, revisedRaw)
     assert.equal(fixture.revision, prior.revision + 1n)
     await prepareCurrentIndex(page, old.response, fixture.revision)
@@ -318,6 +318,12 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(draftReads.length, beforeStale)
     assert.equal(await field('Title').count(), 0)
     assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
+
+    const rebase = page.getByRole('button', { name: '在新修订中重新定位', exact: true })
+    await rebase.press('Enter')
+    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+    assert.equal(page.url(), list)
+    assert.equal(draftReads.length, beforeStale)
 
     const viewHistorical = page.getByRole('button', { name: '查看原保存修订的命中位置', exact: true })
     await viewHistorical.waitFor()
@@ -350,12 +356,61 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await historical.waitFor({ state: 'hidden' })
     await field('Title').waitFor()
     await backToSearch()
+
+    const beforeInsertion = await search(bodyWord)
+    const parentHit = exactHit(beforeInsertion.batch, fixture, revisedRaw, 'body', bodyWord)
+    const writer = await publisher.context().newPage()
+    try {
+      monitor(writer, 'author-saved-body-insertion')
+      await writer.setViewportSize({ width: 375, height: 850 })
+      await writer.goto(editor)
+      const control = writer.getByLabel('Body', { exact: true })
+      await control.waitFor()
+      const editorBody = revisedRaw.replaceAll('\r\n', '\n')
+      await writer.waitForFunction(value => [...document.querySelectorAll('textarea')].some(text => text.value === value), editorBody)
+      await control.evaluate(input => { input.focus(); input.setSelectionRange(0, 0) })
+      await control.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b')
+      await writer.waitForFunction(value => [...document.querySelectorAll('textarea')].some(text => text.value === value), '**text**' + editorBody)
+      const saved = writer.waitForResponse(response => response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === WireRoutes.Save)
+      await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
+      const response = await saved
+      assert.equal(response.status(), 200)
+      decodeFrame(response.request().postDataBuffer(), FrameType.ArticleBodyInsertionCommand)
+      const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+      assert.equal(updated.revision, fixture.revision + 1n)
+      revisedRaw = '**text**' + revisedRaw
+      assert.equal(updated.body, revisedRaw)
+      fixture = updated
+    } finally {
+      await writer.close()
+    }
+    await prepareCurrentIndex(page, beforeInsertion.response, fixture.revision)
+    const refreshed = page.waitForResponse(isSearchReply)
+    await jump().press('Enter')
+    const insertionHit = exactHit(await readSearchReply(await refreshed), fixture, revisedRaw, 'body', bodyWord)
+    assert.equal(insertionHit.sourceStart - parentHit.sourceStart, '**text**'.length)
+    const mapped = page.waitForResponse(response => response.request().method() === 'GET' &&
+      new URL(response.url()).searchParams.get('map') === 'body-insertion')
+    const currentAfterMap = page.waitForResponse(isDraftReply)
+    await rebase.press('Enter')
+    const receipt = await mapped
+    assert.equal(receipt.status(), 200)
+    decodeFrame(await receipt.body(), FrameType.DraftRevisionBodyInsertion)
+    await expectSavedDraft(await currentAfterMap)
+    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    const shifted = revisedRaw.replaceAll('\r\n', '\n').indexOf(bodyWord)
+    const rebasedCaret = await field('Body').and(page.locator(':focus')).evaluate(input => [input.selectionStart, input.selectionEnd])
+    assert.deepEqual(rebasedCaret, [shifted, shifted])
+    await expectEditorHistory(true)
+    await backToSearch()
     await search(bodyWord)
 
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
     observations.push('Private full-text jump rechecks a real saved revision, places the native body caret through CRLF/Unicode, selects the exact title range, preserves the plain editor link, and leaves only a one-use opaque value in history.')
     observations.push('A concurrently saved revision keeps the stale browser action in the results with focus, and navigating to the trash during its real delayed current check cannot reopen the editor.')
     observations.push('At 375px an explicit historical search action rechecks the newer saved revision and selects the original CRLF/Unicode hit in a read-only dialog without replacing the current draft.')
+    observations.push('At 375px a saved FsusUI keyboard insertion rebases a CRLF/Unicode search hit into the next revision through the exact stored map. An unwitnessed revision still offers its verified historical source.')
   } finally {
     try {
       for (const article of [...pagingFixtures, ...(fixture ? [fixture] : [])]) {
