@@ -79,3 +79,9 @@
 冻结候选 `f14cb4d` 合并了公开图片选择、恢复和撤回，公开发布签名与浏览器验签，持久双组及移动合并，Canvas 视觉边转换，以及登录回复、申诉与批量审核。干净检出通过 116 项 Core、154 项默认 PostgreSQL 集成加单独启用的 1 项真实转储恢复、115 项 Node 检查、74 项协议 Node 检查、3 项 FSDL 和跨语言 2,821 项差分。迁移验证、PostgreSQL 物理备库及两应用正常退出均通过。
 
 从同一候选解包运行 9 组真实 Chrome 流程，包括通用应用、双组布局、作者列表、公开媒体、Caddy TLS 站内信、浏览器验签、评论申诉、回复及批量审核。逐组确认临时资源清理。Debian ARM64 对同包的 310 个文件独立校验，运行 PostgreSQL 17.12、.NET 10.0.15 的初次启动和重启，验证公开 HTML、AEDS 和索引同代、旧代拒绝以及重启索引字节一致。Git bundle 导入空仓库并确认 254 个提交。计入 774 个文件、127,816 规范化 NCLOC。 [发布包与联合证据](../artifacts/candidate-f14cb4d/) · [Linux 验证](../artifacts/candidate-f14cb4d/linux-default/native.log)
+
+冻结候选 `ecbff9d` 的独立构建和空仓导入验证了 311 个发布文件及 271 个 Git 提交。116 项 Core、169 项默认实库集成及 3 项单独启用的媒体恢复、Caddy 送出控制与签发日志用例通过。123 项 Node 测试、74 项协议 Node、3 项 FSDL、9 项 FSPT、跨语言测试和 2,821 项 JS/Wasm 差分通过。隔离首次发布迁移、物理备库接管和应用退出验证通过。
+
+同一解包产物通过 11 组 Chrome 验收，新增两页搜索语料的条件请求、TLS 阅读统计，以及通用流程中的统一 CRLF 准确定位和保存。11 组均核验临时资源清理。按原口径计入 822 个文件、134,890 NCLOC，距全功能代码量上限仍有 73,656 行。 [候选产物、构建和用例](../artifacts/candidate-ecbff9d/) · [附加实库用例](../artifacts/candidate-ecbff9d/optional-native.log) · [代码统计](../artifacts/candidate-ecbff9d/code-volume.json)
+
+同一归档在 Debian 13 ARM64 上独立核验全部文件和两份归档摘要。PostgreSQL 17.12 与 .NET 10.0.15 验证首次启动及重启，以及当前语料条件请求 304、相同 ETag 搭配旧代次 409 和重启字节一致。临时服务、数据库、上传目录和测试虚拟机均已清理。 [Debian 同包实测](../artifacts/candidate-ecbff9d/linux-default/native.log) · [测试退出](../artifacts/candidate-ecbff9d/linux-default/outcome.txt)
