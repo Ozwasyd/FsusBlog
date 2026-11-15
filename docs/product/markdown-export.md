@@ -20,7 +20,9 @@ Word 文件只含正文、固定样式和指向这两个内部部件的关系。
 
 `GET /api/v2/authoring/draft/{id}/export.epub` 使用相同授权和两个修订参数。Inspector 的 **Download saved EPUB** 和历史对照的 **Download revision EPUB** 下载 `article.epub`，响应为 `application/epub+zip` 和 `private, no-store`。文件使用可重排的单章 XHTML、目录和正文导航，语言未记录时标为 `und`，正文方向由阅读器按文本确定。包标识根据章节内容生成，修改时间来自所选修订，文件顺序和 ZIP 时间固定。 [EPUB 3.3](https://www.w3.org/TR/epub-33/)
 
-EPUB 使用与 HTML 相同的基础 Markdown，并检查章节的 XHTML 结构。链接、图片、指定渲染围栏、XML 无法表示的字符、空标题和超出 2 MiB 的章节或文件返回 400。基础文件只含文本和包内导航，字体由阅读器选择。资源内嵌、多章及完整导出任务仍待验收。 [EPUB 可访问性元数据](https://www.w3.org/TR/epub-a11y-11/#sec-discov-meta)
+EPUB 使用与 HTML 相同的基础 Markdown，并检查章节的 XHTML 结构。Markdown 内的链接、图片、指定渲染围栏、XML 无法表示的字符、空标题和超出 2 MiB 的章节或文件返回 400。基础文件只含文本和包内导航，字体由阅读器选择。 [EPUB 可访问性元数据](https://www.w3.org/TR/epub-a11y-11/#sec-discov-meta)
+
+在 **Private attachments** 的图片预览中，**Download saved EPUB with this image** 将经授权的单张 PNG、JPEG 或 WebP 保存在包内。与即时 HTML 共用当前会话、所选修订、归属和内容摘要核验。图片最多 512 KiB，章节使用固定包内相对路径，manifest 声明媒体类型，包标识绑定图片字节。多图、多章和导出任务的资产清单仍待验收。 [EPUB 3.3 图片资源](https://www.w3.org/TR/epub-33/#sec-core-media-types)
 
 启用本机 PDF 提供方后，`GET /api/v2/authoring/draft/{id}/export.pdf` 使用相同授权和两个修订参数。Inspector 的 **Download saved PDF** 和历史对照的 **Download revision PDF** 下载 `article.pdf`，响应为 `application/pdf` 和 `private, no-store`。服务读取所选修订，释放数据库锁后用 WeasyPrint 66.0 生成可打印的 A4 页面。服务在发送附件前再次核验会话、文章归属和当前修订。
 

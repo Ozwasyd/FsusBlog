@@ -22,11 +22,12 @@ internal static class HtmlDocumentExport
     private static readonly HashSet<string> RenderedFences = new(StringComparer.OrdinalIgnoreCase)
         { "mermaid", "katex", "latex", "math" };
 
-    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true, HtmlExportAttachment? attachment = null)
+    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true, DocumentExportAttachment? attachment = null)
     {
         var content = RenderBody(title, body, "HTML", ct, includeTables);
         var documentPolicy = attachment is null ? DocumentPolicy : DocumentImagePolicy;
-        if (attachment is not null) content += attachment.Figure();
+        if (attachment is not null)
+            content += attachment.Figure($"data:{attachment.ContentType};base64,{Convert.ToBase64String(attachment.Bytes)}", xhtml: false);
         var heading = HtmlEncoder.Default.Encode(title);
         var html = $"""
             <!doctype html>

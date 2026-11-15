@@ -193,6 +193,8 @@ onBeforeUnmount(() => {
           <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
+          <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"
+            :attachment="preview.id" :disabled="pending || !credential" />
         </div>
       </template>
     </template>

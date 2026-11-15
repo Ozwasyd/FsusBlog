@@ -1,7 +1,9 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Xml.Linq;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Sessions;
@@ -225,7 +227,8 @@ public sealed partial class PrivateMediaPostgresTests
                 new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root });
             var client = server.Client;
             var png = EncodeImage(SKEncodedImageFormat.Png);
-            using var upload = await Upload(client, owner, Guid.NewGuid(), "draft.png", "image/png", png, ct);
+            const string mediaName = "draft & proof.png";
+            using var upload = await Upload(client, owner, Guid.NewGuid(), mediaName, "image/png", png, ct);
             var asset = First(await upload.Content.ReadAsByteArrayAsync(ct), 1);
             using var elsewhere = await Upload(client, outsider, Guid.NewGuid(), "foreign.png", "image/png", png, ct);
             var foreign = First(await elsewhere.Content.ReadAsByteArrayAsync(ct), 1);
@@ -286,7 +289,7 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Contains("Original body.", document);
                 Assert.Contains("img-src data:", document);
                 var data = System.Text.RegularExpressions.Regex.Match(document,
-                    """<img src="data:image/png;base64,([A-Za-z0-9+/=]+)" alt="draft.png" width="3" height="2">""");
+                    """<img src="data:image/png;base64,([A-Za-z0-9+/=]+)" alt="draft &amp; proof.png" width="3" height="2">""");
                 Assert.True(data.Success);
                 Assert.Equal(normalized, Convert.FromBase64String(data.Groups[1].Value));
             }
@@ -309,6 +312,55 @@ public sealed partial class PrivateMediaPostgresTests
             using (var wrongHandle = await ExportHtml(detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId))
                 Assert.Equal(HttpStatusCode.Conflict, wrongHandle.StatusCode);
 
+            XNamespace opf = "http://www.idpf.org/2007/opf";
+            XNamespace xhtml = "http://www.w3.org/1999/xhtml";
+            const string imagePath = "images/attachment.png";
+            using var epub = await Export("epub", detached.Revision, saved.Revision, owner, asset);
+            Assert.Equal(HttpStatusCode.OK, epub.StatusCode);
+            Assert.Equal("application/epub+zip", epub.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("article.epub", epub.Content.Headers.ContentDisposition?.FileName);
+            Assert.True(epub.Headers.CacheControl?.Private);
+            Assert.True(epub.Headers.CacheControl?.NoStore);
+            var epubBytes = await epub.Content.ReadAsByteArrayAsync(ct);
+            using (var archive = new ZipArchive(new MemoryStream(epubBytes)))
+            {
+                var manifest = ReadPart(archive, "EPUB/package.opf").Descendants(opf + "item");
+                var resource = Assert.Single(manifest, item => (string?)item.Attribute("id") == "attachment");
+                Assert.Equal((imagePath, "image/png"), ((string?)resource.Attribute("href"), (string?)resource.Attribute("media-type")));
+                var chapter = ReadPart(archive, "EPUB/article.xhtml");
+                Assert.Contains("Original body.", chapter.Root!.Value);
+                var image = Assert.Single(chapter.Descendants(xhtml + "img"));
+                Assert.Equal((imagePath, mediaName, "3", "2"),
+                    ((string?)image.Attribute("src"), (string?)image.Attribute("alt"),
+                     (string?)image.Attribute("width"), (string?)image.Attribute("height")));
+                Assert.Equal("figure", image.Parent?.Name.LocalName);
+                using var picture = archive.GetEntry("EPUB/" + imagePath)!.Open();
+                using var pictureBytes = new MemoryStream();
+                await picture.CopyToAsync(pictureBytes, ct);
+                Assert.Equal(normalized, pictureBytes.ToArray());
+            }
+            using (var repeatEpub = await Export("epub", detached.Revision, saved.Revision, owner, asset))
+            {
+                Assert.Equal(HttpStatusCode.OK, repeatEpub.StatusCode);
+                Assert.Equal(epubBytes, await repeatEpub.Content.ReadAsByteArrayAsync(ct));
+            }
+            using (var plainEpub = await Export("epub", detached.Revision, saved.Revision, owner, null))
+            {
+                Assert.Equal(HttpStatusCode.OK, plainEpub.StatusCode);
+                using var archive = new ZipArchive(new MemoryStream(await plainEpub.Content.ReadAsByteArrayAsync(ct)));
+                Assert.Equal(new[] { "mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/article.xhtml" },
+                    archive.Entries.Select(entry => entry.FullName));
+                Assert.Equal(2, ReadPart(archive, "EPUB/package.opf").Descendants(opf + "item").Count());
+                Assert.Empty(ReadPart(archive, "EPUB/article.xhtml").Descendants(xhtml + "img"));
+            }
+            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, detached.Revision, owner, asset);
+            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, owner, foreign);
+            await ExpectEpubFailure(HttpStatusCode.NotFound, detached.Revision, saved.Revision, outsider, asset);
+            await ExpectEpubFailure(HttpStatusCode.Unauthorized, detached.Revision, saved.Revision, null, asset);
+            await ExpectEpubFailure(HttpStatusCode.Conflict, saved.Revision, saved.Revision, owner, asset);
+            await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId);
+            await ExpectEpubFailure(HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, "");
+
             var changed = normalized.ToArray();
             changed[^1] ^= 1;
             File.Move(leaf, held);
@@ -318,6 +370,7 @@ public sealed partial class PrivateMediaPostgresTests
                 File.SetUnixFileMode(leaf, UnixFileMode.UserRead);
                 using var corrupt = await ExportHtml(detached.Revision, saved.Revision, owner, asset);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, corrupt.StatusCode);
+                await ExpectEpubFailure(HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
             }
             finally
             {
@@ -346,6 +399,15 @@ public sealed partial class PrivateMediaPostgresTests
             pin.Parameters.AddWithValue(asset);
             Assert.Equal(3L, await pin.ExecuteScalarAsync(ct));
 
+            using var saveExternal = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
+                new(draft.Id, publishedDraft.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)")));
+            Assert.Equal(HttpStatusCode.OK, saveExternal.StatusCode);
+            var externalDraft = Wire.DecodeDraft(await saveExternal.Content.ReadAsByteArrayAsync(ct));
+            await ExpectEpubFailure(HttpStatusCode.BadRequest, externalDraft.Revision, externalDraft.Revision, owner, asset);
+            using var priorEpub = await Export("epub", externalDraft.Revision, saved.Revision, owner, asset);
+            Assert.Equal(HttpStatusCode.OK, priorEpub.StatusCode);
+            Assert.Equal(epubBytes, await priorEpub.Content.ReadAsByteArrayAsync(ct));
+
             async Task<HttpResponseMessage> Command(string path, SessionFixture actor, byte[] bytes)
             {
                 using var request = Request(HttpMethod.Post, path, actor);
@@ -354,18 +416,35 @@ public sealed partial class PrivateMediaPostgresTests
                 return await client.SendAsync(request, ct);
             }
 
-            async Task<HttpResponseMessage> ExportHtml(long expected, long selected, SessionFixture? actor, Guid? image,
+            Task<HttpResponseMessage> ExportHtml(long expected, long selected, SessionFixture? actor, Guid? image,
+                string? handle = null) => Export("html", expected, selected, actor, image, handle);
+
+            async Task<HttpResponseMessage> Export(string format, long expected, long selected, SessionFixture? actor, Guid? image,
                 string? handle = null)
             {
                 using var request = Request(HttpMethod.Get,
-                    $"/api/v2/authoring/draft/{draft.Id}/export.html?revision={expected}&sourceRevision={selected}", actor);
+                    $"/api/v2/authoring/draft/{draft.Id}/export.{format}?revision={expected}&sourceRevision={selected}", actor);
                 if (image is Guid id) request.Headers.Add(WireHeaders.HtmlExportAttachment, id.ToString("D"));
                 if (handle is not null)
                 {
                     request.Headers.Remove(WireHeaders.CurrentSession);
-                    request.Headers.Add(WireHeaders.CurrentSession, handle);
+                    if (handle.Length > 0) request.Headers.Add(WireHeaders.CurrentSession, handle);
                 }
                 return await client.SendAsync(request, ct);
+            }
+
+            async Task ExpectEpubFailure(HttpStatusCode status, long expected, long selected, SessionFixture? actor, Guid image,
+                string? handle = null)
+            {
+                using var unavailable = await Export("epub", expected, selected, actor, image, handle);
+                Assert.Equal(status, unavailable.StatusCode);
+                Assert.NotEqual("application/epub+zip", unavailable.Content.Headers.ContentType?.MediaType);
+            }
+
+            static XDocument ReadPart(ZipArchive archive, string path)
+            {
+                using var part = archive.GetEntry(path)!.Open();
+                return XDocument.Load(part);
             }
 
             async Task<string> Preview(long revision)

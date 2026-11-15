@@ -19,26 +19,15 @@ internal static class MarkdownExportEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
         PdfDocumentExport? pdf)
     {
-        Attach(Route, ContentType, DownloadName, (title, body, revision, _, _) => Encode(title, body, revision));
+        Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Encode(title, body, revision));
         Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
-            (title, body, _, _, ct) => WordDocumentExport.Write(title, body, ct));
-        Download("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
-            (ctx, store, token, source, ct) => store.WithSession(token, true, async (db, tx, actor) =>
-            {
-                if (source.Attachment is not null)
-                {
-                    if (!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !IPAddress.IsLoopback(peer)))
-                        throw ArticleMediaStore.Missing();
-                    SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
-                }
-                await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
-                var (title, body, _) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
-                var attachment = source.Attachment is Guid asset ? await HtmlExportAttachment.Read(db, tx,
-                    app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, asset, ct) : null;
-                return HtmlDocumentExport.Write(title, body, ct, attachment: attachment);
-            }, ct), HtmlDocumentExport.ResponsePolicy, allowAttachment: true);
+            (title, body, _, _, _, ct) => WordDocumentExport.Write(title, body, ct));
+        Attach("/api/v2/authoring/draft/{id:int}/export.html", HtmlDocumentExport.ContentType, "article.html",
+            (title, body, _, _, attachment, ct) => HtmlDocumentExport.Write(title, body, ct, attachment: attachment),
+            allowAttachment: true, contentSecurityPolicy: HtmlDocumentExport.ResponsePolicy);
         Attach("/api/v2/authoring/draft/{id:int}/export.epub", EpubDocumentExport.ContentType, "article.epub",
-            (title, body, _, happenedAt, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct));
+            (title, body, _, happenedAt, attachment, ct) => EpubDocumentExport.Write(title, body, happenedAt, ct, attachment: attachment),
+            allowAttachment: true);
 
         if (pdf is not null)
             Download("/api/v2/authoring/draft/{id:int}/export.pdf", PdfDocumentExport.ContentType, "article.pdf",
@@ -53,14 +42,24 @@ internal static class MarkdownExportEndpoints
                     return result;
                 }, policy: PdfDocumentExport.RatePolicy);
 
-        void Attach(string route, string mediaType, string filename, Func<string, string, long, DateTimeOffset, CancellationToken, byte[]> render)
-            => Download(route, mediaType, filename, (_, store, token, source, ct) =>
+        void Attach(string route, string mediaType, string filename,
+            Func<string, string, long, DateTimeOffset, DocumentExportAttachment?, CancellationToken, byte[]> render,
+            bool allowAttachment = false, string? contentSecurityPolicy = null)
+            => Download(route, mediaType, filename, (ctx, store, token, source, ct) =>
                 store.WithSession(token, true, async (db, tx, actor) =>
                 {
+                    if (source.Attachment is not null)
+                    {
+                        if (!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !IPAddress.IsLoopback(peer)))
+                            throw ArticleMediaStore.Missing();
+                        SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, SiteSessions.Requested(ctx));
+                    }
                     await RevisionHistoryStore.LockCurrent(db, tx, actor, source.Id, source.Expected, ct);
                     var (title, body, happenedAt) = await RevisionHistoryStore.ReadSource(db, tx, source.Id, source.Selected, ct);
-                    return render(title, body, source.Selected, happenedAt, ct);
-                }, ct));
+                    var attachment = source.Attachment is Guid asset ? await DocumentExportAttachment.Read(db, tx,
+                        app.Services.GetService<MediaFiles>(), actor.Id, source.Id, source.Selected, asset, ct) : null;
+                    return render(title, body, source.Selected, happenedAt, attachment, ct);
+                }, ct), contentSecurityPolicy, allowAttachment: allowAttachment);
 
         void Download(string route, string mediaType, string filename,
             Func<HttpContext, Store, string?, DownloadSource, CancellationToken, Task<byte[]>> render,
@@ -91,7 +90,7 @@ internal static class MarkdownExportEndpoints
         if (!ctx.Request.Headers.TryGetValue(WireHeaders.HtmlExportAttachment, out var values)) return null;
         if (!allowed || values.Count != 1 || values[0] is not { Length: 36 } text ||
             !Guid.TryParseExact(text, "D", out var asset) || asset == Guid.Empty || asset.ToString("D") != text)
-            throw new BusinessException(Rejection.Invalid, "Choose one private attachment for an HTML download.");
+            throw new BusinessException(Rejection.Invalid, "Choose one private image for an HTML or EPUB download.");
         return asset;
     }
 

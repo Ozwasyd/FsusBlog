@@ -10,10 +10,10 @@ const exportsByFormat = {
   pdf: { type: 'application/pdf', maxBytes: 4 * 1024 * 1024 },
 } as const
 export type ArticleExportFormat = keyof typeof exportsByFormat
-type HtmlExportAttachment = Readonly<{ id: string; credential: string }>
+type DocumentExportAttachment = Readonly<{ id: string; credential: string }>
 
 export async function exportArticleRevision(format: ArticleExportFormat, article: number, revision: bigint, selected: bigint,
-  signal: AbortSignal, attachment?: HtmlExportAttachment): Promise<Blob> {
+  signal: AbortSignal, attachment?: DocumentExportAttachment): Promise<Blob> {
   if (!Number.isInteger(article) || article <= 0 || article > 2_147_483_647 || selected <= 0n || selected > revision ||
       revision > 9_223_372_036_854_775_807n) throw new ProtocolError('Invalid document export coordinates')
   const query = new URLSearchParams({ revision: revision.toString(), sourceRevision: selected.toString() })
@@ -21,9 +21,9 @@ export async function exportArticleRevision(format: ArticleExportFormat, article
   const headers = new Headers(attachment ? siteSessionHeader(attachment.credential) : undefined)
   headers.set('Accept', type)
   if (attachment) {
-    if (format !== 'html' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(attachment.id) ||
+    if ((format !== 'html' && format !== 'epub') || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(attachment.id) ||
         attachment.id === '00000000-0000-0000-0000-000000000000')
-      throw new ProtocolError('Invalid HTML attachment selection')
+      throw new ProtocolError('Invalid document attachment selection')
     headers.set(WireHeaders.HtmlExportAttachment, attachment.id)
   }
   const response = await fetch(`/api/v2/authoring/draft/${article}/export.${format}?${query}`, {

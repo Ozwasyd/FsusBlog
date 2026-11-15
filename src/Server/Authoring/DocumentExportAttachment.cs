@@ -7,11 +7,11 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed record HtmlExportAttachment(string Name, MediaFormat Format, int Width, int Height, byte[] Bytes)
+internal sealed record DocumentExportAttachment(string Name, MediaFormat Format, int Width, int Height, byte[] Bytes)
 {
     private const int MaximumBytes = 512 * 1024;
 
-    internal static async Task<HtmlExportAttachment> Read(NpgsqlConnection db, NpgsqlTransaction tx, MediaFiles? files,
+    internal static async Task<DocumentExportAttachment> Read(NpgsqlConnection db, NpgsqlTransaction tx, MediaFiles? files,
         Guid owner, int article, long revision, Guid asset, CancellationToken ct)
     {
         if (files is null) throw ArticleMediaStore.Missing();
@@ -38,7 +38,7 @@ internal sealed record HtmlExportAttachment(string Name, MediaFormat Format, int
             digest = row.GetFieldValue<byte[]>(5);
         }
         if (length > MaximumBytes)
-            throw new BusinessException(Rejection.Invalid, "The selected HTML attachment exceeds the 512 KiB limit.");
+            throw new BusinessException(Rejection.Invalid, "The selected image exceeds the 512 KiB limit.");
         if (length < 1 || digest.Length != 32 || width < 1 || height < 1)
             throw new PublicUnavailableException();
         byte[]? bytes;
@@ -52,11 +52,13 @@ internal sealed record HtmlExportAttachment(string Name, MediaFormat Format, int
         return new(name, format, width, height, bytes);
     }
 
-    internal string Figure()
+    internal string ContentType => MediaImage.ContentType(Format);
+
+    internal string Figure(string source, bool xhtml)
     {
-        var mime = MediaImage.ContentType(Format);
+        // The caller provides either the verified data URI or a fixed local package path.
         var alt = HtmlEncoder.Default.Encode(Name);
         return string.Create(CultureInfo.InvariantCulture,
-            $"<figure><img src=\"data:{mime};base64,{Convert.ToBase64String(Bytes)}\" alt=\"{alt}\" width=\"{Width}\" height=\"{Height}\"></figure>");
+            $"<figure><img src=\"{source}\" alt=\"{alt}\" width=\"{Width}\" height=\"{Height}\"{(xhtml ? " /" : "")}></figure>");
     }
 }

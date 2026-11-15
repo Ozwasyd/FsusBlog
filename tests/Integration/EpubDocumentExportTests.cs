@@ -3,6 +3,8 @@ using System.IO.Compression;
 using System.Xml.Linq;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Authoring;
+using FsusBlog.V2.Server.Content;
+using SkiaSharp;
 using Xunit.Sdk;
 
 public sealed class EpubDocumentExportTests
@@ -77,6 +79,38 @@ public sealed class EpubDocumentExportTests
         Assert.Contains("size limit", error.Message, StringComparison.Ordinal);
         Assert.Throws<OperationCanceledException>(() =>
             EpubDocumentExport.Write(Title, "Body", HappenedAt, new CancellationToken(true)));
+    }
+
+    [Theory]
+    [InlineData(1, SKEncodedImageFormat.Png, "png", "image/png")]
+    [InlineData(2, SKEncodedImageFormat.Jpeg, "jpeg", "image/jpeg")]
+    [InlineData(3, SKEncodedImageFormat.Webp, "webp", "image/webp")]
+    public void EmbedsImageBytesAndBindsThePublicationIdentifier(int kind, SKEncodedImageFormat codec, string extension, string mime)
+    {
+        var (firstId, first) = Package(SKColors.Red);
+        var (secondId, second) = Package(SKColors.Green);
+        Assert.NotEqual(firstId, secondId);
+        Assert.False(first.SequenceEqual(second));
+
+        (string Id, byte[] Bytes) Package(SKColor color)
+        {
+            using var bitmap = new SKBitmap(3, 2);
+            bitmap.Erase(color);
+            using var encoded = bitmap.Encode(codec, 90);
+            var bytes = encoded.ToArray();
+            var image = new DocumentExportAttachment("image " + extension, (MediaFormat)kind, 3, 2, bytes);
+            var document = EpubDocumentExport.Write(Title, "Body", HappenedAt, CancellationToken.None, attachment: image);
+            using var package = new ZipArchive(new MemoryStream(document));
+            var entry = $"images/attachment.{extension}";
+            var metadata = Read(package, "EPUB/package.opf");
+            var resource = Assert.Single(metadata.Descendants(Opf + "item"), item => (string?)item.Attribute("id") == "attachment");
+            Assert.Equal((entry, mime), ((string?)resource.Attribute("href"), (string?)resource.Attribute("media-type")));
+            using var contents = package.GetEntry("EPUB/" + entry)!.Open();
+            using var actual = new MemoryStream();
+            contents.CopyTo(actual);
+            Assert.Equal(bytes, actual.ToArray());
+            return (Assert.Single(metadata.Descendants(Dc + "identifier")).Value, document);
+        }
     }
 
     [Fact]

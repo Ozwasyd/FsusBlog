@@ -56,6 +56,8 @@ async function download() {
       failure.value = 'Use basic text Markdown and an image up to 512 KiB. The combined HTML must fit within 2 MiB.'
     else if (format === 'html' && error instanceof ApiError && error.status === 400)
       failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
+    else if (format === 'epub' && attachment && error instanceof ApiError && error.status === 400)
+      failure.value = 'Use a title, basic text Markdown, and an image up to 512 KiB. The EPUB must fit within 2 MiB.'
     else if (format === 'epub' && error instanceof ApiError && error.status === 400)
       failure.value = 'EPUB requires a title and basic text Markdown without links, images, or render directives. It must fit within 2 MiB.'
     else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
