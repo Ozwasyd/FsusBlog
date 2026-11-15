@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FsusBlog.V2.Core.Integrity;
 using Npgsql;
 
@@ -31,6 +32,7 @@ internal static partial class Migration
             var keys = ReadLegacyPublishProofKeys(keyBytes);
             var records = observed is null ? [external!] : observed.Rows.Select(Encoding.UTF8.GetBytes).ToArray();
             var archived = new Dictionary<long, object>();
+            var entries = observed is null ? null : VerifyLegacyTransparency(observed, keys);
             foreach (var rowBytes in records)
             {
                 var proof = VerifyLegacyPublishProof(rowBytes, keys);
@@ -44,10 +46,10 @@ internal static partial class Migration
                 query.Parameters.AddWithValue(proof.Revision);
                 query.Parameters.AddWithValue("sha256:" + proof.Hash);
                 if (await query.ExecuteScalarAsync(ct) is not long publicationId || !archived.TryAdd(publicationId,
-                    new { sourceRow = rowBytes, trustedKey = keyBytes, signedPayload = proof.Payload }))
+                    new LegacyArchivedProof(rowBytes, keyBytes, proof.Payload, entries?.GetValueOrDefault(proof.RevisionId))))
                     throw new FormatException();
             }
-            return JsonSerializer.Serialize(archived);
+            return JsonSerializer.Serialize(archived, OwnerMapJson);
         }
         catch (Exception error) when (IsLegacyPublishProofError(error))
         {
@@ -79,11 +81,8 @@ internal static partial class Migration
             proof.GetProperty("id").GetInt64() <= 0 || article <= 0 || revisionId <= 0 || revisionNo <= 0 ||
             proof.GetProperty("proof_version").GetInt32() != 1 || proof.GetProperty("signature_payload_version").GetInt32() != 1 ||
             RequiredProofText(proof, "proof_status") is not ("ready" or "superseded") ||
-            string.IsNullOrWhiteSpace(key.KeyId) ||
-            key.Version <= 0 || key.Version != proof.GetProperty("signing_key_version").GetInt32() ||
-            key.Algorithm != LegacyProofAlgorithm || key.Algorithm != RequiredProofText(proof, "signing_algorithm") ||
-            key.NotBeforeUtc == default || issued < key.NotBeforeUtc || issued > key.NotAfterUtc ||
-            issued >= key.RevokedAtUtc || key.CompromisedAtUtc.HasValue)
+            key.Version != proof.GetProperty("signing_key_version").GetInt32() ||
+            key.Algorithm != RequiredProofText(proof, "signing_algorithm"))
             throw new FormatException();
         var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -113,15 +112,26 @@ internal static partial class Migration
             """);
         var payload = SiteProofPayload.Canonicalize("publish-proof", FormattableString.Invariant($"article:{article}:revision:{revisionId}"),
             Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(record))), issued, fields);
+        VerifyLegacyProofSignature(key, issued, RequiredProofText(proof, "signature"), payload);
+        return new(article, revisionId, revisionNo, canonical, payload);
+    }
+
+    private sealed record LegacyArchivedProof(byte[] SourceRow, byte[] TrustedKey, byte[] SignedPayload,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyArchivedTransparency? Transparency);
+
+    private static void VerifyLegacyProofSignature(LegacyPublishProofKey key, DateTimeOffset issued, string signatureText,
+        byte[] payload)
+    {
+        if (key.Version <= 0 || key.Algorithm != LegacyProofAlgorithm || key.NotBeforeUtc == default ||
+            issued < key.NotBeforeUtc || issued > key.NotAfterUtc || issued >= key.RevokedAtUtc || key.CompromisedAtUtc.HasValue)
+            throw new FormatException();
         var der = ReadCanonicalBase64Url(key.PublicKey, 32, 256);
-        var signature = ReadCanonicalBase64Url(RequiredProofText(proof, "signature"), 86, 86);
+        var signature = ReadCanonicalBase64Url(signatureText, 86, 86);
         using var verifier = ECDsa.Create();
         verifier.ImportSubjectPublicKeyInfo(der, out var read);
         if (read != der.Length || verifier.ExportParameters(false).Curve.Oid.Value != "1.2.840.10045.3.1.7" ||
             !verifier.VerifyData(payload, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
             throw new FormatException();
-
-        return new(article, revisionId, revisionNo, canonical, payload);
     }
 
     private static bool IsLegacyPublishProofError(Exception error) => error is

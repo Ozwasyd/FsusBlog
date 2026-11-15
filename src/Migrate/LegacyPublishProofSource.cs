@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Npgsql;
 
 internal static partial class Migration
@@ -16,7 +17,8 @@ internal static partial class Migration
         transparency_log_entry_hash/varchar(64)?
         """, ["idempotency_key"]);
 
-    private sealed record LegacyPublishProofSet(string[] Rows, string KeysSha256)
+    private sealed record LegacyPublishProofSet(string[] Rows, string KeysSha256,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyTransparencySet? Transparency = null)
     {
         internal LegacyProjection Project() => new(LegacyPublishProofTable, Rows.Length, DigestMediaDocument(Rows));
     }
@@ -37,7 +39,6 @@ internal static partial class Migration
             var rights = source.Table(tables[RightsSnapshot]);
             await using var query = new NpgsqlCommand($"""
                 SELECT CASE WHEN p.tableoid=to_regclass($1)
-                    AND p.transparency_log_entry_id IS NULL AND p.transparency_log_entry_hash IS NULL
                     AND octet_length(row_to_json(p)::text)<=8192
                     AND EXISTS (SELECT FROM {publications} release JOIN {rights} claim ON claim.id=release.rights_snapshot_id
                         WHERE release.article_id=p.article_id AND release.article_revision_id=p.article_revision_id
@@ -60,7 +61,11 @@ internal static partial class Migration
                 if (!revisions.Add(VerifyLegacyPublishProof(Encoding.UTF8.GetBytes(row), trusted).RevisionId)) throw new FormatException();
                 rows.Add(row);
             } while (await reader.ReadAsync(ct));
-            return new(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)));
+            await reader.DisposeAsync();
+            var transparency = await ReadLegacyTransparencySourceAsync(source, tx, catalog, ct);
+            var set = new LegacyPublishProofSet(rows.ToArray(), Convert.ToHexStringLower(SHA256.HashData(keys)), transparency);
+            VerifyLegacyTransparency(set, trusted);
+            return set;
         }
         catch (Exception error) when (IsLegacyPublishProofError(error))
         {
@@ -71,10 +76,11 @@ internal static partial class Migration
     private static void ValidateLegacyPublishProofPlan(ImportPlan plan)
     {
         var projection = plan.SourceProjections?.Where(row => row.Table == LegacyPublishProofTable).ToArray() ?? [];
-        if (plan.PublishProofs is null && projection.Length == 0) return;
+        var logs = plan.SourceProjections?.Where(row => row.Table is LegacyTransparencyTable or LegacyCheckpointTable).ToArray() ?? [];
+        if (plan.PublishProofs is null && projection.Length == 0 && logs.Length == 0) return;
         if (plan.PublishProofs is not { Rows.Length: >= 1 and <= 3 } proof || !IsSha256(proof.KeysSha256) ||
             plan.Provider != "postgres" || plan.Version != ImportPlanWithRollbackOutboxVersion || plan.Media is not null ||
-            proof.Rows.Any(row => row is null || Encoding.UTF8.GetByteCount(row) is < 1 or > 8192) ||
+            proof.Rows.Any(row => !ValidLegacyTransparencyRow(row)) || !ValidLegacyTransparencySet(proof.Transparency, logs) ||
             projection is not [var measurement] || measurement != proof.Project())
             throw new InvalidOperationException("The legacy import plan contains an invalid publish proof record set.");
     }

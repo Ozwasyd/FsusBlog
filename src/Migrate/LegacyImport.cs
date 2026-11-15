@@ -34,6 +34,7 @@ internal static partial class Migration
             projections.AddRange(SavedViews.Relations.Select(relation => relation.Projection));
             if (SiteAuthor is { } author) projections.Add(author.Projection);
             if (PublishProofs is { } proofs) projections.Add(proofs.Project());
+            if (PublishProofs?.Transparency is { } transparency) projections.AddRange(transparency.Projections());
             return projections.ToArray();
         }
     }
@@ -257,14 +258,14 @@ internal static partial class Migration
         var proofs = outbox.RollbackCount > 0 && !verifiedMedia
             ? await ReadLegacyPublishProofSourceAsync(source, transaction, catalog, tables, token) : null;
         var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox,
-            taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs is not null, token);
+            taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs, token);
         return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor, proofs);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
         LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
-        bool verifiedMedia, LegacySiteAuthor? siteAuthor, bool verifiedPublishProofs, CancellationToken token)
+        bool verifiedMedia, LegacySiteAuthor? siteAuthor, LegacyPublishProofSet? verifiedPublishProofs, CancellationToken token)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
@@ -276,7 +277,8 @@ internal static partial class Migration
             var name = relation.Name.ToLowerInvariant();
             if (LegacyColumns.ContainsKey(name) || relation == principal || relation == commands.Relation || outbox.Relations.Contains(relation) ||
                 taxonomy.Covers(relation.Name) || (history.HandlesSeed && name == LegacyViewSeed) || savedViews.Covers(relation.Name) ||
-                relation == siteAuthor?.Relation || (verifiedPublishProofs && relation.Name == LegacyPublishProofTable) ||
+                relation == siteAuthor?.Relation || (verifiedPublishProofs is not null && relation.Name == LegacyPublishProofTable) ||
+                (verifiedPublishProofs?.Transparency is not null && relation.Name is LegacyTransparencyTable or LegacyCheckpointTable) ||
                 (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)

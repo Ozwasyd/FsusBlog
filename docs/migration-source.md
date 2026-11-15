@@ -201,7 +201,9 @@ PostgreSQL 18.7 的 `legacy-runtime.sh --activate-republish` 从旧库归档恢�
 
 源计划未从表保全任何证明时，仍可按已审核的全局修订 ID 从同一份冻结备份导出一条 `row_to_json` 原记录。为 `release-plan` 和 `release-activate` 提供它的绝对路径 `FSUSBLOG_LEGACY_V1_PROOF` 和独立审核的 `_SHA256`。公钥及原记录文件权限均须为 `0400` 或 `0600`。
 
-当前只支持未关联透明日志的证明。未签名、签名或绑定无效、超出已审核范围的记录会阻止迁移。运行副本在受审批摘要约束的 `legacy_release_origin.evidence.publishProof` 保留原行、公钥文件和原签名载荷的字节，供离线查验。旧站透明日志、权利证明及旧证明的公开验证待完成。
+旧站透明日志可随发布证明一同迁移。源 PostgreSQL 需包含从序号 1 开始的完整发布证明链及一条覆盖整条链的 V1 `release` Merkle 检查点，当前最多三条日志，不含权利证明、每日检查点或其他日志类型。将独立审核的检查点原行 `row_to_json` UTF-8 字节的小写 SHA-256（不含客户端输出末尾的换行）设置为 `FSUSBLOG_LEGACY_V1_CHECKPOINT_SHA256`，用于源检查和暂存。检查点签名公钥也须在审核过的公钥文件中。工具重算旧版链、发布证明关联、Merkle 根和检查点签名，并将证据编入迁移审批。
+
+未签名、签名或绑定无效、超出已审核范围的记录会阻止迁移。运行副本通过 `legacy_release_origin.evidence.publishProof` 保留原证明行、公钥文件和原签名载荷，关联日志和检查点的原始字节保存在其 `transparency` 字段。旧站权利证明、检查点范围扩展和旧证明的公开验证待完成。
 
 ### 离线验看附件来源
 
