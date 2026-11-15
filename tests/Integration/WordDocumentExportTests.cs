@@ -59,6 +59,35 @@ public sealed class WordDocumentExportTests
         AssertFile(bytes, "[ref]: https://example.com/docs", "# Heading *with markup*", "> ![photo][ref]", "---");
     }
 
+    [Fact]
+    public void WritesTableWithRepeatingHeaderAndPreservesEveryCellAsText()
+    {
+        const string markdown = """
+            | Name | Count |
+            | --- | ---: |
+            | [A](https://export.invalid/) | 12 |
+            | B | | Extra value |
+            """;
+        var bytes = WordDocumentExport.Write(Title, markdown, CancellationToken.None);
+        Assert.Equal(bytes, WordDocumentExport.Write(Title, markdown, CancellationToken.None));
+        AssertFile(bytes, "[A](https://export.invalid/)", "Extra value");
+
+        using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        var table = Assert.Single(Read(zip, "word/document.xml").Descendants(Word + "tbl"));
+        Assert.Equal(3, table.Descendants(Word + "gridCol").Count());
+        var rows = table.Elements(Word + "tr").ToArray();
+        Assert.Equal(3, rows.Length);
+        Assert.Single(rows[0].Descendants(Word + "tblHeader"));
+        Assert.Equal(new[] { "Name", "Count", "" }, rows[0].Elements(Word + "tc").Select(cell => cell.Value));
+        Assert.Equal(new[] { "B", "", "Extra value" }, rows[2].Elements(Word + "tc").Select(cell => cell.Value));
+        Assert.Equal("right", rows[1].Elements(Word + "tc").ElementAt(1).Descendants(Word + "jc").Single().Attribute(Word + "val")?.Value);
+
+        var legacy = WordDocumentExport.Write(Title, markdown, CancellationToken.None, includeTables: false);
+        AssertFile(legacy, "| Name | Count |", "| B | | Extra value |");
+        using var legacyZip = new ZipArchive(new MemoryStream(legacy), ZipArchiveMode.Read);
+        Assert.Empty(Read(legacyZip, "word/document.xml").Descendants(Word + "tbl"));
+    }
+
     internal static void AssertFile(byte[] bytes, params string[] text)
     {
         using var stream = new MemoryStream(bytes);

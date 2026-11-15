@@ -48,11 +48,12 @@ internal static class DocumentExportStore
 
         await using var write = Store.Sql(db, tx, $"""
             insert into public.author_document_export
-                (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,created_at,expires_at,source_digest)
-            values ($1,$2,$3,$4,$5,$6,$7,1,statement_timestamp(),statement_timestamp()+interval '30 minutes',$8)
+                (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,provider,created_at,expires_at,source_digest)
+            values ($1,$2,$3,$4,$5,$6,$7,1,$8,statement_timestamp(),statement_timestamp()+interval '30 minutes',$9)
             returning {Columns}
             """, actor.Id, request.Id, request.Article, request.Revision, request.SourceRevision, actor.Generation,
-            (short)request.Format, input.Digest(request, pdfToolDigest));
+            (short)request.Format, (short)DocumentExportInput.CurrentProvider,
+            input.Digest(request, DocumentExportInput.CurrentProvider, pdfToolDigest));
         await using var receipt = await write.ExecuteReaderAsync(ct);
         await receipt.ReadAsync(ct);
         return Read(receipt);

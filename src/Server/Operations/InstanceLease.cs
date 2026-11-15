@@ -96,6 +96,8 @@ internal sealed class InstanceLease : IAsyncDisposable
             requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireArticleSummary: true,
             requireDocumentExports: requireDocumentExports ? true : null);
+        if (requireDocumentExports && !await CurrentSchema.HasCurrentDocumentExportProviderAsync(_owner, null, ct))
+            throw new InvalidOperationException("Run the document-exports migration with the service stopped.");
         // The catalog verifier has already rejected partial or malformed installations.
         await using (var policy = Store.Sql(_owner, null, "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null"))
             RootCommentPowPolicyInstalled = await policy.ExecuteScalarAsync(ct) is true;

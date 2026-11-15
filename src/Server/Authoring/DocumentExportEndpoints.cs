@@ -86,16 +86,19 @@ internal static class DocumentExportEndpoints
 
 internal sealed record DocumentExportInput(string Title, string Body, DateTimeOffset HappenedAt)
 {
-    internal byte[] Digest(DocumentExportCreate request, byte[]? pdfToolDigest)
+    internal const byte CurrentProvider = 2;
+
+    internal byte[] Digest(DocumentExportCreate request, byte provider, byte[]? pdfToolDigest)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData("FsusBlog document export 1 basic-layout 1"u8);
+        hash.AppendData(provider == 1 ? "FsusBlog document export 1 basic-layout 1"u8 :
+            "FsusBlog document export 2 basic-layout 1"u8);
         Span<byte> coordinates = stackalloc byte[22];
         BinaryPrimitives.WriteInt32LittleEndian(coordinates, request.Article);
         BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], request.SourceRevision);
         BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], HappenedAt.UtcTicks);
         coordinates[20] = (byte)request.Format;
-        coordinates[21] = 1;
+        coordinates[21] = provider;
         hash.AppendData(coordinates);
         if (request.Format == DocumentExportFormat.Pdf && pdfToolDigest is not null) hash.AppendData(pdfToolDigest);
         var title = Encoding.UTF8.GetBytes(Title);

@@ -245,6 +245,8 @@ internal static partial class CurrentSchema
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasDocumentExports = await HasDocumentExportsAsync(connection, transaction, cancellationToken);
+        var currentDocumentExportProvider = hasDocumentExports &&
+            await HasCurrentDocumentExportProviderAsync(connection, transaction, cancellationToken);
         if (requireDocumentExports.HasValue && requireDocumentExports.Value != hasDocumentExports)
             throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
@@ -357,7 +359,10 @@ internal static partial class CurrentSchema
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
             .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits) : [])
-            .Concat(hasDocumentExports ? DocumentExportConstraints : [])
+            .Concat(hasDocumentExports
+                ? DocumentExportConstraints.Append(currentDocumentExportProvider
+                    ? "author_document_export c provider provider>=1ANDprovider<=2"
+                    : "author_document_export c provider provider=1") : [])
             .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
             .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])

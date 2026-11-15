@@ -8,12 +8,16 @@ internal sealed class ServerProcess : IAsyncDisposable
 {
     private readonly Process _process;
     private readonly string _temporaryDist;
+    private readonly BoundedLog _log;
     internal HttpClient Client { get; }
+    internal int ProcessId => _process.Id;
+    internal string Logs => _log.ToString();
 
-    private ServerProcess(Process process, string temporaryDist, Uri address)
+    private ServerProcess(Process process, string temporaryDist, Uri address, BoundedLog log)
     {
         _process = process;
         _temporaryDist = temporaryDist;
+        _log = log;
         Client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = address };
     }
 
@@ -71,7 +75,7 @@ internal sealed class ServerProcess : IAsyncDisposable
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             var uri = await listening.Task.WaitAsync(cancellationToken);
-            var server = new ServerProcess(process, dist, uri);
+            var server = new ServerProcess(process, dist, uri, log);
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, "/health/ready");

@@ -35,7 +35,7 @@ export type DocumentExportCreate = Readonly<{
 export type DocumentExportTask = DocumentExportCreate & Readonly<{
   status: DocumentExportStatus;
   failure: DocumentExportFailure;
-  provider: 1;
+  provider: 1 | 2;
   createdUnixMs: bigint;
   startedUnixMs: bigint;
   finishedUnixMs: bigint;
@@ -111,7 +111,7 @@ function readTask(reader: PodReader): DocumentExportTask {
   const coordinates = readCoordinates(reader);
   const [statusCode, failureCode, provider] = reader.fixedBytes(3);
   const status = statuses[statusCode - 1], failure = failures[failureCode];
-  if (!status || !failure || provider !== 1) throw new ProtocolError('Invalid document export task state');
+  if (!status || !failure || (provider !== 1 && provider !== 2)) throw new ProtocolError('Invalid document export task state');
   const createdUnixMs = reader.i64(), startedUnixMs = reader.i64(), finishedUnixMs = reader.i64(), expiresUnixMs = reader.i64();
   const failed = status === 'failed' || status === 'blocked';
   const terminal = failed || status === 'succeeded' || status === 'cancelled';

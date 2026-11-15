@@ -37,3 +37,7 @@ v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站
 PostgreSQL 保留任务 ID、源摘要、格式与提供方版本、开始和结束时间、结果摘要与字节数。源摘要绑定文章、选中修订、保存时间、原始标题和 Markdown，PDF 同时绑定已验证的工具链摘要。任务使用现有格式提供方及其正文、字形、页数和输出预算。排队中可立即取消，执行中由工作进程收到取消后终止。服务重启会保留排队和终态回执，并将中断的执行标为失败。每个作者最多保留四项，每个站点最多十六项，保留期三十分钟。
 
 下载提交绑定当前会话的任务 ID，服务重新检查文章所有权、授权代次、过期时间和文件摘要。结果只保存在私有数据库，通过禁止缓存的附件响应交付。已保存修订在文章继续编辑后仍可获授权下载。格式扩展、资产和元数据清单、一次性下载授权与更大任务负载仍待验收。 [PostgreSQL 执行记录](../../artifacts/document-export-tasks-13bf4fc/postgres/integration.txt) · [375px HTML 和 PDF 下载](../../artifacts/document-export-tasks-13bf4fc/browser/browser-result.json)
+
+停服执行 `document-exports` 可安装第二版文档提供方。新任务支持 Markdown 管道表格。HTML、EPUB 和 PDF 共用离线表格解析，DOCX 生成带重复表头的原生表格。旧任务继续使用第一版提供方和原源摘要，已有附件字节不变。实际升级连续执行两次，并核对升级前后的完整旧行和附件。 [停服升级](../../artifacts/document-export-profiles-749b9ba/stopped-upgrade.log) · [旧版和新版任务回归](../../artifacts/document-export-profiles-749b9ba/native/integration.txt)
+
+真实 macOS PDF 工作进程已验证运行中取消后退出和临时目录清理。数据库租约丢失时会清理运行中的渲染进程，重启后被中断的 PDF 保留失败回执，排队 HTML 继续。初次 SIGTERM 演练在时限内未观察到渲染器退出，原条件仍待复验。 [通过日志](../../artifacts/document-export-pdf-749b9ba/native-lease-restart.log) · [SIGTERM 记录](../../artifacts/document-export-pdf-749b9ba/restart-2.log)

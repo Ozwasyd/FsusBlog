@@ -65,7 +65,10 @@ test('document export receipt has exact timestamps, hashes and byte count', () =
     outputHash: Uint8Array.from({ length: 32 }, (_, index) => 0xa0 + index),
     outputBytes: 4096,
   });
-  for (const [offset, value] of [[36, 0], [37, 8], [38, 5], [39, 2]]) {
+  const newerProvider = Buffer.from(taskBytes);
+  newerProvider[39] = 2;
+  equal(decodeDocumentExportTask(newerProvider).provider, 2);
+  for (const [offset, value] of [[36, 0], [37, 8], [38, 5], [39, 3]]) {
     const unknown = Buffer.from(taskBytes);
     unknown[offset] = value;
     throws(() => decodeDocumentExportTask(unknown), ProtocolError);

@@ -26,6 +26,10 @@ public sealed class EpubDocumentExportTests
             4. First item
             5. Second item
 
+            | Heading | Units |
+            | --- | ---: |
+            | **Count** | 12 |
+
             ```html
             <iframe src="https://export.invalid/blocked"></iframe>
             ```
@@ -36,7 +40,15 @@ public sealed class EpubDocumentExportTests
         Assert.Equal(bytes, EpubDocumentExport.Write(Title, markdown, HappenedAt, CancellationToken.None));
         var chapter = AssertFile(bytes, Title, "2026-10-07T11:05:28Z");
         Assert.Equal("一章", Assert.Single(chapter.Descendants(Xhtml + "h2")).Value);
-        Assert.Equal("emphasis", Assert.Single(chapter.Descendants(Xhtml + "strong")).Value);
+        Assert.Equal(new[] { "emphasis", "Count" }, chapter.Descendants(Xhtml + "strong").Select(node => node.Value));
+        var table = Assert.Single(chapter.Descendants(Xhtml + "table"));
+        Assert.Equal(new[] { "Heading", "Units" }, table.Descendants(Xhtml + "th").Select(node => node.Value));
+        Assert.Equal(new[] { "Count", "12" }, table.Descendants(Xhtml + "td").Select(node => node.Value));
+        Assert.Equal("text-align: right;", table.Descendants(Xhtml + "td").Last().Attribute("style")?.Value);
+        var legacy = AssertFile(EpubDocumentExport.Write(Title, markdown, HappenedAt, CancellationToken.None, includeTables: false),
+            Title, "2026-10-07T11:05:28Z");
+        Assert.Empty(legacy.Descendants(Xhtml + "table"));
+        Assert.Contains("| Heading | Units |", legacy.Root!.Value, StringComparison.Ordinal);
         Assert.Equal("4", (string?)Assert.Single(chapter.Descendants(Xhtml + "ol")).Attribute("start"));
         Assert.Contains("©, and مرحبا 😀.", chapter.Root!.Value, StringComparison.Ordinal);
         Assert.Contains("<iframe src=", Assert.Single(chapter.Descendants(Xhtml + "code")).Value, StringComparison.Ordinal);
@@ -46,6 +58,7 @@ public sealed class EpubDocumentExportTests
     [Theory]
     [InlineData("[relative](other.xhtml)")]
     [InlineData("![remote](https://export.invalid/blocked)")]
+    [InlineData("| Item | Value |\n| --- | --- |\n| [outside](https://export.invalid/blocked) | 1 |")]
     [InlineData("~~~mermaid\ngraph TD; A --> B;\n~~~")]
     [InlineData("before\fafter")]
     public void RefusesLinksImagesRenderDirectivesAndInvalidXml(string markdown)

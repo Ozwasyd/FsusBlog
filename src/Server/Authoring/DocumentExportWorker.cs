@@ -108,10 +108,10 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 await RequireAuthority(db, tx, job, budget.Token);
                 return await DocumentExportInput.Read(db, tx, job.Request, budget.Token);
             }, budget.Token);
-            if (job.Provider != 1 ||
-                !CryptographicOperations.FixedTimeEquals(job.SourceDigest, input.Digest(job.Request, pdf?.ToolDigest)))
+            if (job.Provider is not (1 or DocumentExportInput.CurrentProvider) ||
+                !CryptographicOperations.FixedTimeEquals(job.SourceDigest, input.Digest(job.Request, (byte)job.Provider, pdf?.ToolDigest)))
                 throw new PublicUnavailableException();
-            output = await Render(job.Request.Format, input, budget.Token);
+            output = await Render(job.Request.Format, input, job.Provider == DocumentExportInput.CurrentProvider, budget.Token);
             budget.Token.ThrowIfCancellationRequested();
             if (output.Length is <= 0 or > PdfDocumentExport.MaximumOutput) throw new PublicUnavailableException();
         }
@@ -206,13 +206,13 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
         await RevisionHistoryStore.LockOwned(db, tx, job.Owner, job.Request.Article, ct);
     }
 
-    private async Task<byte[]> Render(DocumentExportFormat format, DocumentExportInput input, CancellationToken ct) =>
+    private async Task<byte[]> Render(DocumentExportFormat format, DocumentExportInput input, bool includeTables, CancellationToken ct) =>
         format switch
         {
-            DocumentExportFormat.Html => HtmlDocumentExport.Write(input.Title, input.Body, ct),
-            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(input.Title, input.Body, input.HappenedAt, ct),
-            DocumentExportFormat.Docx => WordDocumentExport.Write(input.Title, input.Body, ct),
-            DocumentExportFormat.Epub => EpubDocumentExport.Write(input.Title, input.Body, input.HappenedAt, ct),
+            DocumentExportFormat.Html => HtmlDocumentExport.Write(input.Title, input.Body, ct, includeTables),
+            DocumentExportFormat.Pdf when pdf is not null => await pdf.WriteAsync(input.Title, input.Body, input.HappenedAt, ct, includeTables),
+            DocumentExportFormat.Docx => WordDocumentExport.Write(input.Title, input.Body, ct, includeTables),
+            DocumentExportFormat.Epub => EpubDocumentExport.Write(input.Title, input.Body, input.HappenedAt, ct, includeTables),
             _ => throw new PublicUnavailableException()
         };
 

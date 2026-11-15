@@ -12,7 +12,7 @@ using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class DocumentExportPostgresTests
+public sealed partial class DocumentExportPostgresTests
 {
     private const string Route = "/api/v2/authoring/document-exports";
     private const string CreateRoute = Route + "/create.aeds";
@@ -30,6 +30,47 @@ public sealed class DocumentExportPostgresTests
         ["FSUSBLOG_PDF_TOOL_ROOT"] = "",
         ["FSUSBLOG_PDF_TOOL_SHA256"] = "",
     };
+
+    [PostgresFact]
+    public async Task AQueuedLegacyProviderRendersItsOriginalProfileBesideCurrentTasks()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await Login(db, new Store(fixture.DataSource), "Versioned document owner", canAuthor: true, ct);
+        const string title = "Versions of one document";
+        const string body = "| Left | Right |\n| --- | --- |\n| One | Two |\n";
+        Draft source;
+        await using (var before = await ServerProcess.Start(fixture.ConnectionString, ct))
+            source = await Save(before.Client, owner, 0, 0, title, body, ct);
+        var time = await SourceTime(db, source, ct);
+        var legacy = new ExportTask(Guid.NewGuid(), source.Id, source.Revision, source.Revision,
+            1, Queued, 0, 1, 0, 0, 0, 0, [], [], 0);
+        var legacyDigest = SourceDigest(legacy, title, body, time);
+        await Execute(db, """
+            insert into public.author_document_export
+            (owner_id,id,article_id,expected_revision,source_revision,author_generation,format,state,created_at,expires_at,source_digest)
+            values ($1,$2,$3,$4,$4,1,1,1,statement_timestamp(),statement_timestamp()+interval '30 minutes',$5)
+            """, ct, owner.Id, legacy.Id, source.Id, source.Revision, legacyDigest);
+
+        await using var after = await ServerProcess.Start(fixture.ConnectionString, ct, Settings);
+        var currentId = Guid.NewGuid();
+        var current = await ReadTask(after.Client, CreateRoute, owner,
+            Create(currentId, source.Id, source.Revision, source.Revision, 1), ct);
+        AssertReceipt(current, currentId, source, source.Revision, 1);
+        Assert.NotEqual(legacyDigest, current.SourceDigest);
+        Assert.Equal(SourceDigest(current, title, body, time), current.SourceDigest);
+        var oldResult = await AwaitTask(after.Client, owner, source.Id, legacy.Id, Succeeded, ct);
+        var newResult = await AwaitTask(after.Client, owner, source.Id, currentId, Succeeded, ct);
+        Assert.Equal(1, oldResult.Provider);
+        Assert.Equal(legacyDigest, oldResult.SourceDigest);
+        var plain = await Download(after.Client, owner, oldResult, "text/html", "article.html", ct);
+        var structured = await Download(after.Client, owner, newResult, "text/html", "article.html", ct);
+        Assert.Contains("| One | Two |", Encoding.UTF8.GetString(plain), StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", Encoding.UTF8.GetString(plain), StringComparison.Ordinal);
+        Assert.Contains("<table", Encoding.UTF8.GetString(structured), StringComparison.Ordinal);
+    }
 
     [PostgresFact]
     public async Task DocumentTasksFreezeSavedSourceAndProtectDurableDownloads()
@@ -233,7 +274,7 @@ public sealed class DocumentExportPostgresTests
         Assert.Equal(expected.Revision, task.ExpectedRevision);
         Assert.Equal(source, task.SourceRevision);
         Assert.Equal(format, task.Format);
-        Assert.Equal(1, task.Provider);
+        Assert.Equal(2, task.Provider);
         Assert.True(task.Created > 0 && task.Expires > task.Created);
         Assert.Contains(task.SourceDigest, value => value != 0);
     }
@@ -250,7 +291,7 @@ public sealed class DocumentExportPostgresTests
     private static byte[] SourceDigest(ExportTask task, string title, string body, DateTimeOffset time)
     {
         using var payload = new MemoryStream();
-        payload.Write("FsusBlog document export 1 basic-layout 1"u8);
+        payload.Write(Encoding.UTF8.GetBytes(FormattableString.Invariant($"FsusBlog document export {task.Provider} basic-layout 1")));
         using var writer = new BinaryWriter(payload, Encoding.UTF8, leaveOpen: true);
         writer.Write(task.ArticleId);
         writer.Write(task.SourceRevision);

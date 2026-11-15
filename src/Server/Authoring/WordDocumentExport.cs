@@ -1,9 +1,10 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
-using Markdig;
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 
 namespace FsusBlog.V2.Server.Authoring;
@@ -13,12 +14,12 @@ internal static class WordDocumentExport
     internal const string ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     internal const int MaximumOutput = 2 * 1024 * 1024;
     private const string Word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    private const int PageContentWidthTwips = 9026;
     private static readonly DateTimeOffset ArchiveEpoch = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly UTF8Encoding Utf8 = new(false, true);
-    private static readonly MarkdownPipeline MarkdownSyntax = new MarkdownPipelineBuilder().DisableHtml().Build();
     private static readonly XmlWriterSettings Xml = new() { Encoding = Utf8, NewLineHandling = NewLineHandling.None, CloseOutput = true };
 
-    internal static byte[] Write(string title, string body, CancellationToken ct)
+    internal static byte[] Write(string title, string body, CancellationToken ct, bool includeTables = true)
     {
         ct.ThrowIfCancellationRequested();
         if (Utf8.GetByteCount(title) > WireLimits.TitleBytes || Utf8.GetByteCount(body) > WireLimits.BodyBytes ||
@@ -47,7 +48,7 @@ internal static class WordDocumentExport
             output.WriteStartElement("w", "document", Word);
             output.WriteStartElement("w", "body", Word);
             Paragraph(output, "Title", title, ct);
-            var markdown = Markdown.Parse(body, MarkdownSyntax);
+            var markdown = HtmlDocumentExport.ParseMarkdown(body, "Word", ct, includeTables);
             var next = 0;
             foreach (var block in markdown)
             {
@@ -60,6 +61,9 @@ internal static class WordDocumentExport
                         break;
                     case CodeBlock code:
                         Paragraph(output, "SourceCode", code.Lines.ToString(), ct);
+                        break;
+                    case Table table:
+                        WriteTable(output, table, body, ct);
                         break;
                     default:
                         Paragraph(output, "Normal", Raw(), ct);
@@ -85,11 +89,53 @@ internal static class WordDocumentExport
         return data.ToArray();
     }
 
-    private static void Paragraph(XmlWriter xml, string style, string text, CancellationToken ct)
+    private static void WriteTable(XmlWriter xml, Table table, string markdown, CancellationToken ct)
+    {
+        var columns = table.Cast<TableRow>().Max(row => row.Count);
+        xml.WriteStartElement("w", "tbl", Word);
+        xml.WriteStartElement("w", "tblPr", Word);
+        Empty(xml, "tblW", ("w", "5000"), ("type", "pct"));
+        xml.WriteEndElement();
+        xml.WriteStartElement("w", "tblGrid", Word);
+        var columnWidth = Math.Max(1, PageContentWidthTwips / columns).ToString(CultureInfo.InvariantCulture);
+        for (var i = 0; i < columns; i++) Empty(xml, "gridCol", ("w", columnWidth));
+        xml.WriteEndElement();
+        foreach (var row in table.Cast<TableRow>())
+        {
+            ct.ThrowIfCancellationRequested();
+            xml.WriteStartElement("w", "tr", Word);
+            if (row.IsHeader)
+            {
+                xml.WriteStartElement("w", "trPr", Word);
+                Empty(xml, "tblHeader");
+                xml.WriteEndElement();
+            }
+            for (var i = 0; i < row.Count; i++)
+            {
+                var cell = (TableCell)row[i];
+                xml.WriteStartElement("w", "tc", Word);
+                var alignment = i < table.ColumnDefinitions.Count ? table.ColumnDefinitions[i].Alignment switch
+                {
+                    TableColumnAlign.Left => "left",
+                    TableColumnAlign.Center => "center",
+                    TableColumnAlign.Right => "right",
+                    _ => null
+                } : null;
+                var text = cell.Span.Length == 0 ? "" : markdown.AsSpan(cell.Span.Start, cell.Span.Length).Trim().ToString();
+                Paragraph(xml, "Normal", text, ct, alignment);
+                xml.WriteEndElement();
+            }
+            xml.WriteEndElement();
+        }
+        xml.WriteEndElement();
+    }
+
+    private static void Paragraph(XmlWriter xml, string style, string text, CancellationToken ct, string? alignment = null)
     {
         xml.WriteStartElement("w", "p", Word);
         xml.WriteStartElement("w", "pPr", Word);
         Empty(xml, "pStyle", ("val", style));
+        if (alignment is not null) Empty(xml, "jc", ("val", alignment));
         xml.WriteEndElement();
         xml.WriteStartElement("w", "r", Word);
         var remaining = text.AsSpan();

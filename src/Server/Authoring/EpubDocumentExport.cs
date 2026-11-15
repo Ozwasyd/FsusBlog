@@ -18,12 +18,13 @@ internal static class EpubDocumentExport
     {
         "html", "head", "title", "body", "main", "article", "div", "h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
         "ul", "ol", "li", "blockquote", "strong", "em", "code", "pre",
+        "table", "thead", "tbody", "tr", "th", "td",
     };
 
-    internal static byte[] Write(string title, string body, DateTimeOffset happenedAt, CancellationToken ct)
+    internal static byte[] Write(string title, string body, DateTimeOffset happenedAt, CancellationToken ct, bool includeTables = true)
     {
         if (string.IsNullOrWhiteSpace(title)) throw Invalid("EPUB requires a saved article title.");
-        var content = HtmlDocumentExport.RenderBody(title, body, "EPUB", ct);
+        var content = HtmlDocumentExport.RenderBody(title, body, "EPUB", ct, includeTables);
         var heading = HtmlEncoder.Default.Encode(title);
         var chapter = $"""
             <?xml version="1.0" encoding="UTF-8"?>
@@ -101,7 +102,9 @@ internal static class EpubDocumentExport
                 while (xml.MoveToNextAttribute())
                     if (!(element == "html" && xml.Name is "xmlns" or "xml:lang" or "lang" or "dir") &&
                         !(element == "div" && xml.Name == "dir") &&
-                        !(element == "code" && xml.Name == "class") && !(element == "ol" && xml.Name == "start"))
+                        !(element == "code" && xml.Name == "class") && !(element == "ol" && xml.Name == "start") &&
+                        !(element is "th" or "td" && xml.Name == "style" &&
+                          xml.Value is "text-align: left;" or "text-align: center;" or "text-align: right;"))
                         throw Invalid("This revision contains markup outside the EPUB text profile.");
                 xml.MoveToElement();
             }

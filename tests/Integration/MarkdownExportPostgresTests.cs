@@ -71,6 +71,34 @@ public sealed class MarkdownExportPostgresTests
         Assert.Throws<OperationCanceledException>(() => HtmlDocumentExport.Write("Saved", "Body", new CancellationToken(true)));
     }
 
+    [Fact]
+    public void OfflineHtmlAndPdfRenderPipeTablesWithoutLoadingElements()
+    {
+        const string source = """
+            | Item | Units |
+            | --- | ---: |
+            | **Saved** | 12 |
+            | <img src="https://export.invalid/"> | |
+            """;
+        var html = Encoding.UTF8.GetString(HtmlDocumentExport.Write("Recorded", source, CancellationToken.None));
+        Assert.Contains("<thead>", html, StringComparison.Ordinal);
+        Assert.Contains("<tbody>", html, StringComparison.Ordinal);
+        Assert.Contains("<td><strong>Saved</strong></td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td style=\"text-align: right;\">12</td>", html, StringComparison.Ordinal);
+        Assert.Contains("&lt;img src=", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<img", html, StringComparison.Ordinal);
+        Assert.Contains("<table>", HtmlDocumentExport.RenderBody("Recorded", source, "PDF", CancellationToken.None), StringComparison.Ordinal);
+        var legacy = Encoding.UTF8.GetString(HtmlDocumentExport.Write("Recorded", source, CancellationToken.None, includeTables: false));
+        Assert.DoesNotContain("<table>", legacy, StringComparison.Ordinal);
+        Assert.Contains("| Item | Units |", legacy, StringComparison.Ordinal);
+        Assert.Contains("| --- | ---: |", legacy, StringComparison.Ordinal);
+
+        const string unsafeCell = "| Item | Units |\n| --- | --- |\n| ![Remote](https://export.invalid/) | 12 |";
+        Assert.Throws<BusinessException>(() => HtmlDocumentExport.Write("Recorded", unsafeCell, CancellationToken.None));
+        Assert.Throws<BusinessException>(() =>
+            HtmlDocumentExport.RenderBody("Recorded", unsafeCell, "PDF", CancellationToken.None));
+    }
+
     [PostgresFact]
     public async Task ExportsOnlyTheRequestedSavedOwnerRevisionAsAnUncachedAttachment()
     {
@@ -310,7 +338,8 @@ public sealed class MarkdownExportPostgresTests
             Assert.Contains("name=\"fsus-pdf-export\"", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
 
-        var older = await SaveDraft(server.Client, owner, 0, 0, "保留的中文标题", "## 旧稿保留的段落\n\n打印文字。", ct);
+        var older = await SaveDraft(server.Client, owner, 0, 0, "保留的中文标题",
+            "## 旧稿保留的段落\n\n打印文字。\n\n| 项目 | 数量 |\n| --- | ---: |\n| 保存的表格 | 12 |", ct);
         var current = await SaveDraft(server.Client, owner, older.Id, older.Revision, "Newer private text", "Current version only.", ct);
         var path = PathFor(current, older.Revision, "pdf");
         var saved = await ReadPdf(server.Client, path, owner, HttpStatusCode.OK, ct);

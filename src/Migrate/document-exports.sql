@@ -8,7 +8,7 @@ CREATE TABLE public.author_document_export (
     format smallint NOT NULL CHECK (format BETWEEN 1 AND 4),
     state smallint NOT NULL CHECK (state BETWEEN 1 AND 7),
     failure smallint NOT NULL DEFAULT 0 CHECK (failure BETWEEN 0 AND 4),
-    provider smallint NOT NULL DEFAULT 1 CHECK (provider = 1),
+    provider smallint NOT NULL DEFAULT 1 CHECK (provider BETWEEN 1 AND 2),
     created_at timestamptz NOT NULL,
     started_at timestamptz,
     finished_at timestamptz,

@@ -35,11 +35,12 @@ internal sealed class PdfDocumentExport(Func<byte[], CancellationToken, Task<byt
         return new(new MacRuntime(PdfExportToolchain.Read(root, digest)).RenderAsync) { ToolDigest = Convert.FromHexString(digest!) };
     }
 
-    internal async Task<byte[]> WriteAsync(string title, string markdown, DateTimeOffset happenedAt, CancellationToken ct)
+    internal async Task<byte[]> WriteAsync(string title, string markdown, DateTimeOffset happenedAt, CancellationToken ct,
+        bool includeTables = true)
     {
         ct.ThrowIfCancellationRequested();
         if (Encoding.UTF8.GetByteCount(markdown) > MaximumMarkdown) throw HtmlDocumentExport.TooLarge("PDF");
-        var body = HtmlDocumentExport.RenderBody(title, markdown, "PDF", ct);
+        var body = HtmlDocumentExport.RenderBody(title, markdown, "PDF", ct, includeTables);
         var heading = HtmlEncoder.Default.Encode(title);
         var created = happenedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         var document = $"""
