@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElInput } from '@ozwasyd/element-plus'
-import { authorTextSummarySearch } from '../../../Contracts/author-text-ranked-client'
+import { authorTextHeadingSearch, authorTextSummarySearch } from '../../../Contracts/author-text-ranked-client'
 import type { AuthorTextFacetedPage, AuthorTextQualifiedQuery, AuthorTextSearchRow } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import type { PropertyQuery } from '../../../Contracts/property-query'
@@ -11,10 +11,10 @@ import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerSearchEditorHandoff } from './canvasEditorHandoff'
 
-type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'>
+type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'> & { includeHeading: boolean }
 type SearchPage = AuthorTextFacetedPage & { input: SearchInput; cursor: string; previous: readonly string[] }
 const PreviousPageLimit = 500
-const fieldLabels = { title: '标题', body: '正文', summary: '摘要' } as const
+const fieldLabels = { title: '标题', body: '正文', summary: '摘要', heading: '章节标题' } as const
 const states = [
   { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
   { value: 'published', label: '已发布' }, { value: 'retracted', label: '已撤回' },
@@ -77,6 +77,28 @@ function utcMidnight(day: string): bigint | null {
   return BigInt(milliseconds)
 }
 
+function usesHeadingQualifier(text: string): boolean {
+  const query = text.toLowerCase()
+  let quoted = false
+  let clauseStart = true
+  for (let index = 0; index < query.length; index++) {
+    const character = query[index]
+    if (quoted) {
+      if (character === '\\') index++
+      else if (character === '"') quoted = false
+    } else if (character === '"') {
+      quoted = true
+      clauseStart = false
+    } else if (/\p{White_Space}/u.test(character)) {
+      clauseStart = true
+    } else {
+      if (clauseStart && query.startsWith('field.heading:', index)) return true
+      clauseStart = false
+    }
+  }
+  return false
+}
+
 function search() {
   if (pending.value || opening.value) return
   let from: bigint | null, until: bigint | null
@@ -88,18 +110,23 @@ function search() {
     error.value = '请输入有效的 UTC 日期。起始日期必须早于截止日期。'
     return
   }
+  const text = query.value.trim()
   return loadPage({
-    query: query.value.trim(), updatedFromUnixMs: from, updatedUntilUnixMs: until,
+    query: text, includeHeading: usesHeadingQualifier(text), updatedFromUnixMs: from, updatedUntilUnixMs: until,
     schema: properties.value?.schema ?? 0n, conditions: properties.value?.conditions ?? [],
   }, '', [], false)
 }
 
-function readPage(input: SearchInput, cursor: string, session: string, signal: AbortSignal) {
-  return authorTextSummarySearch({ ...input, cursor }, session, signal)
+function readPage({ includeHeading, ...input }: SearchInput, cursor: string, session: string, signal: AbortSignal) {
+  const read = includeHeading ? authorTextHeadingSearch : authorTextSummarySearch
+  return read({ ...input, cursor }, session, signal)
 }
 
-function propertyDependenciesChanged(input: SearchInput, failure: unknown) {
-  return input.conditions.length > 0 && failure instanceof ApiError && (failure.status === 404 || failure.status === 409)
+function queryAvailabilityError(input: SearchInput, failure: unknown): string | undefined {
+  if (!(failure instanceof ApiError)) return
+  if (input.includeHeading && failure.status === 422) return '有文章超出章节标题解析上限。仍可按标题、摘要或正文搜索。'
+  if (input.conditions.length > 0 && (failure.status === 404 || failure.status === 409))
+    return '属性条件已失效。请重新加载属性定义并添加条件。'
 }
 
 function showNextPage() {
@@ -154,9 +181,10 @@ async function loadPage(input: SearchInput, cursor: string, previous: readonly s
     if (!current()) return
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
     if (cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
-    if (propertyDependenciesChanged(input, failure)) {
+    const availabilityError = queryAvailabilityError(input, failure)
+    if (availabilityError) {
       result.value = undefined
-      error.value = '属性条件已失效。请重新加载属性定义并添加条件。'
+      error.value = availabilityError
       return
     }
     error.value = failure instanceof ApiError && failure.status === 400
@@ -250,8 +278,7 @@ async function openMatch(row: AuthorTextSearchRow) {
     if (page.cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     result.value = undefined
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
-    locationNotice.value = propertyDependenciesChanged(page.input, failure)
-      ? '属性条件已失效。请重新加载属性定义并添加条件。' : '无法复查此命中。请重新搜索后再定位。'
+    locationNotice.value = queryAvailabilityError(page.input, failure) ?? '无法复查此命中。请重新搜索后再定位。'
   } finally {
     signal.removeEventListener('abort', revoke)
     revoke()
@@ -266,7 +293,7 @@ async function openMatch(row: AuthorTextSearchRow) {
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
       <p id="author-text-search-help">
         可组合关键词和英文双引号短语。用 <code>field.title:</code> 限定标题、<code>field.markdown-body:</code> 限定正文，
-        或用 <code>field.summary:</code> 限定摘要。
+        <code>field.summary:</code> 限定摘要，<code>field.heading:</code> 限定章节标题。
         可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
       </p>
       <ElInput v-model="query" label="全文搜索词" clearable

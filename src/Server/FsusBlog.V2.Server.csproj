@@ -1,4 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <_FsusAuthorHeadingRoot>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '../../../FsusUI/vue/packages/wasm/markdown'))</_FsusAuthorHeadingRoot>
+    <_FsusAuthorHeadingLibrary Condition="$([MSBuild]::IsOSPlatform('OSX'))">libfsus_author_heading.dylib</_FsusAuthorHeadingLibrary>
+    <_FsusAuthorHeadingLibrary Condition="$([MSBuild]::IsOSPlatform('Linux'))">libfsus_author_heading.so</_FsusAuthorHeadingLibrary>
+    <_FsusAuthorHeadingLink Condition="$([MSBuild]::IsOSPlatform('OSX'))">-dynamiclib</_FsusAuthorHeadingLink>
+    <_FsusAuthorHeadingLink Condition="$([MSBuild]::IsOSPlatform('Linux'))">-shared</_FsusAuthorHeadingLink>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
     <ProjectReference Include="../Contracts/FsusBlog.V2.Contracts.csproj" />
@@ -12,5 +19,42 @@
     <None Update="Authoring/Unicode17/unicode-license.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="licenses/Unicode-3.0.txt" />
     <EmbeddedResource Include="Authoring/pdf-render.py" LogicalName="FsusBlog.PdfRender" />
     <EmbeddedResource Include="Authoring/linux-pdf-fonts.conf" LogicalName="FsusBlog.LinuxPdfFonts" />
+    <_FsusAuthorHeadingCpp Include="$(_FsusAuthorHeadingRoot)/src/markdown_contract.cpp;
+                                    $(_FsusAuthorHeadingRoot)/src/markdown_latex.cpp;
+                                    $(_FsusAuthorHeadingRoot)/src/markdown_mermaid.cpp;
+                                    $(_FsusAuthorHeadingRoot)/src/markdown_syntax_export.cpp" />
+    <_FsusAuthorHeadingHeaders Include="$(_FsusAuthorHeadingRoot)/include/markdown_contract.hpp;
+                                        $(_FsusAuthorHeadingRoot)/src/markdown_latex.hpp;
+                                        $(_FsusAuthorHeadingRoot)/src/markdown_mermaid.hpp" />
   </ItemGroup>
+  <Target Name="PrepareFsusAuthorHeading">
+    <Error Condition="'$(_FsusAuthorHeadingLibrary)' == ''" Text="The FsusUI native Markdown build requires macOS or Linux." />
+    <Error Condition="('$(RuntimeIdentifier)' != '' And '$(RuntimeIdentifier)' != '$(NETCoreSdkRuntimeIdentifier)') Or
+                      ('$(PublishRuntimeIdentifier)' != '' And '$(PublishRuntimeIdentifier)' != '$(NETCoreSdkRuntimeIdentifier)')"
+           Text="Build the FsusUI native Markdown library on the requested runtime platform." />
+    <Error Condition="!Exists('%(_FsusAuthorHeadingCpp.Identity)')"
+           Text="The FsusUI Markdown source is required in ../FsusUI next to the FsusBlogV2 checkout." />
+    <Error Condition="!Exists('%(_FsusAuthorHeadingHeaders.Identity)')"
+           Text="The FsusUI Markdown headers are required in ../FsusUI next to the FsusBlogV2 checkout." />
+    <PropertyGroup>
+      <_FsusAuthorHeadingArch Condition="'$(NETCoreSdkRuntimeIdentifier)' == 'osx-arm64'">-arch arm64</_FsusAuthorHeadingArch>
+      <_FsusAuthorHeadingArch Condition="'$(NETCoreSdkRuntimeIdentifier)' == 'osx-x64'">-arch x86_64</_FsusAuthorHeadingArch>
+      <_FsusAuthorHeadingDirectory>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'native', '$(NETCoreSdkRuntimeIdentifier)'))</_FsusAuthorHeadingDirectory>
+      <_FsusAuthorHeadingArtifact>$(_FsusAuthorHeadingDirectory)/$(_FsusAuthorHeadingLibrary)</_FsusAuthorHeadingArtifact>
+    </PropertyGroup>
+  </Target>
+  <Target Name="BuildFsusAuthorHeading" DependsOnTargets="PrepareFsusAuthorHeading"
+          Inputs="$(MSBuildProjectFullPath);@(_FsusAuthorHeadingCpp);@(_FsusAuthorHeadingHeaders)" Outputs="$(_FsusAuthorHeadingArtifact)">
+    <MakeDir Directories="$(_FsusAuthorHeadingDirectory)" />
+    <Exec Command="c++ -std=c++23 -O2 -fPIC -fno-exceptions -fno-rtti $(_FsusAuthorHeadingLink) $(_FsusAuthorHeadingArch) -I &quot;$(_FsusAuthorHeadingRoot)/include&quot; @(_FsusAuthorHeadingCpp->'&quot;%(FullPath)&quot;', ' ') -o &quot;$(_FsusAuthorHeadingArtifact).tmp&quot;" />
+    <Move SourceFiles="$(_FsusAuthorHeadingArtifact).tmp" DestinationFiles="$(_FsusAuthorHeadingArtifact)" />
+  </Target>
+  <Target Name="RegisterFsusAuthorHeading" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildFsusAuthorHeading"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <None Include="$(_FsusAuthorHeadingArtifact)" TargetPath="$(_FsusAuthorHeadingLibrary)"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <FileWrites Include="$(_FsusAuthorHeadingArtifact)" />
+    </ItemGroup>
+  </Target>
 </Project>

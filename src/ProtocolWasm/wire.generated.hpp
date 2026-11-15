@@ -549,6 +549,8 @@ enum class FrameType : uint16_t {
     ArticleSummary = 33017,
     AuthorTextSummaryQuery = 33018,
     AuthorTextSummaryPage = 33019,
+    AuthorTextHeadingQuery = 33020,
+    AuthorTextHeadingPage = 33021,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -742,6 +744,8 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleSummary:
         case FrameType::AuthorTextSummaryQuery:
         case FrameType::AuthorTextSummaryPage:
+        case FrameType::AuthorTextHeadingQuery:
+        case FrameType::AuthorTextHeadingPage:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

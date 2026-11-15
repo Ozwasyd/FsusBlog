@@ -122,7 +122,7 @@ internal static partial class CurrentSchema
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
         bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
         bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
-        bool requireAuthorTextSummaryIndex = false)
+        bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false)
     {
         if (requireArticleMedia is null)
         {
@@ -230,6 +230,10 @@ internal static partial class CurrentSchema
             await HasAuthorTextSummaryIndexAsync(connection, transaction, cancellationToken);
         if (requireAuthorTextSummaryIndex && !hasAuthorTextSummaryIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install summary indexing.");
+        var hasAuthorTextHeadingIndex = hasAuthorTextIndex &&
+            await HasAuthorTextHeadingIndexAsync(connection, transaction, cancellationToken);
+        if (hasAuthorTextHeadingIndex && !hasAuthorTextSummaryIndex || requireAuthorTextHeadingIndex && !hasAuthorTextHeadingIndex)
+            throw new InvalidOperationException("Run the author-search migration with the server stopped to install heading indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
@@ -287,7 +291,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex) : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
@@ -331,7 +335,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex) : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])

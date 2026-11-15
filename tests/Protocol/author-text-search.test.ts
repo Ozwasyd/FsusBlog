@@ -6,6 +6,7 @@ import {
   decodeAuthorTextQualifiedQuery, encodeAuthorTextQualifiedQuery, type AuthorTextQualifiedQuery,
   decodeAuthorTextRankedPage, decodeAuthorTextRankedQuery, decodeAuthorTextSearchPage,
   decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery, encodeAuthorTextSummaryQuery,
+  decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, encodeAuthorTextHeadingQuery,
   encodeAuthorTextRankedPage, encodeAuthorTextRankedQuery, type AuthorTextSearchRow, type AuthorTextTaxonomyFacet,
 } from '../../src/Contracts/author-text-search.ts';
 import type { FilterField } from '../../src/Contracts/property-query.ts';
@@ -259,7 +260,9 @@ test('summary source coordinates are admitted only by the new page and use both 
   }
   const payload = summaryPayload(summaryBoundary);
   equal(FrameType.AuthorTextSummaryPage, 33019);
-  const match = decodeAuthorTextSummaryPage(payload).rows[0];
+  const summaryPage = decodeAuthorTextSummaryPage(payload);
+  deepEqual(decodeAuthorTextHeadingPage(payload), summaryPage);
+  const match = summaryPage.rows[0];
   deepEqual({ ...match, sourceDigest: Uint8Array.from(match.sourceDigest) }, { ...summaryBoundary, field: 'summary' });
   throws(() => decodeAuthorTextFacetedPage(payload), ProtocolError);
   throws(() => encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: [match] }), ProtocolError);
@@ -272,4 +275,48 @@ test('summary source coordinates are admitted only by the new page and use both 
     { ...summaryBoundary, sourceByteStart: summaryBoundary.sourceByteStart + 1, sourceByteEnd: summaryBoundary.sourceByteEnd + 1 },
     { ...summaryBoundary, snippet: summaryBoundary.snippet.padEnd(WireLimits.ArticleSummaryReadChars + 1, 'a') },
   ]) throws(() => decodeAuthorTextSummaryPage(summaryPayload(invalid)), ProtocolError);
+});
+
+
+test('heading search keeps the qualified payload bytes under its own request discriminator', () => {
+  const query = { ...qualified, query: 'field.heading:Orbit' };
+  const frame = encodeAuthorTextHeadingQuery(query);
+  const { payload } = decodeFrame(frame, FrameType.AuthorTextHeadingQuery);
+  equal(FrameType.AuthorTextHeadingQuery, 33020);
+  deepEqual(payload, decodeFrame(encodeAuthorTextSummaryQuery(query)).payload);
+  deepEqual(decodeAuthorTextHeadingQuery(payload), decodeAuthorTextQualifiedQuery(payload));
+  throws(() => decodeFrame(frame, FrameType.AuthorTextSummaryQuery), ProtocolError);
+  const unqualified = { ...query, updatedFromUnixMs: null, updatedUntilUnixMs: null, schema: 0n, conditions: [] };
+  deepEqual(decodeAuthorTextHeadingQuery(decodeFrame(encodeAuthorTextHeadingQuery(unqualified)).payload), unqualified);
+  throws(() => encodeAuthorTextHeadingQuery({ ...unqualified, schema: 1n }), ProtocolError);
+});
+
+test('heading result uses raw body limits and is rejected by earlier faceted page codecs', () => {
+  // Independently packed body range for "Orbit" ending at the wire body byte ceiling.
+  const payload = Buffer.from(
+    '0100000000010000000100000000000000000000000000000000000000000000000000010000000400000017' +
+    '0000000000000006000000486172626f7204000000050000004f726269740000000005000000fbff0f000000' +
+    '1000fbff0f0000001000dc796faa8258aeb80074c753df4a69c860f758c9b5d64007e984929dc046631a',
+    'hex');
+  equal(FrameType.AuthorTextHeadingPage, 33021);
+  const page = decodeAuthorTextHeadingPage(payload);
+  deepEqual(page.stateCounts, [1, 0, 0, 0]);
+  deepEqual(page.rows.map(({ sourceDigest, ...match }) => ({
+    ...match, digest: Buffer.from(sourceDigest).toString('hex'),
+  })), [{
+    id: 4, revision: 23n, title: 'Harbor', field: 'heading', snippet: 'Orbit', highlightStart: 0, highlightEnd: 5,
+    sourceStart: WireLimits.BodyBytes - 5, sourceEnd: WireLimits.BodyBytes,
+    sourceByteStart: WireLimits.BodyBytes - 5, sourceByteEnd: WireLimits.BodyBytes,
+    digest: 'dc796faa8258aeb80074c753df4a69c860f758c9b5d64007e984929dc046631a',
+  }]);
+  throws(() => decodeAuthorTextSummaryPage(payload), ProtocolError);
+  throws(() => decodeAuthorTextFacetedPage(payload), ProtocolError);
+  throws(() => encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: page.rows }), ProtocolError);
+  const unknownField = Buffer.from(payload);
+  unknownField.writeInt32LE(5, 61);
+  throws(() => decodeAuthorTextHeadingPage(unknownField), ProtocolError);
+  const overBound = Buffer.from(payload);
+  overBound.writeInt32LE(WireLimits.BodyBytes - 4, 90);
+  overBound.writeInt32LE(WireLimits.BodyBytes + 1, 94);
+  throws(() => decodeAuthorTextHeadingPage(overBound), ProtocolError);
 });

@@ -134,6 +134,42 @@ public sealed class ArticleSummaryPostgresTests
         await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextSummaryQuery(continuation), HttpStatusCode.Conflict);
         Assert.Equal(pageDrafts.Count - 1, (await Search(clause)).Total);
 
+        const string headingMarker = "headinguniqueword";
+        const string setextMarker = "setextuniqueword";
+        const string headingBody = "\uFEFF首行 🧭\r\n\r\n## " + headingMarker + " **sharedrank** crossover tail\r\n" +
+            "\r\nstart gap " + setextMarker + "\r\n------------------------\r\n\r\n```md\r\n# headingfencedonly\r\n```\r\n";
+        var headingDraft = await Change(ArticleAction.Save, 0, 0, "Heading fixture", headingBody);
+        foreach (var word in new[] { headingMarker, setextMarker })
+        {
+            var row = Assert.Single((await Search(qualified with { Query = $"FIELD.HEADING:{word}" }, headings: true)).Rows);
+            var offset = headingBody.IndexOf(word, StringComparison.Ordinal);
+            Assert.Equal((headingDraft.Id, headingDraft.Revision, 4), (row.Id, row.Revision, row.Field));
+            Assert.Equal(word, row.Snippet[row.HighlightStart..row.HighlightEnd]);
+            Assert.Equal((offset, offset + word.Length), (row.SourceStart, row.SourceEnd));
+            Assert.Equal((Encoding.UTF8.GetByteCount(headingBody[..offset]), Encoding.UTF8.GetByteCount(headingBody[..(offset + word.Length)])),
+                (row.SourceByteStart, row.SourceByteEnd));
+            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(headingBody)), row.SourceDigest);
+        }
+        Assert.Empty((await Search(qualified with { Query = $"field.heading:{headingMarker}" }, stranger, headings: true)).Rows);
+        Assert.Empty((await Search(qualified with { Query = "field.heading:headingfencedonly" }, headings: true)).Rows);
+        Assert.Empty((await Search(qualified with { Query = "field.heading:\"tail start\"" }, headings: true)).Rows);
+        Assert.Equal(headingDraft.Id,
+            Assert.Single((await Search(qualified with { Query = "field.heading:\"crossover tail\"" }, headings: true)).Rows).Id);
+        Assert.Equal(2, Assert.Single((await Search(qualified with { Query = "field.markdown-body:headingfencedonly" }, headings: true)).Rows).Field);
+        Assert.Equal(2, Assert.Single((await Search(qualified with { Query = headingMarker })).Rows).Field);
+        Assert.Equal(new[] { (titleMatch.Id, 1), (headingDraft.Id, 4), (summaryMatch.Id, 3), (bodyMatch.Id, 2) },
+            (await Search(qualified with { Query = "sharedrank" }, headings: true)).Rows.Select(row => (row.Id, row.Field)));
+
+        var nextHeading = await Change(ArticleAction.Save, headingDraft.Id, headingDraft.Revision, "Heading fixture", "# newerheading");
+        Assert.Empty((await Search(qualified with { Query = $"field.heading:{headingMarker}" }, headings: true)).Rows);
+        Assert.Equal(nextHeading.Revision,
+            Assert.Single((await Search(qualified with { Query = "field.heading:newerheading" }, headings: true)).Rows).Revision);
+
+        var complexDraft = await Change(ArticleAction.Save, 0, 0, "Bounded parser complex body", new string('\n', 4_096) + "complexbodymarker");
+        await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextHeadingQuery(qualified with { Query = "field.heading:newerheading" }),
+            HttpStatusCode.UnprocessableEntity);
+        Assert.Equal(complexDraft.Id, Assert.Single((await Search(qualified with { Query = "complexbodymarker" })).Rows).Id);
+
         async Task<int> Count(string match)
         {
             var frame = await Send(HttpMethod.Get, $"{WireRoutes.AuthorArticles}?match={match}&keyword={marker}");
@@ -143,12 +179,13 @@ public sealed class ArticleSummaryPostgresTests
         async Task<ArticleSummary> Read(int id, long revision) =>
             Wire.DecodeArticleSummary(await Send(HttpMethod.Get, SummaryUrl(id, revision)));
 
-        async Task<AuthorTextFacetedPage> Search(AuthorTextQualifiedQuery input, Actor? caller = null)
+        async Task<AuthorTextFacetedPage> Search(AuthorTextQualifiedQuery input, Actor? caller = null, bool headings = false)
         {
             for (var attempt = 0; attempt < 5; attempt++)
             {
-                var frame = await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextSummaryQuery(input), caller: caller);
-                var result = Wire.DecodeAuthorTextSummaryPage(frame);
+                var query = headings ? Wire.EncodeAuthorTextHeadingQuery(input) : Wire.EncodeAuthorTextSummaryQuery(input);
+                var frame = await Send(HttpMethod.Post, WireRoutes.AuthorTextSearch, query, caller: caller);
+                var result = headings ? Wire.DecodeAuthorTextHeadingPage(frame) : Wire.DecodeAuthorTextSummaryPage(frame);
                 if (result.Ready) return result;
             }
             throw new InvalidOperationException("The summary fixture did not reconcile within five bounded batches.");

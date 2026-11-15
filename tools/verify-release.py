@@ -85,6 +85,16 @@ def verify_payload(archive: Path, expected: dict[str, str]) -> dict[str, str]:
             continue
         if coordinates.get(key) not in seen:
             raise ValueError(f"Missing release file for {key}")
+    if "server_rid" in coordinates or "heading_parser" in coordinates:
+        libraries = {
+            "osx-arm64": "server/libfsus_author_heading.dylib",
+            "osx-x64": "server/libfsus_author_heading.dylib",
+            "linux-arm64": "server/libfsus_author_heading.so",
+            "linux-x64": "server/libfsus_author_heading.so",
+        }
+        library = libraries.get(coordinates.get("server_rid"))
+        if library not in seen or coordinates.get("heading_parser") != library:
+            raise ValueError("Missing or invalid release heading parser coordinates")
     return coordinates
 
 

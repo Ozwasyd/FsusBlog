@@ -7,7 +7,7 @@ export type CanvasEditorTarget = Readonly<{
 export type SearchEditorTarget = Readonly<{
   articleId: number
   revision: bigint
-  field: 'title' | 'body' | 'summary'
+  field: 'title' | 'body' | 'summary' | 'heading'
   sourceStart: number
   sourceEnd: number
   sourceByteStart: number

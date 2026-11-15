@@ -6,6 +6,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Analytics;
+using FsusBlog.V2.Server.Authoring;
 using FsusBlog.V2.Server.Communication;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
@@ -253,6 +254,7 @@ app.Use(async (ctx, next) =>
                 Rejection.NotFound => 404, Rejection.Conflict => 409, _ => 500
             }, err.Message),
             PublicListFailure err => (err.Status, err.Message),
+            AuthorHeadingBudgetException => (422, "A saved article exceeds the heading parser's work limit."),
             ProtocolException => (400, "Invalid AEDS payload."),
             BadHttpRequestException bad => (bad.StatusCode, "Invalid HTTP request."),
             PublicUnavailableException or NpgsqlException => (503, "This operation is temporarily unavailable."),

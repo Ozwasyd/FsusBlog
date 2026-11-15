@@ -469,7 +469,7 @@ internal static partial class Migration
             requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
             requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,
             requireAuthorTextIndex: true, requireRootCommentPowPolicy: true, requireArticleSummary: true,
-            requireAuthorTextSummaryIndex: true);
+            requireAuthorTextSummaryIndex: true, requireAuthorTextHeadingIndex: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

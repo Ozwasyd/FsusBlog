@@ -24,6 +24,12 @@ wasm=$(cd "$wasm" && pwd -P)
   echo 'Build the six FsusUI native Wasm assets before building a release.' >&2
   exit 2
 }
+server_rid=$("$dotnet" msbuild src/Server/FsusBlog.V2.Server.csproj -getProperty:NETCoreSdkRuntimeIdentifier -nologo)
+case "$server_rid" in
+  osx-arm64|osx-x64) heading_parser=server/libfsus_author_heading.dylib ;;
+  linux-arm64|linux-x64) heading_parser=server/libfsus_author_heading.so ;;
+  *) printf 'Unsupported release host RID: %s\n' "$server_rid" >&2; exit 2 ;;
+esac
 mkdir -- "$1"
 release=$(cd -- "$1" && pwd -P)
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/fsusv2-release.XXXXXXXX")
@@ -76,6 +82,7 @@ ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
 ) >> "$release/build.txt" 2>&1
 
 [[ "$(git -C "$ui" rev-parse HEAD)" == "$ui_rev" && -z "$(git -C "$ui" status --porcelain)" ]]
+[[ -s "$scratch/package/$heading_parser" ]]
 (cd "$wasm" && shasum -a 256 -c "$release/fsusui-wasm.sha256") >> "$release/build.txt"
 for name in ep_wasm markdown_basic markdown_simd; do
   assets=("$scratch/package/web/assets/$name"-*.wasm)
@@ -87,6 +94,7 @@ done
 cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin" "$scratch/source/deploy/README.md" "$scratch/package/"
 {
   printf 'fsusblog_commit=%s\nfsusui_commit=%s\n' "$rev" "$ui_rev"
+  printf 'server_rid=%s\nheading_parser=%s\n' "$server_rid" "$heading_parser"
   printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\nmigrate=migrate/FsusBlogV2.Migrate.dll\ndictionary=search-lexicon.fsdl\n'
 } > "$scratch/package/release.txt"
 (

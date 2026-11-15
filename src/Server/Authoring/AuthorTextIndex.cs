@@ -60,9 +60,10 @@ internal static class AuthorTextIndex
     internal static async Task<AuthorTextFacetedPage> ReadQualified(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, long? updatedFromUnixMs, long? updatedUntilUnixMs, long schemaRevision,
         IReadOnlyList<PropertyCondition> conditions, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
-        bool includeSummary = false)
+        bool includeSummary = false, bool includeHeading = false)
     {
         ValidateContinuation(after, expectedGeneration);
+        includeSummary |= includeHeading;
         var properties = new PropertyStore(db, tx, actor);
         PropertyStore.Condition[] resolved = [];
         try
@@ -85,9 +86,9 @@ internal static class AuthorTextIndex
             throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
         }
 
-        if (after is null) await Reconcile(db, tx, actor.Id, ct, includeSummary);
+        if (after is null) await Reconcile(db, tx, actor.Id, ct, includeSummary, includeHeading);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(updatedFromUnixMs, updatedUntilUnixMs, resolved), includeSummary);
+            new(updatedFromUnixMs, updatedUntilUnixMs, resolved), includeSummary, includeHeading);
     }
 
     private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
@@ -107,12 +108,12 @@ internal static class AuthorTextIndex
 
     // A closed set of current revisions, rather than an outbox high-water mark, witnesses
     // completeness. A late-committing writer is seen as an exact mismatch on the next read.
-    private static string Changed(bool includeSummary = false) => $"""
+    private static string Changed(bool includeSummary = false, bool includeHeading = false) => $"""
         eligible as materialized ({Eligible}),
-        {IndexChanges("eligible", includeSummary)}
+        {IndexChanges("eligible", includeSummary, includeHeading)}
         """;
 
-    private static string IndexChanges(string scope, bool includeSummary) => $"""
+    private static string IndexChanges(string scope, bool includeSummary, bool includeHeading) => $"""
         indexed as materialized (
             select article_id,revision,profile from public.author_text_document where owner_id=$1
         ),
@@ -120,16 +121,17 @@ internal static class AuthorTextIndex
             select coalesce(e.id,d.article_id) as id,e.revision
             from {scope} e full join indexed d on d.article_id=e.id
             where e.revision is distinct from d.revision
-                {(includeSummary ? $"or d.profile<>{AuthorTextProfile.SummaryIndexVersion}" : "")}
+                {(includeHeading ? $"or d.profile<>{AuthorTextProfile.HeadingIndexVersion}" :
+                    includeSummary ? $"or d.profile<{AuthorTextProfile.SummaryIndexVersion}" : "")}
         )
         """;
 
     private static async Task Reconcile(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct,
-        bool includeSummary = false)
+        bool includeSummary = false, bool includeHeading = false)
     {
         var batch = new List<Pending>(BatchSize);
         await using (var read = Store.Sql(db, tx, $"""
-            with {Changed(includeSummary)},
+            with {Changed(includeSummary, includeHeading)},
             picked as (select * from changed order by id limit $2)
             select p.id,p.revision,r.title,r.body,coalesce(r.author_summary,'')
             from picked p left join public.article_revision r on r.article_id=p.id and r.revision=p.revision
@@ -169,18 +171,20 @@ internal static class AuthorTextIndex
                 await document.ExecuteNonQueryAsync(ct);
             if (entry is { Revision: { } revision, Title: { } title, Body: { } body })
             {
+                var profile = includeHeading ? AuthorTextProfile.HeadingIndexVersion : AuthorTextProfile.SummaryIndexVersion;
                 await using var insert = Store.Sql(db, tx, """
                     insert into public.author_text_document(owner_id,article_id,revision,profile,title_digest,body_digest,summary_digest)
                     values($1,$2,$3,$4,$5,$6,$7)
-                    """, owner, entry.Id, revision, AuthorTextProfile.SummaryIndexVersion, Digest(title), Digest(body), Digest(entry.Summary));
+                    """, owner, entry.Id, revision, profile, Digest(title), Digest(body), Digest(entry.Summary));
                 await insert.ExecuteNonQueryAsync(ct);
                 await using var copy = await db.BeginBinaryImportAsync("""
-                    copy public.author_text_posting(owner_id,article_id,field,ordinal,term,start_u16,end_u16,start_u8,end_u8)
+                    copy public.author_text_posting(owner_id,article_id,field,ordinal,term,start_u16,end_u16,start_u8,end_u8,segment)
                     from stdin (format binary)
                     """, ct);
                 await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.Title, title, ct);
                 await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.MarkdownBody, body, ct);
                 await WriteTerms(copy, owner, entry.Id, (int)AuthorTextField.Summary, entry.Summary, ct);
+                if (includeHeading) await WriteHeadingTerms(copy, owner, entry.Id, body, ct);
                 await copy.CompleteAsync(ct);
             }
         }
@@ -190,30 +194,72 @@ internal static class AuthorTextIndex
         string source, CancellationToken ct)
     {
         foreach (var token in AuthorTextProfile.Tokenize(source, ct))
+            await WriteTerm(copy, owner, article, field, 0, token, ct);
+    }
+
+    private static async Task WriteHeadingTerms(NpgsqlBinaryImporter copy, Guid owner, int article, string source, CancellationToken ct)
+    {
+        var ordinal = 0;
+        var segment = 0;
+        var previousEnd = 0;
+        var previousByteEnd = 0;
+        int[]? boundaries = null;
+        foreach (var block in AuthorHeadingSource.Collect(source, ct))
         {
-            if (Utf8.GetByteCount(token.Value) > AuthorTextProfile.MaxTermBytes) continue;
-            await copy.StartRowAsync(ct);
-            await copy.WriteAsync(owner, NpgsqlDbType.Uuid, ct);
-            await copy.WriteAsync(article, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(field, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(token.Ordinal, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(Utf8.GetBytes(token.Value), NpgsqlDbType.Bytea, ct);
-            await copy.WriteAsync(token.Start, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(token.End, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(token.ByteStart, NpgsqlDbType.Integer, ct);
-            await copy.WriteAsync(token.ByteEnd, NpgsqlDbType.Integer, ct);
+            if (++segment > AuthorTextProfile.MaxSourceChars) throw InvalidIndex();
+            foreach (var range in block.ContentRanges)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (range.Start < previousEnd || range.End <= range.Start || range.End > source.Length ||
+                    char.IsLowSurrogate(source[range.Start]) || range.End < source.Length && char.IsLowSurrogate(source[range.End]))
+                    throw InvalidIndex();
+                boundaries ??= StringInfo.ParseCombiningCharacters(source);
+                var byteStart = previousByteEnd + Utf8.GetByteCount(source.AsSpan(previousEnd, range.Start - previousEnd));
+                var raw = source[range.Start..range.End];
+                foreach (var token in AuthorTextProfile.Tokenize(raw, ct))
+                {
+                    if (ordinal >= AuthorTextProfile.MaxTerms) throw InvalidIndex();
+                    var anchored = new AuthorTextTerm(token.Value, ordinal++, token.Start + range.Start, token.End + range.Start,
+                        token.ByteStart + byteStart, token.ByteEnd + byteStart);
+                    // A range edge can bisect a source grapheme even when it is on a scalar boundary.
+                    // Omit that coordinate but retain its ordinal so a phrase cannot skip over it.
+                    if (Array.BinarySearch(boundaries, anchored.Start) < 0 ||
+                        anchored.End != source.Length && Array.BinarySearch(boundaries, anchored.End) < 0) continue;
+                    await WriteTerm(copy, owner, article, (int)AuthorTextField.Heading, segment, anchored, ct);
+                }
+                previousEnd = range.End;
+                previousByteEnd = byteStart + Utf8.GetByteCount(raw);
+            }
         }
+    }
+
+    private static async Task WriteTerm(NpgsqlBinaryImporter copy, Guid owner, int article, int field, int segment,
+        AuthorTextTerm token, CancellationToken ct)
+    {
+        if (Utf8.GetByteCount(token.Value) > AuthorTextProfile.MaxTermBytes) return;
+        await copy.StartRowAsync(ct);
+        await copy.WriteAsync(owner, NpgsqlDbType.Uuid, ct);
+        await copy.WriteAsync(article, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(field, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(token.Ordinal, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(Utf8.GetBytes(token.Value), NpgsqlDbType.Bytea, ct);
+        await copy.WriteAsync(token.Start, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(token.End, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(token.ByteStart, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(token.ByteEnd, NpgsqlDbType.Integer, ct);
+        await copy.WriteAsync(segment, NpgsqlDbType.Integer, ct);
     }
 
     // Field weights follow the frozen author search registry. Every clause
     // contributes at most one match. Repetition cannot increase its weight.
-    private static string FieldPriority(string field, bool includeSummary) =>
+    private static string FieldPriority(string field, bool includeSummary, bool includeHeading) =>
+        includeHeading ? $"case {field} when 1 then 1 when 4 then 2 when 3 then 3 else 4 end" :
         includeSummary ? $"case {field} when 1 then 1 when 3 then 2 else 3 end" : field;
 
-    private static string RankHighlightOrder(bool includeSummary) =>
-        $"h.phrase desc,{FieldPriority("h.field", includeSummary)},h.start_u16,h.clause";
+    private static string RankHighlightOrder(bool includeSummary, bool includeHeading = false) =>
+        $"h.phrase desc,{FieldPriority("h.field", includeSummary, includeHeading)},h.start_u16,h.clause";
 
-    private static string MatchCtes(bool includeSummary = false) => $"""
+    private static string MatchCtes(bool includeSummary = false, bool includeHeading = false) => $"""
         requirements as (
             select * from unnest($2::integer[],$3::integer[],$4::boolean[],$5::integer[],$6::bytea[])
                 q(clause,field,phrase,step,term)
@@ -224,20 +270,21 @@ internal static class AuthorTextIndex
             from requirements q join public.author_text_posting p on p.owner_id=$1 and p.term=q.term
             join eligible e on e.id=p.article_id
             where (select admitted from witness) and q.step=0 and (q.field=0 or p.field=q.field)
-              {(includeSummary ? "" : "and p.field<=2")}
+              and p.field<={(includeHeading ? 4 : includeSummary ? 3 : 2)}
               and not exists (
                 select from requirements rest where rest.clause=q.clause and rest.step>0 and not exists (
                     select from public.author_text_posting n
                     where n.owner_id=p.owner_id and n.article_id=p.article_id and n.field=p.field
                       and n.term=rest.term and (not q.phrase or n.ordinal=p.ordinal+rest.step)
+                      {(includeHeading ? "and n.segment=p.segment" : "")}
                 )
               )
-            order by p.article_id,q.clause,{FieldPriority("p.field", includeSummary)},p.ordinal
+            order by p.article_id,q.clause,{FieldPriority("p.field", includeSummary, includeHeading)},p.ordinal
         ),
         ranked_hits as (
             select h.article_id,
-                coalesce(sum(case h.field when 1 then 10 when 3 then 4 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
-                sum(case h.field when 1 then 10 when 3 then 4 else 1 end)::integer as field_rank
+                coalesce(sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end) filter (where h.phrase),0)::integer as phrase_rank,
+                sum(case h.field when 1 then 10 when 4 then 6 when 3 then 4 else 1 end)::integer as field_rank
             from clause_hits h
             group by h.article_id having count(*)=$7
         )
@@ -352,7 +399,7 @@ internal static class AuthorTextIndex
     private static string NameWitness(string column) =>
         $"pg_catalog.int4send(octet_length(pg_catalog.convert_to({column},'UTF8'))) || pg_catalog.convert_to({column},'UTF8')";
 
-    private static string FacetMetadata(int generationParameter, bool includeSummary) => $$"""
+    private static string FacetMetadata(int generationParameter, bool includeSummary, bool includeHeading) => $$"""
         owner_scope as materialized (
             select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventoryEndpoints.CurrentState}} as state,
                 coalesce(c.id,0) as category_id,coalesce(c.name,'') as category_name,
@@ -369,7 +416,7 @@ internal static class AuthorTextIndex
             ) t on true
             where {{OwnerEligible}}
         ),
-        {{IndexChanges("owner_scope", includeSummary)}}
+        {{IndexChanges("owner_scope", includeSummary, includeHeading)}}
         """;
 
     // Every article contributes its exact current lifecycle and ordered taxonomy facts.
@@ -404,7 +451,7 @@ internal static class AuthorTextIndex
 
     private static async Task<AuthorTextFacetedPage> ReadFacets(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct,
-        QualifiedFilters? qualification = null, bool includeSummary = false)
+        QualifiedFilters? qualification = null, bool includeSummary = false, bool includeHeading = false)
     {
         var matches = new List<AuthorTextRankedRow>(WireLimits.AuthorTextSearchRows);
         var total = 0;
@@ -437,7 +484,7 @@ internal static class AuthorTextIndex
         var sourceGeneration = SourceGeneration(parameters, qualification?.Conditions);
 
         await using (var query = Store.Sql(db, tx, $$"""
-            with {{FacetMetadata(14, includeSummary)}},
+            with {{FacetMetadata(14, includeSummary, includeHeading)}},
             eligible as materialized (
                 select * from owner_scope a
                 where ($15=0 or a.state=$15) and ($16=0 or a.category_id=$16)
@@ -449,7 +496,7 @@ internal static class AuthorTextIndex
             witness as (
                 select generation,generation is not null and ($9::bytea is null or generation=$9) as admitted from readiness
             ),
-            {{MatchCtes(includeSummary)}},
+            {{MatchCtes(includeSummary, includeHeading)}},
             selected as materialized (
                 select m.article_id,m.phrase_rank,m.field_rank,e.updated_unix_ms,e.revision,
                     e.state,e.category_id,e.category_name,e.tag_ids
@@ -495,7 +542,7 @@ internal static class AuthorTextIndex
             from witness cross join totals cross join category_buckets cb cross join tag_buckets tb
             left join picked p on witness.admitted
             left join lateral (
-                select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder(includeSummary)}} limit 1
+                select * from clause_hits h where h.article_id=p.article_id order by {{RankHighlightOrder(includeSummary, includeHeading)}} limit 1
             ) h on true
             left join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
             left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
@@ -530,7 +577,7 @@ internal static class AuthorTextIndex
         }
 
         if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation,
-                qualification?.Conditions, includeSummary))
+                qualification?.Conditions, includeSummary, includeHeading))
             throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
         return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags);
     }
@@ -575,7 +622,7 @@ internal static class AuthorTextIndex
 
     private static async Task<bool> StillCurrent(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         IReadOnlyList<AuthorTextRankedRow> matches, byte[]? generation, CancellationToken ct, long? facetAuthorityGeneration = null,
-        PropertyStore.Condition[]? conditions = null, bool includeSummary = false)
+        PropertyStore.Condition[]? conditions = null, bool includeSummary = false, bool includeHeading = false)
     {
         var ids = matches.Select(row => row.Match.Id).ToArray();
         if (ids.Length > 0)
@@ -589,7 +636,7 @@ internal static class AuthorTextIndex
         // The lock can wait behind an article change. Observe the fresh archive, source
         // and ranking state in a new statement even when a ranked result has zero rows.
         var scope = facetAuthorityGeneration.HasValue ? "owner_scope" : "eligible";
-        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5, includeSummary) : Changed();
+        var metadata = facetAuthorityGeneration.HasValue ? FacetMetadata(5, includeSummary, includeHeading) : Changed();
         var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
             new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);

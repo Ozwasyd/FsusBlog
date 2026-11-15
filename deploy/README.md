@@ -1,5 +1,7 @@
 # 单机 Caddy TLS 部署
 
+带作者章节标题搜索的发布包包含从旁边检出的 FsusUI 源码编译的本机 Markdown 解析器。用 `tools/build-release.sh` 在与部署环境兼容的系统和 CPU 架构上构建，构建机需要支持 C++23 的 C++ 编译器。`release.txt` 中的 `server_rid` 标记目标运行时。Linux 部署请使用对应 Linux 包，macOS 部署请使用对应 macOS 包。
+
 Caddy 保留站点 `Host`，从实际 TLS 连接生成单跳转发头，并将完整 HTTP 响应交给浏览器。Kestrel 在同一受控主机监听 `127.0.0.1`。代理配置关闭响应缓存、明文 HTTP 入口和 Caddy 管理端口。
 
 Caddy 到 Kestrel 使用 HTTP/1.1，最多保持 64 条上游连接，空闲连接 60 秒后关闭。上游不启用自动压缩。此配置用于限制负载突发时回环拨号数量；调整后须重新验证实际容量和写入行为。

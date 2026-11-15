@@ -2,6 +2,7 @@ import { request, siteSessionHeader } from './client.ts';
 import {
   decodeAuthorTextFacetedPage, decodeAuthorTextRankedPage, encodeAuthorTextFacetedQuery, encodeAuthorTextRankedQuery,
   encodeAuthorTextQualifiedQuery, decodeAuthorTextSummaryPage, encodeAuthorTextSummaryQuery,
+  decodeAuthorTextHeadingPage, encodeAuthorTextHeadingQuery,
   type AuthorTextFacetedPage, type AuthorTextQualifiedQuery,
   type AuthorTextRankedPage, type AuthorTextRankedQuery,
 } from './author-text-search.ts';
@@ -33,4 +34,11 @@ export function authorTextSummarySearch(
 ): Promise<AuthorTextFacetedPage> {
   return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextSummaryPage, decodeAuthorTextSummaryPage, signal, 'POST',
     encodeAuthorTextSummaryQuery(input), siteSessionHeader(session));
+}
+
+export function authorTextHeadingSearch(
+  input: AuthorTextQualifiedQuery, session: string, signal: AbortSignal,
+): Promise<AuthorTextFacetedPage> {
+  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextHeadingPage, decodeAuthorTextHeadingPage, signal, 'POST',
+    encodeAuthorTextHeadingQuery(input), siteSessionHeader(session));
 }

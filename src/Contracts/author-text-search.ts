@@ -8,7 +8,7 @@ export type AuthorTextSearchRow = Readonly<{
   id: number;
   revision: bigint;
   title: string;
-  field: 'title' | 'body' | 'summary';
+  field: 'title' | 'body' | 'summary' | 'heading';
   snippet: string;
   highlightStart: number;
   highlightEnd: number;
@@ -45,7 +45,7 @@ export type AuthorTextFacetedPage = Readonly<{
 }>;
 
 const utf8 = new TextEncoder();
-const textFields = ['title', 'body', 'summary'] as const;
+const textFields = ['title', 'body', 'summary', 'heading'] as const;
 
 export function encodeAuthorTextSearchQuery(query: string): Uint8Array<ArrayBuffer> {
   validateQuery(query);
@@ -92,6 +92,10 @@ export function encodeAuthorTextSummaryQuery(value: AuthorTextQualifiedQuery): U
   return encodeQualifiedQuery(value, FrameType.AuthorTextSummaryQuery);
 }
 
+export function encodeAuthorTextHeadingQuery(value: AuthorTextQualifiedQuery): Uint8Array<ArrayBuffer> {
+  return encodeQualifiedQuery(value, FrameType.AuthorTextHeadingQuery);
+}
+
 function encodeQualifiedQuery(value: AuthorTextQualifiedQuery, type: FrameType): Uint8Array<ArrayBuffer> {
   validateQualifiedQuery(value, type === FrameType.AuthorTextQualifiedQuery);
   const writer = new PodWriter();
@@ -111,6 +115,10 @@ export function decodeAuthorTextQualifiedQuery(payload: Uint8Array): DecodedAuth
 }
 
 export function decodeAuthorTextSummaryQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
+  return decodeQualifiedQuery(payload, false);
+}
+
+export function decodeAuthorTextHeadingQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
   return decodeQualifiedQuery(payload, false);
 }
 
@@ -200,14 +208,18 @@ export function decodeAuthorTextRankedPage(payload: Uint8Array): AuthorTextRanke
 }
 
 export function decodeAuthorTextFacetedPage(payload: Uint8Array): AuthorTextFacetedPage {
-  return decodeFacetedPage(payload, false);
+  return decodeFacetedPage(payload, 2);
 }
 
 export function decodeAuthorTextSummaryPage(payload: Uint8Array): AuthorTextFacetedPage {
-  return decodeFacetedPage(payload, true);
+  return decodeFacetedPage(payload, 3);
 }
 
-function decodeFacetedPage(payload: Uint8Array, allowSummary: boolean): AuthorTextFacetedPage {
+export function decodeAuthorTextHeadingPage(payload: Uint8Array): AuthorTextFacetedPage {
+  return decodeFacetedPage(payload, 4);
+}
+
+function decodeFacetedPage(payload: Uint8Array, maxField: number): AuthorTextFacetedPage {
   const reader = new PodReader(payload);
   const ready = reader.bool();
   const nextCursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
@@ -222,7 +234,7 @@ function decodeFacetedPage(payload: Uint8Array, allowSummary: boolean): AuthorTe
   if (total < count || (!ready && total !== 0) || (nextCursor && total <= WireLimits.AuthorTextSearchRows) ||
       stateCounts.some(value => value < 0) || stateCounts.reduce((sum, value) => sum + value, 0) !== total)
     throw new ProtocolError('Invalid faceted author text search page');
-  const rows = readRankedRows(reader, count, allowSummary);
+  const rows = readRankedRows(reader, count, maxField);
   reader.finish();
   return { ready, nextCursor, total, stateCounts, moreCategories, categories, moreTags, tags, rows };
 }
@@ -247,18 +259,18 @@ function readFacets(reader: PodReader, total: number) {
   return { more, facets };
 }
 
-function readRankedRows(reader: PodReader, count: number, allowSummary = false): AuthorTextSearchRow[] {
+function readRankedRows(reader: PodReader, count: number, maxField = 2): AuthorTextSearchRow[] {
   const rows: AuthorTextSearchRow[] = [];
   const ids = new Set<number>();
   for (let i = 0; i < count; i++) {
-    const row = readRow(reader, allowSummary);
+    const row = readRow(reader, maxField);
     recordRankedId(ids, row.id);
     rows.push(row);
   }
   return rows;
 }
 
-function readRow(reader: PodReader, allowSummary = false): AuthorTextSearchRow {
+function readRow(reader: PodReader, maxField = 2): AuthorTextSearchRow {
   const id = reader.i32();
   const revision = reader.i64();
   const title = reader.text(WireLimits.TitleBytes);
@@ -271,7 +283,7 @@ function readRow(reader: PodReader, allowSummary = false): AuthorTextSearchRow {
   const sourceDigest = reader.fixedBytes(WireLimits.AuthorTextSearchSourceDigestBytes);
   const row: AuthorTextSearchRow = { id, revision, title, field, snippet, highlightStart, highlightEnd,
     sourceStart, sourceEnd, sourceByteStart, sourceByteEnd, sourceDigest };
-  validateRow(row, allowSummary);
+  validateRow(row, maxField);
   return row;
 }
 
@@ -279,7 +291,7 @@ function writeRow(writer: PodWriter, row: AuthorTextSearchRow) {
   writer.i32(row.id);
   writer.i64(row.revision);
   writer.text(row.title, WireLimits.TitleBytes);
-  writer.i32(row.field === 'title' ? 1 : 2);
+  writer.i32(textFields.indexOf(row.field) + 1);
   writer.text(row.snippet, WireLimits.AuthorTextSearchSnippetBytes);
   writer.i32(row.highlightStart);
   writer.i32(row.highlightEnd);
@@ -305,13 +317,14 @@ function validatePage(ready: boolean, more: boolean, count: number) {
       (more && count !== WireLimits.AuthorTextSearchRows)) throw new ProtocolError('Invalid author text search page');
 }
 
-function validateRow(row: AuthorTextSearchRow, allowSummary = false) {
+function validateRow(row: AuthorTextSearchRow, maxField = 2) {
   const { id, revision, field, snippet, highlightStart, highlightEnd, sourceStart, sourceEnd, sourceByteStart, sourceByteEnd } = row;
   const sourceBytes = field === 'summary' ? WireLimits.ArticleSummaryReadBytes :
     field === 'title' ? WireLimits.TitleBytes : WireLimits.BodyBytes;
   const sourceChars = field === 'summary' ? WireLimits.ArticleSummaryReadChars : sourceBytes;
-  if (id <= 0 || revision <= 0n || !textFields.includes(field) ||
-      (field === 'summary' && (!allowSummary || snippet.length > sourceChars)) ||
+  const fieldIndex = textFields.indexOf(field);
+  if (id <= 0 || revision <= 0n || fieldIndex < 0 || fieldIndex >= maxField ||
+      (field === 'summary' && snippet.length > sourceChars) ||
       highlightStart < 0 || highlightEnd <= highlightStart || highlightEnd > snippet.length ||
       !isRuneBoundary(snippet, highlightStart) || !isRuneBoundary(snippet, highlightEnd) ||
       sourceStart < 0 || sourceEnd <= sourceStart || sourceEnd > sourceChars ||

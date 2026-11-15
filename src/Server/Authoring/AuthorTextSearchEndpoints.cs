@@ -33,9 +33,11 @@ internal static class AuthorTextSearchEndpoints
                 }
                 else
                 {
-                    var includeSummary = type == FrameType.AuthorTextSummaryQuery;
+                    var includeHeading = type == FrameType.AuthorTextHeadingQuery;
+                    var includeSummary = includeHeading || type == FrameType.AuthorTextSummaryQuery;
                     var qualified = type switch
                     {
+                        FrameType.AuthorTextHeadingQuery => Wire.DecodeAuthorTextHeadingQuery(frame),
                         FrameType.AuthorTextSummaryQuery => Wire.DecodeAuthorTextSummaryQuery(frame),
                         FrameType.AuthorTextQualifiedQuery => Wire.DecodeAuthorTextQualifiedQuery(frame),
                         _ => null,
@@ -44,24 +46,37 @@ internal static class AuthorTextSearchEndpoints
                     var request = qualified is not null ? new AuthorTextRankedQuery(qualified.Query, qualified.Cursor)
                         : faceted ? Wire.DecodeAuthorTextFacetedQuery(frame) : Wire.DecodeAuthorTextRankedQuery(frame);
                     // Re-encode the exact requested criteria without its cursor to bind both filters and text.
-                    var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(SHA256.HashData(includeSummary
-                        ? Wire.EncodeAuthorTextSummaryQuery(qualified with { Cursor = "" })
-                        : Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" })));
+                    var cursorQuery = qualified is null ? request.Query : Convert.ToHexStringLower(SHA256.HashData(type switch
+                    {
+                        FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingQuery(qualified with { Cursor = "" }),
+                        FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryQuery(qualified with { Cursor = "" }),
+                        _ => Wire.EncodeAuthorTextQualifiedQuery(qualified with { Cursor = "" }),
+                    }));
                     (AuthorTextRankKey Position, byte[] Generation)? after = request.Cursor.Length == 0
                         ? null : cursors.Decode(request.Cursor, actor, digest, cursorQuery, type);
                     if (faceted)
                     {
-                        var input = includeSummary ? AuthorTextProfile.ParseSummary(request.Query) : AuthorTextProfile.ParseFaceted(request.Query);
+                        var input = type switch
+                        {
+                            FrameType.AuthorTextHeadingQuery => AuthorTextProfile.ParseHeading(request.Query),
+                            FrameType.AuthorTextSummaryQuery => AuthorTextProfile.ParseSummary(request.Query),
+                            _ => AuthorTextProfile.ParseFaceted(request.Query),
+                        };
                         await RequireIndex();
                         var page = qualified is null
                             ? await AuthorTextIndex.ReadFaceted(db, tx, actor, input, after?.Position, after?.Generation, ct)
                             : await AuthorTextIndex.ReadQualified(db, tx, actor, input, qualified.UpdatedFromUnixMs,
                                 qualified.UpdatedUntilUnixMs, qualified.SchemaRevision, qualified.Conditions, after?.Position,
-                                after?.Generation, ct, includeSummary: includeSummary);
+                                after?.Generation, ct, includeSummary: includeSummary, includeHeading: includeHeading);
                         var next = Next(page.More, page.Rows, page.Generation);
                         var response = new FsusBlog.V2.Contracts.AuthorTextFacetedPage(page.Ready, next, page.Total, page.StateCounts,
                             page.MoreCategories, page.Categories, page.MoreTags, page.Tags, page.Rows.Select(row => row.Match).ToArray());
-                        encoded = includeSummary ? Wire.EncodeAuthorTextSummaryPage(response) : Wire.EncodeAuthorTextFacetedPage(response);
+                        encoded = type switch
+                        {
+                            FrameType.AuthorTextHeadingQuery => Wire.EncodeAuthorTextHeadingPage(response),
+                            FrameType.AuthorTextSummaryQuery => Wire.EncodeAuthorTextSummaryPage(response),
+                            _ => Wire.EncodeAuthorTextFacetedPage(response),
+                        };
                     }
                     else
                     {
@@ -81,7 +96,7 @@ internal static class AuthorTextSearchEndpoints
 
                 async Task RequireIndex()
                 {
-                    if (!await CurrentSchema.HasAuthorTextSummaryIndexAsync(db, tx, ct))
+                    if (!await CurrentSchema.HasAuthorTextHeadingIndexAsync(db, tx, ct))
                         throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
                 }
             }, ct);

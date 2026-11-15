@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
-import { decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery } from '../../src/Contracts/author-text-search.ts'
+import {
+  decodeAuthorTextHeadingPage, decodeAuthorTextHeadingQuery, decodeAuthorTextSummaryPage, decodeAuthorTextSummaryQuery,
+} from '../../src/Contracts/author-text-search.ts'
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
@@ -27,14 +29,14 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const start = form.getByRole('button', { name: '搜索全文', exact: true })
     const next = form.getByRole('button', { name: '继续搜索', exact: true })
     const results = page.getByRole('region', { name: '全文搜索结果', exact: true })
-    async function search(text) {
+    async function search(text, includeHeading = false) {
       await query.fill(text)
       await results.waitFor({ state: 'detached' })
       for (let attempt = 0; attempt < 16; attempt++) {
         const reply = page.waitForResponse(isSearchReply)
         await (attempt === 0 ? start : next).click()
         const response = await reply
-        const batch = await readSearchReply(response)
+        const batch = await readSearchReply(response, includeHeading)
         if (batch.ready) { await results.waitFor(); return { batch, response } }
         await next.waitFor()
         assert.equal(await results.count(), 0, 'Incomplete index batches must not render partial results')
@@ -54,6 +56,10 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(unfiltered.total, 1)
     await results.getByText('共 1 篇', { exact: true }).waitFor()
     await verifyBodyMatch()
+    const quotedHeading = String.raw`"literal \" field.heading:scopeprobe"`
+    const quoted = await search(quotedHeading)
+    assert.equal(readSearchQuery(quoted.response).query, quotedHeading)
+    assert.equal(quoted.batch.total, 0)
     await search(`"${bodyTerm} 博客搜索"`)
     await verifyBodyMatch()
     const noPhrase = (await search(`"博客搜索 ${bodyTerm}"`)).batch
@@ -179,8 +185,15 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const nonce = randomUUID().replaceAll('-', '')
     const titleWord = `titlereveal${nonce}`
     const bodyWord = `bodyreveal${nonce}`
+    const atxWord = `atxchapter${nonce}`
+    const setextWord = `setextchapter${nonce}`
+    const fencedWord = `fencedchapter${nonce}`
     const savedTitle = `航线 🧭 Cafe\u0301 ${titleWord} 私稿`
-    const lines = ['准备 🧪 with e\u0301', '', '起点 𝄞 记录。', '', `${bodyWord} 博客搜索。`, '']
+    const lines = [
+      '准备 🧪 with e\u0301', '', '起点 𝄞 记录。', '', `${bodyWord} 博客搜索。`, '',
+      `## 章节 🧪 ${atxWord}`, '', `航线 Cafe\u0301 ${setextWord}`, '---', '',
+      '~~~markdown', `## ${fencedWord}`, '~~~', '',
+    ]
     const raw = lines.join('\r\n')
     const projected = lines.join('\n')
     fixture = await articleCommand(WireRoutes.Save, 0, 0n, savedTitle, raw)
@@ -205,14 +218,22 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       await form.waitFor()
     }
 
-    async function activate(word, source, kind) {
-      const { batch } = await search(word.toUpperCase())
+    async function activate(word, source, kind, text = word.toUpperCase()) {
+      const heading = kind === 'heading'
+      const { batch, response } = await search(text, heading)
+      assert.equal(readSearchQuery(response, heading).query, text)
       const row = exactHit(batch, fixture, source, kind, word)
+      if (heading) {
+        await results.getByText('章节标题', { exact: true }).waitFor()
+        assert.equal(await results.locator('mark').textContent(), word)
+      }
       assert.equal(await results.getByRole('link', { name: savedTitle, exact: true }).getAttribute('href'), new URL(editor).pathname)
       const recheck = page.waitForResponse(isSearchReply)
       const loadDraft = page.waitForResponse(isDraftReply)
       await jump().click()
-      assert.deepEqual(exactHit(await readSearchReply(await recheck), fixture, source, kind, word), row)
+      const repeated = await recheck
+      assert.deepEqual(repeated.request().postDataBuffer(), response.request().postDataBuffer())
+      assert.deepEqual(exactHit(await readSearchReply(repeated, heading), fixture, source, kind, word), row)
       await page.waitForURL(editor)
       await expectSavedDraft(await loadDraft)
       await success.waitFor()
@@ -222,7 +243,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         native: control.tagName, value: control.value, start: control.selectionStart, end: control.selectionEnd,
       }))
       const offset = kind === 'title' ? source.indexOf(word) : projected.indexOf(word)
-      if (kind === 'body') assert(row.sourceStart > offset, 'The CRLF fixture must distinguish raw and textarea coordinates')
+      if (kind !== 'title') assert(row.sourceStart > offset, 'The CRLF fixture must distinguish raw and textarea coordinates')
       assert.deepEqual(observed, { native: kind === 'title' ? 'INPUT' : 'TEXTAREA', value: kind === 'title' ? savedTitle : projected,
         start: offset, end: kind === 'title' ? offset + word.length : offset })
       await expectEditorHistory(true)
@@ -253,13 +274,18 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       for (const { state } of states) {
         assert(Object.keys(state ?? {}).every(key => allowed.includes(key)), 'Only router state and the opaque selector may be written')
         const value = JSON.stringify(state)
-        for (const secret of [bodyWord, titleWord, savedTitle, createHash('sha256').update(raw).digest('hex')])
+        for (const secret of [bodyWord, titleWord, atxWord, setextWord, fencedWord, savedTitle, createHash('sha256').update(raw).digest('hex')])
           assert(!value.includes(secret) && !value.includes(secret.toUpperCase()))
       }
     }
 
     await activate(bodyWord, raw, 'body')
     await activate(titleWord, savedTitle, 'title')
+    assert.equal((await search(`field.heading:${fencedWord}`, true)).batch.total, 0)
+    exactHit((await search(`field.markdown-body:${fencedWord}`)).batch, fixture, raw, 'body', fencedWord)
+    await activate(atxWord, raw, 'heading', `status:draft FiElD.HeAdInG:${atxWord.toUpperCase()}`)
+    await activate(setextWord, raw, 'heading', `field.heading:${setextWord}`)
+    observations.push('At 375px, ATX and Setext hits highlight and reveal their exact native source carets through CRLF and Unicode; the fenced lookalike remains searchable only as Markdown body.')
 
     await search(titleWord)
     const beforeLink = recentSearchCalls.length
@@ -396,17 +422,21 @@ async function recordEditorHistory(page) {
   })
 }
 
-function readSearchQuery(response) {
-  return decodeAuthorTextSummaryQuery(decodeFrame(response.request().postDataBuffer(), FrameType.AuthorTextSummaryQuery).payload)
+function readSearchQuery(response, includeHeading = false) {
+  const request = response.request().postDataBuffer()
+  if (includeHeading) return decodeAuthorTextHeadingQuery(decodeFrame(request, FrameType.AuthorTextHeadingQuery).payload)
+  return decodeAuthorTextSummaryQuery(decodeFrame(request, FrameType.AuthorTextSummaryQuery).payload)
 }
 
 function isSearchReply(response) {
   return response.request().method() === 'POST' && new URL(response.url()).pathname === WireRoutes.AuthorTextSearch
 }
 
-async function readSearchReply(response) {
+async function readSearchReply(response, includeHeading = false) {
   assert.equal(response.status(), 200)
-  return decodeAuthorTextSummaryPage(decodeFrame(await response.body(), FrameType.AuthorTextSummaryPage).payload)
+  const bytes = await response.body()
+  if (includeHeading) return decodeAuthorTextHeadingPage(decodeFrame(bytes, FrameType.AuthorTextHeadingPage).payload)
+  return decodeAuthorTextSummaryPage(decodeFrame(bytes, FrameType.AuthorTextSummaryPage).payload)
 }
 
 function exactHit(batch, draft, source, field, word) {

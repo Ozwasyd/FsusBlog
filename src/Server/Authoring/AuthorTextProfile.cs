@@ -5,7 +5,7 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3 }
+internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3, Heading = 4 }
 internal sealed record AuthorTextClause(AuthorTextField Field, bool Phrase, string[] Terms);
 internal sealed record AuthorTextQuery(AuthorTextClause[] Clauses);
 internal sealed record AuthorTextFacetedQuery(AuthorTextQuery Text, AuthorArticleState? Status, int? CategoryId, int? TagId);
@@ -17,6 +17,7 @@ internal static class AuthorTextProfile
 {
     internal const int Version = 1;
     internal const int SummaryIndexVersion = 2;
+    internal const int HeadingIndexVersion = 3;
     internal const int MaxSourceChars = 200_000;
     internal const int MaxTerms = 200_000;
     internal const int MaxTermBytes = 512;
@@ -51,7 +52,9 @@ internal static class AuthorTextProfile
 
     internal static AuthorTextFacetedQuery ParseSummary(string raw) => ParseQuery(raw, faceted: true, includeSummary: true);
 
-    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false)
+    internal static AuthorTextFacetedQuery ParseHeading(string raw) => ParseQuery(raw, faceted: true, includeSummary: true, includeHeading: true);
+
+    private static AuthorTextFacetedQuery ParseQuery(string raw, bool faceted, bool includeSummary = false, bool includeHeading = false)
     {
         if (raw.Length > WireLimits.AuthorTextSearchQueryChars || raw.Any(char.IsControl))
             throw InvalidQuery();
@@ -66,6 +69,8 @@ internal static class AuthorTextProfile
         {
             if (char.IsWhiteSpace(raw[offset])) { offset++; continue; }
             var prefix = ReadPrefix(raw, ref offset);
+            if (includeHeading && string.Equals(prefix, "field.heading", StringComparison.OrdinalIgnoreCase))
+                prefix = "field.heading";
             if (prefix is not null && !named.Add(prefix)) throw InvalidQuery();
             switch (prefix)
             {
@@ -92,6 +97,7 @@ internal static class AuthorTextProfile
                 "field.title" => AuthorTextField.Title,
                 "field.markdown-body" => AuthorTextField.MarkdownBody,
                 "field.summary" when includeSummary => AuthorTextField.Summary,
+                "field.heading" when includeHeading => AuthorTextField.Heading,
                 _ => throw InvalidQuery(),
             };
             var phrase = offset < raw.Length && raw[offset] == '"';

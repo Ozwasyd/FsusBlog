@@ -98,6 +98,12 @@ public static partial class Wire
     public static AuthorTextQualifiedQuery DecodeAuthorTextSummaryQuery(ReadOnlySpan<byte> frame) =>
         DecodeAuthorTextQualifiedQuery(frame, FrameType.AuthorTextSummaryQuery);
 
+    public static byte[] EncodeAuthorTextHeadingQuery(AuthorTextQualifiedQuery value) =>
+        EncodeAuthorTextQualifiedQuery(value, FrameType.AuthorTextHeadingQuery);
+
+    public static AuthorTextQualifiedQuery DecodeAuthorTextHeadingQuery(ReadOnlySpan<byte> frame) =>
+        DecodeAuthorTextQualifiedQuery(frame, FrameType.AuthorTextHeadingQuery);
+
     private static byte[] EncodeAuthorTextQualifiedQuery(AuthorTextQualifiedQuery value, FrameType type)
     {
         ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
@@ -203,6 +209,19 @@ public static partial class Wire
     public static AuthorTextFacetedPage DecodeAuthorTextSummaryPage(ReadOnlySpan<byte> frame) =>
         DecodeAuthorTextFacetedPage(frame, FrameType.AuthorTextSummaryPage);
 
+    public static byte[] EncodeAuthorTextHeadingPage(AuthorTextFacetedPage page) =>
+        EncodeAuthorTextFacetedPage(page, FrameType.AuthorTextHeadingPage);
+
+    public static AuthorTextFacetedPage DecodeAuthorTextHeadingPage(ReadOnlySpan<byte> frame) =>
+        DecodeAuthorTextFacetedPage(frame, FrameType.AuthorTextHeadingPage);
+
+    private static int AuthorTextMaxField(FrameType type) => type switch
+    {
+        FrameType.AuthorTextHeadingPage => 4,
+        FrameType.AuthorTextSummaryPage => 3,
+        _ => 2,
+    };
+
     private static byte[] EncodeAuthorTextFacetedPage(AuthorTextFacetedPage page, FrameType type)
     {
         ValidateAuthorTextFacetedPage(page.Ready, page.NextCursor, page.Total, page.StateCounts, page.Rows.Count);
@@ -213,7 +232,7 @@ public static partial class Wire
         foreach (var count in page.StateCounts) writer.I32(count);
         WriteAuthorTextFacets(writer, page.MoreCategories, page.Categories, page.Total);
         WriteAuthorTextFacets(writer, page.MoreTags, page.Tags, page.Total);
-        WriteAuthorTextRankedRows(writer, page.Rows, allowSummary: type == FrameType.AuthorTextSummaryPage);
+        WriteAuthorTextRankedRows(writer, page.Rows, AuthorTextMaxField(type));
         return Aeds.Encode(type, writer.Written);
     }
 
@@ -231,7 +250,7 @@ public static partial class Wire
         var tags = ReadAuthorTextFacets(ref reader, moreTags, total);
         var count = reader.I32();
         ValidateAuthorTextFacetedPage(ready, next, total, states, count);
-        var rows = ReadAuthorTextRankedRows(ref reader, count, allowSummary: type == FrameType.AuthorTextSummaryPage);
+        var rows = ReadAuthorTextRankedRows(ref reader, count, AuthorTextMaxField(type));
         reader.Finish();
         return new(ready, next, total, states, moreCategories, categories, moreTags, tags, rows);
     }
@@ -291,25 +310,25 @@ public static partial class Wire
         }
     }
 
-    private static void WriteAuthorTextRankedRows(Writer writer, IReadOnlyList<AuthorTextSearchRow> rows, bool allowSummary = false)
+    private static void WriteAuthorTextRankedRows(Writer writer, IReadOnlyList<AuthorTextSearchRow> rows, int maxField = 2)
     {
         writer.I32(rows.Count);
         var ids = new HashSet<int>();
         foreach (var row in rows)
         {
-            ValidateAuthorTextRankedRow(row, ids, allowSummary);
+            ValidateAuthorTextRankedRow(row, ids, maxField);
             WriteAuthorTextRow(writer, row);
         }
     }
 
-    private static AuthorTextSearchRow[] ReadAuthorTextRankedRows(ref Reader reader, int count, bool allowSummary = false)
+    private static AuthorTextSearchRow[] ReadAuthorTextRankedRows(ref Reader reader, int count, int maxField = 2)
     {
         var rows = new AuthorTextSearchRow[count];
         var ids = new HashSet<int>();
         for (var i = 0; i < rows.Length; i++)
         {
             var row = ReadAuthorTextRow(ref reader);
-            ValidateAuthorTextRankedRow(row, ids, allowSummary);
+            ValidateAuthorTextRankedRow(row, ids, maxField);
             rows[i] = row;
         }
         return rows;
@@ -343,9 +362,9 @@ public static partial class Wire
             throw new ProtocolException("Invalid author text search cursor.");
     }
 
-    private static void ValidateAuthorTextRankedRow(AuthorTextSearchRow row, HashSet<int> ids, bool allowSummary)
+    private static void ValidateAuthorTextRankedRow(AuthorTextSearchRow row, HashSet<int> ids, int maxField)
     {
-        ValidateAuthorTextRow(row, previousId: 0, allowSummary);
+        ValidateAuthorTextRow(row, previousId: 0, maxField: maxField);
         if (!ids.Add(row.Id)) throw new ProtocolException("Invalid author text search row.");
     }
 
@@ -363,16 +382,16 @@ public static partial class Wire
             throw new ProtocolException("Invalid author text search page.");
     }
 
-    private static void ValidateAuthorTextRow(AuthorTextSearchRow row, int previousId, bool allowSummary = false)
+    private static void ValidateAuthorTextRow(AuthorTextSearchRow row, int previousId, int maxField = 2)
     {
         var (sourceChars, sourceBytes) = row.Field switch
         {
             1 => (WireLimits.TitleBytes, WireLimits.TitleBytes),
-            2 => (WireLimits.BodyBytes, WireLimits.BodyBytes),
-            3 when allowSummary => (WireLimits.ArticleSummaryReadChars, WireLimits.ArticleSummaryReadBytes),
+            2 or 4 => (WireLimits.BodyBytes, WireLimits.BodyBytes),
+            3 => (WireLimits.ArticleSummaryReadChars, WireLimits.ArticleSummaryReadBytes),
             _ => throw new ProtocolException("Invalid author text search row."),
         };
-        if (row.Id <= 0 || row.Revision <= 0 || (previousId != 0 && row.Id >= previousId) ||
+        if (row.Field > maxField || row.Id <= 0 || row.Revision <= 0 || (previousId != 0 && row.Id >= previousId) ||
             (row.Field == 3 && row.Snippet.Length > sourceChars) ||
             AuthorTextByteCount(row.Title) > WireLimits.TitleBytes || AuthorTextByteCount(row.Snippet) > WireLimits.AuthorTextSearchSnippetBytes ||
             row.HighlightStart < 0 || row.HighlightEnd <= row.HighlightStart || row.HighlightEnd > row.Snippet.Length ||

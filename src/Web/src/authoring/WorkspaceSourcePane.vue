@@ -150,12 +150,13 @@ async function revealSearch(seek: Extract<EditorSourceSeek, { kind: 'search' }>,
   const { target } = seek
   const { field, sourceStart: start, sourceEnd: end } = target
   if (field === 'summary') return false
-  const source = props.pane.draft[field]
+  const sourceField = field === 'heading' ? 'body' : field
+  const source = props.pane.draft[sourceField]
   const editor = editorDocument.value
   const mode = outlineMode.value
   const previouslyFocused = document.activeElement
   const current = () => ownsTarget() && seek.current() && props.pane.tab.risk === 'clean' &&
-    props.pane.draft.id === target.articleId && props.pane.draft.revision === target.revision && props.pane.draft[field] === source &&
+    props.pane.draft.id === target.articleId && props.pane.draft.revision === target.revision && props.pane.draft[sourceField] === source &&
     (field === 'title' || editorDocument.value === editor && editorSource.value === editor.source && outlineMode.value === mode)
   if (!current() || !await verifySourceMatch(source, target) || !current() || document.activeElement !== previouslyFocused) return false
 
