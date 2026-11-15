@@ -26,4 +26,4 @@
 
 ## 待验收的公开片段定位
 
-标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。固定 FsusUI 的公开文章渲染缺少可达的目标映射，正文定位待上游修复后复验。 [FsusUI #1082](https://github.com/Ozwasyd/FsusUI/issues/1082) · [实库回归](../../artifacts/canvas-public-anchor-749b9ba/native/integration.txt)
+标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。375px 匿名 Chrome 复验中，固定 FsusUI 渲染出的标题、段落和代码块均无对应规范片段目标。正文定位待上游修复后复验。 [FsusUI #1082 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348) · [匿名 Chrome](../../artifacts/targeted-delivery-82d0180/public-fragment/public-fragment-result.json) · [实库回归](../../artifacts/canvas-public-anchor-749b9ba/native/integration.txt)
