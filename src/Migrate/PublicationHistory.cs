@@ -153,7 +153,9 @@ internal static partial class Migration
                 select from public.article_publication_history h where h.admin_actor_id=b.principal_id and h.admin_command_id=b.command_id
             )
             """ : "";
+        // A healthy history must be scanned in full. Plan for that case and report a stable offending article.
         await using var command = new NpgsqlCommand($"""
+            select min(article_id) from (
             with lifecycle_outbox as materialized (
                 select article_id,revision,
                        count(*) filter (where kind='publish') as publishes,
@@ -229,7 +231,7 @@ internal static partial class Migration
                    where h.article_id=o.article_id and h.revision=o.revision
                      and e.kind=case h.kind when 'replace' then 'publish' else h.kind end)
             {adminOrphans}
-            limit 1
+            ) invalid
             """, connection, tx);
         if (await command.ExecuteScalarAsync(ct) is int id)
             throw new InvalidOperationException($"Article {id} has inconsistent publication history.");

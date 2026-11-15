@@ -295,6 +295,17 @@ SQL
   history_error="Article $history_article has inconsistent publication history."
   # An ordinary replacement requires a matching publish event and accepts multiple copies.
   "${migrate[@]}" verify
+  retained_article=$("${psql_restore[@]}" -qAtc "SELECT article_id FROM public.article_publication_history WHERE kind='retained-active'")
+  [[ "$retained_article" =~ ^[1-9][0-9]*$ && "$retained_article" -lt "$history_article" ]]
+  older_orphan=$("${psql_restore[@]}" -qAtc "INSERT INTO public.blog_outbox (article_id,revision,kind)
+    SELECT article_id,revision+1,'publish' FROM public.article_publication_history
+    WHERE article_id=$retained_article AND kind='retained-active' RETURNING id")
+  archive_duplicate=$("${psql_restore[@]}" -qAtc "INSERT INTO public.blog_outbox (article_id,revision,kind)
+    VALUES ($history_article,3,'retract') RETURNING id")
+  [[ "$older_orphan" =~ ^[1-9][0-9]*$ && "$archive_duplicate" =~ ^[1-9][0-9]*$ ]]
+  printf 'Report the smallest invalid article across history and orphan checks.\n'
+  expect_failure "Article $retained_article has inconsistent publication history." "${migrate[@]}" verify
+  "${psql_restore[@]}" -qc "DELETE FROM public.blog_outbox WHERE id IN ($older_orphan,$archive_duplicate)"
   for entry in '3 retract duplicate-archive' '4 publish duplicate-restore' \
       '5 publish orphan-after-boundary' '2 delete wrong-kind-at-replacement'; do
     read -r revision kind label <<< "$entry"
