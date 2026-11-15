@@ -49,11 +49,11 @@ internal static partial class Migration
         byte[] requestBytes, CancellationToken ct)
     {
         if (request.Assets.Length is < 1 or > MaxActivationAssets || request.References.Length is < 1 or > MaxActivationReferences ||
-            request.Assets.Any(asset => asset.MediaType != "image/png") ||
+            request.Assets.Any(asset => asset.MediaType is not ("image/png" or "image/jpeg")) ||
             request.References.Any(reference => reference.ReferenceCount != 1) ||
             request.References.GroupBy(reference => (reference.ArticleId, reference.Revision))
                 .Any(revision => revision.Count() > ArticlePublishImages.Maximum))
-            throw new InvalidOperationException("Activation requires a bounded batch of reviewed PNGs and exact private revision references.");
+            throw new InvalidOperationException("Activation requires a bounded batch of reviewed PNG or JPEG images and exact private revision references.");
         if (activation.Site == request.SourceSiteId || activation.Site == request.TargetSiteId)
             throw new InvalidOperationException("The runtime destination must have its own reviewed site identity.");
         var approvalSha = await ReadLegacyMediaActivationApprovalAsync(activation, ct);
@@ -105,7 +105,7 @@ internal static partial class Migration
             request.SourceSiteId, request.TargetSiteId, activation.Site, identity, cluster, directory.Root,
             activation.BackupSha256, assets, references.ToArray());
         // Keep the exact predecessor bytes for already approved one-file/current-draft operations.
-        var single = assets is [var one] && references is [{ Article.Current: true } link]
+        var single = assets is [{ Image.Format: 1 } one] && references is [{ Article.Current: true } link]
             ? new LegacyMediaActivationPlan(LegacyMediaActivationFormat, plan.LegacyPlanSha256, plan.ProjectionSha256,
                 plan.CustodyManifestSha256, plan.RequestSha256, plan.PreparedManifestSha256, plan.NormalizerSha256,
                 plan.SourceSiteId, plan.QuarantineSiteId, plan.DestinationSiteId, plan.Database, plan.Cluster,
@@ -138,7 +138,7 @@ internal static partial class Migration
                         prepared_manifest_sha256,normalizer_sha256,raw_sha256)
                     VALUES (@asset,@owner,@source_site,@site,@old_owner,@approval,@plan,@projection,@custody,@request,@prepared,@normalizer,@raw);
                     INSERT INTO public.private_media (id,owner_id,content_hash,name,format,length,width,height,phase,created_at,import_origin_id)
-                    VALUES (@asset,@owner,@content,@name,1,@bytes,@width,@height,1,@created,@asset);
+                    VALUES (@asset,@owner,@content,@name,@format,@bytes,@width,@height,1,@created,@asset);
                     """);
                 await insert.ExecuteNonQueryAsync(ct);
             }
@@ -300,7 +300,7 @@ internal static partial class Migration
                     JOIN public.article_revision_media_import r ON r.asset_id=i.asset_id
                     JOIN public.article_revision_media a ON (a.article_id,a.revision,a.asset_id)=(r.article_id,r.revision,r.asset_id)
                     WHERE m.id=@asset AND m.owner_id=@owner AND m.command_id IS NULL AND m.request_hash IS NULL
-                        AND m.content_hash=@content AND m.name=@name AND m.format=1 AND m.length=@bytes AND m.width=@width
+                        AND m.content_hash=@content AND m.name=@name AND m.format=@format AND m.length=@bytes AND m.width=@width
                         AND m.height=@height AND m.phase=1 AND m.created_at=@created
                         AND i.owner_id=@owner AND i.source_site_id=@source_site AND i.target_site_id=@site AND i.source_owner_id=@old_owner
                         AND i.activation_sha256=@approval AND i.plan_sha256=@plan AND i.projection_sha256=@projection
@@ -333,7 +333,9 @@ internal static partial class Migration
         command.Parameters.AddWithValue("normalizer", Convert.FromHexString(plan.NormalizerSha256));
         command.Parameters.AddWithValue("raw", Convert.FromHexString(asset.Source.RawSha256));
         command.Parameters.AddWithValue("content", Convert.FromHexString(asset.Image.NormalizedSha256));
-        command.Parameters.AddWithValue("name", $"{asset.Source.AssetId:N}.png");
+        var extension = asset.Image.Format == 1 ? "png" : "jpg";
+        command.Parameters.AddWithValue("name", $"{asset.Source.AssetId:N}.{extension}");
+        command.Parameters.AddWithValue("format", asset.Image.Format);
         command.Parameters.AddWithValue("bytes", asset.Image.Length);
         command.Parameters.AddWithValue("width", asset.Image.Width);
         command.Parameters.AddWithValue("height", asset.Image.Height);

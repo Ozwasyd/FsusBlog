@@ -97,10 +97,10 @@ BAD_FILE
     [[ "$state" == "$asset|$owner|t|t|$source_site|$runtime_site|7|$activation_sha|42|3|5000000003|1|Retained private file" ]]
     if [[ "$batch" == true ]]; then
         state="$(pg target "$runtime" -Atc "SELECT m.id,m.owner_id,m.command_id IS NULL,m.request_hash IS NULL,
-            i.source_owner_id,encode(i.activation_sha256,'hex'),r.article_id,r.revision,r.source_revision_id,r.reference_count,r.alt_text
+            i.source_owner_id,encode(i.activation_sha256,'hex'),m.format,m.name,r.article_id,r.revision,r.source_revision_id,r.reference_count,r.alt_text
             FROM private_media m JOIN private_media_import i ON i.asset_id=m.id JOIN article_revision_media_import r ON r.asset_id=i.asset_id
             WHERE m.owner_id='$owner2' ORDER BY r.revision,m.id")"
-        [[ "$state" == "$historical_asset|$owner2|t|t|8|$activation_sha|43|1|5000000004|1|历史附件"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|43|1|5000000004|1|Previous second owner"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|43|2|5000000005|1|Current second owner" ]]
+        [[ "$state" == "$historical_asset|$owner2|t|t|8|$activation_sha|1|$historical_leaf.png|43|1|5000000004|1|历史附件"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|2|$current_leaf.jpg|43|1|5000000004|1|Previous second owner"$'\n'"$current_asset|$owner2|t|t|8|$activation_sha|2|$current_leaf.jpg|43|2|5000000005|1|Current second owner" ]]
         pg target "$runtime" -c "BEGIN; DELETE FROM article_revision_media_import WHERE asset_id='$current_asset';
             DELETE FROM article_revision_media WHERE asset_id='$current_asset'; COMMIT"
         refuse 'does not match the reviewed pre-activation backup or this exact committed media activation' partial-batch-db "${apply_media[@]}"

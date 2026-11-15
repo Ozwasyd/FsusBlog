@@ -31,10 +31,10 @@ async function signIn(file) {
 }
 
 const raw = WireRoutes.PrivateMediaRead.replace('{id}', asset)
-async function readImage(path, headers = {}, expected = bytes) {
+async function readImage(path, headers = {}, expected = bytes, contentType = 'image/png') {
   const response = await fetch(path, { headers })
   assert.equal(response.status, 200)
-  assert.equal(response.headers.get('content-type'), 'image/png')
+  assert.equal(response.headers.get('content-type'), contentType)
   assert.equal(response.headers.get('cache-control'), 'private,no-store')
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), expected)
 }
@@ -63,10 +63,12 @@ const secondSession = await signIn(outsiderFile)
 if (historical) {
   await readImage(rawFor(historical), {}, await readFile(historicalFile))
   const secondBytes = await readFile(secondCurrentFile)
-  await readImage(rawFor(secondCurrent), {}, secondBytes)
+  await readImage(rawFor(secondCurrent), {}, secondBytes, 'image/jpeg')
   const second = await articleMedia(43, 2n, secondSession)
   assert.deepEqual(second.entries.map(entry => entry.id), [secondCurrent])
-  assert.deepEqual(Buffer.from(await (await privateArticlePreview(second.entries[0].ticket)).arrayBuffer()), secondBytes)
+  const secondPreview = await privateArticlePreview(second.entries[0].ticket)
+  assert.equal(secondPreview.type, 'image/jpeg')
+  assert.deepEqual(Buffer.from(await secondPreview.arrayBuffer()), secondBytes)
   const stale = WireRoutes.ArticleMedia.replace('{id:int}', '43') + '?revision=1'
   const rejected = await fetch(stale)
   assert.equal(rejected.status, 409)
@@ -85,5 +87,5 @@ assert.equal(publicPage.status, 200)
 const html = await publicPage.text()
 assert(/published (?:☃|&#9731;|&#x2603;)/i.test(html) && !html.includes('Private edit') && !html.includes(asset))
 console.log(JSON.stringify({ restoredOwnerReads: historical ? 5 : 2, rejectedPrivateReads: historical ? 8 : 6,
-  historicalPreviewRejected: Boolean(historical), retainedPublicRevision: 2,
+  historicalPreviewRejected: Boolean(historical), jpegRestored: Boolean(historical), retainedPublicRevision: 2,
   bytes: bytes.length, contentSha256: createHash('sha256').update(bytes).digest('hex') }))
