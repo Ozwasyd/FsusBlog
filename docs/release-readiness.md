@@ -36,4 +36,12 @@
 - 已保存修订的单张授权 PNG 或 JPEG 可写入 DOCX。原生 Chrome 下载后用禁网 LibreOffice 打开并渲染实际图片。旧版和当前无附图的两种 DOCX 样本与基线字节一致。 [下载](../artifacts/targeted-delivery-967805c/word/browser/article-media-browser.json) · [独立读取](../artifacts/targeted-delivery-967805c/word/independent/independent-image.log)
 - 锁定依赖的 Release 编译、严格 Vue 类型检查及三份 FsusUI Wasm 字节对照通过。作者实库共用夹具后仍通过 12 项，包括千字段、万篇和 88,000 个属性值，规范化净减 193 行。整批开发代码共 208,029 行，距 208,546 上限 517 行。 [编译及计量](../artifacts/targeted-delivery-967805c/) · [实库规模回归](../artifacts/targeted-delivery-967805c/author-fixtures/verification.log)
 
+## 开发提交 `7a1558d`
+
+- 旧库普通再发布链经过审批可直接启用到独立 PostgreSQL 运行副本。合并产物从已恢复旧库启用并复验同一审批，修改历史修订后拒绝继续。再次备份恢复后的 Kestrel 返回修订 2、发布 `900000002`、权利 `701`，拒绝旧公开关联和证明坐标。兼容首发模式。旧公开回滚及责任主体映射仍待完成。 [合并复验](../artifacts/delivery-review-72d684d/combined-republish.log) · [三条原生演练](../artifacts/legacy-republish-activation-72d684d/native-suite-status-2.txt)
+- 新增独立作者搜索页，列表与搜索执行同一保存视图。Chrome 验证执行请求字节与结果顺序一致，拒绝匿名和已移除视图。快速切换器另经真实查询验收，账号恢复后即使浏览器收到延迟的旧 HTTP 200，也只显示当前结果。 [保存视图](../artifacts/delivery-review-72d684d/saved-view-search/saved-view-search-result.json) · [迟到响应](../artifacts/delivery-review-72d684d/article-library/article-library-result.json)
+- 有其他 Passkey 时，可用当前设备的新 WebAuthn 验证移除当前设备。Chromium 实测目标会话、刷新链和待完成 MFA 撤销，另一设备会话保留。普通路径拒绝移除最后一枚。锁定 Release 和严格 Vue 检查通过。 [当前设备](../artifacts/delivery-review-72d684d/passkeys/current/passkey-result.json) · [构建](../artifacts/delivery-review-72d684d/)
+- 原生导出 worker 拒绝已入队修订的保存时间变化。恢复输入及重启后，同一任务保留原失败回执，新任务使用同一冻结输入成功导出原历史正文。固定 PDF 工具的运行中取消、SIGTERM 及租约丢失三项也通过。异步附件清单及完整元数据仍待交付。 [实库记录](../artifacts/delivery-review-72d684d/combined-native.log) · [PDF 实测](../artifacts/delivery-review-72d684d/pdf-targeted/verification.log)
+- 414 条采用或合并采用的冻结评论均有显式条款 ID，正文自由文本逐项裁断仍待完成。共用目录探针净减 167 行，61 项新旧 CLI 对照和 7 项原生测试通过。合计 208,250 NCLOC，距上限 296 行。 [冻结台账](issues/review-completeness.md) · [CLI 对照](../artifacts/delivery-review-72d684d/catalog/compare.log) · [计量](product/code-budget-checkpoint.md)
+
 在工作树中运行 `python3 -B tools/verify-release.py RELEASE_DIRECTORY`，可逐项核对归档内文件、三项原始 FsusUI Wasm、发布坐标及完整 Git 历史。验证从空 Git 仓库导入 bundle，并返回候选和 FsusUI 提交、归档文件数及历史提交数。应用用例由独立原生和浏览器入口验证。

@@ -18,6 +18,8 @@
 
 文章管理接受 `?view=<UUID>&viewSchema=1` 深链接。一版链接坐标适用于七个定义版本。服务端按当前会话解析并执行指定视图，重命名保留链接可用。失效、已移除、访问受限及不受支持的链接显示不可用状态，默认项只在没有显式视图的正常面板入口启用。
 
+独立作者搜索页 `/user/manage/article/search` 用同一视图 ID、版本和当前权限执行保存视图。搜索与列表之间切换只携带稳定视图链接。搜索页提供只读执行，变更仍在文章列表进行。真实 Chrome 核对了两页的 AEDS 执行请求和结果顺序，以及已移除视图和匿名访问的拒绝。 [浏览器验收](../../artifacts/delivery-review-72d684d/saved-view-search/saved-view-search-result.json)
+
 文章编辑器的「Article library」在当前作者已有固定视图时提供「Pinned views」。标题和顺序取自服务端，每页最多 25 项。打开某项通过同一稳定链接进入文章管理并执行已保存的查询。离开编辑器仍受未保存更改保护。窄屏使用现有 FsusUI Drawer。关掉并重新打开文章库会重新读取固定项。原生 Chrome 验证了两个固定项的服务端顺序、取消离开和保留本机稿件、继续离开后执行确定的查询、移除后重新读取，以及最后一项移除后隐藏入口。 [浏览器记录](../../artifacts/pinned-saved-views-rail/run-1/browser-result.json)
 
-新建数据库包含保存视图及偏好表。已有 v2 数据库在服务器停止后可运行迁移工具 `saved-views` 命令安装表和校验目录。命令可重复执行，原视图的身份和定义保持不变。其他条件、跨全局搜索的统一入口、旧库迁移与 1,000 个视图 / 10,000 篇文章的完整规模终验仍待交付。 [#2341](https://github.com/Ozwasyd/FsusBlog/issues/2341) · [#2343](https://github.com/Ozwasyd/FsusBlog/issues/2343) · [#2346](https://github.com/Ozwasyd/FsusBlog/issues/2346) · [#2349](https://github.com/Ozwasyd/FsusBlog/issues/2349) · [#2351](https://github.com/Ozwasyd/FsusBlog/issues/2351) · [#2354](https://github.com/Ozwasyd/FsusBlog/issues/2354)
+新建数据库包含保存视图及偏好表。已有 v2 数据库在服务器停止后可运行迁移工具 `saved-views` 命令安装表和校验目录。命令可重复执行，原视图的身份和定义保持不变。其他条件、旧库迁移与 1,000 个视图 / 10,000 篇文章的完整规模终验仍待交付。 [#2341](https://github.com/Ozwasyd/FsusBlog/issues/2341) · [#2343](https://github.com/Ozwasyd/FsusBlog/issues/2343) · [#2346](https://github.com/Ozwasyd/FsusBlog/issues/2346) · [#2349](https://github.com/Ozwasyd/FsusBlog/issues/2349) · [#2351](https://github.com/Ozwasyd/FsusBlog/issues/2351) · [#2354](https://github.com/Ozwasyd/FsusBlog/issues/2354)
