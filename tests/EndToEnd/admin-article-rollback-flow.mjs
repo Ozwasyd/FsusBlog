@@ -228,7 +228,8 @@ export async function verifyAdminArticleRollback({ page, context, adminOrigin, s
   assert.equal(ownerDraft.status(), 200)
   const draft = decodeDraft(decodeFrame(await ownerDraft.body(), FrameType.Draft).payload)
   assert.deepEqual([draft.id, draft.revision, draft.title, draft.body, draft.published],
-    [1, 4n, 'Rollback fixture source title', 'Historical Markdown ready for restoration', false])
+    [1, 4n, 'Rollback fixture source title',
+      'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n', false])
   await ownerDraft.dispose()
   const inventory = await context.request.get(siteOrigin.origin + WireRoutes.AuthorArticles + '?scope=active&article=1&state=draft')
   assert.equal(inventory.status(), 200)

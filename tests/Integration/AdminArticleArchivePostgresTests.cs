@@ -105,6 +105,21 @@ public sealed partial class AdminArticleRollbackPostgresTests
             Assert.Single(archivedPage.Items));
         Assert.Empty((await service.ListArchivedArticles(other.Token, archived.ArticleId, ct)).Items);
 
+        var previewState = await PreviewState();
+        var bytes = await service.PreviewArchivedArticle(other.Token, 1, 3, archived.ReleaseId, ct);
+        var shown = Wire.DecodeAdminArticleArchivePreview(bytes);
+        Assert.Equal(new AdminArticleArchivePreview(1, 3, archived.ReleaseId, "Historical release", "Historical body"), shown);
+        var rawSource = shown with { Markdown = "\uFEFF原文\r\n末尾空格  \n" };
+        Assert.Equal(rawSource, Wire.DecodeAdminArticleArchivePreview(Wire.EncodeAdminArticleArchivePreview(rawSource)));
+        await Denied(Rejection.Unauthorized, () => service.PreviewArchivedArticle(null, 1, 3, archived.ReleaseId, ct));
+        await Denied(Rejection.Unauthorized, () => service.PreviewArchivedArticle(session.Token, 1, 3, archived.ReleaseId, ct));
+        await Denied(Rejection.Forbidden, () => service.PreviewArchivedArticle(manager.Token, 1, 3, archived.ReleaseId, ct));
+        await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 2, 3, archived.ReleaseId, ct));
+        await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 1, 2, archived.ReleaseId, ct));
+        await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 1, 3, 2, ct));
+        Assert.Equal(previewState, await PreviewState());
+        Assert.Same(archivedProjection, publications.Snapshot);
+
         var draftPath = WireRoutes.Draft.Replace("{id:int}", "1", StringComparison.Ordinal);
         var publicPaths = new[] { "/article/1", WireRoutes.PublicArticle.Replace("{id}", "1", StringComparison.Ordinal) };
         await using (var stoppedAfterArchive = await ServerProcess.Start(fixture.ConnectionString, ct))
@@ -174,6 +189,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
             """, restored.ReleaseId, restored.RightsSnapshotId));
         await AssertDurableRelease(other, release, restored, true, archived.ResponsibilitySnapshotId, "publish");
         Assert.Empty((await service.ListArchivedArticles(other.Token, 0, ct)).Items);
+        await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 1, 3, archived.ReleaseId, ct));
         await Denied(Rejection.Conflict, () => service.BeginArticleArchiveStepUp(other.Token, release with { IdempotencyKey = Guid.NewGuid() }, ct));
 
         await using var restoredServer = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -234,6 +250,20 @@ public sealed partial class AdminArticleRollbackPostgresTests
                 """, receipt.Revision, eventKind));
             Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_command where command_id=$1", command.IdempotencyKey));
         }
+
+        Task<string> PreviewState() => Scalar<string>("""
+            select jsonb_build_array(
+                (select to_jsonb(a) from public.article a where id=1),
+                (select count(*) from public.article_revision where article_id=1),
+                (select count(*) from public.article_publication_history where article_id=1),
+                (select count(*) from public.admin_article_rollback where article_id=1),
+                (select count(*) from public.article_publication_rights where article_id=1),
+                (select count(*) from public.article_publication_responsibility where article_id=1),
+                (select count(*) from public.admin_article_rollback_step_up),
+                (select count(*) from public.article_publication where article_id=1),
+                (select count(*) from public.article_publication_canonical where article_id=1),
+                (select count(*) from public.blog_outbox where article_id=1))::text
+            """);
 
         async Task AssertSearchCount(HttpClient client, int count)
         {

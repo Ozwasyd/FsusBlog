@@ -24,4 +24,6 @@ PDF 读取与 HTML 相同的基础 Markdown。可用字形由离线 Noto Sans CJ
 
 PDF 默认关闭。当 `FSUSBLOG_PDF_TOOL_ROOT` 为本机工具链的绝对路径，且 `FSUSBLOG_PDF_TOOL_SHA256` 匹配该目录内 `toolchain.json` 的 SHA-256 时，macOS 服务才提供此下载。启动时验证清单列出的工具文件，部署时应将验证过的工具链目录保持为服务只读。Seatbelt 子进程以固定参数启动，资源读取仅限工具、字体和私有临时目录，网络与额外资源加载均被阻止。渲染器在接收正文前检查实际沙箱。配置不完整或工具校验失败会阻止启动。 [WeasyPrint 安全说明](https://doc.courtbouillon.org/weasyprint/v66.0/first_steps.html#security)
 
+Debian 13 ARM64 已通过原生渲染和 PostgreSQL 保存修订下载验证。该部署使用固定 `/opt/fsusblog-pdf-arm64` 和该目录下 `payload.sha256` 的 SHA-256 作为上述配置。安装目录由 root 持有，含固定启动器和用于 Bubblewrap 的只读文件系统。安装包逐文件核验，必须包含与服务程序内嵌源码一致的渲染脚本与字体配置，以及固定 Noto 字体。Linux 启动器将入口限定为该包内 Python，隔离网络和文件系统，清除额外文件描述符，初始化后拒绝再次执行程序。服务核对实际 systemd 单元、进程组、256 MiB 内存和零交换空间限额，再交付输入。原生验证需要非 root 服务账号、systemd 用户管理器、cgroup v2 和可用的 Bubblewrap。 [现有 Linux 宿主及前置条件](platform-plugin-offline.md#离线-linux-arm64-工作进程) · [原生 PDF 证据](../../artifacts/original-delivery-next/linux-pdf/)
+
 v1 的 `ContentExport` 是带完整恢复元数据的 AEDS 帧，另有完整站点备份。固定 v1 的文档导出源码包含 HTML 提供方、下载处理器和注册方法，常规二进制路由入口没有调用该注册方法。提供方目录将 DOCX 标记为未实现。 [v1 文档提供方目录](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/DocumentExport/DocumentExportContracts.cs#L261-L320) · [v1 路由入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs#L60-L80)

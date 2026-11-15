@@ -65,7 +65,7 @@ internal static partial class CurrentSchema
 
     internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null)
+        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -91,7 +91,8 @@ internal static partial class CurrentSchema
         var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
-            requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch);
+            requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch,
+            requireAuthorTextIndex: requireAuthorTextIndex);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -118,7 +119,8 @@ internal static partial class CurrentSchema
         bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
         bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
         bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
-        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null)
+        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
+        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null)
     {
         if (requireArticleMedia is null)
         {
@@ -169,6 +171,10 @@ internal static partial class CurrentSchema
         var hasAppearanceActivation = await HasAppearanceActivationAsync(connection, transaction, cancellationToken);
         if (requireAppearanceActivation.HasValue && requireAppearanceActivation.Value != hasAppearanceActivation)
             throw new InvalidOperationException("The signed appearance schema presence does not match the requested operation.");
+        var hasRootCommentPowPolicy = await HasRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
+        if ((hasRootCommentPowPolicy && !requireAdminIdentity) ||
+            (requireRootCommentPowPolicy.HasValue && requireRootCommentPowPolicy.Value != hasRootCommentPowPolicy))
+            throw new InvalidOperationException("The root comment proof policy schema presence does not match the requested operation.");
         var hasSavedViews = await HasSavedViewsAsync(connection, transaction, cancellationToken);
         if (requireSavedViews.HasValue && requireSavedViews.Value != hasSavedViews)
             throw new InvalidOperationException("The saved views schema presence does not match the requested operation.");
@@ -215,6 +221,9 @@ internal static partial class CurrentSchema
         if ((hasAuthorRecentOpens && !requireRecoveryScope) ||
             (requireAuthorRecentOpens.HasValue && requireAuthorRecentOpens.Value != hasAuthorRecentOpens))
             throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
+        var hasAuthorTextIndex = await HasAuthorTextIndexAsync(connection, transaction, cancellationToken);
+        if (requireAuthorTextIndex.HasValue && requireAuthorTextIndex.Value != hasAuthorTextIndex)
+            throw new InvalidOperationException("The author full-text index schema presence does not match the requested operation.");
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
         if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
             (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
@@ -262,12 +271,14 @@ internal static partial class CurrentSchema
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
             .Concat(hasAppearanceActivation ? AppearanceActivationColumns : [])
+            .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyColumns : [])
             .Concat(hasSavedViews ? SavedViewColumns : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive) : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
@@ -302,6 +313,7 @@ internal static partial class CurrentSchema
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
             .Concat(hasAppearanceActivation ? AppearanceActivationConstraints : [])
+            .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyConstraints : [])
             .Concat(hasSavedViews ? SavedViewConstraints : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
@@ -309,6 +321,7 @@ internal static partial class CurrentSchema
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
+            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])
@@ -365,7 +378,8 @@ internal static partial class CurrentSchema
                               WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
                                    AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up',
-                                                      'admin_appearance_step_up', 'comment_appeal_admin_step_up', 'admin_comment_batch_step_up')
+                                                      'admin_appearance_step_up', 'comment_appeal_admin_step_up',
+                                                      'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
                                    THEN ' delete-cascade'
@@ -406,7 +420,9 @@ internal static partial class CurrentSchema
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
+        if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
         if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
+        if (hasAuthorTextIndex) await VerifyAuthorTextArticleOwnerIndexAsync(connection, transaction, cancellationToken);
         return webpMedia;
     }
 

@@ -19,6 +19,7 @@ import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
 import { exercisePropertyFilter } from './property-filter-flow.mjs'
+import { exerciseAuthorTextSearch } from './author-text-search-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -330,6 +331,7 @@ try {
 
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
   await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations, articleCommand)
+  await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations })
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))

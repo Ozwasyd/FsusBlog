@@ -266,6 +266,81 @@ public sealed class CommentReadPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task RootProofPolicyRejectsUnspentGenerationAfterRollbackToTheSameLifetime()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var admin = Guid.NewGuid();
+        await using (var seed = Store.Sql(db, null, """
+            insert into public.admin_principal(id,handle,user_handle,enabled,generation)
+            values($1,'root-proof-operator',$2,true,1)
+            """, admin, RandomNumberGenerator.GetBytes(32)))
+            await seed.ExecuteNonQueryAsync(ct);
+        var clock = new PowTime();
+        var authority = new ScopedPow(clock);
+        var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var source = IPAddress.Parse("192.0.2.1");
+        byte[] frame = [174, 26, 55];
+        RootCommentPowPolicy initial;
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            initial = await RootCommentPowPolicy.Read(db, tx, ct);
+            await tx.CommitAsync(ct);
+        }
+        Assert.Equal(new RootCommentPowPolicy(1, 120), initial);
+        var old = Issue(initial);
+
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            var current = await RootCommentPowPolicy.Read(db, tx, ct, update: true);
+            var shorter = await current.Activate(db, tx, admin, 60, rollback: false, ct);
+            Assert.Equal(2, shorter.Generation);
+            Assert.NotEqual(initial.Digest, shorter.Digest);
+            await tx.CommitAsync(ct);
+        }
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            var current = await RootCommentPowPolicy.Read(db, tx, ct);
+            var underShorterPolicy = Issue(current);
+            var previousTime = clock.Now;
+            clock.Now = previousTime.AddSeconds(60);
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => Consume(tx, underShorterPolicy, current));
+            clock.Now = previousTime;
+            await tx.CommitAsync(ct);
+        }
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            var current = await RootCommentPowPolicy.Read(db, tx, ct, update: true);
+            var previous = await current.PreviousSeconds(db, tx, ct);
+            Assert.Equal(120, previous);
+            await current.Activate(db, tx, admin, previous, rollback: true, ct);
+            await tx.CommitAsync(ct);
+        }
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            var restored = await RootCommentPowPolicy.Read(db, tx, ct);
+            Assert.Equal(new RootCommentPowPolicy(3, 120), restored);
+            Assert.Equal(initial.Digest, restored.Digest);
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => Consume(tx, old, restored));
+            await Consume(tx, Issue(restored), restored);
+            await tx.CommitAsync(ct);
+        }
+        await using var used = Store.Sql(db, null, "select count(*) from public.scoped_pow_consumed");
+        Assert.Equal(1L, await used.ExecuteScalarAsync(ct));
+
+        PowProof Issue(RootCommentPowPolicy policy)
+        {
+            var challenge = authority.Issue(PowScope.PublicCommentSubmit, "", session, source, ClientNonce, frame, policy);
+            return PowWire.ReadProof(Solve(challenge.Salt, challenge.Signature, challenge.Difficulty, challenge.Timestamp, ClientNonce));
+        }
+
+        Task Consume(NpgsqlTransaction tx, PowProof proof, RootCommentPowPolicy policy) =>
+            authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame, proof, ct, policy);
+    }
+
     [Fact]
     public void ProofIssuanceCapsPerSessionAndPerTrustedSource()
     {

@@ -14,6 +14,9 @@ export function readAdminRiskReadiness(session: AdminSession, signal: AbortSigna
         (status.forwardingMode !== 0 && status.forwardingMode !== 1) ||
         status.dynamicRisk !== 0 || status.strongAnonymous !== 0)
       throw new ProtocolError('Invalid risk control status.');
-    return status;
+    const rootPolicy = headers.get(WireHeaders.AdminRootCommentPowPolicy);
+    if (rootPolicy !== null && (rootPolicy !== '1' || status.rootWriteMode !== 1))
+      throw new ProtocolError('Invalid root comment proof policy status.');
+    return { ...status, rootCommentPowPolicy: rootPolicy === '1' };
   }, signal);
 }

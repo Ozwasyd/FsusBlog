@@ -53,6 +53,22 @@ internal sealed partial class AdminPasskeyStore
             return new AdminArticleArchivePage(0, items);
         }, ct);
 
+    internal Task<byte[]> PreviewArchivedArticle(string? session, int article, long revision,
+        long privateRelease, CancellationToken ct) => WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+    {
+        await RequireArticleArchiveSchema(db, tx, ct);
+        await using (var take = Store.Sql(db, tx, """
+            select id from public.article where id=$1 and revision=$2 and not deleted
+                and published_revision is null for share
+            """, article, revision))
+            if (await take.ExecuteScalarAsync(ct) is null)
+                throw new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release.");
+
+        // Recheck archive history and release authority in a fresh statement after any lock wait.
+        var archive = await ReadArchivedTarget(db, tx, article, revision, privateRelease, locking: false, includeBody: true, ct);
+        return Wire.EncodeAdminArticleArchivePreview(new(article, revision, privateRelease, archive.Title, archive.Body));
+    }, ct);
+
     internal Task<byte[]> BeginArticleArchiveStepUp(string? session, AdminArticleArchiveIntent intent, CancellationToken ct) =>
         BeginStepUp(session, ArticleArchiveIntentDigest(intent), async (db, tx, _) =>
         {
@@ -64,7 +80,8 @@ internal sealed partial class AdminPasskeyStore
             }
             else
             {
-                await ReadArchivedTarget(db, tx, intent, locking: false, ct);
+                await ReadArchivedTarget(db, tx, intent.ArticleId, intent.ExpectedRevision, intent.ExpectedReleaseId,
+                    locking: false, includeBody: false, ct);
             }
         }, ct, StepUpAction.ArticleArchive);
 
@@ -95,7 +112,8 @@ internal sealed partial class AdminPasskeyStore
             if (replay is not null) return replay;
             await RequireRollbackProof(db, tx, admin, proof, fingerprint, StepUpAction.ArticleArchive, ct);
 
-            var archive = await ReadArchivedTarget(db, tx, intent, locking: true, ct);
+            var archive = await ReadArchivedTarget(db, tx, intent.ArticleId, intent.ExpectedRevision, intent.ExpectedReleaseId,
+                locking: true, includeBody: true, ct);
             var revision = checked(intent.ExpectedRevision + 1);
             await CopyRollbackRevision(db, tx, intent.ArticleId, revision, intent.ExpectedRevision, archive.Title,
                 archive.Body, intent.SourceRevision, intent.TargetStatus, ct);
@@ -122,17 +140,18 @@ internal sealed partial class AdminPasskeyStore
     private sealed record ArchivedTarget(string Title, string Body, long Responsibility, PublicationHistoryStore.AdminArchiveSource Lineage);
 
     private static async Task<ArchivedTarget> ReadArchivedTarget(NpgsqlConnection db, NpgsqlTransaction tx,
-        AdminArticleArchiveIntent intent, bool locking, CancellationToken ct)
+        int article, long revision, long privateRelease, bool locking, bool includeBody, CancellationToken ct)
     {
         if (locking)
         {
-            await using var take = Store.Sql(db, tx, "select id from public.article where id=$1 and not deleted for update", intent.ArticleId);
+            await using var take = Store.Sql(db, tx, "select id from public.article where id=$1 and not deleted for update", article);
             if (await take.ExecuteScalarAsync(ct) is null)
                 throw new BusinessException(Rejection.NotFound, "The archived article is unavailable.");
         }
 
         await using var query = Store.Sql(db, tx, $"""
-            select a.revision,archived.publication_id,r.title,case when $2 then r.body else '' end,
+            select a.revision,archived.publication_id,r.title,
+                case when $2 and ($3 or octet_length(r.body)<=$4) then r.body end,
                 archived.responsibility_snapshot_id,h.event_no,archived.source_revision,archived.source_publication_id,
                 exists(select from public.article_schedule where article_id=a.id),
                 exists(select from public.article_revision_media where article_id=a.id and revision=a.revision),
@@ -145,15 +164,18 @@ internal sealed partial class AdminPasskeyStore
                         and linked.revision=a.revision and linked.snapshot_id=archived.responsibility_snapshot_id)
             {CurrentArchive}
             and archived.article_id=$1
-            """, intent.ArticleId, locking);
+            """, article, includeBody, locking, WireLimits.BodyBytes);
         await using var row = await query.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct))
             throw new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release.");
-        if (row.GetInt64(0) != intent.ExpectedRevision || row.GetInt64(1) != intent.ExpectedReleaseId)
+        if (row.GetInt64(0) != revision || row.GetInt64(1) != privateRelease)
             throw new BusinessException(Rejection.Conflict, "The archived revision or private release changed.");
-        if (intent.ExpectedRevision == long.MaxValue || row.GetBoolean(8) || row.GetBoolean(9) ||
+        if (revision == long.MaxValue || row.GetBoolean(8) || row.GetBoolean(9) ||
             !row.GetBoolean(10) || !row.GetBoolean(11))
             throw new BusinessException(Rejection.Conflict, "The archived release package is incomplete or a publication is pending.");
-        return new(row.GetString(2), row.GetString(3), row.GetInt64(4), new(row.GetInt32(5), row.GetInt64(6), row.GetInt64(7)));
+        if (includeBody && row.IsDBNull(3))
+            throw new BusinessException(Rejection.Conflict, "The archived source exceeds the preview size limit.");
+        return new(row.GetString(2), includeBody ? row.GetString(3) : "", row.GetInt64(4),
+            new(row.GetInt32(5), row.GetInt64(6), row.GetInt64(7)));
     }
 }

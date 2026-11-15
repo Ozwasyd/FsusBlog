@@ -54,7 +54,7 @@ internal static class PlatformPluginCommand
                 throw Deny("plugin-isolation-unavailable");
             if (Environment.GetEnvironmentVariable("FSUSBLOG_PLATFORM_PLUGIN_ROOT") is not { } root || !Path.IsPathFullyQualified(root))
                 throw Deny("plugin-registry-required");
-            var input = Utf8.GetString(await ReadAsync(Console.OpenStandardInput(), PureRenderPlugin.MaximumMarkdownBytes, ct));
+            var input = Utf8.GetString(await PluginWorkerCompletion.ReadAsync(Console.OpenStandardInput(), PureRenderPlugin.MaximumMarkdownBytes, ct));
             if (input.Contains('\0')) throw Deny("plugin-markdown-input");
             using var approval = PureRenderPlugin.Open(new(root), id, TimeProvider.System, ct);
             var request = JsonSerializer.SerializeToUtf8Bytes(new PurePluginRequest(id, approval.JavaScript, input, approval.TimeoutMs));
@@ -157,8 +157,8 @@ internal static class PlatformPluginCommand
         {
             try
             {
-                output = ReadAsync(process.StandardOutput.BaseStream, PureRenderPlugin.MaximumMarkdownBytes, deadline.Token);
-                errors = ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
+                output = PluginWorkerCompletion.ReadAsync(process.StandardOutput.BaseStream, PureRenderPlugin.MaximumMarkdownBytes, deadline.Token);
+                errors = PluginWorkerCompletion.ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
                 await process.StandardInput.BaseStream.WriteAsync(request, deadline.Token);
                 process.StandardInput.Close();
                 var result = await output;
@@ -172,37 +172,8 @@ internal static class PlatformPluginCommand
             {
                 throw PluginWorkerCompletion.Translate(error, "plugin-worker-deadline");
             }
-        }, () => ReleaseProcessAsync(deadline,
-            () => ReapProcessAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), output, errors));
-    }
-
-    internal static Task ReleaseProcessAsync(CancellationTokenSource deadline, Func<Task> release,
-        Task<byte[]>? output, Task<byte[]>? errors) => PluginWorkerCompletion.ReleaseAsync(
-            () => { deadline.Cancel(); return Task.CompletedTask; }, release, () => ObservePipesAsync(output, errors));
-
-    private static async Task ObservePipesAsync(Task<byte[]>? output, Task<byte[]>? errors)
-    {
-        var pipes = Task.WhenAll((Task?)output ?? Task.CompletedTask, (Task?)errors ?? Task.CompletedTask);
-        try { await pipes.WaitAsync(TimeSpan.FromSeconds(1)); }
-        catch (TimeoutException) when (!pipes.IsCompleted) { throw Deny(PluginWorkerCompletion.DrainFailure); }
-        catch (Exception) { } // The work outcome already determines the transport error.
-    }
-
-    internal static Task ReapProcessAsync(Process process, bool entireProcessTree, TimeSpan timeout) =>
-        PluginWorkerCompletion.ReleaseAsync(() =>
-        {
-            try
-            {
-                if (!process.HasExited) process.Kill(entireProcessTree);
-            }
-            catch (InvalidOperationException) when (process.HasExited) { }
-            return Task.CompletedTask;
-        }, () => process.WaitForExitAsync().WaitAsync(timeout));
-
-    internal static async Task<byte[]> ReadAsync(Stream stream, int limit, CancellationToken ct)
-    {
-        try { return await PurePluginInterpreter.ReadAsync(stream, limit, ct); }
-        catch (InvalidDataException) { throw Deny("plugin-io-limit"); }
+        }, () => PluginWorkerCompletion.ReleaseProcessAsync(deadline,
+            () => PluginWorkerCompletion.ReapProcessAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), output, errors));
     }
 
     private static ExtensionRejectedException Deny(string code) => new(code);

@@ -87,6 +87,14 @@ internal static class AdminArticleRollbackEndpoints
             var page = await store.ListArchivedArticles(ctx.Request.Cookies[session], (int)before, ct);
             return Frame(Wire.EncodeAdminArticleArchivePage(page));
         }).RequireRateLimiting("query");
+        app.MapGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var article = PositiveCoordinate(ctx, "articleId");
+            var revision = PositiveCoordinate(ctx, "revision");
+            var privateRelease = PositiveCoordinate(ctx, "privateReleaseId");
+            if (article > int.MaxValue) throw InvalidCoordinate();
+            return Frame(await store.PreviewArchivedArticle(ctx.Request.Cookies[session], (int)article, revision, privateRelease, ct));
+        }).RequireRateLimiting("query");
         app.MapPost(WireRoutes.AdminArticleArchiveStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             AdminModerationEndpoints.RequireOrigin(ctx, authority);

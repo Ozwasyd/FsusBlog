@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { adminClusterFlow } from './admin-cluster-flow.mjs'
-import { adminRiskReadinessFlow } from './admin-risk-readiness-flow.mjs'
+import { adminRiskReadinessFlow, verifyRootCommentPowPolicy } from './admin-risk-readiness-flow.mjs'
 import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
 import { decodeAdminSitePageRevision, encodeAdminSitePagePublish, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -40,6 +40,8 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await logIn(page)
   await cluster.granted()
   await risk?.granted()
+  if (process.env.FSUSBLOG_TEST_ADMIN_RISK_CASE === 'root-pow-policy')
+    await verifyRootCommentPowPolicy({ page, context, adminOrigin, siteOrigin, evidence })
   const allowed = await check()
   assert.equal(allowed.status(), 200)
   assert.match(allowed.headers()['cache-control'], /no-store/)

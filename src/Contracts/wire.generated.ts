@@ -73,6 +73,8 @@ export const FrameType = {
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
   AdminRiskReadiness: 32851,
+  AdminRootCommentPowPolicy: 33008,
+  AdminRootCommentPowCommand: 33009,
   AdminClusterStatus: 32962,
   AdminEffectivePermissions: 32948,
   AdminSignInHistory: 32963,
@@ -85,6 +87,7 @@ export const FrameType = {
   AdminArticleArchiveIntent: 32999,
   AdminArticleArchiveReceipt: 33000,
   AdminArticleArchivePage: 33001,
+  AdminArticleArchivePreview: 33011,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
   AdminAppearanceState: 32936,
@@ -168,6 +171,8 @@ export const FrameType = {
   AuthorRecentOpenPage: 32958,
   AuthorRecentOpenCommand: 32959,
   AuthorRecentOpenReceipt: 32960,
+  AuthorTextSearchQuery: 33006,
+  AuthorTextSearchPage: 33007,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,
@@ -197,6 +202,9 @@ export const WireLimits = {
   PowProofHeaderChars: 416,
   PowChallengeDifficulty: 12,
   PowChallengeSeconds: 120,
+  RootCommentPowMinSeconds: 60,
+  RootCommentPowDigestBytes: 64,
+  AdminRootCommentPowCommandFrameBytes: 97,
   PowWorkerMilliseconds: 12000,
   PrivateMediaBytes: 20971520,
   PublicCommentBodyBytes: 4096,
@@ -225,6 +233,12 @@ export const WireLimits = {
   AuthorRecentOpenPageSize: 20,
   AuthorRecentOpenCursorChars: 64,
   MaxAuthorRecentOpenCommandFrameBytes: 56,
+  AuthorTextSearchQueryChars: 128,
+  AuthorTextSearchQueryBytes: 512,
+  MaxAuthorTextSearchQueryFrameBytes: 532,
+  AuthorTextSearchRows: 20,
+  AuthorTextSearchSnippetBytes: 2048,
+  AuthorTextSearchSourceDigestBytes: 32,
   TaxonomyAssignmentFrameBytes: 180,
   TicketBytes: 128,
   TitleBytes: 256,
@@ -620,6 +634,10 @@ export const WireRoutes = {
   AdminAppealDecision: "/api/v2/admin/identity/comments/appeals/{id:long}/decision.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
   AdminRiskReadiness: "/api/v2/admin/identity/operations/risk-readiness.aeds",
+  AdminRootCommentPowPolicy: "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof.aeds",
+  AdminRootCommentPowBegin: "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/step-up/begin.aeds",
+  AdminRootCommentPowComplete: "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/step-up/complete.aeds",
+  AdminRootCommentPowApply: "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/apply.aeds",
   AdminClusterStatus: "/api/v2/admin/identity/operations/cluster.aeds",
   AdminArticleRollbackAvailability: "/api/v2/admin/identity/articles/rollback/available.aeds",
   AdminArticleRollbackPreview: "/api/v2/admin/identity/articles/rollback/preview.aeds",
@@ -632,6 +650,7 @@ export const WireRoutes = {
   AdminArticleDraftRollbackExecute: "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds",
   AdminArticleArchiveAvailability: "/api/v2/admin/identity/articles/archive/available.aeds",
   AdminArticleArchivePage: "/api/v2/admin/identity/articles/archive/page.aeds",
+  AdminArticleArchivePreview: "/api/v2/admin/identity/articles/archive/preview.aeds",
   AdminArticleArchiveStepUpBegin: "/api/v2/admin/identity/articles/archive/step-up/begin.aeds",
   AdminArticleArchiveStepUpComplete: "/api/v2/admin/identity/articles/archive/step-up/complete.aeds",
   AdminArticleArchiveExecute: "/api/v2/admin/identity/articles/archive/execute.aeds",
@@ -731,6 +750,7 @@ export const WireRoutes = {
   AuthoringWorkspaceLayout: "/api/v2/authoring/workspace/layout.aeds",
   AuthoringWorkspaceGroups: "/api/v2/authoring/workspace/groups.aeds",
   AuthorRecentOpens: "/api/v2/authoring/recent-opens.aeds",
+  AuthorTextSearch: "/api/v2/authoring/full-text/search.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
   MfaProfile: "/api/binary/auth/mfa/profile",
@@ -780,6 +800,7 @@ export const WireHeaders = {
   AdminSitePageEditor: "X-Fsus-Admin-Site-Page-Editor",
   AdminPermissionSession: "X-Fsus-Admin-Permission-Session",
   AdminAppearanceEnabled: "X-Fsus-Admin-Appearance",
+  AdminRootCommentPowPolicy: "X-Fsus-Admin-Root-Comment-Pow-Policy",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
@@ -1081,6 +1102,62 @@ export function decodeAdminRiskReadiness(payload: Uint8Array): AdminRiskReadines
     forwardingMode: reader.i32(),
     dynamicRisk: reader.i32(),
     strongAnonymous: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminRootCommentPowPolicy {
+  generation: bigint;
+  digest: string;
+  proofSeconds: number;
+  previousSeconds: number;
+}
+
+export function encodeAdminRootCommentPowPolicy(value: AdminRootCommentPowPolicy): Uint8Array {
+  const writer = new PodWriter();
+  writer.i64(value.generation);
+  writer.text(value.digest, WireLimits.RootCommentPowDigestBytes);
+  writer.i32(value.proofSeconds);
+  writer.i32(value.previousSeconds);
+  return writer.finish();
+}
+
+export function decodeAdminRootCommentPowPolicy(payload: Uint8Array): AdminRootCommentPowPolicy {
+  const reader = new PodReader(payload);
+  const value: AdminRootCommentPowPolicy = {
+    generation: reader.i64(),
+    digest: reader.text(WireLimits.RootCommentPowDigestBytes),
+    proofSeconds: reader.i32(),
+    previousSeconds: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminRootCommentPowCommand {
+  expectedGeneration: bigint;
+  expectedDigest: string;
+  proofSeconds: number;
+  rollback: boolean;
+}
+
+export function encodeAdminRootCommentPowCommand(value: AdminRootCommentPowCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i64(value.expectedGeneration);
+  writer.text(value.expectedDigest, WireLimits.RootCommentPowDigestBytes);
+  writer.i32(value.proofSeconds);
+  writer.bool(value.rollback);
+  return writer.finish();
+}
+
+export function decodeAdminRootCommentPowCommand(payload: Uint8Array): AdminRootCommentPowCommand {
+  const reader = new PodReader(payload);
+  const value: AdminRootCommentPowCommand = {
+    expectedGeneration: reader.i64(),
+    expectedDigest: reader.text(WireLimits.RootCommentPowDigestBytes),
+    proofSeconds: reader.i32(),
+    rollback: reader.bool(),
   };
   reader.finish();
   return value;
@@ -1404,6 +1481,37 @@ export function decodeAdminArticleArchiveReceipt(payload: Uint8Array): AdminArti
     rightsSnapshotId: reader.i64(),
     responsibilitySnapshotId: reader.i64(),
     targetStatus: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleArchivePreview {
+  articleId: number;
+  revision: bigint;
+  privateReleaseId: bigint;
+  title: string;
+  markdown: string;
+}
+
+export function encodeAdminArticleArchivePreview(value: AdminArticleArchivePreview): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.revision);
+  writer.i64(value.privateReleaseId);
+  writer.text(value.title, WireLimits.TitleBytes);
+  writer.text(value.markdown, WireLimits.BodyBytes);
+  return writer.finish();
+}
+
+export function decodeAdminArticleArchivePreview(payload: Uint8Array): AdminArticleArchivePreview {
+  const reader = new PodReader(payload);
+  const value: AdminArticleArchivePreview = {
+    articleId: reader.i32(),
+    revision: reader.i64(),
+    privateReleaseId: reader.i64(),
+    title: reader.text(WireLimits.TitleBytes),
+    markdown: reader.text(WireLimits.BodyBytes),
   };
   reader.finish();
   return value;

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   AdminArchiveTarget, executeAdminArticleArchive, readAdminArticleArchiveAvailability,
-  readAdminArticleArchivePage, requestAdminArticleArchiveProof,
-  type AdminArchivedArticle, type AdminArchivedArticles, type AdminArticleArchiveIntent, type AdminArticleArchiveReceipt,
+  readAdminArticleArchivePage, readAdminArticleArchivePreview, requestAdminArticleArchiveProof,
+  type AdminArchivedArticle, type AdminArchivedArticles, type AdminArticleArchiveIntent,
+  type AdminArticleArchivePreview, type AdminArticleArchiveReceipt,
 } from '../../../Contracts/admin-article-archive'
 import { isValidAdminArticleRollbackReason, type AdminArticleRollbackPreview } from '../../../Contracts/admin-article-rollback'
 
@@ -27,6 +28,10 @@ const reading = ref(false)
 const page = shallowRef<AdminArchivedArticles>()
 const before = ref<number>()
 const selected = shallowRef<AdminArchivedArticle>()
+const previewOpen = ref(false)
+const previewResult = shallowRef<AdminArticleArchivePreview>()
+const previewError = ref('')
+let previewRequest: AbortController | undefined
 const reason = ref('')
 const confirmed = ref(false)
 const failure = ref('')
@@ -64,6 +69,8 @@ const notice = computed(() => {
 })
 watch(working, value => emit('working-change', value), { flush: 'sync' })
 watch(review, () => { reason.value = ''; confirmed.value = false })
+watch(selected, closeArchivePreview, { flush: 'sync' })
+signal.addEventListener('abort', closeArchivePreview, { once: true })
 onScopeDispose(() => lifetime.abort())
 
 async function load(requestedBefore?: number) {
@@ -89,6 +96,33 @@ function select(row?: AdminArchivedArticle) {
   selected.value = row
   failure.value = ''
   receipt.value = undefined
+}
+
+async function openArchivePreview(row: AdminArchivedArticle) {
+  if (blocked.value || signal.aborted || previewOpen.value) return
+  const request = new AbortController()
+  previewRequest = request
+  previewOpen.value = true
+  try {
+    const result = await readAdminArticleArchivePreview(row, AbortSignal.any([signal, request.signal]))
+    if (!signal.aborted && !request.signal.aborted && selected.value === row) previewResult.value = result
+  } catch (cause) {
+    if (signal.aborted || request.signal.aborted || selected.value !== row) return
+    if (cause instanceof ApiError && cause.status === 401) {
+      closeArchivePreview()
+      emit('session-lost', cause)
+    } else {
+      previewError.value = 'Could not read this archived revision. Refresh the archive and try again.'
+    }
+  }
+}
+
+function closeArchivePreview() {
+  previewRequest?.abort()
+  previewRequest = undefined
+  previewOpen.value = false
+  previewResult.value = undefined
+  previewError.value = ''
 }
 
 async function submit() {
@@ -162,6 +196,8 @@ onMounted(async () => {
       <template v-if="selected">
         <h3>Republish {{ selected.title }}</h3>
         <p>Article {{ selected.articleId }} · Revision {{ selected.revision }} · Private release {{ selected.privateReleaseId }}</p>
+        <ElButton native-type="button" text :disabled="blocked || reading" v-bind="{ 'aria-haspopup': 'dialog' }"
+          @click="openArchivePreview(selected)">Preview archived source</ElButton>
       </template>
       <label for="admin-archive-reason">{{ selected ? 'Reason for republishing this revision' : 'Reason for archiving this revision' }}</label>
       <ElInput id="admin-archive-reason" v-model="reason" type="textarea" :disabled="blocked" @input="confirmed = false" />
@@ -198,6 +234,15 @@ onMounted(async () => {
           @click="load(page?.nextId ?? undefined)">Next archive page</ElButton>
       </div>
     </section>
+    <ElDialog :model-value="previewOpen" title="Archived Markdown source" append-to-body destroy-on-close
+      width="min(52rem, calc(100vw - 2rem))" top="5vh" @close="closeArchivePreview">
+      <ElAlert v-if="previewError" :title="previewError" type="error" :closable="false" />
+      <template v-else-if="previewResult">
+        <h3 class="archive-preview-title">{{ previewResult.title }}</h3>
+        <pre class="archive-source" tabindex="0" aria-label="Archived Markdown">{{ previewResult.markdown }}</pre>
+      </template>
+      <p v-else-if="previewOpen" role="status">Loading archived source…</p>
+    </ElDialog>
   </div>
 </template>
 
@@ -209,4 +254,6 @@ onMounted(async () => {
 .archive-list li { display: grid; justify-items: start; gap: .25rem; overflow-wrap: anywhere; }
 .archive-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .archive-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
+.archive-preview-title { overflow-wrap: anywhere; }
+.archive-source { max-block-size: 55vh; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>

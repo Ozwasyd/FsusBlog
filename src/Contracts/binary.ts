@@ -51,6 +51,11 @@ export class PodReader {
     return this.take(length);
   }
 
+  fixedBytes(length: number): Uint8Array {
+    if (!Number.isSafeInteger(length) || length < 0) throw new ProtocolError('Invalid AEDS fixed byte length');
+    return this.take(length);
+  }
+
   finish(): void {
     if (this.offset !== this.payload.length) throw new ProtocolError('Trailing AEDS payload data');
   }

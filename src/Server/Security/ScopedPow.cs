@@ -18,28 +18,30 @@ internal sealed class ScopedPow(TimeProvider time)
     private readonly Dictionary<string, int> counters = new(StringComparer.Ordinal);
     private long windowEnds;
 
-    internal PowChallenge Issue(PowScope scope, string context, string session, IPAddress source, string clientNonce, byte[] frame)
+    internal PowChallenge Issue(PowScope scope, string context, string session, IPAddress source, string clientNonce, byte[] frame,
+        RootCommentPowPolicy? policy = null)
     {
         if (!Hex(clientNonce, 32)) throw Invalid();
         Rate(session, source);
         var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         var timestamp = time.GetUtcNow().ToUnixTimeSeconds();
         return new(salt, WireLimits.PowChallengeDifficulty, timestamp,
-            Base64Url.EncodeToString(Signature(scope, context, session, source, clientNonce, frame, salt, timestamp)));
+            Base64Url.EncodeToString(Signature(scope, context, session, source, clientNonce, frame, salt, timestamp, policy)));
     }
 
     internal async Task Consume(NpgsqlConnection db, NpgsqlTransaction tx, PowScope scope, string context,
         string session, IPAddress source,
-        byte[] frame, PowProof proof, CancellationToken ct)
+        byte[] frame, PowProof proof, CancellationToken ct, RootCommentPowPolicy? policy = null)
     {
         var now = time.GetUtcNow().ToUnixTimeSeconds();
+        var lifetime = policy?.ProofSeconds ?? WireLimits.PowChallengeSeconds;
         if (!Hex(proof.Salt, 32) || !Hex(proof.ClientNonce, 32) ||
             proof.Nonce.Length is < 1 or > 10 || !proof.Nonce.All(char.IsAsciiDigit) ||
-            proof.Difficulty != WireLimits.PowChallengeDifficulty || proof.Timestamp <= now - WireLimits.PowChallengeSeconds ||
+            proof.Difficulty != WireLimits.PowChallengeDifficulty || proof.Timestamp <= now - lifetime ||
             proof.Timestamp > now + 2 || !TrySignature(proof.Signature, out var observed))
             throw Refused();
 
-        var expected = Signature(scope, context, session, source, proof.ClientNonce, frame, proof.Salt, proof.Timestamp);
+        var expected = Signature(scope, context, session, source, proof.ClientNonce, frame, proof.Salt, proof.Timestamp, policy);
         if (!CryptographicOperations.FixedTimeEquals(expected, observed) ||
             !HasWork(proof.Salt, proof.Nonce, proof.ClientNonce, proof.Difficulty))
             throw Refused();
@@ -56,14 +58,14 @@ internal sealed class ScopedPow(TimeProvider time)
             select $1,$2 where $2 > clock_timestamp()
                 and to_timestamp($3) <= clock_timestamp()+interval '2 seconds'
             on conflict do nothing
-            """, expected, DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + WireLimits.PowChallengeSeconds),
+            """, expected, DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + lifetime),
                 (double)proof.Timestamp);
         if (await insert.ExecuteNonQueryAsync(ct) != 1) throw Refused();
 
         // A simultaneous request may block on the digest's unique index. Recheck the database
         // clock after that wait, before returning authority to execute the protected mutation.
         await using var expiry = Store.Sql(db, tx, "select $1>clock_timestamp()",
-            DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + WireLimits.PowChallengeSeconds));
+            DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + lifetime));
         if (await expiry.ExecuteScalarAsync(ct) is not true) throw Refused();
     }
 
@@ -104,7 +106,7 @@ internal sealed class ScopedPow(TimeProvider time)
     }
 
     private byte[] Signature(PowScope scope, string context, string session, IPAddress source, string clientNonce,
-        byte[] frame, string salt, long timestamp)
+        byte[] frame, string salt, long timestamp, RootCommentPowPolicy? policy)
     {
         var action = scope switch
         {
@@ -128,6 +130,11 @@ internal sealed class ScopedPow(TimeProvider time)
         var ip = Convert.ToHexString(source.GetAddressBytes());
         var binding = string.Create(CultureInfo.InvariantCulture,
             $"fsus-classic-pow-v1:{action}:{contextDigest}:{sessionDigest}:{ip}:{clientNonce}:{frameDigest}:{salt}:{timestamp}:{WireLimits.PowChallengeDifficulty}");
+        if (policy is not null)
+        {
+            if (scope != PowScope.PublicCommentSubmit) throw Refused();
+            binding = string.Create(CultureInfo.InvariantCulture, $"{binding}:policy:{policy.Generation}:{policy.Digest}");
+        }
         return HMACSHA256.HashData(signingKey, Encoding.UTF8.GetBytes(binding));
     }
 

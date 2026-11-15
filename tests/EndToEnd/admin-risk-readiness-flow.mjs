@@ -1,13 +1,106 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeAdminRiskReadiness, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeAdminRiskReadiness, decodeAdminRootCommentPowPolicy, encodeAdminRootCommentPowCommand, FrameType,
+  WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const path = '/api/v2/admin/identity/operations/risk-readiness.aeds'
 const bindingHeader = WireHeaders.AdminPermissionSession.toLowerCase()
 const modes = {
   publicReadMode: [1], rootWriteMode: [0, 1], replyWriteMode: [0, 1, 2],
   forwardingMode: [0, 1], dynamicRisk: [0], strongAnonymous: [0],
+}
+
+export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, siteOrigin, evidence }) {
+  const route = adminOrigin.origin + WireRoutes.AdminRootCommentPowPolicy
+  const apply = adminOrigin.origin + WireRoutes.AdminRootCommentPowApply
+  const submit = siteOrigin.origin + WireRoutes.SubmitPublicComment
+  const policy = page.getByRole('region', { name: 'Root comment proof policy', exact: true })
+  const proofLifetime = policy.getByLabel('Proof lifetime in seconds')
+  const site = await context.newPage()
+  site.setDefaultTimeout(12_000)
+  const release = Promise.withResolvers()
+  const digest = seconds => createHash('sha256').update('root-comment-classic-pow-v1:12:' + seconds).digest('hex')
+
+  async function read(generation, proofSeconds, previousSeconds) {
+    const response = await context.request.get(route, { timeout: 15_000 })
+    assert.equal(response.status(), 200)
+    assert.match(response.headers()['cache-control'], /no-store/)
+    const { payload } = decodeFrame(await response.body(), FrameType.AdminRootCommentPowPolicy)
+    const result = decodeAdminRootCommentPowPolicy(payload)
+    assert.deepEqual(result, { generation, proofSeconds, previousSeconds, digest: digest(proofSeconds) })
+    return result
+  }
+
+  async function change(label, generation, proofSeconds) {
+    const [response] = await Promise.all([
+      page.waitForResponse(value => value.url() === apply && value.request().method() === 'POST', { timeout: 15_000 }),
+      policy.getByRole('button', { name: label, exact: true }).click({ timeout: 12_000 }),
+    ])
+    assert.equal(response.status(), 200)
+    await policy.getByText('Generation ' + generation + ' · ' + proofSeconds + ' seconds', { exact: true }).waitFor({ timeout: 12_000 })
+  }
+
+  try {
+    await policy.getByText('Generation 1 · 120 seconds', { exact: true }).waitFor({ timeout: 12_000 })
+    const initial = await read(1n, 120, 0)
+    await site.route(submit, async request => {
+      await release.promise
+      await request.continue()
+    }, { times: 1 })
+    await site.goto(siteOrigin.origin + '/article/1')
+    const send = site.getByRole('button', { name: 'Submit for review', exact: true })
+    await site.getByRole('textbox', { name: 'Comment', exact: true }).fill('One pending comment from the current root policy fixture.')
+    const label = 'Publish as Policy Fixture Author after review'
+    await site.getByText(label, { exact: true }).click()
+    assert(await site.getByRole('checkbox', { name: label, exact: true }).isChecked())
+    assert(await send.isEnabled())
+    const [outgoing] = await Promise.all([
+      site.waitForRequest(request => request.url() === submit && request.method() === 'POST', { timeout: 15_000 }),
+      send.click(),
+    ])
+    assert(typeof outgoing.headers()[WireHeaders.PowProof.toLowerCase()] === 'string',
+      'The original Worker must solve a real generation 1 challenge.')
+
+    await page.bringToFront()
+    await proofLifetime.fill('60', { timeout: 12_000 })
+    await change('Apply proof lifetime', '2', 60)
+    await read(2n, 60, 120)
+    const staleCommand = encodeFrame(FrameType.AdminRootCommentPowCommand, encodeAdminRootCommentPowCommand({
+      expectedGeneration: initial.generation, expectedDigest: initial.digest, proofSeconds: 90, rollback: false,
+    }))
+    const stale = await context.request.post(apply, { data: Buffer.from(staleCommand), timeout: 15_000,
+      headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream' } })
+    assert.equal(stale.status(), 409)
+    await change('Restore previous proof lifetime', '3', 120)
+    const restored = await read(3n, 120, 60)
+    assert.equal(restored.digest, initial.digest)
+
+    const refusal = site.waitForResponse(value => value.url() === submit && value.request().method() === 'POST', { timeout: 15_000 })
+    release.resolve()
+    const old = await refusal
+    assert.equal(old.status(), 401)
+    const rejected = decodeApiError(decodeFrame(await old.body(), FrameType.ApiError).payload, old.status())
+    assert.equal(rejected.details, 'comment_pow_rejected')
+    await site.getByRole('alert').filter({ hasText: 'Public comment submission is unavailable.' }).waitFor()
+    await site.bringToFront()
+    const [fresh] = await Promise.all([
+      site.waitForResponse(response => response.url() === submit && response.request().method() === 'POST'),
+      send.click(),
+    ])
+    assert.equal(fresh.status(), 200)
+    assert.deepEqual(fresh.request().postDataBuffer(), old.request().postDataBuffer())
+    await site.getByText('Comment submitted for review.', { exact: true }).waitFor()
+    await writeFile(join(evidence, 'root-comment-pow-policy.json'), JSON.stringify({
+      initial: initial.generation.toString(), restored: restored.generation.toString(), digest: restored.digest,
+      stalePolicyCommand: stale.status(), staleProof: old.status(), currentProof: fresh.status(), sameCommand: true,
+    }, null, 2) + '\n')
+  } finally {
+    release.resolve()
+    await site.close()
+  }
 }
 
 export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin, adminCookieName,

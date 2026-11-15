@@ -40,6 +40,8 @@ internal static partial class Migration
                   site-page-editor schema
                                         Add optional site page publication storage with the server stopped
                   appearance schema      Add signed appearance activation storage with the server stopped
+                  root-comment-pow schema
+                                        Add root comment proof policy storage with the server stopped
                   site-refresh schema    Add site refresh storage with the server stopped
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
@@ -75,6 +77,7 @@ internal static partial class Migration
                                         Check historical image objects or rebuild missing objects from retained private bytes
                   authoring-workspace Add private workspace layout storage with the server stopped
                   author-recent-opens Add private recent article opens with the server stopped
+                  author-search        Add the private author full-text index schema with the server stopped
                   saved-views          Add private author saved views with the server stopped
                   tag-metadata        Add the administrator tag metadata schema with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
@@ -236,6 +239,9 @@ internal static partial class Migration
                 case ["appearance", "schema"]:
                     await InitializeAppearanceActivationAsync(connection, token);
                     break;
+                case ["root-comment-pow", "schema"]:
+                    await InitializeRootCommentPowPolicyAsync(connection, token);
+                    break;
                 case ["site-refresh", "schema"]:
                     await InitializeSiteRefreshAsync(connection, token);
                     break;
@@ -312,6 +318,9 @@ internal static partial class Migration
                     break;
                 case ["author-recent-opens"]:
                     await InitializeAuthorRecentOpensAsync(connection, token);
+                    break;
+                case ["author-search"]:
+                    await InitializeAuthorSearchAsync(connection, token);
                     break;
                 case ["saved-views"]:
                     await InitializeSavedViewsAsync(connection, token);
@@ -454,7 +463,8 @@ internal static partial class Migration
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
             requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
-            requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true);
+            requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,
+            requireAuthorTextIndex: true, requireRootCommentPowPolicy: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

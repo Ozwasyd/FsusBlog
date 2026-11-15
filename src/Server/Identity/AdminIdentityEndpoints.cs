@@ -130,7 +130,7 @@ internal static class AdminIdentityEndpoints
                 batchModeration ? () => ctx.Response.Headers[WireHeaders.AdminModerationBatchEnabled] = "1" : null))))
             .RequireRateLimiting("command");
         AdminClusterEndpoints.Map(app, store, session, Limit);
-        if (secure) AdminRiskReadinessEndpoints.Map(app, store, session, Limit, commentRoutes, trustLoopbackProxy);
+        if (secure) AdminRiskReadinessEndpoints.Map(app, config.Origin, store, session, Limit, commentRoutes, trustLoopbackProxy, readFrame);
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);

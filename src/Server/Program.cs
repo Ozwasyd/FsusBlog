@@ -300,6 +300,7 @@ FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame, Query);
+FsusBlog.V2.Server.Authoring.AuthorTextSearchEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.SavedViewEndpoints.Map(app, Cookie, ReadFrame, Query);
 FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Authoring.AuthoringWorkspaceEndpoints.Map(app, Cookie, ReadFrame);
@@ -309,7 +310,8 @@ FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, 
 FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query, pdfExport);
-var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
+var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
+    lease.RootCommentPowPolicyInstalled);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy);
 FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);
 

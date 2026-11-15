@@ -22,6 +22,9 @@ namespace limits {
 inline constexpr uint32_t PowProofHeaderChars = 416;
 inline constexpr uint32_t PowChallengeDifficulty = 12;
 inline constexpr uint32_t PowChallengeSeconds = 120;
+inline constexpr uint32_t RootCommentPowMinSeconds = 60;
+inline constexpr uint32_t RootCommentPowDigestBytes = 64;
+inline constexpr uint32_t AdminRootCommentPowCommandFrameBytes = 97;
 inline constexpr uint32_t PowWorkerMilliseconds = 12000;
 inline constexpr uint32_t PrivateMediaBytes = 20971520;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
@@ -50,6 +53,12 @@ inline constexpr uint32_t MaxAuthoringWorkspaceGroupsCommandFrameBytes = 449;
 inline constexpr uint32_t AuthorRecentOpenPageSize = 20;
 inline constexpr uint32_t AuthorRecentOpenCursorChars = 64;
 inline constexpr uint32_t MaxAuthorRecentOpenCommandFrameBytes = 56;
+inline constexpr uint32_t AuthorTextSearchQueryChars = 128;
+inline constexpr uint32_t AuthorTextSearchQueryBytes = 512;
+inline constexpr uint32_t MaxAuthorTextSearchQueryFrameBytes = 532;
+inline constexpr uint32_t AuthorTextSearchRows = 20;
+inline constexpr uint32_t AuthorTextSearchSnippetBytes = 2048;
+inline constexpr uint32_t AuthorTextSearchSourceDigestBytes = 32;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
@@ -421,6 +430,8 @@ enum class FrameType : uint16_t {
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
+    AdminRootCommentPowPolicy = 33008,
+    AdminRootCommentPowCommand = 33009,
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
@@ -433,6 +444,7 @@ enum class FrameType : uint16_t {
     AdminArticleArchiveIntent = 32999,
     AdminArticleArchiveReceipt = 33000,
     AdminArticleArchivePage = 33001,
+    AdminArticleArchivePreview = 33011,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -516,6 +528,8 @@ enum class FrameType : uint16_t {
     AuthorRecentOpenPage = 32958,
     AuthorRecentOpenCommand = 32959,
     AuthorRecentOpenReceipt = 32960,
+    AuthorTextSearchQuery = 33006,
+    AuthorTextSearchPage = 33007,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -600,6 +614,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminSessionSnapshot:
         case FrameType::AdminOperationsStatus:
         case FrameType::AdminRiskReadiness:
+        case FrameType::AdminRootCommentPowPolicy:
+        case FrameType::AdminRootCommentPowCommand:
         case FrameType::AdminClusterStatus:
         case FrameType::AdminEffectivePermissions:
         case FrameType::AdminSignInHistory:
@@ -612,6 +628,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminArticleArchiveIntent:
         case FrameType::AdminArticleArchiveReceipt:
         case FrameType::AdminArticleArchivePage:
+        case FrameType::AdminArticleArchivePreview:
         case FrameType::AdminSitePageRevision:
         case FrameType::AdminSitePagePublish:
         case FrameType::AdminAppearanceState:
@@ -695,6 +712,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorRecentOpenPage:
         case FrameType::AuthorRecentOpenCommand:
         case FrameType::AuthorRecentOpenReceipt:
+        case FrameType::AuthorTextSearchQuery:
+        case FrameType::AuthorTextSearchPage:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

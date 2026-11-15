@@ -39,6 +39,12 @@ public static partial class Wire
             throw new ProtocolException("Invalid administrator article archive receipt");
     }
 
+    private static void Validate(AdminArticleArchivePreview value)
+    {
+        if (value.ArticleId <= 0 || value.Revision <= 0 || value.PrivateReleaseId <= 0 || string.IsNullOrWhiteSpace(value.Title))
+            throw new ProtocolException("Invalid administrator article archive preview");
+    }
+
     public static byte[] EncodeAdminArticleArchivePage(AdminArticleArchivePage page)
     {
         if (page.Items.Count > WireLimits.AdminArticleArchivePageSize || page.NextId < 0 ||

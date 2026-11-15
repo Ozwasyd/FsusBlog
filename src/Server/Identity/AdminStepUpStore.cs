@@ -11,7 +11,8 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4,
-        ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7, ArticleArchive = 8 }
+        ReviewCommentAppeal = 5, ModerateCommentBatch = 6, DraftArticleRollback = 7, ArticleArchive = 8,
+        ActivateRootCommentPow = 9 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -158,6 +159,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         StepUpAction.ReviewCommentAppeal => "public.comment_appeal_admin_step_up",
         StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
+        StepUpAction.ActivateRootCommentPow => "public.admin_root_comment_pow_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -170,6 +172,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
         StepUpAction.ModerateCommentBatch => CurrentSchema.CommentModeratePermission,
+        StepUpAction.ActivateRootCommentPow => CurrentSchema.SystemConfigPermission,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

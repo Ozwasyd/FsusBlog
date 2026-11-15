@@ -4,7 +4,7 @@ INSERT INTO public.article (owner_id, revision, title, body, published_revision,
 SELECT id,2,'Rollback fixture current title','The current public Markdown',2,2,false
 FROM public.blog_user WHERE name='tls-site-fixture';
 INSERT INTO public.article_revision(article_id,revision,title,body,happened_at) VALUES
-    (1,1,'Rollback fixture source title','Historical Markdown ready for restoration',now()-interval '2 days'),
+    (1,1,'Rollback fixture source title',E'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n',now()-interval '2 days'),
     (1,2,'Rollback fixture current title','The current public Markdown',now()-interval '1 day');
 INSERT INTO public.article_publication (article_id,publication_id,revision,publication_no,published_at)
 VALUES (1,DEFAULT,2,2,now()-interval '1 day');

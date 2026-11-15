@@ -108,6 +108,10 @@ C11 冻结包 `75fd08f` 已在 PostgreSQL 18.7 核对 100,000 篇文章、85,000
 
 `00db88d` 的原生 Caddy 与 Chromium 验证了 FSPT 在线补丁，220 篇夹具中的目标页为 17,124 字节，实际传输的补丁为 157 字节。独立重建与全页字节一致，错误基页沿当前完整页恢复，撤回后旧代请求返回 409。 [浏览器证据](../artifacts/search-patch-78fffce/verification.jvievw/chromium/search-corpus-reuse.json)
 
-`331e20f` 合并了作者标题或摘要加类型化属性筛选、批量保存后关闭、Canvas 引用坐标校验和 macOS 私有 PDF。锁定构建、严格 Vue 检查、协议向量、28 项 PostgreSQL 集成和两组真实 Chromium 验证通过。真实历史修订 PDF 有 4 页 A4、72 段可提取的中文以及嵌入式 Unicode Noto 子集。浏览器的排序夹具和重开对话框两处失败保留了原始日志，修正夹具后两次定向复验均通过。完整作者全文和 Linux PDF 仍需各自验证。 [验收汇总](../artifacts/original-authoring-batch/) · [PDF 元数据](../artifacts/original-authoring-batch/third-browser/pdf-info.txt)
+`331e20f` 合并了作者标题或摘要加类型化属性筛选、批量保存后关闭、Canvas 引用坐标校验和 macOS 私有 PDF。锁定构建、严格 Vue 检查、协议向量、28 项 PostgreSQL 集成和两组真实 Chromium 验证通过。真实历史修订 PDF 有 4 页 A4、72 段可提取的中文以及嵌入式 Unicode Noto 子集。浏览器的排序夹具和重开对话框两处失败保留了原始日志，修正夹具后两次定向复验均通过。这一批次覆盖的是集合筛选和 macOS PDF。 [验收汇总](../artifacts/original-authoring-batch/) · [PDF 元数据](../artifacts/original-authoring-batch/third-browser/pdf-info.txt)
 
 单标签关闭 `d63403f` 复用已验过的 Server 构建。真实 Chromium 验证取消保留路由及焦点、IndexedDB 中止保留原草稿、显式丢弃只重开持久版本，以及两次内容坐标不匹配的成功帧均保留标签和幂等请求。真实正确回执到达后才关闭。`5a9efcd` 的原生 PostgreSQL 盘点、导入、篡改拒绝及备份恢复通过，SQLite 无浏览计数字段的旧计划仍兼容。`c1b7236` 的 5 项私有媒体实库检查通过，包括有效读取占齐四个席位后的拒绝和合法字节核对。 [浏览器结果](../artifacts/original-authoring-batch/single-close/browser/workspace-split-result.json) · [迁移与媒体原生记录](../artifacts/p5-read-history-media-native/attempt-1/timeline.txt)
+
+百万篇档在同一 PostgreSQL 18.7 实例写入 100 万篇、执行 5 万条原生归档并核对 330 万修订原始字节。16 个封存分片的计划及实时数据库记录分别保留，首次运行用时 80 分 43 秒。 [独立证明](../artifacts/c11-article-million-preflight-00db88d/million-native-proof.json)
+
+作者全文在真实 375px FsusUI 页面上命中超出摘要范围的正文、折叠大小写并区分同一短语的先后顺序。原生 PostgreSQL 验证按当前作者、会话、修订及索引完整性拒绝。真实 Caddy 验证归档原文的精确坐标和权限，以及根评论策略 Passkey 更新、回退后旧证明 401 和新证明 200。macOS 与 Debian ARM64 实测历史修订 PDF，隔离进程的中文样本逐字节一致。 [作者与原生结果](../artifacts/original-delivery-next/) · [Caddy 策略结果](../artifacts/original-delivery-next/second-tls-policy/chromium/root-comment-pow-policy.json) · [Debian PDF](../artifacts/original-delivery-next/linux-pdf/)

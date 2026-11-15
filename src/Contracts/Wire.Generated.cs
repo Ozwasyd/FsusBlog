@@ -74,6 +74,8 @@ public enum FrameType : ushort
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
+    AdminRootCommentPowPolicy = 33008,
+    AdminRootCommentPowCommand = 33009,
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
@@ -86,6 +88,7 @@ public enum FrameType : ushort
     AdminArticleArchiveIntent = 32999,
     AdminArticleArchiveReceipt = 33000,
     AdminArticleArchivePage = 33001,
+    AdminArticleArchivePreview = 33011,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminAppearanceState = 32936,
@@ -169,6 +172,8 @@ public enum FrameType : ushort
     AuthorRecentOpenPage = 32958,
     AuthorRecentOpenCommand = 32959,
     AuthorRecentOpenReceipt = 32960,
+    AuthorTextSearchQuery = 33006,
+    AuthorTextSearchPage = 33007,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -200,6 +205,9 @@ public static class WireLimits
     public const int PowProofHeaderChars = 416;
     public const int PowChallengeDifficulty = 12;
     public const int PowChallengeSeconds = 120;
+    public const int RootCommentPowMinSeconds = 60;
+    public const int RootCommentPowDigestBytes = 64;
+    public const int AdminRootCommentPowCommandFrameBytes = 97;
     public const int PowWorkerMilliseconds = 12000;
     public const int PrivateMediaBytes = 20971520;
     public const int PublicCommentBodyBytes = 4096;
@@ -228,6 +236,12 @@ public static class WireLimits
     public const int AuthorRecentOpenPageSize = 20;
     public const int AuthorRecentOpenCursorChars = 64;
     public const int MaxAuthorRecentOpenCommandFrameBytes = 56;
+    public const int AuthorTextSearchQueryChars = 128;
+    public const int AuthorTextSearchQueryBytes = 512;
+    public const int MaxAuthorTextSearchQueryFrameBytes = 532;
+    public const int AuthorTextSearchRows = 20;
+    public const int AuthorTextSearchSnippetBytes = 2048;
+    public const int AuthorTextSearchSourceDigestBytes = 32;
     public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
@@ -625,6 +639,10 @@ public static class WireRoutes
     public const string AdminAppealDecision = "/api/v2/admin/identity/comments/appeals/{id:long}/decision.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
     public const string AdminRiskReadiness = "/api/v2/admin/identity/operations/risk-readiness.aeds";
+    public const string AdminRootCommentPowPolicy = "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof.aeds";
+    public const string AdminRootCommentPowBegin = "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/step-up/begin.aeds";
+    public const string AdminRootCommentPowComplete = "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/step-up/complete.aeds";
+    public const string AdminRootCommentPowApply = "/api/v2/admin/identity/operations/risk-readiness/root-comment-proof/apply.aeds";
     public const string AdminClusterStatus = "/api/v2/admin/identity/operations/cluster.aeds";
     public const string AdminArticleRollbackAvailability = "/api/v2/admin/identity/articles/rollback/available.aeds";
     public const string AdminArticleRollbackPreview = "/api/v2/admin/identity/articles/rollback/preview.aeds";
@@ -637,6 +655,7 @@ public static class WireRoutes
     public const string AdminArticleDraftRollbackExecute = "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds";
     public const string AdminArticleArchiveAvailability = "/api/v2/admin/identity/articles/archive/available.aeds";
     public const string AdminArticleArchivePage = "/api/v2/admin/identity/articles/archive/page.aeds";
+    public const string AdminArticleArchivePreview = "/api/v2/admin/identity/articles/archive/preview.aeds";
     public const string AdminArticleArchiveStepUpBegin = "/api/v2/admin/identity/articles/archive/step-up/begin.aeds";
     public const string AdminArticleArchiveStepUpComplete = "/api/v2/admin/identity/articles/archive/step-up/complete.aeds";
     public const string AdminArticleArchiveExecute = "/api/v2/admin/identity/articles/archive/execute.aeds";
@@ -736,6 +755,7 @@ public static class WireRoutes
     public const string AuthoringWorkspaceLayout = "/api/v2/authoring/workspace/layout.aeds";
     public const string AuthoringWorkspaceGroups = "/api/v2/authoring/workspace/groups.aeds";
     public const string AuthorRecentOpens = "/api/v2/authoring/recent-opens.aeds";
+    public const string AuthorTextSearch = "/api/v2/authoring/full-text/search.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
     public const string MfaProfile = "/api/binary/auth/mfa/profile";
@@ -786,6 +806,7 @@ public static class WireHeaders
     public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
     public const string AdminPermissionSession = "X-Fsus-Admin-Permission-Session";
     public const string AdminAppearanceEnabled = "X-Fsus-Admin-Appearance";
+    public const string AdminRootCommentPowPolicy = "X-Fsus-Admin-Root-Comment-Pow-Policy";
 }
 
 public sealed record RecoveryKeyOperation(int Operation);
@@ -799,6 +820,8 @@ public sealed record AdminModerationIntent(int ArticleId, long CommentId, int Ex
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
 public sealed record AdminRiskReadiness(int PublicReadMode, int RootWriteMode, int ReplyWriteMode, int ForwardingMode, int DynamicRisk, int StrongAnonymous);
+public sealed record AdminRootCommentPowPolicy(long Generation, string Digest, int ProofSeconds, int PreviousSeconds);
+public sealed record AdminRootCommentPowCommand(long ExpectedGeneration, string ExpectedDigest, int ProofSeconds, bool Rollback);
 public sealed record AdminClusterStatus(int Mode, string NodeId, Guid InstanceId, string BuildVersion, long StartedAt, long ObservedAt, int LeaseAgeMs, bool SnapshotReady);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
@@ -807,6 +830,7 @@ public sealed record AdminArticleDraftRollbackIntent(int ArticleId, long Expecte
 public sealed record AdminArticleDraftRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PrivateReleaseId, int PublicationNo, long TransitionedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId, int TargetStatus);
 public sealed record AdminArticleArchiveIntent(int ArticleId, long ExpectedRevision, long ExpectedReleaseId, long SourceRevision, Guid IdempotencyKey, string Reason, int TargetStatus);
 public sealed record AdminArticleArchiveReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousReleaseId, long ReleaseId, int PublicationNo, long TransitionedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId, int TargetStatus);
+public sealed record AdminArticleArchivePreview(int ArticleId, long Revision, long PrivateReleaseId, string Title, string Markdown);
 public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
 public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
@@ -1071,6 +1095,46 @@ public static partial class Wire
         return value;
     }
 
+    public static byte[] EncodeAdminRootCommentPowPolicy(AdminRootCommentPowPolicy value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I64(value.Generation);
+        writer.Text(value.Digest, WireLimits.RootCommentPowDigestBytes);
+        writer.I32(value.ProofSeconds);
+        writer.I32(value.PreviousSeconds);
+        return Aeds.Encode(FrameType.AdminRootCommentPowPolicy, writer.Written);
+    }
+
+    public static AdminRootCommentPowPolicy DecodeAdminRootCommentPowPolicy(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRootCommentPowPolicy));
+        var value = new AdminRootCommentPowPolicy(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminRootCommentPowCommand(AdminRootCommentPowCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I64(value.ExpectedGeneration);
+        writer.Text(value.ExpectedDigest, WireLimits.RootCommentPowDigestBytes);
+        writer.I32(value.ProofSeconds);
+        writer.Bool(value.Rollback);
+        return Aeds.Encode(FrameType.AdminRootCommentPowCommand, writer.Written);
+    }
+
+    public static AdminRootCommentPowCommand DecodeAdminRootCommentPowCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminRootCommentPowCommand));
+        var value = new AdminRootCommentPowCommand(reader.I64(), reader.Text(WireLimits.RootCommentPowDigestBytes), reader.I32(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeAdminClusterStatus(AdminClusterStatus value)
     {
         Validate(value);
@@ -1259,6 +1323,27 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchiveReceipt));
         var value = new AdminArticleArchiveReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleArchivePreview(AdminArticleArchivePreview value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Revision);
+        writer.I64(value.PrivateReleaseId);
+        writer.Text(value.Title, WireLimits.TitleBytes);
+        writer.Text(value.Markdown, WireLimits.BodyBytes);
+        return Aeds.Encode(FrameType.AdminArticleArchivePreview, writer.Written);
+    }
+
+    public static AdminArticleArchivePreview DecodeAdminArticleArchivePreview(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleArchivePreview));
+        var value = new AdminArticleArchivePreview(reader.I32(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Text(WireLimits.BodyBytes));
         reader.Finish();
         Validate(value);
         return value;

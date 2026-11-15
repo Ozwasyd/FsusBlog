@@ -18,7 +18,9 @@
 
 HTTPS 管理域上持有 `system.config` 的管理员可在管理页面手动查询已安装的风险控制。 `GET /api/v2/admin/identity/operations/risk-readiness.aeds` 返回 AEDS 帧 32851，响应使用 `no-store` 并绑定当前权限会话。公共域拒绝此路径。无效管理员会话返回 401，当前会话缺少 `system.config` 返回 403。
 
-该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。该表的存在只确认存储组件，账号、文章、出版物及目标评论的资格仍由提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。动态风险策略和强匿名运行时当前均显示未安装。此查询不变更策略、签发证明或写入审批记录。 [固定 v1 风险与强匿名范围](../issues/risk-strong-anonymous.md)
+该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。账号、文章、出版物及目标评论的资格由实际提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。“Dynamic risk policy”对应完整风险评分运行时。强匿名运行时有独立范围。 [固定 v1 风险与强匿名范围](../issues/risk-strong-anonymous.md)
+
+安装根评论证明策略且启用顶层登录投稿后，同一管理区域可查看当前代次和配置摘要。管理员通过专用于这项变更的 Passkey 证明，将现行 12 位 Classic PoW 的有效期设为 60 至 120 秒。初值是 120 秒。策略更新按读取的代次和摘要进行 CAS，更新与审计在一个 PostgreSQL 事务内提交。回滚从持久审计恢复上一设置，并分配新代次。签发和消费均锁定当前策略，因此已签发未使用的旧代证明在恢复旧时限之后仍无效。回复和其他动作继续使用各自的现行证明约束。升级现有库可在服务停止后运行 `root-comment-pow schema`。 [策略实现](../../src/Server/Security/RootCommentPowPolicy.cs) · [验收入口](../../tests/EndToEnd/admin-risk-readiness-flow.mjs)
 
 候选树 `f27800a4cf80c86f37f728f4ea06441de9a5e15b` 通过 Server、Migrate 和前端构建。首次恢复因系统默认 SDK 版本不符退出，改用仓库固定的 .NET 10.0.404 后通过。同一候选经 Caddy 2.11.9、Chrome 157 和 PostgreSQL 18 分别验收了投稿关闭、仅打开回复开关、仅注册顶层投稿、回复通知表缺失和回复通知表存在五种场景。均验证公共域拒绝、管理员授权、帧类型和会话绑定，以及撤权后丢弃延迟响应。五次均正常清理。 [构建与验收记录](../../artifacts/admin-risk-readiness-validation-f27800a/)
 

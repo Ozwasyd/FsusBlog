@@ -5,12 +5,12 @@ using FsusBlog.V2.Server.Security;
 
 namespace FsusBlog.V2.Server.Comments;
 
-internal readonly record struct InstalledCommentRoutes(bool RootSubmission, bool SignedInReply);
+internal readonly record struct InstalledCommentRoutes(bool RootSubmission, bool SignedInReply, bool RootPowPolicy);
 
 internal static class CommentReadEndpoints
 {
     internal static InstalledCommentRoutes Map(WebApplication app, Publications publications, string cookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool rootPowPolicy)
     {
         CommentReports.Map(app, cookie, readFrame);
         app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
@@ -58,7 +58,8 @@ internal static class CommentReadEndpoints
                     var challenge = await store.WithSession(session, false, async (db, tx, actor) =>
                     {
                         await CommentWriteStore.AdmitChallenge(db, tx, actor, input, ct);
-                        return pow.Issue(PowScope.PublicCommentSubmit, "", session!, source, nonce, frame);
+                        var policy = rootPowPolicy ? await RootCommentPowPolicy.Read(db, tx, ct) : null;
+                        return pow.Issue(PowScope.PublicCommentSubmit, "", session!, source, nonce, frame, policy);
                     }, ct);
                     return PowWire.EncodeChallenge(challenge);
                 })).RequireRateLimiting("command");
@@ -70,7 +71,9 @@ internal static class CommentReadEndpoints
                     var source = ScopedPow.Source(ctx);
                     var receipt = await store.WithSession(session, false, async (db, tx, actor) =>
                     {
-                        await pow.Consume(db, tx, PowScope.PublicCommentSubmit, "", session!, source, frame, ScopedPow.ReadProof(ctx), ct);
+                        var proof = ScopedPow.ReadProof(ctx);
+                        var policy = rootPowPolicy ? await RootCommentPowPolicy.Read(db, tx, ct) : null;
+                        await pow.Consume(db, tx, PowScope.PublicCommentSubmit, "", session!, source, frame, proof, ct, policy);
                         return await CommentWriteStore.Submit(db, tx, actor, input, ct);
                     }, ct);
                     return Wire.EncodePublicCommentSubmissionResult(receipt);
@@ -85,9 +88,9 @@ internal static class CommentReadEndpoints
                     throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
                 return (frame, input);
             }
-            return new(RootSubmission: true, SignedInReply: replies);
+            return new(RootSubmission: true, SignedInReply: replies, RootPowPolicy: rootPowPolicy);
         }
-        return new(RootSubmission: false, SignedInReply: false);
+        return new(RootSubmission: false, SignedInReply: false, RootPowPolicy: false);
     }
 
     private static async Task<IResult> Read(Publications publications, int article, long? cursor, Func<long?, Task<byte[]>> fetch, Func<byte[]> hidden)

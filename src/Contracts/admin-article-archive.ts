@@ -3,11 +3,11 @@ import { isValidAdminArticleRollbackReason, proofHeaders, readRollbackAvailabili
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
 import {
-  decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent, FrameType, WireLimits, WireRoutes,
-  type AdminArticleArchiveIntent, type AdminArticleArchiveReceipt,
+  decodeAdminArticleArchivePreview, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
+  FrameType, WireLimits, WireRoutes, type AdminArticleArchiveIntent, type AdminArticleArchivePreview, type AdminArticleArchiveReceipt,
 } from './wire.generated.ts';
 
-export type { AdminArticleArchiveIntent, AdminArticleArchiveReceipt } from './wire.generated.ts';
+export type { AdminArticleArchiveIntent, AdminArticleArchivePreview, AdminArticleArchiveReceipt } from './wire.generated.ts';
 export const AdminArchiveTarget = { Published: 2, Archived: 3 } as const;
 export type AdminArchivedArticle = Readonly<{
   articleId: number;
@@ -30,6 +30,20 @@ export function readAdminArticleArchivePage(before: number | undefined, signal: 
   if (before !== undefined && !positiveArticleId(before)) throw new ProtocolError('Invalid archive position');
   const path = WireRoutes.AdminArticleArchivePage + (before === undefined ? '' : `?${new URLSearchParams({ before: String(before) })}`);
   return request(path, FrameType.AdminArticleArchivePage, payload => decodeArchivePage(payload, before), signal);
+}
+
+export function readAdminArticleArchivePreview(archive: AdminArchivedArticle, signal: AbortSignal): Promise<AdminArticleArchivePreview> {
+  const { articleId, revision, privateReleaseId } = archive;
+  if (!positiveArticleId(articleId) || revision <= 0n || privateReleaseId <= 0n)
+    throw new ProtocolError('Invalid administrator article archive coordinates');
+  const query = new URLSearchParams({ articleId: String(articleId), revision: String(revision), privateReleaseId: String(privateReleaseId) });
+  return request(`${WireRoutes.AdminArticleArchivePreview}?${query}`, FrameType.AdminArticleArchivePreview, payload => {
+    const result = decodeAdminArticleArchivePreview(payload);
+    if (result.articleId !== articleId || result.revision !== revision || result.privateReleaseId !== privateReleaseId ||
+        !/\P{White_Space}/u.test(result.title))
+      throw new ProtocolError('Invalid administrator article archive preview');
+    return result;
+  }, signal);
 }
 
 export async function requestAdminArticleArchiveProof(intent: AdminArticleArchiveIntent, signal: AbortSignal): Promise<string> {

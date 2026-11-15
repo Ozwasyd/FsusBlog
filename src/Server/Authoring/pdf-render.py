@@ -51,6 +51,22 @@ def connect_loopback():
         stream.connect(('127.0.0.1', 9))
 
 
+def admit_linux():
+    require_denied(lambda: socket.socket(socket.AF_UNIX, socket.SOCK_STREAM))
+    try:
+        with open('/etc/shadow', 'rb'):
+            pass
+    except FileNotFoundError:
+        pass
+    else:
+        raise RuntimeError('host files were visible')
+    require_denied(lambda: open('/render/fonts.conf', 'r+b'))
+    require_denied(lambda: os.execve('/fsus-unavailable', ['/fsus-unavailable'], {}))
+    if os.environ.get('FONTCONFIG_FILE') != '/render/fonts.conf':
+        raise RuntimeError('font configuration was not fixed')
+    return Path('/render/fonts/NotoSansCJKsc-Regular.otf')
+
+
 def load_font(font_source, expected_font_digest, scratch):
     font_dir = scratch / 'fonts'
     font_dir.mkdir()
@@ -121,8 +137,13 @@ def main():
     resource.setrlimit(resource.RLIMIT_CPU, (8, 8))
     resource.setrlimit(resource.RLIMIT_FSIZE, (32 * 1024 * 1024,) * 2)
     require_denied(connect_loopback)
-    require_denied(lambda: open('/private/etc/hosts', 'rb'))
-    font = load_font(sys.argv[1], sys.argv[2], Path(sys.argv[3]))
+    if sys.platform == 'linux' and len(sys.argv) == 1:
+        font = admit_linux()
+    elif sys.platform == 'darwin' and len(sys.argv) == 4:
+        require_denied(lambda: open('/private/etc/hosts', 'rb'))
+        font = load_font(sys.argv[1], sys.argv[2], Path(sys.argv[3]))
+    else:
+        raise RuntimeError('unsupported worker invocation')
 
     sys.stdout.buffer.write(b'FSUS-PDF-1\n')
     sys.stdout.buffer.flush()

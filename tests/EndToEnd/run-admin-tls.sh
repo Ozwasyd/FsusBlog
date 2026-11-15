@@ -351,6 +351,25 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
       disabled) ;;
       reply-only) FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true ;;
       root-only) FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true; risk_root=1 ;;
+      root-pow-policy)
+        FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true; risk_root=1
+        "$dotnet" "$migrate" root-comment-pow schema > "$evidence/root-comment-pow-schema.log"
+        "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" > "$evidence/root-comment-pow-fixture.log" <<'SQL'
+BEGIN;
+INSERT INTO public.article(owner_id,revision,title,body,published_revision,publication_count,deleted,created_at)
+  SELECT id,1,'Root comment policy fixture','A public article for the comment proof fixture.',1,1,false,statement_timestamp()
+  FROM public.blog_user WHERE name='tls-site-fixture';
+INSERT INTO public.article_revision(article_id,revision,title,body,happened_at)
+  SELECT id,revision,title,body,created_at FROM public.article;
+INSERT INTO public.article_publication(article_id,revision,published_at)
+  SELECT id,revision,created_at FROM public.article;
+INSERT INTO public.comment_public_handle(user_id,display_name)
+  SELECT id,'Policy Fixture Author' FROM public.blog_user WHERE name='tls-site-fixture';
+INSERT INTO public.comment_public_write(article_id) SELECT id FROM public.article;
+COMMIT;
+SQL
+        "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/Fixtures/publication-rights.sql >> "$evidence/root-comment-pow-fixture.log"
+        ;;
       notice-absent|notice-present)
         FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true FSUSBLOG_SIGNED_IN_COMMENT_REPLIES=true
         risk_root=1 risk_reply=2
@@ -534,6 +553,18 @@ elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
   node tests/EndToEnd/search-corpus-reuse-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
+fi
+if [[ ${FSUSBLOG_TEST_ADMIN_RISK_CASE:-} == root-pow-policy ]]; then
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'policy='||generation||':'||proof_seconds from public.root_comment_pow_policy where singleton
+    union all select 'audit='||a.generation||':'||a.previous_seconds||':'||a.proof_seconds||':'||a.rollback
+        from public.root_comment_pow_policy_audit a join public.admin_principal p on p.id=a.principal_id where p.handle='tls-admin-fixture'
+    union all select 'comments='||count(*) from public.comment_submit_command
+    union all select 'proofs='||count(*) from public.scoped_pow_consumed
+  " > "$evidence/root-comment-pow-audit.txt"
+  for observed in policy=3:120 audit=2:120:60:false audit=3:60:120:true comments=1 proofs=1; do
+    grep -Fxq "$observed" "$evidence/root-comment-pow-audit.txt"
+  done
 fi
 if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   [[ "$appearance_before" == "$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")" ]]

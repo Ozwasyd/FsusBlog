@@ -8,7 +8,7 @@ import { PodReader } from '../../src/Contracts/binary.ts'
 import { queryCorpusPage, searchTerms } from '../../src/Contracts/local-search.ts'
 import { decodeArticle, decodeSearch } from '../../src/Contracts/public-articles.ts'
 import {
-  decodeAdminArticleArchiveIntent, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
+  decodeAdminArticleArchiveIntent, decodeAdminArticleArchivePreview, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
   FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
@@ -19,9 +19,12 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   const archive = section.getByRole('region', { name: 'Archived articles', exact: true })
   const detailPath = WireRoutes.PublicArticle.replace('{id}', '1')
   const sourceTitle = 'Rollback fixture source title'
-  const sourceBody = 'Historical Markdown ready for restoration'
+  const sourceBody = 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n'
   const availability = WireRoutes.AdminArticleArchiveAvailability
   const archivePage = WireRoutes.AdminArticleArchivePage
+  const preview = WireRoutes.AdminArticleArchivePreview
+  const previewPath = (articleId, revision, privateReleaseId) =>
+    `${preview}?${new URLSearchParams({ articleId, revision, privateReleaseId })}`
   const execute = WireRoutes.AdminArticleArchiveExecute
   const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
   const executeUrl = admin(execute)
@@ -45,6 +48,17 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
       const generation = response.headers()[generationHeader]
       assert.match(generation, /^\d+$/)
       return { generation, items: decodeSearch(decodeFrame(await response.body(), FrameType.ArticleSearch).payload).articles }
+    } finally { await response.dispose() }
+  }
+
+  async function deniedPreview(url, status) {
+    const response = await context.request.get(url)
+    try {
+      assert.equal(response.status(), status)
+      assert.match(response.headers()['cache-control'], /no-store/)
+      const bytes = await response.body()
+      assert.doesNotMatch(bytes.toString('utf8'), /Historical Markdown ready for restoration/)
+      decodeFrame(bytes, FrameType.ApiError)
     } finally { await response.dispose() }
   }
 
@@ -129,6 +143,8 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert(beforeIndex.items.some(article => article.id === 1 && article.revision === 2n && article.publication === 2n))
   assert.equal((await context.request.get(admin(availability))).status(), 403)
   assert.equal((await context.request.get(admin(archivePage))).status(), 403)
+  await deniedPreview(admin(previewPath(1, 3, 3)), 403)
+  await deniedPreview(site(previewPath(1, 3, 3)), 404)
   assert.equal((await context.request.get(site(availability))).status(), 404)
   assert.equal(await archive.count(), 0)
   await promisify(execFile)(grant, [], { timeout: 8_000 })
@@ -201,6 +217,39 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await archive.getByRole('button', { name: 'Review for republishing', exact: true }).press('Enter')
   await section.getByRole('heading', { name: `Republish ${sourceTitle}`, exact: true }).waitFor()
   await section.getByText(`Article 1 · Revision 3 · Private release ${archived.releaseId}`, { exact: true }).waitFor()
+  const archivedSourcePath = previewPath(1, 3, archived.releaseId)
+  await deniedPreview(admin(previewPath(2, 3, archived.releaseId)), 409)
+  await deniedPreview(admin(previewPath(1, 2, archived.releaseId)), 409)
+  await deniedPreview(admin(previewPath(1, 3, 2)), 409)
+  await deniedPreview(site(archivedSourcePath), 404)
+  const trigger = section.getByRole('button', { name: 'Preview archived source', exact: true })
+  const dialog = page.getByRole('dialog', { name: 'Archived Markdown source' })
+  const source = dialog.locator('pre[aria-label="Archived Markdown"]')
+  const unexpected = []
+  const observe = request => { if (request.url().startsWith('https://archive-preview.invalid/')) unexpected.push(request.url()) }
+  page.on('request', observe)
+  try {
+    const [response] = await Promise.all([
+      page.waitForResponse(value => value.url() === admin(archivedSourcePath) && value.request().method() === 'GET'),
+      trigger.press('Enter'),
+    ])
+    assert.equal(response.status(), 200)
+    assert.match(response.headers()['cache-control'], /no-store/)
+    assert.equal(response.headers()['x-content-type-options'], 'nosniff')
+    assert.deepEqual(decodeAdminArticleArchivePreview(decodeFrame(await response.body(), FrameType.AdminArticleArchivePreview).payload), {
+      articleId: 1, revision: 3n, privateReleaseId: archived.releaseId, title: sourceTitle, markdown: sourceBody,
+    })
+    await source.waitFor()
+    assert.equal(await source.textContent(), sourceBody)
+    assert.equal(await source.locator('img, a, script').count(), 0)
+    await source.press('Escape')
+    await dialog.waitFor({ state: 'hidden' })
+    assert.equal(await page.locator('pre[aria-label="Archived Markdown"]').count(), 0)
+  } finally { page.off('request', observe) }
+  assert.deepEqual(unexpected, [])
+  const stillArchived = await archivedRows()
+  assert.equal(stillArchived[0].release, archived.releaseId)
+  assert.equal((await index()).generation, hiddenIndex.generation)
   const publishIntent = {
     articleId: 1, expectedRevision: 3n, expectedReleaseId: archived.releaseId, sourceRevision: 3n,
     reason: 'Republish the exact archived article revision', targetStatus: 2,
@@ -216,6 +265,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert.notEqual(republished.responsibilitySnapshotId, archived.responsibilitySnapshotId)
   await section.getByText(`Republished revision 4 as publication ${republished.releaseId}`, { exact: true }).waitFor()
   await archive.getByText('No archived articles on this page.', { exact: true }).waitFor()
+  await deniedPreview(admin(archivedSourcePath), 409)
   assert.deepEqual(await archivedRows(), [])
   const restored = await content()
   assert.deepEqual([restored.title, restored.body, restored.revision, restored.publication],
