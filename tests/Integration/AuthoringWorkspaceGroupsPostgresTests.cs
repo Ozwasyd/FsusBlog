@@ -1,9 +1,7 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 
 public sealed class AuthoringWorkspaceGroupsPostgresTests
 {
@@ -139,17 +137,8 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
 
     private static async Task<Credential> Login(ScratchDatabase db, string name, bool canAuthor, CancellationToken ct)
     {
-        var id = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await using var dbConnection = await db.DataSource.OpenConnectionAsync(ct);
-        await FixtureSql.ExecuteAsync(dbConnection, null, ct, """
-            with created as (
-                insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
-            )
-            insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
-            """, id, name, canAuthor, SHA256.HashData(ticket));
-        var token = (await new Store(db.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-        return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+        var (_, token, handle) = await db.SignIn(name, ct, canAuthor, minutes: 1);
+        return new(token, handle);
     }
 
     private static async Task<Draft> Draft(HttpClient client, Credential credentials, string title, CancellationToken ct) =>

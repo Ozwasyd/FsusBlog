@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
@@ -29,8 +30,16 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     {
         var id = Guid.NewGuid();
         await using var connection = await DataSource.OpenConnectionAsync(ct);
-        await FixtureSql.SiteAccountAsync(connection, null, ct, id, name, canAuthor);
-        return (id, await FixtureSql.IssueLoginTicketAsync(connection, null, ct, id, minutes));
+        var secret = RandomNumberGenerator.GetBytes(32);
+        await FixtureSql.ExecuteAsync(connection, null, ct, """
+            with account as (
+                insert into public.blog_user(id,name,can_author,enabled,generation)
+                values($1,$2,$3,true,1) returning id
+            )
+            insert into public.login_ticket(digest,user_id,expires_at)
+            select $4,id,now()+make_interval(mins => $5) from account
+            """, id, name, canAuthor, SHA256.HashData(secret), minutes);
+        return (id, Convert.ToHexStringLower(secret));
     }
 
     internal async Task<string> IssueTicket(Guid id, CancellationToken ct, int minutes = 2)

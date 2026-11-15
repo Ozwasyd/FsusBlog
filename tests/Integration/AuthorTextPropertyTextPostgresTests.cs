@@ -14,9 +14,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
     [PostgresFact]
     public async Task PhraseSearchUsesOnlySavedTextAndRejectsAChangedOffPageSource()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await SignIn(fixture, "Property text author", ct);
         var stranger = await SignIn(fixture, "Property text stranger", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);

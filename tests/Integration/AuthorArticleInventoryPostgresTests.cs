@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
@@ -93,19 +92,7 @@ public sealed class AuthorArticleInventoryPostgresTests
         await store.SignOut(owner, ct);
         await Failure(owner, "?scope=trash", HttpStatusCode.Unauthorized);
 
-        async Task<string> Login(string name, bool author)
-        {
-            var id = Guid.NewGuid();
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            await FixtureSql.ExecuteAsync(connection, null, ct, """
-                with created as (
-                    insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
-                )
-                insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
-                """, id, name, author, SHA256.HashData(ticket));
-            return (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-        }
+        async Task<string> Login(string name, bool author) => (await db.SignIn(name, ct, author, minutes: 1)).Token;
 
         async Task<Draft> Write(string token, string route, ArticleCommand command) =>
             Wire.DecodeDraft(await POST(token, route, Wire.EncodeArticleCommand(command)));

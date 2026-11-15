@@ -13,9 +13,7 @@ public sealed class AuthorTextPropertyIndexPostgresTests
     [PostgresFact]
     public async Task SavedEligibleTextReconcilesInBoundedRevisionWitnessedBatches()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = timeout.Token;
-        await using var scratch = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var scratch = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await scratch.DataSource.OpenConnectionAsync(ct);
         var actor = new Identity(Guid.NewGuid(), "Property search owner", 1, true, DateTimeOffset.UtcNow.AddMinutes(2));
         await FixtureSql.ExecuteAsync(db, null, ct, """

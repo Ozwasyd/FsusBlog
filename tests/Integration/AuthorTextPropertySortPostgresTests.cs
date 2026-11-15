@@ -14,9 +14,7 @@ public sealed class AuthorTextPropertySortPostgresTests
     [PostgresFact]
     public async Task TypedOrderingUsesExactVisibleValuesAndBindsTheWholeCohortToTheCursor()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await SignIn(fixture, "Sort owner", ct);
         var outsider = await SignIn(fixture, "Sort outsider", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -141,19 +139,8 @@ public sealed class AuthorTextPropertySortPostgresTests
             return page;
         }
 
-        async Task<AuthorTextPropertySortPage> Ready(AuthorTextPropertySortQuery query, Actor actor)
-        {
-            for (var attempt = 0; attempt < 8; attempt++)
-            {
-                var page = await Read(query, actor);
-                if (page.Search.Ready) return page;
-                Assert.Null(page.Facet);
-                Assert.Empty(page.Search.Rows);
-                Assert.Empty(page.Search.NextCursor);
-                Assert.Equal(0, page.Search.Total);
-            }
-            throw new InvalidOperationException("The fixture search index did not finish within eight requests.");
-        }
+        Task<AuthorTextPropertySortPage> Ready(AuthorTextPropertySortQuery query, Actor actor) =>
+            ReadyWithFacet(() => Read(query, actor), page => (page.Search, page.Facet));
 
         async Task<AuthorTextPropertySortPage> Read(AuthorTextPropertySortQuery query, Actor actor) =>
             Wire.DecodeAuthorTextPropertySortPage(
