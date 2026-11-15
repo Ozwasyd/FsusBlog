@@ -17,6 +17,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
     private const string Limit = "publication-proof";
     private const string Json = "application/json; charset=utf-8";
     private readonly Uri _origin = new(keys.Origin);
+    private readonly PublicationHead? _publicHead = keys.HeadAnchor is { } anchor ? new(keys, anchor) : null;
     private PublicSnapshot? _scan;
     private bool _transparency;
     private bool _complete;
@@ -34,6 +35,8 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         }).RequireRateLimiting(Limit);
         app.MapGet(Prefix + "/article/{articleId:int}/{publicationId:long}/rights.json",
             (HttpContext ctx, int articleId, long publicationId) => Read(ctx, articleId, publicationId)).RequireRateLimiting(Limit);
+        if (_publicHead is { } head)
+            app.MapGet(Prefix + "/log/head.json", (HttpContext ctx) => ReadHead(ctx, head)).RequireRateLimiting(Limit);
     }
 
     internal async Task Initialize(CancellationToken ct)
@@ -69,7 +72,9 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
             if (await command.ExecuteNonQueryAsync(ct) != 1)
                 throw new InvalidOperationException("An existing native publication signing key cannot be rebound or unrevoked.");
         }
+        var loaded = _publicHead is null ? null : await _publicHead.Load(connection, tx, _transparency, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
+        _publicHead?.Publish(loaded);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -99,6 +104,14 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
 
     private async Task Mint(CancellationToken ct)
     {
+        if (_publicHead is { HasPendingCommit: true } recovering)
+        {
+            await using var recovery = await db.OpenConnectionAsync(ct);
+            await using var transaction = await InstanceLease.BeginProtected(recovery, lease, ct);
+            var restored = await recovering.Recover(recovery, transaction, ct);
+            await InstanceLease.CommitProtected(transaction, lease, ct);
+            recovering.CompleteCommit(restored);
+        }
         var snapshot = publications.Snapshot;
         if (snapshot is null) return;
         if (!ReferenceEquals(snapshot, _scan)) { _scan = snapshot; _complete = false; _after = 0; }
@@ -126,6 +139,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         if (pending.Count == 0) { _complete = true; return; }
 
         PublicationTransparency? head = null;
+        DateTime lastIssued = default;
         foreach (var binding in pending)
         {
             if (!binding.Matches(snapshot.Article(binding.Article))) continue;
@@ -137,7 +151,11 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
             var signature = keys.Sign(transcript);
             if (_transparency)
             {
-                head ??= await PublicationTransparency.ReadHead(connection, tx, ct);
+                if (!head.HasValue)
+                {
+                    head = await PublicationTransparency.ReadHead(connection, tx, ct);
+                    _publicHead?.Observe(head.Value);
+                }
                 var sequence = checked(head.Value.Sequence + 1);
                 await using var insert = Store.Sql(connection, tx, """
                     insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature,transparency_seq)
@@ -145,6 +163,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                     """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature, sequence);
                 await insert.ExecuteNonQueryAsync(ct);
                 head = await head.Value.Append(connection, tx, sequence, binding.Publication, transcript, signature, ct);
+                lastIssued = issued;
             }
             else
             {
@@ -155,8 +174,24 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                 await insert.ExecuteNonQueryAsync(ct);
             }
         }
+        var sealedHead = head.HasValue && _publicHead is not null
+            ? await _publicHead.Prepare(connection, tx, head.Value, lastIssued, ct) : null;
+        if (sealedHead is not null) _publicHead!.BeginCommit(sealedHead);
         await InstanceLease.CommitProtected(tx, lease, ct);
+        if (sealedHead is not null) _publicHead!.CompleteCommit(sealedHead);
         _after = pending[^1].Publication;
+    }
+
+    private Task ReadHead(HttpContext ctx, PublicationHead head)
+    {
+        if (!PublicOrigin(ctx)) return Task.CompletedTask;
+        lease.RequireCurrent();
+        var current = head.Current ?? throw new PublicUnavailableException();
+        if (publications.Snapshot is null || !ReferenceEquals(current, head.Current))
+            throw new PublicUnavailableException();
+        if (current.Json is { } bytes) return PublicResponse.Write(ctx, bytes, Json);
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        return Task.CompletedTask;
     }
 
     private async Task Read(HttpContext ctx, int articleId, long publicationId)

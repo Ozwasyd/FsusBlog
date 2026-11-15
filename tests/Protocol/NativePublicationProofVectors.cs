@@ -17,6 +17,13 @@ internal static class NativePublicationProofVectors
             Convert.ToHexStringLower(SHA256.HashData(actual)) != "8169f3b97e599c57fed6d9180d5de33b781766b03d006995a01832b3c0392ce2")
             throw new InvalidOperationException("Native signing transcript differs from the independent vector.");
         VerifyTransparency(actual);
+        var head = new PublicationTransparencyHeadV2("https://proof.example.test", 9007199254741001,
+            Convert.FromHexString("7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3"), "rotate-1", 7,
+            Enumerable.Repeat((byte)0x3a, 32).ToArray(), issue);
+        var headPayload = head.Payload();
+        if (!File.ReadAllBytes(Path.Combine(fixtures, "article-transparency-head-v2.txt")).AsSpan().SequenceEqual(headPayload) ||
+            Convert.ToHexStringLower(SHA256.HashData(headPayload)) != "5119fe2b46a5a796b86ec648b49fd22457ddab7b4363c04a4516835e6de6c040")
+            throw new InvalidOperationException("Native public head signing bytes differ from the independent vector.");
         foreach (var invalid in new[] { proof with { IssuedAt = issue.AddTicks(1) }, proof with { IssuedAt = publication.AddTicks(-10) },
             proof with { Origin = "https://proof.example.test/private" }, proof with { KeyVersion = 0 } })
         {

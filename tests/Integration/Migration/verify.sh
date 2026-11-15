@@ -155,7 +155,7 @@ INSERT INTO public.article (owner_id, revision, title, body, deleted, publicatio
     SELECT id, 5, 'Previously withdrawn', 'Private body', false, 2 FROM public.blog_user;
 INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
     SELECT id, revision, title, body, now() FROM public.article WHERE title = 'Previously withdrawn';
-DROP TABLE public.article_publication_transparency,
+DROP TABLE public.publication_transparency_head, public.article_publication_transparency,
     public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
 ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
 ALTER TABLE public.blog_outbox DROP CONSTRAINT outbox_native_publication_binding;

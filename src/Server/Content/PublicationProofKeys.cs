@@ -8,11 +8,12 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed class PublicationProofKeys(string origin, ProofPublicKey current, IReadOnlyDictionary<string, ProofPublicKey> keys,
-    ECDsa signer) : IDisposable
+    ECDsa signer, PublicationHeadAnchor? headAnchor) : IDisposable
 {
     internal string Origin { get; } = origin;
     internal ProofPublicKey Current { get; } = current;
     internal IReadOnlyDictionary<string, ProofPublicKey> Keys { get; } = keys;
+    internal PublicationHeadAnchor? HeadAnchor { get; } = headAnchor;
     internal byte[] Manifest { get; } = JsonSerializer.SerializeToUtf8Bytes(new
     {
         manifestVersion = 2, kind = "native-publication-proof-keys", currentKeyId = current.Id, algorithm = ArticlePublicationProofPayloadV2.Algorithm,
@@ -45,8 +46,9 @@ internal sealed class PublicationProofKeys(string origin, ProofPublicKey current
             if (!configured.TryGetValue(legacy.Configuration.CurrentKeyId, out var current)) throw Invalid();
             if (configured.Values.Select(key => Convert.ToHexString(key.Fingerprint)).Distinct(StringComparer.Ordinal).Count() != configured.Count)
                 throw Invalid();
+            var headAnchor = PublicationHeadAnchor.Parse(settings["NativeV2PublicHeadAnchor"]);
             var signer = LoadPrivate(settings["NativeV2PrivateKeyFile"], current.Spki, dist);
-            return new(origin, current, configured, signer);
+            return new(origin, current, configured, signer, headAnchor);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException or PlatformNotSupportedException)
         {
@@ -108,11 +110,15 @@ internal sealed record ProofPublicKey(string Id, int Version, byte[] Spki, byte[
 
     internal bool Verify(ArticlePublicationProofV2 proof, byte[] signature)
     {
-        if (proof.KeyId != Id || proof.KeyVersion != Version || !proof.KeySha256.AsSpan().SequenceEqual(Fingerprint) ||
-            !Allows(proof.IssuedAt) || signature.Length != 64) return false;
+        return proof.KeyId == Id && proof.KeyVersion == Version && proof.KeySha256.AsSpan().SequenceEqual(Fingerprint) &&
+            VerifySignature(ArticlePublicationProofPayloadV2.Build(proof), proof.IssuedAt, signature);
+    }
+
+    internal bool VerifySignature(byte[] payload, DateTimeOffset attestedAt, byte[] signature)
+    {
+        if (!Allows(attestedAt) || signature.Length != 64) return false;
         using var key = ECDsa.Create();
         key.ImportSubjectPublicKeyInfo(Spki, out _);
-        return key.VerifyData(ArticlePublicationProofPayloadV2.Build(proof), signature, HashAlgorithmName.SHA256,
-            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return key.VerifyData(payload, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
     }
 }

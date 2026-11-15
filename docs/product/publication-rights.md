@@ -42,4 +42,12 @@
 
 `publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]` 使用通过独立渠道保存的可信、最新原生 v2 公钥目录，在 PostgreSQL 只读快照内重建全链和每笔签名。恢复旧备份时使用当前密钥状态。把最新的非空输出序号及摘要另外存放，可作为后续核验的前序锚点，检出被改写的前缀或短于锚点的恢复库。锚点覆盖截至该序号的记录。例行换钥保留撤销时刻前已经签发的签名。数据库或提供的目录任一已知的泄露状态都排除该键的全部签名信任，日志仍保存原条目。命令通过时 `chainVerified` 为真，`trustStatus` 单独报告 `empty`、`trusted` 或 `withheld`，并统计正常退役、已撤销与已泄露签名。可另运行 `publication-canonical verify` 从保留的正文和策略复算签名所绑定的摘要。公开文章的现行证明继续由发布指针、权限、租约和公钥状态决定。
 
-固定 v1 有产线权利证明追加器，证明与日志分两次提交。其公开 head 带历史文章坐标和原证明签名。固定源码的日检查点公开路由会读取已有记录，已定位的 Merkle 构建还用于独立审计，未发现生产文章检查点写入器。v2 本阶段只提供本地签发追加和离线检验。公开 head、Merkle 检查点、历史责任清单和外部公证仍待交付。 [固定 v1 追加流程](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs#L292-L318) · [固定 v1 公开读取](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityVerificationManifest.cs#L452-L488)
+固定 v1 有产线权利证明追加器，证明与日志分两次提交。其公开 head 带历史文章坐标和原证明签名。固定源码的日检查点公开路由会读取已有记录，已定位的 Merkle 构建还用于独立审计，未定位到生产文章检查点写入器。 [固定 v1 追加流程](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs#L292-L318) · [固定 v1 公开读取](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Integrity/IntegrityVerificationManifest.cs#L452-L488)
+
+## 可选公开日志头
+
+新库包含日志头结构。已有日志库可停服运行 `publication-transparency head-schema`。签名和原生签发日志启用后，可通过 `IntegrityProof__Signing__NativeV2PublicHeadAnchor` 开放同源 HTTPS `GET /integrity/v2/log/head.json`。仅在首次启动且日志为空时使用 `genesis`，后续启动使用另行保留的正数序号和摘要 `SEQ:SHA256`。服务会核对锚点到当前日志头的连续摘要，并验证当时产生的原始日志头签名。锚点落后时，包含该锚点和有效签名头的旧备份仍可能回退到锚点之后的较早位置。需要更严格的恢复下限时，另行更新保留的锚点。
+
+公开日志头只含站点来源、当前累计序号、摘要、证明时间、公钥坐标及该头本身的签名。公开后可观察到累计签发量和签发节奏。文章撤回或删除后，已有的聚合承诺仍保留，响应字段局限于该日志头。默认关闭，启用后日志为空时返回 404，无法验证已提交日志头或已经失去租约时返回 503。关闭公开投影时继续签发会使后续日志没有对应的公开签名，重新启用也不会替这些历史头补签。
+
+`node tools/verify-publication-head.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON` 使用当前可信的公钥目录独立比对 JSON 签名，并输出可另外保留的序号和摘要。单个签名只验证该次聚合承诺。可通过私有的 `publication-transparency verify` 核验两个锚点间的日志关系。Merkle 检查点、公开成员证明、历史责任清单和独立时间见证仍待交付。 [独立验证器](../../tools/verify-publication-head.mjs)

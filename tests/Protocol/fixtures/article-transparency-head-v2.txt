@@ -1,0 +1,10 @@
+fsusblog.integrity.native-publication-log-head.v2
+headVersion:i:2
+algorithm:s:RUNEU0FfUDI1Nl9TSEEyNTY=
+origin:s:aHR0cHM6Ly9wcm9vZi5leGFtcGxlLnRlc3Q=
+sequence:i:9007199254741001
+entrySha256:h:7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3
+keyId:s:cm90YXRlLTE=
+keyVersion:i:7
+keySha256:h:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a
+attestedAt:t:2026-11-15T08:10:00.000001Z

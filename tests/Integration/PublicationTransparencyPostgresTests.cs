@@ -230,7 +230,7 @@ public sealed class PublicationTransparencyPostgresTests
         async Task RemoveLedgerSchema()
         {
             await Scalar("alter table public.article_publication_proof drop column transparency_seq");
-            await Scalar("drop table public.article_publication_transparency");
+            await Scalar("drop table if exists public.publication_transparency_head,public.article_publication_transparency");
         }
 
         Task<(int Code, string Output, string Error)> Audit(params string[] prefix) =>

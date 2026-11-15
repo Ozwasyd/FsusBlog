@@ -29,7 +29,7 @@ export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
 
 # Reconstruct the previously accepted schema, then exercise the actual offline adoption command.
 "${sql[@]}" <<'SQL'
-DROP TABLE public.article_publication_transparency,
+DROP TABLE public.publication_transparency_head, public.article_publication_transparency,
     public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
 ALTER TABLE public.article_publication_history DROP CONSTRAINT publication_history_native_binding;
 ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
