@@ -5,11 +5,15 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import {
+  decodeAuthoringWorkspaceGroups, decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes,
+} from '../../src/Contracts/wire.generated.ts'
 
 const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
+const workspacePath = `${origin}/user/manage/article/workspace`
+const groupsPath = `${origin}${WireRoutes.AuthoringWorkspaceGroups}`
 const editPath = id => `${origin}/user/manage/article/edit/${id}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
 const binary = { 'Content-Type': 'application/octet-stream' }
@@ -17,6 +21,8 @@ const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 const body = scope => scope.getByRole('textbox', { name: 'Body', exact: true })
 const title = scope => scope.getByRole('textbox', { name: 'Title', exact: true })
 const group = (page, name) => page.getByRole('main').getByRole('region', { name: `${name} article group`, exact: true })
+const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
+const tab = (page, draft, state) => tabList(page).getByRole('tab', { name: `${draft.title} · ${state}`, exact: true })
 const selection = locator => locator.evaluate(element => [element.selectionStart, element.selectionEnd])
 const observations = []
 const diagnostics = []
@@ -26,6 +32,9 @@ async function signIn(context, ticket) {
   const response = await context.request.post(`${origin}${WireRoutes.SignIn}`, { headers: binary,
     data: Buffer.from(encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket }))) })
   assert.equal(response.status(), 200)
+  const session = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+  assert(session, 'Sign-in must bind workspace reads to the issued authoring session')
+  return session
 }
 
 async function createDraft(context, title, body) {
@@ -108,13 +117,142 @@ async function capture(page, name) {
   await page.screenshot({ path: join(evidence, `${name}.png`) })
 }
 
+async function decodeSavedGroups(response) {
+  assert.equal(response.status(), 200)
+  const snapshot = decodeAuthoringWorkspaceGroups(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceGroups).payload)
+  assert.equal(snapshot.schemaVersion, 3)
+  return snapshot
+}
+
+async function savedGroups(context, session) {
+  return decodeSavedGroups(await context.request.get(groupsPath, { headers: { [WireHeaders.CurrentSession]: session } }))
+}
+
+async function enterSavedWorkspace(page) {
+  await page.goto(`${origin}/user/manage/article/list`)
+  const response = page.waitForResponse(receipt => receipt.url() === groupsPath && receipt.request().method() === 'GET')
+  await page.getByRole('link', { name: '工作区', exact: true }).click()
+  return decodeSavedGroups(await response)
+}
+
+async function expectRestored(page, primary, primaryPreview, secondary, secondaryPreview) {
+  await expect(page).toHaveURL(editPath(secondary.id))
+  await expectPane(group(page, 'Primary'), primary, primary.body, false)
+  await expectPane(group(page, 'Secondary'), secondary, secondary.body, true)
+  await expect(page.locator('.el-markdown-editor')).toHaveCount(2)
+  const tabs = tabList(page).getByRole('tab')
+  await expect(tabs).toHaveCount(4)
+  assert.deepEqual(await tabs.evaluateAll(items => items.map(item => item.getAttribute('aria-label'))),
+    [`${primary.title} · Pinned`, `${primaryPreview.title} · Preview`, `${secondary.title} · Pinned`, `${secondaryPreview.title} · Preview`])
+  await expect(tab(page, secondary, 'Pinned')).toHaveAttribute('aria-selected', 'true')
+}
+
+async function exerciseSavedWorkspace({ author, session, outsider, outsiderSession, first, alternate, second }) {
+  const viewport = { width: 1366, height: 900 }
+  const cookies = await author.cookies()
+  const secondaryPreview = await createDraft(author, 'Another secondary workspace draft', 'Another secondary server source.')
+  const writerContext = await browser.newContext({ viewport })
+  const reopenedContext = await browser.newContext({ viewport })
+  const verificationContext = await browser.newContext({ viewport })
+  try {
+    for (const context of [writerContext, reopenedContext, verificationContext]) await context.addCookies(cookies)
+    const writer = await writerContext.newPage()
+    monitor(writer)
+    await writer.goto(workspacePath)
+    await expect(writer.getByText('Open an article or start a new draft.', { exact: true })).toBeVisible()
+    await openById(writer, first.id, 'Open article')
+    await expect(writer).toHaveURL(editPath(first.id))
+    await button(writer, `Pin ${first.title}`).click()
+    await openById(writer, alternate.id, 'Open article')
+    await expect(writer).toHaveURL(editPath(alternate.id))
+    await tab(writer, first, 'Pinned').click()
+    await expect(writer).toHaveURL(editPath(first.id))
+    await openById(writer, second.id)
+    await expect(writer).toHaveURL(editPath(second.id))
+    await button(writer, `Pin ${second.title}`).click()
+    await openById(writer, secondaryPreview.id, 'Open article')
+    await expect(writer).toHaveURL(editPath(secondaryPreview.id))
+    await tab(writer, second, 'Pinned').click()
+    await expect(writer).toHaveURL(editPath(second.id))
+
+    const coordinates = snapshot => ({ primary: snapshot.tabs, secondary: snapshot.secondaryTabs,
+      primaryActive: snapshot.activeArticleId, secondaryActive: snapshot.secondaryActiveArticleId, focusedGroup: snapshot.focusedGroup })
+    await expect.poll(async () => coordinates(await savedGroups(writerContext, session))).toEqual({
+      primary: [first.id, -alternate.id], secondary: [second.id, -secondaryPreview.id],
+      primaryActive: first.id, secondaryActive: second.id, focusedGroup: 1,
+    })
+    const persisted = await savedGroups(writerContext, session)
+    assert(persisted.revision > 0n && persisted.updatedAtUnixMs > 0n)
+
+    // Fresh storage contexts have only cookies. The exact layout must be read from PostgreSQL.
+    const reopened = await reopenedContext.newPage()
+    monitor(reopened)
+    const lateDraft = await holdDraft(reopened, second.id)
+    try {
+      assert.deepEqual(await enterSavedWorkspace(reopened), persisted)
+      assert.equal(await lateDraft.status(), 200)
+      await expect(reopened).toHaveURL(workspacePath)
+      await expect(reopened.locator('.el-markdown-editor')).toHaveCount(0)
+    } finally {
+      await lateDraft.release()
+    }
+    await expectRestored(reopened, first, alternate, second, secondaryPreview)
+    await capture(reopened, 'workspace-split-persisted')
+
+    const offlinePosts = []
+    const layoutPaths = [WireRoutes.AuthoringWorkspace, WireRoutes.AuthoringWorkspaceLayout, WireRoutes.AuthoringWorkspaceGroups]
+    reopened.on('request', request => {
+      if (request.method() === 'POST' && layoutPaths.includes(new URL(request.url()).pathname)) offlinePosts.push(request.url())
+    })
+    await reopenedContext.setOffline(true)
+    await reopened.waitForFunction(() => !navigator.onLine)
+    await button(reopened, `Close ${secondaryPreview.title}`).click()
+    await expect(tab(reopened, secondaryPreview, 'Preview')).toHaveCount(0)
+    await expect(reopened.getByText('Layout changes stay in this tab while offline. Reload the workspace to resume saving layouts.',
+      { exact: true })).toBeVisible()
+    assert.deepEqual(await savedGroups(writerContext, session), persisted)
+    await reopenedContext.setOffline(false)
+    await reopened.waitForFunction(() => navigator.onLine)
+    await expect(tab(reopened, secondaryPreview, 'Preview')).toHaveCount(0)
+    // The normal router leave awaits the layout flush after the network has returned.
+    await reopened.getByRole('link', { name: 'Canvases', exact: true }).click()
+    await expect(reopened).toHaveURL(`${origin}/user/manage/canvas`)
+    assert.deepEqual(offlinePosts, [], 'Reconnection and route flush must never replay a local offline layout change')
+    assert.deepEqual(await savedGroups(writerContext, session), persisted)
+    const verified = await verificationContext.newPage()
+    monitor(verified)
+    assert.deepEqual(await enterSavedWorkspace(verified), persisted)
+    await expectRestored(verified, first, alternate, second, secondaryPreview)
+
+    const other = await outsider.newPage()
+    monitor(other)
+    const wrongSession = await outsider.request.get(groupsPath, { headers: { [WireHeaders.CurrentSession]: session } })
+    assert.equal(wrongSession.status(), 409)
+    const otherLayout = await savedGroups(outsider, outsiderSession)
+    assert.equal(otherLayout.revision, 0n)
+    assert.deepEqual(coordinates(otherLayout), { primary: [], secondary: [], primaryActive: 0, secondaryActive: 0, focusedGroup: 0 })
+    assert.deepEqual(await enterSavedWorkspace(other), otherLayout)
+    await expect(other).toHaveURL(workspacePath)
+    await expect(other.getByText('Open an article or start a new draft.', { exact: true })).toBeVisible()
+    await expect(other.locator('.el-markdown-editor')).toHaveCount(0)
+    await expect(tabList(other)).toHaveCount(0)
+    await other.close()
+    observations.push({ persistedWorkspaceFromEmptyBrowserStorage: true, exactStoredGroupOrderAndFocus: true, restoreWaitsForRealDraft: true,
+      offlineChangesDoNotReplay: true, otherAuthorHasIndependentWorkspace: true, storedRevision: persisted.revision.toString() })
+  } finally {
+    await verificationContext.close()
+    await reopenedContext.close()
+    await writerContext.close()
+  }
+}
+
 let failure
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 try {
   const author = await browser.newContext({ viewport: { width: 1366, height: 900 } })
   const outsider = await browser.newContext()
-  await signIn(author, process.env.FSUSBLOG_TEST_TICKET)
-  await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
+  const session = await signIn(author, process.env.FSUSBLOG_TEST_TICKET)
+  const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
   const first = await createDraft(author, 'Primary workspace draft', 'Primary server source.')
   const second = await createDraft(author, 'Secondary workspace draft', 'Secondary server source.')
   const alternate = await createDraft(author, 'Another primary workspace draft', 'Another primary server source.')
@@ -243,6 +381,8 @@ try {
   await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(2)
   const reopenedFirstNode = await body(primary).elementHandle()
   assert(reopenedFirstNode)
+
+  await exerciseSavedWorkspace({ author, session, outsider, outsiderSession, first, alternate, second: savedSecond })
 
   // Replacing the current credential must invalidate both hosts, including the unfocused one.
   await author.addCookies(await outsider.cookies())

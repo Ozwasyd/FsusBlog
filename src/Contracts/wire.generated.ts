@@ -137,6 +137,8 @@ export const FrameType = {
   AuthoringWorkspaceCommand: 32911,
   AuthoringWorkspaceLayout: 32913,
   AuthoringWorkspaceLayoutCommand: 32914,
+  AuthoringWorkspaceGroups: 32969,
+  AuthoringWorkspaceGroupsCommand: 32970,
   AuthorRecentOpenPage: 32958,
   AuthorRecentOpenCommand: 32959,
   AuthorRecentOpenReceipt: 32960,
@@ -188,6 +190,7 @@ export const WireLimits = {
   AuthoringWorkspaceTabs: 100,
   MaxAuthoringWorkspaceFrameBytes: 436,
   MaxAuthoringWorkspaceLayoutCommandFrameBytes: 437,
+  MaxAuthoringWorkspaceGroupsCommandFrameBytes: 449,
   AuthorRecentOpenPageSize: 20,
   AuthorRecentOpenCursorChars: 64,
   MaxAuthorRecentOpenCommandFrameBytes: 56,
@@ -632,6 +635,7 @@ export const WireRoutes = {
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
   AuthoringWorkspace: "/api/v2/authoring/workspace.aeds",
   AuthoringWorkspaceLayout: "/api/v2/authoring/workspace/layout.aeds",
+  AuthoringWorkspaceGroups: "/api/v2/authoring/workspace/groups.aeds",
   AuthorRecentOpens: "/api/v2/authoring/recent-opens.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
@@ -1302,6 +1306,92 @@ export function decodeAuthoringWorkspaceLayoutCommand(payload: Uint8Array): Auth
     activeArticleId: reader.i32(),
     tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
     inspectorOpen: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceGroups {
+  schemaVersion: number;
+  revision: bigint;
+  updatedAtUnixMs: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+  skipped: number;
+  inspectorOpen: boolean;
+  secondaryActiveArticleId: number;
+  secondaryTabs: readonly number[];
+  focusedGroup: number;
+}
+
+export function encodeAuthoringWorkspaceGroups(value: AuthoringWorkspaceGroups): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.revision);
+  writer.i64(value.updatedAtUnixMs);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.i32(value.skipped);
+  writer.bool(value.inspectorOpen);
+  writer.i32(value.secondaryActiveArticleId);
+  writer.i32s(value.secondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.i32(value.focusedGroup);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceGroups(payload: Uint8Array): AuthoringWorkspaceGroups {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceGroups = {
+    schemaVersion: reader.i32(),
+    revision: reader.i64(),
+    updatedAtUnixMs: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    skipped: reader.i32(),
+    inspectorOpen: reader.bool(),
+    secondaryActiveArticleId: reader.i32(),
+    secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    focusedGroup: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceGroupsCommand {
+  schemaVersion: number;
+  expectedRevision: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+  inspectorOpen: boolean;
+  secondaryActiveArticleId: number;
+  secondaryTabs: readonly number[];
+  focusedGroup: number;
+}
+
+export function encodeAuthoringWorkspaceGroupsCommand(value: AuthoringWorkspaceGroupsCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.expectedRevision);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.bool(value.inspectorOpen);
+  writer.i32(value.secondaryActiveArticleId);
+  writer.i32s(value.secondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.i32(value.focusedGroup);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceGroupsCommand(payload: Uint8Array): AuthoringWorkspaceGroupsCommand {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceGroupsCommand = {
+    schemaVersion: reader.i32(),
+    expectedRevision: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    inspectorOpen: reader.bool(),
+    secondaryActiveArticleId: reader.i32(),
+    secondaryTabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    focusedGroup: reader.i32(),
   };
   reader.finish();
   return value;

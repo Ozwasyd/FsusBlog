@@ -138,6 +138,8 @@ public enum FrameType : ushort
     AuthoringWorkspaceCommand = 32911,
     AuthoringWorkspaceLayout = 32913,
     AuthoringWorkspaceLayoutCommand = 32914,
+    AuthoringWorkspaceGroups = 32969,
+    AuthoringWorkspaceGroupsCommand = 32970,
     AuthorRecentOpenPage = 32958,
     AuthorRecentOpenCommand = 32959,
     AuthorRecentOpenReceipt = 32960,
@@ -191,6 +193,7 @@ public static class WireLimits
     public const int AuthoringWorkspaceTabs = 100;
     public const int MaxAuthoringWorkspaceFrameBytes = 436;
     public const int MaxAuthoringWorkspaceLayoutCommandFrameBytes = 437;
+    public const int MaxAuthoringWorkspaceGroupsCommandFrameBytes = 449;
     public const int AuthorRecentOpenPageSize = 20;
     public const int AuthorRecentOpenCursorChars = 64;
     public const int MaxAuthorRecentOpenCommandFrameBytes = 56;
@@ -637,6 +640,7 @@ public static class WireRoutes
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string AuthoringWorkspace = "/api/v2/authoring/workspace.aeds";
     public const string AuthoringWorkspaceLayout = "/api/v2/authoring/workspace/layout.aeds";
+    public const string AuthoringWorkspaceGroups = "/api/v2/authoring/workspace/groups.aeds";
     public const string AuthorRecentOpens = "/api/v2/authoring/recent-opens.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
@@ -702,6 +706,8 @@ public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision
 public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record AuthoringWorkspaceLayout(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped, bool InspectorOpen);
 public sealed record AuthoringWorkspaceLayoutCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs, bool InspectorOpen);
+public sealed record AuthoringWorkspaceGroups(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped, bool InspectorOpen, int SecondaryActiveArticleId, IReadOnlyList<int> SecondaryTabs, int FocusedGroup);
+public sealed record AuthoringWorkspaceGroupsCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs, bool InspectorOpen, int SecondaryActiveArticleId, IReadOnlyList<int> SecondaryTabs, int FocusedGroup);
 public sealed record AuthorRecentOpenCommand(int SchemaVersion, long ExpectedRevision, Guid RequestId, int ArticleId, long ArticleRevision);
 public sealed record AuthorRecentOpenReceipt(int SchemaVersion, long Revision, Guid RequestId, int ArticleId, long ArticleRevision, long OpenedAtUnixMs);
 public sealed record AdminAppearanceState(long Revision, string Theme, string Font, bool Serving, bool CanRollback, string PreviousTheme, string PreviousFont);
@@ -1166,6 +1172,56 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceLayoutCommand));
         var value = new AuthoringWorkspaceLayoutCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthoringWorkspaceGroups(AuthoringWorkspaceGroups value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.Revision);
+        writer.I64(value.UpdatedAtUnixMs);
+        writer.I32(value.ActiveArticleId);
+        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
+        writer.I32(value.Skipped);
+        writer.Bool(value.InspectorOpen);
+        writer.I32(value.SecondaryActiveArticleId);
+        writer.I32s(value.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+        writer.I32(value.FocusedGroup);
+        return Aeds.Encode(FrameType.AuthoringWorkspaceGroups, writer.Written);
+    }
+
+    public static AuthoringWorkspaceGroups DecodeAuthoringWorkspaceGroups(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceGroups));
+        var value = new AuthoringWorkspaceGroups(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32(), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthoringWorkspaceGroupsCommand(AuthoringWorkspaceGroupsCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.ExpectedRevision);
+        writer.I32(value.ActiveArticleId);
+        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
+        writer.Bool(value.InspectorOpen);
+        writer.I32(value.SecondaryActiveArticleId);
+        writer.I32s(value.SecondaryTabs, WireLimits.AuthoringWorkspaceTabs);
+        writer.I32(value.FocusedGroup);
+        return Aeds.Encode(FrameType.AuthoringWorkspaceGroupsCommand, writer.Written);
+    }
+
+    public static AuthoringWorkspaceGroupsCommand DecodeAuthoringWorkspaceGroupsCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceGroupsCommand));
+        var value = new AuthoringWorkspaceGroupsCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
         reader.Finish();
         Validate(value);
         return value;

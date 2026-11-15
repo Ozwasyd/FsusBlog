@@ -41,6 +41,7 @@ inline constexpr uint32_t TaxonomyTagCount = 32;
 inline constexpr uint32_t AuthoringWorkspaceTabs = 100;
 inline constexpr uint32_t MaxAuthoringWorkspaceFrameBytes = 436;
 inline constexpr uint32_t MaxAuthoringWorkspaceLayoutCommandFrameBytes = 437;
+inline constexpr uint32_t MaxAuthoringWorkspaceGroupsCommandFrameBytes = 449;
 inline constexpr uint32_t AuthorRecentOpenPageSize = 20;
 inline constexpr uint32_t AuthorRecentOpenCursorChars = 64;
 inline constexpr uint32_t MaxAuthorRecentOpenCommandFrameBytes = 56;
@@ -448,6 +449,8 @@ enum class FrameType : uint16_t {
     AuthoringWorkspaceCommand = 32911,
     AuthoringWorkspaceLayout = 32913,
     AuthoringWorkspaceLayoutCommand = 32914,
+    AuthoringWorkspaceGroups = 32969,
+    AuthoringWorkspaceGroupsCommand = 32970,
     AuthorRecentOpenPage = 32958,
     AuthorRecentOpenCommand = 32959,
     AuthorRecentOpenReceipt = 32960,
@@ -599,6 +602,8 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthoringWorkspaceCommand:
         case FrameType::AuthoringWorkspaceLayout:
         case FrameType::AuthoringWorkspaceLayoutCommand:
+        case FrameType::AuthoringWorkspaceGroups:
+        case FrameType::AuthoringWorkspaceGroupsCommand:
         case FrameType::AuthorRecentOpenPage:
         case FrameType::AuthorRecentOpenCommand:
         case FrameType::AuthorRecentOpenReceipt:

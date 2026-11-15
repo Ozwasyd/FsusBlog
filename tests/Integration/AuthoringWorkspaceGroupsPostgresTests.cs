@@ -1,0 +1,204 @@
+using System.Net;
+using System.Security.Cryptography;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Integration.Tests;
+using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Sessions;
+
+public sealed class AuthoringWorkspaceGroupsPostgresTests
+{
+    [PostgresFact]
+    public async Task GroupsShareLegacyRevisionAndRejectLegacyOverwriteEvenWithTheCurrentRevision()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var ct = timeout.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var author = await Login(db, "Workspace author", true, ct);
+        var other = await Login(db, "Other workspace author", true, ct);
+        var reader = await Login(db, "Workspace reader", false, ct);
+        await using var server = await ServerProcess.Start(db.ConnectionString, ct);
+        var client = server.Client;
+        var first = await Draft(client, author, "First", ct);
+        var preview = await Draft(client, author, "Primary preview", ct);
+        var second = await Draft(client, author, "Secondary preview", ct);
+        var foreign = await Draft(client, other, "Other author's article", ct);
+        var empty = await ReadGroups(client, author, ct);
+        Assert.Equal(0, empty.Revision);
+        Assert.Empty(empty.Tabs);
+        Assert.Empty(empty.SecondaryTabs);
+
+        var legacy = Wire.DecodeAuthoringWorkspaceLayout(await Send(client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceLayout,
+            author, Wire.EncodeAuthoringWorkspaceLayoutCommand(new(2, 0, first.Id, [first.Id, -preview.Id], true)), HttpStatusCode.OK, ct));
+        Assert.Equal(1, legacy.Revision);
+        var migrated = await ReadGroups(client, author, ct);
+        Assert.Equal(legacy.Revision, migrated.Revision);
+        Assert.Equal(legacy.UpdatedAtUnixMs, migrated.UpdatedAtUnixMs);
+        Assert.Equal(legacy.Tabs, migrated.Tabs);
+        Assert.True(migrated.InspectorOpen);
+        Assert.Empty(migrated.SecondaryTabs);
+
+        var filtered = await SaveGroups(client, author, new(3, migrated.Revision, first.Id, [first.Id, -preview.Id], true,
+            foreign.Id, [foreign.Id, -second.Id], 1), ct);
+        Assert.Equal(2, filtered.Revision);
+        Assert.Equal([first.Id, -preview.Id], filtered.Tabs);
+        Assert.Equal([-second.Id], filtered.SecondaryTabs);
+        Assert.Equal(0, filtered.SecondaryActiveArticleId);
+        Assert.Equal(0, filtered.FocusedGroup);
+        Assert.Equal(1, filtered.Skipped);
+        var split = await SaveGroups(client, author, new(3, filtered.Revision, preview.Id, [first.Id, -preview.Id], true,
+            second.Id, [-second.Id], 1), ct);
+        Assert.Equal(3, split.Revision);
+        Assert.Equal(second.Id, split.SecondaryActiveArticleId);
+        Assert.Equal(1, split.FocusedGroup);
+
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspace, author, null, HttpStatusCode.Conflict, ct);
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceLayout, author, null, HttpStatusCode.Conflict, ct);
+        await Send(client, HttpMethod.Post, WireRoutes.AuthoringWorkspace, author,
+            Wire.EncodeAuthoringWorkspaceCommand(new(1, split.Revision, first.Id, [first.Id])), HttpStatusCode.Conflict, ct);
+        await Send(client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceLayout, author,
+            Wire.EncodeAuthoringWorkspaceLayoutCommand(new(2, split.Revision, first.Id, [first.Id], false)), HttpStatusCode.Conflict, ct);
+        await Send(client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceGroups, author,
+            Wire.EncodeAuthoringWorkspaceGroupsCommand(new(3, filtered.Revision, first.Id, [first.Id], false, 0, [], 0)), HttpStatusCode.Conflict, ct);
+        var unchanged = await ReadGroups(client, author, ct);
+        Assert.Equal(split.Revision, unchanged.Revision);
+        Assert.Equal(split.UpdatedAtUnixMs, unchanged.UpdatedAtUnixMs);
+        Assert.Equal(split.Tabs, unchanged.Tabs);
+        Assert.Equal(split.SecondaryTabs, unchanged.SecondaryTabs);
+        Assert.True(unchanged.InspectorOpen);
+
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, author with { Handle = other.Handle }, null, HttpStatusCode.Conflict, ct);
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, reader, null, HttpStatusCode.Forbidden, ct);
+        var unrelated = await ReadGroups(client, other, ct);
+        Assert.Equal(0, unrelated.Revision);
+        Assert.Empty(unrelated.Tabs);
+        Assert.Empty(unrelated.SecondaryTabs);
+
+        await Send(client, HttpMethod.Post, WireRoutes.Delete, author,
+            Wire.EncodeArticleCommand(new(second.Id, second.Revision, Guid.NewGuid(), "", "")), HttpStatusCode.OK, ct);
+        var projected = await ReadGroups(client, author, ct);
+        Assert.Equal(split.Revision, projected.Revision);
+        Assert.Equal(preview.Id, projected.ActiveArticleId);
+        Assert.Empty(projected.SecondaryTabs);
+        Assert.Equal(0, projected.SecondaryActiveArticleId);
+        Assert.Equal(0, projected.FocusedGroup);
+        Assert.Equal(1, projected.Skipped);
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceLayout, author, null, HttpStatusCode.Conflict, ct);
+
+        var collapsed = await SaveGroups(client, author, new(3, projected.Revision, first.Id, [first.Id, preview.Id], true, 0, [], 0), ct);
+        var race = await Task.WhenAll(
+            WriteStatus(client, WireRoutes.AuthoringWorkspaceLayout, author,
+                Wire.EncodeAuthoringWorkspaceLayoutCommand(new(2, collapsed.Revision, first.Id, [first.Id, preview.Id], false)), ct),
+            WriteStatus(client, WireRoutes.AuthoringWorkspaceGroups, author,
+                Wire.EncodeAuthoringWorkspaceGroupsCommand(new(3, collapsed.Revision, first.Id, [first.Id], true, preview.Id, [preview.Id], 1)), ct));
+        Assert.Equal(1, race.Count(status => status == HttpStatusCode.OK));
+        Assert.Equal(1, race.Count(status => status == HttpStatusCode.Conflict));
+        var remaining = await ReadGroups(client, author, ct);
+        Assert.Equal(collapsed.Revision + 1, remaining.Revision);
+        if (race[1] == HttpStatusCode.OK)
+        {
+            Assert.Equal([first.Id], remaining.Tabs);
+            Assert.Equal([preview.Id], remaining.SecondaryTabs);
+            Assert.True(remaining.InspectorOpen);
+        }
+        else
+        {
+            Assert.Equal([first.Id, preview.Id], remaining.Tabs);
+            Assert.Empty(remaining.SecondaryTabs);
+            Assert.False(remaining.InspectorOpen);
+        }
+    }
+
+    [PostgresFact]
+    public async Task LegacyDatabaseServesOldFormatsAndRejectsAPartialGroupUpgrade()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var ct = timeout.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var author = await Login(db, "Workspace author", true, ct);
+        await using var connection = await db.DataSource.OpenConnectionAsync(ct);
+        await using (var drop = Store.Sql(connection, null, """
+            alter table public.authoring_workspace drop column secondary_active_article_id,
+                drop column secondary_tabs, drop column focused_group
+            """))
+            await drop.ExecuteNonQueryAsync(ct);
+
+        await using (var legacy = await ServerProcess.Start(db.ConnectionString, ct))
+        {
+            await Send(legacy.Client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, author, null, HttpStatusCode.NotFound, ct);
+            await Send(legacy.Client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceGroups, author,
+                Wire.EncodeAuthoringWorkspaceGroupsCommand(new(3, 0, 0, [], false, 0, [], 0)), HttpStatusCode.NotFound, ct);
+            var saved = Wire.DecodeAuthoringWorkspaceLayout(await Send(legacy.Client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceLayout,
+                author, Wire.EncodeAuthoringWorkspaceLayoutCommand(new(2, 0, 0, [], true)), HttpStatusCode.OK, ct));
+            Assert.Equal(1, saved.Revision);
+            Assert.True(saved.InspectorOpen);
+            await Send(legacy.Client, HttpMethod.Get, WireRoutes.AuthoringWorkspace, author, null, HttpStatusCode.OK, ct);
+        }
+
+        await using (var partial = Store.Sql(connection, null, "alter table public.authoring_workspace add column focused_group integer not null default 0"))
+            await partial.ExecuteNonQueryAsync(ct);
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await using var rejected = await ServerProcess.Start(db.ConnectionString, ct);
+        });
+        Assert.Contains("group schema is incomplete", failure.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Credential> Login(ScratchDatabase db, string name, bool canAuthor, CancellationToken ct)
+    {
+        var id = Guid.NewGuid();
+        var ticket = RandomNumberGenerator.GetBytes(32);
+        await using var dbConnection = await db.DataSource.OpenConnectionAsync(ct);
+        await using var sql = Store.Sql(dbConnection, null, """
+            with created as (
+                insert into public.blog_user (id,name,can_author,enabled,generation) values($1,$2,$3,true,1) returning id
+            )
+            insert into public.login_ticket (digest,user_id,expires_at) select $4,id,now()+interval '1 minute' from created
+            """, id, name, canAuthor, SHA256.HashData(ticket));
+        await sql.ExecuteNonQueryAsync(ct);
+        var token = (await new Store(db.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
+        return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
+    }
+
+    private static async Task<Draft> Draft(HttpClient client, Credential credentials, string title, CancellationToken ct) =>
+        Wire.DecodeDraft(await Send(client, HttpMethod.Post, WireRoutes.Save, credentials,
+            Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), title, "Private content")), HttpStatusCode.OK, ct));
+
+    private static async Task<AuthoringWorkspaceGroups> ReadGroups(HttpClient client, Credential credentials, CancellationToken ct) =>
+        Wire.DecodeAuthoringWorkspaceGroups(await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, credentials, null, HttpStatusCode.OK, ct));
+
+    private static async Task<AuthoringWorkspaceGroups> SaveGroups(HttpClient client, Credential credentials, AuthoringWorkspaceGroupsCommand command,
+        CancellationToken ct) => Wire.DecodeAuthoringWorkspaceGroups(await Send(client, HttpMethod.Post, WireRoutes.AuthoringWorkspaceGroups,
+            credentials, Wire.EncodeAuthoringWorkspaceGroupsCommand(command), HttpStatusCode.OK, ct));
+
+    private static async Task<HttpStatusCode> WriteStatus(HttpClient client, string route, Credential credentials, byte[] payload, CancellationToken ct)
+    {
+        using var request = Request(HttpMethod.Post, route, credentials, payload);
+        using var response = await client.SendAsync(request, ct);
+        return response.StatusCode;
+    }
+
+    private static async Task<byte[]> Send(HttpClient client, HttpMethod method, string route, Credential credentials, byte[]? payload,
+        HttpStatusCode status, CancellationToken ct)
+    {
+        using var request = Request(method, route, credentials, payload);
+        using var response = await client.SendAsync(request, ct);
+        Assert.Equal(status, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    private static HttpRequestMessage Request(HttpMethod method, string route, Credential credentials, byte[]? payload)
+    {
+        var request = new HttpRequestMessage(method, route);
+        request.Headers.Add("Cookie", $"fsus-v2-session={credentials.Token}");
+        request.Headers.Add(WireHeaders.CurrentSession, credentials.Handle);
+        if (payload is not null)
+        {
+            request.Content = new ByteArrayContent(payload);
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+        }
+        return request;
+    }
+
+    private sealed record Credential(string Token, string Handle);
+}

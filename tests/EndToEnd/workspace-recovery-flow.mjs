@@ -42,7 +42,7 @@ function monitor(page) {
 }
 
 function layoutResponse(response) {
-  return response.url() === `${origin}${WireRoutes.AuthoringWorkspaceLayout}` && response.request().method() === 'POST'
+  return response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` && response.request().method() === 'POST'
 }
 
 async function inspectorLayout(context, session) {
@@ -236,7 +236,7 @@ try {
     observations.push({ competingBrowserCannotOverwrite: true, wrongSessionDenied: true, wrongOwnerFiltered: true, duplicateRejected: true })
 
     const desktopInspector = monitor(await reopened.newPage())
-    const readLayout = desktopInspector.waitForResponse(response => response.url() === `${origin}${WireRoutes.AuthoringWorkspaceLayout}` &&
+    const readLayout = desktopInspector.waitForResponse(response => response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` &&
       response.request().method() === 'GET')
     await desktopInspector.goto(workspaceUrl)
     assert.equal((await readLayout).status(), 200)

@@ -56,7 +56,14 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
 export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft }>
 
-export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number; inspectorOpen?: boolean }>
+export type SavedWorkspaceLayout = Readonly<{
+  tabs: readonly number[]
+  activeArticleId: number
+  inspectorOpen: boolean
+  secondaryTabs: readonly number[]
+  secondaryActiveArticleId: number
+  focusedGroup: 0 | 1
+}>
 
 export type Activation =
   | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number; witnessedRevision?: bigint }>
@@ -208,12 +215,22 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   get savedLayout(): SavedWorkspaceLayout {
-    if (!this.#currentIdentity()) return { tabs: [], activeArticleId: 0, inspectorOpen: false }
+    if (!this.#currentIdentity()) return { tabs: [], activeArticleId: 0, inspectorOpen: false,
+      secondaryTabs: [], secondaryActiveArticleId: 0, focusedGroup: 0 }
+    const byGroup: Record<WorkspaceGroup, number[]> = { main: [], secondary: [] }
+    for (const session of this.#sessions.values()) {
+      if (session.phase === 'ready' && session.id > 0)
+        byGroup[session.group].push(session.mode === 'pinned' ? session.id : -session.id)
+    }
+    const activeArticleId = this.#active ? this.#selected.main?.id ?? 0 : 0
+    const secondaryActiveArticleId = this.#active ? this.#selected.secondary?.id ?? 0 : 0
     return {
-      tabs: [...this.#sessions.values()].filter(session => session.id > 0 && session.phase === 'ready')
-        .map(session => session.mode === 'pinned' ? session.id : -session.id),
-      activeArticleId: this.#active?.id ?? 0,
+      tabs: byGroup.main,
+      activeArticleId,
       inspectorOpen: this.#inspectorOpen,
+      secondaryTabs: byGroup.secondary,
+      secondaryActiveArticleId,
+      focusedGroup: this.#active?.group === 'secondary' && secondaryActiveArticleId > 0 ? 1 : 0,
     }
   }
 
@@ -253,22 +270,30 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   async restoreLayout(layout: SavedWorkspaceLayout, signal: AbortSignal): Promise<number | undefined> {
-    if (signal.aborted || !this.#currentIdentity() || this.#sessions.size !== 0 || layout.tabs.length > this.#limit)
+    const total = layout.tabs.length + layout.secondaryTabs.length
+    if (signal.aborted || !this.#currentIdentity() || this.#sessions.size !== 0 || total > this.#limit)
       return undefined
-    const ids = new Set(layout.tabs.map(Math.abs))
-    if (ids.size !== layout.tabs.length || layout.tabs.some(id => !Number.isInteger(id) || id === 0 || Math.abs(id) > 2_147_483_647) ||
-        layout.tabs.filter(id => id < 0).length > 1 || (layout.activeArticleId !== 0 && !ids.has(layout.activeArticleId))) return undefined
+    const validGroup = (tabs: readonly number[], active: number) => tabs.filter(id => id < 0).length <= 1 &&
+      (active === 0 || active > 0 && tabs.some(id => Math.abs(id) === active))
+    const main = layout.tabs.map(value => ({ value, group: 'main' as const }))
+    const secondary = layout.secondaryTabs.map(value => ({ value, group: 'secondary' as const }))
+    const references = [...main, ...secondary]
+    if (new Set(references.map(ref => Math.abs(ref.value))).size !== total ||
+        references.some(({ value }) => !Number.isInteger(value) || value === 0 || Math.abs(value) > 2_147_483_647) ||
+        !validGroup(layout.tabs, layout.activeArticleId) || !validGroup(layout.secondaryTabs, layout.secondaryActiveArticleId) ||
+        (layout.focusedGroup !== 0 && layout.focusedGroup !== 1) || (layout.focusedGroup === 1 && layout.secondaryActiveArticleId === 0))
+      return undefined
     const intent = ++this.#activation
-    const restored: { id: number; mode: TabMode; draft: Draft }[] = []
+    const restored: { id: number; group: WorkspaceGroup; mode: TabMode; draft: Draft }[] = []
     // Load every retained position through the normal draft authority, publishing no intermediate active tab.
     // Batches stay below the shared command concurrency limit and retain the server's order.
-    for (let index = 0; index < layout.tabs.length; index += 8) {
-      const batch = await Promise.all(layout.tabs.slice(index, index + 8).map(async reference => {
-        const id = Math.abs(reference)
+    for (let index = 0; index < total; index += 8) {
+      const batch = await Promise.all(references.slice(index, index + 8).map(async ({ value, group }) => {
+        const id = Math.abs(value)
         const loaded = await untilAborted(signal, () => this.#transport.load(id, signal)).catch(() => undefined)
         if (loaded?.kind === 'blocked' && (loaded.reason === 'missing' || loaded.reason === 'deleted' || loaded.reason === 'forbidden')) return null
         if (loaded?.kind !== 'ready' || loaded.draft.id !== id || loaded.draft.revision <= 0n) return undefined
-        return { id, mode: reference > 0 ? 'pinned' as const : 'preview' as const, draft: loaded.draft }
+        return { id, group, mode: value > 0 ? 'pinned' as const : 'preview' as const, draft: loaded.draft }
       }))
       if (signal.aborted || intent !== this.#activation || !this.#currentIdentity() || batch.includes(undefined)) return undefined
       for (const item of batch) {
@@ -277,14 +302,15 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     }
     if (signal.aborted || intent !== this.#activation || !this.#currentIdentity()) return undefined
     for (const item of restored) {
-      this.#sessions.set(item.id, { ...item, draft: structuredClone(item.draft), sessionId: ++this.#sequence, group: 'main',
+      this.#sessions.set(item.id, { ...item, draft: structuredClone(item.draft), sessionId: ++this.#sequence,
         controller: new AbortController(), phase: 'ready', dirty: false, conflict: false, recovery: false, pending: false, edit: 0 })
     }
-    this.#active = this.#sessions.get(layout.activeArticleId)
-    this.#selected.main = this.#active
-    this.#inspectorOpen = layout.inspectorOpen === true
+    this.#selected.main = this.#sessions.get(layout.activeArticleId)
+    this.#selected.secondary = this.#sessions.get(layout.secondaryActiveArticleId)
+    this.#active = layout.focusedGroup === 1 ? this.#selected.secondary ?? this.#selected.main : this.#selected.main ?? this.#selected.secondary
+    this.#inspectorOpen = layout.inspectorOpen
     if (restored.length || this.#inspectorOpen) this.#changed()
-    return layout.tabs.length - restored.length
+    return total - restored.length
   }
 
   async openOrActivate(

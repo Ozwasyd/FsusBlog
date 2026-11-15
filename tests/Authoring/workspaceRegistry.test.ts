@@ -5,6 +5,7 @@ import {
   type DraftLoad,
   type DraftSave,
   type EditorTransport,
+  type SavedWorkspaceLayout,
   type WorkspaceGroup,
   type WorkspaceTab,
 } from '../../src/Web/src/authoring/workspaceRegistry.ts'
@@ -13,6 +14,9 @@ type Draft = { id: number; revision: bigint; body: string }
 
 const draft = (id: number, revision = 1n, body = 'same source'): Draft => ({ id, revision, body })
 const author = { site: 'blog', principalId: 'author-id', generation: 1n }
+const emptyLayout: SavedWorkspaceLayout = {
+  activeArticleId: 0, tabs: [], inspectorOpen: false, secondaryActiveArticleId: 0, secondaryTabs: [], focusedGroup: 0,
+}
 
 function setup(transport: Partial<EditorTransport<Draft>> = {}, capacity?: number, now?: () => number) {
   const registry = new WorkspaceRegistry<Draft>({
@@ -40,11 +44,11 @@ test('saved layout restores only ready drafts, retaining order, preview and sele
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? held.promise : id === 3
     ? { kind: 'blocked', reason: 'forbidden' } : { kind: 'ready', draft: draft(id) } })
-  const pending = registry.restoreLayout({ tabs: [1, 3, -2], activeArticleId: 2 }, new AbortController().signal)
+  const pending = registry.restoreLayout({ ...emptyLayout, tabs: [1, 3, -2], activeArticleId: 2 }, new AbortController().signal)
   assert.deepEqual(registry.tabs, [])
   held.resolve({ kind: 'ready', draft: draft(2) })
   assert.equal(await pending, 1)
-  assert.deepEqual(registry.savedLayout, { tabs: [1, -2], activeArticleId: 2, inspectorOpen: false })
+  assert.deepEqual(registry.savedLayout, { ...emptyLayout, tabs: [1, -2], activeArticleId: 2 })
   assert.equal(registry.activeTab?.mode, 'preview')
   assert.equal(registry.activeDraft?.id, 2)
 })
@@ -52,16 +56,16 @@ test('saved layout restores only ready drafts, retaining order, preview and sele
 test('layout hydration loses authority on identity changes even if its draft request completes', async () => {
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: () => held.promise })
-  const pending = registry.restoreLayout({ tabs: [1], activeArticleId: 1 }, new AbortController().signal)
+  const pending = registry.restoreLayout({ ...emptyLayout, tabs: [1], activeArticleId: 1 }, new AbortController().signal)
   registry.setIdentity({ ...author, principalId: 'other-author' })
   held.resolve({ kind: 'ready', draft: draft(1) })
   assert.equal(await pending, undefined)
-  assert.deepEqual(registry.savedLayout, { tabs: [], activeArticleId: 0, inspectorOpen: false })
+  assert.deepEqual(registry.savedLayout, emptyLayout)
 })
 
 test('the Inspector restores as workspace presentation and rejects another session or identity', async () => {
   const registry = setup()
-  await registry.restoreLayout({ tabs: [1, 2], activeArticleId: 2, inspectorOpen: true }, new AbortController().signal)
+  await registry.restoreLayout({ ...emptyLayout, tabs: [1, 2], activeArticleId: 2, inspectorOpen: true }, new AbortController().signal)
   assert.equal(registry.inspectorOpen, true)
   const first = registry.tabs.find(tab => tab.articleId === 1)!
   registry.setInspectorOpen(first, false)
@@ -78,7 +82,7 @@ test('the Inspector restores as workspace presentation and rejects another sessi
 test('a transient failed read does not turn a recoverable layout into an authoritative partial one', async () => {
   const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'unavailable' }
     : { kind: 'ready', draft: draft(id) } })
-  assert.equal(await registry.restoreLayout({ tabs: [1, -2], activeArticleId: 1 }, new AbortController().signal), undefined)
+  assert.equal(await registry.restoreLayout({ ...emptyLayout, tabs: [1, -2], activeArticleId: 1 }, new AbortController().signal), undefined)
   assert.deepEqual(registry.tabs, [])
 })
 
@@ -479,4 +483,43 @@ test('the comparison cannot restore a response after authority changes', async (
   assert.equal(await exposed, false)
   assert.deepEqual(registry.sourcePanes, [])
   assert.equal(registry.hasSecondaryGroup, false)
+})
+
+test('saved groups restore only current authorized drafts in their exact group, selection and order', async () => {
+  const registry = setup()
+  const layout: SavedWorkspaceLayout = { activeArticleId: 1, tabs: [1, -4], inspectorOpen: true,
+    secondaryActiveArticleId: 2, secondaryTabs: [-3, 2], focusedGroup: 1 }
+  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  assert.deepEqual(registry.savedLayout, layout)
+  assert.deepEqual(registry.tabs.map(tab => [tab.articleId, tab.group, tab.active]), [[1, 'main', false], [4, 'main', false],
+    [3, 'secondary', false], [2, 'secondary', true]])
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.draft.id), [1, 2])
+  assert.equal((await activate(registry, 1, 'secondary')).group, 'main')
+  assert.deepEqual(registry.savedLayout, { ...layout, focusedGroup: 0 })
+})
+
+test('restoring missing selected drafts only falls back to a surviving selected record', async () => {
+  const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'missing' } : { kind: 'ready', draft: draft(id) } })
+  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1], activeArticleId: 1,
+    secondaryActiveArticleId: 2, secondaryTabs: [2, -3], focusedGroup: 1 }
+  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 1)
+  assert.equal(registry.activeTab?.articleId, 1)
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.draft.id), [1])
+  assert.deepEqual(registry.savedLayout, { ...layout, secondaryActiveArticleId: 0, secondaryTabs: [-3], focusedGroup: 0 })
+})
+
+test('malformed multi-group layouts fail before reading content', async () => {
+  let reads = 0
+  const registry = setup({ load: async id => { reads++; return { kind: 'ready', draft: draft(id) } } })
+  const malformed = [
+    { ...emptyLayout, tabs: [1], secondaryTabs: [-1] },
+    { ...emptyLayout, secondaryTabs: [-2, -3] },
+    { ...emptyLayout, tabs: [1], secondaryActiveArticleId: 1 },
+    { ...emptyLayout, focusedGroup: 1 as const },
+    { ...emptyLayout, tabs: Array.from({ length: 100 }, (_, index) => index + 1), secondaryTabs: [101] },
+  ]
+  for (const layout of malformed)
+    assert.equal(await registry.restoreLayout(layout, new AbortController().signal), undefined)
+  assert.equal(reads, 0)
+  assert.deepEqual(registry.tabs, [])
 })

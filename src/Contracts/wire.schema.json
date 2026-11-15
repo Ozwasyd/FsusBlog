@@ -149,6 +149,8 @@
     "AuthoringWorkspaceCommand": 32911,
     "AuthoringWorkspaceLayout": 32913,
     "AuthoringWorkspaceLayoutCommand": 32914,
+    "AuthoringWorkspaceGroups": 32969,
+    "AuthoringWorkspaceGroupsCommand": 32970,
     "AuthorRecentOpenPage": 32958,
     "AuthorRecentOpenCommand": 32959,
     "AuthorRecentOpenReceipt": 32960,
@@ -335,6 +337,7 @@
     "DraftRecoveryScope": "/api/v2/authoring/recovery-scope.aeds",
     "AuthoringWorkspace": "/api/v2/authoring/workspace.aeds",
     "AuthoringWorkspaceLayout": "/api/v2/authoring/workspace/layout.aeds",
+    "AuthoringWorkspaceGroups": "/api/v2/authoring/workspace/groups.aeds",
     "AuthorRecentOpens": "/api/v2/authoring/recent-opens.aeds",
     "MfaSetupStart": "/api/binary/auth/mfa/setup/start",
     "MfaSetupVerify": "/api/binary/auth/mfa/setup/verify",
@@ -399,6 +402,7 @@
     "AuthoringWorkspaceTabs": 100,
     "MaxAuthoringWorkspaceFrameBytes": 436,
     "MaxAuthoringWorkspaceLayoutCommandFrameBytes": 437,
+    "MaxAuthoringWorkspaceGroupsCommandFrameBytes": 449,
     "AuthorRecentOpenPageSize": 20,
     "AuthorRecentOpenCursorChars": 64,
     "MaxAuthorRecentOpenCommandFrameBytes": 56,
@@ -752,6 +756,14 @@
     "AuthoringWorkspaceLayoutCommand": {
       "frame": "AuthoringWorkspaceLayoutCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"]]
+    },
+    "AuthoringWorkspaceGroups": {
+      "frame": "AuthoringWorkspaceGroups",
+      "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"], ["InspectorOpen", "bool"], ["SecondaryActiveArticleId", "i32"], ["SecondaryTabs", "i32s", "AuthoringWorkspaceTabs"], ["FocusedGroup", "i32"]]
+    },
+    "AuthoringWorkspaceGroupsCommand": {
+      "frame": "AuthoringWorkspaceGroupsCommand",
+      "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"], ["SecondaryActiveArticleId", "i32"], ["SecondaryTabs", "i32s", "AuthoringWorkspaceTabs"], ["FocusedGroup", "i32"]]
     },
     "AuthorRecentOpenCommand": {
       "frame": "AuthorRecentOpenCommand",

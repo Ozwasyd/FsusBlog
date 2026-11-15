@@ -242,9 +242,10 @@ const registry = new WorkspaceRegistry<Draft>({
   save: send('save'),
   confirmed: recovery.confirmed,
 })
-const persistence = workspacePersistence(() => registry.savedLayout, () => !registry.hasSecondaryGroup)
+const persistence = workspacePersistence(() => registry.savedLayout, () => registry.hasSecondaryGroup)
 const { record: recordRecentOpen, changed: recentOpensVersion, notice: recentOpensNotice } = recentArticleOpens()
 const layoutNotice = persistence.notice
+const supportsSavedGroups = persistence.supportsGroups
 const inspectorOpen = ref(false)
 const workspaceState = { articleWorkspace: true }
 const persistentWorkspace = ref(route.name === 'article-workspace' || history.state?.articleWorkspace === true)
@@ -307,6 +308,7 @@ onMounted(() => {
   })
   window.addEventListener('beforeunload', onUnload)
   window.addEventListener('pagehide', flushWorkspace)
+  window.addEventListener('offline', persistence.offline)
   document.addEventListener('visibilitychange', flushHiddenWorkspace)
 })
 onUnmounted(() => {
@@ -317,6 +319,7 @@ onUnmounted(() => {
   unsubscribe()
   window.removeEventListener('beforeunload', onUnload)
   window.removeEventListener('pagehide', flushWorkspace)
+  window.removeEventListener('offline', persistence.offline)
   document.removeEventListener('visibilitychange', flushHiddenWorkspace)
 })
 watch(identityEpoch, () => {
@@ -754,7 +757,7 @@ async function reloadDraft() {
       <p v-if="opening" role="status">Opening article…</p>
       <p v-if="navigationNotice" role="alert">{{ navigationNotice }}</p>
       <p v-if="layoutNotice" role="status">{{ layoutNotice }}</p>
-      <p v-if="hasSecondaryGroup && persistentWorkspace" role="status">The second group stays open in this browser tab.</p>
+      <p v-if="hasSecondaryGroup && persistentWorkspace && !supportsSavedGroups" role="status">The second group stays open in this browser tab.</p>
       <p v-if="recentOpensNotice" role="status">{{ recentOpensNotice }}</p>
     </section>
     <p v-if="!authorizationReady || loading" role="status">Opening the editor…</p>
