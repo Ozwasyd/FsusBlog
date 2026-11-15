@@ -68,6 +68,7 @@ internal static partial class Migration
                                         Add optional article read aggregates with the server stopped
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
+                  media-webp schema     Enable limited static WebP media with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
                   article-public-media  Add explicit publication attachment storage with the server stopped
                   article-public-media verify|rebuild SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
@@ -291,6 +292,9 @@ internal static partial class Migration
                     break;
                 case ["private-media-upload", "schema"]:
                     await InitializeMediaUploadAsync(connection, token);
+                    break;
+                case ["media-webp", "schema"]:
+                    await UpgradeMediaFormatsAsync(connection, token);
                     break;
                 case ["article-private-media"]:
                     await InitializeArticleMediaAsync(connection, token);

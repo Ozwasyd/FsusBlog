@@ -97,7 +97,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         {
             var image = images[selection.Assets[ordinal]];
             if (image.Digest.Length != 32 || image.Length is < 1 or > MediaImage.MaxBytes ||
-                image.Format is not (MediaFormat.Png or MediaFormat.Jpeg))
+                image.Format is not (MediaFormat.Png or MediaFormat.Jpeg or MediaFormat.Webp))
                 throw new IOException("The retained private source has invalid metadata.");
             if ((total += image.Length) > CurrentSchema.PublicationMediaMaximumBytes)
                 throw new BusinessException(Rejection.Invalid, "Selected images exceed the 40 MiB publication limit.");

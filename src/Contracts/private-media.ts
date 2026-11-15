@@ -7,11 +7,12 @@ const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const zeroId = '00000000-0000-0000-0000-000000000000';
 const calendarFloor = 621355968000000000n;
 const calendarCeiling = 3155378975999999999n;
+const formats = new Map<string, PrivateMediaItem['format']>([['image/png', 1], ['image/jpeg', 2], ['image/webp', 3]]);
 
 export interface PrivateMediaItem {
   readonly id: string;
   readonly name: string;
-  readonly format: 1 | 2;
+  readonly format: 1 | 2 | 3;
   readonly length: number;
   readonly width: number;
   readonly height: number;
@@ -50,7 +51,7 @@ export function decodeMediaItems(payload: Uint8Array): MediaPage {
     const height = reader.i32();
     const ticks = reader.i64();
     const name = reader.text(255);
-    if (!validId(id) || ids.has(id) || (format !== 1 && format !== 2) || length < 1 || length > WireLimits.PrivateMediaBytes ||
+    if (!validId(id) || ids.has(id) || (format !== 1 && format !== 2 && format !== 3) || length < 1 || length > WireLimits.PrivateMediaBytes ||
         width < 1 || width > 8192 || height < 1 || height > 8192 || width * height > 16 * 1024 * 1024 ||
         ticks < calendarFloor || ticks > calendarCeiling || !name || /[\u0000-\u001f\u007f/\\]/.test(name)) throw invalid();
     ids.add(id);
@@ -60,12 +61,13 @@ export function decodeMediaItems(payload: Uint8Array): MediaPage {
   return { items, hasMore };
 }
 
-export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal, current?: string): Promise<MediaPage & { resumable: boolean }> {
+export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal, current?: string): Promise<MediaPage & { resumable: boolean; webp: boolean }> {
   const query = before ? `?${new URLSearchParams({ before: String(before.ticks), beforeId: before.id })}` : '';
   return request(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, (payload, headers) => {
     const flag = headers.get(WireHeaders.PrivateMediaResumable);
-    if (flag !== null && flag !== '1') throw invalid();
-    return { ...decodeMediaItems(payload), resumable: flag === '1' };
+    const webp = headers.get(WireHeaders.PrivateMediaWebp);
+    if ((flag !== null && flag !== '1') || (webp !== null && webp !== '1')) throw invalid();
+    return { ...decodeMediaItems(payload), resumable: flag === '1', webp: webp === '1' };
   }, signal, 'GET', undefined, siteSessionHeader(current));
 }
 
@@ -145,14 +147,13 @@ function mediaHeader(current: string, digest?: string): Record<string, string> {
 }
 
 function validateFile(file: File, key: string) {
-  if (!validId(key) || file.size < 1 || file.size > WireLimits.PrivateMediaBytes ||
-      (file.type !== 'image/png' && file.type !== 'image/jpeg')) throw invalid();
+  if (!validId(key) || file.size < 1 || file.size > WireLimits.PrivateMediaBytes || !formats.has(file.type)) throw invalid();
 }
 
 function uploaded(payload: Uint8Array, file: File): PrivateMediaItem {
   const page = decodeMediaItems(payload);
   if (page.hasMore || page.items.length !== 1 || page.items[0].name !== file.name ||
-      page.items[0].format !== (file.type === 'image/png' ? 1 : 2)) throw invalid();
+      page.items[0].format !== formats.get(file.type)) throw invalid();
   return page.items[0];
 }
 

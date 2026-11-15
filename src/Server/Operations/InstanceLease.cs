@@ -70,6 +70,7 @@ internal sealed class InstanceLease : IAsyncDisposable
     }
 
     internal CancellationToken Stopped => _stopped.Token;
+    internal bool WebpMedia { get; private set; }
 
     internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null,
         bool? requireAdminInboxReply = null, bool? requireSitePageEditor = null, bool? requireSiteRefresh = null,
@@ -88,7 +89,7 @@ internal sealed class InstanceLease : IAsyncDisposable
             handoff.CommandTimeout = 5;
             await handoff.ExecuteNonQueryAsync(ct);
         }
-        await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription, requireRecoveryKey, requireAdminInboxReply,
+        WebpMedia = await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription, requireRecoveryKey, requireAdminInboxReply,
             requireSitePageEditor: requireSitePageEditor, requireSiteRefresh: requireSiteRefresh,
             requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia);

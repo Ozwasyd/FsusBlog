@@ -429,6 +429,7 @@
     "SourceEventId": "X-Fsus-Source-Event-Id",
     "PrivateMediaDigest": "X-Fsus-Private-Media-SHA256",
     "PrivateMediaResumable": "X-Fsus-Private-Media-Resumable",
+    "PrivateMediaWebp": "X-Fsus-Private-Media-WebP",
     "ArticlePublishImagesEnabled": "X-Fsus-Article-Publish-Images",
     "PublicArticleMediaPresent": "X-Fsus-Public-Article-Media",
     "MfaProof": "X-Fsus-Mfa-Proof",

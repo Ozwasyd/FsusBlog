@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
@@ -19,7 +20,7 @@ internal static class MediaUploadEndpoints
     {
         if (!app.Configuration.GetValue(Setting, false)) return;
 
-        app.MapPost(WireRoutes.PrivateMediaUploadBegin, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapPost(WireRoutes.PrivateMediaUploadBegin, async (HttpContext ctx, Store store, InstanceLease lease, CancellationToken ct) =>
         {
             NoBody(ctx);
             var session = ctx.Request.Cookies[cookie];
@@ -27,7 +28,7 @@ internal static class MediaUploadEndpoints
             {
                 RequireCurrent(ctx, actor.Id, session);
                 var name = Query(ctx, "name", 255) ?? throw Invalid("Set an image name.");
-                var kind = MediaImage.FormatFor(name, Query(ctx, "type", 16) ?? "");
+                var kind = MediaImage.FormatFor(name, Query(ctx, "type", 16) ?? "", lease.WebpMedia);
                 var length = Number(Query(ctx, "length", 8), 1, MediaImage.MaxBytes);
                 var partSize = Query(ctx, "partSize", 7) is { } size ? Number(size, MinPartSize, MaxPartSize) : DefaultPartSize;
                 var key = MediaEndpoints.Key(MediaEndpoints.Only(ctx.Request.Headers[WireHeaders.ClientMutationId], 36));

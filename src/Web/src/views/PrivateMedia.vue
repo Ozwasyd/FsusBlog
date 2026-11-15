@@ -16,6 +16,7 @@ const error = ref('')
 const feedback = ref('')
 const available = ref(true)
 const resumable = ref(false)
+const webp = ref(false)
 const hasMore = ref(false)
 const working = ref(false)
 const loading = ref(false)
@@ -57,6 +58,7 @@ async function load(more = false) {
     hasMore.value = page.hasMore
     available.value = true
     resumable.value = page.resumable && Boolean(currentSession.value?.siteSessionId)
+    webp.value = page.webp
   } catch (reason) { failure(reason, signal, '无法加载资产。') }
   finally { if (current(signal)) loading.value = false }
 }
@@ -88,9 +90,13 @@ async function upload() {
     clearSelection()
     feedback.value = '图片已保存。'
   } catch (reason) {
-    failure(reason, signal, uploadState.value
+    const state = uploadState.value
+    const invalidImage = reason instanceof ApiError && reason.status === 400 && state &&
+      state.received.length === Math.ceil(state.length / state.partSize)
+    failure(reason, signal, state && !invalidImage
       ? '上传未完成。可以重试，已确认的分片会保留。'
-      : '上传失败。请确认图片是 PNG 或 JPEG，且不超过 20 MiB。')
+      : webp.value ? '上传失败。请选择不超过 20 MiB 的 PNG、JPEG 或静态 WebP。'
+        : '上传失败。请选择不超过 20 MiB 的 PNG 或 JPEG。')
   }
   finally { if (current(signal)) working.value = false }
 }
@@ -177,6 +183,7 @@ watch(identityEpoch, () => {
   entries.value = []
   hasMore.value = false
   resumable.value = false
+  webp.value = false
   working.value = false
   loading.value = false
   feedback.value = ''
@@ -196,10 +203,12 @@ onBeforeUnmount(() => scope.abort())
     <template v-else>
       <ElAlert v-if="!available" type="info" title="此站点未启用私有资产库" :closable="false" />
       <template v-else>
-        <ElSettingsSection title="上传私有图片" description="PNG 或 JPEG，不超过 20 MiB。图片仅对上传者可见。">
+        <ElSettingsSection title="上传私有图片" :description="webp
+          ? 'PNG、JPEG 或静态 WebP，不超过 20 MiB。图片仅对上传者可见。'
+          : 'PNG 或 JPEG，不超过 20 MiB。图片仅对上传者可见。'">
           <form class="media-upload" @submit.prevent="upload">
             <label for="private-media-file">选择图片</label>
-            <input id="private-media-file" ref="fileInput" type="file" accept="image/png,image/jpeg"
+            <input id="private-media-file" ref="fileInput" type="file" :accept="webp ? 'image/png,image/jpeg,image/webp' : 'image/png,image/jpeg'"
               :disabled="working" @change="choose" />
             <ElButton native-type="submit" type="primary" :disabled="!selected || loading" :loading="working">上传图片</ElButton>
             <ElButton v-if="uploadState && !uploadState.asset && !working" native-type="button" @click="cancelUpload">取消上传</ElButton>

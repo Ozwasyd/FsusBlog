@@ -1,11 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using SkiaSharp;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal enum MediaFormat : short { Png = 1, Jpeg = 2 }
+internal enum MediaFormat : short { Png = 1, Jpeg = 2, Webp = 3 }
 internal enum MediaPhase : short { Pending, Ready, Removing, Removed }
 
 internal sealed record MediaImage(string Name, MediaFormat Format, int Width, int Height, byte[] Bytes, byte[] RequestHash, byte[] Hash)
@@ -19,12 +20,12 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
     {
         MediaFormat.Png => "image/png",
         MediaFormat.Jpeg => "image/jpeg",
+        MediaFormat.Webp => "image/webp",
         _ => throw new ArgumentOutOfRangeException(nameof(format))
     };
 
-    internal static async Task<MediaImage> ReadAsync(Stream body, int length, string name, string contentType, CancellationToken token)
+    internal static async Task<MediaImage> ReadAsync(Stream body, int length, string name, MediaFormat format, CancellationToken token)
     {
-        var format = FormatFor(name, contentType);
         if (length is < 1 or > MaxBytes) throw Invalid("Invalid image length.");
         var source = new byte[length];
         try { await body.ReadExactlyAsync(source, token); }
@@ -34,14 +35,16 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
         return Normalize(name, format, source, token);
     }
 
-    internal static MediaFormat FormatFor(string name, string contentType)
+    internal static MediaFormat FormatFor(string name, string contentType, bool webp)
     {
         ValidateName(name);
         return contentType switch
         {
             "image/png" when Path.GetExtension(name).Equals(".png", StringComparison.OrdinalIgnoreCase) => MediaFormat.Png,
             "image/jpeg" when Path.GetExtension(name).ToLowerInvariant() is ".jpg" or ".jpeg" => MediaFormat.Jpeg,
-            _ => throw new BadHttpRequestException("Use a PNG or JPEG file with a matching extension.", StatusCodes.Status415UnsupportedMediaType)
+            "image/webp" when webp && Path.GetExtension(name).Equals(".webp", StringComparison.OrdinalIgnoreCase) => MediaFormat.Webp,
+            _ => throw new BadHttpRequestException(webp ? "Use a PNG, JPEG, or static WebP file with a matching extension."
+                : "Use a PNG or JPEG file with a matching extension.", StatusCodes.Status415UnsupportedMediaType)
         };
     }
 
@@ -58,9 +61,17 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
 
     internal static MediaImage Normalize(string name, MediaFormat format, byte[] source, CancellationToken token)
     {
+        if (format == MediaFormat.Webp && !PublishedArticleImage.MatchesFormat(source, (int)format))
+            throw Invalid("Invalid, animated, or unsupported WebP image.");
         using var reader = new MemoryStream(source, writable: false);
         using var codec = SKCodec.Create(reader);
-        var expected = format == MediaFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg;
+        var expected = format switch
+        {
+            MediaFormat.Png => SKEncodedImageFormat.Png,
+            MediaFormat.Jpeg => SKEncodedImageFormat.Jpeg,
+            MediaFormat.Webp => SKEncodedImageFormat.Webp,
+            _ => throw Invalid("Unsupported image format.")
+        };
         if (codec is null || codec.EncodedFormat != expected || codec.FrameCount > 1 ||
             codec.EncodedOrigin != SKEncodedOrigin.TopLeft)
             throw Invalid("Invalid or unsupported image.");
@@ -74,10 +85,12 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
         if (!bitmap.TryAllocPixels(pixels) || codec.GetPixels(pixels, bitmap.GetPixels()) != SKCodecResult.Success)
             throw Invalid("Could not decode the entire image.");
         token.ThrowIfCancellationRequested();
-        using var result = bitmap.Encode(expected, 90);
+        using var result = format == MediaFormat.Webp ? EncodeWebp(bitmap) : bitmap.Encode(expected, 90);
         if (result is null || result.Size is < 1 or > MaxBytes)
             throw Invalid("Normalized image exceeds the supported limit.");
         var normalized = result.ToArray();
+        if (format == MediaFormat.Webp && !PublishedArticleImage.MatchesFormat(normalized, (int)format))
+            throw Invalid("Could not encode a static WebP image.");
 
         using var fingerprint = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         fingerprint.AppendData(Utf8.GetBytes(name));
@@ -85,6 +98,12 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
         fingerprint.AppendData(source);
         token.ThrowIfCancellationRequested();
         return new MediaImage(name, format, size.Width, size.Height, normalized, fingerprint.GetHashAndReset(), SHA256.HashData(normalized));
+    }
+
+    private static SKData? EncodeWebp(SKBitmap bitmap)
+    {
+        using var pixels = bitmap.PeekPixels();
+        return pixels?.Encode(new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossless, 10));
     }
 
     private static BusinessException Invalid(string message) => new(Rejection.Invalid, message);

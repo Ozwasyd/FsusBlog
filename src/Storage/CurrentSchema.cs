@@ -63,7 +63,7 @@ internal static partial class CurrentSchema
         "blog_outbox f article_id,revision public.article_revision:article_id,revision"
     ];
 
-    internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
+    internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
         bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
         bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null)
     {
@@ -88,7 +88,7 @@ internal static partial class CurrentSchema
                 throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
         }
 
-        await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
+        var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
             requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
             requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch);
@@ -104,9 +104,10 @@ internal static partial class CurrentSchema
         }
 
         await transaction.CommitAsync(cancellationToken);
+        return webpMedia;
     }
 
-    internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+    internal static async Task<bool> VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
@@ -398,12 +399,15 @@ internal static partial class CurrentSchema
                 (reader.GetString(0) == "column" ? columns : constraints).Add(reader.GetString(1));
         }
 
+        var webpMedia = constraints.Contains("private_media c format format>=1ANDformat<=3", StringComparer.Ordinal);
+        if (webpMedia) expectedConstraints = expectedConstraints.Select(WithWebpFormat).ToArray();
         AssertShape("relation/column", expectedColumns, columns);
         AssertShape("constraint", expectedConstraints, constraints);
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
         if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
+        return webpMedia;
     }
 
     private static void AssertShape(string kind, string[] expected, List<string> observed)

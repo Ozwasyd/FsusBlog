@@ -21,4 +21,12 @@ internal static partial class CurrentSchema
         "private_media c height height>=1ANDheight<=8192",
         "private_media c phase phase>=0ANDphase<=3"
     ];
+
+    private static string WithWebpFormat(string constraint) => constraint switch
+    {
+        "private_media c format format>=1ANDformat<=2" or
+        "private_media_upload c format format>=1ANDformat<=2" or
+        "article_publication_media c format format>=1ANDformat<=2" => constraint[..^1] + "3",
+        _ => constraint
+    };
 }

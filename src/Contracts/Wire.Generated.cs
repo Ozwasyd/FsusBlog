@@ -763,6 +763,7 @@ public static class WireHeaders
     public const string SourceEventId = "X-Fsus-Source-Event-Id";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
+    public const string PrivateMediaWebp = "X-Fsus-Private-Media-WebP";
     public const string ArticlePublishImagesEnabled = "X-Fsus-Article-Publish-Images";
     public const string PublicArticleMediaPresent = "X-Fsus-Public-Article-Media";
     public const string MfaProof = "X-Fsus-Mfa-Proof";

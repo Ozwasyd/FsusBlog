@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { api } from '../../src/Contracts/client.ts'
-import { uploadMedia } from '../../src/Contracts/private-media.ts'
+import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -15,6 +15,8 @@ const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 assert(evidence, 'Provide an evidence directory for the native public image test.')
 const publishPath = WireRoutes.ArticlePublishImages
+const webp = process.env.FSUSBLOG_TEST_MEDIA_WEBP === '1'
+const chosenContentType = webp ? 'image/webp' : 'image/png'
 const viewports = [{ width: 1280, height: 800 }, { width: 375, height: 850 }]
 const expectedResourceStatuses = new Map([
   [WireRoutes.Session, '401'], [WireRoutes.SiteRefreshStatus, '404'], [WireRoutes.PasskeyAvailability, '404'],
@@ -54,12 +56,12 @@ try {
       })
       await page.goto(origin + '/login')
       const imageWidth = 640
-      const chosen = await imageFixture(page, `publish-choice-${device}.png`, imageWidth, 80, '#2f5d96', '#e7aa70')
+      const chosen = await imageFixture(page, `publish-choice-${device}.${webp ? 'webp' : 'png'}`, imageWidth, 80, '#2f5d96', '#e7aa70', chosenContentType)
       const privateOnly = await imageFixture(page, `keep-private-${device}.png`, 100, 90, '#851d39', '#338758')
       const ticket = index === 0 ? process.env.FSUSBLOG_TEST_TICKET : process.env.FSUSBLOG_TEST_MOBILE_TICKET
       assert(ticket, 'Provide separate one-time author tickets for the desktop and mobile fixtures.')
       const title = `Explicit article images ${device}`
-      const fixture = await createDraft(author, ticket, title, chosen, privateOnly)
+      const fixture = await createDraft(page, author, ticket, title, chosen, privateOnly)
       const articleId = fixture.draft.id
       const articlePath = `${origin}/article/${articleId}`
       const inspector = page.getByRole('button', { name: 'Inspector', exact: true })
@@ -160,7 +162,7 @@ try {
       assert.notEqual(online.publication, ordinaryRelease.publication)
       assert.equal(online.media, '1')
       const manifest = await readManifest(anonymous, articleId, online.publication)
-      assert.deepEqual(manifest.images, [{ digest: chosenPreview.digest, format: 1,
+      assert.deepEqual(manifest.images, [{ digest: chosenPreview.digest, format: webp ? 3 : 1,
         length: chosenPreview.length, width: imageWidth, height: 80 }])
       for (const asset of [fixture.chosen, fixture.privateOnly]) {
         assert.equal(manifest.bytes.includes(asset.name), false)
@@ -171,11 +173,17 @@ try {
       const raw = await anonymous.request.get(publicUrl)
       assert.equal(raw.status(), 200)
       assert.equal(raw.headers()['cache-control'], 'no-store')
-      assert.equal(raw.headers()['content-type'], 'image/png')
+      assert.equal(raw.headers()['content-type'], chosenContentType)
       assert.equal(raw.headers()['x-content-type-options'], 'nosniff')
       assert.equal(raw.headers()['cross-origin-resource-policy'], 'same-origin')
       assert.equal(Number(raw.headers()['content-length']), chosenPreview.length)
-      assert.equal(sha256(await raw.body()), chosenPreview.digest)
+      const publicBytes = await raw.body()
+      assert.equal(sha256(publicBytes), chosenPreview.digest)
+      if (webp) {
+        assert.equal(publicBytes.subarray(0, 4).toString('ascii'), 'RIFF')
+        assert.equal(publicBytes.readUInt32LE(4), publicBytes.length - 8)
+        assert.equal(publicBytes.subarray(8, 12).toString('ascii'), 'WEBP')
+      }
       const head = await anonymous.request.head(publicUrl)
       assert.equal(head.status(), 200)
       for (const header of ['cache-control', 'content-type', 'content-length', 'cross-origin-resource-policy']) {
@@ -241,7 +249,8 @@ try {
       assert.equal(stillPrivate.digest, privatePreview.digest, 'Withdrawal must leave the owner’s private attachment available.')
       assert.equal(stillOwned.digest, chosenPreview.digest, 'Withdrawal must leave the previously published image available to its owner.')
       assert.deepEqual(errors, [])
-      assertions.push({ device, viewport, title, articleId, previous: String(ordinaryRelease.publication), publication: String(online.publication),
+      assertions.push({ device, viewport, title, articleId, imageContentType: chosenContentType,
+        previous: String(ordinaryRelease.publication), publication: String(online.publication),
         imageDigest: chosenPreview.digest, imageBytes: chosenPreview.length, explicitWrites: explicitWrites.length, cancellationKeptPrivate: true,
         ordinaryPublicationNoImages: true, unpublishedAssetHidden: true, publicHtmlAndHydratedGallery: true,
         anonymousGetHead: true, withdrawnConditionalDenied: true, privatePreviewRetained: true })
@@ -259,8 +268,8 @@ finally {
 if (failure) throw failure
 console.log('Explicit public article images, withdrawal, and private attachment access passed in desktop and narrow Chrome.')
 
-async function imageFixture(page, name, width, height, background, accent) {
-  const base64 = await page.evaluate(({ width, height, background, accent }) => {
+async function imageFixture(page, name, width, height, background, accent, type = 'image/png') {
+  const data = await page.evaluate(({ width, height, background, accent, type }) => {
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -269,12 +278,13 @@ async function imageFixture(page, name, width, height, background, accent) {
     context.fillRect(0, 0, width, height)
     context.fillStyle = accent
     context.fillRect(18, 12, 39, 25)
-    return canvas.toDataURL('image/png').split(',')[1]
-  }, { width, height, background, accent })
-  return new File([Buffer.from(base64, 'base64')], name, { type: 'image/png' })
+    return canvas.toDataURL(type)
+  }, { width, height, background, accent, type })
+  assert(data.startsWith(`data:${type};base64,`))
+  return new File([Buffer.from(data.split(',')[1], 'base64')], name, { type })
 }
 
-async function createDraft(context, ticket, title, chosen, privateOnly) {
+async function createDraft(page, context, ticket, title, chosen, privateOnly) {
   let cookie
   const native = globalThis.fetch
   globalThis.fetch = async (path, options) => {
@@ -288,12 +298,34 @@ async function createDraft(context, ticket, title, chosen, privateOnly) {
     const session = await api.signIn(ticket)
     assert(cookie)
     await context.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict', secure: origin.startsWith('https:') }])
-    const selectedAsset = await uploadMedia(chosen, crypto.randomUUID())
+    const selectedAsset = webp ? await uploadWebpInLibrary(page, chosen) : await uploadMedia(chosen, crypto.randomUUID())
     const unselectedAsset = await uploadMedia(privateOnly, crypto.randomUUID())
     const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(), title,
       body: 'The gallery holds only the images selected for this publication.' }, undefined, session.siteSessionId)
     return { draft, chosen: selectedAsset, privateOnly: unselectedAsset }
   } finally { globalThis.fetch = native }
+}
+
+async function uploadWebpInLibrary(page, file) {
+  const listed = page.waitForResponse(response => response.url() === origin + WireRoutes.PrivateMediaList)
+  await page.goto(origin + '/user/manage/assets')
+  const listing = await listed
+  assert.equal(listing.status(), 200)
+  assert.equal(listing.headers()[WireHeaders.PrivateMediaWebp.toLowerCase()], '1')
+  const chooser = page.locator('#private-media-file[accept*="image/webp"]')
+  await chooser.setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) })
+  const stored = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PrivateMediaUpload)
+  await page.getByRole('button', { name: '上传图片', exact: true }).click()
+  const receipt = await stored
+  assert.equal(receipt.status(), 200)
+  const frame = decodeFrame(await receipt.body())
+  assert.equal(frame.type, FrameType.PrivateMediaItems)
+  const { items } = decodeMediaItems(frame.payload)
+  assert.equal(items.length, 1)
+  assert.equal(items[0].name, file.name)
+  assert.equal(items[0].format, 3)
+  await page.getByText('图片已保存。', { exact: true }).waitFor()
+  return items[0]
 }
 
 async function attach(page, name) {
@@ -308,6 +340,7 @@ async function preview(page, name, width) {
   await page.getByRole('button', { name: `Preview ${name}`, exact: true }).press('Enter')
   const response = await received
   assert.equal(response.status(), 200)
+  assert.equal(response.headers()['content-type'], name.endsWith('.webp') ? 'image/webp' : 'image/png')
   const authorization = await response.request().headerValue('authorization')
   assert.match(authorization ?? '', /^Bearer [A-Za-z0-9_-]{91}$/)
   const image = page.getByRole('img', { name, exact: true })

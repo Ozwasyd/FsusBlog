@@ -74,6 +74,10 @@ export FSUSBLOG_DB="Host=$scratch/socket;Port=54930;Username=fsusqa;Database=pos
 migrate=(dotnet "$scratch/migrate/FsusBlogV2.Migrate.dll")
 "${migrate[@]}" plan > "$evidence/schema-plan.json"
 "${migrate[@]}" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
+if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
+  "${migrate[@]}" media-webp schema >> "$evidence/schema.log"
+  "${migrate[@]}" media-webp schema >> "$evidence/schema.log"
+fi
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
@@ -161,6 +165,13 @@ for (( attempt=0; attempt<100; attempt++ )); do
 done
 [[ -n "$url" ]] && curl --silent --fail "$url/health/ready" >/dev/null
 export FSUSBLOG_TEST_URL="$url"
+if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
+  if "${migrate[@]}" media-webp schema > "$evidence/media-webp-live-rejection.log" 2>&1; then
+    echo 'A live serving process must reject the WebP schema upgrade.' >&2
+    exit 1
+  fi
+  rg -q 'Stop the serving process before changing the database schema.' "$evidence/media-webp-live-rejection.log"
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   node tests/EndToEnd/run-canvas-scale.mjs
   "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \

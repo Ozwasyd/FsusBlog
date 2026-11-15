@@ -9,10 +9,14 @@ internal static partial class Migration
         await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         await PrepareSchemaAddition(db, tx, ct);
         var exists = await CurrentSchema.HasPublicationMediaAsync(db, tx, ct);
-        await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requirePublicationMedia: exists);
+        var webpMedia = await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requirePublicationMedia: exists);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
-        if (!exists) await ApplySchemaAddition(db, tx, "publication-media.sql", ct);
+        if (!exists)
+        {
+            await ApplySchemaAddition(db, tx, "publication-media.sql", ct);
+            if (webpMedia) await AllowWebpFormatAsync(db, tx, "article_publication_media", ct);
+        }
         await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requirePublicationMedia: true);
         await VerifyPublicationMediaAsync(db, tx, ct);
         await tx.CommitAsync(ct);

@@ -16,9 +16,10 @@ internal static partial class Migration
         var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
         if (!await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct))
         {
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, schedule,
+            var webpMedia = await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, schedule,
                 requireMediaUpload: false, requirePublicationRights: hasPublicationRights);
             await ApplySchemaAddition(connection, tx, "private-media-uploads.sql", ct);
+            if (webpMedia) await AllowWebpFormatAsync(connection, tx, "private_media_upload", ct);
         }
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, recovery, revision, admin, publication, schedule, requirePublicationRights: hasPublicationRights);
         if (recovery) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);

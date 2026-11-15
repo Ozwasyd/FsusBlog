@@ -49,10 +49,10 @@ export async function privateArticlePreview(ticket: string, signal?: AbortSignal
   if (!validTicket(ticket)) throw invalid();
   const response = await fetch(WireRoutes.ArticleMediaPreview, {
     credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal,
-    headers: { Authorization: `Bearer ${ticket}`, Accept: 'image/png, image/jpeg' },
+    headers: { Authorization: `Bearer ${ticket}`, Accept: 'image/png, image/jpeg, image/webp' },
   });
   const type = response.headers.get('content-type');
-  if (!response.ok || type !== 'image/png' && type !== 'image/jpeg') {
+  if (!response.ok || type !== 'image/png' && type !== 'image/jpeg' && type !== 'image/webp') {
     await response.body?.cancel();
     throw invalid();
   }

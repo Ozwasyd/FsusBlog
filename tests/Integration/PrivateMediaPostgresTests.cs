@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Sessions;
+using FsusBlogV2.Storage;
 using Npgsql;
 using SkiaSharp;
 
@@ -36,6 +37,9 @@ public sealed class PrivateMediaPostgresTests
             var command = Guid.NewGuid();
             using var unsupported = await Upload(server.Client, primary, command, "sample.svg", "image/svg+xml", "<svg/>"u8.ToArray(), ct);
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, unsupported.StatusCode);
+            using var webpBeforeUpgrade = await Upload(server.Client, primary, command, "sample.webp", "image/webp",
+                EncodeImage(SKEncodedImageFormat.Webp), ct);
+            Assert.Equal(HttpStatusCode.UnsupportedMediaType, webpBeforeUpgrade.StatusCode);
             using var wrongType = await Upload(server.Client, primary, command, "sample.png", "image/png", jpeg, ct);
             Assert.Equal(HttpStatusCode.BadRequest, wrongType.StatusCode);
             using var truncated = await Upload(server.Client, primary, command, "sample.png", "image/png", png[..24], ct);
@@ -57,6 +61,7 @@ public sealed class PrivateMediaPostgresTests
             using var list = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, primary, ct);
             Assert.Equal(asset, First(await list.Content.ReadAsByteArrayAsync(ct), 1));
             Assert.False(list.Headers.Contains(WireHeaders.PrivateMediaResumable));
+            Assert.False(list.Headers.Contains(WireHeaders.PrivateMediaWebp));
             using var otherList = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, another, ct);
             Assert.Equal(Guid.Empty, First(await otherList.Content.ReadAsByteArrayAsync(ct), 0));
 
@@ -100,6 +105,103 @@ public sealed class PrivateMediaPostgresTests
             Assert.Equal("image/jpeg", jpegContent.Content.Headers.ContentType?.MediaType);
             using var jpegBitmap = SKBitmap.Decode(await jpegContent.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal((3, 2), (jpegBitmap.Width, jpegBitmap.Height));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [PostgresFact]
+    public async Task CoherentWebpSchemaAdmitsStaticNativeBytesAndResumableReadsOnlyForTheOwner()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
+        {
+            Assert.False(await CurrentSchema.VerifyAsync(connection, ct));
+            await using (var first = db.DataSource.CreateCommand("""
+                alter table public.private_media drop constraint private_media_format_check,
+                  add constraint private_media_format_check check (format between 1 and 3)
+                """)) await first.ExecuteNonQueryAsync(ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
+            await using (var rest = db.DataSource.CreateCommand("""
+                alter table public.private_media_upload drop constraint private_media_upload_format_check,
+                  add constraint private_media_upload_format_check check (format between 1 and 3);
+                alter table public.article_publication_media drop constraint article_publication_media_format_check,
+                  add constraint article_publication_media_format_check check (format between 1 and 3)
+                """)) await rest.ExecuteNonQueryAsync(ct);
+            Assert.True(await CurrentSchema.VerifyAsync(connection, ct));
+        }
+
+        var owner = await Author(db.DataSource, "webp-owner", true, ct);
+        var other = await Author(db.DataSource, "webp-other", true, ct);
+        var directory = Directory.CreateTempSubdirectory("fsusblog-media-webp-");
+        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
+            ? "/private" + directory.FullName : directory.FullName;
+        var settings = new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root, [MediaUploadEndpoints.Setting] = "true" };
+        var key = Guid.NewGuid();
+        const int partSize = 65536;
+        var image = EncodeImage(SKEncodedImageFormat.Webp, 320, 320);
+        Assert.InRange(image.Length, partSize + 1, partSize * 2);
+        Guid upload;
+        try
+        {
+            await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
+            {
+                using var list = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, owner, ct);
+                Assert.Equal("1", Assert.Single(list.Headers.GetValues(WireHeaders.PrivateMediaWebp)));
+                var animated = AnimateOnce(EncodeImage(SKEncodedImageFormat.Webp));
+                using var codec = SKCodec.Create(new MemoryStream(animated));
+                Assert.NotNull(codec);
+                Assert.Equal(1, codec.FrameCount);
+                foreach (var invalid in new[] { animated, image[..^1], EncodeImage(SKEncodedImageFormat.Png) })
+                {
+                    using var rejected = await Upload(server.Client, owner, Guid.NewGuid(), "invalid.webp", "image/webp", invalid, ct);
+                    Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+                }
+                using var unknown = await Upload(server.Client, owner, Guid.NewGuid(), "missing.png", "image/webp", image, ct);
+                Assert.Equal(HttpStatusCode.UnsupportedMediaType, unknown.StatusCode);
+                Assert.Empty(directory.EnumerateFiles());
+                using var animatedUpload = await Begin(server.Client, owner, Guid.NewGuid(), "animated.webp", animated, ct, type: "image/webp");
+                var rejectedUpload = await State(animatedUpload, [], ct);
+                using var animatedPart = await Part(server.Client, owner, rejectedUpload, 0, 0, animated, ct);
+                Assert.Equal(rejectedUpload, await State(animatedPart, [0], ct));
+                using var rejectedFinalize = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, rejectedUpload), owner, ct);
+                Assert.Equal(HttpStatusCode.BadRequest, rejectedFinalize.StatusCode);
+                using var cancelled = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, rejectedUpload), owner, ct);
+                Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+                Assert.Empty(directory.EnumerateFiles());
+                using var started = await Begin(server.Client, owner, key, "resumable.webp", image, ct, type: "image/webp");
+                upload = await State(started, [], ct);
+                using var one = await Part(server.Client, owner, upload, 0, 0, image[..partSize], ct);
+                Assert.Equal(upload, await State(one, [0], ct));
+            }
+
+            await using var restarted = await ServerProcess.Start(db.ConnectionString, ct, settings);
+            using var retry = await Begin(restarted.Client, owner, key, "resumable.webp", image, ct, type: "image/webp");
+            Assert.Equal(upload, await State(retry, [0], ct));
+            using var two = await Part(restarted.Client, owner, upload, 1, partSize, image[partSize..], ct);
+            Assert.Equal(upload, await State(two, [0, 1], ct));
+            using var completed = await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct);
+            Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+            var frame = await completed.Content.ReadAsByteArrayAsync(ct);
+            var asset = First(frame, 1);
+            Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(Aeds.Decode(frame, FrameType.PrivateMediaItems)[25..]));
+            var raw = PathFor(WireRoutes.PrivateMediaRead, asset);
+            await AssertHidden(restarted.Client, HttpMethod.Get, raw, other, ct);
+            await AssertHidden(restarted.Client, HttpMethod.Head, raw, null, ct);
+            using var allowed = await Send(restarted.Client, HttpMethod.Get, raw, owner, ct);
+            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+            Assert.Equal("image/webp", allowed.Content.Headers.ContentType?.MediaType);
+            var canonical = await allowed.Content.ReadAsByteArrayAsync(ct);
+            Assert.True(PublishedArticleImage.MatchesFormat(canonical, 3));
+            using var native = SKBitmap.Decode(canonical);
+            Assert.Equal((320, 320), (native.Width, native.Height));
+            Assert.Equal(0, native.GetPixel(0, 0).Alpha);
+            using var deleted = await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
+            Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+            Assert.Empty(directory.EnumerateFiles());
         }
         finally { directory.Delete(recursive: true); }
     }
@@ -234,6 +336,9 @@ public sealed class PrivateMediaPostgresTests
                 Assert.Equal(HttpStatusCode.Forbidden, auth.StatusCode);
                 using var advertised = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, owner, ct);
                 Assert.Equal("1", Assert.Single(advertised.Headers.GetValues(WireHeaders.PrivateMediaResumable)));
+                using var webpBeforeUpgrade = await Begin(server.Client, owner, key, "resumable.webp",
+                    EncodeImage(SKEncodedImageFormat.Webp), ct, type: "image/webp");
+                Assert.Equal(HttpStatusCode.UnsupportedMediaType, webpBeforeUpgrade.StatusCode);
                 using var stale = await Begin(server.Client, foreign, key, "resumable.png", image, ct, owner);
                 Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
                 using var created = await Begin(server.Client, owner, key, "resumable.png", image, ct);
@@ -350,7 +455,7 @@ public sealed class PrivateMediaPostgresTests
             using (var files = new MediaFiles(storage, AppContext.BaseDirectory))
             {
                 var media = new MediaStore(files);
-                var image = await MediaImage.ReadAsync(new MemoryStream(png), png.Length, "pending.png", "image/png", ct);
+                var image = await MediaImage.ReadAsync(new MemoryStream(png), png.Length, "pending.png", MediaFormat.Png, ct);
                 await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
                 await using (var transaction = await connection.BeginTransactionAsync(ct))
                 {
@@ -391,21 +496,51 @@ public sealed class PrivateMediaPostgresTests
         finally { directory.Delete(recursive: true); }
     }
 
-    private static byte[] EncodeImage(SKEncodedImageFormat format)
+    private static byte[] EncodeImage(SKEncodedImageFormat format, int width = 3, int height = 2)
     {
-        using var image = new SKBitmap(3, 2);
-        image.Erase(SKColors.SteelBlue);
+        using var image = new SKBitmap(width, height);
+        if (width == 3 && height == 2) image.Erase(SKColors.SteelBlue);
+        else
+        {
+            var random = new Random(233);
+            for (var y = 0; y < height; y++)
+                for (var x = 0; x < width; x++)
+                    image.SetPixel(x, y, new SKColor((uint)random.Next(1 << 24) | 0xff000000));
+            image.SetPixel(0, 0, SKColors.Transparent);
+        }
         using var encoded = image.Encode(format, 90);
         return encoded.ToArray();
+    }
+
+    private static byte[] AnimateOnce(byte[] still)
+    {
+        using var file = new MemoryStream();
+        using var writer = new BinaryWriter(file);
+        writer.Write("RIFF"u8);
+        writer.Write(0);
+        writer.Write("WEBP"u8);
+        writer.Write("VP8X"u8);
+        writer.Write(10);
+        writer.Write(new byte[] { 2, 0, 0, 0, 2, 0, 0, 1, 0, 0 });
+        writer.Write("ANIM"u8);
+        writer.Write(6);
+        writer.Write(new byte[6]);
+        writer.Write("ANMF"u8);
+        writer.Write(16 + still.Length - 12);
+        writer.Write(new byte[] { 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 100, 0, 0, 0 });
+        writer.Write(still.AsSpan(12));
+        var bytes = file.ToArray();
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), bytes.Length - 8);
+        return bytes;
     }
 
     private static string PathFor(string route, Guid id) => route.Replace("{id}", id.ToString("D"), StringComparison.Ordinal);
 
     private static async Task<HttpResponseMessage> Begin(HttpClient client, SessionFixture actor, Guid key, string name, byte[] image,
-        CancellationToken ct, SessionFixture? expected = null)
+        CancellationToken ct, SessionFixture? expected = null, string type = "image/png")
     {
         using var request = Request(HttpMethod.Post,
-            $"{WireRoutes.PrivateMediaUploadBegin}?name={Uri.EscapeDataString(name)}&type=image%2Fpng&length={image.Length}&partSize=65536", actor);
+            $"{WireRoutes.PrivateMediaUploadBegin}?name={Uri.EscapeDataString(name)}&type={Uri.EscapeDataString(type)}&length={image.Length}&partSize=65536", actor);
         request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
         if (expected is not null)
         {

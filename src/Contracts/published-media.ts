@@ -9,7 +9,7 @@ const publicationBytes = 40 * 1024 * 1024;
 
 export interface PublicArticleImage {
   readonly digest: string;
-  readonly format: 1 | 2;
+  readonly format: 1 | 2 | 3;
   readonly length: number;
   readonly width: number;
   readonly height: number;
@@ -66,7 +66,7 @@ export function fetchPublicArticleMedia(id: number, publication: bigint, signal?
       const length = view.getInt32(start + 36, true);
       const width = view.getInt32(start + 40, true);
       const height = view.getInt32(start + 44, true);
-      if (known.has(digest) || (format !== 1 && format !== 2) || length < 1 || length > WireLimits.PrivateMediaBytes ||
+      if (known.has(digest) || (format !== 1 && format !== 2 && format !== 3) || length < 1 || length > WireLimits.PrivateMediaBytes ||
           width < 1 || width > 8192 || height < 1 || height > 8192 || width * height > 16 * 1024 * 1024) throw invalid();
       total += length;
       if (total > publicationBytes) throw invalid();

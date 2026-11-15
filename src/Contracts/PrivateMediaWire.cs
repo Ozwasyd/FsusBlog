@@ -41,7 +41,7 @@ public static partial class Wire
         writer.I32(items.Count);
         foreach (var item in items)
         {
-            if (item.Format is not (1 or 2) || item.Length is < 1 or > WireLimits.PrivateMediaBytes ||
+            if (item.Format is not (1 or 2 or 3) || item.Length is < 1 or > WireLimits.PrivateMediaBytes ||
                 item.Width is < 1 or > 8192 || item.Height is < 1 or > 8192 || item.Id == Guid.Empty ||
                 item.CreatedAt.Offset != TimeSpan.Zero || item.Name.Length == 0)
                 throw new ProtocolException("Invalid private media record.");

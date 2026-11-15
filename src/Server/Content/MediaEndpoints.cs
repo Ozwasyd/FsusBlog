@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
@@ -23,7 +24,7 @@ internal static class MediaEndpoints
     internal static void Map(WebApplication app, string cookie, bool publishedMedia = false)
     {
         var resumable = app.Configuration.GetValue(MediaUploadEndpoints.Setting, false);
-        app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
+        app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
         {
             var boundary = Position(ctx);
             var session = ctx.Request.Cookies[cookie];
@@ -34,23 +35,24 @@ internal static class MediaEndpoints
             }, token);
             var more = rows.Count == 51;
             if (resumable) ctx.Response.Headers[WireHeaders.PrivateMediaResumable] = "1";
+            if (lease.WebpMedia) ctx.Response.Headers[WireHeaders.PrivateMediaWebp] = "1";
             return Results.Bytes(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
-        app.MapPost(WireRoutes.PrivateMediaUpload, async (HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
+        app.MapPost(WireRoutes.PrivateMediaUpload, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
         {
             var session = ctx.Request.Cookies[cookie];
             await store.WithSession(session, true, (_, _, _) => Task.FromResult(true), token);
             var key = Key(Only(ctx.Request.Headers[WireHeaders.ClientMutationId], 36));
             var name = Only(ctx.Request.Query["name"], 255) ?? throw Invalid("Set an image name.");
-            var type = ctx.Request.ContentType ?? string.Empty;
             var length = RequireLength(ctx);
+            var format = MediaImage.FormatFor(name, ctx.Request.ContentType ?? string.Empty, lease.WebpMedia);
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
             deadline.CancelAfter(TimeSpan.FromSeconds(45));
 
             try
             {
-                var image = await MediaImage.ReadAsync(ctx.Request.Body, length, name, type, deadline.Token);
+                var image = await MediaImage.ReadAsync(ctx.Request.Body, length, name, format, deadline.Token);
                 var id = await store.WithSession(session, true,
                     (db, tx, actor) => media.Reserve(db, tx, actor.Id, key, image, deadline.Token), deadline.Token);
                 var record = await store.WithSession(session, true,
