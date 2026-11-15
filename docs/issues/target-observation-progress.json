@@ -3,7 +3,7 @@
   "startedAtUtc": "2026-11-14T17:28:53+00:00",
   "finishedAtUtc": "2026-11-14T17:31:08+00:00",
   "frozenAbsentTargets": 183,
-  "frozenReferenceLocators": 605,
+  "frozenReferenceLocators": 607,
   "observedTargets": 183,
   "graphQLRequests": 13,
   "restChecks": 16,
@@ -12,7 +12,7 @@
       "kind": "Issue",
       "state": "CLOSED",
       "targets": 168,
-      "referenceLocators": 573
+      "referenceLocators": 575
     },
     {
       "kind": "PullRequest",

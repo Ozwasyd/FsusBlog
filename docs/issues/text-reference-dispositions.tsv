@@ -1419,6 +1419,13 @@ https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L2	Depends on	2298	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L2	Depends on	2299	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L2	Depends on	2300	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L11		2230	OPEN	prerequisite		0	#2233:10-12; #1806:7-14	最近访问顺序由站点及作者绑定的已持久服务端历史提供。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L11		2231	OPEN	prerequisite		0	#2233:10-12; #2233:27-29; #2231:10-21	有权的当前产品查询及选中前复核属于服务端，失权和迟到结果不得展示。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L11		2232	OPEN	prerequisite		0	#2233:11-12; #2233:27-29; #2232:10-17	经过身份、范围和新鲜度验证的缓存提供明确标记的离线结果，最近访问仍按服务端顺序显示。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L20		1854	OPEN	prerequisite		0	#2233:14-26; #1854:7-16; #2233:75-77	调用原唯一 open-or-activate 生产者，已在另一组时激活该会话。父项保留跟踪职责。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L25		1855	OPEN	scope-exclusion		0	#2233:20-26; #2233:75-77; #2300:10-15	显式另一组操作由独立组命令承担。Enter 激活应用内唯一会话，Mod+Enter 打开浏览器新标签。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L38		2234	OPEN	scope-exclusion		0	#2233:10-12; #2233:36-42; #2234:23-25	文章模式只查文章。作者动作及处理结果由命令面板负责。
+https://github.com/Ozwasyd/FsusBlog/issues/2233	https://github.com/Ozwasyd/FsusBlog/issues/2233	issue=2233.body:L77		2235	OPEN	tracking		0	#2233:75-77; #2235:10-17	本项交付实际文章入口与工作区接线。终态汇总由另一验收项独立核对。
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L1	Parent	1806	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L2	Depends on	1803	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L2	Depends on	1805	OPEN	prerequisite		1	—	—
@@ -1429,6 +1436,9 @@ https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L2	Depends on	2298	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L2	Depends on	2299	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L2	Depends on	2300	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L24		2233	OPEN	scope-exclusion		0	#2234:23-27; #2233:10-12	命令面板保持纯动作列表，Ctrl 或 Cmd+O 仍归唯一文章入口。
+https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L79		2235	OPEN	tracking		0	#2234:77-79; #2235:10-17	聚合完整导航终态。实际命令注册及执行仍由本项验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2234	https://github.com/Ozwasyd/FsusBlog/issues/2234	issue=2234.body:L79		2300	OPEN	acceptance-gate		0	#2234:77-79; #2300:67-69	注册既有组命令并验证真实可用性、权限、结果及与菜单和其他输入路径的一致性。
 https://github.com/Ozwasyd/FsusBlog/issues/2235	https://github.com/Ozwasyd/FsusBlog/issues/2235	issue=2235.body:L1	Parent	1806	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2235	https://github.com/Ozwasyd/FsusBlog/issues/2235	issue=2235.body:L2	Depends on	1854	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2235	https://github.com/Ozwasyd/FsusBlog/issues/2235	issue=2235.body:L2	Depends on	1855	OPEN	prerequisite		1	—	—
@@ -1701,6 +1711,11 @@ https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L2	Depends on	2263	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L2	Depends on	2265	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L2	Depends on	2280	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L10		2243	ABSENT	prerequisite		0	#2283:10-16; #2283:17-22	预览请求和结果绑定当前文章、文档代次、草稿修订及全部材料，禁止同正文跨文章复用。
+https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L16		2250	OPEN	prerequisite		0	#2283:15-21; #2250:11-24	开关预览消费连续性钩子，保留编辑器、选区与历史。预览继续拥有实际产品渲染。
+https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L66		2265	OPEN	acceptance-gate		0	#2283:64-70; #2265:18-24	预览依赖同次附件终态真实浏览器、安全、清理和回归证据，前四个能力或旧收据不足以通过。
+https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283	issue=2283.body:L68		1907	OPEN	scope-exclusion		0	#2283:66-70; #1810:9-23	图片 caption 组合由其唯一执行者集成和验证。
+https://github.com/Ozwasyd/FsusBlog/issues/2283	https://github.com/Ozwasyd/FsusBlog/issues/2283#issuecomment-6053334791	issue=2283.comment=6053334791.body:L1		2245	OPEN	reported-blocker		0	#2283@6053334791:1; #2283:10-16; #2245:11-16	历史候选 SSR 接受另一文章的责任快照。当前验收需核对目标文章、文档代次和责任绑定；原有证据只覆盖候选 SSR。
 https://github.com/Ozwasyd/FsusBlog/issues/2284	https://github.com/Ozwasyd/FsusBlog/issues/2284	issue=2284.body:L1	Parent	1814	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2284	https://github.com/Ozwasyd/FsusBlog/issues/2284	issue=2284.body:L2	Depends on	2243	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2284	https://github.com/Ozwasyd/FsusBlog/issues/2284	issue=2284.body:L2	Depends on	2245	OPEN	prerequisite		1	—	—
@@ -1758,6 +1773,8 @@ https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusBlog/issues/2296	issue=2296.body:L2	Depends on	2293	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusBlog/issues/2296	issue=2296.body:L2	Depends on	2294	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusBlog/issues/2296	issue=2296.body:L2	Depends on	2295	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusBlog/issues/2296	issue=2296.body:L10		2293	ABSENT	prerequisite		0	#2296:10-20; #1854:7-16	关闭和最近关闭恢复均绑定原 tab/session 与代次，打开已有文章只激活原会话。
+https://github.com/Ozwasyd/FsusBlog/issues/2296	https://github.com/Ozwasyd/FsusBlog/issues/2296	issue=2296.body:L67		2263	OPEN	prerequisite		0	#2296:10-16; #2296:65-69	关闭、先保存再关闭及回退统一消费保存、离开和附件清理的原协调者。
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L1	Parent	1854	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L2	Depends on	1809	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L2	Depends on	1813	ABSENT	prerequisite		1	—	—
@@ -1772,6 +1789,9 @@ https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusB
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L2	Depends on	2294	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L2	Depends on	2295	OPEN	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L2	Depends on	2296	OPEN	prerequisite		1	—	—
+https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L39		2296	OPEN	scope-exclusion		0	#2297:32-39; #2296:10-20	终态发现批量关闭或恢复缺陷须回到原行为拥有者，验收只使用真实工作区状态。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L66		1806	OPEN	scope-exclusion		0	#2297:64-66; #2233:75-77	工作区终验所需的实际文章入口由 #2233 验证。导航跟踪项另有终态矩阵。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	https://github.com/Ozwasyd/FsusBlog/issues/2297	issue=2297.body:L66		2233	OPEN	acceptance-gate		0	#2297:64-66; #2233:14-29	终态需经过真实文章切换入口，校验唯一会话、跨组原位激活、数据安全和焦点。
 https://github.com/Ozwasyd/FsusBlog/issues/2298	https://github.com/Ozwasyd/FsusBlog/issues/2298	issue=2298.body:L1	Parent	1855	OPEN	parent		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2298	https://github.com/Ozwasyd/FsusBlog/issues/2298	issue=2298.body:L2	Depends on	2293	ABSENT	prerequisite		1	—	—
 https://github.com/Ozwasyd/FsusBlog/issues/2298	https://github.com/Ozwasyd/FsusBlog/issues/2298	issue=2298.body:L2	Depends on	2294	ABSENT	prerequisite		1	—	—
