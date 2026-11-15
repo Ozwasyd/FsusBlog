@@ -24,6 +24,10 @@ python3 tools/issue-target-check.py
 
 续审 37 条候选，为 26 条补上已有同源条款和冻结行号，覆盖创作、附件、语言、文件观察、AEDS 与 Canvas。当前 414 条采用或合并采用的评论中，11 条仍缺显式 ID。#2231、#2246、#2263 和 #3735 各有一条主要记录前端协调、跨模块映射、上游绑定或工作区快照。#3524 的六条和 #3764 的一条没有足以对应同一 issue 已采用条款的证据。保留这些评论的现有说明与处置，后续核对具体产品条款的归属。 [当前进度](comment-progress.json) · [创作及附件](comments-authoring-leaves-integration.tsv) · [语言、文件观察和 AEDS](comments-quality.tsv) · [Canvas](comments-recent-platform.tsv)
 
+### 评论条款链接 v4
+
+从余下 11 条中确认 7 条有精确跨议题归属。Vault 语法和便携坐标连接 #2126/#2127，统一编辑器的锚点绑定连接 #2246，工作区快照 CAS 连接 #2302。三条真实 provider 测试边界连接 #2214，迁移前备份准入连接 #2215。每处保留冻结行号、原处置和已有验收文本，并注明窄关联边界。尚余 #2231 的一条前端协调与 #3524 的三条资源预留、清理及旧执行所有权记录。它们继续保留现有说明。 [当前计数](comment-progress.json) · [创作及附件](comments-authoring-leaves-integration.tsv) · [provider](comments-late-provider.tsv) · [快照和备份](comments-recent-platform.tsv)
+
 ## 优先核对的验收
 
 | 来源和条款 | 可定位的当前证据 | 仍需核对 |

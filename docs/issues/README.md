@@ -14,6 +14,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [P0 完成度与验收映射](review-completeness.md) 固定计数口径和已知剩余范围，关联公开搜索、权利、运行观察与管理员授权的实际证据。
 - [冻结档外目标的独立核验](target-observation-review.md) 记录 183 个编号后续查询的当前状态、PR 提交和待决语义，原冻结状态按原时间保留。
 - [规模查询、保存视图和私有沟通的语义核对](semantic-scope-review.md) 记录采用条款、执行归属、原优先级、附件阶段和当前验收缺口。
+- [文章工作区会话与恢复](risk-workspace-sessions.md) 对照冻结的分组、资源挂起、服务器布局 CAS 和离线恢复条款。
 - [管理标签和文章内容移交](risk-taxonomy-portability.md) 核对稳定 ID、公开刷新、真实管理入口及迁移范围。
 - [公开密钥清单和发布证明](risk-integrity.md) 核对公钥枚举、签名准入、发布/权利坐标与当前缺口。
 - [公开搜索词典与分片](risk-public-search.md) 核对真实词元、分片补丁、浏览器旧代失效与测试边界。
