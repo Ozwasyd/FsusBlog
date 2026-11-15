@@ -72,7 +72,7 @@ internal sealed partial class PropertyStore
         await ValidateQueryReferences(conditions, ct);
         var references = conditions.SelectMany(item => ReferenceIds(item.Value)).ToHashSet();
         return Wire.EncodeSavedViewDefinition(conditions.Select(item => new SavedViewCondition(item.DefinitionId, item.Kind,
-            item.Comparison, item.Value is null ? new PropertyFieldValue.Missing() : VisibleValue(item.Value, references))).ToArray(), input.Keyword);
+            item.Comparison, item.Value is null ? new PropertyFieldValue.Missing() : VisibleValue(item.Value, references), item.AnyOf)).ToArray(), input.Keyword);
     }
 
     internal async Task<PropertyArticlePage> OpenSavedView(SavedViewDefinition saved, string session, SavedViewExecute request, CancellationToken ct)
@@ -83,7 +83,7 @@ internal sealed partial class PropertyStore
         {
             var definition = schema.Find(item.DefinitionId) ?? throw SavedViewDependency();
             if (FieldKind(definition.Settings.Kind) != item.Kind) throw SavedViewDependency();
-            return Normalize(definition, new(item.DefinitionId, definition.Revision, item.Comparison, item.Value));
+            return Normalize(definition, new(item.DefinitionId, definition.Revision, item.Comparison, item.Value, item.AnyOf));
         }).ToArray();
         await ValidateQueryReferences(conditions, ct);
         return await Filter(conditions, schema.Revision, $"saved:{request.Id:D}:{request.Revision}:{session}", request.Cursor, saved.Keyword, ct);
@@ -108,6 +108,13 @@ internal sealed partial class PropertyStore
         if (schema.Revision != schemaRevision) throw Conflict();
         var resolved = conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
+        if (resolved.Any(item => item.AnyOf))
+        {
+            if (resolved.Where(item => item.AnyOf).GroupBy(item => (item.DefinitionId, item.Comparison, QueryValueKey(item.Value)))
+                .Any(group => group.Count() > 1)) throw Invalid();
+            resolved = resolved.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+                .ThenBy(item => item.AnyOf ? QueryValueKey(item.Value) : "", StringComparer.Ordinal).ToArray();
+        }
         return (resolved, facet is { } selection ? ResolveFacet(schema, selection) : null,
             sort is { } ordering ? ResolveSort(schema, ordering) : null);
     }
@@ -174,7 +181,7 @@ internal sealed partial class PropertyStore
             parameters.Add(keyword);
             sql.Append(" and ").Append(ArticleInventoryEndpoints.KeywordPredicate(parameters.Count));
         }
-        foreach (var condition in conditions) AppendCondition(sql, parameters, condition);
+        AppendConditions(sql, parameters, conditions);
         sql.Append(" order by a.id desc limit $3");
         await using var query = Store.Sql(db, tx, sql.ToString(), parameters.ToArray());
         var matches = new List<PropertyArticleRow>(WireLimits.PropertyPageSize + 1);
@@ -186,7 +193,8 @@ internal sealed partial class PropertyStore
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);
     }
 
-    internal sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value);
+    internal sealed record Condition(Guid DefinitionId, long DefinitionRevision, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyValue? Value,
+        bool AnyOf);
     internal readonly record struct FacetSelection(Guid DefinitionId, long DefinitionRevision);
     internal sealed record FacetDefinition(Guid Id, long Revision, PropertyFieldKind Kind, Guid[] OptionIds);
     internal readonly record struct SortSelection(Guid DefinitionId, long DefinitionRevision, AuthorTextPropertySortDirection Direction);
@@ -315,8 +323,8 @@ internal sealed partial class PropertyStore
         {
             writer.Write(condition.DefinitionId.ToByteArray());
             writer.Write(condition.DefinitionRevision);
-            writer.Write((int)condition.Comparison);
-            writer.Write(condition.Value is null ? "" : (string)Json(condition.Value).Value!);
+            writer.Write(Wire.PropertyComparisonCode(condition.Comparison, condition.AnyOf));
+            writer.Write(QueryValueKey(condition.Value));
         }
         if (keyword.Length != 0)
         {
@@ -326,6 +334,8 @@ internal sealed partial class PropertyStore
         writer.Flush();
         return SHA256.HashData(data.GetBuffer().AsSpan(0, (int)data.Length));
     }
+
+    private static string QueryValueKey(PropertyValue? value) => value is null ? "" : (string)Json(value).Value!;
 
     private static Condition Normalize(PropertyDefinition definition, PropertyCondition condition)
     {
@@ -348,14 +358,34 @@ internal sealed partial class PropertyStore
             (_, PropertyKind.Date, PropertyValue.Date date) => new PropertyValue.Date(date.Value.ToUniversalTime()),
             _ => throw Invalid(),
         };
-        return new(condition.DefinitionId, condition.DefinitionRevision, FieldKind(definition.Settings.Kind), condition.Comparison, normalized);
+        return new(condition.DefinitionId, condition.DefinitionRevision, FieldKind(definition.Settings.Kind), condition.Comparison, normalized, condition.AnyOf);
     }
 
-    internal static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
+    internal static void AppendConditions(StringBuilder sql, List<object> parameters, Condition[] conditions)
+    {
+        foreach (var condition in conditions.Where(item => !item.AnyOf))
+        {
+            sql.Append(" and ");
+            AppendCondition(sql, parameters, condition);
+        }
+        foreach (var group in conditions.Where(item => item.AnyOf).GroupBy(item => item.DefinitionId))
+        {
+            var separator = " and (";
+            foreach (var condition in group)
+            {
+                sql.Append(separator);
+                AppendCondition(sql, parameters, condition);
+                separator = " or ";
+            }
+            sql.Append(')');
+        }
+    }
+
+    private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
     {
         var isPresent = condition.Comparison == PropertyComparison.IsPresent;
         parameters.Add(condition.DefinitionId);
-        sql.Append(condition.Value is null && !isPresent ? " and not exists (" : " and exists (");
+        sql.Append(condition.Value is null && !isPresent ? "not exists (" : "exists (");
         sql.Append("select from public.property_value v where v.article_id=a.id and v.owner_id=$1 and v.definition_id=$")
             .Append(parameters.Count);
         if (isPresent)

@@ -17,9 +17,9 @@ export const propertyComparisons = [
   'equal', 'less-than', 'at-most', 'greater-than', 'at-least', 'is-present', 'multi-select-any-of', 'single-select-any-of', 'reference-any-of',
 ] as const
 export type PropertyComparison = typeof propertyComparisons[number]
-export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue }>
+export type PropertyCondition = Readonly<{ field: FilterField; comparison: PropertyComparison; value: PropertyValue; anyOf?: boolean }>
 export type PropertyQueryOperand = Readonly<{
-  definitionId: string; definitionRevision: bigint; comparison: PropertyComparison; value: PropertyValue
+  definitionId: string; definitionRevision: bigint; comparison: PropertyComparison; value: PropertyValue; anyOf?: boolean
 }>
 export type PropertyQuery = Readonly<{ schema: bigint; conditions: readonly PropertyCondition[]; cursor: string; keyword?: string }>
 export type PropertyMatches = Readonly<{
@@ -83,22 +83,24 @@ export function encodePropertyQuery(query: PropertyQuery) {
 }
 
 type EmptyPropertySchema = 'disallowed' | 'zero' | 'positive'
+const anyOfPropertyFlag = 0x100
 
 export function writePropertyConditions(
   output: PodWriter, schema: bigint, conditions: readonly PropertyCondition[], emptySchema: EmptyPropertySchema = 'disallowed',
 ): void {
   validateConditionCount(schema, conditions.length, emptySchema)
   const seen = new Set<string>()
+  validateAlternatives(conditions.map(({ field, anyOf }) => ({ definitionId: field.id, definitionRevision: field.revision, anyOf })))
   output.i32(conditions.length)
-  for (const { field, comparison, value } of conditions) {
+  for (const { field, comparison, value, anyOf } of conditions) {
     if ((comparison === 'multi-select-any-of' && field.kind !== 'multi-select') ||
         (comparison === 'single-select-any-of' && field.kind !== 'single-select') ||
         (comparison === 'reference-any-of' && field.kind !== 'article-reference'))
       throw new ProtocolError('Invalid filter comparison for property field')
-    const index = validateCondition(schema, { definitionId: field.id, definitionRevision: field.revision, comparison, value }, seen)
+    const index = validateCondition(schema, { definitionId: field.id, definitionRevision: field.revision, comparison, value, anyOf }, seen)
     output.uuid(field.id)
     output.i64(field.revision)
-    output.i32(index)
+    output.i32(index | (anyOf ? anyOfPropertyFlag : 0))
     writeValue(output, value)
   }
 }
@@ -109,13 +111,17 @@ export function readPropertyConditions(
   const count = input.i32()
   validateConditionCount(schema, count, emptySchema)
   const seen = new Set<string>()
-  return Array.from({ length: count }, () => {
+  const conditions = Array.from({ length: count }, () => {
     const definitionId = input.uuid(), definitionRevision = input.i64()
-    const comparison = propertyComparisons[input.i32()]
-    const operand = { definitionId, definitionRevision, comparison, value: readPropertyOperand(input) }
+    const code = input.i32()
+    const comparison = propertyComparisons[code & ~anyOfPropertyFlag]
+    const operand = { definitionId, definitionRevision, comparison, value: readPropertyOperand(input),
+      ...(code & anyOfPropertyFlag ? { anyOf: true } : {}) }
     validateCondition(schema, operand, seen)
     return operand
   })
+  validateAlternatives(conditions)
+  return conditions
 }
 
 function validateConditionCount(schema: bigint, count: number, emptySchema: EmptyPropertySchema): void {
@@ -127,15 +133,26 @@ function validateConditionCount(schema: bigint, count: number, emptySchema: Empt
 }
 
 function validateCondition(schema: bigint, condition: PropertyQueryOperand, seen: Set<string>): number {
-  const { definitionId, definitionRevision, comparison, value } = condition
+  const { definitionId, definitionRevision, comparison, value, anyOf } = condition
   const index = propertyComparisons.indexOf(comparison)
-  const key = `${definitionId.toLowerCase()}:${index}`
+  const operand = value.kind === 'multi-select' || value.kind === 'article-reference'
+    ? { ...value, value: [...value.value].sort() } : value
+  const key = `${definitionId.toLowerCase()}:${index}:${anyOf ? JSON.stringify(operand) : ''}`
   if (definitionId === '00000000-0000-0000-0000-000000000000' ||
       definitionRevision <= 0n || definitionRevision > schema || seen.has(key) ||
       !validComparison(comparison, value))
     throw new ProtocolError('Invalid property condition')
   seen.add(key)
   return index
+}
+
+function validateAlternatives(conditions: ReadonlyArray<Pick<PropertyQueryOperand, 'definitionId' | 'definitionRevision' | 'anyOf'>>): void {
+  for (const condition of conditions) {
+    if (!condition.anyOf) continue
+    const group = conditions.filter(candidate => candidate.definitionId.toLowerCase() === condition.definitionId.toLowerCase())
+    if (group.length < 2 || group.some(candidate => !candidate.anyOf || candidate.definitionRevision !== condition.definitionRevision))
+      throw new ProtocolError('Invalid same-field property alternatives')
+  }
 }
 
 function validComparison(comparison: PropertyComparison, value: PropertyValue): boolean {

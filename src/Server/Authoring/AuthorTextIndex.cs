@@ -520,7 +520,7 @@ internal static partial class AuthorTextIndex
             filter.Append(" and a.updated_unix_ms < $").Append(parameters.Count);
         }
         if (qualification is not null)
-            foreach (var condition in qualification.Conditions) PropertyStore.AppendCondition(filter, parameters, condition);
+            PropertyStore.AppendConditions(filter, parameters, qualification.Conditions);
         var text = AddPropertyTextParameters(parameters, qualification?.PropertyText);
         var mixed = qualification?.MixedText == true;
         var sourceGeneration = FacetedSourceGeneration(parameters, qualification, text);

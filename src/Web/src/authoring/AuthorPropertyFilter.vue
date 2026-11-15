@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import type { AuthorTextPropertySortQuery } from '../../../Contracts/author-text-search'
 import { ApiError } from '../../../Contracts/client'
 import {
@@ -42,6 +42,7 @@ const dateComparisons = {
   'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
 }
 const conditions = shallowRef<readonly PropertyCondition[]>([])
+const anyOf = ref(false)
 const canAdd = computed(() => conditions.value.length < WireLimits.PropertyQueryConditionCount - (props.embedded ? 0 : 1))
 const text = ref('')
 const choice = ref('')
@@ -58,6 +59,8 @@ const savable = computed(() => submitted.value ? { ...submitted.value, cursor: '
 const result = shallowRef<PropertyMatches>()
 const selectableFields = computed(() => (catalog.value?.fields ?? []).filter(item => !props.embedded || item.enabled))
 const field = computed(() => selectableFields.value.find(item => item.id === selection.value))
+const sameField = computed(() => conditions.value.filter(item => item.field.id === field.value?.id))
+const existingAlternatives = computed(() => sameField.value.some(item => item.anyOf))
 const facetFields = computed(() => selectableFields.value.filter(item => item.enabled &&
   (item.kind === 'boolean' || item.kind === 'single-select' || item.kind === 'multi-select')))
 const facetField = computed(() => facetFields.value.find(item => item.id === facetSelection.value))
@@ -125,13 +128,14 @@ watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, att
 
 watch(selection, () => {
   mode.value = 'equal'
+  anyOf.value = existingAlternatives.value
   text.value = ''
   choice.value = ''
   multiple.value = []
   flag.value = false
 }, { flush: 'sync' })
 
-watch([selection, mode, text, choice, multiple, flag, conditions, () => props.keyword, credentialEpoch], () => {
+watch([selection, mode, anyOf, text, choice, multiple, flag, conditions, () => props.keyword, credentialEpoch], () => {
   clearResults()
   if (props.embedded) emit('edit')
 }, { flush: 'sync' })
@@ -192,22 +196,28 @@ function operand(): PropertyValue | undefined {
   }
 }
 
-function currentCondition(): PropertyCondition {
+function currentConditions(): readonly PropertyCondition[] {
   const value = operand(), active = field.value
   if (!active?.enabled || !value) throw Error('Incomplete property condition')
   const comparison = mode.value === 'missing' || mode.value === 'null' ? 'equal' : mode.value
-  if (conditionAlreadyAdded(active, comparison))
+  const alternate = sameField.value.length > 0 && (existingAlternatives.value || anyOf.value)
+  if (sameField.value.some(item => item.comparison === comparison && (!alternate || JSON.stringify(item.value) === JSON.stringify(value))))
     throw Error('Repeated property condition')
-  return { field: active, comparison, value }
+  return [...conditions.value.map(item => alternate && item.field.id === active.id ? { ...item, anyOf: true } : item),
+    { field: active, comparison, value, anyOf: alternate }]
 }
 
-function conditionAlreadyAdded(field: FilterField, comparison: PropertyComparison): boolean {
-  return conditions.value.some(item => item.field.id === field.id && item.comparison === comparison)
+function removeCondition(position: number) {
+  const id = conditions.value[position].field.id
+  const remaining = conditions.value.filter((_, index) => index !== position)
+  conditions.value = remaining.filter(item => item.field.id === id).length === 1
+    ? remaining.map(item => item.field.id === id && item.anyOf ? { ...item, anyOf: false } : item) : remaining
 }
 
 function canAddFacetCondition(schema: bigint, candidate: PropertyCondition): boolean {
   return !!props.embedded && !busy.value && !!catalog.value && catalog.value.revision === schema &&
-    facetField.value === candidate.field && canAdd.value && !conditionAlreadyAdded(candidate.field, candidate.comparison)
+    facetField.value === candidate.field && canAdd.value &&
+    !conditions.value.some(item => item.field.id === candidate.field.id && (item.anyOf || item.comparison === candidate.comparison))
 }
 
 function addFacetCondition(schema: bigint, candidate: PropertyCondition): boolean {
@@ -221,7 +231,7 @@ defineExpose({ canAddFacetCondition, addFacetCondition })
 function add() {
   if (!canAdd.value) return
   try {
-    conditions.value = [...conditions.value, currentCondition()]
+    conditions.value = currentConditions()
     selection.value = ''
     operationError.value = ''
   } catch {
@@ -298,7 +308,7 @@ async function search(more = false) {
     if (submitted.value && result.value?.nextCursor) filter = { ...submitted.value, cursor: result.value.nextCursor }
   } else {
     try {
-      const active = field.value ? [...conditions.value, currentCondition()] : conditions.value
+      const active = field.value ? currentConditions() : conditions.value
       if (active.length) filter = { schema: catalog.value.revision, conditions: active, cursor: '', keyword }
     } catch {
       queryError.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
@@ -371,10 +381,10 @@ async function search(more = false) {
       </template>
       <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
       <ul v-if="conditions.length" aria-label="已有筛选条件">
-        <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}`">
-          <span>{{ conditionText(condition) }}</span>
+        <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}:${position}`">
+          <span>{{ conditionText(condition) }}{{ condition.anyOf ? ' · 同字段任一' : '' }}</span>
           <ElButton text :disabled="busy || !!pendingChange" v-bind="{ 'aria-label': `移除第 ${position + 1} 个筛选条件` }"
-            @click="conditions = conditions.filter((_, index) => index !== position)">移除</ElButton>
+            @click="removeCondition(position)">移除</ElButton>
         </li>
       </ul>
       <template v-if="selectableFields.length">
@@ -403,6 +413,10 @@ async function search(more = false) {
             <ElOption value="missing" label="尚未设置" />
             <ElOption value="null" label="显式空值" />
           </ElSelect>
+          <ElCheckbox v-if="sameField.length" :disabled="busy || existingAlternatives"
+            :model-value="existingAlternatives || anyOf" @update:model-value="anyOf = $event === true">
+            与此字段的已有条件任一匹配
+          </ElCheckbox>
           <template v-if="mode !== 'is-present' && mode !== 'missing' && mode !== 'null'">
             <label :for="valueId">属性值</label>
             <ElSelect v-if="field.kind === 'boolean'" :id="valueId" v-model="flag" ariaLabel="属性值" :disabled="busy">
@@ -424,7 +438,8 @@ async function search(more = false) {
         </template>
       </template>
       <ElButton v-if="!embedded && (field?.enabled || !field && conditions.length)" type="primary"
-        :disabled="busy || !!pendingChange" @click="search()">{{ conditions.length ? '匹配全部条件' : '筛选属性' }}</ElButton>
+        :disabled="busy || !!pendingChange" @click="search()">{{ conditions.some(item => item.anyOf) || sameField.length && anyOf
+          ? '应用条件' : conditions.length ? '匹配全部条件' : '筛选属性' }}</ElButton>
       <section v-if="!embedded && result" aria-label="属性筛选结果">
         <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
         <ul v-else>

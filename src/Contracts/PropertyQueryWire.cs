@@ -13,7 +13,8 @@ public enum PropertyComparison
     Equal = 0, LessThan = 1, AtMost = 2, GreaterThan = 3, AtLeast = 4, IsPresent = 5, MultiSelectAnyOf = 6, SingleSelectAnyOf = 7,
     ReferenceAnyOf = 8,
 }
-public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value);
+public sealed record PropertyCondition(Guid DefinitionId, long DefinitionRevision, PropertyComparison Comparison, PropertyFieldValue Value,
+    bool AnyOf = false);
 public sealed record PropertyArticleQueryGroup(long SchemaRevision, IReadOnlyList<PropertyCondition> Conditions, string Cursor,
     string Keyword = "");
 public sealed record PropertyArticleRow(int Id, long Revision, string Title);
@@ -21,6 +22,8 @@ public sealed record PropertyArticlePage(string NextCursor, IReadOnlyList<Proper
 
 public static partial class Wire
 {
+    private const int PropertyAnyOf = 0x100;
+
     public static byte[] EncodePropertyFilterCatalog(PropertyFilterCatalog catalog)
     {
         var writer = new Writer();
@@ -186,7 +189,7 @@ public static partial class Wire
         {
             writer.Uuid(condition.DefinitionId);
             writer.I64(condition.DefinitionRevision);
-            writer.I32((int)condition.Comparison);
+            writer.I32(PropertyComparisonCode(condition.Comparison, condition.AnyOf));
             WriteValue(writer, condition.Value);
         }
     }
@@ -197,8 +200,34 @@ public static partial class Wire
         if (count < (allowEmpty ? 0 : 1) || count > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
         var conditions = new PropertyCondition[count];
         for (var i = 0; i < count; i++)
-            conditions[i] = new(reader.Uuid(), reader.I64(), (PropertyComparison)reader.I32(), ReadValue(ref reader));
+        {
+            var definition = reader.Uuid();
+            var revision = reader.I64();
+            var (comparison, anyOf) = ReadPropertyComparison(ref reader);
+            conditions[i] = new(definition, revision, comparison, ReadValue(ref reader), anyOf);
+        }
         return conditions;
+    }
+
+    public static int PropertyComparisonCode(PropertyComparison comparison, bool anyOf) =>
+        (int)comparison | (anyOf ? PropertyAnyOf : 0);
+
+    private static (PropertyComparison Comparison, bool AnyOf) ReadPropertyComparison(ref Reader reader)
+    {
+        var code = reader.I32();
+        return ((PropertyComparison)(code & ~PropertyAnyOf), (code & PropertyAnyOf) != 0);
+    }
+
+    private static string PropertyOperandKey(PropertyFieldValue value)
+    {
+        var writer = new Writer();
+        WriteValue(writer, value switch
+        {
+            PropertyFieldValue.MultiSelect options => new PropertyFieldValue.MultiSelect(options.Value.Order().ToArray()),
+            PropertyFieldValue.ArticleReference references => new PropertyFieldValue.ArticleReference(references.Value.Order().ToArray()),
+            _ => value,
+        });
+        return Convert.ToHexString(writer.Written);
     }
 
     private static void ValidatePropertyConditions(long schema, IReadOnlyList<PropertyCondition> conditions, bool allowEmpty = false)
@@ -209,10 +238,15 @@ public static partial class Wire
             return;
         }
         if (conditions.Count > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
-        var unique = new HashSet<(Guid, PropertyComparison)>();
+        var unique = new HashSet<(Guid, PropertyComparison, string)>();
         foreach (var condition in conditions)
             if (!ValidCondition(schema, condition.DefinitionId, condition.DefinitionRevision, condition.Value) ||
-                !ValidComparison(condition.Comparison, condition.Value) || !unique.Add((condition.DefinitionId, condition.Comparison)))
+                !ValidComparison(condition.Comparison, condition.Value) ||
+                !unique.Add((condition.DefinitionId, condition.Comparison, condition.AnyOf ? PropertyOperandKey(condition.Value) : "")))
+                throw InvalidProperty();
+        foreach (var group in conditions.GroupBy(condition => condition.DefinitionId))
+            if (group.Any(condition => condition.AnyOf) && (group.Count() < 2 ||
+                group.Any(condition => !condition.AnyOf || condition.DefinitionRevision != group.First().DefinitionRevision)))
                 throw InvalidProperty();
     }
 

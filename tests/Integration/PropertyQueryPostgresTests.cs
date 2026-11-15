@@ -445,6 +445,30 @@ public sealed class PropertyQueryPostgresTests
         Assert.Equal(5, await SavedDefinitionVersion(referenceViewId));
         Assert.Equal(6, await SavedDefinitionVersion(keywordViewId));
 
+        var lowScore = scoreMatch with { Value = new PropertyFieldValue.Number(0), AnyOf = true };
+        var highScore = scoreMatch with { AnyOf = true };
+        var alternativePage = await Group([lowScore, highScore]);
+        var expectedScores = summaryMatches.Select(item => item.Id).Concat([afterSummary.Id, wildcardOnly.Id, empty.Id, primary.Id])
+            .OrderDescending().ToArray();
+        Assert.Equal(expectedScores.Take(WireLimits.PropertyPageSize), alternativePage.Rows.Select(row => row.Id));
+        Assert.NotEmpty(alternativePage.NextCursor);
+        Assert.Equal(expectedScores.Skip(WireLimits.PropertyPageSize),
+            (await Group([highScore, lowScore], alternativePage.NextCursor)).Rows.Select(row => row.Id));
+        await Group([highScore, lowScore with { Value = new PropertyFieldValue.Number(1) }], alternativePage.NextCursor, HttpStatusCode.BadRequest);
+        Assert.Equal(primary.Id, Assert.Single((await Group([lowScore, highScore, Present(2),
+            falseCondition])).Rows).Id);
+        var qualifiedAlternatives = await Qualified(new(lexicalQuery, "", null, null, schema, [lowScore, highScore, Present(2)]));
+        Assert.Equal(new[] { empty.Id, primary.Id }.Order(), qualifiedAlternatives.Rows.Select(row => row.Id).Order());
+        var alternativeViewId = Guid.NewGuid();
+        var alternativeQuery = new PropertyArticleQueryGroup(schema, [highScore, lowScore, Present(2)], "", keyword);
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(new(SavedViewAction.Save, alternativeViewId, 0, 16,
+            Guid.NewGuid(), "Either score", alternativeQuery)));
+        var runAlternatives = Wire.EncodeSavedViewExecute(new(alternativeViewId, 1, ""));
+        Assert.Equal(new[] { empty.Id, primary.Id }, Wire.DecodePropertyArticlePage(
+            await Saved(WireRoutes.SavedViewExecute, runAlternatives)).Rows.Select(row => row.Id));
+        await Saved(WireRoutes.SavedViewExecute, runAlternatives, HttpStatusCode.NotFound, outsider, outsiderHandle);
+        Assert.Equal(7, await SavedDefinitionVersion(alternativeViewId));
+
         foreach (var article in summaryMatches)
             await Put(article, fields[6], new PropertyFieldValue.ArticleReference([target.Id]),
                 article.Id == changedOffPage.Id ? 3 : 1, 2);

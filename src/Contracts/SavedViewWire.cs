@@ -10,7 +10,8 @@ public sealed record SavedViewReceipt(Guid Id, long Revision, long CollectionRev
 public sealed record SavedViewSummary(Guid Id, long Revision, string Name);
 public sealed record SavedViewCatalog(long CollectionRevision, Guid NextId, IReadOnlyList<SavedViewSummary> Views);
 public sealed record SavedViewExecute(Guid Id, long Revision, string Cursor);
-public sealed record SavedViewCondition(Guid DefinitionId, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyFieldValue Value);
+public sealed record SavedViewCondition(Guid DefinitionId, PropertyFieldKind Kind, PropertyComparison Comparison, PropertyFieldValue Value,
+    bool AnyOf = false);
 public sealed record SavedViewDefinition(IReadOnlyList<SavedViewCondition> Conditions, string Keyword);
 
 public static partial class Wire
@@ -132,8 +133,8 @@ public static partial class Wire
     public static byte[] EncodeSavedViewDefinition(IReadOnlyList<SavedViewCondition> conditions, string keyword = "")
     {
         Validate(new PropertyArticleQueryGroup(1, conditions.Select(item => new PropertyCondition(item.DefinitionId, 1,
-            item.Comparison, item.Value)).ToArray(), "", keyword));
-        var version = keyword.Length != 0 ? 6 : conditions.Max(item => item.Comparison switch
+            item.Comparison, item.Value, item.AnyOf)).ToArray(), "", keyword));
+        var version = conditions.Any(item => item.AnyOf) ? 7 : keyword.Length != 0 ? 6 : conditions.Max(item => item.Comparison switch
         {
             PropertyComparison.ReferenceAnyOf => 5,
             PropertyComparison.SingleSelectAnyOf => 4,
@@ -143,13 +144,14 @@ public static partial class Wire
         });
         var writer = new Writer();
         writer.I32(version);
-        if (version == 6) writer.Text(keyword, WireLimits.AuthorArticleKeywordChars * 4);
+        if (version >= 6) writer.Text(keyword, WireLimits.AuthorArticleKeywordChars * 4);
         writer.I32(conditions.Count);
-        foreach (var item in conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison))
+        foreach (var item in conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
+                     .ThenBy(item => item.AnyOf ? PropertyOperandKey(item.Value) : "", StringComparer.Ordinal))
         {
             writer.Uuid(item.DefinitionId);
             writer.I32((int)item.Kind);
-            writer.I32((int)item.Comparison);
+            writer.I32(PropertyComparisonCode(item.Comparison, item.AnyOf));
             if (item.Comparison is PropertyComparison.SingleSelectAnyOf or PropertyComparison.MultiSelectAnyOf)
             {
                 var expectedKind = item.Comparison == PropertyComparison.SingleSelectAnyOf ? PropertyFieldKind.SingleSelect : PropertyFieldKind.MultiSelect;
@@ -175,13 +177,18 @@ public static partial class Wire
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(encoded), digest)) throw InvalidSavedView();
         var reader = new Reader(encoded);
         var version = reader.I32();
-        if (version is < 1 or > 6) throw InvalidSavedView();
-        var keyword = version == 6 ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
+        if (version is < 1 or > 7) throw InvalidSavedView();
+        var keyword = version >= 6 ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
         var count = reader.I32();
         if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
         var conditions = new SavedViewCondition[count];
         for (var i = 0; i < count; ++i)
-            conditions[i] = new(reader.Uuid(), ReadKind(ref reader), (PropertyComparison)reader.I32(), ReadValue(ref reader));
+        {
+            var definition = reader.Uuid();
+            var kind = ReadKind(ref reader);
+            var (comparison, anyOf) = ReadPropertyComparison(ref reader);
+            conditions[i] = new(definition, kind, comparison, ReadValue(ref reader), anyOf);
+        }
         reader.Finish();
         if (!encoded.SequenceEqual(EncodeSavedViewDefinition(conditions, keyword))) throw InvalidSavedView();
         return new(conditions, keyword);

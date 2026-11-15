@@ -150,6 +150,17 @@ test('property presence uses the operand-free comparison bytes', () => {
     ProtocolError)
 })
 
+test('same-field alternatives preserve independent bytes and reject mixed and repeated operands', () => {
+  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
+    enabled: true, deprecated: false, options: [] }
+  const zero = { field, comparison: 'equal', value: { kind: 'number', value: '0' }, anyOf: true } as const
+  const higher = { ...zero, value: { kind: 'number', value: '19.75' } } as const
+  const query = { schema: 10n, cursor: '' }
+  assert.deepEqual(encodePropertyQuery({ ...query, conditions: [zero, higher] }), fixture('property-query-alternatives'))
+  for (const conditions of [[zero], [zero, zero], [zero, { ...higher, anyOf: false }], [zero, { ...higher, field: { ...field, revision: 3n } }]])
+    assert.throws(() => encodePropertyQuery({ ...query, conditions }), ProtocolError)
+})
+
 test('title or summary keyword has its own exact frame and current-session witness', async t => {
   const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
     enabled: true, deprecated: false, options: [] }

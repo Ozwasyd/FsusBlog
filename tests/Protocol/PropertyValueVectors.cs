@@ -71,6 +71,20 @@ internal static class PropertyValueVectors
         if (decoded.SchemaRevision != group.SchemaRevision || decoded.Cursor != "" || decoded.Keyword != "" ||
             !decoded.Conditions.SequenceEqual(group.Conditions))
             throw new InvalidOperationException("Property group differs from the independent byte vector.");
+        var alternativeGroup = group with { Conditions = [
+            new(value.DefinitionId, 2, PropertyComparison.Equal, new PropertyFieldValue.Number(0), true),
+            new(value.DefinitionId, 2, PropertyComparison.Equal, new PropertyFieldValue.Number(19.75m), true),
+        ] };
+        var alternativeBytes = Fixture("property-query-alternatives");
+        BytesEqual(alternativeBytes, Wire.EncodePropertyArticleQueryGroup(alternativeGroup));
+        if (!Wire.DecodePropertyArticleQueryGroup(alternativeBytes).Conditions.SequenceEqual(alternativeGroup.Conditions))
+            throw new InvalidOperationException("Property alternatives differ from the independent byte vector.");
+        var splitGroup = Aeds.Decode(alternativeBytes, FrameType.PropertyArticleQueryGroup).ToArray();
+        splitGroup[37] = 0;
+        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, splitGroup)));
+        var savedAlternatives = alternativeGroup.Conditions.Select(item =>
+            new SavedViewCondition(item.DefinitionId, PropertyFieldKind.Number, item.Comparison, item.Value, item.AnyOf)).ToArray();
+        BytesEqual(Wire.EncodeSavedViewDefinition(savedAlternatives), Wire.EncodeSavedViewDefinition(savedAlternatives.Reverse().ToArray()));
         var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
         invalidGroup[36] = 9;
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
