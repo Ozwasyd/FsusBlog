@@ -10,6 +10,8 @@
 
 父进程先完成包审批，再将单次输入交给独立 Jint 4.13.0 进程。macOS Seatbelt 默认拒绝 OS 访问，只允许启动受信 .NET 宿主并读取系统及其实际程序集目录，允许 .NET JIT 所需的执行内存。工作进程先确认系统探测文件无读取权限，然后运行解释器。进程环境只含启动所需变量，脚本不获得 CLR 互操作、Host API、网络、包路径或文件写入接口。Jint 限制语句数、递归、内存分配、数组规模、正则、Promise 和解释时间，子进程 .NET GC 堆设置上界，父进程保留独立的 3 秒期限并等待子进程退出。发布结果前重读批准文件及原始包，复核同一摘要、公钥期限和取消状态。Jint 内存限制为托管分配约束，Seatbelt 使用 macOS 已弃用的 `sandbox-exec` 命令，Linux ARM64 可使用下文的独立工作进程。 [Jint 运行不受信代码的边界](https://github.com/sebastienros/jint#running-untrusted-code)
 
+工作进程回收完成后才可发布结果。若工作和回收均出错，标准错误第一行保留最先的工作错误，第二行为 `cleanup=plugin-worker-drain`。调用方取消时保持退出码 130，若回收也出错则同时报告 `plugin-cancelled` 与回收标记。单独的回收失败返回 `plugin-worker-drain`。这些失败均不输出 Markdown、系统路径或原始异常消息。
+
 使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlogV2.Migrate.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。在线 Hook 分发、站点前端接入、SQL 注册表、集群协调、Lua、可调用 IO broker 和生产插件隔离资格仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
 
 本机 macOS 使用 .NET SDK 10.0.404、Jint 4.13.0 和锁定的 Acornima 1.6.2 运行测试。原生进程测试覆盖签名转换、信任撤销、脚本环境无宿主句柄、执行与字节上限、登记文件并发变更时拒绝结果、锁争用、包篡改和 FIFO 拒绝。测试暂停本次调用的子进程，确认父进程超时终止并回收子进程。系统日志记录了子进程读取 `/private/etc/hosts` 被拒绝。 [验证日志](../../artifacts/offline-platform-plugin/native.log)

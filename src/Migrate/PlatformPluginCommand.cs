@@ -64,18 +64,29 @@ internal static class PlatformPluginCommand
             await Console.OpenStandardOutput().WriteAsync(result, ct);
             return 0;
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return 130; }
+        catch (OperationCanceledException error) when (ct.IsCancellationRequested)
+        {
+            if (PluginWorkerCompletion.CleanupFailure(error) is not null) WriteFailure("plugin-cancelled", error);
+            return 130;
+        }
         catch (ExtensionRejectedException error)
         {
-            Console.Error.WriteLine(error.Code);
+            WriteFailure(error.Code, error);
             return 1;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or
             TimeoutException or System.ComponentModel.Win32Exception or NotSupportedException)
         {
-            Console.Error.WriteLine("plugin-local-operation");
+            WriteFailure("plugin-local-operation", error);
             return 1;
         }
+    }
+
+    private static void WriteFailure(string code, Exception error)
+    {
+        Console.Error.WriteLine(code);
+        if (PluginWorkerCompletion.CleanupFailure(error) is not null)
+            Console.Error.WriteLine("cleanup=" + PluginWorkerCompletion.DrainFailure);
     }
 
     private static async Task<byte[]> RunIsolatedAsync(byte[] request, CancellationToken ct)
@@ -142,36 +153,51 @@ internal static class PlatformPluginCommand
         deadline.CancelAfter(ChildTimeout);
         Task<byte[]>? output = null;
         Task<byte[]>? errors = null;
-        try
+        return await PluginWorkerCompletion.RunAsync(async () =>
         {
-            output = ReadAsync(process.StandardOutput.BaseStream, PureRenderPlugin.MaximumMarkdownBytes, deadline.Token);
-            errors = ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
-            await process.StandardInput.BaseStream.WriteAsync(request, deadline.Token);
-            process.StandardInput.Close();
-            var result = await output;
-            var stderr = await errors;
-            await process.WaitForExitAsync(deadline.Token);
-            if (process.ExitCode == 2 && stderr.Length == 0) throw Deny("plugin-execution-rejected");
-            if (process.ExitCode != 0 || stderr.Length != 0) throw Deny("plugin-worker-failure");
-            return result;
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw Deny("plugin-worker-deadline"); }
-        finally
-        {
-            deadline.Cancel();
-            if (!process.HasExited)
+            try
             {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) when (process.HasExited) { }
+                output = ReadAsync(process.StandardOutput.BaseStream, PureRenderPlugin.MaximumMarkdownBytes, deadline.Token);
+                errors = ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
+                await process.StandardInput.BaseStream.WriteAsync(request, deadline.Token);
+                process.StandardInput.Close();
+                var result = await output;
+                var stderr = await errors;
+                await process.WaitForExitAsync(deadline.Token);
+                if (process.ExitCode == 2 && stderr.Length == 0) throw Deny("plugin-execution-rejected");
+                if (process.ExitCode != 0 || stderr.Length != 0) throw Deny("plugin-worker-failure");
+                return result;
             }
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
-            if (output is not null && errors is not null)
+            catch (OperationCanceledException error) when (!ct.IsCancellationRequested)
             {
-                try { await Task.WhenAll(output, errors); }
-                catch (Exception) { } // The primary process failure already determines the reply.
+                throw PluginWorkerCompletion.Translate(error, "plugin-worker-deadline");
             }
-        }
+        }, () => ReleaseProcessAsync(deadline,
+            () => ReapProcessAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), output, errors));
     }
+
+    internal static Task ReleaseProcessAsync(CancellationTokenSource deadline, Func<Task> release,
+        Task<byte[]>? output, Task<byte[]>? errors) => PluginWorkerCompletion.ReleaseAsync(
+            () => { deadline.Cancel(); return Task.CompletedTask; }, release, () => ObservePipesAsync(output, errors));
+
+    private static async Task ObservePipesAsync(Task<byte[]>? output, Task<byte[]>? errors)
+    {
+        var pipes = Task.WhenAll((Task?)output ?? Task.CompletedTask, (Task?)errors ?? Task.CompletedTask);
+        try { await pipes.WaitAsync(TimeSpan.FromSeconds(1)); }
+        catch (TimeoutException) when (!pipes.IsCompleted) { throw Deny(PluginWorkerCompletion.DrainFailure); }
+        catch (Exception) { } // The work outcome already determines the transport error.
+    }
+
+    internal static Task ReapProcessAsync(Process process, bool entireProcessTree, TimeSpan timeout) =>
+        PluginWorkerCompletion.ReleaseAsync(() =>
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree);
+            }
+            catch (InvalidOperationException) when (process.HasExited) { }
+            return Task.CompletedTask;
+        }, () => process.WaitForExitAsync().WaitAsync(timeout));
 
     internal static async Task<byte[]> ReadAsync(Stream stream, int limit, CancellationToken ct)
     {

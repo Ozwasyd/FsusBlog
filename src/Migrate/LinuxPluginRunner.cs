@@ -58,69 +58,84 @@ internal sealed class LinuxPluginRunner
         deadline.CancelAfter(TimeSpan.FromSeconds(3));
         ct.ThrowIfCancellationRequested();
         using var process = Process.Start(start) ?? throw Deny("plugin-worker-start");
-        var errors = PlatformPluginCommand.ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
+        Task<byte[]>? errors = null;
         Task<byte[]>? output = null;
         var dispatched = false;
-        try
+        return await PluginWorkerCompletion.RunAsync(Execute,
+            () => PlatformPluginCommand.ReleaseProcessAsync(deadline, () => CleanupAsync(process, unit, group, dispatched), output, errors));
+
+        async Task<byte[]> Execute()
         {
-            var stdout = process.StandardOutput.BaseStream;
-            var marker = new byte[Ready.Length];
-            await stdout.ReadExactlyAsync(marker, deadline.Token);
-            if (!marker.AsSpan().SequenceEqual(Ready) || !await AdmittedAsync(unit, group, deadline.Token))
-                throw Deny("plugin-worker-admission");
-            output = PlatformPluginCommand.ReadAsync(stdout, PureRenderContract.MarkdownBytes, deadline.Token);
-            dispatched = true;
-            await process.StandardInput.BaseStream.WriteAsync(request, deadline.Token);
-            process.StandardInput.Close();
-            var result = await output;
-            var stderr = await errors;
-            await process.WaitForExitAsync(deadline.Token);
-            if (process.ExitCode == 2 && stderr.Length == 0) throw Deny("plugin-execution-rejected");
-            if (process.ExitCode != 0 || stderr.Length != 0) throw Deny("plugin-worker-failure");
-            await WaitDrained(group, deadline.Token);
-            CheckInstall(deadline.Token);
-            return result;
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw Deny("plugin-worker-deadline"); }
-        catch (EndOfStreamException) { throw Deny("plugin-worker-admission"); }
-        finally
-        {
-            deadline.Cancel();
-            await CleanupAsync(process, unit, group, dispatched);
             try
             {
-                if (output is not null) await Task.WhenAll(errors, output);
-                else await errors;
+                errors = PlatformPluginCommand.ReadAsync(process.StandardError.BaseStream, 4096, deadline.Token);
+                var stdout = process.StandardOutput.BaseStream;
+                var marker = new byte[Ready.Length];
+                await stdout.ReadExactlyAsync(marker, deadline.Token);
+                if (!marker.AsSpan().SequenceEqual(Ready) || !await AdmittedAsync(unit, group, deadline.Token, ct))
+                    throw Deny("plugin-worker-admission");
+                output = PlatformPluginCommand.ReadAsync(stdout, PureRenderContract.MarkdownBytes, deadline.Token);
+                dispatched = true;
+                await process.StandardInput.BaseStream.WriteAsync(request, deadline.Token);
+                process.StandardInput.Close();
+                var result = await output;
+                var stderr = await errors;
+                await process.WaitForExitAsync(deadline.Token);
+                if (process.ExitCode == 2 && stderr.Length == 0) throw Deny("plugin-execution-rejected");
+                if (process.ExitCode != 0 || stderr.Length != 0) throw Deny("plugin-worker-failure");
+                try { await WaitDrained(group, deadline.Token); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception error) { throw PluginWorkerCompletion.Translate(error, PluginWorkerCompletion.DrainFailure); }
+                CheckInstall(deadline.Token);
+                return result;
             }
-            catch (Exception) { } // The enclosing worker operation already supplies the outcome.
+            catch (OperationCanceledException error) when (!ct.IsCancellationRequested)
+            {
+                throw PluginWorkerCompletion.Translate(error, "plugin-worker-deadline");
+            }
+            catch (EndOfStreamException error) { throw PluginWorkerCompletion.Translate(error, "plugin-worker-admission"); }
         }
     }
 
-    private async Task<bool> AdmittedAsync(string unit, string group, CancellationToken ct)
+    private async Task<bool> AdmittedAsync(string unit, string group, CancellationToken deadline, CancellationToken caller)
     {
         if (Control(group, "cgroup.type") != "domain" || Control(group, "memory.max") != "134217728" ||
             Control(group, "memory.swap.max") != "0" || Control(group, "memory.oom.group") != "1" ||
             Control(group, "pids.max") != "24" || Control(group, "cpu.max") != "100000 100000" || !Populated(group)) return false;
+        using var inspection = CancellationTokenSource.CreateLinkedTokenSource(deadline);
         using var show = Process.Start(Start("/usr/bin/systemctl", "--user", "show", "--property=MainPID",
             "--property=ControlGroup", "--property=ActiveState", unit)) ?? throw Deny("plugin-worker-admission");
-        show.StandardInput.Close();
-        var output = PlatformPluginCommand.ReadAsync(show.StandardOutput.BaseStream, 4096, ct);
-        var errors = PlatformPluginCommand.ReadAsync(show.StandardError.BaseStream, 4096, ct);
-        try
+        Task<byte[]>? output = null;
+        Task<byte[]>? errors = null;
+        return await PluginWorkerCompletion.RunAsync(Inspect,
+            () => PlatformPluginCommand.ReleaseProcessAsync(inspection, () => ReapClientAsync(show), output, errors));
+
+        async Task<bool> Inspect()
         {
-            await show.WaitForExitAsync(ct);
-            var lines = System.Text.Encoding.ASCII.GetString(await output).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            var groupPath = group["/sys/fs/cgroup".Length..];
-            if (show.ExitCode != 0 || (await errors).Length != 0 || lines.Length != 3 ||
-                !lines.Contains($"ControlGroup={groupPath}", StringComparer.Ordinal) ||
-                !lines.Contains("ActiveState=active", StringComparer.Ordinal) ||
-                lines.SingleOrDefault(line => line.StartsWith("MainPID=", StringComparison.Ordinal)) is not { } main ||
-                !int.TryParse(main.AsSpan(8), System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var pid) || pid <= 1) return false;
-            return Control($"/proc/{pid}", "cgroup") == $"0::{groupPath}" &&
-                Control(group, "cgroup.procs").Split('\n').Contains(main[8..], StringComparer.Ordinal);
+            try
+            {
+                show.StandardInput.Close();
+                output = PlatformPluginCommand.ReadAsync(show.StandardOutput.BaseStream, 4096, inspection.Token);
+                errors = PlatformPluginCommand.ReadAsync(show.StandardError.BaseStream, 4096, inspection.Token);
+                await show.WaitForExitAsync(inspection.Token);
+                var lines = System.Text.Encoding.ASCII.GetString(await output).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var groupPath = group["/sys/fs/cgroup".Length..];
+                if (show.ExitCode != 0 || (await errors).Length != 0 || lines.Length != 3 ||
+                    !lines.Contains($"ControlGroup={groupPath}", StringComparer.Ordinal) ||
+                    !lines.Contains("ActiveState=active", StringComparer.Ordinal) ||
+                    lines.SingleOrDefault(line => line.StartsWith("MainPID=", StringComparison.Ordinal)) is not { } main ||
+                    !int.TryParse(main.AsSpan(8), System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var pid) || pid <= 1 ||
+                    Control($"/proc/{pid}", "cgroup") != $"0::{groupPath}" ||
+                    !Control(group, "cgroup.procs").Split('\n').Contains(main[8..], StringComparer.Ordinal))
+                    throw Deny("plugin-worker-admission");
+                return true;
+            }
+            catch (OperationCanceledException error) when (!caller.IsCancellationRequested)
+            {
+                throw PluginWorkerCompletion.Translate(error, "plugin-worker-deadline");
+            }
         }
-        finally { await ReapClientAsync(show); }
     }
 
     private static string Control(string group, string file)
@@ -151,36 +166,38 @@ internal sealed class LinuxPluginRunner
 
     private async Task CleanupAsync(Process process, string unit, string group, bool dispatched)
     {
-        if (process.HasExited && !Populated(group)) return;
-        if (!dispatched) await ReapClientAsync(process);
-        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        using var stop = Process.Start(Start("/usr/bin/systemctl", "--user", "stop", unit)) ??
-            throw Deny("plugin-worker-drain");
-        stop.StandardInput.Close();
-        try
+        var needsStop = true;
+        // Before admission, stop the submission client first, then check its unique unit even if reaping failed.
+        await PluginWorkerCompletion.ReleaseAsync(() =>
         {
-            var output = PlatformPluginCommand.ReadAsync(stop.StandardOutput.BaseStream, 4096, cleanup.Token);
-            var errors = PlatformPluginCommand.ReadAsync(stop.StandardError.BaseStream, 4096, cleanup.Token);
-            await stop.WaitForExitAsync(cleanup.Token);
-            await Task.WhenAll(output, errors);
-            if (stop.ExitCode != 0 && Populated(group)) throw Deny("plugin-worker-drain");
-            await WaitDrained(group, cleanup.Token);
-        }
-        catch (OperationCanceledException) { throw Deny("plugin-worker-drain"); }
-        finally
+            needsStop = !dispatched || !process.HasExited || Populated(group);
+            return Task.CompletedTask;
+        }, () => !dispatched ? ReapClientAsync(process) : Task.CompletedTask,
+            () => needsStop ? StopUnit() : Task.CompletedTask,
+            () => needsStop ? ReapClientAsync(process) : Task.CompletedTask);
+
+        async Task StopUnit()
         {
-            await ReapClientAsync(stop);
-            await ReapClientAsync(process);
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var stop = Process.Start(Start("/usr/bin/systemctl", "--user", "stop", unit)) ??
+                throw Deny(PluginWorkerCompletion.DrainFailure);
+            Task<byte[]>? output = null;
+            Task<byte[]>? errors = null;
+            await PluginWorkerCompletion.ReleaseAsync(async () =>
+            {
+                stop.StandardInput.Close();
+                output = PlatformPluginCommand.ReadAsync(stop.StandardOutput.BaseStream, 4096, cleanup.Token);
+                errors = PlatformPluginCommand.ReadAsync(stop.StandardError.BaseStream, 4096, cleanup.Token);
+                await stop.WaitForExitAsync(cleanup.Token);
+                await Task.WhenAll(output, errors);
+                if (stop.ExitCode != 0 && Populated(group)) throw Deny(PluginWorkerCompletion.DrainFailure);
+                await WaitDrained(group, cleanup.Token);
+            }, () => PlatformPluginCommand.ReleaseProcessAsync(cleanup, () => ReapClientAsync(stop), output, errors));
         }
     }
 
-    private static async Task ReapClientAsync(Process process)
-    {
-        if (process.HasExited) return;
-        try { process.Kill(entireProcessTree: false); }
-        catch (InvalidOperationException) when (process.HasExited) { }
-        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(1));
-    }
+    private static Task ReapClientAsync(Process process) =>
+        PlatformPluginCommand.ReapProcessAsync(process, entireProcessTree: false, TimeSpan.FromSeconds(1));
 
     private ProcessStartInfo Start(string file, params string[] arguments)
     {
