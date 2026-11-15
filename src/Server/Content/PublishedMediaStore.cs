@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Threading.RateLimiting;
+using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
 using Npgsql;
@@ -49,6 +51,7 @@ internal sealed record PublishedMediaReference(Guid AssetId, byte[] Digest, Medi
 internal sealed class PublishedMediaStore(MediaFiles privateFiles, string publicRoot, string webRoot,
     params string[] otherForbiddenRoots) : IDisposable
 {
+    private readonly ConcurrencyLimiter reads = new(new ConcurrencyLimiterOptions { PermitLimit = 4, QueueLimit = 0 });
     private readonly MediaObjectDirectory objects = new(publicRoot, MediaImage.MaxBytes,
         [privateFiles.Root, webRoot, Path.Combine(webRoot, "assets"), Path.Combine(webRoot, "dist"), .. otherForbiddenRoots]);
 
@@ -121,7 +124,19 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         }
     }
 
-    public void Dispose() => objects.Dispose();
+    internal RateLimitLease AdmitRead() => reads.AttemptAcquire();
+
+    internal async Task<byte[]?> ReadPublic(PublishedArticleImage image, CancellationToken ct)
+    {
+        var bytes = await objects.Read(image.Digest + ".media", image.Length, Convert.FromHexString(image.Digest), ct);
+        return bytes is not null && MatchesFormat(bytes, (MediaFormat)image.Format) ? bytes : null;
+    }
+
+    public void Dispose()
+    {
+        reads.Dispose();
+        objects.Dispose();
+    }
 
     private static string Name(byte[] digest) => Convert.ToHexStringLower(digest) + ".media";
 

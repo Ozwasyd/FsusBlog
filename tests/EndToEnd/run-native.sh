@@ -106,7 +106,7 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
   export FSUSBLOG_TEST_MOBILE_TICKET
   : "${FSUSBLOG_TEST_PUBLIC_FIXTURE:=0}"
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media || ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
   export FSUSBLOG_TEST_MOBILE_TICKET
   if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
@@ -119,6 +119,11 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog
   mkdir -m 700 "$scratch/media"
   FSUSBLOG_PRIVATE_MEDIA_ROOT=$(cd "$scratch/media" && pwd -P)
   export FSUSBLOG_PRIVATE_MEDIA_ROOT
+fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
+  mkdir -m 700 "$scratch/public-media"
+  FSUSBLOG_PUBLIC_MEDIA_ROOT=$(cd "$scratch/public-media" && pwd -P)
+  export FSUSBLOG_PUBLIC_MEDIA_ROOT
 fi
 if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
@@ -147,6 +152,8 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
     -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   node tests/EndToEnd/article-media-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
+  node tests/EndToEnd/public-article-media-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then

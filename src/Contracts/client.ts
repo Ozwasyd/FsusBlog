@@ -175,7 +175,10 @@ export const api = {
   },
 
   publicArticle(id: number, signal?: AbortSignal) {
-    return request(WireRoutes.PublicArticle.replace('{id}', String(id)), FrameType.ArticleDetail, decodeArticle, signal);
+    return request(WireRoutes.PublicArticle.replace('{id}', String(id)), FrameType.ArticleDetail, (payload, headers) => ({
+      ...decodeArticle(payload),
+      hasPublishedMedia: headers.get(WireHeaders.PublicArticleMediaPresent) === '1',
+    }), signal);
   },
 
   search(query: string, signal?: AbortSignal) {

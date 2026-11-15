@@ -1,14 +1,15 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request, validSiteSessionId, type Draft } from './client.ts';
+import { request, siteSessionHeader, validSiteSessionId, type Draft } from './client.ts';
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export interface ArticleAttachment { readonly id: string; readonly ticket: string }
 export interface AttachmentEdit { readonly assetId: string; readonly attach: boolean }
+export interface ArticleMediaState { readonly entries: readonly ArticleAttachment[]; readonly publishImages: boolean }
 
-export function articleMedia(id: number, revision: bigint, signal?: AbortSignal): Promise<readonly ArticleAttachment[]> {
+export function articleMedia(id: number, revision: bigint, current: string, signal?: AbortSignal): Promise<ArticleMediaState> {
   const path = WireRoutes.ArticleMedia.replace('{id:int}', String(id)) + `?revision=${revision}`;
-  return request(path, FrameType.ArticleMedia, payload => {
+  return request(path, FrameType.ArticleMedia, (payload, headers) => {
     const reader = new PodReader(payload);
     if (id <= 0 || revision <= 0n || reader.i32() !== id || reader.i64() !== revision) throw invalid();
     const count = reader.i32();
@@ -23,8 +24,8 @@ export function articleMedia(id: number, revision: bigint, signal?: AbortSignal)
       known.add(asset);
     }
     reader.finish();
-    return entries;
-  }, signal);
+    return { entries, publishImages: headers.get(WireHeaders.ArticlePublishImagesEnabled) === '1' };
+  }, signal, 'GET', undefined, siteSessionHeader(current));
 }
 
 export function editArticleMedia(id: number, revision: bigint, key: string, edit: AttachmentEdit, current: string,

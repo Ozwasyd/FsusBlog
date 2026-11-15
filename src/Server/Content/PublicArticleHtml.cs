@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using Markdig;
@@ -10,7 +12,7 @@ internal static class PublicArticleHtml
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().DisableHtml().Build();
 
-    internal static string Render(Article article)
+    internal static string Render(Article article, IReadOnlyList<PublishedArticleImage>? images = null)
     {
         var header = HtmlEncoder.Default.Encode(article.Title);
         var disclosure = article.Rights?.Policy is { Enabled: true, ShowPublicBadge: true } rights
@@ -18,7 +20,23 @@ internal static class PublicArticleHtml
               $"<p>{HtmlEncoder.Default.Encode(rights.CopyrightHolder)}{(rights.CopyrightYear > 0 ? $" {rights.CopyrightYear}" : "")}</p>" +
               $"<p>{HtmlEncoder.Default.Encode(rights.RightsStatement)}</p></aside>"
             : "";
-        return $"<main><article><h1>{header}</h1>{RenderMarkdown(article.Body)}{disclosure}</article></main>";
+        return $"<main><article><h1>{header}</h1>{RenderMarkdown(article.Body)}{RenderImages(article, images)}{disclosure}</article></main>";
+    }
+
+    private static string RenderImages(Article article, IReadOnlyList<PublishedArticleImage>? images)
+    {
+        if (images is not { Count: > 0 }) return "";
+        var html = new StringBuilder();
+        html.Append(CultureInfo.InvariantCulture,
+            $"<section data-fsus-public-article-media data-article-id=\"{article.Id}\" data-publication=\"{article.Publication}\" aria-label=\"Published images\">");
+        for (var index = 0; index < images.Count; index++)
+        {
+            var image = images[index];
+            var path = PublishedMediaProjection.ImagePath(article.Id, article.Publication, image.Digest);
+            html.Append(CultureInfo.InvariantCulture,
+                $"<img src=\"{path}\" width=\"{image.Width}\" height=\"{image.Height}\" alt=\"Published image {index + 1}\" loading=\"lazy\">");
+        }
+        return html.Append("</section>").ToString();
     }
 
     internal static string RenderMarkdown(string markdown)

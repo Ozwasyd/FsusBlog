@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -19,14 +20,18 @@ internal static class MediaEndpoints
         options.AddConcurrencyLimiter(ReadPolicy, limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     }
 
-    internal static void Map(WebApplication app, string cookie)
+    internal static void Map(WebApplication app, string cookie, bool publishedMedia = false)
     {
         var resumable = app.Configuration.GetValue(MediaUploadEndpoints.Setting, false);
         app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
         {
             var boundary = Position(ctx);
-            var rows = await store.WithSession(ctx.Request.Cookies[cookie], true,
-                (db, tx, actor) => media.List(db, tx, actor.Id, boundary, token), token);
+            var session = ctx.Request.Cookies[cookie];
+            var rows = await store.WithSession(session, true, (db, tx, actor) =>
+            {
+                SiteSessions.IfCurrent(actor.Id, session, SiteSessions.Requested(ctx));
+                return media.List(db, tx, actor.Id, boundary, token);
+            }, token);
             var more = rows.Count == 51;
             if (resumable) ctx.Response.Headers[WireHeaders.PrivateMediaResumable] = "1";
             return Results.Bytes(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more), Aeds.ContentType);
@@ -79,7 +84,7 @@ internal static class MediaEndpoints
             await Read(ctx, id, store, media, cookie, app.Logger, token);
         }).RequireRateLimiting(ReadPolicy).WithMetadata(new PrivateRead());
         MediaUploadEndpoints.Map(app, cookie);
-        ArticleMediaEndpoints.Map(app, cookie);
+        ArticleMediaEndpoints.Map(app, cookie, publishedMedia);
     }
 
     internal static void SetHidden(HttpResponse response)

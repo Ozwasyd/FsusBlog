@@ -8,7 +8,7 @@ namespace FsusBlog.V2.Server.Content;
 
 internal static class ArticleMediaEndpoints
 {
-    internal static void Map(WebApplication app, string cookie)
+    internal static void Map(WebApplication app, string cookie, bool publishedMedia)
     {
         app.MapGet(WireRoutes.ArticleMedia, async (int id, HttpContext ctx, Store store, CancellationToken ct) =>
         {
@@ -16,11 +16,13 @@ internal static class ArticleMediaEndpoints
             var session = ctx.Request.Cookies[cookie];
             return await store.WithSession(session, true, async (db, tx, actor) =>
             {
+                SiteSessions.IfCurrent(actor.Id, session, SiteSessions.Requested(ctx));
                 await Authoring.RevisionHistoryStore.LockCurrent(db, tx, actor, id, revision, ct);
                 var ids = await ArticleMediaStore.Read(db, tx, id, revision, ct);
                 var digest = Store.TokenDigest(session)!;
                 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var entries = ids.Select(asset => new ArticleMediaEntry(asset, new ArticleMediaTicket(id, revision, asset).Encode(digest, now))).ToArray();
+                if (publishedMedia) ctx.Response.Headers[WireHeaders.ArticlePublishImagesEnabled] = "1";
                 return Results.Bytes(Wire.EncodeArticleMedia(id, revision, entries), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");

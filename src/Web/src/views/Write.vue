@@ -9,6 +9,7 @@ import { rollbackDraft } from '../../../Contracts/revision-history'
 import { setArticleSchedule } from '../../../Contracts/article-schedule'
 import { setDraftRights, type RightsEdit } from '../../../Contracts/article-rights'
 import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/article-media'
+import { publishArticleImages, type PublishImagesSelection } from '../../../Contracts/published-media'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
@@ -37,7 +38,7 @@ import {
 } from '../authoring/workspaceRegistry'
 
 type ArticleAction = 'save' | 'publish' | 'retract'
-type Action = ArticleAction | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment'
+type Action = ArticleAction | 'publish-images' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment'
 type RestoreSelection = { sourceRevision: bigint; reason: string }
 const route = useRoute()
 const router = useRouter()
@@ -111,6 +112,8 @@ const twoSources = computed(() => sourcePanes.value.length === 2)
 const showComparison = computed(() => twoSources.value && wideEditorArea.value && comparisonReady.value)
 const comparisonTab = computed(() => sourcePanes.value.find(pane => !pane.tab.active)?.tab)
 const credential = computed(() => currentSession.value?.siteSessionId)
+const canPublishImages = computed(() => !!credential.value && editable.value && tab.value?.risk === 'clean' &&
+  !cannotWrite.value && !dirty.value && !retry.value && !!original.value?.body.trim())
 let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
 
 watch(editorArea, (area, _, cleanup) => {
@@ -225,6 +228,12 @@ const updateAttachment = (edit: AttachmentEdit) => (draft: Draft, signal: AbortS
   const handle = currentSession.value?.siteSessionId
   if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' } as const)
   return mutationResult(() => editArticleMedia(draft.id, draft.revision, key, edit, handle, signal), signal)
+}
+
+const publishImages = (assets: readonly string[]) => (draft: Draft, signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {
+  const handle = currentSession.value?.siteSessionId
+  if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
+  return mutationResult(() => publishArticleImages(draft.id, draft.revision, key, assets, handle, signal), signal)
 }
 
 const registry = new WorkspaceRegistry<Draft>({
@@ -638,6 +647,8 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
   if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
+  } else if (action === 'publish-images') {
+    return
   } else if (action === 'assign-taxonomy') {
     if (!selection || current.risk !== 'clean' || taxonomyStale.value || !taxonomyDirty.value) return
   } else if (action === 'rollback-history') {
@@ -672,11 +683,29 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
                 : action === 'save-attachment' && media && siteSession
                   ? registry.commit(current, action, updateAttachment(media)) : undefined
   if (!requested) return
+  await finishSubmission(action, current, document, identity, requested)
+}
+
+async function publishSelectedImages(selection: PublishImagesSelection) {
+  const current = tab.value
+  const document = original.value
+  if (!current || !document || !canPublishImages.value || selection.articleId !== document.id ||
+      selection.revision !== document.revision || selection.credential !== credential.value) return
+  failure.value = ''
+  notice.value = ''
+  const identity = identityEpoch.value
+  const requested = registry.commit(current, 'publish-images', publishImages(selection.assets.slice()))
+  await finishSubmission('publish-images', current, document, identity, requested)
+}
+
+async function finishSubmission(action: Action, current: WorkspaceTab, document: Draft, identity: number,
+  requested: ReturnType<typeof registry.retry>) {
   const result = await requested
   if (lifetime.signal.aborted || identity !== identityEpoch.value || id.value !== current.articleId) return
   if (result.kind === 'saved') {
     notice.value = {
       save: 'Draft saved.', publish: 'Article published.', retract: 'Article withdrawn.',
+      'publish-images': 'Article and selected images published.',
       'assign-taxonomy': 'Classification saved.', 'rollback-history': 'Revision restored to a new draft.',
       'schedule-publication': 'Publication schedule updated.',
       'save-rights': 'Publication rights saved.',
@@ -817,8 +846,9 @@ async function reloadDraft() {
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" format="docx" />
         <ArticleMedia :article-id="original.id" :revision="original.revision"
+          :credential="credential" :can-publish="canPublishImages"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
-          @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" />
+          @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" @publish-images="publishSelectedImages" />
         <ArticleTaxonomy
           :article-id="original.id"
           :revision="original.revision"

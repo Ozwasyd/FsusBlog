@@ -1,6 +1,6 @@
-# 公开文章图片发布方案
+# 公开文章图片发布
 
-本文描述拟实施的 P3 切片。固定 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 将 `/uploads` 绑定到 `PublicAssetRoot` 的静态文件 provider，`/uploads/illustration` 对应其 `illustration` 子目录。上传流程会将图片物化到该公开根，图片 URL 的访问条件由静态路径决定，业务引用账本负责资产身份与清理。此切片承接已采用的独立 AssetId、公开资产隔离和真实投递验证要求，拟定单独的 v2 公开路线。 [v1 公开路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs#L207-L228) · [v1 资产引用](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/article-asset-reference-lifecycle.md) · [已采用资产需求](../issues/risk-assets.tsv)
+本切片实现文章发布时对私有附件的显式公开。固定 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 将 `/uploads` 绑定到 `PublicAssetRoot` 的静态文件 provider，`/uploads/illustration` 对应其 `illustration` 子目录。上传流程会将图片物化到该公开根，图片 URL 的访问条件由静态路径决定，业务引用账本负责资产身份与清理。此切片承接已采用的独立 AssetId、公开资产隔离和真实投递验证要求，拟定单独的 v2 公开路线。 [v1 公开路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs#L207-L228) · [v1 资产引用](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/article-asset-reference-lifecycle.md) · [已采用资产需求](../issues/risk-assets.tsv)
 
 ## 作者选择与发布
 
@@ -26,9 +26,11 @@
 
 本地实现包含离线 `article-public-media` schema、带当前会话证明的显式发布事务和独立对象根。事务在接受所选私有图片并完成有界校验、原子物化后，才写入公开发布与不可变图片清单。清单可随普通发布历史审计。相同摘要跨发布复用对象；同一发布拒绝重复内容。写入失败时清理该次操作独占创建的临时文件，最终对象留给受控离线核验，防止误删共享或提交状态不明的对象。
 
-公开 HTTP 路由、编辑器选图和读面、网关验证及恢复后重建工具由后续切片接入。这一阶段的显式发布入口仅供服务内部使用。
+配置独立且已存在的绝对路径 `FSUSBLOG_PRIVATE_MEDIA_ROOT` 和 `FSUSBLOG_PUBLIC_MEDIA_ROOT`。两个目录及公开媒体根与 Web 构建、静态子目录和已配置外观根均不能交叠。目录由服务用户持有，模式为 0700。已有库在停止服务后通过离线迁移工具执行 `article-public-media`。新库由正常的 `plan` 和 `apply` 创建所需数据表。服务启用时验证完整目录及 schema，后台读取快照后再进入就绪状态。
 
-计划新增公开对象存储、发布清单及路由，优先放在独立 `Content/PublishedMedia*.cs`、单独迁移及 schema 校验、独立 AEDS 契约和生成清单。既有发布逻辑只接入显式图片选择。前端复用 `ArticleMedia.vue`、工作区命令状态和 `Article.vue`，沿用本地 FsusUI 别名和现有键盘交互。
+编辑器沿用本地 FsusUI 附件检查器。已保存修订的作者可以选图及复核，命令绑定所见文章、修订和会话。公开详情以同一发布坐标提供首屏和水合后的图片，清单与文件使用独立 URL。站点未配置公开媒体时仍可使用现有私有媒体和普通发布。Kestrel 图片路由按远端 IP 采用每分钟 600 次固定窗口，最多四个已准入的文件响应同时持有核验后数据。文件入口只接受 GET 和 HEAD，带 Range、其他方法及过量请求分别返回 416、405 和 429。
+
+备份恢复后重建对象及离线清扫仍需单独验收。生产 Caddy 的网关每 IP 突发、连接数与带宽配置仍待覆盖，启用该功能的应用内限制可独立验证。
 
 1. 在原生 PostgreSQL、真实图片和实际 Kestrel 下覆盖普通发布无图片、显式选择公开、未选及跨作者附件无法读取、同键回放、旧修订冲突、定时和管理员路径的空默认。检查持久清单与实际发布历史坐标、内容摘要及源图格式一致。
 2. 以真实 HTTP 覆盖 GET/HEAD、匿名、猜测摘要、同摘要双发布、替换后旧 URL、撤回后条件请求、Range/方法、丢失或被替换对象、重启及失去租约。用受控失败区分物化后提交失败、出站投影失败、快照切换与文件读取重叠，并核对孤儿对象不会经 HTTP 可达。

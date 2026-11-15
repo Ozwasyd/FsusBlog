@@ -21,6 +21,7 @@ internal sealed class PublicSnapshot
     private readonly FrozenDictionary<int, Article> _byId;
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
+    private readonly PublishedMediaProjection? _media;
     internal long Generation { get; }
     internal string GenerationHeader { get; }
     internal long Watermark { get; }
@@ -34,7 +35,7 @@ internal sealed class PublicSnapshot
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
-        long taxonomyEpoch = 0)
+        long taxonomyEpoch = 0, PublishedMediaProjection? media = null)
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
@@ -45,7 +46,8 @@ internal sealed class PublicSnapshot
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
         _ordered = articles;
         _byId = articles.ToFrozenDictionary(article => article.Id);
-        _details = new PublicArticleCache(_byId, pages, Generation, log, evidence);
+        _media = media;
+        _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
@@ -60,6 +62,12 @@ internal sealed class PublicSnapshot
     internal Article? Article(int id) => _byId.GetValueOrDefault(id);
 
     internal bool HasArticle(int id) => _byId.ContainsKey(id);
+
+    internal bool HasPublishedImages(int id) => _media?.HasImages(id) is true;
+
+    internal IReadOnlyList<PublishedArticleImage>? PublishedImages(int id, long publication) =>
+        _byId.TryGetValue(id, out var article) && article.Publication == publication
+            ? _media?.Images(id, publication) ?? [] : null;
 
     internal ValueTask<PublicArticleBytes?> Detail(int id, CancellationToken ct) => _details.Read(id, ct);
 
@@ -133,7 +141,7 @@ internal sealed class PublicSnapshot
 }
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
-    RuntimeEvidence? evidence = null, DistributionSettings? distribution = null)
+    RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
@@ -251,6 +259,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         if (rebuilt)
         {
             var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
+            var mediaProjection = media is null ? null : await PublishedMediaProjection.Read(connection, tx, ct);
             await using var cmd = Store.Sql(connection, tx, """
                 select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at,
                     p.publication_no, c.id, c.name, tags.ids, tags.names, s.id,
@@ -297,7 +306,8 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags, rights));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution, ct, taxonomyEpoch);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
+                ct, taxonomyEpoch, mediaProjection);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null

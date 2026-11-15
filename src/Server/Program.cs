@@ -85,6 +85,7 @@ if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetti
     builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Content.MediaFiles(mediaRoot, dist));
     builder.Services.AddSingleton<FsusBlog.V2.Server.Content.MediaStore>();
 }
+var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist);
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -93,6 +94,8 @@ builder.Services.AddRateLimiter(options =>
     {
         if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<FsusBlog.V2.Server.Content.MediaEndpoints.PrivateRead>() is not null)
             FsusBlog.V2.Server.Content.MediaEndpoints.SetHidden(context.HttpContext.Response);
+        else if (publicMediaEnabled && context.HttpContext.Request.Path.StartsWithSegments(PublishedMediaEndpoints.PathPrefix))
+            PublishedMediaEndpoints.SetHeaders(context.HttpContext.Response);
         else await Error(context.HttpContext, 429, "Rate limit reached.").ExecuteAsync(context.HttpContext);
     };
     options.AddPolicy("sign-in", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -108,6 +111,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
+    if (publicMediaEnabled) PublishedMediaEndpoints.AddRateLimit(options);
     if (subscription is not null) SubscriptionEndpoints.AddRateLimits(options);
 });
 
@@ -139,7 +143,8 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireAdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
     requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
-    requireAdminTagMetadata: adminTagMetadata ? true : null);
+    requireAdminTagMetadata: adminTagMetadata ? true : null, requirePublicationMedia: publicMediaEnabled ? true : null);
+var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
 var publicationProofs = app.Services.GetService<PublicationProofs>();
 if (publicationProofs is not null) await publicationProofs.Initialize(app.Lifetime.ApplicationStopping);
@@ -151,6 +156,8 @@ app.Use(async (ctx, next) =>
     if (publicationProofs is not null && PublicationProofs.IsRoute(ctx.Request.Path)) NoStore(ctx);
     ctx.Response.Headers.XContentTypeOptions = "nosniff";
     ctx.Response.Headers["Referrer-Policy"] = "same-origin";
+    var imageRequest = publicMediaEnabled && ctx.Request.Path.StartsWithSegments(PublishedMediaEndpoints.PathPrefix);
+    if (imageRequest) PublishedMediaEndpoints.SetHeaders(ctx.Response);
     ctx.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob: https:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
     try
@@ -173,6 +180,12 @@ app.Use(async (ctx, next) =>
         {
             NoStore(ctx);
             throw new BusinessException(Rejection.NotFound, "This route is unavailable on the current origin.");
+        }
+        if (imageRequest && !HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
+        {
+            ctx.Response.Headers.Allow = "GET, HEAD";
+            ctx.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
+            return;
         }
         if (ctx.Request.Path.StartsWithSegments("/api"))
         {
@@ -229,7 +242,9 @@ FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
-    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
+    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie, publicMediaEnabled);
+if (publishedMedia is not null)
+    PublishedMediaEndpoints.Map(app, Cookie, publications, publishedMedia, ReadFrame);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 integrityKeys.Map(app);
@@ -400,6 +415,8 @@ async Task PublicDetail(HttpContext ctx, int id, bool asHtml)
     RequireCurrentSnapshot(ctx, snapshot);
     if (article is not null)
     {
+        if (publicMediaEnabled && snapshot.HasPublishedImages(id))
+            ctx.Response.Headers[WireHeaders.PublicArticleMediaPresent] = "1";
         await PublicResponse.Write(ctx, asHtml ? article.Html : article.Wire, asHtml ? Html : Binary);
         return;
     }

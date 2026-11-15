@@ -1,6 +1,6 @@
 import { decodeSuccess, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { request, validSiteSessionId } from './client.ts';
+import { request, siteSessionHeader, validSiteSessionId } from './client.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
@@ -60,13 +60,13 @@ export function decodeMediaItems(payload: Uint8Array): MediaPage {
   return { items, hasMore };
 }
 
-export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal): Promise<MediaPage & { resumable: boolean }> {
+export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal, current?: string): Promise<MediaPage & { resumable: boolean }> {
   const query = before ? `?${new URLSearchParams({ before: String(before.ticks), beforeId: before.id })}` : '';
   return request(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, (payload, headers) => {
     const flag = headers.get(WireHeaders.PrivateMediaResumable);
     if (flag !== null && flag !== '1') throw invalid();
     return { ...decodeMediaItems(payload), resumable: flag === '1' };
-  }, signal);
+  }, signal, 'GET', undefined, siteSessionHeader(current));
 }
 
 export function uploadMedia(file: File, key: string, signal?: AbortSignal): Promise<PrivateMediaItem> {

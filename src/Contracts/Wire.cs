@@ -132,6 +132,8 @@ public static partial class Wire
                 buffer.Advance(Utf8.GetBytes(value, buffer.GetSpan(length)));
         }
 
+        public void FixedBytes(ReadOnlySpan<byte> value) => buffer.Write(value);
+
         public void Bytes(ReadOnlySpan<byte> value)
         {
             I32(value.Length);
@@ -155,6 +157,8 @@ public static partial class Wire
         }
         public long I64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));
         public Guid Uuid() => new(Take(16), bigEndian: true);
+
+        public ReadOnlySpan<byte> FixedBytes(int length) => Take(length);
 
         public ReadOnlySpan<byte> Bytes(int limit)
         {

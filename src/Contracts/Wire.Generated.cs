@@ -28,6 +28,8 @@ public enum FrameType : ushort
     PrivateMediaUploadState = 32845,
     ArticleMedia = 32870,
     ArticleMediaCommand = 32871,
+    ArticlePublishImages = 32967,
+    PublicArticleMedia = 32968,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -513,6 +515,9 @@ public static class WireRoutes
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
     public const string ArticleMedia = "/api/v2/authoring/draft/{id:int}/media.aeds";
     public const string ArticleMediaCommand = "/api/v2/authoring/draft/media.aeds";
+    public const string ArticlePublishImages = "/api/v2/authoring/draft/publish-images.aeds";
+    public const string PublicArticleMedia = "/api/v2/public/articles/{id:int}/{publication:long}/media.aeds";
+    public const string PublicArticleMediaFile = "/public-media/{id:int}/{publication:long}/{digest}";
     public const string ArticleMediaPreview = "/api/v2/media/draft-preview";
     public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";
     public const string PrivateMediaUploadBegin = "/api/v2/media/resumable/begin.aeds";
@@ -675,6 +680,8 @@ public static class WireHeaders
     public const string SourceEventId = "X-Fsus-Source-Event-Id";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
+    public const string ArticlePublishImagesEnabled = "X-Fsus-Article-Publish-Images";
+    public const string PublicArticleMediaPresent = "X-Fsus-Public-Article-Media";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string SiteRefresh = "X-Fsus-Site-Refresh";

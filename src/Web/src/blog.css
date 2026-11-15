@@ -36,6 +36,8 @@ p { line-height: 1.65; }
 .article-body { padding-block-start: 4rem; }
 .article-cover { display: block; inline-size: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--fsus-radius-panel); margin-block-end: 2.5rem; }
 .article-body > header { margin-block-end: 2rem; }
+[data-fsus-public-article-media] { display: grid; gap: 1rem; margin-block: 2rem; }
+[data-fsus-public-article-media] img { display: block; max-inline-size: 100%; block-size: auto; }
 .article-source { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: 1.5rem; font: inherit; line-height: 1.8; }
 .retry { margin-block: 1rem; }
 

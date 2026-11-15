@@ -7,7 +7,7 @@ namespace FsusBlog.V2.Server.Content;
 internal sealed record PublicArticleBytes(byte[] Wire, byte[] Html);
 
 internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> articles, WebPages pages,
-    long generation = 0, ILogger? log = null, RuntimeEvidence? evidence = null)
+    long generation = 0, ILogger? log = null, RuntimeEvidence? evidence = null, PublishedMediaProjection? media = null)
 {
     private const int ParallelRenders = 4;
     private const int PendingRenders = 64;
@@ -17,6 +17,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
     private static readonly Action<ILogger, string, int, long, int, int, long, Exception?> LogCold =
         LoggerMessage.Define<string, int, long, int, int, long>(LogLevel.Debug, new EventId(2201, "PublicArticleColdCache"),
             "Public article cache {Event} article={ArticleId} generation={Generation} pending={Pending} active={Active} elapsed_us={ElapsedUs}");
+    private readonly PublishedMediaProjection? _media = media;
     private readonly object _gate = new();
     private readonly Dictionary<int, Task<PublicArticleBytes>> _pending = new();
     private readonly Dictionary<int, LinkedListNode<Entry>> _entries = new();
@@ -33,17 +34,19 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
         foreach (var article in warmArticles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var value = previous?.FindReusable(article) ?? Encode(article);
+            var value = previous?.FindReusable(article, _media) ?? Encode(article);
             lock (_gate) Add(article.Id, value);
         }
     }
 
-    private PublicArticleBytes? FindReusable(Article article)
+    private PublicArticleBytes? FindReusable(Article article, PublishedMediaProjection? media)
     {
         // Revision/publication alone cannot prove identity if attached metadata is renamed.
         if (!articles.TryGetValue(article.Id, out var before) ||
             before with { Tags = null } != article with { Tags = null } ||
             !(before.Tags ?? []).SequenceEqual(article.Tags ?? [])) return null;
+        if (!(_media?.Images(article.Id, article.Publication) ?? [])
+                .SequenceEqual(media?.Images(article.Id, article.Publication) ?? [])) return null;
         lock (_gate) return _entries.TryGetValue(article.Id, out var entry) ? entry.Value.Value : null;
     }
 
@@ -163,7 +166,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
     }
 
     private PublicArticleBytes Encode(Article article) => new(PublicArticles.EncodeDetail(article),
-        pages.Page(PublicArticleHtml.Render(article), article.Title, article.Summary,
+        pages.Page(PublicArticleHtml.Render(article, _media?.Images(article.Id, article.Publication)), article.Title, article.Summary,
             publicPath: $"/article/{DistributionSettings.Number(article.Id)}"));
 
     private void Add(int id, PublicArticleBytes value)

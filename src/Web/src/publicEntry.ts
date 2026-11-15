@@ -1,7 +1,11 @@
 import { api } from '../../Contracts/client'
+import { fetchPublicArticleMedia, type PublicArticleImage } from '../../Contracts/published-media'
 
 type InitialListing = { page: number; value: Awaited<ReturnType<typeof api.publicList>> }
-type InitialArticle = { id: number; value: Awaited<ReturnType<typeof api.publicArticle>> }
+type InitialArticle = {
+  value: Awaited<ReturnType<typeof api.publicArticle>>
+  images?: readonly PublicArticleImage[]
+}
 
 let listing: InitialListing | undefined
 let article: InitialArticle | undefined
@@ -20,7 +24,10 @@ export async function preloadPublicEntry(route: { name: unknown; params: Record<
       listing = { page: 1, value: await api.publicList(1, 10, signal) }
     } else if (route.name === 'article') {
       const id = Number(route.params.id)
-      article = { id, value: await api.publicArticle(id, signal) }
+      const value = await api.publicArticle(id, signal)
+      if (value.id !== id) return
+      article = { value }
+      if (value.hasPublishedMedia) article.images = await fetchPublicArticleMedia(id, value.publication, signal)
     }
   } catch {
     // The route owns retry, not-found, and error states after takeover.
@@ -30,7 +37,7 @@ export async function preloadPublicEntry(route: { name: unknown; params: Record<
 export function readInitialArticle(id: number) {
   const value = article
   article = undefined
-  return value?.id === id ? value.value : undefined
+  return value?.value.id === id ? value : undefined
 }
 
 export function readInitialListing(page: number) {
