@@ -22,7 +22,7 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 设置 `FSUSBLOG_ADMIN_INBOX_LIVE=true` 后，管理员打开的账号工单会在收到该账号已提交的回复后刷新。管理员专用的 `/api/v2/admin/identity/inbox/{id}/wake` 复用现有 `InboxWake` 和 `fsus-inbox-wake.v2`。服务检查管理员来源、独立会话和 `admin.manage` 后，只发送固定 AEDS 成功帧。连接最多四条，无排队。浏览器打开或重连后读取当前工单详情，保留正在编辑的草稿和焦点。历史分页仍可继续读取，共享已读位置仍由打开工单或主动重新加载触发。默认关闭，无需数据库迁移。冻结 v1 将账号新回复投递给管理端，管理端在投影缺失时补读当前工单。 [v1 投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/NotificationStream/MessageCenterService.DeliveryOutbox.cs#L55-L113) · [v1 补读](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useAdminMessageCenter.ts#L505-L539)
 
-现有 Caddy 双身份验收使用 `FSUSBLOG_TEST_ADMIN_INBOX_LIVE=1 bash tests/EndToEnd/run-admin-tls.sh` 检查账号 PoW 回复、管理员同源连接、断线期间已提交消息的补读，以及接收消息后草稿和焦点的保留。再设 `FSUSBLOG_TEST_ADMIN_INBOX_SHARED=1` 检查被动更新后保留共享未读、主动重新加载后确认准确的已读快照。
+候选 `13bf4fc` 通过 PostgreSQL 18.7、Caddy 2.11.9 独立 HTTPS 来源及 Chrome 157 验收。启用实时流和共享已读时，验证了账号经 PoW 新建和回复、管理员首屏和打开的工单各自更新、工单断线重连补读，以及草稿、焦点和共享未读位置保留。错误来源、站点会话和客户端发给唤醒连接的消息被拒绝，管理员会话撤销后连接关闭。单独以默认关闭设置重跑，队列和工单唤醒均返回 404，普通查阅仍可用。两次运行均清理 PostgreSQL、服务和代理。 [实时验收](../../artifacts/admin-inbox-live-13bf4fc/live/admin-identity-result.json) · [默认关闭验收](../../artifacts/admin-inbox-live-13bf4fc/default/admin-identity-result.json) · [浏览器断言](../../tests/EndToEnd/admin-inbox-flow.mjs)
 
 同一开关也让「全部」工单按创建编号排序的首屏在账号新建工单后更新。管理员页面根据当前视图连接队列或工单详情，两个入口共享四条连接的上限。队列唤醒使用实际首屏的编号序列和分页边界，所以较小编号较晚提交时也能被发现。浏览器重新读取管理员权威列表，保留仍可见工单的焦点。启用共享未读时，新工单显示一条未读。其他筛选、活动排序及已加载后续页继续使用主动刷新。 [v1 创建与管理员投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/NotificationStream/MessageCenterService.MessageCommand.cs#L125-L141)
 
