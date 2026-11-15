@@ -1,0 +1,9 @@
+[Unit]
+Description=Schedule FsusBlog daily publication checkpoints
+
+[Timer]
+OnCalendar=*-*-* 00:05:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

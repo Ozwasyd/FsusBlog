@@ -92,6 +92,7 @@ for name in ep_wasm markdown_basic markdown_simd; do
   fi
 done
 cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin" "$scratch/source/deploy/README.md" "$scratch/package/"
+cp -- "$scratch/source/deploy/fsusblog-daily-checkpoint.service" "$scratch/source/deploy/fsusblog-daily-checkpoint.timer" "$scratch/package/"
 {
   printf 'fsusblog_commit=%s\nfsusui_commit=%s\n' "$rev" "$ui_rev"
   printf 'server_rid=%s\nheading_parser=%s\n' "$server_rid" "$heading_parser"

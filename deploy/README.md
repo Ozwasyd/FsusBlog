@@ -44,3 +44,19 @@ caddy run --config deploy/Caddyfile.admin --adapter caddyfile
 管理主机只向上游转发 `/admin/identity`、`/api/v2/admin/identity/*`、`/assets/*` 和 `/dist/*`。管理主机要求 TLS SNI 与 HTTP Host 匹配。Caddy 按真实 TLS 请求重建转发头，站点账号和管理员凭据各自按主机与权限验证。管理员 Cookie 使用 `__Host-` 前缀，完成 Passkey 登录后才签发。域名、公网证书和网络接入策略需要部署方验证。 [Caddy 的 SNI 和 Host 说明](https://caddyserver.com/docs/caddyfile/options#strict-sni-host)
 
 `tests/EndToEnd/run-admin-tls.sh` 使用两个独立的环回证书、原生 PostgreSQL 和 Chrome 虚拟 CTAP2 验证此配置。为脚本设置测试数据库连接 `FSUSBLOG_TEST_DB` 及配套的 `PGHOST`、`PGPORT`、`PGUSER`。可通过 `FSUSBLOG_NATIVE_SERVER_BUILD`、`FSUSBLOG_NATIVE_MIGRATE_BUILD` 和 `FSUSBLOG_WEB_DIST` 指向解包后的发布产物。测试只为子进程设置证书信任，结束后移除临时数据库、私钥和监听进程。 [Chrome 测试证书用法](https://github.com/GoogleChrome/samples/blob/gh-pages/webtransport/webtransport_server.py)
+
+## 每日签发归档候选
+
+Linux 发布包中的 `fsusblog-daily-checkpoint.service` 和 `fsusblog-daily-checkpoint.timer` 示例以独立账户 `fsusblog-checkpoint` 每天在 UTC 00:05 签发前一天。部署者需按本机的账户和工具路径调整服务，提供只读 PostgreSQL 主库连接、独立留存的可信账本锚点和与文章签名密钥分离的专用密钥。以下是仅供服务管理器读取的 `/etc/fsusblog/checkpoint.env` 示例。
+
+```ini
+FSUSBLOG_PUBLIC_ORIGIN=https://blog.example.org
+FSUSBLOG_DB="Host=pg-primary.example.org;Database=fsusblog;Username=checkpoint_reader"
+FSUSBLOG_CHECKPOINT_KEYS=/etc/fsusblog/checkpoint-keys.json
+FSUSBLOG_CHECKPOINT_ANCHOR_SEQUENCE=123
+FSUSBLOG_CHECKPOINT_ANCHOR_SHA256=<independently-retained-lowercase-sha256>
+IntegrityProof__CheckpointSigning__KeyId=checkpoint
+IntegrityProof__CheckpointSigning__PrivateKeyFile=/etc/fsusblog/checkpoint-private/key.pkcs8
+```
+
+将两个单元安装到 `/etc/systemd/system/` 后运行 `systemctl daemon-reload` 和 `systemctl enable --now fsusblog-daily-checkpoint.timer`。单元自动为该账户创建仅自己可访问的 `/var/lib/fsusblog-checkpoints`。用 `journalctl -u fsusblog-daily-checkpoint.service` 检查退出状态、归档摘要和锚点。停机恢复时定时器补触发一次，指定失败或遗漏的具体日期时以同一签名账户运行带 `YYYY-MM-DD` 参数的命令。分发归档时按公开归档流程独立核验后，将已批准文件及摘要交给站点部署配置。 [签发与验签](../docs/product/publication-rights.md)

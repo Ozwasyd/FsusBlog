@@ -59,6 +59,8 @@ internal static partial class Migration
                                         Sign a release checkpoint from a pinned native log with the server stopped
                   publication-transparency checkpoint-daily HTTPS_ORIGIN KEYS_JSON HEAD_JSON YYYY-MM-DD [INCLUDE_SEQ]
                                         Sign a closed UTC day within the witnessed native log prefix
+                  publication-transparency checkpoint-daily-auto HTTPS_ORIGIN KEYS_JSON ANCHOR_SEQ ANCHOR_SHA256 OUTPUT_ROOT [YYYY-MM-DD]
+                                        Seal a closed UTC day from a live primary with a separate checkpoint key
                   publication-transparency verify HTTPS_ORIGIN KEYS_JSON [PREFIX_SEQ PREFIX_SHA256]
                                         Verify a local issuance ledger with a trusted public key manifest
                   admin-article-rollback schema
@@ -283,6 +285,9 @@ internal static partial class Migration
                     break;
                 case ["publication-transparency", "checkpoint-daily", .. var dailyCheckpointArgs]:
                     await CreatePublicationCheckpointAsync(connection, dailyCheckpointArgs, PublicationCheckpointKind.Daily, token);
+                    break;
+                case ["publication-transparency", "checkpoint-daily-auto", .. var automaticCheckpointArgs]:
+                    await SealDailyPublicationCheckpointAsync(connection, automaticCheckpointArgs, token);
                     break;
                 case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
                     await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);

@@ -63,20 +63,11 @@ internal static partial class Migration
             var claim = new PublicationCheckpointV2(args[0], args[3], entries.Count == 0 ? 0 : entries[0].Sequence,
                 entries.Count == 0 ? 0 : entries[^1].Sequence, entries.Count, checkpoint.RootSha256, head.Claim.Sequence,
                 head.Claim.EntrySha256, current, signer.Version, signer.Fingerprint, issued, kind);
-            var signature = key.SignData(claim.Payload(), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            var signed = SignPublicationCheckpoint(claim, key);
             await tx.CommitAsync(ct);
             Console.WriteLine(JsonSerializer.Serialize(new
             {
-                checkpoint = new
-                {
-                    checkpointVersion = 2, kind = "native-publication-checkpoint", checkpointKind = daily ? "daily" : "release",
-                    algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin = claim.Origin, scopeKey = claim.ScopeKey,
-                    fromSequence = DecimalSequence(claim.FromSequence), toSequence = DecimalSequence(claim.ToSequence),
-                    entryCount = claim.EntryCount, rootSha256 = Convert.ToHexStringLower(claim.RootSha256),
-                    headSequence = DecimalSequence(claim.HeadSequence), headEntrySha256 = Convert.ToHexStringLower(claim.HeadEntrySha256),
-                    keyId = claim.KeyId, keyVersion = claim.KeyVersion, keySha256 = Convert.ToHexStringLower(claim.KeySha256),
-                    attestedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.AttestedAt), signature = CanonicalBase64Url(signature),
-                },
+                checkpoint = signed,
                 inclusion = EncodeCheckpointInclusion(checkpoint.Inclusion, daily),
             }));
         }
@@ -85,6 +76,25 @@ internal static partial class Migration
             foreach (var key in keys.Values) key.PublicKey.Dispose();
         }
     }
+
+    private static object SignPublicationCheckpoint(PublicationCheckpointV2 claim, ECDsa key) =>
+        EncodePublicationCheckpoint(claim, SignPublicationAttestation(claim.Payload(), key));
+
+    private static object EncodePublicationCheckpoint(PublicationCheckpointV2 claim, byte[] signature) => new
+    {
+        checkpointVersion = 2, kind = "native-publication-checkpoint",
+        checkpointKind = claim.Kind == PublicationCheckpointKind.Daily ? "daily" : "release",
+        algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin = claim.Origin, scopeKey = claim.ScopeKey,
+        fromSequence = DecimalSequence(claim.FromSequence), toSequence = DecimalSequence(claim.ToSequence),
+        entryCount = claim.EntryCount, rootSha256 = Convert.ToHexStringLower(claim.RootSha256),
+        headSequence = DecimalSequence(claim.HeadSequence), headEntrySha256 = Convert.ToHexStringLower(claim.HeadEntrySha256),
+        keyId = claim.KeyId, keyVersion = claim.KeyVersion, keySha256 = Convert.ToHexStringLower(claim.KeySha256),
+        attestedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.AttestedAt),
+        signature = CanonicalBase64Url(signature),
+    };
+
+    private static byte[] SignPublicationAttestation(byte[] payload, ECDsa key) =>
+        key.SignData(payload, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
     private static object? EncodeCheckpointInclusion(PublicationCheckpointWitness? witness, bool daily)
     {
@@ -98,34 +108,38 @@ internal static partial class Migration
     private static async Task<(PublicationTransparencyHeadV2 Claim, byte[] Signature)> ReadPublicationCheckpointHead(string path,
         string origin, CancellationToken ct)
     {
-        string[] fields =
-        [
-            "headVersion", "kind", "algorithm", "origin", "sequence", "entrySha256",
-            "keyId", "keyVersion", "keySha256", "attestedAtUtc", "signature",
-        ];
         try
         {
             using var document = await ReadIntegrityJsonAsync(path, 4096, ct);
-            var root = document.RootElement;
-            if (root.EnumerateObject().Count() != fields.Length || fields.Any(name => !root.TryGetProperty(name, out _)) ||
-                root.GetProperty("headVersion").GetInt32() != 2 || root.GetProperty("kind").GetString() != "native-publication-log-head" ||
-                root.GetProperty("algorithm").GetString() != ArticlePublicationProofPayloadV2.Algorithm ||
-                root.GetProperty("origin").GetString() != origin)
-                throw new FormatException();
-            var claim = new PublicationTransparencyHeadV2(origin, CheckpointSequence(root.GetProperty("sequence").GetString() ?? ""),
-                ReadCheckpointDigest(root, "entrySha256"), root.GetProperty("keyId").GetString() ?? "",
-                root.GetProperty("keyVersion").GetInt32(), ReadCheckpointDigest(root, "keySha256"),
-                TransparencyKeyTime(root, "attestedAtUtc") ?? throw new FormatException());
-            _ = claim.Payload();
-            var signature = ReadCanonicalBase64Url(root.GetProperty("signature").GetString() ?? "", 86, 86);
-            if (signature.Length != 64) throw new FormatException();
-            return (claim, signature);
+            return ReadSignedCheckpointHead(document.RootElement, origin);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or FormatException or
             InvalidOperationException or ArgumentException)
         {
             throw new InvalidOperationException("The supplied native signed head is malformed or belongs to a different origin.");
         }
+    }
+
+    private static (PublicationTransparencyHeadV2 Claim, byte[] Signature) ReadSignedCheckpointHead(JsonElement root, string origin)
+    {
+        string[] fields =
+        [
+            "headVersion", "kind", "algorithm", "origin", "sequence", "entrySha256",
+            "keyId", "keyVersion", "keySha256", "attestedAtUtc", "signature",
+        ];
+        if (root.EnumerateObject().Count() != fields.Length || fields.Any(name => !root.TryGetProperty(name, out _)) ||
+            root.GetProperty("headVersion").GetInt32() != 2 || root.GetProperty("kind").GetString() != "native-publication-log-head" ||
+            root.GetProperty("algorithm").GetString() != ArticlePublicationProofPayloadV2.Algorithm ||
+            root.GetProperty("origin").GetString() != origin)
+            throw new FormatException();
+        var claim = new PublicationTransparencyHeadV2(origin, CheckpointSequence(root.GetProperty("sequence").GetString() ?? ""),
+            ReadCheckpointDigest(root, "entrySha256"), root.GetProperty("keyId").GetString() ?? "",
+            root.GetProperty("keyVersion").GetInt32(), ReadCheckpointDigest(root, "keySha256"),
+            TransparencyKeyTime(root, "attestedAtUtc") ?? throw new FormatException());
+        _ = claim.Payload();
+        var signature = ReadCanonicalBase64Url(root.GetProperty("signature").GetString() ?? "", 86, 86);
+        if (signature.Length != 64) throw new FormatException();
+        return (claim, signature);
     }
 
     private static async Task<TransparencyAuditKey> RequireCheckpointKey(NpgsqlConnection db, NpgsqlTransaction tx,

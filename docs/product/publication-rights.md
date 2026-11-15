@@ -68,7 +68,7 @@
 
 时钟回拨可能使同日条目在日志中不连续。日树按原始序号排列并保留间隔。可选成员证明只包含原始序号、在日树中的位置、不透明账本摘要和相邻摘要路径。若已认证前缀内该日没有条目，工具签发零计数和固定空树摘要。缺失结论仅覆盖该签名头所承诺的前缀，之后追加的条目仍可能带有该日时间戳。
 
-使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON --daily YYYY-MM-DD [SEQ ENTRY_SHA256]` 独立核验日志头、日检查点签名及所给成员路径。日检查点使用独立签名域。验证器核对签名者对前缀覆盖范围的声明，私有账本重算由停机命令执行。成员关系证明原收据已纳入账本，原收据签名的可信状态另由 `publication-transparency verify` 核验。目前采用离线人工签发。自动每日签发、公开发布检查点、完整历史责任清单及独立时间见证仍待交付。 [规范代码](../../src/Contracts/PublicationCheckpointV2.cs)
+使用 `node tools/verify-publication-checkpoint.mjs HTTPS_ORIGIN KEYS_JSON HEAD_JSON CHECKPOINT_JSON --daily YYYY-MM-DD [SEQ ENTRY_SHA256]` 独立核验日志头、日检查点签名及所给成员路径。日检查点使用独立签名域。验证器核对签名者对前缀覆盖范围的声明，私有账本重算由相应签发命令执行。成员关系证明原收据已纳入账本，原收据签名的可信状态另由 `publication-transparency verify` 核验。公开发布检查点、完整历史责任清单及独立时间见证仍待交付。 [规范代码](../../src/Contracts/PublicationCheckpointV2.cs)
 
 ## 公开历史日检查点归档
 
@@ -101,3 +101,18 @@ jq -n --slurpfile head head.json --slurpfile member member.json \
 多条见证分别放进 `inclusions`，同一天只在 `checkpoints` 中保留一份已签名检查点。服务启动时核验每条路径及它所引用的日根。版本 2 归档继续提供聚合读取。请求时使用与 `rights.json` 相同的当前文章、权利、投影和签名校验。服务从真实签名收据重算该条账本摘要，再核对签发日及归档中的成员路径。只有当前公开且校验通过的出版版本能获得原签名日检查点和它本身的成员路径。撤回、替换、无权利证明及未收录的版本返回 404。成员读取沿用同一 HTTPS 源、限流和 `no-store`。
 
 公众可以用前述 Node 日验证命令核验所返回的检查点签名和成员路径，并与独立持有的预期序号和账本摘要比对。服务按文章及当前发布版本读取成员证明。聚合日读取始终只返回空成员路径。
+
+## 独立签名进程的每日签发
+
+在独立的签名账户中，用下列命令每日生成一份只读的版本 2 归档候选。省略日期时取 PostgreSQL 主库事务开始时间对应的前一个 UTC 日。附带日期可以补签已关闭的历史日。
+
+```sh
+dotnet migrate/FsusBlogV2.Migrate.dll publication-transparency checkpoint-daily-auto \
+  HTTPS_ORIGIN KEYS_JSON ANCHOR_SEQ ANCHOR_SHA256 OUTPUT_ROOT [YYYY-MM-DD]
+```
+
+`ANCHOR_SEQ` 和 `ANCHOR_SHA256` 来自独立保存并验签的原生日志头。输入当前可信公钥目录，以及具有只读权限的主库连接 `FSUSBLOG_DB`。将专用签名公钥注册在既有公钥目录及持久密钥状态中，并保持文章签名器的现行密钥配置。签名进程通过 `IntegrityProof__CheckpointSigning__KeyId` 和 `IntegrityProof__CheckpointSigning__PrivateKeyFile` 读取专用 ID 和绝对私钥路径。私钥只交给签名账户，文件为 `0400`，其上级和归档输出目录由该账户拥有且为 `0700`。
+
+签发以单个 PostgreSQL 主库只读事务的确切已签名账本尾为范围，同时重算从创世起的摘要链、核对独立锚点和签发时间。即使当天无新条目，专用签名进程也可以在 UTC 日关闭后为同一账本尾及零计数日根签发。新证明头只进入归档。仍沿用 16,384 条全前缀与 4,096 条单日上限。尚无原生正数序号、锚点不匹配、数据库时钟落后、日期未关闭、连接为备库或密钥失效时，签发失败。
+
+每次签发以不覆盖的原子操作写入 `OUTPUT_ROOT/YYYY-MM-DD.json`，同时在标准输出记录文件 SHA-256 和归档锚点。同日重试复核已经签发的原件和当前账本，再返回同一文件。若并发签发有一方先落盘，重新运行以核验胜出文件。每日服务及恢复时的补签方式见部署说明。自动产物由既有归档固定和启用流程发布。签发时间来自主库时钟，独立授时、公证和生产签名账户分离需在部署环境确认。 [部署说明](../../deploy/README.md)
