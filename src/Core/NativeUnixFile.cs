@@ -80,6 +80,13 @@ internal static class NativeUnixFile
         return (mode & PermissionMask) == (int)expectedMode && (!owned || uid == EffectiveUid());
     }
 
+    internal static bool IsRootControlled(SafeFileHandle handle, bool regular)
+    {
+        var (mode, uid) = Inspect(handle);
+        const ushort externalWrite = 0x12; // group write or other write
+        return uid == 0 && (mode & externalWrite) == 0 && (mode & TypeMask) == (regular ? Regular : 0x4000);
+    }
+
     private static (ushort Mode, uint Uid) Inspect(SafeFileHandle handle)
     {
         if (!Supported) throw new PlatformNotSupportedException("Native file metadata requires macOS or Linux on x64 or ARM64.");

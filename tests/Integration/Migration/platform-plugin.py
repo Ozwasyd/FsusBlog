@@ -112,6 +112,8 @@ def main(assembly):
         run('no-host-handles', hook('return typeof process + typeof require + typeof fetch + typeof System + typeof ctx.network;'),
             b'', b'undefinedundefinedundefinedundefinedundefined')
         run('nondeterministic-api-rejected', hook('return String(Math.random());'), b'plugin-execution-rejected')
+        run('wall-clock-apis-unavailable', hook('return typeof Temporal + ":" + typeof globalThis.Intl?.DateTimeFormat;'),
+            b'', b'undefined:undefined')
         run('import-rejected', 'import x from "file:///etc/passwd";' + hook('return x;'), b'plugin-execution-rejected')
         run('dynamic-compilation-rejected', hook('return new Function("return 1")();'), b'plugin-execution-rejected')
         run('bounded-loop', hook('while (true) {}'), b'plugin-execution-rejected')

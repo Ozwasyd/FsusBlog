@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeFrameworkVersion>10.0.15</RuntimeFrameworkVersion>
+    <RollForward>Disable</RollForward>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Jint" Version="[4.13.0]" />
+    <Compile Include="../Core/Extensions/PureRenderContract.cs" Link="PureRenderContract.cs" />
+    <Compile Include="../Migrate/PurePluginInterpreter.cs" Link="PurePluginInterpreter.cs" />
+    <RuntimeHostConfigurationOption Include="System.Globalization.PredefinedCulturesOnly" Value="true" />
+    <RuntimeHostConfigurationOption Include="System.TimeZoneInfo.Invariant" Value="true" />
+    <RuntimeHostConfigurationOption Include="System.GC.Server" Value="false" />
+    <RuntimeHostConfigurationOption Include="System.GC.HeapHardLimit" Value="50331648" />
+  </ItemGroup>
+</Project>

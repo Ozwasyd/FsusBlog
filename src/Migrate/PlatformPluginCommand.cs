@@ -9,7 +9,6 @@ namespace FsusBlogV2.Migrate;
 
 internal static class PlatformPluginCommand
 {
-    internal const int MaximumRequest = (PureRenderPlugin.MaximumMarkdownBytes + PureRenderPlugin.MaximumSourceBytes) * 6 + 4096;
     private const string ChildCommand = "__pure-platform-plugin-worker";
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly TimeSpan ChildTimeout = TimeSpan.FromSeconds(3);
@@ -50,14 +49,16 @@ internal static class PlatformPluginCommand
         try
         {
             if (args is not ["render", var id]) throw Deny("plugin-command");
-            if (!OperatingSystem.IsMacOS() || !File.Exists("/usr/bin/sandbox-exec")) throw Deny("plugin-isolation-unavailable");
+            var linux = OperatingSystem.IsLinux() ? LinuxPluginRunner.Open() : null;
+            if (linux is null && (!OperatingSystem.IsMacOS() || !File.Exists("/usr/bin/sandbox-exec")))
+                throw Deny("plugin-isolation-unavailable");
             if (Environment.GetEnvironmentVariable("FSUSBLOG_PLATFORM_PLUGIN_ROOT") is not { } root || !Path.IsPathFullyQualified(root))
                 throw Deny("plugin-registry-required");
             var input = Utf8.GetString(await ReadAsync(Console.OpenStandardInput(), PureRenderPlugin.MaximumMarkdownBytes, ct));
             if (input.Contains('\0')) throw Deny("plugin-markdown-input");
             using var approval = PureRenderPlugin.Open(new(root), id, TimeProvider.System, ct);
             var request = JsonSerializer.SerializeToUtf8Bytes(new PurePluginRequest(id, approval.JavaScript, input, approval.TimeoutMs));
-            var result = await RunIsolatedAsync(request, ct);
+            var result = linux is null ? await RunIsolatedAsync(request, ct) : await linux.RunAsync(request, ct);
             if (Utf8.GetString(result).Contains('\0')) throw Deny("plugin-worker-output");
             approval.VerifyCompletion(ct);
             await Console.OpenStandardOutput().WriteAsync(result, ct);
@@ -174,15 +175,8 @@ internal static class PlatformPluginCommand
 
     internal static async Task<byte[]> ReadAsync(Stream stream, int limit, CancellationToken ct)
     {
-        var data = new byte[limit + 1];
-        int size = 0;
-        while (size < data.Length)
-        {
-            var read = await stream.ReadAsync(data.AsMemory(size), ct);
-            if (read == 0) return data[..size];
-            size += read;
-        }
-        throw Deny("plugin-io-limit");
+        try { return await PurePluginInterpreter.ReadAsync(stream, limit, ct); }
+        catch (InvalidDataException) { throw Deny("plugin-io-limit"); }
     }
 
     private static ExtensionRejectedException Deny(string code) => new(code);

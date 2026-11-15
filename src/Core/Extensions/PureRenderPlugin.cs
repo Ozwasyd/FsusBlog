@@ -12,9 +12,9 @@ namespace FsusBlog.V2.Core.Extensions;
 /// <summary>Host-owned single-hook approval. Holds the original private registry lock until the result is checked.</summary>
 public sealed class PureRenderPlugin : IDisposable
 {
-    public const string HookName = "article.beforeRenderMarkdown";
-    public const int MaximumMarkdownBytes = 16 * 1024;
-    public const int MaximumSourceBytes = 16 * 1024;
+    public const string HookName = PureRenderContract.Hook;
+    public const int MaximumMarkdownBytes = PureRenderContract.MarkdownBytes;
+    public const int MaximumSourceBytes = PureRenderContract.SourceBytes;
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private static readonly JsonSerializerOptions ManifestJson = new(Json) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, MaxDepth = 8 };
     private readonly string _root;

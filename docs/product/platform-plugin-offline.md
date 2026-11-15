@@ -8,7 +8,7 @@
 
 清单要求 v1 字段及 JSON 命名，`fsusblog` 为 `>=1.3.0 <2.0.0`，`author` 为批准的发布者，运行时固定 `javascript`，能力仅 `article.render`。`network`、`filesystem` 为 `false`，`database` 为 `none`。配置仅允许空对象。唯一 Hook 为 `article.beforeRenderMarkdown`，`scope` 为 `local`，`executionMode` 为 `async`，`idempotent` 为 `true`，`priority` 为 0，`failPolicy` 为 `fail-closed`，`timeoutMs` 为 1 至 250。ESM 默认导出必须匹配包 ID，并通过 `hooks` 或 `activate(ctx)` 注册一次声明的 Hook。回调只收到 Markdown 字符串、Hook 名称、空 `items` 和 `next()`。可以返回原文、替换字符串或 `next(string)`。
 
-父进程先完成包审批，再将单次输入交给独立 Jint 4.13.0 进程。macOS Seatbelt 默认拒绝 OS 访问，只允许启动受信 .NET 宿主并读取系统及其实际程序集目录，允许 .NET JIT 所需的执行内存。工作进程先确认系统探测文件无读取权限，然后运行解释器。进程环境只含启动所需变量，脚本不获得 CLR 互操作、Host API、网络、包路径或文件写入接口。Jint 限制语句数、递归、内存分配、数组规模、正则、Promise 和解释时间，子进程 .NET GC 堆设置上界，父进程保留独立的 3 秒期限并等待子进程退出。发布结果前重读批准文件及原始包，复核同一摘要、公钥期限和取消状态。Jint 内存限制为托管分配约束，Seatbelt 使用 macOS 已弃用的 `sandbox-exec` 命令，Linux 无可用入口。 [Jint 运行不受信代码的边界](https://github.com/sebastienros/jint#running-untrusted-code)
+父进程先完成包审批，再将单次输入交给独立 Jint 4.13.0 进程。macOS Seatbelt 默认拒绝 OS 访问，只允许启动受信 .NET 宿主并读取系统及其实际程序集目录，允许 .NET JIT 所需的执行内存。工作进程先确认系统探测文件无读取权限，然后运行解释器。进程环境只含启动所需变量，脚本不获得 CLR 互操作、Host API、网络、包路径或文件写入接口。Jint 限制语句数、递归、内存分配、数组规模、正则、Promise 和解释时间，子进程 .NET GC 堆设置上界，父进程保留独立的 3 秒期限并等待子进程退出。发布结果前重读批准文件及原始包，复核同一摘要、公钥期限和取消状态。Jint 内存限制为托管分配约束，Seatbelt 使用 macOS 已弃用的 `sandbox-exec` 命令，Linux ARM64 可使用下文的独立工作进程。 [Jint 运行不受信代码的边界](https://github.com/sebastienros/jint#running-untrusted-code)
 
 使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlogV2.Migrate.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。在线 Hook 分发、站点前端接入、SQL 注册表、集群协调、Lua、可调用 IO broker 和生产插件隔离资格仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
 
@@ -25,7 +25,7 @@ python3 tests/Integration/Migration/linux-plugin-isolation.py /tmp/fsus-plugin-p
 
 实测环境为 Debian 13 ARM64，内核 6.12.115、Bubblewrap 0.12.0、GCC 14.2 和 glibc 2.41。默认及 Python 优化模式均通过。探针核对根挂载、程序和 procfs 均为只读，确认有效及环境 capabilities 为零，并验证直接进入探针分支时会拒绝运行。 [原生日志](../../artifacts/linux-plugin-isolation/native.log)
 
-该白名单适用于无依赖的探针。Linux Jint 调用仍禁用。托管 worker 接入还须针对其专用只读运行时及程序集目录验证系统调用规则、实际资源上限和整组回收。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+该白名单适用于无依赖的探针。静态探针用于独立核对宿主的隔离能力。下文的托管 worker 使用不同的系统调用允许列表。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
 ## Linux cgroup v2 资源与回收检查
 
@@ -37,4 +37,25 @@ python3 tests/Integration/Migration/linux-plugin-cgroups.py /tmp/fsus-plugin-pro
 
 工作进程在收到测试控制器的许可前等待。控制器先核对本次 systemd 服务的主 PID、实际内核 cgroup 归属、48 MiB 内存上限、禁用交换空间、8 个任务及 25% 的单 CPU 配额。测试用不匹配的内存上限验证启动拒绝，并读取 `pids.events`、`memory.events` 与 `cpu.stat` 记录的内核事件。主动取消和启动客户端被强制退出两种场景分别验证。子进程被暂停后，通过管理器状态、原进程的 pidfd 和 cgroup 清空确认整组回收。 [systemd v257 服务期限](https://www.freedesktop.org/software/systemd/man/257/systemd.service.html) · [cgroup v2 文件](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
-Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载触发一次任务数量拒绝、一次组内 OOM 终止和 13 次 CPU 节流。主动取消耗时 0.389 秒，启动客户端被强制退出后的整组回收耗时 4.516 秒。结束后确认临时服务和 cgroup 已移除。Linux Jint 执行仍需独立验证托管运行时。 [原生验证及清理日志](../../artifacts/linux-plugin-cgroups)
+Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载触发一次任务数量拒绝、一次组内 OOM 终止和 13 次 CPU 节流。主动取消耗时 0.389 秒，启动客户端被强制退出后的整组回收耗时 4.516 秒。结束后确认临时服务和 cgroup 已移除。这组限额用于宿主探针，托管工作进程使用下文的独立限额。 [原生验证及清理日志](../../artifacts/linux-plugin-cgroups)
+
+## 离线 Linux ARM64 工作进程
+
+该入口在 Linux 上默认关闭。经核验的 Debian ARM64 环境需要 systemd 用户管理器、D-Bus 会话、cgroup v2 的 CPU、内存和任务控制器、Bubblewrap 0.12.0，以及核验过的 .NET 10.0.404 SDK 与 10.0.15 运行时。可在独立目录连同固定依赖生成工作进程。 [Bubblewrap 0.12.0](https://github.com/containers/bubblewrap/tree/v0.12.0) · [systemd 用户服务](https://www.freedesktop.org/software/systemd/man/257/systemd-run.html)
+
+~~~sh
+tools/stage-linux-plugin-worker.sh /absolute/verified-dotnet /absolute/staged-worker
+~~~
+
+部署者应核对生成的 `payload.sha256` 以及清单自身的 SHA-256，然后将完整工作目录安装在固定的 `/opt/fsusblog-platform-plugin-arm64`。安装目录和内容由 root 持有，其他账号无写权限。保持打包工具设置的文件模式，特别是 `rootfs` 根目录的只读模式。发布内容包括工作进程、.NET 运行时目录和所需的 Debian 动态加载依赖。调用期间保持安装目录稳定，更新时以全新的审核凭证替换。
+
+~~~sh
+export FSUSBLOG_PLATFORM_PLUGIN_LINUX=1
+export FSUSBLOG_PLATFORM_PLUGIN_LINUX_INSTALL_SHA256=APPROVED_MANIFEST_SHA256
+export FSUSBLOG_PLATFORM_PLUGIN_ROOT=/absolute/operator-plugin-registry
+printf 'Markdown content\n' | dotnet FsusBlogV2.Migrate.dll platform-plugin render example.site.markdown
+~~~
+
+宿主在工作进程启动前检查安装清单和经签名的包。临时 systemd 服务使用 128 MiB 内存、零交换、24 个任务和 100% 的单 CPU 配额。Bubblewrap 从专用只读目录启动 .NET，清空继承环境及额外描述符，隔离网络与 IPC，并加载第一个 seccomp 过滤器。工作进程再把禁止重新执行程序的过滤器同步到 CLR 线程，完成后回报就绪。宿主核对实际 cgroup 限额，只在就绪后传送输入。结果发布前核对进程组退出、已安装字节和包审批。管理器在启动客户端消失后仍实施独立的运行期限。 [内核系统调用过滤和线程同步](https://docs.kernel.org/userspace-api/seccomp_filter.html) · [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+
+安装测试环境后，通过 `python3 tests/Integration/Migration/linux-managed-plugin-flow.py /absolute/FsusBlogV2.Migrate.dll` 复现签名工作流。Debian 13 ARM64 原生测试核对了 206 个安装文件。12 个用例覆盖实际转换、错签名、撤销、输入输出限制、在途批准变化、宿主期限及宿主被强制退出后的回收。测试安装和临时单元已清理。标准站点发行包仍由原发布脚本生成，Linux 工作进程另行部署。 [原生验证](../../artifacts/linux-plugin-managed/signed-guest-native.log) · [清理日志](../../artifacts/linux-plugin-managed/signed-guest-cleanup.log)
