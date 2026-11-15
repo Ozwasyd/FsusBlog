@@ -1047,3 +1047,64 @@ https://github.com/Ozwasyd/FsusBlog/issues/2689	2	2688	acceptance-gate	#2689:6	�
 https://github.com/Ozwasyd/FsusBlog/issues/2691	2	2690	acceptance-gate	#2691:6	原文明确引用的能力或过程为「只消费 #2690 canonical rerun/cleanup receipt」。
 https://github.com/Ozwasyd/FsusBlog/issues/2693	2	2692	acceptance-gate	#2693:6	原文明确引用的能力或过程为「只消费 #2692 canonical rerun/cleanup receipt」。
 https://github.com/Ozwasyd/FsusBlog/issues/2695	2	2694	acceptance-gate	#2695:6	原文明确引用的能力或过程为「只消费 #2694 cleanup/consumer-inventory receipt」。
+https://github.com/Ozwasyd/FsusBlog/issues/2217	2	2211	prerequisite	#2217:10-11	只以 #2211 当前 schema 权威和显式引用开展数据库校验，比较实际数据库与规范语义模型。
+https://github.com/Ozwasyd/FsusBlog/issues/2217	2	2215	prerequisite	#2217:6; #2217:13; #2215:6	消费封存计划，并逐步比较计划预期摘要、执行记录和实际后置条件。
+https://github.com/Ozwasyd/FsusBlog/issues/2217	2	2216	prerequisite	#2217:6; #2217:13; #2216:6	消费 apply checkpoint 与实际执行结果，部分执行或需要恢复时阻止签发。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	13	2217	acceptance-gate	#2223:21; #2223:50; #2217:6	验收验证器只接受显式 current-schema 引用，终态收据绑定 schema 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	13	2219	acceptance-gate	#2223:21; #2223:50; #2219:6	验收必须使用显式源库 reader 与文章保全 projection，终态收据绑定 projection 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	13	2220	acceptance-gate	#2223:21; #2223:33; #2223:50; #2220:6	验收消费媒体清单，逐件核对文件及引用，绑定 inventory 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	13	2221	acceptance-gate	#2223:21; #2223:50; #2221:6	验收读回明确的数据库 writer 引用并绑定 writer 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	13	2222	acceptance-gate	#2223:21; #2223:35; #2223:50; #2222:6	验收核对明确的联合提交引用，收据绑定数据库、文件系统和 commit 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2321	2	2316	acceptance-gate	#2321:10-12; #2321:25; #2316:6	终态矩阵以冻结的全文检索合同枚举字段、查询语法及结果，收据绑定 contracts 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2338	2	2332	historical	#2338:6; #2338:12; #1861@5174474530:5-9	原文以 #2332 为闭合 AST、稳定 ID 及 CAS 的迁移目标。#1861 后续将这些执行职责分配至 #2341 和 #2343。
+https://github.com/Ozwasyd/FsusBlog/issues/2338	2	2335	prerequisite	#2338:15-18; #2335:6	删除旧源前复核依赖和执行一致性，切换后使用 #2335 的服务端查询执行。
+https://github.com/Ozwasyd/FsusBlog/issues/2339	2	2335	acceptance-gate	#2339:10-15; #2339:37; #2335:6	终态核对依赖有效性、不可变计划和权威查询，绑定 compiler 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2339	2	2337	acceptance-gate	#2339:10-13; #2339:33; #2339:37; #2337:6	终态核对 Rail、List 与 Search 一致性以及深链和可访问性，绑定实际 UI 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2339	2	2338	acceptance-gate	#2339:10-12; #2339:37; #2338:6	终态包含旧 URL 和本地视图迁移，绑定迁移结果及摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2351	2	2341	prerequisite	#2351:6; #2351:12	自动迁移只接纳 #2341 闭合 AST 且可证明稳定身份的输入。
+https://github.com/Ozwasyd/FsusBlog/issues/2351	2	2343	prerequisite	#2351:6; #2351:14; #2351:18	迁移写入 #2343 的服务端保存视图，以 CAS 保留既有事实，切换后只读当前权威。
+https://github.com/Ozwasyd/FsusBlog/issues/2351	2	2346	acceptance-gate	#2351:17-18	对应旧源须等 #2346 实际查询执行验证通过后才删除。
+https://github.com/Ozwasyd/FsusBlog/issues/2351	2	2349	acceptance-gate	#2351:17	删除对应旧源之前，必须从 #2349 的界面读回并验证实际保存视图。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	1779	scope-exclusion	#2422:12; #2422:26	私有导出文件进入专用存储。#1779 的普通文章资产账本排除在交付路径之外。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2412	prerequisite	#2422:10-11; #2422:22; #2412:6	私有结果以 #2412 的显式任务和 attempt 绑定，依据任务与输入摘要定位。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2414	prerequisite	#2422:20; #2414:6	提交正式输出后，临时和 provider 根目录由 #2414 隔离宿主清理。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2416	conditional-prerequisite	#2422:11; #2416:6	选择 HTML 时，存储只提交 #2416 已验证成功且经过独立输出核验的最终文件。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2419	conditional-prerequisite	#2422:11; #2419:6	选择 DOCX 时，存储只提交 #2419 已验证成功且经过独立输出核验的最终文件。
+https://github.com/Ozwasyd/FsusBlog/issues/2422	2	2421	conditional-prerequisite	#2422:11; #2421:6	选择 EPUB 时，存储只提交 #2421 已验证成功且经过独立输出核验的最终文件。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2416	conditional-prerequisite	#2424:6; #2424:10-15; #2416:6	HTML 选择只消费 #2416 的受支持能力、输出与警告事实。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2419	conditional-prerequisite	#2424:6; #2424:10-15; #2419:6	DOCX 选择只消费 #2419 的受支持能力、输出与警告事实。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2421	conditional-prerequisite	#2424:6; #2424:10-15; #2421:6	EPUB 选择只消费 #2421 的受支持能力、输出与警告事实。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	2422	prerequisite	#2424:18; #2422:6	仅显示 #2422 已验证的输出 MIME、大小、摘要、到期及授权下载。
+https://github.com/Ozwasyd/FsusBlog/issues/2425	2	2423	prerequisite	#2425:10-16; #2423:13; #2423:21	sandbox 执行 #2423 固定的 provider、工具链、网络限额和输入输出合同。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2412	acceptance-gate	#2428:12-13; #2428:41; #2412:6	终态核对任务输入、精确文章坐标和执行期间冻结来源，收据绑定 task 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2419	acceptance-gate	#2428:15; #2428:41; #2419:6	终态验证实际 DOCX 为结构化 OOXML、无宏和外链，收据绑定对应 provider 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2421	acceptance-gate	#2428:15; #2428:41; #2421:6	终态验证实际 EPUB3 导航与资源并绑定 provider 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2428	2	2424	acceptance-gate	#2428:12; #2428:37; #2428:41; #2424:6	终态验证导出 UI、任务状态、授权下载和可访问性，收据绑定 UI 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2423	acceptance-gate	#2438:12-14; #2438:40; #2423:6	终态核对冻结输入、provider 合同和可重算摘要，收据绑定 contracts 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2427	acceptance-gate	#2438:15; #2438:40; #2427:6	终态验证 HTML 可离线且自包含，收据绑定对应 provider 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2430	acceptance-gate	#2438:15; #2438:40; #2430:6	终态验证结构化 DOCX 无宏与外部关系，收据绑定对应 provider 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2432	acceptance-gate	#2438:15; #2438:40; #2432:6	终态验证 EPUB3 导航、资源和可访问性，收据绑定对应 provider 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2438	2	2436	acceptance-gate	#2438:12; #2438:36; #2438:40; #2436:6	终态核对导出控制、状态、警告与授权下载；收据绑定 UI 和可访问性摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2491	acceptance-gate	#2494:12; #2494:20; #2494:42; #2491:6	终态核对 Canvas 独立包往返及只携带 Canvas 事实、笔记与引用，收据绑定 package 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/2494	2	2493	acceptance-gate	#2494:12; #2494:37; #2494:42; #2493:6	终态核对旧路径清理与 scanner 结果，收据绑定 migration 摘要。
+https://github.com/Ozwasyd/FsusBlog/issues/1952	2	1951	prerequisite	#1590:9-11; #1590:22; #1951:13-18; #1952:29-34	exact-seven 归因消费 mutation 场景本轮隔离 production build root 的结构化前置结果。未启动场景仍产生终态事件并保持无 authoritative evidence。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	1809	acceptance-gate	#2297:14-15; #1809:19-25	工作区终验消费真实上下文连续性。同正文不同文章的 history、selection、render 和迟到结果保持隔离。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	1813	acceptance-gate	#2297:11; #2297:17; #2296:2; #2296:11-14	工作区终验保留 recovery journal 的关页义务。受保护关闭明确依赖原恢复能力，须等验证保存和 journal 义务结束。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	1814	acceptance-gate	#2297:14-15; #2297:72; #1814:21-27	真实编辑会话须保留 article/document epoch 与 source revision 边界，验证相同源码下 history、selection、render 和附件不串用。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2233	acceptance-gate	#2297:66; #2233:6	终验走真实 Quick Switcher 入口，并消费唯一 open-or-activate 工作区意图。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2256	acceptance-gate	#2297:70-72; #2256:7	终验消费附件 intent、document context 与 FsusUI public transaction。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2258	acceptance-gate	#2297:70-72; #2258:7	终验消费真实 WASM、上传、AssetId 和唯一附件引用账本。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2261	acceptance-gate	#2297:70-72; #2261:7	终验消费附件内联 alt、替换、移除及 history/focus 行为。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2263	acceptance-gate	#2297:70-72; #2263:7	终验消费保存、离开、预发布、预览及修订状态协调。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2265	acceptance-gate	#2297:70-72; #2265:18; #2265:43	终验消费附件遗留清理和真实浏览器、安全、性能、无障碍及 mutation 证据，收据须与当前源绑定。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2293	acceptance-gate	#2297:10-14; #1854@5174287171:5	终验消费唯一 Registry 的 article→tab/session/group 索引和 open-or-activate 合同，验证相同文章不产生第二可写会话。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2294	acceptance-gate	#2297:10-15; #1854@5174287171:6	终验消费多文章 session host 的 inactive suspension 和 exact restoration，验证会话隔离、恢复及百标签资源上限。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2295	acceptance-gate	#2297:10-12; #2297:16; #2295:6	终验消费 tab/active route 双向同步及 preview/pinned 行为，验证 back-forward 和反馈循环防护。
+https://github.com/Ozwasyd/FsusBlog/issues/2297	2	2296	acceptance-gate	#2297:10-12; #2297:17; #2296:6	终验消费 close/close-others/right 的保护条件与 recently-closed 恢复，验证取消和失败不造成部分 teardown。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	2	1728	prerequisite	#2550:16; #1728:8	Content/locale 分布只引用权威内容 shape/script IDs。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	2	1729	prerequisite	#2550:18; #1729:7	媒体权重只引用真实 MediaShape 和 AssetId 预期，保留有封面和无封面比例。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	2	1730	prerequisite	#2550:19; #1730:7	时间分布引用 TemporalShape 权威以约束 burst、tie-break、recency 与 scheduled 语义。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	2	1731	prerequisite	#2550:17; #1731:8	文章生命周期分布只引用合法生命周期 variants。
+https://github.com/Ozwasyd/FsusBlog/issues/2550	2	1732	prerequisite	#2550:15-17; #1732:8	评论树和 moderation 分布引用合法 graph variants/states，包括删除根评论与后代、深宽及 child-limit 边界。
+https://github.com/Ozwasyd/FsusBlog/issues/2551	2	2514	prerequisite	#2551:10-12; #2551@6053012099:1; #2514:6; #2514:10	分配计划输入依赖真实 media shape identity，使用有稳定 ID 的原目录。
+https://github.com/Ozwasyd/FsusBlog/issues/2551	2	2545	prerequisite	#2551:16; #2551@6053012099:1; #2545:10-12	分配计划消费 CommentScalePlan 的合法 thread variants，并保持深宽、删除根节点和 child-limit 边界。
