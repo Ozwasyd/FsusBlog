@@ -27,9 +27,9 @@ const navigation = [
   { key: 'about', label: sitePages.about, href: '/about' },
 ]
 const accountArea = computed(() => route.name === 'canvas' || route.name === 'canvas-document' || route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' ||
-  route.name === 'article-list' || route.name === 'article-trash' || route.name === 'messages' ||
+  route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash' || route.name === 'messages' ||
   route.name === 'security' || route.name === 'private-media')
-const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-trash')
+const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')

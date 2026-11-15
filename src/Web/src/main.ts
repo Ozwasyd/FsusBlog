@@ -37,6 +37,7 @@ const router = createRouter({
     { path: '/user/manage/canvas/:id', name: 'canvas-document', component: canvas },
     { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
     { path: '/user/manage/article/list', name: 'article-list', component: authorArticles },
+    { path: '/user/manage/article/search', name: 'article-search', component: authorArticles },
     { path: '/user/manage/article/trash', name: 'article-trash', component: authorArticles },
     {
       path: '/user/manage/article',
@@ -53,7 +54,7 @@ const router = createRouter({
 router.afterEach((to, from) => {
   // Canonical metadata belongs to the verified HTML response for its original route.
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
-  const authorInventory = to.name === 'article-list' || to.name === 'article-trash'
+  const authorInventory = to.name === 'article-list' || to.name === 'article-search' || to.name === 'article-trash'
   const subscription = to.name === 'subscribe'
   document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' || authorInventory || subscription ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
@@ -84,6 +85,7 @@ const labels: Record<string, string> = {
   write: 'New article',
   'article-workspace': 'Article workspace',
   'article-list': '文章管理',
+  'article-search': '作者搜索',
   'article-trash': '回收站',
   edit: 'Edit article',
   missing: 'Page not found',

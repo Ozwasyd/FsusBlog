@@ -8,10 +8,17 @@ import { taxonomyList } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyListItem } from '../../../Contracts/taxonomy'
 import AuthorPropertyFilter from '../authoring/AuthorPropertyFilter.vue'
 import AuthorTextSearch from '../authoring/AuthorTextSearch.vue'
+import SavedViewPanel from '../authoring/SavedViewPanel.vue'
+import { savedViewLink } from '../authoring/savedViewLink'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const route = useRoute()
 const trash = computed(() => route.name === 'article-trash')
+const searchOnly = computed(() => route.name === 'article-search')
+const linkedView = computed(() => {
+  const link = savedViewLink(route.query)
+  return link && link !== 'invalid' ? { view: link.id, viewSchema: '1' } : undefined
+})
 const states: Readonly<Record<AuthorArticleState, string>> = {
   draft: '草稿', published: '已发布', retracted: '已撤回', scheduled: '定时发布', deleted: '已删除',
 }
@@ -143,7 +150,7 @@ async function confirmArticleChange() {
   }
 }
 
-watch([identityEpoch, trash], () => {
+watch([identityEpoch, trash, searchOnly], () => {
   changeRequest?.abort()
   changeRequest = undefined
   changing.value = false
@@ -154,11 +161,11 @@ watch([identityEpoch, trash], () => {
   resetFilters()
 }, { immediate: true, flush: 'sync' })
 
-watch([identityEpoch, canRead], async (_, __, cleanup) => {
+watch([identityEpoch, canRead, searchOnly], async (_, __, cleanup) => {
   categories.value = []
   tags.value = []
   taxonomyError.value = false
-  if (!canRead.value) return
+  if (!canRead.value || searchOnly.value) return
   const request = new AbortController()
   const epoch = identityEpoch.value
   cleanup(() => request.abort())
@@ -170,11 +177,11 @@ watch([identityEpoch, canRead], async (_, __, cleanup) => {
   taxonomyError.value = results.some(result => result.status === 'rejected')
 }, { immediate: true })
 
-watch([filters, pageNumber, retry, identityEpoch, canRead], async (_, __, cleanup) => {
+watch([filters, pageNumber, retry, identityEpoch, canRead, searchOnly], async (_, __, cleanup) => {
   page.value = undefined
   pending.value = false
   error.value = false
-  if (!canRead.value) return
+  if (!canRead.value || searchOnly.value) return
   const request = new AbortController()
   const epoch = identityEpoch.value
   cleanup(() => request.abort())
@@ -210,7 +217,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="author-articles">
-    <ElTaskPageHeader :title="trash ? '回收站' : '文章管理'" density="compact" />
+    <ElTaskPageHeader :title="searchOnly ? '作者搜索' : trash ? '回收站' : '文章管理'" density="compact" />
     <ElAlert v-if="sessionError" title="暂时无法确认登录状态。" type="error" :closable="false" show-icon>
       <ElButton text @click="checkSession">重试</ElButton>
     </ElAlert>
@@ -220,13 +227,18 @@ onBeforeUnmount(() => {
     </ElEmptyState>
     <template v-else>
       <nav class="author-collection-nav" aria-label="文章管理导航">
-        <RouterLink :to="{ name: 'article-list' }" :aria-current="!trash ? 'page' : undefined">文章列表</RouterLink>
+        <RouterLink :to="{ name: 'article-list', query: searchOnly ? linkedView : undefined }"
+          :aria-current="!trash && !searchOnly ? 'page' : undefined">文章列表</RouterLink>
+        <RouterLink :to="{ name: 'article-search', query: linkedView }"
+          :aria-current="searchOnly ? 'page' : undefined">作者搜索</RouterLink>
         <RouterLink :to="{ name: 'article-trash' }" :aria-current="trash ? 'page' : undefined">回收站</RouterLink>
         <RouterLink v-if="!trash" :to="{ name: 'article-workspace' }">工作区</RouterLink>
         <RouterLink v-if="!trash" :to="{ name: 'write' }">写新文章</RouterLink>
       </nav>
       <ElAlert v-if="actionNotice" :title="actionNotice.text" :type="actionNotice.type" :closable="false" show-icon />
-      <form class="author-filter" aria-label="筛选文章" @submit.prevent="applyFilters">
+      <AuthorTextSearch v-if="searchOnly" :expanded="!linkedView" />
+      <SavedViewPanel v-if="searchOnly" read-only />
+      <form v-else class="author-filter" aria-label="筛选文章" @submit.prevent="applyFilters">
         <div class="author-filter-fields">
           <label class="author-keyword">
             <span>标题或摘要</span>
@@ -259,9 +271,9 @@ onBeforeUnmount(() => {
         </div>
         <p v-if="taxonomyError" class="author-articles-note" role="status">部分分类或标签暂不可用。</p>
       </form>
-      <AuthorTextSearch v-if="!trash" />
-      <AuthorPropertyFilter v-if="!trash" :keyword="filters.keyword" />
-      <section aria-labelledby="author-list-heading" :aria-busy="pending">
+      <AuthorTextSearch v-if="!trash && !searchOnly" />
+      <AuthorPropertyFilter v-if="!trash && !searchOnly" :keyword="filters.keyword" />
+      <section v-if="!searchOnly" aria-labelledby="author-list-heading" :aria-busy="pending">
         <header class="author-list-heading">
           <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? '已删除文章' : '文章列表' }}</h2>
           <p v-if="page" role="status">共 {{ page.total }} 篇</p>

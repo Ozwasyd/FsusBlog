@@ -9,8 +9,9 @@ import { changeSavedView, listSavedViews, placeSavedView, runSavedView, savedVie
 import { currentSession, identityEpoch, invalidateSession } from '../session'
 import { savedViewLink } from './savedViewLink'
 
-const props = defineProps<{ query?: PropertyQuery }>()
+const props = defineProps<{ query?: PropertyQuery; readOnly?: boolean }>()
 const route = useRoute()
+const surface = computed(() => props.readOnly ? 'article-search' : 'article-list')
 const deepLink = computed(() => savedViewLink(route.query))
 const open = ref(false)
 const linkClosed = ref(false)
@@ -234,12 +235,12 @@ function reload() {
     <div v-if="error" ref="alert" tabindex="-1"><ElAlert :title="error" type="error" :closable="false" /></div>
     <p v-if="busy" role="status">正在读取保存视图…</p>
     <ElButton v-if="error && !busy && !saving && !deepLink" text @click="reload">重新加载保存视图</ElButton>
-    <RouterLink v-if="deepLink" :to="{ name: 'article-list' }">返回全部视图</RouterLink>
+    <RouterLink v-if="deepLink" :to="{ name: surface }">返回全部视图</RouterLink>
     <template v-if="page">
       <nav v-if="placement?.pins.length" aria-label="固定视图">
         <ul>
           <li v-for="pin in placement.pins" :key="pin.id">
-            <RouterLink :to="{ name: 'article-list', query: { view: pin.id, viewSchema: '1' } }">
+            <RouterLink :to="{ name: surface, query: { view: pin.id, viewSchema: '1' } }">
               {{ pin.name }}{{ pin.id === defaultId ? '（默认）' : '' }}
             </RouterLink>
           </li>
@@ -248,41 +249,45 @@ function reload() {
       </nav>
       <label for="saved-view-select">选择保存视图</label>
       <ElSelect id="saved-view-select" v-model="selected" ariaLabel="选择保存视图" :disabled="busy || saving">
-        <ElOption value="" label="新建保存视图" />
+        <ElOption v-if="!props.readOnly" value="" label="新建保存视图" />
         <ElOption v-if="view && !page.views.some(entry => entry.id === view?.id)" :label="view.name" :value="view.id" />
         <ElOption v-for="item in page.views" :key="item.id" :label="item.name" :value="item.id" />
       </ElSelect>
       <ElButton v-if="page.nextId" text :disabled="busy || saving" @click="load(true)">更多保存视图</ElButton>
       <template v-if="view">
         <ElButton :disabled="busy || saving" @click="openView()">打开保存视图</ElButton>
-        <RouterLink v-if="placement" :to="{ name: 'article-list', query: { view: view.id, viewSchema: '1' } }">保存视图链接</RouterLink>
-        <ElButton v-if="placement && knowsPin" text :disabled="busy || saving" @click="place(pinned ? 'unpin' : 'pin')">
-          {{ pinned ? '取消固定视图' : '固定视图' }}
-        </ElButton>
-        <span v-if="pinIndex >= 0" ref="orderGroup">
-          <ElButton v-if="pinIndex > 0" text :disabled="busy || saving" @click="move(-1)">上移固定视图</ElButton>
-          <ElButton v-if="(placement?.pins.length ?? 0) - pinIndex > (placement?.offset ? 2 : 1)"
-            text :disabled="busy || saving" @click="move(1)">下移固定视图</ElButton>
-        </span>
-        <ElButton v-if="placement" text :disabled="busy || saving" @click="place(view.id === defaultId ? 'clear-default' : 'default')">
-          {{ view.id === defaultId ? '清除默认视图' : '设为默认视图' }}
-        </ElButton>
-        <ElButton text :disabled="busy || saving || view.id === defaultId" @click="deleting = true">移除保存视图</ElButton>
-        <div v-if="deleting">
-          <ElButton :disabled="busy" @click="save('retire')">确认移除视图</ElButton>
-          <ElButton text @click="deleting = false">取消</ElButton>
-        </div>
+        <RouterLink v-if="placement" :to="{ name: surface, query: { view: view.id, viewSchema: '1' } }">保存视图链接</RouterLink>
+        <template v-if="!props.readOnly">
+          <ElButton v-if="placement && knowsPin" text :disabled="busy || saving" @click="place(pinned ? 'unpin' : 'pin')">
+            {{ pinned ? '取消固定视图' : '固定视图' }}
+          </ElButton>
+          <span v-if="pinIndex >= 0" ref="orderGroup">
+            <ElButton v-if="pinIndex > 0" text :disabled="busy || saving" @click="move(-1)">上移固定视图</ElButton>
+            <ElButton v-if="(placement?.pins.length ?? 0) - pinIndex > (placement?.offset ? 2 : 1)"
+              text :disabled="busy || saving" @click="move(1)">下移固定视图</ElButton>
+          </span>
+          <ElButton v-if="placement" text :disabled="busy || saving" @click="place(view.id === defaultId ? 'clear-default' : 'default')">
+            {{ view.id === defaultId ? '清除默认视图' : '设为默认视图' }}
+          </ElButton>
+          <ElButton text :disabled="busy || saving || view.id === defaultId" @click="deleting = true">移除保存视图</ElButton>
+          <div v-if="deleting">
+            <ElButton :disabled="busy" @click="save('retire')">确认移除视图</ElButton>
+            <ElButton text @click="deleting = false">取消</ElButton>
+          </div>
+        </template>
       </template>
-      <label for="saved-view-name">保存视图名称</label>
-      <ElInput id="saved-view-name" v-model="name" :disabled="busy || saving" />
-      <ElButton v-if="pendingPlacement" :disabled="busy" @click="place(pendingPlacement.action)">重试视图设置</ElButton>
-      <ElButton v-if="pending" :disabled="busy" @click="save(pending.action)">重试保存视图操作</ElButton>
-      <template v-if="!saving">
-        <ElButton v-if="view" :disabled="busy || !name.trim()" @click="save('rename')">重命名保存视图</ElButton>
-        <ElButton v-if="props.query" :disabled="busy || !name.trim()" @click="save('save')">
-          {{ view ? '用当前条件更新视图' : '保存当前筛选' }}
-        </ElButton>
-        <p v-else-if="!view">运行属性筛选后即可保存条件。</p>
+      <template v-if="!props.readOnly">
+        <label for="saved-view-name">保存视图名称</label>
+        <ElInput id="saved-view-name" v-model="name" :disabled="busy || saving" />
+        <ElButton v-if="pendingPlacement" :disabled="busy" @click="place(pendingPlacement.action)">重试视图设置</ElButton>
+        <ElButton v-if="pending" :disabled="busy" @click="save(pending.action)">重试保存视图操作</ElButton>
+        <template v-if="!saving">
+          <ElButton v-if="view" :disabled="busy || !name.trim()" @click="save('rename')">重命名保存视图</ElButton>
+          <ElButton v-if="props.query" :disabled="busy || !name.trim()" @click="save('save')">
+            {{ view ? '用当前条件更新视图' : '保存当前筛选' }}
+          </ElButton>
+          <p v-else-if="!view">运行属性筛选后即可保存条件。</p>
+        </template>
       </template>
       <section v-if="result" aria-label="保存视图结果">
         <h2 ref="resultHeading" tabindex="-1">{{ ran?.name }}</h2>

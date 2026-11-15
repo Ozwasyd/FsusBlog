@@ -23,6 +23,8 @@ import {
 import { canRebaseSavedBodyRevision, rebaseSavedBodyHit } from './savedBodyInsertion'
 import { verifySourceMatch } from './sourceCoordinates'
 
+const props = defineProps<{ expanded?: boolean }>()
+
 type PropertySelection = { schema: bigint; field: FilterField }
 type SortSelection = PropertySelection & { direction: AuthorTextPropertySortQuery['direction'] }
 type SearchInput = Omit<AuthorTextQualifiedQuery, 'cursor'> & {
@@ -456,7 +458,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
 </script>
 
 <template>
-  <details ref="details" class="author-text-search" @toggle="toggle">
+  <details ref="details" class="author-text-search" :open="props.expanded" @toggle="toggle">
     <summary>作者全文搜索</summary>
     <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
       <p id="author-text-search-help">
