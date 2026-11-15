@@ -656,6 +656,34 @@ test('moving a focused preview appends its exact session, protects both editors 
   assert.deepEqual(registry.sourcePanes.map(pane => [pane.tab.sessionId, pane.selected]), liveEditors.map(sessionId => [sessionId, true]))
 })
 
+test('moving a background tab preserves both selected sessions and rejects old layout or identity', async () => {
+  const registry = setup()
+  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, 2], activeArticleId: 1,
+    secondaryTabs: [3, -4], secondaryActiveArticleId: 3 }
+  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  const draftToMove = await activate(registry, 2, 'main')
+  assert(registry.updateDraft(draftToMove, draft(2, 1n, 'background local source')))
+  const focused = await activate(registry, 1, 'main')
+  const editors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  const revision = registry.revision
+  const secondary = registry.tabs.find(tab => tab.articleId === 3)!
+  assert.equal(registry.canMoveBackgroundTab(secondary), false)
+  assert.equal(registry.canMoveBackgroundTab(draftToMove), true)
+  const moved = registry.moveBackgroundTab(draftToMove, 'secondary', revision)
+  assert.equal(moved.kind, 'changed')
+  assert.deepEqual([moved.tab.sessionId, moved.tab.group, moved.tab.risk], [draftToMove.sessionId, 'secondary', 'dirty'])
+  assert.deepEqual(registry.savedLayout, { ...layout, tabs: [1], secondaryTabs: [3, -4, 2] })
+  assert.equal(registry.activeTab?.sessionId, focused.sessionId)
+  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), editors)
+  assert.deepEqual(registry.moveBackgroundTab(draftToMove, 'main', revision), { kind: 'stale' })
+  const restored = await activate(registry, 2, 'main')
+  assert.equal(restored.group, 'secondary')
+  assert.equal(restored.sessionId, draftToMove.sessionId)
+  assert.equal(registry.activeDraft?.body, 'background local source')
+  registry.setIdentity(null)
+  assert.deepEqual(registry.moveBackgroundTab(draftToMove, 'main', registry.revision), { kind: 'stale' })
+})
+
 test('merging groups keeps order and pending server commands on the same focused editor', async () => {
   const pending = deferred<DraftSave<Draft>>()
   const registry = setup({ save: () => pending.promise })

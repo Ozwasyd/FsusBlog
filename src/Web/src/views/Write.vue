@@ -80,6 +80,7 @@ const summarySeek = computed(() => {
 })
 const searchPositionUnavailable = 'The search position is no longer available. Return to article search and choose a current result.'
 const workspaceTabs = shallowRef<readonly WorkspaceTab[]>([])
+const workspaceRevision = ref(0)
 const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>([])
 const hasSecondaryGroup = ref(false)
 const recentlyClosed = shallowRef<readonly RecentlyClosed[]>([])
@@ -412,6 +413,7 @@ const unsubscribe = registry.subscribe(() => {
   original.value = next
   tab.value = registry.activeTab
   workspaceTabs.value = registry.tabs
+  workspaceRevision.value = registry.revision
   sourcePanes.value = registry.sourcePanes
   hasSecondaryGroup.value = registry.hasSecondaryGroup
   recentlyClosed.value = registry.recentlyClosed
@@ -830,6 +832,18 @@ watch([recoveryBlocked, pending, metadataDirty, () => tab.value?.sessionId, edit
   if (document.activeElement === request.pane && tab.value?.sessionId === request.sessionId && editable.value)
     document.getElementById('article-body')?.focus({ preventScroll: true })
 })
+
+function canMoveBackgroundTab(target: WorkspaceTab) {
+  return canArrangeGroups.value && registry.canMoveBackgroundTab(target)
+}
+
+function moveBackgroundTab(target: WorkspaceTab, revision: number) {
+  if (!canArrangeGroups.value) return
+  const destination = target.group === 'main' ? 'secondary' : 'main'
+  const receipt = registry.moveBackgroundTab(target, destination, revision)
+  if (receipt.kind === 'changed')
+    groupNotice.value = `Moved ${receipt.tab.title} to the ${destination === 'main' ? 'primary' : 'secondary'} group.`
+}
 
 function arrangeGroups(destination?: WorkspaceGroup) {
   const current = tab.value
@@ -1274,8 +1288,9 @@ async function reloadDraft() {
       </div>
     </header>
     <section v-if="authorizationReady && currentSession?.canAuthor" class="workspace-actions" aria-label="Article workspace">
-      <WorkspaceTabs ref="tabsControl" :tabs="workspaceTabs" :disabled="!canSwitch"
-        @activate="navigateTo($event.articleId)" @pin="togglePin" @close="closeTab" />
+      <WorkspaceTabs ref="tabsControl" :tabs="workspaceTabs" :disabled="!canSwitch" :workspace-revision="workspaceRevision"
+        :can-move-background="canMoveBackgroundTab"
+        @activate="navigateTo($event.articleId)" @pin="togglePin" @close="closeTab" @move="moveBackgroundTab" />
       <form class="workspace-open" @submit.prevent="openArticle()">
         <label for="workspace-article-id">Article ID</label>
         <ElInput id="workspace-article-id" ref="articleInput" v-model="openInput" class="workspace-open-field"

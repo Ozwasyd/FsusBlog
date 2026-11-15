@@ -800,6 +800,9 @@ async function exerciseGroupActions({ page, readLayout, first, alternate, second
     return readLayout()
   }
 
+  const initial = { primary: mainSlots, secondary: [second.id, -secondaryPreview.id], secondaryActive: second.id, focusedGroup: 0 }
+  await activate(alternate, 'Preview', primary, { ...initial, primaryActive: alternate.id })
+  await activate(first, 'Pinned', primary, { ...initial, primaryActive: first.id })
   let saved = await activate(secondaryPreview, 'Preview', secondary, {
     primary: mainSlots, secondary: [second.id, -secondaryPreview.id],
     primaryActive: first.id, secondaryActive: secondaryPreview.id, focusedGroup: 1,
@@ -830,6 +833,48 @@ async function exerciseGroupActions({ page, readLayout, first, alternate, second
   await expectPane(primary, first, first.body, false)
   await expectSameEditor(body(secondary), movingEditor)
   await expectSameEditor(body(primary), firstEditor)
+  await body(secondary).press('End')
+  await body(secondary).press('Shift+ArrowLeft')
+  const caret = await selection(body(secondary))
+  assert.deepEqual(caret, [secondaryPreview.body.length - 1, secondaryPreview.body.length])
+  const wide = page.viewportSize()
+  assert(wide)
+  const overflow = page.getByRole('region', { name: 'Article tabs', exact: true })
+  async function moveBackground(to, slots, compact = false) {
+    const chooser = button(page, compact ? 'Switch article tab' : 'More tabs (4)')
+    await press(page, chooser)
+    if (compact) assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+    const action = button(overflow, `Move ${alternate.title} to ${to} group`)
+    await expect(action).toBeEnabled()
+    const pending = page.waitForResponse(response => response.url() === groupsPath && response.request().method() === 'POST')
+    await press(page, action)
+    const receipt = await decodeSavedGroups(await pending)
+    assert.equal(receipt.revision, saved.revision + 1n)
+    assert.deepEqual(coordinates(receipt), slots)
+    assert.deepEqual(await readLayout(), receipt)
+    await expect(chooser).toHaveAttribute('aria-expanded', 'false')
+    await expect(chooser).toBeFocused()
+    await expect(page).toHaveURL(editPath(secondaryPreview.id))
+    if (compact) await expectHiddenEditor(firstEditor)
+    else {
+      await expect(tab(page, secondaryPreview, 'Pinned')).toHaveAttribute('aria-selected', 'true')
+      await expect(tab(page, alternate, 'Preview')).toHaveAttribute('aria-selected', 'false')
+      await expectSameEditor(body(primary), firstEditor)
+    }
+    await expectSameEditor(body(secondary), movingEditor)
+    assert.deepEqual(await selection(body(secondary)), caret)
+    return receipt
+  }
+  saved = await moveBackground('secondary', { ...bothSelected, primary: [first.id], secondary: [...movedSlots, -alternate.id] })
+  await page.setViewportSize({ width: 375, height: 850 })
+  saved = await moveBackground('primary', bothSelected, true)
+  await page.setViewportSize(wide)
+  await expectPane(primary, first, first.body, false)
+  await expectSameEditor(body(primary), firstEditor)
+  observations.push({ backgroundPreviewMovesBothWays: true, backgroundMovePreservesOpenEditorsAndSelection: true,
+    backgroundMoveRevision: saved.revision.toString() })
+  await body(secondary).press('ArrowRight')
+  assert.deepEqual(await selection(body(secondary)), [secondaryPreview.body.length, secondaryPreview.body.length])
   await firstEditor.dispose()
 
   const firstPreviewSelected = { ...bothSelected, primaryActive: alternate.id, focusedGroup: 0 }

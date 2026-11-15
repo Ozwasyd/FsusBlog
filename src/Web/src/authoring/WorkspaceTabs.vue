@@ -3,11 +3,15 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import type { WorkspaceTab } from './workspaceRegistry'
 
-const props = defineProps<{ tabs: readonly WorkspaceTab[]; disabled?: boolean }>()
+const props = defineProps<{
+  tabs: readonly WorkspaceTab[]; disabled?: boolean; workspaceRevision?: number
+  canMoveBackground?: (tab: WorkspaceTab) => boolean
+}>()
 const emit = defineEmits<{
   activate: [tab: WorkspaceTab]
   pin: [tab: WorkspaceTab]
   close: [tab: WorkspaceTab]
+  move: [tab: WorkspaceTab, revision: number]
 }>()
 
 const tabLimit = 24
@@ -211,6 +215,13 @@ function activateFromOverflow(tab: WorkspaceTab) {
   activate(tab)
 }
 
+function moveBackground(tab: WorkspaceTab) {
+  const revision = props.workspaceRevision
+  if (revision === undefined || !props.canMoveBackground?.(tab)) return
+  closeOverflow()
+  emit('move', tab, revision)
+}
+
 async function advancePage(index: number) {
   if (index < 0 || index >= pageCount.value) return
   page.value = index
@@ -301,6 +312,9 @@ async function advancePage(index: number) {
         >
           {{ tab.mode === 'pinned' ? 'Unpin' : 'Pin' }}
         </button>
+        <ElButton v-if="canMoveBackground?.(tab)" text native-type="button"
+          v-bind="{ 'aria-label': `Move ${title(tab)} to ${tab.group === 'main' ? 'secondary' : 'primary'} group` }"
+          @click="moveBackground(tab)">Move</ElButton>
         <button
           type="button" class="workspace-tabs__action"
           :aria-label="`Close ${title(tab)}`" :disabled="disabled" @click="close(tab)"

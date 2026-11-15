@@ -207,9 +207,21 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return Object.freeze(panes)
   }
 
+  canMoveBackgroundTab(tab: EditorSessionRef): boolean {
+    return this.#backgroundTab(tab, this.#revision) !== undefined
+  }
+
+  moveBackgroundTab(tab: EditorSessionRef, destination: WorkspaceGroup, expectedRevision: number): GroupReceipt {
+    const session = this.#backgroundTab(tab, expectedRevision)
+    if (!session || (destination !== 'main' && destination !== 'secondary')) return { kind: 'stale' }
+    if (destination === session.group) return { kind: 'unchanged' }
+    this.#placement(session, destination)
+    return this.#finishGroupChange(session)
+  }
+
   moveActiveTab(tab: EditorSessionRef, destination: WorkspaceGroup, expectedRevision: number): GroupReceipt {
     const session = this.#groupChange(tab, expectedRevision)
-    if (!session || (destination !== 'main' && destination !== 'secondary')) return { kind: 'stale' }
+    if (!session || session !== this.#active || (destination !== 'main' && destination !== 'secondary')) return { kind: 'stale' }
     const source = session.group
     if (destination === source || !this.hasSecondaryGroup) return { kind: 'unchanged' }
 
@@ -224,7 +236,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
 
   mergeGroups(tab: EditorSessionRef, expectedRevision: number): GroupReceipt {
     const active = this.#groupChange(tab, expectedRevision)
-    if (!active) return { kind: 'stale' }
+    if (!active || active !== this.#active) return { kind: 'stale' }
     const incoming = Array.from(this.#sessions.values()).filter(session => session.group === 'secondary')
     if (!incoming.length) return { kind: 'unchanged' }
 
@@ -810,9 +822,15 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       session.phase === 'ready' && session.group === group && session.mode === 'preview' && this.#risk(session) === 'clean')
   }
 
+  #backgroundTab(tab: EditorSessionRef, expectedRevision: number): Session<Draft> | undefined {
+    const session = this.#groupChange(tab, expectedRevision)
+    return session && this.#selected.main && this.#selected.secondary && session !== this.#active &&
+      this.#selected[session.group] !== session ? session : undefined
+  }
+
   #groupChange(tab: EditorSessionRef, expectedRevision: number): Session<Draft> | undefined {
     const session = this.#find(tab)
-    if (this.#revision !== expectedRevision || !session || session !== this.#active || session.phase !== 'ready' ||
+    if (this.#revision !== expectedRevision || !session || session.phase !== 'ready' ||
         this.#opening || this.#closing || Array.from(this.#sessions.values()).some(entry => entry.phase === 'loading')) return undefined
     return session
   }
@@ -826,9 +844,10 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   #finishGroupChange(session: Session<Draft>): GroupReceipt {
+    const active = this.#active
     ++this.#activation
     this.#changed()
-    if (this.#active !== session || !this.#currentIdentity()) return { kind: 'stale' }
+    if (!this.#currentIdentity() || this.#active !== active || this.#sessions.get(session.id) !== session) return { kind: 'stale' }
     return { kind: 'changed', tab: this.#view(session), workspaceRevision: this.#revision }
   }
 
