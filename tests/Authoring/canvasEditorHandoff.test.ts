@@ -7,6 +7,7 @@ import {
   cancelEditorSourceHandoff,
   offerCanvasEditorHandoff,
   offerHistoricalSearchEditorHandoff,
+  offerPropertySearchEditorHandoff,
   offerSearchEditorHandoff,
 } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
@@ -89,4 +90,29 @@ test('a historical search handoff separates the current head from its exact one-
   const mismatched = offerHistoricalSearchEditorHandoff(hit, 9n, 12, 'selected-session')
   assert.equal(acceptEditorSourceHandoff(mismatched, 43, 12, 'rotated-session'), undefined)
   assert.equal(acceptEditorSourceHandoff(mismatched, 43, 12, 'selected-session'), undefined)
+})
+
+test('property text handoff preserves the pinned snapshot in the exact session and consumes it once', () => {
+  const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
+  const hit = {
+    articleId: 43, revision: 7n, schemaRevision: 11n, definitionId: '238012e6-67e1-46cd-a9fe-71b23ed59641',
+    definitionRevision: 9n, valueRevision: 4n, sourceStart: 10, sourceEnd: 11,
+    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
+  }
+  assert.throws(() => offerPropertySearchEditorHandoff({ ...hit, valueRevision: 0n }, 12, 'selected-session'), RangeError)
+  const token = offerPropertySearchEditorHandoff(hit, 12, 'selected-session')
+  sourceDigest[0] = 8
+  assert.deepEqual(acceptEditorSourceHandoff(token, 43, 12, 'selected-session'), {
+    kind: 'property-search', target: { ...hit, sourceDigest: Uint8Array.from({ length: 32 }, () => 3) },
+  })
+  assert.equal(acceptEditorSourceHandoff(token, 43, 12, 'selected-session'), undefined)
+
+  const otherSession = offerPropertySearchEditorHandoff(hit, 12, 'selected-session')
+  assert.equal(acceptEditorSourceHandoff(otherSession, 43, 12, 'rotated-session'), undefined)
+  assert.equal(acceptEditorSourceHandoff(otherSession, 43, 12, 'selected-session'), undefined)
+
+  const obsolete = offerPropertySearchEditorHandoff(hit, 12, 'selected-session')
+  const current = offerCanvasEditorHandoff(target, 12)
+  assert.equal(acceptEditorSourceHandoff(obsolete, 43, 12, 'selected-session'), undefined)
+  assert.deepEqual(acceptCanvasEditorHandoff(current, 43, 12), target)
 })

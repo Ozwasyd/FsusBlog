@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeAuthorTextPropertyFacetPage, decodeAuthorTextPropertyFacetQuery,
@@ -7,10 +7,12 @@ import {
   decodeAuthorTextPropertyTextPage, decodeAuthorTextPropertyTextQuery, decodeAuthorTextSummaryPage,
 } from '../../src/Contracts/author-text-search.ts'
 import { decodePropertyEditor, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
+import { decodePropertyTextHitRequest } from '../../src/Contracts/property-text-hit.ts'
 import {
-  decodePropertyCommandReceipt, decodePropertyDefinitionProjection, encodePropertyDefinitionProjectionCommand,
+  decodeDraft, decodePropertyCommandReceipt, decodePropertyDefinitionProjection, encodePropertyDefinitionProjectionCommand,
   encodePropertyWorkspaceRequest, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 
 export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand }) {
   const marker = `facetprobe${randomUUID().replaceAll('-', '')}`
@@ -18,6 +20,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
   const privateText = `编校提示 🧭 ${textMarker}`
   const page = await publisher.context().newPage()
   const drafts = []
+  const valueRevisions = new Map()
   let fields
   try {
     for (const [index, values] of [
@@ -60,6 +63,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
         assert.equal(receipt.definitionId, field.definitionId)
         assert.equal(receipt.revision, ++valueRevision)
       }
+      valueRevisions.set(draft.id, valueRevision)
     }
 
     const sortable = await changeProjection(publisher, origin, fields.score, { sortable: true })
@@ -181,25 +185,25 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     await verifyPropertyText()
 
     async function verifyPropertyText() {
-      await page.goto(`${origin}/user/manage/article/list`)
-      await page.getByText('作者全文搜索', { exact: true }).click()
-      const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
-      await form.getByText('全文搜索属性条件', { exact: true }).click()
-      const current = (await catalog).request().headers()[WireHeaders.CurrentSession.toLowerCase()]
-      assert(current)
       const scope = form.getByRole('combobox', { name: '搜索来源', exact: true })
-      await scope.click()
-      assert.equal(await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).count(), 0)
-      await page.getByRole('option', { name: 'Article subtitle · article-subtitle', exact: true }).click()
+      const inspector = page.getByRole('dialog', { name: 'Article inspector', exact: true })
+      const fieldInput = inspector.getByLabel('Article subtitle value', { exact: true })
+      const success = page.getByText('Opened the search result at its saved property position.', { exact: true })
+      const refused = page.getByText('The search position is no longer available. Return to article search and choose a current result.', { exact: true })
+      const credential = WireHeaders.CurrentSession.toLowerCase()
+      const list = `${origin}/user/manage/article/list`
+      const jump = draft => results.getByRole('listitem').filter({ has: page.getByRole('link', { name: draft.title, exact: true }) })
+        .getByRole('button', { name: '跳到命中位置', exact: true })
+      let current = await openPropertySearch()
       assert.equal(await sortSelector.count(), 0)
       assert.equal(await selector.count(), 0)
-      await query.fill(`status:draft ${textMarker}`)
       const lexical = await searchProperty()
       assert.equal(lexical.page.total, 2)
       assert.deepEqual(new Set(lexical.page.rows.map(row => row.id)), new Set([drafts[0].id, drafts[2].id]))
       assert.equal(await results.getByText('Article subtitle', { exact: true }).count(), 2)
       assert.deepEqual(await results.locator('mark').allTextContents(), [textMarker, textMarker])
-      assert.equal(await results.getByRole('button', { name: '跳到命中位置', exact: true }).count(), 0)
+      await jump(drafts[0]).waitFor()
+      await jump(drafts[2]).waitFor()
       assert.equal(await results.getByRole('link', { name: drafts[0].title, exact: true }).getAttribute('href'),
         `/user/manage/article/edit/${drafts[0].id}`)
       assert.equal(new URL(page.url()).search, '')
@@ -222,6 +226,173 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       const ordinary = await submitSearch(FrameType.AuthorTextSummaryPage, decodeAuthorTextSummaryPage)
       assert.deepEqual(ordinary.page.rows.map(row => [row.id, row.field]), [[drafts[1].id, 'body']])
       observations.push('At 375px the explicitly selected Text property matches saved private text without body fallback, retains date/status and Boolean conditions, exposes the normal article link, and returns to ordinary body search when cleared.')
+
+      current = await openPropertySearch()
+      const positive = await searchProperty()
+      const draft = drafts[2]
+      const hit = exactPropertyRow(positive.page, draft)
+      const editor = `${origin}/user/manage/article/edit/${draft.id}`
+      const draftRead = page.waitForResponse(response => response.request().method() === 'GET' &&
+        new URL(response.url()).pathname === WireRoutes.Draft.replace('{id:int}', String(draft.id)))
+      const pinRead = waitForExactProperty(draft, 0n)
+      const editorRead = waitForExactProperty(draft, valueRevisions.get(draft.id))
+      const refreshed = page.waitForResponse(searchReply)
+      await jump(draft).press('Enter')
+      await verifyRecheck(await refreshed, positive, draft, hit)
+      await verifyRead(await pinRead, draft, hit, 0n)
+      const saved = await draftRead
+      assert.equal(saved.status(), 200)
+      assert.equal(saved.request().headers()[credential], current)
+      const savedDraft = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+      assert.equal(savedDraft.id, draft.id)
+      assert.equal(savedDraft.revision, draft.revision)
+      const rebound = await editorRead
+      await verifyRead(rebound, draft, hit, valueRevisions.get(draft.id))
+      const savedTiming = saved.request().timing()
+      assert(savedTiming.responseEnd >= 0 && savedTiming.startTime + savedTiming.responseEnd <= rebound.request().timing().startTime)
+      await page.waitForURL(editor)
+      await fieldInput.and(page.locator(':focus')).waitFor()
+      assert.deepEqual(await fieldInput.evaluate(input => ({ tag: input.tagName, value: input.value,
+        start: input.selectionStart, end: input.selectionEnd, selected: input.value.slice(input.selectionStart, input.selectionEnd) })),
+      { tag: 'INPUT', value: privateText, start: hit.sourceStart, end: hit.sourceEnd, selected: textMarker })
+      await success.waitFor()
+      await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
+      assert.equal(new URL(page.url()).search, '')
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+      observations.push('At 375px a keyboard property hit replays identical search bytes, pins the exact saved value revision, and focuses and selects its UTF-16 range in the native FsusUI Inspector input.')
+
+      current = await openPropertySearch()
+      const stale = await searchProperty()
+      const changing = drafts[0]
+      const old = exactPropertyRow(stale.page, changing)
+      const valueRevision = valueRevisions.get(changing.id)
+      const replacement = `替换后的属性 ${randomUUID()}`
+      const propertyRoute = url => url.origin === origin && url.pathname === WireRoutes.PropertyEditor
+      let changed = false
+      let mutationError
+      const editBeforeInspectorRead = async route => {
+        const request = exactPropertyRequest(route.request())
+        if (!request || request.articleId !== changing.id || request.valueRevision !== valueRevision || changed)
+          return route.fallback()
+        changed = true
+        try {
+          assertRequest(route.request(), changing, old, valueRevision)
+          const receipt = await command(publisher, origin, WireRoutes.PropertyValueCommand, FrameType.PropertyValueCommand,
+            encodePropertyValueCommand({ articleId: changing.id, articleRevision: changing.revision, schemaRevision: eligible.schemaRevision,
+              valueRevision, definitionId: fields.subtitle.definitionId, definitionRevision: eligible.revision,
+              requestId: randomUUID(), value: { kind: 'text', value: replacement } }), FrameType.PropertyCommandReceipt, decodePropertyCommandReceipt)
+          assert.equal(receipt.definitionId, fields.subtitle.definitionId)
+          assert.equal(receipt.schemaRevision, eligible.schemaRevision)
+          assert.equal(receipt.revision, valueRevision + 1n)
+        } catch (error) {
+          mutationError = error
+        }
+        await route.continue()
+      }
+      await page.route(propertyRoute, editBeforeInspectorRead)
+      try {
+        const attempted = waitForExactProperty(changing, valueRevision)
+        const repin = waitForExactProperty(changing, 0n)
+        const recheck = page.waitForResponse(searchReply)
+        await jump(changing).press('Enter')
+        await verifyRecheck(await recheck, stale, changing, old)
+        await verifyRead(await repin, changing, old, 0n)
+        const denied = await attempted
+        if (mutationError) throw mutationError
+        assert(changed)
+        assertRequest(denied.request(), changing, old, valueRevision)
+        assert.equal(denied.status(), 409)
+        const deniedBytes = await denied.body()
+        decodeFrame(deniedBytes, FrameType.ApiError)
+        assert(!deniedBytes.includes(Buffer.from(textMarker)) && !deniedBytes.includes(Buffer.from(replacement)))
+        await page.waitForURL(`${origin}/user/manage/article/edit/${changing.id}`)
+        await refused.waitFor()
+        assert.equal(await success.count(), 0)
+        assert.deepEqual(await fieldInput.evaluateAll(inputs => inputs.map(input => input.value)), [])
+        assert.equal(await page.locator('mark', { hasText: textMarker }).count(), 0)
+        await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
+        assert.equal(new URL(page.url()).search, '')
+      } finally {
+        await page.unroute(propertyRoute, editBeforeInspectorRead)
+      }
+      observations.push('A real saved value edit after the search recheck and pin makes the Inspector read return 409. The stale result supplies no value or selection and the handoff is consumed.')
+
+      async function openPropertySearch() {
+        await page.goto(list)
+        await page.getByText('作者全文搜索', { exact: true }).click()
+        const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
+        await form.getByText('全文搜索属性条件', { exact: true }).click()
+        const session = (await catalog).request().headers()[credential]
+        assert(session)
+        await scope.click()
+        assert.equal(await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).count(), 0)
+        await page.getByRole('option', { name: 'Article subtitle · article-subtitle', exact: true }).click()
+        await query.fill(`status:draft ${textMarker}`)
+        return session
+      }
+
+      async function verifyRecheck(response, previous, draft, hit) {
+        assert.equal(response.status(), 200)
+        assert.equal(response.request().headers()[credential], current)
+        assert.deepEqual(response.request().postDataBuffer(), previous.response.request().postDataBuffer())
+        const fresh = decodeAuthorTextPropertyTextPage(decodeFrame(await response.body(), FrameType.AuthorTextPropertyTextPage).payload)
+        assert.deepEqual(exactPropertyRow(fresh, draft), hit)
+      }
+
+      function exactPropertyRow(batch, draft) {
+        assert(batch.ready)
+        const row = batch.rows.find(item => item.id === draft.id)
+        assert(row)
+        assert.equal(row.title, draft.title)
+        assert.equal(row.revision, draft.revision)
+        assert.equal(row.field, 'property-text')
+        assert.equal(row.snippet.slice(row.highlightStart, row.highlightEnd), textMarker)
+        const start = privateText.indexOf(textMarker)
+        const end = start + textMarker.length
+        assert(start > 0)
+        assert.deepEqual([row.sourceStart, row.sourceEnd], [start, end])
+        assert.deepEqual([row.sourceByteStart, row.sourceByteEnd],
+          [Buffer.byteLength(privateText.slice(0, start)), Buffer.byteLength(privateText.slice(0, end))])
+        assert(row.sourceByteStart > row.sourceStart)
+        assert.deepEqual(Buffer.from(row.sourceDigest), createHash('sha256').update(privateText).digest())
+        return row
+      }
+
+      function exactPropertyRequest(request) {
+        if (request.method() !== 'POST' || new URL(request.url()).pathname !== WireRoutes.PropertyEditor) return undefined
+        const bytes = request.postDataBuffer()
+        if (!bytes) return undefined
+        const packet = decodeFrame(bytes)
+        return packet.type === FrameType.PropertyTextHitRequest ? decodePropertyTextHitRequest(packet.payload) : undefined
+      }
+
+      function waitForExactProperty(draft, revision) {
+        return page.waitForResponse(response => {
+          const request = exactPropertyRequest(response.request())
+          return request?.articleId === draft.id && request.valueRevision === revision
+        })
+      }
+
+      function assertRequest(request, draft, hit, valueRevision) {
+        assert.equal(request.headers()[credential], current)
+        const { sourceDigest, ...coordinates } = exactPropertyRequest(request)
+        assert.deepEqual(coordinates, {
+          articleId: draft.id, articleRevision: draft.revision, schemaRevision: eligible.schemaRevision, valueRevision,
+          definitionId: fields.subtitle.definitionId, definitionRevision: eligible.revision,
+        })
+        assert.deepEqual(Buffer.from(sourceDigest), Buffer.from(hit.sourceDigest))
+      }
+
+      async function verifyRead(response, draft, hit, requestedRevision) {
+        assertRequest(response.request(), draft, hit, requestedRevision)
+        assert.equal(response.status(), 200)
+        const workspace = decodePropertyEditor(decodeFrame(await response.body(), FrameType.PropertyEditor).payload)
+        assert.deepEqual([workspace.articleId, workspace.articleRevision, workspace.schemaRevision, workspace.valueRevision, workspace.nextKey],
+          [draft.id, draft.revision, eligible.schemaRevision, valueRevisions.get(draft.id), ''])
+        assert.equal(workspace.fields.length, 1)
+        assert.deepEqual(workspace.fields[0], { ...fields.subtitle, definitionRevision: eligible.revision,
+          value: { kind: 'text', value: privateText } })
+      }
 
       async function searchProperty() {
         const found = await submitSearch(FrameType.AuthorTextPropertyTextPage, decodeAuthorTextPropertyTextPage)

@@ -166,6 +166,7 @@ inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyDefinitionDigestBytes = 64;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
+inline constexpr uint32_t PropertyTextHitRequestFrameBytes = 100;
 inline constexpr uint32_t PropertyPageSize = 25;
 inline constexpr uint32_t PropertyQueryCursorChars = 48;
 inline constexpr uint32_t PropertyQueryConditionCount = 4;
@@ -567,6 +568,7 @@ enum class FrameType : uint16_t {
     AuthorTextPropertyTextPage = 33030,
     ArticleBodyInsertionCommand = 33032,
     DraftRevisionBodyInsertion = 33033,
+    PropertyTextHitRequest = 33034,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -773,6 +775,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AuthorTextPropertyTextPage:
         case FrameType::ArticleBodyInsertionCommand:
         case FrameType::DraftRevisionBodyInsertion:
+        case FrameType::PropertyTextHitRequest:
         case FrameType::PropertyDefinitionProjectionCommand:
         case FrameType::PropertyDefinitionProjection:
         case FrameType::DraftTaxonomy:

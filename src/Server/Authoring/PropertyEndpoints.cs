@@ -17,8 +17,19 @@ internal static class PropertyEndpoints
             Wire.EncodePropertyCommandReceipt(await store.Change(Wire.DecodePropertyDefinitionCommand(frame), ct)));
         Map(WireRoutes.PropertyTextCommand, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.WriteText(Wire.DecodePropertyTextCommand(frame), ct)));
-        Map(WireRoutes.PropertyEditor, async (store, frame, ct) =>
-            Wire.EncodePropertyEditor(await store.ReadEditor(Wire.DecodePropertyWorkspaceRequest(frame), kind: null, ct)));
+        MapSession(WireRoutes.PropertyEditor, async (store, actor, ctx, frame, session, ct) =>
+        {
+            Aeds.Decode(frame, out var type);
+            if (type != FrameType.PropertyTextHitRequest)
+                return Wire.EncodePropertyEditor(await store.ReadEditor(Wire.DecodePropertyWorkspaceRequest(frame), kind: null, ct));
+            var expected = SiteSessions.Requested(ctx);
+            var digest = Store.TokenDigest(session)!;
+            SiteSessions.RequireCurrent(actor.Id, digest, expected);
+            var page = await store.ReadTextHit(Wire.DecodePropertyTextHitRequest(frame), ct);
+            ct.ThrowIfCancellationRequested();
+            SiteSessions.RequireCurrent(actor.Id, digest, expected);
+            return Wire.EncodePropertyEditor(page);
+        });
         Map(WireRoutes.PropertySchemaCommand, async (store, frame, ct) =>
         {
             Aeds.Decode(frame, out var type);

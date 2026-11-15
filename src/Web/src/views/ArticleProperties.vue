@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import {
@@ -7,10 +7,18 @@ import {
   type EditableProperty, type PropertyKind, type PropertyOption, type PropertySchemaCommand, type PropertyValue,
   type PropertyValueCommand, type PropertyWorkspace,
 } from '../../../Contracts/property-values'
+import type { PropertySearchSeek } from '../authoring/canvasEditorHandoff'
+import { verifySourceMatch } from '../authoring/sourceCoordinates'
 import { invalidateSession } from '../session'
 
-const props = defineProps<{ articleId: number; revision: bigint; identity: number; disabled: boolean }>()
-const emit = defineEmits<{ pending: [value: boolean] }>()
+const props = defineProps<{
+  articleId: number; revision: bigint; identity: number; disabled: boolean
+  sourceTarget?: PropertySearchSeek; inspectorReady?: boolean
+}>()
+const emit = defineEmits<{
+  pending: [value: boolean]
+  sourceRevealed: [target: PropertySearchSeek, success: boolean]
+}>()
 const workspace = shallowRef<PropertyWorkspace>()
 const busy = ref(false)
 const message = ref('')
@@ -22,6 +30,7 @@ const definitionKind = ref<PropertyKind>('text')
 const options = ref<PropertyOption[]>([])
 const editing = shallowRef<EditableProperty>()
 const value = ref('')
+const valueInput = ref<InstanceType<typeof ElInput>>()
 const boolean = ref<boolean | ''>('')
 const selected = ref<string[]>([])
 const retryCount = ref(0)
@@ -315,6 +324,52 @@ function beginValue(field: EditableProperty) {
   message.value = ''
 }
 
+watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disabled, busy, workspace],
+  async ([seek, inspectorReady, disabled, loading, snapshot], _, cleanup) => {
+    if (!seek || !inspectorReady || disabled || loading) return
+    const target = seek.target
+    if (target.valueRevision <= 0n || !snapshot || snapshot.articleId !== target.articleId || snapshot.articleRevision !== target.revision ||
+        snapshot.schemaRevision !== target.schemaRevision || snapshot.valueRevision !== target.valueRevision) {
+      emit('sourceRevealed', seek, false)
+      return
+    }
+    const request = new AbortController()
+    cleanup(() => request.abort())
+    const current = () => !request.signal.aborted && props.sourceTarget === seek && props.inspectorReady === true && seek.current() &&
+      props.articleId === target.articleId && props.revision === target.revision && workspace.value === snapshot &&
+      !disabledInput.value && !creating.value && !unsettled.value && !retained.value
+    const previousFocus = document.activeElement
+    let success = false
+    try {
+      if (!current() || editing.value) return
+      const response = await propertyApi.textHit({
+        articleId: target.articleId, articleRevision: target.revision, schemaRevision: target.schemaRevision,
+        valueRevision: target.valueRevision, definitionId: target.definitionId, definitionRevision: target.definitionRevision,
+        sourceDigest: target.sourceDigest,
+      }, seek.credential, request.signal)
+      const [field] = response.fields
+      if (!current() || editing.value || field.value.kind !== 'text') return
+      const raw = field.value.value
+      if (!await verifySourceMatch(raw, target) || !current() || editing.value || document.activeElement !== previousFocus) return
+      beginValue(field)
+      await nextTick()
+      const control = valueInput.value?.input
+      const ownsInput = () => current() && editing.value === field && value.value === raw && valueInput.value?.input === control &&
+        control instanceof HTMLInputElement && control.value === raw && control.isConnected && !control.disabled && !control.readOnly &&
+        !control.closest('[inert]') && control.getClientRects().length > 0
+      if (!(control instanceof HTMLInputElement) || !ownsInput() || document.activeElement !== previousFocus) return
+      control.focus()
+      if (!ownsInput() || document.activeElement !== control) return
+      control.setSelectionRange(target.sourceStart, target.sourceEnd)
+      success = ownsInput() && document.activeElement === control && control.selectionStart === target.sourceStart &&
+        control.selectionEnd === target.sourceEnd
+    } catch {
+      // A missing, changed, or unverifiable source leaves the existing editor intact.
+    } finally {
+      if (!request.signal.aborted && props.sourceTarget === seek) emit('sourceRevealed', seek, success)
+    }
+  }, { immediate: true, flush: 'post' })
+
 function showValue(field: EditableProperty): string {
   const stored = field.value
   function optionsLabel(optionIds: string[]) {
@@ -410,7 +465,7 @@ function showValue(field: EditableProperty): string {
         </ElCheckboxGroup>
         <template v-else>
           <label for="property-value">{{ editing.label }} value</label>
-          <ElInput id="property-value" v-model="value" :disabled="editingDisabled" @input="formTouched = true" />
+          <ElInput id="property-value" ref="valueInput" v-model="value" :disabled="editingDisabled" @input="formTouched = true" />
         </template>
         <p v-if="inputHelp" class="metadata">{{ inputHelp }}</p>
         <div class="editor-taxonomy-actions">

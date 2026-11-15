@@ -194,6 +194,7 @@ public enum FrameType : ushort
     AuthorTextPropertyTextPage = 33030,
     ArticleBodyInsertionCommand = 33032,
     DraftRevisionBodyInsertion = 33033,
+    PropertyTextHitRequest = 33034,
     PropertyDefinitionProjectionCommand = 33024,
     PropertyDefinitionProjection = 33025,
     DraftTaxonomy = 32790,
@@ -371,6 +372,7 @@ public static class WireLimits
     public const int PropertyDefinitionDigestBytes = 64;
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
+    public const int PropertyTextHitRequestFrameBytes = 100;
     public const int PropertyPageSize = 25;
     public const int PropertyQueryCursorChars = 48;
     public const int PropertyQueryConditionCount = 4;

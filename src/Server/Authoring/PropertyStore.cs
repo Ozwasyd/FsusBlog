@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
+using FsusBlogV2.Storage;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -57,13 +58,39 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         var references = await ReadReferences(rows.Values.SelectMany(ReferenceIds).Distinct().Order().ToArray(), ct);
         var nextKey = definitions.Length > WireLimits.PropertyPageSize ? page[^1].MachineKey : "";
         return new(input.ArticleId, input.ArticleRevision, schema.Revision, values, nextKey,
-            page.Select(definition => new PropertyEditorField(definition.Id, definition.Revision, definition.MachineKey,
-                definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label,
-                definition.Status == PropertyStatus.Deprecated, FieldKind(definition.Settings.Kind),
-                definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
-                    .Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray(),
-                VisibleValue(rows.GetValueOrDefault(definition.Id), references))).ToArray());
+            page.Select(definition => EditorField(definition, VisibleValue(rows.GetValueOrDefault(definition.Id), references))).ToArray());
     }
+
+    internal async Task<PropertyEditorWorkspace> ReadTextHit(PropertyTextHitRequest input, CancellationToken ct)
+    {
+        if (!await CurrentSchema.HasAuthorTextPropertyIndexAsync(db, tx, ct))
+            throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
+        var projection = await ResolveTextProjection(input.SchemaRevision, input.DefinitionId, input.DefinitionRevision, ct);
+        var articleRevision = await AssertArticle(input.ArticleId, input.ArticleRevision, ct);
+        await using var command = Store.Sql(db, tx, $$"""
+            select a.revision,case when octet_length(v.data::text)<={{AuthorTextPropertyIndex.MaxStoredTextBytes}} then v.data::text end
+            from public.property_article a
+            join public.property_value v on v.article_id=a.article_id and v.owner_id=a.owner_id and v.definition_id=$3
+            join public.author_text_property_document d on d.owner_id=v.owner_id and d.article_id=v.article_id
+                and d.definition_id=v.definition_id and d.definition_revision=$4 and d.value_revision=a.revision
+            where a.owner_id=$1 and a.article_id=$2 and a.revision>0 and ($5=0 or a.revision=$5) and d.source_digest=$6
+            """, actor.Id, input.ArticleId, projection.Definition.Id, projection.Definition.Revision, input.ValueRevision, input.SourceDigest);
+        command.CommandTimeout = 3;
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct) || row.IsDBNull(1) ||
+            ReadTextSource(projection, input.ArticleId, row.GetString(1)) is not { } text ||
+            !CryptographicOperations.FixedTimeEquals(SHA256.HashData(PropertyTextUtf8.GetBytes(text)), input.SourceDigest))
+            throw PropertyTextConflict();
+        return new(input.ArticleId, articleRevision, projection.SchemaRevision, row.GetInt64(0), "",
+            [EditorField(projection.Definition, new PropertyFieldValue.Text(text))]);
+    }
+
+    private static PropertyEditorField EditorField(PropertyDefinition definition, PropertyFieldValue value) =>
+        new(definition.Id, definition.Revision, definition.MachineKey,
+            definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label,
+            definition.Status == PropertyStatus.Deprecated, FieldKind(definition.Settings.Kind),
+            definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
+                .Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray(), value);
 
     internal Task<PropertyCommandReceipt> Change(PropertyDefinitionCommand input, CancellationToken ct) =>
         Change(new PropertySchemaInput(input, PropertyFieldKind.Text, []), textOnly: true, ct);

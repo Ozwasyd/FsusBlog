@@ -17,10 +17,15 @@ export type SearchEditorTarget = Readonly<{
   precision?: 'rebased'
 }>
 
+export type PropertySearchEditorTarget = Pick<SearchEditorTarget,
+  'articleId' | 'revision' | 'sourceStart' | 'sourceEnd' | 'sourceByteStart' | 'sourceByteEnd' | 'sourceDigest' | 'match'> &
+  Readonly<{ schemaRevision: bigint; definitionId: string; definitionRevision: bigint; valueRevision: bigint }>
+
 export type EditorSourceTarget =
   | Readonly<{ kind: 'canvas'; target: CanvasEditorTarget }>
   | Readonly<{ kind: 'search'; target: SearchEditorTarget }>
   | Readonly<{ kind: 'search-history'; target: SearchEditorTarget; currentRevision: bigint }>
+  | Readonly<{ kind: 'property-search'; target: PropertySearchEditorTarget }>
 
 type SeekGuard = Readonly<{ sessionId: number; current: () => boolean }>
 export type EditorSourceSeek =
@@ -30,6 +35,12 @@ export type EditorSourceSeek =
 export type HistoricalSearchSeek = Readonly<{
   target: SearchEditorTarget
   currentRevision: bigint
+  credential: string
+  current: () => boolean
+}>
+
+export type PropertySearchSeek = Readonly<{
+  target: PropertySearchEditorTarget
   credential: string
   current: () => boolean
 }>
@@ -59,6 +70,12 @@ export function offerCanvasEditorHandoff(target: CanvasEditorTarget, credentialE
 
 export function offerSearchEditorHandoff(target: SearchEditorTarget, credentialEpoch: number, handle: string): string {
   return offer({ kind: 'search', target: { ...target, sourceDigest: target.sourceDigest.slice() } }, credentialEpoch, handle)
+}
+
+export function offerPropertySearchEditorHandoff(target: PropertySearchEditorTarget, credentialEpoch: number, handle: string): string {
+  if (target.revision <= 0n || target.definitionRevision <= 0n || target.definitionRevision > target.schemaRevision ||
+    target.valueRevision <= 0n) throw new RangeError('A saved property snapshot is required')
+  return offer({ kind: 'property-search', target: { ...target, sourceDigest: target.sourceDigest.slice() } }, credentialEpoch, handle)
 }
 
 export function offerHistoricalSearchEditorHandoff(target: SearchEditorTarget, currentRevision: bigint,

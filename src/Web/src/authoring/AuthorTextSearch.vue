@@ -12,11 +12,15 @@ import type {
 import { ProtocolError } from '../../../Contracts/aeds'
 import { ApiError } from '../../../Contracts/client'
 import type { FilterField, PropertyCondition, PropertyQuery } from '../../../Contracts/property-query'
+import { propertyApi } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession, invalidateSession } from '../session'
 import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
-import { cancelEditorSourceHandoff, editorSourceHandoffKey, offerHistoricalSearchEditorHandoff, offerSearchEditorHandoff } from './canvasEditorHandoff'
+import {
+  cancelEditorSourceHandoff, editorSourceHandoffKey, offerHistoricalSearchEditorHandoff, offerPropertySearchEditorHandoff, offerSearchEditorHandoff,
+} from './canvasEditorHandoff'
 import { rebaseSavedBodyHit } from './savedBodyInsertion'
+import { verifySourceMatch } from './sourceCoordinates'
 
 type PropertySelection = { schema: bigint; field: FilterField }
 type SortSelection = PropertySelection & { direction: AuthorTextPropertySortQuery['direction'] }
@@ -309,7 +313,6 @@ function sameMatch(previous: AuthorTextSearchRow, fresh: AuthorTextSearchRow): b
 }
 
 async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' | 'rebase' = 'current') {
-  if (row.field === 'property-text') return
   const session = currentSession.value
   const text = query.value.trim()
   const page = result.value
@@ -354,17 +357,15 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       if (fresh.ready) {
         locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
         const latest = fresh.rows.find(candidate => candidate.id === row.id && candidate.revision > row.revision)
-        if (!earlier && latest && latest.field !== 'property-text') historicalMatch.value = { saved: row, latest, page: next }
+        if (!earlier && latest && row.field !== 'property-text') historicalMatch.value = { saved: row, latest, page: next }
       }
       return
     }
 
     const match = earlier?.saved ?? confirmed
-    if (match.field === 'property-text') return
-    const target = {
+    const position = {
       articleId: match.id,
       revision: match.revision,
-      field: match.field,
       sourceStart: match.sourceStart,
       sourceEnd: match.sourceEnd,
       sourceByteStart: match.sourceByteStart,
@@ -373,18 +374,39 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       match: match.snippet.slice(match.highlightStart, match.highlightEnd),
     }
     let token: string
-    if (mode === 'rebase') {
-      const rebased = await rebaseSavedBodyHit(target, confirmed.revision, handle, signal)
+    if (match.field === 'property-text') {
+      const selected = page.input.textSource
+      if (!selected || mode !== 'current') throw new ProtocolError('Missing exact text property selection')
+      const source = {
+        articleId: match.id, articleRevision: match.revision, schemaRevision: selected.schema,
+        definitionId: selected.field.id, definitionRevision: selected.field.revision,
+        sourceDigest: position.sourceDigest, valueRevision: 0n,
+      }
+      const pinned = await propertyApi.textHit(source, handle, signal)
       if (!current()) return
       signal.throwIfAborted()
-      if (!rebased) {
-        locationNotice.value = '此命中没有可用的跨修订编辑记录，可以查看原保存修订。'
-        return
-      }
-      token = offerSearchEditorHandoff(rebased, epoch, handle)
+      const value = pinned.fields[0]?.value
+      if (value?.kind !== 'text' || !await verifySourceMatch(value.value, position))
+        throw new ProtocolError('Saved text property does not match the search source')
+      if (!current()) return
+      signal.throwIfAborted()
+      token = offerPropertySearchEditorHandoff({ ...position, schemaRevision: source.schemaRevision,
+        definitionId: source.definitionId, definitionRevision: source.definitionRevision, valueRevision: pinned.valueRevision }, epoch, handle)
     } else {
-      token = earlier ? offerHistoricalSearchEditorHandoff(target, confirmed.revision, epoch, handle)
-        : offerSearchEditorHandoff(target, epoch, handle)
+      const target = { ...position, field: match.field }
+      if (mode === 'rebase') {
+        const rebased = await rebaseSavedBodyHit(target, confirmed.revision, handle, signal)
+        if (!current()) return
+        signal.throwIfAborted()
+        if (!rebased) {
+          locationNotice.value = '此命中没有可用的跨修订编辑记录，可以查看原保存修订。'
+          return
+        }
+        token = offerSearchEditorHandoff(rebased, epoch, handle)
+      } else {
+        token = earlier ? offerHistoricalSearchEditorHandoff(target, confirmed.revision, epoch, handle)
+          : offerSearchEditorHandoff(target, epoch, handle)
+      }
     }
     operation.token = token
     // The router commits history state before running afterEach and before the view unmounts.
@@ -508,7 +530,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           <span class="author-text-search-field" dir="auto">{{ row.field === 'property-text'
             ? result.input.textSource?.field.label : fieldLabels[row.field] }}</span>
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
-          <ElButton v-if="row.field !== 'property-text'" text native-type="button"
+          <ElButton text native-type="button"
             v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
             跳到命中位置
           </ElButton>

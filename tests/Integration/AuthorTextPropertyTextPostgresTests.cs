@@ -96,13 +96,33 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await Reject(Query(owner, flag, phrase), owner, HttpStatusCode.NotFound);
         await Reject(continuation with { DefinitionId = other.Id, DefinitionRevision = other.Revision }, owner, HttpStatusCode.Conflict);
 
+        var hit = new PropertyTextHitRequest(last.Id, last.Revision, owner.SchemaRevision, 0, selected.Id, selected.Revision, last.SourceDigest);
+        var exact = Wire.DecodePropertyEditor(await ReadHit(hit, owner));
+        Assert.Equal((hit.ArticleId, hit.ArticleRevision, hit.SchemaRevision, revisions[hit.ArticleId]),
+            (exact.ArticleId, exact.ArticleRevision, exact.SchemaRevision, exact.ValueRevision));
+        Assert.Empty(exact.NextKey);
+        var exactField = Assert.Single(exact.Fields);
+        Assert.Equal((selected.Id, selected.Revision), (exactField.DefinitionId, exactField.DefinitionRevision));
+        Assert.Equal(new PropertyFieldValue.Text(canonical), exactField.Value);
+        var pinned = hit with { ValueRevision = exact.ValueRevision };
+        Assert.Equal(canonical,
+            Assert.IsType<PropertyFieldValue.Text>(Assert.Single(Wire.DecodePropertyEditor(await ReadHit(pinned, owner)).Fields).Value).Value);
+        await ReadHit(hit with { SchemaRevision = stranger.SchemaRevision, DefinitionRevision = foreignField.Revision }, stranger, HttpStatusCode.NotFound);
+        await ReadHit(hit with { SourceDigest = new byte[32] }, owner, HttpStatusCode.Conflict);
+
         var edited = Assert.Single(cohort, article => article.Id == last.Id);
         await Put(owner, edited, selected, new PropertyFieldValue.Text("Independently replaced"));
+        await ReadHit(pinned, owner, HttpStatusCode.Conflict);
         await Reject(continuation, owner, HttpStatusCode.Conflict);
         var refreshed = await Ready(query, owner);
         Assert.Equal(cohort.Count - 1, refreshed.Total);
         Assert.DoesNotContain(refreshed.Rows, row => row.Id == last.Id);
         Assert.Empty(refreshed.NextCursor);
+
+        await Put(owner, edited, selected, new PropertyFieldValue.Text(input));
+        Assert.Equal(cohort.Count, (await Ready(query, owner)).Total);
+        await ReadHit(pinned, owner, HttpStatusCode.Conflict);
+        Assert.Equal(revisions[hit.ArticleId], Wire.DecodePropertyEditor(await ReadHit(hit, owner)).ValueRevision);
 
         selected = await EnableText(owner, selected, false);
         await Reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
@@ -130,6 +150,9 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         Task<byte[]> Reject(AuthorTextPropertyTextQuery request, Actor actor, HttpStatusCode status) =>
             Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQuery(request), actor, status);
+
+        Task<byte[]> ReadHit(PropertyTextHitRequest request, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
+            Send(WireRoutes.PropertyEditor, Wire.EncodePropertyTextHitRequest(request), actor, status);
 
         async Task<byte[]> Send(string route, byte[] data, Actor actor, HttpStatusCode status = HttpStatusCode.OK)
         {

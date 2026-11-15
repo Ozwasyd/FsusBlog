@@ -28,7 +28,8 @@ import { editorRecovery } from '../authoring/editorRecovery'
 import { workspacePersistence } from '../authoring/workspacePersistence'
 import { recentArticleOpens } from '../authoring/recentArticleOpens'
 import {
-  acceptEditorSourceHandoff, editorSourceHandoffKey, type EditorSourceSeek, type EditorSourceTarget, type HistoricalSearchSeek,
+  acceptEditorSourceHandoff, editorSourceHandoffKey, type EditorSourceSeek, type EditorSourceTarget,
+  type HistoricalSearchSeek, type PropertySearchSeek,
 } from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
@@ -68,6 +69,7 @@ let sourceSessionVerified = false
 const sourceInspectorPending = ref(sourceToken !== undefined)
 const sourceSeek = shallowRef<EditorSourceSeek>()
 const historicalSeek = shallowRef<HistoricalSearchSeek>()
+const propertySeek = shallowRef<PropertySearchSeek>()
 const summarySeek = computed(() => {
   const seek = sourceSeek.value
   if (seek?.kind === 'search' && seek.target.field === 'summary') return seek
@@ -404,6 +406,7 @@ watch(identityEpoch, () => {
 watch(credentialEpoch, () => {
   sourceSeek.value = undefined
   historicalSeek.value = undefined
+  propertySeek.value = undefined
   if (sourceArrival?.source && sourceArrival.source.kind !== 'canvas') sourceArrival.source = undefined
 }, { flush: 'sync' })
 watch(id, () => {
@@ -411,6 +414,7 @@ watch(id, () => {
   sourceInspectorPending.value = false
   sourceSeek.value = undefined
   historicalSeek.value = undefined
+  propertySeek.value = undefined
 }, { flush: 'sync' })
 watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, metadataDirty, composing, closingTabs,
   revisionComparisonActive], ([items, recovering, risk, property, metadata, composition, closing, comparing]) => {
@@ -419,6 +423,7 @@ watch([recoveryItems, recoveryWorking, () => tab.value?.risk, propertyPending, m
     sourceSeek.value = undefined
     notice.value = searchPositionUnavailable
   }
+  if (propertySeek.value && (busy || comparing)) finishPropertySeek(propertySeek.value, false)
   if (historicalSeek.value && busy) {
     historicalSeek.value = undefined
     notice.value = searchPositionUnavailable
@@ -529,6 +534,22 @@ watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], asyn
       canSwitch.value && editable.value && !pending.value && registry.activeEditSequence === edit &&
       original.value?.revision === currentRevision && (currentSession.value?.expiresAt ?? 0) > Date.now() }
     setInspectorOpen(true)
+  } else if (source.kind === 'property-search') {
+    const { target } = source
+    if (!handle || !persistentWorkspace.value || result.witnessedRevision !== target.revision ||
+      recoveryItems.value.length > 0 || recoveryWorking.value || revisionComparisonActive.value) {
+      sourceInspectorPending.value = false
+      notice.value = searchPositionUnavailable
+      return
+    }
+    const edit = registry.activeEditSequence
+    const seek: PropertySearchSeek = { target, credential: handle, current: () =>
+      propertySeek.value === seek && inspectorOpen.value && held() && canSwitch.value && editable.value &&
+      !pending.value && !revisionComparisonActive.value && registry.activeEditSequence === edit &&
+      original.value?.id === target.articleId && original.value.revision === target.revision &&
+      (currentSession.value?.expiresAt ?? 0) > Date.now() }
+    propertySeek.value = seek
+    setInspectorOpen(true)
   }
   sourceInspectorPending.value = false
 }, { immediate: true })
@@ -569,6 +590,18 @@ function finishHistoricalSeek(seek: HistoricalSearchSeek, success: boolean) {
 
 function closeHistoricalSeek(seek: HistoricalSearchSeek) {
   if (historicalSeek.value === seek) historicalSeek.value = undefined
+}
+
+function finishPropertySeek(seek: PropertySearchSeek, success: boolean) {
+  if (propertySeek.value !== seek) return
+  const revealed = success && seek.current()
+  propertySeek.value = undefined
+  if (!revealed) {
+    notice.value = searchPositionUnavailable
+    return
+  }
+  recordRecentOpen(seek.target.articleId, seek.target.revision)
+  notice.value = 'Opened the search result at its saved property position.'
 }
 
 function activationFailure(receipt: Activation): string {
@@ -708,6 +741,7 @@ function arrangeGroups(destination?: WorkspaceGroup) {
 function setInspectorOpen(open: boolean) {
   if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
   if (!open && summarySeek.value) finishSourceSeek(summarySeek.value, false)
+  if (!open && propertySeek.value) finishPropertySeek(propertySeek.value, false)
   if (!open) historicalSeek.value = undefined
 }
 
@@ -1257,7 +1291,8 @@ async function reloadDraft() {
           :revision="original.revision"
           :identity="identityEpoch"
           :disabled="articleDirty || metadataDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
-          @pending="propertyPending = $event"
+          :source-target="propertySeek" :inspector-ready="inspectorReady && !recoveryBlocked"
+          @pending="propertyPending = $event" @source-revealed="finishPropertySeek"
         />
         <RevisionHistory
           :key="identityEpoch"

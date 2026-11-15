@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request } from './client.ts'
+import { request, siteSessionHeader } from './client.ts'
+import { encodePropertyTextHitRequest, type PropertyTextHitRequest } from './property-text-hit.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
   type PropertyDefinitionCommand, type PropertyTextCommand, type PropertyWorkspaceRequest,
@@ -343,6 +344,18 @@ function readReceipt(payload: Uint8Array) {
 }
 
 export const propertyApi = {
+  textHit(input: PropertyTextHitRequest, credential: string, signal?: AbortSignal): Promise<PropertyWorkspace> {
+    return request(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
+      const response = decodePropertyEditor(payload)
+      const [field] = response.fields
+      requireProperty(response.articleId === input.articleId && response.articleRevision === input.articleRevision &&
+        response.schemaRevision === input.schemaRevision && response.valueRevision > 0n &&
+        (input.valueRevision === 0n || response.valueRevision === input.valueRevision) && response.nextKey === '' &&
+        response.fields.length === 1 && field.definitionId === input.definitionId && field.definitionRevision === input.definitionRevision &&
+        field.kind === 'text' && !field.deprecated && field.value.kind === 'text', 'saved Text hit response')
+      return response
+    }, signal, 'POST', encodePropertyTextHitRequest(input), siteSessionHeader(credential))
+  },
   workspace(input: PropertyWorkspaceRequest, signal?: AbortSignal) {
     requireProperty(input.articleId > 0 && input.articleRevision > 0n && input.schemaRevision >= 0n && input.valueRevision >= 0n &&
       (input.afterKey ? machineKey.test(input.afterKey) : input.schemaRevision === 0n && input.valueRevision === 0n), 'workspace request')

@@ -8,6 +8,9 @@ import {
 } from '../../src/Contracts/property-values.ts'
 import { encodePropertyCommandReceipt, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { encodePropertyQuery, queryPropertyArticles, type FilterField } from '../../src/Contracts/property-query.ts'
+import {
+  decodePropertyTextHitRequest, encodePropertyTextHitRequest, type PropertyTextHitRequest,
+} from '../../src/Contracts/property-text-hit.ts'
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
 function fixture(name: string): Uint8Array {
@@ -210,4 +213,44 @@ test('typed client only accepts workspace and receipts bound to the submitted re
     { path: WireRoutes.PropertyValueCommand, method: 'POST' },
     { path: WireRoutes.PropertyValueCommand, method: 'POST' },
   ])
+})
+
+
+test('exact property hit request binds saved revisions and carries one fixed-width digest', () => {
+  // Packed independently with Python struct, network-order UUID and SHA-256 of "Raw 北 house".
+  const expected = Buffer.from(
+    '1100000001000000000020000a000000000000000900000000000000111111111111411181111111111111110300000000000000' +
+    '6483f3cdcb9d29881ca70c82853ba6959b38994c5ac381120dfebaafe6ce567a',
+    'hex',
+  )
+  const request: PropertyTextHitRequest = {
+    articleId: 17, articleRevision: 9007199254740993n, schemaRevision: 10n, valueRevision: 9n,
+    definitionId: '11111111-1111-4111-8111-111111111111', definitionRevision: 3n,
+    sourceDigest: Uint8Array.from(Buffer.from('6483f3cdcb9d29881ca70c82853ba6959b38994c5ac381120dfebaafe6ce567a', 'hex')),
+  }
+  const frame = encodePropertyTextHitRequest(request)
+  assert.equal(FrameType.PropertyTextHitRequest, 33034)
+  assert.equal(frame.byteLength, 100)
+  assert.equal(frame.byteLength, WireLimits.PropertyTextHitRequestFrameBytes)
+  assert.deepEqual(Buffer.from(decodeFrame(frame, FrameType.PropertyTextHitRequest).payload), expected)
+  const decoded = decodePropertyTextHitRequest(expected)
+  assert.deepEqual({ ...decoded, sourceDigest: Uint8Array.from(decoded.sourceDigest) }, request)
+  assert.throws(() => decodeFrame(frame, FrameType.PropertyWorkspaceRequest), ProtocolError)
+  const firstRead = { ...request, valueRevision: 0n }
+  assert.equal(decodePropertyTextHitRequest(decodeFrame(encodePropertyTextHitRequest(firstRead)).payload).valueRevision, 0n)
+
+  for (const length of [31, 33])
+    assert.throws(() => encodePropertyTextHitRequest({ ...request, sourceDigest: new Uint8Array(length) }), ProtocolError)
+  for (const payload of [expected.subarray(0, -1), Buffer.concat([expected, Uint8Array.of(0)])])
+    assert.throws(() => decodePropertyTextHitRequest(payload), ProtocolError)
+  for (const [offset, value] of [[4, 0n], [12, 0n], [20, -1n], [44, 0n], [44, 11n]] as const) {
+    const invalid = Buffer.from(expected)
+    invalid.writeBigInt64LE(value, offset)
+    assert.throws(() => decodePropertyTextHitRequest(invalid), ProtocolError)
+  }
+  const zeroDefinition = Buffer.from(expected)
+  zeroDefinition.fill(0, 28, 44)
+  assert.throws(() => decodePropertyTextHitRequest(zeroDefinition), ProtocolError)
+  assert.throws(() => encodePropertyTextHitRequest({ ...request, articleId: 0 }), ProtocolError)
+  assert.throws(() => encodePropertyTextHitRequest({ ...request, articleRevision: 1n << 63n }), ProtocolError)
 })
