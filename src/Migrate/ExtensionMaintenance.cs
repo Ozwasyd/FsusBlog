@@ -22,6 +22,9 @@ internal static class ExtensionMaintenance
           extension deactivate SEQUENCE:DIGEST EXTENSION_ID
           extension quarantine SEQUENCE:DIGEST EXTENSION_ID REASON_CODE
           extension release SEQUENCE:DIGEST EXTENSION_ID QUARANTINE_RECEIPT APPROVAL_ID
+
+        Read-only legacy theme inspection uses operator trust without a store or database.
+          extension inspect-fstheme TRUST.json SOURCE ARCHIVE.fstheme SIGNATURE
         """;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -40,7 +43,7 @@ internal static class ExtensionMaintenance
             return 0;
         }
         if (args is not (["init", _] or ["status"] or ["trust", _, _] or ["activate", _, _, _, _] or
-            ["deactivate", _, _] or ["quarantine", _, _, _] or ["release", _, _, _, _]))
+            ["deactivate", _, _] or ["quarantine", _, _, _] or ["release", _, _, _, _] or ["inspect-fstheme", _, _, _, _]))
         {
             Console.Error.WriteLine("Unrecognized extension command. Run extension --help.");
             return 1;
@@ -50,6 +53,16 @@ internal static class ExtensionMaintenance
         {
             if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
                 throw new ExtensionRejectedException("extension-platform");
+            if (args is ["inspect-fstheme", var inspectTrust, var inspectSource, var inspectArchive, var inspectSignature])
+            {
+                var trust = await ReadTrustAsync(inspectTrust, cancellationToken);
+                var archiveBytes = await ReadAsync(inspectArchive, LegacyThemeInspection.MaximumArchiveBytes, privateFile: false, cancellationToken);
+                var signature = await ReadAsync(inspectSignature, ExtensionInstallationStore.MaximumSignatureBytes, privateFile: false, cancellationToken);
+                var result = LegacyThemeInspection.Inspect(archiveBytes, signature, inspectSource, trust.Keys, trust.Sources,
+                    TimeProvider.System, cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, Json));
+                return 0;
+            }
             var root = new DirectoryInfo(AbsolutePath(RequireVariable(RootVariable)));
             var id = ParseId(RequireVariable(IdentityVariable));
             var keyPath = AbsolutePath(RequireVariable(KeyVariable));
@@ -147,8 +160,10 @@ internal static class ExtensionMaintenance
         if (privateFile && !NativeUnixFile.HasMode(handle, UnixFileMode.UserRead, owned: true))
             throw new ExtensionRejectedException("extension-input-mode");
         await using var stream = new FileStream(handle, FileAccess.Read);
-        if (!stream.CanSeek || stream.Length < 1 || stream.Length > limit) throw new ExtensionRejectedException("extension-input-size");
-        var bytes = new byte[(int)stream.Length];
+        if (!stream.CanSeek) throw new ExtensionRejectedException("extension-input-size");
+        var length = stream.Length;
+        if (length < 1 || length > limit) throw new ExtensionRejectedException("extension-input-size");
+        var bytes = new byte[(int)length];
         await stream.ReadExactlyAsync(bytes, cancellationToken);
         var extra = new byte[1];
         if (await stream.ReadAsync(extra, cancellationToken) != 0) throw new ExtensionRejectedException("extension-input-size");
