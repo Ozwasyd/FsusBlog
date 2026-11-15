@@ -63,6 +63,8 @@ ln -s "$ui" "$scratch/FsusUI"
 ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
 (
   cd "$scratch/source"
+  python3 -B tools/fsdl-dictionary.py export "$scratch/package/search-lexicon.fsdl"
+  python3 -B tools/fsdl-dictionary.py verify "$scratch/package/search-lexicon.fsdl"
   "$dotnet" restore FsusBlog.V2.slnx --locked-mode
   "$dotnet" publish src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore \
     --self-contained false -p:UseAppHost=false -o "$scratch/package/server"
@@ -85,7 +87,7 @@ done
 cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin" "$scratch/source/deploy/README.md" "$scratch/package/"
 {
   printf 'fsusblog_commit=%s\nfsusui_commit=%s\n' "$rev" "$ui_rev"
-  printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\nmigrate=migrate/FsusBlogV2.Migrate.dll\n'
+  printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\nmigrate=migrate/FsusBlogV2.Migrate.dll\ndictionary=search-lexicon.fsdl\n'
 } > "$scratch/package/release.txt"
 (
   cd "$scratch/package"

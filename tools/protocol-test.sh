@@ -13,6 +13,7 @@ trap cleanup EXIT
 
 node tools/protocol-generate.mjs --check
 node --test tests/Protocol/*.test.ts
+python3 -B tests/Protocol/fsdl-dictionary.test.py
 
 project=tests/Protocol/FsusBlog.V2.ProtocolTests.csproj
 "${FSUS_DOTNET:-dotnet}" restore "$project" --locked-mode
