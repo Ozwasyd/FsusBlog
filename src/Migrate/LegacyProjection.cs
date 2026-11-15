@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using System.Text.Json;
+using FsusBlog.V2.Contracts;
 using FsusBlogV2.Storage;
 using Npgsql;
 
@@ -11,7 +12,8 @@ internal static partial class Migration
     private const string LegacyProjectionReceipt = "current_projection";
 
     private static async Task<int> RunLegacyProjectionAsync(string mode, string planPath, string planDigest, string backupPath,
-        string backupDigest, DateTimeOffset? scheduleEvaluation, LegacyImportMediaInput? mediaInput, CancellationToken token)
+        string backupDigest, DateTimeOffset? scheduleEvaluation, LegacyImportMediaInput? mediaInput,
+        PreparedLegacyMediaInput? prepared, CancellationToken token)
     {
         if (!IsSha256(planDigest)) throw new ArgumentException("Supply the original staging plan SHA-256.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -26,13 +28,16 @@ internal static partial class Migration
                 plan.BackupManifestSha256 != backupDigest || CanonicalImportPlanDigest(plan) != planDigest)
                 throw new InvalidOperationException("The independently recorded staging plan and current schema must match exactly.");
             var definitions = CandidateDefinitions(plan);
-            await ReadLegacyImportMediaAsync(mediaInput, plan, ct);
+            var mediaPackage = await ReadLegacyImportMediaAsync(mediaInput, plan, ct);
+            var preparesMedia = mode is "media-request" or "media-verify";
+            if (preparesMedia && mediaPackage is null)
+                throw new InvalidOperationException("Media preparation requires a joined legacy media plan.");
             var backup = await ReadLegacyImportBackupAsync(backupPath, backupDigest, ct);
             var settings = ParseImportTarget();
             await using var target = new NpgsqlConnection(settings.ConnectionString);
             await target.OpenAsync(ct);
             await RequireBackupDatabaseLockAsync(target, ct);
-            await using var tx = mode == "verify"
+            await using var tx = mode != "project"
                 ? await BeginReadOnlyAsync(target, ct)
                 : await target.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
             await ExecuteAsync(target, tx, "SET LOCAL search_path TO pg_catalog", ct);
@@ -42,7 +47,7 @@ internal static partial class Migration
 
             bool already = await VerifyProjectionCandidateAsync(target, tx, plan, planDigest, definitions, scheduleEvaluation.HasValue, ct);
             var savedViewDigests = await VerifyRetainedLegacySavedViewDigestsAsync(target, tx, definitions, ct);
-            if (mode == "verify" && !already)
+            if (mode != "project" && !already)
                 throw new InvalidOperationException("No sealed current-table projection exists.");
             await VerifyLegacyProjectionFactsAsync(target, tx, scheduleEvaluation.HasValue, ct);
             var schedules = scheduleEvaluation is { } evaluatedAt
@@ -75,6 +80,19 @@ internal static partial class Migration
                 ? DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business, schedules, scheduleCatalogSha256 })
                 : DigestMediaDocument(new { format = LegacyProjectionVersion, planDigest, business });
             await SaveOrVerifyProjectionReceiptAsync(target, tx, already, planDigest, projectionDigest, ct);
+            if (preparesMedia)
+            {
+                var request = await BuildLegacyMediaPreparationRequestAsync(target, tx, plan, planDigest, projectionDigest, mediaPackage!, ct);
+                var bytes = JsonSerializer.SerializeToUtf8Bytes(request, LegacyMediaPreparation.Json);
+                if (bytes.Length > LegacyMediaPreparation.MaxManifestBytes)
+                    throw new InvalidOperationException("The private media preparation request exceeds its byte budget.");
+                await tx.CommitAsync(ct);
+                if (prepared is not null)
+                    await VerifyPreparedLegacyMediaAsync(prepared, request, bytes, ct);
+                else
+                    await Console.OpenStandardOutput().WriteAsync(bytes, ct);
+                return 0;
+            }
             await tx.CommitAsync(ct);
 
             Console.WriteLine(JsonSerializer.Serialize(new

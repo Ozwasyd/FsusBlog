@@ -212,6 +212,27 @@ dotnet run --no-build --project src/Migrate -- legacy assets rehearsal verify \
 
 `bash tests/Integration/Migration/legacy-joined-media.sh` 需要已构建的迁移 CLI 和 PostgreSQL 18 客户端及服务端。2026-11-16 在两个一次性 PostgreSQL 18.7 Unix socket 实例通过。原生归档恢复至不同 v1 数据库 OID，3 字节私有文件从独立副本恢复。旧文章 `42` 的全局修订 `5000000003` 及旧管理员 `7` 在同一检查点回读核验。错误来源库、已发布修订、引用或字节变更、省略文件包、已改的候选关联、恢复后的其他目标库均被拒绝。成功续跑的三个检查点相同，重新放入私有目录的密封包通过了候选回读，另一个空库从导入前备份恢复并核对了数据库及其空媒体集。候选仍拒绝启动，两个实例和成功运行的临时目录已清理。本地证据为 `artifacts/legacy-joined-media-2ec1b97/native-3.log`。此演练还未验证实际 v1 加密备份包、非空 v2 运行时媒体安装或生产切换。
 
+### 准备并核验隔离私有图像
+
+在已有联合媒体包且文章候选通过隔离投影后，使用 `media-request` 从同一个原始计划和候选导出准备请求。请求包含源文件 SHA-256、可处理的图像格式和尺寸、已审核的所有者、全局旧修订与 v2 修订键，以及旧引用计数和替代文本。使用权限为 0600 的文件保存，并独立记录请求 SHA-256。准备工具使用 v2 服务的现行图像规范化实现，输入和输出摘要分别保留。先用可信发布包核对服务器与规范化器文件。使用 `legacy-media normalizer` 输出的文件和指纹核对即将运行的规范化器，再独立批准该指纹和准备结果清单摘要。
+
+```bash
+umask 077
+migrate=(dotnet src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll)
+"${migrate[@]}" legacy import media-request "$plan" "$plan_sha256" "$backup" "$backup_manifest_sha256" \
+  --media "$custody_package" "$custody_manifest_sha256" > "$request"
+dotnet "$verified_server_dll" legacy-media normalizer
+dotnet "$verified_server_dll" legacy-media prepare "$request" "$request_sha256" "$custody_package" \
+  "$normalizer_sha256" "$private_output_parent" prepared
+"${migrate[@]}" legacy import media-verify "$plan" "$plan_sha256" "$backup" "$backup_manifest_sha256" \
+  --prepared "$private_output_parent/prepared" "$prepared_manifest_sha256" "$normalizer_sha256" \
+  --media "$custody_package" "$custody_manifest_sha256"
+```
+
+`media-verify` 独立重新读取隔离候选、源包和备份，重新导出同一请求，核对批准的清单和规范化器摘要，并逐件检查准备包的成员、文件权限、长度、格式和字节摘要。批准摘要来自可信操作记录，制品中的同名字段本身不能授予权限。请求及结果是明确的旧媒体来源记录，尚未在现行上传表中注册操作，也未把旧引用改为可访问附件。整个过程保持候选为 `-1`，`readyToApply` 为 `false`。
+
+`bash tests/Integration/Migration/legacy-joined-media.sh --prepared` 在两个 PostgreSQL 18.7 Unix socket 实例中恢复原生旧库和私有 PNG，再用已构建的真实 Server CLI 准备图像，并从独立目录副本回读验证。旧文章 `42` 的全局修订 `5000000003` 仍映射到 v2 修订 `3`，引用计数及替代文本经重新导出的请求核对。另一件输入与原图的像素、尺寸及归档长度相同，实际规范化制品逐字节一致，但因原始来源摘要不同而被拒绝。错误规范化器摘要和准备文件变更也被拒绝。旧 TXT 演练仍证明联合保管，图像准备命令拒绝该格式。全部运行保持私有媒体表为空，复验导入前恢复库，并清理本次服务器和临时目录。本地证据为 `artifacts/legacy-media-prepared-de88453/native-prepared-final.log` 和 `native-text.log`。
+
 ### 离线核对身份兼容性
 
 ```bash

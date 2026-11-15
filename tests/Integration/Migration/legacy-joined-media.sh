@@ -6,7 +6,18 @@ if [[ -n "${PG_TOOLS_DIR:-}" ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
 export DOTNET_BIN="${DOTNET_BIN:-dotnet}"
 export FSUSBLOG_MIGRATE_DLL="${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll}"
 migrate=("$DOTNET_BIN" "$FSUSBLOG_MIGRATE_DLL")
-[[ $# == 0 && -f "$FSUSBLOG_MIGRATE_DLL" ]]
+prepared=false
+case "$# ${1:-}" in
+    '0 ') ;;
+    '1 --prepared') prepared=true ;;
+    *) printf 'Usage: %s [--prepared]\n' "$0" >&2; exit 2 ;;
+esac
+[[ -f "$FSUSBLOG_MIGRATE_DLL" ]]
+if [[ "$prepared" == true ]]; then
+    server_dll="${FSUSBLOG_PREPARER_DLL:?Set FSUSBLOG_PREPARER_DLL to the trusted built Server DLL.}"
+    [[ "$server_dll" == /* && -f "$server_dll" ]]
+    preparer=(env -i PATH="$PATH" LC_ALL=C TZ=UTC "$DOTNET_BIN" "$server_dll" legacy-media)
+fi
 umask 077
 scratch="$(mktemp -d /tmp/fsus-media-join.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
@@ -69,6 +80,14 @@ source_site=87bcdd48-255d-49dd-a984-dd4c4ee6f9d4
 asset=2b550000-0000-4000-8000-000000000002
 payload=2b550000000040008000000000000002
 asset_sha=cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34
+asset_bytes=3
+extension=txt
+if [[ "$prepared" == true ]]; then
+    extension=png
+    asset_bytes=86
+    asset_sha=141fca9a4be8a4b68c34eb2d951298694fab21e4ec05bcbe9cf2487b2af55abc
+    alternate_sha=5b2148c370ecb7f76a8fe0daa832f5dd51057a43340a75f6adf5c0a67abc7c19
+fi
 for db in "$source" "$restored"; do pg source postgres -c "CREATE DATABASE $db TEMPLATE template0"; done
 for db in "$target" "$rollback"; do pg target postgres -c "CREATE DATABASE $db TEMPLATE template0"; done
 pg source "$source" -f tests/Integration/Migration/legacy-source-fixture.sql \
@@ -80,11 +99,28 @@ pg source "$source" -c "UPDATE article_publication SET transition_kind='immediat
     DELETE FROM content_asset_reference WHERE asset_id<>'$asset'; DELETE FROM content_asset WHERE id<>'$asset';
     UPDATE content_asset_reference SET source_key='5000000003', alt_text='Retained private file' WHERE asset_id='$asset';"
 
+if [[ "$prepared" == true ]]; then
+    pg source "$source" -c "UPDATE content_asset SET storage_key='2b/$payload.png',media_type='image/png',extension='.png',
+        byte_length=$asset_bytes,sha256='$asset_sha',width=2,height=2 WHERE id='$asset'"
+fi
+
 # Capture v1 as an owned native database archive. Restore raw private bytes independently from their sealed source copy.
 mkdir -m 700 "$scratch/source-backup" "$scratch/public" "$scratch/private" "$scratch/private/2b" "$scratch/source-media-backup"
-private="$scratch/private/2b/$payload.txt"
-private_backup="$scratch/source-media-backup/$payload.txt"
-printf 'def' > "$private"
+private="$scratch/private/2b/$payload.$extension"
+private_backup="$scratch/source-media-backup/$payload.$extension"
+if [[ "$prepared" == true ]]; then
+    python3 - "$private" "$scratch/alternate.png" <<'FIXTURE_PNG'
+import base64, pathlib, sys
+# Same opaque 2x2 RGBA pixels and byte length; only zlib header and IDAT CRC differ.
+for target, png in zip(sys.argv[1:], (
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAHUlEQVR4AQESAO3/AAklUf8ghcf/ANyBE/8wsV3/RGsIlsimEzoAAAAASUVORK5CYII=',
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAHUlEQVR4nAESAO3/AAklUf8ghcf/ANyBE/8wsV3/RGsIlgPKresAAAAASUVORK5CYII=',
+)): pathlib.Path(target).write_bytes(base64.b64decode(png, validate=True))
+FIXTURE_PNG
+    [[ "$(sha "$scratch/alternate.png")" == "$alternate_sha" ]]
+else
+    printf 'def' > "$private"
+fi
 cp "$private" "$private_backup"
 chmod 0400 "$private_backup"
 [[ "$(sha "$private_backup")" == "$asset_sha" ]]
@@ -167,6 +203,15 @@ pack_media public_revision
 refuse 'unpublished source revision' public-revision "${plan[@]}" --media "$scratch/packages/public_revision" \
     "$(json_value manifestSha256 "$scratch/public_revision-media.json")"
 pg source "$restored" -c "UPDATE content_asset_reference SET source_key='5000000003' WHERE asset_id='$asset'"
+if [[ "$prepared" == true ]]; then
+    rm "$private"
+    cp "$scratch/alternate.png" "$private"
+    pg source "$restored" -c "UPDATE content_asset SET sha256='$alternate_sha' WHERE id='$asset'"
+    pack_media alternate_raw
+    rm "$private"
+    cp "$private_backup" "$private"
+    pg source "$restored" -c "UPDATE content_asset SET sha256='$asset_sha' WHERE id='$asset'"
+fi
 pack_media private_revision
 package="$scratch/packages/private_revision"
 media_sha="$(json_value manifestSha256 "$scratch/private_revision-media.json")"
@@ -198,7 +243,7 @@ shadow_rows() {
         FROM fsus_legacy_candidate.shadow_content_asset a JOIN fsus_legacy_candidate.shadow_content_asset_reference r ON r.asset_id=a.id
         JOIN fsus_legacy_candidate.shadow_revision s ON (s.source_revision_id,s.article_id,s.revision)=(r.source_id,r.article_id,r.revision)'
 }
-[[ "$(shadow_rows)" == "$asset|7|$owner|3|$asset_sha|revision|5000000003|42|3|1|Retained private file|Private edit" ]]
+[[ "$(shadow_rows)" == "$asset|7|$owner|$asset_bytes|$asset_sha|revision|5000000003|42|3|1|Retained private file|Private edit" ]]
 plan_sha="$(json_value planSha256 "$scratch/applied.json")"
 project=("${migrate[@]}" legacy import project "$scratch/import.json" "$plan_sha" "$backup" "$backup_sha")
 verify=("${migrate[@]}" legacy import verify "$scratch/import.json" "$plan_sha" "$backup" "$backup_sha")
@@ -218,6 +263,90 @@ chmod 0400 "$scratch/packages/recovered/manifest.json" "$scratch/packages/recove
 chmod 0500 "$scratch/packages/recovered"
 "${verify[@]}" --media "$scratch/packages/recovered" "$media_sha" > "$scratch/verified.json"
 
+if [[ "$prepared" == true ]]; then
+    request_args=("$scratch/import.json" "$plan_sha" "$backup" "$backup_sha")
+    request="$scratch/preparation.json"
+    "${migrate[@]}" legacy import media-request "${request_args[@]}" "${media[@]}" > "$request"
+    "${migrate[@]}" legacy import media-request "${request_args[@]}" --media "$scratch/packages/recovered" "$media_sha" \
+        > "$scratch/recovered-request.json"
+    cmp "$request" "$scratch/recovered-request.json"
+    "${preparer[@]}" normalizer > "$scratch/normalizer.json"
+    normalizer_sha="$(json_value normalizerSha256 "$scratch/normalizer.json")"
+    python3 - "$scratch/normalizer.json" "$(dirname "$server_dll")" <<'NORMALIZER_FILES'
+import hashlib, json, pathlib, sys
+report = json.loads(pathlib.Path(sys.argv[1]).read_text())
+bundle = pathlib.Path(sys.argv[2]).resolve()
+for file in report['files']:
+    path = (bundle / file['name']).resolve()
+    assert path.is_relative_to(bundle) and hashlib.sha256(path.read_bytes()).hexdigest() == file['sha256']
+assert len({file['name'] for file in report['files']}) == len(report['files']) >= 5
+NORMALIZER_FILES
+    request_sha="$(sha "$request")"
+    "${preparer[@]}" prepare "$request" "$request_sha" "$package" "$normalizer_sha" "$scratch/packages" prepared > "$scratch/prepared.json"
+    prepared_sha="$(json_value manifestSha256 "$scratch/prepared.json")"
+    verify_media=("${migrate[@]}" legacy import media-verify "${request_args[@]}")
+    wrong_sha="$(printf '%064d' 0)"
+    refuse 'approved request and normalizer' replaced-normalizer "${verify_media[@]}" \
+        --prepared "$scratch/packages/prepared" "$prepared_sha" "$wrong_sha" "${media[@]}"
+
+    # This is a controlled different request. Both custodies were acquired natively before staging.
+    alternate_package="$scratch/packages/alternate_raw"
+    alternate_manifest="$(json_value manifestSha256 "$scratch/alternate_raw-media.json")"
+    python3 - "$request" "$scratch/alternate-request.json" "$alternate_manifest" "$alternate_sha" <<'OTHER_REQUEST'
+import json, pathlib, sys
+original, destination, manifest, raw = sys.argv[1:]
+request = json.loads(pathlib.Path(original).read_bytes())
+request['custodyManifestSha256'] = manifest
+request['assets'][0]['rawSha256'] = raw
+pathlib.Path(destination).write_text(json.dumps(request, ensure_ascii=True, separators=(',', ':')))
+OTHER_REQUEST
+    "${preparer[@]}" prepare "$scratch/alternate-request.json" "$(sha "$scratch/alternate-request.json")" \
+        "$alternate_package" "$normalizer_sha" "$scratch/packages" prepared_alternate > "$scratch/prepared-alternate.json"
+    cmp "$scratch/packages/prepared/$payload.blob" "$scratch/packages/prepared_alternate/$payload.blob"
+    refuse 'approved request and normalizer' same-pixels-other-custody "${verify_media[@]}" \
+        --prepared "$scratch/packages/prepared_alternate" "$(json_value manifestSha256 "$scratch/prepared-alternate.json")" \
+        "$normalizer_sha" "${media[@]}"
+
+    corrupt="$scratch/packages/prepared_corrupt"
+    mkdir -m 700 "$corrupt"
+    cp "$scratch/packages/prepared/manifest.json" "$corrupt/manifest.json"
+    python3 - "$scratch/packages/prepared/$payload.blob" "$corrupt/$payload.blob" <<'CHANGE_BYTE'
+import pathlib, sys
+content = bytearray(pathlib.Path(sys.argv[1]).read_bytes())
+content[-1] ^= 1
+pathlib.Path(sys.argv[2]).write_bytes(content)
+CHANGE_BYTE
+    chmod 0400 "$corrupt/manifest.json" "$corrupt/$payload.blob"
+    chmod 0500 "$corrupt"
+    refuse 'prepared media payload differs' changed-output-bytes "${verify_media[@]}" \
+        --prepared "$corrupt" "$prepared_sha" "$normalizer_sha" "${media[@]}"
+
+    recovered="$scratch/packages/prepared_restored"
+    mkdir -m 700 "$recovered"
+    cp "$scratch/packages/prepared/manifest.json" "$scratch/packages/prepared/$payload.blob" "$recovered/"
+    chmod 0400 "$recovered/manifest.json" "$recovered/$payload.blob"
+    chmod 0500 "$recovered"
+    "${verify_media[@]}" --prepared "$recovered" "$prepared_sha" "$normalizer_sha" \
+        --media "$scratch/packages/recovered" "$media_sha" > "$scratch/prepared-verified.json"
+    python3 - "$request" "$recovered/manifest.json" "$scratch/prepared-verified.json" "$asset_sha" "$owner" <<'VERIFIED_ORIGIN'
+import json, pathlib, sys
+request, result, verified = [json.loads(pathlib.Path(name).read_bytes()) for name in sys.argv[1:4]]
+raw, owner = sys.argv[4:]
+assert request['references'] == [{'assetId': request['assets'][0]['assetId'], 'articleId': 42,
+    'sourceRevisionId': 5000000003, 'revision': 3, 'referenceCount': 1, 'altText': 'Retained private file'}]
+assert request['assets'][0]['rawSha256'] == result['assets'][0]['rawSha256'] == raw
+assert request['assets'][0]['targetOwnerId'] == owner and request['assets'][0]['sourceOwnerId'] == 7
+assert result['assets'][0]['normalizedSha256'] != raw and result['assets'][0]['format'] == 1
+assert result['assets'][0]['width'] == result['assets'][0]['height'] == 2
+assert verified['files'] == verified['references'] == 1 and not verified['readyToApply']
+print(json.dumps(dict(verified, rawSha256=raw, normalizedSha256=result['assets'][0]['normalizedSha256']), sort_keys=True))
+VERIFIED_ORIGIN
+    [[ "$(target_state "$target")" == '-1|f|1|0|0|0' ]]
+else
+    refuse 'Preparation requires supported private images' text-preparation "${migrate[@]}" legacy import media-request \
+        "$scratch/import.json" "$plan_sha" "$backup" "$backup_sha" "${media[@]}"
+fi
+
 # Restore the pre-cutover database and its own media set as a separate matched pair.
 mkdir -m 700 "$scratch/rollback-media"
 pg_restore --no-password -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" --dbname "$rollback" --single-transaction \
@@ -228,7 +357,7 @@ FSUSBLOG_DB="$rollback_dsn" python3 tools/site-backup.py verify-restored "$backu
 refuse 'does not belong to this independent candidate database' wrong-target env FSUSBLOG_IMPORT_DB="$rollback_dsn" "${plan[@]}" "${media[@]}"
 [[ "$(target_state "$rollback")" == '1|t|0|0|0|0' ]]
 
-python3 - "$scratch" "$backup_sha" "$media_sha" <<'PY'
+python3 - "$scratch" "$backup_sha" "$media_sha" "$asset_bytes" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1]); read = lambda n: json.loads((root / f'{n}.json').read_text())
 plan, applied, retry, projected, verified = [read(name) for name in ('import','applied','retry','projected','verified')]
@@ -242,6 +371,6 @@ assert projected['projectionSha256'] == verified['projectionSha256']
 print(json.dumps({'sourceRestore': read('source-restore'), 'targetRollbackManifestSha256': sys.argv[2],
                   'mediaManifestSha256': sys.argv[3], 'articlePlanSha256': applied['planSha256'],
                   'firstPhaseSha256': applied['phases'][0]['sha256'], 'projectionSha256': verified['projectionSha256'],
-                  'mediaFiles': 1, 'privateBytes': 3, 'readyToApply': False}, sort_keys=True))
+                  'mediaFiles': 1, 'privateBytes': int(sys.argv[4]), 'readyToApply': False}, sort_keys=True))
 PY
 printf '%s\n' 'Legacy database and nonempty private media joined and restored in native isolation.'

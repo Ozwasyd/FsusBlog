@@ -140,6 +140,11 @@ internal static partial class Migration
                                         Project or verify staged articles under permanent quarantine
                                         Add --evaluate-schedules-at UTC to retain original first-release schedules as evidence
                                         Append --media PACKAGE SHA256 to join supported private media in PostgreSQL quarantine
+                  legacy import media-request PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256 --media PACKAGE SHA256
+                                        Derive the reviewed private image preparation request from quarantine
+                  legacy import media-verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
+                    --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
+                                        Verify the prepared private image artifact against the original quarantine
                   legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
                                         Verify frozen legacy attachment metadata, references and file bytes
                   legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID
