@@ -33,19 +33,8 @@ internal sealed class PublicationProofKeys(string origin, ProofPublicKey current
         try
         {
             if (origin is null || legacy.Configuration.CurrentKeyId is null) throw Invalid();
-            var configured = legacy.Configuration.Keys.Select(entry =>
-            {
-                var section = settings.GetSection("Keys").GetSection(entry.KeyId);
-                var before = ReadTime(section["NotBeforeUtc"]) ?? throw Invalid();
-                var after = ReadTime(section["NotAfterUtc"]) ?? throw Invalid();
-                var spki = WebEncoders.Base64UrlDecode(entry.PublicKey);
-                if (entry.Version is null || after < before) throw Invalid();
-                return new ProofPublicKey(entry.KeyId, entry.Version.Value, spki, SHA256.HashData(spki), before, after,
-                    ReadTime(entry.RevokedAtUtc), ReadTime(entry.CompromisedAtUtc));
-            }).ToDictionary(key => key.Id, StringComparer.Ordinal);
+            var configured = ReadPublicKeys(settings, legacy);
             if (!configured.TryGetValue(legacy.Configuration.CurrentKeyId, out var current)) throw Invalid();
-            if (configured.Values.Select(key => Convert.ToHexString(key.Fingerprint)).Distinct(StringComparer.Ordinal).Count() != configured.Count)
-                throw Invalid();
             var headAnchor = PublicationHeadAnchor.Parse(settings["NativeV2PublicHeadAnchor"]);
             var signer = LoadPrivate(settings["NativeV2PrivateKeyFile"], current.Spki, dist);
             return new(origin, current, configured, signer, headAnchor);
@@ -54,6 +43,23 @@ internal sealed class PublicationProofKeys(string origin, ProofPublicKey current
         {
             throw Invalid();
         }
+    }
+
+    internal static IReadOnlyDictionary<string, ProofPublicKey> ReadPublicKeys(IConfigurationSection signing, IntegrityKeys legacy)
+    {
+        var configured = legacy.Configuration.Keys.Select(entry =>
+        {
+            var section = signing.GetSection("Keys").GetSection(entry.KeyId);
+            var before = ReadTime(section["NotBeforeUtc"]) ?? throw Invalid();
+            var after = ReadTime(section["NotAfterUtc"]) ?? throw Invalid();
+            var spki = WebEncoders.Base64UrlDecode(entry.PublicKey);
+            if (entry.Version is null || after < before) throw Invalid();
+            return new ProofPublicKey(entry.KeyId, entry.Version.Value, spki, SHA256.HashData(spki), before, after,
+                ReadTime(entry.RevokedAtUtc), ReadTime(entry.CompromisedAtUtc));
+        }).ToDictionary(key => key.Id, StringComparer.Ordinal);
+        if (configured.Values.Select(key => Convert.ToHexString(key.Fingerprint)).Distinct(StringComparer.Ordinal).Count() != configured.Count)
+            throw Invalid();
+        return configured;
     }
 
     internal byte[] Sign(byte[] transcript)

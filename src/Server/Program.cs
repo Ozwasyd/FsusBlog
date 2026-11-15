@@ -69,6 +69,7 @@ if (articleReadEnabled)
         services.GetRequiredService<InstanceLease>(), TimeProvider.System));
 }
 using var proofKeys = PublicationProofKeys.Read(builder.Configuration, integrityKeys, publicSite.Origin, dist);
+var checkpointArchive = PublicationCheckpointArchive.Read(builder.Configuration, integrityKeys, publicSite.Origin, dist, TimeProvider.System);
 if (proofKeys is not null)
 {
     builder.Services.AddSingleton(proofKeys);
@@ -122,7 +123,8 @@ builder.Services.AddRateLimiter(options =>
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
-    if (proofKeys is not null) options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+    if (proofKeys is not null || checkpointArchive is not null)
+        options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     if (articleReadEnabled) ArticleReadEndpoints.AddRateLimit(options);
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
@@ -170,7 +172,8 @@ await publications.Refresh(CancellationToken.None);
 
 app.Use(async (ctx, next) =>
 {
-    if (publicationProofs is not null && PublicationProofs.IsRoute(ctx.Request.Path)) NoStore(ctx);
+    if ((publicationProofs is not null && PublicationProofs.IsRoute(ctx.Request.Path)) ||
+        ctx.Request.Path.StartsWithSegments(PublicationCheckpointArchive.Prefix)) NoStore(ctx);
     ctx.Response.Headers.XContentTypeOptions = "nosniff";
     ctx.Response.Headers["Referrer-Policy"] = "same-origin";
     var imageRequest = publicMediaEnabled && ctx.Request.Path.StartsWithSegments(PublishedMediaEndpoints.PathPrefix);
@@ -266,6 +269,7 @@ FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSn
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 integrityKeys.Map(app);
 publicationProofs?.Map(app);
+checkpointArchive?.Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
 if (articleReadEnabled) ArticleReadEndpoints.Map(app, publicSite.Origin!, publications, ReadFrame);
