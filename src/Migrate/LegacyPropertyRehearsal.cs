@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -13,7 +14,8 @@ internal static partial class Migration
         Guid TargetOwner, Guid TargetSite, long? TargetSchemaRevision, Dictionary<string, string> SourceRelations);
     private sealed record LegacyPropertyCandidate(long Sequence, Guid DefinitionId, string SourceDigest, PropertyTransition Transition);
 
-    private static async Task<int> RehearseLegacyPropertiesAsync(string path, string approvedSha256, CancellationToken ct)
+    private static async Task<int> RehearseLegacyPropertiesAsync(string path, string approvedSha256, CancellationToken ct,
+        (string Path, string Sha256)? activation = null)
     {
         if (!Path.IsPathFullyQualified(path) || !IsSha256(approvedSha256))
             throw new ArgumentException("Supply an absolute property review path and its independently approved SHA-256.");
@@ -37,11 +39,13 @@ internal static partial class Migration
         budget.CancelAfter(TimeSpan.FromMinutes(4));
         try
         {
-            var proof = await ReplayReviewedPropertyDefinitionsAsync(review, approvedSha256, budget.Token);
+            var backup = activation is { } rollback
+                ? await ReadLegacyImportBackupAsync(rollback.Path, rollback.Sha256, budget.Token) : null;
+            var proof = await ReplayReviewedPropertyDefinitionsAsync(review, approvedSha256, backup, budget.Token);
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 sourceReference = LegacyReference, reviewSha256 = approvedSha256, definitions = proof.Count,
-                stagedDefinitionSha256 = proof.Digest, writesApplied = false, activationEligible = false,
+                stagedDefinitionSha256 = proof.Digest, writesApplied = proof.Applied, activationEligible = backup is not null,
                 unresolved = new[] { "source-audit-authentication", "select-reference-url-policies", "legacy-property-values", "source-retirement" }
             }, Json));
             return 0;
@@ -63,8 +67,8 @@ internal static partial class Migration
         }
     }
 
-    private static async Task<(int Count, string Digest)> ReplayReviewedPropertyDefinitionsAsync(
-        LegacyPropertyReview review, string reviewSha256, CancellationToken ct)
+    private static async Task<(int Count, string Digest, bool Applied)> ReplayReviewedPropertyDefinitionsAsync(
+        LegacyPropertyReview review, string reviewSha256, ImportBackup? backup, CancellationToken ct)
     {
         var source = ParseLegacySource("postgres");
         await using var donor = source.Connection;
@@ -80,21 +84,26 @@ internal static partial class Migration
                 : row.Rows is null or > 0))
             throw new InvalidOperationException("The frozen property relations changed or include unresolved rows.");
 
-        var targetSettings = new NpgsqlConnectionStringBuilder(RequireLegacyValue(DatabaseVariable)) { Pooling = false, Enlist = false };
+        var targetSettings = backup is null
+            ? new NpgsqlConnectionStringBuilder(RequireLegacyValue(DatabaseVariable)) { Pooling = false, Enlist = false }
+            : ParseLegacyRuntimeActivationDatabase(DatabaseVariable);
         await using var target = new NpgsqlConnection(targetSettings.ConnectionString);
         await target.OpenAsync(ct);
-        await using var targetSnapshot = await BeginReadOnlyAsync(target, ct);
-        await CurrentSchema.VerifyCatalogAsync(target, targetSnapshot, ct);
-        if (await CurrentSchema.ReadRecoverySiteIdAsync(target, targetSnapshot, ct) != review.TargetSite)
-            throw new InvalidOperationException("The reviewed target site does not match.");
-        await using (var verify = new NpgsqlCommand("""
-            select exists (
-                select from public.blog_user u where u.id=$1 and u.can_author and u.enabled
-                and coalesce((select revision from public.property_schema where owner_id=u.id),0)=$2
-                and not exists(select from public.property_definition where owner_id=u.id)
-                and not exists(select from public.property_schema_command where owner_id=u.id))
-            """, target, targetSnapshot))
+        if (backup is not null) await RequireBackupDatabaseLockAsync(target, ct);
+        await using var targetSnapshot = backup is null ? await BeginReadOnlyAsync(target, ct) :
+            await target.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
+        if (backup is null)
         {
+            await CurrentSchema.VerifyCatalogAsync(target, targetSnapshot, ct);
+            if (await CurrentSchema.ReadRecoverySiteIdAsync(target, targetSnapshot, ct) != review.TargetSite)
+                throw new InvalidOperationException("The reviewed target site does not match.");
+            await using var verify = new NpgsqlCommand("""
+                select exists (
+                    select from public.blog_user u where u.id=$1 and u.can_author and u.enabled
+                    and coalesce((select revision from public.property_schema where owner_id=u.id),0)=$2
+                    and not exists(select from public.property_definition where owner_id=u.id)
+                    and not exists(select from public.property_schema_command where owner_id=u.id))
+                """, target, targetSnapshot);
             verify.Parameters.AddWithValue(review.TargetOwner);
             verify.Parameters.AddWithValue(review.TargetSchemaRevision.GetValueOrDefault());
             if (await verify.ExecuteScalarAsync(ct) is not true)
@@ -173,9 +182,16 @@ internal static partial class Migration
         foreach (var definition in definitions)
             if (restored.Find(definition.Id)?.Digest != definition.Digest)
                 throw new InvalidOperationException("The canonical property definition did not round trip.");
-        await targetSnapshot.RollbackAsync(ct);
+        var applied = false;
+        if (backup is null)
+            await targetSnapshot.RollbackAsync(ct);
+        else
+        {
+            applied = await ActivateLegacyPropertyDefinitionsAsync(target, targetSnapshot, review, backup, definitions, ct);
+            await targetSnapshot.CommitAsync(ct);
+        }
         await sourceSnapshot.RollbackAsync(ct);
-        return (definitions.Count, Convert.ToHexStringLower(digest.GetHashAndReset()));
+        return (definitions.Count, Convert.ToHexStringLower(digest.GetHashAndReset()), applied);
     }
 
     private static LegacyPropertyCandidate ReplayLegacyPropertyDefinition(PropertySchema schema, DbDataReader row, Guid owner)

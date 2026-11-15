@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
@@ -15,7 +14,6 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 {
     internal PropertyStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor) : this(db, tx, actor.Id) { }
 
-    private const int SchemaStorageBudget = 8 * 1024 * 1024;
     private static readonly Guid PropertyScopeLock = new("c6143d07-094d-4a49-8ca8-6e3d4fa547ce");
     // The application uses one site per database. The owner and scope are never taken from a request.
     private PropertyScope Scope => new("primary", ownerId);
@@ -330,7 +328,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     private async Task<bool> VerifyStorageBudget(CancellationToken ct) =>
         await Revision("select coalesce(sum(octet_length(shape::text)),0) from public.property_definition where owner_id=$1",
-            ct, ownerId) <= SchemaStorageBudget;
+            ct, ownerId) <= PropertyStorageJson.SchemaByteBudget;
 
     private async Task<HashSet<int>> ReadReferences(int[] ids, CancellationToken ct, bool lockTargets = true)
     {
@@ -478,12 +476,6 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
                 },
             };
         });
-        return new()
-        {
-            TypeInfoResolver = resolver,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-            AllowOutOfOrderMetadataProperties = true,
-            IgnoreReadOnlyProperties = true,
-        };
+        return new(PropertyStorageJson.Options) { TypeInfoResolver = resolver };
     }
 }

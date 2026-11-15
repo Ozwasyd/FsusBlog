@@ -23,6 +23,8 @@
 
 `legacy properties rehearse REVIEW.json REVIEW_SHA256` 从 `FSUSBLOG_V1_DB` 和 `FSUSBLOG_DB` 分别读取隔离的旧库和目标库。审核文件版本为 1，包含 `sourceOwner`、`sourceSite`、`sourceRevision`、`targetOwner`、`targetSite`、`targetSchemaRevision`，以及以 relation 为键、以上述十张冻结定义与审计表的 `postgreSqlSha256` 为值的 `sourceRelations`。目标作者须可用，属性 schema 须为空且预期版本为 0。命令保留稳定定义 ID，通过现有 V2 定义转换及还原校验，输出可复验的摘要。适用范围为经过审核的个人作用域、仅原始创建历史，以及无默认值或投影标志的文本、数值、布尔和日期定义。客户端、正文和未知表里的值仍需独立来源核验。报告保留审计真实性、属性值和旧来源退役的未决项。
 
+`legacy properties activate REVIEW.json REVIEW_SHA256 ROLLBACK SHA256` 在独立、停服且仅接受 Unix socket 的 `fsusv2_import_runtime_*` PostgreSQL 副本启用同一审核下的四类标量属性定义。须另行审核副本基线归档及清单摘要。命令核对站点、可用作者及完整基线，在一个事务写入定义和架构版本并逐项回读。同一审批可复验完整的已转换架构，篡改定义或基线会拒绝。旧命令和审计证据由源归档与审核材料保管。冻结 v1 仍缺少独立的文章属性值权威，属性值及旧审计签名验证另行处理。真实 PostgreSQL 归档恢复验证了四种定义、匿名及另一作者拒绝、恢复前后相同的定义摘要。见 `artifacts/legacy-property-activation-76bb581`。
+
 SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧字段形状的隔离样本，通过了行数、稳定摘要、Unicode 正文、错误哈希、错配发布坐标及缺列测试。MySQL 也拒绝了转为 MyISAM 的表。预检尚未核对外部附件、备份摘要身份、完整权限和主体现实映射。
 
 测试入口为 [legacy-source.sh](../tests/Integration/Migration/legacy-source.sh)，接受 `sqlite`、`postgres` 或 `mysql`。MySQL 分支使用 `MYSQL_TOOLS_DIR` 或 PATH 中的原生 MySQL 8.4 工具。在独立的临时数据目录启动无 TCP 监听的实例，以仅有 SELECT 权限的账号验证预检，结束时关闭和清理实例。2026-11-14 22:14 实跑退出码为 0，基准提交、工作树文件摘要及原始输出在本地 `artifacts/native-migration/mysql-20261114T141427.log`。

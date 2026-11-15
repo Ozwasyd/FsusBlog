@@ -132,6 +132,7 @@ internal static partial class Migration
                                         Invoke one approved pure Markdown hook in an offline worker
                   backup measure        Fingerprint an offline v2 PostgreSQL site and its media metadata
                   legacy properties rehearse REVIEW.json REVIEW_SHA256
+                  legacy properties activate REVIEW.json REVIEW_SHA256 ROLLBACK SHA256
                                         Rehearse reviewed PostgreSQL property definitions and target coordinates read-only
                   legacy inventory postgres|mysql|sqlite
                                         Inspect the v1 article catalog and exact table counts
@@ -208,6 +209,8 @@ internal static partial class Migration
             }
             if (arguments is ["legacy", "properties", "rehearse", var propertyReview, var propertyReviewDigest])
                 return await RehearseLegacyPropertiesAsync(propertyReview, propertyReviewDigest, cancelled.Token);
+            if (arguments is ["legacy", "properties", "activate", var propertyApproval, var approvalSha, var rollback, var rollbackSha])
+                return await RehearseLegacyPropertiesAsync(propertyApproval, approvalSha, cancelled.Token, (rollback, rollbackSha));
             if (arguments is ["legacy", var mode, var provider])
             {
                 return await RunLegacyAsync(mode, provider, ownerMap: null, cancelled.Token);
