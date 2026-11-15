@@ -135,6 +135,34 @@ public sealed class SitePasskeyMetadataPostgresTests
         await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyRename(session.Token, session.Id, rename, ct));
     }
 
+    [PostgresFact]
+    public async Task EnrollingADeviceRequiresTheCurrentPasskeySessionAndRespectsTheInventoryCap()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var ct = timeout.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var passkeys = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var owner = await AddAccount(db, "Enrollment fixture", ct);
+        var now = DateTimeOffset.UtcNow;
+        var first = await AddCredential(db, owner, now, null, false, false, ct);
+        var session = await AddSession(db, owner, now.AddMinutes(10), first, ct);
+        var other = await AddSession(db, owner, now.AddMinutes(10), first, ct);
+        var ticketOnly = await AddSession(db, owner, now.AddMinutes(10), null, ct);
+        await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyEnrollment(null, session.Id, ct));
+        await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyEnrollment(ticketOnly.Token, ticketOnly.Id, ct));
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyEnrollment(session.Token, other.Id, ct));
+        var approval = await passkeys.BeginSitePasskeyEnrollment(session.Token, session.Id, ct);
+        Assert.True(Aeds.Decode(approval, FrameType.PasskeyLoginBegin).Length > WireLayouts.PasskeyLoginBeginSize);
+        Assert.Single(await SitePasskeys.List(store, session.Token, session.Id, ct));
+        for (var index = 1; index < WireLimits.SitePasskeyListSize; index++)
+            await AddCredential(db, owner, now, null, false, false, ct);
+        await Denied(Rejection.Conflict, () => passkeys.BeginSitePasskeyEnrollment(session.Token, session.Id, ct));
+        await store.SignOut(session.Token, ct);
+        await Denied(Rejection.Unauthorized, () => passkeys.BeginSitePasskeyEnrollment(session.Token, session.Id, ct));
+    }
+
     private static void AssertMetadata(SitePasskeyRow row, DateTimeOffset created,
         DateTimeOffset? used, bool backupEligible, bool backedUp, bool current)
     {

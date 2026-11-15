@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
+import { enrollSitePasskey } from '../../../Contracts/passkey'
 import { renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
 import { sitePasskeys, type SitePasskey } from '../../../Contracts/site-passkeys'
 import { WireLimits } from '../../../Contracts/wire.generated'
@@ -16,8 +17,13 @@ const passkeys = shallowRef<readonly PasskeyEntry[]>()
 const edit = shallowRef<RenameTarget>()
 const name = ref('')
 const failed = ref('')
-const saved = ref(false)
+const notice = ref('')
 const busy = ref(false)
+const adding = ref(false)
+const canAddPasskey = computed(() => {
+  const entries = passkeys.value
+  return !!entries?.[0]?.reference && entries.length < WireLimits.SitePasskeyListSize
+})
 const sessionId = computed(() => currentSession.value?.siteSessionId)
 let request: AbortController | undefined
 let active = false
@@ -28,8 +34,9 @@ function clear() {
   passkeys.value = undefined
   closeRename()
   failed.value = ''
-  saved.value = false
+  notice.value = ''
   busy.value = false
+  adding.value = false
 }
 
 function pause() {
@@ -63,11 +70,15 @@ watch([identityEpoch, sessionId], () => {
 
 function load() { return run() }
 
+function addPasskey() {
+  if (canAddPasskey.value && !edit.value) return run('enroll')
+}
+
 function openRename(item: PasskeyEntry) {
   if (busy.value || !item.reference || item.revision === undefined) return
   edit.value = { reference: item.reference, revision: item.revision }
   name.value = item.name ?? ''
-  saved.value = false
+  notice.value = ''
 }
 
 function closeRename() {
@@ -88,7 +99,7 @@ async function readEntries(id: string, signal: AbortSignal) {
   }
 }
 
-async function run(rename?: Rename) {
+async function run(change?: Rename | 'enroll') {
   const expected = currentSession.value
   if (!active || !expected?.siteSessionId || request) return
   const id = expected.siteSessionId
@@ -96,11 +107,13 @@ async function run(rename?: Rename) {
   const epoch = identityEpoch.value
   const operation = new AbortController()
   request = operation
+  const enrolling = change === 'enroll'
   busy.value = true
+  adding.value = enrolling
   failed.value = ''
-  saved.value = false
+  notice.value = ''
   const live = () => request === operation && !operation.signal.aborted &&
-    epoch === identityEpoch.value && sessionId.value === id
+    epoch === identityEpoch.value && sessionId.value === id && currentSession.value?.generation === generation
   async function confirmAuthority() {
     if (!live()) return false
     const observed = await readSiteAuthority(operation.signal)
@@ -110,28 +123,40 @@ async function run(rename?: Rename) {
     return false
   }
   try {
-    if (rename) {
+    if (change) {
       if (!await confirmAuthority()) return
-      await renameSitePasskey(rename.reference, rename.revision, rename.name, id, operation.signal)
+      if (enrolling) {
+        try { await enrollSitePasskey(id, operation.signal) }
+        catch (error) {
+          if (!(error instanceof DOMException) || (error.name !== 'NotAllowedError' && error.name !== 'AbortError')) throw error
+          if (await confirmAuthority()) notice.value = 'Passkey addition canceled.'
+          return
+        }
+      } else {
+        await renameSitePasskey(change.reference, change.revision, change.name, id, operation.signal)
+      }
       if (!live()) return
     }
-    const entries = await (rename ? sitePasskeyManagement(id, operation.signal) : readEntries(id, operation.signal))
+    const entries = await (change ? sitePasskeyManagement(id, operation.signal) : readEntries(id, operation.signal))
     if (!await confirmAuthority()) return
     passkeys.value = entries
     closeRename()
-    saved.value = !!rename
+    if (change) notice.value = enrolling ? 'Passkey added.' : 'Passkey name saved.'
   } catch (error) {
     if (!live()) return
     passkeys.value = undefined
     closeRename()
     const status = error instanceof ApiError ? error.status : undefined
-    if (status !== 401 && (rename || (status !== 404 && status !== 409))) {
-      failed.value = rename ? 'Could not confirm the new Passkey name. Reload Passkeys to check.' : 'Could not load Passkeys.'
+    if (status !== 401 && (change || (status !== 404 && status !== 409))) {
+      if (enrolling) failed.value = 'Could not confirm the new Passkey. Reload Passkeys to check.'
+      else if (change) failed.value = 'Could not confirm the new Passkey name. Reload Passkeys to check.'
+      else failed.value = 'Could not load Passkeys.'
     }
   } finally {
     if (request === operation) {
       request = undefined
       busy.value = false
+      adding.value = false
     }
   }
 }
@@ -140,7 +165,9 @@ async function run(rename?: Rename) {
 <template>
   <section v-if="passkeys || failed" class="auth-form site-passkeys" aria-labelledby="site-passkeys-heading">
     <h2 id="site-passkeys-heading">Passkeys</h2>
-    <p v-if="saved" role="status">Passkey name saved.</p>
+    <p v-if="notice" role="status">{{ notice }}</p>
+    <ElButton v-if="canAddPasskey" class="passkey-add" native-type="button" :loading="adding"
+      :disabled="busy || !!edit" @click="addPasskey">Add Passkey</ElButton>
     <template v-if="failed">
       <ElAlert :title="failed" type="error" :closable="false" show-icon />
       <ElButton native-type="button" :loading="busy" @click="load">Reload Passkeys</ElButton>
@@ -176,6 +203,7 @@ async function run(rename?: Rename) {
 <style scoped>
 .site-passkeys { margin-block-start: 1.5rem; }
 .passkey-name { overflow-wrap: anywhere; }
+.passkey-add { margin-block-end: 1rem; }
 .passkey-list { display: grid; gap: 1rem; margin: 0; padding-inline-start: 1rem; }
 .passkey-metadata { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 0.75rem; margin-block: 0.5rem 0; }
 .passkey-metadata dd { margin: 0; overflow-wrap: anywhere; }

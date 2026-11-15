@@ -387,6 +387,7 @@ inline constexpr uint32_t PasskeyCompleteTokenOffset = 8;
 inline constexpr uint32_t PasskeyCompleteBlobRefsOffset = 72;
 inline constexpr uint32_t PasskeyTokenSize = 64;
 inline constexpr uint32_t PasskeySliceSize = 8;
+inline constexpr uint32_t PasskeyCredentialDescriptorSize = 20;
 inline constexpr uint32_t MfaSetupStartBytes = 36;
 inline constexpr uint32_t MfaSetupVerifyBytes = 8;
 inline constexpr uint32_t MfaProfileBytes = 12;

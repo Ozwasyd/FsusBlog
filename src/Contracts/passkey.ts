@@ -1,8 +1,8 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, ApiError, request, type Session } from './client.ts';
+import { api, ApiError, request, validSiteSessionId, type Session } from './client.ts';
 import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
-import { encodeSignIn, FrameType, WireHeader, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
+import { encodeSignIn, FrameType, WireHeader, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const encoder = new TextEncoder();
 const transports = ['usb', 'nfc', 'ble', 'smart-card', 'hybrid', 'internal'];
@@ -61,10 +61,24 @@ export async function provisionPasskey(ticket: string, signal?: AbortSignal): Pr
   await request(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
 }
 
+export async function enrollSitePasskey(expectedSession: string, signal?: AbortSignal): Promise<void> {
+  if (!validSiteSessionId(expectedSession)) throw invalid();
+  const headers = { [WireHeaders.CurrentSession]: expectedSession };
+  const assertion = await requestPasskeyAssertion(WireRoutes.SitePasskeyEnrollBegin, signal, undefined, true, false, headers);
+  const { token, options } = await request(WireRoutes.SitePasskeyEnrollApprove, FrameType.PasskeyRegisterBegin,
+    decodeEnrollmentBegin, signal, 'POST', assertion, headers);
+  const attestation = await getAttestation(token, options, signal);
+  await request(WireRoutes.SitePasskeyEnrollComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation, headers);
+}
+
 export async function requestPasskeyAttestation(beginPath: string, signal?: AbortSignal,
   body?: Uint8Array<ArrayBuffer>, headers?: HeadersInit) {
   const { token, options } = await request(beginPath, FrameType.PasskeyRegisterBegin,
     decodeProvisionBegin, signal, 'POST', body, headers);
+  return getAttestation(token, options, signal);
+}
+
+async function getAttestation(token: string, options: PublicKeyCredentialCreationOptions, signal?: AbortSignal) {
   const result = await navigator.credentials.create({ publicKey: options, ...(signal ? { signal } : {}) });
   if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAttestationResponse))
     throw new ProtocolError('No Passkey attestation was returned.');
@@ -79,27 +93,35 @@ function decodeLoginBegin(payload: Uint8Array, restricted: boolean): { token: st
   if (payload.length < WireLayouts.PasskeyLoginBeginSize) throw invalid();
   const count = view(payload).getInt32(8, true);
   if (restricted ? count < 1 || count > 16 : count !== 0) throw invalid();
-  const data = begin(payload, WireLayouts.PasskeyLoginBeginSize, count * 20, WireLayouts.PasskeyLoginBeginTokenOffset);
+  const descriptorSize = WireLayouts.PasskeyCredentialDescriptorSize;
+  const data = begin(payload, WireLayouts.PasskeyLoginBeginSize, count * descriptorSize, WireLayouts.PasskeyLoginBeginTokenOffset);
   if (data.pod.getInt32(12, true) !== 0 || data.pod.getInt32(16, true) !== 0) throw invalid();
   const rpId = data.text(0, 253);
   const challenge = data.field(1, WireLimits.PasskeyChallengeBytes);
-  const allowCredentials: PublicKeyCredentialDescriptor[] = [];
-  for (let i = 0; i < count; i++) {
-    const record = WireLayouts.PasskeyLoginBeginSize + i * 20;
-    if (data.pod.getInt32(record, true) !== 0 || data.pod.getInt32(record + 4, true) !== 0 ||
-        data.pod.getInt32(record + 16, true) !== 0) throw invalid();
-    allowCredentials.push({ type: 'public-key', id: data.slice(record + 8, WireLimits.PasskeyCredentialIdBytes) });
-  }
+  const allowCredentials = readDescriptors(data, WireLayouts.PasskeyLoginBeginSize, count);
   data.finish(challenge);
   return { token: data.token, options: { rpId, challenge, timeout: data.timeout, userVerification: 'required', allowCredentials } };
 }
 
-function decodeProvisionBegin(payload: Uint8Array): { token: string; options: PublicKeyCredentialCreationOptions } {
+export function decodeProvisionBegin(payload: Uint8Array) {
+  return decodeRegistrationBegin(payload, false);
+}
+
+export function decodeEnrollmentBegin(payload: Uint8Array) {
+  return decodeRegistrationBegin(payload, true);
+}
+
+function decodeRegistrationBegin(payload: Uint8Array, enrollment: boolean): { token: string; options: PublicKeyCredentialCreationOptions } {
   if (payload.length < WireLayouts.PasskeyRegisterBeginSize) throw invalid();
-  const count = view(payload).getInt32(8, true);
-  if (count < 1 || count > 16) throw invalid();
-  const data = begin(payload, WireLayouts.PasskeyRegisterBeginSize, count * 8, WireLayouts.PasskeyRegisterBeginTokenOffset);
-  for (let offset = 12; offset <= 28; offset += 4) if (data.pod.getInt32(offset, true) !== 0) throw invalid();
+  const pod = view(payload);
+  const count = pod.getInt32(8, true);
+  const excludes = pod.getInt32(12, true);
+  if (count < 1 || count > 16 || (enrollment ? excludes < 1 || excludes >= WireLimits.SitePasskeyListSize : excludes !== 0))
+    throw invalid();
+  const descriptorBase = WireLayouts.PasskeyRegisterBeginSize + count * 8;
+  const extra = count * 8 + excludes * WireLayouts.PasskeyCredentialDescriptorSize;
+  const data = begin(payload, WireLayouts.PasskeyRegisterBeginSize, extra, WireLayouts.PasskeyRegisterBeginTokenOffset);
+  for (let offset = 16; offset <= 28; offset += 4) if (data.pod.getInt32(offset, true) !== 0) throw invalid();
   if (data.pod.getUint8(32) !== 0 || data.pod.getUint8(33) !== 1 || data.pod.getUint16(34, true) !== 0)
     throw invalid();
   const pubKeyCredParams: PublicKeyCredentialParameters[] = [];
@@ -113,10 +135,26 @@ function decodeProvisionBegin(payload: Uint8Array): { token: string; options: Pu
   const id = data.field(4, WireLimits.PasskeyUserHandleBytes);
   const challenge = data.field(5, WireLimits.PasskeyChallengeBytes);
   if (id.length !== WireLimits.PasskeyUserHandleBytes) throw invalid();
+  const excludeCredentials = readDescriptors(data, descriptorBase, excludes, enrollment);
   data.finish(challenge);
   return { token: data.token, options: { rp, user: { name, displayName, id }, challenge, pubKeyCredParams, timeout: data.timeout,
     attestation: 'none', authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'required' },
-    excludeCredentials: [] } };
+    excludeCredentials } };
+}
+
+function readDescriptors(data: ReturnType<typeof begin>, start: number, count: number, requireUnique = false): PublicKeyCredentialDescriptor[] {
+  const credentials: PublicKeyCredentialDescriptor[] = [];
+  const seen: Uint8Array[] = [];
+  for (let i = 0; i < count; i++) {
+    const record = start + i * WireLayouts.PasskeyCredentialDescriptorSize;
+    if (data.pod.getInt32(record, true) !== 0 || data.pod.getInt32(record + 4, true) !== 0 ||
+        data.pod.getInt32(record + 16, true) !== 0) throw invalid();
+    const id = data.slice(record + 8, WireLimits.PasskeyCredentialIdBytes);
+    if (requireUnique && seen.some(other => other.length === id.length && id.every((byte, index) => other[index] === byte))) throw invalid();
+    seen.push(id);
+    credentials.push({ type: 'public-key', id });
+  }
+  return credentials;
 }
 
 function begin(payload: Uint8Array, size: number, extra: number, tokenOffset: number) {

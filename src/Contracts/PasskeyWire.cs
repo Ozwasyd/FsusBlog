@@ -20,15 +20,7 @@ public static class PasskeyWire
     {
         var rp = Utf8.GetBytes(rpId);
         allowed ??= [];
-        var descriptors = new byte[allowed.Count * 20];
-        var offset = rp.Length + challenge.Length;
-        for (var i = 0; i < allowed.Count; i++)
-        {
-            var descriptor = descriptors.AsSpan(i * 20, 20);
-            BinaryPrimitives.WriteInt32LittleEndian(descriptor[8..], offset);
-            BinaryPrimitives.WriteInt32LittleEndian(descriptor[12..], allowed[i].Length);
-            offset += allowed[i].Length;
-        }
+        var descriptors = Descriptors(allowed, rp.Length + challenge.Length);
         var payload = Begin(PasskeyLoginBeginSize, descriptors, PasskeyLoginBeginTokenOffset, token, timeout,
             [rp, challenge, .. allowed], referenceCount: 2);
         BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8), allowed.Count);
@@ -38,14 +30,62 @@ public static class PasskeyWire
     public static byte[] ProvisionBegin(string token, uint timeout, string rpId, string rpName, string userName,
         string displayName, byte[] userHandle, byte[] challenge, IReadOnlyList<int> algorithms)
     {
-        var parameters = new byte[algorithms.Count * 8];
+        return RegistrationBegin(token, timeout, [Utf8.GetBytes(rpId), Utf8.GetBytes(rpName), Utf8.GetBytes(userName),
+            Utf8.GetBytes(displayName), userHandle, challenge], algorithms, []);
+    }
+
+    public static byte[] EnrollmentBegin(string token, uint timeout, string rpId, string rpName, string userName,
+        string displayName, byte[] userHandle, byte[] challenge, IReadOnlyList<int> algorithms, IReadOnlyList<byte[]> excluded)
+    {
+        if (timeout is < 1 or > 300_000 || userHandle.Length != PasskeyUserHandleBytes || challenge.Length != PasskeyChallengeBytes ||
+            algorithms.Count is < 1 or > 16 || excluded.Count is < 1 or >= SitePasskeyListSize ||
+            excluded.Any(id => id.Length is < 1 or > PasskeyCredentialIdBytes) ||
+            excluded.Select(Convert.ToHexString).Distinct(StringComparer.Ordinal).Count() != excluded.Count)
+            throw Invalid();
+        return RegistrationBegin(token, timeout, [RequiredText(rpId, 253), RequiredText(rpName, 128), RequiredText(userName, 128),
+            RequiredText(displayName, 128), userHandle, challenge], algorithms, excluded);
+    }
+
+    private static byte[] RegistrationBegin(string token, uint timeout, byte[][] fields,
+        IReadOnlyList<int> algorithms, IReadOnlyList<byte[]> excluded)
+    {
+        var descriptors = Descriptors(excluded, fields.Sum(field => field.Length));
+        var extra = new byte[algorithms.Count * 8 + descriptors.Length];
         for (var i = 0; i < algorithms.Count; i++)
-            BinaryPrimitives.WriteInt32LittleEndian(parameters.AsSpan(i * 8 + 4), algorithms[i]);
-        var payload = Begin(PasskeyRegisterBeginSize, parameters, PasskeyRegisterBeginTokenOffset, token, timeout,
-            [Utf8.GetBytes(rpId), Utf8.GetBytes(rpName), Utf8.GetBytes(userName), Utf8.GetBytes(displayName), userHandle, challenge]);
+            BinaryPrimitives.WriteInt32LittleEndian(extra.AsSpan(i * 8 + 4), algorithms[i]);
+        descriptors.CopyTo(extra, algorithms.Count * 8);
+        var payload = Begin(PasskeyRegisterBeginSize, extra, PasskeyRegisterBeginTokenOffset, token, timeout,
+            [.. fields, .. excluded], referenceCount: fields.Length);
         BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(8), algorithms.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(12), excluded.Count);
         payload[33] = 1;
         return Aeds.Encode(FrameType.PasskeyRegisterBegin, payload);
+    }
+
+    private static byte[] Descriptors(IReadOnlyList<byte[]> credentials, int offset)
+    {
+        var bytes = new byte[credentials.Count * PasskeyCredentialDescriptorSize];
+        for (var i = 0; i < credentials.Count; i++)
+        {
+            // The v1 descriptor repeats the transport count after the fixed record. Both counts are zero here.
+            var descriptor = bytes.AsSpan(i * PasskeyCredentialDescriptorSize, PasskeyCredentialDescriptorSize);
+            BinaryPrimitives.WriteInt32LittleEndian(descriptor[8..], offset);
+            BinaryPrimitives.WriteInt32LittleEndian(descriptor[12..], credentials[i].Length);
+            offset += credentials[i].Length;
+        }
+        return bytes;
+    }
+
+    private static byte[] RequiredText(string value, int max)
+    {
+        try
+        {
+            var length = Utf8.GetByteCount(value);
+            if (length > 0 && length <= max)
+                return Utf8.GetBytes(value);
+        }
+        catch (EncoderFallbackException) { throw Invalid(); }
+        throw Invalid();
     }
 
     public static byte[] Authenticated(int accountId, string? mfaToken = null)

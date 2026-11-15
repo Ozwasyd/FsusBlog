@@ -612,6 +612,7 @@ public static class WireLayouts
     public const int PasskeyCompleteBlobRefsOffset = 72;
     public const int PasskeyTokenSize = 64;
     public const int PasskeySliceSize = 8;
+    public const int PasskeyCredentialDescriptorSize = 20;
     public const int MfaSetupStartBytes = 36;
     public const int MfaSetupVerifyBytes = 8;
     public const int MfaProfileBytes = 12;
@@ -705,6 +706,9 @@ public static class WireRoutes
     public const string SitePasskeyManagement = "/api/v2/identity/passkeys/manage.aeds";
     public const string SitePasskeyRenameBegin = "/api/v2/identity/passkeys/rename/begin.aeds";
     public const string SitePasskeyRenameComplete = "/api/v2/identity/passkeys/rename/complete.aeds";
+    public const string SitePasskeyEnrollBegin = "/api/v2/identity/passkeys/enroll/begin.aeds";
+    public const string SitePasskeyEnrollApprove = "/api/v2/identity/passkeys/enroll/approve.aeds";
+    public const string SitePasskeyEnrollComplete = "/api/v2/identity/passkeys/enroll/complete.aeds";
     public const string SiteSessionRevoke = "/api/v2/identity/sessions/{id}/revoke.aeds";
     public const string SiteSessionsRevokeOthers = "/api/v2/identity/sessions/revoke-others.aeds";
     public const string AdminBootstrapBegin = "/api/v2/admin/identity/bootstrap/begin.aeds";

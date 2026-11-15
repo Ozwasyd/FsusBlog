@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeEnrollmentBegin } from '../../src/Contracts/passkey.ts'
+import { decodeSitePasskeyManagement } from '../../src/Contracts/site-passkey-names.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -20,6 +22,7 @@ const checks = {}
 const inventoryPath = WireRoutes.SitePasskeys
 const managementPath = WireRoutes.SitePasskeyManagement
 const renameRequired = process.env.FSUSBLOG_TEST_PASSKEY_RENAME === '1'
+const enrollmentRequired = process.env.FSUSBLOG_TEST_PASSKEY_ENROLL === '1'
 const friendlyName = 'Writing laptop 🔐'
 const securityPath = '/user/identity/mfa'
 let phase = 'start'
@@ -31,10 +34,8 @@ try {
   monitor(page)
   const cdp = await context.newCDPSession(page)
   await cdp.send('WebAuthn.enable')
-  await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
+  const firstDevice = await addAuthenticator(cdp)
+  let secondCreatedAt
 
   phase = 'provision'
   await page.goto(`${origin}/login`)
@@ -127,6 +128,73 @@ try {
     assert.equal(await credential.getByRole('button', { name: 'Rename Passkey', exact: true }).count(), 0)
   }
 
+  if (enrollmentRequired) {
+    phase = 'credential-enrollment'
+    assert.equal(management.status(), 200)
+    const [first] = await readManagement(context, current)
+    const approve = origin + WireRoutes.SitePasskeyEnrollApprove
+    let switched = false
+    async function switchDevice(route) {
+      const approved = await route.fetch({ maxRedirects: 0 })
+      if (approved.status() === 200) {
+        assert(!switched, 'The browser approved enrollment more than once.')
+        await cdp.send('WebAuthn.removeVirtualAuthenticator', firstDevice)
+        await addAuthenticator(cdp)
+        switched = true
+      }
+      await route.fulfill({ response: approved })
+    }
+    await page.route(approve, switchDevice)
+    try {
+      const frames = [
+        [WireRoutes.SitePasskeyEnrollBegin, FrameType.PasskeyLoginBegin],
+        [WireRoutes.SitePasskeyEnrollApprove, FrameType.PasskeyRegisterBegin],
+        [WireRoutes.SitePasskeyEnrollComplete, FrameType.EmptySuccess],
+      ]
+      const writes = frames.map(([path]) => page.waitForResponse(response =>
+        response.request().method() === 'POST' && response.url() === origin + path))
+      await inventoryRegion.getByRole('button', { name: 'Add Passkey', exact: true }).click()
+      const enrollmentResults = await Promise.all(writes)
+      for (const [index, result] of enrollmentResults.entries()) {
+        assert.equal(result.status(), 200)
+        assert((await result.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()] === current,
+          'Enrollment must carry the current session handle at every stage.')
+        assert.match(await result.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+        const frame = decodeFrame(await result.body())
+        assert.equal(frame.type, frames[index][1])
+        if (frame.type === FrameType.PasskeyRegisterBegin) {
+          const { options } = decodeEnrollmentBegin(frame.payload)
+          assert.equal(options.excludeCredentials.length, 1, 'Enrollment must not replace the existing authenticator credential.')
+        }
+      }
+      for (const accepted of enrollmentResults.slice(1)) {
+        const original = accepted.request()
+        const repeated = await context.request.post(original.url(), {
+          headers: { ...sessionHeaders, Origin: origin, 'Content-Type': 'application/octet-stream' },
+          data: original.postDataBuffer(),
+        })
+        assert.equal(repeated.status(), 401, 'A completed enrollment ceremony cannot be used twice.')
+        assert.match(repeated.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+      }
+      checks.enrollmentReplayDenied = true
+      assert(switched, 'A second virtual authenticator must create the new Passkey.')
+      await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey added\.$/ }).waitFor()
+      assert.equal(await inventoryRegion.getByRole('listitem').count(), 2)
+      const enrolled = await readManagement(context, current)
+      assert.equal(enrolled.length, 2)
+      assert(enrolled[0].current && enrolled[0].reference === first.reference,
+        'Enrollment must leave the original credential active in the current session.')
+      assert(!enrolled[1].current && enrolled[1].reference !== first.reference)
+      assert.equal(enrolled[1].lastUsedAt, null)
+      secondCreatedAt = enrolled[1].createdAt.getTime()
+      assert(secondCreatedAt > first.createdAt.getTime())
+      checks.enrollmentWithCurrentPasskey = true
+      await page.screenshot({ path: join(evidence, 'passkey-enrolled.png') })
+    } finally {
+      await page.unroute(approve, switchDevice)
+    }
+  }
+
   const security = await context.newPage()
   monitor(security)
   await security.goto(origin + securityPath)
@@ -155,6 +223,25 @@ try {
   checks.signedOutInventoryDenied = true
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-passkey-ceremony'))
+  if (enrollmentRequired) {
+    phase = 'second-device-assertion'
+    await page.goto(origin + '/login')
+    const signIn = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url() === origin + WireRoutes.PasskeyLoginComplete)
+    await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
+    await page.waitForURL(`${origin}/user/manage/article/write`)
+    assert.equal((await signIn).status(), 200)
+    const renewed = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
+    assert.equal(renewed.status(), 200)
+    const next = renewed.headers()[WireHeaders.CurrentSession.toLowerCase()]
+    assert(/^[0-9a-f]{64}$/.test(next) && next !== current, 'The second device must start a new session.')
+    const entries = await readManagement(context, next)
+    assert.equal(entries.length, 2)
+    assert.equal(entries[0].createdAt.getTime(), secondCreatedAt)
+    assert(entries[0].current && entries[0].lastUsedAt !== null,
+      'The newly enrolled credential must authenticate the second session.')
+    checks.secondPasskeySignIn = true
+  }
   assert.deepEqual(errors, [])
   assert(responses.some(([path, status]) => path === '/api/binary/auth/passkey/login/complete' && status === 200))
   assert(responses.some(([path, status]) => path === '/api/v2/identity/passkey/register/complete.aeds' && status === 200))
@@ -168,6 +255,24 @@ try {
     chromium: browser.version(), phase, checks, responses, errors, exitCode: failure ? 1 : 0 }, null, 2))
 }
 if (failure) throw failure
+
+function addAuthenticator(cdp) {
+  return cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
+    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
+    isUserVerified: true, automaticPresenceSimulation: true,
+  } })
+}
+
+async function readManagement(context, currentSession) {
+  const result = await context.request.get(origin + managementPath, {
+    headers: { [WireHeaders.CurrentSession]: currentSession },
+  })
+  assert.equal(result.status(), 200)
+  assert.match(result.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
+  const data = decodeFrame(await result.body())
+  assert.equal(data.type, FrameType.SitePasskeyManagement)
+  return decodeSitePasskeyManagement(data.payload)
+}
 
 function monitor(page) {
   page.on('pageerror', error => errors.push(error.message))

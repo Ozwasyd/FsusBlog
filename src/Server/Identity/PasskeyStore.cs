@@ -292,7 +292,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
     }
 
     private static async Task SaveChallenge(NpgsqlConnection db, NpgsqlTransaction tx, string token,
-        string options, Guid? userId, long? generation, byte[]? binding, CancellationToken ct)
+        string options, Guid? userId, long? generation, byte[]? binding, CancellationToken ct, int lifetimeSeconds = 300)
     {
         await using (var limit = Store.Sql(db, tx, "select pg_advisory_xact_lock($1)", ChallengeBudgetLock))
             await limit.ExecuteNonQueryAsync(ct);
@@ -300,10 +300,10 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             await prune.ExecuteNonQueryAsync(ct);
         await using var insert = Store.Sql(db, tx, """
             insert into public.passkey_challenge(digest,user_id,generation,options,expires_at,binding_digest)
-            select $1,$2,$3,$4,clock_timestamp()+interval '5 minutes',$5
+            select $1,$2,$3,$4,clock_timestamp()+$7 * interval '1 second',$5
             where (select count(*) from public.passkey_challenge)<$6
             """, TokenDigest(token), new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)userId ?? DBNull.Value },
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)generation ?? DBNull.Value }, options, NullableBytes(binding), ChallengeCapacity);
+            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)generation ?? DBNull.Value }, options, NullableBytes(binding), ChallengeCapacity, lifetimeSeconds);
         if (await insert.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
     }
 

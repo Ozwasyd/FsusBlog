@@ -3,6 +3,7 @@ using FsusBlog.V2.Core;
 using Npgsql;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Sessions;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -55,15 +56,35 @@ internal static class PasskeyEndpoints
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.SitePasskeyRenameBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
-            RequireRenameOrigin(ctx);
+            RequireManagementOrigin(ctx);
             var input = Wire.DecodeSitePasskeyRename(await readFrame(ctx, WireLimits.MaxSitePasskeyRenameFrameBytes, ct));
             return Results.Bytes(await passkeys.BeginSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
         }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.SitePasskeyRenameComplete, async (HttpContext ctx, CancellationToken ct) =>
         {
-            RequireRenameOrigin(ctx);
+            RequireManagementOrigin(ctx);
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             await passkeys.CompleteSitePasskeyRename(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
+            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyEnrollBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireManagementOrigin(ctx);
+            if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false)
+                throw new BusinessException(Rejection.Invalid, "Passkey enrollment begins without a body.");
+            return Results.Bytes(await passkeys.BeginSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyEnrollApprove, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireManagementOrigin(ctx);
+            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            return Results.Bytes(await passkeys.ApproveSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct), Aeds.ContentType);
+        }).RequireRateLimiting("mfa");
+        app.MapPost(WireRoutes.SitePasskeyEnrollComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            RequireManagementOrigin(ctx);
+            var input = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
+            await passkeys.CompleteSitePasskeyEnrollment(ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), input, ct);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         }).RequireRateLimiting("mfa");
         app.MapPost(WireRoutes.PasskeyLoginBegin, async (HttpContext ctx, CancellationToken ct) =>
@@ -125,7 +146,7 @@ internal static class PasskeyEndpoints
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = path };
 
-        void RequireRenameOrigin(HttpContext ctx)
+        void RequireManagementOrigin(HttpContext ctx)
         {
             RequireHost(ctx);
             ctx.Response.Headers.CacheControl = "private, no-store";
