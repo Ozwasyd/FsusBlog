@@ -132,6 +132,9 @@ internal static partial class CurrentSchema
             await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass('public.article_revision_media') IS NOT NULL", connection, transaction);
             requireArticleMedia = await relation.ExecuteScalarAsync(cancellationToken) is true;
         }
+        var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
+        if (hasPrivateMediaImportOrigin && !requireArticleMedia.Value)
+            throw new InvalidOperationException("Imported private media requires the article attachment schema.");
         if (requireSubscription is null)
         {
             await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
@@ -285,7 +288,8 @@ internal static partial class CurrentSchema
         var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
                 ? ArticleRevisionColumns + " author_summary:text?" : column)
             .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
-            .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
+            .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion))
+            .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns)
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
             .Concat(hasCommentReport ? [CommentReportColumns] : [])
@@ -332,6 +336,7 @@ internal static partial class CurrentSchema
         var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
             .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
+            .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
             .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(hasCommentAuthorEdit ? CommentAuthorEditConstraints : [])
             .Concat(hasCommentReport ? CommentReportConstraints : [])

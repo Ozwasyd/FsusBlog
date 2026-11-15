@@ -11,7 +11,7 @@ using SkiaSharp;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-public sealed class PrivateMediaPostgresTests
+public sealed partial class PrivateMediaPostgresTests
 {
     [PostgresFact]
     public async Task NativeImagesRequireAnAuthorAndTheirFilesStayPrivateThroughDeletion()

@@ -11,5 +11,7 @@
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
     <EmbeddedResource Include="*.sql" LogicalName="FsusBlogV2.Schema.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="OptionalSchema/private-media-import-origin.sql"
+                      LogicalName="FsusBlogV2.OptionalSchema.private-media-import-origin.sql" />
   </ItemGroup>
 </Project>
