@@ -52,6 +52,13 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+using var proofKeys = PublicationProofKeys.Read(builder.Configuration, integrityKeys, publicSite.Origin, dist);
+if (proofKeys is not null)
+{
+    builder.Services.AddSingleton(proofKeys);
+    builder.Services.AddSingleton<PublicationProofs>();
+    builder.Services.AddHostedService(services => services.GetRequiredService<PublicationProofs>());
+}
 if (onlineAppearance && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null ||
     Uri.Compare(adminIdentity.Origin, new Uri(publicSite.Origin), UriComponents.SchemeAndServer, UriFormat.SafeUnescaped,
         StringComparison.OrdinalIgnoreCase) == 0))
@@ -96,6 +103,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
+    if (proofKeys is not null) options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
@@ -133,11 +141,14 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
     requireAdminTagMetadata: adminTagMetadata ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();
+var publicationProofs = app.Services.GetService<PublicationProofs>();
+if (publicationProofs is not null) await publicationProofs.Initialize(app.Lifetime.ApplicationStopping);
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
 
 app.Use(async (ctx, next) =>
 {
+    if (publicationProofs is not null && PublicationProofs.IsRoute(ctx.Request.Path)) NoStore(ctx);
     ctx.Response.Headers.XContentTypeOptions = "nosniff";
     ctx.Response.Headers["Referrer-Policy"] = "same-origin";
     ctx.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
@@ -222,6 +233,7 @@ if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 integrityKeys.Map(app);
+publicationProofs?.Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,

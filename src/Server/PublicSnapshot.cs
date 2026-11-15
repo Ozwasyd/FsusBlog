@@ -154,6 +154,12 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                 return update;
             }, ct), ct);
 
+    internal Task Attest(Func<Task> mint, CancellationToken ct) => Change(invalidate: false, async _ =>
+    {
+        await mint();
+        return true;
+    }, ct);
+
     internal Task<T> AdministrativePublication<T>(Func<Action, Task<T>> transact, CancellationToken ct) =>
         Change(invalidate: true, transact, ct);
 

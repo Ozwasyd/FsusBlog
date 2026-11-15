@@ -47,6 +47,7 @@ internal static partial class Migration
                                         Install native publication canonical storage offline, without backfill
                   publication-canonical verify [PUBLICATION_ID]
                                         Recompute native publication digests from retained PostgreSQL facts
+                  publication-proof schema  Add native proof storage with the server stopped
                   admin-article-rollback schema
                                         Add independent published rollback storage with the server stopped
                   article-responsibility record ARTICLE REVISION
@@ -239,6 +240,9 @@ internal static partial class Migration
                 case ["publication-canonical", "verify", var canonicalPublication]:
                     await VerifyPublicationCanonicalAsync(connection, canonicalPublication, token);
                     break;
+                case ["publication-proof", "schema"]:
+                    await InitializePublicationProofAsync(connection, token);
+                    break;
                 case ["admin-article-rollback", "schema"]:
                     await InitializeAdminArticleRollbackAsync(connection, token);
                     break;
@@ -388,7 +392,7 @@ internal static partial class Migration
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
-            requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationMedia: true,
+            requireAppearanceActivation: true, requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
             requireAuthoringWorkspaceGroups: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);

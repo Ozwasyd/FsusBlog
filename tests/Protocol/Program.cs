@@ -90,6 +90,7 @@ PropertyValueVectors.Run(fixtures);
 RelatedReadingVectors.Run(fixtures);
 ArticleCanonicalHashVectors.Run(fixtures);
 NativeArticleCanonicalVectors.Run(fixtures);
+NativePublicationProofVectors.Run(fixtures);
 var cluster = new AdminClusterStatus(1, "lab-a", Guid.Parse("bd978cbd-7565-44ed-876d-d734cbe45c79"), "2.0.0+ca32",
     1794680000000, 1794680040012, 349, true);
 Equal(Fixture("admin-cluster-status-v2.hex"), Wire.EncodeAdminClusterStatus(cluster));

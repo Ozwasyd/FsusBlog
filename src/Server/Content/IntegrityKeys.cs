@@ -16,8 +16,13 @@ internal sealed class IntegrityKeys
     };
     private readonly byte[] _manifest;
 
-    internal IntegrityKeys(IConfiguration configuration) =>
-        _manifest = ReadManifest(configuration.GetSection("IntegrityProof:Signing"));
+    internal Registry Configuration { get; }
+
+    internal IntegrityKeys(IConfiguration configuration)
+    {
+        Configuration = ReadRegistry(configuration.GetSection("IntegrityProof:Signing"));
+        _manifest = JsonSerializer.SerializeToUtf8Bytes(Configuration, Json);
+    }
 
     internal void Map(WebApplication app)
     {
@@ -29,14 +34,16 @@ internal sealed class IntegrityKeys
         });
     }
 
-    internal static byte[] ReadManifest(IConfigurationSection signing)
+    internal static byte[] ReadManifest(IConfigurationSection signing) => JsonSerializer.SerializeToUtf8Bytes(ReadRegistry(signing), Json);
+
+    private static Registry ReadRegistry(IConfigurationSection signing)
     {
         var keys = signing.GetSection("Keys").GetChildren().OrderBy(key => key.Key, StringComparer.Ordinal).ToArray();
         if (keys.Length > 64) throw Invalid();
         var publicKeys = keys.Select(ReadKey).OfType<KeyManifest>().ToArray();
         var current = signing["CurrentKeyId"]?.Trim();
         if (!publicKeys.Any(key => key.KeyId == current)) current = null;
-        return JsonSerializer.SerializeToUtf8Bytes(new Registry(1, "integrity-key-registry", "sha256", current, publicKeys), Json);
+        return new Registry(1, "integrity-key-registry", "sha256", current, publicKeys);
     }
 
     private static KeyManifest? ReadKey(IConfigurationSection section)
@@ -90,7 +97,7 @@ internal sealed class IntegrityKeys
 
     private static InvalidOperationException Invalid() => new("Invalid public integrity verification key configuration.");
 
-    private sealed record Registry(int ManifestVersion, string Kind, string HashAlgorithm, string? CurrentKeyId, KeyManifest[] Keys);
-    private sealed record KeyManifest(string KeyId, string Algorithm, int? Version, string PublicKey,
+    internal sealed record Registry(int ManifestVersion, string Kind, string HashAlgorithm, string? CurrentKeyId, KeyManifest[] Keys);
+    internal sealed record KeyManifest(string KeyId, string Algorithm, int? Version, string PublicKey,
         string? RevokedAtUtc, string? CompromisedAtUtc);
 }

@@ -155,7 +155,7 @@ INSERT INTO public.article (owner_id, revision, title, body, deleted, publicatio
     SELECT id, 5, 'Previously withdrawn', 'Private body', false, 2 FROM public.blog_user;
 INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
     SELECT id, revision, title, body, now() FROM public.article WHERE title = 'Previously withdrawn';
-DROP TABLE public.article_publication_canonical;
+DROP TABLE public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
 ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
 ALTER TABLE public.blog_outbox DROP CONSTRAINT outbox_native_publication_binding;
 DROP TABLE IF EXISTS public.article_publication_media;
@@ -190,6 +190,8 @@ FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_publication_rights')" == 0 ]]
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" admin-article-rollback schema
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-canonical schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-proof schema
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-proof schema
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" publication-canonical verify | rg -Fx '{"canonicalVersion":2,"verifiedPublications":0}'
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
 
