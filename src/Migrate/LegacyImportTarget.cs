@@ -7,6 +7,37 @@ using Npgsql;
 
 internal static partial class Migration
 {
+    private static async Task<bool> IsPristineLegacyCandidateSeedAsync(NpgsqlConnection target, NpgsqlTransaction tx,
+        string table, CancellationToken ct)
+    {
+        if (table is "v2_schema" or "authoring_recovery_site" or "admin_identity_schema") return true;
+        var sql = table switch
+        {
+            "site_page_content" => """
+                SELECT count(*)=4 AND bool_and(slug IN ('about','privacy','guidelines','copyright')
+                    AND revision=0 AND markdown IS NULL) FROM public.site_page_content
+                """,
+            "appearance_activation" => """
+                SELECT count(*)=1 AND bool_and(singleton AND revision=0 AND theme_digest='' AND font_digest='')
+                FROM public.appearance_activation
+                """,
+            "taxonomy_epoch" => """
+                SELECT count(*)=1 AND bool_and(singleton AND revision=0) FROM public.taxonomy_epoch
+                """,
+            "article_read_epoch" => """
+                SELECT count(*)=1 AND bool_and(singleton AND last_epoch IS NULL) FROM public.article_read_epoch
+                """,
+            "root_comment_pow_policy" => """
+                SELECT count(*)=1 AND bool_and(singleton AND generation=1 AND proof_seconds=120)
+                FROM public.root_comment_pow_policy
+                """,
+            _ => null
+        };
+        if (sql is null) return false;
+        await using var pristine = new NpgsqlCommand(sql, target, tx);
+        return await pristine.ExecuteScalarAsync(ct) is true;
+    }
+
     private sealed record ImportBackup(string Format, ImportArtifact DatabaseDump, ImportBackupSite Site);
     private sealed record ImportArtifact(long Bytes, string Sha256);
     private sealed record ImportBackupSite(int Version, int SchemaVersion, string PostgreSqlMajor,

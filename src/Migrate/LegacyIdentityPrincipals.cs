@@ -4,6 +4,10 @@ using System.Security.Cryptography;
 
 internal static partial class Migration
 {
+    private static bool IsLegacyAdminHandle(string? handle) =>
+        handle is { Length: >= 1 and <= 64 } && char.IsAsciiLetterLower(handle[0]) &&
+        handle.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '_' or '-' or '.');
+
     private sealed record LegacyAccountFlags(bool Passkey, bool Recovery, bool Mfa);
 
     private sealed partial class LegacyIdentityAudit

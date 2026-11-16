@@ -332,60 +332,11 @@ dotnet run --no-build --project src/Migrate -- legacy identity postgres > "$iden
 
 2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-identity.sh [postgres|sqlite|mysql]`。PostgreSQL 18.7、SQLite 3.54.0 和 MySQL 8.4.13 分别通过旧字段形状的隔离样本验证。核对同号的两类主体、跨身份错误绑定、撤销与在用的恢复密钥、当前和历史会话、不认识的权限、缺表和报告脱敏。精确输入摘要与原始输出见本地 `artifacts/native-migration/identity-20261114T164928.log`。
 
-### 接续普通站点 Passkey
+### 已退役的旧身份复制命令
 
-此路径适用于 PostgreSQL 冻结备份恢复出的普通匿名账号。旧账号须处于启用状态，有一至五枚普通登记的 Passkey。凭据数须与原登记代次一致，且没有 MFA 或恢复权限残留。旧站配置的 `Fido2:ServerDomain` 与所选 `Fido2:Origins` 值须独立核对。它们必须与新站的 `FSUSBLOG_PASSKEY_RP_ID` 和 `FSUSBLOG_PASSKEY_ORIGIN` 完全相同。旧凭据表本身不记录这两个值。
+V2 不再复制旧 Passkey、TOTP 或独立管理员账号。普通账号使用 V2 原生登记；管理员使用 V2 原生创建、授权及凭据登记。旧审批文件不能再通过 `legacy passkey` 或 `legacy admin` 执行。旧会话、恢复授权和原始历史材料保留在不可变归档，不作为 V2 登录能力。
 
-将 `FSUSBLOG_V1_DB` 指向独立集群中还原的只读旧库。`FSUSBLOG_LEGACY_PASSKEY_DB` 指向本机 Unix socket 上停服的 `fsusv2_import_runtime_*` 副本。副本使用当前结构，已有审核过的目标账号。首次导入需要空 Passkey 信任池和初始账户序列。先验证副本的回退备份。
-
-```bash
-umask 077
-dotnet run --no-build --project src/Migrate -- legacy passkey plan \
-  "$old_site" "$new_site" "$old_account_id" "$target_user" "$old_origin" "$old_rp" "$backup" "$backup_sha" > "$review"
-dotnet run --no-build --project src/Migrate -- legacy passkey apply \
-  "$review" "$review_sha" "$assertion" "$assertion_sha" "$backup" "$backup_sha"
-```
-
-审批连接原站、旧账号、目标 UUID、两端库及旧凭据摘要和回退备份。审核后，在同一 origin 取得原认证器的可发现凭据断言，要求用户验证，并将审批文件原字节的 SHA-256 作为 32 字节挑战。以该摘要的无填充 Base64URL 填写 `PasskeyLoginCompleteRequest` 的 token。单枚凭据继续使用原版本 1 审批和二进制 AEDS 断言文件。多枚凭据使用版本 2 审批，`credentialCount` 绑定完整旧凭据集。断言文件是一个 UTF-8 JSON 数组，每个元素是一个对应 AEDS 帧的标准 Base64 字符串。同一审批的所有断言使用相同挑战，凭据 ID 必须各出现一次，顺序不限。每个断言保留返回的 credential ID、用户 handle、签名和认证器数据，remember-me 使用 false。两个输入文件均须为操作者私有文件，并分别固定原字节 SHA-256。首次启用的审批有效期为十分钟。
-
-工具复用运行时 FIDO 验证器，核对每枚原公钥、签名、用户验证、坐标和计数。全部证明通过后才在一次事务写入账号及完整凭据集，保留原整数账号、用户 handle、公钥、备份标志和历史时间，记录各自已核验的最新计数并推进账号序列。收到回执前中断时，同一审批可以回读完整结果。旧会话需要重新登录，旧恢复能力需要独立登记。原设备及登记元数据由冻结归档保管。这个流程没有导入管理员凭据、旧 session 或 MFA 密钥。
-
-同一停服副本可逐一接续多个普通账号。每个后续账号都使用最新已验证的回退备份、独立审批和新的断言。非空 Passkey 信任池使用版本 3 审批，其中 `sequenceBefore` 固定前置账户序列的 `lastValue` 和 `isCalled`。旧主体号低于下一分配值时保留原序列状态，达到或超过下一分配值时在同一事务内推进。序列落后于已分配主体时拒绝导入。
-
-写入和重试均重新核对原所有者、主体和凭据的备份摘要。目标账号已有主体时拒绝再次分配，包括撤销最后一枚凭据后留下的空主体。主体号、用户 handle 和凭据 ID 均核对冲突。新账号导入或服务产生后续写入后，旧审批不再属于当前可复验状态；此时应从对应备份核对原回执。
-
-### 连续接续旧 TOTP
-
-旧站 TOTP 使用 SHA1、六位验证码、30 秒和同样的 20 字节种子。正常 Passkey 导入仍会拒绝旧 MFA 权威。需要保留已启用的旧 TOTP 时，使用同一参数执行 `legacy passkey plan-mfa`。版本 4 审批绑定旧 MFA 记录、原 Data Protection 密钥环和证书的独立摘要，以及新站 AES 封装密钥摘要。
-
-`FSUSBLOG_LEGACY_TOTP_RING` 指向私有 UTF-8 JSON 数组，包含原站完整证书保护密钥环的 XML 文档，包括撤销记录。按原始文件字节固定 `FSUSBLOG_LEGACY_TOTP_RING_SHA256`。将可以解开该旧种子的独立审核 PKCS#12 设置为 `FSUSBLOG_LEGACY_TOTP_CERT`，固定对应的 `_SHA256`，密码通过私有环境变量 `FSUSBLOG_LEGACY_TOTP_CERT_PASSWORD` 提供。新站 `FSUSBLOG_TOTP_KEY_HEX` 提供专用的 32 字节封装密钥。
-
-使用原 `apply` 命令，并从 `FSUSBLOG_LEGACY_TOTP_PROOF` 提供原认证器的新六位码。证明文件仅含六个 ASCII 数字，以 `FSUSBLOG_LEGACY_TOTP_PROOF_SHA256` 固定字节。工具先核对全部原 Passkey 签名，再按固定的旧名称和用途解开种子，要求验证码时间步超过冻结旧库的防重放下限。凭据和新 UUID 绑定的 AES 封装在同一事务提交。已使用的证明时间步进入新站防重放记录；服务签发会话前仍须核对 TOTP。
-
-原 TOTP 恢复码使用不同的哈希方案，按审批留在冻结归档。用原认证器登录新站后，通过已认证的恢复码再生成流程取得新码。仍有独立站点恢复密钥、待完成的 MFA 登记、缺少证书或密钥环、原环已撤销对应密钥，或者无法证明原 TOTP 时，账号停在迁移前状态。本路径不转移旧会话。
-
-### 演练选定的独立管理员
-
-该流程使用单独的新 v2 PostgreSQL 候选，`FSUSBLOG_IMPORT_DB` 指向本机 Unix socket 的 `fsusv2_import_*` 数据库。用当前迁移工具初始化空库，先生成并独立验证其备份，再保留清单 SHA-256。目标 UUID 读取候选的 `authoring_recovery_site.site_id`，旧站 UUID 由操作者用独立站点记录确认。PostgreSQL 旧源与候选必须属于不同的集群，连接需具备读取 `pg_catalog.pg_control_system()` 的权限。将旧数据库置为冻结的只读来源，SQLite 的来源绑定包含规范文件位置及已选元数据，凭据页不参与读取摘要。
-
-```bash
-umask 077
-dotnet run --no-build --project src/Migrate -- legacy admin plan postgres \
-  "$source_site_uuid" "$target_site_uuid" "$verified_backup_dir" "$manifest_sha256" 42 103 > "$draft"
-```
-
-只按 `admin_principal` 的旧正 Int64 ID 选择，普通账号同号无关。审批人员确认旧 handle、状态、验证代次、明确的权限名和新 UUID 映射后，只填写 `principals[].targetAdminId`。权限以旧站每行一个标识的实际格式读取，仅保留能明确识别的 v2 对应项。root、TOTP 或其残留状态、重复或不认识的权限、未知身份状态均拒绝。旧 Passkey 和会话只按归属计数。草案和审核文件含身份元数据，使用操作者私有文件；保存经审核文件的原字节 SHA-256。
-
-```bash
-dotnet run --no-build --project src/Migrate -- legacy admin stage \
-  "$reviewed_json" "$review_sha256" "$verified_backup_dir" "$manifest_sha256"
-dotnet run --no-build --project src/Migrate -- legacy admin verify \
-  "$reviewed_json" "$review_sha256" "$verified_backup_dir" "$manifest_sha256" "$candidate_sha256"
-```
-
-首次写入在同一事务封禁启动、记录独立管理员映射并写入当前形状的禁用管理员。保留旧管理 handle 和验证代次，为每条记录产生新的 32 字节 WebAuthn handle。审核权限只留在隔离谱系，`public.admin_permission`、邀请、凭据和会话均为空。重新执行 stage 会重读源和目标，verify 使用首次输出的独立 `candidateSha256`、审核文件和备份做只读复验，无需连接源库。数据库标记、备份覆盖、管理员、权限行或隔离结构的变化均会停止演练。候选仅供核验，正式账号权限审批及新凭据登记需要独立完成。
-
-2026-11-15 在 macOS ARM64、SDK 10.0.404 上通过 `tests/Integration/Migration/legacy-admin-rehearsal.sh [postgres|sqlite|mysql]`。SQLite 3.54.0、独立 PostgreSQL 18.7 和 MySQL 8.4.13 的旧结构样本均通过映射、只读复验和独立的 PostgreSQL 备份恢复。PostgreSQL 和 MySQL 使用不能读取原凭据与会话秘密字段的旧源角色。测试拒绝旧根权限或 MFA、变更的来源、修改的管理员与回执、同名约束替换和发布态站点页面，确认普通身份同号不影响结果且旧源保持原样。原始输出与输入摘要见 `artifacts/native-migration/legacy-admin-rehearsal-20261114T184119Z.log`。
+退役实现和专用 `legacy-admin-rehearsal.sh` 测试保存在 Git 提交 `20721912dac9a8f8eab5be8f8f2ec5d6f2fc8880` 中。原生 V2 Passkey、管理员、MFA 与恢复功能和测试不变。`legacy identity` 只读盘点、文章所有者显式映射、私有草稿/封面暂存及历史签名见证仍保留。共享的初始候选检查继续逐项核验默认行，未放宽导入条件。
 
 文章暂存、当前表投影和附件演练接受新版建库生成的四个站点页面空槽，限于原始 slug、修订号 0 及空正文。若安装了外观激活结构，也只允许修订号 0 的空主题和空字体。分类元数据结构只允许一条启用单例标记、修订号为 0 的初始记录。分类操作回执仍属于业务数据，会阻止在该候选上演练。对照备份时初始记录仍参与摘要。SQLite、PostgreSQL、MySQL 文章暂存与恢复、SQLite 文章投影，以及 SQLite 与独立 PostgreSQL 附件演练都通过了新版初始结构的回归。原始输出见 `artifacts/native-migration/legacy-pristine-baseline-20261114T185057Z.log`。
 

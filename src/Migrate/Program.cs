@@ -238,13 +238,7 @@ internal static partial class Migration
                   legacy assets rehearsal verify PACKAGE MANIFEST_SHA256
                                         Rehearse an offline, quarantined attachment copy
                   legacy identity PROVIDER
-                  legacy passkey plan|plan-mfa SOURCE_SITE TARGET_SITE ACCOUNT TARGET_USER OLD_ORIGIN OLD_RP BACKUP SHA
-                  legacy passkey apply REVIEW REVIEW_SHA ASSERTION ASSERTION_SHA BACKUP SHA
                                         Audit account and administrator compatibility without activating credentials
-                  legacy admin plan PROVIDER SOURCE_SITE_UUID TARGET_SITE_UUID BACKUP_DIR MANIFEST_SHA256 ADMIN_ID...
-                  legacy admin stage REVIEW_JSON REVIEW_SHA256 BACKUP_DIR MANIFEST_SHA256
-                  legacy admin verify REVIEW_JSON REVIEW_SHA256 BACKUP_DIR MANIFEST_SHA256 CANDIDATE_SHA256
-                                        Rehearse reviewed administrator identities without enabling login
                 """);
             return 0;
         }
@@ -279,12 +273,10 @@ internal static partial class Migration
                 return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
             if (arguments is ["legacy", "assets", "rehearsal", .. var mediaArguments])
                 return await RunLegacyMediaRehearsalAsync(mediaArguments, cancelled.Token);
+            if (arguments is ["legacy", "passkey" or "admin", ..])
+                throw new ArgumentException("Legacy credential and administrator copying is retired. Use native V2 enrollment and account creation.");
             if (arguments is ["legacy", "identity", var identityProvider])
                 return await VerifyLegacyIdentityAsync(identityProvider, cancelled.Token);
-            if (arguments is ["legacy", "passkey", .. var passkeyArguments])
-                return await RunLegacyPasskeyAsync(passkeyArguments, cancelled.Token);
-            if (arguments is ["legacy", "admin", .. var legacyAdminArguments])
-                return await RunLegacyAdminRehearsalAsync(legacyAdminArguments, cancelled.Token);
             if (arguments is ["legacy", "import", .. var importArguments])
             {
                 return await RunLegacyImportAsync(importArguments, cancelled.Token);
