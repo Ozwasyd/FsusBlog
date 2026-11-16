@@ -15,19 +15,40 @@ internal static partial class AuthorTextIndex
         ValidateContinuation(after, expectedGeneration);
         var properties = new PropertyStore(db, tx, actor);
         var search = query.Search;
-        AuthorTextPropertyScope text;
-        PropertyStore.Condition[] conditions = [];
-        PropertyStore.FacetDefinition? facetDefinition = null;
-        PropertyStore.SortDefinition? sortDefinition = null;
+        var (conditions, facetDefinition, sortDefinition, text) = await ResolvePropertySearch(
+            db, tx, actor, properties, search.SchemaRevision, search.Conditions, after, ct, facet, sort, query);
+
+        if (after is null)
+        {
+            if (mixed) await Reconcile(db, tx, actor.Id, ct, includeSummary: true, includeHeading: includeHeading);
+            await properties.ReconcileTextProjection(text!, ct);
+        }
+        return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
+            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, facetDefinition, sortDefinition, text, mixed),
+            includeSummary: mixed, includeHeading: includeHeading);
+    }
+
+    // Resolves the shared property/search lock boundary before either query reads its result cohort.
+    private static async Task<(PropertyStore.Condition[] Conditions, PropertyStore.FacetDefinition? Facet,
+        PropertyStore.SortDefinition? Sort, AuthorTextPropertyScope? Text)> ResolvePropertySearch(
+        NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, PropertyStore properties, long schemaRevision,
+        IReadOnlyList<PropertyCondition> input, AuthorTextRankKey? after, CancellationToken ct,
+        PropertyStore.FacetSelection? facet, PropertyStore.SortSelection? sort, AuthorTextPropertyTextQuery? textQuery = null)
+    {
         try
         {
-            // Hold the property scope before any reference or result article locks.
-            text = await properties.ResolveTextProjection(search.SchemaRevision, query.DefinitionId, query.DefinitionRevision, ct);
-            if (search.Conditions.Count != 0 || facet.HasValue || sort.HasValue)
+            // Text projection, when requested, acquires the property scope even without filters.
+            var text = textQuery is null ? null : await properties.ResolveTextProjection(
+                schemaRevision, textQuery.DefinitionId, textQuery.DefinitionRevision, ct);
+            PropertyStore.Condition[] conditions = [];
+            PropertyStore.FacetDefinition? facetDefinition = null;
+            PropertyStore.SortDefinition? sortDefinition = null;
+            if (input.Count != 0 || facet.HasValue || sort.HasValue)
                 (conditions, facetDefinition, sortDefinition) =
-                    await properties.ResolveSearchQuery(search.SchemaRevision, search.Conditions, facet, sort, ct);
+                    await properties.ResolveSearchQuery(schemaRevision, input, facet, sort, ct);
             await Store.LockCommand(db, tx, actor.Id, Scope, ct);
             if (conditions.Length != 0) await properties.ValidateQueryReferences(conditions, ct);
+            return (conditions, facetDefinition, sortDefinition, text);
         }
         catch (BusinessException error) when (after.HasValue && error.Rejection is Rejection.NotFound or Rejection.Conflict or Rejection.Invalid)
         {
@@ -41,15 +62,6 @@ internal static partial class AuthorTextIndex
         {
             throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
         }
-
-        if (after is null)
-        {
-            if (mixed) await Reconcile(db, tx, actor.Id, ct, includeSummary: true, includeHeading: includeHeading);
-            await properties.ReconcileTextProjection(text, ct);
-        }
-        return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
-            new(search.UpdatedFromUnixMs, search.UpdatedUntilUnixMs, conditions, facetDefinition, sortDefinition, text, mixed),
-            includeSummary: mixed, includeHeading: includeHeading);
     }
 
     private readonly record struct PropertyTextParameters(int Definition, int Revision);

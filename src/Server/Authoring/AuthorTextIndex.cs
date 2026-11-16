@@ -66,29 +66,8 @@ internal static partial class AuthorTextIndex
         ValidateContinuation(after, expectedGeneration);
         includeSummary |= includeHeading;
         var properties = new PropertyStore(db, tx, actor);
-        PropertyStore.Condition[] resolved = [];
-        PropertyStore.FacetDefinition? facetDefinition = null;
-        PropertyStore.SortDefinition? sortDefinition = null;
-        try
-        {
-            // The property scope precedes any article locks and stays held through readback.
-            if (conditions.Count != 0 || facet.HasValue || sort.HasValue)
-                (resolved, facetDefinition, sortDefinition) = await properties.ResolveSearchQuery(schemaRevision, conditions, facet, sort, ct);
-            await Store.LockCommand(db, tx, actor.Id, Scope, ct);
-            if (resolved.Length != 0) await properties.ValidateQueryReferences(resolved, ct);
-        }
-        catch (BusinessException error) when (after.HasValue && error.Rejection is Rejection.NotFound or Rejection.Conflict or Rejection.Invalid)
-        {
-            throw AuthorTextCursor.Invalid();
-        }
-        catch (PropertyValidationException)
-        {
-            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Invalid, "Invalid article property.");
-        }
-        catch (PropertySchemaException)
-        {
-            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
-        }
+        var (resolved, facetDefinition, sortDefinition, _) = await ResolvePropertySearch(
+            db, tx, actor, properties, schemaRevision, conditions, after, ct, facet, sort);
 
         if (after is null) await Reconcile(db, tx, actor.Id, ct, includeSummary, includeHeading);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct,
