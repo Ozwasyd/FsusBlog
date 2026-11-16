@@ -193,23 +193,14 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private async Task<CanvasGraphReceipt> ApplyPatch(CanvasGraphReceipt current, CanvasGraph after,
         CanvasHistoryPatch patch, bool forward, CancellationToken ct, bool replay = false)
     {
-        var nodes = patch.Nodes.Select(entry => (Expected: forward ? entry.Before : entry.After, Desired: forward ? entry.After : entry.Before)).ToArray();
-        var edges = patch.Edges.Select(entry => (Id: entry.Id, Desired: forward ? entry.After : entry.Before)).ToArray();
-        var changed = nodes.Where(pair => pair.Desired?.ArticleId is not null &&
-            (pair.Expected?.ArticleId, pair.Expected?.Anchor, pair.Expected?.PinnedRevision) !=
-            (pair.Desired.ArticleId, pair.Desired.Anchor, pair.Desired.PinnedRevision))
-            .Select(pair => pair.Desired!).ToArray();
+        var plan = CanvasPatchPlan.From(patch, forward);
         // Replaying a saved reference still needs access to the article and its pin.
         // Its current anchor may have changed since the original Canvas operation.
-        await CheckReferences(changed, ct, requireResolved: !replay);
-        await DeleteIds(current.Id, "delete from public.canvas_edge where canvas_id=$1 and id=any($2)",
-            edges.Where(pair => pair.Desired is null).Select(pair => pair.Id).ToArray(), ct);
-        foreach (var pair in nodes)
-            if (pair.Desired is not null) await StoreNode(current.Id, pair.Desired, ct);
-        foreach (var pair in edges)
-            if (pair.Desired is not null) await StoreEdge(current.Id, pair.Desired, ct);
-        await DeleteIds(current.Id, "delete from public.canvas_node where canvas_id=$1 and id=any($2)",
-            nodes.Where(pair => pair.Desired is null).Select(pair => pair.Expected!.Id).ToArray(), ct);
+        await CheckReferences(plan.References, ct, requireResolved: !replay);
+        await DeleteIds(current.Id, "delete from public.canvas_edge where canvas_id=$1 and id=any($2)", plan.RemovedEdges, ct);
+        foreach (var node in plan.WrittenNodes) await StoreNode(current.Id, node, ct);
+        foreach (var edge in plan.WrittenEdges) await StoreEdge(current.Id, edge, ct);
+        await DeleteIds(current.Id, "delete from public.canvas_node where canvas_id=$1 and id=any($2)", plan.RemovedNodes, ct);
         return current with { NodeCount = after.Nodes.Length, EdgeCount = after.Edges.Length };
     }
 
