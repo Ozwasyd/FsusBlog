@@ -1,8 +1,4 @@
-using System.Globalization;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
@@ -137,46 +133,7 @@ internal static class DocumentExportStore
             !CryptographicOperations.FixedTimeEquals(SHA256.HashData(output), row.GetFieldValue<byte[]>(1)) ||
             !CryptographicOperations.FixedTimeEquals(task.OutputDigest!, row.GetFieldValue<byte[]>(1)))
             throw new PublicUnavailableException();
-        return (task.Request.Format, receipt ? SerializeReceipt(task, verified!, toolDigest, receiptVersion, ct) : output, hasAttachment);
-    }
-
-    private static byte[] SerializeReceipt(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest,
-        int version, CancellationToken ct)
-    {
-        var (mime, format) = DocumentExportEndpoints.Presentation(task.Request.Format);
-        var result = new
-        {
-            version, taskId = task.Request.Id, article = task.Request.Article,
-            expectedRevision = task.Request.Revision.ToString(CultureInfo.InvariantCulture),
-            sourceRevision = task.Request.SourceRevision.ToString(CultureInfo.InvariantCulture),
-            format, provider = task.Provider, layout = "basic-layout-1", state = "succeeded",
-            toolchainSha256 = toolDigest is null ? null : Convert.ToHexStringLower(toolDigest),
-            createdUnixMs = task.Created, startedUnixMs = task.Started, finishedUnixMs = task.Finished, expiresUnixMs = task.Expires,
-            sourceSha256 = Convert.ToHexStringLower(task.SourceDigest),
-            bodySha256 = TextDigest(input.Body),
-            metadata = new
-            {
-                title = input.Title, savedUtcTicks = input.HappenedAt.UtcTicks.ToString(CultureInfo.InvariantCulture),
-                titleSha256 = TextDigest(input.Title)
-            },
-            assets = input.Attachments.Select((image, index) => new
-            {
-                id = input.Assets[index], name = image.Name, mime = image.ContentType,
-                width = image.Width, height = image.Height, bytes = image.Bytes.Length,
-                sha256 = Convert.ToHexStringLower(image.VerifiedDigest!)
-            }).ToArray(),
-            output = new { mime = mime.Split(';', 2)[0], bytes = task.OutputBytes, sha256 = Convert.ToHexStringLower(task.OutputDigest!) }
-        };
-        if (version == 1) return JsonSerializer.SerializeToUtf8Bytes(result);
-        var details = JsonSerializer.SerializeToNode(result)!.AsObject();
-        var warnings = task.Request.Format == DocumentExportFormat.Docx
-            ? WordDocumentExport.Warnings(input.Body, task.Provider != 1, ct)
-            : EpubDocumentExport.Warnings(input.Body, task.Provider != 1, ct);
-        details["warnings"] = JsonSerializer.SerializeToNode(warnings
-            .Select(warning => new { code = warning.Code, start = warning.Start, length = warning.Length, occurrences = warning.Occurrences }));
-        return JsonSerializer.SerializeToUtf8Bytes(details);
-
-        static string TextDigest(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+        return (task.Request.Format, receipt ? DocumentExportReceipt.Encode(task, verified!, toolDigest, receiptVersion, ct) : output, hasAttachment);
     }
 
     internal static async Task<Guid[]> ReadAttachmentIds(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, short provider, CancellationToken ct)
