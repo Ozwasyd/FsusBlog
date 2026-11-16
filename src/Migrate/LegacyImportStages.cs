@@ -271,9 +271,10 @@ internal static partial class Migration
     }
 
     private static async Task AssertCandidateRelationsAsync(NpgsqlConnection target, CandidateTable[] definitions,
-        CancellationToken token, NpgsqlTransaction? transaction = null, bool projected = false, bool retainedSchedules = false)
+        CancellationToken token, NpgsqlTransaction? transaction = null, bool projected = false, bool retainedSchedules = false, string? extraReceipt = null)
     {
         var expected = definitions.Select(table => table.Name).Append("candidate").Append("checkpoint").ToHashSet(StringComparer.Ordinal);
+        if (extraReceipt is not null) expected.Add(extraReceipt);
         if (projected) expected.Add("current_projection");
         if (retainedSchedules) expected.Add(LegacyInitialScheduleTable);
         await using var command = new NpgsqlCommand("""

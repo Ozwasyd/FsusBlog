@@ -571,3 +571,52 @@ The focused Server build may use `-p:DesignTimeBuild=true` to skip only unrelate
 FsusUI native generation in an isolated archive; this is not a full Server build
 or a release-readiness gate. Its real image-normalizer executable and Skia codec
 still run and are fingerprinted.
+
+### Dormant all-draft cover materialization
+
+The separate `legacy covers dormant-plan|dormant-apply|dormant-verify` commands take:
+`PLAN SHA BACKUP SHA REQUEST SHA CUSTODY PREPARED SHA NORMALIZER_SHA PRIVATE_ROOT`
+plus `APPROVAL SHA` for apply/verify. Planning is read-only; apply requires the
+exact independently recorded review bytes/digest, original physical candidate,
+converter executable, custody/prepared bytes and private destination. Install the
+existing import-origin schema before baseline and staging approval, never retrofit
+an approved candidate. All articles must be never-published, unscheduled drafts;
+publication, rights-policy/snapshot and responsibility rows are refused.
+
+This writes real V2 article/revision/taxonomy and private-media/import-origin rows,
+revision-media provenance and saved revision-cover roles. Article-head aliases must
+agree with a saved revision cover. Normalized UUIDs, owners and byte hashes remain
+exactly those reviewed. The authoring tables reside in the SQL `public` schema,
+but publication/history/media/cover rows remain empty and `v2_schema=-1` remains
+unchanged. Source URLs, V1 signatures and original plan/checkpoint bytes are not
+rewritten. Normal projection, preparation after materialization and release paths
+remain closed for this cover-bearing candidate.
+
+The dedicated review binds the exact expected authoring rows (a separate dormant
+article digest), original candidate/request and materializer executable. Existing
+provenance `activation_sha256` records this dormant-operation approval, not runtime
+or public activation; `projection_sha256` records the exact expected draft-row
+projection digest, not a legacy/public signature. A separate candidate receipt
+binds the complete post-write business/media measurement.
+
+Apply locks the original candidate tables, verifies its baseline or exact committed
+state, uses ordinary FK checks and independently reads back all projected rows.
+Files are owner-private, outside configured serving/custody roots, exclusively
+created, fsynced and never overwritten. Established approved files are **not
+removed** after commit failure or an ambiguous acknowledgment. Retry accepts only
+an empty original baseline plus an exact subset of approved files, or the complete
+committed database/receipt plus every exact file. Missing committed files or
+unexpected content require recovery of the approved database/file pair.
+
+After verified commit, capture a native database dump and the private file set.
+`dormant-verify` is read-only and can verify a restored clone against the original
+review, site, catalog, checkpoint/shadow/row digests and exact restored files at a
+new private path. It grants no clone-write authority. Preserve the original plan,
+baseline, request, custody/prepared packages, approval and pinned converter along
+with that pair. This does not extend the normal site-backup/activation contract.
+
+`legacy-cover-import.sh --dormant` exercises actual PNG/JPEG materialization,
+three saved revision covers, private-file and owner readback, exact replay from a
+simulated orphan-file state, native DB+file restore verification and target/root/
+file/role/serving refusals. It simulates the observable retry states; it does not
+claim a real network-level lost-commit-acknowledgment fault injection.

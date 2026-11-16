@@ -155,6 +155,13 @@ internal static partial class Migration
         await VerifyCandidateHeaderAsync(target, plan, planDigest, token, tx);
         var already = await HasRelation(target, tx, $"{ImportSchema}.{LegacyProjectionReceipt}", token);
         await AssertCandidateRelationsAsync(target, definitions, token, tx, already, retainSchedules && already);
+        await VerifyCandidateMeasurementsAsync(target, tx, plan, definitions, token);
+        return already;
+    }
+
+    private static async Task VerifyCandidateMeasurementsAsync(NpgsqlConnection target, NpgsqlTransaction tx,
+        ImportPlan plan, CandidateTable[] definitions, CancellationToken token)
+    {
         var expected = plan.ExpectedTables;
         if (expected.Length != definitions.Length || !expected.Select(row => row.Table).ToHashSet()
                 .SetEquals(definitions.Select(table => table.Name)) ||
@@ -175,7 +182,6 @@ internal static partial class Migration
         foreach (var table in definitions)
             if (await MeasureCandidateTableAsync(target, tx, table, token) != expected.Single(row => row.Table == table.Name))
                 throw new InvalidOperationException($"Staged source has changed: {table.Name}.");
-        return already;
     }
 
     private static async Task SaveOrVerifyProjectionReceiptAsync(NpgsqlConnection target, NpgsqlTransaction tx, bool already,

@@ -4,12 +4,14 @@ cd "$(dirname "$0")/../../.."
 export PATH="${PG_TOOLS_DIR:-/opt/homebrew/opt/postgresql@18/bin}:$PATH"
 dotnet_bin="${DOTNET_BIN:-dotnet}"
 migrate=("$dotnet_bin" "${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}")
-[[ ( $# == 0 || ( $# == 1 && "$1" == --prepare ) ) && -n "${BASELINE_MIGRATE_DLL:-}" ]] || { echo "Set BASELINE_MIGRATE_DLL to the unchanged 7b85f40 binary." >&2; exit 2; }
+[[ ( $# == 0 || ( $# == 1 && ( "$1" == --prepare || "$1" == --dormant ) ) ) && -n "${BASELINE_MIGRATE_DLL:-}" ]] || { echo "Set BASELINE_MIGRATE_DLL to the unchanged 7b85f40 binary." >&2; exit 2; }
+dormant=false; publication_count=2
 prepare=false; current_leaf=ExactName.txt; historical_leaf=Other.txt
-if [[ "${1:-}" == --prepare ]]; then
+if [[ "${1:-}" == --prepare || "${1:-}" == --dormant ]]; then
     prepare=true; current_leaf=ExactName.jpeg; historical_leaf=Other.png
     source tests/Integration/Migration/legacy-cover-preparation-fixture.sh
 fi
+if [[ "${1:-}" == --dormant ]]; then dormant=true; publication_count=0; source tests/Integration/Migration/legacy-dormant-cover-fixture.sh; fi
 umask 077
 scratch="$(mktemp -d /tmp/fsus-cover-proof.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
@@ -21,6 +23,10 @@ cleanup() {
     local evidence="$scratch-evidence"
     mkdir -m 700 "$evidence"
     find "$scratch" -maxdepth 1 -type f \( -name '*.json' -o -name '*.err' -o -name '*.out' -o -name '*.log' \) -exec cp {} "$evidence/" \;
+    if [[ -d "$scratch/dormant-media" ]]; then
+        mkdir -m 700 "$evidence/dormant-media"; cp "$scratch/dormant-media/"*.media "$evidence/dormant-media/"
+        cp "$scratch/approval/dormant.json" "$evidence/dormant-approval.json"
+    fi
     if [[ -d "$scratch/prepared/first" ]]; then
         mkdir -m 700 "$evidence/prepared"
         cp -R "$scratch/prepared/first" "$evidence/prepared/"
@@ -64,11 +70,16 @@ export FSUSBLOG_V1_SCHEMA=public
 export FSUSBLOG_DB="$(dsn target "$target")" FSUSBLOG_IMPORT_DB="$(dsn target "$target")"
 "${migrate[@]}" plan > "$scratch/bootstrap.json"
 "${migrate[@]}" apply "$scratch/bootstrap.json"
+if [[ "$dormant" == true ]]; then "${migrate[@]}" private-media-import-origin schema; fi
 pg target "$target" -c "INSERT INTO public.blog_user VALUES ('$owner','Cover fixture',true,true,1)"
 target_site="$(pg target "$target" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')"
 mkdir -m 700 "$scratch/public" "$scratch/public/illustration" "$scratch/private" "$scratch/packages"
 printf abc > "$scratch/public/illustration/$current_leaf"
 printf abc > "$scratch/public/illustration/$historical_leaf"
+if [[ "$dormant" == true ]]; then
+    pg source "$source" -c "DELETE FROM article_publication; DELETE FROM article_responsibility_snapshot; DELETE FROM article_rights_snapshot; DELETE FROM article_rights_policy;
+        UPDATE article SET status=0,current_publication_id=NULL,published_at=NULL,last_published_at=NULL,public_updated_at=NULL"
+fi
 if [[ "$prepare" == true ]]; then seed_cover_images; fi
 "${migrate[@]}" legacy assets rehearsal plan postgres "$scratch/public" "$scratch/private" 87bcdd48-255d-49dd-a984-dd4c4ee6f9d4 "$target_site" > "$scratch/review.json"
 python3 - "$scratch/review.json" "$owner" <<'PY'
@@ -93,7 +104,7 @@ proof=("${migrate[@]}" legacy covers proof postgres "$scratch/packages/media" "$
 cmp "$scratch/proof.json" "$scratch/repeat.json"
 "$dotnet_bin" "$BASELINE_MIGRATE_DLL" legacy covers proof postgres "$scratch/packages/media" "$media_sha" "$scratch/owners.json" "$owners_sha" "$revision_sha" "$publication_sha" > "$scratch/old-proof.json"
 cmp "$scratch/old-proof.json" "$scratch/proof.json"
-python3 - "$scratch/proof.json" <<'PY'
+python3 - "$scratch/proof.json" "$publication_count" <<'PY'
 import json,sys
 s=open(sys.argv[1]).read(); v=json.loads(s); c=v['candidates']
 assert not v['readyToApply'] and not v['readyToStage']
@@ -102,7 +113,7 @@ assert all(r['role']=='cover' for r in c)
 assert len({r['assetId'] for r in c})==2
 assert all(r['sourceRevisionId'] >= 5000000001 for r in c)
 assert sum(r['sourceKind']=='revision' and r['currentEdit'] for r in c)==1
-assert sum(r['sourceKind']=='revision' and r['currentPublication'] for r in c)==1
+assert sum(r['sourceKind']=='revision' and r['currentPublication'] for r in c)==(1 if int(sys.argv[2]) else 0)
 assert '/uploads/' not in s and 'ExactName' not in s
 PY
 export DOTNET_BIN="$dotnet_bin" FSUSBLOG_MIGRATE_DLL="${migrate[1]}" PYTHONDONTWRITEBYTECODE=1
@@ -159,7 +170,7 @@ pg source "$source" -c 'UPDATE content_asset_reference SET reference_count=1'
 [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM public.article')" == 0 ]]
 [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.shadow_article')" == 1 ]]
 [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.shadow_revision')" == 3 ]]
-[[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.shadow_publication')" == 2 ]]
+[[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.shadow_publication')" == "$publication_count" ]]
 [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.shadow_cover_mapping')" == 4 ]]
 [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM fsus_legacy_candidate.checkpoint')" == 3 ]]
 plan_sha="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["planSha256"])' "$scratch/staged.json")"
@@ -203,6 +214,7 @@ refuse checkpoint-tamper "${apply[@]}"
 pg target "$target" -c "UPDATE fsus_legacy_candidate.checkpoint SET digest='$checkpoint' WHERE phase=1"
 "${apply[@]}" > "$scratch/final-replay.json"
 if [[ "$prepare" == true ]]; then prove_cover_preparation; fi
+if [[ "$dormant" == true ]]; then prove_dormant_cover; exit 0; fi
 pg_dump -h "$scratch/target-s" -p "$PGPORT" -U "$PGUSER" -Fc "$target" > "$scratch/candidate.dump"
 restored=fsusv2_import_cover_restored
 pg target postgres -c "CREATE DATABASE $restored TEMPLATE template0"

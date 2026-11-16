@@ -89,6 +89,7 @@ internal static partial class Migration
                   legacy covers stage PACKAGE SHA OWNERS OWNERS_SHA REVISION_SHA PUBLICATION_SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
                                         Store approved mappings in an exact empty, non-serving candidate
                   legacy covers verify PACKAGE SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
+                  legacy covers dormant-plan|dormant-apply|dormant-verify PLAN SHA BACKUP SHA REQUEST SHA CUSTODY PREPARED SHA NORMALIZER_SHA PRIVATE_ROOT [APPROVAL SHA]
                   legacy covers prepare-request|prepare-verify PLAN SHA BACKUP SHA PACKAGE SHA PROOF SHA [PREPARED SHA NORMALIZER_SHA]
                                         Read-only portable cover quarantine verification after restore
                   inventory              Read PostgreSQL relations, columns and keys from the target
@@ -268,6 +269,8 @@ internal static partial class Migration
             if (arguments is ["legacy", "covers", "verify", var verifyPackage, var verifyPackageSha, var verifyProof, var verifyProofSha,
                     var verifyBackup, var verifyBackupSha])
                 return await RunLegacyCoverVerifyAsync(verifyPackage, verifyPackageSha, verifyProof, verifyProofSha, verifyBackup, verifyBackupSha, cancelled.Token);
+            if (arguments is ["legacy", "covers", ("dormant-plan" or "dormant-apply" or "dormant-verify"), ..])
+                return await RunDormantCoverAsync(arguments[2..], cancelled.Token);
             if (arguments is ["legacy", "covers", ("prepare-request" or "prepare-verify"), ..])
                 return await RunLegacyCoverPreparationAsync(arguments[2..], cancelled.Token);
             if (arguments is ["legacy", "covers", "proof", "postgres", var coverPackage, var coverDigest, var coverOwners, var coverOwnerDigest, var coverRevisionDigest, var coverPublicationDigest])

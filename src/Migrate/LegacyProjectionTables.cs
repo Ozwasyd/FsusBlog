@@ -5,7 +5,7 @@ using Npgsql;
 internal static partial class Migration
 {
     private sealed record ProjectionRelation(string Name, string Columns, string Query, bool Identity = false,
-        string[]? TagKeys = null, int[]? TagIds = null);
+        string[]? TagKeys = null, int[]? TagIds = null, string? Payload = null);
     private static readonly (string Name, string Source, string Column, long Limit)[] ProjectionSequences =
     [
         ("article_id_seq", "shadow_article", "id", int.MaxValue),
@@ -98,6 +98,7 @@ internal static partial class Migration
         string sql)
     {
         var command = new NpgsqlCommand(sql, target, tx);
+        if (relation.Payload is not null) command.Parameters.AddWithValue("payload", NpgsqlTypes.NpgsqlDbType.Jsonb, relation.Payload);
         if (relation.TagKeys is not null)
         {
             command.Parameters.AddWithValue("tag_keys", relation.TagKeys);
