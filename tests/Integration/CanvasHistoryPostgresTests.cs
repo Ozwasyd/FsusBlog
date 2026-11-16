@@ -65,6 +65,68 @@ public sealed class CanvasHistoryPostgresTests
     }
 
     [PostgresFact]
+    public async Task MetadataOnlyHistoryPreservesEveryGraphRowAndRejectsNoOp()
+    {
+        await using var test = await Fixture.Open();
+        var document = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var originalViewport = new CanvasViewport(-70, 100, 1750);
+        var initial = await test.Write(Command(document, 0, CanvasGraphAction.Create) with
+        {
+            Title = "Original", Viewport = originalViewport,
+            Changes = [PutNode(first, 3, text: "First 🐈"), PutNode(second, 3, text: "Second"),
+                new CanvasChangeFrame.PutEdge(new(Guid.NewGuid(), 0, first, second, 0, "Visual"))]
+        });
+        var nodes = Assert.IsType<string>(await Snapshot("canvas_node"));
+        var edges = Assert.IsType<string>(await Snapshot("canvas_edge"));
+        var edit = Command(document, initial.Revision, CanvasGraphAction.Edit) with
+        {
+            Title = "Metadata only", Viewport = new(50, -25, 800)
+        };
+        var edited = await test.Write(edit);
+        await AssertState(edited, 2, edit.Title, edit.Viewport!.Value, false);
+        var undo = Command(document, edited.Revision, CanvasGraphAction.Undo);
+        var restored = await test.Write(undo);
+        await AssertState(restored, 3, initial.Title, originalViewport, true);
+        var redo = Command(document, restored.Revision, CanvasGraphAction.Redo);
+        var redone = await test.Write(redo);
+        await AssertState(redone, 4, edited.Title, edited.Viewport, false);
+        Assert.Equal(edited, await test.Write(edit));
+        Assert.Equal(restored, await test.Write(undo));
+        Assert.Equal(redone, await test.Write(redo));
+        var error = await Assert.ThrowsAsync<BusinessException>(() => test.Write(
+            Command(document, redone.Revision, CanvasGraphAction.Edit) with
+            { Title = redone.Title, Viewport = redone.Viewport }));
+        Assert.Equal(Rejection.Invalid, error.Rejection);
+        Assert.Equal("Choose a Canvas change.", error.Message);
+        await AssertState(redone, 4, edited.Title, edited.Viewport, false);
+        Assert.Equal(3L, await test.Scalar(
+            "select count(*) from public.canvas_history_transition where canvas_id=$1", document));
+        Assert.Equal(1L, await test.Scalar(
+            "select count(*) from public.canvas_history_patch where canvas_id=$1", document));
+
+        async Task<object?> Snapshot(string table) => await test.Scalar(
+            $"select jsonb_agg(to_jsonb(t) order by id)::text from public.{table} t where canvas_id=$1", document);
+
+        async Task AssertState(CanvasGraphReceipt receipt, long revision, string title, CanvasViewport viewport, bool undone)
+        {
+            Assert.Equal((revision, title, viewport, 2, 1),
+                (receipt.Revision, receipt.Title, receipt.Viewport, receipt.NodeCount, receipt.EdgeCount));
+            Assert.Equal(nodes, await Snapshot("canvas_node"));
+            Assert.Equal(edges, await Snapshot("canvas_edge"));
+            Assert.Equal(revision, await test.Scalar(
+                "select revision from public.authoring_canvas where id=$1", document));
+            Assert.Equal(revision, await test.Scalar(
+                "select count(*) from public.canvas_document_event where canvas_id=$1", document));
+            Assert.Equal(undone, await test.Scalar(
+                "select undone from public.canvas_history_patch where canvas_id=$1 and edit_revision=2", document));
+            Assert.Equal(revision, await test.Scalar(
+                "select moved_at_revision from public.canvas_history_patch where canvas_id=$1 and edit_revision=2", document));
+        }
+    }
+
+    [PostgresFact]
     public async Task NewBranchDiscardsRedoAndOneConcurrentCommandOwnsTheNextRevision()
     {
         await using var test = await Fixture.Open();
