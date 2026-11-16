@@ -25,15 +25,7 @@ internal static partial class CurrentSchema
         "article_publication_proof c signature octet_length(signature)=64"
     ];
 
-    internal static async Task<bool> HasPublicationProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var cmd = new NpgsqlCommand("""
-            select pg_catalog.to_regclass('public.article_publication_proof') is not null,
-                   pg_catalog.to_regclass('public.publication_proof_key') is not null
-            """, db, tx);
-        await using var rows = await cmd.ExecuteReaderAsync(ct);
-        await rows.ReadAsync(ct);
-        if (rows.GetBoolean(0) != rows.GetBoolean(1)) throw new InvalidOperationException("Native publication proof schema is incomplete.");
-        return rows.GetBoolean(0);
-    }
+    internal static Task<bool> HasPublicationProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasCompleteRelationsAsync(db, tx, ct, "Native publication proof schema is incomplete.",
+            "public.article_publication_proof", "public.publication_proof_key");
 }

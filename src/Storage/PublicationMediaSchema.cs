@@ -29,11 +29,6 @@ internal static partial class CurrentSchema
         "article_publication_media c height height>=1ANDheight<=8192"
     ];
 
-    internal static async Task<bool> HasPublicationMediaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
-            SELECT pg_catalog.to_regclass('public.article_publication_media') IS NOT NULL
-            """, db, tx);
-        return await command.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasPublicationMediaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.article_publication_media", ct);
 }

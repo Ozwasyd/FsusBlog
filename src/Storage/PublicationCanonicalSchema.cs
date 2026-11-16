@@ -28,10 +28,6 @@ internal static partial class CurrentSchema
         "article_publication_canonical c policy_sha256 octet_length(policy_sha256)=32"
     ];
 
-    internal static async Task<bool> HasPublicationCanonicalAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var cmd = new NpgsqlCommand("select pg_catalog.to_regclass($1) is not null", db, tx);
-        cmd.Parameters.AddWithValue(PublicationCanonicalRelation);
-        return await cmd.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasPublicationCanonicalAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, PublicationCanonicalRelation, ct);
 }

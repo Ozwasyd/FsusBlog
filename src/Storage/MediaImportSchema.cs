@@ -37,16 +37,7 @@ internal static partial class CurrentSchema
         "article_revision_media_import c alt_text char_length(alt_text)<=256",
     ];
 
-    internal static async Task<bool> HasPrivateMediaImportOriginAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
-            select pg_catalog.to_regclass('public.private_media_import') is not null,
-                   pg_catalog.to_regclass('public.article_revision_media_import') is not null
-            """, connection, transaction);
-        await using var row = await command.ExecuteReaderAsync(ct);
-        await row.ReadAsync(ct);
-        var assets = row.GetBoolean(0);
-        if (assets != row.GetBoolean(1)) throw new InvalidOperationException("The imported private media origin schema is incomplete.");
-        return assets;
-    }
+    internal static Task<bool> HasPrivateMediaImportOriginAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct) =>
+        HasCompleteRelationsAsync(connection, transaction, ct, "The imported private media origin schema is incomplete.",
+            "public.private_media_import", "public.article_revision_media_import");
 }

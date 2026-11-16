@@ -95,12 +95,8 @@ internal static partial class CurrentSchema
         "CREATE INDEX author_document_export_article ON public.author_document_export USING btree (owner_id, article_id, created_at, id)"
     ];
 
-    internal static async Task<bool> HasDocumentExportsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand(
-            "select pg_catalog.to_regclass('public.author_document_export') is not null", db, tx);
-        return await query.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasDocumentExportsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.author_document_export", ct);
 
     private static async Task VerifyDocumentExportIndexesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

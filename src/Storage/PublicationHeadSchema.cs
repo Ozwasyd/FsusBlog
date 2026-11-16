@@ -24,12 +24,8 @@ internal static partial class CurrentSchema
         "publication_transparency_head f key_id,key_version,key_sha256 public.publication_proof_key:key_id,version,spki_sha256",
     ];
 
-    internal static async Task<bool> HasPublicationHeadAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand(
-            "select pg_catalog.to_regclass('public.publication_transparency_head') is not null", db, tx);
-        return await command.ExecuteScalarAsync(ct) is true;
-    }
+    internal static Task<bool> HasPublicationHeadAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        HasRelationAsync(db, tx, "public.publication_transparency_head", ct);
 
     internal static async Task VerifyPublicationCheckpointSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
