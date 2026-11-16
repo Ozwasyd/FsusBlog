@@ -14,6 +14,8 @@
 
 真实桌面与 375px Chrome 使用 PostgreSQL 18.7 验证五种节点、两种边、鼠标和键盘移动、视口持久化、过期修订冲突、匿名拒绝及显式链接的取消和确认。删除 Canvas 后文章仍完整。 [浏览器结果](../../artifacts/canvas-workspace-runtime/run-2/browser-result.json) · [运行记录](../../artifacts/canvas-workspace-runtime/run-2/run.txt)
 
+图形节点采用单个 Tab 入口。Page Up／Page Down 在当前可见节点间逐个移动焦点，Home／End 定位首尾；Enter／Space 选择节点后，方向键仍按原规则移动节点，Shift 加速。焦点遍历不改变选择、视口或 Canvas 修订；Tab 可离开节点组。视口与节点通过 `aria-describedby` 关联同一可见键盘说明，视口之外的节点和连接继续通过 Outline 查找。`FSUSBLOG_TEST_FLOW=canvas-keyboard tests/EndToEnd/run-native.sh` 定向验证桌面和 375px 的真实持久化、键盘边界、reduced motion 与 forced colors；这不替代完整屏幕阅读器及无障碍审计。对应采用要求 R-3736-01、R-2488-01。
+
 工具栏的撤销与重做绑定当前修订，并在 PostgreSQL 持久保存。刷新后仍可继续操作。图形或大纲中的 Ctrl／Cmd+Z 撤销，Shift+Ctrl／Cmd+Z 重做。新的编辑清除旧重做分支。浏览器回归覆盖键盘操作、刷新后重做、过期标签冲突、焦点归位和 375px。 [历史浏览器结果](../../artifacts/canvas-history-browser/retry-1/browser-result.json)
 
 可以下载当前精确修订的可移植包，再显式映射到本地文章后导入为新 Canvas。 [Canvas 可移植包](canvas-bundles.md)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import type { CanvasGeometry, CanvasGraphEdge, CanvasNode, CanvasViewport } from '../../../Contracts/canvas-graph'
 
 const props = defineProps<{
@@ -25,6 +25,7 @@ const edgesOnScreen = 200
 const maxCoordinate = 1_000_000_000
 const point = (value: number) => Math.max(-maxCoordinate, Math.min(maxCoordinate, Math.round(value)))
 const board = ref<HTMLElement>()
+const keyboardHelpId = useId()
 const size = shallowRef({ width: 0, height: 0 })
 const position = shallowRef<{ x: number; y: number }>()
 const nodesById = computed(() => new Map(props.nodes.map(node => [node.id, node])))
@@ -252,11 +253,14 @@ function boardKeys(event: KeyboardEvent) {
 }
 
 function focusVisible(event: KeyboardEvent, node: CanvasNode) {
-  if (event.key !== 'Home' && event.key !== 'End') return
+  if (props.disabled || event.altKey || event.ctrlKey || event.metaKey || gesture.value) return
+  if (!['Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) return
   const list = visibleNodes.value
   const index = list.findIndex(box => box.node.id === node.id)
   if (index < 0 || !board.value) return
-  const next = event.key === 'End' ? list.at(-1) : list[0]
+  const destination = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1
+    : Math.max(0, Math.min(list.length - 1, index + (event.key === 'PageDown' ? 1 : -1)))
+  const next = list[destination]
   if (!next) return
   event.preventDefault()
   const selector = `#canvas-board-node-${next.node.id}`
@@ -265,8 +269,14 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
 </script>
 
 <template>
+  <div class="canvas-board-group">
+  <p :id="keyboardHelpId" class="canvas-board__help">
+    Page Up/Down: focus previous/next visible node. Home/End: first/last. Enter/Space: select.
+    Arrow keys: move the selected node, or pan when the viewport is focused. Shift: move faster.
+    Tab: leave the nodes. Use Outline to find nodes outside the viewport and connections.
+  </p>
   <section
-    ref="board" class="canvas-board" role="region" aria-label="Interactive Canvas Viewport" tabindex="0"
+    ref="board" class="canvas-board" role="region" aria-label="Interactive Canvas Viewport" tabindex="0" :aria-describedby="keyboardHelpId"
     :class="{ panning: gesture?.kind === 'pan' }"
     @pointerdown="begin($event)"
     @pointermove="move" @pointerup="finish" @pointercancel="cancel" @lostpointercapture="cancel"
@@ -293,13 +303,14 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
       :class="[{ frame: box.node.kind === 'group-frame', note: box.node.kind === 'plain-text-note' }]"
       :style="{ left: `${box.x}px`, top: `${box.y}px`, width: `${box.width}px`, height: `${box.height}px` }"
       :aria-pressed="selectedNodeId === box.node.id"
+      :aria-describedby="keyboardHelpId"
       :tabindex="firstNode === box.node.id ? 0 : -1"
       :disabled="disabled"
       @pointerdown.stop="begin($event, box.node)"
       @focus="nodeFocus = box.node.id"
       @click="!gesture && emit('select-node', box.node.id)"
       @keydown="arrow($event, box.node)"
-      @keydown.home.end="focusVisible($event, box.node)"
+      @keydown.home.end.page-up.page-down="focusVisible($event, box.node)"
     >
       <span class="canvas-board__kind">{{ labels[box.node.kind] }}</span>
       <span class="canvas-board__description">{{ description(box.node) }}</span>
@@ -307,9 +318,12 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
     <p v-if="nodes.length === 0" class="canvas-board__empty">Add a note or reference to begin.</p>
     <p v-else-if="visibleNodes.length === 0" class="canvas-board__empty">No nodes in view. Pan or choose a node in the outline.</p>
   </section>
+  </div>
 </template>
 
 <style scoped>
+.canvas-board-group { min-width: 0; }
+.canvas-board__help { color: var(--fsus-color-text-muted); font-size: .875rem; }
 .canvas-board {
   position: relative;
   min-block-size: 24rem;
