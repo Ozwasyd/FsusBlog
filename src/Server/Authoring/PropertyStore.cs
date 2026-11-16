@@ -299,10 +299,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     private async Task<long> AssertArticle(int article, long? expectedRevision, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx,
-            "select revision from public.article where id=$1 and owner_id=$2 and not deleted for share", article, ownerId);
-        if (await command.ExecuteScalarAsync(ct) is not long revision) throw Missing();
-        if (await ArchivedArticleAuthority.IsLockedArchived(db, tx, article, ct)) throw Missing();
+        var revision = (await OwnedArticleRead.TryLock(db, tx, ownerId, article, ct))?.Revision ?? throw Missing();
         if (expectedRevision.HasValue && revision != expectedRevision.Value) throw Conflict();
         return revision;
     }

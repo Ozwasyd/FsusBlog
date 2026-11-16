@@ -99,12 +99,8 @@ internal static class AuthorRecentOpenEndpoints
             """, site, owner);
         var revision = (long)(await lockHead.ExecuteScalarAsync(ct))!;
 
-        await using var article = Store.Sql(db, tx, """
-            select revision from public.article where id=$1 and owner_id=$2 and not deleted for share
-            """, input.ArticleId, owner);
-        if (await article.ExecuteScalarAsync(ct) is not long articleRevision)
-            throw new BusinessException(Rejection.NotFound, "Article not found.");
-        await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, input.ArticleId, ct);
+        var articleRevision = (await OwnedArticleRead.TryLock(db, tx, owner, input.ArticleId, ct))?.Revision
+            ?? throw new BusinessException(Rejection.NotFound, "Article not found.");
 
         await using (var prior = Store.Sql(db, tx, """
             select article_id,article_revision,sequence,opened_at from public.author_recent_open_receipt
