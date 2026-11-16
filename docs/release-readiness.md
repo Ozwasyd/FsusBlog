@@ -15,6 +15,13 @@
 
 未通过的样本保留在 [性能诊断](../tests/Performance/)中。产品和议题边界以[执行状态](status.md)、[风险条款](issues/risk-trace.md)、[发布及身份条款](issues/risk-release-trace.md)和[剩余代码预算](product/code-budget-checkpoint.md)为准。
 
+## 开发提交 `bf93ef2` MacBook 合并回归
+
+- 已合入 Canvas 可见节点的键盘遍历、作者检索的共同属性校验和锁顺序、两份历史结构测试夹具修正、六条导出条款的证据回链。没有降低生产结构校验或验收门槛。 [导出追溯](issues/risk-document-export.md)
+- 锁定 Release 编译、140 项 Core、142 项 Node 协议、3,847 项跨语言差分、59 项创作端单元及 13 项容量工具检查通过。严格 Vue 检查和 Vite 通过，独立核对 316 个文件、三份 FsusUI Wasm 和 580 个提交。解包的同一候选通过 Chrome 主流程的 60 项观察（零诊断）、1280/375px Canvas 键盘用例和 C11 小样本。停服迁移、合成 PostgreSQL 及私有媒体备份恢复另已通过。 [合并证据](../artifacts/mac-closure-bf93ef2/) · [停服迁移与备份复验](../artifacts/mac-closure-386066d/migration-retry/)
+- 两次本机集成各为 388 通过、1 失败、2 跳过（Linux ARM64 插件和独立入口的 C11）。失败均为万篇属性索引用例在原轮询上限内未就绪，根因尚未确认；保留并行与独立运行的原始日志，未延长门槛。C11 小样本另通过，满档与索引对照分开排队，不将尚未结束的运行计为通过。
+- 固定口径为 217,754 NCLOC，超出 208,546 上限 9,208，无格式化回退。此包未经历正式双实机容量、目标 Linux 平台或外部 Docker 验收。未部署、未推送。
+
 ## 后续开发提交 `d4c35cb` 本地封包预验
 
 - macOS ARM64 锁定构建与严格前端类型检查通过；独立核对发布包 316 个文件、三个 Wasm 字节及完整 572 个提交。包 SHA-256 为 `022c0f2eb24cddfaa3d47b7bff7e3d62ab737b0a4d0d80ab469b76b2e6973b43`。同一解包产物完成空库初始化、回环首次启动及重启，两次 `/health/ready` 均为 204，首页 200 且字节一致。所有测试进程和临时库已清理。 [本地封包和启动证据](../artifacts/candidate-d4c35cb-local-preflight/)
