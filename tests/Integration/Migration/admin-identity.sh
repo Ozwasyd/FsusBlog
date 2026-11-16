@@ -33,7 +33,8 @@ remove_moderation_component
         public.inbox_admin_read, public.inbox_admin_reply, public.inbox_admin_status, public.inbox_admin_notice,
         public.admin_site_page_step_up, public.site_page_publish_audit, public.site_page_content,
         public.admin_tag_metadata_command, public.taxonomy_epoch'
-"${query[@]}" 'DROP TABLE public.admin_step_up, public.admin_identity_audit, public.admin_session, public.admin_challenge,
+"${query[@]}" 'DROP TABLE public.admin_article_trash_restore, public.admin_article_trash_step_up,
+    public.admin_category_metadata_command, public.admin_step_up, public.admin_identity_audit, public.admin_session, public.admin_challenge,
     public.admin_invitation, public.admin_passkey_credential, public.admin_permission, public.admin_principal,
     public.admin_identity_schema'
 if "${migrate[@]}" verify > "$scratch/rejection.log" 2>&1; then
