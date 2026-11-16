@@ -31,7 +31,7 @@ public sealed class AdminCategoryMetadataPostgresTests
         await Sql("insert into public.tag_url_name values('TAG ARCHIVE',1)");
 
         await using var lease = new InstanceLease(fixture.ConnectionString);
-        await lease.Start(NullLogger.Instance, ct, requireAdminCategoryMetadata: true);
+        await lease.Start(NullLogger.Instance, ct, new(AdminCategoryMetadata: true));
         var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var store = new Store(fixture.DataSource, lease);
         var publications = Project();

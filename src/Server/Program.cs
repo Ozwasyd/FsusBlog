@@ -205,15 +205,15 @@ if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
 }
 var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
-await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
-    requireRecoveryKey: recoveryKey is null ? null : true,
-    requireAdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
-    requireAdminInboxNotice: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.NoticeSetting, false) ? true : null,
-    requireAdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
-    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
-    requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
-    requireAdminTagMetadata: adminTagMetadata ? true : null, requirePublicationMedia: publicMediaEnabled ? true : null,
-    requireDocumentExports: documentExportTasks, requireAdminCategoryMetadata: adminCategoryMetadata ? true : null);
+await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, new(Subscription: subscription is null ? null : true,
+    RecoveryKey: recoveryKey is null ? null : true,
+    AdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
+    AdminInboxNotice: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.NoticeSetting, false) ? true : null,
+    AdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
+    AdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, SiteRefresh: persistentSite ? true : null, SitePageEditor: sitePageEditor ? true : null,
+    AdminArticleRollback: adminArticleRollback ? true : null, AppearanceActivation: onlineAppearance ? true : null,
+    AdminTagMetadata: adminTagMetadata ? true : null, PublicationMedia: publicMediaEnabled ? true : null,
+    DocumentExports: documentExportTasks ? true : null, AdminCategoryMetadata: adminCategoryMetadata ? true : null));
 var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
 var publicationProofs = app.Services.GetService<PublicationProofs>();

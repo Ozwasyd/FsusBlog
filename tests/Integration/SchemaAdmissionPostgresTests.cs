@@ -51,7 +51,10 @@ public sealed class SchemaAdmissionPostgresTests
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        await CurrentSchema.VerifyAsync(connection, ct, requireAdminCommentBatch: true);
+        await CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: true));
+        var forbidden = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: false)));
+        Assert.Contains("batch schema presence", forbidden.Message, StringComparison.OrdinalIgnoreCase);
 
         await Execute(connection, "ALTER TABLE public.admin_comment_batch_item RENAME TO incomplete_comment_batch_item", ct);
         var partial = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
@@ -67,9 +70,10 @@ public sealed class SchemaAdmissionPostgresTests
         Assert.Contains("admin_comment_batch_step_up c action action=6", wrongPurpose.Message, StringComparison.Ordinal);
 
         await Execute(connection, "DROP TABLE public.admin_comment_batch_item, public.admin_comment_batch, public.admin_comment_batch_step_up", ct);
+        await CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: false));
         await CurrentSchema.VerifyAsync(connection, ct);
         var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CurrentSchema.VerifyAsync(connection, ct, requireAdminCommentBatch: true));
+            CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: true)));
         Assert.Contains("batch schema presence", missing.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -78,7 +82,7 @@ public sealed class SchemaAdmissionPostgresTests
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        await CurrentSchema.VerifyAsync(connection, ct, requireDocumentExports: true);
+        await CurrentSchema.VerifyAsync(connection, ct, new(DocumentExports: true));
 
         await Execute(connection, "ALTER INDEX public.author_document_export_pending RENAME TO wrong_document_export_pending", ct);
         var indexDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
@@ -92,7 +96,7 @@ public sealed class SchemaAdmissionPostgresTests
         await Execute(connection, "DROP TABLE public.author_document_export", ct);
         await CurrentSchema.VerifyAsync(connection, ct);
         var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CurrentSchema.VerifyAsync(connection, ct, requireDocumentExports: true));
+            CurrentSchema.VerifyAsync(connection, ct, new(DocumentExports: true)));
         Assert.Contains("document export schema presence", missing.Message, StringComparison.Ordinal);
     }
 

@@ -64,9 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requirePublicationMedia = null, bool? requireAdminCommentBatch = null, bool? requireAuthorTextIndex = null,
-        bool? requireArticleSummary = null, bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null)
+        SchemaAdmission admission = default)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -90,11 +88,11 @@ internal static partial class CurrentSchema
         }
 
         var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
-            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
-            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead,
-            requirePublicationMedia: requirePublicationMedia, requireAdminCommentBatch: requireAdminCommentBatch,
-            requireAuthorTextIndex: requireAuthorTextIndex, requireArticleSummary: requireArticleSummary,
-            requireDocumentExports: requireDocumentExports, requireAdminCategoryMetadata: requireAdminCategoryMetadata);
+            requireSubscription: admission.Subscription, requireRecoveryKey: admission.RecoveryKey, requireAdminInboxReply: admission.AdminInboxReply, requireSiteRefresh: admission.SiteRefresh,
+            requireSitePageEditor: admission.SitePageEditor, requireAdminArticleRollback: admission.AdminArticleRollback, requireAdminInboxStatus: admission.AdminInboxStatus, requireAdminInboxNotice: admission.AdminInboxNotice, requireAppearanceActivation: admission.AppearanceActivation, requireAdminTagMetadata: admission.AdminTagMetadata, requireAdminInboxRead: admission.AdminInboxRead,
+            requirePublicationMedia: admission.PublicationMedia, requireAdminCommentBatch: admission.AdminCommentBatch,
+            requireAuthorTextIndex: admission.AuthorTextIndex, requireArticleSummary: admission.ArticleSummary,
+            requireDocumentExports: admission.DocumentExports, requireAdminCategoryMetadata: admission.AdminCategoryMetadata);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);

@@ -28,7 +28,7 @@ public sealed class AdminTagMetadataPostgresTests
         await Sql("insert into public.tag_url_name values('ARCHIVED',2)");
 
         await using var lease = new InstanceLease(fixture.ConnectionString);
-        await lease.Start(NullLogger.Instance, ct, requireAdminTagMetadata: true);
+        await lease.Start(NullLogger.Instance, ct, new(AdminTagMetadata: true));
         var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var publications = Project();
         await publications.Refresh(ct);
@@ -123,7 +123,7 @@ public sealed class AdminTagMetadataPostgresTests
             "insert into public.tag(id,name) values(4,'Retired tag successor'),(70,$1)", "Cafe\u0301 existant");
         await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.tag_url_name values('RETIRED TOPIC',4)");
         await using var lease = new InstanceLease(fixture.ConnectionString);
-        await lease.Start(NullLogger.Instance, ct, requireAdminTagMetadata: true);
+        await lease.Start(NullLogger.Instance, ct, new(AdminTagMetadata: true));
         var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
         await publications.Refresh(ct);

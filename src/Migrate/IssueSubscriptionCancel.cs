@@ -31,7 +31,7 @@ internal static partial class Migration
         }
         finally { CryptographicOperations.ZeroMemory(input); }
 
-        await CurrentSchema.VerifyAsync(connection, ct, requireSubscription: true);
+        await CurrentSchema.VerifyAsync(connection, ct, new(Subscription: true));
         var secret = RandomNumberGenerator.GetBytes(32);
         try
         {
