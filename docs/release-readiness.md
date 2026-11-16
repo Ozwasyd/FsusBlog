@@ -15,7 +15,12 @@
 
 未通过的样本保留在 [性能诊断](../tests/Performance/)中。产品和议题边界以[执行状态](status.md)、[风险条款](issues/risk-trace.md)、[发布及身份条款](issues/risk-release-trace.md)和[剩余代码预算](product/code-budget-checkpoint.md)为准。
 
-## 当前开发提交 `c98b77c` 本地封包预验
+## 后续开发提交 `d4c35cb` 本地封包预验
+
+- macOS ARM64 锁定构建与严格前端类型检查通过；独立核对发布包 316 个文件、三个 Wasm 字节及完整 572 个提交。包 SHA-256 为 `022c0f2eb24cddfaa3d47b7bff7e3d62ab737b0a4d0d80ab469b76b2e6973b43`。同一解包产物完成空库初始化、回环首次启动及重启，两次 `/health/ready` 均为 204，首页 200 且字节一致。所有测试进程和临时库已清理。 [本地封包和启动证据](../artifacts/candidate-d4c35cb-local-preflight/)
+- 此开发提交按原口径为 217,394 NCLOC，超上限 8,848；不是正式容量或最终发布结果。之后的 Canvas 规划重构 `9c53a66` 另有 16 项定向测试，不并入此包的开发验收。
+
+## 开发提交 `c98b77c` 本地封包预验
 
 - macOS ARM64 从干净检出和固定 FsusUI `f2d929a5d0` 以锁定依赖构建后端及迁移器，严格 Vue 类型检查和 Vite 构建通过。从压缩包独立核对 340 个文件、三个 Wasm 字节及完整 563 个 Git 提交；包 SHA-256 为 `728c097ba88c3e82f7f867a547138ad0f5a56dfd800839c669869796e7d9a3af`。 [构建及验证](../artifacts/candidate-c98b77c-local-preflight/)
 - 从同一压缩包解出迁移器和服务，在独立 Unix-socket PostgreSQL 实测新库初始化与结构验证，回环首次启动和重启均达到就绪，首页返回 200 且字节相同；进程和临时库均已清理。 [同包启动证据](../artifacts/candidate-c98b77c-local-preflight/native-smoke/)
