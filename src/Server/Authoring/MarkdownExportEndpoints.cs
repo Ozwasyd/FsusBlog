@@ -92,8 +92,8 @@ internal static class MarkdownExportEndpoints
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
-                var expected = ReadRevision(query(ctx, "revision", 19));
-                var selected = ReadRevision(query(ctx, "sourceRevision", 19));
+                var expected = DraftRevisionQuery.Read(query(ctx, "revision", 19));
+                var selected = DraftRevisionQuery.Read(query(ctx, "sourceRevision", 19));
                 if (id <= 0 || selected > expected)
                     throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
 
@@ -125,8 +125,4 @@ internal static class MarkdownExportEndpoints
         Encoding.UTF8.GetBytes(body, bytes.AsSpan(offset));
         return bytes;
     }
-
-    private static long ReadRevision(string? text) =>
-        long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0 ? value :
-            throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
 }

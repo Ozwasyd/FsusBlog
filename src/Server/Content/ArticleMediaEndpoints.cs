@@ -1,4 +1,3 @@
-using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
@@ -87,7 +86,5 @@ internal static class ArticleMediaEndpoints
         }).RequireRateLimiting(MediaEndpoints.ReadPolicy).WithMetadata(new MediaEndpoints.PrivateRead());
     }
 
-    private static long Revision(HttpContext ctx) => long.TryParse(MediaEndpoints.Only(ctx.Request.Query["revision"], 19),
-        NumberStyles.None, CultureInfo.InvariantCulture, out var revision) && revision > 0
-        ? revision : throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
+    private static long Revision(HttpContext ctx) => DraftRevisionQuery.Read(MediaEndpoints.Only(ctx.Request.Query["revision"], 19));
 }

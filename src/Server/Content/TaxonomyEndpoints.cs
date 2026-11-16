@@ -32,8 +32,7 @@ internal static class TaxonomyEndpoints
 
         app.MapGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
         {
-            if (id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
-                throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
+            var revision = DraftRevisionQuery.Read(ctx, id, query);
 
             var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
             {

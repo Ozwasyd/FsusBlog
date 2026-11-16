@@ -1,6 +1,4 @@
-using System.Globalization;
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -11,8 +9,7 @@ internal static class ArticleScheduleEndpoints
     {
         app.MapGet(WireRoutes.DraftSchedule, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
-            if (id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var rev) || rev <= 0)
-                throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
+            var rev = DraftRevisionQuery.Read(ctx, id, query);
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Results.Bytes(Wire.EncodeArticleSchedule(await ArticleScheduleStore.Read(db, tx, actor, id, rev, ct)), Aeds.ContentType), ct);
         }).RequireRateLimiting("command");

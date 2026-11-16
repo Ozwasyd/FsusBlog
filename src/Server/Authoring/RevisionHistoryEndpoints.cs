@@ -13,7 +13,7 @@ internal static class RevisionHistoryEndpoints
     {
         app.MapGet(WireRoutes.DraftRevisionHistory, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
-            var expected = Expected(ctx, id);
+            var expected = DraftRevisionQuery.Read(ctx, id, query);
             var cursor = query(ctx, "cursor", WireLimits.RevisionHistoryCursorChars);
             var token = ctx.Request.Cookies[cookie];
             return store.WithSession(token, true, async (db, tx, actor) =>
@@ -36,7 +36,7 @@ internal static class RevisionHistoryEndpoints
 
         app.MapGet(WireRoutes.DraftRevisionComparison, (HttpContext ctx, Store store, int id, long sourceRevision, CancellationToken ct) =>
         {
-            var expected = Expected(ctx, id);
+            var expected = DraftRevisionQuery.Read(ctx, id, query);
             var map = query(ctx, "map", 16);
             if (map is not (null or "body-insertion" or "body-chain" or "body-edit" or "properties" or "metadata"))
                 throw new BusinessException(Rejection.Invalid, "Unknown saved revision map.");
@@ -96,13 +96,5 @@ internal static class RevisionHistoryEndpoints
                 return Results.Bytes(Wire.EncodeDraft(response), Aeds.ContentType);
             }, ct);
         }).RequireRateLimiting("command");
-
-        long Expected(HttpContext ctx, int id)
-        {
-            if (id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) ||
-                revision <= 0)
-                throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
-            return revision;
-        }
     }
 }
