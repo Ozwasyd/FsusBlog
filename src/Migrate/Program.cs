@@ -84,6 +84,8 @@ internal static partial class Migration
             Console.WriteLine("""
                 FsusBlog V2 offline database tool
                 Set FSUSBLOG_DB to the Npgsql connection string.
+                  legacy covers proof postgres PACKAGE SHA256 OWNERS OWNERS_SHA256 REVISION_SHA256 PUBLICATION_SHA256
+                                        Read-only managed public cover proof; no import or activation
                   inventory              Read PostgreSQL relations, columns and keys from the target
                   inventory --counts     Include exact row counts for each ordinary business relation
                   plan                   Print a fresh-schema plan without changing the database
@@ -251,6 +253,8 @@ internal static partial class Migration
         {
             if (arguments is ["platform-plugin", .. var pluginArguments])
                 return await PlatformPluginCommand.RunAsync(pluginArguments, cancelled.Token);
+            if (arguments is ["legacy", "covers", "proof", "postgres", var coverPackage, var coverDigest, var coverOwners, var coverOwnerDigest, var coverRevisionDigest, var coverPublicationDigest])
+                return await RunLegacyCoverProofAsync(coverPackage, coverDigest, coverOwners, coverOwnerDigest, coverRevisionDigest, coverPublicationDigest, cancelled.Token);
             if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
                 return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
             if (arguments is ["legacy", "assets", "rehearsal", .. var mediaArguments])
