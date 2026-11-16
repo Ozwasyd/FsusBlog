@@ -65,6 +65,38 @@ public sealed class CanvasHistoryPostgresTests
     }
 
     [PostgresFact]
+    public async Task InvalidEditTitlePrecedesUnavailableReferenceWithoutAdvancingHistory()
+    {
+        await using var test = await Fixture.Open();
+        var article = await test.SaveArticle("Temporary reference", "Synthetic source.");
+        var document = Guid.NewGuid();
+        var note = Guid.NewGuid();
+        var initial = await test.Write(Command(document, 0, CanvasGraphAction.Create) with
+        {
+            Title = "Unchanged", Changes = [PutNode(note, 3, text: "Original note")]
+        });
+        Assert.True((await test.DeleteArticle(article)).Deleted);
+        var edit = Command(document, initial.Revision, CanvasGraphAction.Edit) with
+        {
+            Title = "<invalid>", Changes = [PutNode(Guid.NewGuid(), 0, article: article.Id)]
+        };
+        var error = await Assert.ThrowsAsync<BusinessException>(() => test.Write(edit));
+        Assert.Equal(Rejection.Invalid, error.Rejection);
+        Assert.Equal("Enter a valid Canvas title.", error.Message);
+        await Denied(Rejection.NotFound, test.Write(edit with { Title = "Valid title" }));
+        Assert.Equal(initial.Revision, await test.Scalar(
+            "select revision from public.authoring_canvas where id=$1", document));
+        Assert.Equal(initial.Title, await test.Scalar(
+            "select title from public.authoring_canvas where id=$1", document));
+        Assert.Equal("Original note", await test.Scalar(
+            "select note from public.canvas_node where canvas_id=$1 and id=$2", document, note));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", document));
+        Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", document));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1", document));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_history_transition where canvas_id=$1", document));
+    }
+
+    [PostgresFact]
     public async Task MetadataOnlyHistoryPreservesEveryGraphRowAndRejectsNoOp()
     {
         await using var test = await Fixture.Open();
