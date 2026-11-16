@@ -130,6 +130,7 @@ if sys.argv[2] == 'postgres':
         'classificationComplete': True, 'eligibleForCandidatePlanning': True,
         'sourceProjections': plan['audit']['projections'], 'findings': [],
     }
+    assert set(plan['coverInventory'].values()) == {0}
 article = next(p for p in plan['audit']['projections'] if p['table'] == 'article')
 mapping = {
     'sourceArticleSha256': article['sha256'],
@@ -142,6 +143,54 @@ mapping['owners'][0]['legacyAdminId'] = 404
 PY
 
 if [[ "$provider" == postgres ]]; then
+    "${source_sql[@]}" "
+        UPDATE article SET coverimageurl='https://fixture.invalid/article-cover' WHERE id=42;
+        UPDATE article_revision SET cover_image_url=CASE revision_no
+            WHEN 1 THEN 'https://fixture.invalid/old-cover'
+            WHEN 2 THEN 'https://fixture.invalid/publication-cover'
+            WHEN 3 THEN 'https://fixture.invalid/edit-cover' END;
+    "
+    expect_blocked "$scratch/corrupt.json"
+    "${source_sql[@]}" "UPDATE article_revision SET cover_image_url='https://fixture.invalid/changed-cover' WHERE revision_no=1"
+    expect_blocked "$scratch/repeat.json"
+    python3 - "$scratch" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+raw, changed_raw = ((root / name).read_text() for name in ('corrupt.json', 'repeat.json'))
+before, after = map(json.loads, (raw, changed_raw))
+assert 'fixture.invalid' not in raw and 'fixture.invalid' not in changed_raw
+assert before['coverInventory'] == after['coverInventory'] == {
+    'articleRows': 1, 'revisionRows': 3, 'currentEditRows': 1, 'currentPublicationRows': 1, 'otherRevisionRows': 1,
+}
+admission = before['importAdmission']
+assert admission['classificationComplete'] and not admission['eligibleForCandidatePlanning']
+assert admission['findings'] == [
+    {'category': 'attachment-reference', 'source': 'article.coverimageurl', 'rows': 1},
+    {'category': 'attachment-reference', 'source': 'article_revision.cover_image_url', 'rows': 3},
+]
+old, new = ({p['table']: p for p in report['audit']['projections']} for report in (before, after))
+assert old.keys() == new.keys()
+assert {table for table in old if old[table] != new[table]} == {'article_revision'}
+PY
+    "${source_sql[@]}" "
+        UPDATE article SET coverimageurl='' WHERE id=42;
+        UPDATE article_revision SET cover_image_url=CASE WHEN revision_no=1 THEN '  ' ELSE NULL END;
+    "
+    expect_blocked "$scratch/repeat.json"
+    python3 - "$scratch/repeat.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as stream:
+    report = json.load(stream)
+assert set(report['coverInventory'].values()) == {0}
+assert report['importAdmission']['eligibleForCandidatePlanning']
+PY
+    "${source_sql[@]}" "UPDATE article SET coverimageurl=NULL; UPDATE article_revision SET cover_image_url=NULL"
+
     "${source_sql[@]}" "
         ALTER TABLE article ADD COLUMN views integer NOT NULL DEFAULT 0;
         UPDATE article SET views=19 WHERE id=42;

@@ -71,6 +71,8 @@ internal static partial class Migration
         ShadowReport? shadow = null;
         LegacyImportAdmission? importAdmission = mode == "plan" && provider == "postgres"
             ? new(false, false, [], []) : null;
+        var coverInventory = importAdmission is not null && audit is not null && blockers.Count == 0
+            ? await ReadLegacyCoverInventoryAsync(source, transaction, tables, token) : null;
         if (mode != "inventory" && audit is not null && blockers.Count == 0)
         {
             if (FindLegacyImportPrincipal(source, catalog) is { } table)
@@ -122,7 +124,8 @@ internal static partial class Migration
             sourceAdminIdentitySha256,
             rehearsal = shadow,
             blockers,
-            importAdmission
+            importAdmission,
+            coverInventory
         }, Json));
         if (mode == "rehearse" && rehearsed) return 0;
         return blockers.Count == 0 ? 0 : 2;
