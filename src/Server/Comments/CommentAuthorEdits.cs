@@ -1,5 +1,3 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
@@ -25,10 +23,7 @@ internal static class CommentAuthorEdits
     {
         var target = await Find(db, tx, actor.Id, id, locking: true, ct);
         await RequireEditable(db, tx, target, ct);
-        var secret = RandomNumberGenerator.GetBytes(32);
-        var proof = Base64Url.EncodeToString(secret);
-        var digest = SHA256.HashData(secret);
-        CryptographicOperations.ZeroMemory(secret);
+        var (proof, digest) = CommentAuthorProof.Issue();
         await using var issue = Store.Sql(db, tx, """
             insert into public.comment_author_edit_challenge
                 (digest,article_id,comment_id,user_id,session_digest,generation,comment_version,publication_id,expires_at)
@@ -52,7 +47,7 @@ internal static class CommentAuthorEdits
         byte[] session, long id, CommentAuthorEditRequest request, CancellationToken ct)
     {
         var body = CommentWriteStore.Normalize(request.Content);
-        var digest = ProofDigest(request.Challenge);
+        var digest = CommentAuthorProof.Digest(request.Challenge) ?? throw Missing();
         var target = await Find(db, tx, actor.Id, id, locking: true, ct);
         await using (var challenge = Store.Sql(db, tx, """
             delete from public.comment_author_edit_challenge
@@ -117,18 +112,6 @@ internal static class CommentAuthorEdits
         await using var row = await query.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw Missing();
         return new(row.GetInt32(0), row.GetInt64(1), row.GetInt64(2), row.GetInt16(3), row.GetString(4));
-    }
-
-    private static byte[] ProofDigest(string proof)
-    {
-        Span<byte> secret = stackalloc byte[32];
-        try
-        {
-            if (!Base64Url.TryDecodeFromChars(proof, secret, out var written) || written != secret.Length ||
-                Base64Url.EncodeToString(secret) != proof) throw Missing();
-            return SHA256.HashData(secret);
-        }
-        finally { CryptographicOperations.ZeroMemory(secret); }
     }
 
     private static async Task RequireEditable(NpgsqlConnection db, NpgsqlTransaction tx, Target target, CancellationToken ct)

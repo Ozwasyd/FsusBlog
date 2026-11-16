@@ -1,5 +1,3 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Sessions;
@@ -118,10 +116,7 @@ internal static class CommentAuthorDeleteEndpoints
         byte[] session, long id, CancellationToken ct)
     {
         var target = await LockOwned(db, tx, actor.Id, id, ct);
-        var secret = RandomNumberGenerator.GetBytes(32);
-        var proof = Base64Url.EncodeToString(secret);
-        var digest = SHA256.HashData(secret);
-        CryptographicOperations.ZeroMemory(secret);
+        var (proof, digest) = CommentAuthorProof.Issue();
         await using var issue = Store.Sql(db, tx, """
             insert into public.comment_author_delete_challenge(digest,article_id,comment_id,user_id,session_digest,generation,comment_version,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+interval '5 minutes')
@@ -137,11 +132,7 @@ internal static class CommentAuthorDeleteEndpoints
     private static async Task<CommentAuthorMutation> Delete(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         byte[] session, long id, string proof, CancellationToken ct)
     {
-        var secret = new byte[32];
-        if (!Base64Url.TryDecodeFromChars(proof, secret, out var written) || written != secret.Length || Base64Url.EncodeToString(secret) != proof)
-            throw Missing();
-        var digest = SHA256.HashData(secret);
-        CryptographicOperations.ZeroMemory(secret);
+        var digest = CommentAuthorProof.Digest(proof) ?? throw Missing();
         var target = await LockOwned(db, tx, actor.Id, id, ct);
         await using (var challenge = Store.Sql(db, tx, """
             delete from public.comment_author_delete_challenge

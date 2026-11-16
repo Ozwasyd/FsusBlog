@@ -1,6 +1,4 @@
-using System.Buffers.Text;
 using System.Globalization;
-using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
@@ -84,10 +82,7 @@ internal static class CommentAppeals
     {
         await RequireSchema(db, tx, ct);
         var (article, adverse, version) = await LockTarget(db, tx, actor.Id, id, ct);
-        var secret = RandomNumberGenerator.GetBytes(32);
-        var proof = Base64Url.EncodeToString(secret);
-        var digest = SHA256.HashData(secret);
-        CryptographicOperations.ZeroMemory(secret);
+        var (proof, digest) = CommentAuthorProof.Issue();
         await using var issue = Store.Sql(db, tx, """
             insert into public.comment_appeal_challenge
                 (digest,article_id,comment_id,user_id,session_digest,generation,adverse_id,comment_version,expires_at)
@@ -114,12 +109,7 @@ internal static class CommentAppeals
         await RequireSchema(db, tx, ct);
         var reason = Reason(request.Reason);
         var (article, adverse, version) = await LockTarget(db, tx, actor.Id, id, ct);
-        var secret = new byte[32];
-        if (!Base64Url.TryDecodeFromChars(request.Challenge!, secret, out var written) || written != secret.Length ||
-            Base64Url.EncodeToString(secret) != request.Challenge)
-            throw Missing();
-        var digest = SHA256.HashData(secret);
-        CryptographicOperations.ZeroMemory(secret);
+        var digest = CommentAuthorProof.Digest(request.Challenge!) ?? throw Missing();
         await using var insert = Store.Sql(db, tx, """
             with verified as (
                 delete from public.comment_appeal_challenge where digest=$1 and article_id=$2 and comment_id=$3
