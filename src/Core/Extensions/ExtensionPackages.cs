@@ -169,7 +169,7 @@ public sealed class ExtensionPackageVerifier
 
             var manifestEntry = zip.GetEntry("manifest.json") ?? throw new ExtensionRejectedException("manifest-absent");
             if (expanded - manifestEntry.Length > MaxExpandedBytes) throw new ExtensionRejectedException("archive-expanded-size");
-            byte[] json = ReadExact(manifestEntry);
+            byte[] json = ExtensionArchive.ReadExact(manifestEntry, "archive-entry-size");
             var manifest = Read(json, platform);
             var fileDigests = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             using var content = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -179,7 +179,7 @@ public sealed class ExtensionPackageVerifier
             {
                 ct.ThrowIfCancellationRequested();
                 var name = Encoding.UTF8.GetBytes(entry.FullName);
-                var bytes = ReadExact(entry);
+                var bytes = ExtensionArchive.ReadExact(entry, "archive-entry-size");
                 var entryDigest = SHA256.HashData(bytes);
                 fileDigests.Add(entry.FullName, entryDigest);
                 AddField(content, name);
@@ -201,15 +201,6 @@ public sealed class ExtensionPackageVerifier
         {
             throw new ExtensionRejectedException("archive-invalid");
         }
-    }
-
-    private static byte[] ReadExact(ZipArchiveEntry entry)
-    {
-        var bytes = new byte[checked((int)entry.Length)];
-        using var stream = entry.Open();
-        stream.ReadExactly(bytes);
-        if (stream.ReadByte() != -1) throw new ExtensionRejectedException("archive-entry-size");
-        return bytes;
     }
 
     private static void RequireDigest(ReadOnlySpan<byte> digest, string expected, string failure)

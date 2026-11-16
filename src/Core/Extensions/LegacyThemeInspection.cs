@@ -183,10 +183,7 @@ internal static partial class LegacyThemeInspection
 
     private static byte[] Read(ZipArchiveEntry entry)
     {
-        var output = new byte[(int)entry.Length];
-        using var stream = entry.Open();
-        stream.ReadExactly(output);
-        if (stream.ReadByte() != -1) throw Reject("fstheme-entry-size");
+        var output = ExtensionArchive.ReadExact(entry, "fstheme-entry-size");
         if (Crc32(output) != entry.Crc32) throw Reject("fstheme-entry-crc");
         return output;
     }

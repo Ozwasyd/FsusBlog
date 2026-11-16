@@ -207,11 +207,7 @@ public sealed partial class AppearanceRegistry
     private static byte[] ReadEntry(Dictionary<string, ZipArchiveEntry> entries, string name, int limit)
     {
         if (!entries.TryGetValue(name, out var entry) || entry.Length <= 0 || entry.Length > limit) throw Reject("appearance-entry-size");
-        var bytes = new byte[(int)entry.Length];
-        using var file = entry.Open();
-        file.ReadExactly(bytes);
-        if (file.ReadByte() != -1) throw Reject("appearance-entry-size");
-        return bytes;
+        return ExtensionArchive.ReadExact(entry, "appearance-entry-size");
     }
 
     private static ExtensionRejectedException Reject(string code) => new(code);
