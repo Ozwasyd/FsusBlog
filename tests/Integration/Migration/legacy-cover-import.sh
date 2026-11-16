@@ -39,23 +39,7 @@ cleanup() {
     exit "$status"
 }
 trap cleanup EXIT
-export PGUSER=cover_fixture PGPORT=54995
-unset PGSERVICE PGSERVICEFILE PGPASSWORD PGPASSFILE PGOPTIONS PGHOSTADDR
-for lane in source target; do
-    mkdir -m 700 "$scratch/$lane-s"
-    initdb --no-locale --encoding=UTF8 --auth=trust -D "$scratch/$lane" -U "$PGUSER" > "$scratch/$lane-init.log"
-    pg_ctl -D "$scratch/$lane" -l "$scratch/$lane.log" -o "-k $scratch/$lane-s -p $PGPORT -c listen_addresses=''" -w start
- done
-pg() { local lane="$1" db="$2"; shift 2; psql -Xq --no-password -v ON_ERROR_STOP=1 -h "$scratch/$lane-s" -p "$PGPORT" -U "$PGUSER" -d "$db" "$@"; }
-dsn() { printf 'Host=%s/%s-s;Port=%s;Username=%s;Database=%s;SSL Mode=Disable' "$scratch" "$1" "$PGPORT" "$PGUSER" "$2"; }
-sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-source=fsusv2_cover_source
-target=fsusv2_import_cover
-owner=968ffb2b-77ef-4868-89ec-6a0a19b28b95
-asset=1a550000-0000-4000-8000-000000000001
-pg source postgres -c "CREATE DATABASE $source TEMPLATE template0"
-pg target postgres -c "CREATE DATABASE $target TEMPLATE template0"
-pg source "$source" -f tests/Integration/Migration/legacy-source-fixture.sql -f tests/Integration/Migration/legacy-shared-rights-fixture.sql -f tests/Integration/Migration/legacy-assets-fixture.sql
+source tests/Integration/Migration/legacy-cover-database-fixture.sh
 pg source "$source" -c "DELETE FROM content_asset_reference; DELETE FROM content_asset WHERE id<>'$asset';
 UPDATE content_asset SET owner_admin_principal_id=7,storage_key='illustration/$current_leaf' WHERE id='$asset';
 UPDATE article SET coverimageurl='/uploads/illustration/$current_leaf';
@@ -81,27 +65,7 @@ if [[ "$dormant" == true ]]; then
         UPDATE article SET status=0,current_publication_id=NULL,published_at=NULL,last_published_at=NULL,public_updated_at=NULL"
 fi
 if [[ "$prepare" == true ]]; then seed_cover_images; fi
-"${migrate[@]}" legacy assets rehearsal plan postgres "$scratch/public" "$scratch/private" 87bcdd48-255d-49dd-a984-dd4c4ee6f9d4 "$target_site" > "$scratch/review.json"
-python3 - "$scratch/review.json" "$owner" <<'PY'
-import json,pathlib,sys
-p=pathlib.Path(sys.argv[1]); v=json.loads(p.read_text()); v['owners'][0]['targetUserId']=sys.argv[2]; p.write_text(json.dumps(v))
-PY
-"${migrate[@]}" legacy assets rehearsal copy postgres "$scratch/public" "$scratch/private" "$scratch/review.json" "$(sha "$scratch/review.json")" "$scratch/packages" media > "$scratch/copied.json"
-media_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifestSha256"])' "$scratch/copied.json")"
-"${migrate[@]}" legacy plan postgres > "$scratch/intake.json" || [[ $? == 2 ]]
-python3 - "$scratch/intake.json" "$scratch/owners.json" "$owner" <<'PY'
-import json,pathlib,sys
-v=json.load(open(sys.argv[1])); a=next(x for x in v['audit']['projections'] if x['table']=='article')
-pathlib.Path(sys.argv[2]).write_text(json.dumps(dict(sourceArticleSha256=a['sha256'],sourceAdminIdentitySha256=v['sourceAdminIdentitySha256'],owners=[dict(articleId=42,legacyAdminId=7,v2UserId=sys.argv[3])])))
-assert any(x['category']=='attachment-reference' for x in v['importAdmission']['findings'])
-PY
-owners_sha="$(sha "$scratch/owners.json")"
-revision_sha="$(python3 -c 'import json,sys; print(next(x["sha256"] for x in json.load(open(sys.argv[1]))["audit"]["projections"] if x["table"]=="article_revision"))' "$scratch/intake.json")"
-publication_sha="$(python3 -c 'import json,sys; print(next(x["sha256"] for x in json.load(open(sys.argv[1]))["audit"]["projections"] if x["table"]=="article_publication"))' "$scratch/intake.json")"
-proof=("${migrate[@]}" legacy covers proof postgres "$scratch/packages/media" "$media_sha" "$scratch/owners.json" "$owners_sha" "$revision_sha" "$publication_sha")
-"${proof[@]}" > "$scratch/proof.json"
-"${proof[@]}" > "$scratch/repeat.json"
-cmp "$scratch/proof.json" "$scratch/repeat.json"
+source tests/Integration/Migration/legacy-cover-rehearsal-fixture.sh
 "$dotnet_bin" "$BASELINE_MIGRATE_DLL" legacy covers proof postgres "$scratch/packages/media" "$media_sha" "$scratch/owners.json" "$owners_sha" "$revision_sha" "$publication_sha" > "$scratch/old-proof.json"
 cmp "$scratch/old-proof.json" "$scratch/proof.json"
 python3 - "$scratch/proof.json" "$publication_count" <<'PY'
