@@ -18,7 +18,8 @@
 ## 当前开发提交 `c98b77c` 本地封包预验
 
 - macOS ARM64 从干净检出和固定 FsusUI `f2d929a5d0` 以锁定依赖构建后端及迁移器，严格 Vue 类型检查和 Vite 构建通过。从压缩包独立核对 340 个文件、三个 Wasm 字节及完整 563 个 Git 提交；包 SHA-256 为 `728c097ba88c3e82f7f867a547138ad0f5a56dfd800839c669869796e7d9a3af`。 [构建及验证](../artifacts/candidate-c98b77c-local-preflight/)
-- 这是开发包预验，不是最终候选认证。未启动该包、未做目标平台或 Docker 验收、未跑新的正式容量。此前 `f303f5c` 的四轮短档仍只有一轮通过，不能移作此提交的结果。
+- 从同一压缩包解出迁移器和服务，在独立 Unix-socket PostgreSQL 实测新库初始化与结构验证，回环首次启动和重启均达到就绪，首页返回 200 且字节相同；进程和临时库均已清理。 [同包启动证据](../artifacts/candidate-c98b77c-local-preflight/native-smoke/)
+- 这是开发包预验，不是最终候选认证。性能验收工具的 13 项离线测试及 Go 负载客户端 race 回归通过；已构建并核对 Linux x64/ARM64 供给端工具与协议摘要，尚未在独立实机执行。未做目标平台或 Docker 验收，未跑新的正式容量。此前 `f303f5c` 的四轮短档仍只有一轮通过，不能移作此提交的结果。 [供给端构建和摘要](../artifacts/candidate-c98b77c-local-preflight/supplier-preflight/)
 
 ## 开发提交 `6a53e4d`
 
