@@ -22,6 +22,8 @@ internal static partial class Migration
         async Task<int> Run(CancellationToken ct)
         {
             var plan = await ReadImportPlanAsync(planPath, ct);
+            if (plan.Covers is not null)
+                throw new InvalidOperationException("Cover-bearing candidates cannot project, prepare media or activate releases.");
             if (plan.SourceReference != LegacyReference || !plan.ReadyToStage ||
                 plan.ReadyToApply || plan.Findings is not { Length: 0 } || plan.ExpectedTables is null ||
                 plan.SchemaVersion != CurrentSchema.Version || plan.SchemaSha256 != Digest(await SchemaSqlAsync(ct)) ||

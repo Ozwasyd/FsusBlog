@@ -47,7 +47,8 @@ internal static partial class Migration
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPostgresSourceSeal? SourceSeal = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportMediaSeal? Media = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SiteAuthor = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPublishProofSet? PublishProofs = null);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyPublishProofSet? PublishProofs = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LegacyImportCoverSeal? Covers = null);
 
     private static async Task<int> RunLegacyImportAsync(string[] arguments, CancellationToken token)
     {
@@ -59,6 +60,14 @@ internal static partial class Migration
             return await RunLegacyProjectionAsync(release, sourcePlan, sourcePlanSha, sourceBackup, sourceBackupSha, null,
                 null, null, null, token, new(ParseLegacySiteId(runtimeSite), rollback, rollbackSha, approvalArgs));
         }
+        LegacyImportCoverInput? covers = null;
+        if (arguments is [.. var coverCore, "--covers", var coverPackage, var coverPackageSha, var coverProof, var coverProofSha])
+        {
+            covers = new(coverPackage, coverPackageSha, coverProof, coverProofSha);
+            arguments = coverCore;
+        }
+        if (covers is not null && (arguments.Length == 0 || arguments[0] is not ("plan" or "apply")))
+            throw new InvalidOperationException("Cover-bearing imports support non-serving staging only.");
         LegacyImportMediaInput? media = null;
         if (arguments is [.. var core, "--media", var mediaPath, var mediaDigest])
         {
@@ -105,10 +114,10 @@ internal static partial class Migration
             throw new ArgumentException("Use legacy import plan|apply with provider, owner map, backup directory, manifest digest, and apply plan.");
 
         return await RunBoundedLegacyOperationAsync(token, 8, "The isolated legacy import exceeded its run budget.",
-            "The isolated legacy source or target rejected its operation", ct => ImportLegacyAsync(arguments, media, ct));
+            "The isolated legacy source or target rejected its operation", ct => ImportLegacyAsync(arguments, media, covers, ct));
     }
 
-    private static async Task<int> ImportLegacyAsync(string[] arguments, LegacyImportMediaInput? media, CancellationToken token)
+    private static async Task<int> ImportLegacyAsync(string[] arguments, LegacyImportMediaInput? media, LegacyImportCoverInput? covers, CancellationToken token)
     {
         var (mode, provider, ownerPath, backupDirectory, backupDigest) =
             (arguments[0], arguments[1], arguments[2], arguments[3], arguments[4]);
@@ -117,6 +126,11 @@ internal static partial class Migration
             : null;
         if (media is not null && provider != "postgres")
             throw new InvalidOperationException("Joined media requires the reviewed PostgreSQL source cluster, database and schema.");
+        if ((covers is null) != (expected?.Covers is null) && expected is not null)
+            throw new InvalidOperationException("Supply the original cover evidence for this plan.");
+        if (covers is not null && (provider != "postgres" || media is not null))
+            throw new InvalidOperationException("Cover staging requires PostgreSQL without joined private media.");
+        var coverPackage = covers is null ? null : await VerifyLegacyMediaPackageAsync(covers.Package, covers.PackageSha256, token);
         var mediaPackage = await ReadLegacyImportMediaAsync(media, expected, token);
         var mediaBinding = mediaPackage is null ? null : LegacyImportMediaBinding(media!, mediaPackage);
         var backup = await ReadLegacyImportBackupAsync(backupDirectory, backupDigest, token);
@@ -144,14 +158,17 @@ internal static partial class Migration
         var taxonomy = await VerifyLegacyTaxonomyAsync(source, sourceTransaction, catalog, tables, audit, token);
         var mediaSource = mediaPackage is null ? null : await ReadLegacyImportMediaSourceAsync(mediaPackage, source,
             sourceTransaction, sourceSeal, catalog, tables, principal, token);
-        var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy,
-            token, mediaSource is not null);
-        var (commands, outbox, _, readingHistory, savedViews, findings, siteAuthor, publishProofs) = evidence;
         var ownerMap = await ReadLegacyOwnerMapAsync(ownerPath, token);
+        var coverEvidence = covers is null ? null : await ReadLegacyImportCoversAsync(covers, coverPackage!, ownerMap,
+            source, sourceTransaction, token);
+        var evidence = await ReadLegacyImportEvidenceAsync(source, sourceTransaction, catalog, tables, principal, taxonomy,
+            token, mediaSource is not null, coverEvidence);
+        var (commands, outbox, _, readingHistory, savedViews, findings, siteAuthor, publishProofs) = evidence;
         await using var shadow = await MaterializeLegacyShadowAsync(source, sourceTransaction, tables, principal, audit, ownerMap, token,
             commands.Rows, outbox.Entries, readingHistory.Rows, savedViews.Relations);
         var counts = mediaPackage is null ? shadow.Report.Counts :
             [.. shadow.Report.Counts, .. await StageLegacyImportMediaShadowAsync(shadow, mediaPackage, token)];
+        if (coverEvidence is not null) counts = [.. counts, .. await StageLegacyCoverShadowAsync(shadow, coverEvidence, token)];
         await sourceTransaction.RollbackAsync(token);
 
         await using var target = new NpgsqlConnection(settings.ConnectionString);
@@ -170,20 +187,32 @@ internal static partial class Migration
             await CheckLegacyImportMediaTargetAsync(target, read, mediaBinding, mediaSource!.Cluster, token);
             await read.RollbackAsync(token);
         }
+        if (coverEvidence is not null)
+        {
+            if (siteId != coverPackage!.Review.TargetSiteId || schemaDigest != coverPackage.Review.TargetSchemaSha256)
+                throw new InvalidOperationException("Cover target site or schema changed.");
+            await using var read = await BeginReadOnlyAsync(target, token);
+            await CheckLegacyImportMediaTargetAsync(target, read, LegacyImportMediaBinding(new(covers!.Package, covers.PackageSha256), coverPackage),
+                coverEvidence.SourceCluster, token);
+            await read.RollbackAsync(token);
+        }
         // Previously admitted empty derived tables were not sealed. An existing approved plan can replay that empty case.
         var includeTaxonomy = taxonomy.Status != "verified-empty" || expected?.SourceProjections is not { } prior ||
             prior.Any(row => IsLegacyTaxonomyRelation(row.Table));
         var sourceProjections = evidence.SourceProjections(audit, includeTaxonomy);
         if (mediaSource is not null) sourceProjections = [.. sourceProjections, .. mediaSource.Projections];
+        if (coverEvidence is not null) sourceProjections = [.. sourceProjections, .. coverEvidence.Projections];
         var version = outbox.RollbackCount > 0 ? ImportPlanWithRollbackOutboxVersion :
             outbox.RepublishCount > 0 ? ImportPlanWithRepublishOutboxVersion :
             outbox.Entries.Length != 0 ? ImportPlanWithProcessedOutboxVersion :
             commands.Projection is null ? ImportPlanVersion : ImportPlanWithCreateCommandsVersion;
+        if (coverEvidence is not null && version != ImportPlanVersion)
+            throw new InvalidOperationException("Cover staging currently excludes command and outbox plan extensions.");
         var plan = new ImportPlan(version,
             LegacyReference, provider, source.Schema, CurrentSchema.Version,
             schemaDigest, identity, siteId, backupDigest, ownerMap.Digest, shadow.Report.SourceAdminIdentitySha256,
             sourceProjections, counts, findings, ReadyToApply: false, ReadyToStage: findings.Length == 0,
-            SourceSeal: sourceSeal, Media: mediaBinding, SiteAuthor: siteAuthor?.Value, PublishProofs: publishProofs);
+            SourceSeal: sourceSeal, Media: mediaBinding, SiteAuthor: siteAuthor?.Value, PublishProofs: publishProofs, Covers: coverEvidence?.Seal);
         if (mode == "plan")
         {
             if (quarantined) throw new InvalidOperationException("Reuse the original plan for an initialized legacy candidate.");
@@ -234,7 +263,7 @@ internal static partial class Migration
 
     private static async Task<LegacyImportEvidence> ReadLegacyImportEvidenceAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyTaxonomyEvidence taxonomy,
-        CancellationToken token, bool verifiedMedia = false)
+        CancellationToken token, bool verifiedMedia = false, LegacyImportCoverEvidence? covers = null)
     {
         var commands = await ReadLegacyCreateCommandsAsync(source, transaction, catalog, tables, principal, token);
         var outbox = await ReadLegacyProcessedOutboxAsync(source, transaction, catalog, tables, principal, token);
@@ -247,14 +276,15 @@ internal static partial class Migration
         if (outbox.RightsDeliveries is { Length: > 0 } && proofs?.ProjectRights() is null)
             throw new InvalidOperationException("A legacy rights proof projection requires its verified source proof and signed checkpoint.");
         var findings = await ScanImportBoundariesAsync(source, transaction, catalog, tables, principal, commands, outbox,
-            taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs, token);
+            taxonomy, history, savedViews, verifiedMedia, siteAuthor, proofs, token, covers);
         return new LegacyImportEvidence(commands, outbox, taxonomy, history, savedViews, findings, siteAuthor, proofs);
     }
 
     private static async Task<ImportFinding[]> ScanImportBoundariesAsync(LegacySource source, DbTransaction transaction,
         LegacyTable[] catalog, Dictionary<string, LegacyTable> tables, LegacyTable principal, LegacyCreateCommandRead commands,
         LegacyOutboxRead outbox, LegacyTaxonomyEvidence taxonomy, LegacyReadingHistoryRead history, LegacySavedViewRead savedViews,
-        bool verifiedMedia, LegacySiteAuthor? siteAuthor, LegacyPublishProofSet? verifiedPublishProofs, CancellationToken token)
+        bool verifiedMedia, LegacySiteAuthor? siteAuthor, LegacyPublishProofSet? verifiedPublishProofs, CancellationToken token,
+        LegacyImportCoverEvidence? covers = null)
     {
         var found = new List<ImportFinding>(taxonomy.Findings);
         if (commands.Finding is { } finding) found.Add(finding);
@@ -269,7 +299,7 @@ internal static partial class Migration
                 relation == siteAuthor?.Relation || (verifiedPublishProofs is not null && relation.Name == LegacyPublishProofTable) ||
                 (name == LegacyRightsProofTable && verifiedPublishProofs?.ProjectRights() is not null) ||
                 (verifiedPublishProofs?.Transparency is not null && relation.Name is LegacyTransparencyTable or LegacyCheckpointTable) ||
-                (verifiedMedia && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
+                ((verifiedMedia || covers is not null) && relation.Name is LegacyMediaAssets or LegacyMediaReferences)) continue;
             var category = name.Contains("asset", StringComparison.Ordinal) || name.Contains("upload", StringComparison.Ordinal)
                 ? "attachments" : name.Contains("credential", StringComparison.Ordinal) || name.Contains("permission", StringComparison.Ordinal)
                 || name.Contains("session", StringComparison.Ordinal) || name.Contains("user", StringComparison.Ordinal)
@@ -305,6 +335,7 @@ internal static partial class Migration
 
         foreach (var (name, cover) in new[] { (Article, "coverimageurl"), (Revision, "cover_image_url") })
         {
+            if (covers is not null) continue; // The same snapshot proved every nonblank coordinate, never a count-only waiver.
             var field = source.Field(tables[name], cover);
             await CountUnsupported("attachment-reference", name + "." + cover,
                 $"FROM {source.Table(tables[name])} WHERE {field} IS NOT NULL AND TRIM({field}) <> ''");
@@ -361,6 +392,7 @@ internal static partial class Migration
              plan.SourceProjections.Where(row => row.Table == LegacySiteConfigTable).ToArray() is not [var observed] ||
              observed != LegacySiteAuthorProjection(author) || author.EnumerateRunes().Count() > 512))
             throw new InvalidOperationException("The legacy import plan contains an invalid site-author observation.");
+        ValidateLegacyImportCoverPlan(plan);
         ValidateLegacyPublishProofPlan(plan);
         return plan;
     }

@@ -210,6 +210,7 @@ internal static partial class Migration
                                         Transform and verify article rows in a disposable offline database
                   legacy import plan PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256
                   legacy import apply PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256 PLAN.json
+                    Optional plan/apply: --covers PACKAGE SHA256 PROOF.json PROOF_SHA256 (cover-only PostgreSQL staging; no projection)
                                         Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
                   legacy import project|verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
                                         Project or verify staged articles under permanent quarantine

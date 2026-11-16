@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -21,11 +22,21 @@ internal static partial class Migration
         var (map, observedOwnerSha) = await ReadLegacyOwnerMapAsync(ownerPath, ct);
         if (observedOwnerSha != ownerSha || map.Owners is null)
             throw new InvalidOperationException("The cover owner map differs from its reviewed SHA-256.");
-        var owners = ValidateOwnerMap(map.Owners);
         var source = ParseLegacySource("postgres");
         await using var db = source.Connection;
         await db.OpenAsync(ct);
         await using var tx = await BeginLegacyReadAsync(db, ct);
+        var proof = await ReadLegacyCoverProofAsync(media, packageSha, map, ownerSha, revisionSha, publicationSha, source, tx, ct);
+        await tx.RollbackAsync(ct);
+        if (consume is not null) return await consume(proof, ct);
+        Console.WriteLine(proof);
+        return 0;
+    });
+    private static async Task<string> ReadLegacyCoverProofAsync(LegacyMediaManifest media, string packageSha,
+        OwnerMap map, string ownerSha, string revisionSha, string publicationSha, LegacySource source,
+        DbTransaction tx, CancellationToken ct)
+    {
+        var owners = ValidateOwnerMap(map.Owners);
         var pg = (NpgsqlTransaction)tx;
         var cluster = await ReadLegacyPostgresClusterAsync(pg.Connection!, pg, ct);
         if (source.Schema != media.Review.SourceSchema ||
@@ -102,8 +113,7 @@ internal static partial class Migration
                     owner.LegacyAdminId, owner.V2UserId, "cover", rows.GetBoolean(5), !rows.IsDBNull(6) && rows.GetBoolean(6)));
             }
         }
-        await tx.RollbackAsync(ct);
-        var proof = JsonSerializer.Serialize(new
+        return JsonSerializer.Serialize(new
         {
             format = "fsusblog-legacy-cover-proof-v1", sourceReference = LegacyReference,
             mediaManifestSha256 = packageSha, ownerMapSha256 = ownerSha, media.Review.SourceSiteId,
@@ -113,8 +123,6 @@ internal static partial class Migration
             remaining = new[] { "candidate admission, cover activation and publication remain unavailable",
                 "external, absolute, private and local-alias cover mapping remain unsupported" }
         }, Json);
-        if (consume is not null) return await consume(proof, ct);
-        Console.WriteLine(proof);
-        return 0;
-    });
+    }
+
 }

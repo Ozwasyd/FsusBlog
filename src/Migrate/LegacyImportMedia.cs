@@ -92,6 +92,7 @@ internal static partial class Migration
 
     private static CandidateTable[] LegacyImportMediaDefinitions(ImportPlan plan)
     {
+        if (plan.Covers is not null) return [];
         var assets = plan.SourceProjections.Where(value => value.Table == LegacyMediaAssets).ToArray();
         var references = plan.SourceProjections.Where(value => value.Table == LegacyMediaReferences).ToArray();
         var targets = plan.ExpectedTables.Where(value => value.Table == LegacyMediaAssetShadow.Name ||

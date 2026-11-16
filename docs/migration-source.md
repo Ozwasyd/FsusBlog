@@ -481,3 +481,46 @@ legacy covers verify PACKAGE SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
 `verify` 不连接 V1，不改变候选，可对从原生 PostgreSQL 自定义归档恢复的独立候选核对同一证明、离线原媒体包、空候选基线、完整 cover-only 表结构、行数据、站点及禁用标记。写操作始终绑定原目标，恢复到新数据库后只允许此便携只读验证。备份恢复验收须同时保管原媒体包、证明及基线备份；数据库归档本身不包含图片字节。`site-backup.py` 的普通站点备份格式未扩大到这个隔离 schema，本阶段用原生 `pg_dump -Fc` / `pg_restore` 做演练。
 
 隔离实测入口为 `tests/Integration/Migration/legacy-cover-proof.sh --stage`。它创建两个仅监听私人 Unix socket 的临时 PostgreSQL 实例，覆盖精确目标复跑、四条封面映射、同一候选归档恢复、无 V1 连接的读取，以及角色、schema、空值约束、禁用标记篡改拒绝。结果不代表已经导入文章、规范化图片、赋予公开权限、显示封面或完成生产迁移。
+
+
+### Opt-in cover-only normal candidate staging
+
+`legacy import plan|apply ... --covers PACKAGE SHA256 PROOF.json PROOF_SHA256`
+joins an independently approved offline cover witness to the normal, non-serving
+article candidate. This is separate from `legacy covers stage`; an existing
+standalone cover quarantine is not converted, dropped or overwritten. Use a new,
+independently provisioned empty target, its verified baseline backup and a package
+review bound to that exact physical target. The approved proof must be generated
+for that same source and destination before planning.
+
+The initial converter supports PostgreSQL version-1 import plans only, with no
+command/outbox extension or joined private-media input. It verifies the approved
+proof again inside the **same source snapshot** used for article shadows. Every
+nonblank article/revision cover must map to its exact reviewed owner, global
+revision ID and public `/uploads/` asset. Every package asset/reference must be
+explained by those cover coordinates, with reference count one. Mixed body assets,
+private media, external URLs and aliases remain unsupported. All unrelated source
+findings continue to block staging; no general verified-media waiver is granted.
+
+A null-omitted `covers` seal binds proof, package, mapping and physical source/target
+custody without changing old plan bytes. The normal phase-1 checkpoint now includes
+registered asset/reference shadows and `shadow_cover_mapping` for this opt-in only;
+article/revision/publication shadows and phases 2/3 retain their existing contracts.
+The mapping stores exact coordinates plus the complete canonical mapping JSON,
+including owner, role and byte digest. Candidate replay remeasures every table.
+`v2_schema=-1` and `readyToApply=false` remain mandatory. All project, media-preparation,
+media-activation and release modes explicitly reject cover-bearing plans before
+opening the target. **This is article-history plus cover custody, not a cover
+projection, normalized image, publish authorization or live migration.**
+
+Take the native physical candidate snapshot only after all three checkpoints and
+readback succeed. A restore retains its negative marker and mapping data; the
+original physical destination seal does not authorize writing to a restored clone.
+The package and approved proof must remain with the snapshot as separate artifacts.
+
+`tests/Integration/Migration/legacy-cover-import.sh` uses disposable Unix-only
+PostgreSQL clusters. Set `DOTNET_BIN` to the pinned SDK and `BASELINE_MIGRATE_DLL` to
+an independently built unchanged `7b85f40` Migrate binary. It compares old/new proof
+bytes and no-cover plan bytes on identical source/target baselines, stages/replays
+normal cover history, tests refusal boundaries and restored non-serving custody,
+and exercises the old no-cover plan through staging and projection unchanged.
