@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { submitSearch as submit } from './search-form-fixture.mjs'
 import { setTimeout as delay } from 'node:timers/promises'
 import { sitePages } from '../../src/Contracts/site-pages.ts'
 import { WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
@@ -9,12 +10,6 @@ const corpus = (url, origin) => url.origin === origin && url.pathname === WireRo
 const noMatches = page => page.getByText('No articles match your search.', { exact: true })
 const searchWorker = page => page.workers().find(worker => new URL(worker.url()).pathname.includes('/search.worker'))
 
-async function submit(page, query) {
-  const form = page.locator('form.search-form')
-  await form.getByRole('textbox', { name: 'Search articles' }).fill(query)
-  await form.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.waitForURL(url => url.pathname === '/search' && url.searchParams.get('q') === query)
-}
 
 function verifyDownload(responses) {
   const [first] = responses

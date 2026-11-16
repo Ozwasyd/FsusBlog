@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { submitSearch as submit } from './search-form-fixture.mjs'
 import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -198,12 +199,6 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
   }
 }
 
-async function submit(page, query) {
-  const form = page.locator('form.search-form')
-  await form.getByRole('textbox', { name: 'Search articles' }).fill(query)
-  await form.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.waitForURL(url => url.pathname === '/search' && url.searchParams.get('q') === query)
-}
 
 async function assertCards(page, ids) {
   await page.locator('ol.article-list').getByRole('link', { name: articleTitle(ids[0]), exact: true }).waitFor({ timeout })

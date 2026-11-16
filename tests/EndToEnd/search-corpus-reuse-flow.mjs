@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { submitSearch } from './search-form-fixture.mjs'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -195,12 +196,7 @@ try {
     return visitor.locator('ol.article-list').getByRole('link', { name, exact: true })
   }
 
-  async function submit(query) {
-    const form = visitor.locator('form.search-form')
-    await form.getByRole('textbox', { name: 'Search articles' }).fill(query)
-    await form.getByRole('button', { name: 'Search', exact: true }).click()
-    await visitor.waitForURL(url => url.pathname === '/search' && url.searchParams.get('q') === query)
-  }
+  async function submit(query) { return submitSearch(visitor, query) }
 
   function checkedRefresh(priorFirst, priorLast) {
     const batch = received.splice(0)
