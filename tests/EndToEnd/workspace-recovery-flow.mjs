@@ -7,7 +7,7 @@ import {
   encodeAuthoringWorkspaceLayoutCommand,
   FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, binary, button, chromium, expect, submitArticle } from './browser-authoring-fixture.mjs'
+import { authorFixture, binary, button, chromium, expect, journalContains, submitArticle } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -100,25 +100,6 @@ async function saveBesideInspector(page, width, article) {
   }
 }
 
-async function journalContains(page, body) {
-  await page.waitForFunction(source => new Promise(resolve => {
-    const request = indexedDB.open('fsusblog-v2-draft-recovery')
-    request.onerror = () => resolve(false)
-    request.onsuccess = () => {
-      const database = request.result
-      if (!database.objectStoreNames.contains('recovery')) {
-        database.close()
-        resolve(false)
-        return
-      }
-      const tx = database.transaction('recovery')
-      const rows = tx.objectStore('recovery').getAll()
-      rows.onsuccess = () => resolve(rows.result.some(row => row.body === source))
-      rows.onerror = () => resolve(false)
-      tx.oncomplete = () => database.close()
-    }
-  }), body)
-}
 
 let failure
 let browser = await launch()

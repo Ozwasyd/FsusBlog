@@ -105,3 +105,23 @@ export function authorFixture(origin, diagnostics) {
   const monitor = page => observePageErrors(page, diagnostics)
   return { signIn, saveDraft, createDraft, monitor }
 }
+
+export async function journalContains(page, body) {
+  await page.waitForFunction(source => new Promise(resolve => {
+    const request = indexedDB.open('fsusblog-v2-draft-recovery')
+    request.onerror = () => resolve(false)
+    request.onsuccess = () => {
+      const database = request.result
+      if (!database.objectStoreNames.contains('recovery')) {
+        database.close()
+        resolve(false)
+        return
+      }
+      const tx = database.transaction('recovery')
+      const rows = tx.objectStore('recovery').getAll()
+      rows.onsuccess = () => resolve(rows.result.some(row => row.body === source))
+      rows.onerror = () => resolve(false)
+      tx.oncomplete = () => database.close()
+    }
+  }), body)
+}

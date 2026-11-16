@@ -1,4 +1,4 @@
-import { holdResponse } from './browser-authoring-fixture.mjs'
+import { holdResponse, journalContains } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -442,23 +442,7 @@ try {
   const scopeLoaded = await publisher.request.get(`${origin}${WireRoutes.DraftRecoveryScope}`)
   assert.equal(scopeLoaded.status(), 200)
   await publisher.getByLabel('Body', { exact: true }).fill(unsavedRecovery)
-  await publisher.waitForFunction(source => new Promise(resolve => {
-    const request = indexedDB.open('fsusblog-v2-draft-recovery')
-    request.onerror = () => resolve(false)
-    request.onsuccess = () => {
-      const database = request.result
-      if (!database.objectStoreNames.contains('recovery')) {
-        database.close()
-        resolve(false)
-        return
-      }
-      const tx = database.transaction('recovery')
-      const rows = tx.objectStore('recovery').getAll()
-      rows.onsuccess = () => resolve(rows.result.some(row => row.body === source))
-      rows.onerror = () => resolve(false)
-      tx.oncomplete = () => database.close()
-    }
-  }), unsavedRecovery)
+  await journalContains(publisher, unsavedRecovery)
   // Release the old editor page without taking its explicit discard route.
   await publisher.close({ runBeforeUnload: false })
   publisher = await desktop.newPage()
