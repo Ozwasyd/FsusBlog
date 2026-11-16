@@ -9,7 +9,6 @@ using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -31,7 +30,7 @@ public sealed class AdminCommentQueuePostgresTests
         var store = new Store(fixture.DataSource);
         var (siteToken, _) = await store.SignIn(siteTicket, ct);
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         var published = await Publish("Public comment fixture");
         var retracted = await Publish("Retracted comment fixture");
         var removed = await Publish("Deleted comment fixture");

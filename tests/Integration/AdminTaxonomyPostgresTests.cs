@@ -10,7 +10,6 @@ using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -32,7 +31,7 @@ public sealed class AdminTaxonomyPostgresTests
 
         var store = new Store(fixture.DataSource);
         var token = (await store.SignIn(ticket, ct)).Token;
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         var published = await Publish(await Draft("Public article", 1, 1));
         var alternate = await Assign(published, 2, 2);
         await Schedule(alternate);

@@ -125,7 +125,7 @@ public sealed class AdminTagMetadataPostgresTests
         await using var lease = new InstanceLease(fixture.ConnectionString);
         await lease.Start(NullLogger.Instance, ct, new(AdminTagMetadata: true));
         var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
+        var publications = PublicationFixture.Project(fixture.DataSource, lease);
         await publications.Refresh(ct);
         var before = publications.Snapshot!;
         Assert.Equal(4, before.Taxonomy.TagByName("retired topic"));

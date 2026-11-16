@@ -5,7 +5,6 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -20,7 +19,7 @@ public sealed class AdminOperationsPostgresTests
         var actor = Guid.NewGuid();
 
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         await Denied(Rejection.Forbidden, () => adminStore.OperationsStatus(key, publications, ct));
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(null, publications, ct));
         await Execute("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.AuditReadPermission);

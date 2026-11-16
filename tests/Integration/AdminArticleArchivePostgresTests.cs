@@ -7,7 +7,6 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
-using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -32,7 +31,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
             SHA256.HashData(loginSecret), author);
         var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(loginSecret), ct);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);

@@ -9,7 +9,6 @@ using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -26,7 +25,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var other = await CreateAdmin(db, ct, "other-administrator", true);
         var manager = await CreateAdmin(db, ct, "no-article-grant", false);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);
@@ -126,7 +125,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var other = await CreateAdmin(db, ct, "different-admin", true);
         var manager = await CreateAdmin(db, ct, "draft-rollback-without-grant", false);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);

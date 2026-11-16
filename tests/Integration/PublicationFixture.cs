@@ -1,5 +1,8 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Operations;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
@@ -8,6 +11,9 @@ namespace FsusBlog.V2.Integration.Tests;
 internal static class PublicationFixture
 {
     private const string Signing = "IntegrityProof__Signing__";
+
+    internal static Publications Project(NpgsqlDataSource source, InstanceLease? lease = null) =>
+        new(source, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
 
     internal static DirectoryInfo PrivateScratch(string prefix)
     {

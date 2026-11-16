@@ -6,7 +6,6 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -18,7 +17,7 @@ public sealed class AdminEffectivePermissionsPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var store = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         var (owner, firstToken) = await Add("first", CurrentSchema.CommentModeratePermission, CurrentSchema.ArticleWritePermission);
         var (other, secondToken) = await Add("second", CurrentSchema.SystemConfigPermission);
 

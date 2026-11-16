@@ -397,7 +397,7 @@ public sealed class PublishingPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
-        var publications = new Publications(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance);
+        var publications = PublicationFixture.Project(fixture.DataSource);
         var first = await store.SignIn((await fixture.IssueTicket("first author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var second = await store.SignIn((await fixture.IssueTicket("another author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
         var handle = FsusBlog.V2.Server.Sessions.SiteSessions.Id(first.User.Id, Store.TokenDigest(first.Token)!);
