@@ -4,7 +4,12 @@ cd "$(dirname "$0")/../../.."
 export PATH="${PG_TOOLS_DIR:-/opt/homebrew/opt/postgresql@18/bin}:$PATH"
 dotnet_bin="${DOTNET_BIN:-dotnet}"
 migrate=("$dotnet_bin" "${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}")
-[[ $# == 0 && -n "${BASELINE_MIGRATE_DLL:-}" ]] || { echo "Set BASELINE_MIGRATE_DLL to the unchanged 7b85f40 binary." >&2; exit 2; }
+[[ ( $# == 0 || ( $# == 1 && "$1" == --prepare ) ) && -n "${BASELINE_MIGRATE_DLL:-}" ]] || { echo "Set BASELINE_MIGRATE_DLL to the unchanged 7b85f40 binary." >&2; exit 2; }
+prepare=false; current_leaf=ExactName.txt; historical_leaf=Other.txt
+if [[ "${1:-}" == --prepare ]]; then
+    prepare=true; current_leaf=ExactName.jpeg; historical_leaf=Other.png
+    source tests/Integration/Migration/legacy-cover-preparation-fixture.sh
+fi
 umask 077
 scratch="$(mktemp -d /tmp/fsus-cover-proof.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
@@ -16,6 +21,10 @@ cleanup() {
     local evidence="$scratch-evidence"
     mkdir -m 700 "$evidence"
     find "$scratch" -maxdepth 1 -type f \( -name '*.json' -o -name '*.err' -o -name '*.out' -o -name '*.log' \) -exec cp {} "$evidence/" \;
+    if [[ -d "$scratch/prepared/first" ]]; then
+        mkdir -m 700 "$evidence/prepared"
+        cp -R "$scratch/prepared/first" "$evidence/prepared/"
+    fi
     if [[ "$status" == 0 ]]; then
         find "$scratch" -type d -exec chmod u+w {} +
         find "$scratch" -depth -delete || status=1
@@ -42,11 +51,11 @@ pg source postgres -c "CREATE DATABASE $source TEMPLATE template0"
 pg target postgres -c "CREATE DATABASE $target TEMPLATE template0"
 pg source "$source" -f tests/Integration/Migration/legacy-source-fixture.sql -f tests/Integration/Migration/legacy-shared-rights-fixture.sql -f tests/Integration/Migration/legacy-assets-fixture.sql
 pg source "$source" -c "DELETE FROM content_asset_reference; DELETE FROM content_asset WHERE id<>'$asset';
-UPDATE content_asset SET owner_admin_principal_id=7 WHERE id='$asset';
-UPDATE article SET coverimageurl='/uploads/illustration/ExactName.txt';
-UPDATE article_revision SET cover_image_url='/uploads/illustration/ExactName.txt';
-UPDATE article_revision SET cover_image_url='/uploads/illustration/Other.txt' WHERE id=5000000001;
-INSERT INTO content_asset SELECT '3c550000-0000-4000-8000-000000000003',storage_class,'illustration/Other.txt',media_type,extension,
+UPDATE content_asset SET owner_admin_principal_id=7,storage_key='illustration/$current_leaf' WHERE id='$asset';
+UPDATE article SET coverimageurl='/uploads/illustration/$current_leaf';
+UPDATE article_revision SET cover_image_url='/uploads/illustration/$current_leaf';
+UPDATE article_revision SET cover_image_url='/uploads/illustration/$historical_leaf' WHERE id=5000000001;
+INSERT INTO content_asset SELECT '3c550000-0000-4000-8000-000000000003',storage_class,'illustration/$historical_leaf',media_type,extension,
 byte_length,sha256,width,height,owner_admin_principal_id,state,created_at_utc,updated_at_utc FROM content_asset WHERE id='$asset';
 INSERT INTO content_asset_reference VALUES ('$asset','article','42',42,1,NULL,'2026-10-01');
 INSERT INTO content_asset_reference SELECT c.id,'revision',r.id::text,r.article_id,1,NULL,'2026-10-01'::timestamp FROM article_revision r JOIN content_asset c ON '/uploads/' || c.storage_key=r.cover_image_url;"
@@ -58,8 +67,9 @@ export FSUSBLOG_DB="$(dsn target "$target")" FSUSBLOG_IMPORT_DB="$(dsn target "$
 pg target "$target" -c "INSERT INTO public.blog_user VALUES ('$owner','Cover fixture',true,true,1)"
 target_site="$(pg target "$target" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')"
 mkdir -m 700 "$scratch/public" "$scratch/public/illustration" "$scratch/private" "$scratch/packages"
-printf abc > "$scratch/public/illustration/ExactName.txt"
-printf abc > "$scratch/public/illustration/Other.txt"
+printf abc > "$scratch/public/illustration/$current_leaf"
+printf abc > "$scratch/public/illustration/$historical_leaf"
+if [[ "$prepare" == true ]]; then seed_cover_images; fi
 "${migrate[@]}" legacy assets rehearsal plan postgres "$scratch/public" "$scratch/private" 87bcdd48-255d-49dd-a984-dd4c4ee6f9d4 "$target_site" > "$scratch/review.json"
 python3 - "$scratch/review.json" "$owner" <<'PY'
 import json,pathlib,sys
@@ -116,9 +126,9 @@ PY
 apply=("${migrate[@]}" legacy import apply postgres "$scratch/owners.json" "$baseline" "$baseline_sha" "$scratch/import.json" "${cover_args[@]}")
 refuse() { local label="$1"; shift; if "$@" > "$scratch/$label.out" 2> "$scratch/$label.err"; then echo "Unexpected success: $label" >&2; exit 1; fi; }
 pristine() { [[ "$(pg target "$target" -Atc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema WHERE singleton")" == t ]]; }
-pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/ExactName.txt' WHERE id=5000000001"
+pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/$current_leaf' WHERE id=5000000001"
 refuse changed-cover "${apply[@]}"; pristine
-pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/Other.txt' WHERE id=5000000001"
+pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/$historical_leaf' WHERE id=5000000001"
 pg source "$source" -c "UPDATE admin_principal SET permissions='[1]'"
 refuse unrelated-privilege "${apply[@]}"; pristine
 pg source "$source" -c "UPDATE admin_principal SET permissions='[]'; CREATE TABLE unsupported_cover_fixture (id integer); INSERT INTO unsupported_cover_fixture VALUES (1)"
@@ -192,6 +202,7 @@ pg target "$target" -c "UPDATE fsus_legacy_candidate.checkpoint SET digest='$zer
 refuse checkpoint-tamper "${apply[@]}"
 pg target "$target" -c "UPDATE fsus_legacy_candidate.checkpoint SET digest='$checkpoint' WHERE phase=1"
 "${apply[@]}" > "$scratch/final-replay.json"
+if [[ "$prepare" == true ]]; then prove_cover_preparation; fi
 pg_dump -h "$scratch/target-s" -p "$PGPORT" -U "$PGUSER" -Fc "$target" > "$scratch/candidate.dump"
 restored=fsusv2_import_cover_restored
 pg target postgres -c "CREATE DATABASE $restored TEMPLATE template0"

@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal static class LegacyMediaPreparationCommand
+internal static partial class LegacyMediaPreparationCommand
 {
     private const string Manifest = "manifest.json";
     private const UnixFileMode OwnedReadOnly = UnixFileMode.UserRead;
@@ -33,6 +33,9 @@ internal static class LegacyMediaPreparationCommand
                     }, LegacyMediaPreparation.Json));
                     return 0;
                 }
+                case ["prepare-cover", var coverRequest, var coverHash, var coverCustody, var coverNormalizer, var coverOutput, var coverName]:
+                    await Prepare(coverRequest, coverHash, coverCustody, coverNormalizer, coverOutput, coverName, deadline.Token, cover: true);
+                    return 0;
                 case ["prepare", var request, var requestHash, var custody, var normalizerHash, var output, var name]:
                     await Prepare(request, requestHash, custody, normalizerHash, output, name, deadline.Token);
                     return 0;
@@ -57,7 +60,7 @@ internal static class LegacyMediaPreparationCommand
     }
 
     private static async Task Prepare(string requestPath, string requestHash, string custodyPath, string normalizerHash,
-        string outputParent, string name, CancellationToken ct)
+        string outputParent, string name, CancellationToken ct, bool cover = false)
     {
         RequirePath(requestPath);
         RequirePath(custodyPath);
@@ -76,12 +79,11 @@ internal static class LegacyMediaPreparationCommand
         using var requestParent = NativeUnixFile.OpenDirectory(Path.GetDirectoryName(requestPath)!);
         var requestBytes = await Read(requestParent, Path.GetFileName(requestPath), requestHash,
             LegacyMediaPreparation.MaxManifestBytes, ct, allowOwnerWrite: true);
-        var request = JsonSerializer.Deserialize<LegacyMediaPreparationRequest>(requestBytes, LegacyMediaPreparation.Json);
-        ValidateRequest(request, requestBytes);
+        var assets = ReadPreparationInput(requestBytes, cover, out var custodySha, out var validateCustody);
         using var custodyParent = OwnedDirectory(Path.GetDirectoryName(custodyPath)!, PrivateDirectory);
         using var custody = OwnedDirectory(custodyPath, SealedDirectory);
-        var custodyBytes = await Read(custody, Manifest, request!.CustodyManifestSha256, LegacyMediaPreparation.MaxManifestBytes, ct);
-        ValidateCustody(request, custodyBytes);
+        var custodyBytes = await Read(custody, Manifest, custodySha, LegacyMediaPreparation.MaxManifestBytes, ct);
+        validateCustody(custodyBytes);
 
         var (library, identity) = ReadNormalizer();
         if (Digest(identity) != normalizerHash)
@@ -102,9 +104,9 @@ internal static class LegacyMediaPreparationCommand
         byte[] manifest;
         using (var output = new MediaObjectDirectory(pendingPath, MediaImage.MaxBytes, [custodyPath]))
         {
-            var prepared = new List<LegacyMediaPreparedAsset>(request.Assets.Length);
+            var prepared = new List<LegacyMediaPreparedAsset>(assets.Length);
             long total = 0;
-            foreach (var asset in request.Assets)
+            foreach (var asset in assets)
             {
                 var leaf = $"{asset.AssetId:N}.blob";
                 var source = await Read(custody, leaf, asset.RawSha256, MediaImage.MaxBytes, ct, exactLength: asset.RawBytes);
@@ -112,14 +114,14 @@ internal static class LegacyMediaPreparationCommand
                 var fileName = asset.AssetId.ToString("N") + extension;
                 var format = MediaImage.FormatFor(fileName, asset.MediaType, webp: true);
                 var image = MediaImage.Normalize(fileName, format, source, ct);
-                if ((image.Width, image.Height) != (asset.Width, asset.Height) || (total += image.Bytes.Length) > LegacyMediaPreparation.MaxTotalBytes)
+                if ((image.Width, image.Height) != (asset.Width, asset.Height) || (total += image.Bytes.Length) > (cover ? LegacyCoverPreparationRequest.MaxTotalBytes : LegacyMediaPreparation.MaxTotalBytes))
                     throw new InvalidOperationException("Normalized image dimensions or total bytes differ from the approved preparation bounds.");
                 await output.Materialize(leaf, image.Bytes, image.Hash, ct);
                 prepared.Add(new(asset.AssetId, asset.RawSha256, Hex(image.Hash), image.Bytes.Length,
                     (short)image.Format, image.Width, image.Height));
             }
             manifest = JsonSerializer.SerializeToUtf8Bytes(new LegacyMediaPreparationResult(
-                LegacyMediaPreparation.ResultFormat, requestHash, normalizerHash, [.. prepared]), LegacyMediaPreparation.Json);
+                cover ? LegacyCoverPreparationRequest.ResultFormat : LegacyMediaPreparation.ResultFormat, requestHash, normalizerHash, [.. prepared]), LegacyMediaPreparation.Json);
             if (manifest.Length > LegacyMediaPreparation.MaxManifestBytes)
                 throw new InvalidOperationException("The prepared media manifest exceeds its byte limit.");
             await output.Materialize(Manifest, manifest, SHA256.HashData(manifest), ct);
@@ -134,6 +136,24 @@ internal static class LegacyMediaPreparationCommand
         {
             manifestSha256 = Hex(SHA256.HashData(manifest)), requestSha256 = requestHash, normalizerSha256 = normalizerHash,
         }, LegacyMediaPreparation.Json));
+    }
+
+    private static LegacyMediaPreparationAsset[] ReadPreparationInput(byte[] bytes, bool cover, out string custodySha,
+        out Action<byte[]> validateCustody)
+    {
+        if (cover)
+        {
+            var request = JsonSerializer.Deserialize<LegacyCoverPreparationRequest>(bytes, LegacyMediaPreparation.Json);
+            ValidateCoverRequest(request, bytes);
+            custodySha = request!.CustodyManifestSha256;
+            validateCustody = custody => ValidateCoverCustody(request, custody);
+            return request.Assets;
+        }
+        var ordinary = JsonSerializer.Deserialize<LegacyMediaPreparationRequest>(bytes, LegacyMediaPreparation.Json);
+        ValidateRequest(ordinary, bytes);
+        custodySha = ordinary!.CustodyManifestSha256;
+        validateCustody = custody => ValidateCustody(ordinary, custody);
+        return ordinary.Assets;
     }
 
     private static void ValidateRequest(LegacyMediaPreparationRequest? request, byte[] bytes)
@@ -168,25 +188,8 @@ internal static class LegacyMediaPreparationCommand
     {
         using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 12, AllowDuplicateProperties = false });
         var manifest = document.RootElement;
-        var review = manifest.GetProperty("review");
-        var files = manifest.GetProperty("files");
+        ValidateCustodyAssets(manifest, request.Assets, request.SourceSiteId, request.TargetSiteId, request.References.Length, "private");
         var references = manifest.GetProperty("references");
-        if (manifest.GetProperty("format").GetString() != "fsusblog-legacy-media-quarantine-v1" ||
-            manifest.GetProperty("readyToApply").GetBoolean() || review.GetProperty("provider").GetString() != "postgres" ||
-            review.GetProperty("sourceSiteId").GetGuid() != request.SourceSiteId || review.GetProperty("targetSiteId").GetGuid() != request.TargetSiteId ||
-            files.GetArrayLength() != request.Assets.Length || references.GetArrayLength() != request.References.Length)
-            throw new InvalidOperationException("The approved custody package does not match the reviewed media request.");
-
-        var assets = request.Assets.ToDictionary(asset => asset.AssetId);
-        foreach (var file in files.EnumerateArray())
-            if (!assets.Remove(file.GetProperty("assetId").GetGuid(), out var asset) ||
-                file.GetProperty("storageClass").GetString() != "private" || file.GetProperty("bytes").GetInt64() != asset.RawBytes ||
-                file.GetProperty("sha256").GetString() != asset.RawSha256 || file.GetProperty("mediaType").GetString() != asset.MediaType ||
-                file.GetProperty("extension").GetString() != asset.Extension || file.GetProperty("width").GetInt64() != asset.Width ||
-                file.GetProperty("height").GetInt64() != asset.Height || file.GetProperty("sourceOwnerId").GetInt64() != asset.SourceOwnerId ||
-                file.GetProperty("targetOwnerId").GetGuid() != asset.TargetOwnerId)
-                throw new InvalidOperationException("An approved private asset or owner differs from its custody manifest.");
-
         var revisions = request.References.ToDictionary(reference => (reference.AssetId, reference.SourceRevisionId));
         foreach (var reference in references.EnumerateArray())
             if (!revisions.Remove((reference.GetProperty("assetId").GetGuid(), reference.GetProperty("sourceId").GetInt64()), out var binding) ||
@@ -194,6 +197,30 @@ internal static class LegacyMediaPreparationCommand
                 reference.GetProperty("referenceCount").GetInt32() != binding.ReferenceCount ||
                 reference.GetProperty("altText").GetString() != binding.AltText)
                 throw new InvalidOperationException("An approved source revision reference differs from its custody manifest.");
+    }
+
+    private static void ValidateCustodyAssets(JsonElement manifest, LegacyMediaPreparationAsset[] requestedAssets,
+        Guid sourceSite, Guid targetSite, int referenceCount, string storageClass)
+    {
+        var review = manifest.GetProperty("review");
+        var files = manifest.GetProperty("files");
+        var references = manifest.GetProperty("references");
+        if (manifest.GetProperty("format").GetString() != "fsusblog-legacy-media-quarantine-v1" ||
+            manifest.GetProperty("readyToApply").GetBoolean() || review.GetProperty("provider").GetString() != "postgres" ||
+            review.GetProperty("sourceSiteId").GetGuid() != sourceSite || review.GetProperty("targetSiteId").GetGuid() != targetSite ||
+            files.GetArrayLength() != requestedAssets.Length || references.GetArrayLength() != referenceCount)
+            throw new InvalidOperationException("The approved custody package does not match the reviewed media request.");
+
+        var assets = requestedAssets.ToDictionary(asset => asset.AssetId);
+        foreach (var file in files.EnumerateArray())
+            if (!assets.Remove(file.GetProperty("assetId").GetGuid(), out var asset) ||
+                file.GetProperty("storageClass").GetString() != storageClass || file.GetProperty("bytes").GetInt64() != asset.RawBytes ||
+                file.GetProperty("sha256").GetString() != asset.RawSha256 || file.GetProperty("mediaType").GetString() != asset.MediaType ||
+                file.GetProperty("extension").GetString() != asset.Extension || file.GetProperty("width").GetInt64() != asset.Width ||
+                file.GetProperty("height").GetInt64() != asset.Height || file.GetProperty("sourceOwnerId").GetInt64() != asset.SourceOwnerId ||
+                file.GetProperty("targetOwnerId").GetGuid() != asset.TargetOwnerId)
+                throw new InvalidOperationException("An approved asset or owner differs from its custody manifest.");
+
     }
 
     private static (string NativeLibrary, NormalizerIdentity Identity) ReadNormalizer()

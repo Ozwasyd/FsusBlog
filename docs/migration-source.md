@@ -524,3 +524,50 @@ an independently built unchanged `7b85f40` Migrate binary. It compares old/new p
 bytes and no-cover plan bytes on identical source/target baselines, stages/replays
 normal cover history, tests refusal boundaries and restored non-serving custody,
 and exercises the old no-cover plan through staging and projection unchanged.
+
+
+### Offline cover image preparation (no projection)
+
+After approved cover-aware staging, use:
+
+```
+legacy covers prepare-request PLAN SHA BACKUP SHA PACKAGE SHA PROOF SHA
+legacy-media prepare-cover REQUEST REQUEST_SHA PACKAGE NORMALIZER_SHA OUTPUT_PARENT NAME
+legacy covers prepare-verify PLAN SHA BACKUP SHA PACKAGE SHA PROOF SHA PREPARED PREPARED_SHA NORMALIZER_SHA
+```
+
+The middle command is the Server executable's existing offline `legacy-media`
+entry point, not a running web server. Obtain its pinned executable/native-code
+identity using `legacy-media normalizer`. Approve the generated request digest,
+normalizer digest and bounded private output destination before preparing bytes.
+
+The cover request/result use distinct formats. Requests are generated only from
+the original physical, unprojected candidate with all three original checkpoints,
+exact shadows and original public baseline intact. They bind the original plan,
+proof, custody package, candidate measurement, asset/owner UUIDs, global source
+revision IDs and cover roles. Article-head/revision disagreement is rejected.
+Restored-clone authority is not inferred. Verification regenerates that same
+request against the candidate, then independently rehashes every prepared payload.
+
+The initial boundary is at most 32 PNG/JPEG assets, 128 exact cover references,
+20 MiB per raw or normalized image, 64 MiB total raw or normalized bytes, dimensions
+1–8192 and at most 16,777,216 pixels. The existing decoder rejects malformed,
+animated or unexpectedly oriented input and normalizes pixels using the pinned
+implementation. UUIDs, dimensions and formats remain stable; raw and normalized
+hashes are recorded separately. No crop, thumbnail or public-image variant is
+invented. Output must be owner-private and separate from custody/serving roots;
+an existing named output is refused rather than overwritten. A second output name
+can independently reproduce the same package, and verification is repeatable.
+
+No database rows, cover selections, original URLs, V1 rights/signatures or serving
+markers are changed. Existing private-media preparation retains its private,
+revision-only contract. Actual revision-cover projection and publication-cover
+conversion remain separate, unavailable steps.
+
+`legacy-cover-import.sh --prepare` reuses the composition fixture and exercises
+genuine independently generated PNG/JPEG bytes, preserved synthetic output,
+checkpoint/baseline/owner/bounds/tamper refusal and unchanged no-cover behavior.
+The focused Server build may use `-p:DesignTimeBuild=true` to skip only unrelated
+FsusUI native generation in an isolated archive; this is not a full Server build
+or a release-readiness gate. Its real image-normalizer executable and Skia codec
+still run and are fingerprinted.

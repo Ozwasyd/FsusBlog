@@ -56,6 +56,12 @@ internal static partial class Migration
 
     private static async Task<LegacyMediaPreparationResult> ReadPreparedLegacyMediaAsync(PreparedLegacyMediaInput approved,
         LegacyMediaPreparationRequest request, byte[] requestBytes, CancellationToken ct, Action<LegacyMediaPreparedAsset, byte[]>? readImage = null)
+        => await ReadPreparedLegacyMediaAssetsAsync(approved, request.Assets, requestBytes,
+            LegacyMediaPreparation.ResultFormat, ct, readImage);
+
+    private static async Task<LegacyMediaPreparationResult> ReadPreparedLegacyMediaAssetsAsync(PreparedLegacyMediaInput approved,
+        LegacyMediaPreparationAsset[] assets, byte[] requestBytes, string resultFormat, CancellationToken ct,
+        Action<LegacyMediaPreparedAsset, byte[]>? readImage = null, long maxTotalBytes = LegacyMediaPreparation.MaxTotalBytes)
     {
         if (!IsSha256(approved.ManifestSha256) || !IsSha256(approved.NormalizerSha256))
             throw new ArgumentException("Supply the independently recorded prepared manifest and normalizer SHA-256 values.");
@@ -63,15 +69,15 @@ internal static partial class Migration
         using var package = OpenLegacyMediaPackage(approved.Package);
         var manifestBytes = await package.ReadManifestAsync(approved.ManifestSha256, ct);
         var result = JsonSerializer.Deserialize<LegacyMediaPreparationResult>(manifestBytes, LegacyMediaPreparation.Json);
-        if (result is null || result.Format != LegacyMediaPreparation.ResultFormat || result.RequestSha256 != requestSha256 ||
-            result.NormalizerSha256 != approved.NormalizerSha256 || result.Assets?.Length != request.Assets.Length)
+        if (result is null || result.Format != resultFormat || result.RequestSha256 != requestSha256 ||
+            result.NormalizerSha256 != approved.NormalizerSha256 || result.Assets?.Length != assets.Length)
             throw new InvalidOperationException("The prepared media does not match its approved request and normalizer.");
-        package.RequireExactFiles(request.Assets.Select(asset => asset.AssetId));
+        package.RequireExactFiles(assets.Select(asset => asset.AssetId));
 
         long total = 0;
-        for (var index = 0; index < request.Assets.Length; index++)
+        for (var index = 0; index < assets.Length; index++)
         {
-            var input = request.Assets[index];
+            var input = assets[index];
             var output = result.Assets[index];
             var expectedFormat = input.MediaType switch { "image/png" => 1, "image/jpeg" => 2, "image/webp" => 3, _ => 0 };
             if (output is null || output.AssetId != input.AssetId || output.RawSha256 != input.RawSha256 ||
@@ -79,7 +85,7 @@ internal static partial class Migration
                 !IsSha256(output.NormalizedSha256) || output.Length is < 1 or > LegacyMediaPreparation.MaxFileBytes)
                 throw new InvalidOperationException("Prepared media metadata differs from the reviewed source image.");
             total += output.Length;
-            if (total > LegacyMediaPreparation.MaxTotalBytes)
+            if (total > maxTotalBytes)
                 throw new InvalidOperationException("Prepared media exceeds its verification byte budget.");
             await using var inputFile = package.OpenPayload(output.AssetId);
             if (inputFile.Length != output.Length)
@@ -91,7 +97,7 @@ internal static partial class Migration
                 throw new InvalidOperationException("A prepared media payload differs from its sealed image metadata.");
             readImage?.Invoke(output, encoded);
         }
-        package.RequireExactFiles(request.Assets.Select(asset => asset.AssetId));
+        package.RequireExactFiles(assets.Select(asset => asset.AssetId));
         return result;
     }
 
