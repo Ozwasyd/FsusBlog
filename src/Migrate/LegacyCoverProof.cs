@@ -10,7 +10,8 @@ internal static partial class Migration
         string Role, bool CurrentEdit, bool CurrentPublication);
 
     private static Task<int> RunLegacyCoverProofAsync(string packagePath, string packageSha, string ownerPath,
-        string ownerSha, string revisionSha, string publicationSha, CancellationToken token) => RunBoundedLegacyOperationAsync(token, 8,
+        string ownerSha, string revisionSha, string publicationSha, CancellationToken token,
+        Func<string, CancellationToken, Task<int>>? consume = null) => RunBoundedLegacyOperationAsync(token, 8,
         "The legacy cover proof exceeded its run budget.", "The legacy cover source rejected the read", async ct =>
     {
         // This is a new read-only witness. Neither existing import plans nor media manifests gain authority.
@@ -102,7 +103,7 @@ internal static partial class Migration
             }
         }
         await tx.RollbackAsync(ct);
-        Console.WriteLine(JsonSerializer.Serialize(new
+        var proof = JsonSerializer.Serialize(new
         {
             format = "fsusblog-legacy-cover-proof-v1", sourceReference = LegacyReference,
             mediaManifestSha256 = packageSha, ownerMapSha256 = ownerSha, media.Review.SourceSiteId,
@@ -111,7 +112,9 @@ internal static partial class Migration
             readyToApply = false, readyToStage = false,
             remaining = new[] { "candidate admission, cover activation and publication remain unavailable",
                 "external, absolute, private and local-alias cover mapping remain unsupported" }
-        }, Json));
+        }, Json);
+        if (consume is not null) return await consume(proof, ct);
+        Console.WriteLine(proof);
         return 0;
     });
 }

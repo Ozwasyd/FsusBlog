@@ -464,3 +464,20 @@ ROLLBACK;
 ## 只读封面候选证明
 
 `legacy covers proof postgres PACKAGE SHA256 OWNER_MAP OWNER_MAP_SHA256 REVISION_SHA256 PUBLICATION_SHA256` 核对现有隔离媒体包的原始字节、来源数据库和资产引用，以及明确审核的文章所有者映射。两个额外摘要来自独立记录的 `legacy plan postgres` 修订和发布投影，防止仅同库但已更改历史的封面被当成原审批。只接受原字段中严格的 `/uploads/` 根相对路径，逐一对应公开资产的 storage key、文章或全局修订引用及所有者；封面角色来自该字段，不从正文引用计数推断。输出保留来源坐标和摘要，不包含原 URL，不连接外站。此证明不改导入计划、公开签名或任何数据库行，`readyToApply` 和 `readyToStage` 均为 false，原封面导入阻塞保持不变。绝对 URL、外部资源、私有资产及旧本地别名尚不支持；候选证明不是图片格式规范化、授权公开、运行时启用或生产迁移的验收。
+
+### 封面映射的隔离存储前置步骤
+
+在上面的只读证明之外，可以显式调用：
+
+```text
+legacy covers stage PACKAGE SHA OWNERS OWNERS_SHA REVISION_SHA PUBLICATION_SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
+legacy covers verify PACKAGE SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
+```
+
+`stage` 重新读取同一冻结来源及离线媒体包，要求新生成证明与独立记录 SHA-256 的 `PROOF` 文件逐字节一致。目标必须使用本地 Unix socket、名称以 `fsusv2_import_` 开头，身份与媒体包审核的目标数据库一致，且业务行和序列须与提供的空候选独立备份完全一致。目标作者集合必须与本次封面证明的所有者集合一致；当前范围不接受同一候选里只有无封面文章的额外作者。
+
+一个事务只写入 `fsus_legacy_candidate.cover_candidate` 的独立证明绑定，以及 `cover_mapping` 的文章／全局修订、原 URL 摘要、资产摘要、所有者和封面角色。保留基线 schema 版本，并在同一事务将正常服务标记改为现有隔离值 `-1`；普通应用验收必须拒绝该候选。相同目标重跑只独立核对，不重复插入。此 cover-only schema **不是** 原文章导入器的完整候选，不能交给旧文章 projection 或 release activation 使用；有封面文章的原 admission 阻塞不变。
+
+`verify` 不连接 V1，不改变候选，可对从原生 PostgreSQL 自定义归档恢复的独立候选核对同一证明、离线原媒体包、空候选基线、完整 cover-only 表结构、行数据、站点及禁用标记。写操作始终绑定原目标，恢复到新数据库后只允许此便携只读验证。备份恢复验收须同时保管原媒体包、证明及基线备份；数据库归档本身不包含图片字节。`site-backup.py` 的普通站点备份格式未扩大到这个隔离 schema，本阶段用原生 `pg_dump -Fc` / `pg_restore` 做演练。
+
+隔离实测入口为 `tests/Integration/Migration/legacy-cover-proof.sh --stage`。它创建两个仅监听私人 Unix socket 的临时 PostgreSQL 实例，覆盖精确目标复跑、四条封面映射、同一候选归档恢复、无 V1 连接的读取，以及角色、schema、空值约束、禁用标记篡改拒绝。结果不代表已经导入文章、规范化图片、赋予公开权限、显示封面或完成生产迁移。

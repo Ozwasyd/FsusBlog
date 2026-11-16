@@ -4,6 +4,7 @@ cd "$(dirname "$0")/../../.."
 export PATH="${PG_TOOLS_DIR:-/opt/homebrew/opt/postgresql@18/bin}:$PATH"
 dotnet_bin="${DOTNET_BIN:-dotnet}"
 migrate=("$dotnet_bin" "${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}")
+case "$# ${1:-}" in "0 "|"1 --stage") ;; *) echo "Usage: $0 [--stage]" >&2; exit 2 ;; esac
 umask 077
 scratch="$(mktemp -d /tmp/fsus-cover-proof.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
@@ -141,3 +142,64 @@ cmp "$scratch/proof.json" "$scratch/final.json"
 "${migrate[@]}" legacy plan postgres > "$scratch/final-intake.json" || [[ $? == 2 ]]
 cmp "$scratch/intake.json" "$scratch/final-intake.json"
 printf 'PASS: exact role/owner/reference, repeatability, URL/ref/owner/stale-map refusals, source readback, original admission retained.\n'
+
+if [[ "${1:-}" == --stage ]]; then
+    export DOTNET_BIN="$dotnet_bin" FSUSBLOG_MIGRATE_DLL="${migrate[1]}" PYTHONDONTWRITEBYTECODE=1
+    export PGHOST="$scratch/target-s" PGDATABASE="$target"
+    mkdir -m 700 "$scratch/baselines" "$scratch/empty-media"
+    baseline_receipt="$(python3 tools/site-backup.py capture "$scratch/baselines" before "$scratch/empty-media")"
+    baseline_sha="${baseline_receipt##* }"
+    baseline="$scratch/baselines/before"
+    python3 tools/site-backup.py verify "$baseline" "$baseline_sha"
+    proof_sha="$(sha "$scratch/proof.json")"
+    stage=("${migrate[@]}" legacy covers stage "$scratch/packages/media" "$media_sha" "$scratch/owners.json" "$owners_sha" "$revision_sha" "$publication_sha" "$scratch/proof.json" "$proof_sha" "$baseline" "$baseline_sha")
+    verify=("${migrate[@]}" legacy covers verify "$scratch/packages/media" "$media_sha" "$scratch/proof.json" "$proof_sha" "$baseline" "$baseline_sha")
+    # Wrong independently recorded proof digest must not start any candidate writes.
+    if "${migrate[@]}" legacy covers stage "$scratch/packages/media" "$media_sha" "$scratch/owners.json" "$owners_sha" "$revision_sha" "$publication_sha" "$scratch/proof.json" "$(printf '0%.0s' {1..64})" "$baseline" "$baseline_sha" > "$scratch/wrong-proof.out" 2> "$scratch/wrong-proof.err"; then exit 1; fi
+    [[ "$(pg target "$target" -Atc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema WHERE singleton")" == t ]]
+    pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/ExactName.txt' WHERE id=5000000001"
+    if "${stage[@]}" > "$scratch/stale-stage.out" 2> "$scratch/stale-stage.err"; then exit 1; fi
+    grep -qF 'revision or publication projection differs' "$scratch/stale-stage.err"
+    [[ "$(pg target "$target" -Atc "SELECT version=1 AND to_regnamespace('fsus_legacy_candidate') IS NULL FROM public.v2_schema WHERE singleton")" == t ]]
+    pg source "$source" -c "UPDATE article_revision SET cover_image_url='/uploads/illustration/Other.txt' WHERE id=5000000001"
+    "${stage[@]}" > "$scratch/staged.json"
+    "${stage[@]}" > "$scratch/replayed.json"
+    "${verify[@]}" > "$scratch/verified.json"
+    [[ "$(pg target "$target" -Atc 'SELECT version FROM public.v2_schema WHERE singleton')" == -1 ]]
+    [[ "$(pg target "$target" -Atc 'SELECT count(*) FROM public.article')" == 0 ]]
+    if "${migrate[@]}" verify > "$scratch/server-rejected.out" 2> "$scratch/server-rejected.err"; then echo 'Quarantine was admitted as an ordinary site' >&2; exit 1; fi
+    pg_dump -h "$scratch/target-s" -p "$PGPORT" -U "$PGUSER" -Fc "$target" > "$scratch/candidate.dump"
+    sha "$scratch/candidate.dump" > "$scratch/candidate-dump.sha256"
+    restored=fsusv2_import_cover_restored
+    pg target postgres -c "CREATE DATABASE $restored TEMPLATE template0"
+    pg_restore -h "$scratch/target-s" -p "$PGPORT" -U "$PGUSER" --no-owner --no-acl --exit-on-error -d "$restored" "$scratch/candidate.dump"
+    FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" FSUSBLOG_V1_DB= "${verify[@]}" > "$scratch/restored.json"
+    cmp "$scratch/verified.json" "$scratch/restored.json"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${stage[@]}" > "$scratch/restore-write.out" 2> "$scratch/restore-write.err"; then exit 1; fi
+    grep -qF 'exact reviewed independent target' "$scratch/restore-write.err"
+    pg target "$restored" -c "UPDATE fsus_legacy_candidate.cover_mapping SET role='body' WHERE source_kind='article'"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${verify[@]}" > "$scratch/tampered-role.out" 2> "$scratch/tampered-role.err"; then exit 1; fi
+    grep -qF 'stored cover mappings differ' "$scratch/tampered-role.err"
+    pg target "$restored" -c "UPDATE fsus_legacy_candidate.cover_mapping SET role='cover' WHERE source_kind='article'; CREATE TABLE fsus_legacy_candidate.unexpected (id integer)"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${verify[@]}" > "$scratch/tampered-schema.out" 2> "$scratch/tampered-schema.err"; then exit 1; fi
+    grep -qF 'quarantine catalog differs' "$scratch/tampered-schema.err"
+    pg target "$restored" -c "DROP TABLE fsus_legacy_candidate.unexpected; ALTER TABLE fsus_legacy_candidate.cover_mapping ALTER COLUMN role DROP NOT NULL"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${verify[@]}" > "$scratch/tampered-nullability.out" 2> "$scratch/tampered-nullability.err"; then exit 1; fi
+    grep -qF 'quarantine catalog differs' "$scratch/tampered-nullability.err"
+    pg target "$restored" -c "ALTER TABLE fsus_legacy_candidate.cover_mapping ALTER COLUMN role SET NOT NULL; ALTER TABLE fsus_legacy_candidate.cover_candidate DROP CONSTRAINT cover_candidate_singleton_check"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${verify[@]}" > "$scratch/tampered-check.out" 2> "$scratch/tampered-check.err"; then exit 1; fi
+    grep -qF 'quarantine catalog differs' "$scratch/tampered-check.err"
+    pg target "$restored" -c "ALTER TABLE fsus_legacy_candidate.cover_candidate ADD CHECK(singleton); UPDATE public.v2_schema SET version=1"
+    if FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" "${verify[@]}" > "$scratch/tampered-marker.out" 2> "$scratch/tampered-marker.err"; then exit 1; fi
+    pg target "$restored" -c "UPDATE public.v2_schema SET version=-1"
+    FSUSBLOG_IMPORT_DB="$(dsn target "$restored")" FSUSBLOG_V1_DB= "${verify[@]}" > "$scratch/restored-final.json"
+    cmp "$scratch/verified.json" "$scratch/restored-final.json"
+    python3 - "$scratch/staged.json" "$scratch/replayed.json" "$scratch/restored.json" <<'PYSTAGE'
+import json,sys
+first,replay,restored=[json.load(open(p)) for p in sys.argv[1:]]
+assert first['result']=='staged' and replay['result']=='revalidated' and restored['result']=='verified'
+assert all(v['rows']==4 and not v['serving'] and not v['readyToApply'] and not v['readyToPublish'] for v in [first,replay,restored])
+assert first['mappingSha256']==replay['mappingSha256']==restored['mappingSha256']
+PYSTAGE
+    printf 'PASS: cover-only quarantine storage, exact-target idempotence, native backup/restore, portable offline readback, non-serving marker and tamper refusal.\n'
+fi

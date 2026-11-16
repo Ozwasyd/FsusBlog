@@ -86,6 +86,10 @@ internal static partial class Migration
                 Set FSUSBLOG_DB to the Npgsql connection string.
                   legacy covers proof postgres PACKAGE SHA256 OWNERS OWNERS_SHA256 REVISION_SHA256 PUBLICATION_SHA256
                                         Read-only managed public cover proof; no import or activation
+                  legacy covers stage PACKAGE SHA OWNERS OWNERS_SHA REVISION_SHA PUBLICATION_SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
+                                        Store approved mappings in an exact empty, non-serving candidate
+                  legacy covers verify PACKAGE SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
+                                        Read-only portable cover quarantine verification after restore
                   inventory              Read PostgreSQL relations, columns and keys from the target
                   inventory --counts     Include exact row counts for each ordinary business relation
                   plan                   Print a fresh-schema plan without changing the database
@@ -253,6 +257,13 @@ internal static partial class Migration
         {
             if (arguments is ["platform-plugin", .. var pluginArguments])
                 return await PlatformPluginCommand.RunAsync(pluginArguments, cancelled.Token);
+            if (arguments is ["legacy", "covers", "stage", var stagePackage, var stagePackageSha, var stageOwners, var stageOwnersSha,
+                    var stageRevisions, var stagePublications, var stageProof, var stageProofSha, var stageBackup, var stageBackupSha])
+                return await RunLegacyCoverStageAsync(stagePackage, stagePackageSha, stageOwners, stageOwnersSha, stageRevisions,
+                    stagePublications, stageProof, stageProofSha, stageBackup, stageBackupSha, cancelled.Token);
+            if (arguments is ["legacy", "covers", "verify", var verifyPackage, var verifyPackageSha, var verifyProof, var verifyProofSha,
+                    var verifyBackup, var verifyBackupSha])
+                return await RunLegacyCoverVerifyAsync(verifyPackage, verifyPackageSha, verifyProof, verifyProofSha, verifyBackup, verifyBackupSha, cancelled.Token);
             if (arguments is ["legacy", "covers", "proof", "postgres", var coverPackage, var coverDigest, var coverOwners, var coverOwnerDigest, var coverRevisionDigest, var coverPublicationDigest])
                 return await RunLegacyCoverProofAsync(coverPackage, coverDigest, coverOwners, coverOwnerDigest, coverRevisionDigest, coverPublicationDigest, cancelled.Token);
             if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
