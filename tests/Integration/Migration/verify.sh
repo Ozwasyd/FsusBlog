@@ -223,7 +223,7 @@ DROP TABLE public.publication_transparency_head, public.article_publication_tran
     public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
 ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
 ALTER TABLE public.blog_outbox DROP CONSTRAINT outbox_native_publication_binding;
-DROP TABLE IF EXISTS public.article_publication_media;
+DROP TABLE IF EXISTS public.article_publication_cover, public.article_publication_media;
 DROP TABLE public.article_publication_history, public.admin_article_rollback, public.admin_article_rollback_step_up,
     public.article_publication_responsibility, public.article_revision_responsibility;
 COMMIT;
