@@ -1,20 +1,12 @@
 import assert from 'node:assert/strict'
-import { createHash, generateKeyPairSync, sign } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { publicationSigner } from './publication-signing-fixture.ts'
 import { verifyPublicationCheckpoint } from '../../tools/verify-publication-checkpoint.mjs'
 
 test('verifies opaque daily checkpoint coverage and ordered inclusion against an independently retained head', () => {
   const origin = 'https://proof.example.test'
   const day = '2026-11-14'
-  const keyPair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
-  const spki = keyPair.publicKey.export({ type: 'spki', format: 'der' })
-  const fingerprint = createHash('sha256').update(spki).digest('hex')
-  const signed = (file: string, project = (input: string) => input) => {
-    const transcript = project(readFileSync(new URL(`./fixtures/${file}.txt`, import.meta.url), 'utf8'))
-      .replace(/^keySha256:h:[a-f0-9]{64}$/m, `keySha256:h:${fingerprint}`)
-    return sign('sha256', Buffer.from(transcript), { key: keyPair.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
-  }
+  const { spki, fingerprint, signed } = publicationSigner()
   const head = {
     origin, headVersion: 2, kind: 'native-publication-log-head', algorithm: 'ECDSA_P256_SHA256',
     sequence: '6', entrySha256: '66'.repeat(32), keyId: 'rotate-1', keyVersion: 7,

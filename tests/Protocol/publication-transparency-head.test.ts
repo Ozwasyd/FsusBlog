@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict'
-import { createHash, generateKeyPairSync, sign } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { publicationSigner } from './publication-signing-fixture.ts'
 import { verifyPublicationHead } from '../../tools/verify-publication-head.mjs'
 
 test('independently verifies the head signature and rejects altered or overexposed head data', () => {
   const origin = 'https://proof.example.test'
-  const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
-  const spki = publicKey.export({ type: 'spki', format: 'der' })
-  const fingerprint = createHash('sha256').update(spki).digest('hex')
-  const transcript = readFileSync(new URL('./fixtures/article-transparency-head-v2.txt', import.meta.url), 'utf8')
-    .replace(/^keySha256:h:[a-f0-9]{64}$/m, `keySha256:h:${fingerprint}`)
-  const signature = sign('sha256', Buffer.from(transcript), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
+  const { spki, fingerprint, signed } = publicationSigner()
+  const signature = signed('article-transparency-head-v2')
   const head = {
     origin, headVersion: 2, kind: 'native-publication-log-head', algorithm: 'ECDSA_P256_SHA256',
     sequence: '9007199254741001', entrySha256: '7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3',
