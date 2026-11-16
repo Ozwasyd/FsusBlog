@@ -19,21 +19,10 @@ internal static class RevisionHistoryStore
     internal static async Task<long> LockOwned(NpgsqlConnection db, NpgsqlTransaction tx,
         Guid owner, int id, CancellationToken ct, long? expected = null)
     {
-        await using var read = Store.Sql(db, tx, """
-            select revision,published_revision from public.article where id=$1 and owner_id=$2 and not deleted for share
-            """, id, owner);
-        long revision;
-        long published;
-        await using (var row = await read.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct))
-                throw new BusinessException(Rejection.NotFound, "Article not found.");
-            revision = row.GetInt64(0);
-            published = row.IsDBNull(1) ? 0 : row.GetInt64(1);
-        }
-        await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, id, ct);
-        if (expected is { } required) RequireRevision(revision, required);
-        return published;
+        var head = await OwnedArticleRead.TryLock(db, tx, owner, id, ct)
+            ?? throw new BusinessException(Rejection.NotFound, "Article not found.");
+        if (expected is { } required) RequireRevision(head.Revision, required);
+        return head.PublishedRevision ?? 0;
     }
 
     internal static async Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,

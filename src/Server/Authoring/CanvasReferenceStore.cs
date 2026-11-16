@@ -77,17 +77,9 @@ internal static class CanvasReferenceStore
 
         // Match article commands' ordering (Canvas first, then article). Holding the
         // article share lock prevents ACL/lifecycle and current revision changes mid-read.
-        long current;
-        await using (var authority = Store.Sql(db, tx, """
-            select revision from public.article where id=$1 and owner_id=$2 and not deleted for share
-            """, articleId, owner))
-        {
-            if (await authority.ExecuteScalarAsync(ct) is not long active)
-                return Empty(CanvasReferenceState.Unavailable);
-            current = active;
-        }
-        if (await ArchivedArticleAuthority.IsLockedArchived(db, tx, articleId, ct))
+        if (await OwnedArticleRead.TryLock(db, tx, owner, articleId, ct) is not { } head)
             return Empty(CanvasReferenceState.Unavailable);
+        var current = head.Revision;
 
         long target = pin ?? current;
         if (requireCurrent && target != current) return Empty(CanvasReferenceState.StaleRevision);
