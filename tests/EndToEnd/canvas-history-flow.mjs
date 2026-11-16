@@ -1,3 +1,4 @@
+import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasGraphHistory, decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
@@ -51,11 +52,7 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
   }
 
   try {
-    await author.goto(origin + '/user/manage/canvas')
-    await button('New Canvas').click()
-    const create = dialog('New Canvas')
-    await create.getByLabel('Canvas title').fill(title)
-    await create.getByRole('button', { name: 'Save Canvas', exact: true }).click()
+    await createCanvasThroughUi(author, origin, title)
     await author.getByRole('heading', { name: title, exact: true }).waitFor()
     await assertState(1, 0)
     assert.deepEqual(await history(1), { revision: 1n, undoRevision: null, redoRevision: null })

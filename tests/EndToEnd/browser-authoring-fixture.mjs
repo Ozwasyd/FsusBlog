@@ -10,6 +10,14 @@ export { chromium, expect }
 export const binary = { 'Content-Type': 'application/octet-stream' }
 export const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 
+export async function createCanvasThroughUi(page, origin, title) {
+  await page.goto(origin + '/user/manage/canvas')
+  await button(page, 'New Canvas').click()
+  const dialog = page.getByRole('dialog', { name: 'New Canvas', exact: true })
+  await dialog.getByLabel('Canvas title').fill(title)
+  await button(dialog, 'Save Canvas').click()
+}
+
 export function observePageErrors(page, diagnostics) {
   page.on('pageerror', error => diagnostics.push(error.message))
   page.on('console', entry => {

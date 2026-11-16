@@ -1,3 +1,4 @@
+import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
@@ -39,11 +40,7 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
 
   try {
     await page.setViewportSize({ width: 1280, height: 800 })
-    await page.goto(origin + '/user/manage/canvas')
-    await button('New Canvas').click()
-    const create = dialog('New Canvas')
-    await create.getByLabel('Canvas title').fill(name)
-    await create.getByRole('button', { name: 'Save Canvas', exact: true }).click()
+    await createCanvasThroughUi(page, origin, name)
     await heading(name).waitFor()
     const originalId = documentId()
 

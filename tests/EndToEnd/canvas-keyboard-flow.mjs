@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, expect } from './browser-authoring-fixture.mjs'
+import { authorFixture, button, chromium, createCanvasThroughUi, expect } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const diagnostics = [], observations = []
@@ -16,11 +16,7 @@ try {
   const page = monitor(await context.newPage())
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto(origin + '/user/manage/canvas')
-    await button(page, 'New Canvas').click()
-    const create = page.getByRole('dialog', { name: 'New Canvas', exact: true })
-    await create.getByLabel('Canvas title').fill(`Keyboard ${width}`)
-    await button(create, 'Save Canvas').click()
+    await createCanvasThroughUi(page, origin, `Keyboard ${width}`)
     const board = page.getByRole('region', { name: 'Interactive Canvas Viewport' })
     await expect(board).toBeVisible()
     const bounds = await board.boundingBox()

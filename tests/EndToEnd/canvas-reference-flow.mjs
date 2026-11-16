@@ -1,3 +1,4 @@
+import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
@@ -27,11 +28,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
   let canvasUrl
 
   async function createCanvas(name) {
-    await page.goto(`${origin}/user/manage/canvas`)
-    await button('New Canvas').click()
-    const create = page.getByRole('dialog', { name: 'New Canvas' })
-    await create.getByLabel('Canvas title').fill(name)
-    await create.getByRole('button', { name: 'Save Canvas', exact: true }).click()
+    await createCanvasThroughUi(page, origin, name)
     await page.waitForURL(url => url.pathname.startsWith('/user/manage/canvas/'))
     await page.getByRole('heading', { name, exact: true }).waitFor()
     await button('Outline').click()

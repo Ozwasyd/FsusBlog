@@ -1,3 +1,4 @@
+import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
@@ -44,11 +45,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
   }
 
   try {
-    await client.goto(origin + '/user/manage/canvas')
-    await button('New Canvas').click()
-    const create = dialog('New Canvas')
-    await create.getByLabel('Canvas title').fill(title)
-    await create.getByRole('button', { name: 'Save Canvas', exact: true }).click()
+    await createCanvasThroughUi(client, origin, title)
     await heading(title).waitFor()
     assert.equal((await state()).header.revision, 1n)
     const anonymous = await client.context().browser().newPage()
