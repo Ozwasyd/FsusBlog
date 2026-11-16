@@ -259,6 +259,8 @@ internal static partial class Migration
         {
             if (arguments is ["platform-plugin", .. var pluginArguments])
                 return await PlatformPluginCommand.RunAsync(pluginArguments, cancelled.Token);
+            if (arguments is ["legacy", "history", "custody", "postgres"])
+                return await RunLegacyHistoryCustodyAsync(cancelled.Token);
             if (arguments is ["legacy", "covers", "stage", var stagePackage, var stagePackageSha, var stageOwners, var stageOwnersSha,
                     var stageRevisions, var stagePublications, var stageProof, var stageProofSha, var stageBackup, var stageBackupSha])
                 return await RunLegacyCoverStageAsync(stagePackage, stagePackageSha, stageOwners, stageOwnersSha, stageRevisions,

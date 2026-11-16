@@ -9,15 +9,19 @@ internal static partial class Migration
     private sealed record LegacyArchivedTransparency(byte[] SourceRow, byte[] Checkpoint);
     private static Dictionary<(string Kind, long Revision), LegacyArchivedTransparency> VerifyLegacyTransparency(LegacyPublishProofSet set,
         Dictionary<string, LegacyPublishProofKey> keys)
+        => VerifyLegacyTransparencyRows(set.Rows, set.RightsRows(), set.Transparency, keys);
+
+    private static Dictionary<(string Kind, long Revision), LegacyArchivedTransparency> VerifyLegacyTransparencyRows(
+        string[] publishRows, IEnumerable<string> rightsRows, LegacyTransparencySet? transparency,
+        Dictionary<string, LegacyPublishProofKey> keys)
     {
-        var records = set.Rows.Select(ParseLegacyTransparencyRecord).ToDictionary(row => (LegacyPublishProofKind, LegacyJsonInt(row, "id")));
-        foreach (var rights in set.RightsRows())
+        var records = publishRows.Select(ParseLegacyTransparencyRecord).ToDictionary(row => (LegacyPublishProofKind, LegacyJsonInt(row, "id")));
+        foreach (var rights in rightsRows)
         {
             var record = ParseLegacyTransparencyRecord(rights);
             records.Add((LegacyRightsProofKind, LegacyJsonInt(record, "id")), record);
         }
         var entries = new Dictionary<(string Kind, long Revision), LegacyArchivedTransparency>();
-        var transparency = set.Transparency;
         string previous = new('0', 64);
         var leaves = new List<string>();
         var checkpoint = transparency is null ? null : Encoding.UTF8.GetBytes(transparency.Checkpoint);
@@ -57,7 +61,7 @@ internal static partial class Migration
         foreach (var ((kind, _), proof) in records)
         {
             bool linked = entries.ContainsKey((kind, LegacyJsonInt(proof, "article_revision_id")));
-            if ((kind == LegacyRightsProofKind || set.Rows.Length > 3) && !linked ||
+            if ((kind == LegacyRightsProofKind || publishRows.Length > 3) && !linked ||
                 (proof.GetProperty("transparency_log_entry_id").ValueKind != JsonValueKind.Null) != linked ||
                 (proof.GetProperty("transparency_log_entry_hash").ValueKind != JsonValueKind.Null) != linked)
                 throw new FormatException();
