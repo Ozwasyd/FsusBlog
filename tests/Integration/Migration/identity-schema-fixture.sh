@@ -58,3 +58,13 @@ require_stopped_identity_schema() {
     wait "$lease"
     lease=''
 }
+
+# Preserve the command's output and the caller's exact failure diagnostic.
+expect_identity_rejection() {
+    local failure="$1"
+    shift
+    if "$@" > "$scratch/rejection.log" 2>&1; then
+        printf '%s\n' "$failure" >&2
+        exit 1
+    fi
+}

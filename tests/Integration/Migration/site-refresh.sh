@@ -10,10 +10,8 @@ start_identity_fixture site-refresh site_refresh 'site refresh' ' WITH (FORCE)'
     SELECT decode(repeat('01',32),'hex'),id,generation,clock_timestamp()+interval '1 hour'
     FROM public.blog_user WHERE name='refresh-fixture';
     DROP TABLE public.site_session_refresh_tombstone"
-if "${migrate[@]}" site-refresh schema > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected the partial site refresh component to be rejected.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected the partial site refresh component to be rejected.' \
+    "${migrate[@]}" site-refresh schema
 rg -qF 'The site refresh schema is partially installed.' "$scratch/rejection.log"
 "${query[@]}" 'DROP TABLE public.site_session_refresh'
 "${migrate[@]}" verify
@@ -35,10 +33,8 @@ require_stopped_identity_schema 'Expected installation to require the serving in
 [[ $("${query[@]}" 'SELECT count(*) FROM public.user_session') == 1 ]]
 
 "${query[@]}" 'ALTER TABLE public.site_session_refresh ADD COLUMN unexpected_fixture integer'
-if "${migrate[@]}" site-refresh schema > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected drifted site refresh storage to remain untouched.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected drifted site refresh storage to remain untouched.' \
+    "${migrate[@]}" site-refresh schema
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${query[@]}" 'ALTER TABLE public.site_session_refresh DROP COLUMN unexpected_fixture'
 "${migrate[@]}" verify

@@ -19,10 +19,8 @@ require_stopped_identity_schema 'Expected schema initialization to require the s
 for command in verify 'recovery-key schema'; do
     # Both operations must fail closed on a partial set of component relations.
     read -r -a arguments <<< "$command"
-    if "${migrate[@]}" "${arguments[@]}" > "$scratch/rejection.log" 2>&1; then
-        printf '%s\n' 'Expected partial Recovery Key component rejection.' >&2
-        exit 1
-    fi
+    expect_identity_rejection 'Expected partial Recovery Key component rejection.' \
+        "${migrate[@]}" "${arguments[@]}"
     rg -qF 'Recovery Key schema is partially installed' "$scratch/rejection.log"
 done
 "${query[@]}" 'DROP TABLE public.site_recovery_key'
@@ -37,21 +35,15 @@ done
 "${migrate[@]}" recovery-key schema
 [[ $("${query[@]}" 'SELECT version FROM public.site_recovery_key') == 2 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.site_recovery_rebind') == 1 ]]
-if "${query[@]}" 'UPDATE public.site_recovery_rebind SET completed_at=clock_timestamp()' > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected completion metadata to require a matching request digest.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected completion metadata to require a matching request digest.' \
+    "${query[@]}" 'UPDATE public.site_recovery_rebind SET completed_at=clock_timestamp()'
 rg -qF 'check constraint' "$scratch/rejection.log"
-if "${query[@]}" "UPDATE public.site_recovery_rebind SET challenge_digest=decode(repeat('05',32),'hex'),options='{}'" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected a stored Passkey challenge to require an explicit expiry.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected a stored Passkey challenge to require an explicit expiry.' \
+    "${query[@]}" "UPDATE public.site_recovery_rebind SET challenge_digest=decode(repeat('05',32),'hex'),options='{}'"
 rg -qF 'check constraint' "$scratch/rejection.log"
 "${query[@]}" 'ALTER TABLE public.site_recovery_key ADD COLUMN unexpected_fixture integer'
-if "${migrate[@]}" recovery-key schema > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected drifted Recovery Key storage to remain untouched.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected drifted Recovery Key storage to remain untouched.' \
+    "${migrate[@]}" recovery-key schema
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${query[@]}" 'ALTER TABLE public.site_recovery_key DROP COLUMN unexpected_fixture'
 "${migrate[@]}" verify

@@ -37,10 +37,8 @@ remove_moderation_component
     public.admin_category_metadata_command, public.admin_step_up, public.admin_identity_audit, public.admin_session, public.admin_challenge,
     public.admin_invitation, public.admin_passkey_credential, public.admin_permission, public.admin_principal,
     public.admin_identity_schema'
-if "${migrate[@]}" verify > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected verification to reject the missing administrator identity component.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected verification to reject the missing administrator identity component.' \
+    "${migrate[@]}" verify
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
@@ -52,10 +50,8 @@ first_digest=$(printf '%s' "$first" | xxd -r -p | openssl dgst -sha256 | awk '{p
 [[ $("${query[@]}" "SELECT count(*) FROM public.admin_invitation WHERE encode(digest, 'hex') = '$first_digest'") == 1 ]]
 [[ $("${query[@]}" "SELECT count(*) FROM public.login_ticket WHERE encode(digest, 'hex') = '$first_digest'") == 0 ]]
 unset first
-if "${migrate[@]}" admin-identity bootstrap invalid-fixture article.write > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected bootstrap to reject an unsupported administrator permission.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected bootstrap to reject an unsupported administrator permission.' \
+    "${migrate[@]}" admin-identity bootstrap invalid-fixture article.write
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_principal') == 1 ]]
 
 # Restore the exact v1 component contract as published before audit.read, with existing administrator state.
@@ -66,16 +62,12 @@ remove_moderation_component
     ALTER TABLE public.admin_identity_schema DROP CONSTRAINT admin_identity_schema_version_check;
     UPDATE public.admin_identity_schema SET version=1;
     ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=1)"
-if "${migrate[@]}" admin-identity grant identity-fixture audit.read > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected an offline grant to require the current administrator identity schema.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected an offline grant to require the current administrator identity schema.' \
+    "${migrate[@]}" admin-identity grant identity-fixture audit.read
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${query[@]}" 'ALTER TABLE public.admin_session ADD COLUMN unexpected_fixture integer'
-if "${migrate[@]}" admin-identity schema > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected the upgrade to reject a drifted v1 administrator identity schema.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected the upgrade to reject a drifted v1 administrator identity schema.' \
+    "${migrate[@]}" admin-identity schema
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 [[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 1 ]]
 "${query[@]}" 'ALTER TABLE public.admin_session DROP COLUMN unexpected_fixture'
@@ -135,10 +127,8 @@ remove_moderation_component
     ALTER TABLE public.admin_identity_schema DROP CONSTRAINT admin_identity_schema_version_check;
     UPDATE public.admin_identity_schema SET version=2;
     ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=2)"
-if "${migrate[@]}" admin-identity grant identity-fixture comment.moderate > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected an offline moderation grant to require the current administrator identity schema.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected an offline moderation grant to require the current administrator identity schema.' \
+    "${migrate[@]}" admin-identity grant identity-fixture comment.moderate
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
@@ -179,10 +169,8 @@ remove_moderation_component
     UPDATE public.admin_identity_schema SET version=3;
     ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=3)"
 add_pending_session_and_challenge
-if "${migrate[@]}" admin-identity grant identity-fixture article.write > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected an offline taxonomy grant to require the current administrator identity schema.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected an offline taxonomy grant to require the current administrator identity schema.' \
+    "${migrate[@]}" admin-identity grant identity-fixture article.write
 rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
@@ -222,17 +210,13 @@ remove_moderation_component
     INSERT INTO public.admin_step_up
     SELECT decode(repeat('02',32),'hex'),principal_id,digest,generation,1,decode(repeat('ff',32),'hex'),NULL,now()+interval '45 seconds',2
     FROM public.admin_session"
-if "${query[@]}" "INSERT INTO public.admin_step_up
+expect_identity_rejection 'Expected independent step-up proofs to be bounded per session.' \
+    "${query[@]}" "INSERT INTO public.admin_step_up
     SELECT decode(repeat('03',32),'hex'),principal_id,digest,generation,1,decode(repeat('ff',32),'hex'),NULL,now()+interval '45 seconds',2
-    FROM public.admin_session" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected independent step-up proofs to be bounded per session.' >&2
-    exit 1
-fi
+    FROM public.admin_session"
 rg -qF 'admin_step_up_session_digest_kind_key' "$scratch/rejection.log"
-if "${query[@]}" "UPDATE public.admin_step_up SET options='{}' WHERE kind=2" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected the database to reject options on a proof.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected the database to reject options on a proof.' \
+    "${query[@]}" "UPDATE public.admin_step_up SET options='{}' WHERE kind=2"
 rg -qF 'check constraint' "$scratch/rejection.log"
 
 # Build the exact v5 shape while step-up rows and already persisted comments exist.
@@ -258,12 +242,10 @@ remove_moderation_component
 [[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 8 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_step_up') == 2 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.comment WHERE moderation_version=1') == 2 ]]
-if "${query[@]}" "INSERT INTO public.admin_comment_claim
+expect_identity_rejection 'Expected claims to require a real public comment submission.' \
+    "${query[@]}" "INSERT INTO public.admin_comment_claim
     SELECT 1,2,principal_id,digest,generation,decode(repeat('ee',32),'hex'),1,1,1,clock_timestamp()+interval '1 minute',1
-    FROM public.admin_session" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected claims to require a real public comment submission.' >&2
-    exit 1
-fi
+    FROM public.admin_session"
 rg -qF 'foreign key constraint' "$scratch/rejection.log"
 "${query[@]}" "INSERT INTO public.admin_comment_claim
     SELECT 1,1,principal_id,digest,generation,decode(repeat('ee',32),'hex'),1,1,1,clock_timestamp()+interval '1 minute',1
@@ -287,10 +269,8 @@ rg -qF 'foreign key constraint' "$scratch/rejection.log"
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,audit.read' ]]
 fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal')
 
-if "${migrate[@]}" admin-identity revoke identity-fixture admin.manage > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected permission management to preserve the administrator bootstrap authority.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected permission management to preserve the administrator bootstrap authority.' \
+    "${migrate[@]}" admin-identity revoke identity-fixture admin.manage
 "${migrate[@]}" admin-identity revoke identity-fixture audit.read
 "${migrate[@]}" admin-identity revoke identity-fixture audit.read
 [[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage' ]]
@@ -343,18 +323,14 @@ previous_session=$("${query[@]}" "SELECT encode(digest,'hex'),principal_id,gener
     FROM sign_in i JOIN public.admin_principal p ON p.id=i.principal_id;
     INSERT INTO public.admin_principal(id,handle,user_handle,enabled,generation)
     VALUES('99999999-9999-9999-9999-999999999999','other-owner',decode(repeat('09',32),'hex'),false,1)"
-if "${query[@]}" "INSERT INTO public.admin_session(digest,principal_id,generation,expires_at,sign_in_id)
+expect_identity_rejection 'Expected sign-in history links to require the same administrator principal.' \
+    "${query[@]}" "INSERT INTO public.admin_session(digest,principal_id,generation,expires_at,sign_in_id)
     SELECT decode(repeat('bc',32),'hex'),'99999999-9999-9999-9999-999999999999',1,expires_at,id
-    FROM public.admin_sign_in" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected sign-in history links to require the same administrator principal.' >&2
-    exit 1
-fi
+    FROM public.admin_sign_in"
 rg -qF 'admin_session_sign_in_fkey' "$scratch/rejection.log"
 "${query[@]}" "DELETE FROM public.admin_principal WHERE handle='other-owner'"
-if "${query[@]}" "UPDATE public.admin_sign_in SET ended_at=expires_at+interval '1 second'" > "$scratch/rejection.log" 2>&1; then
-    printf '%s\n' 'Expected history to reject an end after the session deadline.' >&2
-    exit 1
-fi
+expect_identity_rejection 'Expected history to reject an end after the session deadline.' \
+    "${query[@]}" "UPDATE public.admin_sign_in SET ended_at=expires_at+interval '1 second'"
 rg -qF 'check constraint' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity revoke-all identity-fixture
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_passkey_credential') == 1 ]]
