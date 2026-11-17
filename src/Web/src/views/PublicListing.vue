@@ -147,7 +147,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 
 <template>
   <section class="reading-column editorial-page">
-    <h1 class="editorial-rule">{{ missing ? t('reading.notFound', { heading }) : heading }}</h1>
+    <h1 :class="isHome ? 'visually-hidden' : 'editorial-rule'">{{ missing ? t('reading.notFound', { heading }) : heading }}</h1>
     <p v-if="filter?.description">{{ filter.description }}</p>
     <form v-if="isSearch" class="search-form" @submit.prevent="search">
       <ElInput v-model="input" :label="t('reading.searchLabel')" :placeholder="t('reading.searchPlaceholder')" />

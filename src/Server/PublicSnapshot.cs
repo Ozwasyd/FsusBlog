@@ -70,7 +70,7 @@ internal sealed class PublicSnapshot
 
     private static string HomeContent(IReadOnlyList<Article> articles, string locale)
     {
-        var html = new StringBuilder($"<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">{SiteLocale.Html(locale, "reading.latestPosts")}</h1>");
+        var html = new StringBuilder($"<section class=\"reading-column editorial-page\"><h1 class=\"visually-hidden\">{SiteLocale.Html(locale, "reading.latestPosts")}</h1>");
         if (articles.Count == 0)
             html.Append($"<p class=\"muted\">{SiteLocale.Html(locale, "page.emptyArticles")}</p>");
         else

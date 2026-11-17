@@ -80,6 +80,7 @@ p { line-height: 1.65; }
   .public-initial-brand-nav nav a, .public-initial-actions a { min-block-size: 44px; display: inline-flex; align-items: center; }
   .public-initial-actions { gap: .5rem; }
 }
+.visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
 .site-footer {
   display: flex;
