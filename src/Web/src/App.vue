@@ -57,6 +57,17 @@ watch(() => route.query.q, value => {
 }, { immediate: true })
 watch(() => route.fullPath, () => { accountMenu.value = false })
 
+const publicContent = ref<HTMLElement>()
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+// Animate only the stable public outlet. Path changes do not remount the shell,
+// and query/hash, theme, and locale changes do not disturb the current view.
+watch(() => route.path, (_, __, cleanup) => {
+  const content = publicContent.value
+  if (!content || reducedMotion.matches || typeof content.animate !== 'function') return
+  const animation = content.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 160, easing: 'ease-out' })
+  cleanup(() => animation.cancel())
+}, { flush: 'post' })
+
 const lifetime = new AbortController()
 const compliance = ref<SiteCompliance>()
 const siteAuthor = ref(document.head.querySelector<HTMLMetaElement>('meta[name="author"]')?.content || undefined)
@@ -215,7 +226,7 @@ async function leave() {
           </select>
         </div>
       </template>
-      <div id="page-content" tabindex="-1">
+      <div id="page-content" ref="publicContent" tabindex="-1">
         <div v-if="logoutFailure" class="reading-column editor-shell-error" role="alert">
           {{ t('nav.logoutFailed') }}
           <ElButton text @click="leave">{{ t('nav.retry') }}</ElButton>
