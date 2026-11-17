@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminCluster } from '../../../Contracts/admin-cluster'
 import type { AdminSession } from '../../../Contracts/admin-identity'
+import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession, sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
@@ -39,12 +40,7 @@ async function check() {
   }
 }
 
-watch(() => [props.session, props.sessionSignal] as const, ([, signal], _, cleanup) => {
-  clear()
-  signal.addEventListener('abort', clear, { once: true })
-  cleanup(() => signal.removeEventListener('abort', clear))
-}, { flush: 'sync', immediate: true })
-onScopeDispose(clear)
+watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clear)
 </script>
 
 <template>

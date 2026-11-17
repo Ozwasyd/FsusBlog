@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCard, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { applyAppearance, readAdminAppearance, readAppearanceCatalog, readAppearanceFontDetail, readAppearanceHistory } from '../../../Contracts/admin-appearance'
+import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
@@ -108,23 +109,18 @@ function apply(rollback: boolean) {
 }
 
 watch(font, () => { fontDetail.value = undefined }, { flush: 'sync' })
-watch(() => props.sessionSignal, (current, _, cleanup) => {
-  const clear = () => {
-    state.value = undefined
-    catalog.value = undefined
-    history.value = undefined
-    historyBefore.value = undefined
-    fontDetail.value = undefined
-    theme.value = ''
-    font.value = ''
-    notice.value = ''
-    error.value = ''
-  }
-  clear()
-  current.addEventListener('abort', clear, { once: true })
-  cleanup(() => current.removeEventListener('abort', clear))
-}, { immediate: true, flush: 'sync' })
-onScopeDispose(() => lifetime.abort())
+function clear() {
+  state.value = undefined
+  catalog.value = undefined
+  history.value = undefined
+  historyBefore.value = undefined
+  fontDetail.value = undefined
+  theme.value = ''
+  font.value = ''
+  notice.value = ''
+  error.value = ''
+}
+watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
 </script>
 
 <template>

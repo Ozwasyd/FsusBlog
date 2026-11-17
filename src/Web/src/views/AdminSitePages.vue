@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
 import AdminSitePageEditor from './AdminSitePageEditor.vue'
+import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
@@ -52,12 +53,7 @@ async function read(slug?: SitePageSlug) {
   }
 }
 
-watch(() => props.sessionSignal, (signal, _, cleanup) => {
-  clear()
-  signal.addEventListener('abort', clear, { once: true })
-  cleanup(() => signal.removeEventListener('abort', clear))
-}, { flush: 'sync', immediate: true })
-onScopeDispose(clear)
+watchAdminSessionClear(() => props.sessionSignal, clear)
 </script>
 
 <template>
