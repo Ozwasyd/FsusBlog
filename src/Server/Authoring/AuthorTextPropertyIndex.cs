@@ -58,6 +58,12 @@ internal sealed partial class PropertyStore
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
+        return ResolveTextProjection(schema, schemaRevision, definitionId, definitionRevision);
+    }
+
+    private static AuthorTextPropertyScope ResolveTextProjection(PropertySchema schema, long schemaRevision,
+        Guid definitionId, long definitionRevision)
+    {
         if (schema.Find(definitionId) is not { Status: PropertyStatus.Active, Settings: { Kind: PropertyKind.Text, SearchEligible: true } } definition)
             throw Missing();
         if (schema.Revision != schemaRevision || definition.Revision != definitionRevision) throw Conflict();

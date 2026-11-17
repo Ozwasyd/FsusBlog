@@ -37,15 +37,8 @@ internal static partial class AuthorTextIndex
     {
         try
         {
-            // Text projection, when requested, acquires the property scope even without filters.
-            var text = textQuery is null ? null : await properties.ResolveTextProjection(
-                schemaRevision, textQuery.DefinitionId, textQuery.DefinitionRevision, ct);
-            PropertyStore.Condition[] conditions = [];
-            PropertyStore.FacetDefinition? facetDefinition = null;
-            PropertyStore.SortDefinition? sortDefinition = null;
-            if (input.Count != 0 || facet.HasValue || sort.HasValue)
-                (conditions, facetDefinition, sortDefinition) =
-                    await properties.ResolveSearchQuery(schemaRevision, input, facet, sort, ct);
+            var (conditions, facetDefinition, sortDefinition, text) = await properties.ResolveSearchAdmission(
+                schemaRevision, input, facet, sort, textQuery, ct);
             await Store.LockCommand(db, tx, actor.Id, Scope, ct);
             if (conditions.Length != 0) await properties.ValidateQueryReferences(conditions, ct);
             return (conditions, facetDefinition, sortDefinition, text);

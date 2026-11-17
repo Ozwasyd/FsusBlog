@@ -105,6 +105,30 @@ internal sealed partial class PropertyStore
     {
         await ScopeLock(ct);
         var schema = await ReadSchema(ct);
+        return ResolveSearchQuery(schema, schemaRevision, conditions, facet, sort);
+    }
+
+    // One read-only admission on this owner's held transaction lock. Never retain the schema across writes.
+    internal async Task<(Condition[] Conditions, FacetDefinition? Facet, SortDefinition? Sort, AuthorTextPropertyScope? Text)>
+        ResolveSearchAdmission(long schemaRevision, IReadOnlyList<PropertyCondition> conditions,
+            FacetSelection? facet, SortSelection? sort, AuthorTextPropertyTextQuery? textQuery, CancellationToken ct)
+    {
+        var qualified = conditions.Count != 0 || facet.HasValue || sort.HasValue;
+        if (textQuery is null && !qualified) return ([], null, null, null);
+        await ScopeLock(ct);
+        var schema = await ReadSchema(ct);
+        var text = textQuery is null ? null : ResolveTextProjection(
+            schema, schemaRevision, textQuery.DefinitionId, textQuery.DefinitionRevision);
+        if (!qualified) return ([], null, null, text);
+        if (textQuery is not null) ct.ThrowIfCancellationRequested();
+        var (resolved, facetDefinition, sortDefinition) = ResolveSearchQuery(schema, schemaRevision, conditions, facet, sort);
+        return (resolved, facetDefinition, sortDefinition, text);
+    }
+
+    private static (Condition[] Conditions, FacetDefinition? Facet, SortDefinition? Sort) ResolveSearchQuery(
+        PropertySchema schema, long schemaRevision, IReadOnlyList<PropertyCondition> conditions,
+        FacetSelection? facet, SortSelection? sort)
+    {
         if (schema.Revision != schemaRevision) throw Conflict();
         var resolved = conditions.OrderBy(item => item.DefinitionId).ThenBy(item => item.Comparison)
             .Select(item => Normalize(schema.Find(item.DefinitionId) ?? throw Missing(), item)).ToArray();
