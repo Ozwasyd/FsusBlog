@@ -249,20 +249,10 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     {
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         // The fixture exercises the native grant, session and proof consumption checks. The separate browser test exercises Passkey.
-        await using var seed = Store.Sql(db, tx, """
-            with principal as (
-                insert into public.admin_principal(id,handle,user_handle,enabled,generation)
-                values($1,'nightly-fixture-archive',$2,true,1) returning id
-            ), credential as (
-                insert into public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
-                select $3,id,decode('01','hex'),0,false,false from principal
-            ), permissions as (
-                insert into public.admin_permission(principal_id,permission)
-                select id,permission from principal cross join (values ('admin.manage'),('article.write')) grants(permission)
-            )
-            insert into public.admin_session(digest,principal_id,generation,expires_at)
-            select $4,id,1,clock_timestamp()+interval '2 minutes' from principal
-            """, ArchiveAdministrator, RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), sessionDigest);
+        await using var seed = Store.Sql(db, tx, FixtureSql.AdminSessionSql,
+            FixtureSql.AdminSessionArguments(ArchiveAdministrator, "nightly-fixture-archive",
+                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1],
+                ["admin.manage", "article.write"], sessionDigest, 2));
         Assert.Equal(1, await seed.ExecuteNonQueryAsync(ct));
         await InstanceLease.CommitProtected(tx, lease, ct);
     }

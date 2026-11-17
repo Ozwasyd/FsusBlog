@@ -15,7 +15,13 @@ internal static class FixtureSql
         var id = Guid.NewGuid();
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var digest = Store.TokenDigest(token)!;
-        await ExecuteAsync(db, null, ct, """
+        await ExecuteAsync(db, null, ct, AdminSessionSql, AdminSessionArguments(id, handle,
+            RandomNumberGenerator.GetBytes(32), credential, key,
+            grants.Prepend(CurrentSchema.AdminManagePermission).ToArray(), digest, minutes));
+        return (id, token, digest);
+    }
+
+    internal const string AdminSessionSql = """
             with principal as (
                 insert into public.admin_principal(id,handle,user_handle,enabled,generation)
                 values($1,$2,$3,true,1) returning id
@@ -28,10 +34,11 @@ internal static class FixtureSql
             )
             insert into public.admin_session(digest,principal_id,generation,expires_at)
             select $7,id,1,clock_timestamp()+$8*interval '1 minute' from principal
-            """, id, handle, RandomNumberGenerator.GetBytes(32), credential, key,
-            grants.Prepend(CurrentSchema.AdminManagePermission).ToArray(), digest, minutes);
-        return (id, token, digest);
-    }
+            """;
+
+    internal static object[] AdminSessionArguments(Guid id, string handle, byte[] userHandle, byte[] credential,
+        byte[] key, string[] grants, byte[] digest, int minutes) =>
+        [id, handle, userHandle, credential, key, grants, digest, minutes];
 
     internal static Task<int> SiteAccountAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
         Guid id, string name, bool canAuthor, bool enabled = true) => ExecuteAsync(db, tx, ct, """

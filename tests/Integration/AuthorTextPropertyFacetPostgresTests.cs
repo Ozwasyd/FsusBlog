@@ -215,20 +215,10 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             var admin = Guid.NewGuid();
             var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
             var digest = Store.TokenDigest(token)!;
-            await author.Execute("""
-                with principal as (
-                    insert into public.admin_principal(id,handle,user_handle,enabled,generation)
-                    values($1,'facet-fixture-admin',$2,true,1) returning id
-                ), credential as (
-                    insert into public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
-                    select $3,id,decode('01','hex'),0,false,false from principal
-                ), permissions as (
-                    insert into public.admin_permission(principal_id,permission)
-                    select id,permission from principal cross join (values ('admin.manage'),('article.write')) grants(permission)
-                )
-                insert into public.admin_session(digest,principal_id,generation,expires_at)
-                select $4,id,1,clock_timestamp()+interval '2 minutes' from principal
-                """, admin, RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), digest);
+            await author.Execute(FixtureSql.AdminSessionSql,
+                FixtureSql.AdminSessionArguments(admin, "facet-fixture-admin",
+                    RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1],
+                    ["admin.manage", "article.write"], digest, 2));
             var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
             await author.Execute("""
                 insert into public.admin_article_rollback_step_up
