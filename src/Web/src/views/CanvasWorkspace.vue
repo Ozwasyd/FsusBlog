@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElDialog, ElMessageBox } from '@ozwasyd/element-plus'
@@ -180,10 +181,10 @@ function recordError(cause: unknown, signal: AbortSignal, fallback: string, read
     historyFailure.value = false
     plan.value = undefined
     retry.value = undefined
-    error.value = 'Canvas is unavailable.'
+    error.value = t('author.canvas.canvas_is_unavailable')
   } else if (cause.status === 409) {
     stale.value = true
-    error.value = 'The Canvas changed. Reload the current revision.'
+    error.value = t('author.canvas.the_canvas_changed_reload_the_current_revision')
   } else if (cause.status === 400 || cause.status === 404) {
     error.value = cause.message
   } else {
@@ -213,7 +214,7 @@ async function loadHistory(current = document.value) {
   } catch (cause) {
     if (!isLatest()) return
     if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, 'Could not load Canvas history.', true)
+      recordError(cause, signal, t('author.canvas.could_not_load_canvas_history'), true)
     } else {
       historyFailure.value = true
     }
@@ -269,7 +270,7 @@ async function load(more = false, confirmed?: CanvasGraphHeader) {
     }
   } catch (cause) {
     if (scoped(signal)) graphReadFailure.value = true
-    recordError(cause, signal, 'Could not load the Canvas.', true)
+    recordError(cause, signal, t('author.canvas.could_not_load_the_canvas'), true)
   } finally {
     if (scoped(signal)) loading.value = false
   }
@@ -309,9 +310,9 @@ async function loadAll() {
     if (!scoped(signal)) return
     completeGraph.value = false
     if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, 'Could not load all Canvas records.', true)
+      recordError(cause, signal, t('author.canvas.could_not_load_all_canvas_records'), true)
     } else {
-      error.value = 'Could not load all Canvas records. Try again.'
+      error.value = t('author.canvas.could_not_load_all_canvas_records_try_again')
     }
   } finally {
     if (scoped(signal)) loadingAll.value = false
@@ -325,7 +326,7 @@ watch([documentId, identityEpoch, ready], () => {
 onMounted(() => {
   void refreshSession(ownerLife.signal).finally(() => {
     if (!ownerLife.signal.aborted) ready.value = true
-  }).catch(() => { error.value = 'Could not verify your session.' })
+  }).catch(() => { error.value = t('author.canvas.could_not_verify_your_session') })
 })
 function protectUnload(event: BeforeUnloadEvent) {
   if (working.value || bundlePending.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
@@ -356,13 +357,13 @@ function clearReference() {
 
 watch([document, selectedReference, view, stale], clearReference, { flush: 'sync' })
 
-const referenceStatus = {
-  unavailable: 'This reference is unavailable.',
-  resolved: 'Reference resolved.',
-  'missing-anchor': 'The anchor does not exist at this revision.',
-  'duplicate-anchor': 'The anchor is ambiguous at this revision.',
-  'stale-revision': 'The referenced revision is unavailable.',
-}
+const referenceStatus = computed(() => ({
+  unavailable: t('author.canvas.this_reference_is_unavailable'),
+  resolved: t('author.canvas.reference_resolved'),
+  'missing-anchor': t('author.canvas.the_anchor_does_not_exist_at_this_revision'),
+  'duplicate-anchor': t('author.canvas.the_anchor_is_ambiguous_at_this_revision'),
+  'stale-revision': t('author.canvas.the_referenced_revision_is_unavailable'),
+}))
 
 async function resolveReference() {
   const current = document.value
@@ -390,7 +391,7 @@ async function resolveReference() {
   } catch (cause) {
     if (!isLatest()) return
     if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, 'Could not resolve the reference.', true)
+      recordError(cause, signal, t('author.canvas.could_not_resolve_the_reference'), true)
     } else {
       referenceError.value = true
     }
@@ -426,20 +427,20 @@ async function openReference() {
     if (result.state !== 'resolved' || result.articleId !== preview.articleId ||
       result.articleRevision !== preview.articleRevision || result.sourceOffset !== preview.sourceOffset || result.pinned !== preview.pinned) {
       referenceOpenNotice.value = preview.pinned && result.state === 'stale-revision'
-        ? 'The pinned revision cannot be opened as the current draft.'
-        : 'Could not open this reference at its resolved position. Resolve it again.'
+        ? t('author.canvas.the_pinned_revision_cannot_be_opened_as_the_current_draft')
+        : t('author.canvas.could_not_open_this_reference_at_its_resolved_position_resolve_it_again')
       return
     }
     token = offerCanvasEditorHandoff({ articleId: preview.articleId, revision: preview.articleRevision, sourceOffset: result.sourceOffset }, epoch)
     if (await router.push({ name: 'edit', params: { id: preview.articleId }, state: { [canvasEditorHandoffKey]: token } })) {
       cancelCanvasEditorHandoff(token)
-      if (isLatest()) referenceOpenNotice.value = 'The editor could not be opened. Try again.'
+      if (isLatest()) referenceOpenNotice.value = t('author.canvas.the_editor_could_not_be_opened_try_again')
     }
   } catch (cause) {
     if (token) cancelCanvasEditorHandoff(token)
     if (isLatest()) {
       if (cause instanceof ApiError && cause.status === 401) invalidateSession()
-      referenceOpenNotice.value = 'The editor could not be opened. Resolve the reference again.'
+      referenceOpenNotice.value = t('author.canvas.the_editor_could_not_be_opened_resolve_the_reference_again')
     }
   } finally {
     if (referenceRequest === request) {
@@ -472,7 +473,7 @@ async function send(command: CanvasGraphCommand) {
   if (!scoped(signal) || working.value || linkPending.value || stale.value ||
     (retry.value && retry.value !== command)) return
   try { encodeCanvasGraphCommand(command) }
-  catch { error.value = 'Check the Canvas text, reference and size limits.'; return }
+  catch { error.value = t('author.canvas.check_the_canvas_text_reference_and_size_limits'); return }
   working.value = true
   message.value = ''
   error.value = ''
@@ -483,8 +484,8 @@ async function send(command: CanvasGraphCommand) {
     retry.value = undefined
     working.value = false
     form.value = undefined
-    message.value = command.action === 'undo' ? 'Canvas change undone.'
-      : command.action === 'redo' ? 'Canvas change redone.' : 'Canvas saved.'
+    message.value = command.action === 'undo' ? t('author.canvas.canvas_change_undone')
+      : command.action === 'redo' ? t('author.canvas.canvas_change_redone') : t('author.canvas.canvas_saved')
     if (command.action === 'create') {
       await router.push({ name: 'canvas-document', params: { id: result.id } })
     } else if (result.deleted) {
@@ -508,7 +509,7 @@ async function send(command: CanvasGraphCommand) {
       await load(false, result)
     }
   } catch (cause) {
-    if (recordError(cause, signal, 'Could not confirm the change. Retry the same request.')) retry.value = undefined
+    if (recordError(cause, signal, t('author.canvas.could_not_confirm_the_change_retry_the_same_request'))) retry.value = undefined
   } finally {
     if (scoped(signal)) working.value = false
   }
@@ -531,7 +532,7 @@ async function travel(action: 'undo' | 'redo') {
   if (trigger && !trigger.disabled) {
     trigger.focus()
   } else {
-    const region = graph.value?.querySelector<HTMLElement>('[aria-label="Interactive Canvas Viewport"], [aria-label="Canvas outline"]')
+    const region = graph.value?.querySelector<HTMLElement>('.canvas-board, .canvas-outline')
     region?.focus({ preventScroll: true })
   }
 }
@@ -608,7 +609,7 @@ function saveNode() {
   else {
     if (!/^[1-9]\d{0,9}$/.test(article.value) || Number(article.value) > 2_147_483_647 ||
       pinned.value && !/^[1-9]\d{0,18}$/.test(pinned.value)) {
-      error.value = 'Enter a valid article ID and optional pinned revision.'
+      error.value = t('author.canvas.enter_a_valid_article_id_and_optional_pinned_revision')
       return
     }
     const referenced = { ...base, articleId: Number(article.value), pinnedRevision: pinned.value ? BigInt(pinned.value) : null }
@@ -647,7 +648,7 @@ async function deleteDocument() {
   const selected = document.value
   const signal = scope.signal
   if (!selected || disabled.value) return
-  try { await ElMessageBox.confirm('Delete this Canvas and its nodes and edges?', 'Delete Canvas', { confirmButtonText: 'Delete' }) }
+  try { await ElMessageBox.confirm(t('author.canvas.delete_this_canvas_and_its_nodes_and_edges'), t('author.canvas.delete_canvas'), { confirmButtonText: t('author.canvas.delete') }) }
   catch { return }
   if (!scoped(signal) || document.value !== selected) return
   await send({ id: selected.id, expectedRevision: selected.revision, commandId: crypto.randomUUID(),
@@ -669,7 +670,7 @@ async function prepareLink() {
       hostRevision: host.revision, targetRevision: target.revision, sourceOffset: host.body.length }, host.id, target.id, signal,
     edge.kind === 'visual-only')
     if (scoped(signal) && document.value === canvas && selectedEdge.value === edge) plan.value = { ...preview, edgeKind: edge.kind }
-  } catch (cause) { recordError(cause, signal, 'Could not prepare the article link.') }
+  } catch (cause) { recordError(cause, signal, t('author.canvas.could_not_prepare_the_article_link')) }
   finally { if (scoped(signal)) linkPending.value = false }
 }
 async function applyLink() {
@@ -683,10 +684,10 @@ async function applyLink() {
     if (!scoped(signal)) return
     plan.value = undefined
     linkUnconfirmed.value = false
-    message.value = 'Link added to a new article draft.'
+    message.value = t('author.canvas.link_added_to_a_new_article_draft')
     await load()
   } catch (cause) {
-    const rejected = recordError(cause, signal, 'The outcome is uncertain. Retry the same link confirmation.')
+    const rejected = recordError(cause, signal, t('author.canvas.the_outcome_is_uncertain_retry_the_same_link_confirmation'))
     if (scoped(signal)) {
       if (rejected) plan.value = undefined
       linkUnconfirmed.value = !rejected
@@ -697,17 +698,17 @@ function cancelLink() {
   if (!linkPending.value && !linkUnconfirmed.value) plan.value = undefined
 }
 
-const nodeTypeLabels = {
-  'plain-text-note': 'Note', 'article-reference': 'Article', 'heading-reference': 'Heading',
-  'block-reference': 'Block', 'group-frame': 'Frame',
-}
+const nodeTypeLabels = computed(() => ({
+  'plain-text-note': t('author.canvas.note'), 'article-reference': t('author.canvas.article'), 'heading-reference': t('author.canvas.heading'),
+  'block-reference': t('author.canvas.block'), 'group-frame': t('author.canvas.frame'),
+}))
 function nodeLabel(node: CanvasNode): string {
-  return 'text' in node ? node.text.slice(0, 70) : `${nodeTypeLabels[node.kind]} reference ${node.articleId}`
+  return 'text' in node ? node.text.slice(0, 70) : t('author.canvas.kind_reference_article', { kind: nodeTypeLabels.value[node.kind], article: node.articleId })
 }
 function edgeLabel(edge: CanvasGraphEdge) {
   const from = byId.value.get(edge.sourceNodeId)
   const to = byId.value.get(edge.targetNodeId)
-  return edge.label || `${from ? nodeLabel(from) : 'Unloaded node'} → ${to ? nodeLabel(to) : 'Unloaded node'}`
+  return edge.label || `${from ? nodeLabel(from) : t('author.canvas.unloaded_node')} → ${to ? nodeLabel(to) : t('author.canvas.unloaded_node')}`
 }
 </script>
 
@@ -715,209 +716,209 @@ function edgeLabel(edge: CanvasGraphEdge) {
   <main class="canvas-workspace" aria-labelledby="canvas-title" @keydown="historyShortcut">
     <header class="canvas-header">
       <div>
-        <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? 'All canvases' : 'Article workspace' }}</RouterLink>
-        <h1 id="canvas-title">{{ document?.title ?? (documentId ? 'Canvas' : 'Canvases') }}</h1>
+        <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('author.canvas.article_workspace') }}</RouterLink>
+        <h1 id="canvas-title">{{ document?.title ?? (documentId ? t('author.canvas.canvas') : t('author.canvas.canvases')) }}</h1>
       </div>
       <div v-if="authorized && ready" class="canvas-toolbar">
         <template v-if="!documentId">
-          <ElButton type="primary" :disabled="disabled" @click="nameDocument">New Canvas</ElButton>
+          <ElButton type="primary" :disabled="disabled" @click="nameDocument">{{ t('author.canvas.new_canvas') }}</ElButton>
           <CanvasBundlePanel :key="identityEpoch" :disabled="disabled" @imported="openImported" @pending="bundlePending = $event" @expired="invalidateSession()" />
         </template>
         <template v-else-if="document">
-          <ElButton :disabled="disabled" @click="nameDocument">Rename Canvas</ElButton>
+          <ElButton :disabled="disabled" @click="nameDocument">{{ t('author.canvas.rename_canvas') }}</ElButton>
           <a v-if="!disabled" :href="canvasBundle.downloadHref(document.id, document.revision)" download="canvas.fsuscanvas"
-            class="canvas-bundle-export" :title="`Download revision ${document.revision}. Notes are unencrypted.`">Export Canvas bundle</a>
+            class="canvas-bundle-export" :title="t('author.canvas.download_revision_revision_notes_are_unencrypted', { revision: String(document.revision) })">{{ t('author.canvas.export_canvas_bundle') }}</a>
         </template>
       </div>
     </header>
 
-    <p v-if="!ready" role="status">Verifying author session…</p>
-    <RouterLink v-else-if="!authorized" to="/login">Log in to access Canvas</RouterLink>
+    <p v-if="!ready" role="status">{{ t('author.canvas.verifying_author_session') }}</p>
+    <RouterLink v-else-if="!authorized" to="/login">{{ t('author.canvas.log_in_to_access_canvas') }}</RouterLink>
     <template v-else>
       <ElAlert v-if="error" type="error" :title="error" :closable="false" />
       <p v-if="message" role="status">{{ message }}</p>
-      <p v-if="loading && !document" role="status">Loading Canvas…</p>
+      <p v-if="loading && !document" role="status">{{ t('author.canvas.loading_canvas') }}</p>
       <div v-if="stale || retry || graphReadFailure" class="canvas-toolbar">
-        <ElButton v-if="stale || graphReadFailure" :disabled="loading" @click="load()">Reload Canvas</ElButton>
-        <ElButton v-if="retry" :disabled="working" @click="send(retry)">Retry change</ElButton>
+        <ElButton v-if="stale || graphReadFailure" :disabled="loading" @click="load()">{{ t('author.canvas.reload_canvas') }}</ElButton>
+        <ElButton v-if="retry" :disabled="working" @click="send(retry)">{{ t('author.canvas.retry_change') }}</ElButton>
       </div>
-      <section v-if="!documentId && !loading" aria-label="Canvas documents">
-        <p v-if="!documents.length">No canvases yet.</p>
+      <section v-if="!documentId && !loading" :aria-label="t('author.canvas.canvas_documents')">
+        <p v-if="!documents.length">{{ t('author.canvas.no_canvases_yet') }}</p>
         <ul v-else class="canvas-list">
           <li v-for="item in documents" :key="item.id">
             <RouterLink :to="{ name: 'canvas-document', params: { id: item.id } }">{{ item.title }}</RouterLink>
-            <span>{{ item.nodeCount }} nodes · {{ item.edgeCount }} edges</span>
+            <span>{{ t('author.canvas.nodes_nodes_edges_edges', { nodes: item.nodeCount, edges: item.edgeCount }) }}</span>
           </li>
         </ul>
       </section>
 
-      <section v-if="document" aria-label="Canvas document">
-        <div ref="tools" class="canvas-toolbar" role="group" aria-label="Canvas tools">
-          <ElButton class="canvas-undo" native-type="button" :disabled="!historyActionAvailable.undo" @click="travel('undo')">Undo</ElButton>
-          <ElButton class="canvas-redo" native-type="button" :disabled="!historyActionAvailable.redo" @click="travel('redo')">Redo</ElButton>
-          <ElButton v-if="historyFailure" native-type="button" :disabled="disabled || historyLoading" @click="loadHistory()">Retry Canvas history</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="addNode()">Add note</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="addNode('article-reference')">Add reference</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="addNode('group-frame')">Add frame</ElButton>
-          <ElButton native-type="button" :disabled="disabled || !selectedNode" @click="addEdge">Connect</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="zoom(-250)">Zoom out</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="zoom(250)">Zoom in</ElButton>
-          <ElButton native-type="button" :disabled="disabled" @click="saveViewport(defaultCanvasViewport)">Reset view</ElButton>
-          <button type="button" class="canvas-mode" :aria-pressed="view === 'outline'" @click="view = view === 'canvas' ? 'outline' : 'canvas'">Outline</button>
+      <section v-if="document" :aria-label="t('author.canvas.canvas_document')">
+        <div ref="tools" class="canvas-toolbar" role="group" :aria-label="t('author.canvas.canvas_tools')">
+          <ElButton class="canvas-undo" native-type="button" :disabled="!historyActionAvailable.undo" @click="travel('undo')">{{ t('author.canvas.undo') }}</ElButton>
+          <ElButton class="canvas-redo" native-type="button" :disabled="!historyActionAvailable.redo" @click="travel('redo')">{{ t('author.canvas.redo') }}</ElButton>
+          <ElButton v-if="historyFailure" native-type="button" :disabled="disabled || historyLoading" @click="loadHistory()">{{ t('author.canvas.retry_canvas_history') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="addNode()">{{ t('author.canvas.add_note') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="addNode('article-reference')">{{ t('author.canvas.add_reference') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="addNode('group-frame')">{{ t('author.canvas.add_frame') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled || !selectedNode" @click="addEdge">{{ t('author.canvas.connect') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="zoom(-250)">{{ t('author.canvas.zoom_out') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="zoom(250)">{{ t('author.canvas.zoom_in') }}</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="saveViewport(defaultCanvasViewport)">{{ t('author.canvas.reset_view') }}</ElButton>
+          <button type="button" class="canvas-mode" :aria-pressed="view === 'outline'" @click="view = view === 'canvas' ? 'outline' : 'canvas'">{{ t('author.canvas.outline') }}</button>
         </div>
         <div ref="graph" class="canvas-graph">
           <CanvasBoard v-if="view === 'canvas'" :nodes="nodes" :edges="edges" :viewport="document.viewport"
             :selected-node-id="nodeId" :selected-edge-id="edgeId" :focus-request-id="focusBoardNode" :disabled="disabled"
             @focus-request-handled="focusBoardNode = ''"
             @select-node="chooseNode" @select-edge="chooseEdge" @move-node="move" @viewport="saveViewport" />
-          <section v-else class="canvas-outline" aria-label="Canvas outline" tabindex="-1">
-            <label for="canvas-outline-search">Find loaded records</label>
+          <section v-else class="canvas-outline" :aria-label="t('author.canvas.canvas_outline')" tabindex="-1">
+            <label for="canvas-outline-search">{{ t('author.canvas.find_loaded_records') }}</label>
             <input id="canvas-outline-search" v-model="outlineSearch" type="search" />
-            <h2>Nodes</h2>
-            <p v-if="!matchingNodes.length">{{ outlineQuery ? 'No matching loaded nodes.' : 'No nodes in this Canvas.' }}</p>
+            <h2>{{ t('author.canvas.nodes') }}</h2>
+            <p v-if="!matchingNodes.length">{{ outlineQuery ? t('author.canvas.no_matching_loaded_nodes') : t('author.canvas.no_nodes_in_this_canvas') }}</p>
             <ul v-else>
               <li v-for="node in outlineNodes" :key="node.id">
                 <button type="button" :aria-pressed="nodeId === node.id" @click="chooseNode(node.id)">{{ nodeLabel(node) }}</button>
               </li>
             </ul>
-            <h2>Edges</h2>
-            <p v-if="!matchingEdges.length">{{ outlineQuery ? 'No matching loaded edges.' : 'No loaded edges.' }}</p>
+            <h2>{{ t('author.canvas.edges') }}</h2>
+            <p v-if="!matchingEdges.length">{{ outlineQuery ? t('author.canvas.no_matching_loaded_edges') : t('author.canvas.no_loaded_edges') }}</p>
             <ul v-else>
               <li v-for="edge in outlineEdges" :key="edge.id">
                 <button type="button" :aria-pressed="edgeId === edge.id" @click="chooseEdge(edge.id)">{{ edgeLabel(edge) }}</button>
               </li>
             </ul>
-            <div class="canvas-toolbar" role="group" aria-label="Outline pages">
-              <ElButton :disabled="outlinePage === 0" @click="outlinePage--">Previous outline page</ElButton>
-              <ElButton :disabled="!hasNextOutline" @click="outlinePage++">Next outline page</ElButton>
+            <div class="canvas-toolbar" role="group" :aria-label="t('author.canvas.outline_pages')">
+              <ElButton :disabled="outlinePage === 0" @click="outlinePage--">{{ t('author.canvas.previous_outline_page') }}</ElButton>
+              <ElButton :disabled="!hasNextOutline" @click="outlinePage++">{{ t('author.canvas.next_outline_page') }}</ElButton>
             </div>
           </section>
-          <aside class="canvas-selection" aria-label="Selected Canvas record">
+          <aside class="canvas-selection" :aria-label="t('author.canvas.selected_canvas_record')">
             <template v-if="selectedNode">
               <h2>{{ nodeTypeLabels[selectedNode.kind] }}</h2>
               <p v-if="'text' in selectedNode">{{ selectedNode.text }}</p>
-              <p v-else>Article {{ selectedNode.articleId }}<template v-if="selectedNode.pinnedRevision"> · revision {{ selectedNode.pinnedRevision }}</template></p>
-              <p v-if="'anchor' in selectedNode">Anchor {{ selectedNode.anchor }}</p>
-              <p v-if="selectedNode.kind === 'group-frame'">{{ selectedNode.memberIds.length }} {{ selectedNode.memberIds.length === 1 ? 'member' : 'members' }}</p>
-              <div v-if="selectedReference" class="canvas-reference-preview" role="region" aria-label="Canvas reference preview">
+              <p v-else>{{ t('author.canvas.article_article', { article: selectedNode.articleId }) }}<template v-if="selectedNode.pinnedRevision">{{ t('author.canvas.revision_revision', { revision: String(selectedNode.pinnedRevision) }) }}</template></p>
+              <p v-if="'anchor' in selectedNode">{{ t('author.canvas.anchor_anchor', { anchor: selectedNode.anchor }) }}</p>
+              <p v-if="selectedNode.kind === 'group-frame'">{{ t(selectedNode.memberIds.length === 1 ? 'author.canvas.count_member' : 'author.canvas.count_members', { count: selectedNode.memberIds.length }) }}</p>
+              <div v-if="selectedReference" class="canvas-reference-preview" role="region" :aria-label="t('author.canvas.canvas_reference_preview')">
                 <ElButton native-type="button" :disabled="disabled || referenceLoading" @click="resolveReference">
-                  Resolve reference
+                  {{ t('author.canvas.resolve_reference') }}
                 </ElButton>
-                <p v-if="referenceLoading" role="status">Resolving reference…</p>
-                <p v-if="referenceError" role="alert">Could not resolve the reference. Try again.</p>
+                <p v-if="referenceLoading" role="status">{{ t('author.canvas.resolving_reference') }}</p>
+                <p v-if="referenceError" role="alert">{{ t('author.canvas.could_not_resolve_the_reference_try_again') }}</p>
                 <template v-if="reference">
                   <p role="status">{{ referenceStatus[reference.state] }}</p>
                   <template v-if="reference.articleRevision !== null">
                     <h3 v-if="reference.title">{{ reference.title }}</h3>
-                    <p>{{ reference.pinned ? 'Pinned revision' : 'Resolved revision' }} {{ reference.articleRevision }}</p>
+                    <p>{{ reference.pinned ? t('author.canvas.pinned_revision') : t('author.canvas.resolved_revision') }} {{ reference.articleRevision }}</p>
                     <p v-if="reference.state === 'resolved' && reference.excerpt" class="canvas-reference-excerpt">{{ reference.excerpt }}</p>
-                    <ElButton v-if="canOpenReference" native-type="button" :disabled="disabled || referenceLoading" @click="openReference">Open in editor</ElButton>
+                    <ElButton v-if="canOpenReference" native-type="button" :disabled="disabled || referenceLoading" @click="openReference">{{ t('author.canvas.open_in_editor') }}</ElButton>
                     <p v-if="referenceOpenNotice" role="status">{{ referenceOpenNotice }}</p>
                   </template>
                 </template>
               </div>
               <div class="canvas-toolbar">
-                <ElButton v-if="view === 'outline'" :disabled="disabled" @click="showNode">Show on Canvas</ElButton>
-                <ElButton :disabled="disabled" @click="addNode(selectedNode.kind, true)">Edit node</ElButton>
-                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-node', id: selectedNode.id }])">Remove node</ElButton>
+                <ElButton v-if="view === 'outline'" :disabled="disabled" @click="showNode">{{ t('author.canvas.show_on_canvas') }}</ElButton>
+                <ElButton :disabled="disabled" @click="addNode(selectedNode.kind, true)">{{ t('author.canvas.edit_node') }}</ElButton>
+                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-node', id: selectedNode.id }])">{{ t('author.canvas.remove_node') }}</ElButton>
               </div>
             </template>
             <template v-else-if="selectedEdge">
-              <h2>{{ selectedEdge.kind === 'visual-only' ? 'Visual connection' : 'Explicit reference' }}</h2>
+              <h2>{{ selectedEdge.kind === 'visual-only' ? t('author.canvas.visual_connection') : t('author.canvas.explicit_reference') }}</h2>
               <p>{{ edgeLabel(selectedEdge) }}</p>
               <div class="canvas-toolbar">
                 <ElButton v-if="activeLink" :disabled="disabled" @click="prepareLink">
-                  {{ selectedEdge.kind === 'visual-only' ? 'Review visual connection' : 'Review article link' }}
+                  {{ selectedEdge.kind === 'visual-only' ? t('author.canvas.review_visual_connection') : t('author.canvas.review_article_link') }}
                 </ElButton>
-                <ElButton :disabled="disabled" @click="showEdgeForm(selectedEdge)">Edit edge</ElButton>
-                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-edge', id: selectedEdge.id }])">Remove edge</ElButton>
+                <ElButton :disabled="disabled" @click="showEdgeForm(selectedEdge)">{{ t('author.canvas.edit_edge') }}</ElButton>
+                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-edge', id: selectedEdge.id }])">{{ t('author.canvas.remove_edge') }}</ElButton>
               </div>
             </template>
             <template v-else>
-              <h2>Selection</h2>
-              <p>Select a node or edge.</p>
+              <h2>{{ t('author.canvas.selection') }}</h2>
+              <p>{{ t('author.canvas.select_a_node_or_edge') }}</p>
             </template>
           </aside>
         </div>
         <footer class="canvas-toolbar canvas-footer">
-          <span>Revision {{ document.revision }} · {{ nodes.length }}/{{ document.nodeCount }} nodes · {{ edges.length }}/{{ document.edgeCount }} edges</span>
-          <p v-if="loadingAll" role="status">Loading {{ bulkProgress }} of {{ document.nodeCount + document.edgeCount }} records…</p>
-          <ElButton v-if="offset !== null" :disabled="disabled" @click="load(true)">Load more records</ElButton>
-          <ElButton v-if="offset !== null" :disabled="disabled" @click="loadAll()">Load all records</ElButton>
-          <ElButton type="danger" text :disabled="disabled" @click="deleteDocument">Delete Canvas</ElButton>
+          <span>{{ t('author.canvas.revision_revision_nodes_nodecount_nodes_edges_edgecount_edges', { revision: String(document.revision), nodes: nodes.length, nodeCount: document.nodeCount, edges: edges.length, edgeCount: document.edgeCount }) }}</span>
+          <p v-if="loadingAll" role="status">{{ t('author.canvas.loading_progress_of_total_records', { progress: bulkProgress, total: document.nodeCount + document.edgeCount }) }}</p>
+          <ElButton v-if="offset !== null" :disabled="disabled" @click="load(true)">{{ t('author.canvas.load_more_records') }}</ElButton>
+          <ElButton v-if="offset !== null" :disabled="disabled" @click="loadAll()">{{ t('author.canvas.load_all_records') }}</ElButton>
+          <ElButton type="danger" text :disabled="disabled" @click="deleteDocument">{{ t('author.canvas.delete_canvas') }}</ElButton>
         </footer>
       </section>
     </template>
 
-    <ElDialog v-if="authorized" :model-value="!!form" :title="form === 'title' ? (document ? 'Rename Canvas' : 'New Canvas') :
-      form === 'node' ? (editingNode ? 'Edit node' : 'Add node') : (editingEdge ? 'Edit edge' : 'Connect nodes')"
+    <ElDialog v-if="authorized" :model-value="!!form" :title="form === 'title' ? (document ? t('author.canvas.rename_canvas') : t('author.canvas.new_canvas')) :
+      form === 'node' ? (editingNode ? t('author.canvas.edit_node') : t('author.canvas.add_node')) : (editingEdge ? t('author.canvas.edit_edge') : t('author.canvas.connect_nodes'))"
       append-to-body :close-on-click-modal="!working && !retry" :close-on-press-escape="!working && !retry"
       :show-close="!working && !retry" @close="() => { if (!working && !retry) form = undefined }">
       <form v-if="form === 'title'" class="canvas-form" @submit.prevent="saveTitle">
-        <label for="canvas-name">Canvas title</label>
+        <label for="canvas-name">{{ t('author.canvas.canvas_title') }}</label>
         <input id="canvas-name" v-model="title" maxlength="128" :disabled="working || !!retry" />
-        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !title.trim()">Save Canvas</ElButton>
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !title.trim()">{{ t('author.canvas.save_canvas') }}</ElButton>
       </form>
       <form v-else-if="form === 'node'" class="canvas-form" @submit.prevent="saveNode">
-        <label v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'" for="canvas-reference">Reference type</label>
+        <label v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'" for="canvas-reference">{{ t('author.canvas.reference_type') }}</label>
         <select v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'"
           id="canvas-reference" v-model="nodeKind" :disabled="!!editingNode || working || !!retry">
-          <option value="article-reference">Article</option><option value="heading-reference">Heading</option><option value="block-reference">Block</option>
+          <option value="article-reference">{{ t('author.canvas.article') }}</option><option value="heading-reference">{{ t('author.canvas.heading') }}</option><option value="block-reference">{{ t('author.canvas.block') }}</option>
         </select>
         <template v-if="nodeKind === 'plain-text-note' || nodeKind === 'group-frame'">
-          <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? 'Frame name' : 'Note text' }}</label>
+          <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? t('author.canvas.frame_name') : t('author.canvas.note_text') }}</label>
           <textarea id="canvas-node-text" v-model="note" :maxlength="nodeKind === 'group-frame' ? 128 : 8192" rows="4" :disabled="working || !!retry" />
           <template v-if="nodeKind === 'group-frame'">
-            <label for="canvas-filter-members">Filter loaded frame members</label>
+            <label for="canvas-filter-members">{{ t('author.canvas.filter_loaded_frame_members') }}</label>
             <input id="canvas-filter-members" v-model="choiceFilter" :disabled="working || !!retry" />
-            <label for="canvas-members">Loaded frame members</label>
+            <label for="canvas-members">{{ t('author.canvas.loaded_frame_members') }}</label>
             <select id="canvas-members" multiple :disabled="working || !!retry" @change="setMembers">
               <option v-for="node in memberChoices" :key="node.id" :value="node.id" :selected="members.includes(node.id)">{{ nodeLabel(node) }}</option>
             </select>
-            <p>{{ members.length }} selected</p>
+            <p>{{ t('author.canvas.count_selected', { count: members.length }) }}</p>
           </template>
         </template>
         <template v-else>
-          <label for="canvas-article">Article ID</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="working || !!retry" />
+          <label for="canvas-article">{{ t('author.canvas.article_id') }}</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="working || !!retry" />
           <template v-if="nodeKind !== 'article-reference'">
-            <label for="canvas-anchor">Anchor ID</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="working || !!retry" />
+            <label for="canvas-anchor">{{ t('author.canvas.anchor_id') }}</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="working || !!retry" />
           </template>
-          <label for="canvas-pin">Pinned revision (optional)</label><input id="canvas-pin" v-model="pinned" inputmode="numeric" :disabled="working || !!retry" />
+          <label for="canvas-pin">{{ t('author.canvas.pinned_revision_optional') }}</label><input id="canvas-pin" v-model="pinned" inputmode="numeric" :disabled="working || !!retry" />
         </template>
-        <ElButton native-type="submit" type="primary" :disabled="working || !!retry">Save node</ElButton>
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry">{{ t('author.canvas.save_node') }}</ElButton>
       </form>
       <form v-else-if="form === 'edge'" class="canvas-form" @submit.prevent="saveEdge">
-        <label for="canvas-filter-endpoint">Filter loaded nodes</label>
+        <label for="canvas-filter-endpoint">{{ t('author.canvas.filter_loaded_nodes') }}</label>
         <input id="canvas-filter-endpoint" v-model="choiceFilter" :disabled="working || !!retry" />
-        <label for="canvas-endpoint">Target node</label>
+        <label for="canvas-endpoint">{{ t('author.canvas.target_node') }}</label>
         <select id="canvas-endpoint" v-model="endpoint" :disabled="working || !!retry">
-          <option value="" disabled>Choose a loaded node</option>
-          <option v-if="editingEdge && !byId.has(editingEdge.targetNodeId)" :value="editingEdge.targetNodeId">Current target</option>
+          <option value="" disabled>{{ t('author.canvas.choose_a_loaded_node') }}</option>
+          <option v-if="editingEdge && !byId.has(editingEdge.targetNodeId)" :value="editingEdge.targetNodeId">{{ t('author.canvas.current_target') }}</option>
           <option v-for="node in endpointChoices" :key="node.id" :value="node.id">{{ nodeLabel(node) }}</option>
         </select>
-        <label for="canvas-edge-kind">Edge type</label>
+        <label for="canvas-edge-kind">{{ t('author.canvas.edge_type') }}</label>
         <select id="canvas-edge-kind" v-model="edgeKind" :disabled="working || !!retry">
-          <option value="visual-only">Visual connection</option><option value="explicit-reference-note">Explicit reference</option>
+          <option value="visual-only">{{ t('author.canvas.visual_connection') }}</option><option value="explicit-reference-note">{{ t('author.canvas.explicit_reference') }}</option>
         </select>
-        <label for="canvas-edge-label">Edge label (optional)</label>
+        <label for="canvas-edge-label">{{ t('author.canvas.edge_label_optional') }}</label>
         <input id="canvas-edge-label" v-model="label" maxlength="128" :disabled="working || !!retry" />
-        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !endpoint">Save edge</ElButton>
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !endpoint">{{ t('author.canvas.save_edge') }}</ElButton>
       </form>
       <p v-if="form && error" role="alert">{{ error }}</p>
-      <ElButton v-if="retry" :disabled="working" @click="send(retry)">Retry change</ElButton>
-      <ElButton v-else-if="form" :disabled="working" @click="form = undefined">Cancel</ElButton>
+      <ElButton v-if="retry" :disabled="working" @click="send(retry)">{{ t('author.canvas.retry_change') }}</ElButton>
+      <ElButton v-else-if="form" :disabled="working" @click="form = undefined">{{ t('author.canvas.cancel') }}</ElButton>
     </ElDialog>
 
-    <ElDialog v-if="authorized" :model-value="!!plan" title="Review article link" append-to-body :show-close="!linkPending && !linkUnconfirmed"
+    <ElDialog v-if="authorized" :model-value="!!plan" :title="t('author.canvas.review_article_link')" append-to-body :show-close="!linkPending && !linkUnconfirmed"
       :close-on-press-escape="!linkPending && !linkUnconfirmed" :close-on-click-modal="!linkPending && !linkUnconfirmed" @close="cancelLink">
       <div v-if="plan">
-        <p>Add this Markdown to the end of article {{ plan.hostArticleId }}'s private draft.</p>
-        <p v-if="plan.edgeKind === 'visual-only'">Use the selected visual connection as an article link. The connection stays in the Canvas.</p>
+        <p>{{ t('author.canvas.add_this_markdown_to_the_end_of_article_article_s_private_draft', { article: plan.hostArticleId }) }}</p>
+        <p v-if="plan.edgeKind === 'visual-only'">{{ t('author.canvas.use_the_selected_visual_connection_as_an_article_link_the_connection_stays_in_the_canvas') }}</p>
         <pre class="canvas-link-preview">{{ plan.insertedMarkdown }}</pre>
         <p v-if="error" role="alert">{{ error }}</p>
         <div class="canvas-toolbar">
-          <ElButton :disabled="linkPending || linkUnconfirmed" @click="cancelLink">Cancel</ElButton>
-          <ElButton type="primary" :disabled="linkPending" @click="applyLink">{{ linkUnconfirmed ? 'Retry confirmation' : 'Confirm link' }}</ElButton>
+          <ElButton :disabled="linkPending || linkUnconfirmed" @click="cancelLink">{{ t('author.canvas.cancel') }}</ElButton>
+          <ElButton type="primary" :disabled="linkPending" @click="applyLink">{{ linkUnconfirmed ? t('author.canvas.retry_confirmation') : t('author.canvas.confirm_link') }}</ElButton>
         </div>
       </div>
     </ElDialog>

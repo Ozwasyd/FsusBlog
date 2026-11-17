@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
 import { ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { listAuthorArticles, type AuthorArticleState } from '../../../Contracts/author-articles'
@@ -16,7 +17,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ activated: [id: number] }>()
 type Result = Readonly<{ id: number; title: string; revision?: bigint; state?: AuthorArticleState; at: number }>
-const labels = { draft: 'Draft', scheduled: 'Scheduled', published: 'Published', retracted: 'Withdrawn', deleted: 'Deleted' }
+const labels = { get draft() { return t('author.articleQuickSwitcher.draft') }, get scheduled() { return t('author.articleQuickSwitcher.scheduled') }, get published() { return t('author.articleQuickSwitcher.published') }, get retracted() { return t('author.articleQuickSwitcher.withdrawn') }, get deleted() { return t('author.articleQuickSwitcher.deleted') } }
 const clock = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const listId = useId()
 const open = ref(false)
@@ -67,19 +68,19 @@ watch([open, query, retry], ([shown, value], _, cleanup) => {
         const page = await listAuthorArticles({ trash: false, keyword: value }, signal, handle)
         if (!valid()) return
         rows.value = page.items.map(item => ({ id: item.id, title: item.title, revision: item.revision, state: item.state, at: item.modifiedAt }))
-        if (!rows.value.length) message.value = 'No matching articles.'
-        else if (page.nextId) message.value = 'Refine your search to find more articles.'
+        if (!rows.value.length) message.value = t('author.articleQuickSwitcher.no.matching.articles')
+        else if (page.nextId) message.value = t('author.articleQuickSwitcher.refine.your.search.to.find.more.articles')
       } else {
         const page = await listRecentOpens(handle, signal)
         if (!valid()) return
         // The title is current but an open record's revision refers to the prior visit.
         rows.value = page.items.map(item => ({ id: item.articleId, title: item.title, at: item.openedAt }))
-        if (!rows.value.length) message.value = 'No recent opens. Search by title.'
+        if (!rows.value.length) message.value = t('author.articleQuickSwitcher.no.recent.opens.search.by.title')
       }
     } catch (error) {
       if (!valid()) return
-      if (!value && error instanceof ApiError && error.status === 404) message.value = 'Recent opens are unavailable. Search by title.'
-      else failure.value = 'Could not load articles. Try again.'
+      if (!value && error instanceof ApiError && error.status === 404) message.value = t('author.articleQuickSwitcher.recent.opens.are.unavailable.search.by.title')
+      else failure.value = t('author.articleQuickSwitcher.could.not.load.articles.try.again')
     } finally {
       if (valid()) loading.value = false
     }
@@ -139,7 +140,7 @@ async function choose(row: Result, destination: 'workspace' | 'browser' | 'other
   const child = separate ? window.open('about:blank', '_blank') : null
   if (child) child.opener = null
   if (separate && !child) {
-    failure.value = 'The browser did not open a new tab.'
+    failure.value = t('author.articleQuickSwitcher.the.browser.did.not.open.a.new.tab')
     return
   }
 
@@ -157,7 +158,7 @@ async function choose(row: Result, destination: 'workspace' | 'browser' | 'other
     if (!valid()) return
     const confirmed = page.items[0]
     if (!confirmed || row.revision !== undefined && row.revision !== confirmed.revision) {
-      failure.value = confirmed ? 'This article changed. Search again to continue.' : 'This article is no longer available.'
+      failure.value = confirmed ? t('author.articleQuickSwitcher.this.article.changed.search.again.to.continue') : t('author.articleQuickSwitcher.this.article.is.no.longer.available')
       return
     }
     if (child) {
@@ -165,7 +166,7 @@ async function choose(row: Result, destination: 'workspace' | 'browser' | 'other
       child.location.replace(new URL(props.articleHref(row.id), location.origin).href)
     } else {
       if (!await props.activate(row.id, confirmed.revision, valid, targetGroup)) {
-        if (valid()) failure.value = 'Could not open this article. Search again to continue.'
+        if (valid()) failure.value = t('author.articleQuickSwitcher.could.not.open.this.article.search.again.to.continue')
         return
       }
       if (!valid()) return
@@ -174,7 +175,7 @@ async function choose(row: Result, destination: 'workspace' | 'browser' | 'other
     opened = true
     close()
   } catch {
-    if (valid()) failure.value = 'Could not confirm this article. Try again.'
+    if (valid()) failure.value = t('author.articleQuickSwitcher.could.not.confirm.this.article.try.again')
   } finally {
     controller.signal.removeEventListener('abort', closeChild)
     if (!opened) closeChild()
@@ -203,31 +204,31 @@ onBeforeUnmount(() => { cancelAction(); window.removeEventListener('keydown', sh
 
 <template>
   <ElButton native-type="button" :disabled="disabled" v-bind="{ 'aria-keyshortcuts': 'Control+O Meta+O' }" @click="show">
-    Quick switch articles
+    {{ t('author.articleQuickSwitcher.quick.switch.articles') }}
   </ElButton>
-  <ElDialog v-model="open" title="Quick switch articles" append-to-body destroy-on-close width="min(34rem, calc(100vw - 2rem))"
+  <ElDialog v-model="open" :title="t('author.articleQuickSwitcher.quick.switch.articles')" append-to-body destroy-on-close width="min(34rem, calc(100vw - 2rem))"
     top="min(12vh, 6rem)" :show-close="false" :close-on-click-modal="false" :before-close="beforeClose"
     @opened="opened" @closed="closed">
-    <ElInput ref="search" v-model="keyword" label="Search draft titles" autocomplete="off"
+    <ElInput ref="search" v-model="keyword" :label="t('author.articleQuickSwitcher.search.draft.titles')" autocomplete="off"
       v-bind="{ role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': rows.length > 0, 'aria-controls': listId,
         'aria-activedescendant': selected ? optionId(selected.id) : undefined, maxlength: WireLimits.AuthorArticleKeywordChars }"
       @keydown="onKeys" />
-    <p v-if="loading" role="status">Loading articles…</p>
-    <p v-else-if="busy" role="status">Confirming article…</p>
+    <p v-if="loading" role="status">{{ t('author.articleQuickSwitcher.loading.articles') }}</p>
+    <p v-else-if="busy" role="status">{{ t('author.articleQuickSwitcher.confirming.article') }}</p>
     <p v-else-if="message" role="status">{{ message }}</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
-    <ul :id="listId" v-show="rows.length" class="quick-results" role="listbox" aria-label="Articles" :aria-busy="busy">
+    <ul :id="listId" v-show="rows.length" class="quick-results" role="listbox" :aria-label="t('author.articleQuickSwitcher.articles')" :aria-busy="busy">
       <li v-for="(row, at) in rows" :id="optionId(row.id)" :key="row.id" role="option" :aria-selected="at === index"
         @mousedown.prevent @click="index = at; void choose(row, 'workspace')">
         <span>{{ row.title }}</span>
-        <small>{{ row.state ? labels[row.state] : 'Opened' }} · {{ clock.format(row.at) }}</small>
+        <small>{{ row.state ? labels[row.state] : t('author.articleQuickSwitcher.opened') }} · {{ clock.format(row.at) }}</small>
       </li>
     </ul>
     <template #footer>
       <ElButton v-if="otherGroup" native-type="button" :disabled="!selected || busy || disabled"
-        @click="selected && choose(selected, 'other-group')">Open in other group</ElButton>
-      <ElButton v-if="failure" native-type="button" text @click="retry++; nextTick(() => search?.focus())">Refresh results</ElButton>
-      <ElButton native-type="button" @click="close">Cancel</ElButton>
+        @click="selected && choose(selected, 'other-group')">{{ t('author.articleQuickSwitcher.open.in.other.group') }}</ElButton>
+      <ElButton v-if="failure" native-type="button" text @click="retry++; nextTick(() => search?.focus())">{{ t('author.articleQuickSwitcher.refresh.results') }}</ElButton>
+      <ElButton native-type="button" @click="close">{{ t('author.articleQuickSwitcher.cancel') }}</ElButton>
     </template>
   </ElDialog>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, h, onScopeDispose, ref, shallowRef, useId, watch, type VNodeChild } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime'
@@ -89,7 +90,7 @@ async function run(withdraw = false) {
   } catch (error) {
     if (!current()) return
     if (withdraw) {
-      failure.value = 'Could not cancel plugin access. Review again before running.'
+      failure.value = t('author.authorPluginPreview.could.not.cancel.plugin.access.review.again.before.running')
       return
     }
     if (error instanceof ApiError) {
@@ -97,13 +98,13 @@ async function run(withdraw = false) {
         await recheckCredential(handle, controller.signal)
         if (!current()) return
       }
-      if (error.status === 409) failure.value = 'Load the current saved revision before running the preview.'
-      else if (error.status === 429) failure.value = 'The preview service is busy. Try again.'
-      else if (error.status === 503) failure.value = 'The signed plugin is unavailable.'
-      else if (error.status === 403 && approval) failure.value = 'Review the signed plugin again before running it.'
-      else if (error.status === 403 || error.status === 404) failure.value = 'This revision is unavailable for preview.'
+      if (error.status === 409) failure.value = t('author.authorPluginPreview.load.the.current.saved.revision.before.running.the.preview')
+      else if (error.status === 429) failure.value = t('author.authorPluginPreview.the.preview.service.is.busy.try.again')
+      else if (error.status === 503) failure.value = t('author.authorPluginPreview.the.signed.plugin.is.unavailable')
+      else if (error.status === 403 && approval) failure.value = t('author.authorPluginPreview.review.the.signed.plugin.again.before.running.it')
+      else if (error.status === 403 || error.status === 404) failure.value = t('author.authorPluginPreview.this.revision.is.unavailable.for.preview')
     }
-    if (!failure.value) failure.value = 'Could not run the signed plugin preview. Try again.'
+    if (!failure.value) failure.value = t('author.authorPluginPreview.could.not.run.the.signed.plugin.preview.try.again')
   } finally {
     if (request === controller) {
       request = undefined
@@ -118,24 +119,24 @@ onScopeDispose(reset)
 </script>
 
 <template>
-  <section v-if="enabled && active" class="plugin-preview" aria-label="Signed plugin preview">
-    <p v-if="consent" role="status">Allow {{ consent.plugin }} v{{ consent.version }} to read the saved Markdown of revision {{ revision }} for this preview?</p>
+  <section v-if="enabled && active" class="plugin-preview" :aria-label="t('author.authorPluginPreview.signed.plugin.preview')">
+    <p v-if="consent" role="status">{{ t('author.authorPluginPreview.allow.v.to.read.the.saved.markdown.of', { p0: String(consent.plugin), p1: String(consent.version), p2: String(revision) }) }}</p>
     <p v-if="consent">Package SHA-256 <code>{{ consent.digest }}</code></p>
     <ElButton native-type="button" :disabled="!canPreview || pending === 'withdraw'"
       v-bind="{ 'aria-controls': regionId }" @click="pending ? reset() : run()">
-      {{ pending === 'withdraw' ? 'Cancelling access' : pending ? 'Cancel preview' : consent ? 'Run plugin preview' : 'Review plugin access' }}
+      {{ pending === 'withdraw' ? t('author.authorPluginPreview.cancelling.access') : pending ? t('author.authorPluginPreview.cancel.preview') : consent ? t('author.authorPluginPreview.run.plugin.preview') : t('author.authorPluginPreview.review.plugin.access') }}
     </ElButton>
-    <ElButton v-if="consent && !pending" native-type="button" text @click="run(true)">Cancel</ElButton>
-    <p v-if="disabled">Save the current draft before running the preview.</p>
+    <ElButton v-if="consent && !pending" native-type="button" text @click="run(true)">{{ t('author.authorPluginPreview.cancel') }}</ElButton>
+    <p v-if="disabled">{{ t('author.authorPluginPreview.save.the.current.draft.before.running.the.preview') }}</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
-    <p role="status">{{ pending === 'withdraw' ? 'Cancelling plugin access…' : pending === 'run' ? 'Running the signed plugin…' :
-      pending === 'review' ? 'Checking the signed plugin…' : preview ? `Preview ready for revision ${revision}.` : '' }}</p>
-    <div :id="regionId" role="region" aria-label="Plugin preview result" :aria-busy="!!pending">
+    <p role="status">{{ pending === 'withdraw' ? t('author.authorPluginPreview.cancelling') : pending === 'run' ? t('author.authorPluginPreview.running') :
+      pending === 'review' ? t('author.authorPluginPreview.checking') : preview ? t('author.authorPluginPreview.ready.revision', { revision: String(revision) }) : '' }}</p>
+    <div :id="regionId" role="region" :aria-label="t('author.authorPluginPreview.plugin.preview.result')" :aria-busy="!!pending">
       <template v-if="preview">
         <component :is="preview.formatted" v-if="preview.formatted" />
-        <p v-else-if="preview.source === ''">The plugin returned an empty preview.</p>
+        <p v-else-if="preview.source === ''">{{ t('author.authorPluginPreview.the.plugin.returned.an.empty.preview') }}</p>
         <template v-else>
-          <p>Formatted preview unavailable. Showing the plugin output as text.</p>
+          <p>{{ t('author.authorPluginPreview.formatted.preview.unavailable.showing.the.plugin.output.as') }}</p>
           <pre>{{ preview.source }}</pre>
         </template>
       </template>

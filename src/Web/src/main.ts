@@ -9,7 +9,7 @@ import './blog.css'
 import App from './App.vue'
 import { preloadPublicEntry } from './publicEntry'
 import { siteTitle } from './siteBrand'
-import { siteLocale, t, type MessageKey } from './siteLocale'
+import { preloadWorkspaceLocale, siteLocale, t, type MessageKey } from './siteLocale'
 import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEntry'
 
 const publicListing = () => import('./views/PublicListing.vue')
@@ -52,12 +52,16 @@ const router = createRouter({
     { path: '/:missing(.*)*', name: 'missing', component: () => import('./views/NotFound.vue') },
   ],
 })
+router.beforeEach(async to => {
+  if (to.path.startsWith('/user/') || to.name === 'admin-identity' || to.name === 'subscribe')
+    await preloadWorkspaceLocale()
+})
 router.afterEach((to, from) => {
   // Canonical metadata belongs to the verified HTML response for its original route.
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
   const authorInventory = to.name === 'article-list' || to.name === 'article-search' || to.name === 'article-trash'
   const subscription = to.name === 'subscribe'
-  updateDocumentLanguage(to.name)
+  updateDocumentLanguage()
   if (to.name === 'article' && !from.name) return
   updateDocumentTitle(to.name)
   document.querySelector('meta[name="robots"]')?.remove()
@@ -70,6 +74,7 @@ router.afterEach((to, from) => {
   }
 })
 const labels: Record<string, MessageKey> = {
+  'admin-identity': 'admin.access',
   archive: 'page.archive',
   search: 'page.search',
   category: 'page.category',
@@ -91,8 +96,8 @@ const labels: Record<string, MessageKey> = {
   missing: 'page.missing',
 }
 
-function updateDocumentLanguage(name: unknown) {
-  document.documentElement.lang = name === 'admin-identity' ? 'en' : siteLocale.value
+function updateDocumentLanguage() {
+  document.documentElement.lang = siteLocale.value
 }
 
 function updateDocumentTitle(name: unknown) {
@@ -100,15 +105,14 @@ function updateDocumentTitle(name: unknown) {
     document.title = siteTitle
     return
   }
-  const label = name === 'admin-identity' ? 'Administrator access'
-    : isSitePageSlug(name) ? t(`policy.${name}`)
+  const label = isSitePageSlug(name) ? t(`policy.${name}`)
     : t(labels[String(name)] ?? 'page.article')
   document.title = `${label} · ${siteTitle}`
 }
 
 watch(siteLocale, () => {
   const name = router.currentRoute.value.name
-  updateDocumentLanguage(name)
+  updateDocumentLanguage()
   // The author supplies article titles. Never replace one on a language-only change.
   if (name !== 'article') updateDocumentTitle(name)
 })

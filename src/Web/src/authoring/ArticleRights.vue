@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { draftRights, type RightsEdit } from '../../../Contracts/article-rights'
@@ -43,7 +44,7 @@ watch(() => [props.articleId, props.revision, open.value] as const, async ([id, 
     year.value = result.copyrightYear ? String(result.copyrightYear) : ''
     excerpt.value = result.present ? String(result.maxExcerptChars) : '300'
   } catch {
-    if (!stop.signal.aborted) error.value = 'Could not load this revision’s rights policy. Reopen the panel to retry.'
+    if (!stop.signal.aborted) error.value = t('author.articleRights.could.not.load.this.revision.s.rights.policy.reopen')
   }
 }, { flush: 'sync' })
 
@@ -63,37 +64,37 @@ function save() {
 
 <template>
   <details @toggle="toggle">
-    <summary>Publication rights</summary>
+    <summary>{{ t('author.articleRights.publication.rights') }}</summary>
     <ElAlert v-if="error" :title="error" :closable="false" type="error" />
-    <p v-else-if="open && !policy" role="status">Loading rights…</p>
+    <p v-else-if="open && !policy" role="status">{{ t('author.articleRights.loading.rights') }}</p>
     <div v-if="policy" class="rights-fields">
-      <p v-if="!present">This revision has no stored rights policy. Save an explicit policy before publishing.</p>
-      <ElCheckbox :model-value="policy.enabled" :disabled="!canChange" @update:model-value="policy.enabled = $event === true">Enable rights notice</ElCheckbox>
-      <label for="draft-rights-license">License</label>
-      <ElSelect id="draft-rights-license" v-model="policy.licenseType" ariaLabel="License" :disabled="!canChange">
+      <p v-if="!present">{{ t('author.articleRights.this.revision.has.no.stored.rights.policy.save') }}</p>
+      <ElCheckbox :model-value="policy.enabled" :disabled="!canChange" @update:model-value="policy.enabled = $event === true">{{ t('author.articleRights.enable.rights.notice') }}</ElCheckbox>
+      <label for="draft-rights-license">{{ t('author.articleRights.license') }}</label>
+      <ElSelect id="draft-rights-license" v-model="policy.licenseType" :ariaLabel="t('author.articleRights.license')" :disabled="!canChange">
         <ElOption v-for="license in licenses" :key="license" :label="license" :value="license" />
       </ElSelect>
-      <label for="draft-rights-holder">Copyright holder</label>
+      <label for="draft-rights-holder">{{ t('author.articleRights.copyright.holder') }}</label>
       <ElInput id="draft-rights-holder" v-model="policy.copyrightHolder" :disabled="!canChange" />
-      <label for="draft-rights-year">Copyright year</label>
+      <label for="draft-rights-year">{{ t('author.articleRights.copyright.year') }}</label>
       <ElInput id="draft-rights-year" v-model="year" :disabled="!canChange" />
-      <label for="draft-rights-statement">Rights statement</label>
+      <label for="draft-rights-statement">{{ t('author.articleRights.rights.statement') }}</label>
       <ElInput id="draft-rights-statement" v-model="policy.rightsStatement" type="textarea" :disabled="!canChange" />
-      <label for="draft-rights-attribution">Attribution template</label>
+      <label for="draft-rights-attribution">{{ t('author.articleRights.attribution.template') }}</label>
       <ElInput id="draft-rights-attribution" v-model="policy.attributionTemplate" type="textarea" :disabled="!canChange" />
-      <label for="draft-rights-copy">Copy policy</label>
-      <ElSelect id="draft-rights-copy" v-model="policy.copyPolicy" ariaLabel="Copy policy" :disabled="!canChange">
+      <label for="draft-rights-copy">{{ t('author.articleRights.copy.policy') }}</label>
+      <ElSelect id="draft-rights-copy" v-model="policy.copyPolicy" :ariaLabel="t('author.articleRights.copy.policy')" :disabled="!canChange">
         <ElOption v-for="value in policies" :key="value" :label="value" :value="value" />
       </ElSelect>
-      <label for="draft-rights-excerpt">Maximum excerpt characters</label>
+      <label for="draft-rights-excerpt">{{ t('author.articleRights.maximum.excerpt.characters') }}</label>
       <ElInput id="draft-rights-excerpt" v-model="excerpt" :disabled="!canChange" />
       <ElCheckbox :model-value="policy.allowCodeCopy" :disabled="!canChange"
-        @update:model-value="policy.allowCodeCopy = $event === true">Allow code-copy controls</ElCheckbox>
+        @update:model-value="policy.allowCodeCopy = $event === true">{{ t('author.articleRights.allow.code.copy.controls') }}</ElCheckbox>
       <ElCheckbox :model-value="policy.showPublicBadge" :disabled="!canChange"
-        @update:model-value="policy.showPublicBadge = $event === true">Show the public rights notice</ElCheckbox>
+        @update:model-value="policy.showPublicBadge = $event === true">{{ t('author.articleRights.show.the.public.rights.notice') }}</ElCheckbox>
       <ElCheckbox :model-value="policy.proofBindingEnabled" :disabled="!canChange"
-        @update:model-value="policy.proofBindingEnabled = $event === true">Request proof binding</ElCheckbox>
-      <ElButton :disabled="!canChange || !valid" @click="save">Save publication rights</ElButton>
+        @update:model-value="policy.proofBindingEnabled = $event === true">{{ t('author.articleRights.request.proof.binding') }}</ElCheckbox>
+      <ElButton :disabled="!canChange || !valid" @click="save">{{ t('author.articleRights.save.publication.rights') }}</ElButton>
     </div>
   </details>
 </template>

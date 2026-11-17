@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -19,6 +20,18 @@ import { readCommentRevisions, readModerationTimeline, validModerationCoordinate
 import { WireLimits } from '../../../Contracts/wire.generated'
 import AdminAppealReview from './AdminAppealReview.vue'
 
+type ConflictMessage = { key: MessageKey; conflicts: readonly AdminCommentCursor[] }
+type DisplayMessage = MessageKey | { key: MessageKey; params: Record<string, string | number> } | ConflictMessage
+function displayMessage(message: DisplayMessage): string {
+  if (typeof message === 'string') return t(message)
+  if ('conflicts' in message) return t(message.key, {
+    unavailable: message.conflicts.map(row => t('admin.moderation.m62', {
+      article: row.articleId, comment: row.commentId.toString(),
+    })).join(' · '),
+  })
+  return t(message.key, message.params)
+}
+
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
 const queue = shallowRef<AdminCommentQueue | null>(null)
@@ -38,18 +51,18 @@ const visibleComments = computed(() => batchClaims.value ? selectedTargets.value
 const batchAvailable = computed(() => queue.value?.batchEnabled === true &&
   queue.value.comments.length >= WireLimits.AdminModerationBatchMinimum && !claim.value)
 const busy = ref(false)
-const failure = ref('')
-const notice = ref('')
+const failure = ref<DisplayMessage | ''>('')
+const notice = ref<DisplayMessage | ''>('')
 const historyArticle = ref('')
 const historyComment = ref('')
 const history = shallowRef<ModerationTimeline | null>(null)
 const revisions = shallowRef<CommentRevisionPage | null>(null)
 const revisionHeading = ref<HTMLElement>()
 const canReadHistory = computed(() => !busy.value && validModerationCoordinates(historyArticle.value, historyComment.value))
-const statuses = ['Pending', 'Approved', 'Rejected', 'Hidden'] as const
-const eventLabels: Record<string, string> = {
-  create: 'Submitted', approve: 'Approved', reject: 'Rejected', hide: 'Hidden', edit: 'Edited', delete: 'Deleted',
-  appeal: 'Appeal submitted', appeal_decision: 'Appeal decided',
+const statuses = ['admin.moderation.m1', 'admin.moderation.m2', 'admin.moderation.m3', 'admin.moderation.m4'] as const
+const eventLabels: Record<string, MessageKey> = {
+  create: 'admin.moderation.m5', approve: 'admin.moderation.m2', reject: 'admin.moderation.m3', hide: 'admin.moderation.m4', edit: 'admin.moderation.m6', delete: 'admin.moderation.m7',
+  appeal: 'admin.moderation.m8', appeal_decision: 'admin.moderation.m9',
 }
 const lifetime = new AbortController()
 let cursor: AdminCommentCursor | null = null
@@ -114,13 +127,13 @@ function setClaim(next: AdminModerationClaim | null) {
     if (remaining > 0) claimTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
     else {
       setClaim(null)
-      failure.value = 'Your review claim expired.'
+      failure.value = 'admin.moderation.m10'
     }
   }
   expire()
 }
 
-async function run(action: (signal: AbortSignal) => Promise<void>, explain: (error: unknown) => string) {
+async function run(action: (signal: AbortSignal) => Promise<void>, explain: (error: unknown) => DisplayMessage) {
   if (busy.value || props.sessionSignal.aborted) return
   const signal = AbortSignal.any([lifetime.signal, reviewAuthority.signal, props.sessionSignal])
   busy.value = true
@@ -134,7 +147,7 @@ async function run(action: (signal: AbortSignal) => Promise<void>, explain: (err
       emit('sessionLost', error)
     } else if (error instanceof ApiError && error.status === 403) {
       clearReview()
-      failure.value = 'You do not have permission to view the moderation queue.'
+      failure.value = 'admin.moderation.m11'
     } else failure.value = explain(error)
   } finally {
     if (!signal.aborted) busy.value = false
@@ -154,7 +167,7 @@ function load(after: AdminCommentCursor | null = null) {
     if (signal.aborted) return
     cursor = after
     queue.value = response
-  }, () => 'Could not load the moderation queue. Try again.')
+  }, () => 'admin.moderation.m12')
 }
 
 function loadHistory() {
@@ -166,7 +179,7 @@ function loadHistory() {
     const result = await readModerationTimeline(article, comment, signal)
     if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) history.value = result
   }, error => error instanceof ApiError && error.status === 404
-    ? 'Comment history was not found for these IDs.' : 'Could not load comment history. Try again.')
+    ? 'admin.moderation.m13' : 'admin.moderation.m14')
 }
 
 function loadRevisions(before: number | null = null) {
@@ -181,7 +194,7 @@ function loadRevisions(before: number | null = null) {
     await nextTick()
     if (!signal.aborted) revisionHeading.value?.focus()
   }, error => error instanceof ApiError && error.status === 404
-    ? 'No saved comment revisions are available for these IDs.' : 'Could not load comment revisions. Try again.')
+    ? 'admin.moderation.m15' : 'admin.moderation.m16')
 }
 
 function claimForReview(target: AdminCommentCursor) {
@@ -189,8 +202,8 @@ function claimForReview(target: AdminCommentCursor) {
   return run(async signal => {
     const receipt = await claimComment(target, signal)
     if (!signal.aborted) setClaim(receipt)
-  }, error => repeatableConflict(error) ? 'Another reviewer has claimed this comment or it is no longer pending.'
-    : 'Could not claim the comment. Try again.')
+  }, error => repeatableConflict(error) ? 'admin.moderation.m17'
+    : 'admin.moderation.m18')
 }
 
 function renew() {
@@ -199,7 +212,7 @@ function renew() {
   return run(async signal => {
     const renewed = await renewCommentClaim(receipt, signal)
     if (!signal.aborted) setClaim(renewed)
-  }, error => claimFailure(error, 'Could not renew the claim. Try again.'))
+  }, error => claimFailure(error, 'admin.moderation.m19'))
 }
 
 function release() {
@@ -209,14 +222,14 @@ function release() {
     await releaseCommentClaim(receipt, signal)
     if (signal.aborted) return
     setClaim(null)
-    notice.value = 'Claim released.'
-  }, error => claimFailure(error, 'Could not release the claim. Try again.'))
+    notice.value = 'admin.moderation.m20'
+  }, error => claimFailure(error, 'admin.moderation.m21'))
 }
 
-function claimFailure(error: unknown, fallback: string): string {
+function claimFailure(error: unknown, fallback: DisplayMessage): DisplayMessage {
   if (!repeatableConflict(error)) return fallback
   setClaim(null)
-  return 'This claim is no longer active. Reload the moderation queue.'
+  return 'admin.moderation.m22'
 }
 
 function decide(decision: 1 | 2) {
@@ -240,11 +253,11 @@ function decide(decision: 1 | 2) {
     if (signal.aborted) return
     setClaim(null)
     queue.value = null
-    notice.value = decision === 1 ? 'Comment approved.' : 'Comment rejected.'
+    notice.value = decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24'
     const updated = await readAdminCommentQueue(cursor, signal)
     if (!signal.aborted) queue.value = updated
   }, error => claimFailure(error, notice.value
-    ? 'Could not reload the moderation queue. Try again.' : 'Could not complete the decision. Verify your Passkey and try again.'))
+    ? 'admin.moderation.m25' : 'admin.moderation.m26'))
 }
 
 function coordinate(row: AdminCommentCursor): string {
@@ -279,20 +292,19 @@ function startBatch() {
       if (remaining > 0) batchTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
       else {
         clearBatch()
-        failure.value = 'Your batch review claims expired.'
+        failure.value = 'admin.moderation.m27'
       }
     }
     expire()
     await nextTick()
     if (!signal.aborted && batchClaims.value === receipts) batchHeading.value?.focus()
-  }, error => batchConflict(error, targets) ?? 'Could not claim the selected comments. Try again.')
+  }, error => batchConflict(error, targets) ?? 'admin.moderation.m28')
 }
 
-function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): string | null {
+function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): ConflictMessage | null {
   const conflicts = readModerationBatchConflicts(error, targets)
   if (!conflicts) return null
-  const unavailable = conflicts.map(row => `article ${row.articleId}, comment ${row.commentId}`).join(' · ')
-  return `Could not review ${unavailable}. Reload the moderation queue.`
+  return { key: 'admin.moderation.m63', conflicts }
 }
 
 async function releaseBatchClaims(receipts: readonly AdminModerationClaim[], signal: AbortSignal): Promise<boolean> {
@@ -314,9 +326,9 @@ function cancelBatch() {
     clearBatch()
     const released = await releaseBatchClaims(receipts, signal)
     if (signal.aborted) return
-    if (released) notice.value = 'Batch review canceled.'
-    else failure.value = 'Could not release all claims. Unreleased claims expire automatically.'
-  }, () => 'Could not release all claims. Unreleased claims expire automatically.')
+    if (released) notice.value = 'admin.moderation.m29'
+    else failure.value = 'admin.moderation.m30'
+  }, () => 'admin.moderation.m30')
 }
 
 function decideBatch(decision: 1 | 2) {
@@ -331,7 +343,7 @@ function decideBatch(decision: 1 | 2) {
       clearBatch()
       failure.value = ''
       queue.value = null
-      notice.value = decision === 1 ? `${receipt.count} comments approved.` : `${receipt.count} comments rejected.`
+      notice.value = decision === 1 ? { key: 'admin.moderation.m65', params: { count: receipt.count } } : { key: 'admin.moderation.m66', params: { count: receipt.count } }
       const updated = await readAdminCommentQueue(cursor, signal)
       if (!signal.aborted) queue.value = updated
     } catch (error) {
@@ -340,38 +352,38 @@ function decideBatch(decision: 1 | 2) {
       if (!conflict) throw error
       clearBatch()
       const released = await releaseBatchClaims(receipts, signal)
-      if (!signal.aborted) failure.value = released ? conflict : `${conflict} Unreleased claims expire automatically.`
+      if (!signal.aborted) failure.value = released ? conflict : { ...conflict, key: 'admin.moderation.m64' }
     }
-  }, () => notice.value ? 'Could not reload the moderation queue. Try again.'
-    : 'Could not complete the batch decision. Verify your Passkey and try again.')
+  }, () => notice.value ? 'admin.moderation.m25'
+    : 'admin.moderation.m31')
 }
 </script>
 
 <template>
   <section class="auth-form admin-moderation" aria-labelledby="admin-moderation-heading">
-    <h2 id="admin-moderation-heading">Moderation queue</h2>
-    <ElButton native-type="button" :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">Load moderation queue</ElButton>
+    <h2 id="admin-moderation-heading">{{ t('admin.moderation.m32') }}</h2>
+    <ElButton native-type="button" :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">{{ t('admin.moderation.m33') }}</ElButton>
     <AdminAppealReview :session-signal="sessionSignal" @session-lost="emit('sessionLost', $event)" />
     <section class="moderation-claim" aria-labelledby="admin-comment-history-heading">
-      <h3 id="admin-comment-history-heading">Comment moderation history</h3>
+      <h3 id="admin-comment-history-heading">{{ t('admin.moderation.m34') }}</h3>
       <form class="moderation-claim" @submit.prevent="loadHistory">
-        <label for="admin-comment-history-article">Article ID</label>
+        <label for="admin-comment-history-article">{{ t('admin.moderation.m35') }}</label>
         <ElInput id="admin-comment-history-article" v-model="historyArticle" v-bind="{ inputmode: 'numeric', maxlength: 10 }" :disabled="busy" />
-        <label for="admin-comment-history-comment">Comment ID</label>
+        <label for="admin-comment-history-comment">{{ t('admin.moderation.m36') }}</label>
         <ElInput id="admin-comment-history-comment" v-model="historyComment" v-bind="{ inputmode: 'numeric', maxlength: 19 }" :disabled="busy" />
         <div class="moderation-actions">
-          <ElButton class="moderation-action" native-type="submit" :disabled="!canReadHistory">Load comment history</ElButton>
-          <ElButton class="moderation-action" native-type="button" :disabled="!canReadHistory" @click="loadRevisions()">View comment revisions</ElButton>
+          <ElButton class="moderation-action" native-type="submit" :disabled="!canReadHistory">{{ t('admin.moderation.m37') }}</ElButton>
+          <ElButton class="moderation-action" native-type="button" :disabled="!canReadHistory" @click="loadRevisions()">{{ t('admin.moderation.m38') }}</ElButton>
         </div>
       </form>
       <template v-if="history">
-        <p role="status">Current status: {{ history.deleted ? 'Deleted' : statuses[history.currentStatus] }}.</p>
-        <ElAlert v-if="!history.consistent" title="The recorded history does not establish the current status." type="warning" :closable="false" />
-        <p v-if="history.events.length === 0">No moderation events were recorded.</p>
+        <p role="status">{{ t('admin.moderation.m67', { status: t(history.deleted ? 'admin.moderation.m7' : statuses[history.currentStatus]) }) }}</p>
+        <ElAlert v-if="!history.consistent" :title="t('admin.moderation.m39')" type="warning" :closable="false" />
+        <p v-if="history.events.length === 0">{{ t('admin.moderation.m40') }}</p>
         <ol v-else class="moderation-history-list">
           <li v-for="(event, index) in history.events" :key="index">
-            <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? eventLabels[event.eventType] : event.eventType }}</strong>
-            <template v-if="eventLabels[event.eventType] !== statuses[event.nextStatus]"> · {{ statuses[event.nextStatus] }}</template>
+            <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? t(eventLabels[event.eventType]) : event.eventType }}</strong>
+            <template v-if="eventLabels[event.eventType] !== statuses[event.nextStatus]"> · {{ t(statuses[event.nextStatus]) }}</template>
             · {{ event.actorType }}
             · <time :datetime="event.occurredAtUtc">{{ new Date(event.occurredAtUtc).toLocaleString() }}</time>
             <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
@@ -379,94 +391,94 @@ function decideBatch(decision: 1 | 2) {
         </ol>
       </template>
       <template v-if="revisions">
-        <h4 ref="revisionHeading" tabindex="-1">Saved comment revisions</h4>
+        <h4 ref="revisionHeading" tabindex="-1">{{ t('admin.moderation.m41') }}</h4>
         <ol class="moderation-history-list">
           <li v-for="revision in revisions.rows" :key="revision.version">
-            <strong>Revision {{ revision.version }}</strong> · {{ revision.operation }}
+            <strong>{{ t('admin.moderation.m68', { version: revision.version }) }}</strong> · {{ revision.operation }}
             · <time :datetime="revision.createdAtUtc">{{ new Date(revision.createdAtUtc).toLocaleString() }}</time>
             <p class="moderation-body">{{ revision.content }}</p>
-            <details><summary>Content SHA-256</summary><code>{{ revision.contentSha256 }}</code></details>
+            <details><summary>{{ t('admin.moderation.m42') }}</summary><code>{{ revision.contentSha256 }}</code></details>
           </li>
         </ol>
         <div class="moderation-actions">
           <ElButton v-if="revisions.next" class="moderation-action" native-type="button" :disabled="!canReadHistory"
-            @click="loadRevisions(revisions.next)">Older revisions</ElButton>
+            @click="loadRevisions(revisions.next)">{{ t('admin.moderation.m43') }}</ElButton>
         </div>
       </template>
     </section>
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-    <ElAlert v-if="notice" :title="notice" type="success" :closable="false" show-icon />
+    <ElAlert v-if="failure" :title="displayMessage(failure)" type="error" :closable="false" show-icon />
+    <ElAlert v-if="notice" :title="displayMessage(notice)" type="success" :closable="false" show-icon />
     <template v-if="queue">
       <div v-if="batchAvailable" class="moderation-claim">
         <template v-if="batchClaims && batchExpiry">
-          <h3 ref="batchHeading" tabindex="-1">Batch review</h3>
-          <p role="status">{{ batchClaims.length }} comments claimed for review.</p>
+          <h3 ref="batchHeading" tabindex="-1">{{ t('admin.moderation.m44') }}</h3>
+          <p role="status">{{ t('admin.moderation.m69', { count: batchClaims.length }) }}</p>
           <p>
-            Review claims expire
+            {{ t('admin.moderation.m45') }}
             <time :datetime="new Date(batchExpiry).toISOString()">{{ new Date(batchExpiry).toLocaleTimeString() }}</time>
           </p>
-          <label for="admin-moderation-batch-reason">Reason for batch decision</label>
+          <label for="admin-moderation-batch-reason">{{ t('admin.moderation.m46') }}</label>
           <ElInput id="admin-moderation-batch-reason" v-model="batchReason" type="textarea" :disabled="busy" />
-          <p v-if="trimmedBatchReason && !batchReasonValid">Use one line of plain text and keep the reason within 1,024 bytes.</p>
+          <p v-if="trimmedBatchReason && !batchReasonValid">{{ t('admin.moderation.m47') }}</p>
           <div class="moderation-actions">
             <ElButton class="moderation-action" native-type="button" type="primary" :disabled="busy || !batchReasonValid" @click="decideBatch(1)">
-              Approve selected comments with Passkey
+              {{ t('admin.moderation.m48') }}
             </ElButton>
             <ElButton class="moderation-action" native-type="button" :disabled="busy || !batchReasonValid" @click="decideBatch(2)">
-              Reject selected comments with Passkey
+              {{ t('admin.moderation.m49') }}
             </ElButton>
-            <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="cancelBatch">Cancel batch review</ElButton>
+            <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="cancelBatch">{{ t('admin.moderation.m50') }}</ElButton>
           </div>
         </template>
         <div v-else class="moderation-actions">
           <ElButton class="moderation-action" native-type="button"
-            :disabled="busy || selected.size < WireLimits.AdminModerationBatchMinimum" @click="startBatch">Claim selected comments</ElButton>
-          <p role="status">{{ selected.size }} selected ({{ WireLimits.AdminModerationBatchMinimum }}–{{ WireLimits.AdminModerationBatchCount }})</p>
+            :disabled="busy || selected.size < WireLimits.AdminModerationBatchMinimum" @click="startBatch">{{ t('admin.moderation.m51') }}</ElButton>
+          <p role="status">{{ t('admin.moderation.m70', { count: selected.size, min: WireLimits.AdminModerationBatchMinimum, max: WireLimits.AdminModerationBatchCount }) }}</p>
         </div>
       </div>
-      <p v-if="queue.comments.length === 0" role="status">No comments are waiting for moderation.</p>
+      <p v-if="queue.comments.length === 0" role="status">{{ t('admin.moderation.m52') }}</p>
       <ol v-else class="moderation-comments">
         <li v-for="item in visibleComments" :key="`${item.articleId}-${item.commentId}`">
           <article>
             <h3>{{ item.displayName }}</h3>
             <p>
-              Article {{ item.articleId }} · Comment {{ item.commentId.toString() }}
+              {{ t('admin.moderation.m71', { article: item.articleId, comment: item.commentId.toString() }) }}
               · <time :datetime="new Date(item.createdAt).toISOString()">{{ new Date(item.createdAt).toLocaleString() }}</time>
             </p>
             <p class="moderation-body">{{ item.body }}</p>
             <ElCheckbox v-if="batchAvailable" class="moderation-selection" :model-value="selected.has(coordinate(item))"
               :disabled="busy || Boolean(batchClaims) || (selected.size >= WireLimits.AdminModerationBatchCount && !selected.has(coordinate(item)))"
               @update:model-value="select(item, $event === true)">
-              Select comment {{ item.commentId.toString() }} for batch review
+              {{ t('admin.moderation.m72', { comment: item.commentId.toString() }) }}
             </ElCheckbox>
             <div v-if="claim && isClaimed(item)" class="moderation-claim">
-              <p role="status">Claimed for review</p>
+              <p role="status">{{ t('admin.moderation.m53') }}</p>
               <p>
-                Claim expires
+                {{ t('admin.moderation.m54') }}
                 <time :datetime="new Date(Number(claim.expiresAt)).toISOString()">{{ new Date(Number(claim.expiresAt)).toLocaleTimeString() }}</time>
               </p>
-              <label for="admin-moderation-reason">Reason for moderation decision</label>
+              <label for="admin-moderation-reason">{{ t('admin.moderation.m55') }}</label>
               <ElInput id="admin-moderation-reason" v-model="reason" type="textarea" :disabled="busy" />
-              <p v-if="trimmedReason && !reasonValid">Use one line of plain text and keep the reason within 1,024 bytes.</p>
+              <p v-if="trimmedReason && !reasonValid">{{ t('admin.moderation.m47') }}</p>
               <div class="moderation-actions">
                 <ElButton class="moderation-action" native-type="button" type="primary" :disabled="busy || !reasonValid" @click="decide(1)">
-                  Approve with Passkey
+                  {{ t('admin.moderation.m56') }}
                 </ElButton>
                 <ElButton class="moderation-action" native-type="button" :disabled="busy || !reasonValid" @click="decide(2)">
-                  Reject with Passkey
+                  {{ t('admin.moderation.m57') }}
                 </ElButton>
               </div>
               <div class="moderation-actions">
-                <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="renew">Renew claim</ElButton>
-                <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="release">Release claim</ElButton>
+                <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="renew">{{ t('admin.moderation.m58') }}</ElButton>
+                <ElButton class="moderation-action" native-type="button" :disabled="busy" @click="release">{{ t('admin.moderation.m59') }}</ElButton>
               </div>
             </div>
             <ElButton v-else-if="!batchClaims" native-type="button" :disabled="busy || Boolean(claim) || selected.size > 0"
-              @click="claimForReview(item)">Claim comment for review</ElButton>
+              @click="claimForReview(item)">{{ t('admin.moderation.m60') }}</ElButton>
           </article>
         </li>
       </ol>
-      <ElButton v-if="queue.next" native-type="button" :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">Next page</ElButton>
+      <ElButton v-if="queue.next" native-type="button" :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">{{ t('admin.moderation.m61') }}</ElButton>
     </template>
   </section>
 </template>

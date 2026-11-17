@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import {
   createMarkdownOutlineModel, defaultMarkdownEditorCommands, ElAlert, ElButton, ElInput, ElMarkdownEditor,
@@ -29,7 +30,7 @@ const titleInput = ref<InstanceType<typeof ElInput>>()
 const comparisonCommands = defaultMarkdownEditorCommands.filter(command => command.key !== 'paste-as-markdown')
 const titleId = computed(() => props.focus ? 'article-title' : `article-title-${props.pane.tab.sessionId}`)
 const bodyId = computed(() => props.focus ? 'article-body' : `article-body-${props.pane.tab.sessionId}`)
-const groupName = computed(() => props.pane.tab.group === 'main' ? 'Primary article group' : 'Secondary article group')
+const groupName = computed(() => props.pane.tab.group === 'main' ? t('author.workspaceSourcePane.primary.article.group') : t('author.workspaceSourcePane.secondary.article.group'))
 const identity = computed(() => ({ id: `blog-editor-${props.pane.tab.sessionId}`, epoch: props.pane.tab.sessionId }))
 const encoder = new TextEncoder()
 const titleLength = computed(() => encoder.encode(props.pane.draft.title.trim()).length)
@@ -210,31 +211,31 @@ function edit(field: 'title' | 'body', value: string) {
     @compositionstart.capture="emit('compose', true)" @compositionend="emit('compose', false)">
     <header v-if="split" class="workspace-source__heading">
       <h2>{{ groupName }}</h2>
-      <ElButton v-if="!focus" text native-type="button" :disabled="!canSwitch" @click="emit('activate')">Edit in this group</ElButton>
+      <ElButton v-if="!focus" text native-type="button" :disabled="!canSwitch" @click="emit('activate')">{{ t('author.workspaceSourcePane.edit.in.this.group') }}</ElButton>
     </header>
     <slot name="before" />
-    <label :for="titleId">Title</label>
+    <label :for="titleId">{{ t('author.workspaceSourcePane.title') }}</label>
     <ElInput ref="titleInput" :id="titleId" :model-value="pane.draft.title" @update:model-value="edit('title', $event)"
-      placeholder="Write the article title" size="large" :readonly="!focus" :disabled="focus && blocked" />
-    <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">Save the draft before publishing.</p>
-    <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
+      :placeholder="t('author.workspaceSourcePane.write.the.article.title')" size="large" :readonly="!focus" :disabled="focus && blocked" />
+    <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">{{ t('author.workspaceSourcePane.save.the.draft.before.publishing') }}</p>
+    <p class="metadata">{{ t('author.workspaceSourcePane.bytes', { p0: String(titleLength), p1: String(WireLimits.TitleBytes) }) }}</p>
     <div class="workspace-source__body-heading">
-      <label :for="bodyId">Body</label>
+      <label :for="bodyId">{{ t('author.workspaceSourcePane.body') }}</label>
       <ArticleOutlineRail v-if="nativeMarkdown" :foreground="foreground"
         :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState"
         :disabled="outlineDisabled" :reveal="revealOutline" @visibility="outlineVisible = $event" />
       <ElButton v-if="nativeMarkdown && focus && !concealed" text native-type="button" :disabled="blocked"
-        @click="foreground && markdown?.openSearch()">Find in body</ElButton>
+        @click="foreground && markdown?.openSearch()">{{ t('author.workspaceSourcePane.find.in.body') }}</ElButton>
     </div>
-    <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }"
-      :model-value="editorSource" @update:model-value="edit('body', $event)" placeholder="Start writing here."
+    <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: t('author.workspaceSourcePane.body'), live: t('author.workspaceSourcePane.body') } }"
+      :model-value="editorSource" @update:model-value="edit('body', $event)" :placeholder="t('author.workspaceSourcePane.start.writing.here')"
       @transaction="editorTransaction" @selection-change="editorSelectionChanged" @mode-change="outlineMode = $event"
       :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
       :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />
     <template v-else>
-      <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
+      <ElAlert :title="t('author.workspaceSourcePane.rich.editing.unavailable.edit.the.original.markdown.below')" type="info" :closable="false" />
       <ElInput :id="bodyId" :model-value="editorSource" @update:model-value="edit('body', $event)" type="textarea"
-        :autosize="{ minRows: 14 }" placeholder="Start writing here." :readonly="!focus" :disabled="focus && blocked" />
+        :autosize="{ minRows: 14 }" :placeholder="t('author.workspaceSourcePane.start.writing.here')" :readonly="!focus" :disabled="focus && blocked" />
     </template>
     <slot name="after" />
   </section>

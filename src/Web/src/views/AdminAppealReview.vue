@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { onBeforeUnmount, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -10,8 +11,8 @@ const list = shallowRef<PendingAppeal[] | null>(null)
 const selected = ref<string>()
 const reason = ref('')
 const busy = ref(false)
-const failure = ref('')
-const notice = ref('')
+const failure = ref<MessageKey | ''>('')
+const notice = ref<MessageKey | ''>('')
 const more = ref(false)
 const lifetime = new AbortController()
 onBeforeUnmount(() => lifetime.abort())
@@ -27,8 +28,8 @@ async function run(task: (signal: AbortSignal) => Promise<void>) {
     if (signal.aborted) return
     if (error instanceof ApiError && error.status === 401) emit('sessionLost', error)
     else failure.value = error instanceof ApiError && error.status === 409
-      ? 'The appeal changed. Reload the appeal queue.'
-      : 'Could not complete the appeal request. Check access and try again.'
+      ? 'admin.appeals.m9'
+      : 'admin.appeals.m10'
   } finally { if (!signal.aborted) busy.value = false }
 }
 
@@ -53,38 +54,38 @@ function decide(id: string, decision: 'granted' | 'denied') {
     list.value = list.value?.filter(item => item.id !== id) ?? null
     selected.value = undefined
     reason.value = ''
-    notice.value = decision === 'granted' ? 'Appeal granted.' : 'Appeal denied.'
+    notice.value = decision === 'granted' ? 'admin.appeals.m11' : 'admin.appeals.m12'
   })
 }
 </script>
 
 <template>
   <section class="appeal-review" aria-labelledby="admin-appeal-heading">
-    <h3 id="admin-appeal-heading">Comment appeals</h3>
-    <ElButton native-type="button" :loading="busy" @click="load()">Load appeal queue</ElButton>
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="list?.length === 0" role="status">No appeals are waiting for your review.</p>
+    <h3 id="admin-appeal-heading">{{ t('admin.appeals.m1') }}</h3>
+    <ElButton native-type="button" :loading="busy" @click="load()">{{ t('admin.appeals.m2') }}</ElButton>
+    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
+    <p v-if="notice" role="status">{{ t(notice) }}</p>
+    <p v-if="list?.length === 0" role="status">{{ t('admin.appeals.m3') }}</p>
     <ol v-else-if="list" class="appeal-review-list">
       <li v-for="item in list" :key="item.id">
-        <p>Article {{ item.article }} · Comment {{ item.comment }}</p>
+        <p>{{ t('admin.appeals.m13', { article: item.article, comment: item.comment }) }}</p>
         <p class="appeal-text">{{ item.body }}</p>
         <p class="appeal-text">{{ item.reason }}</p>
         <ElButton v-if="selected !== item.id" native-type="button" :disabled="busy"
-          @click="selected = item.id; reason = ''">Review appeal</ElButton>
+          @click="selected = item.id; reason = ''">{{ t('admin.appeals.m4') }}</ElButton>
         <div v-else class="appeal-form">
-          <label :for="`appeal-review-${item.id}`">Reason for appeal decision</label>
+          <label :for="`appeal-review-${item.id}`">{{ t('admin.appeals.m5') }}</label>
           <ElInput :id="`appeal-review-${item.id}`" v-model="reason" type="textarea" :disabled="busy" />
           <div class="appeal-actions">
             <ElButton native-type="button" type="primary" :disabled="busy || !appealReason(reason)"
-              @click="decide(item.id, 'granted')">Grant with Passkey</ElButton>
+              @click="decide(item.id, 'granted')">{{ t('admin.appeals.m6') }}</ElButton>
             <ElButton native-type="button" :disabled="busy || !appealReason(reason)"
-              @click="decide(item.id, 'denied')">Deny with Passkey</ElButton>
+              @click="decide(item.id, 'denied')">{{ t('admin.appeals.m7') }}</ElButton>
           </div>
         </div>
       </li>
     </ol>
-    <ElButton v-if="more" native-type="button" :loading="busy" text @click="load(true)">Load more appeals</ElButton>
+    <ElButton v-if="more" native-type="button" :loading="busy" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
   </section>
 </template>
 

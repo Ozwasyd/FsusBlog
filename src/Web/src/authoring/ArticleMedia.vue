@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElButton, ElCheckbox, ElOption, ElSelect, ElSettingsSection } from '@ozwasyd/element-plus'
@@ -67,7 +68,7 @@ async function load() {
     publishEnabled.value = existing.publishImages
     publishCoverEnabled.value = existing.publishCover
     error.value = ''
-  } catch { if (current(signal)) error.value = 'Private attachments could not be loaded.' }
+  } catch { if (current(signal)) error.value = t('author.articleMedia.private.attachments.could.not.be.loaded') }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -83,7 +84,7 @@ async function loadMore() {
     library.value = [...library.value, ...page.items.filter(item => !known.has(item.id))]
     more.value = page.hasMore
     error.value = ''
-  } catch { if (current(signal)) error.value = 'The next page of private images could not be loaded.' }
+  } catch { if (current(signal)) error.value = t('author.articleMedia.the.next.page.of.private.images.could.not.be') }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -102,7 +103,7 @@ async function openPreview(id: string) {
     closePreview()
     preview.value = { id, path: URL.createObjectURL(bytes), type: bytes.type }
     error.value = ''
-  } catch { if (current(signal)) error.value = 'Private preview expired. Try again from the current draft.' }
+  } catch { if (current(signal)) error.value = t('author.articleMedia.private.preview.expired.try.again.from.the.current.draft') }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -118,7 +119,7 @@ async function queueDocument(format: BatchFormat, images: string) {
   try {
     await createDocumentExportTask({ id, article, revision, sourceRevision: revision, format }, credential, signal, images)
     if (current(signal)) imageExports.set(key, { id, queued: true })
-  } catch { if (current(signal)) error.value = `Could not queue ${batchFormats[format]} with the selected images.` }
+  } catch { if (current(signal)) error.value = t('author.articleMedia.queue.failed', { format: batchFormats[format] }) }
   finally { if (current(signal)) pending.value = false }
 }
 
@@ -192,78 +193,78 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ElSettingsSection title="Private attachments">
+  <ElSettingsSection :title="t('author.articleMedia.private.attachments')">
     <ElButton native-type="button" :disabled="pending" @click="expanded = !expanded">
-      {{ expanded ? 'Hide private attachments' : 'Manage private attachments' }}
+      {{ expanded ? t('author.articleMedia.hide.private.attachments') : t('author.articleMedia.manage.private.attachments') }}
     </ElButton>
     <template v-if="expanded">
-      <p v-if="!available">The private media library is disabled.</p>
+      <p v-if="!available">{{ t('author.articleMedia.the.private.media.library.is.disabled') }}</p>
       <template v-else>
         <p v-if="error" role="alert">{{ error }}</p>
         <ul v-if="attached.length" class="attachment-list">
           <li v-for="asset in attached" :key="asset.id">
             <span>{{ label(asset.id) }}</span>
-            <span v-if="cover === asset.id">Draft cover</span>
+            <span v-if="cover === asset.id">{{ t('author.articleMedia.draft.cover') }}</span>
             <ElButton v-if="cover !== undefined" native-type="button" text :disabled="pending || !canChange"
               @click="emit('save', { cover: cover === asset.id ? null : asset.id })">
-              {{ cover === asset.id ? 'Remove draft cover' : `Use ${label(asset.id)} as draft cover` }}
+              {{ cover === asset.id ? t('author.articleMedia.remove.draft.cover') : t('author.articleMedia.use.cover', { name: label(asset.id) }) }}
             </ElButton>
-            <ElButton native-type="button" text :disabled="pending" @click="openPreview(asset.id)">Preview {{ label(asset.id) }}</ElButton>
-            <ElButton native-type="button" text :disabled="pending || !canChange" @click="emit('save', { assetId: asset.id, attach: false })">Detach {{ label(asset.id) }}</ElButton>
+            <ElButton native-type="button" text :disabled="pending" @click="openPreview(asset.id)">{{ t('author.articleMedia.preview', { p0: String(label(asset.id)) }) }}</ElButton>
+            <ElButton native-type="button" text :disabled="pending || !canChange" @click="emit('save', { assetId: asset.id, attach: false })">{{ t('author.articleMedia.detach', { p0: String(label(asset.id)) }) }}</ElButton>
             <ElCheckbox v-if="attached.length > 1" :model-value="exportSelection.includes(asset.id)"
               :disabled="pending || !credential || (exportSelection.length >= maxDocumentExportImages && !exportSelection.includes(asset.id))"
-              @update:model-value="value => toggleExport(asset.id, value === true)">Include {{ label(asset.id) }} in exports</ElCheckbox>
+              @update:model-value="value => toggleExport(asset.id, value === true)">{{ t('author.articleMedia.include.in.exports', { p0: String(label(asset.id)) }) }}</ElCheckbox>
             <ElCheckbox v-if="publishEnabled" :model-value="publicationSelection.includes(asset.id)"
               :disabled="pending || !canPublish || !!confirmation"
-              @update:model-value="value => togglePublication(asset.id, value === true)">Publish {{ label(asset.id) }}</ElCheckbox>
+              @update:model-value="value => togglePublication(asset.id, value === true)">{{ t('author.articleMedia.publish', { p0: String(label(asset.id)) }) }}</ElCheckbox>
           </li>
         </ul>
-        <p v-else-if="!pending">No images are attached to this revision.</p>
-        <p v-if="attached.length > maxDocumentExportImages">Select up to {{ maxDocumentExportImages }} saved images for export.</p>
-        <div v-if="savedImages && (attached.length > 1 || pdfAvailable)" class="attachment-actions" role="region" aria-label="Export selected images">
+        <p v-else-if="!pending">{{ t('author.articleMedia.no.images.are.attached.to.this.revision') }}</p>
+        <p v-if="attached.length > maxDocumentExportImages">{{ t('author.articleMedia.select.up.to.saved.images.for.export', { p0: String(maxDocumentExportImages) }) }}</p>
+        <div v-if="savedImages && (attached.length > 1 || pdfAvailable)" class="attachment-actions" role="region" :aria-label="t('author.articleMedia.export.selected.images')">
           <template v-for="(label, format) in batchFormats" :key="format">
             <template v-if="format === 'pdf' ? pdfAvailable : attached.length > 1">
               <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" :format="format"
                 :attachment="savedImages" :disabled="pending || !credential" />
               <ElButton v-if="documentTasks" native-type="button"
                 :disabled="pending || !credential || queued(format, savedImages)" @click="queueDocument(format, savedImages)">
-                {{ queued(format, savedImages) ? `${label} task with saved images added` : `Queue ${label} with saved images` }}
+                {{ queued(format, savedImages) ? t('author.articleMedia.saved.images.added', { format: label }) : t('author.articleMedia.queue.saved.images', { format: label }) }}
               </ElButton>
             </template>
           </template>
         </div>
         <div v-if="publishEnabled && attached.length" class="publication-actions">
           <ElButton v-if="!confirmation" ref="reviewButton" native-type="button"
-            :disabled="pending || !canPublish || !publicationSelection.length" @click="reviewPublication">Review image publication</ElButton>
-          <section v-else aria-label="Confirm image publication" class="publication-confirmation">
-            <h3 ref="confirmationHeading" tabindex="-1">Publish selected images?</h3>
-            <p>Anyone can download these images after publication. Withdrawing stops new downloads. Recipients may keep copies they received.</p>
+            :disabled="pending || !canPublish || !publicationSelection.length" @click="reviewPublication">{{ t('author.articleMedia.review.image.publication') }}</ElButton>
+          <section v-else :aria-label="t('author.articleMedia.confirm.image.publication')" class="publication-confirmation">
+            <h3 ref="confirmationHeading" tabindex="-1">{{ t('author.articleMedia.publish.selected.images') }}</h3>
+            <p>{{ t('author.articleMedia.anyone.can.download.these.images.after.publication.withdrawing') }}</p>
             <ul>
               <li v-for="asset in confirmation.assets" :key="asset">
-                {{ label(asset) }}<span v-if="publishCoverEnabled && asset === cover"> · Article cover</span>
+                {{ label(asset) }}<span v-if="publishCoverEnabled && asset === cover"> {{ t('author.articleMedia.article.cover') }}</span>
               </li>
             </ul>
             <div class="attachment-actions">
-              <ElButton native-type="button" :disabled="pending || !canPublish" @click="publishSelection">Publish article with selected images</ElButton>
-              <ElButton native-type="button" @click="cancelPublication">Cancel image publication</ElButton>
+              <ElButton native-type="button" :disabled="pending || !canPublish" @click="publishSelection">{{ t('author.articleMedia.publish.article.with.selected.images') }}</ElButton>
+              <ElButton native-type="button" @click="cancelPublication">{{ t('author.articleMedia.cancel.image.publication') }}</ElButton>
             </div>
           </section>
         </div>
         <div v-if="options.length" class="attachment-actions">
-          <ElSelect v-model="selected" ariaLabel="Choose a private image" :disabled="pending || !canChange" placeholder="Choose a private image">
+          <ElSelect v-model="selected" :ariaLabel="t('author.articleMedia.choose.a.private.image')" :disabled="pending || !canChange" :placeholder="t('author.articleMedia.choose.a.private.image')">
             <ElOption v-for="option in options" :key="option.id" :value="option.id" :label="option.name" />
           </ElSelect>
-          <ElButton v-if="selected" native-type="button" :disabled="pending || !canChange" @click="emit('save', { assetId: selected, attach: true })">Attach image</ElButton>
+          <ElButton v-if="selected" native-type="button" :disabled="pending || !canChange" @click="emit('save', { assetId: selected, attach: true })">{{ t('author.articleMedia.attach.image') }}</ElButton>
         </div>
-        <ElButton v-if="more" native-type="button" text :disabled="pending" @click="loadMore">Load more images</ElButton>
-        <p><RouterLink to="/user/manage/assets">Open asset library</RouterLink></p>
+        <ElButton v-if="more" native-type="button" text :disabled="pending" @click="loadMore">{{ t('author.articleMedia.load.more.images') }}</ElButton>
+        <p><RouterLink to="/user/manage/assets">{{ t('author.articleMedia.open.asset.library') }}</RouterLink></p>
         <div v-if="preview" class="attachment-preview">
-          <ElButton native-type="button" text @click="closePreview">Close image preview</ElButton>
-          <img :src="preview.path" :alt="label(preview.id)" @error="error = 'Private preview expired. Try opening it again.'" />
+          <ElButton native-type="button" text @click="closePreview">{{ t('author.articleMedia.close.image.preview') }}</ElButton>
+          <img :src="preview.path" :alt="label(preview.id)" @error="error = t('author.articleMedia.preview.expired.again')" />
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
             :attachment="preview.id" :disabled="pending || !credential" />
           <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || queued('html', preview.id)" @click="queueDocument('html', preview.id)">
-            {{ queued('html', preview.id) ? 'HTML task added' : 'Queue HTML with this image' }}
+            {{ queued('html', preview.id) ? t('author.articleMedia.html.task.added') : t('author.articleMedia.queue.html.with.this.image') }}
           </ElButton>
           <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"
             :attachment="preview.id" :disabled="pending || !credential" />

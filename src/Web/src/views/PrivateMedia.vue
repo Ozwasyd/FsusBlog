@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { t, siteLocale, type MessageKey } from '../siteLocale'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElEmptyState, ElMessageBox, ElProgress, ElSettingsSection, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -23,7 +24,7 @@ const loading = ref(false)
 const heading = ref<HTMLElement>()
 const previewHeading = ref<HTMLElement>()
 const fileInput = ref<HTMLInputElement>()
-const date = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
+const date = computed(() => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }))
 let scope = new AbortController()
 let previewOpener: HTMLElement | null
 
@@ -37,11 +38,11 @@ function current(signal: AbortSignal) {
   return scope.signal === signal && !signal.aborted && currentSession.value?.canAuthor && currentSession.value.expiresAt > Date.now()
 }
 
-function failure(reason: unknown, signal: AbortSignal, message: string) {
+function failure(reason: unknown, signal: AbortSignal, message: MessageKey) {
   if (!current(signal)) return
   if (reason instanceof ApiError && reason.status === 401) invalidateSession()
-  else if (reason instanceof ApiError && reason.status === 404 && message === '无法加载资产。') available.value = false
-  else error.value = message
+  else if (reason instanceof ApiError && reason.status === 404 && message === 'account.message109') available.value = false
+  else error.value = t(message)
 }
 
 async function load(more = false) {
@@ -59,7 +60,7 @@ async function load(more = false) {
     available.value = true
     resumable.value = page.resumable && Boolean(currentSession.value?.siteSessionId)
     webp.value = page.webp
-  } catch (reason) { failure(reason, signal, '无法加载资产。') }
+  } catch (reason) { failure(reason, signal, 'account.message109') }
   finally { if (current(signal)) loading.value = false }
 }
 
@@ -88,15 +89,15 @@ async function upload() {
     entries.value = [item, ...entries.value.filter(previous => previous.id !== item.id)]
     if (input.coordinate) forgetMediaRecovery(input.coordinate)
     clearSelection()
-    feedback.value = '图片已保存。'
+    feedback.value = t('account.message98')
   } catch (reason) {
     const state = uploadState.value
     const invalidImage = reason instanceof ApiError && reason.status === 400 && state &&
       state.received.length === Math.ceil(state.length / state.partSize)
     failure(reason, signal, state && !invalidImage
-      ? '上传未完成。可以重试，已确认的分片会保留。'
-      : webp.value ? '上传失败。请选择不超过 20 MiB 的 PNG、JPEG 或静态 WebP。'
-        : '上传失败。请选择不超过 20 MiB 的 PNG 或 JPEG。')
+      ? 'account.message99'
+      : webp.value ? 'account.message100'
+        : 'account.message101')
   }
   finally { if (current(signal)) working.value = false }
 }
@@ -139,8 +140,8 @@ async function cancelUpload() {
     if (selected.value?.coordinate) forgetMediaRecovery(selected.value.coordinate)
     clearSelection()
     error.value = ''
-    feedback.value = '已取消上传。'
-  } catch (reason) { failure(reason, signal, '取消失败。请重试。') }
+    feedback.value = t('account.message102')
+  } catch (reason) { failure(reason, signal, 'account.message103') }
   finally { if (current(signal)) working.value = false }
 }
 
@@ -149,18 +150,18 @@ async function remove(item: PrivateMediaItem) {
   if (!current(signal) || working.value || loading.value) return
   working.value = true
   try {
-    const confirmed = await ElMessageBox.confirm(`永久删除「${item.name}」？`, '删除私有图片', {
-      type: 'warning', confirmButtonText: '删除图片', cancelButtonText: '取消', closeOnClickModal: false,
+    const confirmed = await ElMessageBox.confirm(t('account.deleteImageConfirm', { name: item.name }), t('account.message104'), {
+      type: 'warning', confirmButtonText: t('account.message105'), cancelButtonText: t('account.message106'), closeOnClickModal: false,
     })
     if (!confirmed.ok || !current(signal)) return
     await removeMedia(item.id, signal)
     if (!current(signal)) return
     entries.value = entries.value.filter(value => value.id !== item.id)
     if (preview.value?.id === item.id) preview.value = undefined
-    feedback.value = '图片已删除。'
+    feedback.value = t('account.message107')
     await nextTick()
     if (current(signal)) heading.value?.focus()
-  } catch (reason) { failure(reason, signal, '删除失败。请重试。') }
+  } catch (reason) { failure(reason, signal, 'account.message108') }
   finally { if (current(signal)) working.value = false }
 }
 
@@ -196,28 +197,28 @@ onBeforeUnmount(() => scope.abort())
 
 <template>
   <main class="media-page">
-    <ElTaskPageHeader title="资产库" />
-    <ElEmptyState v-if="!currentSession?.canAuthor" title="请使用作者账号登录">
-      <RouterLink v-if="!currentSession" to="/login">登录</RouterLink>
+    <ElTaskPageHeader :title="t('account.message78')" />
+    <ElEmptyState v-if="!currentSession?.canAuthor" :title="t('account.message79')">
+      <RouterLink v-if="!currentSession" to="/login">{{ t('account.message80') }}</RouterLink>
     </ElEmptyState>
     <template v-else>
-      <ElAlert v-if="!available" type="info" title="此站点未启用私有资产库" :closable="false" />
+      <ElAlert v-if="!available" type="info" :title="t('account.message81')" :closable="false" />
       <template v-else>
-        <ElSettingsSection title="上传私有图片" :description="webp
-          ? 'PNG、JPEG 或静态 WebP，不超过 20 MiB。图片仅对上传者可见。'
-          : 'PNG 或 JPEG，不超过 20 MiB。图片仅对上传者可见。'">
+        <ElSettingsSection :title="t('account.message82')" :description="webp
+          ? t('account.message83')
+          : t('account.message84')">
           <form class="media-upload" @submit.prevent="upload">
-            <label for="private-media-file">选择图片</label>
+            <label for="private-media-file">{{ t('account.message85') }}</label>
             <input id="private-media-file" ref="fileInput" type="file" :accept="webp ? 'image/png,image/jpeg,image/webp' : 'image/png,image/jpeg'"
               :disabled="working" @change="choose" />
-            <ElButton native-type="submit" type="primary" :disabled="!selected || loading" :loading="working">上传图片</ElButton>
-            <ElButton v-if="uploadState && !uploadState.asset && !working" native-type="button" @click="cancelUpload">取消上传</ElButton>
+            <ElButton native-type="submit" type="primary" :disabled="!selected || loading" :loading="working">{{ t('account.message86') }}</ElButton>
+            <ElButton v-if="uploadState && !uploadState.asset && !working" native-type="button" @click="cancelUpload">{{ t('account.message87') }}</ElButton>
           </form>
-          <p v-if="resumable" class="media-help">上传中断后，可在当前标签页重新选择同一张图片继续。</p>
+          <p v-if="resumable" class="media-help">{{ t('account.message88') }}</p>
           <div v-if="uploadState" class="media-progress">
-            <span v-if="uploadState.reserved">正在核对已上传图片。</span>
+            <span v-if="uploadState.reserved">{{ t('account.message89') }}</span>
             <template v-else>
-              <span>{{ uploadState.received.length }} / {{ Math.ceil(uploadState.length / uploadState.partSize) }} 个分片已确认</span>
+              <span>{{ t('account.uploadParts', { received: uploadState.received.length, total: Math.ceil(uploadState.length / uploadState.partSize) }) }}</span>
               <ElProgress :percentage="Math.floor(uploadState.received.length * 100 / Math.ceil(uploadState.length / uploadState.partSize))" :show-text="false" />
             </template>
           </div>
@@ -226,11 +227,11 @@ onBeforeUnmount(() => scope.abort())
         <p v-if="feedback" role="status">{{ feedback }}</p>
         <section aria-labelledby="media-list" :aria-busy="loading">
           <header class="media-head">
-            <h2 id="media-list" ref="heading" tabindex="-1">资产列表</h2>
-            <ElButton text :disabled="working" :loading="loading" @click="load()">刷新</ElButton>
+            <h2 id="media-list" ref="heading" tabindex="-1">{{ t('account.message90') }}</h2>
+            <ElButton text :disabled="working" :loading="loading" @click="load()">{{ t('account.message91') }}</ElButton>
           </header>
           <ElSkeleton v-if="loading && !entries.length" :rows="4" animated />
-          <ElEmptyState v-else-if="!entries.length && !error" title="还没有图片" />
+          <ElEmptyState v-else-if="!entries.length && !error" :title="t('account.message92')" />
           <ul v-else-if="entries.length" class="media-items">
             <li v-for="item in entries" :key="item.id" class="media-row">
               <div class="media-name">
@@ -238,19 +239,19 @@ onBeforeUnmount(() => scope.abort())
                 <p>{{ item.width }} × {{ item.height }} · {{ Math.ceil(item.length / 1024) }} KiB · {{ date.format(mediaDate(item.ticks)) }}</p>
               </div>
               <div class="media-actions">
-                <ElButton text @click="openPreview(item)">查看<span class="media-label"> {{ item.name }}</span></ElButton>
-                <ElButton text type="danger" :disabled="working || loading" @click="remove(item)">删除<span class="media-label"> {{ item.name }}</span></ElButton>
+                <ElButton text @click="openPreview(item)">{{ t('account.message93') }}<span class="media-label"> {{ item.name }}</span></ElButton>
+                <ElButton text type="danger" :disabled="working || loading" @click="remove(item)">{{ t('account.message94') }}<span class="media-label"> {{ item.name }}</span></ElButton>
               </div>
             </li>
           </ul>
-          <ElButton v-if="hasMore" text :loading="loading" :disabled="working" @click="load(true)">继续加载</ElButton>
+          <ElButton v-if="hasMore" text :loading="loading" :disabled="working" @click="load(true)">{{ t('account.message95') }}</ElButton>
         </section>
         <section v-if="preview" class="media-preview" aria-labelledby="media-preview">
           <header class="media-head">
             <h2 id="media-preview" ref="previewHeading" tabindex="-1">{{ preview.name }}</h2>
-            <ElButton text @click="closePreview">关闭预览</ElButton>
+            <ElButton text @click="closePreview">{{ t('account.message96') }}</ElButton>
           </header>
-          <img :src="privateMediaHref(preview.id)" :alt="preview.name" @error="error = '暂时无法读取图片。'" />
+          <img :src="privateMediaHref(preview.id)" :alt="preview.name" @error="error = t('account.message97')" />
         </section>
       </template>
     </template>

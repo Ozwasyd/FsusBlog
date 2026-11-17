@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -41,10 +42,10 @@ const compareEditor = ref(false)
 const historical = shallowRef<{ seek: HistoricalSearchSeek; source: string }>()
 const historicalControl = ref<HTMLTextAreaElement>()
 const historicalLabel = {
-  title: 'Earlier revision title',
-  body: 'Earlier revision Markdown',
-  summary: 'Earlier revision summary',
-  heading: 'Earlier revision Markdown',
+  get title() { return t('author.revisionHistory.earlier.revision.title') },
+  get body() { return t('author.revisionHistory.earlier.revision.markdown') },
+  get summary() { return t('author.revisionHistory.earlier.revision.summary') },
+  get heading() { return t('author.revisionHistory.earlier.revision.markdown') },
 } as const
 const comparisonOpen = ref(false)
 const propertiesOpen = ref(false)
@@ -71,8 +72,8 @@ const sources = computed(() => {
   if (!saved) return []
   const current = usingEditor.value && editor.value ? editor.value : saved
   return [
-    { key: 'earlier', label: 'Earlier revision', coordinate: String(saved.sourceRevision), title: saved.sourceTitle, body: saved.sourceBody },
-    { key: 'current', label: usingEditor.value ? 'Current editor' : 'Current saved revision',
+    { key: 'earlier', label: t('author.revisionHistory.earlier.revision'), coordinate: String(saved.sourceRevision), title: saved.sourceTitle, body: saved.sourceBody },
+    { key: 'current', label: usingEditor.value ? t('author.revisionHistory.current.editor') : t('author.revisionHistory.current.saved.revision'),
       coordinate: usingEditor.value ? `Based on saved revision ${saved.revision}` : String(saved.revision), title: current.title, body: current.body },
   ]
 })
@@ -102,10 +103,10 @@ const metadataChanges = computed(() => {
   if (!comparisonMetadata.value) return ''
   const { source, current } = comparisonMetadata.value
   const tags = (item: typeof source) => item.tags.map(tag => tag.id).join(',')
-  return [source.summary !== current.summary ? 'Summary changed.' : 'Summary unchanged.',
-    source.category?.id !== current.category?.id ? 'Category changed.' : 'Category unchanged.',
-    tags(source) !== tags(current) ? 'Tags changed.' : 'Tags unchanged.',
-    !source.cover && !current.cover ? '' : source.cover === current.cover ? 'Cover unchanged.' : 'Cover changed.'].filter(Boolean).join(' ')
+  return [source.summary !== current.summary ? t('author.revisionHistory.summary.changed') : t('author.revisionHistory.summary.unchanged'),
+    source.category?.id !== current.category?.id ? t('author.revisionHistory.category.changed') : t('author.revisionHistory.category.unchanged'),
+    tags(source) !== tags(current) ? t('author.revisionHistory.tags.changed') : t('author.revisionHistory.tags.unchanged'),
+    !source.cover && !current.cover ? '' : source.cover === current.cover ? t('author.revisionHistory.cover.unchanged') : t('author.revisionHistory.cover.changed')].filter(Boolean).join(' ')
 })
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
@@ -165,7 +166,7 @@ async function load(more = false) {
     if (!controller.signal.aborted) {
       if (more && cause instanceof ApiError && cause.status === 400) {
         reset()
-        error.value = 'The revision page expired. Reload revisions.'
+        error.value = t('author.revisionHistory.the.revision.page.expired.reload.revisions')
       } else {
         requestError(cause)
       }
@@ -202,12 +203,12 @@ async function compare(source: bigint) {
       cursor.value = null
       published.value = null
       loading.value = false
-      error.value = cause.status === 409 ? 'Load the current draft to view revision history.' : 'Revision history is unavailable.'
-      comparisonError.value = cause.status === 409 ? 'The saved draft changed. Load its current revision and compare again.' : 'This comparison is unavailable.'
+      error.value = cause.status === 409 ? t('author.revisionHistory.load.the.current.draft.to.view.revision.history') : t('author.revisionHistory.revision.history.is.unavailable')
+      comparisonError.value = cause.status === 409 ? t('author.revisionHistory.the.saved.draft.changed.load.its.current.revision.and') : t('author.revisionHistory.this.comparison.is.unavailable')
     } else {
       comparisonError.value = cause instanceof ApiError && cause.status === 404
-        ? 'The selected revision is unavailable.'
-        : 'Could not load both revisions. Close the comparison and try again.'
+        ? t('author.revisionHistory.the.selected.revision.is.unavailable')
+        : t('author.revisionHistory.could.not.load.both.revisions.close.the.comparison.and')
     }
   } finally {
     if (!controller.signal.aborted) comparing.value = false
@@ -220,7 +221,7 @@ watch([metadataOpen, pair, credentialEpoch], async ([show, selected], _, cleanup
   if (!show || !selected) return
   const session = currentSession.value?.siteSessionId
   if (!session) {
-    metadataFailure.value = 'A current author session is required for saved metadata.'
+    metadataFailure.value = t('author.revisionHistory.a_current_author_session_is_required_for_saved_metadata')
     return
   }
   const controller = new AbortController()
@@ -230,7 +231,7 @@ watch([metadataOpen, pair, credentialEpoch], async ([show, selected], _, cleanup
     if (!controller.signal.aborted) metadata.value = fields
   } catch (cause) {
     if (!controller.signal.aborted) metadataFailure.value = cause instanceof ApiError && cause.status === 409
-      ? 'The saved draft or session changed. Reopen the comparison.' : 'Saved metadata is unavailable.'
+      ? t('author.revisionHistory.the.saved.draft.or.session.changed.reopen.the.comparison') : t('author.revisionHistory.saved.metadata.is.unavailable')
   }
 }, { flush: 'sync' })
 
@@ -290,9 +291,9 @@ watch([() => props.historicalSeek, () => props.inspectorReady], async ([seek, in
 function requestError(cause: unknown) {
   if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
     reset()
-    error.value = cause.status === 409 ? 'Load the current draft to view revision history.' : 'Revision history is unavailable.'
+    error.value = cause.status === 409 ? t('author.revisionHistory.load.the.current.draft.to.view.revision.history') : t('author.revisionHistory.revision.history.is.unavailable')
   } else {
-    error.value = 'Could not load the revision. Try again.'
+    error.value = t('author.revisionHistory.could.not.load.the.revision.try.again')
   }
 }
 
@@ -319,7 +320,7 @@ watch(credentialEpoch, () => {
   if (historical.value) closeComparison()
   if (comparisonOpen.value && comparing.value) {
     comparing.value = false
-    comparisonError.value = 'The session renewed while loading. Close the comparison and try again.'
+    comparisonError.value = t('author.revisionHistory.the.session.renewed.while.loading.close.the.comparison.and')
   }
   items.value = []
   cursor.value = null
@@ -336,43 +337,43 @@ onScopeDispose(() => {
 
 <template>
   <details class="revision-history" @toggle="toggle">
-    <summary>Revision history</summary>
-    <p v-if="loading" role="status">Loading revisions…</p>
+    <summary>{{ t('author.revisionHistory.revision.history') }}</summary>
+    <p v-if="loading" role="status">{{ t('author.revisionHistory.loading.revisions') }}</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <ElButton v-if="error && !items.length" text @click="load()">Reload revisions</ElButton>
+    <ElButton v-if="error && !items.length" text @click="load()">{{ t('author.revisionHistory.reload.revisions') }}</ElButton>
     <ul class="revision-items">
       <li v-for="item in items" :key="item.revision.toString()">
-        <div>{{ item.title }} · Revision {{ item.revision }}</div>
+        <div>{{ t('author.revisionHistory.revision', { p0: String(item.title), p1: String(item.revision) }) }}</div>
         <small>
           {{ date.format(item.savedAt) }}
-          <span v-if="item.revision === props.revision"> · Current draft</span>
-          <span v-if="item.revision === published"> · Published</span>
+          <span v-if="item.revision === props.revision"> {{ t('author.revisionHistory.current.draft') }}</span>
+          <span v-if="item.revision === published"> {{ t('author.revisionHistory.published') }}</span>
         </small>
-        <p v-if="item.sourceRevision">Restored from revision {{ item.sourceRevision }}. {{ item.reason }}</p>
+        <p v-if="item.sourceRevision">{{ t('author.revisionHistory.restored.from.revision', { p0: String(item.sourceRevision), p1: String(item.reason) }) }}</p>
         <ElButton v-if="item.revision < props.revision" text v-bind="{ 'aria-haspopup': 'dialog' }" @click="compare(item.revision)">
-          Compare revision {{ item.revision }}
+          {{ t('author.revisionHistory.compare.revision', { p0: String(item.revision) }) }}
         </ElButton>
       </li>
     </ul>
-    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">Older revisions</ElButton>
+    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">{{ t('author.revisionHistory.older.revisions') }}</ElButton>
     <ElDialog
-      :model-value="comparisonOpen" :title="historical ? 'Historical search position' : 'Revision comparison'" append-to-body destroy-on-close
+      :model-value="comparisonOpen" :title="historical ? t('author.revisionHistory.historical.search.position') : t('author.revisionHistory.revision.comparison')" append-to-body destroy-on-close
       width="min(72rem, calc(100vw - 2rem))" top="4vh"
       @opened="revealHistorical"
       @close="closeComparison"
       @closed="releaseComparisonModal"
     >
       <section v-if="historical" class="revision-comparison">
-        <p>Earlier saved revision {{ historical.seek.target.revision }}</p>
+        <p>{{ t('author.revisionHistory.earlier.saved.revision', { p0: String(historical.seek.target.revision) }) }}</p>
         <textarea ref="historicalControl" class="historical-source" :value="historical.source"
           :aria-label="historicalLabel[historical.seek.target.field]" readonly rows="8" />
       </section>
-      <p v-if="comparing" role="status">Loading both saved revisions…</p>
+      <p v-if="comparing" role="status">{{ t('author.revisionHistory.loading.both.saved.revisions') }}</p>
       <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
       <div v-if="pair && changed" class="revision-comparison">
-        <ElCheckbox v-if="editor" :model-value="compareEditor" @update:model-value="compareEditor = $event === true">Compare with current editor</ElCheckbox>
-        <p>{{ changed.title ? 'Title changed.' : 'Title unchanged.' }} {{ changed.body ? 'Markdown changed.' : 'Markdown unchanged.' }}</p>
-        <p v-if="changed.body">Earlier Markdown length difference (UTF-16): {{ changed.markdownDelta > 0 ? '+' : '' }}{{ changed.markdownDelta }}</p>
+        <ElCheckbox v-if="editor" :model-value="compareEditor" @update:model-value="compareEditor = $event === true">{{ t('author.revisionHistory.compare.with.current.editor') }}</ElCheckbox>
+        <p>{{ changed.title ? t('author.revisionHistory.title_changed') : t('author.revisionHistory.title_unchanged') }} {{ changed.body ? t('author.revisionHistory.markdown_changed') : t('author.revisionHistory.markdown_unchanged') }}</p>
+        <p v-if="changed.body">{{ t('author.revisionHistory.earlier.markdown.length.difference.utf.16', { p0: String(changed.markdownDelta > 0 ? '+' : ''), p1: String(changed.markdownDelta) }) }}</p>
         <div class="revision-sources">
           <section v-for="source in sources" :key="source.key" class="revision-source" :aria-labelledby="`${compareId}-${source.key}`">
             <h3 :id="`${compareId}-${source.key}`">{{ source.label }} · {{ source.coordinate }}</h3>
@@ -381,8 +382,8 @@ onScopeDispose(() => {
           </section>
         </div>
         <details @toggle="metadataOpen = ($event.currentTarget as HTMLDetailsElement).open">
-          <summary>{{ usingEditor ? 'Summary and classification' : 'Saved summary and classification' }}</summary>
-          <p v-if="metadataOpen && !metadata && !metadataFailure" role="status">Loading saved metadata…</p>
+          <summary>{{ usingEditor ? t('author.revisionHistory.summary.and.classification') : t('author.revisionHistory.saved.summary.and.classification') }}</summary>
+          <p v-if="metadataOpen && !metadata && !metadataFailure" role="status">{{ t('author.revisionHistory.loading.saved.metadata') }}</p>
           <p v-if="metadataFailure" role="alert">{{ metadataFailure }}</p>
           <template v-if="comparisonMetadata">
             <p>{{ metadataChanges }}</p>
@@ -390,11 +391,11 @@ onScopeDispose(() => {
               <section v-for="(fields, index) in [comparisonMetadata.source, comparisonMetadata.current]" :key="index" class="revision-source">
                 <h4>{{ sources[index].label }}</h4>
                 <dl class="revision-metadata">
-                  <dt>Summary</dt><dd>{{ fields.summary || 'No saved summary' }}</dd>
-                  <dt>Category</dt><dd>{{ fields.category?.name ?? 'No category' }}</dd>
-                  <dt>Tags</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || 'No tags' }}</dd>
+                  <dt>{{ t('author.revisionHistory.summary') }}</dt><dd>{{ fields.summary || t('author.revisionHistory.no.saved.summary') }}</dd>
+                  <dt>{{ t('author.revisionHistory.category') }}</dt><dd>{{ fields.category?.name ?? t('author.revisionHistory.no.category') }}</dd>
+                  <dt>{{ t('author.revisionHistory.tags') }}</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || t('author.revisionHistory.no.tags') }}</dd>
                   <template v-if="comparisonMetadata.source.cover || comparisonMetadata.current.cover">
-                    <dt>Cover</dt><dd>{{ fields.cover ? `Private image ${fields.cover}` : 'No draft cover' }}</dd>
+                    <dt>{{ t('author.revisionHistory.cover') }}</dt><dd>{{ fields.cover ? t('author.revisionHistory.private.image', { id: fields.cover }) : t('author.revisionHistory.no.draft.cover') }}</dd>
                   </template>
                 </dl>
               </section>
@@ -402,12 +403,12 @@ onScopeDispose(() => {
           </template>
         </details>
         <details @toggle="propertiesOpen = ($event.currentTarget as HTMLDetailsElement).open">
-          <summary>Saved properties</summary>
+          <summary>{{ t('author.revisionHistory.saved.properties') }}</summary>
           <div v-if="propertiesOpen" class="revision-sources">
             <RevisionPropertyPage :article-id="pair.id" :revision="pair.revision" :source-revision="pair.sourceRevision"
-              label="Earlier saved properties" />
+              :label="t('author.revisionHistory.earlier.saved.properties')" />
             <RevisionPropertyPage :article-id="pair.id" :revision="pair.revision" :source-revision="pair.revision"
-              label="Current saved properties" />
+              :label="t('author.revisionHistory.current.saved.properties')" />
           </div>
         </details>
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
@@ -417,11 +418,11 @@ onScopeDispose(() => {
         <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="pdf" />
         <DocumentExportTasks :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision"
           :active="comparisonOpen" />
-        <label :for="`${compareId}-reason`">Reason for restoring this draft</label>
+        <label :for="`${compareId}-reason`">{{ t('author.revisionHistory.reason.for.restoring.this.draft') }}</label>
         <ElInput :id="`${compareId}-reason`" v-model="reason" />
-        <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, private attachments, draft cover, and rights policy into a new draft.</p>
-        <p v-if="!props.canRollback">Save pending changes before restoring a revision.</p>
-        <ElButton :disabled="!allowed" @click="restore">Restore as new draft</ElButton>
+        <p>{{ t('author.revisionHistory.use.8.to.500.characters.restoring.copies.the') }}</p>
+        <p v-if="!props.canRollback">{{ t('author.revisionHistory.save.pending.changes.before.restoring.a.revision') }}</p>
+        <ElButton :disabled="!allowed" @click="restore">{{ t('author.revisionHistory.restore.as.new.draft') }}</ElButton>
       </div>
     </ElDialog>
   </details>

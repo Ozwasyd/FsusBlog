@@ -128,11 +128,14 @@ async function leave() {
 </script>
 
 <template>
-  <ElConfigProvider :locale="route.name !== 'admin-identity' && siteLocale === 'zh-CN' ? zhCn : en">
+  <ElConfigProvider :locale="siteLocale === 'zh-CN' ? zhCn : en">
   <SiteAuthLayout v-if="route.name === 'login'" :theme-mode="themeMode" @theme="useTheme">
     <RouterView />
   </SiteAuthLayout>
-  <RouterView v-else-if="route.name === 'admin-identity'" />
+  <template v-else-if="route.name === 'admin-identity'">
+    <div class="admin-language"><SiteLocaleSelect /></div>
+    <RouterView />
+  </template>
   <div v-else-if="accountArea" class="workspace">
     <ElSiteHeader max-width="64rem">
       <template #brand><RouterLink class="workspace-brand" to="/">{{ siteTitle }}</RouterLink></template>
@@ -221,7 +224,10 @@ async function leave() {
       </div>
       <template #footer>
         <div class="reading-column site-footer">
-          <p>{{ copyright }}</p>
+          <div class="site-footer-identity">
+            <strong>{{ siteTitle }}</strong>
+            <p>{{ copyright }}</p>
+          </div>
           <div class="site-footer-links">
             <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
               <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
@@ -246,6 +252,7 @@ async function leave() {
 </template>
 
 <style scoped>
+.admin-language { display: flex; justify-content: flex-end; padding: .75rem var(--fsusblog-page-gutter) 0; }
 .workspace-brand {
   display: block;
   overflow: hidden;

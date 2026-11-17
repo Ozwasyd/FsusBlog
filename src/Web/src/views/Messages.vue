@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, siteLocale } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
@@ -7,13 +8,13 @@ import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } 
 import { watchInboxWake } from '../../../Contracts/inbox-wake'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 
-const filters: ReadonlyArray<{ value: InboxFilter; label: string }> = [
-  { value: 'all', label: '全部' }, { value: 'unread', label: '未读' }, { value: 'system', label: '系统' },
-  { value: 'open', label: '进行中' }, { value: 'pending', label: '待处理' }, { value: 'closed', label: '已关闭' },
-]
-const statuses = ['进行中', '待处理', '已关闭'] as const
-const senders = ['你', '管理员', '系统'] as const
-const format = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
+const filters = computed<ReadonlyArray<{ value: InboxFilter; label: string }>>(() => [
+  { value: 'all', label: t('account.message129') }, { value: 'unread', label: t('account.message130') }, { value: 'system', label: t('account.message131') },
+  { value: 'open', label: t('account.message132') }, { value: 'pending', label: t('account.message133') }, { value: 'closed', label: t('account.message134') },
+])
+const statuses = computed(() => [t('account.message132'), t('account.message133'), t('account.message134')] as const)
+const senders = computed(() => [t('account.message135'), t('account.message136'), t('account.message131')] as const)
+const format = computed(() => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'short', timeStyle: 'short' }))
 const filter = ref<InboxFilter>('all')
 const rows = shallowRef<readonly InboxListItem[]>([])
 const nextPage = ref<string | null>(null)
@@ -88,7 +89,7 @@ async function loadList(append = false): Promise<boolean> {
     error.value = ''
     return true
   } catch (failure) {
-    if (request === listRequest) report(failure, signal, identity, '消息列表暂时无法加载。')
+    if (request === listRequest) report(failure, signal, identity, t('account.inboxError1'))
     return false
   } finally {
     if (request === listRequest && current(signal, identity)) listPending.value = false
@@ -112,7 +113,7 @@ async function loadThread(id: bigint, older?: bigint): Promise<boolean> {
     error.value = ''
     return true
   } catch (failure) {
-    if (request === threadRequest) report(failure, signal, identity, '会话暂时无法加载。')
+    if (request === threadRequest) report(failure, signal, identity, t('account.inboxError2'))
     return false
   } finally {
     if (request === threadRequest && current(signal, identity)) threadPending.value = false
@@ -164,14 +165,14 @@ async function sendTicket() {
     subject.value = ''
     ticket.value = ''
     composing.value = false
-    notice.value = '工单已提交。'
+    notice.value = t('account.message137')
     opener = undefined
     selected.value = id
     reply.value = replies.get(id)?.body ?? ''
     thread.value = null
     await nextTick(() => threadHeading.value?.focus())
     await Promise.all([loadList(), loadThread(id)])
-  } catch (reason) { report(reason, signal, identity, '无法提交工单。请检查内容或稍后重试。') }
+  } catch (reason) { report(reason, signal, identity, t('account.inboxError3')) }
   finally { if (current(signal, identity)) sending.value = false }
 }
 
@@ -197,14 +198,14 @@ async function sendReply() {
       reply.value = ''
       await loadThread(detail.id)
     }
-    notice.value = '回复已发送。'
+    notice.value = t('account.message138')
     await loadList()
   } catch (reason) {
     if (current(signal, identity) && reason instanceof ApiError && reason.status === 409) {
       replies.set(detail.id, { body })
       await loadThread(detail.id)
     }
-    report(reason, signal, identity, '回复发送失败。请检查内容或稍后重试。')
+    report(reason, signal, identity, t('account.inboxError4'))
   }
   finally { if (current(signal, identity)) sending.value = false }
 }
@@ -222,7 +223,7 @@ async function markRead() {
     if (!current(signal, identity)) return
     await Promise.all([loadList(), selected.value === detail.id ? loadThread(detail.id) : undefined])
   } catch (failure) {
-    report(failure, signal, identity, '无法标记已读，请刷新后重试。')
+    report(failure, signal, identity, t('account.inboxError5'))
   } finally {
     if (current(signal, identity)) markPending.value = false
   }
@@ -262,7 +263,7 @@ async function poll(signal: AbortSignal, identity: number) {
   } catch (failure) {
     if (failure instanceof ApiError && failure.status === 409 && current(signal, identity)) {
       await reloadInbox()
-    } else report(failure, signal, identity, '实时消息暂时无法更新。')
+    } else report(failure, signal, identity, t('account.inboxError6'))
   } finally {
     if (current(signal, identity)) {
       polling = false
@@ -347,7 +348,7 @@ onMounted(async () => {
   window.addEventListener('online', resume)
   const signal = scope.signal
   try { if (!currentSession.value) await refreshSession(signal) }
-  catch { if (!signal.aborted) error.value = '暂时无法确认登录状态。' }
+  catch { if (!signal.aborted) error.value = t('account.message139') }
   finally { checking.value = false }
 })
 
@@ -362,34 +363,34 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="inbox-page">
-    <ElTaskPageHeader title="我的站内信" density="compact" />
-    <RouterLink v-if="currentSession" to="/user/comments">我的评论</RouterLink>
+    <ElTaskPageHeader :title="t('account.message110')" density="compact" />
+    <RouterLink v-if="currentSession" to="/user/comments">{{ t('account.message111') }}</RouterLink>
     <p v-if="notice" role="status">{{ notice }}</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon>
-      <ElButton v-if="currentSession" text @click="reloadInbox(cursor)">重试</ElButton>
+      <ElButton v-if="currentSession" text @click="reloadInbox(cursor)">{{ t('account.message112') }}</ElButton>
     </ElAlert>
     <ElSkeleton v-if="checking && !currentSession" :rows="5" animated />
-    <ElEmptyState v-else-if="!currentSession" title="请先登录">
-      <RouterLink to="/login">登录</RouterLink>
+    <ElEmptyState v-else-if="!currentSession" :title="t('account.message113')">
+      <RouterLink to="/login">{{ t('account.message80') }}</RouterLink>
     </ElEmptyState>
     <div v-else class="inbox-layout">
       <section v-show="!mobile || !hasSelection" class="inbox-pane" aria-labelledby="inbox-list" :aria-busy="listPending">
         <header class="inbox-pane-heading">
-          <h2 id="inbox-list" ref="listHeading" tabindex="-1">消息列表</h2>
-          <ElButton v-if="writable" size="small" type="primary" :disabled="sending" @click="composing = !composing">提交工单</ElButton>
-          <ElSelect v-model="filter" ariaLabel="筛选消息" class="inbox-filter">
+          <h2 id="inbox-list" ref="listHeading" tabindex="-1">{{ t('account.message114') }}</h2>
+          <ElButton v-if="writable" size="small" type="primary" :disabled="sending" @click="composing = !composing">{{ t('account.message115') }}</ElButton>
+          <ElSelect v-model="filter" :ariaLabel="t('account.message116')" class="inbox-filter">
             <ElOption v-for="item in filters" :key="item.value" :label="item.label" :value="item.value" />
           </ElSelect>
         </header>
         <form v-if="composing" class="inbox-composer" @submit.prevent="sendTicket">
-          <label for="ticket-subject">主题（选填）</label>
+          <label for="ticket-subject">{{ t('account.message117') }}</label>
           <ElInput id="ticket-subject" v-model="subject" :disabled="sending" />
-          <label for="ticket-body">工单内容</label>
+          <label for="ticket-body">{{ t('account.message118') }}</label>
           <ElInput id="ticket-body" v-model="ticket" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" :disabled="sending" />
-          <ElButton type="primary" native-type="submit" :disabled="!ticket.trim()" :loading="sending">发送工单</ElButton>
+          <ElButton type="primary" native-type="submit" :disabled="!ticket.trim()" :loading="sending">{{ t('account.message119') }}</ElButton>
         </form>
         <ElSkeleton v-if="listPending && !rows.length" :rows="6" animated />
-        <ElEmptyState v-else-if="!rows.length && !error" title="没有消息" />
+        <ElEmptyState v-else-if="!rows.length && !error" :title="t('account.message120')" />
         <ul v-else-if="rows.length" class="inbox-items">
           <li v-for="row in rows" :key="String(row.id)">
             <button type="button" class="inbox-choice" :aria-current="row.id === selected ? 'true' : undefined"
@@ -397,27 +398,27 @@ onBeforeUnmount(() => {
               <strong class="inbox-row-title">{{ row.subject }}</strong>
               <span v-if="row.preview" class="inbox-preview">{{ row.preview }}</span>
               <span class="inbox-meta">
-                <template v-if="row.isSystem">系统 · </template>{{ statuses[row.status] }} · {{ format.format(row.lastMessageAt) }}
-                <template v-if="row.unreadCount"> · <span>{{ row.unreadCount }} 条未读</span></template>
+                <template v-if="row.isSystem">{{ t('account.message131') }} · </template>{{ statuses[row.status] }} · {{ format.format(row.lastMessageAt) }}
+                <template v-if="row.unreadCount"> · <span>{{ t('account.unreadCount', { count: row.unreadCount }) }}</span></template>
               </span>
             </button>
           </li>
         </ul>
-        <ElButton v-if="nextPage" :loading="listPending" text @click="loadList(true)">加载更多会话</ElButton>
+        <ElButton v-if="nextPage" :loading="listPending" text @click="loadList(true)">{{ t('account.message121') }}</ElButton>
       </section>
 
       <section v-show="!mobile || hasSelection" class="inbox-pane" aria-labelledby="inbox-thread" :aria-busy="threadPending">
         <header class="inbox-pane-heading">
-          <ElButton v-if="mobile && hasSelection" text :disabled="sending" @click="backToList">返回消息列表</ElButton>
-          <h2 id="inbox-thread" ref="threadHeading" tabindex="-1">{{ thread?.subject ?? '会话' }}</h2>
-          <ElButton v-if="thread?.unreadCount" text :loading="markPending" @click="markRead">标记已读</ElButton>
+          <ElButton v-if="mobile && hasSelection" text :disabled="sending" @click="backToList">{{ t('account.message122') }}</ElButton>
+          <h2 id="inbox-thread" ref="threadHeading" tabindex="-1">{{ thread?.subject ?? t('account.message123') }}</h2>
+          <ElButton v-if="thread?.unreadCount" text :loading="markPending" @click="markRead">{{ t('account.message124') }}</ElButton>
         </header>
-        <ElEmptyState v-if="!hasSelection" title="请选择会话" />
+        <ElEmptyState v-if="!hasSelection" :title="t('account.message125')" />
         <ElSkeleton v-else-if="threadPending && !thread" :rows="7" animated />
         <template v-if="thread">
           <p class="inbox-meta">{{ statuses[thread.status] }}</p>
           <ElButton v-if="thread.previous" text :loading="threadPending"
-            @click="loadThread(thread.id, thread.previous)">加载更早消息</ElButton>
+            @click="loadThread(thread.id, thread.previous)">{{ t('account.message126') }}</ElButton>
           <ol class="inbox-items">
             <li v-for="message in thread.messages" :key="String(message.id)" class="inbox-message">
               <p class="inbox-meta">{{ senders[message.sender] }} ·
@@ -427,9 +428,9 @@ onBeforeUnmount(() => {
             </li>
           </ol>
           <form v-if="writable && thread.status !== 2" class="inbox-composer" @submit.prevent="sendReply">
-            <label for="reply-body">回复内容</label>
+            <label for="reply-body">{{ t('account.message127') }}</label>
             <ElInput id="reply-body" v-model="reply" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="sending" />
-            <ElButton type="primary" native-type="submit" :disabled="!reply.trim()" :loading="sending">发送回复</ElButton>
+            <ElButton type="primary" native-type="submit" :disabled="!reply.trim()" :loading="sending">{{ t('account.message128') }}</ElButton>
           </form>
         </template>
       </section>

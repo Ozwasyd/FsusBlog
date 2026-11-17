@@ -1,9 +1,10 @@
+import { t, type MessageKey } from '../siteLocale'
 import { computed, ref } from 'vue'
 import { authoringWorkspace, type AuthoringWorkspaceVersion } from '../../../Contracts/authoring-workspace'
 import { ApiError } from '../../../Contracts/client'
 import type { SavedWorkspaceLayout } from './workspaceRegistry'
 
-const offlineLayoutNotice = 'Layout changes stay in this tab while offline. Reload the workspace to resume saving layouts.'
+const offlineLayoutNotice = 'author.helper.offline'
 
 const layoutKey = (layout: SavedWorkspaceLayout, version: AuthoringWorkspaceVersion) =>
   `${layout.activeArticleId}:${layout.tabs.join(',')}:${version === 1 ? '' : layout.inspectorOpen}:${
@@ -19,7 +20,8 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout, hasSeco
   let stored = ''
   let writing: Promise<void> | undefined
   let disconnected = false
-  const notice = ref('')
+  const noticeKey = ref<MessageKey | ''>('')
+  const notice = computed(() => noticeKey.value ? t(noticeKey.value) : '')
   const supportsGroups = computed(() => version.value === 3)
 
   function abortWrites() {
@@ -35,14 +37,14 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout, hasSeco
     currentHandle = undefined
     version.value = undefined
     disconnected = false
-    notice.value = ''
+    noticeKey.value = ''
   }
 
   function offline() {
     if (!currentHandle || disconnected) return
     disconnected = true
     abortWrites()
-    notice.value = offlineLayoutNotice
+    noticeKey.value = offlineLayoutNotice
   }
 
   async function restore(handle: string, restoreLayout: (layout: SavedWorkspaceLayout, signal: AbortSignal) => Promise<number | undefined>): Promise<void> {
@@ -61,13 +63,13 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout, hasSeco
       session = currentHandle
       version.value = value.schemaVersion
       stored = layoutKey(layout(), value.schemaVersion)
-      if (skipped + value.skipped > 0) notice.value = 'Some articles from the saved workspace are unavailable.'
-      else if (value.schemaVersion === 1) notice.value = 'The Inspector setting stays in this tab until workspace storage is upgraded.'
+      if (skipped + value.skipped > 0) noticeKey.value = 'author.helper.unavailableArticles'
+      else if (value.schemaVersion === 1) noticeKey.value = 'author.helper.inspectorUpgrade'
     } catch {
       if (scope.aborted) return
       if (currentHandle && currentHandle !== handle)
         return restore(currentHandle, restoreLayout)
-      notice.value = 'The saved workspace could not be restored. Layout changes stay in this tab.'
+      noticeKey.value = 'author.helper.restoreFailed'
     }
   }
 
@@ -108,13 +110,13 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout, hasSeco
         revision = saved.revision
         // Suppress repeated writes of the same stale positions if the server had to filter them out.
         stored = layoutKey(desired, layoutVersion)
-        if (saved.skipped) notice.value = 'Some articles could not be included in the saved workspace.'
+        if (saved.skipped) noticeKey.value = 'author.helper.skippedArticles'
       } catch (error) {
         if (scope.aborted || session !== handle) return
         session = undefined
-        notice.value = error instanceof ApiError && error.status === 409
-          ? 'The saved workspace changed elsewhere. Reload the workspace to use that layout.'
-          : 'This workspace layout could not be saved. Layout changes stay in this tab.'
+        noticeKey.value = error instanceof ApiError && error.status === 409
+          ? 'author.helper.layoutConflict'
+          : 'author.helper.saveFailed'
       } finally {
         if (!scope.aborted) {
           writing = undefined

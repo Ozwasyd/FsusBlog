@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
 import { ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleRow, type AuthorArticleState } from '../../../Contracts/author-articles'
@@ -13,12 +14,12 @@ const props = defineProps<{ articleId?: number; articleRevision?: bigint; disabl
 const emit = defineEmits<{ open: [articleId: number, separate: boolean] }>()
 
 const states: Record<Exclude<AuthorArticleState, 'deleted'>, string> = {
-  draft: 'Draft', scheduled: 'Scheduled', published: 'Published', retracted: 'Withdrawn',
+  get draft() { return t('author.articleLibraryResults.draft') }, get scheduled() { return t('author.articleLibraryResults.scheduled') }, get published() { return t('author.articleLibraryResults.published') }, get retracted() { return t('author.articleLibraryResults.withdrawn') },
 }
-const filters = Object.entries(states)
+const filters = computed(() => Object.entries(states))
 const keyword = ref('')
 const scope = ref<Scope>('')
-const taxonomyFilters = [['category', 'Category'], ['tag', 'Tag']] as const
+const taxonomyFilters = computed(() => [['category', t('author.articleLibraryResults.category')], ['tag', t('author.articleLibraryResults.tag')]] as const)
 const taxonomy = reactive<Record<TaxonomyKind, TaxonomyListItem[]>>({ category: [], tag: [] })
 const selectedTaxonomy = reactive({ category: 0, tag: 0 })
 const query = shallowRef<{ keyword: string; state: Scope; category: number; tag: number; cursors: readonly (number | undefined)[] }>({
@@ -46,7 +47,7 @@ defineExpose({ focus: () => search.value?.focus() })
 watch(identityEpoch, (_, __, cleanup) => {
   const controller = new AbortController()
   cleanup(() => controller.abort())
-  for (const [kind] of taxonomyFilters) {
+  for (const [kind] of taxonomyFilters.value) {
     taxonomy[kind] = []
     if (currentSession.value?.canAuthor) void taxonomyList(kind, controller.signal).then(items => {
       if (!controller.signal.aborted) taxonomy[kind] = items
@@ -133,25 +134,25 @@ function stateLabel(item: AuthorArticleRow) {
 
 <template>
   <form class="library-filter" @submit.prevent="applyFilters">
-    <ElInput ref="search" v-model="keyword" label="Search article titles" v-bind="{ maxlength: WireLimits.AuthorArticleKeywordChars }" />
-    <label for="article-library-state">Status</label>
+    <ElInput ref="search" v-model="keyword" :label="t('author.articleLibraryResults.search.article.titles')" v-bind="{ maxlength: WireLimits.AuthorArticleKeywordChars }" />
+    <label for="article-library-state">{{ t('author.articleLibraryResults.status') }}</label>
     <select id="article-library-state" v-model="scope">
-      <option value="">All articles</option>
+      <option value="">{{ t('author.articleLibraryResults.all.articles') }}</option>
       <option v-for="[value, label] in filters" :key="value" :value="value">{{ label }}</option>
     </select>
     <template v-for="[kind, label] in taxonomyFilters" :key="kind">
       <ElSelect v-if="taxonomy[kind].length" v-model="selectedTaxonomy[kind]" :ariaLabel="label" filterable>
-        <ElOption :value="0" :label="kind === 'category' ? 'All categories' : 'All tags'" />
+        <ElOption :value="0" :label="kind === 'category' ? t('author.articleLibraryResults.all.categories') : t('author.articleLibraryResults.all.tags')" />
         <ElOption v-for="item in taxonomy[kind]" :key="item.id" :value="item.id" :label="item.name" />
       </ElSelect>
     </template>
-    <ElButton native-type="submit">Filter articles</ElButton>
+    <ElButton native-type="submit">{{ t('author.articleLibraryResults.filter.articles') }}</ElButton>
   </form>
-  <p v-if="loading || currentLoading" role="status">Loading articles…</p>
-  <p v-if="failed" role="alert">Could not load articles.</p>
-  <ElButton v-if="failed" text @click="retry++">Retry articles</ElButton>
-  <p v-if="!loading && !failed && page?.items.length === 0" role="status">No matching articles.</p>
-  <ul v-if="rows.length" ref="results" class="library-results" aria-label="Article results" @keydown="moveLibraryFocus($event, results)">
+  <p v-if="loading || currentLoading" role="status">{{ t('author.articleLibraryResults.loading.articles') }}</p>
+  <p v-if="failed" role="alert">{{ t('author.articleLibraryResults.could.not.load.articles') }}</p>
+  <ElButton v-if="failed" text @click="retry++">{{ t('author.articleLibraryResults.retry.articles') }}</ElButton>
+  <p v-if="!loading && !failed && page?.items.length === 0" role="status">{{ t('author.articleLibraryResults.no.matching.articles') }}</p>
+  <ul v-if="rows.length" ref="results" class="library-results" :aria-label="t('author.articleLibraryResults.article.results')" @keydown="moveLibraryFocus($event, results)">
     <li v-for="row in rows" :key="row.id">
       <button type="button" :disabled="disabled" :aria-current="row.id === current ? 'true' : undefined"
         @click="emit('open', row.id, false)" @keydown="openWithModifier($event, row.id)">
@@ -160,8 +161,8 @@ function stateLabel(item: AuthorArticleRow) {
     </li>
   </ul>
   <div v-if="query.cursors.length > 1 || page?.nextId" class="library-pages">
-    <ElButton text :disabled="loading || query.cursors.length === 1" @click="movePage(false)">Previous articles</ElButton>
-    <ElButton text :disabled="loading || !page?.nextId" @click="movePage(true)">Next articles</ElButton>
+    <ElButton text :disabled="loading || query.cursors.length === 1" @click="movePage(false)">{{ t('author.articleLibraryResults.previous.articles') }}</ElButton>
+    <ElButton text :disabled="loading || !page?.nextId" @click="movePage(true)">{{ t('author.articleLibraryResults.next.articles') }}</ElButton>
   </div>
 </template>
 

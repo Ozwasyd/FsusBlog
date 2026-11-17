@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, siteLocale } from '../siteLocale'
 import { ref, shallowRef, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { listRecentOpens, type RecentOpenCursor, type RecentOpens } from '../../../Contracts/author-recent-opens'
@@ -14,7 +15,7 @@ const loading = ref(false)
 const failed = ref(false)
 const retry = ref(0)
 const results = ref<HTMLElement>()
-const format = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const format = { format: (value: number | Date) => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(value) }
 let availability: boolean | undefined
 
 watch([identityEpoch, () => currentSession.value?.siteSessionId, () => currentSession.value?.canAuthor], () => {
@@ -75,11 +76,11 @@ function keyEvent(event: KeyboardEvent, id: number) {
 </script>
 
 <template>
-  <section v-if="active" aria-label="Recent article opens">
-    <p v-if="loading" role="status">Loading recent opens…</p>
-    <p v-else-if="failed" role="alert">Could not load recent opens.</p>
-    <ElButton v-if="failed" text native-type="button" @click="retry++">Retry recent opens</ElButton>
-    <p v-if="page?.items.length === 0" role="status">No recent opens.</p>
+  <section v-if="active" :aria-label="t('author.articleLibraryRecent.recent.article.opens')">
+    <p v-if="loading" role="status">{{ t('author.articleLibraryRecent.loading.recent.opens') }}</p>
+    <p v-else-if="failed" role="alert">{{ t('author.articleLibraryRecent.could.not.load.recent.opens') }}</p>
+    <ElButton v-if="failed" text native-type="button" @click="retry++">{{ t('author.articleLibraryRecent.retry.recent.opens') }}</ElButton>
+    <p v-if="page?.items.length === 0" role="status">{{ t('author.articleLibraryRecent.no.recent.opens') }}</p>
     <ul v-if="page?.items.length" ref="results" class="recent-results" @keydown="moveLibraryFocus($event, results)">
       <li v-for="item in page.items" :key="item.articleId">
         <button type="button" :disabled="disabled" :aria-current="item.articleId === articleId ? 'true' : undefined"
@@ -90,8 +91,8 @@ function keyEvent(event: KeyboardEvent, id: number) {
       </li>
     </ul>
     <div v-if="cursors.length > 1 || page?.next" class="recent-pages">
-      <ElButton text native-type="button" :disabled="loading || !page || cursors.length === 1" @click="movePage(false)">Previous recent opens</ElButton>
-      <ElButton text native-type="button" :disabled="loading || !page?.next" @click="movePage(true)">Next recent opens</ElButton>
+      <ElButton text native-type="button" :disabled="loading || !page || cursors.length === 1" @click="movePage(false)">{{ t('author.articleLibraryRecent.previous.recent.opens') }}</ElButton>
+      <ElButton text native-type="button" :disabled="loading || !page?.next" @click="movePage(true)">{{ t('author.articleLibraryRecent.next.recent.opens') }}</ElButton>
     </div>
   </section>
 </template>

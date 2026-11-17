@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -61,7 +62,7 @@ function removeCurrent() {
       await refreshSession(signal, false)
     })
   }, () => {
-    failure.value = 'Could not confirm Passkey removal. Check your Recovery Key and try again.'
+    failure.value = t('account.message64')
   })
 }
 
@@ -109,7 +110,7 @@ function refresh() {
     if (!signal.aborted) active.value = state
   }, error => {
     if (error instanceof ApiError && (error.status === 401 || error.status === 404)) available.value = false
-    else failure.value = 'Could not check Recovery Key status. Try again.'
+    else failure.value = t('account.message65')
   })
 }
 
@@ -123,39 +124,39 @@ function issue() {
     issued.value = key
   }, () => {
     active.value = null
-    failure.value = 'Could not confirm issuance. Check Recovery Key status before trying again.'
+    failure.value = t('account.message66')
   })
 }
 </script>
 
 <template>
   <section v-if="available && currentSession" class="auth-form site-recovery-key" aria-labelledby="site-recovery-key-heading">
-    <h2 id="site-recovery-key-heading">Recovery Key</h2>
-    <p>Use a Recovery Key to replace your Passkey if you lose access to it.</p>
+    <h2 id="site-recovery-key-heading">{{ t('account.message54') }}</h2>
+    <p>{{ t('account.message55') }}</p>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
     <div v-if="issued" class="recovery-key-receipt" aria-live="polite">
-      <p>Save this key now. It is shown only once.</p>
+      <p>{{ t('account.message56') }}</p>
       <code data-testid="site-recovery-key">{{ issued }}</code>
-      <ElButton native-type="button" @click="hideKey">Hide Recovery Key</ElButton>
+      <ElButton native-type="button" @click="hideKey">{{ t('account.message57') }}</ElButton>
     </div>
     <form v-else-if="removing" class="auth-form" @submit.prevent="removeCurrent">
-      <p>Removing the current Passkey will sign you out. Keep your Recovery Key so you can recover access.</p>
-      <label for="site-passkey-removal-key">Recovery Key to confirm removal</label>
+      <p>{{ t('account.message58') }}</p>
+      <label for="site-passkey-removal-key">{{ t('account.message59') }}</label>
       <ElInput id="site-passkey-removal-key" v-model="removalKey" type="password" autocomplete="off" :disabled="busy" />
       <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy || !validSiteRecoveryKey(removalKey.trim())">
-        Remove with Passkey
+        {{ t('account.message41') }}
       </ElButton>
-      <ElButton native-type="button" :disabled="busy" @click="closeRemoval">Cancel</ElButton>
+      <ElButton native-type="button" :disabled="busy" @click="closeRemoval">{{ t('account.message39') }}</ElButton>
     </form>
     <template v-else-if="active !== null">
-      <p v-if="active">Replacing the Recovery Key invalidates the previous key.</p>
+      <p v-if="active">{{ t('account.message60') }}</p>
       <ElButton type="primary" native-type="button" :loading="busy" @click="issue">
-        {{ active ? 'Replace Recovery Key' : 'Create Recovery Key' }}
+        {{ active ? t('account.message61') : t('account.message62') }}
       </ElButton>
       <ElButton v-if="active && currentSession.siteSessionId" native-type="button" :disabled="busy"
-        @click="removing = true">Remove current Passkey</ElButton>
+        @click="removing = true">{{ t('account.message43') }}</ElButton>
     </template>
-    <ElButton v-else-if="failure" native-type="button" :loading="busy" @click="refresh">Check Recovery Key status</ElButton>
+    <ElButton v-else-if="failure" native-type="button" :loading="busy" @click="refresh">{{ t('account.message63') }}</ElButton>
   </section>
 </template>
 

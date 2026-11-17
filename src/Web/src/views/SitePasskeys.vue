@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -81,7 +82,7 @@ function openEdit(item: PasskeyEntry, action: Edit['action']) {
   const target = { reference: item.reference, revision: item.revision }
   if (action === 'remove') {
     if ((passkeys.value?.length ?? 0) < 2) return
-    edit.value = { ...target, action, current: item.current, label: item.name || `passkey created ${item.createdAt.toLocaleString()}` }
+    edit.value = { ...target, action, current: item.current, label: item.name || t('account.passkeyCreated', { date: item.createdAt.toLocaleString() }) }
   } else {
     edit.value = { ...target, action }
     name.value = item.name ?? ''
@@ -161,7 +162,7 @@ async function run(change?: Change | 'enroll') {
             (error.name !== 'NotAllowedError' && error.name !== 'AbortError')) throw error
         if (await confirmAuthority()) {
           closeEdit()
-          notice.value = enrolling ? 'Passkey addition canceled.' : 'Passkey removal canceled.'
+          notice.value = enrolling ? t('account.message45') : t('account.message46')
         }
         return
       }
@@ -171,17 +172,17 @@ async function run(change?: Change | 'enroll') {
     if (!await confirmAuthority()) return
     passkeys.value = entries
     closeEdit()
-    if (change) notice.value = enrolling ? 'Passkey added.' : removing ? 'Passkey removed.' : 'Passkey name saved.'
+    if (change) notice.value = enrolling ? t('account.message47') : removing ? t('account.message48') : t('account.message49')
   } catch (error) {
     if (!live()) return
     passkeys.value = undefined
     closeEdit()
     const status = error instanceof ApiError ? error.status : undefined
     if (status !== 401 && (change || (status !== 404 && status !== 409))) {
-      if (enrolling) failed.value = 'Could not confirm the new Passkey. Reload Passkeys to check.'
-      else if (removing) failed.value = 'Could not confirm Passkey removal. Reload Passkeys to check.'
-      else if (change) failed.value = 'Could not confirm the new Passkey name. Reload Passkeys to check.'
-      else failed.value = 'Could not load Passkeys.'
+      if (enrolling) failed.value = t('account.message50')
+      else if (removing) failed.value = t('account.message51')
+      else if (change) failed.value = t('account.message52')
+      else failed.value = t('account.message53')
     }
   } finally {
     if (request === operation) {
@@ -195,50 +196,50 @@ async function run(change?: Change | 'enroll') {
 
 <template>
   <section v-if="passkeys || failed" class="auth-form site-passkeys" aria-labelledby="site-passkeys-heading">
-    <h2 id="site-passkeys-heading">Passkeys</h2>
+    <h2 id="site-passkeys-heading">{{ t('account.message25') }}</h2>
     <p v-if="notice" role="status">{{ notice }}</p>
     <ElButton v-if="canAddPasskey" class="passkey-add" native-type="button" :loading="adding"
-      :disabled="busy || !!edit" @click="addPasskey">Add Passkey</ElButton>
+      :disabled="busy || !!edit" @click="addPasskey">{{ t('account.message26') }}</ElButton>
     <template v-if="failed">
       <ElAlert :title="failed" type="error" :closable="false" show-icon />
-      <ElButton native-type="button" :loading="busy" @click="load">Reload Passkeys</ElButton>
+      <ElButton native-type="button" :loading="busy" @click="load">{{ t('account.message27') }}</ElButton>
     </template>
     <ul v-else class="passkey-list">
       <li v-for="(item, index) in passkeys" :key="item.reference ?? index">
-        <strong class="passkey-name">{{ item.name || (item.current ? 'Current session passkey' : 'Passkey') }}</strong>
-        <div v-if="item.name && item.current">Current session passkey</div>
+        <strong class="passkey-name">{{ item.name || (item.current ? t('account.message28') : t('account.message29')) }}</strong>
+        <div v-if="item.name && item.current">{{ t('account.message28') }}</div>
         <dl class="passkey-metadata">
-          <dt>Created</dt><dd><time :datetime="item.createdAt.toISOString()">{{ item.createdAt.toLocaleString() }}</time></dd>
-          <dt>Last used</dt><dd>
+          <dt>{{ t('account.message30') }}</dt><dd><time :datetime="item.createdAt.toISOString()">{{ item.createdAt.toLocaleString() }}</time></dd>
+          <dt>{{ t('account.message31') }}</dt><dd>
             <time v-if="item.lastUsedAt" :datetime="item.lastUsedAt.toISOString()">{{ item.lastUsedAt.toLocaleString() }}</time>
-            <span v-else>Not used yet</span>
+            <span v-else>{{ t('account.message32') }}</span>
           </dd>
-          <dt>Backup eligible</dt><dd>{{ item.backupEligible ? 'Yes' : 'No' }}</dd>
-          <dt>Backed up</dt><dd>{{ item.backedUp ? 'Yes' : 'No' }}</dd>
+          <dt>{{ t('account.message33') }}</dt><dd>{{ item.backupEligible ? t('account.message35') : t('account.message36') }}</dd>
+          <dt>{{ t('account.message34') }}</dt><dd>{{ item.backedUp ? t('account.message35') : t('account.message36') }}</dd>
         </dl>
         <form v-if="edit?.action === 'rename' && edit.reference === item.reference" class="rename-passkey" @submit.prevent="saveName">
-          <label for="site-passkey-name">Passkey name</label>
+          <label for="site-passkey-name">{{ t('account.message37') }}</label>
           <ElInput id="site-passkey-name" v-model="name" v-bind="{ maxlength: WireLimits.SitePasskeyNameChars }"
             autocomplete="off" autofocus :disabled="busy" />
           <div class="rename-actions">
-            <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">Save with Passkey</ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="closeEdit">Cancel</ElButton>
+            <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">{{ t('account.message38') }}</ElButton>
+            <ElButton native-type="button" :disabled="busy" @click="closeEdit">{{ t('account.message39') }}</ElButton>
           </div>
         </form>
         <form v-else-if="edit?.action === 'remove' && edit.reference === item.reference" class="rename-passkey"
           aria-labelledby="site-passkey-remove-label" @submit.prevent="removePasskey">
-          <p id="site-passkey-remove-label" class="passkey-name">Remove {{ edit.label }}?</p>
-          <p v-if="edit.current">Removing this Passkey will sign you out. Use another Passkey to sign in again.</p>
+          <p id="site-passkey-remove-label" class="passkey-name">{{ t('account.removePasskeyConfirm', { name: edit.label }) }}</p>
+          <p v-if="edit.current">{{ t('account.message40') }}</p>
           <div class="rename-actions">
-            <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">Remove with Passkey</ElButton>
-            <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">Cancel</ElButton>
+            <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">{{ t('account.message41') }}</ElButton>
+            <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">{{ t('account.message39') }}</ElButton>
           </div>
         </form>
         <div v-else-if="item.reference" class="rename-actions">
-          <ElButton native-type="button" :disabled="busy || !!edit" @click="openEdit(item, 'rename')">Rename Passkey</ElButton>
+          <ElButton native-type="button" :disabled="busy || !!edit" @click="openEdit(item, 'rename')">{{ t('account.message42') }}</ElButton>
           <ElButton v-if="passkeys && passkeys.length > 1" native-type="button"
             :disabled="busy || !!edit" @click="openEdit(item, 'remove')">
-            {{ item.current ? 'Remove current Passkey' : 'Remove Passkey' }}
+            {{ item.current ? t('account.message43') : t('account.message44') }}
           </ElButton>
         </div>
       </li>

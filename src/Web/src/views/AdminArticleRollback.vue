@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -28,7 +29,7 @@ const draftReason = ref('')
 const draftConfirmed = ref(false)
 const busy = ref(false)
 const archiveWorking = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 const preview = shallowRef<AdminArticleRollbackPreview>()
 const retry = shallowRef<RollbackIntent>()
 const receipt = shallowRef<RollbackReceipt>()
@@ -48,15 +49,15 @@ const receiptTitle = computed(() => {
   const result = receipt.value
   if (!result) return ''
   return 'privateReleaseId' in result
-    ? `Restored revision ${result.revision} as a private draft`
-    : `Published revision ${result.revision} as publication ${result.publicationId}`
+    ? t('admin.rollback.restored', { revision: String(result.revision) })
+    : t('admin.rollback.published', { revision: String(result.revision), publication: String(result.publicationId) })
 })
 const draftRetry = computed(() => retry.value !== undefined && 'targetStatus' in retry.value)
-const blockers = [
-  '', 'This revision has no retained rights snapshot.', 'This revision has no retained responsibility snapshot.',
-  'Private attachments need review before this revision can be published.', 'Clear the pending publication schedule before continuing.',
-  'Resolve the unpublished draft before replacing the current publication.',
-]
+const blockers = computed(() => [
+  '', t('admin.rollback.noRights'), t('admin.rollback.noResponsibility'),
+  t('admin.rollback.attachments'), t('admin.rollback.schedule'),
+  t('admin.rollback.draft'),
+])
 
 function resetPreview() {
   preview.value = undefined
@@ -77,9 +78,9 @@ async function readPreview() {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 404) error.value = 'This article or historical publication is unavailable.'
-    else if (cause instanceof ApiError && cause.status === 409) error.value = 'Resolve current draft or publication changes before opening another preview.'
-    else error.value = 'Could not load the publication review. Try again.'
+    else if (cause instanceof ApiError && cause.status === 404) error.value = 'admin.rollback.unavailable'
+    else if (cause instanceof ApiError && cause.status === 409) error.value = 'admin.rollback.resolveChanges'
+    else error.value = 'admin.rollback.loadFailed'
   } finally { busy.value = false }
 }
 
@@ -125,19 +126,19 @@ async function rollback(toDraft: boolean) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof DOMException && cause.name === 'NotAllowedError') {
-      error.value = 'Passkey confirmation was canceled or expired.'
+      error.value = 'admin.rollback.passkeyCanceled'
     } else if (cause instanceof ApiError && cause.status === 409) {
       preview.value = undefined
-      error.value = 'The publication changed. Preview the current coordinates again.'
+      error.value = 'admin.rollback.changed'
     } else if (!attempted && cause instanceof ApiError && cause.status === 401) {
       emit('session-lost', cause)
     } else if (attempted && (!(cause instanceof ApiError) || cause.status >= 500)) {
       retry.value = intent
-      error.value = toDraft ? 'The draft rollback result is unknown. Check the same command before trying again.'
-        : 'The publication result is unknown. Check the same command before publishing again.'
+      error.value = toDraft ? 'admin.rollback.draftUnknown'
+        : 'admin.rollback.publicUnknown'
     } else {
-      error.value = toDraft ? 'Could not restore the draft. Review the article and verify your administrator permissions.'
-        : 'Could not publish this revision. Review the article and verify your administrator permissions.'
+      error.value = toDraft ? 'admin.rollback.draftFailed'
+        : 'admin.rollback.publicFailed'
     }
     confirmed.value = false
     draftConfirmed.value = false
@@ -157,10 +158,10 @@ async function checkReceipt() {
     if (cause instanceof ApiError && cause.status < 500) {
       retry.value = undefined
       preview.value = undefined
-      error.value = 'The command result could not be recovered. Review the current publication before repeating the operation.'
+      error.value = 'admin.rollback.recoverFailed'
     } else {
-      error.value = 'targetStatus' in intent ? 'The draft rollback result is still unknown. Try checking this command again.'
-        : 'The publication result is still unknown. Try checking this command again.'
+      error.value = 'targetStatus' in intent ? 'admin.rollback.draftStillUnknown'
+        : 'admin.rollback.publicStillUnknown'
     }
   } finally { busy.value = false }
 }
@@ -181,45 +182,45 @@ onScopeDispose(() => lifetime.abort())
 
 <template>
   <section v-if="available" class="auth-form article-rollback" aria-labelledby="admin-article-rollback-heading" :aria-busy="busy || archiveWorking">
-    <h2 id="admin-article-rollback-heading">Restore a published article revision</h2>
+    <h2 id="admin-article-rollback-heading">{{ t('admin.rollback.heading') }}</h2>
     <form class="article-rollback" @submit.prevent="readPreview">
-      <label for="admin-rollback-article">Article ID</label>
+      <label for="admin-rollback-article">{{ t('admin.rollback.articleId') }}</label>
       <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
-      <label for="admin-rollback-source">Historical revision</label>
+      <label for="admin-rollback-source">{{ t('admin.rollback.historicalRevision') }}</label>
       <ElInput id="admin-rollback-source" v-model="sourceRevision" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
-      <ElButton native-type="submit" :disabled="!sourceCoordinates || editingLocked">Preview publication rollback</ElButton>
+      <ElButton native-type="submit" :disabled="!sourceCoordinates || editingLocked">{{ t('admin.rollback.preview') }}</ElButton>
     </form>
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
+    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
     <ElAlert v-if="receiptTitle" :title="receiptTitle" type="success" :closable="false" />
     <ElButton v-if="retry" native-type="button" :loading="busy" @click="checkReceipt">
-      {{ draftRetry ? 'Check draft rollback result' : 'Check publication result' }}
+      {{ draftRetry ? t('admin.rollback.checkDraft') : t('admin.rollback.checkPublic') }}
     </ElButton>
     <div v-else-if="preview" class="article-rollback">
       <h3>{{ preview.sourceTitle }}</h3>
       <dl>
-        <dt>Current saved revision</dt><dd>{{ preview.currentRevision }}</dd>
-        <dt>Current publication</dt><dd>{{ preview.currentPublicationId }}</dd>
-        <dt>Source revision</dt><dd>{{ preview.sourceRevision }}</dd>
-        <dt>Source publication</dt><dd>{{ preview.sourcePublicationId }}</dd>
+        <dt>{{ t('admin.rollback.currentRevision') }}</dt><dd>{{ preview.currentRevision }}</dd>
+        <dt>{{ t('admin.rollback.currentPublication') }}</dt><dd>{{ preview.currentPublicationId }}</dd>
+        <dt>{{ t('admin.rollback.sourceRevision') }}</dt><dd>{{ preview.sourceRevision }}</dd>
+        <dt>{{ t('admin.rollback.sourcePublication') }}</dt><dd>{{ preview.sourcePublicationId }}</dd>
       </dl>
       <ElAlert v-if="!preview.packageComplete" :title="blockers[preview.blockingReason]" type="warning" :closable="false" />
       <template v-else>
-        <label for="admin-rollback-reason">Reason for publishing this revision</label>
+        <label for="admin-rollback-reason">{{ t('admin.rollback.reason') }}</label>
         <ElInput id="admin-rollback-reason" v-model="reason" type="textarea" :disabled="editingLocked" @input="confirmed = false" />
         <ElCheckbox :model-value="confirmed" :disabled="editingLocked" @update:model-value="confirmed = $event === true">
-          Publish a new revision with this historical content, rights, and responsibility
+          {{ t('admin.rollback.confirmPublic') }}
         </ElCheckbox>
         <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="rollback(false)">
-          Publish revision with Passkey
+          {{ t('admin.rollback.publish') }}
         </ElButton>
         <div v-if="draftAvailable" class="article-rollback draft-rollback">
-          <label for="admin-rollback-draft-reason">Reason for restoring this revision as a draft</label>
+          <label for="admin-rollback-draft-reason">{{ t('admin.rollback.draftReason') }}</label>
           <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="editingLocked" @input="draftConfirmed = false" />
           <ElCheckbox :model-value="draftConfirmed" :disabled="editingLocked" @update:model-value="draftConfirmed = $event === true">
-            Create a private draft from this revision and withdraw the current publication
+            {{ t('admin.rollback.confirmDraft') }}
           </ElCheckbox>
           <ElButton native-type="button" type="danger" plain :disabled="!canRestoreDraft" :loading="busy" @click="rollback(true)">
-            Restore as draft and withdraw
+            {{ t('admin.rollback.restoreDraft') }}
           </ElButton>
         </div>
       </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -10,7 +11,7 @@ const props = defineProps<{ session: AdminSession, sessionSignal: AbortSignal }>
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
 const observation = shallowRef<Awaited<ReturnType<typeof readAdminCluster>>>()
 const busy = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 let request: AbortController | undefined
 
 function clear() {
@@ -33,8 +34,8 @@ async function check() {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 403) error.value = 'The system.config permission is required.'
-    else error.value = 'Could not check deployment status. Try again.'
+    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.systemPermission'
+    else error.value = 'admin.deploymentFailed'
   } finally {
     if (request === current) { request = undefined; busy.value = false }
   }
@@ -45,22 +46,22 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
 
 <template>
   <section class="auth-form" aria-labelledby="admin-cluster-heading" :aria-busy="busy">
-    <h2 id="admin-cluster-heading">Deployment status</h2>
-    <ElButton native-type="button" :loading="busy" @click="check">Check deployment status</ElButton>
-    <ElAlert v-if="error" :title="error" :closable="false" type="error" />
+    <h2 id="admin-cluster-heading">{{ t('admin.deploymentStatus') }}</h2>
+    <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkDeployment') }}</ElButton>
+    <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <div aria-live="polite">
       <dl v-if="observation">
-        <dt>Mode</dt><dd>Single instance</dd>
-        <dt>Distributed scheduling</dt><dd>Unavailable in single-instance mode</dd>
-        <template v-if="observation.nodeId"><dt>Node label</dt><dd>{{ observation.nodeId }}</dd></template>
-        <dt>Instance ID</dt><dd><code>{{ observation.instanceId }}</code></dd>
-        <dt>Build version</dt><dd>{{ observation.buildVersion }}</dd>
-        <dt>Process start</dt>
+        <dt>{{ t('admin.mode') }}</dt><dd>{{ t('admin.singleInstance') }}</dd>
+        <dt>{{ t('admin.distributedScheduling') }}</dt><dd>{{ t('admin.singleInstanceUnavailable') }}</dd>
+        <template v-if="observation.nodeId"><dt>{{ t('admin.nodeLabel') }}</dt><dd>{{ observation.nodeId }}</dd></template>
+        <dt>{{ t('admin.instanceId') }}</dt><dd><code>{{ observation.instanceId }}</code></dd>
+        <dt>{{ t('admin.buildVersion') }}</dt><dd>{{ observation.buildVersion }}</dd>
+        <dt>{{ t('admin.processStart') }}</dt>
         <dd><time :datetime="new Date(observation.startedAt).toISOString()">{{ new Date(observation.startedAt).toLocaleString() }}</time></dd>
-        <dt>Observed at</dt>
+        <dt>{{ t('admin.observedAt') }}</dt>
         <dd><time :datetime="new Date(observation.observedAt).toISOString()">{{ new Date(observation.observedAt).toLocaleString() }}</time></dd>
-        <dt>Publication lease</dt><dd>Confirmed on the configured primary ({{ observation.leaseAgeMs }} ms old)</dd>
-        <dt>Public snapshot</dt><dd>{{ observation.snapshotReady ? 'Ready' : 'Not ready' }}</dd>
+        <dt>{{ t('admin.publicationLease') }}</dt><dd>{{ t('admin.leaseConfirmed', { age: observation.leaseAgeMs }) }}</dd>
+        <dt>{{ t('admin.publicSnapshot') }}</dt><dd>{{ observation.snapshotReady ? t('admin.ready') : t('admin.notReady') }}</dd>
       </dl>
     </div>
   </section>

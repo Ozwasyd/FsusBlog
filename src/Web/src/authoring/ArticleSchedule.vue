@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -34,8 +35,8 @@ watch(() => [props.articleId, props.revision, open.value, attempt.value] as cons
   } catch (error) {
     if (controller.signal.aborted) return
     failure.value = error instanceof ApiError && error.status === 409
-      ? 'Load the current draft to see its schedule.'
-      : 'Could not load the schedule. Reopen the panel to retry.'
+      ? t('author.articleSchedule.load.the.current.draft.to.see.its.schedule')
+      : t('author.articleSchedule.could.not.load.the.schedule.reopen.the.panel.to')
   }
 }, { flush: 'sync' })
 
@@ -46,22 +47,21 @@ function toggle(event: Event) {
 
 <template>
   <details class="article-schedule" @toggle="toggle">
-    <summary>Scheduled publication</summary>
+    <summary>{{ t('author.articleSchedule.scheduled.publication') }}</summary>
     <ElAlert v-if="failure" type="error" :closable="false" :title="failure" />
-    <p v-else-if="open && !current" role="status">Loading schedule…</p>
+    <p v-else-if="open && !current" role="status">{{ t('author.articleSchedule.loading.schedule') }}</p>
     <template v-if="current">
       <p v-if="current.dueUnixMs">
-        Scheduled for {{ new Date(Number(current.dueUnixMs)).toISOString() }}.
-        Editing and saving the draft clears this schedule.
+        {{ t('author.articleSchedule.scheduled.for.editing.and.saving.the.draft.clears', { p0: String(new Date(Number(current.dueUnixMs)).toISOString()) }) }}
       </p>
-      <label for="article-schedule-time">Publish at (UTC)</label>
+      <label for="article-schedule-time">{{ t('author.articleSchedule.publish.at.utc') }}</label>
       <ElInput id="article-schedule-time" v-model="due" placeholder="2027-01-30T12:00:00Z" :disabled="!canChange" />
       <div class="schedule-actions">
         <ElButton :disabled="!canChange || !input || input === current.dueUnixMs" @click="emit('schedule', input)">
-          {{ current.dueUnixMs ? 'Reschedule publication' : 'Schedule publication' }}
+          {{ current.dueUnixMs ? t('author.articleSchedule.reschedule.publication') : t('author.articleSchedule.schedule.publication') }}
         </ElButton>
-        <ElButton v-if="current.dueUnixMs" :disabled="!canChange" text @click="emit('schedule', 0n)">Cancel schedule</ElButton>
-        <ElButton v-if="current.dueUnixMs" text @click="attempt++">Refresh schedule</ElButton>
+        <ElButton v-if="current.dueUnixMs" :disabled="!canChange" text @click="emit('schedule', 0n)">{{ t('author.articleSchedule.cancel.schedule') }}</ElButton>
+        <ElButton v-if="current.dueUnixMs" text @click="attempt++">{{ t('author.articleSchedule.refresh.schedule') }}</ElButton>
       </div>
     </template>
   </details>

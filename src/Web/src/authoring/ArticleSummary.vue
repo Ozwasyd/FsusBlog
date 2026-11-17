@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { draftSummary, type DraftSummaryEdit } from '../../../Contracts/article-summary-client'
@@ -62,8 +63,8 @@ watch(() => [props.articleId, props.revision, props.credential, opened.value, re
     } catch (failure) {
       if (read.signal.aborted) return
       error.value = failure instanceof ApiError && failure.status === 409
-        ? 'This summary no longer matches the open draft revision. Reload the draft to continue.'
-        : 'Could not load the article summary.'
+        ? t('author.articleSummary.this.summary.no.longer.matches.the.open.draft.revision')
+        : t('author.articleSummary.could.not.load.the.article.summary')
     } finally {
       if (!read.signal.aborted) loading.value = false
     }
@@ -136,22 +137,22 @@ function save() {
 
 <template>
   <details ref="disclosure" class="article-summary" :open="expanded" @toggle="toggle">
-    <summary>Article summary</summary>
-    <p v-if="loading" role="status">Loading summary…</p>
+    <summary>{{ t('author.articleSummary.article.summary') }}</summary>
+    <p v-if="loading" role="status">{{ t('author.articleSummary.loading.summary') }}</p>
     <template v-else-if="error">
       <ElAlert :title="error" type="error" :closable="false" />
-      <ElButton native-type="button" text @click="retry++">Retry summary</ElButton>
+      <ElButton native-type="button" text @click="retry++">{{ t('author.articleSummary.retry.summary') }}</ElButton>
     </template>
     <div v-else-if="loaded" class="summary-fields">
-      <p :id="descriptionId">Leave empty to use the generated summary.</p>
-      <ElInput ref="input" v-model="text" type="textarea" label="Summary text" :disabled="!canChange"
+      <p :id="descriptionId">{{ t('author.articleSummary.leave.empty.to.use.the.generated.summary') }}</p>
+      <ElInput ref="input" v-model="text" type="textarea" :label="t('author.articleSummary.summary.text')" :disabled="!canChange"
         v-bind="{ maxlength: WireLimits.ArticleSummaryEditChars, 'aria-describedby': descriptionId }" />
-      <p v-if="dirty && !valid" role="status">Use plain text up to {{ WireLimits.ArticleSummaryEditChars }} characters.</p>
-      <p v-else-if="saving" role="status">Saving summary…</p>
+      <p v-if="dirty && !valid" role="status">{{ t('author.articleSummary.use.plain.text.up.to.characters', { p0: String(WireLimits.ArticleSummaryEditChars) }) }}</p>
+      <p v-else-if="saving" role="status">{{ t('author.articleSummary.saving.summary') }}</p>
       <div class="summary-actions">
-        <ElButton native-type="button" :disabled="!canChange || !dirty || !valid" @click="save">Save summary</ElButton>
-        <ElButton v-if="text" native-type="button" :disabled="!canChange" text @click="setText('')">Clear summary</ElButton>
-        <ElButton v-if="dirty" native-type="button" :disabled="!canChange" text @click="setText(loaded.text)">Discard summary changes</ElButton>
+        <ElButton native-type="button" :disabled="!canChange || !dirty || !valid" @click="save">{{ t('author.articleSummary.save.summary') }}</ElButton>
+        <ElButton v-if="text" native-type="button" :disabled="!canChange" text @click="setText('')">{{ t('author.articleSummary.clear.summary') }}</ElButton>
+        <ElButton v-if="dirty" native-type="button" :disabled="!canChange" text @click="setText(loaded.text)">{{ t('author.articleSummary.discard.summary.changes') }}</ElButton>
       </div>
     </div>
   </details>

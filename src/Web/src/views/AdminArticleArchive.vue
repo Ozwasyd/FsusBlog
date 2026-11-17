@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -30,12 +31,12 @@ const before = ref<number>()
 const selected = shallowRef<AdminArchivedArticle>()
 const previewOpen = ref(false)
 const previewResult = shallowRef<AdminArticleArchivePreview>()
-const previewError = ref('')
+const previewError = ref<MessageKey | ''>('')
 let previewRequest: AbortController | undefined
 const reason = ref('')
 const confirmed = ref(false)
-const failure = ref('')
-const listFailure = ref('')
+const failure = ref<MessageKey | ''>('')
+const listFailure = ref<MessageKey | ''>('')
 const retry = shallowRef<AdminArticleArchiveIntent>()
 const receipt = shallowRef<AdminArticleArchiveReceipt>()
 const archivedTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -64,8 +65,8 @@ const notice = computed(() => {
   const result = receipt.value
   if (!result) return ''
   return result.targetStatus === AdminArchiveTarget.Archived
-    ? `Archived revision ${result.revision} as private release ${result.releaseId}`
-    : `Republished revision ${result.revision} as publication ${result.releaseId}`
+    ? t('admin.archive.archived', { revision: String(result.revision), release: String(result.releaseId) })
+    : t('admin.archive.republished', { revision: String(result.revision), release: String(result.releaseId) })
 })
 watch(working, value => emit('working-change', value), { flush: 'sync' })
 watch(review, () => { reason.value = ''; confirmed.value = false })
@@ -87,7 +88,7 @@ async function load(requestedBefore?: number) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else listFailure.value = 'Could not read archived articles. Try again.'
+    else listFailure.value = 'admin.archive.listFailed'
   } finally { reading.value = false }
 }
 
@@ -112,7 +113,7 @@ async function openArchivePreview(row: AdminArchivedArticle) {
       closeArchivePreview()
       emit('session-lost', cause)
     } else {
-      previewError.value = 'Could not read this archived revision. Refresh the archive and try again.'
+      previewError.value = 'admin.archive.previewFailed'
     }
   }
 }
@@ -157,17 +158,17 @@ async function submit() {
       emit('session-lost', cause)
     } else if (sent && (!(cause instanceof ApiError) || cause.status >= 500)) {
       retry.value = intent
-      failure.value = 'The result is unknown. Check this same command before trying again.'
+      failure.value = 'admin.archive.unknown'
     } else if (pending || cause instanceof ApiError && cause.status === 409) {
       retry.value = undefined
       selected.value = undefined
       emit('invalidate-review')
-      failure.value = 'Review the current article before repeating this operation.'
+      failure.value = 'admin.archive.reviewAgain'
       await load()
     } else if (cause instanceof DOMException && cause.name === 'NotAllowedError') {
-      failure.value = 'Passkey confirmation was canceled or expired.'
+      failure.value = 'admin.archive.passkeyCanceled'
     } else {
-      failure.value = 'Could not complete the archive operation. Check access and try again.'
+      failure.value = 'admin.archive.failed'
     }
   } finally { saving.value = false }
 }
@@ -187,61 +188,61 @@ onMounted(async () => {
 
 <template>
   <div v-if="available" class="admin-archive">
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
+    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <ElAlert v-if="notice" :title="notice" type="success" :closable="false" />
     <ElButton v-if="retry" native-type="button" :loading="saving" :disabled="props.blocked || reading" @click="submit">
-      Check archive command result
+      {{ t('admin.archive.check') }}
     </ElButton>
     <div v-else-if="review" class="archive-review">
       <template v-if="selected">
-        <h3>Republish {{ selected.title }}</h3>
-        <p>Article {{ selected.articleId }} · Revision {{ selected.revision }} · Private release {{ selected.privateReleaseId }}</p>
+        <h3>{{ t('admin.archive.republishTitle', { title: selected.title }) }}</h3>
+        <p>{{ t('admin.archive.coordinates', { article: selected.articleId, revision: String(selected.revision), release: String(selected.privateReleaseId) }) }}</p>
         <ElButton native-type="button" text :disabled="blocked || reading" v-bind="{ 'aria-haspopup': 'dialog' }"
-          @click="openArchivePreview(selected)">Preview archived source</ElButton>
+          @click="openArchivePreview(selected)">{{ t('admin.archive.preview') }}</ElButton>
       </template>
-      <label for="admin-archive-reason">{{ selected ? 'Reason for republishing this revision' : 'Reason for archiving this revision' }}</label>
+      <label for="admin-archive-reason">{{ selected ? t('admin.archive.republishReason') : t('admin.archive.archiveReason') }}</label>
       <ElInput id="admin-archive-reason" v-model="reason" type="textarea" :disabled="blocked" @input="confirmed = false" />
       <ElCheckbox :model-value="confirmed" :disabled="blocked" @update:model-value="confirmed = $event === true">
-        {{ selected ? 'Publish this exact archived revision' : 'Create an archived revision and withdraw the current publication' }}
+        {{ selected ? t('admin.archive.confirmRepublish') : t('admin.archive.confirmArchive') }}
       </ElCheckbox>
       <div class="archive-actions">
         <ElButton native-type="button" :type="selected ? 'primary' : 'danger'" :plain="!selected"
           :disabled="!canSubmit" :loading="saving" @click="submit">
-          {{ selected ? 'Republish with Passkey' : 'Archive revision and withdraw' }}
+          {{ selected ? t('admin.archive.republish') : t('admin.archive.archive') }}
         </ElButton>
-        <ElButton v-if="selected" native-type="button" text :disabled="blocked || reading" @click="select()">Cancel republish</ElButton>
+        <ElButton v-if="selected" native-type="button" text :disabled="blocked || reading" @click="select()">{{ t('admin.archive.cancel') }}</ElButton>
       </div>
     </div>
     <section class="admin-archive" aria-labelledby="archived-articles-heading" :aria-busy="reading">
-      <h3 id="archived-articles-heading">Archived articles</h3>
-      <ElAlert v-if="listFailure" :title="listFailure" type="error" :closable="false" />
-      <p v-else-if="page?.items.length === 0" role="status">No archived articles on this page.</p>
+      <h3 id="archived-articles-heading">{{ t('admin.archive.heading') }}</h3>
+      <ElAlert v-if="listFailure" :title="t(listFailure)" type="error" :closable="false" />
+      <p v-else-if="page?.items.length === 0" role="status">{{ t('admin.archive.empty') }}</p>
       <ul v-else-if="page" class="archive-list">
         <li v-for="row in page.items" :key="row.articleId">
           <strong>{{ row.title }}</strong>
-          <p>Article {{ row.articleId }} · Revision {{ row.revision }}</p>
+          <p>{{ t('admin.archive.row', { article: row.articleId, revision: String(row.revision) }) }}</p>
           <time :datetime="new Date(Number(row.archivedUnixMs)).toISOString()">
             {{ archivedTime.format(Number(row.archivedUnixMs)) }}
           </time>
-          <ElButton native-type="button" text :disabled="blocked || reading" @click="select(row)">Review for republishing</ElButton>
+          <ElButton native-type="button" text :disabled="blocked || reading" @click="select(row)">{{ t('admin.archive.review') }}</ElButton>
         </li>
       </ul>
       <div class="archive-actions">
         <ElButton native-type="button" text :disabled="blocked || reading" @click="load()">
-          {{ before === undefined ? 'Refresh archived articles' : 'First archive page' }}
+          {{ before === undefined ? t('admin.archive.refresh') : t('admin.archive.first') }}
         </ElButton>
         <ElButton v-if="page?.nextId" native-type="button" text :disabled="blocked || reading"
-          @click="load(page?.nextId ?? undefined)">Next archive page</ElButton>
+          @click="load(page?.nextId ?? undefined)">{{ t('admin.archive.next') }}</ElButton>
       </div>
     </section>
-    <ElDialog :model-value="previewOpen" title="Archived Markdown source" append-to-body destroy-on-close
+    <ElDialog :model-value="previewOpen" :title="t('admin.archive.sourceTitle')" append-to-body destroy-on-close
       width="min(52rem, calc(100vw - 2rem))" top="5vh" @close="closeArchivePreview">
-      <ElAlert v-if="previewError" :title="previewError" type="error" :closable="false" />
+      <ElAlert v-if="previewError" :title="t(previewError)" type="error" :closable="false" />
       <template v-else-if="previewResult">
         <h3 class="archive-preview-title">{{ previewResult.title }}</h3>
-        <pre class="archive-source" tabindex="0" aria-label="Archived Markdown">{{ previewResult.markdown }}</pre>
+        <pre class="archive-source" tabindex="0" :aria-label="t('admin.archive.sourceLabel')">{{ previewResult.markdown }}</pre>
       </template>
-      <p v-else-if="previewOpen" role="status">Loading archived source…</p>
+      <p v-else-if="previewOpen" role="status">{{ t('admin.archive.loading') }}</p>
     </ElDialog>
   </div>
 </template>

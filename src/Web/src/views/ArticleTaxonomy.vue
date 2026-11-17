@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import {
@@ -76,9 +77,9 @@ watch(() => [props.articleId, props.revision, props.identity, retry.value] as co
     if (request.signal.aborted) return
     if (cause instanceof ApiError && cause.status === 409) {
       emit('stale')
-      error.value = 'Load the current draft revision to edit its classification.'
+      error.value = t('author.taxonomy.loadTheCurrentDraftRevisionToEditIts')
     } else {
-      error.value = 'Could not load article classification.'
+      error.value = t('author.taxonomy.couldNotLoadArticleClassification')
     }
   } finally {
     if (!request.signal.aborted) loading.value = false
@@ -93,25 +94,25 @@ function reset() {
 
 <template>
   <section class="editor-taxonomy" aria-labelledby="editor-taxonomy-title">
-    <h2 id="editor-taxonomy-title">Classification</h2>
-    <p v-if="loading" role="status">Loading classification…</p>
+    <h2 id="editor-taxonomy-title">{{ t('author.taxonomy.classification') }}</h2>
+    <p v-if="loading" role="status">{{ t('author.taxonomy.loadingClassification') }}</p>
     <template v-else-if="error">
       <ElAlert :title="error" type="error" :closable="false" />
-      <ElButton :disabled="props.disabled" @click="retry++">Retry classification</ElButton>
+      <ElButton :disabled="props.disabled" @click="retry++">{{ t('author.taxonomy.retryClassification') }}</ElButton>
     </template>
     <template v-else-if="original">
-      <label for="edit-category">Category</label>
-      <ElSelect id="edit-category" v-model="category" ariaLabel="Category" :disabled="props.disabled" filterable>
-        <ElOption :value="0" label="No category" />
+      <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
+      <ElSelect id="edit-category" v-model="category" :ariaLabel="t('author.taxonomy.category')" :disabled="props.disabled" filterable>
+        <ElOption :value="0" :label="t('author.taxonomy.noCategory')" />
         <ElOption v-for="item in categoryOptions" :key="item.id" :value="item.id" :label="item.name" />
       </ElSelect>
-      <label for="edit-tags">Tags</label>
-      <ElSelect id="edit-tags" v-model="tags" ariaLabel="Tags" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
+      <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
+      <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('author.taxonomy.tags')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
         <ElOption v-for="item in tagOptions" :key="item.id" :value="item.id" :label="item.name" />
       </ElSelect>
       <div class="editor-taxonomy-actions">
-        <ElButton :disabled="props.disabled || !dirty" @click="emit('save', selected)">Save classification</ElButton>
-        <ElButton v-if="dirty" :disabled="props.disabled" text @click="reset">Discard classification changes</ElButton>
+        <ElButton :disabled="props.disabled || !dirty" @click="emit('save', selected)">{{ t('author.taxonomy.saveClassification') }}</ElButton>
+        <ElButton v-if="dirty" :disabled="props.disabled" text @click="reset">{{ t('author.taxonomy.discardClassificationChanges') }}</ElButton>
       </div>
     </template>
   </section>

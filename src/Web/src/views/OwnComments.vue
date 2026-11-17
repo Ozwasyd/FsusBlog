@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -27,8 +28,8 @@ const editReady = computed(() => Boolean(editDetail.value && !editPending.value 
   editContent.value.trim() && editContent.value !== editDetail.value.body && editContent.value.length <= 1000 &&
   encoder.encode(editContent.value).length <= WireLimits.PublicCommentBodyBytes &&
   !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\p{Cs}]/u.test(editContent.value)))
-const statuses = ['待审核', '已通过', '已驳回', '已隐藏'] as const
-const appeals = ['', '可以申诉', '申诉待复核', '申诉已通过', '申诉未通过', '原审核结论已变化'] as const
+const statuses = computed(() => [t('account.message155'), t('account.message156'), t('account.message157'), t('account.message158')] as const)
+const appeals = computed(() => ['', t('account.message159'), t('account.message160'), t('account.message161'), t('account.message162'), t('account.message163')] as const)
 let scope = new AbortController()
 let editRequest: AbortController | undefined
 
@@ -59,7 +60,7 @@ async function reload(before: string | null, session: string, signal: AbortSigna
 function load(append = false) {
   if (editTarget.value) return
   return run((session, signal) => reload(append ? rows.value?.at(-1)?.comment ?? null : null, session, signal),
-    '无法读取我的评论，请重试。')
+    t('account.message164'))
 }
 
 function submit(comment: string) {
@@ -70,8 +71,8 @@ function submit(comment: string) {
     if (signal.aborted) return
     clearForm()
     rows.value = rows.value?.map(row => row.comment === comment ? { ...row, appeal: 2 } : row) ?? null
-    notice.value = '申诉已提交，等待独立复核。'
-  }, '无法提交申诉。若请求已送达，可刷新查看进度。')
+    notice.value = t('account.message165')
+  }, t('account.message166'))
 }
 
 function canEdit(row: AuthorAppeal) {
@@ -123,13 +124,13 @@ async function openEdit(row: AuthorAppeal) {
       return
     }
     if (detail.articleId !== target.article) {
-      editProblem.value = '评论所属文章已变化，请重新加载评论。'
+      editProblem.value = t('account.message167')
       return
     }
     editDetail.value = detail
     editBody.value = detail.body
   } catch {
-    if (!request.signal.aborted) editProblem.value = '此评论暂时无法编辑，请重新加载评论。'
+    if (!request.signal.aborted) editProblem.value = t('account.message168')
   } finally {
     finishEditRequest(request)
   }
@@ -152,11 +153,11 @@ async function saveEdit() {
     rows.value = null
     more.value = false
     editEnabled.value = false
-    notice.value = '评论已修改，仍待审核。'
-    await run((session, signal) => reload(null, session, signal), '评论已保存，但无法刷新列表，请重试。')
+    notice.value = t('account.message169')
+    await run((session, signal) => reload(null, session, signal), t('account.message170'))
   } catch (error) {
     if (!request.signal.aborted) editProblem.value = error instanceof ApiError && error.status === 409
-      ? '评论版本已变化，请重新加载评论后再编辑。' : '无法确认修改结果，请重新加载评论。'
+      ? t('account.message171') : t('account.message172')
   } finally {
     finishEditRequest(request)
   }
@@ -191,49 +192,49 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="own-comments reading-column" aria-labelledby="own-comments-title">
-    <h1 id="own-comments-title">我的评论</h1>
-    <p v-if="!currentSession"><RouterLink to="/login">登录后查看我的评论</RouterLink></p>
+    <h1 id="own-comments-title">{{ t('account.message111') }}</h1>
+    <p v-if="!currentSession"><RouterLink to="/login">{{ t('account.message140') }}</RouterLink></p>
     <template v-else>
-      <ElButton native-type="button" :loading="busy" :disabled="!!editTarget" @click="load()">刷新评论与申诉</ElButton>
+      <ElButton native-type="button" :loading="busy" :disabled="!!editTarget" @click="load()">{{ t('account.message141') }}</ElButton>
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
       <p v-if="notice" role="status">{{ notice }}</p>
-      <p v-if="rows?.length === 0">没有可显示的评论。</p>
+      <p v-if="rows?.length === 0">{{ t('account.message142') }}</p>
       <ul v-else-if="rows" class="own-comments-list">
         <li v-for="row in rows" :key="row.comment">
-          <RouterLink :to="`/article/${row.article}`">文章 {{ row.article }}</RouterLink>
+          <RouterLink :to="`/article/${row.article}`">{{ t('account.articleNumber', { id: row.article }) }}</RouterLink>
           <p>{{ statuses[row.status] }}<template v-if="row.appeal"> · {{ appeals[row.appeal] }}</template></p>
           <p v-if="row.body" class="own-comment-text">{{ row.body }}</p>
           <p v-if="row.decisionReason" class="own-comment-text">{{ row.decisionReason }}</p>
           <ElButton v-if="row.appeal === 1 && selected !== row.comment" native-type="button" :disabled="busy || !!editTarget"
-            @click="clearForm(); selected = row.comment">发起申诉</ElButton>
+            @click="clearForm(); selected = row.comment">{{ t('account.message143') }}</ElButton>
           <form v-if="selected === row.comment" class="appeal-form" @submit.prevent="submit(row.comment)">
-            <label :for="`appeal-reason-${row.comment}`">申诉理由（10 至 1,000 字符）</label>
+            <label :for="`appeal-reason-${row.comment}`">{{ t('account.message144') }}</label>
             <ElInput :id="`appeal-reason-${row.comment}`" v-model="reason" type="textarea" :disabled="busy" />
             <div>
-              <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!appealReason(reason)">提交申诉</ElButton>
-              <ElButton native-type="button" :disabled="busy" @click="clearForm">取消</ElButton>
+              <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!appealReason(reason)">{{ t('account.message145') }}</ElButton>
+              <ElButton native-type="button" :disabled="busy" @click="clearForm">{{ t('account.message106') }}</ElButton>
             </div>
           </form>
           <ElButton v-if="canEdit(row) && editTarget?.comment !== row.comment" native-type="button"
-            :disabled="busy || !!editTarget" @click="openEdit(row)">编辑评论</ElButton>
-          <form v-if="editTarget?.comment === row.comment" class="appeal-form" aria-label="编辑待审核评论" @submit.prevent="saveEdit">
-            <p v-if="editPending" role="status">{{ editPending === 'detail' ? '正在读取评论…' : '正在保存修改…' }}</p>
+            :disabled="busy || !!editTarget" @click="openEdit(row)">{{ t('account.message146') }}</ElButton>
+          <form v-if="editTarget?.comment === row.comment" class="appeal-form" :aria-label="t('account.message147')" @submit.prevent="saveEdit">
+            <p v-if="editPending" role="status">{{ editPending === 'detail' ? t('account.message148') : t('account.message149') }}</p>
             <template v-if="editDetail">
-              <label :for="`edit-comment-${row.comment}`">评论内容</label>
+              <label :for="`edit-comment-${row.comment}`">{{ t('account.message150') }}</label>
               <ElInput :id="`edit-comment-${row.comment}`" v-model="editBody" type="textarea"
                 v-bind="{ rows: 5, maxlength: 1000 }" :disabled="editPending === 'save'" :readonly="!!editProblem" />
             </template>
             <ElAlert v-if="editProblem" :title="editProblem" type="error" :closable="false" />
             <div>
               <ElButton v-if="editDetail && !editProblem" native-type="submit" type="primary" :disabled="!editReady"
-                :loading="editPending === 'save'">保存修改</ElButton>
-              <ElButton v-if="editProblem" native-type="button" @click="reloadAfterEditProblem">重新加载评论</ElButton>
-              <ElButton native-type="button" :disabled="editPending === 'save'" @click="clearEdit">取消编辑</ElButton>
+                :loading="editPending === 'save'">{{ t('account.message151') }}</ElButton>
+              <ElButton v-if="editProblem" native-type="button" @click="reloadAfterEditProblem">{{ t('account.message152') }}</ElButton>
+              <ElButton native-type="button" :disabled="editPending === 'save'" @click="clearEdit">{{ t('account.message153') }}</ElButton>
             </div>
           </form>
         </li>
       </ul>
-      <ElButton v-if="more" native-type="button" :loading="busy" :disabled="!!editTarget" text @click="load(true)">加载更多评论</ElButton>
+      <ElButton v-if="more" native-type="button" :loading="busy" :disabled="!!editTarget" text @click="load(true)">{{ t('account.message154') }}</ElButton>
     </template>
   </section>
 </template>

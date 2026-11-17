@@ -1,4 +1,5 @@
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { t, type MessageKey } from '../siteLocale'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { listRecentOpens, recordRecentOpen } from '../../../Contracts/author-recent-opens'
 import { ApiError } from '../../../Contracts/client'
 import { currentSession, identityEpoch } from '../session'
@@ -7,7 +8,8 @@ type Visit = Readonly<{ articleId: number; articleRevision: bigint; expiresAt: n
 
 export function recentArticleOpens() {
   const changed = ref(0)
-  const notice = ref('')
+  const noticeKey = ref<MessageKey | ''>('')
+  const notice = computed(() => noticeKey.value ? t(noticeKey.value) : '')
   let active = new AbortController()
   let collectionRevision: bigint | undefined
   let running = false
@@ -21,7 +23,7 @@ export function recentArticleOpens() {
     collectionRevision = undefined
     running = false
     unavailable = false
-    notice.value = ''
+    noticeKey.value = ''
   }
 
   watch([identityEpoch, () => currentSession.value?.siteSessionId, () => currentSession.value?.canAuthor], reset, { flush: 'sync' })
@@ -47,7 +49,7 @@ export function recentArticleOpens() {
           requestId: crypto.randomUUID(), articleId, articleRevision })
         signal.throwIfAborted()
         collectionRevision = receipt.revision
-        notice.value = ''
+        noticeKey.value = ''
         changed.value++
       }
     } catch (error) {
@@ -58,7 +60,7 @@ export function recentArticleOpens() {
       unavailable = !known && error instanceof ApiError && error.status === 404
       collectionRevision = undefined
       if (!unavailable) {
-        notice.value = 'This article open could not be recorded.'
+        noticeKey.value = 'author.helper.recordFailed'
         changed.value++
       }
     } finally {

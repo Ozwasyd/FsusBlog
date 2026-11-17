@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -57,17 +58,17 @@ const formTouched = ref(false)
 const unsettled = computed(() => mutating.value || canRetry.value || formTouched.value || staged.value.size > 0)
 const disabledInput = computed(() => props.disabled || busy.value || canRetry.value || shouldReload.value)
 const editingDisabled = computed(() => disabledInput.value || editing.value?.deprecated === true)
-const kindLabels: Record<PropertyKind, string> = {
-  text: 'Text', number: 'Number', boolean: 'Boolean', date: 'Date', 'single-select': 'Single select',
-  'multi-select': 'Multiple select', 'article-reference': 'Article reference', url: 'URL',
+const kindLabels: Record<PropertyKind, MessageKey> = {
+  text: 'author.properties.text', number: 'author.properties.number', boolean: 'author.properties.boolean', date: 'author.properties.date', 'single-select': 'author.properties.singleSelect',
+  'multi-select': 'author.properties.multipleSelect', 'article-reference': 'author.properties.articleReference', url: 'author.properties.url',
 }
 const isSelection = (kind: PropertyKind) => kind === 'single-select' || kind === 'multi-select'
 const inputHelp = computed(() => {
   switch (editing.value?.kind) {
-    case 'number': return 'Use decimal notation without an exponent.'
-    case 'date': return 'Enter a date (YYYY-MM-DD, midnight UTC) or a UTC timestamp ending in Z.'
-    case 'article-reference': return 'Enter the numeric ID of a readable article.'
-    case 'url': return 'Enter an absolute HTTPS URL.'
+    case 'number': return t('author.properties.useDecimalNotationWithoutAnExponent')
+    case 'date': return t('author.properties.enterADateYyyyMmDdMidnightUtc')
+    case 'article-reference': return t('author.properties.enterTheNumericIdOfAReadableArticle')
+    case 'url': return t('author.properties.enterAnAbsoluteHttpsUrl')
     default: return ''
   }
 })
@@ -134,12 +135,12 @@ function selectMany(answers: readonly (string | number)[]) {
 }
 
 function failureMessage(cause: unknown) {
-  if (!(cause instanceof ApiError)) return 'The server did not confirm the request.'
+  if (!(cause instanceof ApiError)) return t('author.properties.theServerDidNotConfirmTheRequest')
   if (cause.status === 401) {
     invalidateSession()
-    return 'Log in again to edit properties.'
+    return t('author.properties.logInAgainToEditProperties')
   }
-  if (cause.status === 403 || cause.status === 404) return 'You can no longer edit these properties.'
+  if (cause.status === 403 || cause.status === 404) return t('author.properties.youCanNoLongerEditTheseProperties')
   return cause.message
 }
 
@@ -178,7 +179,7 @@ async function load(lifetime: AbortController, keys: readonly string[] = [''], e
     if (lifetime.signal.aborted) return false
     if (result.articleId !== props.articleId || result.articleRevision !== props.revision) throw Error('Property identity changed')
     if (expected && (result.schemaRevision !== expected.schemaRevision || result.valueRevision !== expected.valueRevision)) {
-      failure.value = 'The property schema or values changed. Reload to see the current properties.'
+      failure.value = t('author.properties.thePropertySchemaOrValuesChangedReloadTo')
       shouldReload.value = true
       return false
     }
@@ -213,12 +214,12 @@ function createDefinition() {
   const validLabel = (label: string) => label.trim().length > 0 && label.length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/u.test(label)
   if (definitionKey.value.length > 64 || !/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(definitionKey.value) ||
       !validLabel(definitionName.value)) {
-    failure.value = 'Enter a label and a key using lowercase letters, numbers, underscores or hyphens.'
+    failure.value = t('author.properties.enterALabelAndAKeyUsingLowercase')
     return
   }
   const values = isSelection(definitionKind.value) ? options.value : []
   if (isSelection(definitionKind.value) && (values.length === 0 || !values.every(option => validLabel(option.label)))) {
-    failure.value = 'Enter a label for each option.'
+    failure.value = t('author.properties.enterALabelForEachOption')
     return
   }
   void perform({ kind: 'definition', request: {
@@ -230,11 +231,11 @@ function createDefinition() {
 
 function normalizeDate(input: string): string {
   const match = /^(?!0000)([0-9]{4}-[0-9]{2}-[0-9]{2})(?:T([0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,3}))?Z)?$/.exec(input)
-  if (!match) throw Error('Enter a valid date or a UTC timestamp ending in Z.')
+  if (!match) throw Error(t('author.properties.enterAValidDateOrAUtcTimestamp'))
   const canonical = `${match[1]}T${match[2] ?? '00:00:00'}.${(match[3] ?? '').padEnd(3, '0')}Z`
   const parsed = new Date(canonical)
   if (!Number.isFinite(parsed.valueOf()) || parsed.toISOString() !== canonical) {
-    throw Error('Enter a valid date or a UTC timestamp ending in Z.')
+    throw Error(t('author.properties.enterAValidDateOrAUtcTimestamp'))
   }
   return canonical
 }
@@ -243,23 +244,23 @@ function editedValue(kind: PropertyKind): PropertyValue {
   switch (kind) {
     case 'text':
       if (value.value.length > 16_384 || /[\u0000-\u001f\u007f-\u009f]/u.test(value.value)) {
-        throw Error('Enter a single line of at most 16,384 characters.')
+        throw Error(t('author.properties.enterASingleLineOfAtMost16'))
       }
       return { kind, value: value.value }
     case 'number':
       try {
         return { kind, value: normalizePropertyDecimal(value.value) }
       } catch {
-        throw Error('Enter a decimal in the supported range without rounding or an exponent.')
+        throw Error(t('author.properties.enterADecimalInTheSupportedRangeWithout'))
       }
     case 'boolean':
-      if (boolean.value === '') throw Error('Choose True or False.')
+      if (boolean.value === '') throw Error(t('author.properties.chooseTrueOrFalse'))
       return { kind, value: boolean.value }
     case 'date':
       return { kind, value: normalizeDate(value.value) }
     case 'single-select': {
       const option = selected.value[0]
-      if (option === undefined) throw Error('Choose an option.')
+      if (option === undefined) throw Error(t('author.properties.chooseAnOption'))
       return { kind, value: option }
     }
     case 'multi-select':
@@ -267,21 +268,21 @@ function editedValue(kind: PropertyKind): PropertyValue {
     case 'article-reference': {
       const id = Number(value.value)
       if (!/^[1-9][0-9]{0,9}$/.test(value.value) || id > 0x7fffffff || id === props.articleId) {
-        throw Error('Enter the numeric ID of another article.')
+        throw Error(t('author.properties.enterTheNumericIdOfAnotherArticle'))
       }
       return { kind, value: [id] }
     }
     case 'url': {
       if (!/^https:\/\//i.test(value.value) || /[\s\\]/u.test(value.value) || value.value.length > 2048) {
-        throw Error('Enter an absolute HTTPS URL.')
+        throw Error(t('author.properties.enterAnAbsoluteHttpsUrl'))
       }
       let url: URL
       try {
         url = new URL(value.value)
       } catch {
-        throw Error('Enter an absolute HTTPS URL.')
+        throw Error(t('author.properties.enterAnAbsoluteHttpsUrl'))
       }
-      if (url.username || url.password) throw Error('The URL cannot contain credentials.')
+      if (url.username || url.password) throw Error(t('author.properties.theUrlCannotContainCredentials'))
       return { kind, value: value.value }
     }
   }
@@ -296,7 +297,7 @@ function writeValue(action: 'save' | 'remove' = 'save') {
   try {
     updated = action === 'remove' ? { kind: 'missing' } : editedValue(property.kind)
   } catch (error) {
-    failure.value = error instanceof Error ? error.message : 'Enter a valid property value.'
+    failure.value = error instanceof Error ? error.message : t('author.properties.enterAValidPropertyValue')
     return
   }
   if (batchMode.value) {
@@ -390,7 +391,7 @@ async function perform(command: Command) {
       case 'batch': {
         const session = currentSession.value
         if (!session?.canAuthor || !session.siteSessionId || session.expiresAt <= Date.now()) {
-          failure.value = 'Log in again to edit properties.'
+          failure.value = t('author.properties.logInAgainToEditProperties')
           return
         }
         await propertyApi.values(command.request, lifetime.signal, session.siteSessionId)
@@ -402,8 +403,8 @@ async function perform(command: Command) {
     staged.value = new Map()
     batchMode.value = false
     clearEdits()
-    message.value = command.kind === 'definition' ? 'Property created.' : command.kind === 'batch' ? 'Property changes saved.'
-      : command.request.value.kind === 'missing' ? 'Property removed.' : 'Property saved.'
+    message.value = command.kind === 'definition' ? t('author.properties.propertyCreated') : command.kind === 'batch' ? t('author.properties.propertyChangesSaved')
+      : command.request.value.kind === 'missing' ? t('author.properties.propertyRemoved') : t('author.properties.propertySaved')
     await load(lifetime)
   } catch (cause) {
     if (lifetime.signal.aborted) return
@@ -503,37 +504,37 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
 
 <template>
   <section class="editor-taxonomy" aria-labelledby="article-properties-title">
-    <h2 id="article-properties-title" ref="heading" tabindex="-1">Properties</h2>
-    <p v-if="mutating" role="status">Saving article properties…</p>
-    <p v-else-if="busy" role="status">Loading article properties…</p>
+    <h2 id="article-properties-title" ref="heading" tabindex="-1">{{ t('author.properties.properties') }}</h2>
+    <p v-if="mutating" role="status">{{ t('author.properties.savingArticleProperties') }}</p>
+    <p v-else-if="busy" role="status">{{ t('author.properties.loadingArticleProperties') }}</p>
     <p v-if="message" role="status">{{ message }}</p>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
-    <ElButton v-if="shouldReload && !staged.size" :disabled="busy || disabled" @click="retryCount++">Reload properties</ElButton>
-    <ElButton v-if="canRetry && retained" :disabled="busy || disabled" @click="perform(retained)">Retry last property change</ElButton>
+    <ElButton v-if="shouldReload && !staged.size" :disabled="busy || disabled" @click="retryCount++">{{ t('author.properties.reloadProperties') }}</ElButton>
+    <ElButton v-if="canRetry && retained" :disabled="busy || disabled" @click="perform(retained)">{{ t('author.properties.retryLastPropertyChange') }}</ElButton>
     <div v-if="batchMode" class="property-batch">
-      <p v-if="staged.size" role="status">{{ staged.size }} {{ staged.size === 1 ? 'staged change' : 'staged changes' }}</p>
-      <p v-else>Choose properties to edit and stage them before saving.</p>
-      <p v-if="batchFull">This batch has reached the limit of {{ WireLimits.PropertyBatchMaxChanges }} properties.</p>
-      <p v-if="shouldReload && staged.size">Discard the staged changes to load the current properties.</p>
-      <ul v-if="staged.size" class="staged-properties" aria-label="Staged property changes">
+      <p v-if="staged.size" role="status">{{ t(staged.size === 1 ? 'author.properties.stagedOne' : 'author.properties.stagedMany', { count: staged.size }) }}</p>
+      <p v-else>{{ t('author.properties.choosePropertiesToEditAndStageThemBefore') }}</p>
+      <p v-if="batchFull">{{ t('author.properties.batchLimit', { limit: WireLimits.PropertyBatchMaxChanges }) }}</p>
+      <p v-if="shouldReload && staged.size">{{ t('author.properties.discardTheStagedChangesToLoadTheCurrent') }}</p>
+      <ul v-if="staged.size" class="staged-properties" :aria-label="t('author.properties.stagedPropertyChanges')">
         <li v-for="entry in staged.values()" :key="entry.field.definitionId">
           <span>{{ entry.field.label }} · {{ showValue(entry.field, entry.value) }}</span>
           <ElButton text native-type="button" :disabled="busy || canRetry || !!editing" @click="unstage(entry.field.definitionId)">
-            Unstage {{ entry.field.label }}
+            {{ t('author.properties.unstageLabel', { label: entry.field.label }) }}
           </ElButton>
         </li>
       </ul>
       <div class="editor-taxonomy-actions">
         <ElButton type="primary" native-type="button" :disabled="disabledInput || !staged.size || !!editing" @click="saveBatch">
-          Save property changes
+          {{ t('author.properties.savePropertyChanges') }}
         </ElButton>
         <ElButton native-type="button" :disabled="busy || canRetry" @click="discardBatch">
-          {{ staged.size ? 'Discard staged changes' : 'Cancel batch' }}
+          {{ staged.size ? t('author.properties.discardStagedChanges') : t('author.properties.cancelBatch') }}
         </ElButton>
       </div>
     </div>
     <template v-if="workspace && !shouldReload">
-      <p v-if="!workspace.fields.length && !creating">No properties yet.</p>
+      <p v-if="!workspace.fields.length && !creating">{{ t('author.properties.noPropertiesYet') }}</p>
       <dl v-if="workspace.fields.length">
         <template v-for="field in workspace.fields" :key="field.definitionId">
           <dt>{{ field.label }}</dt>
@@ -546,81 +547,81 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
               :disabled="disabledInput || creating || !!editing || (batchMode && batchFull && !staged.has(field.definitionId))"
               @click="openValueForm(field)"
             >
-              {{ field.deprecated ? 'Manage' : 'Edit' }} {{ field.label }}
+              {{ field.deprecated ? t('author.properties.manage') : t('author.properties.edit') }} {{ field.label }}
             </ElButton>
           </dd>
         </template>
       </dl>
-      <nav v-if="pageKeys.length > 1 || workspace.nextKey" class="editor-taxonomy-actions" aria-label="Property pages">
+      <nav v-if="pageKeys.length > 1 || workspace.nextKey" class="editor-taxonomy-actions" :aria-label="t('author.properties.propertyPages')">
         <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || pageKeys.length === 1"
-          @click="changePage(false)">Previous properties</ElButton>
-        <span role="status">Property page {{ pageKeys.length }}</span>
+          @click="changePage(false)">{{ t('author.properties.previousProperties') }}</ElButton>
+        <span role="status">{{ t('author.properties.pageNumber', { page: pageKeys.length }) }}</span>
         <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || !workspace.nextKey"
-          @click="changePage(true)">More properties</ElButton>
+          @click="changePage(true)">{{ t('author.properties.moreProperties') }}</ElButton>
       </nav>
       <div v-if="!creating && !editing && !batchMode" class="editor-taxonomy-actions">
-        <ElButton :disabled="disabledInput" native-type="button" @click="startDefinition">Add property</ElButton>
-        <ElButton v-if="workspace.fields.length" :disabled="disabledInput" native-type="button" @click="startBatch">Edit multiple properties</ElButton>
+        <ElButton :disabled="disabledInput" native-type="button" @click="startDefinition">{{ t('author.properties.addProperty') }}</ElButton>
+        <ElButton v-if="workspace.fields.length" :disabled="disabledInput" native-type="button" @click="startBatch">{{ t('author.properties.editMultipleProperties') }}</ElButton>
       </div>
       <form v-if="creating" class="property-form" @submit.prevent="createDefinition">
-        <label for="new-property-label">Property label</label>
+        <label for="new-property-label">{{ t('author.properties.propertyLabel') }}</label>
         <ElInput id="new-property-label" v-model="definitionName" :disabled="disabledInput" @input="formTouched = true" />
-        <label for="new-property-key">Property key</label>
+        <label for="new-property-key">{{ t('author.properties.propertyKey') }}</label>
         <ElInput id="new-property-key" v-model="definitionKey" :disabled="disabledInput" @input="formTouched = true" />
-        <label for="new-property-type">Property type</label>
+        <label for="new-property-type">{{ t('author.properties.propertyType') }}</label>
         <ElSelect
-          id="new-property-type" :model-value="definitionKind" ariaLabel="Property type" :disabled="disabledInput"
+          id="new-property-type" :model-value="definitionKind" :ariaLabel="t('author.properties.propertyType')" :disabled="disabledInput"
           @update:model-value="setKind"
         >
-          <ElOption v-for="kind in propertyKinds" :key="kind" :label="kindLabels[kind]" :value="kind" />
+          <ElOption v-for="kind in propertyKinds" :key="kind" :label="t(kindLabels[kind])" :value="kind" />
         </ElSelect>
         <template v-if="isSelection(definitionKind)">
           <div v-for="(option, index) in options" :key="option.id" class="property-form">
-            <label :for="`option-${option.id}`">Option {{ index + 1 }}</label>
+            <label :for="`option-${option.id}`">{{ t('author.properties.optionNumber', { index: index + 1 }) }}</label>
             <ElInput :id="`option-${option.id}`" v-model="option.label" :disabled="disabledInput" @input="formTouched = true" />
-            <ElButton text :disabled="disabledInput" @click="removeOption(option.id)">Remove option {{ index + 1 }}</ElButton>
+            <ElButton text :disabled="disabledInput" @click="removeOption(option.id)">{{ t('author.properties.removeOption', { index: index + 1 }) }}</ElButton>
           </div>
-          <ElButton text :disabled="disabledInput || options.length >= 32" @click="addOption">Add option</ElButton>
+          <ElButton text :disabled="disabledInput || options.length >= 32" @click="addOption">{{ t('author.properties.addOption') }}</ElButton>
         </template>
         <div class="editor-taxonomy-actions">
-          <ElButton native-type="submit" type="primary" :disabled="disabledInput">Create property</ElButton>
-          <ElButton :disabled="busy || canRetry" @click="clearEdits">Cancel</ElButton>
+          <ElButton native-type="submit" type="primary" :disabled="disabledInput">{{ t('author.properties.createProperty') }}</ElButton>
+          <ElButton :disabled="busy || canRetry" @click="clearEdits">{{ t('author.properties.cancel') }}</ElButton>
         </div>
       </form>
       <form v-if="editing" ref="valueForm" class="property-form" @submit.prevent="writeValue()">
-        <p v-if="editing.deprecated" class="metadata">This property is deprecated. You can remove its existing value.</p>
+        <p v-if="editing.deprecated" class="metadata">{{ t('author.properties.thisPropertyIsDeprecatedYouCanRemoveIts') }}</p>
         <ElRadioGroup
-          v-if="editing.kind === 'boolean'" :model-value="boolean" :label="`${editing.label} value`"
+          v-if="editing.kind === 'boolean'" :model-value="boolean" :label="t('author.properties.labelValue', { label: editing.label })"
           :disabled="editingDisabled" @update:model-value="setBoolean"
         >
-          <ElRadio :value="true">True</ElRadio>
-          <ElRadio :value="false">False</ElRadio>
+          <ElRadio :value="true">{{ t('author.properties.true') }}</ElRadio>
+          <ElRadio :value="false">{{ t('author.properties.false') }}</ElRadio>
         </ElRadioGroup>
         <ElRadioGroup
-          v-else-if="editing.kind === 'single-select'" :model-value="selected[0] ?? ''" :label="`${editing.label} value`"
+          v-else-if="editing.kind === 'single-select'" :model-value="selected[0] ?? ''" :label="t('author.properties.labelValue', { label: editing.label })"
           :disabled="editingDisabled" @update:model-value="selectOne"
         >
           <ElRadio v-for="option in editing.options" :key="option.id" :value="option.id">{{ option.label }}</ElRadio>
         </ElRadioGroup>
         <ElCheckboxGroup
-          v-else-if="editing.kind === 'multi-select'" :model-value="selected" :label="`${editing.label} value`"
+          v-else-if="editing.kind === 'multi-select'" :model-value="selected" :label="t('author.properties.labelValue', { label: editing.label })"
           :disabled="editingDisabled" @update:model-value="selectMany"
         >
           <ElCheckbox v-for="option in editing.options" :key="option.id" :label="option.id">{{ option.label }}</ElCheckbox>
         </ElCheckboxGroup>
         <template v-else>
-          <label for="property-value">{{ editing.label }} value</label>
+          <label for="property-value">{{ t('author.properties.labelValue', { label: editing.label }) }}</label>
           <ElInput id="property-value" ref="valueInput" v-model="value" :disabled="editingDisabled" @input="formTouched = true" />
         </template>
         <p v-if="inputHelp" class="metadata">{{ inputHelp }}</p>
         <div class="editor-taxonomy-actions">
           <ElButton v-if="!editing.deprecated" native-type="submit" type="primary" :disabled="disabledInput">
-            {{ batchMode ? 'Stage property' : 'Save property' }}
+            {{ batchMode ? t('author.properties.stageProperty') : t('author.properties.saveProperty') }}
           </ElButton>
           <ElButton v-if="editing.value.kind !== 'missing'" :disabled="disabledInput" native-type="button" @click="writeValue('remove')">
-            {{ batchMode ? 'Stage removal' : 'Remove value' }}
+            {{ batchMode ? t('author.properties.stageRemoval') : t('author.properties.removeValue') }}
           </ElButton>
-          <ElButton :disabled="busy || canRetry" @click="cancelValueForm">Cancel</ElButton>
+          <ElButton :disabled="busy || canRetry" @click="cancelValueForm">{{ t('author.properties.cancel') }}</ElButton>
         </div>
       </form>
     </template>

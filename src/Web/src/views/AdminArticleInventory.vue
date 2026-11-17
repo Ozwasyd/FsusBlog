@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -24,8 +25,13 @@ const reason = ref('')
 const selected = shallowRef<AuthorArticleRow>()
 const retry = shallowRef<AdminArticleTrashRestoreIntent | AdminArticleTrashPublicationIntent>()
 const restoring = ref(false)
-const restoreFailure = ref('')
-const notice = ref('')
+const restoreFailure = ref<MessageKey | ''>('')
+const notice = ref<MessageKey | ''>('')
+const noticeParams = shallowRef<Record<string, string | number>>({})
+const stateLabels: Record<AuthorArticleRow['state'], MessageKey> = {
+  draft: 'admin.inventory.stateDraft', scheduled: 'admin.inventory.stateScheduled',
+  published: 'admin.inventory.statePublished', retracted: 'admin.inventory.stateRetracted', deleted: 'admin.inventory.stateDeleted',
+}
 const busy = computed(() => reading.value || restoring.value || !!retry.value)
 onScopeDispose(() => lifetime.abort())
 
@@ -102,8 +108,8 @@ async function restore(publicly = false) {
     if (signal.aborted) return
     retry.value = undefined
     selected.value = undefined
-    notice.value = publicIntent ? `Article ${receipt.articleId} republished as revision ${receipt.revision}.`
-      : `Article ${receipt.articleId} restored as private revision ${receipt.revision}.`
+    noticeParams.value = { article: receipt.articleId, revision: String(receipt.revision) }
+    notice.value = publicIntent ? 'admin.inventory.republished' : 'admin.inventory.restored'
     refresh = true
   } catch (cause) {
     if (signal.aborted) return
@@ -112,11 +118,11 @@ async function restore(publicly = false) {
     } else if (submitted && (!(cause instanceof ApiError) || cause.status >= 500)) {
       selected.value = undefined
       retry.value = intent
-      restoreFailure.value = 'The result is unknown. Check this same restore before trying again.'
+      restoreFailure.value = 'admin.inventory.unknown'
     } else {
       retry.value = undefined
       selected.value = undefined
-      restoreFailure.value = 'Could not restore this revision. Reload the article trash and try again.'
+      restoreFailure.value = 'admin.inventory.restoreFailed'
       refresh = true
     }
   } finally { restoring.value = false }
@@ -126,52 +132,52 @@ async function restore(publicly = false) {
 
 <template>
   <section class="inventory" aria-labelledby="admin-article-inventory-heading" :aria-busy="reading">
-    <h2 id="admin-article-inventory-heading">Article inventory</h2>
+    <h2 id="admin-article-inventory-heading">{{ t('admin.inventory.heading') }}</h2>
     <div class="inventory-actions">
-      <ElButton native-type="button" :disabled="busy" v-bind="{ 'aria-pressed': !query.trash }" @click="search(false)">Active articles</ElButton>
-      <ElButton native-type="button" :disabled="busy" v-bind="{ 'aria-pressed': query.trash }" @click="search(true)">Article trash</ElButton>
+      <ElButton native-type="button" :disabled="busy" v-bind="{ 'aria-pressed': !query.trash }" @click="search(false)">{{ t('admin.inventory.active') }}</ElButton>
+      <ElButton native-type="button" :disabled="busy" v-bind="{ 'aria-pressed': query.trash }" @click="search(true)">{{ t('admin.inventory.trash') }}</ElButton>
     </div>
     <form class="inventory-actions" @submit.prevent="search()">
-      <label for="admin-article-keyword">Title or summary</label>
+      <label for="admin-article-keyword">{{ t('admin.inventory.keyword') }}</label>
       <ElInput id="admin-article-keyword" v-model="keyword" :disabled="busy" />
-      <ElButton native-type="submit" :disabled="busy" :loading="reading">Search articles</ElButton>
+      <ElButton native-type="submit" :disabled="busy" :loading="reading">{{ t('admin.inventory.search') }}</ElButton>
     </form>
-    <ElAlert v-if="failed" title="Could not load the article inventory. Try again." type="error" :closable="false" />
-    <ElAlert v-if="restoreFailure" :title="restoreFailure" type="warning" :closable="false" />
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <ElButton v-if="retry" native-type="button" :loading="restoring" @click="restore()">Check restore result</ElButton>
+    <ElAlert v-if="failed" :title="t('admin.inventory.loadFailed')" type="error" :closable="false" />
+    <ElAlert v-if="restoreFailure" :title="t(restoreFailure)" type="warning" :closable="false" />
+    <p v-if="notice" role="status">{{ t(notice, noticeParams) }}</p>
+    <ElButton v-if="retry" native-type="button" :loading="restoring" @click="restore()">{{ t('admin.inventory.check') }}</ElButton>
     <template v-if="page">
-      <p role="status">{{ page.total }} {{ query.trash ? 'deleted' : 'active' }} {{ page.total === 1 ? 'article' : 'articles' }}</p>
+      <p role="status">{{ t(query.trash ? (page.total === 1 ? 'admin.inventory.deletedOne' : 'admin.inventory.deletedMany') : (page.total === 1 ? 'admin.inventory.activeOne' : 'admin.inventory.activeMany'), { count: page.total }) }}</p>
       <ul v-if="page.items.length" class="inventory-list">
         <li v-for="item in page.items" :key="item.id">
           <strong>{{ item.title }}</strong>
-          <div>Article {{ item.id }} · Revision {{ item.revision }} · {{ item.state }}</div>
+          <div>{{ t('admin.inventory.row', { article: item.id, revision: String(item.revision), state: t(stateLabels[item.state]) }) }}</div>
           <div v-if="item.category || item.tags.length">{{ [item.category, ...item.tags].filter(Boolean).map(entry => entry?.name).join(' · ') }}</div>
           <ElButton v-if="query.trash && (restoreAvailable || publicationAvailable)" native-type="button" :disabled="busy" @click="selected = item">
-            {{ restoreAvailable ? 'Restore to draft' : 'Review restoration' }}
+            {{ restoreAvailable ? t('admin.inventory.restoreDraft') : t('admin.inventory.review') }}
           </ElButton>
         </li>
       </ul>
       <div v-if="query.beforeId || page.nextId" class="inventory-actions">
-        <ElButton v-if="query.beforeId" native-type="button" :disabled="busy" @click="load({ ...query, beforeId: undefined })">First page</ElButton>
-        <ElButton v-if="page.nextId" native-type="button" :disabled="busy" @click="nextPage">Next page</ElButton>
+        <ElButton v-if="query.beforeId" native-type="button" :disabled="busy" @click="load({ ...query, beforeId: undefined })">{{ t('admin.inventory.first') }}</ElButton>
+        <ElButton v-if="page.nextId" native-type="button" :disabled="busy" @click="nextPage">{{ t('admin.inventory.next') }}</ElButton>
       </div>
     </template>
-    <ElDialog :model-value="!!selected" title="Restore deleted article" width="min(30rem, 90vw)"
+    <ElDialog :model-value="!!selected" :title="t('admin.inventory.restoreTitle')" width="min(30rem, 90vw)"
       :close-on-press-escape="!restoring" :close-on-click-modal="!restoring" :show-close="!restoring"
       @update:model-value="visible => { if (!visible && !restoring) selected = undefined }">
-      <p v-if="selected">Restore revision {{ selected.revision }} of {{ selected.title }} to its author as a private draft.</p>
+      <p v-if="selected">{{ t('admin.inventory.confirmDraft', { revision: String(selected.revision), title: selected.title }) }}</p>
       <div v-if="publication" class="inventory">
-        <p>Former public revision {{ publication.sourceRevision }} · {{ publication.title }}. This option makes that revision public again.</p>
-        <label for="admin-trash-publication-reason">Reason for restoring publication</label>
+        <p>{{ t('admin.inventory.confirmPublic', { revision: String(publication.sourceRevision), title: publication.title }) }}</p>
+        <label for="admin-trash-publication-reason">{{ t('admin.inventory.reason') }}</label>
         <ElInput id="admin-trash-publication-reason" v-model="reason" :disabled="restoring" />
         <ElButton native-type="button" :disabled="!isValidAdminArticleRollbackReason(reason.trim())" :loading="restoring" @click="restore(true)">
-          Restore former publication with Passkey
+          {{ t('admin.inventory.restorePublic') }}
         </ElButton>
       </div>
       <template #footer>
-        <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">Cancel</ElButton>
-        <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">Restore draft with Passkey</ElButton>
+        <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
+        <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">{{ t('admin.inventory.restorePrivate') }}</ElButton>
       </template>
     </ElDialog>
   </section>

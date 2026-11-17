@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, siteLocale } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElDialog, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader } from '@ozwasyd/element-plus'
@@ -20,14 +21,14 @@ const linkedView = computed(() => {
   return link && link !== 'invalid' ? { view: link.id, viewSchema: '1' } : undefined
 })
 const states: Readonly<Record<AuthorArticleState, string>> = {
-  draft: '草稿', published: '已发布', retracted: '已撤回', scheduled: '定时发布', deleted: '已删除',
+  get draft() { return t('author.authorArticles.draft') }, get published() { return t('author.authorArticles.published') }, get retracted() { return t('author.authorArticles.withdrawn') }, get scheduled() { return t('author.authorArticles.scheduled') }, get deleted() { return t('author.authorArticles.deleted') },
 }
 const stateOptions = [
-  { value: '', label: '全部状态' },
-  { value: 'draft', label: states.draft },
-  { value: 'published', label: states.published },
-  { value: 'retracted', label: states.retracted },
-  { value: 'scheduled', label: states.scheduled },
+  { value: '', get label() { return t('author.authorArticles.all.states') } },
+  { value: 'draft', get label() { return states.draft } },
+  { value: 'published', get label() { return states.published } },
+  { value: 'retracted', get label() { return states.retracted } },
+  { value: 'scheduled', get label() { return states.scheduled } },
 ] as const
 const keyword = ref('')
 const categoryId = ref(0)
@@ -51,8 +52,8 @@ const heading = ref<HTMLElement>()
 const selected = shallowRef<AuthorArticleRow>()
 const changing = ref(false)
 const actionNotice = shallowRef<{ text: string, type: 'success' | 'error' | 'warning' }>()
-const actionLabel = computed(() => trash.value ? '恢复文章' : '移至回收站')
-const dateFormat = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
+const actionLabel = computed(() => trash.value ? t('author.authorArticles.restore.article') : t('author.authorArticles.move.to.trash'))
+const dateFormat = { format: (value: number | Date) => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(value) }
 let sessionCheck: AbortController | undefined
 let changeRequest: AbortController | undefined
 
@@ -128,14 +129,14 @@ async function confirmArticleChange() {
     if (restore) await api.restore(command, request.signal)
     else await api.delete(command, request.signal)
     if (request.signal.aborted) return
-    actionNotice.value = { type: 'success', text: restore ? '文章已恢复，可在文章列表继续编辑。' : '文章已移至回收站。' }
+    actionNotice.value = { type: 'success', text: restore ? t('author.authorArticles.article.restored.continue.editing.from.the.article.list') : t('author.authorArticles.article.moved.to.trash') }
   } catch (reason) {
     if (request.signal.aborted) return
     if (reason instanceof ApiError && reason.status === 401) { invalidateSession(); return }
     if (reason instanceof ApiError && reason.status === 403) { forbidden.value = true; return }
     if (reason instanceof ApiError && (reason.status === 409 || reason.status === 404))
-      actionNotice.value = { type: 'warning', text: '文章状态已变更。请在更新后的列表中确认后再操作。' }
-    else actionNotice.value = { type: 'error', text: '无法确认操作结果，请查看更新后的文章列表。' }
+      actionNotice.value = { type: 'warning', text: t('author.authorArticles.the.article.state.changed.check.the.updated.list.before') }
+    else actionNotice.value = { type: 'error', text: t('author.authorArticles.could.not.confirm.the.result.check.the.updated.article') }
   } finally {
     if (changeRequest === request) {
       changeRequest = undefined
@@ -217,72 +218,72 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="author-articles">
-    <ElTaskPageHeader :title="searchOnly ? '作者搜索' : trash ? '回收站' : '文章管理'" density="compact" />
-    <ElAlert v-if="sessionError" title="暂时无法确认登录状态。" type="error" :closable="false" show-icon>
-      <ElButton text @click="checkSession">重试</ElButton>
+    <ElTaskPageHeader :title="searchOnly ? t('author.authorArticles.author.search') : trash ? t('author.authorArticles.trash') : t('author.authorArticles.article.management')" density="compact" />
+    <ElAlert v-if="sessionError" :title="t('author.authorArticles.unable.to.confirm.your.login.status.right.now')" type="error" :closable="false" show-icon>
+      <ElButton text @click="checkSession">{{ t('author.authorArticles.retry') }}</ElButton>
     </ElAlert>
     <ElSkeleton v-else-if="checkingSession && !currentSession" :rows="4" animated />
-    <ElEmptyState v-else-if="!canRead" :title="currentSession ? '当前账号没有文章管理权限' : '请先登录作者账号'">
-      <RouterLink v-if="!currentSession" :to="{ name: 'login' }">登录</RouterLink>
+    <ElEmptyState v-else-if="!canRead" :title="currentSession ? t('author.authorArticles.this.account.cannot.manage.articles') : t('author.authorArticles.log.in.with.an.author.account.first')">
+      <RouterLink v-if="!currentSession" :to="{ name: 'login' }">{{ t('author.authorArticles.log.in') }}</RouterLink>
     </ElEmptyState>
     <template v-else>
-      <nav class="author-collection-nav" aria-label="文章管理导航">
+      <nav class="author-collection-nav" :aria-label="t('author.authorArticles.article.management.navigation')">
         <RouterLink :to="{ name: 'article-list', query: searchOnly ? linkedView : undefined }"
-          :aria-current="!trash && !searchOnly ? 'page' : undefined">文章列表</RouterLink>
+          :aria-current="!trash && !searchOnly ? 'page' : undefined">{{ t('author.authorArticles.article.list') }}</RouterLink>
         <RouterLink :to="{ name: 'article-search', query: linkedView }"
-          :aria-current="searchOnly ? 'page' : undefined">作者搜索</RouterLink>
-        <RouterLink :to="{ name: 'article-trash' }" :aria-current="trash ? 'page' : undefined">回收站</RouterLink>
-        <RouterLink v-if="!trash" :to="{ name: 'article-workspace' }">工作区</RouterLink>
-        <RouterLink v-if="!trash" :to="{ name: 'write' }">写新文章</RouterLink>
+          :aria-current="searchOnly ? 'page' : undefined">{{ t('author.authorArticles.author.search') }}</RouterLink>
+        <RouterLink :to="{ name: 'article-trash' }" :aria-current="trash ? 'page' : undefined">{{ t('author.authorArticles.trash') }}</RouterLink>
+        <RouterLink v-if="!trash" :to="{ name: 'article-workspace' }">{{ t('author.authorArticles.workspace') }}</RouterLink>
+        <RouterLink v-if="!trash" :to="{ name: 'write' }">{{ t('author.authorArticles.write.a.new.article') }}</RouterLink>
       </nav>
       <ElAlert v-if="actionNotice" :title="actionNotice.text" :type="actionNotice.type" :closable="false" show-icon />
       <AuthorTextSearch v-if="searchOnly" :expanded="!linkedView" />
       <SavedViewPanel v-if="searchOnly" read-only />
-      <form v-else class="author-filter" aria-label="筛选文章" @submit.prevent="applyFilters">
+      <form v-else class="author-filter" :aria-label="t('author.authorArticles.filter.articles')" @submit.prevent="applyFilters">
         <div class="author-filter-fields">
           <label class="author-keyword">
-            <span>标题或摘要</span>
-            <ElInput v-model="keyword" label="标题或摘要" placeholder="搜索标题或摘要" clearable />
+            <span>{{ t('author.authorArticles.title.or.summary') }}</span>
+            <ElInput v-model="keyword" :label="t('author.authorArticles.title.or.summary')" :placeholder="t('author.authorArticles.search.titles.or.summaries')" clearable />
           </label>
           <label v-if="categories.length">
-            <span>分类</span>
-            <ElSelect v-model="categoryId" ariaLabel="分类" filterable>
-              <ElOption :value="0" label="全部分类" />
+            <span>{{ t('author.authorArticles.category') }}</span>
+            <ElSelect v-model="categoryId" :ariaLabel="t('author.authorArticles.category')" filterable>
+              <ElOption :value="0" :label="t('author.authorArticles.all.categories')" />
               <ElOption v-for="item in categories" :key="item.id" :value="item.id" :label="item.name" />
             </ElSelect>
           </label>
           <label v-if="tags.length">
-            <span>标签</span>
-            <ElSelect v-model="tagId" ariaLabel="标签" filterable>
-              <ElOption :value="0" label="全部标签" />
+            <span>{{ t('author.authorArticles.tag') }}</span>
+            <ElSelect v-model="tagId" :ariaLabel="t('author.authorArticles.tag')" filterable>
+              <ElOption :value="0" :label="t('author.authorArticles.all.tags')" />
               <ElOption v-for="item in tags" :key="item.id" :value="item.id" :label="item.name" />
             </ElSelect>
           </label>
           <label v-if="!trash">
-            <span>状态</span>
-            <ElSelect v-model="state" ariaLabel="状态">
+            <span>{{ t('author.authorArticles.status') }}</span>
+            <ElSelect v-model="state" :ariaLabel="t('author.authorArticles.status')">
               <ElOption v-for="item in stateOptions" :key="item.value" :value="item.value" :label="item.label" />
             </ElSelect>
           </label>
         </div>
         <div class="author-filter-actions">
-          <ElButton type="primary" native-type="submit" :disabled="pending">搜索</ElButton>
-          <ElButton native-type="button" :disabled="pending" @click="resetFilters">重置</ElButton>
+          <ElButton type="primary" native-type="submit" :disabled="pending">{{ t('author.authorArticles.search') }}</ElButton>
+          <ElButton native-type="button" :disabled="pending" @click="resetFilters">{{ t('author.authorArticles.reset') }}</ElButton>
         </div>
-        <p v-if="taxonomyError" class="author-articles-note" role="status">部分分类或标签暂不可用。</p>
+        <p v-if="taxonomyError" class="author-articles-note" role="status">{{ t('author.authorArticles.some.categories.or.tags.are.temporarily.unavailable') }}</p>
       </form>
       <AuthorTextSearch v-if="!trash && !searchOnly" />
       <AuthorPropertyFilter v-if="!trash && !searchOnly" :keyword="filters.keyword" />
       <section v-if="!searchOnly" aria-labelledby="author-list-heading" :aria-busy="pending">
         <header class="author-list-heading">
-          <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? '已删除文章' : '文章列表' }}</h2>
-          <p v-if="page" role="status">共 {{ page.total }} 篇</p>
+          <h2 id="author-list-heading" ref="heading" tabindex="-1">{{ trash ? t('author.authorArticles.deleted.articles') : t('author.authorArticles.article.list') }}</h2>
+          <p v-if="page" role="status">{{ t('author.authorArticles.articles', { p0: String(page.total) }) }}</p>
         </header>
         <ElSkeleton v-if="pending" :rows="5" animated />
-        <ElAlert v-else-if="error" title="无法加载文章，请重试。" type="error" :closable="false" show-icon>
-          <ElButton text @click="retry++">重试</ElButton>
+        <ElAlert v-else-if="error" :title="t('author.authorArticles.could.not.load.articles.try.again')" type="error" :closable="false" show-icon>
+          <ElButton text @click="retry++">{{ t('author.authorArticles.retry') }}</ElButton>
         </ElAlert>
-        <ElEmptyState v-else-if="!page?.items.length" :title="trash ? '回收站没有匹配的文章' : '没有匹配的文章'" />
+        <ElEmptyState v-else-if="!page?.items.length" :title="trash ? t('author.authorArticles.no.matching.articles.in.trash') : t('author.authorArticles.no.matching.articles')" />
         <ul v-else class="author-article-rows">
           <li v-for="entry in page.items" :key="entry.id" class="author-article-row">
             <div class="author-article-title">
@@ -300,25 +301,25 @@ onBeforeUnmount(() => {
             </div>
             <div class="author-article-actions">
               <RouterLink v-if="!trash" :to="{ name: 'edit', params: { id: entry.id } }"
-                :aria-label="`编辑 ${entry.title}`" class="author-article-edit">编辑</RouterLink>
+                :aria-label="t('author.authorArticles.edit.named', { title: entry.title })" class="author-article-edit">{{ t('author.authorArticles.edit') }}</RouterLink>
               <ElButton native-type="button" :disabled="changing" v-bind="{ 'aria-label': `${actionLabel} ${entry.title}` }"
                 @click="selectArticle(entry)">{{ actionLabel }}</ElButton>
             </div>
           </li>
         </ul>
-        <nav v-if="page && (pageNumber > 0 || page.nextId)" class="author-page-controls" aria-label="文章分页">
-          <ElButton :disabled="pageNumber === 0 || pending" @click="previous">上一页</ElButton>
-          <span aria-live="polite">第 {{ pageNumber + 1 }} 页</span>
-          <ElButton :disabled="!page.nextId || pending" @click="next">下一页</ElButton>
+        <nav v-if="page && (pageNumber > 0 || page.nextId)" class="author-page-controls" :aria-label="t('author.authorArticles.article.pagination')">
+          <ElButton :disabled="pageNumber === 0 || pending" @click="previous">{{ t('author.authorArticles.previous') }}</ElButton>
+          <span aria-live="polite">{{ t('author.authorArticles.page', { p0: String(pageNumber + 1) }) }}</span>
+          <ElButton :disabled="!page.nextId || pending" @click="next">{{ t('author.authorArticles.next') }}</ElButton>
         </nav>
       </section>
       <ElDialog :model-value="!!selected" :title="actionLabel" width="min(28rem, calc(100% - 2rem))" append-to-body
         :show-close="false" :close-on-press-escape="!changing" :close-on-click-modal="false" @update:model-value="closeConfirmation">
         <p v-if="selected" class="author-article-confirmation">「{{ selected.title }}」</p>
-        <p v-if="trash">恢复后可继续编辑，文章保持非公开状态。</p>
-        <p v-else>移入回收站后，公开文章将撤回，文章历史将保留。</p>
+        <p v-if="trash">{{ t('author.authorArticles.after.restoring.you.can.continue.editing.the.article') }}</p>
+        <p v-else>{{ t('author.authorArticles.moving.to.trash.withdraws.published.articles.and.retains') }}</p>
         <template #footer>
-          <ElButton :disabled="changing" @click="closeConfirmation(false)">取消</ElButton>
+          <ElButton :disabled="changing" @click="closeConfirmation(false)">{{ t('author.authorArticles.cancel') }}</ElButton>
           <ElButton :loading="changing" :type="trash ? 'primary' : 'danger'" @click="confirmArticleChange">{{ actionLabel }}</ElButton>
         </template>
       </ElDialog>

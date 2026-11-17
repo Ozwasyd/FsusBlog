@@ -83,7 +83,7 @@ p { line-height: 1.65; }
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
 .site-footer {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: .75rem 1.5rem;
@@ -91,7 +91,9 @@ p { line-height: 1.65; }
   font-size: .875rem;
   overflow-wrap: anywhere;
 }
-.site-footer p { margin: 0; }
+.site-footer-identity { display: grid; gap: .25rem; }
+.site-footer-identity strong { color: var(--fsus-ink); }
+.site-footer-identity p { margin: 0; }
 .site-footer-links {
   display: grid;
   flex: 1 1 18rem;

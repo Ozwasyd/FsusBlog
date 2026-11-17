@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
@@ -36,11 +37,11 @@ const ticket = ref('')
 const ticketValid = computed(() => validAdminBootstrapToken(ticket.value.trim()))
 const canUsePasskeys = globalThis.isSecureContext && typeof PublicKeyCredential === 'function'
 const busy = ref(false)
-const failure = ref('')
-const notice = ref('')
+const failure = ref<MessageKey | ''>('')
+const notice = ref<MessageKey | ''>('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
-const operationsFailure = ref('')
+const operationsFailure = ref<MessageKey | ''>('')
 const permissionAuthority = shallowRef(new AbortController())
 const permissionEpoch = ref(0)
 const permissions = shallowRef<readonly AdminPermission[] | null>(null)
@@ -69,7 +70,7 @@ function setAuthority(next: AdminAuthority | null) {
   if (next?.status === 'active') void checkPermissions(next.session)
 }
 
-async function run(task: () => Promise<void>, onFailure: string) {
+async function run(task: () => Promise<void>, onFailure: MessageKey) {
   if (busy.value || lifetime.signal.aborted) return
   busy.value = true
   failure.value = ''
@@ -83,7 +84,7 @@ function refresh() {
     setAuthority(null)
     const next = await readAdminAuthority(lifetime.signal)
     if (!lifetime.signal.aborted) setAuthority(next)
-  }, 'Could not check administrator access. Try again.')
+  }, 'admin.accessCheckFailed')
 }
 
 function whenVisible() {
@@ -194,8 +195,8 @@ async function checkOperations() {
       if (observed && !same(observed)) { setAuthority(observed); return }
     }
     operationsFailure.value = error instanceof ApiError && error.status === 403
-      ? 'You do not have permission to view operations status.'
-      : 'Could not check operations status. Try again.'
+      ? 'admin.operationsForbidden'
+      : 'admin.operationsFailed'
   } finally {
     if (operationsRequest === check) {
       operationsRequest = undefined
@@ -207,7 +208,7 @@ async function checkOperations() {
 function handleSessionLoss(error: unknown): boolean {
   if (!(error instanceof ApiError) || error.status !== 401) return false
   setAuthority({ status: 'signed-out' })
-  failure.value = 'Your administrator session expired or was revoked. Log in again.'
+  failure.value = 'admin.sessionLost'
   return true
 }
 
@@ -225,8 +226,8 @@ function enroll() {
     await bootstrapAdminPasskey(key, lifetime.signal)
     if (lifetime.signal.aborted) return
     closeBootstrap()
-    notice.value = 'Administrator Passkey created. Log in with it to continue.'
-  }, 'Could not create the administrator Passkey. Check your one-time key and try again.')
+    notice.value = 'admin.passkeyCreated'
+  }, 'admin.passkeyCreateFailed')
 }
 
 function logIn() {
@@ -236,7 +237,7 @@ function logIn() {
     closeBootstrap()
     const session = await signInAdmin(lifetime.signal)
     if (!lifetime.signal.aborted) setAuthority({ status: 'active', session })
-  }, 'Could not log in with this administrator Passkey. Try again.')
+  }, 'admin.passkeyLoginFailed')
 }
 
 function logOut() {
@@ -246,55 +247,55 @@ function logOut() {
     setAuthority(null)
     await signOutAdmin(lifetime.signal)
     if (!lifetime.signal.aborted) setAuthority({ status: 'signed-out' })
-  }, 'Could not confirm logout. Reload administrator access to check the session.')
+  }, 'admin.logoutUnconfirmed')
 }
 </script>
 
 <template>
   <main class="auth-page" :class="{ 'admin-workspace': authority?.status === 'active' }">
-    <h1>Administrator access</h1>
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-    <ElAlert v-if="notice" :title="notice" type="success" :closable="false" show-icon />
+    <h1>{{ t('admin.access') }}</h1>
+    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
+    <ElAlert v-if="notice" :title="t(notice)" type="success" :closable="false" show-icon />
 
     <section v-if="authority?.status === 'active'" class="auth-form" aria-labelledby="admin-session-heading">
-      <h2 id="admin-session-heading">Administrator session</h2>
+      <h2 id="admin-session-heading">{{ t('admin.session') }}</h2>
       <dl>
-        <dt>Administrator handle</dt>
+        <dt>{{ t('admin.handle') }}</dt>
         <dd>{{ authority.session.handle }}</dd>
-        <dt>Expires</dt>
+        <dt>{{ t('admin.expires') }}</dt>
         <dd><time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time></dd>
       </dl>
-      <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
+      <ElButton native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </section>
     <section v-if="authority?.status === 'active'" class="auth-form" aria-labelledby="admin-permissions-heading">
-      <h2 id="admin-permissions-heading">Effective permissions</h2>
+      <h2 id="admin-permissions-heading">{{ t('admin.effectivePermissions') }}</h2>
       <ul v-if="permissions">
         <li v-for="grant in permissions" :key="grant">{{ grant }}</li>
       </ul>
       <template v-else-if="permissionsFailure">
-        <ElAlert title="Could not verify effective permissions. Reload to try again." type="error" :closable="false" show-icon />
-        <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">Reload effective permissions</ElButton>
+        <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
+        <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
       </template>
-      <p v-else-if="permissionsPending" role="status">Checking effective permissions…</p>
+      <p v-else-if="permissionsPending" role="status">{{ t('admin.checkingPermissions') }}</p>
     </section>
     <AdminSessionHistory v-if="permits('admin.manage') && authority?.status === 'active'" :key="permissionEpoch" :session="authority.session"
       :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminModerationControls v-if="permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminInbox v-if="permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <section v-if="permits('audit.read')" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
-      <h2 id="admin-operations-heading">Operations status</h2>
-      <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>
-      <ElAlert v-if="operationsFailure" :title="operationsFailure" type="error" :closable="false" show-icon />
+      <h2 id="admin-operations-heading">{{ t('admin.operationsStatus') }}</h2>
+      <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">{{ t('admin.checkOperations') }}</ElButton>
+      <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
       <div aria-live="polite">
         <dl v-if="operations">
-          <dt>Public snapshot</dt>
-          <dd>{{ operations.snapshotReady ? 'Ready' : 'Not ready' }}</dd>
-          <dt>Publication watermark</dt>
+          <dt>{{ t('admin.publicSnapshot') }}</dt>
+          <dd>{{ operations.snapshotReady ? t('admin.ready') : t('admin.notReady') }}</dd>
+          <dt>{{ t('admin.publicationWatermark') }}</dt>
           <dd>{{ operations.publicationWatermark.toString() }}</dd>
-          <dt>Pending publication events</dt>
+          <dt>{{ t('admin.pendingEvents') }}</dt>
           <dd>{{ operations.pendingPublicationEvents.toString() }}</dd>
           <template v-if="operations.oldestPendingAt !== null">
-            <dt>Oldest pending publication event</dt>
+            <dt>{{ t('admin.oldestPendingEvent') }}</dt>
             <dd>
               <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString() }}</time>
             </dd>
@@ -312,24 +313,24 @@ function logOut() {
     <AdminRiskReadiness v-if="adminUsesHttps && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
       :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
     <AdminSitePages v-if="permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <p v-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
+    <p v-if="authority?.status === 'unavailable'">{{ t('admin.accessUnavailable') }}</p>
     <template v-else-if="authority?.status === 'signed-out'">
-      <p v-if="!canUsePasskeys">Use a secure origin and a browser that supports Passkeys.</p>
+      <p v-if="!canUsePasskeys">{{ t('admin.securePasskeyRequired') }}</p>
       <div v-else class="auth-form">
-        <ElButton native-type="button" type="primary" :loading="busy" @click="logIn">Log in as administrator</ElButton>
+        <ElButton native-type="button" type="primary" :loading="busy" @click="logIn">{{ t('admin.login') }}</ElButton>
         <ElButton v-if="!bootstrapOpen" class="admin-setup-button" native-type="button" :disabled="busy" @click="bootstrapOpen = true">
-          Set up administrator Passkey
+          {{ t('admin.setupPasskey') }}
         </ElButton>
         <form v-else class="admin-bootstrap-form" @submit.prevent="enroll">
-          <label for="admin-bootstrap-key">One-time administrator bootstrap key</label>
+          <label for="admin-bootstrap-key">{{ t('admin.bootstrapKey') }}</label>
           <ElInput id="admin-bootstrap-key" v-model="ticket" type="password" autocomplete="off" :disabled="busy" />
-          <ElButton native-type="submit" :loading="busy" :disabled="!ticketValid">Create administrator Passkey</ElButton>
-          <ElButton native-type="button" :disabled="busy" @click="closeBootstrap">Cancel setup</ElButton>
+          <ElButton native-type="submit" :loading="busy" :disabled="!ticketValid">{{ t('admin.createPasskey') }}</ElButton>
+          <ElButton native-type="button" :disabled="busy" @click="closeBootstrap">{{ t('admin.cancelSetup') }}</ElButton>
         </form>
       </div>
     </template>
-    <p v-else-if="authority === null && busy" role="status">Checking administrator access…</p>
-    <ElButton v-else-if="authority === null" native-type="button" @click="refresh">Reload administrator access</ElButton>
+    <p v-else-if="authority === null && busy" role="status">{{ t('admin.checkingAccess') }}</p>
+    <ElButton v-else-if="authority === null" native-type="button" @click="refresh">{{ t('admin.reloadAccess') }}</ElButton>
   </main>
 </template>
 

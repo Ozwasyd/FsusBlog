@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import ArticleLibraryResults from './ArticleLibraryResults.vue'
@@ -20,7 +21,7 @@ const drawer = ref<HTMLElement>()
 const parking = ref<HTMLElement>()
 const target = computed(() => (compact.value ? drawer.value : desktop.value) ?? parking.value)
 const paneId = computed(() => visible.value && target.value !== parking.value ? sectionId : undefined)
-const title = 'Article library'
+const title = computed(() => t('author.articleLibraryRail.article.library'))
 const sectionId = useId()
 let media: MediaQueryList | undefined
 let generation = 0
@@ -106,7 +107,7 @@ async function activate(id: number, separate: boolean) {
     <aside v-if="!compact" v-show="visible" :id="sectionId" class="library-pane" :aria-label="title" @keydown.esc.stop.prevent="close">
       <header>
         <h2>{{ title }}</h2>
-        <ElButton text native-type="button" @click="close">Close library</ElButton>
+        <ElButton text native-type="button" @click="close">{{ t('author.articleLibraryRail.close.library') }}</ElButton>
       </header>
       <div ref="desktop" />
     </aside>
@@ -117,10 +118,10 @@ async function activate(id: number, separate: boolean) {
     <div ref="parking" hidden />
     <Teleport v-if="target" :to="target">
       <template v-if="visible">
-        <div v-if="recentAvailable || pinnedAvailable" class="library-modes" role="group" aria-label="Article library views">
-          <button type="button" :aria-pressed="mode === 'all'" @click="mode = 'all'">All articles</button>
-          <button v-if="recentAvailable" type="button" :aria-pressed="mode === 'recent'" @click="mode = 'recent'">Recent opens</button>
-          <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">Pinned views</button>
+        <div v-if="recentAvailable || pinnedAvailable" class="library-modes" role="group" :aria-label="t('author.articleLibraryRail.article.library.views')">
+          <button type="button" :aria-pressed="mode === 'all'" @click="mode = 'all'">{{ t('author.articleLibraryRail.all.articles') }}</button>
+          <button v-if="recentAvailable" type="button" :aria-pressed="mode === 'recent'" @click="mode = 'recent'">{{ t('author.articleLibraryRail.recent.opens') }}</button>
+          <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">{{ t('author.articleLibraryRail.pinned.views') }}</button>
         </div>
         <div v-show="mode === 'all'">
           <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision"

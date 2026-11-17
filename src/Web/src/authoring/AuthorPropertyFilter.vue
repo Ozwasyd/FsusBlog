@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElCheckbox, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
@@ -34,12 +35,12 @@ const sortSelection = ref('')
 const sortDirection = ref<AuthorTextPropertySortQuery['direction']>('ascending')
 const mode = ref<PropertyComparison | 'missing' | 'null'>('equal')
 const comparisons = {
-  'equal': '精确匹配', 'less-than': '小于', 'at-most': '小于或等于',
-  'greater-than': '大于', 'at-least': '大于或等于',
+  get 'equal'() { return t('author.authorPropertyFilter.exact.match') }, get 'less-than'() { return t('author.authorPropertyFilter.less.than') }, get 'at-most'() { return t('author.authorPropertyFilter.less.than.or.equal.to') },
+  get 'greater-than'() { return t('author.authorPropertyFilter.greater.than') }, get 'at-least'() { return t('author.authorPropertyFilter.greater.than.or.equal.to') },
 } as const satisfies Record<Exclude<PropertyComparison, 'is-present' | 'multi-select-any-of' | 'single-select-any-of' | 'reference-any-of'>, string>
 const dateComparisons = {
-  ...comparisons,
-  'less-than': '早于', 'at-most': '早于或等于', 'greater-than': '晚于', 'at-least': '晚于或等于',
+  get equal() { return comparisons.equal },
+  get 'less-than'() { return t('author.authorPropertyFilter.before') }, get 'at-most'() { return t('author.authorPropertyFilter.before.or.equal.to') }, get 'greater-than'() { return t('author.authorPropertyFilter.after') }, get 'at-least'() { return t('author.authorPropertyFilter.after.or.equal.to') },
 }
 const conditions = shallowRef<readonly PropertyCondition[]>([])
 const anyOf = ref(false)
@@ -120,7 +121,7 @@ watch([open, identityEpoch, retry, embeddedCredential], async ([show, epoch, att
       pendingField.value = ''
     }
   } catch (failure) {
-    if (!load.signal.aborted) report(failure, '暂时无法读取属性定义。')
+    if (!load.signal.aborted) report(failure, t('author.authorPropertyFilter.property.definitions.are.temporarily.unavailable'))
   } finally {
     if (!load.signal.aborted) operationBusy.value = false
   }
@@ -167,7 +168,7 @@ function toggle(event: Event) {
 function report(failure: unknown, fallback: string, message = operationError) {
   if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
   message.value = failure instanceof ApiError && [404, 409].includes(failure.status)
-    ? '筛选字段、引用或修订已不可用。请重新加载属性定义。' : fallback
+    ? t('author.authorPropertyFilter.filter.fields.references.or.revisions.are.unavailable.reload.property') : fallback
 }
 
 function operand(): PropertyValue | undefined {
@@ -235,21 +236,21 @@ function add() {
     selection.value = ''
     operationError.value = ''
   } catch {
-    queryError.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
+    queryError.value = t('author.authorPropertyFilter.enter.a.valid.property.value.match.modes.cannot.repeat')
   }
 }
 
 function conditionText(condition: PropertyCondition) {
   const { field, comparison, value } = condition
-  if (comparison === 'is-present') return `${field.label} · 值存在`
-  if (value.kind === 'missing') return `${field.label} · 尚未设置`
-  if (value.kind === 'null') return `${field.label} · 显式空值`
+  if (comparison === 'is-present') return t('author.authorPropertyFilter.description.value.exists', { label: field.label })
+  if (value.kind === 'missing') return t('author.authorPropertyFilter.description.not.set', { label: field.label })
+  if (value.kind === 'null') return t('author.authorPropertyFilter.description.explicit.null', { label: field.label })
   const names = new Map(field.options.map(option => [option.id, option.label]))
-  const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || '空选项集合'
+  const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || t('author.authorPropertyFilter.empty.option.set')
     : value.kind === 'single-select' ? names.get(value.value)
-    : value.kind === 'article-reference' ? value.value.join('、') || '空引用集合' : String(value.value)
+    : value.kind === 'article-reference' ? value.value.join('、') || t('author.authorPropertyFilter.empty.reference.set') : String(value.value)
   if (comparison === 'multi-select-any-of' || comparison === 'single-select-any-of' || comparison === 'reference-any-of')
-    return `${field.label} · 任一匹配 ${description}`
+    return t('author.authorPropertyFilter.description.any', { label: field.label, description: String(description) })
   const labels = field.kind === 'date' ? dateComparisons : comparisons
   return `${field.label} · ${labels[comparison]} ${description}`
 }
@@ -266,7 +267,7 @@ async function later() {
     const next = await propertyFilterCatalog(request.signal, { key: current.nextKey, schema: current.revision }, handle, props.embedded)
     if (!request.signal.aborted) catalog.value = { ...next, fields: [...current.fields, ...next.fields] }
   } catch (failure) {
-    if (!request.signal.aborted) report(failure, '暂时无法读取更多属性。')
+    if (!request.signal.aborted) report(failure, t('author.authorPropertyFilter.more.properties.are.temporarily.unavailable'))
   } finally {
     if (!request.signal.aborted) operationBusy.value = false
   }
@@ -290,7 +291,7 @@ async function changeFilterability() {
   } catch (failure) {
     if (request.signal.aborted) return
     if (failure instanceof ApiError && failure.status < 500) pendingChange.value = undefined
-    report(failure, '无法确认属性设置。请重试原操作。')
+    report(failure, t('author.authorPropertyFilter.could.not.confirm.property.settings.retry.the.original.operation'))
   } finally {
     if (!request.signal.aborted) operationBusy.value = false
   }
@@ -311,11 +312,11 @@ async function search(more = false) {
       const active = field.value ? currentConditions() : conditions.value
       if (active.length) filter = { schema: catalog.value.revision, conditions: active, cursor: '', keyword }
     } catch {
-      queryError.value = '请输入有效的属性值，每个字段的匹配方式不能重复。'
+      queryError.value = t('author.authorPropertyFilter.enter.a.valid.property.value.match.modes.cannot.repeat')
       return
     }
   }
-  if (!filter) { queryError.value = '请输入有效的属性值。'; return }
+  if (!filter) { queryError.value = t('author.authorPropertyFilter.enter.a.valid.property.value'); return }
   const request = new AbortController()
   queryRequest.value = request
   const current = () => queryRequest.value === request && !request.signal.aborted && credentialEpoch.value === epoch &&
@@ -332,7 +333,7 @@ async function search(more = false) {
   } catch (failure) {
     if (!current()) return
     result.value = undefined
-    report(failure, '无法执行筛选。请检查属性值后重试。', queryError)
+    report(failure, t('author.authorPropertyFilter.could.not.filter.check.the.property.values.and.try'), queryError)
   } finally {
     if (queryRequest.value === request) queryRequest.value = undefined
   }
@@ -341,113 +342,113 @@ async function search(more = false) {
 
 <template>
   <details class="property-filter" @toggle="toggle">
-    <summary>{{ embedded ? '全文搜索属性条件' : '按文章属性筛选' }}</summary>
+    <summary>{{ embedded ? t('author.authorPropertyFilter.full.text.search.property.conditions') : t('author.authorPropertyFilter.filter.by.article.properties') }}</summary>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <p v-if="busy" role="status">正在读取文章属性…</p>
-    <ElButton v-if="(error || embedded && catalog) && !busy && !pendingChange" text @click="retry++">重新加载属性定义</ElButton>
-    <p v-if="catalog && !catalog.fields.length">请先在文章编辑器中创建属性定义。</p>
-    <p v-else-if="embedded && selectableFields.length">添加的条件会用于下一次全文搜索。</p>
+    <p v-if="busy" role="status">{{ t('author.authorPropertyFilter.loading.article.properties') }}</p>
+    <ElButton v-if="(error || embedded && catalog) && !busy && !pendingChange" text @click="retry++">{{ t('author.authorPropertyFilter.reload.property.definitions') }}</ElButton>
+    <p v-if="catalog && !catalog.fields.length">{{ t('author.authorPropertyFilter.create.property.definitions.in.the.article.editor.first') }}</p>
+    <p v-else-if="embedded && selectableFields.length">{{ t('author.authorPropertyFilter.added.conditions.will.apply.to.the.next.full') }}</p>
     <template v-if="catalog?.fields.length">
       <template v-if="embedded && textSources.length">
-        <label :for="textSourceId">搜索来源</label>
-        <ElSelect :id="textSourceId" v-model="textSourceSelection" ariaLabel="搜索来源" :disabled="busy">
-          <ElOption value="" label="文章全文" />
+        <label :for="textSourceId">{{ t('author.authorPropertyFilter.search.source') }}</label>
+        <ElSelect :id="textSourceId" v-model="textSourceSelection" :ariaLabel="t('author.authorPropertyFilter.search.source')" :disabled="busy">
+          <ElOption value="" :label="t('author.authorPropertyFilter.article.full.text')" />
           <ElOption v-for="item in textSources" :key="item.id" :value="item.id"
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
       </template>
       <template v-if="embedded && facetFields.length">
-        <label :for="facetId">属性分面字段</label>
-        <ElSelect :id="facetId" v-model="facetSelection" ariaLabel="属性分面字段" :disabled="busy">
-          <ElOption value="" label="不显示属性分面" />
+        <label :for="facetId">{{ t('author.authorPropertyFilter.property.facet.field') }}</label>
+        <ElSelect :id="facetId" v-model="facetSelection" :ariaLabel="t('author.authorPropertyFilter.property.facet.field')" :disabled="busy">
+          <ElOption value="" :label="t('author.authorPropertyFilter.do.not.show.property.facets')" />
           <ElOption v-for="item in facetFields" :key="item.id" :value="item.id"
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
       </template>
       <template v-if="embedded && sortFields.length">
-        <label :for="sortId">属性排序字段</label>
-        <ElSelect :id="sortId" v-model="sortSelection" ariaLabel="属性排序字段" :disabled="busy">
-          <ElOption value="" label="默认搜索顺序" />
+        <label :for="sortId">{{ t('author.authorPropertyFilter.property.sort.field') }}</label>
+        <ElSelect :id="sortId" v-model="sortSelection" :ariaLabel="t('author.authorPropertyFilter.property.sort.field')" :disabled="busy">
+          <ElOption value="" :label="t('author.authorPropertyFilter.default.search.order')" />
           <ElOption v-for="item in sortFields" :key="item.id" :value="item.id"
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
         <template v-if="sortField">
-          <label :for="sortDirectionId">属性排序方向</label>
-          <ElSelect :id="sortDirectionId" v-model="sortDirection" ariaLabel="属性排序方向" :disabled="busy">
-            <ElOption value="ascending" label="升序" />
-            <ElOption value="descending" label="降序" />
+          <label :for="sortDirectionId">{{ t('author.authorPropertyFilter.property.sort.direction') }}</label>
+          <ElSelect :id="sortDirectionId" v-model="sortDirection" :ariaLabel="t('author.authorPropertyFilter.property.sort.direction')" :disabled="busy">
+            <ElOption value="ascending" :label="t('author.authorPropertyFilter.ascending')" />
+            <ElOption value="descending" :label="t('author.authorPropertyFilter.descending')" />
           </ElSelect>
         </template>
       </template>
-      <p v-if="keyword">属性结果同时匹配已应用的标题或摘要：{{ keyword }}</p>
-      <ul v-if="conditions.length" aria-label="已有筛选条件">
+      <p v-if="keyword">{{ t('author.authorPropertyFilter.property.results.also.match.the.applied.title.or', { p0: String(keyword) }) }}</p>
+      <ul v-if="conditions.length" :aria-label="t('author.authorPropertyFilter.existing.filters')">
         <li v-for="(condition, position) in conditions" :key="`${condition.field.id}:${condition.comparison}:${position}`">
-          <span>{{ conditionText(condition) }}{{ condition.anyOf ? ' · 同字段任一' : '' }}</span>
-          <ElButton text :disabled="busy || !!pendingChange" v-bind="{ 'aria-label': `移除第 ${position + 1} 个筛选条件` }"
-            @click="removeCondition(position)">移除</ElButton>
+          <span>{{ conditionText(condition) }}{{ condition.anyOf ? t('author.authorPropertyFilter.match.any.within.this.field') : '' }}</span>
+          <ElButton text :disabled="busy || !!pendingChange" v-bind="{ 'aria-label': t('author.authorPropertyFilter.remove.position', { position: position + 1 }) }"
+            @click="removeCondition(position)">{{ t('author.authorPropertyFilter.remove') }}</ElButton>
         </li>
       </ul>
       <template v-if="selectableFields.length">
-        <label :for="fieldId">属性字段</label>
-        <ElSelect :id="fieldId" v-model="selection" ariaLabel="属性字段" :disabled="busy || !!pendingChange">
+        <label :for="fieldId">{{ t('author.authorPropertyFilter.property.field') }}</label>
+        <ElSelect :id="fieldId" v-model="selection" :ariaLabel="t('author.authorPropertyFilter.property.field')" :disabled="busy || !!pendingChange">
           <ElOption v-for="item in selectableFields" :key="item.id" :value="item.id"
             :label="`${item.label} · ${item.machineKey}`" />
         </ElSelect>
       </template>
-      <p v-else>这里没有已启用筛选的属性。</p>
-      <ElButton v-if="catalog.nextKey" text :disabled="busy || !!pendingChange" @click="later">更多属性</ElButton>
+      <p v-else>{{ t('author.authorPropertyFilter.no.properties.have.filtering.enabled.here') }}</p>
+      <ElButton v-if="catalog.nextKey" text :disabled="busy || !!pendingChange" @click="later">{{ t('author.authorPropertyFilter.more.properties') }}</ElButton>
       <template v-if="field">
-        <p v-if="field.deprecated">该属性已停用。</p>
+        <p v-if="field.deprecated">{{ t('author.authorPropertyFilter.this.property.is.disabled') }}</p>
         <ElButton v-else-if="!embedded" text :disabled="busy" @click="changeFilterability">
-          {{ pendingChange ? '重试筛选设置' : field.enabled ? '停用此字段的筛选' : '启用此字段的筛选' }}
+          {{ pendingChange ? t('author.authorPropertyFilter.retry.filter.settings') : field.enabled ? t('author.authorPropertyFilter.disable.filtering.for.this.field') : t('author.authorPropertyFilter.enable.filtering.for.this.field') }}
         </ElButton>
         <template v-if="field.enabled">
-          <label :for="operatorId">匹配方式</label>
-          <ElSelect :id="operatorId" v-model="mode" ariaLabel="匹配方式" :disabled="busy">
-            <ElOption value="equal" label="精确匹配" />
+          <label :for="operatorId">{{ t('author.authorPropertyFilter.match.mode') }}</label>
+          <ElSelect :id="operatorId" v-model="mode" :ariaLabel="t('author.authorPropertyFilter.match.mode')" :disabled="busy">
+            <ElOption value="equal" :label="t('author.authorPropertyFilter.exact.match')" />
             <ElOption v-for="[comparison, label] in rangeComparisons" :key="comparison" :value="comparison" :label="label" />
-            <ElOption v-if="field.kind === 'single-select'" value="single-select-any-of" label="任一匹配" />
-            <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" label="任一匹配" />
-            <ElOption v-if="field.kind === 'article-reference'" value="reference-any-of" label="任一匹配" />
-            <ElOption value="is-present" label="值存在" />
-            <ElOption value="missing" label="尚未设置" />
-            <ElOption value="null" label="显式空值" />
+            <ElOption v-if="field.kind === 'single-select'" value="single-select-any-of" :label="t('author.authorPropertyFilter.match.any')" />
+            <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" :label="t('author.authorPropertyFilter.match.any')" />
+            <ElOption v-if="field.kind === 'article-reference'" value="reference-any-of" :label="t('author.authorPropertyFilter.match.any')" />
+            <ElOption value="is-present" :label="t('author.authorPropertyFilter.value.exists')" />
+            <ElOption value="missing" :label="t('author.authorPropertyFilter.not.set')" />
+            <ElOption value="null" :label="t('author.authorPropertyFilter.explicit.null')" />
           </ElSelect>
           <ElCheckbox v-if="sameField.length" :disabled="busy || existingAlternatives"
             :model-value="existingAlternatives || anyOf" @update:model-value="anyOf = $event === true">
-            与此字段的已有条件任一匹配
+            {{ t('author.authorPropertyFilter.match.any.existing.condition.for.this.field') }}
           </ElCheckbox>
           <template v-if="mode !== 'is-present' && mode !== 'missing' && mode !== 'null'">
-            <label :for="valueId">属性值</label>
-            <ElSelect v-if="field.kind === 'boolean'" :id="valueId" v-model="flag" ariaLabel="属性值" :disabled="busy">
-              <ElOption :value="false" label="False" /><ElOption :value="true" label="True" />
+            <label :for="valueId">{{ t('author.authorPropertyFilter.property.value') }}</label>
+            <ElSelect v-if="field.kind === 'boolean'" :id="valueId" v-model="flag" :ariaLabel="t('author.authorPropertyFilter.property.value')" :disabled="busy">
+              <ElOption :value="false" :label="t('author.authorPropertyFilter.false')" /><ElOption :value="true" :label="t('author.authorPropertyFilter.true')" />
             </ElSelect>
             <ElSelect v-else-if="field.kind === 'single-select' && mode !== 'single-select-any-of'" :id="valueId" v-model="choice"
-              ariaLabel="属性值" :disabled="busy">
+              :ariaLabel="t('author.authorPropertyFilter.property.value')" :disabled="busy">
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
             <ElSelect v-else-if="field.kind === 'multi-select' || mode === 'single-select-any-of'" :id="valueId" v-model="multiple"
-              ariaLabel="属性值" :disabled="busy" multiple>
+              :ariaLabel="t('author.authorPropertyFilter.property.value')" :disabled="busy" multiple>
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
             <ElInput v-else :id="valueId" v-model="text" :disabled="busy"
-              :placeholder="mode === 'reference-any-of' ? '文章 ID，用逗号分隔' : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? '文章 ID' : undefined" />
+              :placeholder="mode === 'reference-any-of' ? t('author.authorPropertyFilter.article.ids.separated.by.commas') : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? t('author.authorPropertyFilter.article.id') : undefined" />
           </template>
           <ElButton v-if="canAdd" text
-            :disabled="busy || !!pendingChange" @click="add">添加条件</ElButton>
+            :disabled="busy || !!pendingChange" @click="add">{{ t('author.authorPropertyFilter.add.condition') }}</ElButton>
         </template>
       </template>
       <ElButton v-if="!embedded && (field?.enabled || !field && conditions.length)" type="primary"
         :disabled="busy || !!pendingChange" @click="search()">{{ conditions.some(item => item.anyOf) || sameField.length && anyOf
-          ? '应用条件' : conditions.length ? '匹配全部条件' : '筛选属性' }}</ElButton>
-      <section v-if="!embedded && result" aria-label="属性筛选结果">
-        <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
+          ? t('author.authorPropertyFilter.apply.conditions') : conditions.length ? t('author.authorPropertyFilter.match.all.conditions') : t('author.authorPropertyFilter.filter.properties') }}</ElButton>
+      <section v-if="!embedded && result" :aria-label="t('author.authorPropertyFilter.property.filter.results')">
+        <p v-if="!result.rows.length" role="status">{{ t('author.authorPropertyFilter.no.matching.articles') }}</p>
         <ul v-else>
           <li v-for="item in result.rows" :key="item.id">
             <RouterLink :to="{ name: 'edit', params: { id: item.id } }">{{ item.title }}</RouterLink>
           </li>
         </ul>
-        <ElButton v-if="result.nextCursor" :disabled="busy" @click="search(true)">更多匹配文章</ElButton>
+        <ElButton v-if="result.nextCursor" :disabled="busy" @click="search(true)">{{ t('author.authorPropertyFilter.more.matching.articles') }}</ElButton>
       </section>
     </template>
   </details>

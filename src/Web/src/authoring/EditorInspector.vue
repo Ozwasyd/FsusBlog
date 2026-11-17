@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch, type ComponentPublicInstance } from 'vue'
 import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import {
@@ -6,10 +7,10 @@ import {
 } from './inspectorFocus'
 
 const props = withDefaults(defineProps<{ title?: string; triggerLabel?: string; nestedModalActive?: boolean; opened?: boolean }>(), {
-  title: 'Article inspector',
-  triggerLabel: 'Inspector',
   opened: undefined,
 })
+const title = computed(() => props.title ?? t('author.editorInspector.article.inspector'))
+const triggerLabel = computed(() => props.triggerLabel ?? t('author.editorInspector.inspector'))
 const emit = defineEmits<{ 'update:opened': [value: boolean] }>()
 
 const compactQuery = '(max-width: 1023px)'
@@ -139,7 +140,7 @@ onBeforeUnmount(() => {
   >
     <header class="inspector-heading">
       <h2 :id="titleId">{{ title }}</h2>
-      <ElButton native-type="button" text @click="close(current)">Close</ElButton>
+      <ElButton native-type="button" text @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
     </header>
     <div ref="pane" class="inspector-pane-content" />
   </aside>

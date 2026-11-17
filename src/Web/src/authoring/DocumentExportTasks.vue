@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError, ProtocolError } from '../../../Contracts/aeds'
@@ -15,13 +16,13 @@ const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fs
 const formats: readonly DocumentExportFormat[] = pdfAvailable ? ['html', 'pdf', 'docx', 'epub'] : ['html', 'docx', 'epub']
 const labels: Record<DocumentExportFormat, string> = { html: 'HTML', pdf: 'PDF', docx: 'Word', epub: 'EPUB' }
 const states: Record<DocumentExportStatus, string> = {
-  queued: 'Queued', running: 'Running', succeeded: 'Ready', failed: 'Failed', cancelled: 'Cancelled',
-  blocked: 'Blocked', cancelling: 'Cancelling',
+  get queued() { return t('author.documentExportTasks.queued') }, get running() { return t('author.documentExportTasks.running') }, get succeeded() { return t('author.documentExportTasks.ready') }, get failed() { return t('author.documentExportTasks.failed') }, get cancelled() { return t('author.documentExportTasks.cancelled') },
+  get blocked() { return t('author.documentExportTasks.blocked') }, get cancelling() { return t('author.documentExportTasks.cancelling') },
 }
 const failures: Record<DocumentExportFailure, string> = {
-  none: '', 'unsupported-input': 'This revision exceeds the format limits or contains unsupported content.',
-  'provider-unavailable': 'This format is currently unavailable.', permission: 'The saved revision is no longer available.',
-  interruption: 'The export was interrupted.',
+  none: '', get 'unsupported-input'() { return t('author.documentExportTasks.this.revision.exceeds.the.format.limits.or.contains.unsupported') },
+  get 'provider-unavailable'() { return t('author.documentExportTasks.this.format.is.currently.unavailable') }, get permission() { return t('author.documentExportTasks.the.saved.revision.is.no.longer.available') },
+  get interruption() { return t('author.documentExportTasks.the.export.was.interrupted') },
 }
 const open = ref(false)
 const loading = ref(false)
@@ -100,10 +101,10 @@ async function run(kind: 'list' | 'action', work: (handle: string, signal: Abort
     if (cause instanceof ApiError && cause.status === 401) await recheckCredential(handle, controller.signal)
     if (!current()) return
     error.value = cause instanceof ApiError && cause.status === 409
-      ? 'The draft or export task changed. Refresh tasks or reload the saved revision.'
+      ? t('author.documentExportTasks.the.draft.or.export.task.changed.refresh.tasks.or')
       : cause instanceof ApiError && [401, 403, 404, 410].includes(cause.status)
-        ? 'This export is no longer available.'
-        : kind === 'list' ? 'Could not load export tasks. Try refreshing.' : 'Could not complete the export request. Try again.'
+        ? t('author.documentExportTasks.this.export.is.no.longer.available')
+        : kind === 'list' ? t('author.documentExportTasks.could.not.load.export.tasks.try.refreshing') : t('author.documentExportTasks.could.not.complete.the.export.request.try.again')
   } finally {
     if (request === operation) {
       request = undefined
@@ -196,33 +197,33 @@ onScopeDispose(stop)
 
 <template>
   <details v-if="eligible" class="document-export-tasks" @toggle="toggle">
-    <summary>Document export tasks</summary>
-    <div v-if="open" class="document-export-content" role="region" aria-label="Document export tasks">
-      <p>Source revision {{ selected }}</p>
+    <summary>{{ t('author.documentExportTasks.document.export.tasks') }}</summary>
+    <div v-if="open" class="document-export-content" role="region" :aria-label="t('author.documentExportTasks.document.export.tasks')">
+      <p>{{ t('author.documentExportTasks.source.revision', { p0: String(selected) }) }}</p>
       <div class="document-export-controls">
         <div class="document-export-format">
-          <ElSelect v-model="format" ariaLabel="Export format" :disabled="disabled || busy">
+          <ElSelect v-model="format" :ariaLabel="t('author.documentExportTasks.export.format')" :disabled="disabled || busy">
             <ElOption v-for="value in formats" :key="value" :value="value" :label="labels[value]" />
           </ElSelect>
         </div>
-        <ElButton native-type="button" :disabled="disabled || busy" @click="create">Create export task</ElButton>
-        <ElButton native-type="button" text :disabled="loading || busy" @click="load">Refresh tasks</ElButton>
+        <ElButton native-type="button" :disabled="disabled || busy" @click="create">{{ t('author.documentExportTasks.create.export.task') }}</ElButton>
+        <ElButton native-type="button" text :disabled="loading || busy" @click="load">{{ t('author.documentExportTasks.refresh.tasks') }}</ElButton>
       </div>
-      <p v-if="loading && !loaded" role="status">Loading export tasks…</p>
-      <p v-else-if="loaded && !tasks.length" role="status">No export tasks for this article.</p>
+      <p v-if="loading && !loaded" role="status">{{ t('author.documentExportTasks.loading.export.tasks') }}</p>
+      <p v-else-if="loaded && !tasks.length" role="status">{{ t('author.documentExportTasks.no.export.tasks.for.this.article') }}</p>
       <ElAlert v-if="listError" :title="listError" type="error" :closable="false" />
       <ElAlert v-if="actionError" :title="actionError" type="error" :closable="false" />
-      <ul v-if="tasks.length" class="document-export-list" aria-label="Recent export tasks">
+      <ul v-if="tasks.length" class="document-export-list" :aria-label="t('author.documentExportTasks.recent.export.tasks')">
         <li v-for="task in tasks" :key="task.id">
-          <strong>{{ labels[task.format] }} · Revision {{ task.sourceRevision }}</strong>
-          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? 'Expired' : states[task.status] }}</span>
+          <strong>{{ t('author.documentExportTasks.revision', { p0: String(labels[task.format]), p1: String(task.sourceRevision) }) }}</strong>
+          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? t('author.documentExportTasks.expired') : states[task.status] }}</span>
           <span v-if="task.failure !== 'none'">{{ failures[task.failure] }}</span>
           <div v-if="cancelable(task) || downloadable(task)">
-            <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">Cancel task</ElButton>
+            <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">{{ t('author.documentExportTasks.cancel.task') }}</ElButton>
             <template v-if="downloadable(task)">
-              <ElButton native-type="button" text :disabled="busy" @click="download(task)">Download export</ElButton>
-              <ElButton native-type="button" text :disabled="busy" @click="download(task, 'receipt')">Download receipt</ElButton>
-              <ElButton v-if="hasExportWarnings(task.format)" native-type="button" text :disabled="busy" @click="download(task, 'review')">Review {{ labels[task.format] }} formatting</ElButton>
+              <ElButton native-type="button" text :disabled="busy" @click="download(task)">{{ t('author.documentExportTasks.download.export') }}</ElButton>
+              <ElButton native-type="button" text :disabled="busy" @click="download(task, 'receipt')">{{ t('author.documentExportTasks.download.receipt') }}</ElButton>
+              <ElButton v-if="hasExportWarnings(task.format)" native-type="button" text :disabled="busy" @click="download(task, 'review')">{{ t('author.documentExportTasks.review.formatting', { p0: String(labels[task.format]) }) }}</ElButton>
             </template>
           </div>
           <div v-if="downloadable(task) && formattingWarnings?.id === task.id" role="status">
@@ -231,7 +232,7 @@ onScopeDispose(stop)
                 {{ documentWarningLabels[warning.code] }} ({{ warning.occurrences }})
               </li>
             </ul>
-            <p v-else>No {{ labels[task.format] }} formatting warnings were reported.</p>
+            <p v-else>{{ t('author.documentExportTasks.no.formatting.warnings.were.reported', { p0: String(labels[task.format]) }) }}</p>
           </div>
         </li>
       </ul>

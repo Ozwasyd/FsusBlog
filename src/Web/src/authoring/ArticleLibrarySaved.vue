@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElButton, ElLink } from '@ozwasyd/element-plus'
@@ -48,7 +49,7 @@ async function load(page?: { offset: number; revision: bigint }) {
       return
     }
     failure.value = error instanceof ApiError && error.status === 409
-      ? 'Pinned views changed. Reload them from the first page.' : 'Could not load pinned views.'
+      ? t('author.articleLibrarySaved.pinned.views.changed.reload.them.from.the.first.page') : t('author.articleLibrarySaved.could.not.load.pinned.views')
   } finally {
     if (current()) loading.value = false
   }
@@ -75,11 +76,11 @@ onBeforeUnmount(() => request?.abort())
 </script>
 
 <template>
-  <nav v-if="active" ref="navigation" aria-label="Pinned saved views" class="pinned-views">
-    <p v-if="loading" role="status">Loading pinned views…</p>
+  <nav v-if="active" ref="navigation" :aria-label="t('author.articleLibrarySaved.pinned.saved.views')" class="pinned-views">
+    <p v-if="loading" role="status">{{ t('author.articleLibrarySaved.loading.pinned.views') }}</p>
     <p v-else-if="failure" role="alert">{{ failure }}</p>
-    <ElButton v-if="failure" text native-type="button" @click="load()">Reload pinned views</ElButton>
-    <p v-if="placement?.pins.length === 0" role="status">No pinned views on this page.</p>
+    <ElButton v-if="failure" text native-type="button" @click="load()">{{ t('author.articleLibrarySaved.reload.pinned.views') }}</ElButton>
+    <p v-if="placement?.pins.length === 0" role="status">{{ t('author.articleLibrarySaved.no.pinned.views.on.this.page') }}</p>
     <ul v-if="placement?.pins.length">
       <li v-for="view in placement.pins" :key="view.id">
         <RouterLink :to="{ name: 'article-list', query: { view: view.id, viewSchema: '1' } }" custom v-slot="{ href, navigate }">
@@ -88,8 +89,8 @@ onBeforeUnmount(() => request?.abort())
       </li>
     </ul>
     <div v-if="offset || placement?.offset" class="pinned-pages">
-      <ElButton text native-type="button" :disabled="!offset" @click="movePage(-1)">Previous pinned views</ElButton>
-      <ElButton text native-type="button" :disabled="!placement?.offset" @click="movePage(1)">Next pinned views</ElButton>
+      <ElButton text native-type="button" :disabled="!offset" @click="movePage(-1)">{{ t('author.articleLibrarySaved.previous.pinned.views') }}</ElButton>
+      <ElButton text native-type="button" :disabled="!placement?.offset" @click="movePage(1)">{{ t('author.articleLibrarySaved.next.pinned.views') }}</ElButton>
     </div>
   </nav>
 </template>

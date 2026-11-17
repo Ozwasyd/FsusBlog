@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -13,7 +14,7 @@ const pages = shallowRef<Awaited<ReturnType<typeof readAdminSitePages>>>()
 const selected = shallowRef<Awaited<ReturnType<typeof readAdminSitePage>>>()
 const editor = ref<SitePageSlug>()
 const busy = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 let active: AbortController | undefined
 
 function clear() {
@@ -46,8 +47,8 @@ async function read(slug?: SitePageSlug) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 403) error.value = 'The system.config permission is required.'
-    else error.value = 'Could not load site page content. Try again.'
+    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.systemPermission'
+    else error.value = 'admin.sitePageLoadFailed'
   } finally {
     if (active === request) { active = undefined; busy.value = false }
   }
@@ -58,18 +59,18 @@ watchAdminSessionClear(() => props.sessionSignal, clear)
 
 <template>
   <section class="auth-form" aria-labelledby="admin-site-pages-heading">
-    <h2 id="admin-site-pages-heading">Site pages</h2>
-    <ElButton native-type="button" :loading="busy" @click="read()">Check site pages</ElButton>
-    <ElAlert v-if="error" :title="error" :closable="false" type="error" />
+    <h2 id="admin-site-pages-heading">{{ t('admin.sitePages') }}</h2>
+    <ElButton native-type="button" :loading="busy" @click="read()">{{ t('admin.checkSitePages') }}</ElButton>
+    <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <ul v-if="pages" class="site-pages-list">
       <li v-for="page in pages.pages" :key="page.slug">
         <strong>{{ page.title }}</strong> <code>/{{ page.slug }}</code>
-        <span>{{ page.configured ? 'Configured' : 'Unconfigured' }}</span>
+        <span>{{ page.configured ? t('admin.configured') : t('admin.unconfigured') }}</span>
         <ElButton v-if="page.configured" :disabled="busy" native-type="button" text
-          @click="read(page.slug)">View {{ page.slug }} content</ElButton>
+          @click="read(page.slug)">{{ t('admin.viewPageContent', { slug: page.slug }) }}</ElButton>
         <ElButton v-if="pages.editor && page.configured" :disabled="busy" native-type="button" text
-          @click="selected = undefined; editor = page.slug">Edit {{ page.slug }} content</ElButton>
-        <pre v-if="selected?.slug === page.slug" tabindex="0" :aria-label="`${page.slug} Markdown`">{{ selected.markdown }}</pre>
+          @click="selected = undefined; editor = page.slug">{{ t('admin.editPageContent', { slug: page.slug }) }}</ElButton>
+        <pre v-if="selected?.slug === page.slug" tabindex="0" :aria-label="t('admin.pageMarkdown', { slug: page.slug })">{{ selected.markdown }}</pre>
         <AdminSitePageEditor v-if="editor === page.slug" :key="page.slug" :slug="page.slug" :session-signal="sessionSignal"
           @session-lost="emit('session-lost', $event)" @close="editor = undefined" />
       </li>

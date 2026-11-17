@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
@@ -87,7 +88,7 @@ async function load(more = false, keep?: string, launch = false) {
     page.value = undefined
     placement.value = undefined
     const link = deepLink.value
-    if (link === 'invalid') { error.value = '保存视图链接无效。'; return }
+    if (link === 'invalid') { error.value = t('author.savedViewPanel.invalid.saved.view.link'); return }
     const target = keep ?? link?.id
     let resolved = false
     await run((session, signal) => savedViewPlacement(session, target ? { id: target } : undefined, signal), positions => {
@@ -97,7 +98,7 @@ async function load(more = false, keep?: string, launch = false) {
       if (positions.requested && positions.requested.id === selected.value) name.value = positions.requested.name
       else if (launch && !link && positions.defaultView) selected.value = positions.defaultView.id
       if (launch) start = target ? positions.requested : !link ? positions.defaultView : undefined
-    }, '无法读取保存视图。', failure => {
+    }, t('author.savedViewPanel.could.not.read.saved.views'), failure => {
       if (link || !(failure instanceof ApiError) || failure.status !== 404 ||
           failure.message !== 'Saved view placement storage is unavailable.') return false
       placement.value = undefined
@@ -109,13 +110,13 @@ async function load(more = false, keep?: string, launch = false) {
   await run((session, signal) => listSavedViews(session, current ? { id: current.nextId, revision: current.revision } : undefined, signal),
     listing => {
       if (placement.value && placement.value.revision !== listing.revision) {
-        error.value = '保存视图已变更，请重新加载。'
+        error.value = t('author.savedViewPanel.saved.views.changed.reload.them')
         start = undefined
         return
       }
       page.value = current ? { ...listing, views: [...current.views, ...listing.views] } : listing
       if (keep && !placement.value && listing.views.some(item => item.id === keep)) selected.value = keep
-    }, '暂时无法读取保存视图。')
+    }, t('author.savedViewPanel.saved.views.are.temporarily.unavailable'))
   if (start && page.value?.revision === placement.value?.revision && !error.value) openView()
 }
 
@@ -154,7 +155,7 @@ function openView(more = false) {
     matches => {
       ran.value = chosen
       result.value = { ...matches, rows: [...(previous?.rows ?? []), ...matches.rows] }
-    }, '无法打开保存视图。').then(() => {
+    }, t('author.savedViewPanel.could.not.open.the.saved.view')).then(() => {
       if (!more && deepLink.value && ran.value?.id === chosen.id) resultHeading.value?.focus()
     })
 }
@@ -165,7 +166,7 @@ async function save(action: SavedViewChange['action']) {
     collectionRevision: page.value.revision, requestId: crypto.randomUUID() }
   const label = name.value.trim().normalize('NFC')
   if (!pending.value && action !== 'retire' && (!label || label.length > 128 || /\p{Cc}/u.test(label))) {
-    error.value = '请输入不超过 128 个字符的有效名称。'
+    error.value = t('author.savedViewPanel.enter.a.valid.name.of.up.to.128.characters')
     return
   }
   const change = pending.value ?? (action === 'retire' ? { ...base, action }
@@ -179,7 +180,7 @@ async function save(action: SavedViewChange['action']) {
   await run((session, signal) => changeSavedView(session, change, signal), () => {
     pending.value = undefined
     committed = true
-  }, '无法确认保存操作。请重试原操作。')
+  }, t('author.savedViewPanel.could.not.confirm.the.save.retry.the.original.operation'))
   if (!committed) return
   selected.value = ''
   name.value = ''
@@ -195,7 +196,7 @@ async function place(action: PlacementAction, before?: string) {
   await run((session, signal) => placeSavedView(session, command, signal), () => {
     pendingPlacement.value = undefined
     committed = true
-  }, '无法确认视图设置。请重试原操作。')
+  }, t('author.savedViewPanel.could.not.confirm.view.settings.retry.the.original.operation'))
   if (!committed) return
   await load(false, command.view.id)
   if (action === 'move-before') {
@@ -209,7 +210,7 @@ function morePins() {
   if (!current?.offset || saving.value) return
   return run((session, signal) => savedViewPlacement(session, { offset: current.offset, revision: current.revision }, signal),
     result => { placement.value = { ...current, offset: result.offset, pins: [...current.pins, ...result.pins] } },
-    '无法读取更多固定视图。')
+    t('author.savedViewPanel.could.not.read.more.pinned.views'))
 }
 
 function move(direction: -1 | 1) {
@@ -231,73 +232,73 @@ function reload() {
 
 <template>
   <details class="saved-views" :open="visible" @toggle="toggle">
-    <summary>保存视图</summary>
+    <summary>{{ t('author.savedViewPanel.saved.views') }}</summary>
     <div v-if="error" ref="alert" tabindex="-1"><ElAlert :title="error" type="error" :closable="false" /></div>
-    <p v-if="busy" role="status">正在读取保存视图…</p>
-    <ElButton v-if="error && !busy && !saving && !deepLink" text @click="reload">重新加载保存视图</ElButton>
-    <RouterLink v-if="deepLink" :to="{ name: surface }">返回全部视图</RouterLink>
+    <p v-if="busy" role="status">{{ t('author.savedViewPanel.loading.saved.views') }}</p>
+    <ElButton v-if="error && !busy && !saving && !deepLink" text @click="reload">{{ t('author.savedViewPanel.reload.saved.views') }}</ElButton>
+    <RouterLink v-if="deepLink" :to="{ name: surface }">{{ t('author.savedViewPanel.back.to.all.views') }}</RouterLink>
     <template v-if="page">
-      <nav v-if="placement?.pins.length" aria-label="固定视图">
+      <nav v-if="placement?.pins.length" :aria-label="t('author.savedViewPanel.pinned.views')">
         <ul>
           <li v-for="pin in placement.pins" :key="pin.id">
             <RouterLink :to="{ name: surface, query: { view: pin.id, viewSchema: '1' } }">
-              {{ pin.name }}{{ pin.id === defaultId ? '（默认）' : '' }}
+              {{ pin.name }}{{ pin.id === defaultId ? t('author.savedViewPanel.default') : '' }}
             </RouterLink>
           </li>
         </ul>
-        <ElButton v-if="placement.offset" text :disabled="busy || saving" @click="morePins">更多固定视图</ElButton>
+        <ElButton v-if="placement.offset" text :disabled="busy || saving" @click="morePins">{{ t('author.savedViewPanel.more.pinned.views') }}</ElButton>
       </nav>
-      <label for="saved-view-select">选择保存视图</label>
-      <ElSelect id="saved-view-select" v-model="selected" ariaLabel="选择保存视图" :disabled="busy || saving">
-        <ElOption v-if="!props.readOnly" value="" label="新建保存视图" />
+      <label for="saved-view-select">{{ t('author.savedViewPanel.select.saved.view') }}</label>
+      <ElSelect id="saved-view-select" v-model="selected" :ariaLabel="t('author.savedViewPanel.select.saved.view')" :disabled="busy || saving">
+        <ElOption v-if="!props.readOnly" value="" :label="t('author.savedViewPanel.create.saved.view')" />
         <ElOption v-if="view && !page.views.some(entry => entry.id === view?.id)" :label="view.name" :value="view.id" />
         <ElOption v-for="item in page.views" :key="item.id" :label="item.name" :value="item.id" />
       </ElSelect>
-      <ElButton v-if="page.nextId" text :disabled="busy || saving" @click="load(true)">更多保存视图</ElButton>
+      <ElButton v-if="page.nextId" text :disabled="busy || saving" @click="load(true)">{{ t('author.savedViewPanel.more.saved.views') }}</ElButton>
       <template v-if="view">
-        <ElButton :disabled="busy || saving" @click="openView()">打开保存视图</ElButton>
-        <RouterLink v-if="placement" :to="{ name: surface, query: { view: view.id, viewSchema: '1' } }">保存视图链接</RouterLink>
+        <ElButton :disabled="busy || saving" @click="openView()">{{ t('author.savedViewPanel.open.saved.view') }}</ElButton>
+        <RouterLink v-if="placement" :to="{ name: surface, query: { view: view.id, viewSchema: '1' } }">{{ t('author.savedViewPanel.saved.view.link') }}</RouterLink>
         <template v-if="!props.readOnly">
           <ElButton v-if="placement && knowsPin" text :disabled="busy || saving" @click="place(pinned ? 'unpin' : 'pin')">
-            {{ pinned ? '取消固定视图' : '固定视图' }}
+            {{ pinned ? t('author.savedViewPanel.unpin.view') : t('author.savedViewPanel.pin.view') }}
           </ElButton>
           <span v-if="pinIndex >= 0" ref="orderGroup">
-            <ElButton v-if="pinIndex > 0" text :disabled="busy || saving" @click="move(-1)">上移固定视图</ElButton>
+            <ElButton v-if="pinIndex > 0" text :disabled="busy || saving" @click="move(-1)">{{ t('author.savedViewPanel.move.pinned.view.up') }}</ElButton>
             <ElButton v-if="(placement?.pins.length ?? 0) - pinIndex > (placement?.offset ? 2 : 1)"
-              text :disabled="busy || saving" @click="move(1)">下移固定视图</ElButton>
+              text :disabled="busy || saving" @click="move(1)">{{ t('author.savedViewPanel.move.pinned.view.down') }}</ElButton>
           </span>
           <ElButton v-if="placement" text :disabled="busy || saving" @click="place(view.id === defaultId ? 'clear-default' : 'default')">
-            {{ view.id === defaultId ? '清除默认视图' : '设为默认视图' }}
+            {{ view.id === defaultId ? t('author.savedViewPanel.clear.default.view') : t('author.savedViewPanel.set.as.default.view') }}
           </ElButton>
-          <ElButton text :disabled="busy || saving || view.id === defaultId" @click="deleting = true">移除保存视图</ElButton>
+          <ElButton text :disabled="busy || saving || view.id === defaultId" @click="deleting = true">{{ t('author.savedViewPanel.remove.saved.view') }}</ElButton>
           <div v-if="deleting">
-            <ElButton :disabled="busy" @click="save('retire')">确认移除视图</ElButton>
-            <ElButton text @click="deleting = false">取消</ElButton>
+            <ElButton :disabled="busy" @click="save('retire')">{{ t('author.savedViewPanel.confirm.view.removal') }}</ElButton>
+            <ElButton text @click="deleting = false">{{ t('author.savedViewPanel.cancel') }}</ElButton>
           </div>
         </template>
       </template>
       <template v-if="!props.readOnly">
-        <label for="saved-view-name">保存视图名称</label>
+        <label for="saved-view-name">{{ t('author.savedViewPanel.saved.view.name') }}</label>
         <ElInput id="saved-view-name" v-model="name" :disabled="busy || saving" />
-        <ElButton v-if="pendingPlacement" :disabled="busy" @click="place(pendingPlacement.action)">重试视图设置</ElButton>
-        <ElButton v-if="pending" :disabled="busy" @click="save(pending.action)">重试保存视图操作</ElButton>
+        <ElButton v-if="pendingPlacement" :disabled="busy" @click="place(pendingPlacement.action)">{{ t('author.savedViewPanel.retry.view.settings') }}</ElButton>
+        <ElButton v-if="pending" :disabled="busy" @click="save(pending.action)">{{ t('author.savedViewPanel.retry.saved.view.operation') }}</ElButton>
         <template v-if="!saving">
-          <ElButton v-if="view" :disabled="busy || !name.trim()" @click="save('rename')">重命名保存视图</ElButton>
+          <ElButton v-if="view" :disabled="busy || !name.trim()" @click="save('rename')">{{ t('author.savedViewPanel.rename.saved.view') }}</ElButton>
           <ElButton v-if="props.query" :disabled="busy || !name.trim()" @click="save('save')">
-            {{ view ? '用当前条件更新视图' : '保存当前筛选' }}
+            {{ view ? t('author.savedViewPanel.update.view.with.current.conditions') : t('author.savedViewPanel.save.current.filters') }}
           </ElButton>
-          <p v-else-if="!view">运行属性筛选后即可保存条件。</p>
+          <p v-else-if="!view">{{ t('author.savedViewPanel.run.a.property.filter.to.save.its.conditions') }}</p>
         </template>
       </template>
-      <section v-if="result" aria-label="保存视图结果">
+      <section v-if="result" :aria-label="t('author.savedViewPanel.saved.view.results')">
         <h2 ref="resultHeading" tabindex="-1">{{ ran?.name }}</h2>
-        <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
+        <p v-if="!result.rows.length" role="status">{{ t('author.savedViewPanel.no.matching.articles') }}</p>
         <ul v-else>
           <li v-for="item in result.rows" :key="item.id">
             <RouterLink :to="{ name: 'edit', params: { id: item.id } }">{{ item.title }}</RouterLink>
           </li>
         </ul>
-        <ElButton v-if="result.nextCursor" :disabled="busy" @click="openView(true)">更多匹配文章</ElButton>
+        <ElButton v-if="result.nextCursor" :disabled="busy" @click="openView(true)">{{ t('author.savedViewPanel.more.matching.articles') }}</ElButton>
       </section>
     </template>
   </details>

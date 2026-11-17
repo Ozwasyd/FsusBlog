@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
@@ -34,10 +35,10 @@ type SearchReply = AuthorTextFacetedPage & { propertyFacet?: AuthorTextPropertyF
 type SearchPage = SearchReply & { input: SearchInput; cursor: string; previous: readonly string[] }
 type FacetBucket = { key: string; label: string; count: number; condition?: PropertyCondition }
 const PreviousPageLimit = 500
-const fieldLabels = { title: '标题', body: '正文', summary: '摘要', heading: '章节标题', 'property-text': '文本属性' } as const
+const fieldLabels = { get title() { return t('author.authorTextSearch.title') }, get body() { return t('author.authorTextSearch.body') }, get summary() { return t('author.authorTextSearch.summary') }, get heading() { return t('author.authorTextSearch.heading') }, get 'property-text'() { return t('author.authorTextSearch.text.property') } } as const
 const states = [
-  { value: 'draft', label: '草稿' }, { value: 'scheduled', label: '已排期' },
-  { value: 'published', label: '已发布' }, { value: 'retracted', label: '已撤回' },
+  { value: 'draft', get label() { return t('author.authorTextSearch.draft') } }, { value: 'scheduled', get label() { return t('author.authorTextSearch.scheduled') } },
+  { value: 'published', get label() { return t('author.authorTextSearch.published') } }, { value: 'retracted', get label() { return t('author.authorTextSearch.withdrawn') } },
 ] as const
 
 type Opening = {
@@ -140,13 +141,13 @@ function search() {
     until = utcMidnight(updatedUntil.value)
     if (from !== null && until !== null && from >= until) throw new Error('Invalid UTC interval')
   } catch {
-    error.value = '请输入有效的 UTC 日期。起始日期必须早于截止日期。'
+    error.value = t('author.authorTextSearch.enter.valid.utc.dates.the.start.date.must.precede')
     return
   }
   const text = query.value.trim()
   const includeHeading = usesHeadingQualifier(text)
   if (textSource.value && !mixedSources.value && includeHeading) {
-    error.value = '请切换到文章全文搜索后使用章节标题限定词。'
+    error.value = t('author.authorTextSearch.switch.to.article.full.text.search.to.use.heading')
     return
   }
   return loadPage({
@@ -201,16 +202,16 @@ function facetBuckets(page: SearchPage): FacetBucket[] {
   const field = page.input.facet?.field
   if (!counts || !field) return []
   const buckets: FacetBucket[] = [
-    { key: 'missing', label: '尚未设置', count: counts.missing,
+    { key: 'missing', label: t('author.authorTextSearch.not.set'), count: counts.missing,
       condition: { field, comparison: 'equal', value: { kind: 'missing' } } },
-    { key: 'null', label: '显式空值', count: counts.null,
+    { key: 'null', label: t('author.authorTextSearch.explicit.null'), count: counts.null,
       condition: { field, comparison: 'equal', value: { kind: 'null' } } },
   ]
   // The catalog does not expose whether whole-set equality normalizes an empty set to null.
-  if (counts.kind === 'multi-select') buckets.push({ key: 'empty', label: '空选项集合', count: counts.empty })
+  if (counts.kind === 'multi-select') buckets.push({ key: 'empty', label: t('author.authorTextSearch.empty.option.set'), count: counts.empty })
   for (const { value, count } of counts.buckets) {
     if (value.kind === 'boolean') {
-      buckets.push({ key: String(value.value), label: value.value ? '是' : '否', count,
+      buckets.push({ key: String(value.value), label: value.value ? t('author.authorTextSearch.yes') : t('author.authorTextSearch.no'), count,
         condition: { field, comparison: 'equal', value } })
     } else {
       const option = field.options.find(item => item.id === value.value)
@@ -238,16 +239,16 @@ function applyBucket(page: SearchPage, bucket: FacetBucket) {
 
 function queryAvailabilityError(input: SearchInput, failure: unknown): string | undefined {
   if (!(failure instanceof ApiError)) return
-  if (input.includeHeading && failure.status === 422) return '有文章超出章节标题解析上限。仍可按标题、摘要或正文搜索。'
+  if (input.includeHeading && failure.status === 422) return t('author.authorTextSearch.some.articles.exceed.the.heading.parsing.limit.you.can')
   if (input.textSource && (failure.status === 404 || failure.status === 409))
-    return input.facet || input.sort ? '文本属性搜索的来源、排序或分面已失效。请重新加载属性定义。'
-      : '文本属性搜索来源已失效。请重新加载属性定义。'
+    return input.facet || input.sort ? t('author.authorTextSearch.the.text.property.source.sort.or.facet.is.no')
+      : t('author.authorTextSearch.the.text.property.source.is.no.longer.valid.reload')
   if (input.sort && (failure.status === 404 || failure.status === 409))
-    return input.facet ? '属性排序或分面已失效。请重新加载属性定义。' : '属性排序已失效。请重新加载属性定义。'
+    return input.facet ? t('author.authorTextSearch.the.property.sort.or.facet.is.no.longer.valid') : t('author.authorTextSearch.the.property.sort.is.no.longer.valid.reload.property')
   if (input.facet && (failure.status === 404 || failure.status === 409))
-    return '属性分面已失效。请重新加载属性定义。'
+    return t('author.authorTextSearch.the.property.facet.is.no.longer.valid.reload.property')
   if (input.conditions.length > 0 && (failure.status === 404 || failure.status === 409))
-    return '属性条件已失效。请重新加载属性定义并添加条件。'
+    return t('author.authorTextSearch.property.conditions.are.no.longer.valid.reload.property.definitions')
 }
 
 function showNextPage() {
@@ -311,7 +312,7 @@ async function loadPage(input: SearchInput, cursor: string, previous: readonly s
       return
     }
     error.value = failure instanceof ApiError && failure.status === 400
-      ? '搜索词格式无效。请检查关键词、引号和筛选条件。' : '无法完成全文搜索，请重试。'
+      ? t('author.authorTextSearch.invalid.search.syntax.check.keywords.quotes.and.filters') : t('author.authorTextSearch.could.not.complete.full.text.search.try.again')
   } finally {
     if (pending.value === request) pending.value = undefined
   }
@@ -370,7 +371,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       result.value = next
       historicalMatch.value = undefined
       if (fresh.ready) {
-        locationNotice.value = '原命中已变化或不可用。搜索结果已更新，请重新选择。'
+        locationNotice.value = t('author.authorTextSearch.the.original.match.changed.or.is.unavailable.results.were')
         const latest = fresh.rows.find(candidate => candidate.id === row.id && candidate.revision > row.revision)
         if (!earlier && latest && row.field !== 'property-text') historicalMatch.value = { saved: row, latest, page: next }
       }
@@ -414,7 +415,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
         if (!current()) return
         signal.throwIfAborted()
         if (!rebased) {
-          locationNotice.value = '此命中没有可用的跨修订编辑记录，可以查看原保存修订。'
+          locationNotice.value = t('author.authorTextSearch.this.match.has.no.cross.revision.edit.history.you')
           return
         }
         token = offerSearchEditorHandoff(rebased, epoch, handle)
@@ -434,21 +435,21 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       const failure = await router.push({
         name: 'edit', params: { id: confirmed.id }, state: { articleWorkspace: true, [editorSourceHandoffKey]: token },
       })
-      if (failure && current()) locationNotice.value = '未能打开编辑器。请重新选择命中位置。'
+      if (failure && current()) locationNotice.value = t('author.authorTextSearch.could.not.open.the.editor.select.the.match.again')
     } finally {
       stop()
     }
   } catch (failure) {
     if (!current()) return
     if (operation.token) {
-      locationNotice.value = '未能打开编辑器。请重新选择命中位置。'
+      locationNotice.value = t('author.authorTextSearch.could.not.open.the.editor.select.the.match.again')
       return
     }
     if (page.cursor && failure instanceof ApiError && failure.status === 409) { expirePage(); return }
     result.value = undefined
     historicalMatch.value = undefined
     if (failure instanceof ApiError && failure.status === 401) { invalidateSession(); return }
-    locationNotice.value = queryAvailabilityError(page.input, failure) ?? '无法复查此命中。请重新搜索后再定位。'
+    locationNotice.value = queryAvailabilityError(page.input, failure) ?? t('author.authorTextSearch.could.not.recheck.this.match.search.again.before.locating')
   } finally {
     signal.removeEventListener('abort', revoke)
     revoke()
@@ -459,8 +460,8 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
 
 <template>
   <details ref="details" class="author-text-search" :open="props.expanded" @toggle="toggle">
-    <summary>作者全文搜索</summary>
-    <form ref="form" aria-label="作者全文搜索" @submit.prevent="search">
+    <summary>{{ t('author.authorTextSearch.author.full.text.search') }}</summary>
+    <form ref="form" :aria-label="t('author.authorTextSearch.author.full.text.search')" @submit.prevent="search">
       <p id="author-text-search-help">
         可组合关键词和英文双引号短语。
         <template v-if="!textSource || mixedSources">
@@ -468,43 +469,43 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           <code>field.summary:</code> 限定摘要，<code>field.heading:</code> 限定章节标题。
           <template v-if="mixedSources">添加 <code>field.property:</code> 限定所选文本属性。两类字段各需一个词或短语。</template>
         </template>
-        <template v-else>关键词仅匹配所选文本属性。</template>
+        <template v-else>{{ t('author.authorTextSearch.keywords.match.only.the.selected.text.property') }}</template>
         可追加 <code>status:draft</code>、<code>category:12</code>、<code>tag:34</code> 筛选。
       </p>
-      <ElInput ref="queryInput" v-model="query" label="全文搜索词" clearable
+      <ElInput ref="queryInput" v-model="query" :label="t('author.authorTextSearch.full.text.search.terms')" clearable
         v-bind="{ maxlength: WireLimits.AuthorTextSearchQueryChars, 'aria-describedby': 'author-text-search-help' }" />
       <fieldset class="author-text-search-dates">
-        <legend>更新时间（UTC）</legend>
-        <ElInput v-model="updatedFrom" type="date" label="更新起始日期（含）" />
-        <ElInput v-model="updatedUntil" type="date" label="更新截止日期（不含）" />
+        <legend>{{ t('author.authorTextSearch.updated.time.utc') }}</legend>
+        <ElInput v-model="updatedFrom" type="date" :label="t('author.authorTextSearch.updated.from.inclusive')" />
+        <ElInput v-model="updatedUntil" type="date" :label="t('author.authorTextSearch.updated.before.exclusive')" />
       </fieldset>
       <AuthorPropertyFilter ref="propertyControls" embedded @conditions-change="properties = $event"
         @facet-change="facet = $event" @sort-change="sort = $event" @text-source-change="textSource = $event" @edit="reset" />
       <ElCheckbox v-if="textSource" :model-value="mixedSources" @update:model-value="mixedSources = $event === true">
-        同时匹配文章字段
+        {{ t('author.authorTextSearch.also.match.article.fields') }}
       </ElCheckbox>
       <ElButton type="primary" native-type="submit" :disabled="!!pending || !!opening || !query.trim()">
-        {{ stalePage ? '回到第一页' : result?.ready === false ? '继续搜索' : error && !result ? '重试搜索' : '搜索全文' }}
+        {{ stalePage ? t('author.authorTextSearch.back.to.first.page') : result?.ready === false ? t('author.authorTextSearch.continue.search') : error && !result ? t('author.authorTextSearch.retry.search') : t('author.authorTextSearch.search.full.text') }}
       </ElButton>
     </form>
-    <p v-if="opening" role="status">正在复查{{ fieldLabels[opening.row.field] }}命中位置…</p>
+    <p v-if="opening" role="status">{{ t('author.authorTextSearch.rechecking.match.locations', { p0: String(fieldLabels[opening.row.field]) }) }}</p>
     <p v-else-if="locationNotice" role="status">{{ locationNotice }}</p>
     <ElButton v-if="historicalMatch" text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
-      @click="openMatch(historicalMatch.saved, 'history')">查看原保存修订的命中位置</ElButton>
+      @click="openMatch(historicalMatch.saved, 'history')">{{ t('author.authorTextSearch.view.matches.in.the.original.saved.revision') }}</ElButton>
     <ElButton v-if="historicalMatch?.saved.field === 'body' && canRebaseSavedBodyRevision(historicalMatch.saved.revision, historicalMatch.latest.revision)"
       text native-type="button" v-bind="{ 'aria-disabled': !!opening }"
-      @click="openMatch(historicalMatch.saved, 'rebase')">在新修订中重新定位</ElButton>
-    <p v-if="pending" role="status">正在搜索全文…</p>
+      @click="openMatch(historicalMatch.saved, 'rebase')">{{ t('author.authorTextSearch.locate.again.in.the.new.revision') }}</ElButton>
+    <p v-if="pending" role="status">{{ t('author.authorTextSearch.searching.full.text') }}</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
-    <p v-else-if="stalePage" role="status">搜索结果已变化，请从第一页重新搜索。</p>
-    <p v-else-if="result?.ready === false" role="status">索引正在更新，选择「继续搜索」处理下一批文章。</p>
-    <section v-if="result?.ready" aria-label="全文搜索结果" :aria-busy="!!pending || !!opening">
-      <p role="status">共 {{ result.total }} 篇</p>
+    <p v-else-if="stalePage" role="status">{{ t('author.authorTextSearch.search.results.have.changed.search.again.from.the') }}</p>
+    <p v-else-if="result?.ready === false" role="status">{{ t('author.authorTextSearch.the.index.is.updating.select.continue.search.to') }}</p>
+    <section v-if="result?.ready" :aria-label="t('author.authorTextSearch.full.text.search.results')" :aria-busy="!!pending || !!opening">
+      <p role="status">{{ t('author.authorTextSearch.articles', { p0: String(result.total) }) }}</p>
       <p v-if="result.input.sort">
-        按 <span dir="auto">{{ result.input.sort.field.label }}</span> {{ result.input.sort.direction === 'ascending' ? '升序' : '降序' }}
+        按 <span dir="auto">{{ result.input.sort.field.label }}</span> {{ result.input.sort.direction === 'ascending' ? t('author.authorTextSearch.ascending') : t('author.authorTextSearch.descending') }}
       </p>
       <div v-if="result.total" class="author-text-search-facets">
-        <dl aria-label="状态分面">
+        <dl :aria-label="t('author.authorTextSearch.status.facets')">
           <div v-for="(state, index) in states" :key="state.value">
             <dt>{{ state.label }} <code>status:{{ state.value }}</code></dt>
             <dd>{{ result.stateCounts[index] }}</dd>
@@ -514,7 +515,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           { label: '分类', key: 'category', items: result.categories, more: result.moreCategories },
           { label: '标签', key: 'tag', items: result.tags, more: result.moreTags },
         ]" :key="facet.key">
-          <section v-if="facet.items.length" :aria-label="`${facet.label}分面`">
+          <section v-if="facet.items.length" :aria-label="t('author.authorTextSearch.named.facet', { label: facet.label })">
             <h3>{{ facet.label }}</h3>
             <dl>
               <div v-for="item in facet.items" :key="item.id">
@@ -522,18 +523,18 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
                 <dd>{{ item.count }}</dd>
               </div>
             </dl>
-            <p v-if="facet.more">还有其他{{ facet.label }}。</p>
+            <p v-if="facet.more">{{ t('author.authorTextSearch.there.are.other', { p0: String(facet.label) }) }}</p>
           </section>
         </template>
       </div>
-      <section v-if="result.propertyFacet" class="author-text-search-facets" aria-label="属性分面">
+      <section v-if="result.propertyFacet" class="author-text-search-facets" :aria-label="t('author.authorTextSearch.property.facets')">
         <h3 dir="auto">{{ result.input.facet?.field.label }}</h3>
-        <p v-if="result.propertyFacet.kind === 'multi-select'">一篇文章可计入多个选项。</p>
+        <p v-if="result.propertyFacet.kind === 'multi-select'">{{ t('author.authorTextSearch.an.article.may.count.toward.multiple.options') }}</p>
         <dl>
           <div v-for="bucket in facetBuckets(result)" :key="bucket.key">
             <dt>
               <ElButton v-if="canUseBucket(result, bucket)" text native-type="button" :disabled="!!pending || !!opening"
-                v-bind="{ 'aria-label': `按此值筛选：${bucket.label}` }" @click="applyBucket(result, bucket)">
+                v-bind="{ 'aria-label': t('author.authorTextSearch.filter.value', { label: bucket.label }) }" @click="applyBucket(result, bucket)">
                 <span dir="auto">{{ bucket.label }}</span>
               </ElButton>
               <span v-else dir="auto">{{ bucket.label }}</span>
@@ -542,7 +543,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           </div>
         </dl>
       </section>
-      <p v-if="!result.rows.length" role="status">没有匹配的文章。</p>
+      <p v-if="!result.rows.length" role="status">{{ t('author.authorTextSearch.no.matching.articles') }}</p>
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
@@ -551,15 +552,15 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           <p class="author-text-search-snippet" dir="auto">{{ row.snippet.slice(0, row.highlightStart) }}<mark>{{ row.snippet.slice(row.highlightStart, row.highlightEnd) }}</mark>{{ row.snippet.slice(row.highlightEnd) }}</p>
           <ElButton text native-type="button"
             v-bind="{ 'aria-disabled': !!pending || !!opening }" @click="openMatch(row)">
-            跳到命中位置
+            {{ t('author.authorTextSearch.jump.to.match') }}
           </ElButton>
         </li>
       </ul>
-      <nav v-if="result.previous.length || result.nextCursor" aria-label="全文搜索分页">
+      <nav v-if="result.previous.length || result.nextCursor" :aria-label="t('author.authorTextSearch.full.text.search.pagination')">
         <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.previous.length }"
-          @click="showPreviousPage">上一页</ElButton>
+          @click="showPreviousPage">{{ t('author.authorTextSearch.previous') }}</ElButton>
         <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.nextCursor }"
-          @click="showNextPage">下一页</ElButton>
+          @click="showNextPage">{{ t('author.authorTextSearch.next') }}</ElButton>
       </nav>
     </section>
   </details>

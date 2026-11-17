@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import type { WorkspaceTab } from './workspaceRegistry'
@@ -39,23 +40,23 @@ const focusableTab = computed(() => visible.value.find(tab => tab.sessionId === 
 const availability = ['blocked', 'pending', 'saving']
 
 const id = (tab: WorkspaceTab) => `workspace-tab-${tab.sessionId}`
-const title = (tab: WorkspaceTab) => tab.title.trim() || 'Untitled article'
+const title = (tab: WorkspaceTab) => tab.title.trim() || t('author.workspaceTabs.untitled.article')
 const status = (tab: WorkspaceTab): string => {
   switch (tab.risk) {
-    case 'dirty': return 'Unsaved'
-    case 'saving': return 'Saving'
-    case 'conflict': return 'Conflict'
-    case 'recovery': return 'Recovery needed'
-    case 'pending': return 'Pending'
-    case 'blocked': return 'Unavailable'
-    case 'clean': return tab.mode === 'pinned' ? 'Pinned' : 'Preview'
+    case 'dirty': return t('author.workspaceTabs.unsaved')
+    case 'saving': return t('author.workspaceTabs.saving')
+    case 'conflict': return t('author.workspaceTabs.conflict')
+    case 'recovery': return t('author.workspaceTabs.recovery.needed')
+    case 'pending': return t('author.workspaceTabs.pending')
+    case 'blocked': return t('author.workspaceTabs.unavailable')
+    case 'clean': return tab.mode === 'pinned' ? t('author.workspaceTabs.pinned') : t('author.workspaceTabs.preview')
   }
 }
 const tabLabel = (tab: WorkspaceTab) => `${title(tab)} · ${status(tab)}`
 const cannotActivate = (tab: WorkspaceTab) => props.disabled || availability.includes(tab.risk)
 const cannotPin = (tab: WorkspaceTab) => props.disabled || tab.risk === 'blocked' ||
   (tab.mode === 'pinned' && (tab.articleId === 0 || tab.risk !== 'clean'))
-const pinLabel = (tab: WorkspaceTab) => `${tab.mode === 'pinned' ? 'Unpin' : 'Pin'} ${title(tab)}`
+const pinLabel = (tab: WorkspaceTab) => t('author.workspaceTabs.pin.action', { action: tab.mode === 'pinned' ? t('author.workspaceTabs.unpin') : t('author.workspaceTabs.pin'), title: title(tab) })
 
 function tabButton(tab: WorkspaceTab) {
   return list.value?.querySelector<HTMLButtonElement>(`#${id(tab)}`)
@@ -231,8 +232,8 @@ async function advancePage(index: number) {
 </script>
 
 <template>
-  <nav v-if="tabs.length" ref="root" class="workspace-tabs" aria-label="Article tabs" @focusout="leaveOverflow">
-    <div v-if="!compact" ref="list" class="workspace-tabs__list" role="tablist" aria-label="Open articles" aria-orientation="horizontal">
+  <nav v-if="tabs.length" ref="root" class="workspace-tabs" :aria-label="t('author.workspaceTabs.article.tabs')" @focusout="leaveOverflow">
+    <div v-if="!compact" ref="list" class="workspace-tabs__list" role="tablist" :aria-label="t('author.workspaceTabs.open.articles')" aria-orientation="horizontal">
       <div
         v-for="tab in visible"
         :key="tab.sessionId"
@@ -259,11 +260,11 @@ async function advancePage(index: number) {
           :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)"
           :tabindex="tab.active ? 0 : -1" @click="pin(tab)"
         >
-          {{ tab.mode === 'pinned' ? 'Unpin' : 'Pin' }}
+          {{ tab.mode === 'pinned' ? t('author.workspaceTabs.unpin') : t('author.workspaceTabs.pin') }}
         </button>
         <button
           type="button" class="workspace-tabs__action workspace-tabs__close"
-          :aria-label="`Close ${title(tab)}`" :disabled="disabled"
+          :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })" :disabled="disabled"
           :tabindex="tab.active ? 0 : -1" @click="close(tab)"
         >
           <span aria-hidden="true">×</span>
@@ -275,23 +276,23 @@ async function advancePage(index: number) {
       ref="trigger" type="button" class="workspace-tabs__trigger"
       :class="{ 'workspace-tabs__trigger--compact': compact }"
       :id="compact ? 'workspace-mobile-tab' : undefined"
-      :aria-label="compact ? 'Switch article tab' : undefined" :aria-expanded="open"
+      :aria-label="compact ? t('author.workspaceTabs.switch.article.tab') : undefined" :aria-expanded="open"
       :aria-describedby="compact ? 'workspace-mobile-current' : undefined"
       :aria-controls="open ? 'workspace-tabs-overflow' : undefined"
       @click="toggleOverflow"
       @keydown.esc.prevent="closeOverflow"
     >
       <template v-if="compact">
-        <span id="workspace-mobile-current" class="workspace-tabs__title">{{ selected ? title(selected) : 'Select an open article' }}</span>
+        <span id="workspace-mobile-current" class="workspace-tabs__title">{{ selected ? title(selected) : t('author.workspaceTabs.select.an.open.article') }}</span>
         <span v-if="selected" class="workspace-tabs__status">{{ status(selected) }}</span>
       </template>
-      <template v-else>More tabs ({{ tabs.length }})</template>
+      <template v-else>{{ t('author.workspaceTabs.more.tabs', { p0: String(tabs.length) }) }}</template>
     </button>
     <section
       v-if="open" id="workspace-tabs-overflow" ref="overflow"
       class="workspace-tabs__overflow"
       :class="{ 'workspace-tabs__overflow--compact': compact }"
-      aria-label="Article tabs"
+      :aria-label="t('author.workspaceTabs.article.tabs')"
       @keydown="overflowKeys"
     >
       <div v-for="tab in overflowTabs" :key="tab.sessionId" class="workspace-tabs__row">
@@ -310,22 +311,22 @@ async function advancePage(index: number) {
           type="button" class="workspace-tabs__action"
           :aria-label="pinLabel(tab)" :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)" @click="pin(tab)"
         >
-          {{ tab.mode === 'pinned' ? 'Unpin' : 'Pin' }}
+          {{ tab.mode === 'pinned' ? t('author.workspaceTabs.unpin') : t('author.workspaceTabs.pin') }}
         </button>
         <ElButton v-if="canMoveBackground?.(tab)" text native-type="button"
-          v-bind="{ 'aria-label': `Move ${title(tab)} to ${tab.group === 'main' ? 'secondary' : 'primary'} group` }"
-          @click="moveBackground(tab)">Move</ElButton>
+          v-bind="{ 'aria-label': t('author.workspaceTabs.move.article.group', { title: title(tab), group: tab.group === 'main' ? t('author.workspaceTabs.secondary') : t('author.workspaceTabs.primary') }) }"
+          @click="moveBackground(tab)">{{ t('author.workspaceTabs.move') }}</ElButton>
         <button
           type="button" class="workspace-tabs__action"
-          :aria-label="`Close ${title(tab)}`" :disabled="disabled" @click="close(tab)"
+          :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })" :disabled="disabled" @click="close(tab)"
         >
-          Close
+          {{ t('author.workspaceTabs.close') }}
         </button>
       </div>
       <div v-if="pageCount > 1" class="workspace-tabs__pages">
-        <ElButton text :disabled="page === 0" @click="advancePage(page - 1)">Previous tabs</ElButton>
+        <ElButton text :disabled="page === 0" @click="advancePage(page - 1)">{{ t('author.workspaceTabs.previous.tabs') }}</ElButton>
         <span aria-live="polite">{{ page + 1 }} / {{ pageCount }}</span>
-        <ElButton text :disabled="page + 1 === pageCount" @click="advancePage(page + 1)">Next tabs</ElButton>
+        <ElButton text :disabled="page + 1 === pageCount" @click="advancePage(page + 1)">{{ t('author.workspaceTabs.next.tabs') }}</ElButton>
       </div>
     </section>
   </nav>

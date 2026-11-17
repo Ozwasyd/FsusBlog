@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { nextTick, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -69,15 +70,15 @@ onScopeDispose(() => request?.abort())
 <template>
   <section class="revision-properties" :aria-labelledby="titleId">
     <h4 :id="titleId" ref="heading" tabindex="-1">{{ label }}</h4>
-    <p v-if="state === 'loading'" role="status">Loading saved properties…</p>
-    <p v-else-if="state === 'unavailable'" role="status">No property snapshot is available for this revision.</p>
-    <p v-else-if="state === 'stale'" role="alert">The saved draft changed. Reopen the comparison for its current revision.</p>
+    <p v-if="state === 'loading'" role="status">{{ t('author.revisionPropertyPage.loading.saved.properties') }}</p>
+    <p v-else-if="state === 'unavailable'" role="status">{{ t('author.revisionPropertyPage.no.property.snapshot.is.available.for.this.revision') }}</p>
+    <p v-else-if="state === 'stale'" role="alert">{{ t('author.revisionPropertyPage.the.saved.draft.changed.reopen.the.comparison.for') }}</p>
     <template v-else-if="state === 'failed'">
-      <p role="alert">Could not load saved properties.</p>
-      <ElButton text native-type="button" @click="load(0)">Reload saved properties</ElButton>
+      <p role="alert">{{ t('author.revisionPropertyPage.could.not.load.saved.properties') }}</p>
+      <ElButton text native-type="button" @click="load(0)">{{ t('author.revisionPropertyPage.reload.saved.properties') }}</ElButton>
     </template>
     <template v-if="state === 'ready' && data">
-      <p v-if="!data.fields.length">No saved property values.</p>
+      <p v-if="!data.fields.length">{{ t('author.revisionPropertyPage.no.saved.property.values') }}</p>
       <dl v-else>
         <template v-for="field in data.fields" :key="field.definitionId">
           <dt>{{ field.label }}</dt>
@@ -85,9 +86,9 @@ onScopeDispose(() => request?.abort())
         </template>
       </dl>
       <nav v-if="offset > 0 || data.nextKey" class="revision-property-pages" :aria-label="`${label} pages`">
-        <ElButton text native-type="button" :disabled="offset === 0" @click="turn(false)">Previous</ElButton>
-        <span role="status">Page {{ 1 + offset / WireLimits.PropertyPageSize }}</span>
-        <ElButton text native-type="button" :disabled="!data.nextKey" @click="turn(true)">Next</ElButton>
+        <ElButton text native-type="button" :disabled="offset === 0" @click="turn(false)">{{ t('author.revisionPropertyPage.previous') }}</ElButton>
+        <span role="status">{{ t('author.revisionPropertyPage.page', { p0: String(1 + offset / WireLimits.PropertyPageSize) }) }}</span>
+        <ElButton text native-type="button" :disabled="!data.nextKey" @click="turn(true)">{{ t('author.revisionPropertyPage.next') }}</ElButton>
       </nav>
     </template>
   </section>

@@ -180,7 +180,7 @@ case ${FSUSBLOG_TEST_FLOW:-blog} in
     ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;
-  canvas-keyboard|article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|author-inventory|comment-author-delete|site-locale)
+  canvas-keyboard|article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|author-inventory|comment-author-delete|site-locale|workspace-locale)
     node "tests/EndToEnd/${FSUSBLOG_TEST_FLOW}-flow.mjs"
     ;;
   private-media)

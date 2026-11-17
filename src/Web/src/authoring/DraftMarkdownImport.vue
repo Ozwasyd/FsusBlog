@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
+import { draftMarkdownErrorMessage } from './draftMarkdownErrorMessage'
 import { nextTick, onScopeDispose, ref, useId } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { maxDraftMarkdownCharacters, parseDraftMarkdown, readDraftMarkdownFile, type DraftMarkdown } from './draftMarkdownImport'
@@ -53,7 +55,7 @@ async function chooseFile(event: Event) {
     const content = await readDraftMarkdownFile(file)
     if (ticket === readTicket) source.value = content
   } catch (cause) {
-    if (ticket === readTicket && cause instanceof Error) error.value = cause.message
+    if (ticket === readTicket && cause instanceof Error) error.value = draftMarkdownErrorMessage(cause.message)
   } finally {
     if (ticket === readTicket) reading.value = false
   }
@@ -64,7 +66,7 @@ function load() {
   try {
     emit('load', parseDraftMarkdown(source.value, title.value))
   } catch (cause) {
-    if (cause instanceof Error) error.value = cause.message
+    if (cause instanceof Error) error.value = draftMarkdownErrorMessage(cause.message)
   }
 }
 
@@ -72,20 +74,20 @@ onScopeDispose(() => { ++readTicket })
 </script>
 
 <template>
-  <ElButton v-if="!open" ref="launcher" native-type="button" @click="begin">Import Markdown</ElButton>
+  <ElButton v-if="!open" ref="launcher" native-type="button" @click="begin">{{ t('author.draftMarkdownImport.import.markdown') }}</ElButton>
   <section v-else :aria-labelledby="`${id}-heading`" class="markdown-import">
-    <h3 :id="`${id}-heading`">Import Markdown</h3>
-    <label :for="`${id}-file`">Markdown file</label>
+    <h3 :id="`${id}-heading`">{{ t('author.draftMarkdownImport.import.markdown') }}</h3>
+    <label :for="`${id}-file`">{{ t('author.draftMarkdownImport.markdown.file') }}</label>
     <input :id="`${id}-file`" type="file" accept=".md,.markdown,text/markdown,text/plain" @change="chooseFile" />
-    <label :for="`${id}-source`">Markdown to import</label>
+    <label :for="`${id}-source`">{{ t('author.draftMarkdownImport.markdown.to.import') }}</label>
     <ElInput :id="`${id}-source`" ref="input" :model-value="source" csp-safe type="textarea"
       v-bind="sourceAttributes" @update:model-value="paste" />
-    <label :for="`${id}-title`">Title for plain Markdown</label>
+    <label :for="`${id}-title`">{{ t('author.draftMarkdownImport.title.for.plain.markdown') }}</label>
     <ElInput :id="`${id}-title`" v-model="title" v-bind="titleAttributes" />
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <div>
-      <ElButton native-type="button" :loading="reading" @click="load">Load into draft</ElButton>
-      <ElButton native-type="button" @click="cancel">Cancel import</ElButton>
+      <ElButton native-type="button" :loading="reading" @click="load">{{ t('author.draftMarkdownImport.load.into.draft') }}</ElButton>
+      <ElButton native-type="button" @click="cancel">{{ t('author.draftMarkdownImport.cancel.import') }}</ElButton>
     </div>
   </section>
 </template>

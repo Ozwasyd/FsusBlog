@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -17,12 +18,12 @@ const filter = ref<AdminInboxFilter>('')
 const order = ref<AdminInboxOrder>('created')
 const expanded = ref(false)
 const pending = ref(false)
-const failed = ref('')
+const failed = ref<MessageKey | ''>('')
 const title = ref<HTMLElement>()
 const threadPanel = ref<HTMLElement>()
 const queue = ref<HTMLElement>()
 const reply = ref('')
-const notice = ref('')
+const notice = ref<MessageKey | ''>('')
 const destination = ref<AdminInboxStatus>()
 const reason = ref('')
 const needsRefresh = ref(false)
@@ -35,10 +36,10 @@ const composeNotice = ref(false)
 const recipient = ref('')
 const noticeSubject = ref('')
 const noticeBody = ref('')
-const statuses = ['Open', 'Pending', 'Closed'] as const
+const statuses = ['admin.inbox.m6', 'admin.inbox.m7', 'admin.inbox.m8'] as const
 const statusFilters = ['open', 'pending', 'closed'] as const
 const transitions: readonly (readonly AdminInboxStatus[])[] = [[1, 2], [0, 2], [0]]
-const senders = ['Account', 'Administrator', 'System'] as const
+const senders = ['admin.inbox.m30', 'admin.inbox.m31', 'admin.inbox.m32'] as const
 let operation = new AbortController()
 let opener: HTMLElement | undefined
 let attempt: { conversation: bigint; body: string; key: string } | undefined
@@ -71,7 +72,7 @@ function closeThread() {
   void nextTick(() => { if (opener?.isConnected) opener.focus() })
 }
 
-async function read(load: (signal: AbortSignal) => Promise<void>, message = 'Could not read the administrator inbox. Refresh and try again.') {
+async function read(load: (signal: AbortSignal) => Promise<void>, message: MessageKey = 'admin.inbox.m39') {
   if (pending.value || props.sessionSignal.aborted) return
   const signal = AbortSignal.any([props.sessionSignal, operation.signal])
   pending.value = true
@@ -176,10 +177,10 @@ function sendNotice() {
     await adminSendNotice(account, subject, body, eventId, signal)
     if (signal.aborted) return
     clearNotice()
-    notice.value = 'System notice sent to the account.'
+    notice.value = 'admin.inbox.m40'
     const page = await adminInbox(filter.value, null, signal, sharedRead.value, order.value)
     if (!signal.aborted) applyQueuePage(page)
-  }, 'Could not complete the system notice request. Retry the same form to keep its source event.')
+  }, 'admin.inbox.m41')
 }
 
 function applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false) {
@@ -231,12 +232,12 @@ function sendReply() {
         .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
     thread.value = { ...current, messages, version: null }
     clearReply()
-    notice.value = 'Reply sent to the account.'
+    notice.value = 'admin.inbox.m42'
     if (current.version) {
       needsRefresh.value = true
       await refreshThread(conversation, signal)
     }
-  }, 'Could not send the reply. Retry to keep the same command.')
+  }, 'admin.inbox.m43')
 }
 
 function saveStatus() {
@@ -257,10 +258,10 @@ function saveStatus() {
       ? rows.value.filter(item => item.id !== conversation)
       : rows.value.map(item => item.id === conversation ? updated : item)
     clearStatus()
-    notice.value = saved.changed ? 'Conversation status saved.' : 'The conversation already has this status.'
+    notice.value = saved.changed ? 'admin.inbox.m44' : 'admin.inbox.m45'
     needsRefresh.value = true
     await refreshThread(conversation, signal)
-  }, 'Could not complete the status update. Reload the conversation before trying again.')
+  }, 'admin.inbox.m46')
 }
 
 function reloadThread() {
@@ -360,85 +361,85 @@ onBeforeUnmount(() => operation.abort())
 
 <template>
   <section class="auth-form inbox-admin" aria-labelledby="admin-inbox-title">
-    <h2 id="admin-inbox-title">Support inbox</h2>
-    <ElButton native-type="button" @click="toggle">{{ expanded ? 'Close support inbox' : 'Open support inbox' }}</ElButton>
+    <h2 id="admin-inbox-title">{{ t('admin.inbox.m1') }}</h2>
+    <ElButton native-type="button" @click="toggle">{{ t(expanded ? 'admin.inbox.m2' : 'admin.inbox.m3') }}</ElButton>
     <template v-if="expanded">
-      <ElAlert v-if="failed" :title="failed" type="error" :closable="false" />
+      <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" />
       <div v-show="!thread" ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="pending">
-        <ElSelect v-model="filter" ariaLabel="Filter support inbox" :disabled="pending">
-          <ElOption label="All conversations" value="" />
-          <ElOption label="Open" value="open" />
-          <ElOption label="Pending" value="pending" />
-          <ElOption label="Closed" value="closed" />
-          <ElOption v-if="sharedRead" label="Unread by support" value="unread" />
-          <ElOption v-if="sharedRead" label="System notices" value="system" />
+        <ElSelect v-model="filter" :ariaLabel="t('admin.inbox.m4')" :disabled="pending">
+          <ElOption :label="t('admin.inbox.m5')" value="" />
+          <ElOption :label="t('admin.inbox.m6')" value="open" />
+          <ElOption :label="t('admin.inbox.m7')" value="pending" />
+          <ElOption :label="t('admin.inbox.m8')" value="closed" />
+          <ElOption v-if="sharedRead" :label="t('admin.inbox.m9')" value="unread" />
+          <ElOption v-if="sharedRead" :label="t('admin.inbox.m10')" value="system" />
         </ElSelect>
-        <ElSelect v-if="activityAvailable" v-model="order" ariaLabel="Sort support inbox" :disabled="pending">
-          <ElOption label="Newest conversations" value="created" />
-          <ElOption label="Latest visible message" value="activity" />
+        <ElSelect v-if="activityAvailable" v-model="order" :ariaLabel="t('admin.inbox.m11')" :disabled="pending">
+          <ElOption :label="t('admin.inbox.m12')" value="created" />
+          <ElOption :label="t('admin.inbox.m13')" value="activity" />
         </ElSelect>
-        <ElButton native-type="button" text :loading="pending" @click="loadQueue()">Refresh conversations</ElButton>
+        <ElButton native-type="button" text :loading="pending" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
         <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="pending"
-          @click="composeNotice = true">Compose system notice</ElButton>
+          @click="composeNotice = true">{{ t('admin.inbox.m15') }}</ElButton>
         <form v-if="noticesEnabled && composeNotice" class="inbox-admin-reply" @submit.prevent="sendNotice">
-          <label for="admin-notice-account">Recipient account UUID</label>
+          <label for="admin-notice-account">{{ t('admin.inbox.m16') }}</label>
           <ElInput id="admin-notice-account" v-model="recipient" :disabled="pending" />
-          <label for="admin-notice-subject">Notice subject</label>
+          <label for="admin-notice-subject">{{ t('admin.inbox.m17') }}</label>
           <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="pending" />
-          <label for="admin-notice-body">Notice message</label>
+          <label for="admin-notice-body">{{ t('admin.inbox.m18') }}</label>
           <ElInput id="admin-notice-body" v-model="noticeBody" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="pending" />
           <div class="inbox-admin-notice-actions">
             <ElButton native-type="submit" type="primary" :loading="pending"
-              :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()">Send system notice</ElButton>
-            <ElButton native-type="button" :disabled="pending" @click="clearNotice">Cancel notice</ElButton>
+              :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()">{{ t('admin.inbox.m19') }}</ElButton>
+            <ElButton native-type="button" :disabled="pending" @click="clearNotice">{{ t('admin.inbox.m20') }}</ElButton>
           </div>
         </form>
-        <p v-if="!pending && !failed && rows.length === 0">No conversations.</p>
+        <p v-if="!pending && !failed && rows.length === 0">{{ t('admin.inbox.m21') }}</p>
         <ul v-if="rows.length" class="inbox-admin-list">
           <li v-for="item in rows" :key="String(item.id)">
             <button type="button" class="inbox-admin-subject" :disabled="pending" @click="openThread(item.id, null, $event)">{{ item.subject }}</button>
-            <small>{{ statuses[item.status] }} · {{ item.system ? 'System notice' : 'Account ticket' }}</small>
-            <small v-if="item.unread">{{ item.unread }} unread by support</small>
+            <small>{{ t(statuses[item.status]) }} · {{ t(item.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</small>
+            <small v-if="item.unread">{{ t('admin.inbox.m47', { count: item.unread }) }}</small>
           </li>
         </ul>
-        <ElButton v-if="next" native-type="button" text :disabled="pending" @click="loadQueue(next)">Load more conversations</ElButton>
+        <ElButton v-if="next" native-type="button" text :disabled="pending" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
       </div>
       <section v-if="thread" ref="threadPanel" aria-labelledby="admin-inbox-thread" :aria-busy="pending">
-        <ElButton native-type="button" text :disabled="pending" @click="closeThread">Back to conversations</ElButton>
+        <ElButton native-type="button" text :disabled="pending" @click="closeThread">{{ t('admin.inbox.m25') }}</ElButton>
         <ElButton v-if="thread.version || thread.liveEnabled || needsRefresh" native-type="button" text :disabled="pending"
-          @click="reloadThread">Reload conversation</ElButton>
+          @click="reloadThread">{{ t('admin.inbox.m26') }}</ElButton>
         <h3 id="admin-inbox-thread" ref="title" tabindex="-1">{{ thread.conversation.subject }}</h3>
-        <p>{{ statuses[thread.conversation.status] }} · {{ thread.conversation.system ? 'System notice' : 'Account ticket' }}</p>
-        <p class="inbox-admin-account">Account {{ thread.conversation.account }}</p>
-        <p v-if="thread.conversation.unread">{{ thread.conversation.unread }} unread by support</p>
+        <p>{{ t(statuses[thread.conversation.status]) }} · {{ t(thread.conversation.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</p>
+        <p class="inbox-admin-account">{{ t('admin.inbox.m48', { account: thread.conversation.account }) }}</p>
+        <p v-if="thread.conversation.unread">{{ t('admin.inbox.m47', { count: thread.conversation.unread }) }}</p>
         <template v-if="unreadAckFailed">
-          <ElAlert title="Could not mark the displayed messages as read." type="warning" :closable="false" />
-          <ElButton native-type="button" :disabled="pending" @click="retryRead">Retry marking as read</ElButton>
+          <ElAlert :title="t('admin.inbox.m27')" type="warning" :closable="false" />
+          <ElButton native-type="button" :disabled="pending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
         </template>
         <ElButton v-if="thread.previous" native-type="button" text :disabled="pending"
-          @click="openThread(thread.conversation.id, thread.previous)">Load earlier messages</ElButton>
+          @click="openThread(thread.conversation.id, thread.previous)">{{ t('admin.inbox.m29') }}</ElButton>
         <ol class="inbox-admin-list">
           <li v-for="message in thread.messages" :key="String(message.id)">
-            <small>{{ senders[message.sender] }}<template v-if="message.internal"> · Internal note</template> · {{ new Date(message.at).toLocaleString() }}</small>
+            <small>{{ t(senders[message.sender]) }}<template v-if="message.internal"> · {{ t('admin.inbox.m49') }}</template> · {{ new Date(message.at).toLocaleString() }}</small>
             <p class="inbox-admin-body">{{ message.body }}</p>
           </li>
         </ol>
         <form v-if="thread.repliesEnabled && thread.conversation.status !== 2" class="inbox-admin-reply" @submit.prevent="sendReply">
-          <label for="admin-inbox-reply">Reply to the account</label>
+          <label for="admin-inbox-reply">{{ t('admin.inbox.m33') }}</label>
           <ElInput id="admin-inbox-reply" v-model="reply" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="pending" />
-          <ElButton native-type="submit" type="primary" :loading="pending" :disabled="!reply.trim()">Send reply</ElButton>
+          <ElButton native-type="submit" type="primary" :loading="pending" :disabled="!reply.trim()">{{ t('admin.inbox.m34') }}</ElButton>
         </form>
         <form v-if="thread.version" class="inbox-admin-reply" @submit.prevent="saveStatus">
-          <ElSelect v-model="destination" ariaLabel="New conversation status" placeholder="Choose a status" :disabled="pending">
-            <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="statuses[option]" :value="option" />
+          <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="pending">
+            <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="t(statuses[option])" :value="option" />
           </ElSelect>
-          <label for="admin-inbox-status-reason">Reason for changing status</label>
+          <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
           <ElInput id="admin-inbox-status-reason" v-model="reason" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :disabled="pending" />
           <ElButton native-type="submit" :loading="pending"
-            :disabled="destination === undefined || !reason.trim() || reason.trim().length > 256">Save status</ElButton>
+            :disabled="destination === undefined || !reason.trim() || reason.trim().length > 256">{{ t('admin.inbox.m38') }}</ElButton>
         </form>
       </section>
-      <p v-if="notice" role="status">{{ notice }}</p>
+      <p v-if="notice" role="status">{{ t(notice) }}</p>
     </template>
   </section>
 </template>

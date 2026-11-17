@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
 import { ElButton, ElDrawer, type MarkdownEditorOutlineItem } from '@ozwasyd/element-plus'
 import { focusInspectorOpener } from './inspectorFocus'
@@ -25,7 +26,7 @@ const pageSize = 50
 const headingId = useId()
 const contentId = `${headingId}-content`
 const headingButtonId = (nodeId: string) => `${contentId}-${nodeId}`
-const panelName = 'Article outline'
+const panelName = computed(() => t('author.articleOutlineRail.article.outline'))
 const compact = ref(false)
 const expanded = ref(false)
 const launcher = ref<HTMLButtonElement>()
@@ -187,8 +188,8 @@ function resize() {
 }
 
 const diagnosticText: Readonly<Record<string, string | undefined>> = {
-  'duplicate-h1': 'Repeated level 1 heading',
-  'heading-layer-jump': 'Heading level skipped',
+  get 'duplicate-h1'() { return t('author.articleOutlineRail.repeated.level.1.heading') },
+  get 'heading-layer-jump'() { return t('author.articleOutlineRail.heading.level.skipped') },
 }
 function diagnostics(heading: MarkdownEditorOutlineItem) {
   return [...new Set(heading.diagnostics.flatMap(({ code }) =>
@@ -231,17 +232,17 @@ onBeforeUnmount(() => {
       ref="launcher" class="outline-launcher" type="button" :aria-expanded="expanded"
       :aria-controls="expanded ? contentId : undefined" :aria-haspopup="compact ? 'dialog' : undefined"
       :disabled="disabled" @click="expanded ? close(surface) : open()"
-    >Outline</button>
+    >{{ t('author.articleOutlineRail.outline') }}</button>
     <component v-if="surface" :is="host" :key="surface.key" v-bind="hostProps" v-on="surface.events">
       <header v-if="!surface.compact" class="outline-header">
         <h2 :id="headingId">{{ panelName }}</h2>
-        <ElButton text native-type="button" @click="close(surface)">Close</ElButton>
+        <ElButton text native-type="button" @click="close(surface)">{{ t('author.articleOutlineRail.close') }}</ElButton>
       </header>
       <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
-        <p v-if="state === 'loading'" role="status">Loading the outline…</p>
-        <p v-else-if="state === 'unavailable'" role="status">The outline is unavailable.</p>
-        <p v-else-if="!headings.length" role="status">This article has no headings.</p>
-        <nav v-else aria-label="Article headings">
+        <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
+        <p v-else-if="state === 'unavailable'" role="status">{{ t('author.articleOutlineRail.the.outline.is.unavailable') }}</p>
+        <p v-else-if="!headings.length" role="status">{{ t('author.articleOutlineRail.this.article.has.no.headings') }}</p>
+        <nav v-else :aria-label="t('author.articleOutlineRail.article.headings')">
           <ol class="outline-headings" role="list" :start="page * pageSize + 1">
             <li v-for="(heading, index) in visible" :key="heading.nodeId">
               <button
@@ -250,13 +251,13 @@ onBeforeUnmount(() => {
                 :tabindex="tabStop?.nodeId === heading.nodeId ? 0 : -1"
                 :aria-current="active === heading.nodeId ? 'location' : undefined"
                 @focus="focusedId = heading.nodeId" @keydown="navigate($event, index)" @click="choose(heading)"
-              >{{ heading.text || 'Untitled heading' }}</button>
+              >{{ heading.text || t('author.articleOutlineRail.untitled.heading') }}</button>
               <p v-if="diagnostics(heading).length" class="outline-diagnostic">{{ diagnostics(heading).join(' · ') }}</p>
             </li>
           </ol>
           <div v-if="lastPage > 0" class="outline-pages">
-            <ElButton text native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">Previous headings</ElButton>
-            <ElButton text native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">Next headings</ElButton>
+            <ElButton text native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">{{ t('author.articleOutlineRail.previous.headings') }}</ElButton>
+            <ElButton text native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">{{ t('author.articleOutlineRail.next.headings') }}</ElButton>
           </div>
         </nav>
       </div>

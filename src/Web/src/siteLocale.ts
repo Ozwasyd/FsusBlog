@@ -1,8 +1,20 @@
 import { computed, readonly, ref } from 'vue'
 import messages from '../../Contracts/site-locales.json' with { type: 'json' }
+import type workspaceCatalog from './workspace-locales.json'
+
+type PublicKey = keyof typeof messages.en
+type WorkspaceKey = keyof typeof workspaceCatalog.en
+let workspaceMessages: typeof workspaceCatalog | undefined
+let workspaceLoad: Promise<void> | undefined
+
+export function preloadWorkspaceLocale(): Promise<void> {
+  return workspaceLoad ??= import('./workspace-locales.json').then(({ default: catalog }) => {
+    workspaceMessages = catalog
+  }).catch(error => { workspaceLoad = undefined; throw error })
+}
 
 export type SiteLocale = keyof typeof messages
-export type MessageKey = keyof typeof messages.en
+export type MessageKey = PublicKey | WorkspaceKey
 const cookieName = 'fsus_locale'
 const fallback = 'zh-CN'
 
@@ -44,7 +56,8 @@ window.addEventListener('pageshow', event => {
 })
 
 export function t(key: MessageKey, params?: Readonly<Record<string, string | number>>): string {
-  const text = messages[activeLocale.value][key]
+  const locale = activeLocale.value
+  const text = messages[locale][key as PublicKey] ?? workspaceMessages?.[locale][key as WorkspaceKey] ?? key
   return params ? text.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g, (token, name: string) =>
     Object.hasOwn(params, name) ? String(params[name]) : token) : text
 }

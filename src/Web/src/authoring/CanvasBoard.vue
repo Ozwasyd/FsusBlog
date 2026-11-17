@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import type { CanvasGeometry, CanvasGraphEdge, CanvasNode, CanvasViewport } from '../../../Contracts/canvas-graph'
 
@@ -30,12 +31,12 @@ const size = shallowRef({ width: 0, height: 0 })
 const position = shallowRef<{ x: number; y: number }>()
 const nodesById = computed(() => new Map(props.nodes.map(node => [node.id, node])))
 const graphZoom = computed(() => props.viewport.zoom / 1000)
-const labels: Record<CanvasNode['kind'], string> = {
-  'article-reference': 'Article reference',
-  'heading-reference': 'Heading reference',
-  'block-reference': 'Block reference',
-  'plain-text-note': 'Note',
-  'group-frame': 'Frame',
+const labels: Record<CanvasNode['kind'], MessageKey> = {
+  'article-reference': 'author.canvasBoard.articleReference',
+  'heading-reference': 'author.canvasBoard.headingReference',
+  'block-reference': 'author.canvasBoard.blockReference',
+  'plain-text-note': 'author.canvasBoard.note',
+  'group-frame': 'author.canvasBoard.frame',
 }
 
 type Gesture = {
@@ -165,9 +166,9 @@ const visibleEdges = computed(() => {
 function description(node: CanvasNode): string {
   if (node.kind === 'plain-text-note') return node.text.slice(0, 240)
   if (node.kind === 'group-frame') return node.text
-  const destination = node.kind === 'article-reference' ? `Article #${node.articleId}`
-    : `Article #${node.articleId} · ${node.anchor}`
-  return node.pinnedRevision === null ? destination : `${destination} · Revision ${node.pinnedRevision}`
+  const destination = node.kind === 'article-reference' ? t('author.canvasBoard.article', { article: node.articleId })
+    : t('author.canvasBoard.anchor', { article: node.articleId, anchor: node.anchor })
+  return node.pinnedRevision === null ? destination : t('author.canvasBoard.revision', { destination, revision: node.pinnedRevision.toString() })
 }
 
 function begin(event: PointerEvent, node?: CanvasNode) {
@@ -271,12 +272,10 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
 <template>
   <div class="canvas-board-group">
   <p :id="keyboardHelpId" class="canvas-board__help">
-    Page Up/Down: focus previous/next visible node. Home/End: first/last. Enter/Space: select.
-    Arrow keys: move the selected node, or pan when the viewport is focused. Shift: move faster.
-    Tab: leave the nodes. Use Outline to find nodes outside the viewport and connections.
+    {{ t('author.canvasBoard.keyboardHelp') }}
   </p>
   <section
-    ref="board" class="canvas-board" role="region" aria-label="Interactive Canvas Viewport" tabindex="0" :aria-describedby="keyboardHelpId"
+    ref="board" class="canvas-board" role="region" :aria-label="t('author.canvasBoard.viewport')" tabindex="0" :aria-describedby="keyboardHelpId"
     :class="{ panning: gesture?.kind === 'pan' }"
     @pointerdown="begin($event)"
     @pointermove="move" @pointerup="finish" @pointercancel="cancel" @lostpointercapture="cancel"
@@ -312,11 +311,11 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
       @keydown="arrow($event, box.node)"
       @keydown.home.end.page-up.page-down="focusVisible($event, box.node)"
     >
-      <span class="canvas-board__kind">{{ labels[box.node.kind] }}</span>
+      <span class="canvas-board__kind">{{ t(labels[box.node.kind]) }}</span>
       <span class="canvas-board__description">{{ description(box.node) }}</span>
     </button>
-    <p v-if="nodes.length === 0" class="canvas-board__empty">Add a note or reference to begin.</p>
-    <p v-else-if="visibleNodes.length === 0" class="canvas-board__empty">No nodes in view. Pan or choose a node in the outline.</p>
+    <p v-if="nodes.length === 0" class="canvas-board__empty">{{ t('author.canvasBoard.empty') }}</p>
+    <p v-else-if="visibleNodes.length === 0" class="canvas-board__empty">{{ t('author.canvasBoard.outside') }}</p>
   </section>
   </div>
 </template>

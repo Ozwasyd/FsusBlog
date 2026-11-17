@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { onScopeDispose, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -50,22 +51,22 @@ async function download() {
     if (controller.signal.aborted || epoch !== identityEpoch.value) return
     if (error instanceof ApiError && error.status === 401 && session.siteSessionId)
       await recheckCredential(session.siteSessionId, controller.signal)
-    else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
-    else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
+    else if (error instanceof ApiError && error.status === 409) failure.value = t('author.markdownExportControl.load.the.current.draft.before.exporting')
+    else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = t('author.markdownExportControl.this.revision.is.unavailable')
     else if (format === 'html' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = 'Use basic text Markdown and images totaling up to 512 KiB. The combined HTML must fit within 2 MiB.'
+      failure.value = t('author.markdownExportControl.use.basic.text.markdown.and.images.totaling.up.to')
     else if (format === 'html' && error instanceof ApiError && error.status === 400)
-      failure.value = 'Offline HTML requires basic text Markdown without links, images, or render directives, and must fit within 2 MiB.'
+      failure.value = t('author.markdownExportControl.offline.html.requires.basic.text.markdown.without.links.images')
     else if (format === 'epub' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = 'Use a title, basic text Markdown, and images totaling up to 512 KiB. The EPUB must fit within 2 MiB.'
+      failure.value = t('author.markdownExportControl.use.a.title.basic.text.markdown.and.images.totaling')
     else if (format === 'epub' && error instanceof ApiError && error.status === 400)
-      failure.value = 'EPUB requires a title and basic text Markdown without links, images, or render directives. It must fit within 2 MiB.'
+      failure.value = t('author.markdownExportControl.epub.requires.a.title.and.basic.text.markdown.without')
     else if (format === 'docx' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = 'Use PNG or JPEG images totaling up to 512 KiB. The Word file must fit within 2 MiB.'
+      failure.value = t('author.markdownExportControl.use.png.or.jpeg.images.totaling.up.to.512')
     else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
-      failure.value = attachment ? 'Use supported text and saved images totaling up to 512 KiB and 4,194,304 pixels.' :
-        'PDF requires basic text Markdown and supported characters within the page and size limits.'
-    else failure.value = `Could not download ${formatLabels[format]}. Try again.`
+      failure.value = attachment ? t('author.markdownExportControl.use.supported.text.and.saved.images.totaling.up.to') :
+        t('author.markdownExportControl.pdf.requires.basic.text.markdown.and.supported.characters.within')
+    else failure.value = t('author.markdownExportControl.download.failed', { format: formatLabels[format] })
   } finally {
     if (request === controller) {
       request = undefined
@@ -81,7 +82,7 @@ onScopeDispose(reset)
 <template>
   <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      Download {{ selected === revision ? 'saved' : 'revision' }} {{ formatLabels[format] }}{{ attachment?.includes(',') ? ' with these images' : attachment ? ' with this image' : '' }}
+      {{ t('author.markdownExportControl.download', { p0: String(selected === revision ? 'saved' : 'revision'), p1: String(formatLabels[format]), p2: String(attachment?.includes(',') ? ' with these images' : attachment ? ' with this image' : '') }) }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>

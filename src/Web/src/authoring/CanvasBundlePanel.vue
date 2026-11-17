@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onScopeDispose, ref, shallowRef } from 'vue'
 import { ElButton, ElDialog } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -14,8 +15,8 @@ const selected = shallowRef<Uint8Array>()
 const retry = shallowRef<CanvasBundleExecute>()
 const mappings = ref<Record<number, { article: string; pin: string }>>({})
 const page = ref(0)
-const status = ref('')
-const error = ref('')
+const status = ref<MessageKey | ''>('')
+const error = ref<MessageKey | ''>('')
 const loading = ref(false)
 const applying = ref(false)
 let active: AbortController | undefined
@@ -70,7 +71,7 @@ async function load(event: Event) {
   clear()
   if (!file) return
   if (file.size === 0 || file.size > WireLimits.CanvasBundleBytes) {
-    error.value = 'Choose a Canvas bundle of 3.5 MB or less.'
+    error.value = 'author.canvasBundle.sizeError'
     return
   }
   const request = new AbortController()
@@ -84,11 +85,11 @@ async function load(event: Event) {
     selected.value = bytes
     mappings.value = Object.fromEntries(result.references.map(reference => [reference.slot, { article: '', pin: '' }]))
     plan.value = result
-    status.value = 'Bundle validated. No Canvas has been created.'
+    status.value = 'author.canvasBundle.validated'
   } catch (cause) {
     if (request.signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('expired')
-    else error.value = 'The file could not be validated as a Canvas bundle.'
+    else error.value = 'author.canvasBundle.invalid'
   } finally {
     if (!request.signal.aborted) loading.value = false
   }
@@ -120,9 +121,9 @@ async function apply() {
     if (cause instanceof ApiError && cause.status === 401) emit('expired')
     if (cause instanceof ApiError && [400, 401, 403, 404, 409, 413].includes(cause.status)) {
       retry.value = undefined
-      error.value = 'Import was rejected. Check the exact local article mappings and ownership.'
+      error.value = 'author.canvasBundle.rejected'
     } else {
-      error.value = 'The outcome could not be confirmed. Retry the same import.'
+      error.value = 'author.canvasBundle.uncertain'
     }
   } finally {
     if (!request.signal.aborted) {
@@ -134,43 +135,43 @@ async function apply() {
 </script>
 
 <template>
-  <ElButton native-type="button" :disabled="props.disabled" @click="begin">Import Canvas</ElButton>
-  <ElDialog :model-value="open" title="Import Canvas bundle" append-to-body
+  <ElButton native-type="button" :disabled="props.disabled" @click="begin">{{ t('author.canvasBundle.open') }}</ElButton>
+  <ElDialog :model-value="open" :title="t('author.canvasBundle.title')" append-to-body
     :show-close="!applying && !retry" :close-on-click-modal="!applying && !retry" :close-on-press-escape="!applying && !retry"
     @close="close" @closed="restore">
     <div v-if="open" class="bundle-intake">
-      <p>Import creates a separate Canvas. Notes in this file are unencrypted.</p>
-      <label for="canvas-bundle-file">Canvas bundle file</label>
+      <p>{{ t('author.canvasBundle.explanation') }}</p>
+      <label for="canvas-bundle-file">{{ t('author.canvasBundle.file') }}</label>
       <input id="canvas-bundle-file" type="file" accept=".fsuscanvas,application/vnd.fsus.canvas+json" :disabled="applying || !!retry" @change="load" />
-      <p v-if="loading" role="status">Validating bundle…</p>
-      <p v-if="status" role="status">{{ status }}</p>
-      <p v-if="error" role="alert">{{ error }}</p>
+      <p v-if="loading" role="status">{{ t('author.canvasBundle.validating') }}</p>
+      <p v-if="status" role="status">{{ t(status) }}</p>
+      <p v-if="error" role="alert">{{ t(error) }}</p>
       <template v-if="plan">
         <h3>{{ plan.title }}</h3>
-        <p>Source revision {{ plan.sourceRevision }} · {{ plan.nodeCount }} nodes · {{ plan.edgeCount }} edges</p>
-        <p v-if="refs">{{ mapped.length }}/{{ refs }} references mapped. Enter IDs you own on this site.</p>
+        <p>{{ t('author.canvasBundle.summary', { revision: plan.sourceRevision.toString(), nodes: plan.nodeCount, edges: plan.edgeCount }) }}</p>
+        <p v-if="refs">{{ t('author.canvasBundle.mapped', { mapped: mapped.length, refs }) }}</p>
         <div v-for="reference in shown" :key="reference.slot" class="bundle-reference">
           <label :for="`bundle-article-${reference.slot}`">
-            Reference {{ reference.slot }} article ID
+            {{ t('author.canvasBundle.article', { slot: reference.slot }) }}
             <span v-if="reference.anchor"> · {{ reference.anchor }}</span>
           </label>
           <input :id="`bundle-article-${reference.slot}`" v-model="mappings[reference.slot].article"
             inputmode="numeric" :disabled="applying || !!retry" />
           <template v-if="reference.pinned">
-            <label :for="`bundle-revision-${reference.slot}`">Reference {{ reference.slot }} fixed revision</label>
+            <label :for="`bundle-revision-${reference.slot}`">{{ t('author.canvasBundle.pin', { slot: reference.slot }) }}</label>
             <input :id="`bundle-revision-${reference.slot}`" v-model="mappings[reference.slot].pin"
               inputmode="numeric" :disabled="applying || !!retry" />
           </template>
         </div>
         <div v-if="refs > size" class="bundle-actions">
-          <ElButton :disabled="page === 0" @click="page--">Previous mappings</ElButton>
-          <ElButton :disabled="(page + 1) * size >= refs" @click="page++">More mappings</ElButton>
+          <ElButton :disabled="page === 0" @click="page--">{{ t('author.canvasBundle.previous') }}</ElButton>
+          <ElButton :disabled="(page + 1) * size >= refs" @click="page++">{{ t('author.canvasBundle.more') }}</ElButton>
         </div>
       </template>
       <div class="bundle-actions">
-        <ElButton :disabled="applying || !!retry" @click="close">Cancel</ElButton>
+        <ElButton :disabled="applying || !!retry" @click="close">{{ t('author.canvasBundle.cancel') }}</ElButton>
         <ElButton v-if="plan" type="primary" :disabled="applying || (!retry && !canImport)" @click="apply">
-          {{ retry && !applying ? 'Retry import' : 'Create from bundle' }}
+          {{ t(retry && !applying ? 'author.canvasBundle.retry' : 'author.canvasBundle.create') }}
         </ElButton>
       </div>
     </div>

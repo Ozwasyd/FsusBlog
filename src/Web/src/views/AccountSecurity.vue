@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
@@ -65,7 +66,7 @@ watch(currentSession, async (session, previous) => {
   } catch (failure) {
     if (lifetime.signal.aborted || identityEpoch.value !== epoch) return
     if (!(failure instanceof ApiError) || failure.status !== 404 && failure.status !== 401)
-      error.value = 'Could not load account security.'
+      error.value = t('account.message22')
   }
 }, { immediate: true })
 
@@ -74,7 +75,7 @@ async function run(action: () => Promise<void>) {
   busy.value = true
   error.value = ''
   try { await action() }
-  catch { if (!lifetime.signal.aborted) error.value = 'Could not verify your request. Use a fresh code and try again.' }
+  catch { if (!lifetime.signal.aborted) error.value = t('account.message23') }
   finally { if (!lifetime.signal.aborted) busy.value = false }
 }
 
@@ -142,7 +143,7 @@ async function regenerate() {
     regenerateOpen.value = false
     regenerated.value = codes
   } catch {
-    if (isLive()) error.value = 'Could not replace recovery codes. Use a fresh code and try again.'
+    if (isLive()) error.value = t('account.message24')
   } finally {
     if (regeneration === request) regeneration = undefined
     if (!lifetime.signal.aborted) busy.value = false
@@ -166,46 +167,46 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 
 <template>
   <main class="auth-page">
-    <h1>Account security</h1>
-    <p v-if="!currentSession"><RouterLink to="/login">Log in</RouterLink> to manage account security.</p>
-    <section v-else class="auth-form" aria-label="Account security settings">
+    <h1>{{ t('account.message1') }}</h1>
+    <p v-if="!currentSession"><RouterLink to="/login">{{ t('account.message2') }}</RouterLink> {{ t('account.message3') }}</p>
+    <section v-else class="auth-form" :aria-label="t('account.message4')">
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <template v-if="profile?.verifiedAt">
-      <p>Authenticator verification is enabled.</p>
+      <p>{{ t('account.message5') }}</p>
       <div v-if="recovery.length || regenerated.length">
-        <h3>Recovery codes</h3>
-        <p>Save these one-use codes in a safe place. They are shown only once.</p>
+        <h3>{{ t('account.message6') }}</h3>
+        <p>{{ t('account.message7') }}</p>
         <ul><li v-for="item in regenerated.length ? regenerated : recovery" :key="item"><code>{{ item }}</code></li></ul>
-        <ElButton native-type="button" @click="hideRecoveryCodes">Hide recovery codes</ElButton>
+        <ElButton native-type="button" @click="hideRecoveryCodes">{{ t('account.message8') }}</ElButton>
       </div>
       <ElButton v-if="!regenerateOpen && !regenerated.length" native-type="button" :disabled="busy" @click="regenerateOpen = true">
-        Regenerate recovery codes
+        {{ t('account.message9') }}
       </ElButton>
       <form v-else-if="regenerateOpen" class="auth-form" @submit.prevent="regenerate">
-        <p>Replacing recovery codes invalidates all previously saved codes.</p>
-        <label for="regenerate-mfa-code">Authenticator or recovery code to regenerate</label>
+        <p>{{ t('account.message10') }}</p>
+        <label for="regenerate-mfa-code">{{ t('account.message11') }}</label>
         <ElInput id="regenerate-mfa-code" v-model="regenerateCode" type="password" autocomplete="one-time-code" :disabled="busy" />
-        <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(regenerateCode)">Replace recovery codes</ElButton>
-        <ElButton native-type="button" :disabled="busy" @click="closeRegeneration">Cancel regeneration</ElButton>
+        <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(regenerateCode)">{{ t('account.message12') }}</ElButton>
+        <ElButton native-type="button" :disabled="busy" @click="closeRegeneration">{{ t('account.message13') }}</ElButton>
       </form>
       <form class="auth-form" @submit.prevent="disable">
-        <label for="disable-mfa-code">Authenticator or recovery code</label>
+        <label for="disable-mfa-code">{{ t('account.message14') }}</label>
         <ElInput id="disable-mfa-code" v-model="code" autocomplete="one-time-code" :disabled="busy" />
-        <ElButton native-type="submit" :loading="busy" :disabled="!validMfaFactor(code)">Disable authenticator verification</ElButton>
+        <ElButton native-type="submit" :loading="busy" :disabled="!validMfaFactor(code)">{{ t('account.message15') }}</ElButton>
       </form>
     </template>
     <form v-else-if="setup" class="auth-form" @submit.prevent="verify">
       <div>
-        <p>Enter this secret manually in your authenticator app.</p>
+        <p>{{ t('account.message16') }}</p>
         <code data-testid="mfa-seed">{{ setup.seed }}</code>
       </div>
-      <label for="setup-mfa-code">Authenticator code</label>
+      <label for="setup-mfa-code">{{ t('account.message17') }}</label>
       <ElInput id="setup-mfa-code" v-model="code" autocomplete="one-time-code" :disabled="busy" />
-      <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!/^\d{6}$/.test(code.trim())">Enable verification</ElButton>
-      <ElButton native-type="button" :disabled="busy" @click="setup = null; code = ''">Cancel setup</ElButton>
+      <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!/^\d{6}$/.test(code.trim())">{{ t('account.message18') }}</ElButton>
+      <ElButton native-type="button" :disabled="busy" @click="setup = null; code = ''">{{ t('account.message19') }}</ElButton>
     </form>
-    <ElButton v-else-if="profile" native-type="button" :loading="busy" @click="start">Set up authenticator</ElButton>
-    <p v-else-if="!error">Authenticator verification is unavailable for this session.</p>
+    <ElButton v-else-if="profile" native-type="button" :loading="busy" @click="start">{{ t('account.message20') }}</ElButton>
+    <p v-else-if="!error">{{ t('account.message21') }}</p>
     </section>
     <SitePasskeys v-if="currentSession" />
     <SiteRecoveryKey v-if="currentSession" />

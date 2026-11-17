@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -15,7 +16,7 @@ const markdown = ref('')
 const confirmed = ref(false)
 const busy = ref(false)
 const stale = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 const updated = ref(false)
 const valid = computed(() => validPageMarkdown(markdown.value))
 const canPublish = computed(() => !!page.value && !busy.value && !stale.value && valid.value &&
@@ -64,11 +65,11 @@ async function run(action: () => Promise<void>) {
     } else if (cause instanceof ApiError && cause.status === 409) {
       stale.value = true
       updated.value = false
-      error.value = 'Another administrator published this page. Copy any edits you want to keep, then reload the published page.'
+      error.value = 'admin.sitePageConflict'
     } else if (cause instanceof Error && cause.name === 'NotAllowedError') {
-      error.value = 'Passkey confirmation was canceled or timed out.'
+      error.value = 'admin.passkeyCanceled'
     } else {
-      error.value = 'The request failed. Check the published page before trying again.'
+      error.value = 'admin.sitePageRequestFailed'
     }
   } finally {
     busy.value = false
@@ -80,23 +81,23 @@ onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
-  <section class="site-page-editor" :aria-label="`Edit ${slug} content`" :aria-busy="busy">
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <ElAlert v-if="updated" :title="`Published /${slug}`" type="success" :closable="false" />
+  <section class="site-page-editor" :aria-label="t('admin.editPageContent', { slug })" :aria-busy="busy">
+    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
+    <ElAlert v-if="updated" :title="t('admin.pagePublished', { slug })" type="success" :closable="false" />
     <template v-if="page">
-      <label :for="`site-page-editor-${slug}`">{{ slug }} Markdown editor</label>
+      <label :for="`site-page-editor-${slug}`">{{ t('admin.pageMarkdownEditor', { slug }) }}</label>
       <ElInput :id="`site-page-editor-${slug}`" v-model="markdown" type="textarea" :autosize="{ minRows: 10, maxRows: 20 }"
         v-bind="{ maxlength: WireLimits.PageContentChars }" :disabled="busy" @input="confirmed = false; updated = false" />
     </template>
-    <ElAlert v-if="page && !valid" title="Markdown exceeds its size limit." type="warning" :closable="false" />
+    <ElAlert v-if="page && !valid" :title="t('admin.markdownTooLarge')" type="warning" :closable="false" />
     <ElCheckbox v-if="page && !stale" :model-value="confirmed" :disabled="busy" @update:model-value="confirmed = $event === true">
-      Replace the public /{{ slug }} page
+      {{ t('admin.replacePublicPage', { slug }) }}
     </ElCheckbox>
     <div class="site-page-actions">
       <ElButton v-if="page && !stale" native-type="button" type="primary" :loading="busy" :disabled="!canPublish"
-        @click="publish">Publish with Passkey</ElButton>
-      <ElButton v-if="stale || !page" native-type="button" :loading="busy" @click="load">Reload published page</ElButton>
-      <ElButton native-type="button" :disabled="busy" @click="emit('close')">Close editor</ElButton>
+        @click="publish">{{ t('admin.publishPasskey') }}</ElButton>
+      <ElButton v-if="stale || !page" native-type="button" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
+      <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
     </div>
   </section>
 </template>

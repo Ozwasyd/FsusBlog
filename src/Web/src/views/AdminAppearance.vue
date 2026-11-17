@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCard, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -19,8 +20,8 @@ const fontDetailHeading = ref<HTMLElement>()
 const theme = ref('')
 const font = ref('')
 const busy = ref(false)
-const notice = ref('')
-const error = ref('')
+const notice = ref<MessageKey | ''>('')
+const error = ref<MessageKey | ''>('')
 const selectedFont = computed(() => catalog.value?.find(item => item.font && item.archive === font.value))
 const canApply = computed(() => state.value && (theme.value !== state.value.theme || font.value !== state.value.font) &&
   (!theme.value || catalog.value?.some(item => !item.font && item.archive === theme.value)) &&
@@ -46,7 +47,7 @@ function readFontDetail(archive: string) {
     fontDetail.value = detail
     await nextTick()
     if (!request.aborted) fontDetailHeading.value?.focus()
-  }, 'Font details require system.config.', 'The font package is unavailable. Reload the appearance catalog.')
+  }, 'admin.fontDetailsForbidden', 'admin.fontPackageUnavailable')
 }
 
 function readHistory(before?: bigint) {
@@ -57,7 +58,7 @@ function readHistory(before?: bigint) {
     historyBefore.value = before
     await nextTick()
     if (!request.aborted) historyHeading.value?.focus()
-  }, 'Appearance history requires system.config.')
+  }, 'admin.appearanceHistoryForbidden')
 }
 
 function historyTime(unixMs: bigint) {
@@ -65,12 +66,12 @@ function historyTime(unixMs: bigint) {
 }
 
 function name(digest: string) {
-  return digest.length ? catalog.value?.find(item => item.archive === digest)?.id ?? 'Unavailable package' : 'Built-in'
+  return digest.length ? catalog.value?.find(item => item.archive === digest)?.id ?? t('admin.unavailablePackage') : t('admin.builtIn')
 }
 
 async function run(action: (request: AbortSignal) => Promise<void>,
-  forbidden = 'Appearance requires system.config and current Passkey confirmation.',
-  unavailable = 'Online appearance is unavailable.') {
+  forbidden: MessageKey = 'admin.appearanceForbidden',
+  unavailable: MessageKey = 'admin.appearanceUnavailable') {
   if (busy.value || props.sessionSignal.aborted) return
   const request = signal()
   busy.value = true
@@ -88,9 +89,9 @@ async function run(action: (request: AbortSignal) => Promise<void>,
       error.value = forbidden
     } else if (cause instanceof ApiError && cause.status === 409) {
       state.value = undefined
-      error.value = 'The active appearance changed. Reload before applying.'
+      error.value = 'admin.appearanceChanged'
     } else {
-      error.value = 'Could not complete the request. Check the active appearance before trying again.'
+      error.value = 'admin.appearanceRequestFailed'
     }
   } finally {
     busy.value = false
@@ -104,7 +105,7 @@ function apply(rollback: boolean) {
     await applyAppearance({ expectedRevision: current.revision, currentTheme: current.theme, currentFont: current.font,
       theme: rollback ? current.previousTheme : theme.value, font: rollback ? current.previousFont : font.value, rollback }, request)
     await read(request)
-    if (!request.aborted) notice.value = rollback ? 'Previous appearance restored.' : 'Appearance applied.'
+    if (!request.aborted) notice.value = rollback ? 'admin.appearanceRestored' : 'admin.appearanceApplied'
   })
 }
 
@@ -125,81 +126,81 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
 
 <template>
   <section class="auth-form" aria-labelledby="admin-appearance">
-    <h2 id="admin-appearance">Site appearance</h2>
-    <ElButton :loading="busy" native-type="button" @click="run(read)">Check active appearance</ElButton>
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <p v-if="notice" role="status">{{ notice }}</p>
+    <h2 id="admin-appearance">{{ t('admin.siteAppearance') }}</h2>
+    <ElButton :loading="busy" native-type="button" @click="run(read)">{{ t('admin.checkAppearance') }}</ElButton>
+    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
+    <p v-if="notice" role="status">{{ t(notice) }}</p>
     <template v-if="state && catalog">
-      <p>Active theme: {{ name(state.theme) }} · Active font: {{ name(state.font) }}</p>
-      <p v-if="!state.serving" role="status">Built-in appearance is serving because the selected package is unavailable.</p>
-      <label for="admin-appearance-theme">Theme</label>
-      <ElSelect id="admin-appearance-theme" v-model="theme" ariaLabel="Theme" :disabled="busy">
-        <ElOption v-if="state.theme && !catalog.some(item => item.archive === state?.theme)" :value="state.theme" label="Unavailable package" disabled />
-        <ElOption value="" label="Built-in" />
+      <p>{{ t('admin.activeAppearance', { theme: name(state.theme), font: name(state.font) }) }}</p>
+      <p v-if="!state.serving" role="status">{{ t('admin.appearanceFallback') }}</p>
+      <label for="admin-appearance-theme">{{ t('admin.theme') }}</label>
+      <ElSelect id="admin-appearance-theme" v-model="theme" :ariaLabel="t('admin.theme')" :disabled="busy">
+        <ElOption v-if="state.theme && !catalog.some(item => item.archive === state?.theme)" :value="state.theme" :label="t('admin.unavailablePackage')" disabled />
+        <ElOption value="" :label="t('admin.builtIn')" />
         <ElOption v-for="item in catalog.filter(item => !item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
       </ElSelect>
-      <label for="admin-appearance-font">Font</label>
-      <ElSelect id="admin-appearance-font" v-model="font" ariaLabel="Font" :disabled="busy">
-        <ElOption v-if="state.font && !catalog.some(item => item.archive === state?.font)" :value="state.font" label="Unavailable package" disabled />
-        <ElOption value="" label="Built-in" />
+      <label for="admin-appearance-font">{{ t('admin.font') }}</label>
+      <ElSelect id="admin-appearance-font" v-model="font" :ariaLabel="t('admin.font')" :disabled="busy">
+        <ElOption v-if="state.font && !catalog.some(item => item.archive === state?.font)" :value="state.font" :label="t('admin.unavailablePackage')" disabled />
+        <ElOption value="" :label="t('admin.builtIn')" />
         <ElOption v-for="item in catalog.filter(item => item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
       </ElSelect>
       <ElButton v-if="selectedFont" :disabled="busy" native-type="button" @click="readFontDetail(selectedFont.archive)">
-        Font details
+        {{ t('admin.fontDetails') }}
       </ElButton>
       <section v-if="fontDetail" class="font-details" aria-labelledby="admin-font-details">
-        <h3 id="admin-font-details" ref="fontDetailHeading" tabindex="-1">Font details</h3>
+        <h3 id="admin-font-details" ref="fontDetailHeading" tabindex="-1">{{ t('admin.fontDetails') }}</h3>
         <p>{{ fontDetail.name || fontDetail.id }} {{ fontDetail.version }}</p>
         <dl>
           <template v-if="fontDetail.family">
-            <dt>Family</dt>
+            <dt>{{ t('admin.fontFamily') }}</dt>
             <dd>{{ fontDetail.family }}</dd>
           </template>
-          <dt>Archive SHA-256</dt>
+          <dt>{{ t('admin.archiveSha') }}</dt>
           <dd><code>{{ fontDetail.archiveDigest }}</code></dd>
-          <dt>Font face</dt>
-          <dd>{{ fontDetail.faceWeight }} {{ fontDetail.faceStyle }} · {{ fontDetail.faceBytes }} bytes</dd>
-          <dt>Face SHA-256</dt>
+          <dt>{{ t('admin.fontFace') }}</dt>
+          <dd>{{ t('admin.fontFaceDescription', { weight: fontDetail.faceWeight, style: fontDetail.faceStyle, bytes: fontDetail.faceBytes }) }}</dd>
+          <dt>{{ t('admin.faceSha') }}</dt>
           <dd><code>{{ fontDetail.faceDigest }}</code></dd>
           <template v-if="fontDetail.unicodeRange">
-            <dt>Unicode range</dt>
+            <dt>{{ t('admin.unicodeRange') }}</dt>
             <dd><code>{{ fontDetail.unicodeRange }}</code></dd>
           </template>
           <template v-if="fontDetail.sourceKind">
-            <dt>Source</dt>
+            <dt>{{ t('admin.source') }}</dt>
             <dd>{{ fontDetail.sourcePackage }} {{ fontDetail.sourceVersion }} · {{ fontDetail.sourceUpstream }} ({{ fontDetail.sourceKind }})</dd>
           </template>
-          <dt>License</dt>
+          <dt>{{ t('admin.license') }}</dt>
           <dd>{{ fontDetail.licenseName }}</dd>
         </dl>
         <pre>{{ fontDetail.licenseText }}</pre>
       </section>
-      <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">Apply appearance with Passkey</ElButton>
+      <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">{{ t('admin.applyAppearance') }}</ElButton>
       <ElButton v-if="state.canRollback" :disabled="busy" native-type="button" @click="apply(true)">
-        Restore {{ name(state.previousTheme) }} / {{ name(state.previousFont) }} with Passkey
+        {{ t('admin.restoreAppearance', { theme: name(state.previousTheme), font: name(state.previousFont) }) }}
       </ElButton>
       <ElButton :disabled="busy" native-type="button" @click="readHistory()">
-        {{ historyBefore === undefined ? 'Check appearance history' : 'Back to latest appearance changes' }}
+        {{ historyBefore === undefined ? t('admin.checkAppearanceHistory') : t('admin.latestAppearance') }}
       </ElButton>
       <section v-if="history" aria-labelledby="admin-appearance-history">
-        <h3 id="admin-appearance-history" ref="historyHeading" tabindex="-1">Appearance history</h3>
-        <p v-if="history.items.length === 0">No appearance changes recorded.</p>
+        <h3 id="admin-appearance-history" ref="historyHeading" tabindex="-1">{{ t('admin.appearanceHistory') }}</h3>
+        <p v-if="history.items.length === 0">{{ t('admin.noAppearanceHistory') }}</p>
         <ol v-else class="appearance-history">
           <li v-for="change in history.items" :key="String(change.revision)">
             <ElCard shadow="never">
-              <strong>{{ change.rollback ? 'Rolled back' : 'Applied' }} · revision {{ change.revision }}</strong>
+              <strong>{{ t('admin.appearanceRevision', { action: change.rollback ? t('admin.rolledBack') : t('admin.applied'), revision: String(change.revision) }) }}</strong>
               <p><time :datetime="historyTime(change.happenedUnixMs)">{{ historyTime(change.happenedUnixMs) }}</time> · {{ change.actor }}</p>
               <dl>
-                <dt>Theme archive</dt>
-                <dd><code>{{ change.previousTheme || 'Built-in' }}</code> → <code>{{ change.theme || 'Built-in' }}</code></dd>
-                <dt>Font archive</dt>
-                <dd><code>{{ change.previousFont || 'Built-in' }}</code> → <code>{{ change.font || 'Built-in' }}</code></dd>
+                <dt>{{ t('admin.themeArchive') }}</dt>
+                <dd><code>{{ change.previousTheme || t('admin.builtIn') }}</code> → <code>{{ change.theme || t('admin.builtIn') }}</code></dd>
+                <dt>{{ t('admin.fontArchive') }}</dt>
+                <dd><code>{{ change.previousFont || t('admin.builtIn') }}</code> → <code>{{ change.font || t('admin.builtIn') }}</code></dd>
               </dl>
             </ElCard>
           </li>
         </ol>
         <ElButton v-if="history.nextBefore" :disabled="busy" native-type="button" @click="readHistory(history.nextBefore ?? undefined)">
-          Earlier appearance changes
+          {{ t('admin.earlierAppearance') }}
         </ElButton>
       </section>
     </template>

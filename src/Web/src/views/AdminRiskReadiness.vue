@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -13,7 +14,7 @@ const observation = shallowRef<Awaited<ReturnType<typeof readAdminRiskReadiness>
 const rootPolicy = shallowRef<Awaited<ReturnType<typeof readRootCommentPowPolicy>>>()
 const seconds = ref('')
 const busy = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 let request: AbortController | undefined
 
 function clear() {
@@ -43,8 +44,8 @@ async function check() {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 403) error.value = 'The system.config permission is required.'
-    else error.value = 'Could not check risk controls. Try again.'
+    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.systemPermission'
+    else error.value = 'admin.riskCheckFailed'
   } finally {
     if (request === current) {
       request = undefined
@@ -74,8 +75,8 @@ async function change(rollback: boolean) {
     if (signal.aborted) return
     rootPolicy.value = undefined
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 409) error.value = 'The root comment proof policy changed. Check risk controls again.'
-    else error.value = 'Could not confirm the root comment proof policy change. Check risk controls again.'
+    else if (cause instanceof ApiError && cause.status === 409) error.value = 'admin.riskPolicyChanged'
+    else error.value = 'admin.riskPolicyUnconfirmed'
   } finally {
     if (request === current) {
       request = undefined
@@ -89,37 +90,37 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
 
 <template>
   <section class="auth-form" aria-labelledby="admin-risk-controls-heading" :aria-busy="busy">
-    <h2 id="admin-risk-controls-heading">Risk controls</h2>
-    <ElButton native-type="button" :loading="busy" @click="check">Check risk controls</ElButton>
-    <ElAlert v-if="error" :title="error" :closable="false" type="error" />
+    <h2 id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</h2>
+    <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkRisk') }}</ElButton>
+    <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <div aria-live="polite">
       <dl v-if="observation">
-        <dt>Public comment reads</dt>
-        <dd>Fixed query concurrency limit</dd>
-        <dt>Signed-in top-level comments</dt>
-        <dd>{{ observation.rootWriteMode === 1 ? 'Classic PoW route installed' : 'Route not installed' }}</dd>
-        <dt>Signed-in comment replies</dt>
-        <dd v-if="observation.replyWriteMode === 2">Classic PoW route installed. Reply notice table present.</dd>
-        <dd v-else-if="observation.replyWriteMode === 1">Classic PoW route installed. Reply notice table absent.</dd>
-        <dd v-else>Route not installed</dd>
-        <dt>Forwarded client address</dt>
-        <dd>{{ observation.forwardingMode === 1 ? 'Trusted loopback proxy' : 'Connection peer address' }}</dd>
-        <dt>Dynamic risk policy</dt>
-        <dd>Not installed</dd>
-        <dt>Strong anonymous comments</dt>
-        <dd>Not installed</dd>
+        <dt>{{ t('admin.publicCommentReads') }}</dt>
+        <dd>{{ t('admin.fixedConcurrency') }}</dd>
+        <dt>{{ t('admin.signedInRoots') }}</dt>
+        <dd>{{ observation.rootWriteMode === 1 ? t('admin.classicPowInstalled') : t('admin.routeNotInstalled') }}</dd>
+        <dt>{{ t('admin.signedInReplies') }}</dt>
+        <dd v-if="observation.replyWriteMode === 2">{{ t('admin.replyTablePresent') }}</dd>
+        <dd v-else-if="observation.replyWriteMode === 1">{{ t('admin.replyTableAbsent') }}</dd>
+        <dd v-else>{{ t('admin.routeNotInstalled') }}</dd>
+        <dt>{{ t('admin.forwardedAddress') }}</dt>
+        <dd>{{ observation.forwardingMode === 1 ? t('admin.trustedLoopback') : t('admin.peerAddress') }}</dd>
+        <dt>{{ t('admin.dynamicRisk') }}</dt>
+        <dd>{{ t('admin.notInstalled') }}</dd>
+        <dt>{{ t('admin.strongAnonymous') }}</dt>
+        <dd>{{ t('admin.notInstalled') }}</dd>
       </dl>
     </div>
     <section v-if="rootPolicy" aria-labelledby="admin-root-comment-proof-heading">
-      <h3 id="admin-root-comment-proof-heading">Root comment proof policy</h3>
-      <p aria-live="polite">Generation {{ rootPolicy.generation.toString() }} · {{ rootPolicy.proofSeconds }} seconds</p>
+      <h3 id="admin-root-comment-proof-heading">{{ t('admin.rootProofPolicy') }}</h3>
+      <p aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</p>
       <p><code class="policy-digest">{{ rootPolicy.digest }}</code></p>
-      <label for="root-comment-proof-seconds">Proof lifetime in seconds</label>
+      <label for="root-comment-proof-seconds">{{ t('admin.proofLifetime') }}</label>
       <ElInput id="root-comment-proof-seconds" v-model="seconds" v-bind="{ inputmode: 'numeric' }" :disabled="busy" />
       <ElButton native-type="button" :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) ||
-        Number(seconds) === rootPolicy.proofSeconds" @click="change(false)">Apply proof lifetime</ElButton>
+        Number(seconds) === rootPolicy.proofSeconds" @click="change(false)">{{ t('admin.applyProofLifetime') }}</ElButton>
       <ElButton v-if="rootPolicy.previousSeconds > 0" native-type="button" :disabled="busy"
-        @click="change(true)">Restore previous proof lifetime</ElButton>
+        @click="change(true)">{{ t('admin.restoreProofLifetime') }}</ElButton>
     </section>
   </section>
 </template>
