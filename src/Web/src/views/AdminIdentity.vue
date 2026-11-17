@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import AccountWorkspace from '../AccountWorkspace.vue'
 import SiteHeaderPreferences from '../SiteHeaderPreferences.vue'
@@ -9,6 +9,7 @@ import { adminWorkspacePages, type AdminWorkspaceSection } from '../adminWorkspa
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
+import AdminSiteTraffic from './AdminSiteTraffic.vue'
 import AdminSitePages from './AdminSitePages.vue'
 import AdminSessionHistory from './AdminSessionHistory.vue'
 import AdminCluster from './AdminCluster.vue'
@@ -35,7 +36,7 @@ import {
 defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const route = useRoute()
-const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[5])
+const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[4])
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
 const permissionLease = 60_000
 const permissionRefresh = 45_000
@@ -138,9 +139,8 @@ function canOpen(page: AdminWorkspaceSection): boolean {
   switch (page) {
     case 'articles': return permits('article.write')
     case 'interaction': return permits('admin.manage') || permits('comment.moderate')
-    case 'site': return permits('system.config')
+    case 'site': return permits('audit.read') || permits('system.config')
     case 'system': return permits('audit.read') || permits('system.config')
-    case 'overview':
     case 'identity': return true
   }
 }
@@ -275,7 +275,7 @@ function logOut() {
 </script>
 
 <template>
-  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin" :label="t('admin.access')" :links="links"
+  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.access')" :links="links"
     :theme-mode="themeMode" @theme="emit('theme', $event)">
     <template #actions>
       <ElButton text native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
@@ -283,15 +283,7 @@ function logOut() {
     <main class="auth-page admin-workspace">
       <h1>{{ t(section.label) }}</h1>
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
-      <template v-if="section.section === 'overview'">
-        <p class="muted">{{ t('admin.workspace.intro') }}</p>
-        <ul class="admin-overview">
-          <li v-for="link in links.filter(item => item.to !== '/admin')" :key="link.to">
-            <RouterLink :to="link.to">{{ link.label }}</RouterLink>
-          </li>
-        </ul>
-      </template>
-      <template v-else-if="section.section !== 'identity' && !canOpen(section.section)">
+      <template v-if="section.section !== 'identity' && !canOpen(section.section)">
         <ElAlert v-if="permissionsFailure" :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
         <ElButton v-if="permissionsFailure" native-type="button" :disabled="busy" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
         <p v-else-if="!permissions" role="status">{{ t('admin.checkingPermissions') }}</p>
@@ -345,6 +337,8 @@ function logOut() {
       <AdminTaxonomy v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
       <AdminArticleInventory v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
       <AdminArticleRollback v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminSiteTraffic v-if="section.section === 'site' && permits('audit.read')" :key="permissionEpoch"
+        :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
       <AdminAppearance v-if="section.section === 'site' && authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
         :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
       <AdminCluster v-if="section.section === 'system' && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
@@ -388,8 +382,5 @@ function logOut() {
 .admin-login-preferences { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem var(--fsusblog-page-gutter) 0; }
 .admin-login { margin-inline: auto; }
 .admin-workspace { width: auto; }
-.admin-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; padding: 0; list-style: none; }
-.admin-overview a { display: block; min-block-size: 44px; padding: .75rem; border: 1px solid var(--fsus-border); text-decoration: none; }
-.admin-overview a:hover { background: var(--el-fill-color-light); }
 .admin-operations { margin-block-start: 1.5rem; }
 </style>

@@ -68,6 +68,12 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+var trafficEnabled = builder.Configuration.GetValue(SiteTraffic.EnabledSetting, false);
+var trafficOrigin = trafficEnabled ? new Uri(publicSite.Origin ??
+    throw new InvalidOperationException("Traffic statistics require an explicit public HTTPS origin.")) : null;
+builder.Services.AddSingleton<SiteTraffic>();
+if (trafficEnabled)
+    builder.Services.AddHostedService(services => services.GetRequiredService<SiteTraffic>());
 var pdfExport = FsusBlog.V2.Server.Authoring.PdfDocumentExport.Read(builder.Configuration);
 var pluginPreview = PluginPreviewEndpoints.Read(builder.Configuration, publicSite.Origin, dist,
     builder.Configuration[MediaEndpoints.StorageSetting]);
@@ -219,6 +225,7 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, new(Subscription
     DocumentExports: documentExportTasks ? true : null, AdminCategoryMetadata: adminCategoryMetadata ? true : null));
 var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
+var siteTraffic = trafficEnabled ? app.Services.GetRequiredService<SiteTraffic>() : null;
 var publicationProofs = app.Services.GetService<PublicationProofs>();
 if (publicationProofs is not null) await publicationProofs.Initialize(app.Lifetime.ApplicationStopping);
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
@@ -269,6 +276,10 @@ app.Use(async (ctx, next) =>
             if (HttpMethods.IsPost(ctx.Request.Method) || HttpMethods.IsPut(ctx.Request.Method)) VerifyMutation(ctx);
         }
         await next();
+        if (siteTraffic is not null && trafficOrigin is not null &&
+            string.Equals(ctx.Request.Scheme, trafficOrigin.Scheme, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(ctx.Request.Host.Value, trafficOrigin.Authority, StringComparison.OrdinalIgnoreCase))
+            siteTraffic.Observe(ctx);
     }
     catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { }
     catch (Exception ex) when (!ctx.Response.HasStarted)

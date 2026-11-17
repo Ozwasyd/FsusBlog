@@ -1,10 +1,15 @@
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Analytics;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
+    internal Task<(AdminSiteTraffic Traffic, string PermissionSession)> ReadSiteTraffic(string? token, SiteTraffic traffic, CancellationToken ct) =>
+        WithLiveAdmin(token, CurrentSchema.AuditReadPermission, async (db, tx, admin) =>
+            (await traffic.ReadAsync(db, tx, ct), PermissionBinding(admin.Digest)), ct);
+
     internal Task<(AdminOperationsStatus Status, string PermissionSession)> OperationsStatus(string? token, Publications publications, CancellationToken ct) =>
         WithLiveAdmin(token, CurrentSchema.AuditReadPermission, async (db, tx, admin) =>
         {

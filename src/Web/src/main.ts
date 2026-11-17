@@ -34,6 +34,7 @@ const router = createRouter({
     ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
     { path: '/register', name: 'register', component: () => import('./views/ReaderRegister.vue') },
+    { path: '/admin', redirect: { name: 'admin-site' } },
     ...adminWorkspacePages.map(({ path, name, section }) => ({
       path, name, component: () => import('./views/AdminIdentity.vue'), meta: { adminSection: section },
     })),

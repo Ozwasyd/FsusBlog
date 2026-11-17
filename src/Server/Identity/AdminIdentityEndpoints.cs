@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Analytics;
 using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Passkeys;
@@ -131,6 +132,12 @@ internal static class AdminIdentityEndpoints
             var result = await store.OperationsStatus(ctx.Request.Cookies[session], publications, ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
             return Frame(Wire.EncodeAdminOperationsStatus(result.Status));
+        }).RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminSiteTraffic, async (HttpContext ctx, SiteTraffic traffic, CancellationToken ct) =>
+        {
+            var result = await store.ReadSiteTraffic(ctx.Request.Cookies[session], traffic, ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
+            return Frame(Wire.EncodeAdminSiteTraffic(result.Traffic));
         }).RequireRateLimiting("command");
         var batchModeration = app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false);
         app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>

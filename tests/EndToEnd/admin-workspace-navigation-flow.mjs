@@ -11,7 +11,7 @@ assert.equal(admin.hostname, 'localhost')
 assert.equal(site.hostname, '127.0.0.1')
 assert(/^[0-9a-f]{64}$/.test(ticket ?? ''), 'Supply one unused synthetic administrator bootstrap ticket.')
 const routes = [
-  ['/admin', 'Overview'], ['/admin/articles', 'Articles'], ['/admin/interaction', 'Interaction'],
+  ['/admin/articles', 'Articles'], ['/admin/interaction', 'Interaction'],
   ['/admin/site', 'Site'], ['/admin/system', 'System'], ['/admin/identity', 'Account'],
 ]
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/admin-workspace-navigation')
@@ -26,7 +26,7 @@ try {
   const page = await context.newPage()
   page.on('pageerror', error => faults.push(error.message))
   await enableAuthenticator(context, page)
-  for (const [path] of routes) {
+  for (const [path] of [['/admin'], ...routes]) {
     const response = await context.request.get(site.origin + path, { maxRedirects: 0 })
     assert.equal(response.status(), 404, `Public origin must refuse ${path}`)
   }
@@ -47,6 +47,11 @@ try {
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   checks.distinctAdministratorSessionRequired = true
 
+  await page.goto(admin.origin + '/admin')
+  await page.waitForURL(admin.origin + '/admin/site')
+  await expect(page.locator('.account-workspace-nav a[href="/admin"]')).toHaveCount(0)
+  checks.overviewRedirectsToSite = true
+
   const shell = await page.locator('.account-workspace').elementHandle()
   assert(shell)
   const nav = page.locator('.account-workspace-nav')
@@ -62,7 +67,7 @@ try {
     assert.equal((await context.request.get(admin.origin + WireRoutes.AdminSession)).status(), 200)
   }
   await shell.dispose()
-  checks.allSixRoutesReuseAuthenticatedShell = true
+  checks.allFiveRoutesReuseAuthenticatedShell = true
   await page.screenshot({ path: join(evidence, 'admin-workspace.png') })
   assert.deepEqual(faults, [])
 

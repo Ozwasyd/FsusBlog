@@ -45,6 +45,14 @@ caddy run --config deploy/Caddyfile.admin --adapter caddyfile
 
 `tests/EndToEnd/run-admin-tls.sh` 使用两个独立的环回证书、原生 PostgreSQL 和 Chrome 虚拟 CTAP2 验证此配置。为脚本设置测试数据库连接 `FSUSBLOG_TEST_DB` 及配套的 `PGHOST`、`PGPORT`、`PGUSER`。可通过 `FSUSBLOG_NATIVE_SERVER_BUILD`、`FSUSBLOG_NATIVE_MIGRATE_BUILD` 和 `FSUSBLOG_WEB_DIST` 指向解包后的发布产物。测试只为子进程设置证书信任，结束后移除临时数据库、私钥和监听进程。 [Chrome 测试证书用法](https://github.com/GoogleChrome/samples/blob/gh-pages/webtransport/webtransport_server.py)
 
+## 站点访问统计
+
+管理员的「站点」页显示最近 30 个 UTC 日的访问量与最多 30 个地区，访问统计要求独立管理会话与 `audit.read`。这里只统计同源公开页面成功返回的 HTML GET（不是独立访客数，不含静态资源、API、后台、缓存命中的 304、站内只走前端路由的切换或本机/内网地址）。热度统计是另一套计量，两者不混算。旧版数据不会自动迁入。
+
+默认关闭。在维护窗口通过对应版本的迁移程序运行 `site-traffic schema`，然后为服务设置 `FSUSBLOG_SITE_TRAFFIC=true` 和有效的 `FSUSBLOG_PUBLIC_ORIGIN`。代理部署继续沿用上文的可信单跳 Caddy 模式，按真正连接地址计量，不接受客户端自行提供的地区字段。可选的 `FSUSBLOG_SITE_TRAFFIC_REGIONS` 指向部署者提供的离线 JSON 前缀表（最多 1 MiB/4096 条，最长匹配优先），每条包含 `cidr` 和 `region`；地区格式为两位国家码或 ISO 地区扩展，例如 `CN-BJ`。未配置地区表时仍可统计访问量；已配置但未命中的地址归到「未知地区」。项目不自带地理数据库，也不会将地址发给外部查询服务。
+
+数据库仅持久化日期、地区和访问次数，不记录每次访问或原始 IP。计数批量落库；正在运行的采集器按 UTC 清理 30 日窗口之前的汇总，停用或停服期间不会执行该清理。页面会区分未启用、未配置地区表、暂无数据和暂不可用，不用本机测试访问填充真实统计。
+
 ## 每日签发归档候选
 
 Linux 发布包中的 `fsusblog-daily-checkpoint.service` 和 `fsusblog-daily-checkpoint.timer` 示例以独立账户 `fsusblog-checkpoint` 每天在 UTC 00:05 签发前一天。部署者需按本机的账户和工具路径调整服务，提供只读 PostgreSQL 主库连接、独立留存的可信账本锚点和与文章签名密钥分离的专用密钥。以下是仅供服务管理器读取的 `/etc/fsusblog/checkpoint.env` 示例。

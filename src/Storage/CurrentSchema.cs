@@ -286,6 +286,7 @@ internal static partial class CurrentSchema
         if ((hasPublicationHead && !hasPublicationTransparency) ||
             (requirePublicationHead.HasValue && requirePublicationHead.Value != hasPublicationHead))
             throw new InvalidOperationException("The native publication head schema presence does not match the requested operation.");
+        var hasSiteTraffic = await HasSiteTrafficAsync(connection, transaction, cancellationToken);
         var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
         RequireSchemaPresence(requireArticleRead, hasArticleRead,
             "The article read aggregate schema presence does not match the requested operation.");
@@ -344,6 +345,7 @@ internal static partial class CurrentSchema
             .Concat(hasPublicationProof ? GetPublicationProofColumns(publicationTransparency) : [])
             .Concat(hasPublicationTransparency ? PublicationTransparencyColumns : [])
             .Concat(hasPublicationHead ? PublicationHeadColumns : [])
+            .Concat(hasSiteTraffic ? SiteTrafficColumns : [])
             .Concat(hasArticleRead ? ArticleReadColumns : [])
             .Concat(hasArticleReadTotal ? ArticleReadTotalColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
@@ -407,6 +409,7 @@ internal static partial class CurrentSchema
             .Concat(hasPublicationProof ? PublicationProofConstraints : [])
             .Concat(hasPublicationTransparency ? PublicationTransparencyConstraints : [])
             .Concat(hasPublicationHead ? PublicationHeadConstraints : [])
+            .Concat(hasSiteTraffic ? SiteTrafficConstraints : [])
             .Concat(hasArticleRead ? ArticleReadConstraints : [])
             .Concat(hasArticleReadTotal ? ArticleReadTotalConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])

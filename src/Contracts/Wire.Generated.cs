@@ -85,6 +85,7 @@ public enum FrameType : ushort
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
+    AdminSiteTraffic = 33071,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
     AdminArticleRollbackPreview = 32925,
@@ -739,6 +740,7 @@ public static class WireRoutes
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminEffectivePermissions = "/api/v2/admin/identity/permissions.aeds";
     public const string AdminSignInHistory = "/api/v2/admin/identity/sessions/history.aeds";
+    public const string AdminSiteTraffic = "/api/v2/admin/identity/site-traffic.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";

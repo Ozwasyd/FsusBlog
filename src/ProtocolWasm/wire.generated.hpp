@@ -485,6 +485,7 @@ enum class FrameType : uint16_t {
     AdminClusterStatus = 32962,
     AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
+    AdminSiteTraffic = 33071,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
     AdminArticleRollbackPreview = 32925,
@@ -692,7 +693,7 @@ inline constexpr FrameRange frameRanges[] = {
     {33032, 33049},
     {33055, 33066},
     {33068, 33068},
-    {33070, 33070},
+    {33070, 33071},
 };
 }
 

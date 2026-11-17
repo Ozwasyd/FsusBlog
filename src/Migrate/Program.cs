@@ -33,6 +33,7 @@ internal static partial class Migration
             [("appearance", "schema")] = InitializeAppearanceActivationAsync,
             [("root-comment-pow", "schema")] = InitializeRootCommentPowPolicyAsync,
             [("site-refresh", "schema")] = InitializeSiteRefreshAsync,
+            [("site-traffic", "schema")] = InitializeSiteTrafficAsync,
             [("site-page-editor", "schema")] = InitializeSitePageEditorAsync,
             [("revision-history", null)] = InitializeRevisionHistoryAsync,
             [("publication-history", null)] = InitializePublicationHistoryAsync,
@@ -92,6 +93,7 @@ internal static partial class Migration
                                         Inspect preview Canvas provenance or upgrade its exact empty schema offline
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   recovery-key schema    Add site Recovery Key storage with the server stopped
+                  site-traffic schema
                   site-page-editor schema
                                         Add optional site page publication storage with the server stopped
                   appearance schema      Add signed appearance activation storage with the server stopped
