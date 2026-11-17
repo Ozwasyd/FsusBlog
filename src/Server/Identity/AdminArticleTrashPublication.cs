@@ -18,8 +18,8 @@ internal static class AdminArticleTrashPublication
         routes.Availability(WireRoutes.AdminArticleTrashPublicationAvailability, store.CheckTrashPublicationAvailability);
         app.MapGet(WireRoutes.AdminArticleTrashPublicationPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var article = AdminArticleRollbackEndpoints.PositiveCoordinate(ctx, "articleId");
-            var revision = AdminArticleRollbackEndpoints.PositiveCoordinate(ctx, "revision");
+            var article = AdminActionRoutes.PositiveCoordinate(ctx, "articleId");
+            var revision = AdminActionRoutes.PositiveCoordinate(ctx, "revision");
             if (article > int.MaxValue) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
             var preview = await store.PreviewTrashPublication(ctx.Request.Cookies[session], (int)article, revision, ct);
             return AdminActionRoutes.Frame(Wire.EncodeAdminArticleTrashPublicationPreview(preview));

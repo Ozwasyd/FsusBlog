@@ -1,6 +1,4 @@
-using System.Globalization;
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Passkeys;
 
 namespace FsusBlog.V2.Server.Administration;
@@ -21,9 +19,9 @@ internal static class AdminArticleRollbackEndpoints
             store.ExecuteArticleRollback, Wire.EncodeAdminArticleRollbackReceipt);
         app.MapGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var article = PositiveCoordinate(ctx, "articleId");
-            var source = PositiveCoordinate(ctx, "sourceRevision");
-            if (article > int.MaxValue) throw InvalidCoordinate();
+            var article = AdminActionRoutes.PositiveCoordinate(ctx, "articleId");
+            var source = AdminActionRoutes.PositiveCoordinate(ctx, "sourceRevision");
+            if (article > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
             var result = await store.PreviewArticleRollback(ctx.Request.Cookies[session], (int)article, source, ct);
             return Frame(Wire.EncodeAdminArticleRollbackPreview(result));
         }).RequireRateLimiting("query");
@@ -43,17 +41,17 @@ internal static class AdminArticleRollbackEndpoints
             store.ExecuteArticleArchive, Wire.EncodeAdminArticleArchiveReceipt);
         app.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
-            if (before > int.MaxValue) throw InvalidCoordinate();
+            var before = ctx.Request.Query.ContainsKey("before") ? AdminActionRoutes.PositiveCoordinate(ctx, "before") : 0;
+            if (before > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
             var page = await store.ListArchivedArticles(ctx.Request.Cookies[session], (int)before, ct);
             return Frame(Wire.EncodeAdminArticleArchivePage(page));
         }).RequireRateLimiting("query");
         app.MapGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var article = PositiveCoordinate(ctx, "articleId");
-            var revision = PositiveCoordinate(ctx, "revision");
-            var privateRelease = PositiveCoordinate(ctx, "privateReleaseId");
-            if (article > int.MaxValue) throw InvalidCoordinate();
+            var article = AdminActionRoutes.PositiveCoordinate(ctx, "articleId");
+            var revision = AdminActionRoutes.PositiveCoordinate(ctx, "revision");
+            var privateRelease = AdminActionRoutes.PositiveCoordinate(ctx, "privateReleaseId");
+            if (article > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
             return Frame(await store.PreviewArchivedArticle(ctx.Request.Cookies[session], (int)article, revision, privateRelease, ct));
         }).RequireRateLimiting("query");
 
@@ -96,18 +94,6 @@ internal static class AdminArticleRollbackEndpoints
     {
         ClientMutationHeader.Require(ctx, expected);
     }
-
-    internal static long PositiveCoordinate(HttpContext ctx, string key)
-    {
-        if (ctx.Request.Query[key] is { Count: 1 } values && values[0] is { Length: >= 1 and <= 19 } text &&
-            long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var coordinate) && coordinate > 0 &&
-            coordinate.ToString(CultureInfo.InvariantCulture) == text)
-            return coordinate;
-        throw InvalidCoordinate();
-    }
-
-    private static BusinessException InvalidCoordinate() =>
-        new(Rejection.Invalid, "Use an exact article ID and historical revision.");
 
     private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }

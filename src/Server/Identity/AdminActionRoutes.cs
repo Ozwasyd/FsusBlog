@@ -1,3 +1,4 @@
+using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 
@@ -44,6 +45,18 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
             string.Equals(uri.GetLeftPart(UriPartial.Authority), authority, StringComparison.OrdinalIgnoreCase)) return;
         throw new BusinessException(Rejection.Forbidden, "A same-origin administrator request is required.");
     }
+
+    internal static long PositiveCoordinate(HttpContext ctx, string key)
+    {
+        if (ctx.Request.Query[key] is { Count: 1 } values && values[0] is { Length: >= 1 and <= 19 } text &&
+            long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var coordinate) && coordinate > 0 &&
+            coordinate.ToString(CultureInfo.InvariantCulture) == text)
+            return coordinate;
+        throw InvalidCoordinate();
+    }
+
+    internal static BusinessException InvalidCoordinate() =>
+        new(Rejection.Invalid, "Use an exact article ID and historical revision.");
 
     internal static string? Proof(HttpContext ctx) =>
         ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
