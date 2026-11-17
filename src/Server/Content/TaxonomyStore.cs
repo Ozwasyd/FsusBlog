@@ -14,7 +14,7 @@ internal static class TaxonomyStore
     internal static async Task<DraftTaxonomy> ReadDraft(NpgsqlConnection db, NpgsqlTransaction tx, int articleId,
         long revision, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = SqlCommands.Create(db, tx, """
             select coalesce((select category_id from public.article_revision_category where article_id=$1 and revision=$2),0),
                    array(select tag_id from public.article_revision_tag where article_id=$1 and revision=$2 order by tag_id)
             """, articleId, revision);
@@ -26,7 +26,7 @@ internal static class TaxonomyStore
     internal static async Task Replace(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision,
         int category, IReadOnlyList<int> tags, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = SqlCommands.Create(db, tx, """
             with category_link as (
                 insert into public.article_revision_category(article_id,revision,category_id)
                 select $1,$2,$3 where $3<>0
@@ -44,7 +44,7 @@ internal static class TaxonomyStore
 
     internal static async Task<TaxonomyRows> Read(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = SqlCommands.Create(db, tx, """
             select id,name,description from public.category order by id;
             select id,name,description from public.tag order by id;
             select name_key,tag_id from public.tag_url_name order by name_key;
@@ -63,7 +63,7 @@ internal static class TaxonomyStore
     internal static async Task CarryForward(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long sourceRevision,
         long nextRevision, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = SqlCommands.Create(db, tx, """
             with category_copied as (
                 insert into public.article_revision_category(article_id,revision,category_id)
                 select article_id,$3,category_id from public.article_revision_category where article_id=$1 and revision=$2
