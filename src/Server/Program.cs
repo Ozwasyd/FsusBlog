@@ -635,17 +635,6 @@ static IResult Error(HttpContext ctx, int status, string message, string? detail
     return new AedsError(status, Wire.EncodeError(status, message, details, ctx.TraceIdentifier));
 }
 
-internal sealed record AedsError(int Status, byte[] Packet) : IResult
-{
-    public async Task ExecuteAsync(HttpContext ctx)
-    {
-        ctx.Response.StatusCode = Status;
-        ctx.Response.ContentType = "application/octet-stream";
-        ctx.Response.ContentLength = Packet.Length;
-        await ctx.Response.Body.WriteAsync(Packet, ctx.RequestAborted);
-    }
-}
-
 file sealed record CurrentSearchCorpusPatch(PublicSnapshot Snapshot, Publications Publications, string TargetDigest, byte[] Bytes) : IResult
 {
     public Task ExecuteAsync(HttpContext context)
