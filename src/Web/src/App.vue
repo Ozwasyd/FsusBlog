@@ -7,6 +7,7 @@ import { currentSession, refreshSession, signOut } from './session'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { siteTitle } from './siteBrand'
+import navigation from '../../Contracts/public-navigation.json' with { type: 'json' }
 import { getSiteCompliance, type SiteCompliance } from '../../Contracts/site-config.ts'
 
 const route = useRoute()
@@ -21,11 +22,17 @@ function useTheme(mode: ThemeMode) {
 }
 const logoutFailure = ref(false)
 const accountMenu = ref(false)
-const navigation = [
-  { key: 'home', label: 'Home', href: '/' },
-  { key: 'archive', label: 'Archive', href: '/archive' },
-  { key: 'about', label: sitePages.about, href: '/about' },
-]
+const publicNavPaths = new Set(navigation.map(item => item.href))
+
+function navigatePublic(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  const link = event.target instanceof Element ? event.target.closest('a[href]') : null
+  if (!(link instanceof HTMLAnchorElement) || link.hasAttribute('download') || (link.target && link.target !== '_self')) return
+  const href = link.getAttribute('href')
+  if (href === null || !publicNavPaths.has(href)) return
+  event.preventDefault()
+  void router.push(href)
+}
 const accountArea = computed(() => route.name === 'canvas' || route.name === 'canvas-document' || route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' ||
   route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash' || route.name === 'messages' ||
   route.name === 'security' || route.name === 'private-media')
@@ -160,6 +167,7 @@ async function leave() {
       csp-safe
       spa-search
       @search="search"
+      @click="navigatePublic"
     >
       <template #desktop-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
