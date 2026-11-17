@@ -65,14 +65,14 @@ internal static class ArticleInventoryEndpoints
         await using var cmd = Store.Sql(db, tx, $"""
             with matched as materialized (
                 select a.id,a.revision,a.title,a.updated_at,c.id as category_id,c.name as category,s.due_at,
-                    {CurrentState} as state
+                    {ArticleInventorySql.CurrentState} as state
                 from public.article a
-                {CurrentSchedule(2, author is null)}
+                {ArticleInventorySql.CurrentSchedule(2, author is null)}
                 left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
                 left join public.category c on c.id=rc.category_id
                 where ($1::uuid is null or a.owner_id=$1) and a.deleted=$3 and ($10=0 or a.id=$10)
                     and {ArchivedArticleAuthority.Available}
-                    and {KeywordPredicate(4, 11)}
+                    and {ArticleInventorySql.KeywordPredicate(4, 11)}
                     and ($5=0 or rc.category_id=$5)
                     and ($6=0 or exists(select from public.article_revision_tag rt where rt.article_id=a.id and rt.revision=a.revision and rt.tag_id=$6))
             ), filtered as materialized (
@@ -113,33 +113,6 @@ internal static class ArticleInventoryEndpoints
                 rows.IsDBNull(7) ? 0 : rows.GetFieldValue<DateTimeOffset>(7).ToUnixTimeMilliseconds(), category, tags));
         }
         return new(total, more ? list[^1].Id : 0, list);
-    }
-
-    internal const string CurrentState = """
-        case when a.deleted then 5 when s.due_at is not null then 2 when a.published_revision is not null then 3
-             when (select h.kind='retract' and h.reason='administrator-rollback-draft'
-                   from public.article_publication_history h
-                   where h.article_id=a.id order by h.event_no desc limit 1) then 1
-             when a.publication_count>0 then 4 else 1 end
-        """;
-
-    internal static string CurrentSchedule(int generationParameter, bool crossAuthor = false)
-    {
-        var generation = "$" + generationParameter.ToString(CultureInfo.InvariantCulture);
-        if (crossAuthor) generation = $"coalesce((select u.generation from public.blog_user u where u.id=a.owner_id and u.enabled and u.can_author),{generation})";
-        return $"""
-            left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
-                and s.actor_id=a.owner_id and s.generation={generation} and not a.deleted
-            """;
-    }
-
-    internal static string KeywordPredicate(int keywordParameter, int? includeSummaryParameter = null)
-    {
-        var keyword = "$" + keywordParameter.ToString(CultureInfo.InvariantCulture);
-        var includeSummary = includeSummaryParameter is { } index ? "$" + index.ToString(CultureInfo.InvariantCulture) + " and " : "";
-        return $"({keyword}='' or strpos(lower(a.title),lower({keyword}))>0 or " +
-            $"({includeSummary}strpos(lower(coalesce((select r.author_summary from public.article_revision r " +
-            $"where r.article_id=a.id and r.revision=a.revision),left(a.body,200))),lower({keyword}))>0))";
     }
 
     private static BusinessException Invalid() => new(Rejection.Invalid, "Invalid article inventory filters.");

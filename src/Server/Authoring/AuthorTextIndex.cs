@@ -397,11 +397,11 @@ internal static partial class AuthorTextIndex
     private static string FacetMetadata(int generationParameter, bool includeSummary, bool includeHeading,
         PropertyTextParameters? propertyText = null, bool mixed = false) => $$"""
         owner_scope as materialized (
-            select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventoryEndpoints.CurrentState}} as state,
+            select a.id,a.revision,{{RankTime}} as updated_unix_ms,{{ArticleInventorySql.CurrentState}} as state,
                 coalesce(c.id,0) as category_id,coalesce(c.name,'') as category_name,
                 coalesce(t.ids,'{}'::integer[]) as tag_ids,coalesce(t.witness,''::bytea) as tag_witness
             from public.article a
-            {{ArticleInventoryEndpoints.CurrentSchedule(generationParameter)}}
+            {{ArticleInventorySql.CurrentSchedule(generationParameter)}}
             left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
             left join public.category c on c.id=rc.category_id
             left join lateral (

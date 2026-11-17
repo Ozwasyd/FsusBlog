@@ -179,7 +179,7 @@ internal sealed partial class PropertyStore
         if (keyword.Length != 0)
         {
             parameters.Add(keyword);
-            sql.Append(" and ").Append(ArticleInventoryEndpoints.KeywordPredicate(parameters.Count));
+            sql.Append(" and ").Append(ArticleInventorySql.KeywordPredicate(parameters.Count));
         }
         AppendConditions(sql, parameters, conditions);
         sql.Append(" order by a.id desc limit $3");
