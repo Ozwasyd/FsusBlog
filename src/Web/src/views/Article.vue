@@ -99,7 +99,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       </div>
     </header>
     <ElAlert v-if="!nativeMarkdown" :title="t('reading.formatUnavailable')" type="info" :closable="false" />
-    <div ref="readBody" v-bind="{ 'data-fsus-article-read-body': '' }">
+    <div ref="readBody" class="blog-markdown blog-markdown--article" v-bind="{ 'data-fsus-article-read-body': '' }">
       <ElMarkdownRenderer v-if="nativeMarkdown" :key="`${article.id}:${article.publication}`" :content="article.body"
         :content-version="article.publication.toString()" mode="article" @render-complete="renderedArticle = article" />
       <pre v-else class="article-source">{{ article.body }}</pre>

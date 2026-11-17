@@ -50,6 +50,6 @@ watch([slug, retry], async ([value], _, cleanup) => {
       <ElButton @click="retry++">{{ t('reading.retry') }}</ElButton>
       <RouterLink to="/">{{ t('reading.returnHome') }}</RouterLink>
     </section>
-    <div v-else-if="page" v-bind="{ class: 'site-page-markdown', 'data-site-page-body': '', 'data-state': page.configured ? 'published' : 'unconfigured' }" :lang="page.bodyLanguage" v-html="page.body" />
+    <div v-else-if="page" v-bind="{ class: 'blog-markdown', 'data-site-page-body': '', 'data-state': page.configured ? 'published' : 'unconfigured' }" :lang="page.bodyLanguage" v-html="page.body" />
   </article>
 </template>

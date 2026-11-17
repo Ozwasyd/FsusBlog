@@ -1,0 +1,124 @@
+/* FsusBlog's reading profile. Both Markdig's first paint and the interactive
+   renderer use this boundary; task surfaces keep FsusUI's defaults. */
+.blog-markdown {
+  color: var(--fsus-ink);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.8;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.blog-markdown--article {
+  text-align: justify;
+  letter-spacing: .015em;
+  text-autospace: ideograph-alpha ideograph-numeric;
+  text-spacing-trim: space-all;
+}
+
+/* FsusUI applies an explicit task alignment to its generated paragraph/text
+   classes. Override just those within the Blog's prose profile. */
+.blog-markdown--article .markdown-renderer
+  :is(.markdown-renderer__paragraph, .markdown-renderer__text) {
+  text-align: inherit;
+  letter-spacing: inherit;
+}
+.blog-markdown--article .markdown-renderer .markdown-renderer__paragraph:not(:has(img, .katex-display)) {
+  text-align: justify;
+}
+
+.blog-markdown p { margin: 0 0 .6em; line-height: 1.8; }
+.blog-markdown p:empty { display: none; }
+.blog-markdown--article p { text-indent: 2em; }
+.blog-markdown p:has(:is(img, .katex-display)) {
+  margin-block: 2em;
+  text-align: center;
+  text-indent: 0;
+}
+
+.blog-markdown :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--fsus-ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: start;
+  text-indent: 0;
+  margin-block: 2.5em 1em;
+}
+.blog-markdown h1 { font-size: 1.5rem; font-weight: 700; margin-block-end: 1.5em; }
+.blog-markdown--article h1 { font-size: 1.4em; margin-block-start: 3em; }
+.blog-markdown h2 { margin-block: 4em 2em; }
+.blog-markdown h3 { margin-block-start: 3em; font-weight: 700; }
+.blog-markdown :is(h2 + h3, h3 + h4) { margin-block-start: 1.5em; }
+.blog-markdown > :first-child,
+.blog-markdown .markdown-renderer__body > div > :first-child { margin-block-start: 0; }
+
+.blog-markdown blockquote {
+  margin: 1.5rem 0;
+  padding: 0;
+  border: 0;
+  color: var(--fsus-color-text-muted);
+  font-style: normal;
+  background: transparent;
+}
+.blog-markdown blockquote p { text-indent: 0; margin-block-end: .5em; }
+.blog-markdown blockquote p:last-child { margin-block-end: 0; }
+.blog-markdown :is(ul, ol) { margin: 1.5rem 0; padding-inline-start: 1.5em; }
+.blog-markdown ul { list-style-type: disc; }
+.blog-markdown ol { list-style-type: decimal; }
+.blog-markdown ul ul { list-style-type: circle; margin-block: .5rem; }
+.blog-markdown ul ul ul { list-style-type: square; }
+.blog-markdown li { line-height: 1.8; margin-block-end: .6em; }
+.blog-markdown li p { text-indent: 0; margin-block: .2em 0; }
+.blog-markdown li::marker { color: var(--fsus-color-text-muted); }
+.blog-markdown hr { border: 0; border-block-start: 1px solid var(--fsus-border); margin: 3.5rem 20%; }
+.blog-markdown a { text-underline-offset: 4px; }
+.blog-markdown img {
+  display: block;
+  margin: 2rem auto;
+  max-inline-size: 100%;
+  max-block-size: 75vh;
+  object-fit: contain;
+  border-radius: var(--fsus-radius-control-small, 4px);
+}
+.blog-markdown :is(pre, code) {
+  font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));
+  font-size: .875rem;
+  text-indent: 0;
+}
+.blog-markdown pre,
+.blog-markdown .markdown-renderer pre:is(.shiki, [data-code-highlighted]) {
+  max-inline-size: 100%;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  line-height: 1.6;
+  overflow: auto;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--fsus-border);
+  border-radius: var(--fsus-radius-control, 6px);
+}
+.blog-markdown pre code { font-family: inherit; font-size: inherit; }
+.blog-markdown :not(pre) > code {
+  padding: .15em .4em;
+  margin-inline: .15em;
+  border: 1px solid var(--fsus-border);
+  border-radius: 4px;
+  background: var(--el-fill-color-light);
+  font-weight: 500;
+}
+.blog-markdown table {
+  display: block;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  margin: 3.5rem auto;
+  border-collapse: collapse;
+  font-size: .875rem;
+  line-height: 1.6;
+}
+.blog-markdown :is(th, td) {
+  padding: .65em .85em;
+  border: 1px solid var(--fsus-border);
+  text-align: start;
+}
+.blog-markdown th { background: var(--el-fill-color-light); }

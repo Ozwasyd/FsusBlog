@@ -137,7 +137,7 @@ internal sealed class SitePages
         {
             var title = SiteLocale.Text(locale, "policy." + spec.Slug);
             var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{HtmlEncoder.Default.Encode(title)}</h1></header>" +
-                $"<div data-site-page-body lang=\"zh-CN\">{body}</div></article>";
+                $"<div class=\"blog-markdown\" data-site-page-body lang=\"zh-CN\">{body}</div></article>";
             return renderer.PublicPage(content, title, noIndex: !configured, publicPath: "/" + spec.Slug, contentDriven: true, locale: locale);
         }
         var html = HtmlFor(SiteLocale.Default);
