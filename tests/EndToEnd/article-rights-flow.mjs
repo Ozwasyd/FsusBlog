@@ -13,5 +13,5 @@ export async function exerciseArticleRights(page, observations) {
   assert.equal((await sent).status(), 200)
   await page.getByRole('status').filter({ hasText: 'Publication rights saved.' }).waitFor()
   await inspector.getByText('Publication rights', { exact: true }).click()
-  observations.push('The author uses FsusUI to persist rights and the exact publication exposes the saved rights notice.')
+  observations.push('The author uses FsusUI to persist rights and the exact publication retains rights in its public data frame without a reader-facing badge.')
 }

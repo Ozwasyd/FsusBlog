@@ -2,7 +2,7 @@
 
 文章作者可以在 FsusUI Inspector 保存完整的权利策略。新建草稿会显式保存 v1 仓库默认策略。已有草稿没有权利记录时，公开发布需要作者先保存策略。保留、复制和修改操作随草稿 CAS 事务写入，选择历史草稿恢复会保留其已有权利记录或缺失状态。保存权利和其他私有修订会清除锚定旧修订的定时发布。
 
-即时和到期发布都为新公开坐标增加不可变快照绑定，与现行公开指针、沿革及 outbox 一次提交。公开详情的现有 ARD5/AEDS Rights V3 槽提供快照和修订坐标、许可证、权利人、年份、声明、署名模板和复制策略。公开前端和服务端 HTML 从已发布策略读取权利提示。缺失或错误绑定的文章在重建时退出同一个公开投影，因此详情、分布页、订阅源、站点地图和检索使用一致的准入范围。
+即时和到期发布都为新公开坐标增加不可变快照绑定，与现行公开指针、沿革及 outbox 一次提交。公开详情的现有 ARD5/AEDS Rights V3 槽提供快照和修订坐标、许可证、权利人、年份、声明、署名模板和复制策略。这些字段按原样公开在详情帧，阅读页不渲染权利徽标。缺失或错误绑定的文章在重建时退出同一个公开投影，因此详情、分布页、订阅源、站点地图和检索使用一致的准入范围。
 
 `publication-rights` 为结构匹配的旧 v2 数据库添加权利存储并报告待补齐公开坐标。没有已保存的权利证据时，迁移保持该坐标但使其留在私有范围。作者确认策略并重新发布后产生新的证据。旧库审计候选保留来源凭证，但当前候选没有开放导入到运行库的发布权利提升操作。测试中的明确合成权利来自 `tests/Fixtures/publication-rights.sql`，单独记录摘要，不修改原代表性 seed。
 
@@ -28,13 +28,13 @@
 
 `GET /integrity/v2/keys.json` 和 `GET /integrity/v2/article/{articleId}/{publicationId}/rights.json` 仅在配置的 HTTPS 公共来源提供，使用 `no-store`。第一个返回当前验证公钥和完整时间窗，第二个返回可独立重建的签名字段。可用 `node tools/verify-publication-proof.mjs HTTPS_ORIGIN KEYS_JSON PROOF_JSON` 核验由可信来源获取的响应。签名绑定原生正文、规则、发布与 outbox 坐标及实际签发时间。签名不覆盖外观、分发 feed、附件独立字节或透明日志。 [签名字节](../../src/Contracts/ArticlePublicationProofV2.cs) · [独立验证器](../../tools/verify-publication-proof.mjs)
 
-## 公开文章验签
+## 签名核验
 
-公开文章为启用证明绑定的已发布权利策略提供 **Verify publication**。读者点击后，浏览器独立从当前详情帧中的标题、原始 Markdown、分类及标签 ID 和权利策略复算两份摘要，按固定字节顺序重建签名载荷，并从本站 HTTPS 来源即时读取公钥和签名收据。验证检查公开坐标、权利快照、密钥指纹、签发时间范围和撤销状态。最后再次读取收据，检查文章与证明仍可公开取得。成功后短暂显示核验时间和 JSON 收据链接，页面离开、切换标签或三十秒后清除结果。打开文章本身不发送证明请求。无签名、签名未就绪或已撤回的坐标显示不可用。
+文章阅读页的首屏与交互界面均不展示权利徽标或核验操作，也不请求公钥或签名收据。编辑端、已发布权利快照、签发条件及协议字段不变；站点页脚独立承担站点版权提示。
 
-固定 v1 浏览器提供责任清单的公开链接和服务端材料状态。v2 文章页会对眼前这次发布执行本地签名比对。信任依据为当次同源公开密钥目录。部署中的 CDN 和 Service Worker 须直通 `/integrity/v2/`，避免重放旧的密钥状态和收据。历史责任清单、外部钥匙锚点及独立透明日志仍待交付。 [固定 v1 公开组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/article/ArticleResponsibilityDisclosure.vue#L68-L115)
+需要核验时，可从受信任的 HTTPS 来源获取公钥目录与当前签名收据，使用上面的独立验证器。部署中的 CDN 和 Service Worker 须直通 `/integrity/v2/`，避免重放旧密钥状态和收据。核验覆盖指定发布的数据，不证明作者身份或版权归属。
 
-使用 `FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 可通过真实 Chrome、Caddy 和 PostgreSQL 核验签名、拒绝篡改的签名及已泄露的公钥状态、拒绝被替换或撤回文章的旧证明，并检查窄屏及切换标签时的状态清除。测试使用独立临时数据库、公钥和私钥。 [浏览器验收](../../tests/EndToEnd/publication-proof-flow.mjs)
+`FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 使用独立测试库与密钥验证 HTTPS 签名接口，并检查读者页面不显示入口、不主动请求证明。 [验收脚本](../../tests/EndToEnd/publication-proof-flow.mjs)
 
 ## 原生签发日志
 

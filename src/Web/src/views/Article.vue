@@ -9,7 +9,6 @@ import { fetchPublicArticleMedia, managedArticleCoverDigest, type PublicArticleI
 import { useArticleReadProof } from '../article-read-proof'
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
-import ArticlePublicationProof from '../components/ArticlePublicationProof.vue'
 import ArticleNeighbors from '../components/ArticleNeighbors.vue'
 
 const route = useRoute()
@@ -115,15 +114,6 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       <p>{{ t('reading.imagesFailed') }}</p>
       <ElButton @click="retry++">{{ t('reading.reloadImages') }}</ElButton>
     </div>
-    <aside v-if="article.rights?.enabled && article.rights.showPublicBadge" class="article-rights" :aria-label="t('reading.rights')">
-      <p>{{ article.rights.licenseType }}</p>
-      <p v-if="article.rights.copyrightHolder || article.rights.copyrightYear">
-        {{ article.rights.copyrightHolder }} {{ article.rights.copyrightYear }}
-      </p>
-      <p v-if="article.rights.rightsStatement">{{ article.rights.rightsStatement }}</p>
-    </aside>
-    <ArticlePublicationProof v-if="article.rights?.enabled && article.rights.proofBindingEnabled"
-      :key="article.publication.toString()" :article="article" />
     <ArticleNeighbors :article-id="article.id" :publication="article.publication" />
     <ArticleComments :key="article.id" :article-id="article.id" :publication="article.publication" />
   </article>

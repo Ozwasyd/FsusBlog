@@ -17,14 +17,9 @@ await mkdir(evidence, { recursive: true })
 const browser = await launchIdentityBrowser(pins)
 const author = await request.newContext({ baseURL: origin })
 const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
-const section = page.getByRole('region', { name: 'Publication verification' })
-const verify = section.getByRole('button', { name: 'Verify publication' })
-const status = section.getByRole('status')
-const receipt = section.getByRole('link', { name: 'Signed receipt (JSON)' })
 const calls = []
 const faults = []
 const expectedHttp = []
-const absentReceipts = new Set()
 const checks = {}
 const keysPath = '/integrity/v2/keys.json'
 const headPath = '/integrity/v2/log/head.json'
@@ -40,8 +35,7 @@ page.on('console', message => {
   const code = /^Failed to load resource: the server responded with a status of (\d+) /.exec(message.text())?.[1]
   if (source?.origin === origin &&
     ((code === '401' && source.pathname === WireRoutes.Session) ||
-     (code === '404' && [WireRoutes.SiteRefreshStatus, '/favicon.ico'].includes(source.pathname)) ||
-     (code === '404' && absentReceipts.has(source.pathname)))) {
+     (code === '404' && [WireRoutes.SiteRefreshStatus, '/favicon.ico'].includes(source.pathname)))) {
     expectedHttp.push({ path: source.pathname, status: Number(code) })
   } else {
     faults.push({ path: source?.pathname, message: message.text() })
@@ -70,80 +64,57 @@ try {
   await expect(page).toHaveTitle(/^Original Évidence 🐈 · /)
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
   await expect(page.getByText('Proof browser fixture.', { exact: true })).toBeVisible()
-  await expect(verify).toBeVisible()
+  await readerHasNoProofUi()
   assert.deepEqual(calls, [])
   checks.tls = security.protocol
   checks.zeroProofRequestsOnLoad = true
 
-  await verifies(firstProof)
-  assert.deepEqual(calls, [firstProof, keysPath, firstProof])
-  await section.screenshot({ path: join(evidence, 'publication-proof-desktop.png') })
-  const [receiptPage] = await Promise.all([page.context().waitForEvent('page'), receipt.click()])
-  await receiptPage.waitForLoadState()
-  assert.equal(receiptPage.url(), origin + firstProof)
-  await expect(receiptPage.locator('body')).toContainText(/"proofVersion"\s*:\s*2/)
-  await receiptPage.close()
+  const manifest = JSON.parse(await publicJsonBytes(keysPath))
+  const proof = JSON.parse(await publicJsonBytes(firstProof))
+  assert.equal(proof.articleId, first.id)
+  verifyPublicationProof(proof, manifest, origin)
+  await page.screenshot({ path: join(evidence, 'publication-proof-desktop.png') })
   checks.signedCurrentPublicationVerified = true
 
-  await page.route(origin + firstProof, async route => {
-    const response = await route.fetch()
-    assert.equal(response.status(), 200)
-    await route.fulfill({ response, json: { ...await response.json(), signature: Buffer.alloc(64).toString('base64url') } })
-  })
-  await verify.click()
-  await expect(status).toHaveText('The publication signature could not be verified.')
-  await expect(receipt).toHaveCount(0)
-  await page.unroute(origin + firstProof)
+  assert.throws(() => verifyPublicationProof({
+    ...proof, signature: Buffer.alloc(64).toString('base64url'),
+  }, manifest, origin), /Invalid native publication signature/)
   checks.tamperedSignatureRejected = true
 
-  await page.route(origin + keysPath, async route => {
-    const response = await route.fetch()
-    assert.equal(response.status(), 200)
-    const keys = await response.json()
-    keys.keys[0].compromisedAtUtc = '2026-11-15T00:00:00.000000Z'
-    await route.fulfill({ response, json: keys })
-  })
-  await verify.click()
-  await expect(status).toHaveText('The publication signature could not be verified.')
-  await expect(receipt).toHaveCount(0)
-  await page.unroute(origin + keysPath)
+  const compromised = structuredClone(manifest)
+  const signingKey = compromised.keys.find(key => key.keyId === proof.keyId)
+  assert(signingKey)
+  signingKey.compromisedAtUtc = '2026-11-15T00:00:00.000000Z'
+  assert.throws(() => verifyPublicationProof(proof, compromised, origin), /Native proof key is ineligible/)
   checks.freshCompromisedRegistryRejected = true
+  const revoked = structuredClone(manifest)
+  revoked.keys.find(key => key.keyId === proof.keyId).revokedAtUtc = proof.issuedAtUtc
+  assert.throws(() => verifyPublicationProof(proof, revoked, origin), /Native proof key is ineligible/)
+  checks.revokedAtIssuanceKeyRejected = true
 
   const nextTitle = 'Replacement Évidence 🌿'
   const changed = await command(WireRoutes.Save, first.id, first.revision, nextTitle, 'Replacement for the proof browser.')
   const updated = await command(WireRoutes.Publish, changed.id, changed.revision)
   const nextProof = await currentProof(updated.id)
   assert.notEqual(nextProof, firstProof)
-  absentReceipts.add(firstProof)
-  await verify.click()
-  await expect(status).toContainText('Proof unavailable for this publication.')
-  await expect(receipt).toHaveCount(0)
+  await unavailablePublicProof(firstProof)
   assert.equal((await author.get(firstProof)).status(), 404)
   checks.staleArticleReplacementDenied = true
 
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto(articleUrl)
   await expect(page.getByRole('heading', { name: nextTitle, exact: true })).toBeVisible()
-  await page.clock.install()
-  await verifies(nextProof)
-  await section.screenshot({ path: join(evidence, 'publication-proof-mobile.png') })
-  await receipt.focus()
-  await page.clock.fastForward(30_001)
-  await expect(verify).toBeFocused()
-  await expect(status).toContainText('Verify again')
-  await expect(receipt).toHaveCount(0)
-  await verifies(nextProof)
+  await readerHasNoProofUi()
+  verifyPublicationProof(JSON.parse(await publicJsonBytes(nextProof)),
+    JSON.parse(await publicJsonBytes(keysPath)), origin)
+  await page.screenshot({ path: join(evidence, 'publication-proof-mobile.png') })
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
-  await expect(status).toContainText('Verify again')
-  await expect(receipt).toHaveCount(0)
-  checks.mobileExpiryAndVisibilityCleared = true
+  await readerHasNoProofUi()
+  checks.mobileReaderHasNoProofUiOrRequests = true
 
   const publicHead = checkHead ? await verifyOpaqueHead(nextProof) : null
   await command(WireRoutes.Retract, updated.id, updated.revision)
-  absentReceipts.add(nextProof)
-  await verify.click()
-  await expect(status).toContainText('Proof unavailable for this publication.')
-  await expect(receipt).toHaveCount(0)
+  await unavailablePublicProof(nextProof)
   assert.equal((await author.get(nextProof)).status(), 404)
   checks.withdrawnPublicationReceiptDenied = true
   if (publicHead) {
@@ -155,6 +126,7 @@ try {
     await writeFile(join(evidence, 'publication-head-after-withdrawal.json'), retained)
     checks.anonymousWithdrawnProofDeniedAndOpaqueHeadRetained = true
   }
+  assert.deepEqual(calls, [])
   assert.deepEqual(faults, [])
 } catch (error) {
   failure = error
@@ -190,10 +162,17 @@ async function currentProof(id) {
   return path
 }
 
-async function verifies(path) {
-  await verify.click()
-  await expect(status).toContainText('Publication signature verified at')
-  await expect(receipt).toHaveAttribute('href', path)
+async function readerHasNoProofUi() {
+  // Assert structure, not translated copy: neither locale should expose these controls.
+  await expect(page.locator('.publication-proof, .article-rights')).toHaveCount(0)
+  await expect(page.locator('a[href^="/integrity/v2/"]')).toHaveCount(0)
+  assert.deepEqual(calls, [])
+}
+
+async function unavailablePublicProof(path) {
+  const response = await publicIntegrity(path)
+  assert.equal(response.status, 404)
+  await response.arrayBuffer()
 }
 
 async function publicIntegrity(path) {

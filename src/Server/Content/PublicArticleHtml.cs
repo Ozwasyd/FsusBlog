@@ -15,15 +15,10 @@ internal static class PublicArticleHtml
     internal static string Render(Article article, IReadOnlyList<PublishedArticleImage>? images = null)
     {
         var header = HtmlEncoder.Default.Encode(article.Title);
-        var disclosure = article.Rights?.Policy is { Enabled: true, ShowPublicBadge: true } rights
-            ? $"<aside aria-label=\"Article rights\"><p>{HtmlEncoder.Default.Encode(rights.LicenseType)}</p>" +
-              $"<p>{HtmlEncoder.Default.Encode(rights.CopyrightHolder)}{(rights.CopyrightYear > 0 ? $" {rights.CopyrightYear}" : "")}</p>" +
-              $"<p>{HtmlEncoder.Default.Encode(rights.RightsStatement)}</p></aside>"
-            : "";
         var cover = article.CoverMediaDigest is { } digest
             ? $"<img src=\"{PublishedMediaProjection.ImagePath(article.Id, article.Publication, digest)}\" alt=\"Article cover\" class=\"article-cover\">"
             : "";
-        return $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\">{cover}<header class=\"editorial-rule\"><h1>{header}</h1></header><div class=\"blog-markdown blog-markdown--article\" data-fsus-article-read-body>{RenderMarkdown(article.Body)}</div>{RenderImages(article, images)}{disclosure}</article>";
+        return $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\">{cover}<header class=\"editorial-rule\"><h1>{header}</h1></header><div class=\"blog-markdown blog-markdown--article\" data-fsus-article-read-body>{RenderMarkdown(article.Body)}</div>{RenderImages(article, images)}</article>";
     }
 
     private static string RenderImages(Article article, IReadOnlyList<PublishedArticleImage>? images)

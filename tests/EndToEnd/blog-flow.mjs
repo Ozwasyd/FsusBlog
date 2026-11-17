@@ -627,7 +627,8 @@ try {
   await screen(visitor, 'home-mobile-dark')
   await visitor.getByRole('link', { name: title, exact: true }).click()
   await visible(visitor.getByRole('heading', { name: title, exact: true }))
-  await visible(visitor.getByRole('complementary', { name: 'Article rights' }).getByText('Publication rights browser statement.'))
+  await hidden(visitor.getByRole('complementary', { name: 'Article rights' }))
+  await hidden(visitor.getByRole('button', { name: 'Verify publication', exact: true }))
   await hidden(visitor.getByText(`Private subtitle ${token}`, { exact: true }))
   if (config.requireNative) {
     await visible(visitor.getByRole('heading', { name: 'Draft milestone', exact: true }))
