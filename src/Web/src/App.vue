@@ -64,7 +64,10 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 watch(() => route.path, (_, __, cleanup) => {
   const content = publicContent.value
   if (!content || reducedMotion.matches || typeof content.animate !== 'function') return
-  const animation = content.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 160, easing: 'ease-out' })
+  const animation = content.animate([
+    { opacity: .18, transform: 'translateY(10px)' },
+    { opacity: 1, transform: 'translateY(0)' },
+  ], { duration: 250, easing: 'ease-out' })
   cleanup(() => animation.cancel())
 }, { flush: 'post' })
 

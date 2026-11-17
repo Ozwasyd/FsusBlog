@@ -42,7 +42,13 @@ try {
 
     const fades = await page.evaluate(() => window.routeFades)
     assert.deepEqual(fades.map(fade => fade.path), reducedMotion === 'reduce' ? [] : ['/archive', '/about', '/archive'])
-    assert.ok(fades.every(fade => fade.options.duration === 160 && fade.keyframes.every(frame => Object.keys(frame).join() === 'opacity')))
+    for (const fade of fades) {
+      assert.equal(fade.options.duration, 250)
+      assert.deepEqual(fade.keyframes, [
+        { opacity: .18, transform: 'translateY(10px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ])
+    }
     assert.deepEqual(docs, [origin + '/'])
     assert.equal(await page.evaluate(() => window.initialHeader === document.querySelector('header') && window.initialOutlet === document.querySelector('#page-content')), true)
 
