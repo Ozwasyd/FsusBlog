@@ -12,7 +12,7 @@ internal static class AdminCommentRevisions
         app.MapGet(WireRoutes.AdminCommentRevisions, async (long id, HttpContext context, CancellationToken ct) =>
         {
             context.Response.Headers.CacheControl = "no-store";
-            var result = await store.CommentRevisions(context.Request.Cookies[session], id, context.Request.Query, ct);
+            var result = await store.CommentRevisions(context.Request.Cookies[session], id, context.Request.Query, Position, ct);
             if (result.Next is long version)
             {
                 var scope = result.Article == 0 ? "" : FormattableString.Invariant($"&articleId={result.Article}");
@@ -44,14 +44,16 @@ internal static class AdminCommentRevisions
 
 internal sealed partial class AdminPasskeyStore
 {
-    internal Task<(byte[] Frame, long? Next, int Article)> CommentRevisions(string? token, long id, IQueryCollection query,
+    internal Task<(byte[] Frame, long? Next, int Article)> CommentRevisions<TPosition>(string? token, long id, TPosition state,
+        Func<TPosition, (long Before, int Article)> readPosition,
         CancellationToken ct) =>
         WithSession<(byte[], long?, int)>(token, CurrentSchema.CommentModeratePermission, async (db, tx, _) =>
         {
             if (id <= 0 || !await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct) ||
                 !await CurrentSchema.HasCommentAuthorEditSchemaAsync(db, tx, ct))
                 throw new BusinessException(Rejection.NotFound, "Comment revisions are unavailable.");
-            var (before, article) = AdminCommentRevisions.Position(query);
+            // Decode request position only after session authority and feature admission.
+            var (before, article) = readPosition(state);
             await using var read = Store.Sql(db, tx, """
                 with target as (
                     select c.article_id,c.id,c.body,c.created_at,c.edited_at,c.deleted,c.moderation_version,c.moderation_status,o.user_id
