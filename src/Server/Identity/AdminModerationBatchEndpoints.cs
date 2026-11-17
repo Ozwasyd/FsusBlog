@@ -39,7 +39,7 @@ internal static class AdminModerationBatchEndpoints
 
     private static async Task<IResult> Run(HttpContext ctx, string origin, Func<Task<byte[]>> apply)
     {
-        AdminModerationEndpoints.RequireOrigin(ctx, origin);
+        AdminActionRoutes.RequireOrigin(ctx, origin);
         try { return Results.Bytes(await apply(), Aeds.ContentType); }
         catch (ModerationBatchConflictException error)
         {

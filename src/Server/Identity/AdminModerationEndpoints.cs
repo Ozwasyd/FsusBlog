@@ -1,5 +1,4 @@
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
@@ -43,16 +42,6 @@ internal static class AdminModerationEndpoints
                 return AdminActionRoutes.ProofRequired(ctx);
             }
         }).RequireRateLimiting("command");
-    }
-
-    internal static void RequireOrigin(HttpContext ctx, string authority)
-    {
-        var origin = ctx.Request.Headers.Origin;
-        if (origin.Count == 1 && string.Equals(origin[0], authority, StringComparison.OrdinalIgnoreCase)) return;
-        var referer = ctx.Request.Headers.Referer;
-        if (origin.Count == 0 && referer.Count == 1 && Uri.TryCreate(referer[0], UriKind.Absolute, out var uri) &&
-            string.Equals(uri.GetLeftPart(UriPartial.Authority), authority, StringComparison.OrdinalIgnoreCase)) return;
-        throw new BusinessException(Rejection.Forbidden, "A same-origin administrator request is required.");
     }
 
     private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
