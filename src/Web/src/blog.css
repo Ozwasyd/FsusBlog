@@ -149,7 +149,6 @@ p { line-height: 1.65; }
   white-space: nowrap;
 }
 .site-auth-actions { flex: none; display: flex; align-items: center; gap: .75rem; }
-.site-locale-combo, .public-initial-actions .site-locale-select { inline-size: 5.25rem; flex: none; }
 .site-locale-select, .site-theme-select {
   min-block-size: 44px;
   max-inline-size: 100%;
@@ -159,6 +158,33 @@ p { line-height: 1.65; }
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--fsus-radius-panel);
   font: inherit;
+}
+.site-header-text-action,
+.blog-public-shell .el-public-shell__actions :is(.el-public-shell__desktop-search-trigger, .el-public-shell__auth-link) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  min-block-size: 44px;
+  padding-inline: .5rem;
+  border: 0;
+  border-radius: var(--fsus-radius-control);
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font: 500 14px/1 var(--el-font-family);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.site-header-text-action:hover,
+.blog-public-shell .el-public-shell__actions :is(.el-public-shell__desktop-search-trigger, .el-public-shell__auth-link):hover {
+  color: var(--el-text-color-primary);
+}
+.site-header-text-action:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
+.public-initial-actions .site-locale-select {
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
 }
 .site-locale-select:focus-visible, .site-theme-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
 .site-auth-main.auth-page { margin-inline: auto; }

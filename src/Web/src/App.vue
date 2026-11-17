@@ -6,6 +6,7 @@ import { ElConfigProvider, ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElBut
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
 import SiteLocaleSelect from './SiteLocaleSelect.vue'
+import SiteHeaderDropdown from './SiteHeaderDropdown.vue'
 import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import { currentSession, refreshSession, signOut } from './session'
@@ -25,10 +26,12 @@ function useTheme(mode: ThemeMode) {
   themeMode.value = mode
   try { writeThemeMode(mode) } catch { /* Theme remains selectable if storage is unavailable. */ }
 }
-function selectMobileTheme(event: Event) {
-  const mode = (event.target as HTMLSelectElement).value
+function selectTheme(mode: string) {
   if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)
 }
+
+const desktopThemes = computed(() => (['light', 'dark', 'system'] as const)
+  .map(value => ({ value, label: themeLabels.value[value] })))
 
 const logoutFailure = ref(false)
 const accountMenu = ref(false)
@@ -187,7 +190,7 @@ async function leave() {
   </div>
   <div v-else @click="navigatePublic">
     <a class="skip-link" href="#page-content">{{ t('nav.skip') }}</a>
-    <ElPublicShell
+    <ElPublicShell class="blog-public-shell"
       :brand="siteTitle"
       :nav-items="publicNavigation"
       :active-nav="String(route.name ?? '')"
@@ -214,7 +217,8 @@ async function leave() {
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <SiteLocaleSelect desktop />
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
+        <SiteHeaderDropdown class="site-theme-menu" :label="t('theme.label')" :selected="themeMode ?? 'system'"
+          :items="desktopThemes" @select="selectTheme" />
       </template>
       <template #mobile-primary-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
@@ -222,7 +226,7 @@ async function leave() {
         <div class="public-menu-preferences">
           <SiteLocaleSelect />
           <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode ?? 'system'"
-            @change="selectMobileTheme">
+            @change="selectTheme(($event.target as HTMLSelectElement).value)">
             <option value="light">{{ themeLabels.light }}</option>
             <option value="dark">{{ themeLabels.dark }}</option>
             <option value="system">{{ themeLabels.system }}</option>

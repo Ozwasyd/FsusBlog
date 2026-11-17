@@ -91,8 +91,8 @@ try {
     }
     if (width < 500) await languageControl.selectOption('en')
     else {
-      await page.locator('.site-locale-combo').click()
-      await page.getByRole('option', { name: 'EN', exact: true }).click()
+      await page.locator('.site-locale-menu button').click()
+      await page.getByRole('menuitem', { name: 'EN', exact: true }).click()
     }
     if (width < 500) {
       const themeControl = page.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
