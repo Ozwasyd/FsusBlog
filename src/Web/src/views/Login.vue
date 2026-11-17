@@ -138,7 +138,6 @@ function cancelFactor() {
         <ElAlert v-if="failure && failure !== 'login.createFailed'" :title="t(failure)" type="error" :closable="false" show-icon />
       </template>
     </div>
-    <RouterLink v-if="canRegister" :to="{ name: 'register' }">{{ t('page.register') }}</RouterLink>
     <SiteRecoveryLogin v-if="hasPasskeys" :disabled="busy" @busy="recoveryBusy = $event" />
     <div v-if="hasPasskeys && !registered" class="passkey-setup">
       <ElButton text native-type="button" :disabled="busy || recoveryBusy" v-bind="{ 'aria-expanded': setupOpen }" @click="toggleSetup">
@@ -155,11 +154,17 @@ function cancelFactor() {
       </form>
     </div>
   </template>
-  <div class="auth-footer"><RouterLink to="/">{{ t('login.cancel') }}</RouterLink></div>
+  <div class="auth-footer login-footer">
+    <RouterLink to="/">{{ t('login.cancel') }}</RouterLink>
+    <RouterLink v-if="canRegister && !pending && !currentSession" :to="{ name: 'register' }">{{ t('page.register') }}</RouterLink>
+  </div>
 </template>
 
 
 <style scoped>
+.login-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; }
+.login-footer a { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--el-text-color-secondary); }
+.login-footer a:hover { color: var(--el-text-color-primary); }
 .passkey-setup { margin-block: 1rem 1.5rem; }
 .passkey-setup-form { display: grid; gap: .75rem; }
 .passkey-setup-form p { margin-block: .25rem; }
