@@ -17,8 +17,8 @@ internal static class MediaEndpoints
 
     internal static void AddRateLimits(RateLimiterOptions options)
     {
-        options.AddConcurrencyLimiter(WritePolicy, limiter => { limiter.PermitLimit = 2; limiter.QueueLimit = 0; });
-        options.AddConcurrencyLimiter(ReadPolicy, limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency(WritePolicy, 2);
+        options.AddImmediateConcurrency(ReadPolicy, 4);
     }
 
     internal static void Map(WebApplication app, string cookie, bool publishedMedia = false)

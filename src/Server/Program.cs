@@ -156,28 +156,27 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("mfa", context => RateLimitPartition.GetFixedWindowLimiter(
         (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
-    options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    options.AddImmediateConcurrency("command", 32);
     if (documentExportTasks)
-        options.AddConcurrencyLimiter("document-export-download", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency("document-export-download", 4);
     if (pluginPreview is not null)
-        options.AddConcurrencyLimiter(PluginPreviewEndpoints.RatePolicy, limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency(PluginPreviewEndpoints.RatePolicy, 1);
     if (pdfExport is not null)
-        options.AddConcurrencyLimiter(FsusBlog.V2.Server.Authoring.PdfDocumentExport.RatePolicy,
-            limiter => { limiter.PermitLimit = 1; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency(FsusBlog.V2.Server.Authoring.PdfDocumentExport.RatePolicy, 1);
     options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
     if (proofKeys is not null || checkpointArchive is not null)
-        options.AddConcurrencyLimiter("publication-proof", limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency("publication-proof", 4);
     if (articleReadEnabled) ArticleReadEndpoints.AddRateLimit(options);
-    options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    options.AddImmediateConcurrency("query", 32);
     if (wideSearchCorpus)
     {
-        options.AddConcurrencyLimiter(WideSearchCorpusEndpoints.ManifestPolicy, limiter => { limiter.PermitLimit = 8; limiter.QueueLimit = 0; });
-        options.AddConcurrencyLimiter(WideSearchCorpusEndpoints.PagePolicy, limiter => { limiter.PermitLimit = 2; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency(WideSearchCorpusEndpoints.ManifestPolicy, 8);
+        options.AddImmediateConcurrency(WideSearchCorpusEndpoints.PagePolicy, 2);
     }
-    options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    options.AddImmediateConcurrency("inbox-stream", 32);
     if (adminInboxLive)
-        options.AddConcurrencyLimiter(AdminInboxEndpoints.LivePolicy, limiter => { limiter.PermitLimit = 4; limiter.QueueLimit = 0; });
+        options.AddImmediateConcurrency(AdminInboxEndpoints.LivePolicy, 4);
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
     if (publicMediaEnabled) PublishedMediaEndpoints.AddRateLimit(options);
