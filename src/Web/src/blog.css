@@ -127,9 +127,9 @@ p { line-height: 1.65; }
 .site-auth-header { border-block-end: 1px solid var(--el-border-color-lighter); background: var(--fsus-paper); }
 .site-auth-bar {
   inline-size: min(100%, 64rem);
-  min-block-size: 4rem;
+  min-block-size: 92px;
   margin-inline: auto;
-  padding-inline: var(--fsusblog-page-gutter);
+  padding-inline: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -142,13 +142,15 @@ p { line-height: 1.65; }
   overflow: hidden;
   align-content: center;
   color: var(--el-text-color-primary);
-  font-size: 1.25rem;
+  font-size: 24px;
   font-weight: 700;
+  line-height: 1.25;
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .site-auth-actions { flex: none; display: flex; align-items: center; gap: .75rem; }
+@media (max-width: 767px) { .site-auth-bar { min-block-size: 84px; gap: 8px; } }
 .site-locale-select, .site-theme-select {
   min-block-size: 44px;
   max-inline-size: 100%;
@@ -181,7 +183,7 @@ p { line-height: 1.65; }
   color: var(--el-text-color-primary);
 }
 .site-header-text-action:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
-.public-initial-actions .site-locale-select {
+.public-initial-actions .site-locale-select, .site-auth-actions select:disabled {
   border-color: transparent;
   background: transparent;
   font-size: 14px;

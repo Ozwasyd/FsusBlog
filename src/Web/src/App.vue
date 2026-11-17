@@ -6,7 +6,7 @@ import { ElConfigProvider, ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElBut
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
 import SiteLocaleSelect from './SiteLocaleSelect.vue'
-import SiteHeaderDropdown from './SiteHeaderDropdown.vue'
+import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
 import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import { currentSession, refreshSession, signOut } from './session'
@@ -29,9 +29,6 @@ function useTheme(mode: ThemeMode) {
 function selectTheme(mode: string) {
   if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)
 }
-
-const desktopThemes = computed(() => (['light', 'dark', 'system'] as const)
-  .map(value => ({ value, label: themeLabels.value[value] })))
 
 const logoutFailure = ref(false)
 const accountMenu = ref(false)
@@ -216,9 +213,7 @@ async function leave() {
       <template #desktop-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <SiteLocaleSelect desktop />
-        <SiteHeaderDropdown class="site-theme-menu" :label="t('theme.label')" :selected="themeMode ?? 'system'"
-          :items="desktopThemes" @select="selectTheme" />
+        <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
       </template>
       <template #mobile-primary-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
