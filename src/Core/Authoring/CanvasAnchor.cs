@@ -120,7 +120,7 @@ public static class CanvasAnchor
         return new(start, length);
     }
 
-    private static bool IsCanonical(string? anchor)
+    internal static bool IsCanonical(string? anchor)
     {
         if (anchor is not { Length: >= 1 and <= 64 } || anchor[0] is < 'a' or > 'z') return false;
         foreach (char character in anchor.AsSpan(1))

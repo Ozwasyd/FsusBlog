@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace FsusBlog.V2.Core.Authoring;
 
@@ -38,7 +37,7 @@ public abstract record CanvasGraphChange
     public sealed record RemoveEdge(Guid Id) : CanvasGraphChange;
 }
 
-public sealed partial record CanvasGraph(ImmutableArray<CanvasNode> Nodes, ImmutableArray<CanvasGraphEdge> Edges)
+public sealed record CanvasGraph(ImmutableArray<CanvasNode> Nodes, ImmutableArray<CanvasGraphEdge> Edges)
 {
     public const int MaxNodes = 10_000;
     public const int MaxEdges = 10_000;
@@ -173,7 +172,7 @@ public sealed partial record CanvasGraph(ImmutableArray<CanvasNode> Nodes, Immut
         {
             bool validAnchor = node.Kind == CanvasNodeKind.ArticleReference
                 ? node.Anchor is null
-                : node.Anchor is { Length: >= 1 and <= 64 } anchor && AnchorPattern().IsMatch(anchor);
+                : CanvasAnchor.IsCanonical(node.Anchor);
             if (node.ArticleId is not > 0 || node.PinnedRevision is <= 0 || !validAnchor
                 || node.Text is not null || !node.MemberIds.IsDefaultOrEmpty)
                 throw Invalid("Invalid Canvas article reference.");
@@ -231,7 +230,4 @@ public sealed partial record CanvasGraph(ImmutableArray<CanvasNode> Nodes, Immut
 
     private static BusinessException Missing() => new(Rejection.NotFound, "Canvas graph record not found.");
     private static BusinessException Invalid(string message) => new(Rejection.Invalid, message);
-
-    [GeneratedRegex(@"\A[a-z][a-z0-9-]{0,63}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex AnchorPattern();
 }
