@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlogV2.Storage;
-using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Content;
@@ -155,12 +154,5 @@ internal sealed class PublicationHead(PublicationProofKeys keys, PublicationHead
     }
 
     private static Snapshot Encode(PublicationTransparencyHeadV2 claim, byte[] signature) =>
-        new(new(claim.Sequence, claim.EntrySha256), signature, JsonSerializer.SerializeToUtf8Bytes(new
-        {
-            headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm,
-            origin = claim.Origin, sequence = claim.Sequence.ToString(CultureInfo.InvariantCulture),
-            entrySha256 = Convert.ToHexStringLower(claim.EntrySha256), keyId = claim.KeyId, keyVersion = claim.KeyVersion,
-            keySha256 = Convert.ToHexStringLower(claim.KeySha256), attestedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.AttestedAt),
-            signature = WebEncoders.Base64UrlEncode(signature),
-        }));
+        new(new(claim.Sequence, claim.EntrySha256), signature, JsonSerializer.SerializeToUtf8Bytes(PublicationHeadJson.Project(claim, signature)));
 }

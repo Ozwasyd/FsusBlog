@@ -131,13 +131,7 @@ internal static partial class Migration
         JsonSerializer.SerializeToUtf8Bytes(new
         {
             archiveVersion = 2,
-            head = new
-            {
-                headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm,
-                origin = head.Origin, sequence = DecimalSequence(head.Sequence), entrySha256 = Convert.ToHexStringLower(head.EntrySha256),
-                keyId = head.KeyId, keyVersion = head.KeyVersion, keySha256 = Convert.ToHexStringLower(head.KeySha256),
-                attestedAtUtc = ArticlePublicationProofPayloadV2.Time(head.AttestedAt), signature = CanonicalBase64Url(signature),
-            },
+            head = PublicationHeadJson.Project(head, signature),
             bridgeReceiptSha256 = Array.Empty<string>(),
             checkpoints = new[] { checkpoint },
         });
