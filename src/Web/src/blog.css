@@ -142,7 +142,8 @@ p { line-height: 1.65; }
 }
 .article-list { list-style: none; padding: 0; margin: 0; }
 .article-list > li { padding-block: 1.2rem; overflow-wrap: anywhere; }
-.article-list h2 { margin: .5rem 0; font-size: 1.25rem; }
+.article-list h2 { margin: 0 0 .35rem; font-size: 1.25rem; }
+.article-list .article-taxonomy { color: color-mix(in srgb, var(--el-text-color-secondary) 45%, var(--fsus-color-text-muted)); }
 .article-list h2 a { text-decoration: none; }
 .article-list h2 a:hover { text-decoration: underline; }
 .article-list p { margin: .35rem 0; color: var(--fsus-color-text-muted); }

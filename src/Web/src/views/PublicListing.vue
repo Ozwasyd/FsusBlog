@@ -183,12 +183,12 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
     <ol v-else class="article-list">
       <li v-for="item in articles" :key="item.id">
         <article>
+          <h2><RouterLink :to="{ name: 'article', params: { id: item.id } }">{{ item.title }}</RouterLink></h2>
           <div class="article-taxonomy metadata">
             <time v-if="item.publishedAt" :datetime="date(item.publishedAt)">{{ date(item.publishedAt) }}</time>
             <RouterLink v-if="item.category.id > 0" :to="{ name: 'category', params: { id: item.category.id } }">{{ item.category.name }}</RouterLink>
             <RouterLink v-for="tag in item.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
           </div>
-          <h2><RouterLink :to="{ name: 'article', params: { id: item.id } }">{{ item.title }}</RouterLink></h2>
           <p v-if="item.summary">{{ item.summary }}</p>
         </article>
       </li>

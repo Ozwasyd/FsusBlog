@@ -78,7 +78,7 @@ internal sealed class PublicSnapshot
             html.Append("<ol class=\"article-list\">");
             foreach (var article in articles)
             {
-                html.Append("<li><article><div class=\"article-taxonomy metadata\">");
+                html.Append($"<li><article><h2><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></h2><div class=\"article-taxonomy metadata\">");
                 if (article.PublishedAt.ToUnixTimeMilliseconds() != 0)
                 {
                     var date = article.PublishedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -88,7 +88,7 @@ internal sealed class PublicSnapshot
                     html.Append($"<a href=\"/category/{category.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(category.Name)}</a>");
                 foreach (var tag in article.Tags ?? [])
                     html.Append($"<a href=\"/tag/{tag.Id.ToString(CultureInfo.InvariantCulture)}\">#{HtmlEncoder.Default.Encode(tag.Name)}</a>");
-                html.Append($"</div><h2><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></h2>");
+                html.Append("</div>");
                 if (!string.IsNullOrEmpty(article.Summary))
                     html.Append($"<p>{HtmlEncoder.Default.Encode(article.Summary)}</p>");
                 html.Append("</article></li>");
