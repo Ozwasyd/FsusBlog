@@ -106,7 +106,7 @@ p { line-height: 1.65; }
 .search-form { display: flex; align-items: stretch; gap: .5rem; margin-block: 1.5rem; }
 .metadata, .muted { color: var(--fsus-color-text-muted); }
 .metadata { font-size: .875rem; }
-.article-taxonomy { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.article-taxonomy { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1rem; }
 .article-list { list-style: none; padding: 0; margin: 0; }
 .article-list > li { padding-block: 1.2rem; overflow-wrap: anywhere; }
 .article-list h2 { margin: .5rem 0; font-size: 1.25rem; }
