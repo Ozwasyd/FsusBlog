@@ -150,7 +150,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
         root.getPropertyValue('--fsus-color-action-primary-hover').trim() === alternate
     }, [accent, hover])
     await readTokens('#663322', '#774433')
-    const skipLink = sites.getByRole('link', { name: 'Skip to content', exact: true })
+    const skipLink = sites.getByRole('link', { name: '跳到正文', exact: true })
     await skipLink.waitFor({ state: 'attached' })
     await sites.keyboard.press('Tab')
     const focusedSkipLink = () => skipLink.evaluate(element => {

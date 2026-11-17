@@ -428,16 +428,13 @@ internal sealed class WebPages(string template, PublicSiteConfiguration? site = 
         bool noIndex = false, string? publicPath = null, bool contentDriven = false)
     {
         var flow = contentDriven ? " data-content-flow=\"content-driven\"" : "";
-        var homeCurrent = publicPath == "/" ? " aria-current=\"page\"" : "";
-        var archiveCurrent = publicPath == "/archive" ? " aria-current=\"page\"" : "";
-        var aboutCurrent = publicPath == "/about" ? " aria-current=\"page\"" : "";
         var shell = $"""
             <div class="public-initial">
-            <a class="skip-link" href="#page-content">Skip to content</a>
+            <a class="skip-link" href="#page-content">跳到正文</a>
             <header class="public-initial-header"><div class="public-initial-bar">
-            <a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
-            <nav aria-label="Primary navigation"><a{homeCurrent} href="/">Home</a><a{archiveCurrent} href="/archive">Archive</a><a{aboutCurrent} href="/about">关于</a></nav>
-            <a href="/search">Search</a><a href="/login">Log in</a>
+            <div class="public-initial-brand-nav"><a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
+            <nav aria-label="主导航">{PublicNavigation.Render(publicPath)}</nav></div>
+            <div class="public-initial-actions"><a href="/search">搜索</a><a href="/login">登录</a></div>
             </div></header><main id="page-content" tabindex="-1" data-fsus-public-content{flow}>{content}</main></div>
             """;
         return Page(shell, title, description, language, noIndex, publicPath);

@@ -745,7 +745,7 @@ try {
   await button(publisher, 'Log out').click()
   assert.equal((await signOut).status(), 200)
   await publisher.waitForURL(`${origin}/`)
-  await visible(publisher.getByRole('link', { name: 'Log in', exact: true }))
+  await visible(publisher.getByRole('link', { name: '登录', exact: true }))
   assert.equal((await publisher.request.get(`${origin}${WireRoutes.Session}`)).status(), 401)
   observations.push('CAS rejects stale edit, reload reads the durable winner, withdrawal removes public access and index entry, logout returns to anonymous shell.')
   assert(responses.some(response => response.path === WireRoutes.Save && response.status === 409))

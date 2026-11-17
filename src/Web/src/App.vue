@@ -39,7 +39,7 @@ const accountArea = computed(() => route.name === 'canvas' || route.name === 'ca
 const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
-const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')
+const authLabel = computed(() => currentSession.value?.canAuthor ? '写文章' : '登录')
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
 }, { immediate: true })
@@ -150,13 +150,14 @@ async function leave() {
     <RouterView />
   </div>
   <template v-else>
-    <a class="skip-link" href="#page-content">Skip to content</a>
+    <a class="skip-link" href="#page-content">跳到正文</a>
     <ElPublicShell
       :brand="siteTitle"
       :nav-items="navigation"
       :active-nav="String(route.name ?? '')"
       active-nav-motion="indicator"
       desktop-search-mode="trigger"
+      search-aria-label="搜索"
       mobile-search-mode="trigger"
       :auth-href="authHref"
       :auth-label="authLabel"
