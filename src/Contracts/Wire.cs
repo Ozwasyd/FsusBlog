@@ -104,7 +104,7 @@ public static partial class Wire
             throw new ProtocolException("Invalid draft taxonomy coordinates");
     }
 
-    private sealed class Writer
+    internal sealed class Writer
     {
         private readonly ArrayBufferWriter<byte> buffer = new();
         public ReadOnlySpan<byte> Written => buffer.WrittenSpan;
@@ -129,9 +129,11 @@ public static partial class Wire
             buffer.Advance(8);
         }
 
-        public void Bool(bool value)
+        public void Bool(bool value) => Byte(value ? (byte)1 : (byte)0);
+
+        internal void Byte(byte value)
         {
-            buffer.GetSpan(1)[0] = value ? (byte)1 : (byte)0;
+            buffer.GetSpan(1)[0] = value;
             buffer.Advance(1);
         }
 

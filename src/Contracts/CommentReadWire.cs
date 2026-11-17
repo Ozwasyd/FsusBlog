@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
 
@@ -16,129 +15,108 @@ public sealed record CommentRoot(CommentNode Node, IReadOnlyList<CommentNode> Ch
 
 public static class CommentReadWire
 {
+    private static readonly UTF8Encoding Utf8 = new(false, true);
+
     public static byte[] Roots(IReadOnlyList<CommentRoot> rows, long? next)
     {
-        var writer = new Writer();
-        writer.Cursor(next, rows.Count);
+        var writer = new Wire.Writer();
+        WriteCursor(writer, next, rows.Count);
         foreach (var root in rows)
         {
-            writer.Node(root.Node);
+            WriteNode(writer, root.Node);
             writer.I32(root.Children.Count);
-            foreach (var child in root.Children) writer.Node(child);
+            foreach (var child in root.Children) WriteNode(writer, child);
         }
-        return writer.Frame(FrameType.CommentTreeRootCursor);
+        return Aeds.Encode(FrameType.CommentTreeRootCursor, writer.Written);
     }
 
     public static byte[] Children(long parentId, long rootId, IReadOnlyList<CommentNode> rows, long? next)
     {
-        var writer = new Writer();
+        var writer = new Wire.Writer();
         writer.I64(parentId);
         writer.I64(rootId);
         writer.I64(next ?? 0);
         writer.I32(rows.Count);
         writer.I32(next.HasValue ? 1 : 0);
-        foreach (var row in rows) writer.Node(row);
-        return writer.Frame(FrameType.CommentChildCursor);
+        foreach (var row in rows) WriteNode(writer, row);
+        return Aeds.Encode(FrameType.CommentChildCursor, writer.Written);
     }
 
     public static byte[] Context(CommentNode? target, IReadOnlyList<CommentNode> ancestors, IReadOnlyList<CommentNode> siblings,
         bool previous = false, bool next = false)
     {
-        var writer = new Writer();
+        var writer = new Wire.Writer();
         writer.I64(target?.Id ?? 0);
         writer.I64(target?.RootId ?? 0);
         writer.I32(ancestors.Count);
         writer.I32(siblings.Count);
-        writer.Flag(target is null);
-        writer.Flag(target is not null);
-        writer.Flag(previous);
-        writer.Flag(next);
+        writer.Bool(target is null);
+        writer.Bool(target is not null);
+        writer.Bool(previous);
+        writer.Bool(next);
         writer.I32(0);
-        foreach (var ancestor in ancestors) writer.Node(ancestor);
-        if (target is not null) writer.Node(target);
-        foreach (var sibling in siblings) writer.Node(sibling);
-        return writer.Frame(FrameType.CommentPermalinkContext);
+        foreach (var ancestor in ancestors) WriteNode(writer, ancestor);
+        if (target is not null) WriteNode(writer, target);
+        foreach (var sibling in siblings) WriteNode(writer, sibling);
+        return Aeds.Encode(FrameType.CommentPermalinkContext, writer.Written);
     }
 
     public static byte[] Thread(long rootId, IReadOnlyList<CommentNode> rows, long? next)
     {
-        var writer = new Writer();
+        var writer = new Wire.Writer();
         writer.I64(rootId);
-        writer.Cursor(next, rows.Count);
-        foreach (var row in rows) writer.Node(row, flatReply: true);
-        return writer.Frame(FrameType.CommentThreadReplyCursor);
+        WriteCursor(writer, next, rows.Count);
+        foreach (var row in rows) WriteNode(writer, row, flatReply: true);
+        return Aeds.Encode(FrameType.CommentThreadReplyCursor, writer.Written);
     }
 
-    private sealed class Writer
+    private static void WriteCursor(Wire.Writer writer, long? next, int count)
     {
-        private static readonly UTF8Encoding Utf8 = new(false, true);
-        private readonly ArrayBufferWriter<byte> buffer = new();
+        writer.I64(next ?? 0);
+        writer.Bool(next.HasValue);
+        writer.I32(count);
+    }
+    private static void WriteNode(Wire.Writer writer, CommentNode node, bool flatReply = false)
+    {
+        var content = Utf8.GetBytes(node.Content);
+        var author = Author(node.Author);
+        var reply = node.ReplyToAuthor is { } view ? Author(view) : [];
+        writer.I64(node.Id);
+        writer.I64(node.ParentId ?? 0);
+        writer.I64(node.RootId);
+        if (flatReply) writer.I32(0); // Retired reply-to-user field.
+        writer.I64(node.ReplyToId ?? 0);
+        writer.I32(node.Depth);
+        if (!flatReply) writer.I32(node.ChildCount);
+        writer.Bool(node.IsDeleted);
+        writer.Bool(!flatReply && node.HasMoreChildren);
+        writer.Bool(node.IsEdited);
+        writer.Byte(0);
+        writer.I64(node.CreatedAt.ToUnixTimeMilliseconds());
+        writer.I32(0);
+        writer.I32(content.Length);
+        writer.I32(content.Length + author.Length + reply.Length + 8);
+        writer.FixedBytes(content);
+        writer.I32(author.Length);
+        writer.FixedBytes(author);
+        writer.I32(reply.Length);
+        writer.FixedBytes(reply);
+    }
 
-        internal byte[] Frame(FrameType type) => Aeds.Encode(type, buffer.WrittenSpan);
-        internal void I64(long value)
+    private static byte[] Author(CommentAuthor author)
+    {
+        string[] strings = [author.DisplayName, author.DisplayLanguage, "", author.ScopeLabel ?? ""];
+        var bytes = new byte[36 + strings.Sum(Utf8.GetByteCount)];
+        bytes[0] = (byte)author.Mode;
+        var offset = 0;
+        for (var index = 0; index < strings.Length; index++)
         {
-            BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(8), value);
-            buffer.Advance(8);
+            var length = Utf8.GetBytes(strings[index], bytes.AsSpan(36 + offset));
+            var field = bytes.AsSpan(4 + index * 8);
+            BinaryPrimitives.WriteInt32LittleEndian(field, offset);
+            BinaryPrimitives.WriteInt32LittleEndian(field[4..], length);
+            offset += length;
         }
-        internal void I32(int value)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), value);
-            buffer.Advance(4);
-        }
-        internal void Flag(bool value) => Byte(value ? (byte)1 : (byte)0);
-        private void Byte(byte value)
-        {
-            buffer.GetSpan(1)[0] = value;
-            buffer.Advance(1);
-        }
-        internal void Cursor(long? next, int count)
-        {
-            I64(next ?? 0);
-            Flag(next.HasValue);
-            I32(count);
-        }
-        internal void Node(CommentNode node, bool flatReply = false)
-        {
-            var content = Utf8.GetBytes(node.Content);
-            var author = Author(node.Author);
-            var reply = node.ReplyToAuthor is { } view ? Author(view) : [];
-            I64(node.Id);
-            I64(node.ParentId ?? 0);
-            I64(node.RootId);
-            if (flatReply) I32(0); // Retired reply-to-user field.
-            I64(node.ReplyToId ?? 0);
-            I32(node.Depth);
-            if (!flatReply) I32(node.ChildCount);
-            Flag(node.IsDeleted);
-            Flag(!flatReply && node.HasMoreChildren);
-            Flag(node.IsEdited);
-            Byte(0);
-            I64(node.CreatedAt.ToUnixTimeMilliseconds());
-            I32(0);
-            I32(content.Length);
-            I32(content.Length + author.Length + reply.Length + 8);
-            buffer.Write(content);
-            I32(author.Length);
-            buffer.Write(author);
-            I32(reply.Length);
-            buffer.Write(reply);
-        }
-
-        private static byte[] Author(CommentAuthor author)
-        {
-            string[] strings = [author.DisplayName, author.DisplayLanguage, "", author.ScopeLabel ?? ""];
-            var bytes = new byte[36 + strings.Sum(Utf8.GetByteCount)];
-            bytes[0] = (byte)author.Mode;
-            var offset = 0;
-            for (var index = 0; index < strings.Length; index++)
-            {
-                var length = Utf8.GetBytes(strings[index], bytes.AsSpan(36 + offset));
-                var field = bytes.AsSpan(4 + index * 8);
-                BinaryPrimitives.WriteInt32LittleEndian(field, offset);
-                BinaryPrimitives.WriteInt32LittleEndian(field[4..], length);
-                offset += length;
-            }
-            return bytes;
-        }
+        return bytes;
     }
 }
