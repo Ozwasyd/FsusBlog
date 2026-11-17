@@ -38,9 +38,7 @@ internal static partial class Migration
                 file.Width * file.Height > 16L * 1024 * 1024 || file.SourceOwnerId is not > 0 || file.TargetOwnerId is null ||
                 file.MediaType is not ("image/png" or "image/jpeg") || file.Extension is not (".png" or ".jpg" or ".jpeg"))
                 throw new InvalidOperationException("Cover preparation requires bounded, owned PNG/JPEG source images.");
-            return new LegacyMediaPreparationAsset(file.AssetId, file.Sha256, checked((int)file.Bytes),
-                checked((int)file.Width.Value), checked((int)file.Height.Value), file.MediaType, file.Extension,
-                file.SourceOwnerId.Value, file.TargetOwnerId.Value);
+            return PreparationAsset(file);
         }).ToArray();
         var references = mappings.OrderBy(row => row.AssetId).ThenBy(row => row.SourceKind, StringComparer.Ordinal)
             .ThenBy(row => row.ArticleId).ThenBy(row => row.SourceId).Select(row => new LegacyCoverPreparationReference(row.AssetId,

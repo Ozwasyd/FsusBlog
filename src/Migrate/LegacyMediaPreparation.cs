@@ -17,9 +17,7 @@ internal static partial class Migration
                 asset.SourceOwnerId is not > 0 || asset.TargetOwnerId is null ||
                 asset.MediaType is not ("image/png" or "image/jpeg" or "image/webp"))
                 throw new InvalidOperationException("Preparation requires supported private images with source dimensions and reviewed owners.");
-            return new LegacyMediaPreparationAsset(asset.AssetId, asset.Sha256, checked((int)asset.Bytes),
-                checked((int)asset.Width.Value), checked((int)asset.Height.Value), asset.MediaType, asset.Extension,
-                asset.SourceOwnerId.Value, asset.TargetOwnerId.Value);
+            return PreparationAsset(asset);
         }).ToArray();
         var expected = media.References.ToDictionary(reference => (reference.AssetId, reference.SourceId));
         var references = new List<LegacyMediaPreparationReference>(expected.Count);
@@ -118,4 +116,8 @@ internal static partial class Migration
             readyToApply = false
         }, Json));
     }
+    private static LegacyMediaPreparationAsset PreparationAsset(LegacyMediaObject asset) =>
+        new(asset.AssetId, asset.Sha256, checked((int)asset.Bytes), checked((int)asset.Width!.Value),
+            checked((int)asset.Height!.Value), asset.MediaType, asset.Extension,
+            asset.SourceOwnerId!.Value, asset.TargetOwnerId!.Value);
 }

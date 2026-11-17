@@ -105,9 +105,7 @@ internal static partial class Migration
         if (mappings.Any(row => row.SourceKind == "article" && !mappings.Any(revision => revision.SourceKind == "revision" &&
             revision.ArticleId == row.ArticleId && revision.SourceRevisionId == row.SourceRevisionId && revision.AssetId == row.AssetId)))
             throw new InvalidOperationException("An article-head cover lacks its exact saved revision cover.");
-        var assets = package.Files.OrderBy(row => row.AssetId).Select(row => new LegacyMediaPreparationAsset(row.AssetId,row.Sha256,
-            checked((int)row.Bytes), checked((int)row.Width!.Value),checked((int)row.Height!.Value),row.MediaType,row.Extension,
-            row.SourceOwnerId!.Value,row.TargetOwnerId!.Value)).ToArray();
+        var assets = package.Files.OrderBy(row => row.AssetId).Select(row => PreparationAsset(row)).ToArray();
         if (!assets.SequenceEqual(request.Assets)) throw new InvalidOperationException("Prepared ownership or asset metadata differs.");
         var projection = await BuildProjectionRelationsAsync(db, tx, ct);
         var articleFacts = new List<object>();
