@@ -17,10 +17,11 @@ internal static class WideSearchCorpusEndpoints
         app.MapMethods(WireRoutes.PublicSearchWideManifest, [HttpMethods.Get, HttpMethods.Head], (HttpContext ctx) =>
         {
             var head = HttpMethods.IsHead(ctx.Request.Method);
-            var state = Capture(projection, lease);
+            var binding = Capture(projection, lease);
+            var state = binding.State;
             var wide = head ? RequirePins(ctx, state) : RequireReady(state);
             var result = head ? Results.NoContent() : Results.Bytes(wide.ManifestFrame, Aeds.ContentType);
-            return new CurrentResponse(projection, state, wide, lease, result);
+            return new CurrentResponse(binding, wide, result);
         }).RequireRateLimiting(ManifestPolicy);
         app.MapGet(WireRoutes.PublicSearchWidePage, (HttpContext ctx, string page, CancellationToken ct) =>
             ReadPage(ctx, page, projection, lease, app.Logger, ct)).RequireRateLimiting(PagePolicy);
@@ -33,7 +34,8 @@ internal static class WideSearchCorpusEndpoints
             page < 1 || pageText != page.ToString(CultureInfo.InvariantCulture))
             throw new BusinessException(Rejection.Invalid, "Use a canonical wide search page number.");
 
-        var state = Capture(projection, lease);
+        var binding = Capture(projection, lease);
+        var state = binding.State;
         var wide = RequirePins(context, state);
         var manifest = wide.Stage.Manifest;
         if (page > manifest.Pages.Count)
@@ -42,7 +44,7 @@ internal static class WideSearchCorpusEndpoints
         byte[] bytes;
         using (var read = wide.Stage.Borrow(page) ?? throw new PublicUnavailableException())
         {
-            RequireCurrent(projection, state, lease);
+            binding.RequireCurrent();
             bytes = new byte[descriptor.Length];
             using var leaseStop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
             try
@@ -61,17 +63,17 @@ internal static class WideSearchCorpusEndpoints
                 throw new PublicUnavailableException();
             }
         }
-        RequireCurrent(projection, state, lease);
+        binding.RequireCurrent();
         var tag = new EntityTagHeaderValue($"\"{descriptor.Sha256}\"");
-        return new CurrentResponse(projection, state, wide, lease,
+        return new CurrentResponse(binding, wide,
             Results.Bytes(bytes, Aeds.ContentType, enableRangeProcessing: false, entityTag: tag));
     }
 
-    private static PublicProjectionState Capture(PublicProjection projection, InstanceLease? lease)
+    private static CurrentBinding Capture(PublicProjection projection, InstanceLease? lease)
     {
         if (lease?.IsCurrent is false || projection.Current is not { } state)
             throw new PublicUnavailableException();
-        return state;
+        return new(projection, state, lease);
     }
 
     private static WideSearchCorpusReady RequireReady(PublicProjectionState state) =>
@@ -102,20 +104,22 @@ internal static class WideSearchCorpusEndpoints
         return value;
     }
 
-    private static void RequireCurrent(PublicProjection projection, PublicProjectionState state, InstanceLease? lease)
+    private readonly record struct CurrentBinding(PublicProjection Projection, PublicProjectionState State, InstanceLease? Lease)
     {
-        if (lease?.IsCurrent is false || !ReferenceEquals(projection.Current, state))
-            throw new PublicUnavailableException();
+        internal void RequireCurrent()
+        {
+            if (Lease?.IsCurrent is false || !ReferenceEquals(Projection.Current, State))
+                throw new PublicUnavailableException();
+        }
     }
 
-    private sealed record CurrentResponse(PublicProjection Projection, PublicProjectionState State,
-        WideSearchCorpusReady Wide, InstanceLease? Lease, IResult Body) : IResult
+    private sealed record CurrentResponse(CurrentBinding Binding, WideSearchCorpusReady Wide, IResult Body) : IResult
     {
         public Task ExecuteAsync(HttpContext context)
         {
             context.Response.Headers.CacheControl = "no-store";
-            RequireCurrent(Projection, State, Lease);
-            context.Response.Headers[WireHeaders.SearchIndexGeneration] = State.Source.GenerationHeader;
+            Binding.RequireCurrent();
+            context.Response.Headers[WireHeaders.SearchIndexGeneration] = Binding.State.Source.GenerationHeader;
             context.Response.Headers[WireHeaders.SearchCorpusDigest] = Wide.Stage.Manifest.ContentDigest;
             context.Response.Headers[WireHeaders.SearchIndexPages] = Wide.Stage.Manifest.Pages.Count.ToString(CultureInfo.InvariantCulture);
             return Body.ExecuteAsync(context);

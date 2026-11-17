@@ -89,32 +89,33 @@ internal sealed class WideSearchCorpusStage : IDisposable
 
     public void Dispose()
     {
-        FileStream? closing = null;
+        FileStream? closing;
         lock (_gate)
         {
             _retired = true;
-            if (_readers == 0)
-            {
-                closing = _file;
-                _file = null;
-            }
+            closing = DetachRetiredFileLocked();
         }
         Close(closing);
     }
 
     private void Release()
     {
-        FileStream? closing = null;
+        FileStream? closing;
         lock (_gate)
         {
             _readers--;
-            if (_retired && _readers == 0)
-            {
-                closing = _file;
-                _file = null;
-            }
+            closing = DetachRetiredFileLocked();
         }
         Close(closing);
+    }
+
+    // Caller holds _gate; the detached file is closed only after leaving it.
+    private FileStream? DetachRetiredFileLocked()
+    {
+        if (!_retired || _readers != 0) return null;
+        var closing = _file;
+        _file = null;
+        return closing;
     }
 
     private void Close(FileStream? file)
