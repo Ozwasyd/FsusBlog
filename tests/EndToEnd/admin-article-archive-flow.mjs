@@ -116,14 +116,14 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await archive.waitFor()
   assert.equal((await context.request.get(admin(availability))).status(), 204)
   assert.deepEqual(await archivedRows(), [])
-  await inventory.getByRole('button', { name: 'Active articles' }).press('Enter')
+  await page.getByRole('tab', { name: 'Articles', exact: true }).click()
   await inventory.getByRole('status').filter({ hasText: '22 active articles' }).waitFor()
   await inventory.getByRole('button', { name: 'Next page' }).press('Enter')
   await inventory.getByText('Inventory draft 1', { exact: true }).waitFor()
   assert.equal(await inventory.getByText('Inventory draft 21', { exact: true }).count(), 0)
-  await inventory.getByRole('button', { name: 'Article trash' }).press('Enter')
+  await page.getByRole('tab', { name: 'Trash', exact: true }).click()
   await inventory.getByText('Inventory draft 22', { exact: true }).waitFor()
-  assert.equal(await inventory.getByRole('listitem').count(), 1)
+  assert.equal(await inventory.locator('tbody tr').count(), 1)
   assert.equal((await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability))).status(), 204)
   const [unpublished] = await Promise.all([
     trashPreview('23', '1'),
@@ -165,11 +165,11 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await conflict.dispose()
   assert.equal((await context.request.get(site(WireRoutes.PublicArticle.replace('{id}', '23')))).status(), 404)
   assert.equal((await context.request.get(site(WireRoutes.Draft.replace('{id:int}', '23')))).status(), 404)
-  await inventory.getByRole('button', { name: 'Active articles' }).press('Enter')
+  await page.getByRole('tab', { name: 'Articles', exact: true }).click()
   await inventory.getByLabel('Title or summary', { exact: true }).fill('Inventory summary 21')
   await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
   await inventory.getByText('Inventory draft 21', { exact: true }).waitFor()
-  assert.equal(await inventory.getByRole('listitem').count(), 1)
+  assert.equal(await inventory.locator('tbody tr').count(), 1)
   await page.setViewportSize({ width: 375, height: 800 })
   assert(await inventory.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
   await inventory.screenshot({ path: join(evidence, 'administrator-article-inventory.png') })
@@ -303,8 +303,9 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await expectWithdrawnCorpus(trashIndex.generation)
   assert(!trashIndex.items.some(article => article.id === 1))
 
+  await page.getByRole('tab', { name: 'Trash', exact: true }).click()
   await inventory.getByLabel('Title or summary', { exact: true }).fill('')
-  await inventory.getByRole('button', { name: 'Article trash' }).press('Enter')
+  await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
   await inventory.getByText(privateTitle, { exact: true }).waitFor()
   const [former] = await Promise.all([
     trashPreview('1', '6'),

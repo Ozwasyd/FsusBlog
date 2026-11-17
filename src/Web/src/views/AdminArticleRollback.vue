@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
+import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { ElAlert, ElButton, ElCheckbox, ElInput, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   executeAdminArticleDraftRollback, readAdminArticleDraftRollbackAvailability, requestAdminArticleDraftRollbackProof,
@@ -16,10 +16,11 @@ type RollbackIntent = AdminArticleRollbackIntent | AdminArticleDraftRollbackInte
 type RollbackReceipt = AdminArticleRollbackReceipt | AdminArticleDraftRollbackReceipt
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
-const emit = defineEmits<{ 'session-lost': [cause: unknown] }>()
+const emit = defineEmits<{ 'session-lost': [cause: unknown]; busy: [value: boolean] }>()
 const lifetime = new AbortController()
 const signal = AbortSignal.any([lifetime.signal, props.sessionSignal])
 const available = ref(false)
+const checkingAvailability = ref(true)
 const draftAvailable = ref(false)
 const articleId = ref('')
 const sourceRevision = ref('')
@@ -40,6 +41,7 @@ const sourceCoordinates = computed(() => {
   if (article <= 2_147_483_647 && source <= 9_223_372_036_854_775_807n) return { article, source }
 })
 const editingLocked = computed(() => busy.value || !!retry.value || archiveWorking.value)
+watch(editingLocked, value => emit('busy', value), { immediate: true, flush: 'sync' })
 const canRollback = computed(() => !!preview.value?.packageComplete && !editingLocked.value)
 const canPublish = computed(() => canRollback.value &&
   confirmed.value && isValidAdminArticleRollbackReason(reason.value.trim()))
@@ -175,12 +177,14 @@ onMounted(async () => {
     if (!signal.aborted) draftAvailable.value = canDraft
   } catch {
     // Only show actions whose independent availability checks succeeded.
-  }
+  } finally { if (!signal.aborted) checkingAvailability.value = false }
 })
 onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
+  <ElSkeleton v-if="checkingAvailability" :rows="3" />
+  <ElEmptyState v-else-if="!available" :title="t('admin.rollback.unavailable')" size="compact" />
   <section v-if="available" class="auth-form article-rollback" aria-labelledby="admin-article-rollback-heading" :aria-busy="busy || archiveWorking">
     <h2 id="admin-article-rollback-heading">{{ t('admin.rollback.heading') }}</h2>
     <form class="article-rollback" @submit.prevent="readPreview">

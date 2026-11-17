@@ -65,6 +65,19 @@ try {
     assert(await shell.evaluate(element => element.isConnected && element === document.querySelector('.account-workspace')),
       `The outer workspace must survive SPA navigation to ${path}`)
     assert.equal((await context.request.get(admin.origin + WireRoutes.AdminSession)).status(), 200)
+    if (path === '/admin/articles') {
+      const workspace = page.locator('.admin-workspace')
+      const articles = workspace.getByRole('tab', { name: 'Articles', exact: true })
+      const trash = workspace.getByRole('tab', { name: 'Trash', exact: true })
+      await expect(articles).toHaveAttribute('aria-selected', 'true')
+      await expect(workspace.getByRole('textbox', { name: 'Title or summary', exact: true })).toBeVisible()
+      await expect(workspace.getByRole('region', { name: 'Taxonomy usage' })).toHaveCount(0)
+      await trash.click()
+      await expect(trash).toHaveAttribute('aria-selected', 'true')
+      await expect(workspace.getByRole('textbox', { name: 'Title or summary', exact: true })).toBeVisible()
+      assert.equal(new URL(page.url()).pathname, '/admin/articles')
+      checks.articleInventoryIsPrimaryWithLocalTabs = true
+    }
   }
   await shell.dispose()
   checks.allFiveRoutesReuseAuthenticatedShell = true

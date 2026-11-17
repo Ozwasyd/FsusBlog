@@ -14,6 +14,10 @@ export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) 
   const admin = path => adminOrigin.origin + path
   const site = path => siteOrigin.origin + path
   const section = page.getByRole('region', { name: 'Restore a published article revision', exact: true })
+  const recoveryTab = page.getByRole('tab', { name: 'Publication recovery', exact: true })
+  async function openPublicationRecovery() {
+    if (await recoveryTab.getAttribute('aria-selected') !== 'true') await recoveryTab.click()
+  }
   const detailPath = WireRoutes.PublicArticle.replace('{id}', '1')
   const indexPath = WireRoutes.PublicIndex + '?page=1'
   const send = (path, data, headers = {}) => context.request.post(admin(path), {
@@ -24,9 +28,11 @@ export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) 
     await promisify(execFile)(grant, [], { timeout: 8_000 })
     await page.reload()
     await logIn(page)
+    await openPublicationRecovery()
   }
 
   async function previewRollback() {
+    await openPublicationRecovery()
     await section.getByRole('textbox', { name: 'Article ID', exact: true }).fill('1')
     await section.getByRole('textbox', { name: 'Historical revision', exact: true }).fill('1')
     await section.getByRole('button', { name: 'Preview publication rollback', exact: true }).press('Enter')

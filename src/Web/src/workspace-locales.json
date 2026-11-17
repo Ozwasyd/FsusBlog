@@ -1624,7 +1624,17 @@
     "admin.traffic.region.jiangsu": "江苏",
     "admin.traffic.region.sichuan": "四川",
     "admin.traffic.region.hongKong": "香港",
-    "admin.traffic.region.macao": "澳门"
+    "admin.traffic.region.macao": "澳门",
+    "admin.articles.articles": "文章",
+    "admin.articles.trash": "回收站",
+    "admin.articles.categories": "分类",
+    "admin.articles.tags": "标签",
+    "admin.articles.recovery": "发布恢复",
+    "admin.articles.refresh": "刷新列表",
+    "admin.articles.emptyArticles": "暂无符合条件的文章",
+    "admin.articles.emptyTrash": "回收站为空",
+    "admin.articles.title": "文章标题",
+    "admin.articles.actions": "操作"
   },
   "en": {
     "account.articleNumber": "Article {id}",
@@ -3251,6 +3261,16 @@
     "admin.traffic.region.jiangsu": "Jiangsu",
     "admin.traffic.region.sichuan": "Sichuan",
     "admin.traffic.region.hongKong": "Hong Kong",
-    "admin.traffic.region.macao": "Macao"
+    "admin.traffic.region.macao": "Macao",
+    "admin.articles.articles": "Articles",
+    "admin.articles.trash": "Trash",
+    "admin.articles.categories": "Categories",
+    "admin.articles.tags": "Tags",
+    "admin.articles.recovery": "Publication recovery",
+    "admin.articles.refresh": "Refresh list",
+    "admin.articles.emptyArticles": "No matching articles",
+    "admin.articles.emptyTrash": "The trash is empty",
+    "admin.articles.title": "Article title",
+    "admin.articles.actions": "Actions"
   }
 }

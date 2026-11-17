@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminTaxonomy, readAdminTaxonomyDependencies,
@@ -14,8 +14,9 @@ type ReferenceDetails = { name: string } & (
   { state: 'ready'; counts: AdminTaxonomyDependencies } |
   { state: 'failed'; message: MessageKey }
 )
+const props = defineProps<{ initialKind: TaxonomyKind; active: boolean }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
-const kind = ref<TaxonomyKind>('categories')
+const kind = ref<TaxonomyKind>(props.initialKind)
 const metadataKind = computed(() => kind.value === 'categories' ? 'category' : 'tag')
 const kindLabel = computed(() => t(kind.value === 'categories' ? 'admin.taxonomy.kindCategory' : 'admin.taxonomy.kindTag'))
 const kindsLabel = computed(() => t(kind.value === 'categories' ? 'admin.taxonomy.kindsCategories' : 'admin.taxonomy.kindsTags'))
@@ -36,13 +37,6 @@ let opener: HTMLElement | undefined
 let request: AbortController | undefined
 let referenceRequest: AbortController | undefined
 let viewGeneration = 0
-
-function reset(next: TaxonomyKind) {
-  kind.value = next
-  cursors.value = [null]
-  notice.value = undefined
-  void load(0)
-}
 
 async function load(index: number) {
   viewGeneration++
@@ -151,6 +145,14 @@ function next() {
   void load(pageNumber.value + 1)
 }
 
+onMounted(() => { void load(0) })
+watch(() => props.active, active => {
+  // Preserve an open metadata editor; otherwise a revisit starts from fresh page-one facts.
+  if (!active || edited.value !== undefined) return
+  cursors.value = [null]
+  notice.value = undefined
+  void load(0)
+})
 watch(target, clearReferences, { flush: 'sync' })
 onBeforeUnmount(() => {
   viewGeneration++
@@ -160,14 +162,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="admin-taxonomy" aria-labelledby="admin-taxonomy-heading" :aria-busy="pending">
-    <h2 id="admin-taxonomy-heading" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</h2>
-    <div class="taxonomy-actions" role="group" :aria-label="t('admin.taxonomy.m4')">
-      <ElButton native-type="button" :type="kind === 'categories' ? 'primary' : undefined"
-        v-bind="{ 'aria-pressed': kind === 'categories' }" @click="reset('categories')">{{ t('admin.taxonomy.m5') }}</ElButton>
-      <ElButton native-type="button" :type="kind === 'tags' ? 'primary' : undefined"
-        v-bind="{ 'aria-pressed': kind === 'tags' }" @click="reset('tags')">{{ t('admin.taxonomy.m6') }}</ElButton>
-    </div>
+  <section class="admin-taxonomy" :aria-labelledby="`admin-taxonomy-heading-${kind}`" :aria-busy="pending">
+    <h2 :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</h2>
+    <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
     <p v-if="notice" role="status">{{ t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
     <ElSkeleton v-if="pending" :rows="3" animated />
     <ElAlert v-else-if="failure === 'forbidden'" :title="t('admin.taxonomy.m7')" type="warning" :closable="false" show-icon />
@@ -182,7 +179,7 @@ onBeforeUnmount(() => {
         @close="closeEditor(false)" @saved="closeEditor(true)"
         @session-lost="emit('session-lost', $event)" />
       <ElEmptyState v-if="page.items.length === 0" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
-      <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" :aria-label="t('admin.taxonomy.m12')" aria-describedby="taxonomy-count-notes">
+      <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" :aria-label="t('admin.taxonomy.m12')" :aria-describedby="`taxonomy-count-notes-${kind}`">
         <table>
           <caption>{{ kind === 'categories' ? t('admin.taxonomy.m13') : t('admin.taxonomy.m14') }}</caption>
           <thead>
@@ -239,7 +236,7 @@ onBeforeUnmount(() => {
         </template>
         <ElButton native-type="button" text @click="closeReferences">{{ t('admin.taxonomy.m29') }}</ElButton>
       </section>
-      <p v-if="page.items.length" id="taxonomy-count-notes" class="taxonomy-notes">
+      <p v-if="page.items.length" :id="`taxonomy-count-notes-${kind}`" class="taxonomy-notes">
         <span class="taxonomy-scroll-note">{{ t('admin.taxonomy.m50') }}</span>
         {{ t('admin.taxonomy.m51', { kind: kindLabel }) }}
       </p>
@@ -253,8 +250,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.admin-taxonomy { margin-block-start: 1.5rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
-.admin-taxonomy h2 { margin: 0; }
+.admin-taxonomy { margin-block-start: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.admin-taxonomy h2 { font-size: 1.125rem; margin: 0; }
+.taxonomy-refresh { justify-self: start; }
 .taxonomy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .taxonomy-actions > :deep(.el-button + .el-button) { margin-inline-start: 0; }
 .taxonomy-table-scroll { overflow-x: auto; }

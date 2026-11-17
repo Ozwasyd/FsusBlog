@@ -22,8 +22,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   const categoryEndpoint = adminOrigin.origin + WireRoutes.AdminCategories
   const tagEndpoint = adminOrigin.origin + WireRoutes.AdminTags
   const panel = page.getByRole('region', { name: 'Taxonomy usage', exact: true })
-  const categories = panel.getByRole('button', { name: 'Categories', exact: true })
-  const tags = panel.getByRole('button', { name: 'Tags', exact: true })
+  const categories = page.getByRole('tab', { name: 'Categories', exact: true })
+  const tags = page.getByRole('tab', { name: 'Tags', exact: true })
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const generation = (await snapshot(context)).principal.generation
 
@@ -112,9 +112,11 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   return readCookie(context, adminSession, adminCookieName)
 
   async function read(button, endpoint) {
+    const selectedTab = await button.getAttribute('role') === 'tab' && await button.getAttribute('aria-selected') === 'true'
+    const trigger = selectedTab ? panel.getByRole('button', { name: 'Refresh list', exact: true }) : button
     const [response] = await Promise.all([
       page.waitForResponse(value => value.url() === endpoint && value.request().method() === 'GET'),
-      button.click(),
+      trigger.click(),
     ])
     return response
   }

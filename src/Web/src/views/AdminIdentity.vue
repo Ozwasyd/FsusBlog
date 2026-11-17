@@ -8,7 +8,7 @@ import SiteHeaderPreferences from '../SiteHeaderPreferences.vue'
 import { adminWorkspacePages, type AdminWorkspaceSection } from '../adminWorkspaceRoutes'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
-import AdminTaxonomy from './AdminTaxonomy.vue'
+import AdminArticlesWorkspace from './AdminArticlesWorkspace.vue'
 import AdminSiteTraffic from './AdminSiteTraffic.vue'
 import AdminSitePages from './AdminSitePages.vue'
 import AdminSessionHistory from './AdminSessionHistory.vue'
@@ -16,8 +16,6 @@ import AdminCluster from './AdminCluster.vue'
 import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import AdminInbox from './AdminInbox.vue'
-import AdminArticleRollback from './AdminArticleRollback.vue'
-import AdminArticleInventory from './AdminArticleInventory.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
@@ -281,7 +279,7 @@ function logOut() {
       <ElButton text native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="auth-page admin-workspace">
-      <h1>{{ t(section.label) }}</h1>
+      <h1 :class="{ 'article-page-title': section.section === 'articles' }">{{ t(section.label) }}</h1>
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
       <template v-if="section.section !== 'identity' && !canOpen(section.section)">
         <ElAlert v-if="permissionsFailure" :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
@@ -334,9 +332,8 @@ function logOut() {
           </dl>
         </div>
       </section>
-      <AdminTaxonomy v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
-      <AdminArticleInventory v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-      <AdminArticleRollback v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminArticlesWorkspace v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch"
+        :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
       <AdminSiteTraffic v-if="section.section === 'site' && permits('audit.read')" :key="permissionEpoch"
         :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
       <AdminAppearance v-if="section.section === 'site' && authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
@@ -377,10 +374,14 @@ function logOut() {
 </template>
 
 <style scoped>
+.article-page-title { font-size: clamp(1.35rem, 2vw, 1.75rem); line-height: 1.25; margin-block: 0 1rem; }
 .admin-bootstrap-form { display: grid; gap: 0.75rem; }
 .admin-setup-button { margin-inline-start: 0; }
 .admin-login-preferences { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem var(--fsusblog-page-gutter) 0; }
 .admin-login { margin-inline: auto; }
 .admin-workspace { width: auto; }
+@media (max-width: 767px) {
+  .admin-workspace:has(> .article-page-title) { margin-inline-end: var(--fsusblog-page-gutter); }
+}
 .admin-operations { margin-block-start: 1.5rem; }
 </style>
