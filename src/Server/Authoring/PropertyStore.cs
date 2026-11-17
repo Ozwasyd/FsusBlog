@@ -186,14 +186,14 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     }
 
     internal async Task<PropertyValueBatchReceipt> WriteBatch(PropertyValueBatchInput input, byte[] originalFrame,
-        AuthorTextRebuildWorker rebuild, Identity actor, CancellationToken ct)
+        AuthorTextRebuildQueue rebuild, Identity actor, CancellationToken ct)
     {
         var next = await WriteValues(input, textOnly: false, originalFrame, ct, (rebuild, actor));
         return new(input.ArticleId, input.SchemaRevision, next, input.RequestId);
     }
 
     private async Task<long> WriteValues(PropertyValueBatchInput input, bool textOnly, byte[] originalFrame, CancellationToken ct,
-        (AuthorTextRebuildWorker Worker, Identity Actor)? projection = null)
+        (AuthorTextRebuildQueue Queue, Identity Actor)? projection = null)
     {
         await ScopeLock(ct);
         long articleRevision = await AssertArticle(input.ArticleId, expectedRevision: null, ct);
@@ -272,13 +272,13 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             values($1,$2,$3,$4,$5)
             """, input.ArticleId, input.RequestId, fingerprint, firstDefinition, next);
         await record.ExecuteNonQueryAsync(ct);
-        if (projection is { } queue && queue.Worker.Installed)
-            await EnqueueChangedText(input, schema, queue.Worker, queue.Actor, ct);
+        if (projection is { } queue && queue.Queue.Installed)
+            await EnqueueChangedText(input, schema, queue.Queue, queue.Actor, ct);
         return next;
     }
 
     private async Task EnqueueChangedText(PropertyValueBatchInput input, PropertySchema schema,
-        AuthorTextRebuildWorker rebuild, Identity actor, CancellationToken ct)
+        AuthorTextRebuildQueue rebuild, Identity actor, CancellationToken ct)
     {
         // All still-present Text values carry the article-wide revision. Also include fields removed by this command.
         var affected = input.Changes.Select(change => change.DefinitionId).ToHashSet();

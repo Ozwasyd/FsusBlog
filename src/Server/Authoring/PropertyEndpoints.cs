@@ -50,7 +50,7 @@ internal static class PropertyEndpoints
             var expected = SiteSessions.Requested(ctx);
             SiteSessions.IfCurrent(actor.Id, session, expected);
             var rebuild = ctx.RequestServices.GetRequiredService<AuthorTextRebuildWorker>();
-            var receipt = await store.WriteBatch(Wire.DecodePropertyValueBatch(frame), frame, rebuild, actor, ct);
+            var receipt = await store.WriteBatch(Wire.DecodePropertyValueBatch(frame), frame, rebuild.Queue, actor, ct);
             ct.ThrowIfCancellationRequested();
             SiteSessions.IfCurrent(actor.Id, session, expected);
             return Wire.EncodePropertyValueBatchReceipt(receipt);
