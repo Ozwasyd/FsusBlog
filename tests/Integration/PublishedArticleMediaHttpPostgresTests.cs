@@ -21,7 +21,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         var owner = await MediaFixture.CreateSession(db.DataSource, "image release author", ct);
         var other = await MediaFixture.CreateSession(db.DataSource, "independent image author", ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-");
-        try
+        using (new MediaFixture.DirectoryCleanup(root))
         {
             var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private");
             var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public");
@@ -182,7 +182,6 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             using (var privateImage = await Send(disabled.Client, HttpMethod.Get, PrivatePath(shared.Id), ct, other))
                 Assert.Equal(shared.Bytes, await privateImage.Content.ReadAsByteArrayAsync(ct));
         }
-        finally { root.Delete(recursive: true); }
     }
 
     [PostgresFact]
@@ -191,7 +190,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
         await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-limit-");
-        try
+        using (new MediaFixture.DirectoryCleanup(root))
         {
             var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private");
             var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public");
@@ -204,7 +203,6 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             await AssertEmptyImageResponse(server.Client, HttpMethod.Get, path, HttpStatusCode.TooManyRequests, window.Token);
             Assert.Empty(Directory.EnumerateFileSystemEntries(publicRoot));
         }
-        finally { root.Delete(recursive: true); }
     }
 
     private static async Task AssertImage(HttpClient client, string path, Asset image, CancellationToken ct)

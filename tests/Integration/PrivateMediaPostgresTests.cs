@@ -26,7 +26,7 @@ public sealed partial class PrivateMediaPostgresTests
         var reader = await MediaFixture.CreateSession(db.DataSource, "media-reader", ct, canAuthor: false);
         var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-test-");
         var storage = directory.FullName;
-        try
+        using (new MediaFixture.DirectoryCleanup(directory))
         {
             await using var server = await ServerProcess.Start(db.ConnectionString, ct,
                 new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = storage, [MediaUploadEndpoints.Setting] = "false" });
@@ -104,7 +104,6 @@ public sealed partial class PrivateMediaPostgresTests
             using var jpegBitmap = SKBitmap.Decode(await jpegContent.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal((3, 2), (jpegBitmap.Width, jpegBitmap.Height));
         }
-        finally { directory.Delete(recursive: true); }
     }
 
     [PostgresFact]
@@ -139,7 +138,7 @@ public sealed partial class PrivateMediaPostgresTests
         var image = EncodeImage(SKEncodedImageFormat.Webp, 320, 320);
         Assert.InRange(image.Length, partSize + 1, partSize * 2);
         Guid upload;
-        try
+        using (new MediaFixture.DirectoryCleanup(directory))
         {
             await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
             {
@@ -197,7 +196,6 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
             Assert.Empty(directory.EnumerateFiles());
         }
-        finally { directory.Delete(recursive: true); }
     }
 
     [PostgresFact]
@@ -770,7 +768,7 @@ public sealed partial class PrivateMediaPostgresTests
         png.CopyTo(image, 0);
         var key = Guid.NewGuid();
         Guid upload;
-        try
+        using (new MediaFixture.DirectoryCleanup(directory))
         {
             await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
             {
@@ -874,7 +872,6 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(0L, await check.ExecuteScalarAsync(ct));
             Assert.Single(directory.EnumerateFiles());
         }
-        finally { directory.Delete(recursive: true); }
     }
 
     [PostgresFact]
@@ -885,7 +882,7 @@ public sealed partial class PrivateMediaPostgresTests
         var owner = await MediaFixture.CreateSession(db.DataSource, "media-owner", ct, canAuthor: true);
         var directory = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-media-recovery-");
         var storage = directory.FullName;
-        try
+        using (new MediaFixture.DirectoryCleanup(directory))
         {
             var png = EncodeImage(SKEncodedImageFormat.Png);
             var command = Guid.NewGuid();
@@ -931,7 +928,6 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
             Assert.Empty(directory.EnumerateFiles());
         }
-        finally { directory.Delete(recursive: true); }
     }
 
     private static byte[] EncodeImage(SKEncodedImageFormat format, int width = 3, int height = 2)

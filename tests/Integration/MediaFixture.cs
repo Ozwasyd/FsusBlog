@@ -12,6 +12,11 @@ namespace FsusBlog.V2.Integration.Tests;
 
 internal static class MediaFixture
 {
+    internal sealed class DirectoryCleanup(DirectoryInfo directory) : IDisposable
+    {
+        public void Dispose() => directory.Delete(recursive: true);
+    }
+
     private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
     internal sealed record Session(Guid Id, string Token, string SiteSessionId);
