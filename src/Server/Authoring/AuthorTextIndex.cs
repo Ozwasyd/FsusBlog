@@ -9,7 +9,6 @@ using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal readonly record struct AuthorTextRankKey(int PhraseRank, int FieldRank, long UpdatedAtUnixMs, int Id);
 internal sealed record AuthorTextRankedRow(AuthorTextSearchRow Match, AuthorTextRankKey Key);
 internal sealed record AuthorTextRankedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation);
 internal sealed record AuthorTextFacetedPage(bool Ready, bool More, IReadOnlyList<AuthorTextRankedRow> Rows, byte[]? Generation,
@@ -44,14 +43,14 @@ internal static partial class AuthorTextIndex
     internal static Task<AuthorTextRankedPage> ReadRanked(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
     {
-        ValidateContinuation(after, expectedGeneration);
+        AuthorTextContinuation.Validate(after, expectedGeneration);
         return Read(db, tx, actor, input, ranked: true, after, expectedGeneration, ct);
     }
 
     internal static async Task<AuthorTextFacetedPage> ReadFaceted(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextFacetedQuery input, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
     {
-        ValidateContinuation(after, expectedGeneration);
+        AuthorTextContinuation.Validate(after, expectedGeneration);
         await Store.LockCommand(db, tx, actor.Id, Scope, ct);
         if (after is null) await Reconcile(db, tx, actor.Id, ct);
         return await ReadFacets(db, tx, actor, input, after, expectedGeneration, ct);
@@ -63,7 +62,7 @@ internal static partial class AuthorTextIndex
         bool includeSummary = false, bool includeHeading = false, PropertyStore.FacetSelection? facet = null,
         PropertyStore.SortSelection? sort = null)
     {
-        ValidateContinuation(after, expectedGeneration);
+        AuthorTextContinuation.Validate(after, expectedGeneration);
         includeSummary |= includeHeading;
         var properties = new PropertyStore(db, tx, actor);
         var (resolved, facetDefinition, sortDefinition, _) = await ResolvePropertySearch(
@@ -74,12 +73,6 @@ internal static partial class AuthorTextIndex
             new(updatedFromUnixMs, updatedUntilUnixMs, resolved, facetDefinition, sortDefinition), includeSummary, includeHeading);
     }
 
-    private static void ValidateContinuation(AuthorTextRankKey? after, byte[]? expectedGeneration)
-    {
-        if ((after is null) != (expectedGeneration is null) || expectedGeneration is { Length: not SHA256.HashSizeInBytes } ||
-            after is { } key && (key.Id <= 0 || key.PhraseRank < 0 || key.FieldRank <= 0 || key.PhraseRank > key.FieldRank))
-            throw AuthorTextCursor.Invalid();
-    }
 
     private static async Task<AuthorTextRankedPage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         AuthorTextQuery input, bool ranked, AuthorTextRankKey? after, byte[]? expectedGeneration, CancellationToken ct)
@@ -375,7 +368,7 @@ internal static partial class AuthorTextIndex
             {
                 if (!rows.GetBoolean(0))
                 {
-                    if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+                    if (expectedGeneration is not null) throw AuthorTextContinuation.Invalid();
                     return new(false, false, [], null);
                 }
                 if (ranked && generation is null) generation = rows.GetFieldValue<byte[]>(1);
@@ -391,7 +384,7 @@ internal static partial class AuthorTextIndex
 
         if ((ranked || matches.Count > 0) && !await StillCurrent(db, tx, owner, matches, generation, ct))
         {
-            if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+            if (expectedGeneration is not null) throw AuthorTextContinuation.Invalid();
             if (ranked) throw InvalidIndex();
             return new(false, false, [], null);
         }
@@ -599,7 +592,7 @@ internal static partial class AuthorTextIndex
             {
                 if (!rows.GetBoolean(0))
                 {
-                    if (expectedGeneration is not null) throw AuthorTextCursor.Invalid();
+                    if (expectedGeneration is not null) throw AuthorTextContinuation.Invalid();
                     return new(false, false, [], null, 0, states, [], false, [], false);
                 }
                 if (generation is null)
@@ -623,7 +616,7 @@ internal static partial class AuthorTextIndex
 
         if (generation is null || !await StillCurrent(db, tx, actor.Id, matches, generation, ct, actor.Generation,
                 qualification, includeSummary, includeHeading))
-            throw expectedGeneration is not null ? AuthorTextCursor.Invalid() : InvalidIndex();
+            throw expectedGeneration is not null ? AuthorTextContinuation.Invalid() : InvalidIndex();
         return new(true, more, matches, generation, total, states, categories, moreCategories, tags, moreTags, propertyFacet);
     }
 

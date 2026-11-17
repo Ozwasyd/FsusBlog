@@ -74,5 +74,5 @@ internal sealed class AuthorTextCursor(TimeProvider time)
         return context;
     }
 
-    internal static BusinessException Invalid() => new(Rejection.Conflict, "The article search page changed. Search again from the first page.");
+    internal static BusinessException Invalid() => AuthorTextContinuation.Invalid();
 }

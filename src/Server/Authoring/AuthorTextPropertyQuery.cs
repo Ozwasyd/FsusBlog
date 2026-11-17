@@ -12,7 +12,7 @@ internal static partial class AuthorTextIndex
         CancellationToken ct, PropertyStore.FacetSelection? facet = null, PropertyStore.SortSelection? sort = null,
         bool mixed = false, bool includeHeading = false)
     {
-        ValidateContinuation(after, expectedGeneration);
+        AuthorTextContinuation.Validate(after, expectedGeneration);
         var properties = new PropertyStore(db, tx, actor);
         var search = query.Search;
         var (conditions, facetDefinition, sortDefinition, text) = await ResolvePropertySearch(
@@ -52,15 +52,15 @@ internal static partial class AuthorTextIndex
         }
         catch (BusinessException error) when (after.HasValue && error.Rejection is Rejection.NotFound or Rejection.Conflict or Rejection.Invalid)
         {
-            throw AuthorTextCursor.Invalid();
+            throw AuthorTextContinuation.Invalid();
         }
         catch (PropertyValidationException)
         {
-            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Invalid, "Invalid article property.");
+            throw after.HasValue ? AuthorTextContinuation.Invalid() : new BusinessException(Rejection.Invalid, "Invalid article property.");
         }
         catch (PropertySchemaException)
         {
-            throw after.HasValue ? AuthorTextCursor.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
+            throw after.HasValue ? AuthorTextContinuation.Invalid() : new BusinessException(Rejection.Conflict, "The property definition changed or cannot be updated.");
         }
     }
 
