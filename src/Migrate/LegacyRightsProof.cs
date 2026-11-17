@@ -48,21 +48,7 @@ internal static partial class Migration
             LegacyLogTime(proof, "created_at") < issued || updated < LegacyLogTime(proof, "created_at"))
             throw new FormatException();
 
-        var record = FormattableString.Invariant($"""
-            fsusblog.integrity.article-rights-proof-record.v1
-            proofVersion:i:1
-            signaturePayloadVersion:i:1
-            articleId:i:{article}
-            articleRevisionId:i:{revisionId}
-            revisionNo:i:{revision}
-            articleRightsSnapshotId:i:{snapshot}
-            publishProofId:i:{parentId}
-            rightsPolicyHash:h:{policyHash}
-            contentCanonicalHash:h:{contentHash}
-            issuedAt:t:{issued:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
-            proofStatus:s:ready
-
-            """);
+        var record = LegacyTransparencyPayload.RightsProofRecord(article, revisionId, revision, snapshot, parentId, policyHash, contentHash, issued);
         var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["articleId"] = FormattableString.Invariant($"{article}"),

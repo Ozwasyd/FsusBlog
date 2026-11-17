@@ -22,6 +22,24 @@ public static class LegacyTransparencyPayload
     public const int ReleasePublicationLimit = 2 * ReleaseArticleLimit + 1;
     public const int ReleaseEntryLimit = ReleasePublicationLimit + 3;
 
+    internal static string RightsProofRecord(long article, long revisionId, long revision, long snapshot, long parentId,
+        string policyHash, string contentHash, DateTimeOffset issued) =>
+        FormattableString.Invariant($"""
+        fsusblog.integrity.article-rights-proof-record.v1
+        proofVersion:i:1
+        signaturePayloadVersion:i:1
+        articleId:i:{article}
+        articleRevisionId:i:{revisionId}
+        revisionNo:i:{revision}
+        articleRightsSnapshotId:i:{snapshot}
+        publishProofId:i:{parentId}
+        rightsPolicyHash:h:{policyHash}
+        contentCanonicalHash:h:{contentHash}
+        issuedAt:t:{issued:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
+        proofStatus:s:ready
+
+        """);
+
     public static (string Entry, string Leaf) HashProofEntry(LegacyTransparencyProofEntry entry)
     {
         var coordinates = FormattableString.Invariant(

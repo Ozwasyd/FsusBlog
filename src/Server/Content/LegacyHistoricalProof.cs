@@ -164,21 +164,7 @@ internal sealed class LegacyHistoricalProof(IConfigurationSection settings, stri
                 !string.Equals(Required(parent.Source, "canonical_hash").Replace("sha256:", "", StringComparison.OrdinalIgnoreCase),
                     content, StringComparison.OrdinalIgnoreCase))
                 throw new FormatException();
-            var record = FormattableString.Invariant($"""
-                fsusblog.integrity.article-rights-proof-record.v1
-                proofVersion:i:1
-                signaturePayloadVersion:i:1
-                articleId:i:{article}
-                articleRevisionId:i:{revision}
-                revisionNo:i:{number}
-                articleRightsSnapshotId:i:{snapshot}
-                publishProofId:i:{parent.Id}
-                rightsPolicyHash:h:{policy}
-                contentCanonicalHash:h:{content}
-                issuedAt:t:{issued:yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'}
-                proofStatus:s:ready
-
-                """);
+            var record = LegacyTransparencyPayload.RightsProofRecord(article, revision, number, snapshot, parent.Id, policy, content, issued);
             if (Digest(Encoding.UTF8.GetBytes(record)) != digest) throw new FormatException();
             subject += ":rights:" + Decimal(snapshot);
             fields["articleRightsSnapshotId"] = Decimal(snapshot);
