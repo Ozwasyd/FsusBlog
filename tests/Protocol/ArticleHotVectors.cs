@@ -52,10 +52,6 @@ internal static class ArticleHotVectors
         byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(directory, name)).Trim());
     }
 
-    private static void Reject(Action decode)
-    {
-        try { decode(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Malformed ArticleHot was accepted");
-    }
+    private static void Reject(Action decode) =>
+        ProtocolRejection.Assert(decode, "Malformed ArticleHot was accepted");
 }

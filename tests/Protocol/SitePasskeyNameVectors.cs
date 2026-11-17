@@ -56,10 +56,6 @@ internal static class SitePasskeyNameVectors
         }
     }
 
-    private static void Reject(Action action)
-    {
-        try { action(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Invalid site Passkey data was accepted");
-    }
+    private static void Reject(Action action) =>
+        ProtocolRejection.Assert(action, "Invalid site Passkey data was accepted");
 }

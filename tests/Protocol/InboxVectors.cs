@@ -58,16 +58,6 @@ internal static class InboxVectors
             throw new InvalidOperationException("Inbox AEDS differs from its reference vector");
     }
 
-    private static void Reject(Action run)
-    {
-        try
-        {
-            run();
-        }
-        catch (ProtocolException)
-        {
-            return;
-        }
-        throw new InvalidOperationException("Invalid inbox AEDS accepted");
-    }
+    private static void Reject(Action run) =>
+        ProtocolRejection.Assert(run, "Invalid inbox AEDS accepted");
 }

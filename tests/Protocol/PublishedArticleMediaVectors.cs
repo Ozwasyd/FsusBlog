@@ -42,10 +42,6 @@ internal static class PublishedArticleMediaVectors
             throw new InvalidOperationException($"{what} differs from its pinned wire layout.");
     }
 
-    private static void Reject(Action action)
-    {
-        try { action(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Invalid published media data was accepted.");
-    }
+    private static void Reject(Action action) =>
+        ProtocolRejection.Assert(action, "Invalid published media data was accepted.");
 }

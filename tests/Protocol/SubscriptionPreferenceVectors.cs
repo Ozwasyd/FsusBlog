@@ -29,10 +29,6 @@ internal static class SubscriptionPreferenceVectors
     private static SubscriptionPreferenceRequest Decode(byte[] pod) =>
         Wire.DecodeSubscriptionPreferenceRequest(Aeds.Encode(FrameType.SubscriptionPreferenceRequest, pod));
 
-    private static void Reject(Action operation)
-    {
-        try { operation(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Invalid subscription preference accepted");
-    }
+    private static void Reject(Action operation) =>
+        ProtocolRejection.Assert(operation, "Invalid subscription preference accepted");
 }

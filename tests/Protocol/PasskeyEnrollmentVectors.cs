@@ -29,10 +29,6 @@ internal static class PasskeyEnrollmentVectors
         }
     }
 
-    private static void Reject(Action action)
-    {
-        try { action(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Invalid enrollment exclusion list was accepted");
-    }
+    private static void Reject(Action action) =>
+        ProtocolRejection.Assert(action, "Invalid enrollment exclusion list was accepted");
 }

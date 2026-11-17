@@ -38,11 +38,7 @@ internal static class SiteConfigVectors
                 throw new InvalidOperationException($"Site config bytes differ for {name}");
         }
 
-        static void Reject(Action encode)
-        {
-            try { encode(); }
-            catch (ProtocolException) { return; }
-            throw new InvalidOperationException("Invalid site config encoded");
-        }
+        static void Reject(Action encode) =>
+            ProtocolRejection.Assert(encode, "Invalid site config encoded");
     }
 }

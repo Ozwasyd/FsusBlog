@@ -9,18 +9,8 @@ void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
         throw new InvalidOperationException("AEDS bytes differ from independent vector");
 }
 
-void Reject(Action run)
-{
-    try
-    {
-        run();
-    }
-    catch (ProtocolException)
-    {
-        return;
-    }
-    throw new InvalidOperationException("Invalid AEDS data accepted");
-}
+void Reject(Action run) =>
+    ProtocolRejection.Assert(run, "Invalid AEDS data accepted");
 
 var error = Fixture("api-error-v1.hex");
 Equal(error, Wire.EncodeError(403, "权限不足", "role_required", "trace-123"));

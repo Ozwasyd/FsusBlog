@@ -226,10 +226,6 @@ internal static class PropertyValueVectors
             throw new InvalidOperationException("Typed properties differ from the independent byte vector.");
     }
 
-    private static void Reject(Action action)
-    {
-        try { action(); }
-        catch (ProtocolException) { return; }
-        throw new InvalidOperationException("Invalid typed property input was accepted.");
-    }
+    private static void Reject(Action action) =>
+        ProtocolRejection.Assert(action, "Invalid typed property input was accepted.");
 }
