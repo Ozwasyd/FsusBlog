@@ -27,7 +27,7 @@ internal static class MarkdownExportEndpoints
 
         if (pdf is not null)
         {
-            var (type, extension) = DocumentExportEndpoints.Presentation(DocumentExportFormat.Pdf);
+            var (type, extension) = DocumentExportContract.Presentation(DocumentExportFormat.Pdf);
             Download(DocumentRoute(extension), type, $"article.{extension}", async (ctx, store, token, source, ct) =>
             {
                 var revision = await store.WithSession(token, true,
@@ -54,7 +54,7 @@ internal static class MarkdownExportEndpoints
 
         void AttachDocument(DocumentExportFormat format)
         {
-            var (type, extension) = DocumentExportEndpoints.Presentation(format);
+            var (type, extension) = DocumentExportContract.Presentation(format);
             var html = format == DocumentExportFormat.Html;
             Attach(DocumentRoute(extension), type, $"article.{extension}",
                 (title, body, _, time, images, ct) => DocumentExportInput.Render(format, title, body, time, images, pdf, ct),

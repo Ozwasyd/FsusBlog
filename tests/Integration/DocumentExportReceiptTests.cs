@@ -49,7 +49,7 @@ public sealed class DocumentExportReceiptTests
     private static byte[] FrozenEncode(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest,
         int version, CancellationToken ct)
     {
-        var (mime, format) = DocumentExportEndpoints.Presentation(task.Request.Format);
+        var (mime, format) = DocumentExportContract.Presentation(task.Request.Format);
         var result = new
         {
             version, taskId = task.Request.Id, article = task.Request.Article,

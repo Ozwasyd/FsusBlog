@@ -24,7 +24,7 @@ internal static class DocumentExportStore
         var prior = await Owned(db, tx, actor, request.Id, ct);
         if (prior is not null)
         {
-            if (prior.Request != request || !Enumerable.SequenceEqual(assets, await ReadAttachmentIds(db, tx, actor.Id, request.Id, prior.Provider, ct)))
+            if (prior.Request != request || !Enumerable.SequenceEqual(assets, await DocumentExportInput.ReadAttachmentIds(db, tx, actor.Id, request.Id, prior.Provider, ct)))
                 throw new BusinessException(Rejection.Conflict, "The request ID belongs to a different document export.");
             await RevisionHistoryStore.LockOwned(db, tx, actor.Id, request.Article, ct);
             return prior;
@@ -93,7 +93,7 @@ internal static class DocumentExportStore
     internal static async Task<DocumentExportTask> Cancel(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, Guid id,
         CancellationToken ct)
     {
-        var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
+        var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportContract.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
         await using var update = Store.Sql(db, tx, $"""
             update public.author_document_export
@@ -104,19 +104,19 @@ internal static class DocumentExportStore
             """, actor.Id, id, actor.Generation);
         await using (var row = await update.ExecuteReaderAsync(ct))
             if (await row.ReadAsync(ct)) return Read(row);
-        return await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
+        return await Owned(db, tx, actor, id, ct) ?? throw DocumentExportContract.Missing();
     }
 
     internal static async Task<(DocumentExportFormat Format, byte[] Bytes, bool HasAttachment)> Download(NpgsqlConnection db, NpgsqlTransaction tx,
         Identity actor, Guid id, MediaFiles? media, bool privateTransport, int receiptVersion, byte[]? pdfToolDigest, CancellationToken ct)
     {
-        var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportEndpoints.Missing();
+        var task = await Owned(db, tx, actor, id, ct) ?? throw DocumentExportContract.Missing();
         await RevisionHistoryStore.LockOwned(db, tx, actor.Id, task.Request.Article, ct);
         if (task.State != DocumentExportState.Succeeded || (receiptVersion == 2 && task.Request.Format is not (DocumentExportFormat.Docx or DocumentExportFormat.Epub)))
-            throw DocumentExportEndpoints.Missing();
+            throw DocumentExportContract.Missing();
         var receipt = receiptVersion != 0;
         var hasAttachment = task.Provider is DocumentExportInput.AttachmentProvider or DocumentExportInput.ImageListProvider;
-        if (hasAttachment && !privateTransport) throw DocumentExportEndpoints.Missing();
+        if (hasAttachment && !privateTransport) throw DocumentExportContract.Missing();
         var toolDigest = task.Request.Format == DocumentExportFormat.Pdf ? pdfToolDigest : null;
         if (receipt && task.Request.Format == DocumentExportFormat.Pdf && toolDigest is null)
             throw new PublicUnavailableException();
@@ -127,26 +127,13 @@ internal static class DocumentExportStore
             select output,output_digest from public.author_document_export where {OwnedTask} and state=3
             """, actor.Id, id, actor.Generation);
         await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw DocumentExportEndpoints.Missing();
+        if (!await row.ReadAsync(ct)) throw DocumentExportContract.Missing();
         var output = row.GetFieldValue<byte[]>(0);
         if (output.Length != task.OutputBytes ||
             !CryptographicOperations.FixedTimeEquals(SHA256.HashData(output), row.GetFieldValue<byte[]>(1)) ||
             !CryptographicOperations.FixedTimeEquals(task.OutputDigest!, row.GetFieldValue<byte[]>(1)))
             throw new PublicUnavailableException();
         return (task.Request.Format, receipt ? DocumentExportReceipt.Encode(task, verified!, toolDigest, receiptVersion, ct) : output, hasAttachment);
-    }
-
-    internal static async Task<Guid[]> ReadAttachmentIds(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, short provider, CancellationToken ct)
-    {
-        if (provider is 1 or DocumentExportInput.CurrentProvider) return [];
-        var list = provider == DocumentExportInput.ImageListProvider;
-        await using var read = Store.Sql(db, tx, $"""
-            select {(list ? "attachment_ids" : "array[attachment_id]")} from public.author_document_export
-            where owner_id=$1 and id=$2 and provider=$3
-            """, owner, id, provider);
-        return await read.ExecuteScalarAsync(ct) is Guid[] assets && assets.All(asset => asset != Guid.Empty) &&
-            assets.Distinct().Count() == assets.Length && DocumentExportInput.ProviderFor(assets) == provider
-                ? assets : throw new PublicUnavailableException();
     }
 
     private static async Task<DocumentExportTask?> Owned(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, Guid id,

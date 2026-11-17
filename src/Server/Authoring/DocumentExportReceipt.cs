@@ -13,7 +13,7 @@ internal static class DocumentExportReceipt
     internal static byte[] Encode(DocumentExportTask task, DocumentExportInput input, byte[]? toolDigest,
         int version, CancellationToken ct)
     {
-        var (mime, format) = DocumentExportEndpoints.Presentation(task.Request.Format);
+        var (mime, format) = DocumentExportContract.Presentation(task.Request.Format);
         var warnings = version == 1 ? null : task.Request.Format == DocumentExportFormat.Docx
             ? WordDocumentExport.Warnings(input.Body, task.Provider != 1, ct)
             : EpubDocumentExport.Warnings(input.Body, task.Provider != 1, ct);
