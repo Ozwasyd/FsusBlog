@@ -10,7 +10,7 @@ import { useArticleReadProof } from '../article-read-proof'
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
 import ArticlePublicationProof from '../components/ArticlePublicationProof.vue'
-import RelatedReading from '../components/RelatedReading.vue'
+import ArticleNeighbors from '../components/ArticleNeighbors.vue'
 
 const route = useRoute()
 const article = shallowRef<Awaited<ReturnType<typeof api.publicArticle>>>()
@@ -124,7 +124,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
     </aside>
     <ArticlePublicationProof v-if="article.rights?.enabled && article.rights.proofBindingEnabled"
       :key="article.publication.toString()" :article="article" />
-    <RelatedReading :article-id="article.id" :publication="article.publication" />
+    <ArticleNeighbors :article-id="article.id" :publication="article.publication" />
     <ArticleComments :key="article.id" :article-id="article.id" :publication="article.publication" />
   </article>
 </template>
