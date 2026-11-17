@@ -440,6 +440,16 @@ internal sealed class WebPages(string template, PublicSiteConfiguration? site = 
         return Page(shell, title, description, language, noIndex, publicPath);
     }
 
+    // Anonymous first paint only. Vue owns capability checks and all credential controls.
+    internal byte[] SiteLoginPage() => Page($"""
+        <header class="site-auth-header"><div class="site-auth-bar">
+        <a class="site-auth-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
+        </div></header>
+        <main class="auth-page site-auth-main"><div class="auth-heading">
+        <h1>Log in</h1><p>Write and publish articles.</p></div>
+        <noscript>Enable JavaScript to log in.</noscript></main>
+        """, title: "Log in", noIndex: true);
+
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
         bool noIndex = false, string? publicPath = null, bool useAppearance = true)
     {

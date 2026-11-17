@@ -105,7 +105,33 @@ p { line-height: 1.65; }
 
 .auth-page { width: min(40rem, calc(100% - 2 * var(--fsusblog-page-gutter))); margin-inline-start: var(--fsusblog-page-gutter); padding-block: clamp(2.75rem, 8vw, 5rem); }
 .auth-page h1 { font-size: clamp(2rem, 5vw, 2.75rem); }
-.auth-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+/* Shared by the anonymous initial document and the mounted site-auth layout. */
+.site-auth-header { border-block-end: 1px solid var(--el-border-color-lighter); background: var(--fsus-paper); }
+.site-auth-bar {
+  inline-size: min(100%, 64rem);
+  min-block-size: 4rem;
+  margin-inline: auto;
+  padding-inline: var(--fsusblog-page-gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.site-auth-brand {
+  display: block;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  overflow: hidden;
+  align-content: center;
+  color: var(--el-text-color-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-auth-bar > :last-child:not(:first-child) { flex: none; }
+.site-auth-main.auth-page { margin-inline: auto; }
 .auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; }
 .auth-form { display: grid; gap: .75rem; margin-block: 3.25rem 2.25rem; }
 .auth-footer { border-block-start: 1px solid var(--fsus-border); padding-block-start: 1.5rem; }

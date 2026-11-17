@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
+import SiteAuthLayout from './SiteAuthLayout.vue'
 import { currentSession, refreshSession, signOut } from './session'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
@@ -112,9 +113,9 @@ async function leave() {
 </script>
 
 <template>
-  <RouterView v-if="route.name === 'login'" v-slot="{ Component }">
-    <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
-  </RouterView>
+  <SiteAuthLayout v-if="route.name === 'login'" :theme-mode="themeMode" @theme="useTheme">
+    <RouterView />
+  </SiteAuthLayout>
   <RouterView v-else-if="route.name === 'admin-identity'" />
   <div v-else-if="accountArea" class="workspace">
     <ElSiteHeader max-width="64rem">
@@ -149,7 +150,7 @@ async function leave() {
     </ElDrawer>
     <RouterView />
   </div>
-  <template v-else>
+  <div v-else @click="navigatePublic">
     <a class="skip-link" href="#page-content">跳到正文</a>
     <ElPublicShell
       :brand="siteTitle"
@@ -168,7 +169,6 @@ async function leave() {
       csp-safe
       spa-search
       @search="search"
-      @click="navigatePublic"
     >
       <template #desktop-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
@@ -208,7 +208,7 @@ async function leave() {
         </div>
       </template>
     </ElPublicShell>
-  </template>
+  </div>
 </template>
 
 <style scoped>
