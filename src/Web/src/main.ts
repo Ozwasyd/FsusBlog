@@ -20,7 +20,9 @@ const authorArticles = () => import('./views/AuthorArticles.vue')
 const sitePage = () => import('./views/SitePage.vue')
 const router = createRouter({
   history: createWebHistory(),
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: (to, from) => to.name === 'archive' && to.path === from.path && (to.hash || from.hash)
+    ? false // The browser handles the archive's in-page year anchors.
+    : { top: 0 },
   routes: [
     { path: '/', name: 'home', component: publicListing },
     { path: '/archive', name: 'archive', component: publicListing },

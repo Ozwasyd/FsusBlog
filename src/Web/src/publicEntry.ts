@@ -1,7 +1,8 @@
 import { api } from '../../Contracts/client'
 import { fetchPublicArticleMedia, type PublicArticleImage } from '../../Contracts/published-media'
 
-type InitialListing = { page: number; value: Awaited<ReturnType<typeof api.publicList>> }
+type ListingScope = 'home' | 'archive'
+type InitialListing = { scope: ListingScope; page: number; value: Awaited<ReturnType<typeof api.publicList>> }
 type InitialArticle = {
   value: Awaited<ReturnType<typeof api.publicArticle>>
   images?: readonly PublicArticleImage[]
@@ -20,8 +21,8 @@ export async function preloadPublicEntry(route: { name: unknown; params: Record<
   if (!entry?.firstElementChild) return
   const signal = AbortSignal.timeout(2_500)
   try {
-    if (route.name === 'home' && pageNumber(route.query.page) === 1 && !route.query.cursor) {
-      listing = { page: 1, value: await api.publicList(1, 10, signal) }
+    if ((route.name === 'home' || route.name === 'archive') && pageNumber(route.query.page) === 1 && !route.query.cursor) {
+      listing = { scope: route.name, page: 1, value: await api.publicList(1, 10, signal, { archive: route.name === 'archive' }) }
     } else if (route.name === 'article') {
       const id = Number(route.params.id)
       const value = await api.publicArticle(id, signal)
@@ -40,8 +41,8 @@ export function readInitialArticle(id: number) {
   return value?.value.id === id ? value : undefined
 }
 
-export function readInitialListing(page: number) {
+export function readInitialListing(page: number, scope: ListingScope) {
   const value = listing
   listing = undefined
-  return value?.page === page ? value.value : undefined
+  return value?.page === page && value.scope === scope ? value.value : undefined
 }

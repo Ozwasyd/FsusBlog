@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
+import ArchiveTimeline from '../components/ArchiveTimeline.vue'
 import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElLink } from '@ozwasyd/element-plus'
@@ -24,6 +25,7 @@ function search() {
 }
 const isSearch = computed(() => route.name === 'search')
 const isHome = computed(() => route.name === 'home')
+const isArchive = computed(() => route.name === 'archive')
 const taxonomy = computed<TaxonomyKind | undefined>(() => {
   const name = route.name
   return name === 'category' || name === 'tag' ? name : undefined
@@ -38,6 +40,7 @@ const page = computed(() => pageNumber(route.query.page))
 const cursor = computed(() => typeof route.query.cursor === 'string' && route.query.cursor ? route.query.cursor : undefined)
 const nextCursor = ref<string | null>(null)
 const searchTotal = ref(0)
+const archiveTotal = ref(0)
 const cursorExpired = ref(false)
 const previousByCursor = new Map<string, string | undefined>()
 const priorCursor = computed(() => cursor.value && previousByCursor.get(cursor.value))
@@ -69,6 +72,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
   articles.value = []
   nextCursor.value = null
   searchTotal.value = 0
+  archiveTotal.value = 0
   filter.value = undefined
   missing.value = false
   cursorExpired.value = false
@@ -100,13 +104,14 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
       document.title = `${metadata.name} · ${siteTitle}`
       result = page
     } else {
-      result = (!token && home ? readInitialListing(ordinal) : undefined)
+      result = (!token ? readInitialListing(ordinal, home ? 'home' : 'archive') : undefined)
         ?? await api.publicList(ordinal, pageSize, request.signal, { archive: !home, cursor: currentCursor })
     }
     if (!request.signal.aborted) {
       articles.value = result.items
       nextCursor.value = result.nextCursor
       if (search) searchTotal.value = result.total
+      if (!search && !home && !kind) archiveTotal.value = result.total
       if (result.nextCursor) {
         if (previousByCursor.size >= 100) previousByCursor.clear()
         previousByCursor.set(result.nextCursor, token)
@@ -171,6 +176,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       <ElButton class="retry" @click="reload++">{{ t('reading.retry') }}</ElButton>
     </template>
     <p v-else-if="searchPageOutOfRange" class="muted" role="status">{{ t('reading.searchPageEmpty') }}</p>
+    <ArchiveTimeline v-else-if="isArchive" :items="articles" :total="archiveTotal" />
     <p v-else-if="!articles.length" class="muted">
       {{ t(isSearch ? query ? 'reading.noSearchMatches' : 'reading.searchPrompt' : taxonomy ? 'reading.noTaxonomyArticles' : 'reading.noArticles') }}
     </p>
