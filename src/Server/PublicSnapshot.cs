@@ -60,12 +60,40 @@ internal sealed class PublicSnapshot
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
-        Home = pages.Page($"<main><h1>{HtmlEncoder.Default.Encode(pages.SiteTitle)}</h1>" + (first.Length > 0
-            ? "<ol>" + string.Concat(first.Select(article => $"<li><a href=\"/article/{article.Id}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>")) + "</ol>"
-            : "<p>暂无文章</p>") + "</main>", publicPath: "/");
+        Home = pages.PublicPage(HomeContent(first), publicPath: "/");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
             .Select(part => PublicArticles.EncodeSearch(part, part.Length)).ToArray();
         Distribution = DistributionSnapshot.Build(distribution, articles, cancellationToken);
+    }
+
+    private static string HomeContent(IReadOnlyList<Article> articles)
+    {
+        var html = new StringBuilder("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Latest posts</h1>");
+        if (articles.Count == 0)
+            html.Append("<p class=\"muted\">No articles have been published yet.</p>");
+        else
+        {
+            html.Append("<ol class=\"article-list\">");
+            foreach (var article in articles)
+            {
+                html.Append("<li><article><div class=\"article-taxonomy metadata\">");
+                if (article.PublishedAt.ToUnixTimeMilliseconds() != 0)
+                {
+                    var date = article.PublishedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    html.Append($"<time datetime=\"{date}\">{date}</time>");
+                }
+                if (article.Category is { Id: > 0 } category)
+                    html.Append($"<a href=\"/category/{category.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(category.Name)}</a>");
+                foreach (var tag in article.Tags ?? [])
+                    html.Append($"<a href=\"/tag/{tag.Id.ToString(CultureInfo.InvariantCulture)}\">#{HtmlEncoder.Default.Encode(tag.Name)}</a>");
+                html.Append($"</div><h2><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></h2>");
+                if (!string.IsNullOrEmpty(article.Summary))
+                    html.Append($"<p>{HtmlEncoder.Default.Encode(article.Summary)}</p>");
+                html.Append("</article></li>");
+            }
+            html.Append("</ol>");
+        }
+        return html.Append("</section>").ToString();
     }
 
     internal Article? Article(int id) => _byId.GetValueOrDefault(id);
@@ -393,6 +421,27 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 internal sealed class WebPages(string template, PublicSiteConfiguration? site = null, AppearanceAssets? appearance = null)
 {
     internal string SiteTitle => site?.Seo.Title ?? PublicSiteConfiguration.DefaultTitle;
+
+    // Public renderers supply main content; private application shells still use Page.
+    // data-fsus-public-content is the app-owned client capture boundary for site pages.
+    internal byte[] PublicPage(string content = "", string? title = null, string? description = null, string? language = null,
+        bool noIndex = false, string? publicPath = null, bool contentDriven = false)
+    {
+        var flow = contentDriven ? " data-content-flow=\"content-driven\"" : "";
+        var homeCurrent = publicPath == "/" ? " aria-current=\"page\"" : "";
+        var archiveCurrent = publicPath == "/archive" ? " aria-current=\"page\"" : "";
+        var aboutCurrent = publicPath == "/about" ? " aria-current=\"page\"" : "";
+        var shell = $"""
+            <div class="public-initial">
+            <a class="skip-link" href="#page-content">Skip to content</a>
+            <header class="public-initial-header"><div class="public-initial-bar">
+            <a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
+            <nav aria-label="Primary navigation"><a{homeCurrent} href="/">Home</a><a{archiveCurrent} href="/archive">Archive</a><a{aboutCurrent} href="/about">关于</a></nav>
+            <a href="/search">Search</a><a href="/login">Log in</a>
+            </div></header><main id="page-content" tabindex="-1" data-fsus-public-content{flow}>{content}</main></div>
+            """;
+        return Page(shell, title, description, language, noIndex, publicPath);
+    }
 
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
         bool noIndex = false, string? publicPath = null, bool useAppearance = true)

@@ -66,10 +66,10 @@ internal sealed class TaxonomyProjection
             var description = item.Description is null ? "" : $"<p>{HtmlEncoder.Default.Encode(item.Description)}</p>";
             var links = string.Concat(members[item.Id].OrderByDescending(article => article.CreatedAt)
                 .ThenByDescending(article => article.Id).Take(10).Select(article =>
-                    $"<li><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>"));
-            var html = $"<main><h1>{name}</h1>{description}{(links.Length == 0 ? "<p>暂无文章</p>" : $"<ol>{links}</ol>")}</main>";
+                    $"<li><article><h2><a href=\"/article/{article.Id.ToString(CultureInfo.InvariantCulture)}\">{HtmlEncoder.Default.Encode(article.Title)}</a></h2></article></li>"));
+            var html = $"<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">{name}</h1>{description}{(links.Length == 0 ? "<p>暂无文章</p>" : $"<ol class=\"article-list\">{links}</ol>")}</section>";
             var path = $"/{prefix}/{DistributionSettings.Number(item.Id)}";
             return new TaxonomyPage(TaxonomyWire.EncodeMetadata(item),
-                pages.Page(html, item.Name, description: item.Description, publicPath: path), members[item.Id].Count());
+                pages.PublicPage(html, item.Name, description: item.Description, publicPath: path), members[item.Id].Count());
         });
 }

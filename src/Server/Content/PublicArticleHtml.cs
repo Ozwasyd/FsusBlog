@@ -23,7 +23,7 @@ internal static class PublicArticleHtml
         var cover = article.CoverMediaDigest is { } digest
             ? $"<img src=\"{PublishedMediaProjection.ImagePath(article.Id, article.Publication, digest)}\" alt=\"Article cover\" class=\"article-cover\">"
             : "";
-        return $"<main><article>{cover}<h1>{header}</h1>{RenderMarkdown(article.Body)}{RenderImages(article, images)}{disclosure}</article></main>";
+        return $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\">{cover}<header class=\"editorial-rule\"><h1>{header}</h1></header>{RenderMarkdown(article.Body)}{RenderImages(article, images)}{disclosure}</article>";
     }
 
     private static string RenderImages(Article article, IReadOnlyList<PublishedArticleImage>? images)

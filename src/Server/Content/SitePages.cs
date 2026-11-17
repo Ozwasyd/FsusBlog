@@ -132,9 +132,9 @@ internal sealed class SitePages
         var frame = SitePageWire.Encode(spec.Slug, revision.Markdown);
         var title = HtmlEncoder.Default.Encode(spec.Title);
         var state = configured ? "published" : "unconfigured";
-        var content = $"<main><article data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header><h1>{title}</h1></header>" +
-            $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(revision.Markdown)}</div></article></main>";
-        var html = renderer.Page(content, spec.Title, language: "zh-CN", noIndex: !configured, publicPath: "/" + spec.Slug);
+        var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{title}</h1></header>" +
+            $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(revision.Markdown)}</div></article>";
+        var html = renderer.PublicPage(content, spec.Title, language: "zh-CN", noIndex: !configured, publicPath: "/" + spec.Slug, contentDriven: true);
         return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame));
     }
 

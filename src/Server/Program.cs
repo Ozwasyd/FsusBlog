@@ -487,7 +487,8 @@ Mutation(WireRoutes.Restore, ArticleAction.Restore);
 
 var webPages = app.Services.GetRequiredService<WebPages>();
 var shell = webPages.Page();
-var archiveShell = webPages.Page(publicPath: "/archive");
+var archiveShell = webPages.PublicPage("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Archive</h1><p role=\"status\">Loading articles…</p></section>", publicPath: "/archive");
+var searchShell = webPages.PublicPage("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Search</h1></section>", noIndex: true, publicPath: "/search");
 app.MapGet("/", (HttpContext ctx) => PublicResponse.Write(ctx, Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
@@ -498,7 +499,8 @@ foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article
         ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
         return Results.Bytes(shell, Html);
     });
-foreach (var route in new[] { "/search", "/login", "/user/identity/mfa", "/user/messagebox",
+app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(searchShell, Html); });
+foreach (var route in new[] { "/login", "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 foreach (var route in new[] { "/user/manage/canvas", "/user/manage/canvas/{id:guid}" })
