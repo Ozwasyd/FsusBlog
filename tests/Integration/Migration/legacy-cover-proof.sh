@@ -5,25 +5,11 @@ export PATH="${PG_TOOLS_DIR:-/opt/homebrew/opt/postgresql@18/bin}:$PATH"
 dotnet_bin="${DOTNET_BIN:-dotnet}"
 migrate=("$dotnet_bin" "${FSUSBLOG_MIGRATE_DLL:-$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}")
 case "$# ${1:-}" in "0 "|"1 --stage") ;; *) echo "Usage: $0 [--stage]" >&2; exit 2 ;; esac
+source tests/Integration/Migration/legacy-cover-cleanup.sh
 umask 077
 scratch="$(mktemp -d /tmp/fsus-cover-proof.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
-cleanup() {
-    local status=$? lane
-    for lane in source target; do
-        if [[ -f "$scratch/$lane/postmaster.pid" ]]; then pg_ctl -D "$scratch/$lane" -m fast -w stop >/dev/null || status=1; fi
-    done
-    local evidence="$scratch-evidence"
-    mkdir -m 700 "$evidence"
-    find "$scratch" -maxdepth 1 -type f \( -name '*.json' -o -name '*.err' -o -name '*.out' -o -name '*.log' \) -exec cp {} "$evidence/" \;
-    if [[ "$status" == 0 ]]; then
-        find "$scratch" -type d -exec chmod u+w {} +
-        find "$scratch" -depth -delete || status=1
-    fi
-    printf 'Cover proof exit=%s; owned clusters stopped; evidence=%s\n' "$status" "$evidence"
-    exit "$status"
-}
-trap cleanup EXIT
+trap 'cleanup "$scratch"' EXIT
 source tests/Integration/Migration/legacy-cover-database-fixture.sh
 pg source "$source" -c "DELETE FROM content_asset_reference; DELETE FROM content_asset WHERE id<>'$asset';
 UPDATE content_asset SET owner_admin_principal_id=7 WHERE id='$asset';

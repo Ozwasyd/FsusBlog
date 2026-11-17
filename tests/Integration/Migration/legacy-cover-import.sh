@@ -12,17 +12,12 @@ if [[ "${1:-}" == --prepare || "${1:-}" == --dormant ]]; then
     source tests/Integration/Migration/legacy-cover-preparation-fixture.sh
 fi
 if [[ "${1:-}" == --dormant ]]; then dormant=true; publication_count=0; source tests/Integration/Migration/legacy-dormant-cover-fixture.sh; fi
+source tests/Integration/Migration/legacy-cover-cleanup.sh
 umask 077
 scratch="$(mktemp -d /tmp/fsus-cover-proof.XXXXXXXX)"
 scratch="$(cd "$scratch" && pwd -P)"
-cleanup() {
-    local status=$? lane
-    for lane in source target; do
-        if [[ -f "$scratch/$lane/postmaster.pid" ]]; then pg_ctl -D "$scratch/$lane" -m fast -w stop >/dev/null || status=1; fi
-    done
-    local evidence="$scratch-evidence"
-    mkdir -m 700 "$evidence"
-    find "$scratch" -maxdepth 1 -type f \( -name '*.json' -o -name '*.err' -o -name '*.out' -o -name '*.log' \) -exec cp {} "$evidence/" \;
+preserve_cover_evidence() {
+    local scratch=$1 evidence=$2
     if [[ -d "$scratch/dormant-media" ]]; then
         mkdir -m 700 "$evidence/dormant-media"; cp "$scratch/dormant-media/"*.media "$evidence/dormant-media/"
         cp "$scratch/approval/dormant.json" "$evidence/dormant-approval.json"
@@ -31,14 +26,8 @@ cleanup() {
         mkdir -m 700 "$evidence/prepared"
         cp -R "$scratch/prepared/first" "$evidence/prepared/"
     fi
-    if [[ "$status" == 0 ]]; then
-        find "$scratch" -type d -exec chmod u+w {} +
-        find "$scratch" -depth -delete || status=1
-    fi
-    printf 'Cover proof exit=%s; owned clusters stopped; evidence=%s\n' "$status" "$evidence"
-    exit "$status"
 }
-trap cleanup EXIT
+trap 'cleanup "$scratch" preserve_cover_evidence' EXIT
 source tests/Integration/Migration/legacy-cover-database-fixture.sh
 pg source "$source" -c "DELETE FROM content_asset_reference; DELETE FROM content_asset WHERE id<>'$asset';
 UPDATE content_asset SET owner_admin_principal_id=7,storage_key='illustration/$current_leaf' WHERE id='$asset';
