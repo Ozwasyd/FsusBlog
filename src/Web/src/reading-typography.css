@@ -1,3 +1,22 @@
+/* Article titles share their own scale across first paint and Vue, separate
+   from headings inside the Markdown body and from site policy page titles. */
+.article-body:has(> .blog-markdown--article) > header h1 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -.012em;
+  word-spacing: -.055em;
+  margin-block-end: .55em;
+}
+@media (min-width: 40rem) {
+  .article-body:has(> .blog-markdown--article) > header h1 { font-size: 1.875rem; }
+}
+.article-body > header .article-taxonomy {
+  column-gap: .75rem;
+  row-gap: .25rem;
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
 /* FsusBlog's reading profile. Both Markdig's first paint and the interactive
    renderer use this boundary; task surfaces keep FsusUI's defaults. */
 .blog-markdown {
