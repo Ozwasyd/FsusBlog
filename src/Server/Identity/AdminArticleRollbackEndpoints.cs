@@ -56,7 +56,7 @@ internal static class AdminArticleRollbackEndpoints
         }).RequireRateLimiting("query");
 
         void MapAction<TIntent, TReceipt>(string available, string begin, string complete, string execute,
-            int maximum, IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
+            int maximum, AdminActionRoutes.IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
             Func<string?, CancellationToken, Task> checkAvailability,
             Func<string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
             Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
@@ -79,20 +79,10 @@ internal static class AdminArticleRollbackEndpoints
                 return Frame(encode(receipt));
             }).RequireRateLimiting("command");
 
-            async Task<TIntent> ReadIntent(HttpContext ctx, CancellationToken ct)
-            {
-                var intent = decode(await actions.Read(ctx, maximum, ct));
-                RequireCommandHeader(ctx, idempotencyKey(intent));
-                return intent;
-            }
+            Task<TIntent> ReadIntent(HttpContext ctx, CancellationToken ct) =>
+                actions.ReadIntent(ctx, maximum, decode, idempotencyKey, required: false, ct);
+
         }
-    }
-
-    private delegate T IntentDecoder<T>(ReadOnlySpan<byte> frame);
-
-    private static void RequireCommandHeader(HttpContext ctx, Guid expected)
-    {
-        ClientMutationHeader.Require(ctx, expected);
     }
 
     private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);

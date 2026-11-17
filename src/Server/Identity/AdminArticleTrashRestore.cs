@@ -24,12 +24,10 @@ internal static class AdminArticleTrashRestore
             return AdminActionRoutes.Frame(Wire.EncodeAdminArticleTrashRestoreReceipt(result));
         }).RequireRateLimiting("command");
 
-        async Task<AdminArticleTrashRestoreIntent> Intent(HttpContext ctx, CancellationToken ct)
-        {
-            var intent = Wire.DecodeAdminArticleTrashRestoreIntent(await routes.Read(ctx, WireLimits.AdminArticleTrashRestoreIntentFrameBytes, ct));
-            ClientMutationHeader.Require(ctx, intent.IdempotencyKey, required: true);
-            return intent;
-        }
+        Task<AdminArticleTrashRestoreIntent> Intent(HttpContext ctx, CancellationToken ct) =>
+            routes.ReadIntent(ctx, WireLimits.AdminArticleTrashRestoreIntentFrameBytes, Wire.DecodeAdminArticleTrashRestoreIntent,
+                intent => intent.IdempotencyKey, required: true, ct);
+
     }
 }
 

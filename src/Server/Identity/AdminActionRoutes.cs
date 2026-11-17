@@ -20,6 +20,16 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
         return readFrame(ctx, maximum, ct);
     }
 
+    internal delegate T IntentDecoder<T>(ReadOnlySpan<byte> frame);
+
+    internal async Task<T> ReadIntent<T>(HttpContext ctx, int maximum, IntentDecoder<T> decode,
+        Func<T, Guid> idempotencyKey, bool required, CancellationToken ct)
+    {
+        var intent = decode(await Read(ctx, maximum, ct));
+        ClientMutationHeader.Require(ctx, idempotencyKey(intent), required: required);
+        return intent;
+    }
+
     internal RouteHandlerBuilder Post(string route, int maximum,
         Func<string?, byte[], CancellationToken, Task<byte[]>> apply) =>
         app.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
