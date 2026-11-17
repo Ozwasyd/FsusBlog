@@ -107,6 +107,37 @@ p { line-height: 1.65; }
 .metadata, .muted { color: var(--fsus-color-text-muted); }
 .metadata { font-size: .875rem; }
 .article-taxonomy { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1rem; }
+.article-taxonomy > :is(time, span):has(+ a) { position: relative; }
+.article-taxonomy > :is(time, span):has(+ a)::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: -.5rem;
+  inline-size: 2px;
+  block-size: 2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.article-taxonomy > a {
+  color: var(--el-text-color-secondary);
+  text-decoration: none;
+  border-radius: .2rem;
+}
+.article-taxonomy > a[href^="/category/"]::before {
+  content: "";
+  display: inline-block;
+  inline-size: .42em;
+  block-size: .42em;
+  margin-inline-end: .45em;
+  border: 1px solid currentColor;
+  vertical-align: .12em;
+  transform: rotate(45deg);
+}
+.article-taxonomy > a:hover {
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-light);
+  box-shadow: 0 0 0 3px var(--el-fill-color-light);
+}
 .article-list { list-style: none; padding: 0; margin: 0; }
 .article-list > li { padding-block: 1.2rem; overflow-wrap: anywhere; }
 .article-list h2 { margin: .5rem 0; font-size: 1.25rem; }
