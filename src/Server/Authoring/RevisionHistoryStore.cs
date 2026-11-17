@@ -28,7 +28,7 @@ internal static class RevisionHistoryStore
     internal static async Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,
         int id, long revision, CancellationToken ct)
     {
-        await using var read = Store.Sql(db, tx, """
+        await using var read = SqlCommands.Create(db, tx, """
             select title,body,happened_at from public.article_revision where article_id=$1 and revision=$2
             """, id, revision);
         await using var row = await read.ExecuteReaderAsync(ct);
@@ -40,7 +40,7 @@ internal static class RevisionHistoryStore
     internal static async Task<List<RevisionHistoryItem>> Read(NpgsqlConnection db, NpgsqlTransaction tx, int id,
         long expected, long before, CancellationToken ct)
     {
-        await using var read = Store.Sql(db, tx, """
+        await using var read = SqlCommands.Create(db, tx, """
             select r.revision,r.title,r.happened_at,a.source_revision,a.reason
             from public.article_revision r
             left join public.article_rollback a using (article_id,revision)
@@ -60,7 +60,7 @@ internal static class RevisionHistoryStore
     internal static async Task<(SavedRevisionMetadata Current, SavedRevisionMetadata Source)> ReadMetadata(
         NpgsqlConnection db, NpgsqlTransaction tx, int id, long expected, long source, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        await using var query = SqlCommands.Create(db, tx, """
             select r.revision,coalesce(r.author_summary,''),c.id,c.name,t.ids,t.names
             from public.article_revision r
             left join public.article_revision_category rc using (article_id,revision)
@@ -89,7 +89,7 @@ internal static class RevisionHistoryStore
     internal static async Task RecordRollback(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, long newRevision,
         DraftRollback input, CancellationToken ct)
     {
-        await using var record = Store.Sql(db, tx, """
+        await using var record = SqlCommands.Create(db, tx, """
             insert into public.article_rollback(article_id,revision,previous_revision,source_revision,actor_id,command_id,reason)
             values($1,$2,$3,$4,$5,$6,$7)
             """, input.Id, newRevision, input.ExpectedRevision, input.SourceRevision, actor.Id, input.IdempotencyKey, input.Reason);

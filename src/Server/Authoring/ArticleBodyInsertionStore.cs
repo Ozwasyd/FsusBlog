@@ -41,7 +41,7 @@ internal static class ArticleBodyInsertionStore
         {
             // Older admitted physical schemas still save the valid draft.
             if (!await CurrentSchema.HasArticleBodyEditsAsync(db, tx, ct)) return;
-            await using var edited = Store.Sql(db, tx, """
+            await using var edited = SqlCommands.Create(db, tx, """
                 insert into public.article_body_insertion
                     (article_id,revision,source_revision,source_digest,body_digest,operations,edit_texts)
                 values ($1,$2,$3,$4,$5,$6,$7)
@@ -53,7 +53,7 @@ internal static class ArticleBodyInsertionStore
         }
         if (witness.Insertions is { } operations)
         {
-            await using var sequence = Store.Sql(db, tx, """
+            await using var sequence = SqlCommands.Create(db, tx, """
                 insert into public.article_body_insertion
                     (article_id,revision,source_revision,offset_utf16,length_utf16,source_digest,body_digest,operations)
                 values ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -63,7 +63,7 @@ internal static class ArticleBodyInsertionStore
             return;
         }
         if (!await CurrentSchema.HasArticleBodyInsertionAsync(db, tx, ct)) return;
-        await using var write = Store.Sql(db, tx, """
+        await using var write = SqlCommands.Create(db, tx, """
             insert into public.article_body_insertion
                 (article_id,revision,source_revision,offset_utf16,length_utf16,source_digest,body_digest)
             values ($1,$2,$3,$4,$5,$6,$7)
@@ -78,7 +78,7 @@ internal static class ArticleBodyInsertionStore
         if (sourceRevision != revision - 1 || !await CurrentSchema.HasArticleBodyInsertionAsync(db, tx, ct)) return absent;
         var legacyOnly = await CurrentSchema.HasArticleBodyEditsAsync(db, tx, ct) ? "and e.edit_texts is null" : "";
 
-        await using var read = Store.Sql(db, tx, $"""
+        await using var read = SqlCommands.Create(db, tx, $"""
             select e.offset_utf16,e.length_utf16,e.source_digest,e.body_digest,prior.body,head.body
             from public.article_body_insertion e
             join public.article_revision prior on prior.article_id=e.article_id and prior.revision=e.source_revision
@@ -136,7 +136,7 @@ internal static class ArticleBodyInsertionStore
             : "null::text[]";
         var hasEdit = hasEdits ? "e.edit_texts is not null" : "false";
         var join = hasWitness ? "left join public.article_body_insertion e on e.article_id=r.article_id and e.revision=r.revision" : "";
-        await using var read = Store.Sql(db, tx, $"""
+        await using var read = SqlCommands.Create(db, tx, $"""
             select r.revision,r.body,{coordinates},{operationsColumn},{editText},{hasEdit}
             from public.article_revision r {join}
             where r.article_id=$1 and r.revision between $2 and $3
