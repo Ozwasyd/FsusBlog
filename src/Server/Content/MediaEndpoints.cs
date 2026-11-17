@@ -21,7 +21,7 @@ internal static class MediaEndpoints
         options.AddImmediateConcurrency(ReadPolicy, 4);
     }
 
-    internal static void Map(WebApplication app, string cookie, bool publishedMedia = false)
+    internal static void Map(WebApplication app, string cookie)
     {
         var resumable = app.Configuration.GetValue(MediaUploadEndpoints.Setting, false);
         app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
@@ -85,8 +85,6 @@ internal static class MediaEndpoints
         {
             await Read(ctx, id, store, media, cookie, app.Logger, token);
         }).RequireRateLimiting(ReadPolicy).WithMetadata(new PrivateRead());
-        MediaUploadEndpoints.Map(app, cookie);
-        ArticleMediaEndpoints.Map(app, cookie, publishedMedia);
     }
 
     internal static void SetHidden(HttpResponse response)

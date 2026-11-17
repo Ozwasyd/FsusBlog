@@ -315,7 +315,11 @@ FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
-    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie, publicMediaEnabled);
+{
+    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
+    FsusBlog.V2.Server.Content.MediaUploadEndpoints.Map(app, Cookie);
+    FsusBlog.V2.Server.Content.ArticleMediaEndpoints.Map(app, Cookie, publicMediaEnabled);
+}
 if (publishedMedia is not null)
     PublishedMediaEndpoints.Map(app, Cookie, publications, publishedMedia, ReadFrame);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
