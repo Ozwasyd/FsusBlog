@@ -13,7 +13,8 @@ try {
       window.routeFades = []
       const animate = Element.prototype.animate
       Element.prototype.animate = function (keyframes, options) {
-        if (this.id === 'page-content') window.routeFades.push({ path: location.pathname, keyframes, options })
+        if (this.matches('#page-content, .site-auth-main'))
+          window.routeFades.push({ path: location.pathname, outlet: this.id || 'auth', keyframes, options })
         return animate.call(this, keyframes, options)
       }
     })
@@ -56,8 +57,29 @@ try {
     await page.getByRole('menuitem', { name: '中文', exact: true }).click()
     await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
     assert.deepEqual(await page.evaluate(() => window.routeFades), fades)
+    await nav.filter({ hasText: /^登录$/ }).click()
+    await page.waitForURL(origin + '/login')
+    await page.locator('.site-auth-main h1').waitFor()
+    const authPaths = ['/login']
+    if (process.env.FSUSBLOG_TEST_AUTH_TRANSITIONS === '1') {
+      await page.evaluate(() => { window.authHeader = document.querySelector('header.site-auth-header') })
+      await page.getByRole('link', { name: '创建读者账户', exact: true }).click()
+      await page.waitForURL(origin + '/register')
+      await page.getByRole('heading', { name: '创建读者账户', exact: true }).waitFor()
+      assert.equal(await page.evaluate(() => window.authHeader === document.querySelector('header.site-auth-header')), true)
+      await page.goBack()
+      await page.waitForURL(origin + '/login')
+      assert.equal(await page.evaluate(() => window.authHeader === document.querySelector('header.site-auth-header')), true)
+      authPaths.push('/register', '/login')
+    }
+    await page.getByRole('link', { name: '取消', exact: true }).click()
+    await page.waitForURL(origin + '/')
+    const moreFades = await page.evaluate(start => window.routeFades.slice(start), fades.length)
+    assert.deepEqual(moreFades.map(({ path, outlet }) => [path, outlet]), reducedMotion === 'reduce'
+      ? [] : [...authPaths.map(path => [path, 'auth']), ['/', 'page-content']])
+    assert.deepEqual(docs, [origin + '/'])
     assert.deepEqual(errors, [])
     await context.close()
   }
 } finally { await browser.close() }
-console.log('Verified content-only public route fades, browser Back, stable header, no reload and reduced-motion support.')
+console.log('Verified content-only public and authentication route fades, browser Back, stable headers, no reload and reduced-motion support.')

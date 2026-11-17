@@ -35,14 +35,14 @@ const logoutFailure = ref(false)
 const accountMenu = ref(false)
 const navCopy = { home: 'nav.home', archive: 'nav.archive', about: 'nav.about' } as const
 const publicNavigation = computed(() => navigation.map(({ key, href }) => ({ key, href, label: t(navCopy[key as keyof typeof navCopy]) })))
-const publicNavPaths = new Set(navigation.map(item => item.href))
+const publicShellPaths = new Set([...navigation.map(item => item.href), '/login'])
 
 function navigatePublic(event: MouseEvent) {
   if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   const link = event.target instanceof Element ? event.target.closest('a[href]') : null
   if (!(link instanceof HTMLAnchorElement) || link.hasAttribute('download') || (link.target && link.target !== '_self')) return
   const href = link.getAttribute('href')
-  if (href === null || !publicNavPaths.has(href)) return
+  if (href === null || !publicShellPaths.has(href)) return
   event.preventDefault()
   void router.push(href)
 }
@@ -59,11 +59,12 @@ watch(() => route.query.q, value => {
 watch(() => route.fullPath, () => { accountMenu.value = false })
 
 const publicContent = ref<HTMLElement>()
+const authLayout = ref<InstanceType<typeof SiteAuthLayout>>()
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-// Animate only the stable public outlet. Path changes do not remount the shell,
-// and query/hash, theme, and locale changes do not disturb the current view.
+// Animate the destination content, not its shell. Query/hash, theme, and
+// locale changes do not replay the transition.
 watch(() => route.path, (_, __, cleanup) => {
-  const content = publicContent.value
+  const content = siteAuthPage.value ? authLayout.value?.content : publicContent.value
   if (!content || reducedMotion.matches || typeof content.animate !== 'function') return
   const animation = content.animate([
     { opacity: .18, transform: 'translateY(10px)' },
@@ -144,7 +145,7 @@ async function leave() {
 
 <template>
   <ElConfigProvider :locale="siteLocale === 'zh-CN' ? zhCn : en">
-  <SiteAuthLayout v-if="siteAuthPage" :theme-mode="themeMode" @theme="useTheme">
+  <SiteAuthLayout v-if="siteAuthPage" ref="authLayout" :theme-mode="themeMode" @theme="useTheme">
     <RouterView />
   </SiteAuthLayout>
   <template v-else-if="route.name === 'admin-identity'">

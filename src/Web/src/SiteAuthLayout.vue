@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
@@ -6,6 +7,8 @@ import { siteTitle } from './siteBrand'
 
 defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
+const content = useTemplateRef<HTMLElement>('content')
+defineExpose({ content })
 </script>
 
 <template>
@@ -17,7 +20,7 @@ const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
       </div>
     </div>
   </header>
-  <main class="auth-page site-auth-main">
+  <main ref="content" class="auth-page site-auth-main">
     <slot />
   </main>
 </template>
