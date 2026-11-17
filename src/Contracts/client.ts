@@ -2,6 +2,7 @@ import { ApiError, decodeApiError, decodeFrame, decodeSuccess, encodeFrame, Prot
 import { decodeInboxReplay, validReplayCursor } from './inbox-replay.ts';
 import { decodeInboxList, decodeInboxThread, type InboxFilter } from './inbox.ts';
 import { PodWriter } from './binary.ts';
+import { collectBounded } from './bounded-stream.ts';
 import { decodeArticle, decodeArticleList, decodeSearch } from './public-articles.ts';
 import {
   type ArticleCommand,
@@ -19,6 +20,7 @@ import {
 } from './wire.generated.ts';
 
 export { ApiError, ProtocolError } from './aeds.ts';
+export { consumeBounded } from './bounded-stream.ts';
 export type { Article, ArticleCard } from './public-articles.ts';
 export type { ArticleCommand, Draft } from './wire.generated.ts';
 export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
@@ -74,37 +76,8 @@ export async function request<T>(
 async function readResponse(response: Response): Promise<Uint8Array> {
   if (!response.body) throw new ProtocolError('Missing AEDS response body');
 
-  const chunks: Uint8Array[] = [];
-  const length = await consumeBounded(response.body, WireHeader.HeaderSize + WireLimits.MaxPayloadBytes,
-    'AEDS response exceeds its byte limit', value => { chunks.push(value); });
-  if (chunks.length === 1) return chunks[0];
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return bytes;
-}
-
-export async function consumeBounded(body: ReadableStream<Uint8Array<ArrayBuffer>>, limit: number, overflow: string,
-  accept: (chunk: Uint8Array<ArrayBuffer>, offset: number) => void): Promise<number> {
-  const reader = body.getReader();
-  let offset = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) return offset;
-      if (value.length > limit - offset) {
-        await reader.cancel();
-        throw new ProtocolError(overflow);
-      }
-      accept(value, offset);
-      offset += value.length;
-    }
-  } finally {
-    reader.releaseLock();
-  }
+  return collectBounded(response.body, WireHeader.HeaderSize + WireLimits.MaxPayloadBytes,
+    'AEDS response exceeds its byte limit', { allowLargerBacking: true });
 }
 
 function commandFrame(command: ArticleCommand): Uint8Array<ArrayBuffer> {

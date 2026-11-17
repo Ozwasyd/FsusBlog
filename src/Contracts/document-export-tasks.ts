@@ -1,6 +1,7 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { consumeBounded, request, siteSessionHeader } from './client.ts';
+import { request, siteSessionHeader } from './client.ts';
+import { consumeBounded } from './bounded-stream.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const formats = ['html', 'pdf', 'docx', 'epub'] as const;

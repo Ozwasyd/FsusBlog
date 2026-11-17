@@ -1,5 +1,6 @@
 import { ApiError, decodeApiError, decodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
+import { collectBounded } from './bounded-stream.ts';
 import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
 import lexicon from './search-lexicon.json' with { type: 'json' };
@@ -578,31 +579,7 @@ function parseLocalSearchResult(payload: Uint8Array): Result {
 
 async function readBytes(response: Response, limit: number): Promise<Uint8Array> {
   requireWire(response.body !== null, 'response body');
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > limit) {
-        await reader.cancel();
-        throw new ProtocolError('Local search corpus exceeds its byte limit');
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  if (chunks.length === 1 && chunks[0].buffer.byteLength === length) return chunks[0];
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return bytes;
+  return collectBounded(response.body, limit, 'Local search corpus exceeds its byte limit');
 }
 
 function digestTag(digest: Uint8Array): string {

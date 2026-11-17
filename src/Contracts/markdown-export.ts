@@ -1,5 +1,6 @@
 import { ApiError, ProtocolError } from './aeds.ts'
-import { consumeBounded, siteSessionHeader } from './client.ts'
+import { siteSessionHeader } from './client.ts'
+import { consumeBounded } from './bounded-stream.ts'
 import { documentOutputs } from './document-export-tasks.ts'
 import { WireHeaders, WireLimits } from './wire.generated.ts'
 
