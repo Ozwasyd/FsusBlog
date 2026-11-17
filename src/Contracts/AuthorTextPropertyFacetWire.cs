@@ -102,13 +102,10 @@ public static partial class Wire
 
     private static void ValidateAuthorTextPropertyFacetQuery(AuthorTextPropertyFacetQuery value)
     {
-        if (!ValidAuthorTextPropertySelector(value.DefinitionId, value.DefinitionRevision, value.Search.SchemaRevision))
+        if (!ValidPropertyDefinitionCoordinates(value.DefinitionId, value.DefinitionRevision, value.Search.SchemaRevision))
             throw InvalidAuthorTextPropertyFacet();
         ValidateAuthorTextQualifiedQuery(value.Search, requireQualifier: false, propertyFacet: true);
     }
-
-    private static bool ValidAuthorTextPropertySelector(Guid definition, long revision, long schema) =>
-        definition != Guid.Empty && revision > 0 && revision <= schema;
 
     private static void ValidateAuthorTextPropertyFacet(AuthorTextPropertyFacet facet, int total)
     {

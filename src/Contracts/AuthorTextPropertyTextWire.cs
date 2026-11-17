@@ -156,7 +156,7 @@ public static partial class Wire
 
     private static void ValidateAuthorTextPropertyTextSelection(AuthorTextQualifiedQuery search, Guid definition, long revision)
     {
-        if (!ValidAuthorTextPropertySelector(definition, revision, search.SchemaRevision)) throw InvalidAuthorTextPropertyText();
+        if (!ValidPropertyDefinitionCoordinates(definition, revision, search.SchemaRevision)) throw InvalidAuthorTextPropertyText();
         ValidateAuthorTextQualifiedQuery(search, requireQualifier: false, propertyFacet: true);
     }
 
@@ -170,8 +170,8 @@ public static partial class Wire
     private static void ValidateAuthorTextPropertySelectors(long schema, AuthorTextPropertyFacetSelector? facet,
         AuthorTextPropertySortSelector? sort)
     {
-        if (facet is not null && !ValidAuthorTextPropertySelector(facet.DefinitionId, facet.DefinitionRevision, schema) ||
-            sort is not null && (!ValidAuthorTextPropertySelector(sort.DefinitionId, sort.DefinitionRevision, schema) ||
+        if (facet is not null && !ValidPropertyDefinitionCoordinates(facet.DefinitionId, facet.DefinitionRevision, schema) ||
+            sort is not null && (!ValidPropertyDefinitionCoordinates(sort.DefinitionId, sort.DefinitionRevision, schema) ||
                 sort.Direction is not (AuthorTextPropertySortDirection.Ascending or AuthorTextPropertySortDirection.Descending)))
             throw InvalidAuthorTextPropertyText();
     }

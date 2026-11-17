@@ -78,9 +78,9 @@ public static partial class Wire
     private static void ValidateAuthorTextPropertySortQuery(AuthorTextPropertySortQuery value)
     {
         var schema = value.Search.SchemaRevision;
-        if (!ValidAuthorTextPropertySelector(value.DefinitionId, value.DefinitionRevision, schema) ||
+        if (!ValidPropertyDefinitionCoordinates(value.DefinitionId, value.DefinitionRevision, schema) ||
             value.Direction is not (AuthorTextPropertySortDirection.Ascending or AuthorTextPropertySortDirection.Descending) ||
-            (value.Facet is { } facet && !ValidAuthorTextPropertySelector(facet.DefinitionId, facet.DefinitionRevision, schema)))
+            (value.Facet is { } facet && !ValidPropertyDefinitionCoordinates(facet.DefinitionId, facet.DefinitionRevision, schema)))
             throw InvalidAuthorTextPropertySort();
         ValidateAuthorTextQualifiedQuery(value.Search, requireQualifier: false, propertyFacet: true);
     }

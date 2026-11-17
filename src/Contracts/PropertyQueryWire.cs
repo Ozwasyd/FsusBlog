@@ -264,7 +264,7 @@ public static partial class Wire
     };
 
     private static bool ValidCondition(long schema, Guid definition, long revision, PropertyFieldValue value) =>
-        definition != Guid.Empty && revision > 0 && revision <= schema && value is not PropertyFieldValue.Unavailable;
+        ValidPropertyDefinitionCoordinates(definition, revision, schema) && value is not PropertyFieldValue.Unavailable;
 
     private static bool ValidCursor(string cursor) => cursor.Length == 0 || cursor.Length == WireLimits.PropertyQueryCursorChars &&
         cursor.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');

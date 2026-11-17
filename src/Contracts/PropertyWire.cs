@@ -73,18 +73,18 @@ public static partial class Wire
 
     internal static void Validate(PropertyDefinitionProjectionCommand input)
     {
-        if (input.RequestId == Guid.Empty || !ValidProjectionCoordinates(input.DefinitionId, input.SchemaRevision, input.DefinitionRevision))
+        if (input.RequestId == Guid.Empty || !ValidPropertyDefinitionCoordinates(input.DefinitionId, input.DefinitionRevision, input.SchemaRevision))
             throw new ProtocolException("Invalid property definition projection command.");
     }
 
     internal static void Validate(PropertyDefinitionProjection output)
     {
-        if (!ValidProjectionCoordinates(output.DefinitionId, output.SchemaRevision, output.DefinitionRevision) ||
+        if (!ValidPropertyDefinitionCoordinates(output.DefinitionId, output.DefinitionRevision, output.SchemaRevision) ||
             output.Digest.Length != WireLimits.PropertyDefinitionDigestBytes || !output.Digest.All(char.IsAsciiHexDigitLower))
             throw new ProtocolException("Invalid property definition projection.");
     }
 
-    private static bool ValidProjectionCoordinates(Guid definition, long schemaRevision, long definitionRevision) =>
+    private static bool ValidPropertyDefinitionCoordinates(Guid definition, long definitionRevision, long schemaRevision) =>
         definition != Guid.Empty && definitionRevision > 0 && definitionRevision <= schemaRevision;
 
     internal static void Validate(PropertyWorkspaceRequest input)
