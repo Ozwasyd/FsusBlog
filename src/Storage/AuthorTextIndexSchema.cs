@@ -51,12 +51,8 @@ internal static partial class CurrentSchema
                          (pg_catalog.to_regclass('public.author_text_article_owner'), 'i')) expected(oid,kind)
             left join pg_catalog.pg_class obj on obj.oid=expected.oid
             """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            1 => true,
-            _ => throw new InvalidOperationException("The author full-text index schema is incomplete.")
-        };
+        return Complete(await query.ExecuteScalarAsync(ct), 1,
+            "The author full-text index schema is incomplete.");
     }
 
     internal static Task<bool> HasAuthorTextSummaryIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>

@@ -72,12 +72,8 @@ internal static partial class CurrentSchema
             left join pg_catalog.pg_opclass operators on operators.opcmethod=tree.oid
                 and operators.opcnamespace='pg_catalog'::regnamespace and operators.opcname='int4_ops'
             """, db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            1 => true,
-            _ => throw new InvalidOperationException("Article read totals or their descending btree index do not match the current schema.")
-        };
+        return Complete(await query.ExecuteScalarAsync(ct), 1,
+            "Article read totals or their descending btree index do not match the current schema.");
     }
 
     private static async Task VerifyArticleReadEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)

@@ -72,12 +72,8 @@ internal static partial class CurrentSchema
                     where attrelid=pg_catalog.to_regclass('public.article_publication_history')
                       and attname in ('admin_actor_id','admin_command_id') and attnum>0 and not attisdropped)
             """, db, tx);
-        return await command.ExecuteScalarAsync(ct) switch
-        {
-            0 => false,
-            6 => true,
-            _ => throw new InvalidOperationException("The administrator article rollback schema is partially installed.")
-        };
+        return Complete(await command.ExecuteScalarAsync(ct), 6,
+            "The administrator article rollback schema is partially installed.");
     }
 
     internal static async Task<bool> HasAdminArticleDraftRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
