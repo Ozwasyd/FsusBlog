@@ -215,6 +215,9 @@ internal static partial class Migration
             {
                 return await ExtensionMaintenance.RunAsync(extensionArguments, cancelled.Token);
             }
+            if (arguments is ["legacy", ..])
+                throw new ArgumentException("V1 data migration commands have been removed.");
+
             var connectionString = Environment.GetEnvironmentVariable(DatabaseVariable);
             if (string.IsNullOrWhiteSpace(connectionString))
             {

@@ -18,6 +18,13 @@ using Npgsql;
 const string Cookie = "fsus-v2-session";
 const string Binary = "application/octet-stream";
 const string Html = "text/html; charset=utf-8";
+if (args is ["legacy-media", ..])
+{
+    Console.Error.WriteLine("V1 media migration commands have been removed.");
+    Environment.ExitCode = 1;
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
