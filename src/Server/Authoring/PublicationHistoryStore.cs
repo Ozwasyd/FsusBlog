@@ -22,7 +22,7 @@ internal static class PublicationHistoryStore
         int publicationCount;
         int eventNo;
         ActivePublication? active;
-        await using (var read = Store.Sql(db, tx, """
+        await using (var read = SqlCommands.Create(db, tx, """
             select a.publication_count,p.publication_id,p.revision,p.publication_no,p.published_at,
                    h.event_no,h.publication_no,h.publication_id
             from public.article a
@@ -66,9 +66,9 @@ internal static class PublicationHistoryStore
         }
         else
         {
-            await using var remove = Store.Sql(db, tx, "delete from public.article_publication where article_id=$1", articleId);
+            await using var remove = SqlCommands.Create(db, tx, "delete from public.article_publication where article_id=$1", articleId);
             await remove.ExecuteNonQueryAsync(ct);
-            await using var clock = Store.Sql(db, tx, "select clock_timestamp()");
+            await using var clock = SqlCommands.Create(db, tx, "select clock_timestamp()");
             var now = (DateTime)(await clock.ExecuteScalarAsync(ct))!;
             var delete = action == ArticleAction.Delete;
             await Append(nextRevision, checked(eventNo + 1), publicationCount, null, active?.Id,
@@ -78,7 +78,7 @@ internal static class PublicationHistoryStore
         async Task Append(long revision, int number, int publications, long? publication, long? supersedes,
             string kind, string reason, DateTime? at, Guid? author, Guid? commandId)
         {
-            await using var insert = Store.Sql(db, tx, """
+            await using var insert = SqlCommands.Create(db, tx, """
                 insert into public.article_publication_history
                     (article_id,event_no,revision,publication_no,publication_id,supersedes_id,kind,reason,happened_at,actor_id,command_id)
                 values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -103,18 +103,18 @@ internal static class PublicationHistoryStore
         var release = hidden ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
             : await Publish(db, tx, article, revision, ct);
         await PublicationRightsStore.Attach(db, tx, article, revision, release.Id, ct);
-        await using var rights = Store.Sql(db, tx,
+        await using var rights = SqlCommands.Create(db, tx,
             "select id from public.article_publication_rights where publication_id=$1", release.Id);
         var rightsSnapshot = (long)(await rights.ExecuteScalarAsync(ct))!;
 
         // Copy the explicit historical evidence and record its exact immutable source.
         var administratorReference = $"admin:{administrator:D}";
         await using var responsibility = fromTrash && sourceResponsibility is null
-            ? Store.Sql(db, tx, """
+            ? SqlCommands.Create(db, tx, """
                 insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by)
                 values($1,$2,$3,$4,$5,$3) returning id
                 """, article, revision, administratorReference, reason, FormattableString.Invariant($"publication:{sourcePublication}"))
-            : Store.Sql(db, tx, """
+            : SqlCommands.Create(db, tx, """
             insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by,source_snapshot_id)
             select article_id,$2,responsible_party,basis,reference,recorded_by,id
             from public.article_revision_responsibility where article_id=$1 and revision=$3 and id=$4
@@ -122,7 +122,7 @@ internal static class PublicationHistoryStore
             """, article, revision, sourceRevision, Optional(NpgsqlDbType.Bigint, sourceResponsibility));
         if (await responsibility.ExecuteScalarAsync(ct) is not long responsibilitySnapshot)
             throw new BusinessException(Rejection.Conflict, "The historical responsibility snapshot is unavailable.");
-        await using var responsibilityLink = Store.Sql(db, tx, """
+        await using var responsibilityLink = SqlCommands.Create(db, tx, """
             insert into public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
             values($1,$2,$3,$4)
             """, release.Id, article, revision, responsibilitySnapshot);
@@ -134,7 +134,7 @@ internal static class PublicationHistoryStore
             hidden ? ",destination" : "";
         var extraValues = restored is not null ? ",2,true" :
             destination == Wire.AdminArticleArchiveStatus ? ",3" : hidden ? ",0" : "";
-        await using var retainCommand = Store.Sql(db, tx, $"""
+        await using var retainCommand = SqlCommands.Create(db, tx, $"""
             insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
                 source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
                 published_at,rights_snapshot_id,responsibility_snapshot_id,reason{extraColumns})
@@ -150,7 +150,7 @@ internal static class PublicationHistoryStore
             (Wire.AdminArticleRestoreStatus, false) => ("replace", "administrator-rollback-replaced"),
             _ => ("retract", "administrator-rollback-draft")
         };
-        await using var append = Store.Sql(db, tx, """
+        await using var append = SqlCommands.Create(db, tx, """
             insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -161,7 +161,7 @@ internal static class PublicationHistoryStore
 
         if (hidden)
         {
-            await using var retract = Store.Sql(db, tx, """
+            await using var retract = SqlCommands.Create(db, tx, """
                 insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'retract')
                 """, article, revision);
             await retract.ExecuteNonQueryAsync(ct);
@@ -182,7 +182,7 @@ internal static class PublicationHistoryStore
     private static async Task<int> RequireActiveBoundary(NpgsqlConnection db, NpgsqlTransaction tx, int article,
         long publication, CancellationToken ct)
     {
-        await using var tail = Store.Sql(db, tx, """
+        await using var tail = SqlCommands.Create(db, tx, """
             select h.event_no
             from public.article_publication_history h join public.article_publication p using(article_id)
             join public.article a on a.id=p.article_id
@@ -198,7 +198,7 @@ internal static class PublicationHistoryStore
         long priorPublication, long revision, CancellationToken ct)
     {
         // Reserve one release coordinate without creating a row in the public pointer table.
-        await using var withdraw = Store.Sql(db, tx, """
+        await using var withdraw = SqlCommands.Create(db, tx, """
             with withdrawn as (
                 delete from public.article_publication where article_id=$1 and publication_id=$2 returning article_id
             )
@@ -214,7 +214,7 @@ internal static class PublicationHistoryStore
 
     private static async Task<ActivePublication> Publish(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision, CancellationToken ct)
     {
-        await using var publish = Store.Sql(db, tx, """
+        await using var publish = SqlCommands.Create(db, tx, """
             with next_publication as (
                 update public.article set publication_count=publication_count+1 where id=$1 returning publication_count
             )
@@ -232,7 +232,7 @@ internal static class PublicationHistoryStore
     internal static async Task<long> RecordPublishedOutbox(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
         CancellationToken ct)
     {
-        await using var add = Store.Sql(db, tx, """
+        await using var add = SqlCommands.Create(db, tx, """
             insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish') returning id
             """, article, revision);
         if (await add.ExecuteScalarAsync(ct) is not long id)

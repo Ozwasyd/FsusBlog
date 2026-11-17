@@ -61,7 +61,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         var images = await ReadSelected(db, tx, owner, article, revision, selection, ct);
         if (await CurrentSchema.HasPublicationCoverAsync(db, tx, ct))
         {
-            await using var query = Store.Sql(db, tx, """
+            await using var query = SqlCommands.Create(db, tx, """
                 SELECT asset_id FROM public.article_revision_cover WHERE article_id=$1 AND revision=$2
                 """, article, revision);
             if (await query.ExecuteScalarAsync(ct) is Guid cover)
@@ -92,7 +92,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         List<PublishedMediaReference> prior = [];
         var hasCover = await CurrentSchema.HasPublicationCoverAsync(db, tx, ct);
         var cover = hasCover ? "c.asset_id is not null" : "false";
-        await using (var query = Store.Sql(db, tx, $"""
+        await using (var query = SqlCommands.Create(db, tx, $"""
             select m.asset_id,m.content_hash,m.format,m.length,m.width,m.height,m.ordinal,{cover}
             from public.article_publication_media m
             {CoverJoin(hasCover)}
@@ -128,7 +128,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
     private static async Task<PublishedMediaReference[]> ReadSelected(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         int article, long revision, PublishedMediaSelection selection, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        await using var query = SqlCommands.Create(db, tx, """
             SELECT m.id,m.content_hash,m.format,m.length,m.width,m.height
             FROM public.article_revision_media AS r
             JOIN public.private_media AS m ON m.id=r.asset_id
@@ -170,7 +170,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         for (var ordinal = 0; ordinal < images.Count; ordinal++)
         {
             var image = images[ordinal];
-            await using var insert = Store.Sql(db, tx, """
+            await using var insert = SqlCommands.Create(db, tx, """
                 INSERT INTO public.article_publication_media
                     (article_id,publication_id,revision,ordinal,asset_id,content_hash,format,length,width,height)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -179,7 +179,7 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
             await insert.ExecuteNonQueryAsync(ct);
             if (image.IsCover)
             {
-                await using var cover = Store.Sql(db, tx, """
+                await using var cover = SqlCommands.Create(db, tx, """
                     INSERT INTO public.article_publication_cover (article_id,publication_id,asset_id) VALUES ($1,$2,$3)
                     """, articleId, publicationId, image.AssetId);
                 await cover.ExecuteNonQueryAsync(ct);

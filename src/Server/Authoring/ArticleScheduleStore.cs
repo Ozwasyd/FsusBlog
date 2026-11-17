@@ -14,7 +14,7 @@ internal static class ArticleScheduleStore
         long expected, CancellationToken ct)
     {
         var published = await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-        await using var cmd = Store.Sql(db, tx, """
+        await using var cmd = SqlCommands.Create(db, tx, """
             select s.due_at from public.article_schedule s join public.blog_user u on u.id=s.actor_id and u.generation=s.generation
             where s.article_id=$1 and s.revision=$2 and s.actor_id=$3
             """, id, expected, actor.Id);
@@ -26,7 +26,7 @@ internal static class ArticleScheduleStore
     {
         if (input.DueUnixMs == 0)
         {
-            await using var check = Store.Sql(db, tx, "select exists(select from public.article_schedule where article_id=$1)", current.Id);
+            await using var check = SqlCommands.Create(db, tx, "select exists(select from public.article_schedule where article_id=$1)", current.Id);
             if (await check.ExecuteScalarAsync(ct) is not true)
                 throw new BusinessException(Rejection.Conflict, "No pending publication remains to cancel.");
             return;
@@ -34,7 +34,7 @@ internal static class ArticleScheduleStore
         if (string.IsNullOrWhiteSpace(current.Body))
             throw new BusinessException(Rejection.Invalid, "A nonempty saved draft is required.");
         await PublicationRightsStore.Require(db, tx, current.Id, current.Revision, ct);
-        await using var future = Store.Sql(db, tx, "select $1 > clock_timestamp()", Due(input));
+        await using var future = SqlCommands.Create(db, tx, "select $1 > clock_timestamp()", Due(input));
         if (await future.ExecuteScalarAsync(ct) is not true)
             throw new BusinessException(Rejection.Invalid, "The publication time must be in the future.");
     }
@@ -42,7 +42,7 @@ internal static class ArticleScheduleStore
     internal static async Task Record(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, ArticleState current,
         ArticleScheduleCommand input, CancellationToken ct)
     {
-        await using var receipt = Store.Sql(db, tx, """
+        await using var receipt = SqlCommands.Create(db, tx, """
             insert into public.article_schedule_receipt(actor_id,command_id,due_at,published_revision) values($1,$2,$3,$4)
             """, actor.Id, input.IdempotencyKey, Due(input), current.PublishedRevision ?? 0L);
         await receipt.ExecuteNonQueryAsync(ct);
@@ -51,7 +51,7 @@ internal static class ArticleScheduleStore
             await Clear(db, tx, current.Id, ct);
             return;
         }
-        await using var set = Store.Sql(db, tx, """
+        await using var set = SqlCommands.Create(db, tx, """
             insert into public.article_schedule(article_id,revision,actor_id,generation,command_id,due_at)
             values($1,$2,$3,$4,$5,$6)
             on conflict (article_id) do update set revision=excluded.revision,actor_id=excluded.actor_id,
@@ -63,7 +63,7 @@ internal static class ArticleScheduleStore
     internal static async Task<ArticleSchedule> ReadReceipt(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
         ArticleState draft, CancellationToken ct)
     {
-        await using var read = Store.Sql(db, tx, """
+        await using var read = SqlCommands.Create(db, tx, """
             select due_at,published_revision from public.article_schedule_receipt where actor_id=$1 and command_id=$2
             """, actor, command);
         await using var row = await read.ExecuteReaderAsync(ct);
@@ -73,17 +73,17 @@ internal static class ArticleScheduleStore
 
     internal static async Task Clear(NpgsqlConnection db, NpgsqlTransaction tx, int id, CancellationToken ct)
     {
-        await using var clear = Store.Sql(db, tx, "delete from public.article_schedule where article_id=$1", id);
+        await using var clear = SqlCommands.Create(db, tx, "delete from public.article_schedule where article_id=$1", id);
         await clear.ExecuteNonQueryAsync(ct);
     }
 
     // The one-shot clock is an internal integration seam. Production always reads the database clock inside this transaction.
     internal static async Task<int> PublishDue(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, DateTime? testClock = null)
     {
-        await using var time = Store.Sql(db, tx, "select clock_timestamp()");
+        await using var time = SqlCommands.Create(db, tx, "select clock_timestamp()");
         var now = testClock ?? (DateTime)(await time.ExecuteScalarAsync(ct))!;
         var due = new List<Candidate>(BatchSize);
-        await using (var claim = Store.Sql(db, tx, """
+        await using (var claim = SqlCommands.Create(db, tx, """
             select a.id,s.revision,s.actor_id,s.generation,s.command_id
             from public.article_schedule s join public.article a on a.id=s.article_id
             where s.due_at<=$1 order by s.due_at,s.article_id limit $2 for update of a skip locked
@@ -97,11 +97,11 @@ internal static class ArticleScheduleStore
         foreach (var candidate in due)
         {
             // Account updates lock the account before any article. Skip a busy account instead of reversing that order.
-            await using var author = Store.Sql(db, tx, """
+            await using var author = SqlCommands.Create(db, tx, """
                 select enabled and can_author and generation=$2 from public.blog_user where id=$1 for share skip locked
                 """, candidate.Actor, candidate.Generation);
             if (await author.ExecuteScalarAsync(ct) is not bool permitted) continue;
-            await using var verify = Store.Sql(db, tx, $"""
+            await using var verify = SqlCommands.Create(db, tx, $"""
                 select a.published_revision,s.revision=a.revision and s.actor_id=a.owner_id and not a.deleted
                     and {ArchivedArticleAuthority.Available}
                     and a.id=c.article_id and s.revision=c.revision and s.due_at=r.due_at
@@ -123,7 +123,7 @@ internal static class ArticleScheduleStore
             }
             if (permitted && eligible)
             {
-                await using var publish = Store.Sql(db, tx, """
+                await using var publish = SqlCommands.Create(db, tx, """
                     update public.article set published_revision=$2,updated_at=clock_timestamp() where id=$1
                     """, candidate.Id, candidate.Revision);
                 await publish.ExecuteNonQueryAsync(ct);
