@@ -443,14 +443,18 @@ internal sealed class WebPages(string template, PublicSiteConfiguration? site = 
     }
 
     // Anonymous first paint only. Vue owns capability checks and all credential controls.
-    internal byte[] SiteLoginPage(string locale = SiteLocale.Default) => Page($"""
+    internal byte[] SiteLoginPage(string locale = SiteLocale.Default) => SiteAuthPage(locale, "page.login", "login.subtitle");
+
+    internal byte[] ReaderRegistrationPage(string locale = SiteLocale.Default) => SiteAuthPage(locale, "page.register", "readerRegistration.subtitle");
+
+    private byte[] SiteAuthPage(string locale, string title, string subtitle) => Page($"""
         <header class="site-auth-header"><div class="site-auth-bar">
         <a class="site-auth-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a><div class="site-auth-actions">{SiteLocale.Selector(locale)}</div>
         </div></header>
         <main class="auth-page site-auth-main"><div class="auth-heading">
-        <h1>{SiteLocale.Html(locale, "page.login")}</h1><p>{SiteLocale.Html(locale, "login.subtitle")}</p></div>
+        <h1>{SiteLocale.Html(locale, title)}</h1><p>{SiteLocale.Html(locale, subtitle)}</p></div>
         <noscript>{SiteLocale.Html(locale, "login.noScript")}</noscript></main>
-        """, title: SiteLocale.Text(locale, "page.login"), noIndex: true, language: locale, locale: locale);
+        """, title: SiteLocale.Text(locale, title), noIndex: true, language: locale, locale: locale);
 
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
         bool noIndex = false, string? publicPath = null, bool useAppearance = true, string? locale = null)

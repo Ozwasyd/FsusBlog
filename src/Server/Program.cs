@@ -155,6 +155,8 @@ builder.Services.AddRateLimiter(options =>
     };
     options.AddPolicy("sign-in", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 12, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy("reader-registration", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 9, Window = TimeSpan.FromMinutes(1) }));
     options.AddPolicy("mfa", context => RateLimitPartition.GetFixedWindowLimiter(
         (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
@@ -439,15 +441,10 @@ app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head
         : Error(ctx, 404, "Search corpus page not found.");
 });
 
-app.MapPost(WireRoutes.SignIn, async (HttpContext ctx, Store store, CancellationToken ct) =>
-{
-    var signIn = Wire.DecodeSignIn(await ReadFrame(ctx, WireLimits.MaxSignInFrameBytes, ct));
-    var issued = await store.SignIn(signIn.Ticket, ct);
-    ctx.Response.Cookies.Append(Cookie, issued.Token, CookieSettings(ctx, issued.User.ExpiresAt));
-    if (persistentSite)
-        FsusBlog.V2.Server.Passkeys.SiteRefreshEndpoints.ClearRefreshCookie(ctx);
-    return SessionResponse(ctx, issued.User, issued.Token);
-}).RequireRateLimiting("sign-in");
+// Owner access tickets provision the first Passkey; they are not a public sign-in method.
+app.MapPost(WireRoutes.SignIn, (HttpContext ctx) =>
+    Error(ctx, 401, "Sign in with a Passkey.", "passkey_required"))
+    .RequireRateLimiting("sign-in");
 app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
     var token = ctx.Request.Cookies[Cookie];
@@ -493,6 +490,8 @@ var searchShell = ListingShell("page.search", SiteLocale.Default, "/search");
 var englishSearchShell = ListingShell("page.search", "en", "/search");
 var loginShell = webPages.SiteLoginPage();
 var englishLoginShell = webPages.SiteLoginPage("en");
+var registerShell = webPages.ReaderRegistrationPage();
+var englishRegisterShell = webPages.ReaderRegistrationPage("en");
 byte[] ListingShell(string titleKey, string locale, string path) => webPages.PublicPage(
     $"<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">{SiteLocale.Html(locale, titleKey)}</h1>" +
     (path == "/archive" ? $"<p role=\"status\">{SiteLocale.Html(locale, "page.loadingArticles")}</p>" : "") + "</section>",
@@ -513,6 +512,7 @@ foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article
     });
 app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishSearchShell : searchShell, Html); });
 app.MapGet("/login", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishLoginShell : loginShell, Html); });
+app.MapGet("/register", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishRegisterShell : registerShell, Html); });
 foreach (var route in new[] { "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });

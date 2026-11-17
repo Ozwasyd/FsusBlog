@@ -32,6 +32,7 @@ const router = createRouter({
     { path: '/article/:id(\\d+)', name: 'article', component: () => import('./views/Article.vue') },
     ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
+    { path: '/register', name: 'register', component: () => import('./views/ReaderRegister.vue') },
     { path: '/admin/identity', name: 'admin-identity', component: () => import('./views/AdminIdentity.vue') },
     { path: '/subscribe', name: 'subscribe', component: () => import('./views/SubscriptionPreference.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
@@ -68,7 +69,7 @@ router.afterEach((to, from) => {
   if (to.name === 'article' && !from.name) return
   updateDocumentTitle(to.name)
   document.querySelector('meta[name="robots"]')?.remove()
-  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
+  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'register' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
       to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory || subscription) {
     const robots = document.createElement('meta')
     robots.name = 'robots'
@@ -83,6 +84,7 @@ const labels: Record<string, MessageKey> = {
   category: 'page.category',
   tag: 'page.tag',
   login: 'page.login',
+  register: 'page.register',
   subscribe: 'page.subscribe',
   messages: 'nav.messages',
   'private-media': 'nav.assets',

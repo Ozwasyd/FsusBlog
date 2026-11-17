@@ -31,11 +31,11 @@ let failure
 try {
   const owner = await siteBrowser('owner')
   const replacement = await siteBrowser('replacement')
-  const peer = await siteBrowser('peer', false)
+  const peer = await siteBrowser('peer')
   await peer.page.goto(origin + '/login')
-  await peer.page.getByLabel('Owner access key').fill(peerTicket)
-  const peerSignIn = await clickApi(peer.page, WireRoutes.SignIn, 'Log in')
-  assert.equal(peerSignIn.status(), 200)
+  await enrollPasskey(peer.page, peerTicket)
+  const peerSignIn = await passkey(peer.page)
+  await authLogin(peerSignIn, 1)
   await signedIn(peer.page)
   const peerState = await session(peer.context, 200)
   const peerCookie = await siteCookie(peer.context)
@@ -45,9 +45,7 @@ try {
   assert(security?.protocol.startsWith('TLS') && await owner.page.evaluate(() => window.isSecureContext),
     'Recovery acceptance must use a real TLS browser context.')
   checks.tlsWebAuthn = security.protocol
-  await owner.page.getByLabel('Owner access key').fill(ownerTicket)
-  assert.equal((await clickApi(owner.page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey')).status(), 200)
-  await owner.page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
+  await enrollPasskey(owner.page, ownerTicket)
   const initialLogin = await passkey(owner.page)
   const originalIdentity = await authLogin(initialLogin, 1)
   await signedIn(owner.page)
@@ -253,13 +251,13 @@ try {
 }
 if (failure) throw new Error(`${phase}: ${failure}`)
 
-async function siteBrowser(role, authenticator = true) {
-  const context = await browser.newContext()
+async function siteBrowser(role) {
+  const context = await browser.newContext({ locale: 'en-US' })
+  await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
   context.setDefaultTimeout(18_000)
   const page = await context.newPage()
   page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' }))
   page.on('response', recordIdentityResponse(origin, role, responses, faults))
-  if (!authenticator) return { context, page }
   const { cdp, authenticatorId } = await enableAuthenticator(context, page)
   return { context, page, cdp, authenticatorId }
 }
@@ -343,6 +341,13 @@ async function signedIn(page) {
   await page.getByRole('heading', { name: 'New article', exact: true }).waitFor()
 }
 
+async function enrollPasskey(page, ticket) {
+  await button(page, 'Set up your first Passkey').click()
+  await page.getByLabel('One-time setup ticket', { exact: true }).fill(ticket)
+  assert.equal((await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey')).status(), 200)
+  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
+}
+
 async function passkey(page) {
   await page.goto(origin + '/login')
   return clickApi(page, WireRoutes.PasskeyLoginComplete, 'Log in with Passkey')
@@ -386,7 +391,7 @@ function assertWebAuthnUv(body) {
 
 async function openRecovery(page, key) {
   await page.goto(origin + '/login')
-  await button(page, 'Recover with Recovery Key').click()
+  await button(page, 'Can’t use your Passkey?').click()
   await page.getByLabel('Recovery Key', { exact: true }).fill(key)
 }
 

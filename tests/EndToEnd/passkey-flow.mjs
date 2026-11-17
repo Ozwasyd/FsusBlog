@@ -4,8 +4,9 @@ import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeEnrollmentBegin } from '../../src/Contracts/passkey.ts'
 import { decodeSitePasskeyManagement, encodeSitePasskeyRemove } from '../../src/Contracts/site-passkey-names.ts'
-import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { addAuthenticator, enableAuthenticator, launchIdentityBrowser } from './site-authentication-fixture.mjs'
+import { encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { postFrame } from './browser-authoring-fixture.mjs'
+import { addAuthenticator, enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 const ticket = process.env.FSUSBLOG_TEST_PASSKEY_TICKET
@@ -32,25 +33,40 @@ let failure
 const browser = await launchIdentityBrowser()
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
   const page = await context.newPage()
   monitor(page)
   const { cdp, authenticatorId: firstAuthenticatorId } = await enableAuthenticator(context, page)
   let secondCreatedAt
 
+  phase = 'ticket-cannot-sign-in'
+  const deniedTicket = await postFrame(context.request, origin + WireRoutes.SignIn,
+    FrameType.OperatorSignIn, encodeSignIn({ ticket }))
+  assert.equal(deniedTicket.status(), 401)
+  assert.equal(deniedTicket.headers()['set-cookie'], undefined)
+  assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
+  checks.setupTicketCannotSignIn = true
+
   phase = 'provision'
   await page.goto(`${origin}/login`)
-  await page.getByRole('button', { name: 'Create Passkey', exact: true }).waitFor()
-  await page.getByLabel('Owner access key').fill(ticket)
+  await expect(page.getByRole('button', { name: 'Log in with Passkey', exact: true })).toBeVisible()
+  const setupTicket = page.getByLabel('One-time setup ticket', { exact: true })
+  await expect(setupTicket).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Create Passkey', exact: true })).toHaveCount(0)
+  await page.getByText('Set up your first Passkey', { exact: true }).click()
+  await setupTicket.fill(ticket)
   await page.getByRole('button', { name: 'Create Passkey', exact: true }).click()
   await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor({ timeout: 10_000 })
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
-  assert.equal(await page.getByLabel('Owner access key').inputValue(), '')
+  await expect(setupTicket).toHaveCount(0)
+  checks.rejectedTicketStillProvisionsWithoutSession = true
   await page.screenshot({ path: join(evidence, 'passkey-created.png') })
 
   phase = 'assertion'
   const assertionStarted = Date.now()
   await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
   await page.waitForURL(`${origin}/user/manage/article/write`)
+  checks.passkeyLoginAfterProvision = true
   await page.getByRole('heading', { name: 'New article' }).waitFor()
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'fsus-v2-session')
   assert(cookie?.httpOnly && cookie.sameSite === 'Strict' && cookie.expires === -1)

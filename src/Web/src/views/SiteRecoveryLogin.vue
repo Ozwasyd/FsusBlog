@@ -116,7 +116,7 @@ async function replacePasskey() {
 
 <template>
   <section v-if="available" class="site-recovery-login" :aria-label="t('login.recovery.label')">
-    <ElButton v-if="stage === 'closed'" native-type="button" :disabled="disabled" @click="stage = 'key'">
+    <ElButton v-if="stage === 'closed'" text native-type="button" :disabled="disabled" @click="stage = 'key'">
       {{ t('login.recovery.open') }}
     </ElButton>
     <ElAlert v-else-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />

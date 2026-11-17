@@ -53,14 +53,14 @@ try {
     })
     await page.goto(origin + '/login')
     const selector = page.locator('.site-auth-header .site-locale-menu button')
-    const key = page.locator('#owner-key')
     await page.getByRole('heading', { name: 'Log in', exact: true }).waitFor()
-    await key.fill('test-value-never-submitted')
+    await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).waitFor()
+    assert.equal(await page.locator('main input[type=password]').count(), 0)
     await selector.click()
     await page.getByRole('menuitem', { name: '中文', exact: true }).click()
     await page.getByRole('heading', { name: '登录', exact: true }).waitFor()
     assert.match(await page.title(), /^登录/)
-    assert.equal(await key.inputValue(), 'test-value-never-submitted')
+    assert.equal(await page.locator('main input[type=password]').count(), 0)
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN')
     await page.locator('.site-auth-brand').click()
     await page.waitForURL(origin + '/')
@@ -116,4 +116,4 @@ try {
     await context.close()
   }
 } finally { await browser.close() }
-console.log('Verified zh-CN/en server variants, cookie preference, reload, responsive navigation, page language and preserved login input.')
+console.log('Verified zh-CN/en server variants, cookie preference, reload, responsive navigation, page language and no ticket input on the login page.')

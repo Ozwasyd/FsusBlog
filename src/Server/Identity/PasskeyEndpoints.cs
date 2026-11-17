@@ -17,8 +17,11 @@ internal static class PasskeyEndpoints
     {
         var configuration = PasskeyConfiguration.Read(app.Configuration);
         var secrets = TotpSecret.Read(app.Configuration);
+        var readerRegistration = string.Equals(app.Configuration["FSUSBLOG_READER_REGISTRATION"], "true", StringComparison.OrdinalIgnoreCase);
         if (configuration is null)
         {
+            if (readerRegistration)
+                throw new InvalidOperationException("A Passkey relying party is required to enable reader registration.");
             if (secrets is not null)
                 throw new InvalidOperationException("A Passkey relying party is required to enable TOTP.");
             if (recoveryKey is not null)
@@ -35,6 +38,8 @@ internal static class PasskeyEndpoints
         var refresh = persistentEnabled
             ? new SiteRefreshEndpoints(new SiteRefreshStore(database, lease), sessionCookie, secure, RequireHost, Cookie) : null;
         refresh?.Map(app);
+        if (readerRegistration)
+            ReaderRegistrationEndpoints.Map(app, passkeys, readFrame, RequireHost, RequireManagementOrigin, Cookie);
 
         app.MapGet(WireRoutes.PasskeyAvailability, (HttpContext ctx) =>
         {

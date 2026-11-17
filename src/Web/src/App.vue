@@ -18,6 +18,7 @@ import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contra
 
 const route = useRoute()
 const router = useRouter()
+const siteAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 const searchQuery = ref('')
 const themeMode = ref<ThemeMode>()
 const selected = document.documentElement.dataset.themeMode
@@ -100,7 +101,7 @@ watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expi
     cleanup(() => clearTimeout(timer))
   })
 watch(() => route.name, (name, _, cleanup) => {
-  if (!name || accountArea.value || name === 'login' || name === 'admin-identity') return
+  if (!name || accountArea.value || siteAuthPage.value || name === 'admin-identity') return
   const request = new AbortController()
   cleanup(() => request.abort())
   if (siteAuthor.value === undefined) void getSiteSeo(request.signal).then(value => {
@@ -143,7 +144,7 @@ async function leave() {
 
 <template>
   <ElConfigProvider :locale="siteLocale === 'zh-CN' ? zhCn : en">
-  <SiteAuthLayout v-if="route.name === 'login'" :theme-mode="themeMode" @theme="useTheme">
+  <SiteAuthLayout v-if="siteAuthPage" :theme-mode="themeMode" @theme="useTheme">
     <RouterView />
   </SiteAuthLayout>
   <template v-else-if="route.name === 'admin-identity'">
