@@ -11,7 +11,7 @@ internal static class OwnedArticleRead
         Guid owner, int article, CancellationToken ct)
     {
         OwnedArticleHead head;
-        await using (var read = Store.Sql(db, tx, """
+        await using (var read = SqlCommands.Create(db, tx, """
             select revision,published_revision from public.article where id=$1 and owner_id=$2 and not deleted for share
             """, article, owner))
         await using (var row = await read.ExecuteReaderAsync(ct))

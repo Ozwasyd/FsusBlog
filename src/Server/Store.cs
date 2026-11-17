@@ -12,13 +12,8 @@ namespace FsusBlog.V2.Server;
 
 internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null)
 {
-    internal static NpgsqlCommand Sql(NpgsqlConnection db, NpgsqlTransaction? transaction, string sql, params object[] parameters)
-    {
-        var command = new NpgsqlCommand(sql, db, transaction);
-        foreach (var parameter in parameters)
-            command.Parameters.Add(parameter is NpgsqlParameter typed ? typed : new NpgsqlParameter { Value = parameter });
-        return command;
-    }
+    internal static NpgsqlCommand Sql(NpgsqlConnection db, NpgsqlTransaction? transaction, string sql, params object[] parameters) =>
+        SqlCommands.Create(db, transaction, sql, parameters);
 
     internal async Task<(string Token, Identity User)> SignIn(string token, CancellationToken ct)
     {
