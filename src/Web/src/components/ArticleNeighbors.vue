@@ -26,39 +26,33 @@ const target = (id: number) => ({ name: 'article', params: { id } })
 
 <template>
   <nav v-if="previous || next" class="article-neighbors" :aria-label="t('reading.relatedArticles')">
-    <RouterLink v-if="previous" class="article-neighbor--previous" :to="target(previous.id)" rel="prev"
+    <RouterLink v-if="previous" :to="target(previous.id)" rel="prev"
+      :aria-label="`${t('reading.previousArticle')} · ${previous.title}`"
       v-bind="{ 'data-related-role': 'previous' }">
-      <span class="metadata">{{ t('reading.previousArticle') }}</span>
-      <span class="article-neighbor-title">{{ previous.title }}</span>
+      <span aria-hidden="true">←</span>
+      {{ t('reading.previousArticle') }}
     </RouterLink>
     <RouterLink v-if="next" class="article-neighbor--next" :to="target(next.id)" rel="next"
+      :aria-label="`${t('reading.nextArticle')} · ${next.title}`"
       v-bind="{ 'data-related-role': 'next' }">
-      <span class="metadata">{{ t('reading.nextArticle') }}</span>
-      <span class="article-neighbor-title">{{ next.title }}</span>
+      {{ t('reading.nextArticle') }}
+      <span aria-hidden="true">→</span>
     </RouterLink>
   </nav>
 </template>
 
 <style scoped>
-.article-neighbors {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .75rem;
-  margin-block: 1rem;
-  border-block-start: 1px solid var(--fsus-border);
-}
+.article-neighbors { display: flex; gap: 1rem; margin-block: 1rem .5rem; }
 .article-neighbors a {
-  grid-row: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: .45rem;
+  gap: .4rem;
   min-block-size: 44px;
-  min-inline-size: 0;
-  max-inline-size: 100%;
+  color: var(--fsus-color-text-muted);
+  font-size: .875rem;
   text-decoration: none;
 }
-.article-neighbor--previous { grid-column: 1; justify-self: start; }
-.article-neighbor--next { grid-column: 2; justify-self: end; }
-.article-neighbors .metadata { flex: none; }
-.article-neighbor-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; }
+.article-neighbors a:hover,
+.article-neighbors a:focus-visible { color: var(--fsus-color-action-primary); }
+.article-neighbor--next { margin-inline-start: auto; }
 </style>
