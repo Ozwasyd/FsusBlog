@@ -113,7 +113,7 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             output = await DocumentExportInput.Render(job.Request.Format, input.Title, input.Body, input.HappenedAt,
                 input.Attachments, pdf, budget.Token, includeTables: job.Provider != 1);
             budget.Token.ThrowIfCancellationRequested();
-            if (output.Length is <= 0 or > PdfDocumentExport.MaximumOutput) throw new PublicUnavailableException();
+            if (output.Length is <= 0 or > PdfWorkerProtocol.MaximumOutput) throw new PublicUnavailableException();
         }
         catch (BusinessException error)
         {

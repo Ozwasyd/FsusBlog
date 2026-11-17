@@ -34,8 +34,8 @@ internal sealed class LinuxPdfRuntime(string expected, LinuxWorkerUnit unit, IRe
     }
 
     internal Task<byte[]> RenderAsync(byte[] request, CancellationToken ct) =>
-        unit.RunAsync(Launcher, Root, request, PdfDocumentExport.Ready, PdfDocumentExport.MaximumOutput,
-            Verify, PdfDocumentExport.Accept, ct);
+        unit.RunAsync(Launcher, Root, request, PdfWorkerProtocol.Ready, PdfWorkerProtocol.MaximumOutput,
+            Verify, PdfWorkerProtocol.Accept, ct);
 
     private void Verify(CancellationToken cancellation) => Payload.Verify(Install, expected, ValidPath, required, cancellation);
 
