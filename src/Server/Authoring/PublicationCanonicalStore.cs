@@ -10,7 +10,7 @@ internal static class PublicationCanonicalStore
         if (!await CurrentSchema.HasPublicationCanonicalAsync(db, tx, ct)) return;
         var hasCover = await CurrentSchema.HasPublicationCoverAsync(db, tx, ct);
         PublicationCanonicalBinding binding;
-        await using (var command = Store.Sql(db, tx, $"""
+        await using (var command = SqlCommands.Create(db, tx, $"""
             select {PublicationCanonicalFacts.Columns},{PublicationCanonicalFacts.CoverColumn(hasCover)}
             from public.article_publication p join public.article_publication_history h
               on h.publication_id=p.publication_id and h.article_id=p.article_id and h.revision=p.revision
@@ -24,7 +24,7 @@ internal static class PublicationCanonicalStore
             binding = PublicationCanonicalFacts.Read(row);
         }
 
-        await using var insert = Store.Sql(db, tx, """
+        await using var insert = SqlCommands.Create(db, tx, """
             insert into public.article_publication_canonical
                 (publication_id,article_id,revision,publication_no,published_at,transition,rights_snapshot_id,outbox_id,
                  outbox_kind,canonical_version,content_sha256,policy_sha256)
