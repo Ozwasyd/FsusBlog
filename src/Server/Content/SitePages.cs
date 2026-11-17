@@ -85,7 +85,7 @@ internal sealed class SitePages
             spec =>
             {
                 var markdown = root is null ? Unconfigured : Read(root, anchored, spec.Slug + ".md");
-                return Build(spec, new(spec.Slug, 0, Digest(markdown), markdown), root is not null);
+                return Build(spec, new(spec.Slug, 0, SitePagePublicationStore.Digest(markdown), markdown), root is not null);
             }, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -137,8 +137,6 @@ internal sealed class SitePages
         var html = renderer.Page(content, spec.Title, language: "zh-CN", noIndex: !configured, publicPath: "/" + spec.Slug);
         return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame));
     }
-
-    internal static string Digest(string markdown) => Convert.ToHexStringLower(SHA256.HashData(Utf8.GetBytes(markdown)));
 
     private static EntityTagHeaderValue StrongTag(byte[] contents) => new("\"" + Convert.ToHexStringLower(SHA256.HashData(contents)) + "\"");
 

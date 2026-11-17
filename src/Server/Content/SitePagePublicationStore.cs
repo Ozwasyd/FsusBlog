@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -6,6 +8,12 @@ namespace FsusBlog.V2.Server.Content;
 
 internal static class SitePagePublicationStore
 {
+    private static readonly UTF8Encoding Utf8 = new(false, true);
+
+    private static byte[] MarkdownHash(string markdown) => SHA256.HashData(Utf8.GetBytes(markdown));
+
+    internal static string Digest(string markdown) => Convert.ToHexStringLower(MarkdownHash(markdown));
+
     internal static async Task<AdminSitePageRevision> Read(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminSitePageRevision baseline, CancellationToken ct, bool forUpdate = false)
     {
@@ -17,7 +25,7 @@ internal static class SitePagePublicationStore
         var revision = row.GetInt64(0);
         if (revision == 0) return baseline;
         var markdown = row.GetString(1);
-        return new(baseline.Slug, revision, SitePages.Digest(markdown), markdown);
+        return new(baseline.Slug, revision, Digest(markdown), markdown);
     }
 
     internal static void RequireMatch(AdminSitePageRevision current, AdminSitePagePublish intent)
@@ -37,7 +45,7 @@ internal static class SitePagePublicationStore
             insert into public.site_page_publish_audit (slug,revision,principal_id,previous_digest,next_digest,happened_at)
             select slug,revision,$4,$5,$6,clock_timestamp() from saved
             """, previous.Slug, previous.Revision, markdown, principal, Convert.FromHexString(previous.Digest),
-            Convert.FromHexString(SitePages.Digest(markdown)));
+            MarkdownHash(markdown));
         if (await command.ExecuteNonQueryAsync(ct) != 1)
             throw new BusinessException(Rejection.Conflict, "The published page changed. Reload before publishing.");
     }
