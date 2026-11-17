@@ -48,7 +48,6 @@ internal static partial class Migration
             [("private-media-upload", "schema")] = InitializeMediaUploadAsync,
             [("media-webp", "schema")] = UpgradeMediaFormatsAsync,
             [("private-media-import-origin", "schema")] = InitializePrivateMediaImportOriginAsync,
-            [("legacy", "release-origin-schema")] = InitializeLegacyReleaseOriginSchemaAsync,
             [("article-private-media", null)] = InitializeArticleMediaAsync,
             [("article-cover", "schema")] = InitializeArticleCoverAsync,
             [("article-public-media", null)] = InitializePublicationMediaAsync,
@@ -84,14 +83,6 @@ internal static partial class Migration
             Console.WriteLine("""
                 FsusBlog V2 offline database tool
                 Set FSUSBLOG_DB to the Npgsql connection string.
-                  legacy covers proof postgres PACKAGE SHA256 OWNERS OWNERS_SHA256 REVISION_SHA256 PUBLICATION_SHA256
-                                        Read-only managed public cover proof; no import or activation
-                  legacy covers stage PACKAGE SHA OWNERS OWNERS_SHA REVISION_SHA PUBLICATION_SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
-                                        Store approved mappings in an exact empty, non-serving candidate
-                  legacy covers verify PACKAGE SHA PROOF PROOF_SHA BACKUP BACKUP_SHA
-                  legacy covers dormant-plan|dormant-apply|dormant-verify PLAN SHA BACKUP SHA REQUEST SHA CUSTODY PREPARED SHA NORMALIZER_SHA PRIVATE_ROOT [APPROVAL SHA]
-                  legacy covers prepare-request|prepare-verify PLAN SHA BACKUP SHA PACKAGE SHA PROOF SHA [PREPARED SHA NORMALIZER_SHA]
-                                        Read-only portable cover quarantine verification after restore
                   inventory              Read PostgreSQL relations, columns and keys from the target
                   inventory --counts     Include exact row counts for each ordinary business relation
                   plan                   Print a fresh-schema plan without changing the database
@@ -201,44 +192,6 @@ internal static partial class Migration
                   platform-plugin --help
                                         Invoke one approved pure Markdown hook in an offline worker
                   backup measure        Fingerprint an offline v2 PostgreSQL site and its media metadata
-                  legacy properties rehearse REVIEW.json REVIEW_SHA256
-                  legacy properties activate REVIEW.json REVIEW_SHA256 ROLLBACK SHA256
-                                        Rehearse reviewed PostgreSQL property definitions and target coordinates read-only
-                  legacy inventory postgres|mysql|sqlite
-                                        Inspect the v1 article catalog and exact table counts
-                  legacy plan postgres|mysql|sqlite
-                                        Audit v1 article coordinates and report import blockers
-                  legacy rehearse postgres|mysql|sqlite OWNER_MAP.json
-                                        Transform and verify article rows in a disposable offline database
-                  legacy import plan PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256
-                  legacy import apply PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256 PLAN.json
-                    Optional plan/apply: --covers PACKAGE SHA256 PROOF.json PROOF_SHA256 (cover-only PostgreSQL staging; no projection)
-                                        Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
-                  legacy import project|verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
-                                        Project or verify staged articles under permanent quarantine
-                                        Add --evaluate-schedules-at UTC to retain original first-release schedules as evidence
-                                        Append --media PACKAGE SHA256 to join supported private media in PostgreSQL quarantine
-                  legacy import media-request PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256 --media PACKAGE SHA256
-                                        Derive the reviewed private image preparation request from quarantine
-                  legacy import media-verify PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
-                    --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
-                                        Verify the prepared private image artifact against the original quarantine
-                  legacy import media-activation-plan|media-activate PLAN.json PLAN_SHA256 BACKUP_DIR MANIFEST_SHA256
-                    [--approval APPROVAL.json SHA256] --destination MEDIA_ROOT SITE_ID ROLLBACK_DIR ROLLBACK_SHA256
-                    --prepared PACKAGE SHA256 NORMALIZER_SHA256 --media PACKAGE SHA256
-                                        Plan or activate an approved private image batch in the isolated runtime copy
-                  legacy import release-plan|release-activate PLAN.json PLAN_SHA256 BACKUP SHA256 RUNTIME_SITE ROLLBACK SHA256 [APPROVAL.json SHA256]
-                                        Activate verified first publications, ordinary republishes or supported public rollbacks in an isolated runtime copy
-                  legacy release-origin-schema
-                                        Install the offline legacy release origin schema
-                  legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
-                                        Verify frozen legacy attachment metadata, references and file bytes
-                  legacy assets rehearsal plan PROVIDER PUBLIC_ROOT PRIVATE_ROOT SOURCE_SITE_UUID TARGET_SITE_UUID
-                  legacy assets rehearsal copy PROVIDER PUBLIC_ROOT PRIVATE_ROOT REVIEWED_JSON REVIEWED_SHA256 OUTPUT_PARENT NAME
-                  legacy assets rehearsal verify PACKAGE MANIFEST_SHA256
-                                        Rehearse an offline, quarantined attachment copy
-                  legacy identity PROVIDER
-                                        Audit account and administrator compatibility without activating credentials
                 """);
             return 0;
         }
@@ -254,33 +207,6 @@ internal static partial class Migration
         {
             if (arguments is ["platform-plugin", .. var pluginArguments])
                 return await PlatformPluginCommand.RunAsync(pluginArguments, cancelled.Token);
-            if (arguments is ["legacy", "history", "custody", "postgres"])
-                return await RunLegacyHistoryCustodyAsync(cancelled.Token);
-            if (arguments is ["legacy", "covers", "stage", var stagePackage, var stagePackageSha, var stageOwners, var stageOwnersSha,
-                    var stageRevisions, var stagePublications, var stageProof, var stageProofSha, var stageBackup, var stageBackupSha])
-                return await RunLegacyCoverStageAsync(stagePackage, stagePackageSha, stageOwners, stageOwnersSha, stageRevisions,
-                    stagePublications, stageProof, stageProofSha, stageBackup, stageBackupSha, cancelled.Token);
-            if (arguments is ["legacy", "covers", "verify", var verifyPackage, var verifyPackageSha, var verifyProof, var verifyProofSha,
-                    var verifyBackup, var verifyBackupSha])
-                return await RunLegacyCoverVerifyAsync(verifyPackage, verifyPackageSha, verifyProof, verifyProofSha, verifyBackup, verifyBackupSha, cancelled.Token);
-            if (arguments is ["legacy", "covers", ("dormant-plan" or "dormant-apply" or "dormant-verify"), ..])
-                return await RunDormantCoverAsync(arguments[2..], cancelled.Token);
-            if (arguments is ["legacy", "covers", ("prepare-request" or "prepare-verify"), ..])
-                return await RunLegacyCoverPreparationAsync(arguments[2..], cancelled.Token);
-            if (arguments is ["legacy", "covers", "proof", "postgres", var coverPackage, var coverDigest, var coverOwners, var coverOwnerDigest, var coverRevisionDigest, var coverPublicationDigest])
-                return await RunLegacyCoverProofAsync(coverPackage, coverDigest, coverOwners, coverOwnerDigest, coverRevisionDigest, coverPublicationDigest, cancelled.Token);
-            if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
-                return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
-            if (arguments is ["legacy", "assets", "rehearsal", .. var mediaArguments])
-                return await RunLegacyMediaRehearsalAsync(mediaArguments, cancelled.Token);
-            if (arguments is ["legacy", "passkey" or "admin", ..])
-                throw new ArgumentException("Legacy credential and administrator copying is retired. Use native V2 enrollment and account creation.");
-            if (arguments is ["legacy", "identity", var identityProvider])
-                return await VerifyLegacyIdentityAsync(identityProvider, cancelled.Token);
-            if (arguments is ["legacy", "import", .. var importArguments])
-            {
-                return await RunLegacyImportAsync(importArguments, cancelled.Token);
-            }
             if (arguments is ["backup", "measure"] or ["backup", "measure", "--hold-snapshot"])
             {
                 return await MeasureBackupAsync(arguments.Length == 3, cancelled.Token);
@@ -289,19 +215,6 @@ internal static partial class Migration
             {
                 return await ExtensionMaintenance.RunAsync(extensionArguments, cancelled.Token);
             }
-            if (arguments is ["legacy", "properties", "rehearse", var propertyReview, var propertyReviewDigest])
-                return await RehearseLegacyPropertiesAsync(propertyReview, propertyReviewDigest, cancelled.Token);
-            if (arguments is ["legacy", "properties", "activate", var propertyApproval, var approvalSha, var rollback, var rollbackSha])
-                return await RehearseLegacyPropertiesAsync(propertyApproval, approvalSha, cancelled.Token, (rollback, rollbackSha));
-            if (arguments is ["legacy", var mode, var provider])
-            {
-                return await RunLegacyAsync(mode, provider, ownerMap: null, cancelled.Token);
-            }
-            if (arguments is ["legacy", "rehearse", var rehearsalProvider, var ownerMap])
-            {
-                return await RunLegacyAsync("rehearse", rehearsalProvider, ownerMap, cancelled.Token);
-            }
-
             var connectionString = Environment.GetEnvironmentVariable(DatabaseVariable);
             if (string.IsNullOrWhiteSpace(connectionString))
             {
@@ -683,22 +596,6 @@ internal static partial class Migration
     {
         await using var command = new NpgsqlCommand(sql, connection, transaction);
         await command.ExecuteNonQueryAsync(token);
-    }
-
-    private static async Task InitializeLegacyReleaseOriginSchemaAsync(NpgsqlConnection db, CancellationToken ct)
-    {
-        await using var tx = await db.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await PrepareSchemaAddition(db, tx, ct);
-        if (!await CurrentSchema.HasLegacyReleaseOriginAsync(db, tx, ct))
-        {
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FsusBlogV2.OptionalSchema.legacy-release-origin.sql")
-                ?? throw new InvalidOperationException("The legacy release origin schema is unavailable.");
-            using var sql = new StreamReader(stream);
-            await ExecuteAsync(db, tx, await sql.ReadToEndAsync(ct), ct);
-        }
-        await CurrentSchema.VerifyCatalogAsync(db, tx, ct);
-        await tx.CommitAsync(ct);
-        Console.WriteLine("Verified legacy release origin schema.");
     }
 
     private static async Task<string> SchemaSqlAsync(CancellationToken token)

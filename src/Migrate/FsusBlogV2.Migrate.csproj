@@ -6,8 +6,6 @@
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
     <ProjectReference Include="../Contracts/FsusBlog.V2.Contracts.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.4" />
-    <PackageReference Include="MySqlConnector" Version="2.6.2" />
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.Extensions.Configuration" />

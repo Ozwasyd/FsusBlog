@@ -160,8 +160,8 @@ internal static partial class Migration
         NpgsqlDataReader read, CancellationToken token, List<string>? retained = null)
     {
         using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLegacyValue(digest, name);
-        AppendLegacyValue(digest, kind);
+        AppendBackupValue(digest, name);
+        AppendBackupValue(digest, kind);
         long count = 0;
         while (await read.ReadAsync(token))
         {
@@ -170,7 +170,7 @@ internal static partial class Migration
             if (await read.IsDBNullAsync(0, token))
                 throw new InvalidOperationException($"Backup relation {name} contains a row outside the measurement byte budget.");
             var content = read.GetString(0);
-            AppendLegacyValue(digest, content);
+            AppendBackupValue(digest, content);
             retained?.Add(content);
         }
         return new BackupRelation(name, kind, count, Convert.ToHexStringLower(digest.GetHashAndReset()));
