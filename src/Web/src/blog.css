@@ -18,6 +18,50 @@ p { line-height: 1.65; }
 .reading-column { width: min(var(--fsusblog-reading-width), calc(100% - 2 * var(--fsusblog-page-gutter))); margin-inline: auto; }
 .skip-link { position: fixed; inset-block-start: .5rem; inset-inline-start: .5rem; z-index: 100; padding: .5rem 1rem; color: var(--fsus-ink); background: var(--fsus-paper); transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
+
+/* The readable public document before Vue mounts. These classes are owned by
+   this app, not by the internal markup of the interactive FsusUI shell. */
+.public-initial { min-block-size: 100vh; }
+.public-initial-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 50;
+  border-block-end: 1px solid var(--el-border-color-lighter);
+  background: var(--fsus-paper);
+}
+.public-initial-bar {
+  display: flex;
+  align-items: center;
+  gap: clamp(.5rem, 2vw, 1.5rem);
+  inline-size: min(100%, 64rem);
+  min-block-size: 92px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+.public-initial-bar > nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(.5rem, 2vw, 1rem);
+  margin-inline-end: auto;
+}
+.public-initial-brand {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.public-initial-bar a { white-space: nowrap; text-decoration: none; }
+.public-initial-bar [aria-current="page"] { color: var(--fsus-color-action-primary); }
+.public-initial > main { inline-size: min(100%, 64rem); margin-inline: auto; padding: 40px 24px 96px; }
+.public-initial > main[data-content-flow="content-driven"] { padding-block-end: 0; }
+
+@media (max-width: 767px) {
+  .public-initial-bar { min-block-size: 84px; padding-inline: 16px; font-size: .875rem; }
+  .public-initial-bar > nav a { min-block-size: 44px; display: inline-flex; align-items: center; }
+  .public-initial-bar > a { min-block-size: 44px; display: inline-flex; align-items: center; }
+}
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
 .site-footer { width: min(64rem, calc(100% - 2 * var(--fsusblog-page-gutter))); padding: 2rem var(--fsusblog-page-gutter); margin-inline: auto; }
 .site-footer p, .site-footer a { font-size: .875rem; color: var(--fsus-color-text-muted); }
